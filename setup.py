@@ -52,6 +52,7 @@ exts = [
               "thinc/ext/MurmurHash3.cpp"], language="c++", include_dirs=includes,
               extra_compile_args=compile_args,
               extra_link_args=link_args),
+    Extension("thinc.context.example", ["thinc/context/example.pyx"], language="c++")
 ]
 
 

@@ -33,7 +33,7 @@ cdef struct TrainFeat:
     CountLine** times
 
 
-cdef class Model:
+cdef class LinearModel:
     cdef dense_hash_map[F, size_t] weights
     cdef dense_hash_map[F, size_t] metadata
 

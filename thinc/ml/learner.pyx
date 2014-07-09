@@ -84,9 +84,11 @@ cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows):
             scores[weight_lines[col].start + row] = weight_lines[row].line[col]
 
 
-cdef class Model:
+cdef class LinearModel:
     def __cinit__(self, nr_class):
         self.nr_class = nr_class
+        self.weights.set_empty_key(0)
+        self.train_weights.set_empty_key(0)
 
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active):
         cdef:
