@@ -1,6 +1,8 @@
-from libc.stdlib cimport calloc
+from libc.stdlib cimport calloc, free
+
 
 DEF LINE_SIZE = 7
+
 
 cdef WeightLine* new_weight_line(const C start) except NULL:
     cdef WeightLine* line = <WeightLine*>calloc(1, sizeof(WeightLine))
@@ -48,33 +50,31 @@ cdef I get_nr_rows(const C n):
     return nr_lines
  
 
-cdef int upd_with_ap(TrainFeat* feat, const W inc, const C clas, const I now) except -1:
-    '''Do an averaged perceptron weight update for one parameter
-    (a {feature, class} pair).  The parameter is updated by 'inc'.  The
-    averaged perceptron update requires an accumulator to be tracked, with
-    time-stamps used for fast-forwarded accumulator updates.'''
+cdef int update_weight(TrainFeat* feat, const C clas, const W inc) except -1:
+    '''Update the weight for a parameter (a {feature, class} pair).'''
     cdef I row = get_row(clas)
     cdef I col = get_col(clas)
-    _upd_w_totals(feat, clas, now)
     feat.weights[row].line[col] += inc
 
 
-cdef int _upd_w_totals(TrainFeat* feat, const C clas, const I now) except -1:
+cdef int update_accumulator(TrainFeat* feat, const C clas, const I time) except -1:
     '''Help a weight update for one (class, feature) pair for averaged models,
     e.g. Average Perceptron. Efficient averaging requires tracking the total
     weight for the feature, which requires a time-stamp so we can fast-forward
     through iterations where the weight was unchanged.'''
     cdef I row = get_row(clas)
     cdef I col = get_col(clas)
-    if feat.totals[row] == NULL:
-        feat.totals[row] = new_weight_line(clas - col)
-    if feat.times[row] == NULL:
-        feat.times[row] = new_count_line(clas - col)
+    cdef W weight = feat.weights[row].line[col]
+    feat.totals[row].line[col] += (now - feat.times[row].line[col]) * weight
+    feat.times[row].line[col] = time
 
-    cdef I elapsed = now - feat.times[row].line[col]
-    feat.totals[row].line[col] += elapsed * feat.weights[row].line[col]
-    feat.times[row].line[col] = now
- 
+
+cdef int update_count(TrainFeat* feat, const C clas) except -1:
+    '''Help a weight update for one (class, feature) pair by tracking how often
+    the feature has been updated.  Used in Adagrad and others.
+    '''
+    feat.counts[get_row(clas)].line[get_col(clas)] += 1
+
 
 cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows):
     cdef:
@@ -89,6 +89,13 @@ cdef class LinearModel:
         self.nr_class = nr_class
         self.weights.set_empty_key(0)
         self.train_weights.set_empty_key(0)
+
+    def __dealloc__(self):
+        for (key, weight) in self.weights:
+            free_weight(weight)
+
+        for (key, train_weight) in self.train_weights:
+            free_train_weight(train_weight)
 
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active):
         cdef:
@@ -115,17 +122,23 @@ cdef class LinearModel:
         self.gather_weights(weights, features, nr_active)
         set_scores(scores, weights, nr_rows)
 
-    cdef int update(self, dict counts) except -1:
+    cdef int update(self, dict updates) except -1:
+        cdef C clas
+        cdef F feat_id
+        cdef TrainFeat* feat
+        cdef double upd
+
+        for clas, features in updates.items():
+            for feat_id, upd in features.items():
+                feature = <TrainFeat*>self.train_weights[feat_id]
+                if feature == NULL:
+                    feat = self.new_feat(feature)
+                update_accumulator(feat, clas, now)
+                update_freq(feat, clas, 1)
+                update_weight(feat, clas, upd)
+
+    def serialize(self, loc):
         pass
 
-    def end_training(self):
-        pass
-
-    def end_train_iter(self):
-        pass
-
-    def load(self, model_loc):
-        pass
-
-    def save(self, model_loc):
+    def deserialize(self, loc):
         pass
