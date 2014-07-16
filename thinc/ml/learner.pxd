@@ -34,9 +34,12 @@ cdef struct TrainFeat:
 
 
 cdef class LinearModel:
+    cdef I time
+    cdef C nr_class
     cdef dense_hash_map[F, size_t] weights
     cdef dense_hash_map[F, size_t] metadata
 
+    cdef TrainFeat* new_feat(self, F feat_id) except NULL
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active)
     cdef int score(self, W* inplace, F* features, I nr_active) except -1
     cdef int update(self, dict counts) except -1

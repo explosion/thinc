@@ -1,4 +1,6 @@
 from libc.stdlib cimport calloc, free
+from libc.stdlib cimport strtoull, strtoul, atof
+from libc.string cimport strtok
 
 
 DEF LINE_SIZE = 7
@@ -35,6 +37,21 @@ cdef TrainFeat* new_train_feat(const C n) except NULL:
     return output
 
 
+cdef void free_train_weight(TrainFeat* feat, const C n):
+    for i in range(get_row(n)):
+        free(feat.totals[i])
+        free(feat.counts[i])
+        free(feat.times[i])
+    free(feat.totals)
+    free(feat.counts)
+    free(feat.times)
+    free(feat)
+
+cdef void free_weight(WeightLine** weights, const C n):
+    for i in range(get_row(n)):
+        free(weights[i])
+    free(weights)
+
 cdef I get_row(const C clas):
     return clas / LINE_SIZE
 
@@ -65,15 +82,15 @@ cdef int update_accumulator(TrainFeat* feat, const C clas, const I time) except 
     cdef I row = get_row(clas)
     cdef I col = get_col(clas)
     cdef W weight = feat.weights[row].line[col]
-    feat.totals[row].line[col] += (now - feat.times[row].line[col]) * weight
+    feat.totals[row].line[col] += (time - feat.times[row].line[col]) * weight
     feat.times[row].line[col] = time
 
 
-cdef int update_count(TrainFeat* feat, const C clas) except -1:
+cdef int update_count(TrainFeat* feat, const C clas, const I inc) except -1:
     '''Help a weight update for one (class, feature) pair by tracking how often
     the feature has been updated.  Used in Adagrad and others.
     '''
-    feat.counts[get_row(clas)].line[get_col(clas)] += 1
+    feat.counts[get_row(clas)].line[get_col(clas)] += inc
 
 
 cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows):
@@ -87,15 +104,23 @@ cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows):
 cdef class LinearModel:
     def __cinit__(self, nr_class):
         self.nr_class = nr_class
+        self.time = 0
         self.weights.set_empty_key(0)
         self.train_weights.set_empty_key(0)
 
     def __dealloc__(self):
-        for (key, weight) in self.weights:
-            free_weight(weight)
+        cdef size_t weights_ptr
+        cdef size_t train_weight_ptr
+        for (key, weights_ptr) in self.weights:
+            free_weight(<WeightLine**>weights_ptr, self.nr_class)
+        for (key, train_weight_ptr) in self.train_weights:
+            free_train_weight(<TrainFeat*>train_weight_ptr, self.nr_class)
 
-        for (key, train_weight) in self.train_weights:
-            free_train_weight(train_weight)
+    cdef TrainFeat* new_feat(self, F feat_id) except NULL:
+        cdef TrainFeat* feat = new_train_feat(self.nr_class)
+        self.weights[feat_id] = <size_t>feat.weights
+        self.train_weights[feat_id] = <size_t>feat
+        return feat
 
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active):
         cdef:
@@ -127,18 +152,55 @@ cdef class LinearModel:
         cdef F feat_id
         cdef TrainFeat* feat
         cdef double upd
-
+        
+        self.time += 1
         for clas, features in updates.items():
             for feat_id, upd in features.items():
-                feature = <TrainFeat*>self.train_weights[feat_id]
-                if feature == NULL:
-                    feat = self.new_feat(feature)
-                update_accumulator(feat, clas, now)
-                update_freq(feat, clas, 1)
+                feat = <TrainFeat*>self.train_weights[feat_id]
+                if feat == NULL:
+                    feat = self.new_feat(feat_id)
+                update_accumulator(feat, clas, self.time)
+                update_count(feat, clas, 1)
                 update_weight(feat, clas, upd)
 
     def serialize(self, loc):
-        pass
+        cdef F feat_id
+        cdef C row
+        cdef size_t addr
+        with open(loc, 'w') as file_:
+            for feat_id, addr in self.weights:
+                feat = <WeightLine**>addr
+                for row in range(get_row(self.nr_class)):
+                    line = []
+                    line.append(feat_id)
+                    line.append(row)
+                    line.append(feat[row].start)
+                    for col in range(LINE_SIZE):
+                        line.append(feat[row].line[col])
+                    file_.write('\t'.join([str(p) for p in line]))
+                    file_.write('\n')
 
     def deserialize(self, loc):
-        pass
+        cdef F feat_id
+        cdef C nr_rows, row
+        cdef I col
+        cdef bytes py_line
+        cdef bytes token
+        with open(loc) as file_:
+            token = file_.readline().strip()
+            nr_rows = strtoul(token, NULL, 10)
+            for py_line in file_:
+                line = <char*>py_line
+                token = strtok(line, '\t')
+                feat_id = strtoull(token, NULL, 10)
+                if self.weights[feat_id] == 0:
+                    self.weights[feat_id] = <size_t>calloc(nr_rows, sizeof(WeightLine*))
+                feature = <WeightLine**>self.weights[feat_id]
+                token = strtok(NULL, '\t')
+                row = strtoul(token, NULL, 10)
+                feature[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
+                feature[row].start = strtoul(token, NULL, 10)
+                for col in range(LINE_SIZE):
+                    token = strtok(NULL, '\t')
+                    feature[row].line[col] = atof(token)
+ 
