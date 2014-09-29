@@ -1,56 +1,40 @@
-from libc.stdlib cimport calloc, free
+# cython: profile=True
 from libc.stdlib cimport strtoull, strtoul, atof
 from libc.string cimport strtok
+from libc.string cimport memcpy
+from libc.string cimport memset
+
+from murmurhash.mrmr cimport hash64
+from cymem.cymem cimport Address
+
+import random
+import humanize
 
 
 DEF LINE_SIZE = 7
 
 
-cdef WeightLine* new_weight_line(const C start) except NULL:
-    cdef WeightLine* line = <WeightLine*>calloc(1, sizeof(WeightLine))
-    line.start = start
-    return line
-
-
-cdef CountLine* new_count_line(const C start) except NULL:
-    cdef CountLine* line = <CountLine*>calloc(1, sizeof(CountLine))
-    line.start = start
-    return line
-
-
-cdef WeightLine** new_weight_matrix(C nr_class):
-    cdef I nr_lines = get_row(nr_class)
-    return <WeightLine**>calloc(nr_lines, sizeof(WeightLine*))
- 
-
-cdef CountLine** new_count_matrix(C nr_class):
-    cdef I nr_lines = get_row(nr_class)
-    return <CountLine**>calloc(nr_lines, sizeof(CountLine*))
- 
-
-cdef TrainFeat* new_train_feat(const C n) except NULL:
-    cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
-    output.weights = new_weight_matrix(n)
-    output.totals = new_weight_matrix(n)
-    output.counts = new_count_matrix(n)
-    output.times = new_count_matrix(n)
+cdef TrainFeat* new_train_feat(Pool mem, const C nr_class) except NULL:
+    cdef TrainFeat* output = <TrainFeat*>mem.alloc(1, sizeof(TrainFeat))
+    cdef I nr_lines = get_nr_rows(nr_class)
+    output.weights = <W**>mem.alloc(nr_lines, sizeof(W*))
+    output.meta = <MetaData**>mem.alloc(nr_lines, sizeof(MetaData*))
     return output
 
 
-cdef void free_train_weight(TrainFeat* feat, const C n):
-    for i in range(get_row(n)):
-        free(feat.totals[i])
-        free(feat.counts[i])
-        free(feat.times[i])
-    free(feat.totals)
-    free(feat.counts)
-    free(feat.times)
-    free(feat)
+cdef I get_total_count(TrainFeat* feat, const C n):
+    cdef I nr_rows = get_nr_rows(n)
+    cdef I row
+    cdef I col
 
-cdef void free_weight(WeightLine** weights, const C n):
-    for i in range(get_row(n)):
-        free(weights[i])
-    free(weights)
+    cdef I total = 0
+    for row in range(nr_rows):
+        if feat.meta[row] == NULL:
+            continue
+        for col in range(LINE_SIZE):
+            total += feat.meta[row][col].count
+    return total
+
 
 cdef I get_row(const C clas):
     return clas / LINE_SIZE
@@ -62,16 +46,16 @@ cdef I get_col(const C clas):
 
 cdef I get_nr_rows(const C n) except 0:
     cdef I nr_lines = get_row(n)
-    if nr_lines == 0 or n % nr_lines != 0:
+    if nr_lines == 0 or nr_lines * LINE_SIZE < n:
         nr_lines += 1
     return nr_lines
- 
+
 
 cdef int update_weight(TrainFeat* feat, const C clas, const W inc) except -1:
     '''Update the weight for a parameter (a {feature, class} pair).'''
     cdef I row = get_row(clas)
     cdef I col = get_col(clas)
-    feat.weights[row].line[col] += inc
+    feat.weights[row][col] += inc
 
 
 cdef int update_accumulator(TrainFeat* feat, const C clas, const I time) except -1:
@@ -81,126 +65,280 @@ cdef int update_accumulator(TrainFeat* feat, const C clas, const I time) except 
     through iterations where the weight was unchanged.'''
     cdef I row = get_row(clas)
     cdef I col = get_col(clas)
-    cdef W weight = feat.weights[row].line[col]
-    feat.totals[row].line[col] += (time - feat.times[row].line[col]) * weight
-    feat.times[row].line[col] = time
+    cdef W weight = feat.weights[row][col]
+    cdef I unchanged = time - feat.meta[row][col].time
+    feat.meta[row][col].total += unchanged * weight
+    feat.meta[row][col].time = time
 
 
 cdef int update_count(TrainFeat* feat, const C clas, const I inc) except -1:
     '''Help a weight update for one (class, feature) pair by tracking how often
     the feature has been updated.  Used in Adagrad and others.
     '''
-    feat.counts[get_row(clas)].line[get_col(clas)] += inc
+    cdef I row = get_row(clas)
+    cdef I col = get_col(clas)
+    feat.meta[row][col].count += inc
 
 
-cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows):
+cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows, C nr_class) except -1:
     cdef:
+        I row
         I col
+    cdef size_t start
+    cdef size_t i
+    memset(scores, 0, nr_class * sizeof(W))
     for row in range(nr_rows):
+        start = weight_lines[row].start
+        if (start + LINE_SIZE) < nr_class:
+            scores[start + 0] += weight_lines[row].line[0]
+            scores[start + 1] += weight_lines[row].line[1]
+            scores[start + 2] += weight_lines[row].line[2]
+            scores[start + 3] += weight_lines[row].line[3]
+            scores[start + 4] += weight_lines[row].line[4]
+            scores[start + 5] += weight_lines[row].line[5]
+            scores[start + 6] += weight_lines[row].line[6]
+        else:
+            for col in range(nr_class - start):
+                scores[start + col] += weight_lines[row].line[col]
+
+
+cdef int average_weight(TrainFeat* feat, const C nr_class, const I time) except -1:
+    cdef I unchanged
+    cdef I row
+    cdef I col
+    for row in range(get_nr_rows(nr_class)):
+        if feat.weights[row] == NULL:
+            continue
         for col in range(LINE_SIZE):
-            scores[weight_lines[col].start + row] = weight_lines[row].line[col]
+            unchanged = (time + 1) - feat.meta[row][col].time
+            feat.meta[row][col].total += unchanged * feat.weights[row][col]
+            feat.weights[row][col] = feat.meta[row][col].total / time
 
 
 cdef class LinearModel:
-    def __cinit__(self, nr_class):
+    def __init__(self, nr_class, nr_templates):
+        self.total = 0
+        self.n_corr = 0
         self.nr_class = nr_class
+        self.nr_templates = nr_templates
         self.time = 0
-        self.weights.set_empty_key(0)
-        self.train_weights.set_empty_key(0)
+        self.cache = ScoresCache(nr_class)
+        self.weights = PreshMapArray(nr_templates)
+        self.train_weights = PreshMapArray(nr_templates)
+        self.mem = Pool()
+        self.scores = <W*>self.mem.alloc(self.nr_class, sizeof(W))
+        self._weight_lines = <WeightLine*>self.mem.alloc(nr_class * nr_templates,
+                                                         sizeof(WeightLine))
 
-    def __dealloc__(self):
-        cdef size_t weights_ptr
-        cdef size_t train_weight_ptr
-        #for (key, weights_ptr) in self.weights:
-        #    free_weight(<WeightLine**>weights_ptr, self.nr_class)
-        #for (key, train_weight_ptr) in self.train_weights:
-        #    free_train_weight(<TrainFeat*>train_weight_ptr, self.nr_class)
+    def __call__(self, list py_feats):
+        feat_mem = Address(len(py_feats), sizeof(F))
+        cdef F* features = <F*>feat_mem.addr
+        cdef F feat
+        for i, feat in enumerate(py_feats):
+            features[i] = feat
+        self.score(self.scores, features, len(py_feats))
+        py_scores = []
+        for i in range(self.nr_class):
+            py_scores.append(self.scores[i])
+        return py_scores
 
-    cdef TrainFeat* new_feat(self, F feat_id) except NULL:
-        cdef TrainFeat* feat = new_train_feat(self.nr_class)
-        self.weights[feat_id] = <size_t>feat.weights
-        self.train_weights[feat_id] = <size_t>feat
+    cdef TrainFeat* new_feat(self, I template_id, F feat_id) except NULL:
+        cdef TrainFeat* feat = new_train_feat(self.mem, self.nr_class)
+        self.weights.set(template_id, feat_id, feat.weights)
+        self.train_weights.set(template_id, feat_id, feat)
         return feat
 
-    cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active):
+    cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active) except *:
         cdef:
-            size_t feat_addr
-            WeightLine** feature
-            I i, j
+            W** feature
+            F feat_id
+            I template_id, row
         
         cdef I nr_rows = get_nr_rows(self.nr_class)
         cdef I f_i = 0
-        for i in range(nr_rows):
-            feat_addr = self.weights[feat_ids[i]]
-            if feat_addr != 0:
-                feature = <WeightLine**>feat_addr
+        for template_id in range(nr_active):
+            feat_id = feat_ids[template_id]
+            if feat_id == 0:
+                continue
+            feature = <W**>self.weights.get(template_id, feat_id)
+            if feature != NULL:
                 for row in range(nr_rows):
                     if feature[row] != NULL:
-                        #memcpy(output[o], feature[j], sizeof(WeightLine))
-                        w_lines[f_i] = feature[row][0]
+                        w_lines[f_i].start = row * LINE_SIZE
+                        memcpy(w_lines[f_i].line, feature[row], LINE_SIZE * sizeof(W))
                         f_i += 1
         return f_i
 
     cdef int score(self, W* scores, F* features, I nr_active) except -1:
-        cdef I nr_rows = nr_active * get_nr_rows(self.nr_class)
-        cdef WeightLine* weights = <WeightLine*>calloc(nr_rows, sizeof(WeightLine))
-        self.gather_weights(weights, features, nr_active)
-        set_scores(scores, weights, nr_rows)
+        cdef I f_i = self.gather_weights(self._weight_lines, features, nr_active)
+        set_scores(scores, self._weight_lines, f_i, self.nr_class)
 
-    cdef int update(self, dict updates) except -1:
+    cpdef int update(self, dict updates) except -1:
+        cdef I row
+        cdef I col
         cdef C clas
+        cdef I template_id
         cdef F feat_id
         cdef TrainFeat* feat
-        cdef double upd
-        
+        cdef W upd
         self.time += 1
         for clas, features in updates.items():
-            for feat_id, upd in features.items():
-                feat = <TrainFeat*>self.train_weights[feat_id]
+            row = get_row(clas)
+            col = get_col(clas)
+            for (template_id, feat_id), upd in features.items():
+                if upd == 0:
+                    continue
+                assert feat_id != 0
+                feat = <TrainFeat*>self.train_weights.get(template_id, feat_id)
                 if feat == NULL:
-                    feat = self.new_feat(feat_id)
+                    feat = self.new_feat(template_id, feat_id)
+                if feat.weights[row] == NULL:
+                    feat.weights[row] = <W*>self.mem.alloc(LINE_SIZE, sizeof(W))
+                    feat.meta[row] = <MetaData*>self.mem.alloc(LINE_SIZE, sizeof(MetaData))
                 update_accumulator(feat, clas, self.time)
                 update_count(feat, clas, 1)
                 update_weight(feat, clas, upd)
 
-    def serialize(self, loc):
+    def end_training(self):
+        cdef MapStruct* map_
+        cdef size_t i
+        for template_id in range(self.nr_templates):
+            map_ = &self.train_weights.maps[template_id]
+            for i in range(map_.length):
+                if map_.cells[i].key == 0:
+                    continue
+                feat = <TrainFeat*>map_.cells[i].value
+                average_weight(feat, self.nr_class, self.time)
+
+    def end_train_iter(self, iter_num, feat_thresh):
+        pc = lambda a, b: '%.1f' % ((float(a) / (b + 1e-100)) * 100)
+        acc = pc(self.n_corr, self.total)
+
+        map_size = 0
+        for i in range(self.nr_templates):
+            map_size += self.weights.maps[i].length * sizeof(Cell)
+            map_size += self.train_weights.maps[i].length * sizeof(Cell)
+        cache_str = '%s cache hit' % self.cache.utilization
+        size_str = humanize.naturalsize(self.mem.size, gnu=True)
+        size_str += ', ' + humanize.naturalsize(map_size, gnu=True)
+        msg = "#%d: Moves %d/%d=%s. %s. %s" % (iter_num, self.n_corr, self.total, acc,
+                                               cache_str, size_str)
+        self.n_corr = 0
+        self.total = 0
+        return msg
+
+    def dump(self, file_, size_t freq_thresh=0):
         cdef F feat_id
         cdef C row
-        cdef size_t addr
-        with open(loc, 'w') as file_:
-            for feat_id, addr in self.weights:
-                feat = <WeightLine**>addr
-                for row in range(get_row(self.nr_class)):
+        cdef I i
+        cdef C nr_rows = get_nr_rows(self.nr_class)
+        cdef MapStruct* train_weights
+        cdef MapStruct* weights
+        for template_id in range(self.nr_templates):
+            weights = &self.weights.maps[template_id]
+            train_weights = &self.train_weights.maps[template_id]
+            for i in range(train_weights.length):
+                if train_weights.cells[i].key == 0:
+                    continue
+                feat_id = weights.cells[i].key
+                feat = <TrainFeat*>train_weights.cells[i].value
+                if feat == NULL:
+                    continue
+                if freq_thresh >= 1 and get_total_count(feat, self.nr_class) < freq_thresh:
+                    continue
+                for row in range(nr_rows):
+                    if feat.weights[row] == NULL:
+                        continue
                     line = []
-                    line.append(feat_id)
-                    line.append(row)
-                    line.append(feat[row].start)
+                    line.append(str(template_id))
+                    line.append(str(feat_id))
+                    line.append(str(row))
+                    line.append(str(row * LINE_SIZE))
+                    seen_non_zero = False
                     for col in range(LINE_SIZE):
-                        line.append(feat[row].line[col])
-                    file_.write('\t'.join([str(p) for p in line]))
-                    file_.write('\n')
+                        val = '%.3f' % feat.weights[row][col]
+                        line.append(val)
+                        if val != '0.000':
+                            seen_non_zero = True
+                    if seen_non_zero:
+                        file_.write('\t'.join(line))
+                        file_.write('\n')
 
-    def deserialize(self, loc):
+    def load(self, file_):
+        cdef I template_id
         cdef F feat_id
-        cdef C nr_rows, row
+        cdef C nr_rows, row, start
         cdef I col
         cdef bytes py_line
         cdef bytes token
-        with open(loc) as file_:
-            token = file_.readline().strip()
-            nr_rows = strtoul(token, NULL, 10)
-            for py_line in file_:
-                line = <char*>py_line
-                token = strtok(line, '\t')
-                feat_id = strtoull(token, NULL, 10)
-                if self.weights[feat_id] == 0:
-                    self.weights[feat_id] = <size_t>calloc(nr_rows, sizeof(WeightLine*))
-                feature = <WeightLine**>self.weights[feat_id]
+        cdef W** feature
+        nr_rows = get_nr_rows(self.nr_class)
+        nr_feats = 0
+        nr_weights = 0
+        for py_line in file_:
+            line = <char*>py_line
+            token = strtok(line, '\t')
+            template_id = strtoull(token, NULL, 10)
+            token = strtok(NULL, '\t')
+            feat_id = strtoull(token, NULL, 10)
+            token = strtok(NULL, '\t')
+            row = strtoul(token, NULL, 10)
+            token = strtok(NULL, '\t')
+            start = strtoul(token, NULL, 10)
+            feature = <W**>self.weights.get(template_id, feat_id)
+            if feature == NULL:
+                nr_feats += 1
+                feature = <W**>self.mem.alloc(nr_rows, sizeof(W*))
+                self.weights.set(template_id, feat_id, feature)
+            feature[row] = <W*>self.mem.alloc(LINE_SIZE, sizeof(W))
+            for col in range(LINE_SIZE):
                 token = strtok(NULL, '\t')
-                row = strtoul(token, NULL, 10)
-                feature[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
-                feature[row].start = strtoul(token, NULL, 10)
-                for col in range(LINE_SIZE):
-                    token = strtok(NULL, '\t')
-                    feature[row].line[col] = atof(token)
- 
+                feature[row][col] = atof(token)
+                nr_weights += 1
+        print "Loading %d class... %d weights for %d features" % (self.nr_class, nr_weights, nr_feats)
+
+
+cdef class ScoresCache:
+    def __init__(self, size_t scores_size, size_t max_size=10000):
+        self._cache = PreshMap()
+        self._pool = Pool()
+        self._arrays = <W**>self._pool.alloc(max_size, sizeof(W*))
+        cdef size_t i
+        for i in range(max_size):
+            self._arrays[i] = <W*>self._pool.alloc(scores_size, sizeof(W))
+        self._scores_if_full = <W*>self._pool.alloc(scores_size, sizeof(W))
+        self.i = 0
+        self.max_size = max_size
+        self.scores_size = scores_size
+        self.n_hit = 0
+        self.n_total = 0
+
+    @property
+    def utilization(self):
+        if self.n_total == 0:
+            return '0'
+        return '%.2f' % ((float(self.n_hit) / self.n_total) * 100)
+        
+    cdef W* lookup(self, size_t size, void* kernel, bint* is_hit):
+        cdef W** resized
+        cdef uint64_t hashed = hash64(kernel, size, 0)
+        cdef W* scores = <W*>self._cache.get(hashed)
+        self.n_total += 1
+        if scores != NULL:
+            self.n_hit += 1
+            is_hit[0] = True
+            return scores
+        elif self.i == self.max_size:
+            return self._scores_if_full
+        else:
+            scores = self._arrays[self.i]
+            self.i += 1
+            self._cache.set(hashed, scores)
+            is_hit[0] = False
+            return scores
+    
+    def flush(self):
+        self.i = 0
+        self.n_hit = 0
+        self.n_total = 0
+        self._cache = PreshMap(self._cache.length)
