@@ -22,8 +22,6 @@ def test_fill():
     assert i == 3
     assert clas == 3
 
-    assert len(b.extensions) == 2
-    
 
 def test_single_class():
     b = Beam(1, 2)

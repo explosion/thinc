@@ -1,49 +1,32 @@
-from libc.stdlib cimport calloc, free
-
-
-cdef class Move:
-    def __cinit__(self, double score, size_t clas, Move prev):
-        self.clas = clas
-        self.score = score
-        self.prev = prev
-
-    def history(self):
-        prev = self
-        while prev.prev is not None:
-            yield prev.clas
-            prev = prev.prev
+from cymem.cymem cimport Pool
 
 
 cdef class Beam:
     def __init__(self, size_t nr_class, size_t width):
         self.nr_class = nr_class
         self.width = width
-        self.extensions = [None for i in range(self.width)]
-        self.history = []
-        self.bests = []
 
-    property extensions:
+    property score:
         def __get__(self):
-            return self.extensions
+            return self.q.top().first
 
     def fill_from_list(self, list scores):
-        cdef double** c_scores = <double**>calloc(len(scores), sizeof(double*))
+        mem = Pool()
+        c_scores = <double**>mem.alloc(len(scores), sizeof(double*))
         for i, clas_scores in enumerate(scores):
-            c_scores[i] = <double*>calloc(len(clas_scores), sizeof(double))
+            c_scores[i] = <double*>mem.alloc(len(clas_scores), sizeof(double))
             for j, score in enumerate(clas_scores):
                 c_scores[i][j] = score
         self.fill(c_scores)
-        for i in range(len(scores)):
-            free(c_scores[i])
-        free(c_scores)
 
-    cdef int fill(self, double** scores):
+    cdef int fill(self, double** scores) except -1:
+        """Populate the queue from a k * n matrix of scores, where k is the
+        beam-width, and n is the number of classes.
+        """
         cdef Candidate candidate
         cdef Entry entry
         cdef double score
         cdef size_t addr
-        self.history = self.extensions
-        self.extensions = []
         while not self.q.empty():
             self.q.pop()
         for i in range(self.width):
@@ -52,35 +35,31 @@ cdef class Beam:
                 self.q.push(entry)
 
     cpdef pair[size_t, size_t] pop(self) except *:
+        """Pop the current top candidate from the beam, returning the parent
+        and class.
+        """
         if self.q.empty():
             raise StopIteration
         cdef double score
         cdef size_t addr
         score, (parent, clas) = self.q.top()
-        self.extensions.append(Move(score, clas, self.history[parent]))
-        cdef size_t parent = c.parent
-        cdef size_t clas = c.clas
-        if len(self.extensions) == 1:
-            self.bests.append(self.extensions[-1])
         self.q.pop()
         return pair[size_t, size_t](parent, clas)
 
-    def max_violation(self, Beam gold):
-        cdef Move best_p
-        cdef Move best_g
-        deltas = []
-        # It's correct to halt early if gold is longer or shorter --- 
-        # we don't need length alignment.
-        for i, (best_p, best_g) in enumerate(zip(self.bests, gold.bests)):
-            if best_p.cost >= 1:
-                deltas.append((best_p.score + 1 - best_g.score, i))
-        if not deltas:
-            return 0, [], []
-        delta, i = max(deltas)
-        best_p = self.bests[i]
-        best_g = gold.bests[i]
-        pred_moves = list(best_p.history())
-        pred_moves.reverse()
-        gold_moves = list(best_g.history())
-        gold_moves.reverse()
-        return delta, pred_moves, gold_moves
+
+cdef class MaxViolation:
+    def __init__(self):
+        self.delta = -1
+        self.pred = []
+        self.gold = []
+
+    cpdef weight_t check(self, weight_t p_score, weight_t g_score, list p_hist,
+                         list g_hist) except -1:
+        cdef weight_t d = (p_score + 1) - g_score
+        if d > self.delta:
+            self.delta = d
+            self.pred = p_hist
+            self.gold = g_hist
+            return d
+        else:
+            return 0
