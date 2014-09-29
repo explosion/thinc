@@ -25,7 +25,8 @@ cdef class Extractor:
             for i, element in enumerate(sorted(args)):
                 pred.args[i] = element
         self.nr_match = len(match_templates)
-        self.match_preds = <MatchPred*>calloc(self.nr_match, sizeof(MatchPred))
+        if self.nr_match:
+            self.match_preds = <MatchPred*>calloc(self.nr_match, sizeof(MatchPred))
         cdef MatchPred* match_pred
         for id_, (idx1, idx2) in enumerate(match_templates):
             match_pred = &self.match_preds[id_]
@@ -35,8 +36,9 @@ cdef class Extractor:
         self.nr_feat = self.nr_template + (self.nr_match * 2) + 2
 
     def __dealloc__(self):
-        free(self.templates)
-        free(self.match_preds)
+        #free(self.templates)
+        if self.nr_match:
+            free(self.match_preds)
 
     cdef int count(self, dict counts, uint64_t* features, double inc) except -1:
         cdef size_t f = 0
@@ -48,7 +50,7 @@ cdef class Extractor:
             counts[value] += inc
             f += 1
 
-    cdef int extract(self, uint64_t* features, size_t* context) except -1:
+    cdef int extract(self, uint64_t* features, uint64_t* context) except -1:
         cdef:
             size_t i, j, size
             uint64_t value
@@ -87,3 +89,4 @@ cdef class Extractor:
                                             match_pred.id)
                 f += 1
         features[f] = 0
+        return f

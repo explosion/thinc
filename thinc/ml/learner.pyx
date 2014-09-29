@@ -60,9 +60,9 @@ cdef I get_col(const C clas):
     return clas % LINE_SIZE
 
 
-cdef I get_nr_rows(const C n):
+cdef I get_nr_rows(const C n) except 0:
     cdef I nr_lines = get_row(n)
-    if n % nr_lines != 0:
+    if nr_lines == 0 or n % nr_lines != 0:
         nr_lines += 1
     return nr_lines
  
@@ -111,10 +111,10 @@ cdef class LinearModel:
     def __dealloc__(self):
         cdef size_t weights_ptr
         cdef size_t train_weight_ptr
-        for (key, weights_ptr) in self.weights:
-            free_weight(<WeightLine**>weights_ptr, self.nr_class)
-        for (key, train_weight_ptr) in self.train_weights:
-            free_train_weight(<TrainFeat*>train_weight_ptr, self.nr_class)
+        #for (key, weights_ptr) in self.weights:
+        #    free_weight(<WeightLine**>weights_ptr, self.nr_class)
+        #for (key, train_weight_ptr) in self.train_weights:
+        #    free_train_weight(<TrainFeat*>train_weight_ptr, self.nr_class)
 
     cdef TrainFeat* new_feat(self, F feat_id) except NULL:
         cdef TrainFeat* feat = new_train_feat(self.nr_class)

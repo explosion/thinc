@@ -8,8 +8,9 @@ ctypedef priority_queue[Entry] Queue
 
 
 cdef class Move:
-    cdef size_t clas
     cdef double score
+    cdef size_t clas
+    cdef size_t cost
     cdef Move prev
 
 
@@ -22,6 +23,6 @@ cdef class Beam:
     cdef list extensions
     cdef list bests
 
-    cdef int fill(self, double** scores)
+    cdef int fill(self, double** scores, size_t** costs)
 
-    cpdef Candidate pop(self) except *
+    cpdef pair[size_t, size_t] pop(self) except *

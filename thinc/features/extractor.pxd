@@ -24,5 +24,5 @@ cdef class Extractor:
     cdef size_t nr_match
     cdef size_t nr_feat
     cdef MatchPred* match_preds
-    cdef int extract(self, uint64_t* features, size_t* context) except -1
+    cdef int extract(self, uint64_t* features, uint64_t* context) except -1
     cdef int count(self, dict counts, uint64_t* features, double inc) except -1

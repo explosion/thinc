@@ -37,7 +37,7 @@ cdef class LinearModel:
     cdef I time
     cdef C nr_class
     cdef dense_hash_map[F, size_t] weights
-    cdef dense_hash_map[F, size_t] metadata
+    cdef dense_hash_map[F, size_t] train_weights
 
     cdef TrainFeat* new_feat(self, F feat_id) except NULL
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active)
