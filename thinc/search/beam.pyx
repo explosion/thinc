@@ -5,6 +5,10 @@ cdef class Beam:
     def __init__(self, size_t nr_class, size_t width):
         self.nr_class = nr_class
         self.width = width
+        self.mem = Pool()
+        self.parents = <void**>self.mem.alloc(self.width, sizeof(void*))
+        self.states = <void**>self.mem.alloc(self.width, sizeof(void*))
+        self.size = 0
 
     property score:
         def __get__(self):
@@ -18,6 +22,7 @@ cdef class Beam:
             for j, score in enumerate(clas_scores):
                 c_scores[i][j] = score
         self.fill(c_scores)
+        return self.q.top().first
 
     cdef int fill(self, double** scores) except -1:
         """Populate the queue from a k * n matrix of scores, where k is the
@@ -50,16 +55,20 @@ cdef class Beam:
 cdef class MaxViolation:
     def __init__(self):
         self.delta = -1
-        self.pred = []
-        self.gold = []
+        self.n = 0
+        self.cost = 0
+        self.pred = NULL
+        self.gold = NULL
 
-    cpdef weight_t check(self, weight_t p_score, weight_t g_score, list p_hist,
-                         list g_hist) except -1:
+    cdef weight_t check(self, int cost, weight_t p_score, weight_t g_score,
+                         void* p, void* g, size_t n) except -1:
         cdef weight_t d = (p_score + 1) - g_score
-        if d > self.delta:
+        if cost >= 1 and d > self.delta:
+            self.cost = cost
             self.delta = d
-            self.pred = p_hist
-            self.gold = g_hist
+            self.pred = p
+            self.gold = g
+            self.n = n
             return d
         else:
             return 0
