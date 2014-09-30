@@ -2,13 +2,16 @@ from cymem.cymem cimport Pool
 
 
 cdef class Beam:
-    def __init__(self, size_t nr_class, size_t width):
+    def __init__(self, size_t nr_class, size_t width, size_t state_size):
         self.nr_class = nr_class
         self.width = width
         self.mem = Pool()
         self.parents = <void**>self.mem.alloc(self.width, sizeof(void*))
         self.states = <void**>self.mem.alloc(self.width, sizeof(void*))
-        self.size = 0
+        self.size = 1
+        cdef size_t i
+        for i in range(self.width):
+            self.parents[i] = self.mem.alloc(1, state_size)
 
     property score:
         def __get__(self):
