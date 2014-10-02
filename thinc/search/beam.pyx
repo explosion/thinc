@@ -2,7 +2,7 @@ from cymem.cymem cimport Pool
 
 
 cdef class Beam:
-    def __init__(self, class_t nr_class, class_t width, class_t state_size):
+    def __init__(self, class_t nr_class, class_t width, class_t state_size=0):
         self.nr_class = nr_class
         self.width = width
         self.mem = Pool()
