@@ -1,4 +1,5 @@
 from libc.stdint cimport uint64_t
+from libc.stdint cimport uint32_t
 from libc.stdint cimport uint16_t
 
 from cymem.cymem cimport Pool
@@ -11,9 +12,9 @@ from preshed.maps cimport Cell
 
 # Typedef numeric types, to make them easier to change and ensure consistency
 ctypedef uint64_t F # Feature ID
-ctypedef size_t C # Class
-ctypedef double W # Weight
-ctypedef size_t I # Index
+ctypedef uint32_t C # Class
+ctypedef float W # Weight
+ctypedef uint32_t I # Index
 
 
 # Number of weights in a line. Should be aligned to cache lines.
@@ -54,7 +55,7 @@ cdef class ScoresCache:
 
 cdef class LinearModel:
     cdef I time
-    cdef C nr_class
+    cdef readonly C nr_class
     cdef I nr_templates
     cdef I n_corr
     cdef I total

@@ -84,8 +84,8 @@ cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows, C nr_class) 
     cdef:
         I row
         I col
-    cdef size_t start
-    cdef size_t i
+    cdef I start
+    cdef I i
     memset(scores, 0, nr_class * sizeof(W))
     for row in range(nr_rows):
         start = weight_lines[row].start
@@ -131,8 +131,8 @@ cdef class LinearModel:
                                                          sizeof(WeightLine))
 
     def __call__(self, list py_feats):
-        feat_mem = Address(len(py_feats), sizeof(F))
-        cdef F* features = <F*>feat_mem.addr
+        cdef Address feat_mem = Address(len(py_feats), sizeof(F))
+        cdef F* features = <F*>feat_mem.ptr
         cdef F feat
         for i, feat in enumerate(py_feats):
             features[i] = feat
@@ -201,7 +201,7 @@ cdef class LinearModel:
 
     def end_training(self):
         cdef MapStruct* map_
-        cdef size_t i
+        cdef I i
         for template_id in range(self.nr_templates):
             map_ = &self.train_weights.maps[template_id]
             for i in range(map_.length):
@@ -244,12 +244,14 @@ cdef class LinearModel:
                 feat = <TrainFeat*>train_weights.cells[i].value
                 if feat == NULL:
                     continue
-                if freq_thresh >= 1 and get_total_count(feat, self.nr_class) < freq_thresh:
+                total_freq = get_total_count(feat, self.nr_class)
+                if freq_thresh >= 1 and total_freq < freq_thresh:
                     continue
                 for row in range(nr_rows):
                     if feat.weights[row] == NULL:
                         continue
                     line = []
+                    line.append(str(total_freq))
                     line.append(str(template_id))
                     line.append(str(feat_id))
                     line.append(str(row))
@@ -264,9 +266,10 @@ cdef class LinearModel:
                         file_.write('\t'.join(line))
                         file_.write('\n')
 
-    def load(self, file_):
+    def load(self, file_, freq_thresh=0):
         cdef I template_id
         cdef F feat_id
+        cdef I freq
         cdef C nr_rows, row, start
         cdef I col
         cdef bytes py_line
@@ -278,13 +281,17 @@ cdef class LinearModel:
         for py_line in file_:
             line = <char*>py_line
             token = strtok(line, '\t')
-            template_id = strtoull(token, NULL, 10)
+            freq = strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
-            feat_id = strtoull(token, NULL, 10)
+            template_id = strtoul(token, NULL, 10)
+            token = strtok(NULL, '\t')
+            feat_id = strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
             row = strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
             start = strtoul(token, NULL, 10)
+            if freq_thresh >= 1 and freq < freq_thresh:
+                continue
             feature = <W**>self.weights.get(template_id, feat_id)
             if feature == NULL:
                 nr_feats += 1
