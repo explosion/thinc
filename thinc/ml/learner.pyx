@@ -118,6 +118,8 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
             unchanged = (time + 1) - feat.meta[row][col].time
             feat.meta[row][col].total += unchanged * feat.weights[row][col]
             feat.weights[row][col] = feat.meta[row][col].total
+            if (float(feat.weights[row][col]) / time) < 0.00001:
+                feat.weights[row][col] = 0
 
 
 cdef class LinearModel:
