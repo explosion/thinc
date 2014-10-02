@@ -84,3 +84,7 @@ def test_dump_load(model):
     assert model([0, 1, 0, 3, 4]) == new_model([0, 1, 0, 3, 4])
     assert model([0, 0, 2, 0, 0, 5]) == new_model([0, 0, 2, 0, 0, 5])
     assert model([0, 0, 2, 3, 4]) == new_model([0, 0, 2, 3, 4])
+
+# TODO: Need a test that exercises multiple lines. Example bug:
+# in gather_weights, don't increment f_i per row, only per feature
+# (so overwrite some lines we're gathering)
