@@ -33,10 +33,11 @@ DEF LINE_SIZE = 7
 
 ctypedef weight_t[LINE_SIZE] weight_line_t
 
+
 # A set of weights, to be read in. Start indicates the class that w[0] refers
 # to. Subsequent weights go from there.
 cdef struct WeightLine:
-    class_t start
+    int start
     weight_line_t line
 
 
@@ -47,7 +48,7 @@ cdef struct MetaData:
     
 
 cdef struct TrainFeat:
-    weight_t** weights
+    WeightLine* weights
     MetaData** meta
 
 
