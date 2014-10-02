@@ -29,7 +29,7 @@ ctypedef uint32_t time_t
 
 
 # Number of weights in a line. Should be aligned to cache lines.
-DEF LINE_SIZE = 7
+DEF LINE_SIZE = 8
 
 ctypedef weight_t[LINE_SIZE] weight_line_t
 
@@ -80,6 +80,5 @@ cdef class LinearModel:
     cdef WeightLine** _weight_lines
 
     cdef TrainFeat* new_feat(self, size_t template_id, feat_t feat_id) except NULL
-    cdef size_t gather_weights(self, WeightLine** w_lines, feat_t* feat_ids, size_t nr_active) except *
     cdef int score(self, weight_t* inplace, feat_t* features, size_t nr_active) except -1
     cpdef int update(self, dict counts) except -1

@@ -8,12 +8,15 @@ from libc.string cimport memset
 from murmurhash.mrmr cimport hash64
 from cymem.cymem cimport Address
 
+from preshed.maps cimport MapStruct
+from preshed.maps cimport map_get
+
 import random
 import humanize
 import cython
 
 
-DEF LINE_SIZE = 7
+DEF LINE_SIZE = 8
 
 
 cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
@@ -89,6 +92,30 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
     feat.meta[row][col].count += inc
 
 
+cdef class_t gather_weights(MapStruct* maps, class_t nr_class, class_t nr_rows,
+                            class_t nr_templates, WeightLine** w_lines,
+                            feat_t* feat_ids) nogil:
+    cdef:
+        TrainFeat* feature
+        feat_t feat_id
+        size_t template_id
+        class_t row
+        
+    cdef class_t f_i = 0
+    for template_id in range(nr_templates):
+        feat_id = feat_ids[template_id]
+        if feat_id == 0:
+            continue
+        feature = <TrainFeat*>map_get(&maps[template_id], feat_id)
+        if feature != NULL:
+            for row in range(feature.length):
+                if feature.weights[row] == NULL:
+                    continue
+                w_lines[f_i] = feature.weights[row]
+                f_i += 1
+    return f_i
+
+
 cdef int set_scores(weight_t* scores, WeightLine** weight_lines,
                     class_t nr_rows, class_t nr_class) except -1:
     cdef:
@@ -96,21 +123,15 @@ cdef int set_scores(weight_t* scores, WeightLine** weight_lines,
         class_t col
         WeightLine* wline
         weight_t* row_scores
-    memset(scores, 0, nr_class * sizeof(weight_t))
+        class_t max_col
     for row in range(nr_rows):
         wline = weight_lines[row]
         row_scores = &scores[wline.start]
-        if (start + LINE_SIZE) < nr_class:
-            row_scores[0] += wline.line[0]
-            row_scores[1] += wline.line[1]
-            row_scores[2] += wline.line[2]
-            row_scores[3] += wline.line[3]
-            row_scores[4] += wline.line[4]
-            row_scores[5] += wline.line[5]
-            row_scores[6] += wline.line[6]
-        else:
-            for col in range(nr_class - wline.start):
-                row_scores[col] += wline.line[col]
+        max_col = nr_class - wline.start
+        if max_col > LINE_SIZE:
+            max_col = LINE_SIZE
+        for col in range(max_col):
+            row_scores[col] += wline.line[col]
 
 @cython.cdivision
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1:
@@ -157,30 +178,14 @@ cdef class LinearModel:
         self.weights.set(template_id, feat_id, feat)
         return feat
 
-    cdef size_t gather_weights(self, WeightLine** w_lines, feat_t* feat_ids, size_t nr_active) except *:
-        cdef:
-            TrainFeat* feature
-            feat_t feat_id
-            size_t template_id
-            class_t row
-        
-        cdef class_t nr_rows = get_nr_rows(self.nr_class)
-        cdef size_t f_i = 0
-        for template_id in range(nr_active):
-            feat_id = feat_ids[template_id]
-            if feat_id == 0:
-                continue
-            feature = <TrainFeat*>self.weights.get(template_id, feat_id)
-            if feature != NULL:
-                for row in range(feature.length):
-                    if feature.weights[row] == NULL:
-                        continue
-                    w_lines[f_i] = feature.weights[row]
-                    f_i += 1
-        return f_i
-
+    # TODO: Get rid of unnecessary argument
     cdef int score(self, weight_t* scores, feat_t* features, size_t nr_active) except -1:
-        cdef size_t f_i = self.gather_weights(self._weight_lines, features, nr_active)
+        cdef class_t f_i = gather_weights(self.weights.maps, self.nr_class,
+                                          get_nr_rows(self.nr_class),
+                                          self.nr_templates, self._weight_lines,
+                                          features) 
+ 
+        memset(scores, 0, self.nr_class * sizeof(weight_t))
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
 
     cpdef int update(self, dict updates) except -1:
