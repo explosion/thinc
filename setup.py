@@ -6,6 +6,7 @@ import distutils.core
 import sys
 import os
 from os.path import join as pjoin
+from glob import glob
 
 
 def clean(ext):
@@ -25,11 +26,16 @@ def clean(ext):
 pwd = os.path.dirname(__file__)
 virtual_env = os.environ.get('VIRTUAL_ENV', '')
 
-includes = [os.path.join(virtual_env, 'include'),
-            os.path.join(pwd, 'thinc/include'),
-            os.path.join(pwd, 'thinc/ext'),
-            os.path.join(pwd, 'thinc/ext/include')]
-libs = [os.path.join(pwd, 'thinc/ext')]
+includes = []
+if virtual_env:
+    includes += glob(os.path.join(virtual_env, 'include', 'site', '*'))
+else:
+    # If you're not using virtualenv, ensure MurmurHash3.h is findable here.
+    import murmurhash
+    includes.append(os.path.dirname(murmurhash.__file__))
+
+
+libs = []
 
 compile_args = []
 link_args = []
@@ -44,9 +50,6 @@ exts = [
               language="c++", include_dirs=includes,
               extra_compile_args=compile_args,
               extra_link_args=link_args),
-    #Extension("thinc.context.example", ["thinc/context/example.pyx"], language="c++")
-    #Extension("thinc.context.segment", ["thinc/context/segment.pyx", 'thinc/ext/MurmurHash2.cpp'], language="c++",
-    #          include_dirs=includes),
     Extension("thinc.search.beam", ["thinc/search/beam.pyx"], language="c++")
 ]
 
@@ -57,13 +60,13 @@ if sys.argv[1] == 'clean':
 
 distutils.core.setup(
     name='thinc',
-    packages=['thinc', 'thinc.ml', 'thinc.features'],
-    version='1.0',
+    packages=['thinc', 'thinc.ml', 'thinc.features', 'thinc.search'],
+    version='1.1',
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
-    package_data={"thinc":
-        ["*.pyx", "*.pxd", "*.cpp", "*.c", "*/*.pxd", "*/*.pyx", "*/*.cpp", "*/*.c"],
+    package_data={"thinc": ["__init__.pxd", "features/*.pxd", "ml/*.pxd",
+                            "search/*.pxd"]
     },
     cmdclass={'build_ext': Cython.Distutils.build_ext},
     ext_modules=exts,
