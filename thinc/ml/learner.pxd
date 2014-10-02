@@ -48,7 +48,8 @@ cdef struct MetaData:
     
 
 cdef struct TrainFeat:
-    WeightLine* weights
+    size_t length
+    WeightLine** weights
     MetaData** meta
 
 
@@ -74,7 +75,6 @@ cdef class LinearModel:
     cdef size_t total
     cdef Pool mem
     cdef PreshMapArray weights
-    cdef PreshMapArray train_weights
     cdef ScoresCache cache
     cdef weight_t* scores
     cdef WeightLine* _weight_lines
