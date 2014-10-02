@@ -77,9 +77,9 @@ cdef class LinearModel:
     cdef PreshMapArray weights
     cdef ScoresCache cache
     cdef weight_t* scores
-    cdef WeightLine* _weight_lines
+    cdef WeightLine** _weight_lines
 
     cdef TrainFeat* new_feat(self, size_t template_id, feat_t feat_id) except NULL
-    cdef size_t gather_weights(self, WeightLine* w_lines, feat_t* feat_ids, size_t nr_active) except *
+    cdef size_t gather_weights(self, WeightLine** w_lines, feat_t* feat_ids, size_t nr_active) except *
     cdef int score(self, weight_t* inplace, feat_t* features, size_t nr_active) except -1
     cpdef int update(self, dict counts) except -1

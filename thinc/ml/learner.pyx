@@ -89,27 +89,28 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
     feat.meta[row][col].count += inc
 
 
-cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
+cdef int set_scores(weight_t* scores, WeightLine** weight_lines,
                     class_t nr_rows, class_t nr_class) except -1:
     cdef:
         class_t row
         class_t col
-    cdef class_t start
-    cdef class_t i
+        WeightLine* wline
+        weight_t* row_scores
     memset(scores, 0, nr_class * sizeof(weight_t))
     for row in range(nr_rows):
-        start = weight_lines[row].start
+        wline = weight_lines[row]
+        row_scores = &scores[wline.start]
         if (start + LINE_SIZE) < nr_class:
-            scores[start + 0] += weight_lines[row].line[0]
-            scores[start + 1] += weight_lines[row].line[1]
-            scores[start + 2] += weight_lines[row].line[2]
-            scores[start + 3] += weight_lines[row].line[3]
-            scores[start + 4] += weight_lines[row].line[4]
-            scores[start + 5] += weight_lines[row].line[5]
-            scores[start + 6] += weight_lines[row].line[6]
+            row_scores[0] += wline.line[0]
+            row_scores[1] += wline.line[1]
+            row_scores[2] += wline.line[2]
+            row_scores[3] += wline.line[3]
+            row_scores[4] += wline.line[4]
+            row_scores[5] += wline.line[5]
+            row_scores[6] += wline.line[6]
         else:
-            for col in range(nr_class - start):
-                scores[start + col] += weight_lines[row].line[col]
+            for col in range(nr_class - wline.start):
+                row_scores[col] += wline.line[col]
 
 @cython.cdivision
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1:
@@ -136,7 +137,7 @@ cdef class LinearModel:
         self.weights = PreshMapArray(nr_templates)
         self.mem = Pool()
         self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
-        self._weight_lines = <WeightLine*>self.mem.alloc(nr_class * nr_templates,
+        self._weight_lines = <WeightLine**>self.mem.alloc(nr_class * nr_templates,
                                                          sizeof(WeightLine))
 
     def __call__(self, list py_feats):
@@ -156,7 +157,7 @@ cdef class LinearModel:
         self.weights.set(template_id, feat_id, feat)
         return feat
 
-    cdef size_t gather_weights(self, WeightLine* w_lines, feat_t* feat_ids, size_t nr_active) except *:
+    cdef size_t gather_weights(self, WeightLine** w_lines, feat_t* feat_ids, size_t nr_active) except *:
         cdef:
             TrainFeat* feature
             feat_t feat_id
@@ -174,7 +175,7 @@ cdef class LinearModel:
                 for row in range(feature.length):
                     if feature.weights[row] == NULL:
                         continue
-                    w_lines[f_i] = feature.weights[row][0]
+                    w_lines[f_i] = feature.weights[row]
                     f_i += 1
         return f_i
 
@@ -284,6 +285,7 @@ cdef class LinearModel:
         cdef bytes py_line
         cdef bytes token
         cdef TrainFeat* feature
+        cdef WeightLine* wline
         nr_rows = get_nr_rows(self.nr_class)
         nr_feats = 0
         nr_weights = 0
@@ -306,13 +308,21 @@ cdef class LinearModel:
                 nr_feats += 1
                 feature = new_train_feat(self.mem, self.nr_class)
                 self.weights.set(template_id, feat_id, feature)
-            if feature.weights[row] == NULL:
-                feature.weights[row] = <WeightLine*>self.mem.alloc(1, sizeof(WeightLine))
+                feature.length = 0
+            wline = NULL
+            for i in range(feature.length):
+                if feature.weights[i].start == start:
+                    wline = feature.weights[i]
+                    break
+            else:
+                wline = <WeightLine*>self.mem.alloc(1, sizeof(WeightLine))
+                wline.start = start
+                feature.weights[feature.length] = wline
+                feature.length += 1
  
-            feature.weights[row].start = start
             for col in range(LINE_SIZE):
                 token = strtok(NULL, '\t')
-                feature.weights[row].line[col] = atoi(token)
+                wline.line[col] = atoi(token)
                 nr_weights += 1
         print "Loading %d class... %d weights for %d features" % (self.nr_class, nr_weights, nr_feats)
 
