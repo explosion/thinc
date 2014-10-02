@@ -17,7 +17,7 @@ DEF LINE_SIZE = 7
 cdef TrainFeat* new_train_feat(Pool mem, const C nr_class) except NULL:
     cdef TrainFeat* output = <TrainFeat*>mem.alloc(1, sizeof(TrainFeat))
     cdef I nr_lines = get_nr_rows(nr_class)
-    output.weights = <W**>mem.alloc(nr_lines, sizeof(W*))
+    output.weights = <weight_t**>mem.alloc(nr_lines, sizeof(weight_t*))
     output.meta = <MetaData**>mem.alloc(nr_lines, sizeof(MetaData*))
     return output
 
@@ -80,7 +80,7 @@ cdef int update_count(TrainFeat* feat, const C clas, const I inc) except -1:
     feat.meta[row][col].count += inc
 
 
-cdef int set_scores(W* scores, WeightLine* weight_lines, I nr_rows, C nr_class) except -1:
+cdef int set_scores(weight_t* scores, WeightLine* weight_lines, I nr_rows, C nr_class) except -1:
     cdef:
         I row
         I col
@@ -126,7 +126,7 @@ cdef class LinearModel:
         self.weights = PreshMapArray(nr_templates)
         self.train_weights = PreshMapArray(nr_templates)
         self.mem = Pool()
-        self.scores = <W*>self.mem.alloc(self.nr_class, sizeof(W))
+        self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(W))
         self._weight_lines = <WeightLine*>self.mem.alloc(nr_class * nr_templates,
                                                          sizeof(WeightLine))
 
@@ -150,7 +150,7 @@ cdef class LinearModel:
 
     cdef I gather_weights(self, WeightLine* w_lines, F* feat_ids, I nr_active) except *:
         cdef:
-            W** feature
+            weight_t** feature
             F feat_id
             I template_id, row
         
@@ -160,7 +160,7 @@ cdef class LinearModel:
             feat_id = feat_ids[template_id]
             if feat_id == 0:
                 continue
-            feature = <W**>self.weights.get(template_id, feat_id)
+            feature = <weight_t**>self.weights.get(template_id, feat_id)
             if feature != NULL:
                 for row in range(nr_rows):
                     if feature[row] != NULL:
@@ -169,7 +169,7 @@ cdef class LinearModel:
                         f_i += 1
         return f_i
 
-    cdef int score(self, W* scores, F* features, I nr_active) except -1:
+    cdef int score(self, weight_t* scores, F* features, I nr_active) except -1:
         cdef I f_i = self.gather_weights(self._weight_lines, features, nr_active)
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
 
@@ -193,7 +193,7 @@ cdef class LinearModel:
                 if feat == NULL:
                     feat = self.new_feat(template_id, feat_id)
                 if feat.weights[row] == NULL:
-                    feat.weights[row] = <W*>self.mem.alloc(LINE_SIZE, sizeof(W))
+                    feat.weights[row] = <weight_t*>self.mem.alloc(LINE_SIZE, sizeof(W))
                     feat.meta[row] = <MetaData*>self.mem.alloc(LINE_SIZE, sizeof(MetaData))
                 update_accumulator(feat, clas, self.time)
                 update_count(feat, clas, 1)
@@ -227,7 +227,7 @@ cdef class LinearModel:
         self.total = 0
         return msg
 
-    def dump(self, file_, size_t freq_thresh=0):
+    def dump(self, file_, class_t freq_thresh=0):
         cdef F feat_id
         cdef C row
         cdef I i
@@ -274,7 +274,7 @@ cdef class LinearModel:
         cdef I col
         cdef bytes py_line
         cdef bytes token
-        cdef W** feature
+        cdef weight_t** feature
         nr_rows = get_nr_rows(self.nr_class)
         nr_feats = 0
         nr_weights = 0
@@ -292,12 +292,12 @@ cdef class LinearModel:
             start = strtoul(token, NULL, 10)
             if freq_thresh >= 1 and freq < freq_thresh:
                 continue
-            feature = <W**>self.weights.get(template_id, feat_id)
+            feature = <weight_t**>self.weights.get(template_id, feat_id)
             if feature == NULL:
                 nr_feats += 1
-                feature = <W**>self.mem.alloc(nr_rows, sizeof(W*))
+                feature = <weight_t**>self.mem.alloc(nr_rows, sizeof(weight_t*))
                 self.weights.set(template_id, feat_id, feature)
-            feature[row] = <W*>self.mem.alloc(LINE_SIZE, sizeof(W))
+            feature[row] = <weight_t*>self.mem.alloc(LINE_SIZE, sizeof(W))
             for col in range(LINE_SIZE):
                 token = strtok(NULL, '\t')
                 feature[row][col] = atof(token)
@@ -306,14 +306,14 @@ cdef class LinearModel:
 
 
 cdef class ScoresCache:
-    def __init__(self, size_t scores_size, size_t max_size=10000):
+    def __init__(self, class_t scores_size, class_t max_size=10000):
         self._cache = PreshMap()
         self._pool = Pool()
-        self._arrays = <W**>self._pool.alloc(max_size, sizeof(W*))
-        cdef size_t i
+        self._arrays = <weight_t**>self._pool.alloc(max_size, sizeof(weight_t*))
+        cdef class_t i
         for i in range(max_size):
-            self._arrays[i] = <W*>self._pool.alloc(scores_size, sizeof(W))
-        self._scores_if_full = <W*>self._pool.alloc(scores_size, sizeof(W))
+            self._arrays[i] = <weight_t*>self._pool.alloc(scores_size, sizeof(W))
+        self._scores_if_full = <weight_t*>self._pool.alloc(scores_size, sizeof(W))
         self.i = 0
         self.max_size = max_size
         self.scores_size = scores_size
@@ -326,10 +326,10 @@ cdef class ScoresCache:
             return '0'
         return '%.2f' % ((float(self.n_hit) / self.n_total) * 100)
         
-    cdef W* lookup(self, size_t size, void* kernel, bint* is_hit):
-        cdef W** resized
+    cdef weight_t* lookup(self, class_t size, void* kernel, bint* is_hit):
+        cdef weight_t** resized
         cdef uint64_t hashed = hash64(kernel, size, 0)
-        cdef W* scores = <W*>self._cache.get(hashed)
+        cdef weight_t* scores = <weight_t*>self._cache.get(hashed)
         self.n_total += 1
         if scores != NULL:
             self.n_hit += 1
