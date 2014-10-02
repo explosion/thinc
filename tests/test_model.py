@@ -50,25 +50,25 @@ def model(instances):
 def test_averaging(model):
     model.end_training()
     # Feature 1
-    assert model([0, 1])[0] == sum([-1, -2, -3]) / 3
-    assert model([0, 1])[1] == sum([5, 4, 9]) / 3
-    assert model([0, 1])[2] == sum([3, 6, 6]) / 3
+    assert model([0, 1])[0] == sum([-1, -2, -3]) / 1
+    assert model([0, 1])[1] == sum([5, 4, 9]) / 1
+    assert model([0, 1])[2] == sum([3, 6, 6]) / 1
     # Feature 2
-    assert model([0, 0, 2])[0] == sum([1, 2, 4]) / 3
-    assert model([0, 0, 2])[1] == sum([-5, -3, -8]) / 3
-    assert model([0, 0, 2])[2] == sum([-3, -6, -5]) / 3
+    assert model([0, 0, 2])[0] == sum([1, 2, 4]) / 1
+    assert model([0, 0, 2])[1] == sum([-5, -3, -8]) / 1
+    assert model([0, 0, 2])[2] == sum([-3, -6, -5]) / 1
     # Feature 3 (absent)
     assert model([0, 0, 0, 3])[0] == 0
     assert model([0, 0, 0, 3])[1] == 0
     assert model([0, 0, 0, 3])[2] == 0
     # Feature 4
-    assert model([0, 0, 0, 0, 4])[0] == sum([0, 0, 0]) / 3
-    assert model([0, 0, 0, 0, 4])[1] == sum([0, 0, 0]) / 3
-    assert model([0, 0, 0, 0, 4])[2] == sum([0, 0, 1]) / 3
+    assert model([0, 0, 0, 0, 4])[0] == sum([0, 0, 0]) / 1
+    assert model([0, 0, 0, 0, 4])[1] == sum([0, 0, 0]) / 1
+    assert model([0, 0, 0, 0, 4])[2] == sum([0, 0, 1]) / 1
     # Feature 5
-    assert model([0, 0, 0, 0, 0, 5])[0] == sum([0, 0, 0]) / 3
-    assert model([0, 0, 0, 0, 0, 5])[1] == sum([0, 0, 0]) / 3
-    assert model([0, 0, 0, 0, 0, 5])[2] == sum([0, 0, -7]) / 3
+    assert model([0, 0, 0, 0, 0, 5])[0] == sum([0, 0, 0]) / 1
+    assert model([0, 0, 0, 0, 0, 5])[1] == sum([0, 0, 0]) / 1
+    assert model([0, 0, 0, 0, 0, 5])[2] == sum([0, 0, -7]) / 1
 
 
 def test_dump_load(model):

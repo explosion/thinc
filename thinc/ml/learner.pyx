@@ -1,5 +1,6 @@
 # cython: profile=True
-from libc.stdlib cimport strtoull, strtoul, atof
+
+from libc.stdlib cimport strtoull, strtoul, atof, atoi
 from libc.string cimport strtok
 from libc.string cimport memcpy
 from libc.string cimport memset
@@ -9,11 +10,10 @@ from cymem.cymem cimport Address
 
 import random
 import humanize
-cimport cython
+import cython
 
 
 DEF LINE_SIZE = 7
-
 
 cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
     cdef TrainFeat* output = <TrainFeat*>mem.alloc(1, sizeof(TrainFeat))
@@ -106,7 +106,7 @@ cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
             for col in range(nr_class - start):
                 scores[start + col] += weight_lines[row].line[col]
 
-
+@cython.cdivision
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1:
     cdef time_t unchanged
     cdef class_t row
@@ -117,7 +117,7 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
         for col in range(LINE_SIZE):
             unchanged = (time + 1) - feat.meta[row][col].time
             feat.meta[row][col].total += unchanged * feat.weights[row][col]
-            feat.weights[row][col] = feat.meta[row][col].total / time
+            feat.weights[row][col] = feat.meta[row][col].total
 
 
 cdef class LinearModel:
@@ -158,7 +158,7 @@ cdef class LinearModel:
             weight_t** feature
             feat_t feat_id
             size_t template_id
-            class_t rowrow
+            class_t row
         
         cdef class_t nr_rows = get_nr_rows(self.nr_class)
         cdef size_t f_i = 0
@@ -264,9 +264,9 @@ cdef class LinearModel:
                     line.append(str(row * LINE_SIZE))
                     seen_non_zero = False
                     for col in range(LINE_SIZE):
-                        val = '%.3f' % feat.weights[row][col]
+                        val = '%d' % feat.weights[row][col]
                         line.append(val)
-                        if val != '0.000':
+                        if val != '0':
                             seen_non_zero = True
                     if seen_non_zero:
                         file_.write('\t'.join(line))
@@ -287,15 +287,15 @@ cdef class LinearModel:
         for py_line in file_:
             line = <char*>py_line
             token = strtok(line, '\t')
-            freq = strtoul(token, NULL, 10)
+            freq = <class_t>strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
-            template_id = strtoul(token, NULL, 10)
+            template_id = <class_t>strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
             feat_id = strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
-            row = strtoul(token, NULL, 10)
+            row = <class_t>strtoul(token, NULL, 10)
             token = strtok(NULL, '\t')
-            start = strtoul(token, NULL, 10)
+            start = <class_t>strtoul(token, NULL, 10)
             if freq_thresh >= 1 and freq < freq_thresh:
                 continue
             feature = <weight_t**>self.weights.get(template_id, feat_id)
@@ -306,7 +306,7 @@ cdef class LinearModel:
             feature[row] = <weight_t*>self.mem.alloc(LINE_SIZE, sizeof(weight_t))
             for col in range(LINE_SIZE):
                 token = strtok(NULL, '\t')
-                feature[row][col] = atof(token)
+                feature[row][col] = atoi(token)
                 nr_weights += 1
         print "Loading %d class... %d weights for %d features" % (self.nr_class, nr_weights, nr_feats)
 

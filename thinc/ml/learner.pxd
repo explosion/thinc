@@ -10,9 +10,19 @@ from preshed.maps cimport MapStruct
 from preshed.maps cimport Cell
 
 
+#DEF WEIGHT_TYPE = 'float'
+#
+#IF WEIGHT_TYPE == 'float':
+#ELIF WEIGHT_TYPE == 'double':
+#    ctypedef double weight_t
+#ELIF WEIGHT_TYPE == 'int':
+#    ctypedef int weight_t
+#ELSE:
+#    ctypedef double weight_t
+ctypedef int weight_t
+
 # Typedef numeric types, to make them easier to change and ensure consistency
 ctypedef uint64_t feat_t
-ctypedef float weight_t
 ctypedef uint32_t class_t
 ctypedef uint32_t count_t
 ctypedef uint32_t time_t
