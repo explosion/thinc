@@ -9,6 +9,7 @@ from cymem.cymem cimport Address
 
 import random
 import humanize
+cimport cython
 
 
 DEF LINE_SIZE = 7
@@ -36,14 +37,17 @@ cdef count_t get_total_count(TrainFeat* feat, const class_t n):
     return total
 
 
+@cython.cdivision
 cdef class_t get_row(const class_t clas):
     return clas / LINE_SIZE
 
 
+@cython.cdivision
 cdef class_t get_col(const class_t clas):
     return clas % LINE_SIZE
 
 
+@cython.cdivision
 cdef class_t get_nr_rows(const class_t n) except 0:
     cdef class_t nr_lines = get_row(n)
     if nr_lines == 0 or nr_lines * LINE_SIZE < n:
