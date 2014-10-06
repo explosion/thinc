@@ -35,44 +35,50 @@ cdef class Extractor:
             match_pred.idx1 = idx1
             match_pred.idx2 = idx2
         self.nr_feat = self.nr_template + (self.nr_match * 2) + 1
+        self.features = <size_t*>self.mem.alloc(self.nr_feat, sizeof(Feature*))
+        for i in range(self.nr_feat):
+            self.features[i] = <size_t>self.mem.alloc(1, sizeof(Feature))
 
-    cdef int count(self, dict counts, uint64_t* features, double inc) except -1:
+    cdef int count(self, dict counts, feat_t* features, double inc) except -1:
         cdef size_t template_id
-        cdef uint64_t feature
+        cdef size_t key
+        cdef Feature* feature
         for template_id in range(self.nr_feat):
-            feature = features[template_id] 
-            if feature == 0:
+            feature = <Feature*>features[template_id] 
+            if not feature.is_active:
                 continue
-            key = (template_id, feature)
+            key = <size_t>feature
             if key not in counts:
                 counts[key] = 0
             counts[key] += inc
 
-    cdef int extract(self, uint64_t* features, size_t* context) except -1:
+    cdef size_t* extract(self, size_t* context) except NULL:
         cdef:
             size_t i, j, size
-            uint64_t value
+            size_t value
             bint seen_non_zero
             Template* pred
+        cdef size_t* features = self.features
+        return features
         cdef size_t f = 0
         # Extra trick:
         # Always include this feature to give classifier priors over the classes
-        features[0] = 1
-        f += 1
+        cdef Feature* feat = <Feature*>features[0]
+        feat.vals[0] = 1
+        feat.n = 1
+        feat.is_active = True
         for i in range(self.nr_template):
+            f += 1
+            feat = <Feature*>features[f]
             pred = &self.templates[i]
-            seen_non_zero = False
+            feat.is_active = False
             for j in range(pred.n):
                 value = context[pred.args[j]]
+                feat.vals[j] = value
                 if value != 0:
-                    seen_non_zero = True
-                pred.raws[j] = value
-            if seen_non_zero:
-                pred.raws[pred.n] = pred.id
-                features[f] = hash64(pred.raws, sizeof(pred.raws), i)
-            else:
-                features[f] = 0
-            f += 1
+                    feat.is_active = True
+        return features
+        """
         cdef MatchPred* match_pred
         cdef size_t match_id
         for match_id in range(self.nr_match):
@@ -93,4 +99,4 @@ cdef class Extractor:
                 f += 1
                 features[f] = 0
                 f += 1
-        return self.nr_feat
+        """

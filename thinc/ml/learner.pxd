@@ -10,6 +10,8 @@ from preshed.maps cimport MapStruct
 from preshed.maps cimport Cell
 
 
+from thinc.features.extractor cimport feat_t
+
 #DEF WEIGHT_TYPE = 'float'
 #
 #IF WEIGHT_TYPE == 'float':
@@ -22,7 +24,6 @@ from preshed.maps cimport Cell
 ctypedef int weight_t
 
 # Typedef numeric types, to make them easier to change and ensure consistency
-ctypedef uint64_t feat_t
 ctypedef uint32_t class_t
 ctypedef uint32_t count_t
 ctypedef uint32_t time_t

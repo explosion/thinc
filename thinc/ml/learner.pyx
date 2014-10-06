@@ -10,6 +10,9 @@ from cymem.cymem cimport Address
 
 from preshed.maps cimport MapStruct
 from preshed.maps cimport map_get
+#from preshed.tries cimport AddressTree
+
+from thinc.features.extractor cimport feat_t
 
 import random
 import humanize
