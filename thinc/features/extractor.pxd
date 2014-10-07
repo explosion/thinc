@@ -1,8 +1,11 @@
-from libc.stdint cimport uint64_t, int64_t
+from libc.stdint cimport uint32_t
+
 from cymem.cymem cimport Pool
+from preshed.tries cimport SequenceIndex
 
-
-ctypedef size_t feat_t
+ctypedef uint32_t feat_t
+ctypedef uint32_t idx_t
+ctypedef uint32_t context_t
 
 
 DEF MAX_FEAT_LEN = 10
@@ -11,28 +14,23 @@ DEF MAX_FEAT_LEN = 10
 cdef struct Template:
     size_t id
     size_t n
-    uint64_t[MAX_FEAT_LEN] raws
-    size_t[MAX_FEAT_LEN] args
+    context_t[MAX_FEAT_LEN] raws
+    idx_t[MAX_FEAT_LEN] args
 
 
 cdef struct MatchPred:
     size_t id
-    size_t idx1
-    size_t idx2
-    size_t[2] raws
-
-
-cdef struct Feature:
-    size_t* vals
-    size_t n
-    bint is_active
+    idx_t idx1
+    idx_t idx2
+    context_t[2] raws
 
 
 cdef class Extractor:
     cdef Pool mem
-    cdef size_t nr_template
-    cdef feat_t* features
+    cdef SequenceIndex trie
+    cdef readonly size_t nr_template
     cdef Template* templates
+    cdef feat_t* _features
     cdef readonly size_t nr_match
     cdef readonly size_t nr_feat
     cdef MatchPred* match_preds

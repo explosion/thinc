@@ -9,9 +9,10 @@ DEF MAX_FEAT_LEN = 10
 
 
 cdef class Extractor:
-    def __cinit__(self, templates, match_templates, bag_of_words=None):
+    def __init__(self, templates, match_templates, bag_of_words=None):
         assert not bag_of_words
         self.mem = Pool()
+        self.trie = SequenceIndex(offset=1)
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.
         templates = tuple(sorted(set([tuple(sorted(f)) for f in templates])))
@@ -23,7 +24,8 @@ cdef class Extractor:
             assert len(args) < MAX_FEAT_LEN
             pred = &self.templates[id_]
             pred.id = id_
-            pred.n = len(args)
+            pred.n = len(args) + 1
+            pred.raws[0] = pred.id
             for i, element in enumerate(sorted(args)):
                 pred.args[i] = element
         self.nr_match = len(match_templates)
@@ -35,48 +37,52 @@ cdef class Extractor:
             match_pred.idx1 = idx1
             match_pred.idx2 = idx2
         self.nr_feat = self.nr_template + (self.nr_match * 2) + 1
-        self.features = <size_t*>self.mem.alloc(self.nr_feat, sizeof(Feature*))
-        for i in range(self.nr_feat):
-            self.features[i] = <size_t>self.mem.alloc(1, sizeof(Feature))
+        self._features = <feat_t*>self.mem.alloc(self.nr_feat + 1, sizeof(feat_t))
 
-    cdef int count(self, dict counts, feat_t* features, double inc) except -1:
-        cdef size_t template_id
-        cdef size_t key
-        cdef Feature* feature
-        for template_id in range(self.nr_feat):
-            feature = <Feature*>features[template_id] 
-            if not feature.is_active:
-                continue
-            key = <size_t>feature
-            if key not in counts:
-                counts[key] = 0
-            counts[key] += inc
+    def __call__(self, list py_context):
+        cdef size_t i
+        cdef size_t c
+        context = <size_t*>self.mem.alloc(len(py_context), sizeof(size_t))
+        for i, c in enumerate(py_context):
+            context[i] = c
+        feats = self.extract(context)
+        self.mem.free(context)
+        output = []
+        i = 0
+        while feats[i] != 0:
+            output.append(feats[i])
+            i += 1
+        return output
 
-    cdef size_t* extract(self, size_t* context) except NULL:
+    cdef int count(self, dict counts, feat_t* feats, double inc) except -1:
+        cdef size_t i = 0
+        while feats[i] != 0:
+            counts[feats[i]] += inc
+            i += 1
+
+    cdef feat_t* extract(self, size_t* context) except NULL:
         cdef:
             size_t i, j, size
             size_t value
             bint seen_non_zero
             Template* pred
-        cdef size_t* features = self.features
-        return features
-        cdef size_t f = 0
+        cdef feat_t* features = self._features
         # Extra trick:
         # Always include this feature to give classifier priors over the classes
-        cdef Feature* feat = <Feature*>features[0]
-        feat.vals[0] = 1
-        feat.n = 1
-        feat.is_active = True
+        features[0] = 1
         for i in range(self.nr_template):
-            f += 1
-            feat = <Feature*>features[f]
             pred = &self.templates[i]
-            feat.is_active = False
-            for j in range(pred.n):
-                value = context[pred.args[j]]
-                feat.vals[j] = value
+            pred.raws[0] = i
+            seen_non_zero = False
+            # Offset by 1, as the template ID is at position 0
+            for j in range(1, pred.n):
+                value = context[pred.args[j-1]]
+                pred.raws[j] = value
                 if value != 0:
-                    feat.is_active = True
+                    seen_non_zero = True
+            if seen_non_zero:
+                features[i+1] = self.trie.index(pred.raws, pred.n)
+        features[i+2] = 0
         return features
         """
         cdef MatchPred* match_pred
