@@ -72,14 +72,16 @@ cdef class LinearModel:
     cdef time_t time
     cdef readonly class_t nr_class
     cdef size_t nr_templates
+    cdef size_t max_size
+    cdef size_t curr_size
     cdef size_t n_corr
     cdef size_t total
     cdef Pool mem
-    cdef PreshMapArray weights
+    cdef TrainFeat* feats
     cdef ScoresCache cache
     cdef weight_t* scores
     cdef WeightLine** _weight_lines
 
-    cdef TrainFeat* new_feat(self, size_t template_id, feat_t feat_id) except NULL
-    cdef int score(self, weight_t* inplace, feat_t* features, size_t nr_active) except -1
+    cdef TrainFeat* get_feat(self, feat_t feat_id) except NULL
+    cdef int score(self, weight_t* inplace, feat_t* instance) except -1
     cpdef int update(self, dict counts) except -1

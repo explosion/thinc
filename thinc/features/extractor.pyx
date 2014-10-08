@@ -57,6 +57,8 @@ cdef class Extractor:
     cdef int count(self, dict counts, feat_t* feats, double inc) except -1:
         cdef size_t i = 0
         while feats[i] != 0:
+            if feats[i] not in counts:
+                counts[feats[i]] = 0
             counts[feats[i]] += inc
             i += 1
 
@@ -70,6 +72,7 @@ cdef class Extractor:
         # Extra trick:
         # Always include this feature to give classifier priors over the classes
         features[0] = 1
+        cdef size_t f_i = 1
         for i in range(self.nr_template):
             pred = &self.templates[i]
             pred.raws[0] = i
@@ -81,8 +84,9 @@ cdef class Extractor:
                 if value != 0:
                     seen_non_zero = True
             if seen_non_zero:
-                features[i+1] = self.trie.index(pred.raws, pred.n)
-        features[i+2] = 0
+                features[f_i] = self.trie.index(pred.raws, pred.n)
+                f_i += 1
+        features[f_i] = 0
         return features
         """
         cdef MatchPred* match_pred
