@@ -1,8 +1,8 @@
 from cymem.cymem cimport Pool
 
 from .typedefs cimport *
-from thinc.ml.learner cimport LinearModel
-from thinc.features.extractor cimport Extractor
+from thinc.learner cimport LinearModel
+from thinc.features cimport Extractor
 
 cdef class Instance:
     cdef Pool mem
