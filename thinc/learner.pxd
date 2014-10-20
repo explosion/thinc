@@ -17,6 +17,7 @@ DEF LINE_SIZE = 8
 cdef class LinearModel:
     cdef time_t time
     cdef readonly class_t nr_class
+    cdef readonly int nr_templates
     cdef size_t n_corr
     cdef size_t total
     cdef Pool mem
