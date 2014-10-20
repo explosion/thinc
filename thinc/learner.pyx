@@ -15,10 +15,14 @@ from preshed.maps cimport MapStruct
 from preshed.maps cimport map_get
 
 from .weights cimport average_weight, arg_max, new_train_feat, get_total_count
-from .weights cimport gather_weights
+from .weights cimport update_feature
+from .weights cimport gather_weights, set_scores
+from .weights cimport get_nr_rows
 
-from thinc.instance cimport Instance
+from .instance cimport Instance
 
+
+DEF LINE_SIZE = 8
 
 cdef class LinearModel:
     def __init__(self, nr_class, nr_templates):
@@ -48,7 +52,7 @@ cdef class LinearModel:
                              features, values) 
         memset(scores, 0, self.nr_class * sizeof(weight_t))
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
-        return arg_max(scores)
+        return arg_max(scores, self.nr_class)
 
     cdef int update(self, class_t clas, feat_t* feats, weight_t* values, int n) except -1:
         cdef TrainFeat* feat
@@ -57,11 +61,11 @@ cdef class LinearModel:
         for i in range(n):
             if values[i] == 0:
                 continue
-            feat = <TrainFeat*>self.weights.get(i, inst.feats[i])
+            feat = <TrainFeat*>self.weights.get(i, feats[i])
             if feat == NULL:
                 feat = new_train_feat(self.mem, self.nr_class)
-                self.weights.set(template_id, feat_id, feat)
-            update_feature(self.mem, feat, inst.clas, inst.values[i], self.time)
+                self.weights.set(i, feats[i], feat)
+            update_feature(self.mem, feat, clas, values[i], self.time)
 
     def end_training(self):
         cdef MapStruct* map_

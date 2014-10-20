@@ -55,17 +55,17 @@ cdef count_t get_total_count(TrainFeat* feat, const class_t n) except 0:
 
 
 @cython.cdivision
-cdef class_t get_row(const class_t clas):
+cdef inline class_t get_row(const class_t clas) nogil:
     return clas / LINE_SIZE
 
 
 @cython.cdivision
-cdef class_t get_col(const class_t clas):
+cdef inline class_t get_col(const class_t clas) nogil:
     return clas % LINE_SIZE
 
 
 @cython.cdivision
-cdef class_t get_nr_rows(const class_t n) except 0:
+cdef class_t get_nr_rows(const class_t n) nogil:
     cdef class_t nr_lines = get_row(n)
     if nr_lines == 0 or nr_lines * LINE_SIZE < n:
         nr_lines += 1
@@ -101,7 +101,8 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
     feat.meta[row][col].count += inc
 
 
-cdef class_t gather_weights(MapStruct* maps, class_t nr_class, class_t nr_rows,
+
+cdef class_t gather_weights(MapStruct* maps, class_t nr_class,
                             class_t nr_templates, WeightLine** w_lines,
                             feat_t* feat_ids, int* values) nogil:
     cdef:
@@ -110,6 +111,8 @@ cdef class_t gather_weights(MapStruct* maps, class_t nr_class, class_t nr_rows,
         size_t template_id
         class_t row
         int value
+
+    cdef class_t nr_rows = get_nr_rows(nr_class)
         
     cdef class_t f_i = 0
     for template_id in range(nr_templates):
