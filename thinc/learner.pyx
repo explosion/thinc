@@ -44,6 +44,7 @@ cdef class LinearModel:
 
     def __iadd__(self, Instance inst):
         self.update(inst.clas, inst.feats, inst.values, inst.n_feats)
+        return self
 
     cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values,
             int n_feats) except *:
