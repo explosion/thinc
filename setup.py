@@ -57,7 +57,7 @@ exts = [
               extra_link_args=link_args),
     Extension("thinc.search", ["thinc/search.pyx"], language="c++"),
     Extension("thinc.instance", ["thinc/instance.pyx"], language="c++"),
-    Extension("thinc.cache", ["thinc/instance.pyx"], language="c++"),
+    Extension("thinc.cache", ["thinc/cache.pyx"], include_dirs=includes, language="c++"),
 ]
 
 
