@@ -70,7 +70,7 @@ cdef class LinearModel:
         cdef int i
         self.time += 1
         for clas, feat_counts in counts.items():
-            for (i, feat_id), upd in feat_counts.items():
+            for feat_id, upd in feat_counts.items():
                 if upd == 0:
                     continue
                 feat = <TrainFeat*>self.weights.get(feat_id)
