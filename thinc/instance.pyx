@@ -10,9 +10,9 @@ cdef class Instance:
         self.scores = <weight_t*>self.mem.alloc(n_classes, sizeof(weight_t))
         self.clas = 0
 
-    def extract(self, size_t[:] atoms, Extractor extractor):
+    def extract(self, int[:] atoms, Extractor extractor):
         cdef int i
-        cdef size_t a
+        cdef atom_t atom
         for i, atom in enumerate(atoms):
             self.atoms[i] = atom
         extractor.extract(self.feats, self.values, self.atoms, NULL)

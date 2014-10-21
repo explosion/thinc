@@ -56,8 +56,10 @@ cdef class LinearModel:
         return [self.scores[i] for i in range(self.nr_class)]
 
     cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except *:
+        # TODO: Use values!
         f_i = gather_weights(self.weights.c_map, self.nr_class, self._weight_lines,
-                             features, values) 
+                             features) 
+
         memset(scores, 0, self.nr_class * sizeof(weight_t))
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
         return arg_max(scores, self.nr_class)

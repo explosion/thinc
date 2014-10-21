@@ -7,7 +7,7 @@ from thinc.features cimport Extractor
 
 cdef class Instance:
     cdef Pool mem
-    cdef int n_context
+    cdef int n_atoms
     cdef int n_feats
     cdef int n_classes
     cdef atom_t* atoms

@@ -13,6 +13,7 @@ cpdef enum FeatureFuncName:
     ConjFeat
     BackoffFeat
     MatchFeat
+    SumFeat
     N_FEATURE_FUNCS
 
 
@@ -30,6 +31,6 @@ cdef struct Template:
 cdef class Extractor:
     cdef Pool mem
     cdef Template* templates
-    cdef int n
+    cdef readonly int n
     cdef int extract(self, feat_t* feats, weight_t* values, atom_t* atoms, void* extra_args) except -1
     cdef int count(self, dict counts, feat_t* feats, weight_t inc) except -1

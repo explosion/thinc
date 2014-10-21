@@ -40,10 +40,21 @@ cdef int match_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
     return f
 
 
+cdef int sum_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
+                     void* extra_args) nogil:
+    cdef int i
+    cdef feat_t t = 0
+    for i in range(n):
+        t += atoms[i]
+    feats[f] = t
+    f += 1
+    feats[f] = 0
+    return f
 
 FEATURE_FUNCS[<int>ConjFeat] = conj_feat
 FEATURE_FUNCS[<int>BackoffFeat] = backoff_feat
 FEATURE_FUNCS[<int>MatchFeat] = match_feat
+FEATURE_FUNCS[<int>SumFeat] = sum_feat
 
 
 cdef class Extractor:
@@ -76,17 +87,17 @@ cdef class Extractor:
     instance.Instance.extract method, which takes an Extractor as an argument,
     and fills the Instance's feats array.
     """
-    def __init__(self, templates):
+    def __init__(self, templates, func_names):
         self.mem = Pool()
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.
         templates = tuple(sorted(set([tuple(sorted(f)) for f in templates])))
-        self.n = len(templates)
+        self.n = len(templates) + 1
         self.templates = <Template*>self.mem.alloc(self.n, sizeof(Template))
         # Sort each feature, and sort and unique the set of them
         cdef int i, j
         cdef FeatureFuncName func_name
-        for i, (indices, func_name) in enumerate(templates):
+        for i, (indices, func_name) in enumerate(zip(templates, func_names)):
             assert len(indices) < MAX_TEMPLATE_LEN
             for j, idx in enumerate(sorted(indices)):
                 self.templates[i].indices[j] = idx
@@ -111,9 +122,9 @@ cdef class Extractor:
         # Always include this feature to give classifier priors over the classes
         feats[0] = 1
         f += 1
-        for i in range(self.n):
+        for i in range(self.n-1):
             templ = &self.templates[i]
             for j in range(templ.n):
                 templ.atoms[j] = atoms[templ.indices[j]]
-            f += templ.func(feats, f, templ.id, templ.atoms, templ.n, extra_args)
+            f = templ.func(feats, f, templ.id, templ.atoms, templ.n, extra_args)
         return f

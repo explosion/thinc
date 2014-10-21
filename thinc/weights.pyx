@@ -102,14 +102,12 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
 
 
 cdef class_t gather_weights(MapStruct* map_, class_t nr_class,
-                            WeightLine** w_lines,
-                            feat_t* feats, weight_t* values) except *:
+                            WeightLine** w_lines, feat_t* feats) except *:
     cdef:
         TrainFeat* feature
         feat_t feat_id
         class_t row
         class_t col
-        weight_t value
 
     cdef class_t nr_rows = get_nr_rows(nr_class)
         
@@ -117,7 +115,6 @@ cdef class_t gather_weights(MapStruct* map_, class_t nr_class,
     cdef class_t f_i = 0
     while feats[i] != 0:
         feat_id = feats[i]
-        value = values[i]
         i += 1
         feature = <TrainFeat*>map_get(map_, feat_id)
         if feature != NULL and feature.weights != NULL:
