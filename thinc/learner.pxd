@@ -26,5 +26,5 @@ cdef class LinearModel:
     cdef weight_t* scores
     cdef WeightLine** _weight_lines
 
-    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except *
+    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except 0
     cpdef int update(self, dict counts) except -1

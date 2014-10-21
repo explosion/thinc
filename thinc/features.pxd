@@ -6,10 +6,11 @@ DEF MAX_TEMPLATE_LEN = 10
 DEF MAX_FEATS = 200
 
 
-ctypedef int (*eval_func)(feat_t*, int, int, atom_t*, int, void*) nogil
+ctypedef int (*eval_func)(feat_t*, int, atom_t*, int, void*) nogil
 
 
 cpdef enum FeatureFuncName:
+    NonZeroConjFeat
     ConjFeat
     BackoffFeat
     MatchFeat
@@ -21,7 +22,6 @@ cdef eval_func[<int>N_FEATURE_FUNCS] FEATURE_FUNCS
 
 
 cdef struct Template:
-    int id
     int n
     int[MAX_TEMPLATE_LEN] indices
     atom_t[MAX_TEMPLATE_LEN] atoms

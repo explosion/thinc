@@ -8,40 +8,50 @@ from murmurhash.mrmr cimport hash64
 DEF MAX_TEMPLATE_LEN = 10
 DEF MAX_FEATS = 200
 
-
-cdef int conj_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
-                   void* extra_args) nogil:
-    feats[f] = hash64(atoms, n * sizeof(atom_t), templ_id)
+cdef int non_zero_conj_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
+    cdef bint seen_non_zero = False
+    for i in range(n):
+        if atoms[i] != 0:
+            seen_non_zero = True
+            break
+    else:
+        return f
+    feats[f] = hash64(atoms, (n+1) * sizeof(atom_t), 0)
     f += 1
     feats[f] = 0
     return f
 
 
-cdef int backoff_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
-                   void* extra_args) nogil:
+cdef int conj_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
+    feats[f] = hash64(atoms, (n+1) * sizeof(atom_t), 0)
+    f += 1
+    feats[f] = 0
+    return f
+
+
+cdef int backoff_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
     cdef int i
-    for i in range(n):
-        feats[f] = hash64(atoms, (n-1) * sizeof(atom_t), templ_id)
+    for i in range(n+1):
+        feats[f] = hash64(atoms, (i+1) * sizeof(atom_t), 0)
         f += 1
     feats[f] = 0
     return f
 
 
-cdef int match_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
-                     void* extra_args) nogil:
+cdef int match_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
     cdef int i
     for i in range(1, n):
         if atoms[i] != atoms[0]:
             break
     else:
-        feats[f] = templ_id
+        # This should contain the template ID
+        feats[f] = atoms[n]
         f += 1
         feats[f] = 0
     return f
 
 
-cdef int sum_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
-                     void* extra_args) nogil:
+cdef int sum_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
     cdef int i
     cdef feat_t t = 0
     for i in range(n):
@@ -51,7 +61,9 @@ cdef int sum_feat(feat_t* feats, int f, int templ_id, atom_t* atoms, int n,
     feats[f] = 0
     return f
 
+
 FEATURE_FUNCS[<int>ConjFeat] = conj_feat
+FEATURE_FUNCS[<int>NonZeroConjFeat] = non_zero_conj_feat
 FEATURE_FUNCS[<int>BackoffFeat] = backoff_feat
 FEATURE_FUNCS[<int>MatchFeat] = match_feat
 FEATURE_FUNCS[<int>SumFeat] = sum_feat
@@ -101,13 +113,14 @@ cdef class Extractor:
             assert len(indices) < MAX_TEMPLATE_LEN
             for j, idx in enumerate(sorted(indices)):
                 self.templates[i].indices[j] = idx
+            self.templates[i].atoms[len(indices)] = i
             self.templates[i].n = len(indices)
             self.templates[i].func = FEATURE_FUNCS[<int>func_name]
 
     cdef int count(self, dict counts, feat_t* feats, weight_t inc) except -1:
-        cdef int i
+        cdef int i = 0
         while feats[i] != 0:
-            counts[feats[i]] += inc
+            counts[feats[i]] = counts.get(feats[i], 0) + inc
             i += 1
 
     cdef int extract(self, feat_t* feats, weight_t* values, atom_t* atoms,
@@ -126,5 +139,5 @@ cdef class Extractor:
             templ = &self.templates[i]
             for j in range(templ.n):
                 templ.atoms[j] = atoms[templ.indices[j]]
-            f = templ.func(feats, f, templ.id, templ.atoms, templ.n, extra_args)
+            f = templ.func(feats, f, templ.atoms, templ.n, extra_args)
         return f

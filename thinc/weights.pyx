@@ -7,14 +7,15 @@ DEF LINE_SIZE = 8
 
 
 cdef class_t arg_max(weight_t* scores, class_t n_classes) except 0:
-    cdef class_t best = 1
-    cdef weight_t mode = scores[1]
+    cdef class_t best = 0
+    cdef weight_t mode = scores[0]
     cdef int i
-    for i in range(2, n_classes):
+    for i in range(1, n_classes):
         if scores[i] > mode:
             best = i
             mode = scores[i]
-    return best
+    # NB: Everything's offset 1, 0 is reserved as missing value
+    return best+1
 
 
 cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
