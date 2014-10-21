@@ -38,35 +38,44 @@ cdef class LinearModel:
         self._weight_lines = <WeightLine**>self.mem.alloc(nr_class * nr_templates,
                                                          sizeof(WeightLine))
 
-    def __call__(self, Instance inst):
-        inst.clas = self.score(inst.scores, inst.feats, inst.values, inst.n_feats)
-        return inst.clas
+    def __call__(self, list feats, list values=None):
+        cdef int length = len(feats) + 1
+        if values is None:
+            values = [1 for _ in feats]
+        cdef Address f_addr = Address(length, sizeof(feat_t))
+        cdef Address v_addr = Address(length, sizeof(weight_t))
+        cdef feat_t* c_feats = <feat_t*>f_addr.ptr
+        cdef weight_t* c_values = <weight_t*>v_addr.ptr
+        for i in range(length):
+            c_feats[i] = feats[i]
+            c_values[i] = values[i]
+        c_feats[i+1] = 0
+        c_values[i+1] = 0
+        self.score(self.scores, c_feats, c_values)
+        return [self.scores[i] for i in range(self.nr_class)]
 
-    def __iadd__(self, Instance inst):
-        self.update(inst.clas, inst.feats, inst.values, inst.n_feats)
-        return self
-
-    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values,
-            int n_feats) except *:
-        f_i = gather_weights(self.weights.maps, self.nr_class,
-                             n_feats, self._weight_lines,
+    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except *:
+        f_i = gather_weights(self.weights.maps, self.nr_class, self._weight_lines,
                              features, values) 
         memset(scores, 0, self.nr_class * sizeof(weight_t))
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
         return arg_max(scores, self.nr_class)
 
-    cdef int update(self, class_t clas, feat_t* feats, weight_t* values, int n) except -1:
+    cpdef int update(self, dict counts) except -1:
         cdef TrainFeat* feat
+        cdef feat_t feat_id
+        cdef weight_t upd
+        cdef class_t clas
         cdef int i
-        self.time += 1
-        for i in range(n):
-            if values[i] == 0:
-                continue
-            feat = <TrainFeat*>self.weights.get(i, feats[i])
-            if feat == NULL:
-                feat = new_train_feat(self.mem, self.nr_class)
-                self.weights.set(i, feats[i], feat)
-            update_feature(self.mem, feat, clas, values[i], self.time)
+        for clas, feat_counts in counts.items():
+            for (i, feat_id), upd in feat_counts.items():
+                if upd == 0:
+                    continue
+                feat = <TrainFeat*>self.weights.get(i, feat_id)
+                if feat == NULL:
+                    feat = new_train_feat(self.mem, self.nr_class)
+                    self.weights.set(i, feat_id, feat)
+                update_feature(self.mem, feat, clas, upd, self.time)
 
     def end_training(self):
         cdef MapStruct* map_

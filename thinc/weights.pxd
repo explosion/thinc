@@ -51,8 +51,8 @@ cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
 cdef count_t get_total_count(TrainFeat* feat, const class_t n) except 0
 cdef class_t arg_max(weight_t* scores, class_t n_classes) except 0
 cdef class_t gather_weights(MapStruct* maps, class_t nr_class,
-                            class_t nr_templates, WeightLine** w_lines,
-                            feat_t* feat_ids, int* values) nogil
+                            WeightLine** w_lines,
+                            feat_t* feat_ids, weight_t* values) nogil
 cdef int set_scores(weight_t* scores, WeightLine** weight_lines,
                     class_t nr_rows, class_t nr_class) except -1
  
