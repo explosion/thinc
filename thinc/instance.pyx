@@ -4,7 +4,7 @@ cdef class Instance:
         self.n_atoms = n_atoms
         self.n_classes = n_classes
         self.n_feats = n_feats
-        self.atoms = <size_t*>self.mem.alloc(n_atoms, sizeof(size_t))
+        self.atoms = <atom_t*>self.mem.alloc(n_atoms, sizeof(atom_t))
         self.feats = <feat_t*>self.mem.alloc(n_feats, sizeof(feat_t))
         self.values = <weight_t*>self.mem.alloc(n_feats, sizeof(weight_t))
         self.scores = <weight_t*>self.mem.alloc(n_classes, sizeof(weight_t))
@@ -15,7 +15,7 @@ cdef class Instance:
         cdef size_t a
         for i, atom in enumerate(atoms):
             self.atoms[i] = atom
-        extractor.extract(self.feats, self.atoms)
+        extractor.extract(self.feats, self.values, self.atoms, NULL)
 
     def predict(self, LinearModel model):
         self.clas = model.score(self.scores, self.feats, self.values)

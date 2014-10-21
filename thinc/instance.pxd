@@ -10,7 +10,7 @@ cdef class Instance:
     cdef int n_context
     cdef int n_feats
     cdef int n_classes
-    cdef size_t* atoms
+    cdef atom_t* atoms
     cdef feat_t* feats
     cdef weight_t* values
     cdef weight_t* scores

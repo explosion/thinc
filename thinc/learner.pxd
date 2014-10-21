@@ -21,7 +21,7 @@ cdef class LinearModel:
     cdef size_t n_corr
     cdef size_t total
     cdef Pool mem
-    cdef PreshMapArray weights
+    cdef PreshMap weights
     cdef ScoresCache cache
     cdef weight_t* scores
     cdef WeightLine** _weight_lines

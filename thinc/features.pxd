@@ -1,30 +1,35 @@
-from libc.stdint cimport uint64_t, int64_t
 from cymem.cymem cimport Pool
 
+from .typedefs cimport *
 
-DEF MAX_FEAT_LEN = 10
+DEF MAX_TEMPLATE_LEN = 10
+DEF MAX_FEATS = 200
+
+
+ctypedef int (*eval_func)(feat_t*, int, int, atom_t*, int, void*) nogil
+
+
+cpdef enum FeatureFuncName:
+    ConjFeat
+    BackoffFeat
+    MatchFeat
+    N_FEATURE_FUNCS
+
+
+cdef eval_func[<int>N_FEATURE_FUNCS] FEATURE_FUNCS
 
 
 cdef struct Template:
-    size_t id
-    size_t n
-    uint64_t[MAX_FEAT_LEN] raws
-    size_t[MAX_FEAT_LEN] args
-
-
-cdef struct MatchPred:
-    size_t id
-    size_t idx1
-    size_t idx2
-    size_t[2] raws
+    int id
+    int n
+    int[MAX_TEMPLATE_LEN] indices
+    atom_t[MAX_TEMPLATE_LEN] atoms
+    eval_func func
 
 
 cdef class Extractor:
     cdef Pool mem
-    cdef size_t nr_template
     cdef Template* templates
-    cdef readonly size_t nr_match
-    cdef readonly size_t nr_feat
-    cdef MatchPred* match_preds
-    cdef int extract(self, uint64_t* features, size_t* context) except -1
-    cdef int count(self, dict counts, uint64_t* features, double inc) except -1
+    cdef int n
+    cdef int extract(self, feat_t* feats, weight_t* values, atom_t* atoms, void* extra_args) except -1
+    cdef int count(self, dict counts, feat_t* feats, weight_t inc) except -1
