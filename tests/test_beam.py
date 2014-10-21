@@ -1,6 +1,6 @@
 import pytest
 
-from thinc.search.beam import Beam
+from thinc.search import Beam
 
 
 def test_fill():

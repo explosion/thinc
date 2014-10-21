@@ -5,8 +5,8 @@ from libcpp.pair cimport pair
 from libcpp.queue cimport priority_queue
 from libcpp.vector cimport vector
 
-from thinc.ml.learner cimport weight_t
-from thinc.ml.learner cimport class_t
+from thinc.learner cimport weight_t
+from thinc.learner cimport class_t
 
 
 ctypedef pair[size_t, size_t] Candidate
