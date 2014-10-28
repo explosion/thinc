@@ -8,7 +8,7 @@ from thinc.learner import LinearModel
 
 def test_basic():
     model = LinearModel(7, 4)
-    model.update({0: {1: 1, 3: -5}, 1: {2: 4, 3: 5}})
+    model.update({1: {1: 1, 3: -5}, 2: {2: 4, 3: 5}})
     assert model([2])[:2] == [0, 4]
     assert model([1])[:2] == [1, 0]
     assert model([3])[:2] == [-5, 5]
@@ -21,19 +21,19 @@ def test_basic():
 def instances():
     instances = [
         {
-            0: {1: -1, 2: 1},
-            1: {1: 5, 2: -5},
-            2: {1: 3, 2: -3},
+            1: {1: -1, 2: 1},
+            2: {1: 5, 2: -5},
+            3: {1: 3, 2: -3},
         },
         {
-            0: {1: -1, 2: 1},
+            1: {1: -1, 2: 1},
+            2: {1: -1, 2: 2},
+            3: {1: 3, 2: -3},
+        },
+        {
             1: {1: -1, 2: 2},
-            2: {1: 3, 2: -3},
-        },
-        {
-            0: {1: -1, 2: 2},
-            1: {1: 5, 2: -5}, 
-            2: {4: 1, 5: -7, 2: 1}
+            2: {1: 5, 2: -5}, 
+            3: {4: 1, 5: -7, 2: 1}
         }
     ]
     return instances
@@ -72,15 +72,16 @@ def test_averaging(model):
 
 
 def test_dump_load(model):
-    output = StringIO.StringIO()
-    model.dump(output)
-    string = output.getvalue()
+    loc = '/tmp/test_model'
+    model.end_training()
+    model.dump(loc)
+    string = open(loc, 'rb').read()
     assert string
     new_model = LinearModel(3, 6)
     assert model([1, 3, 4]) != new_model([1, 3, 4])
     assert model([2, 5]) != new_model([2, 5])
     assert model([2, 3, 4]) != new_model([2, 3, 4])
-    new_model.load(StringIO.StringIO(string))
+    new_model.load(loc)
     assert model([1, 3, 4]) == new_model([1, 3, 4])
     assert model([2, 5]) == new_model([2, 5])
     assert model([2, 3, 4]) == new_model([2, 3, 4])
