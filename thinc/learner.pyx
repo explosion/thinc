@@ -1,12 +1,13 @@
 # cython: profile=True
+from libc.stdio cimport fopen, fclose, fread, fwrite, feof, fseek
+from libc.errno cimport errno
+from libc.string cimport memcpy
+from libc.string cimport memset
+
 import random
 import humanize
 import cython
-
-from libc.stdlib cimport strtoull, strtoul, atof, atoi
-from libc.string cimport strtok
-from libc.string cimport memcpy
-from libc.string cimport memset
+from os import path
 
 from murmurhash.mrmr cimport hash64
 from cymem.cymem cimport Address
@@ -108,89 +109,123 @@ cdef class LinearModel:
         self.total = 0
         return msg
 
-    def dump(self, file_, class_t freq_thresh=0):
+    def dump(self, loc, class_t freq_thresh=0):
         cdef feat_t feat_id
         cdef class_t row
         cdef size_t i
-        cdef class_t nr_rows = get_nr_rows(self.nr_class)
-        cdef MapStruct* weights
+        cdef MapStruct* weights = self.weights.c_map
+        cdef _Writer writer = _Writer(loc, self.nr_class, freq_thresh)
         for template_id in range(self.nr_templates):
-            weights = self.weights.c_map
             for i in range(weights.length):
                 if weights.cells[i].key == 0:
                     continue
-                feat_id = weights.cells[i].key
-                feat = <TrainFeat*>weights.cells[i].value
-                if feat == NULL:
-                    continue
-                total_freq = get_total_count(feat, self.nr_class)
-                if freq_thresh >= 1 and total_freq < freq_thresh:
-                    continue
-                for row in range(nr_rows):
-                    if feat.weights[row] == NULL:
-                        continue
-                    line = []
-                    line.append(str(total_freq))
-                    line.append(str(template_id))
-                    line.append(str(feat_id))
-                    line.append(str(row))
-                    line.append(str(row * LINE_SIZE))
-                    seen_non_zero = False
-                    for col in range(LINE_SIZE):
-                        val = '%d' % feat.weights[row].line[col]
-                        line.append(val)
-                        if val != '0':
-                            seen_non_zero = True
-                    if seen_non_zero:
-                        file_.write('\t'.join(line))
-                        file_.write('\n')
+                writer.write(weights.cells[i].key, <TrainFeat*>weights.cells[i].value)
+        writer.close()
 
-    def load(self, file_, freq_thresh=0):
+    def load(self, loc, freq_thresh=0):
         cdef size_t template_id
         cdef feat_t feat_id
         cdef count_t freq
         cdef class_t nr_rows, row, start
         cdef class_t col
         cdef bytes py_line
-        cdef bytes token
+        cdef char* token
+        cdef char* line
         cdef TrainFeat* feature
         cdef WeightLine* wline
-        nr_rows = get_nr_rows(self.nr_class)
-        nr_feats = 0
-        nr_weights = 0
-        for py_line in file_:
-            line = <char*>py_line
-            token = strtok(line, '\t')
-            freq = <count_t>strtoul(token, NULL, 10)
-            token = strtok(NULL, '\t')
-            template_id = <class_t>strtoul(token, NULL, 10)
-            token = strtok(NULL, '\t')
-            feat_id = strtoul(token, NULL, 10)
-            token = strtok(NULL, '\t')
-            row = <class_t>strtoul(token, NULL, 10)
-            token = strtok(NULL, '\t')
-            start = <class_t>strtoul(token, NULL, 10)
-            if freq_thresh >= 1 and freq < freq_thresh:
+        cdef _Reader reader = _Reader(loc, self.nr_class, freq_thresh)
+        while reader.read(self.mem, &feat_id, &feature):
+            self.weights.set(feat_id, feature)
+
+
+cdef class _Writer:
+    def __init__(self, object loc, nr_class, freq_thresh):
+        if path.exists(loc):
+            assert not path.isdir(loc)
+        cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
+        self._fp = fopen(<char*>bytes_loc, 'wb')
+        fseek(self._fp, 0, 0)
+        assert self._fp != NULL
+        self._nr_class = nr_class
+        self._freq_thresh = freq_thresh
+
+    def close(self):
+        cdef size_t status = fclose(self._fp)
+        assert status == 0
+
+    cdef int write(self, feat_t feat_id, TrainFeat* feat) except -1:
+        cdef count_t total_freq
+        cdef class_t n_rows
+        if feat == NULL:
+            return 0
+        total_freq = get_total_count(feat, self._nr_class)
+        #if self._freq_thresh >= 1 and total_freq < self._freq_thresh:
+        #    return 0
+        active_rows = []
+        cdef class_t row
+        for row in range(get_nr_rows(self._nr_class)):
+            if feat.weights[row] == NULL:
                 continue
-            feature = <TrainFeat*>self.weights.get(feat_id)
-            if feature == NULL:
-                nr_feats += 1
-                feature = new_train_feat(self.mem, self.nr_class)
-                self.weights.set(feat_id, feature)
-                feature.length = 0
-            wline = NULL
-            for i in range(feature.length):
-                if feature.weights[i].start == start:
-                    wline = feature.weights[i]
-                    break
-            else:
-                wline = <WeightLine*>self.mem.alloc(1, sizeof(WeightLine))
-                wline.start = start
-                feature.weights[feature.length] = wline
-                feature.length += 1
- 
             for col in range(LINE_SIZE):
-                token = strtok(NULL, '\t')
-                wline.line[col] = atoi(token)
-                nr_weights += 1
-        print "Loading %d class... %d weights for %d features" % (self.nr_class, nr_weights, nr_feats)
+                if feat.weights[row].line[col] != 0:
+                    active_rows.append(row)
+                    break
+        status = fwrite(&total_freq, sizeof(total_freq), 1, self._fp)
+        assert status == 1
+        status = fwrite(&feat_id, sizeof(feat_id), 1, self._fp)
+        assert status == 1
+        n_rows = len(active_rows)
+        status = fwrite(&n_rows, sizeof(n_rows), 1, self._fp)
+        assert status == 1
+        for row in active_rows:
+            status = fwrite(feat.weights[row], sizeof(WeightLine), 1, self._fp)
+            assert status == 1
+
+
+cdef class _Reader:
+    def __init__(self, loc, nr_class, freq_thresh):
+        assert path.exists(loc)
+        assert not path.isdir(loc)
+        cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
+        self._fp = fopen(<char*>bytes_loc, 'rb')
+        assert self._fp != NULL
+        status = fseek(self._fp, 0, 0)
+        assert status == 0
+        self._nr_class = nr_class
+        self._freq_thresh = freq_thresh
+
+    def __dealloc__(self):
+        fclose(self._fp)
+
+    cdef int read(self, Pool mem, feat_t* out_id, TrainFeat** out_feat) except -1:
+        cdef count_t total_freq
+        cdef feat_t feat_id
+        cdef class_t n_rows
+        cdef class_t row
+        cdef size_t status
+        status = fread(&total_freq, sizeof(count_t), 1, self._fp)
+        if status == 0:
+            return 0
+        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
+        assert status
+        status = fread(&n_rows, sizeof(n_rows), 1, self._fp)
+        assert status
+        
+        feat = <TrainFeat*>mem.alloc(sizeof(TrainFeat), 1)
+        feat.weights = <WeightLine**>mem.alloc(sizeof(WeightLine*), n_rows)
+        feat.length = n_rows
+        cdef int i
+        for i in range(n_rows):
+            feat.weights[i] = <WeightLine*>mem.alloc(sizeof(WeightLine), 1)
+            status = fread(feat.weights[i], sizeof(WeightLine), 1, self._fp)
+            if status == 0:
+                out_feat[0] = feat
+                out_id[0] = feat_id
+                return 0
+
+        out_feat[0] = feat
+        out_id[0] = feat_id
+        if feof(self._fp):
+            return 0
+        else:
+            return 1
