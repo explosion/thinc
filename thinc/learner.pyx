@@ -159,8 +159,8 @@ cdef class _Writer:
         if feat == NULL:
             return 0
         total_freq = get_total_count(feat, self._nr_class)
-        #if self._freq_thresh >= 1 and total_freq < self._freq_thresh:
-        #    return 0
+        if self._freq_thresh >= 1 and total_freq < self._freq_thresh:
+            return 0
         active_rows = []
         cdef class_t row
         for row in range(get_nr_rows(self._nr_class)):
