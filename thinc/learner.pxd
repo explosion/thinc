@@ -1,3 +1,5 @@
+from libc.stdio cimport FILE
+
 from cymem.cymem cimport Pool
 
 from preshed.maps cimport PreshMap
@@ -28,3 +30,19 @@ cdef class LinearModel:
 
     cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except 0
     cpdef int update(self, dict counts) except -1
+
+
+cdef class _Writer:
+    cdef FILE* _fp
+    cdef class_t _nr_class
+    cdef count_t _freq_thresh
+
+    cdef int write(self, feat_t feat_id, TrainFeat* feat) except -1
+
+
+cdef class _Reader:
+    cdef FILE* _fp
+    cdef class_t _nr_class
+    cdef count_t _freq_thresh
+
+    cdef int read(self, Pool mem, feat_t* out_id, TrainFeat** out_feat) except -1
