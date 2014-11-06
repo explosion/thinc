@@ -101,9 +101,10 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
     cdef class_t col = get_col(clas)
     feat.meta[row][col].count += inc
 
+DEF MAX_ACTIVE = 2000
 
-cdef class_t gather_weights(MapStruct* map_, class_t nr_class,
-                            WeightLine** w_lines, feat_t* feats) except *:
+cdef int gather_weights(MapStruct* map_, class_t nr_class,
+        WeightLine** w_lines, feat_t* feats) except -1:
     cdef:
         TrainFeat* feature
         feat_t feat_id
