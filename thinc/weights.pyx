@@ -1,4 +1,5 @@
 cimport cython
+from libc.math cimport sqrt
 
 from preshed.maps cimport map_get
 
@@ -25,20 +26,6 @@ cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
     output.meta = <MetaData**>mem.alloc(nr_lines, sizeof(MetaData*))
     output.length = nr_lines
     return output
-
-
-cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
-                        time_t time) except -1:
-    cdef class_t row = get_row(clas)
-    cdef class_t col = get_col(clas)
-    if feat.meta[row] == NULL:
-        feat.meta[row] = <MetaData*>mem.alloc(LINE_SIZE, sizeof(MetaData))
-    if feat.weights[row] == NULL:
-        feat.weights[row] = <WeightLine*>mem.alloc(1, sizeof(WeightLine))
-    feat.weights[row].start = clas - col
-    update_accumulator(feat, clas, time)
-    update_count(feat, clas, 1)
-    update_weight(feat, clas, upd)
 
 
 cdef count_t get_total_count(TrainFeat* feat, const class_t n) except 0:
@@ -73,11 +60,44 @@ cdef class_t get_nr_rows(const class_t n) nogil:
     return nr_lines
 
 
-cdef int update_weight(TrainFeat* feat, const class_t clas, const weight_t inc) except -1:
+cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
+                        time_t time) except -1:
+    assert upd != 0
+    cdef class_t row = get_row(clas)
+    cdef class_t col = get_col(clas)
+    if feat.meta[row] == NULL:
+        feat.meta[row] = <MetaData*>mem.alloc(LINE_SIZE, sizeof(MetaData))
+    if feat.weights[row] == NULL:
+        feat.weights[row] = <WeightLine*>mem.alloc(1, sizeof(WeightLine))
+    feat.weights[row].start = clas - col
+    update_accumulator(feat, clas, time)
+    update_count(feat, clas, 1)
+    update_gradient(feat, clas, upd)
+    update_weight(feat, clas, upd)
+
+DEF RHO = 0.95
+DEF ETA = 1e-6
+cdef weight_t root_mean_square(weight_t prev, weight_t new) except -1:
+    return (RHO * prev) + ((1 - RHO) * new ** 2) + ETA
+
+
+
+cdef weight_t update_gradient(TrainFeat* feat, const class_t clas, const weight_t g):
+    cdef class_t row = get_row(clas)
+    cdef class_t col = get_col(clas)
+    feat.meta[row][col].rms_grad = root_mean_square(feat.meta[row][col].rms_grad, g)
+
+
+cdef int update_weight(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
     '''Update the weight for a parameter (a {feature, class} pair).'''
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
-    feat.weights[row].line[col] += inc
+    cdef weight_t rms_upd = feat.meta[row][col].rms_upd
+    cdef weight_t rms_grad = feat.meta[row][col].rms_grad
+    cdef weight_t upd = (rms_upd / rms_grad) * g
+
+    feat.weights[row].line[col] += upd
+    feat.meta[row][col].rms_upd = root_mean_square(feat.meta[row][col].rms_upd, upd)
 
 
 cdef int update_accumulator(TrainFeat* feat, const class_t clas, const time_t time) except -1:
@@ -101,7 +121,6 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
     cdef class_t col = get_col(clas)
     feat.meta[row][col].count += inc
 
-DEF MAX_ACTIVE = 2000
 
 cdef int gather_weights(MapStruct* map_, class_t nr_class,
         WeightLine** w_lines, feat_t* feats) except -1:

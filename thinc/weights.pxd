@@ -27,6 +27,8 @@ cdef struct WeightLine:
 
 cdef struct MetaData:
     weight_t total
+    weight_t rms_grad
+    weight_t rms_upd
     count_t count
     time_t time
     
