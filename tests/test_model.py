@@ -7,7 +7,7 @@ from thinc.learner import LinearModel
 
 
 def test_basic():
-    model = LinearModel(7, 4)
+    model = LinearModel(7)
     model.update({1: {1: 1, 3: -5}, 2: {2: 4, 3: 5}})
     assert model([2])[:2] == [0, 4]
     assert model([1])[:2] == [1, 0]
@@ -41,7 +41,7 @@ def instances():
 
 @pytest.fixture
 def model(instances):
-    m = LinearModel(3, 6)
+    m = LinearModel(3)
     classes = range(3)
     for counts in instances:
         m.update(counts)
@@ -77,7 +77,7 @@ def test_dump_load(model):
     model.dump(loc)
     string = open(loc, 'rb').read()
     assert string
-    new_model = LinearModel(3, 6)
+    new_model = LinearModel(3)
     assert model([1, 3, 4]) != new_model([1, 3, 4])
     assert model([2, 5]) != new_model([2, 5])
     assert model([2, 3, 4]) != new_model([2, 3, 4])
