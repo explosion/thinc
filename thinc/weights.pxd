@@ -1,3 +1,5 @@
+from .typedefs cimport weight_t, feat_t, class_t, count_t, time_t
+
 from libc.stdint cimport uint64_t
 from libc.stdint cimport uint32_t
 from libc.stdint cimport uint16_t
@@ -12,15 +14,6 @@ from preshed.maps cimport Cell
 
 # Number of weights in a line. Should be aligned to cache lines.
 DEF LINE_SIZE = 8
-
-ctypedef int weight_t
-
-# Typedef numeric types, to make them easier to change and ensure consistency
-ctypedef uint64_t feat_t
-ctypedef uint32_t class_t
-ctypedef uint32_t count_t
-ctypedef uint32_t time_t
-
 
 ctypedef weight_t[LINE_SIZE] weight_line_t
 
