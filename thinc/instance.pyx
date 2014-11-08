@@ -1,25 +1,76 @@
-cdef class Instance:
-    def __init__(self, int n_atoms, int n_feats, int n_classes):
+from libc.string cimport memset
+
+from .weights cimport arg_max
+from .features cimport ConjFeat
+
+
+from os import path
+
+
+cdef class Brain:
+    def __init__(self, int n_atoms, int n_classes, list templates, load_from=None):
         self.mem = Pool()
+        self._extr = Extractor(templates, [ConjFeat] * len(templates))
+        self._model = LinearModel(n_classes)
+        if load_from is not None:
+            assert path.exists(load_from)
+            self._model.load(path.join(load_from))
+        self.n_classes = self._model.nr_class
         self.n_atoms = n_atoms
-        self.n_classes = n_classes
-        self.n_feats = n_feats
-        self.atoms = <atom_t*>self.mem.alloc(n_atoms, sizeof(atom_t))
-        self.feats = <feat_t*>self.mem.alloc(n_feats, sizeof(feat_t))
-        self.values = <weight_t*>self.mem.alloc(n_feats, sizeof(weight_t))
-        self.scores = <weight_t*>self.mem.alloc(n_classes, sizeof(weight_t))
-        self.clas = 0
+        self.feats = <feat_t*>self.mem.alloc(self._extr.n, sizeof(feat_t))
+        self.values = <weight_t*>self.mem.alloc(self._extr.n, sizeof(weight_t))
+        self.scores = <weight_t*>self.mem.alloc(self.model.nr_class, sizeof(weight_t))
 
-    def extract(self, int[:] atoms, Extractor extractor):
+        self._is_valid = <bint*>self.mem.alloc(self.model.nr_class, sizeof(bint))
+        self._is_gold = <bint*>self.mem.alloc(self.model.nr_class, sizeof(bint))
+
+    cdef void score(self, weight_t* scores, atom_t* atoms):
+        self._extr.extract(self.feats, self.values, atoms, NULL)
+        self._model.score(scores, self.feats, self.values)
+
+    cdef class_t predict(self, atom_t* atoms) except 0:
+        self.score(self.scores, atoms)
+        return arg_max(self.scores, self.n_classes)
+
+    cdef class_t predict_among(self, atom_t* atoms, list valid_classes) except 0:
+        memset(self._is_valid, 0, sizeof(bint) * self.n_classes)
+        cdef int clas
+        for clas in valid_classes:
+            self._is_valid[clas] = True
+        self.score(self.scores, atoms)
+        cdef int best_i = -1
         cdef int i
-        cdef atom_t atom
-        for i, atom in enumerate(atoms):
-            self.atoms[i] = atom
-        extractor.extract(self.feats, self.values, self.atoms, NULL)
+        cdef weight_t best_score = -10000
+        for i in range(self.n_classes):
+            if self._is_valid[i] and self._scores[i] > best_score:
+                best_score = self._scores[i]
+                best_i = i
+        # Classes offset by 1, to reserve 0 as a missing value
+        return best_i + 1
 
-    def predict(self, LinearModel model):
-        self.clas = model.score(self.scores, self.feats, self.values)
-        return self.clas
+    cdef tuple learn(self, atom_t* atoms, list valid_classes, list gold_classes):
+        self.score(self.scores, atoms)
+        cdef int best_p = -1
+        cdef int best_g = -1
+        cdef weight_t p_score = -100000
+        cdef weight_t g_score = -100000
+        memset(self._is_valid, False, sizeof(bint) * self.n_classes)
+        cdef int clas
+        for clas in valid_classes:
+            self._is_valid[clas] = True
+        memset(self._is_gold, False, sizeof(bint) * self.n_classes)
+        for clas in gold_classes:
+            self._is_gold[clas] = True
+        cdef weight_t* scores = self.scores
+        for i in range(self.n_classes):
+            if self._is_valid[i] and scores[i] > p_score:
+                best_p = i
+                p_score = scores[i]
+            if self._is_gold[i] and scores[i] > g_score:
+                best_g = i
+                g_score = scores[i]
+        # Classes offset by 1, to reserve 0 as a missing value
+        return (best_p + 1, best_g + 1)
 
     property feats:
         def __get__(self):
