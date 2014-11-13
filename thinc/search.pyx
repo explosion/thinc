@@ -3,12 +3,14 @@ from cymem.cymem cimport Pool
 
 cdef class Beam:
     def __init__(self, class_t nr_class, class_t width):
+        assert nr_class != 0
+        assert width != 0
         self.nr_class = nr_class
         self.width = width
+        self.size = 1
         self.mem = Pool()
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
-        self.size = 1
 
     property score:
         def __get__(self):
@@ -19,7 +21,8 @@ cdef class Beam:
 
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1:
         for i in range(self.width):
-            init_func(self.mem, self._states[i].content, extra_args)
+            self._states[i].content = init_func(self.mem, n, extra_args)
+            self._parents[i].content = init_func(self.mem, n, extra_args)
 
     cdef int advance(self, weight_t** scores, bint** is_valid, int** costs,
                      trans_func_t transition_func, void* extra_args) except -1:
