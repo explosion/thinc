@@ -20,8 +20,6 @@ from .weights cimport update_feature
 from .weights cimport gather_weights, set_scores
 from .weights cimport get_nr_rows
 
-from .instance cimport Instance
-
 
 DEF LINE_SIZE = 8
 
