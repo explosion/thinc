@@ -37,6 +37,9 @@ cdef class Beam:
     cdef class_t width
     cdef class_t size
     cdef Queue q
+    cdef weight_t** scores
+    cdef bint** is_valid
+    cdef int** costs
     cdef _State* _parents
     cdef _State* _states
 
@@ -44,10 +47,13 @@ cdef class Beam:
 
     cdef void* at(self, int i)
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1
-    cdef int advance(self, weight_t** scores, bint** is_valid, int** costs,
-                     trans_func_t transition_func, void* extra_args) except -1
+    cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1
  
+
+    cpdef int set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) except -1
+    cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1
+    cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1
 
 
 cdef class MaxViolation:

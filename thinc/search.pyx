@@ -1,3 +1,6 @@
+cimport cython
+from libc.string cimport memset, memcpy
+
 from cymem.cymem cimport Pool
 
 
@@ -12,9 +15,37 @@ cdef class Beam:
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
 
+        self.scores = <weight_t**>self.mem.alloc(self.width, sizeof(weight_t*))
+        self.is_valid = <bint**>self.mem.alloc(self.width, sizeof(bint*))
+        self.costs = <int**>self.mem.alloc(self.width, sizeof(int*))
+        cdef int i
+        for i in range(self.width):
+            self.scores[i] = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
+            self.is_valid[i] = <bint*>self.mem.alloc(self.nr_class, sizeof(bint))
+            self.costs[i] = <int*>self.mem.alloc(self.nr_class, sizeof(int))
+
     property score:
         def __get__(self):
-            return self.state[0].score
+            return self.q.top().first
+
+    cpdef int set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) except -1:
+        self.scores[i][j] = score
+        self.is_valid[i][j] = is_valid
+        self.costs[i][j] = cost
+ 
+    cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1:
+        cdef int j
+        for j in range(self.nr_class):
+            self.scores[i][j] = scores[j]
+            self.is_valid[i][j] = is_valid[j]
+            self.costs[i][j] = costs[j]
+
+    cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1:
+        cdef int i, j
+        for i in range(self.width):
+            memcpy(self.scores[i], scores[i], sizeof(weight_t) * self.nr_class)
+            memcpy(self.is_valid[i], is_valid[i], sizeof(bint) * self.nr_class)
+            memcpy(self.costs[i], costs[i], sizeof(int) * self.nr_class)
     
     cdef void* at(self, int i):
         return self._states[i].content
@@ -24,10 +55,11 @@ cdef class Beam:
             self._states[i].content = init_func(self.mem, n, extra_args)
             self._parents[i].content = init_func(self.mem, n, extra_args)
 
-    cdef int advance(self, weight_t** scores, bint** is_valid, int** costs,
-                     trans_func_t transition_func, void* extra_args) except -1:
-        cdef _State* parent
-        cdef _State* state
+    cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1:
+        cdef weight_t** scores = self.scores
+        cdef bint** is_valid = self.is_valid
+        cdef int** costs = self.costs
+
         self._fill(scores, is_valid)
         # For a beam of width k, we only ever need 2k state objects. How?
         # Each transition takes a parent and a class and produces a new state.
@@ -35,8 +67,13 @@ cdef class Beam:
         # each step, we take a parent, and apply one or more extensions to
         # it.
         self._parents, self._states = self._states, self._parents
+        cdef weight_t score
+        cdef int p_i
         cdef int i = 0
-        while i < self.width:
+        cdef class_t clas
+        cdef _State* parent
+        cdef _State* state
+        while i < self.width and not self.q.empty():
             score, (p_i, clas) = self.q.top()
             self.q.pop()
             # Indicates terminal state reached; i.e. state is done
@@ -51,12 +88,16 @@ cdef class Beam:
             # The supplied transition function should adjust the destination
             # state to be the result of applying the class to the source state
             transition_func(state.content, parent.content, clas, extra_args)
-            state.score += scores[i][clas]
-            state.loss += costs[i][clas]
-            state.hist[state.t] = clas
-            state.t += 1
+            state.score = parent.score + scores[p_i][clas]
+            state.loss = parent.loss + costs[p_i][clas]
+            #state.hist[state.t] = clas
+            #state.t += 1
             i += 1
         self.size = i
+        for i in range(self.width):
+            memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
+            memset(self.is_valid[i], False, sizeof(bint) * self.nr_class)
+            memset(self.costs[i], 0, sizeof(int) * self.nr_class)
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
@@ -81,11 +122,13 @@ cdef class Beam:
             if s.is_done:
                 # Update score by path average, following TACL '13 paper.
                 entry = Entry(s.score + (s.score / s.t), Candidate(i, 0))
+                self.q.push(entry)
                 continue
             for j in range(self.nr_class):
                 if is_valid[i][j]:
                     entry = Entry(scores[i][j], Candidate(i, j))
                     self.q.push(entry)
+
 
 
 cdef class MaxViolation:
