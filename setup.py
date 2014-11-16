@@ -41,16 +41,24 @@ compile_args = []
 link_args = []
 
 exts = [
-    Extension('thinc.ml.learner', ['thinc/ml/learner.pyx'],
+    Extension('thinc.learner', ['thinc/learner.pyx'],
               language="c++",
               include_dirs=includes,
               extra_compile_args=['-O3'] + compile_args,
               extra_link_args=['-O3'] + link_args),
-    Extension("thinc.features.extractor", ["thinc/features/extractor.pyx"],
+    Extension('thinc.weights', ['thinc/weights.pyx'],
+              language="c++",
+              include_dirs=includes,
+              extra_compile_args=['-O3'] + compile_args,
+              extra_link_args=['-O3'] + link_args),
+    Extension("thinc.features", ["thinc/features.pyx"],
               language="c++", include_dirs=includes,
               extra_compile_args=compile_args,
               extra_link_args=link_args),
-    Extension("thinc.search.beam", ["thinc/search/beam.pyx"], language="c++")
+    Extension("thinc.search", ["thinc/search.pyx"], language="c++"),
+    Extension("thinc.thinc", ["thinc/thinc.pyx"], language="c++"),
+    Extension("thinc.cache", ["thinc/cache.pyx"], include_dirs=includes, language="c++"),
+    Extension("tests.c_test_search", ["tests/c_test_search.pyx"], include_dirs=includes, language="c++")
 ]
 
 
@@ -60,14 +68,12 @@ if sys.argv[1] == 'clean':
 
 distutils.core.setup(
     name='thinc',
-    packages=['thinc', 'thinc.ml', 'thinc.features', 'thinc.search'],
+    packages=['thinc'],
     version='1.1',
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
-    package_data={"thinc": ["__init__.pxd", "features/*.pxd", "ml/*.pxd",
-                            "search/*.pxd"]
-    },
+    package_data={"thinc": ["*.pxd"]},
     cmdclass={'build_ext': Cython.Distutils.build_ext},
     ext_modules=exts,
 )

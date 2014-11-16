@@ -1,3 +1,5 @@
+.env/
+.python/
 *.pyc
 *.swp
 *.swo
