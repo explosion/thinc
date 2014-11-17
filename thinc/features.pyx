@@ -104,7 +104,7 @@ cdef class Extractor:
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.
         templates = tuple(sorted(set([tuple(sorted(f)) for f in templates])))
-        self.n = len(templates) + 1
+        self.n = len(templates) + 2
         self.templates = <Template*>self.mem.alloc(self.n, sizeof(Template))
         # Sort each feature, and sort and unique the set of them
         cdef int i, j
@@ -135,7 +135,7 @@ cdef class Extractor:
         # Always include this feature to give classifier priors over the classes
         feats[0] = 1
         f += 1
-        for i in range(self.n-1):
+        for i in range(self.n-2):
             templ = &self.templates[i]
             for j in range(templ.n):
                 templ.atoms[j] = atoms[templ.indices[j]]
