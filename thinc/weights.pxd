@@ -44,7 +44,7 @@ cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL
 cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
                         time_t time) except -1
 cdef count_t get_total_count(TrainFeat* feat, const class_t n) except 0
-cdef class_t arg_max(weight_t* scores, class_t n_classes) except 0
+cdef class_t arg_max(weight_t* scores, class_t n_classes) except -1
 cdef int gather_weights(MapStruct* maps, class_t nr_class,
                             WeightLine** w_lines, feat_t* feat_ids) except -1
 cdef int set_scores(weight_t* scores, WeightLine** weight_lines,

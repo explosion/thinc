@@ -5,11 +5,9 @@ from preshed.maps cimport map_get
 
 
 DEF LINE_SIZE = 8
-DEF RHO = 0.95
-DEF ETA = 1e-6
 
 
-cdef class_t arg_max(weight_t* scores, class_t n_classes) except 0:
+cdef class_t arg_max(weight_t* scores, class_t n_classes) except -1:
     cdef class_t best = 0
     cdef weight_t mode = scores[0]
     cdef int i
@@ -17,8 +15,7 @@ cdef class_t arg_max(weight_t* scores, class_t n_classes) except 0:
         if scores[i] > mode:
             best = i
             mode = scores[i]
-    # NB: Everything's offset 1, 0 is reserved as missing value
-    return best+1
+    return best
 
 
 cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
@@ -67,7 +64,6 @@ cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
     assert upd != 0
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
-    cdef int i
     if feat.meta[row] == NULL:
         feat.meta[row] = <MetaData*>mem.alloc(LINE_SIZE, sizeof(MetaData))
     if feat.weights[row] == NULL:
@@ -79,6 +75,8 @@ cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
     update_weight(feat, clas, upd)
 
 
+DEF RHO = 0.95
+DEF ETA = 1e-6
 cdef weight_t root_mean_square(weight_t prev, weight_t new) except -1:
     return (RHO * prev) + ((1 - RHO) * new ** 2) + ETA
 
@@ -88,7 +86,6 @@ cdef weight_t update_gradient(TrainFeat* feat, const class_t clas, const weight_
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
     feat.meta[row][col].rms_grad = root_mean_square(feat.meta[row][col].rms_grad, g)
-
 
 cdef int update_weight(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
     '''Update the weight for a parameter (a {feature, class} pair).'''
@@ -101,7 +98,6 @@ cdef int update_weight(TrainFeat* feat, const class_t clas, const weight_t g) ex
         rms_upd = feat.meta[row][col].rms_upd
     rms_grad = feat.meta[row][col].rms_grad
     upd = (rms_upd / rms_grad) * g
-
     feat.weights[row].line[col] += upd
     feat.meta[row][col].rms_upd = root_mean_square(feat.meta[row][col].rms_upd, upd)
 

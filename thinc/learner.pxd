@@ -29,7 +29,7 @@ cdef class LinearModel:
     cdef WeightLine** _weight_lines
     cdef size_t _max_wl
 
-    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except 0
+    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except -1
     cpdef int update(self, dict counts) except -1
 
 

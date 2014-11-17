@@ -54,7 +54,7 @@ cdef class LinearModel:
         self.score(self.scores, c_feats, c_values)
         return [self.scores[i] for i in range(self.nr_class)]
 
-    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except 0:
+    cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except -1:
         cdef int i = 0
         while features[i] != 0:
             i += 1
@@ -78,7 +78,7 @@ cdef class LinearModel:
         cdef int i
         self.time += 1
         for clas, feat_counts in counts.items():
-            assert clas != 0
+            assert clas >= 0
             for feat_id, upd in feat_counts.items():
                 if upd == 0:
                     continue
@@ -86,7 +86,7 @@ cdef class LinearModel:
                 if feat == NULL:
                     feat = new_train_feat(self.mem, self.nr_class)
                     self.weights.set(feat_id, feat)
-                update_feature(self.mem, feat, clas-1, upd, self.time)
+                update_feature(self.mem, feat, clas, upd, self.time)
 
     def end_training(self):
         cdef MapStruct* map_
