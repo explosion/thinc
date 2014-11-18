@@ -60,10 +60,10 @@ def test_initialize_extra(nr_class, beam_width, length, unicode extra):
 def test_transition(nr_class=3, beam_width=6, length=3):
     b = Beam(nr_class, beam_width)
     b.initialize(initialize, length, NULL)
-    b.set_cell(5, 2, 30, True, 0)
-    b.set_cell(4, 1, 42, False, 0)
+    b.set_cell(0, 2, 30, True, 0)
+    b.set_cell(0, 1, 42, False, 0)
     b.advance(transition, NULL)
-    assert b.size == 1
+    assert b.size == 1, b.size
     assert b.score == 30, b.score
     s = <TestState*>b.at(0)
     assert s.x == 3
