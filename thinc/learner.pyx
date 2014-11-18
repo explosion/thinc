@@ -25,6 +25,15 @@ DEF LINE_SIZE = 8
 
 
 cdef class LinearModel:
+    '''A linear model for online supervised classification. Currently uses
+    the ADADELTA algorithm to learn weights. Supports parameter averaging.
+    Expected use is via Cython --- the Python API is impoverished and inefficient.
+
+    Emphasis is on efficiency for multi-class classification, where the number
+    of classes is in the dozens or low hundreds.  The weights data structure
+    is neither fully dense nor fully sparse. Instead, it's organized into
+    small "lines", roughly corresponding to a cache line.
+    '''
     def __init__(self, nr_class):
         self.total = 0
         self.n_corr = 0
