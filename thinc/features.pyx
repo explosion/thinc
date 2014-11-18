@@ -10,6 +10,7 @@ DEF MAX_FEATS = 200
 
 cdef int non_zero_conj_feat(feat_t* feats, int f, atom_t* atoms, int n, void* _) nogil:
     cdef bint seen_non_zero = False
+    cdef int i
     for i in range(n):
         if atoms[i] != 0:
             seen_non_zero = True
