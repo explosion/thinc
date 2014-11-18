@@ -13,6 +13,7 @@ cdef class Beam:
         self.width = width
         self.size = 1
         self.mem = Pool()
+        self.q = new Queue()
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
         cdef int i
@@ -30,7 +31,6 @@ cdef class Beam:
     property score:
         def __get__(self):
             return self._states[0].score
-
  
     cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1:
         cdef int j
@@ -116,8 +116,8 @@ cdef class Beam:
         """
         cdef Entry entry
         cdef weight_t score
-        while not self.q.empty():
-            self.q.pop()
+        del self.q
+        self.q = new Queue()
         cdef _State* s
         cdef int i, j, move_id
         for i in range(self.size):

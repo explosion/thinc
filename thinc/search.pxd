@@ -38,7 +38,7 @@ cdef class Beam:
     cdef readonly bint is_done
     cdef list histories
     cdef list _parent_histories
-    cdef Queue q
+    cdef Queue* q
     cdef weight_t** scores
     cdef bint** is_valid
     cdef int** costs
