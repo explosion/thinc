@@ -1,5 +1,6 @@
 cimport cython
 from libc.math cimport sqrt
+from libc.stdlib cimport calloc, free
 
 from preshed.maps cimport map_get
 
@@ -18,11 +19,11 @@ cdef class_t arg_max(weight_t* scores, class_t n_classes) except -1:
     return best
 
 
-cdef TrainFeat* new_train_feat(Pool mem, const class_t nr_class) except NULL:
-    cdef TrainFeat* output = <TrainFeat*>mem.alloc(1, sizeof(TrainFeat))
+cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL:
+    cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
     cdef class_t nr_lines = get_nr_rows(nr_class)
-    output.weights = <WeightLine**>mem.alloc(nr_lines, sizeof(WeightLine*))
-    output.meta = <MetaData**>mem.alloc(nr_lines, sizeof(MetaData*))
+    output.weights = <WeightLine**>calloc(nr_lines, sizeof(WeightLine*))
+    output.meta = <MetaData**>calloc(nr_lines, sizeof(MetaData*))
     output.length = nr_lines
     return output
 
@@ -59,20 +60,34 @@ cdef class_t get_nr_rows(const class_t n) nogil:
     return nr_lines
 
 
-cdef int update_feature(Pool mem, TrainFeat* feat, class_t clas, weight_t upd,
+cdef int update_feature(TrainFeat* feat, class_t clas, weight_t upd,
                         time_t time) except -1:
     assert upd != 0
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
     if feat.meta[row] == NULL:
-        feat.meta[row] = <MetaData*>mem.alloc(LINE_SIZE, sizeof(MetaData))
+        feat.meta[row] = <MetaData*>calloc(LINE_SIZE, sizeof(MetaData))
     if feat.weights[row] == NULL:
-        feat.weights[row] = <WeightLine*>mem.alloc(1, sizeof(WeightLine))
+        feat.weights[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
     feat.weights[row].start = clas - col
     update_accumulator(feat, clas, time)
     update_count(feat, clas, 1)
     update_gradient(feat, clas, upd)
     update_weight(feat, clas, upd)
+
+
+cdef void free_feature(TrainFeat* feat) nogil:
+    cdef int i
+    for i in range(feat.length):
+        if feat.weights != NULL and feat.weights[i] != NULL:
+            free(feat.weights[i])
+        if feat.meta != NULL and feat.meta[i] != NULL:
+            free(feat.meta[i])
+    if feat.weights != NULL:
+        free(feat.weights)
+    if feat.meta != NULL:
+        free(feat.meta)
+    free(feat)
 
 
 DEF RHO = 0.95

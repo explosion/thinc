@@ -3,9 +3,9 @@ from libc.stdio cimport fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
 from libc.string cimport memset
+from libc.stdlib cimport calloc, free
 
 import random
-import humanize
 import cython
 from os import path
 
@@ -19,6 +19,7 @@ from .weights cimport average_weight, arg_max, new_train_feat, get_total_count
 from .weights cimport update_feature
 from .weights cimport gather_weights, set_scores
 from .weights cimport get_nr_rows
+from .weights cimport free_feature
 
 
 DEF LINE_SIZE = 8
@@ -46,6 +47,19 @@ cdef class LinearModel:
         self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
         self._weight_lines = <WeightLine**>self.mem.alloc(self._max_wl,
                                 sizeof(WeightLine*))
+
+    def __dealloc__(self):
+        # Use 'raw' memory management, instead of cymem.Pool, for weights.
+        # The memory overhead of cymem becomes significant here.
+        cdef MapStruct* map_
+        cdef size_t i
+        map_ = self.weights.c_map
+        for i in range(map_.length):
+            if map_.cells[i].key == 0:
+                continue
+            feat = <TrainFeat*>map_.cells[i].value
+            if feat != NULL:
+                free_feature(feat)
 
     def __call__(self, list feats, list values=None):
         cdef int length = len(feats)
@@ -93,9 +107,9 @@ cdef class LinearModel:
                     continue
                 feat = <TrainFeat*>self.weights.get(feat_id)
                 if feat == NULL:
-                    feat = new_train_feat(self.mem, self.nr_class)
+                    feat = new_train_feat(self.nr_class)
                     self.weights.set(feat_id, feat)
-                update_feature(self.mem, feat, clas, upd, self.time)
+                update_feature(feat, clas, upd, self.time)
 
     def end_training(self):
         cdef MapStruct* map_
@@ -112,11 +126,7 @@ cdef class LinearModel:
         acc = pc(self.n_corr, self.total)
 
         map_size = self.weights.mem.size
-        cache_str = '%s cache hit' % self.cache.utilization
-        size_str = humanize.naturalsize(self.mem.size, gnu=True)
-        size_str += ', ' + humanize.naturalsize(map_size, gnu=True)
-        msg = "#%d: Moves %d/%d=%s. %s. %s" % (iter_num, self.n_corr, self.total, acc,
-                                               cache_str, size_str)
+        msg = "#%d: Moves %d/%d=%s" % (iter_num, self.n_corr, self.total, acc)
         self.n_corr = 0
         self.total = 0
         return msg
@@ -216,12 +226,13 @@ cdef class _Reader:
         status = fread(&n_rows, sizeof(n_rows), 1, self._fp)
         assert status
         
-        feat = <TrainFeat*>mem.alloc(sizeof(TrainFeat), 1)
-        feat.weights = <WeightLine**>mem.alloc(sizeof(WeightLine*), n_rows)
+        feat = <TrainFeat*>calloc(sizeof(TrainFeat), 1)
+        feat.meta = NULL
+        feat.weights = <WeightLine**>calloc(sizeof(WeightLine*), n_rows)
         feat.length = n_rows
         cdef int i
         for i in range(n_rows):
-            feat.weights[i] = <WeightLine*>mem.alloc(sizeof(WeightLine), 1)
+            feat.weights[i] = <WeightLine*>calloc(sizeof(WeightLine), 1)
             status = fread(feat.weights[i], sizeof(WeightLine), 1, self._fp)
             if status == 0:
                 out_feat[0] = feat
