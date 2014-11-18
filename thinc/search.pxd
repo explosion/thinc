@@ -9,8 +9,7 @@ from thinc.learner cimport weight_t
 from thinc.learner cimport class_t
 
 
-ctypedef pair[size_t, size_t] Candidate
-ctypedef pair[weight_t, Candidate] Entry
+ctypedef pair[weight_t, size_t] Entry
 ctypedef priority_queue[Entry] Queue
 
 
@@ -36,6 +35,9 @@ cdef class Beam:
     cdef class_t nr_class
     cdef class_t width
     cdef class_t size
+    cdef readonly bint is_done
+    cdef list histories
+    cdef list _parent_histories
     cdef Queue q
     cdef weight_t** scores
     cdef bint** is_valid
@@ -45,13 +47,19 @@ cdef class Beam:
 
     cdef int _fill(self, weight_t** scores, bint** is_valid) except -1
 
-    cdef void* at(self, int i)
+    cdef inline void* at(self, int i) nogil:
+        return self._states[i].content
+
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1
     cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1
  
 
-    cpdef int set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) except -1
+    cdef inline void set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) nogil:
+        self.scores[i][j] = score
+        self.is_valid[i][j] = is_valid
+        self.costs[i][j] = cost
+        
     cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1
     cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1
 

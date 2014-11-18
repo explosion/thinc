@@ -1,3 +1,4 @@
+# cython: profile=True
 cimport cython
 from libc.string cimport memset, memcpy
 
@@ -14,11 +15,13 @@ cdef class Beam:
         self.mem = Pool()
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
+        cdef int i
+        self.histories = [[] for i in range(self.width)]
+        self._parent_histories = [[] for i in range(self.width)]
 
         self.scores = <weight_t**>self.mem.alloc(self.width, sizeof(weight_t*))
         self.is_valid = <bint**>self.mem.alloc(self.width, sizeof(bint*))
         self.costs = <int**>self.mem.alloc(self.width, sizeof(int*))
-        cdef int i
         for i in range(self.width):
             self.scores[i] = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
             self.is_valid[i] = <bint*>self.mem.alloc(self.nr_class, sizeof(bint))
@@ -26,12 +29,8 @@ cdef class Beam:
 
     property score:
         def __get__(self):
-            return self.q.top().first
+            return self._states[0].score
 
-    cpdef int set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) except -1:
-        self.scores[i][j] = score
-        self.is_valid[i][j] = is_valid
-        self.costs[i][j] = cost
  
     cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1:
         cdef int j
@@ -47,14 +46,12 @@ cdef class Beam:
             memcpy(self.is_valid[i], is_valid[i], sizeof(bint) * self.nr_class)
             memcpy(self.costs[i], costs[i], sizeof(int) * self.nr_class)
     
-    cdef void* at(self, int i):
-        return self._states[i].content
-
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1:
         for i in range(self.width):
             self._states[i].content = init_func(self.mem, n, extra_args)
             self._parents[i].content = init_func(self.mem, n, extra_args)
 
+    @cython.cdivision(True)
     cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1:
         cdef weight_t** scores = self.scores
         cdef bint** is_valid = self.is_valid
@@ -67,6 +64,7 @@ cdef class Beam:
         # each step, we take a parent, and apply one or more extensions to
         # it.
         self._parents, self._states = self._states, self._parents
+        self._parent_histories, self.histories = self.histories, self._parent_histories
         cdef weight_t score
         cdef int p_i
         cdef int i = 0
@@ -74,24 +72,27 @@ cdef class Beam:
         cdef _State* parent
         cdef _State* state
         while i < self.width and not self.q.empty():
-            score, (p_i, clas) = self.q.top()
+            data = self.q.top()
+            p_i = data.second / self.nr_class
+            clas = data.second % self.nr_class
+            score = data.first
             self.q.pop()
             # Indicates terminal state reached; i.e. state is done
-            if clas == 0:
+            if clas == -1:
                 # Now parent will not be changed, so we don't have to copy.
-                assert self._parents[p_i].is_done
                 self._states[i] = self._parents[p_i]
                 self._states[i].score = score
+                i += 1
                 continue
             parent = &self._parents[p_i]
             state = &self._states[i]
             # The supplied transition function should adjust the destination
             # state to be the result of applying the class to the source state
             transition_func(state.content, parent.content, clas, extra_args)
-            state.score = parent.score + scores[p_i][clas]
+            state.score = score
             state.loss = parent.loss + costs[p_i][clas]
-            #state.hist[state.t] = clas
-            #state.t += 1
+            self.histories[i] = list(self._parent_histories[p_i])
+            self.histories[i].append(clas)
             i += 1
         self.size = i
         for i in range(self.width):
@@ -101,40 +102,43 @@ cdef class Beam:
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
-        self.is_done = True
         for i in range(self.size):
-            self._states[i].is_done = finish_func(&self._states[i].content, extra_args)
+            self._states[i].is_done = finish_func(self._states[i].content, extra_args)
             if not self._states[i].is_done:
                 self.is_done = False
+                break
+        else:
+            self.is_done = True
 
     cdef int _fill(self, weight_t** scores, bint** is_valid) except -1:
         """Populate the queue from a k * n matrix of scores, where k is the
         beam-width, and n is the number of classes.
         """
-        cdef Candidate candidate
         cdef Entry entry
         cdef weight_t score
         while not self.q.empty():
             self.q.pop()
         cdef _State* s
-        for i in range(self.width):
+        cdef int i, j, move_id
+        for i in range(self.size):
             s = &self._states[i]
+            move_id = i * self.nr_class
             if s.is_done:
                 # Update score by path average, following TACL '13 paper.
-                entry = Entry(s.score + (s.score / s.t), Candidate(i, 0))
+                entry.first = s.score + (s.score / len(self.histories[i]))
+                entry.second = move_id
                 self.q.push(entry)
                 continue
             for j in range(self.nr_class):
                 if is_valid[i][j]:
-                    entry = Entry(scores[i][j], Candidate(i, j))
+                    entry.first = s.score + scores[i][j]
+                    entry.second = move_id + j
                     self.q.push(entry)
-
 
 
 cdef class MaxViolation:
     def __init__(self):
         self.delta = -1
-        self.n = 0
         self.cost = 0
         self.p_hist = []
         self.g_hist = []
@@ -142,9 +146,9 @@ cdef class MaxViolation:
     cpdef int check(self, Beam pred, Beam gold) except -1:
         cdef _State* p = &pred._states[0]
         cdef _State* g = &gold._states[0]
-        cdef weight_t d = (p.score + 1) - g.score
-        if p.loss and d > self.delta:
-            self.loss = p.loss
+        cdef weight_t d = p.score - g.score
+        if p.loss >= 1 and d > self.delta:
+            self.cost = p.loss
             self.delta = d
-            self.p_hist = [p.hist[i] for i in range(p.t)]
-            self.g_hist = [g.hist[i] for i in range(g.t)]
+            self.p_hist = list(pred.histories[0])
+            self.g_hist = list(gold.histories[0])
