@@ -69,7 +69,7 @@ if sys.argv[1] == 'clean':
 distutils.core.setup(
     name='thinc',
     packages=['thinc'],
-    version='1.3',
+    version='1.4',
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
