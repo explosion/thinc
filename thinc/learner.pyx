@@ -102,9 +102,7 @@ cdef class LinearModel:
         pc = lambda a, b: '%.1f' % ((float(a) / (b + 1e-100)) * 100)
         acc = pc(self.n_corr, self.total)
 
-        map_size = 0
-        for i in range(self.nr_templates):
-            map_size += self.weights.maps[i].length * sizeof(Cell)
+        map_size = self.weights.mem.size
         cache_str = '%s cache hit' % self.cache.utilization
         size_str = humanize.naturalsize(self.mem.size, gnu=True)
         size_str += ', ' + humanize.naturalsize(map_size, gnu=True)
