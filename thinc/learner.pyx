@@ -27,7 +27,7 @@ DEF LINE_SIZE = 8
 
 cdef class LinearModel:
     '''A linear model for online supervised classification. Currently uses
-    the ADADELTA algorithm to learn weights. Supports parameter averaging.
+    the Averaged Perceptron algorithm to learn weights.
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
     Emphasis is on efficiency for multi-class classification, where the number
@@ -45,8 +45,8 @@ cdef class LinearModel:
         self.weights = PreshMap()
         self.mem = Pool()
         self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
-        self._weight_lines = <WeightLine**>self.mem.alloc(self._max_wl,
-                                sizeof(WeightLine*))
+        self._weight_lines = <WeightLine*>self.mem.alloc(self._max_wl,
+                                sizeof(WeightLine))
 
     def __dealloc__(self):
         # Use 'raw' memory management, instead of cymem.Pool, for weights.
@@ -83,11 +83,11 @@ cdef class LinearModel:
             i += 1
         if i * self.nr_class >= self._max_wl:
             self._max_wl = (i * self.nr_class) * 2
-            size = self._max_wl * sizeof(WeightLine*)
-            self._weight_lines = <WeightLine**>self.mem.realloc(self._weight_lines, size)
+            size = self._max_wl * sizeof(WeightLine)
+            self._weight_lines = <WeightLine*>self.mem.realloc(self._weight_lines, size)
         # TODO: Use values!
         f_i = gather_weights(self.weights.c_map, self.nr_class, self._weight_lines,
-                             features) 
+                             features, values) 
 
         memset(scores, 0, self.nr_class * sizeof(weight_t))
         set_scores(scores, self._weight_lines, f_i, self.nr_class)

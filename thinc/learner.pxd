@@ -26,7 +26,7 @@ cdef class LinearModel:
     cdef PreshMap weights
     cdef ScoresCache cache
     cdef weight_t* scores
-    cdef WeightLine** _weight_lines
+    cdef WeightLine* _weight_lines
     cdef size_t _max_wl
 
     cdef class_t score(self, weight_t* scores, feat_t* features, weight_t* values) except -1

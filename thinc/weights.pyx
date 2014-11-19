@@ -147,40 +147,35 @@ cdef int update_count(TrainFeat* feat, const class_t clas, const count_t inc) ex
 
 
 cdef int gather_weights(MapStruct* map_, class_t nr_class,
-        WeightLine** w_lines, feat_t* feats) except -1:
+        WeightLine* w_lines, feat_t* feats, weight_t* values) except -1:
     cdef:
         TrainFeat* feature
+        WeightLine* feat_weights
         feat_t feat_id
-        class_t row
-        class_t col
+        int row
 
-    cdef class_t nr_rows = get_nr_rows(nr_class)
-        
     cdef int i = 0
-    cdef class_t f_i = 0
+    cdef int f_i = 0
     while feats[i] != 0:
         feat_id = feats[i]
         i += 1
         feature = <TrainFeat*>map_get(map_, feat_id)
-        if feature != NULL and feature.weights != NULL:
+        if feature != NULL:
             for row in range(feature.length):
-                if feature.weights[row] == NULL:
-                    continue
-                w_lines[f_i] = feature.weights[row]
-                f_i += 1
+                feat_weights = feature.weights[row]
+                if feat_weights != NULL:
+                    w_lines[f_i] = feat_weights[0]
+                    f_i += 1
     return f_i
 
 
-cdef int set_scores(weight_t* scores, WeightLine** weight_lines,
-                    class_t nr_rows, class_t nr_class) except -1:
-    cdef:
-        class_t row
-        class_t col
-        WeightLine* wline
-        weight_t* row_scores
-        class_t max_col
+cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
+        class_t nr_rows, class_t nr_class) except -1:
+    cdef int row, col, max_col
+    cdef WeightLine* wline
+    cdef weight_t* row_scores
     for row in range(nr_rows):
-        wline = weight_lines[row]
+        wline = &weight_lines[row]
         row_scores = &scores[wline.start]
         max_col = nr_class - wline.start
         if max_col > LINE_SIZE:
