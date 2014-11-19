@@ -72,8 +72,7 @@ cdef int update_feature(TrainFeat* feat, class_t clas, weight_t upd,
     feat.weights[row].start = clas - col
     update_accumulator(feat, clas, time)
     update_count(feat, clas, 1)
-    update_gradient(feat, clas, upd)
-    update_weight(feat, clas, upd)
+    update_weight_perceptron(feat, clas, upd)
 
 
 cdef void free_feature(TrainFeat* feat) nogil:
@@ -90,31 +89,39 @@ cdef void free_feature(TrainFeat* feat) nogil:
     free(feat)
 
 
-DEF RHO = 0.95
-DEF ETA = 1e-6
-cdef weight_t root_mean_square(weight_t prev, weight_t new) except -1:
-    return (RHO * prev) + ((1 - RHO) * new ** 2) + ETA
+#cdef weight_t update_gradient(TrainFeat* feat, const class_t clas, const weight_t g):
+#    cdef class_t row = get_row(clas)
+#    cdef class_t col = get_col(clas)
+#    feat.meta[row][col].rms_grad = root_mean_square(feat.meta[row][col].rms_grad, g)
 
 
+#DEF USE_ADADELTA = False
+#DEF RHO = 0.95
+#DEF EPSILON = 1e-6
+#cdef weight_t root_mean_square(weight_t prev, weight_t new) except -1:
+#    return (RHO * prev) + ((1 - RHO) * new ** 2) + EPSILON
 
-cdef weight_t update_gradient(TrainFeat* feat, const class_t clas, const weight_t g):
+
+#cdef int update_weight_adadelta(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
+#    '''Update the weight for a parameter (a {feature, class} pair).'''
+#    update_gradient(feat, clas, g)
+#    cdef weight_t upd, rms_upd, rms_grad
+#    cdef class_t row = get_row(clas)
+#    cdef class_t col = get_col(clas)
+#    if feat.meta[row][col].count == 1:
+#        rms_upd = EPSILON
+#    else:
+#        rms_upd = feat.meta[row][col].rms_upd
+#    rms_grad = feat.meta[row][col].rms_grad
+#    upd = (rms_upd / rms_grad) * g
+#    feat.meta[row][col].rms_upd = root_mean_square(feat.meta[row][col].rms_upd, upd)
+#    feat.weights[row].line[col] += upd
+
+
+cdef int update_weight_perceptron(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
-    feat.meta[row][col].rms_grad = root_mean_square(feat.meta[row][col].rms_grad, g)
-
-cdef int update_weight(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
-    '''Update the weight for a parameter (a {feature, class} pair).'''
-    cdef weight_t upd, rms_upd, rms_grad
-    cdef class_t row = get_row(clas)
-    cdef class_t col = get_col(clas)
-    if feat.meta[row][col].count == 1:
-        rms_upd = ETA
-    else:
-        rms_upd = feat.meta[row][col].rms_upd
-    rms_grad = feat.meta[row][col].rms_grad
-    upd = (rms_upd / rms_grad) * g
-    feat.weights[row].line[col] += upd
-    feat.meta[row][col].rms_upd = root_mean_square(feat.meta[row][col].rms_upd, upd)
+    feat.weights[row].line[col] += g
 
 
 cdef int update_accumulator(TrainFeat* feat, const class_t clas, const time_t time) except -1:
