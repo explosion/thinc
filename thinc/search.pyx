@@ -95,6 +95,7 @@ cdef class Beam:
             self.histories[i].append(clas)
             i += 1
         self.size = i
+        assert self.size >= 1
         for i in range(self.width):
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
             memset(self.is_valid[i], False, sizeof(bint) * self.nr_class)
@@ -120,6 +121,7 @@ cdef class Beam:
         self.q = new Queue()
         cdef _State* s
         cdef int i, j, move_id
+        assert self.size >= 1
         for i in range(self.size):
             s = &self._states[i]
             move_id = i * self.nr_class
@@ -147,7 +149,7 @@ cdef class MaxViolation:
         cdef _State* p = &pred._states[0]
         cdef _State* g = &gold._states[0]
         cdef weight_t d = p.score - g.score
-        if p.loss >= 1 and d > self.delta:
+        if p.loss >= 1 and d >= self.delta:
             self.cost = p.loss
             self.delta = d
             self.p_hist = list(pred.histories[0])
