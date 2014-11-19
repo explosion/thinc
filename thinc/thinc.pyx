@@ -75,8 +75,8 @@ cdef class Brain:
             upd = {}
         else:
             upd = {best_g: {}, best_p: {}}
-            self._extr.count(upd[best_g], self.feats, 1.0)
-            self._extr.count(upd[best_p], self.feats, -1.0)
+            self._extr.count(upd[best_g], self.feats, 1)
+            self._extr.count(upd[best_p], self.feats, -1)
         self._model.update(upd)
         return (best_p, best_g)
 
