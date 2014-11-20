@@ -149,7 +149,7 @@ cdef class MaxViolation:
         cdef _State* p = &pred._states[0]
         cdef _State* g = &gold._states[0]
         cdef weight_t d = p.score - g.score
-        if p.loss >= 1 and d >= self.delta:
+        if p.loss >= 1 and d > self.delta:
             self.cost = p.loss
             self.delta = d
             self.p_hist = list(pred.histories[0])
