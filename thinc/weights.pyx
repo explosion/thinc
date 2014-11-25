@@ -118,12 +118,14 @@ cdef void free_feature(TrainFeat* feat) nogil:
 #    feat.weights[row].line[col] += upd
 
 
+@cython.overflowcheck(True)
 cdef int update_weight_perceptron(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
     cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
     feat.weights[row].line[col] += g
 
 
+@cython.overflowcheck(True)
 cdef int update_accumulator(TrainFeat* feat, const class_t clas, const time_t time) except -1:
     '''Help a weight update for one (class, feature) pair for averaged models,
     e.g. Average Perceptron. Efficient averaging requires tracking the total
