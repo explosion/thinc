@@ -41,12 +41,17 @@ cdef class Extractor:
         cdef int i, j
         for i in range(1, self.n_templ):
             templ = &self.templates[i-1]
-            for j in range(templ.length):
-                templ.atoms[j] = atoms[templ.indices[j]]
             feat = &feats[i]
             feat.i = i
-            feat.key = hash64(templ.atoms, templ.length * sizeof(atom_t), 0)
-            feat.value = 1
+            if templ.length == 1:
+                feat.key = atoms[templ.indices[0]]
+                feat.value = 1
+            else:
+                for j in range(templ.length):
+                    templ.atoms[j] = atoms[templ.indices[j]]
+                feat.i = i
+                feat.key = hash64(templ.atoms, templ.length * sizeof(atom_t), 0)
+                feat.value = 1
         return self.n_templ
 
 
