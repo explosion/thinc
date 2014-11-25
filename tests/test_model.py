@@ -17,7 +17,6 @@ def test_basic():
     assert model([0, 0, 0, 3])[2] > 0 
     scores = model([1, 2, 3])
 
-
 @pytest.fixture
 def instances():
     instances = [
