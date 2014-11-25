@@ -77,14 +77,14 @@ cdef class Beam:
             clas = data.second % self.nr_class
             score = data.first
             self.q.pop()
+            parent = &self._parents[p_i]
             # Indicates terminal state reached; i.e. state is done
-            if clas == -1:
+            if parent.is_done:
                 # Now parent will not be changed, so we don't have to copy.
-                self._states[i] = self._parents[p_i]
+                self._states[i] = parent[0]
                 self._states[i].score = score
                 i += 1
                 continue
-            parent = &self._parents[p_i]
             state = &self._states[i]
             # The supplied transition function should adjust the destination
             # state to be the result of applying the class to the source state
@@ -104,10 +104,11 @@ cdef class Beam:
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
         for i in range(self.size):
-            self._states[i].is_done = finish_func(self._states[i].content, extra_args)
             if not self._states[i].is_done:
-                self.is_done = False
-                break
+                self._states[i].is_done = finish_func(self._states[i].content, extra_args)
+                if not self._states[i].is_done:
+                    self.is_done = False
+                    break
         else:
             self.is_done = True
 
@@ -149,7 +150,7 @@ cdef class MaxViolation:
         cdef _State* p = &pred._states[0]
         cdef _State* g = &gold._states[0]
         cdef weight_t d = p.score - g.score
-        if p.loss >= 1 and d > self.delta:
+        if p.loss >= 1 and (self.cost == 0 or d > self.delta):
             self.cost = p.loss
             self.delta = d
             self.p_hist = list(pred.histories[0])
