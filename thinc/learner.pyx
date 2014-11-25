@@ -102,6 +102,8 @@ cdef class LinearModel:
             for (i, feat_id), upd in feat_counts.items():
                 if upd == 0:
                     continue
+                if feat_id == 0:
+                    continue
                 feat = <TrainFeat*>self.weights.get(i, feat_id)
                 if feat == NULL:
                     feat = new_train_feat(self.nr_class)
