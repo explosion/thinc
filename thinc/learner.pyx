@@ -15,8 +15,8 @@ from cymem.cymem cimport Address
 from preshed.maps cimport MapStruct
 from preshed.maps cimport map_get
 
-from .weights cimport average_weight, arg_max, new_train_feat, get_total_count
-from .weights cimport update_feature
+from .weights cimport average_weight, new_train_feat
+from .weights cimport perceptron_update_feature as update_feature
 from .weights cimport gather_weights, set_scores
 from .weights cimport get_nr_rows
 from .weights cimport free_feature
@@ -173,11 +173,6 @@ cdef class _Writer:
         cdef count_t total_freq
         cdef class_t n_rows
         if feat == NULL:
-            return 0
-        total_freq = get_total_count(feat, self._nr_class)
-        if total_freq == 0:
-            return 0
-        if self._freq_thresh >= 1 and total_freq < self._freq_thresh:
             return 0
         active_rows = []
         cdef class_t row
