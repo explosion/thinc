@@ -62,6 +62,9 @@ cdef class LinearModel:
                 feat = <TrainFeat*>map_.cells[j].value
                 if feat != NULL:
                     free_feature(feat)
+            for j in range(map_.thresh):
+                if map_.dense[j] != NULL:
+                    free_feature(<TrainFeat*>map_.dense[j])
 
     def __call__(self, list features):
         cdef Address addr = Address(len(features), sizeof(Feature))
@@ -120,6 +123,9 @@ cdef class LinearModel:
                     continue
                 feat = <TrainFeat*>map_.cells[j].value
                 average_weight(feat, self.nr_class, self.time)
+            for j in range(map_.thresh):
+                if map_.dense[j] != NULL:
+                    average_weight(<TrainFeat*>map_.dense[j], self.nr_class, self.time)
 
     def end_train_iter(self, iter_num, feat_thresh):
         pc = lambda a, b: '%.1f' % ((float(a) / (b + 1e-100)) * 100)
@@ -143,6 +149,9 @@ cdef class LinearModel:
                 if map_.cells[j].key == 0:
                     continue
                 writer.write(i, map_.cells[j].key, <TrainFeat*>map_.cells[j].value)
+            for j in range(map_.thresh):
+                if map_.dense[j] != NULL:
+                    writer.write(i, j, <TrainFeat*>map_.dense[j])
         writer.close()
 
     def load(self, loc, freq_thresh=0):
