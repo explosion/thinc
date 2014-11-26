@@ -10,7 +10,7 @@ cdef struct TestState:
     Py_UNICODE* string
 
 
-cdef int transition(void* dest, void* src, class_t clas, void* extra_args):
+cdef int transition(void* dest, void* src, class_t clas, void* extra_args) except -1:
     dest_state = <TestState*>dest
     src_state = <TestState*>src
     dest_state.length = src_state.length
