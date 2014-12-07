@@ -128,7 +128,10 @@ cdef class Beam:
             move_id = i * self.nr_class
             if s.is_done:
                 # Update score by path average, following TACL '13 paper.
-                entry.first = s.score + (s.score / len(self.histories[i]))
+                if self.histories[i]:
+                    entry.first = s.score + (s.score / len(self.histories[i]))
+                else:
+                    entry.first = s.score
                 entry.second = move_id
                 self.q.push(entry)
                 continue
