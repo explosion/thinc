@@ -20,53 +20,10 @@ cdef inline class_t get_col(const class_t clas) nogil:
 
 @cython.cdivision
 cdef class_t get_nr_rows(const class_t n) nogil:
-    cdef class_t nr_lines = get_row(n)
+    cdef class_t nr_lines = getw(n)
     if nr_lines == 0 or nr_lines * LINE_SIZE < n:
         nr_lines += 1
     return nr_lines
-
-
-cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL:
-    cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
-    cdef class_t nr_lines = get_nr_rows(nr_class)
-    output.weights = <WeightLine**>calloc(nr_lines, sizeof(WeightLine*))
-    output.meta = <MetaData**>calloc(nr_lines, sizeof(MetaData*))
-    output.length = nr_lines
-    return output
-
-
-@cython.overflowcheck(True)
-cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
-                                   time_t time) except -1:
-    assert upd != 0
-    cdef class_t row = get_row(clas)
-    cdef class_t col = get_col(clas)
-    if feat.meta[row] == NULL:
-        feat.meta[row] = <MetaData*>calloc(LINE_SIZE, sizeof(MetaData))
-    if feat.weights[row] == NULL:
-        feat.weights[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
-    feat.weights[row].start = clas - col
-    
-    cdef weight_t weight = feat.weights[row].line[col]
-    cdef class_t unchanged = time - feat.meta[row][col].time
-    feat.meta[row][col].total += unchanged * weight
-    feat.meta[row][col].time = time
-    
-    feat.weights[row].line[col] += upd
-
-
-cdef void free_feature(TrainFeat* feat) nogil:
-    cdef int i
-    for i in range(feat.length):
-        if feat.weights != NULL and feat.weights[i] != NULL:
-            free(feat.weights[i])
-        if feat.meta != NULL and feat.meta[i] != NULL:
-            free(feat.meta[i])
-    if feat.weights != NULL:
-        free(feat.weights)
-    if feat.meta != NULL:
-        free(feat.meta)
-    free(feat)
 
 
 cdef int gather_weights(MapStruct* maps, class_t nr_class,
@@ -76,7 +33,6 @@ cdef int gather_weights(MapStruct* maps, class_t nr_class,
         WeightLine* feat_weights
         feat_t feat_id
         int row
-
     cdef int i
     cdef int f_i = 0
     for i in range(n_feats):
@@ -105,6 +61,29 @@ cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
             row_scores[col] += wline.line[col]
 
 
+cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL:
+    cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
+    cdef class_t nr_lines = get_nr_rows(nr_class)
+    output.weights = <WeightLine**>calloc(nr_lines, sizeof(WeightLine*))
+    output.meta = <MetaData**>calloc(nr_lines, sizeof(MetaData*))
+    output.length = nr_lines
+    return output
+
+
+cdef void free_feature(TrainFeat* feat) nogil:
+    cdef int i
+    for i in range(feat.length):
+        if feat.weights != NULL and feat.weights[i] != NULL:
+            free(feat.weights[i])
+        if feat.meta != NULL and feat.meta[i] != NULL:
+            free(feat.meta[i])
+    if feat.weights != NULL:
+        free(feat.weights)
+    if feat.meta != NULL:
+        free(feat.meta)
+    free(feat)
+
+
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1:
     cdef time_t unchanged
     cdef class_t row
@@ -118,33 +97,44 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
             feat.weights[row].line[col] = feat.meta[row][col].total
 
 
-#cdef weight_t update_gradient(TrainFeat* feat, const class_t clas, const weight_t g):
-#    cdef class_t row = get_row(clas)
-#    cdef class_t col = get_col(clas)
-#    feat.meta[row][col].rms_grad = root_mean_square(feat.meta[row][col].rms_grad, g)
+@cython.overflowcheck(True)
+cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
+                                   time_t time) except -1:
+    assert upd != 0
+    cdef class_t row = get_row(clas)
+    cdef class_t col = get_col(clas)
+    if feat.meta[row] == NULL:
+        feat.meta[row] = <MetaData*>calloc(LINE_SIZE, sizeof(MetaData))
+    if feat.weights[row] == NULL:
+        feat.weights[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
+    feat.weights[row].start = clas - col
+    
+    cdef weight_t weight = feat.weights[row].line[col]
+    cdef class_t unchanged = time - feat.meta[row][col].time
+    feat.meta[row][col].total += unchanged * weight
+    feat.meta[row][col].time = time
+    
+    feat.weights[row].line[col] += upd
 
 
-#DEF USE_ADADELTA = False
 #DEF RHO = 0.95
 #DEF EPSILON = 1e-6
-#cdef weight_t root_mean_square(weight_t prev, weight_t new) except -1:
+#cdef weight_t _root_mean_square(weight_t prev, weight_t new) except -1:
 #    return (RHO * prev) + ((1 - RHO) * new ** 2) + EPSILON
-
-
-#cdef int update_weight_adadelta(TrainFeat* feat, const class_t clas, const weight_t g) except -1:
-#    '''Update the weight for a parameter (a {feature, class} pair).'''
-#    update_gradient(feat, clas, g)
+#
+#
+#@cython.overflowcheck(True)
+#cdef int adadelta_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
+#                                 time_t time) except -1:
 #    cdef weight_t upd, rms_upd, rms_grad
 #    cdef class_t row = get_row(clas)
 #    cdef class_t col = get_col(clas)
+#    rms_grad = _root_mean_square(feat.meta[row][col].rms_grad, g)
 #    if feat.meta[row][col].count == 1:
 #        rms_upd = EPSILON
 #    else:
 #        rms_upd = feat.meta[row][col].rms_upd
-#    rms_grad = feat.meta[row][col].rms_grad
 #    upd = (rms_upd / rms_grad) * g
-#    feat.meta[row][col].rms_upd = root_mean_square(feat.meta[row][col].rms_upd, upd)
 #    feat.weights[row].line[col] += upd
-
-
-
+#    feat.meta[row][col].rms_grad = rms_grad
+#    feat.meta[row][col].rms_upd = _root_mean_square(feat.meta[row][col].rms_upd, upd)
