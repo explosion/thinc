@@ -20,7 +20,7 @@ cdef inline class_t get_col(const class_t clas) nogil:
 
 @cython.cdivision
 cdef class_t get_nr_rows(const class_t n) nogil:
-    cdef class_t nr_lines = getw(n)
+    cdef class_t nr_lines = get_row(n)
     if nr_lines == 0 or nr_lines * LINE_SIZE < n:
         nr_lines += 1
     return nr_lines
