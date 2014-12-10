@@ -23,8 +23,8 @@ ctypedef weight_t[LINE_SIZE] weight_line_t
 # A set of weights, to be read in. Start indicates the class that w[0] refers
 # to. Subsequent weights go from there.
 cdef struct WeightLine:
-    int start
     weight_line_t line
+    int start
 
 
 cdef struct MetaData:
@@ -34,20 +34,25 @@ cdef struct MetaData:
     #weight_t rms_upd
     
 
+cdef struct MDLine:
+    MetaData[LINE_SIZE] line
+
+
 cdef struct TrainFeat:
-    size_t length
-    WeightLine** weights
-    MetaData** meta
+    WeightLine* weights
+    MDLine* meta
+    uint32_t length
+    uint32_t _resize_at
 
 
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1
 cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL
 cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
-                                   time_t time) except -1
+                                   time_t time, class_t nr_classes) except -1
 cdef int gather_weights(MapStruct* maps, class_t nr_class,
                         WeightLine* w_lines, Feature* feats, int n_feats) except -1
-cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
-                    class_t nr_rows, class_t nr_class) except -1
+cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
+                    const class_t nr_rows, const class_t nr_class) except -1
  
 cdef class_t get_nr_rows(const class_t n) nogil
 

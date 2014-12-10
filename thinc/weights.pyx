@@ -1,6 +1,8 @@
 cimport cython
 from libc.math cimport sqrt
-from libc.stdlib cimport calloc, free
+from libc.stdlib cimport calloc, free, realloc
+from libc.string cimport memmove
+from libc.string cimport memset
 
 from preshed.maps cimport map_get
 
@@ -27,29 +29,37 @@ cdef class_t get_nr_rows(const class_t n) nogil:
 
 
 cdef int gather_weights(MapStruct* maps, class_t nr_class,
-        WeightLine* w_lines, Feature* feats, int n_feats) except -1:
+        WeightLine* w_lines, const Feature* feats, int n_feats) except -1:
     cdef:
-        TrainFeat* feature
-        WeightLine* feat_weights
-        feat_t feat_id
+        const TrainFeat* feature
+        const WeightLine* feat_weights
+        feat_t key
+        weight_t value
         int row
-    cdef int i
+    cdef int i, j
     cdef int f_i = 0
     for i in range(n_feats):
-        feature = <TrainFeat*>map_get(&maps[i], feats[i].key)
+        key = feats[i].key
+        value = feats[i].value
+        i = feats[i].i 
+        if key == 0 or value == 0:
+            continue
+        feature = <TrainFeat*>map_get(&maps[i], key)
         if feature != NULL:
+            feat_weights = feature.weights
             for row in range(feature.length):
-                feat_weights = feature.weights[row]
-                if feat_weights != NULL:
-                    w_lines[f_i] = feat_weights[0]
-                    f_i += 1
+                w_lines[f_i] = feat_weights[row]
+                if value != 1:
+                    for j in range(LINE_SIZE):
+                        w_lines[f_i].line[j] *= value
+                f_i += 1
     return f_i
 
 
-cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
-        class_t nr_rows, class_t nr_class) except -1:
+cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
+        const class_t nr_rows, const class_t nr_class) except -1:
     cdef int row, col, max_col
-    cdef WeightLine* wline
+    cdef const WeightLine* wline
     cdef weight_t* row_scores
     for row in range(nr_rows):
         wline = &weight_lines[row]
@@ -61,26 +71,19 @@ cdef int set_scores(weight_t* scores, WeightLine* weight_lines,
             row_scores[col] += wline.line[col]
 
 
-cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL:
+cdef TrainFeat* new_train_feat(const class_t clas) except NULL:
     cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
-    cdef class_t nr_lines = get_nr_rows(nr_class)
-    output.weights = <WeightLine**>calloc(nr_lines, sizeof(WeightLine*))
-    output.meta = <MetaData**>calloc(nr_lines, sizeof(MetaData*))
-    output.length = nr_lines
+    output.weights = <WeightLine*>calloc(1, sizeof(WeightLine))
+    output.meta = <MDLine*>calloc(1, sizeof(MDLine))
+    output.length = 1
+    output._resize_at = 1
+    output.weights[0].start = clas - get_col(clas)
     return output
 
 
 cdef void free_feature(TrainFeat* feat) nogil:
-    cdef int i
-    for i in range(feat.length):
-        if feat.weights != NULL and feat.weights[i] != NULL:
-            free(feat.weights[i])
-        if feat.meta != NULL and feat.meta[i] != NULL:
-            free(feat.meta[i])
-    if feat.weights != NULL:
-        free(feat.weights)
-    if feat.meta != NULL:
-        free(feat.meta)
+    free(feat.weights)
+    free(feat.meta)
     free(feat)
 
 
@@ -88,33 +91,54 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
     cdef time_t unchanged
     cdef class_t row
     cdef class_t col
-    for row in range(get_nr_rows(nr_class)):
-        if feat.weights[row] == NULL:
-            continue
+    for row in range(feat.length):
         for col in range(LINE_SIZE):
-            unchanged = (time + 1) - feat.meta[row][col].time
-            feat.meta[row][col].total += unchanged * feat.weights[row].line[col]
-            feat.weights[row].line[col] = feat.meta[row][col].total
+            unchanged = (time + 1) - feat.meta[row].line[col].time
+            feat.meta[row].line[col].total += unchanged * feat.weights[row].line[col]
+            feat.weights[row].line[col] = feat.meta[row].line[col].total
 
 
 @cython.overflowcheck(True)
 cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
-                                   time_t time) except -1:
+                                   time_t time, class_t nr_classes) except -1:
     assert upd != 0
-    cdef class_t row = get_row(clas)
     cdef class_t col = get_col(clas)
-    if feat.meta[row] == NULL:
-        feat.meta[row] = <MetaData*>calloc(LINE_SIZE, sizeof(MetaData))
-    if feat.weights[row] == NULL:
-        feat.weights[row] = <WeightLine*>calloc(1, sizeof(WeightLine))
-    feat.weights[row].start = clas - col
-    
+    cdef class_t start = clas - col
+    cdef int i
+    for i in range(feat.length):
+        if feat.weights[i].start == start:
+            row = i
+            break
+        if feat.weights[i].start > start:
+            row = i
+            _insert_row(feat, i, start, nr_classes)
+            break
+    else:
+        row = feat.length
+        _insert_row(feat, feat.length, start, nr_classes)
     cdef weight_t weight = feat.weights[row].line[col]
-    cdef class_t unchanged = time - feat.meta[row][col].time
-    feat.meta[row][col].total += unchanged * weight
-    feat.meta[row][col].time = time
-    
+    cdef class_t unchanged = time - feat.meta[row].line[col].time
+    feat.meta[row].line[col].total += unchanged * weight
+    feat.meta[row].line[col].time = time
     feat.weights[row].line[col] += upd
+
+
+cdef int _insert_row(TrainFeat* feat, int i, class_t start, class_t nr_classes) except -1:
+    cdef class_t nr_rows = get_nr_rows(nr_classes)
+    if feat.length == feat._resize_at:
+        new_size = (feat.length +1) * 2 if (feat.length+1) * 2 < nr_rows else nr_rows
+        feat.weights = <WeightLine*>realloc(feat.weights, new_size * sizeof(WeightLine))
+        feat.meta = <MDLine*>realloc(feat.meta, new_size * sizeof(MDLine))
+        feat._resize_at = new_size
+    memmove(&feat.weights[i+1], &feat.weights[i], (feat.length - i) * sizeof(WeightLine))
+    memmove(&feat.meta[i+1], &feat.meta[i], (feat.length - i) * sizeof(MDLine))
+
+    memset(&feat.weights[i], 0, sizeof(WeightLine))
+    memset(&feat.meta[i], 0, sizeof(MDLine))
+
+    feat.weights[i].start = start
+    feat.length += 1
+
 
 
 #DEF RHO = 0.95

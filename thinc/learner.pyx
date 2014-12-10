@@ -74,7 +74,6 @@ cdef class LinearModel:
         return [scores[i] for i in range(self.nr_class)]
 
     cdef weight_t* get_scores(self, Feature* feats, int n_feats) except NULL:
-        memset(self.scores, 0, self.nr_class * sizeof(weight_t))
         self.set_scores(self.scores, feats, n_feats)
         return self.scores
 
@@ -84,7 +83,6 @@ cdef class LinearModel:
             self._max_wl = (n_feats * self.nr_class) * 2
             size = self._max_wl * sizeof(WeightLine)
             self._weight_lines = <WeightLine*>self.mem.realloc(self._weight_lines, size)
-        # TODO: Use values!
         f_i = gather_weights(self.weights.maps, self.nr_class, self._weight_lines,
                              feats, n_feats)
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
@@ -106,9 +104,9 @@ cdef class LinearModel:
                     continue
                 feat = <TrainFeat*>self.weights.get(i, feat_id)
                 if feat == NULL:
-                    feat = new_train_feat(self.nr_class)
+                    feat = new_train_feat(clas)
                     self.weights.set(i, feat_id, feat)
-                update_feature(feat, clas, upd, self.time)
+                update_feature(feat, clas, upd, self.time, self.nr_class)
 
     def end_training(self):
         cdef MapStruct* map_
@@ -176,9 +174,7 @@ cdef class _Writer:
             return 0
         active_rows = []
         cdef class_t row
-        for row in range(get_nr_rows(self._nr_class)):
-            if feat.weights[row] == NULL:
-                continue
+        for row in range(feat.length):
             for col in range(LINE_SIZE):
                 if feat.weights[row].line[col] != 0:
                     active_rows.append(row)
@@ -193,7 +189,7 @@ cdef class _Writer:
         status = fwrite(&n_rows, sizeof(n_rows), 1, self._fp)
         assert status == 1
         for row in active_rows:
-            status = fwrite(feat.weights[row], sizeof(WeightLine), 1, self._fp)
+            status = fwrite(&feat.weights[row], sizeof(WeightLine), 1, self._fp)
             assert status == 1, status
 
 
@@ -230,12 +226,12 @@ cdef class _Reader:
         
         feat = <TrainFeat*>calloc(sizeof(TrainFeat), 1)
         feat.meta = NULL
-        feat.weights = <WeightLine**>calloc(sizeof(WeightLine*), n_rows)
+        feat.weights = <WeightLine*>calloc(sizeof(WeightLine), n_rows)
         feat.length = n_rows
+        feat._resize_at = n_rows
         cdef int i
         for i in range(n_rows):
-            feat.weights[i] = <WeightLine*>calloc(sizeof(WeightLine), 1)
-            status = fread(feat.weights[i], sizeof(WeightLine), 1, self._fp)
+            status = fread(&feat.weights[i], sizeof(WeightLine), 1, self._fp)
             if status == 0:
                 out_feat[0] = feat
                 out_id[0] = feat_id
