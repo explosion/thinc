@@ -15,9 +15,9 @@ ctypedef priority_queue[Entry] Queue
 
 ctypedef int (*trans_func_t)(void* dest, void* src, class_t clas, void* x) except -1
 
-ctypedef void* (*init_func_t)(Pool mem, int n, void* extra_args)
+ctypedef void* (*init_func_t)(Pool mem, int n, void* extra_args) except NULL
 
-ctypedef int (*finish_func_t)(void* state, void* extra_args)
+ctypedef int (*finish_func_t)(void* state, void* extra_args) except -1
 
 
 cdef struct _State:
