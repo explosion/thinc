@@ -28,39 +28,6 @@ cdef class_t get_nr_rows(const class_t n) nogil:
     return nr_lines
 
 
-cdef int gather_and_score(weight_t* scores, const class_t nr_class,
-                          const Feature* feats, const int n_feats,
-                          MapStruct* maps) except -1:
-    cdef:
-        const TrainFeat* feature
-        const WeightLine* wline
-        weight_t* row_scores
-        feat_t key
-        weight_t value
-        int max_col
-        int row
-        int templ_id
-        int i
-
-    for i in range(n_feats):
-        key = feats[i].key
-        value = feats[i].value
-        templ_id = feats[i].i 
-        if key == 0 or value == 0:
-            continue
-        feature = <TrainFeat*>map_get(&maps[i], key)
-        if feature != NULL:
-            feat_weights = feature.weights
-            for row in range(feature.length):
-                wline = &feature.weights[row]
-                row_scores = &scores[wline.start]
-                max_col = nr_class - wline.start
-                max_col = max_col if max_col < LINE_SIZE else LINE_SIZE
-                for col in range(max_col):
-                    row_scores[col] += wline.line[col] * value
-
-
-
 cdef int gather_weights(MapStruct* maps, class_t nr_class,
         WeightLine* w_lines, const Feature* feats, int n_feats) except -1:
     cdef:

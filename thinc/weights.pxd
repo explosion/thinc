@@ -54,6 +54,7 @@ cdef int gather_weights(MapStruct* maps, class_t nr_class,
 cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
                     const class_t nr_rows, const class_t nr_class) except -1
  
+
 cdef class_t get_nr_rows(const class_t n) nogil
 
 cdef void free_feature(TrainFeat* feat) nogil
