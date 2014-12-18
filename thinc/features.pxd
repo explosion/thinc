@@ -26,4 +26,4 @@ cdef class Extractor:
     cdef int set_feats(self, Feature* feats, atom_t* atoms) except -1
 
 
-cdef int count_feats(dict counts, Feature* feats, int n_feats, weight_t inc) except -1
+cdef int count_feats(dict counts, const Feature* feats, int n_feats, weight_t inc) except -1

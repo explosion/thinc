@@ -57,7 +57,7 @@ cdef class Extractor:
         return n_feats
 
 
-cdef int count_feats(dict counts, Feature* feats, int n_feats, weight_t inc) except -1:
+cdef int count_feats(dict counts, const Feature* feats, int n_feats, weight_t inc) except -1:
     cdef int i
     cdef feat_t f
     for i in range(n_feats):
