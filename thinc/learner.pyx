@@ -102,10 +102,10 @@ cdef class LinearModel:
                     continue
                 if feat_id == 0:
                     continue
-                feat = <TrainFeat*>self.weights.get(i, feat_id)
+                feat = <TrainFeat*>self.weights.get(0, feat_id)
                 if feat == NULL:
                     feat = new_train_feat(clas)
-                    self.weights.set(i, feat_id, feat)
+                    self.weights.set(0, feat_id, feat)
                 update_feature(feat, clas, upd, self.time, self.nr_class)
 
     def end_training(self):

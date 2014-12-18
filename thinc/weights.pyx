@@ -41,10 +41,9 @@ cdef int gather_weights(MapStruct* maps, const class_t nr_class,
     for i in range(n_feats):
         key = feats[i].key
         value = feats[i].value
-        i = feats[i].i 
         if key == 0 or value == 0:
             continue
-        feature = <TrainFeat*>map_get(&maps[i], key)
+        feature = <TrainFeat*>map_get(maps, key)
         if feature != NULL:
             feat_weights = feature.weights
             for row in range(feature.length):
