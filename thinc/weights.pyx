@@ -10,17 +10,17 @@ from preshed.maps cimport map_get
 DEF LINE_SIZE = 8
 
 
-@cython.cdivision
+@cython.cdivision(True)
 cdef inline class_t get_row(const class_t clas) nogil:
     return clas / LINE_SIZE
 
 
-@cython.cdivision
+@cython.cdivision(True)
 cdef inline class_t get_col(const class_t clas) nogil:
     return clas % LINE_SIZE
 
 
-@cython.cdivision
+@cython.cdivision(True)
 cdef class_t get_nr_rows(const class_t n) nogil:
     cdef class_t nr_lines = get_row(n)
     if nr_lines == 0 or nr_lines * LINE_SIZE < n:
