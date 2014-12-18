@@ -38,28 +38,29 @@ cdef class Extractor:
         feats[0].i = 0
         feats[0].key = 1
         feats[0].value = 1
-        cdef int i, j
-        for i in range(1, self.n_templ):
-            templ = &self.templates[i-1]
-            feat = &feats[i]
-            feat.i = i
-            if templ.length == 1:
-                feat.key = atoms[templ.indices[0]]
-                feat.value = 1
-            else:
-                for j in range(templ.length):
-                    templ.atoms[j] = atoms[templ.indices[j]]
-                feat.i = i
+        cdef bint seen_non_zero
+        cdef int templ_id
+        cdef int n_feats = 1
+        cdef int i
+        for templ_id in range(self.n_templ-1):
+            templ = &self.templates[templ_id]
+            seen_non_zero = False
+            for i in range(templ.length):
+                templ.atoms[i] = atoms[templ.indices[i]]
+                seen_non_zero = seen_non_zero or templ.atoms[i]
+            if seen_non_zero:
+                feat = &feats[n_feats]
+                feat.i = templ_id
                 feat.key = hash64(templ.atoms, templ.length * sizeof(atom_t), 0)
                 feat.value = 1
-        return self.n_templ
+                n_feats += 1
+        return n_feats
 
 
 cdef int count_feats(dict counts, Feature* feats, int n_feats, weight_t inc) except -1:
     cdef int i
     cdef feat_t f
     for i in range(n_feats):
-        assert feats[i].i == i
         f = feats[i].key
         key = (feats[i].i, f)
         counts.setdefault(key, 0)
