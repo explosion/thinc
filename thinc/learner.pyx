@@ -73,11 +73,11 @@ cdef class LinearModel:
         scores = self.get_scores(feats, len(features))
         return [scores[i] for i in range(self.nr_class)]
 
-    cdef weight_t* get_scores(self, Feature* feats, int n_feats) except NULL:
+    cdef const weight_t* get_scores(self, const Feature* feats, const int n_feats) except NULL:
         self.set_scores(self.scores, feats, n_feats)
         return self.scores
 
-    cdef int set_scores(self, weight_t* scores, Feature* feats, int n_feats) except -1:
+    cdef int set_scores(self, weight_t* scores, const Feature* feats, const int n_feats) except -1:
         memset(scores, 0, self.nr_class * sizeof(weight_t))
         if n_feats * self.nr_class >= self._max_wl:
             self._max_wl = (n_feats * self.nr_class) * 2

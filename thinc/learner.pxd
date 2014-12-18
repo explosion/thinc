@@ -30,8 +30,8 @@ cdef class LinearModel:
     cdef WeightLine* _weight_lines
     cdef size_t _max_wl
 
-    cdef int set_scores(self, weight_t* scores, Feature* feats, int n_feats) except -1
-    cdef weight_t* get_scores(self, Feature* feats, int n_feats) except NULL
+    cdef int set_scores(self, weight_t* scores, const Feature* feats, const int n_feats) except -1
+    cdef const weight_t* get_scores(self, const Feature* feats, const int n_feats) except NULL
     cpdef int update(self, dict counts) except -1
 
 
