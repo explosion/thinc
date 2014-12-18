@@ -51,7 +51,7 @@ cdef class Extractor:
             if seen_non_zero:
                 feat = &feats[n_feats]
                 feat.i = templ_id
-                feat.key = hash64(templ.atoms, templ.length * sizeof(atom_t), 0)
+                feat.key = hash64(templ.atoms, templ.length * sizeof(atom_t), templ_id)
                 feat.value = 1
                 n_feats += 1
         return n_feats
