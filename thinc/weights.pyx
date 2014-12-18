@@ -28,8 +28,8 @@ cdef class_t get_nr_rows(const class_t n) nogil:
     return nr_lines
 
 
-cdef int gather_weights(MapStruct* maps, class_t nr_class,
-        WeightLine* w_lines, const Feature* feats, int n_feats) except -1:
+cdef int gather_weights(MapStruct* maps, const class_t nr_class,
+        WeightLine* w_lines, const Feature* feats, const int n_feats) except -1:
     cdef:
         const TrainFeat* feature
         const WeightLine* feat_weights

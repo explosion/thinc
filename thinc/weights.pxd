@@ -49,8 +49,8 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
 cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL
 cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
                                    time_t time, class_t nr_classes) except -1
-cdef int gather_weights(MapStruct* maps, class_t nr_class,
-                        WeightLine* w_lines, Feature* feats, int n_feats) except -1
+cdef int gather_weights(MapStruct* maps, const class_t nr_class,
+                        WeightLine* w_lines, const Feature* feats, const int n_feats) except -1
 cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
                     const class_t nr_rows, const class_t nr_class) except -1
  
