@@ -43,25 +43,19 @@ cdef class LinearModel:
         self._max_wl = 1000
         self.time = 0
         self.cache = ScoresCache(nr_class)
-        self.weights = PreshMapArray(nr_templates)
+        self.weights = PreshMap()
         self.mem = Pool()
         self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
         self._weight_lines = <WeightLine*>self.mem.alloc(self._max_wl,
                                 sizeof(WeightLine))
 
     def __dealloc__(self):
+        cdef size_t feat_addr
         # Use 'raw' memory management, instead of cymem.Pool, for weights.
         # The memory overhead of cymem becomes significant here.
-        cdef MapStruct* map_
-        cdef int i, j
-        for i in range(self.weights.length):
-            map_ = &self.weights.maps[i]
-            for j in range(map_.length):
-                if map_.cells[j].key == 0:
-                    continue
-                feat = <TrainFeat*>map_.cells[j].value
-                if feat != NULL:
-                    free_feature(feat)
+        for feat_addr in self.weights.values():
+            if feat_addr != 0:
+                free_feature(<TrainFeat*>feat_addr)
 
     def __call__(self, list features):
         cdef Address addr = Address(len(features), sizeof(Feature))
@@ -83,7 +77,7 @@ cdef class LinearModel:
             self._max_wl = (n_feats * self.nr_class) * 2
             size = self._max_wl * sizeof(WeightLine)
             self._weight_lines = <WeightLine*>self.mem.realloc(self._weight_lines, size)
-        f_i = gather_weights(self.weights.maps, self.nr_class, self._weight_lines,
+        f_i = gather_weights(self.weights.c_map, self.nr_class, self._weight_lines,
                              feats, n_feats)
         set_scores(scores, self._weight_lines, f_i, self.nr_class)
         return 0
@@ -102,22 +96,17 @@ cdef class LinearModel:
                     continue
                 if feat_id == 0:
                     continue
-                feat = <TrainFeat*>self.weights.get(0, feat_id)
+                feat = <TrainFeat*>self.weights.get(feat_id)
                 if feat == NULL:
                     feat = new_train_feat(clas)
-                    self.weights.set(0, feat_id, feat)
+                    self.weights.set(feat_id, feat)
                 update_feature(feat, clas, upd, self.time, self.nr_class)
 
     def end_training(self):
-        cdef MapStruct* map_
-        cdef size_t i
-        for i in range(self.weights.length):
-            map_ = &self.weights.maps[i]
-            for j in range(map_.length):
-                if map_.cells[j].key == 0:
-                    continue
-                feat = <TrainFeat*>map_.cells[j].value
-                average_weight(feat, self.nr_class, self.time)
+        cdef size_t feat_addr
+        for feat_addr in self.weights.values():
+            if feat_addr != 0:
+                average_weight(<TrainFeat*>feat_addr, self.nr_class, self.time)
 
     def end_train_iter(self, iter_num, feat_thresh):
         pc = lambda a, b: '%.1f' % ((float(a) / (b + 1e-100)) * 100)
@@ -130,26 +119,23 @@ cdef class LinearModel:
         return msg
 
     def dump(self, loc, class_t freq_thresh=0):
-        cdef feat_t feat_id
-        cdef class_t row
-        cdef size_t i
-        cdef MapStruct* map_
+        cdef:
+            feat_t key
+            size_t i
+            size_t feat_addr
+
         cdef _Writer writer = _Writer(loc, self.nr_class, freq_thresh)
-        for i in range(self.weights.length):
-            map_ = &self.weights.maps[i]
-            for j in range(map_.length):
-                if map_.cells[j].key == 0:
-                    continue
-                writer.write(i, map_.cells[j].key, <TrainFeat*>map_.cells[j].value)
+        for i, (key, feat_addr) in enumerate(self.weights.items()):
+            if feat_addr != 0:
+                writer.write(key, <TrainFeat*>feat_addr)
         writer.close()
 
     def load(self, loc, freq_thresh=0):
-        cdef int i
         cdef feat_t feat_id
         cdef TrainFeat* feature
         cdef _Reader reader = _Reader(loc, self.nr_class, freq_thresh)
-        while reader.read(self.mem, &i, &feat_id, &feature):
-            self.weights.set(i, feat_id, feature)
+        while reader.read(self.mem, &feat_id, &feature):
+            self.weights.set(feat_id, feature)
 
 
 cdef class _Writer:
@@ -167,7 +153,7 @@ cdef class _Writer:
         cdef size_t status = fclose(self._fp)
         assert status == 0
 
-    cdef int write(self, int i, feat_t feat_id, TrainFeat* feat) except -1:
+    cdef int write(self, feat_t feat_id, TrainFeat* feat) except -1:
         cdef count_t total_freq
         cdef class_t n_rows
         if feat == NULL:
@@ -180,8 +166,6 @@ cdef class _Writer:
                     active_rows.append(row)
                     break
         status = fwrite(&total_freq, sizeof(total_freq), 1, self._fp)
-        assert status == 1
-        status = fwrite(&i, sizeof(i), 1, self._fp)
         assert status == 1
         status = fwrite(&feat_id, sizeof(feat_id), 1, self._fp)
         assert status == 1
@@ -208,7 +192,7 @@ cdef class _Reader:
     def __dealloc__(self):
         fclose(self._fp)
 
-    cdef int read(self, Pool mem, int* out_i, feat_t* out_id, TrainFeat** out_feat) except -1:
+    cdef int read(self, Pool mem, feat_t* out_id, TrainFeat** out_feat) except -1:
         cdef count_t total_freq
         cdef feat_t feat_id
         cdef class_t n_rows
@@ -217,8 +201,6 @@ cdef class _Reader:
         status = fread(&total_freq, sizeof(count_t), 1, self._fp)
         if status == 0:
             return 0
-        status = fread(out_i, sizeof(int), 1, self._fp)
-        assert status == 1
         status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
         assert status
         status = fread(&n_rows, sizeof(n_rows), 1, self._fp)
