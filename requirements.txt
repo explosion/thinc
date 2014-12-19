@@ -2,6 +2,6 @@ pytest
 cython
 cymem
 murmurhash
-preshed
+preshed == 0.20
 humanize
 ujson
