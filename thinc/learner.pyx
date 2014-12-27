@@ -154,7 +154,6 @@ cdef class _Writer:
         assert status == 0
 
     cdef int write(self, feat_t feat_id, TrainFeat* feat) except -1:
-        cdef count_t total_freq
         cdef class_t n_rows
         if feat == NULL:
             return 0
@@ -165,8 +164,6 @@ cdef class _Writer:
                 if feat.weights[row].line[col] != 0:
                     active_rows.append(row)
                     break
-        status = fwrite(&total_freq, sizeof(total_freq), 1, self._fp)
-        assert status == 1
         status = fwrite(&feat_id, sizeof(feat_id), 1, self._fp)
         assert status == 1
         n_rows = len(active_rows)
@@ -193,19 +190,16 @@ cdef class _Reader:
         fclose(self._fp)
 
     cdef int read(self, Pool mem, feat_t* out_id, TrainFeat** out_feat) except -1:
-        cdef count_t total_freq
         cdef feat_t feat_id
         cdef class_t n_rows
         cdef class_t row
         cdef size_t status
-        status = fread(&total_freq, sizeof(count_t), 1, self._fp)
+        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
         if status == 0:
             return 0
-        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
         assert status
         status = fread(&n_rows, sizeof(n_rows), 1, self._fp)
         assert status
-        
         feat = <TrainFeat*>calloc(sizeof(TrainFeat), 1)
         feat.meta = NULL
         feat.weights = <WeightLine*>calloc(sizeof(WeightLine), n_rows)
