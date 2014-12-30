@@ -8,6 +8,6 @@ install:
   pip install murmurhash &&
   pip install preshed &&
   pip install -r requirements.txt &&
-  fab make
+  python setup.py build_ext --inplace
 # command to run tests
-script: "fab test"
+script: "py.test tests/"
