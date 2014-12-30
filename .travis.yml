@@ -3,10 +3,10 @@ python:
   - "2.7"
 # command to install dependencies
 install:
-  pip install cython
-  pip install cymem
-  pip install murmurhash
-  pip install preshed
+  pip install cython &&
+  pip install cymem &&
+  pip install murmurhash &&
+  pip install preshed &&
   pip install -r requirements.txt
   fab make
 # command to run tests
