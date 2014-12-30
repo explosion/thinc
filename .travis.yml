@@ -7,7 +7,7 @@ install:
   pip install cymem &&
   pip install murmurhash &&
   pip install preshed &&
-  pip install -r requirements.txt
+  pip install -r requirements.txt &&
   fab make
 # command to run tests
 script: "fab test"
