@@ -5,3 +5,4 @@ murmurhash
 preshed == 0.20
 humanize
 ujson
+fabric
