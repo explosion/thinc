@@ -1,4 +1,5 @@
 from libc.stdio cimport FILE
+from libc.string cimport memset
 
 from cymem.cymem cimport Pool
 
@@ -12,6 +13,7 @@ from .weights cimport WeightLine
 from .weights cimport TrainFeat
 from .typedefs cimport *
 from .features cimport Feature
+from .weights cimport gather_weights, set_scores
 
 
 DEF LINE_SIZE = 8
@@ -30,9 +32,19 @@ cdef class LinearModel:
     cdef WeightLine* _weight_lines
     cdef size_t _max_wl
 
-    cdef int set_scores(self, weight_t* scores, const Feature* feats, const int n_feats) except -1
-    cdef const weight_t* get_scores(self, const Feature* feats, const int n_feats) except NULL
     cpdef int update(self, dict counts) except -1
+
+    cdef inline const weight_t* get_scores(self, const Feature* feats, const int n_feats) nogil:
+        memset(self.scores, 0, self.nr_class * sizeof(weight_t))
+        self.set_scores(self.scores, feats, n_feats)
+        return self.scores
+
+    cdef inline int set_scores(self, weight_t* scores, const Feature* feats, const int n_feats) nogil:
+        cdef int f_i = gather_weights(self.weights.c_map, self.nr_class, self._weight_lines,
+                             feats, n_feats)
+        set_scores(scores, self._weight_lines, f_i, self.nr_class)
+        return 0
+
 
 
 cdef class _Writer:

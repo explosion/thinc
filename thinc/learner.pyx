@@ -40,7 +40,7 @@ cdef class LinearModel:
         self.total = 0
         self.n_corr = 0
         self.nr_class = nr_class
-        self._max_wl = 1000
+        self._max_wl = nr_class * nr_templates
         self.time = 0
         self.cache = ScoresCache(nr_class)
         self.weights = PreshMap()
@@ -66,21 +66,6 @@ cdef class LinearModel:
             feats[i].value = 1
         scores = self.get_scores(feats, len(features))
         return [scores[i] for i in range(self.nr_class)]
-
-    cdef const weight_t* get_scores(self, const Feature* feats, const int n_feats) except NULL:
-        self.set_scores(self.scores, feats, n_feats)
-        return self.scores
-
-    cdef int set_scores(self, weight_t* scores, const Feature* feats, const int n_feats) except -1:
-        memset(scores, 0, self.nr_class * sizeof(weight_t))
-        if n_feats * self.nr_class >= self._max_wl:
-            self._max_wl = (n_feats * self.nr_class) * 2
-            size = self._max_wl * sizeof(WeightLine)
-            self._weight_lines = <WeightLine*>self.mem.realloc(self._weight_lines, size)
-        f_i = gather_weights(self.weights.c_map, self.nr_class, self._weight_lines,
-                             feats, n_feats)
-        set_scores(scores, self._weight_lines, f_i, self.nr_class)
-        return 0
 
     cpdef int update(self, dict counts) except -1:
         cdef TrainFeat* feat

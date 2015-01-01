@@ -29,7 +29,7 @@ cdef class_t get_nr_rows(const class_t n) nogil:
 
 
 cdef int gather_weights(MapStruct* maps, const class_t nr_class,
-        WeightLine* w_lines, const Feature* feats, const int n_feats) except -1:
+        WeightLine* w_lines, const Feature* feats, const int n_feats) nogil:
     cdef:
         const TrainFeat* feature
         const WeightLine* feat_weights
@@ -56,7 +56,7 @@ cdef int gather_weights(MapStruct* maps, const class_t nr_class,
 
 
 cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
-        const class_t nr_rows, const class_t nr_class) except -1:
+        const class_t nr_rows, const class_t nr_class) nogil:
     cdef int row, col, max_col
     cdef const WeightLine* wline
     cdef weight_t* row_scores
@@ -94,7 +94,9 @@ cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t ti
         for col in range(LINE_SIZE):
             unchanged = (time + 1) - feat.meta[row].line[col].time
             feat.meta[row].line[col].total += unchanged * feat.weights[row].line[col]
-            feat.weights[row].line[col] = feat.meta[row].line[col].total
+            feat.weights[row].line[col] = feat.meta[row].line[col].total / time
+            #if abs(feat.weights[row].line[col]) < 1:
+            #    feat.weights[row].line[col] = 0
 
 
 @cython.overflowcheck(True)
