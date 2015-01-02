@@ -94,18 +94,16 @@ if sys.argv[1] == 'clean':
     print >> sys.stderr, "cleaning .c, .c++ and .so files matching sources"
     map(clean, exts)
 
+
 distutils.core.setup(
     name='thinc',
     packages=['thinc'],
-    version='1.5',
+    version='1.60',
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
     package_data={"thinc": ["*.pxd", "*.pxi"]},
     cmdclass={'build_ext': Cython.Distutils.build_ext},
     ext_modules=exts,
-    requires=["cymem"]
+    requires=["cython", "cymem", "murmurhash", "preshed"]
 )
-
-
-
