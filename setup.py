@@ -73,7 +73,7 @@ distutils.core.setup(
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
-    package_data={"thinc": ["*.pxd"]},
+    package_data={"thinc": ["*.pxd", "*.pxi"]},
     cmdclass={'build_ext': Cython.Distutils.build_ext},
     ext_modules=exts,
 )
