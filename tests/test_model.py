@@ -6,6 +6,10 @@ import pytest
 from thinc.learner import LinearModel
 
 
+def assert_near_eq(float1, float2):
+    assert abs(float1 - float2) < 0.001
+
+
 def test_basic():
     model = LinearModel(5, 4)
     model.update({1: {(1, 1): 1, (3, 3): -5}, 2: {(2, 2): 4, (3, 3): 5}})
@@ -49,25 +53,25 @@ def model(instances):
 def test_averaging(model):
     model.end_training()
     # Feature 1
-    assert model([0, 1])[1] == sum([-1, -2, -3]) / 1
-    assert model([0, 1])[2] == sum([5, 4, 9]) / 1
-    assert model([0, 1])[3] == sum([3, 6, 6]) / 1
+    assert_near_eq(model([0, 1])[1], sum([-1, -2, -3]) / 3.0)
+    assert_near_eq(model([0, 1])[2], sum([5, 4, 9]) / 3.0)
+    assert_near_eq(model([0, 1])[3], sum([3, 6, 6]) / 3.0)
     # Feature 2
-    assert model([0, 0, 2])[1] == sum([1, 2, 4]) / 1
-    assert model([0, 0, 2])[2] == sum([-5, -3, -8]) / 1
-    assert model([0, 0, 2])[3] == sum([-3, -6, -5]) / 1
+    assert_near_eq(model([0, 0, 2])[1], sum([1, 2, 4]) / 3.0)
+    assert_near_eq(model([0, 0, 2])[2], sum([-5, -3, -8]) / 3.0)
+    assert_near_eq(model([0, 0, 2])[3], sum([-3, -6, -5]) / 3.0)
     # Feature 3 (absent)
-    assert model([0, 0, 0, 3])[1] == 0
-    assert model([0, 0, 0, 3])[2] == 0
-    assert model([0, 0, 0, 3])[3] == 0
+    assert_near_eq(model([0, 0, 0, 3])[1], 0)
+    assert_near_eq(model([0, 0, 0, 3])[2], 0)
+    assert_near_eq(model([0, 0, 0, 3])[3], 0)
     # Feature 4
-    assert model([0, 0, 0, 0, 4])[1] == sum([0, 0, 0]) / 1
-    assert model([0, 0, 0, 0, 4])[2] == sum([0, 0, 0]) / 1
-    assert model([0, 0, 0, 0, 4])[3] == sum([0, 0, 1]) / 1
+    assert_near_eq(model([0, 0, 0, 0, 4])[1], sum([0, 0, 0]) / 3.0)
+    assert_near_eq(model([0, 0, 0, 0, 4])[2], sum([0, 0, 0]) / 3.0)
+    assert_near_eq(model([0, 0, 0, 0, 4])[3], sum([0, 0, 1]) / 3.0)
     # Feature 5
-    assert model([0, 0, 0, 0, 0, 5])[1] == sum([0, 0, 0]) / 1
-    assert model([0, 0, 0, 0, 0, 5])[2] == sum([0, 0, 0]) / 1
-    assert model([0, 0, 0, 0, 0, 5])[3] == sum([0, 0, -7]) / 1
+    assert_near_eq(model([0, 0, 0, 0, 0, 5])[1], sum([0, 0, 0]) / 3.0)
+    assert_near_eq(model([0, 0, 0, 0, 0, 5])[2], sum([0, 0, 0]) / 3.0)
+    assert_near_eq(model([0, 0, 0, 0, 0, 5])[3], sum([0, 0, -7]) / 3.0)
 
 
 def test_dump_load(model):
