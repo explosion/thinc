@@ -6,8 +6,7 @@ from libc.string cimport memset
 
 from preshed.maps cimport map_get
 
-
-DEF LINE_SIZE = 8
+include "compile_time_constants.pxi"
 
 
 @cython.cdivision(True)

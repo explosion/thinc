@@ -16,9 +16,6 @@ from .features cimport Feature
 from .weights cimport gather_weights, set_scores
 
 
-DEF LINE_SIZE = 8
-
-
 cdef class LinearModel:
     cdef time_t time
     cdef readonly class_t nr_class

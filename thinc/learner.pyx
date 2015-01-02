@@ -22,7 +22,7 @@ from .weights cimport get_nr_rows
 from .weights cimport free_feature
 
 
-DEF LINE_SIZE = 8
+include "compile_time_constants.pxi"
 
 
 cdef class LinearModel:
