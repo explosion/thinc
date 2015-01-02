@@ -1,4 +1,31 @@
 #!/usr/bin/env python
+
+# Cython dependencies --- the normal dep mechanisms don't work here, so this
+# is what we're down to...
+import subprocess
+
+try:
+    import Cython
+except ImportError:
+    subprocess.call(['pip install cython'], shell=True)
+
+try:
+    import cymem
+except ImportError:
+    subprocess.call(['pip install cymem'], shell=True)
+
+try:
+    import murmurhash
+except ImportError:
+    subprocess.call(['pip install murmurhash'], shell=True)
+
+try:
+    import preshed
+except ImportError:
+    subprocess.call(['pip install preshed'], shell=True)
+
+
+
 import Cython.Distutils
 from distutils.extension import Extension
 import distutils.core
@@ -7,6 +34,7 @@ import sys
 import os
 from os.path import join as pjoin
 from glob import glob
+
 
 
 def clean(ext):
@@ -76,6 +104,7 @@ distutils.core.setup(
     package_data={"thinc": ["*.pxd", "*.pxi"]},
     cmdclass={'build_ext': Cython.Distutils.build_ext},
     ext_modules=exts,
+    requires=["cymem"]
 )
 
 

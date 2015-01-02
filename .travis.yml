@@ -4,11 +4,7 @@ python:
   - "3.4"
 # command to install dependencies
 install:
-  pip install cython &&
-  pip install cymem &&
-  pip install murmurhash &&
-  pip install preshed &&
-  pip install -r requirements.txt &&
-  python setup.py build_ext --inplace
+  python setup.py build_ext --inplace &&
+  pip install -r requirements.txt 
 # command to run tests
 script: "py.test tests/"
