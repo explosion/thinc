@@ -2,7 +2,7 @@ pytest
 cython
 cymem
 murmurhash
-preshed == 0.20
+preshed == 0.21
 humanize
 ujson
 fabric
