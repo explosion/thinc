@@ -22,8 +22,8 @@ cdef class Extractor:
     cdef Template* templates
     cdef Feature* feats
     cdef readonly int n_templ
-    cdef Feature* get_feats(self, atom_t* atoms, int* length) except NULL
-    cdef int set_feats(self, Feature* feats, atom_t* atoms) except -1
+    cdef Feature* get_feats(self, atom_t* atoms, int* length) nogil
+    cdef int set_feats(self, Feature* feats, atom_t* atoms) nogil
 
 
-cdef int count_feats(dict counts, const Feature* feats, int n_feats, weight_t inc) except -1
+cdef int count_feats(dict counts, Feature* feats, int n_feats, weight_t inc) except -1

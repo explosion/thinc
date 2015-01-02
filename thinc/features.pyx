@@ -28,11 +28,11 @@ cdef class Extractor:
                 self.templates[i].indices[j] = idx
             self.templates[i].length = len(indices)
 
-    cdef Feature* get_feats(self, atom_t* atoms, int* length) except NULL:
+    cdef Feature* get_feats(self, atom_t* atoms, int* length) nogil:
         length[0] = self.set_feats(self.feats, atoms)
         return self.feats
 
-    cdef int set_feats(self, Feature* feats, atom_t* atoms) except -1:
+    cdef int set_feats(self, Feature* feats, atom_t* atoms) nogil:
         cdef Template* templ
         cdef Feature* feat
         feats[0].i = 0
