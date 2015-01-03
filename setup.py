@@ -57,7 +57,7 @@ if sys.argv[1] == 'clean':
 setup(
     name='thinc',
     packages=['thinc'],
-    version='1.64',
+    version='1.66',
     description="Learn sparse linear models",
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
