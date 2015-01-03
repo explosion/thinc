@@ -6,6 +6,5 @@ python:
 install:
   - "pip install --upgrade setuptools"
   - "pip install murmurhash thinc"
-  - "export PYTHONPATH=`pwd`"
 # command to run tests
 script: "py.test tests/"
