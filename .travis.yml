@@ -6,5 +6,6 @@ python:
 install:
   - "pip install --upgrade setuptools"
   - "pip install murmurhash thinc"
+  - "rm -rf thinc/"
 # command to run tests
 script: "py.test tests/"
