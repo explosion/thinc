@@ -1,6 +1,5 @@
 from __future__ import division
 
-import StringIO
 import pytest
 
 from thinc.learner import LinearModel
