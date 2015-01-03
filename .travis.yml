@@ -4,7 +4,6 @@ python:
   - "3.4"
 # command to install dependencies
 install:
-  python setup.py build_ext --inplace &&
-  pip install -r requirements.txt 
+  - "pip install thinc"
 # command to run tests
 script: "py.test tests/"
