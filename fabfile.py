@@ -14,6 +14,12 @@ def sdist():
         local('python setup.py sdist')
 
 
+def publish():
+    with virtualenv(VENV_DIR):
+        local('python setup.py register')
+        local('twine upload dist/*.tar.gz')
+
+
 def install():
     if file_exists('.env'):
         local('rm -rf .env')
@@ -29,9 +35,11 @@ def make():
         with lcd(path.dirname(__file__)):
             local('python dev_setup.py build_ext --inplace')
 
+
 def clean():
     with lcd(path.dirname(__file__)):
         local('python dev_setup.py clean --all')
+
 
 def test():
     with virtualenv(VENV_DIR):
