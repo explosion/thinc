@@ -45,7 +45,7 @@ exts = [
               extra_link_args=link_args),
     Extension("thinc.search", ["thinc/search.cpp"], language="c++"),
     Extension("thinc.cache", ["thinc/cache.cpp"], include_dirs=includes, language="c++"),
-    Extension("tests.c_test_search", ["tests/c_test_search.cpp"], include_dirs=includes, language="c++")
+    #Extension("tests.c_test_search", ["tests/c_test_search.cpp"], include_dirs=includes, language="c++")
 ]
 
 
