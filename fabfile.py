@@ -9,7 +9,9 @@ VENV_DIR = path.join(PWD, '.env')
 
 
 def sdist():
-    local('rm dist/*')
+    if file_exists('dist/'):
+        local('rm -rf dist/')
+    local('mkdir dist')
     with virtualenv(VENV_DIR):
         local('python setup.py sdist')
 
@@ -20,12 +22,16 @@ def publish():
         local('twine upload dist/*.tar.gz')
 
 
-def install():
+def setup():
     if file_exists('.env'):
         local('rm -rf .env')
     local('virtualenv .env')
+
+
+def install():
     with virtualenv(VENV_DIR):
         local('pip install --upgrade setuptools')
+        local('pip install murmurhash')
         local('pip install dist/*.tar.gz')
         local('pip install pytest')
 

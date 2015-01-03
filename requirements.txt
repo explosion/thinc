@@ -1,5 +1,4 @@
 pytest
-cython
 cymem
 murmurhash
 preshed == 0.22
