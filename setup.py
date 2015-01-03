@@ -57,12 +57,13 @@ if sys.argv[1] == 'clean':
 setup(
     name='thinc',
     packages=['thinc'],
-    version='1.66',
+    version='1.67',
     description="Learn sparse linear models",
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
     package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
     ext_modules=exts,
-    install_requires=["murmurhash", "cymem", "preshed"]
+    install_requires=["murmurhash", "cymem", "preshed"],
+    setup_requires=["murmurhash"]
 )
