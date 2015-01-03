@@ -14,7 +14,7 @@ import shutil
 pwd = os.path.dirname(__file__)
 virtual_env = os.environ.get('VIRTUAL_ENV', '')
 
-includes = []
+includes = ['.']
 if virtual_env:
     includes += glob(os.path.join(virtual_env, 'include', 'site', '*'))
 else:
@@ -57,7 +57,8 @@ if sys.argv[1] == 'clean':
 setup(
     name='thinc',
     packages=['thinc'],
-    version='1.62',
+    version='1.63',
+    description="Learn sparse linear models",
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
     url="http://github.com/syllog1sm/thinc",
