@@ -7,6 +7,7 @@ import subprocess
 
 
 from setuptools import setup
+from setuptools import egg_info
 from distutils.core import Extension
 import shutil
 
