@@ -57,7 +57,7 @@ if sys.argv[1] == 'clean':
 setup(
     name='thinc',
     packages=['thinc'],
-    version='1.67',
+    version='1.68',
     description="Learn sparse linear models",
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
@@ -65,5 +65,15 @@ setup(
     package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
     ext_modules=exts,
     install_requires=["murmurhash", "cymem", "preshed"],
-    setup_requires=["murmurhash"]
+    setup_requires=["headers_workaround"]
 )
+
+
+import headers_workaround
+import sys
+
+
+include_dir = path.join(sys.prefix, 'include', 'site')
+if not path.exists(include_dir):
+    os.mkdir(include_dir)
+headers_workaround.install_headers(include_dir, 'murmurhash')
