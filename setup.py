@@ -13,7 +13,7 @@ import shutil
 
 pwd = os.path.dirname(__file__)
 
-includes = ['.', path.join(sys.prefix, 'includes')]
+includes = ['.', path.join(sys.prefix, 'include')]
 
 
 libs = []
@@ -52,7 +52,7 @@ if sys.argv[1] == 'clean':
 setup(
     name='thinc',
     packages=['thinc'],
-    version='1.68',
+    version='1.69',
     description="Learn sparse linear models",
     author='Matthew Honnibal',
     author_email='honnibal@gmail.com',
