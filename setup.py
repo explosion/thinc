@@ -72,6 +72,7 @@ def main(modules, is_pypy):
 MOD_NAMES = ['thinc.learner', 'thinc.weights', 'thinc.features',
              'thinc.search', 'thinc.cache', 'tests.c_test_search']
 
+
 if __name__ == '__main__':
     use_cython = sys.argv[1] == 'build_ext'
     main(MOD_NAMES, use_cython)
