@@ -6,6 +6,19 @@ from os import path
 
 PWD = path.dirname(__file__)
 VENV_DIR = path.join(PWD, '.env')
+DEV_ENV_DIR = path.join(PWD, '.denv')
+
+
+def dev():
+    # Allow this to persist, since we aren't as rigorous about keeping state clean
+    if not file_exists('.denv'):
+        local('virtualenv .denv')
+ 
+    with virtualenv(DEV_ENV_DIR):
+        local('pip install cython')
+        local('pip install murmurhash')
+        local('pip install -r dev_requirements.txt')
+
 
 
 def sdist():
