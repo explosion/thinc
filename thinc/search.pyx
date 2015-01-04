@@ -1,4 +1,3 @@
-# cython: profile=True
 cimport cython
 from libc.string cimport memset, memcpy
 

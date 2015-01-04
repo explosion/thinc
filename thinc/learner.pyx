@@ -1,4 +1,3 @@
-# cython: profile=True
 from libc.stdio cimport fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
