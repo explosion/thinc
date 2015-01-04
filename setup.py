@@ -12,13 +12,8 @@ import shutil
 
 
 pwd = os.path.dirname(__file__)
-virtual_env = os.environ.get('VIRTUAL_ENV', '')
 
-includes = ['.']
-if virtual_env:
-    includes += glob(os.path.join(virtual_env, 'include', 'site', '*'))
-else:
-    pass
+includes = ['.', path.join(sys.prefix, 'includes')]
 
 
 libs = []
@@ -73,7 +68,4 @@ import headers_workaround
 import sys
 
 
-include_dir = path.join(sys.prefix, 'include', 'site')
-if not path.exists(include_dir):
-    os.mkdir(include_dir)
-headers_workaround.install_headers(include_dir, 'murmurhash')
+headers_workaround.install_headers('murmurhash')
