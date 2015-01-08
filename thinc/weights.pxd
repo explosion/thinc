@@ -15,8 +15,8 @@ from preshed.maps cimport Cell
 from .features cimport Feature
 
 
-# Number of weights in a line. Should be aligned to cache lines.
-DEF LINE_SIZE = 8
+include "compile_time_constants.pxi"
+
 
 ctypedef weight_t[LINE_SIZE] weight_line_t
 
