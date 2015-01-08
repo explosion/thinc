@@ -2,6 +2,7 @@ from .typedefs cimport weight_t, feat_t, class_t, count_t, time_t
 
 from libc.stdint cimport uint64_t
 from libc.stdint cimport uint32_t
+from libc.stdint cimport int32_t
 from libc.stdint cimport uint16_t
 
 from cymem.cymem cimport Pool
@@ -24,7 +25,7 @@ ctypedef weight_t[LINE_SIZE] weight_line_t
 # to. Subsequent weights go from there.
 cdef struct WeightLine:
     weight_line_t line
-    int start
+    int32_t start
 
 
 cdef struct MetaData:
