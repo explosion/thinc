@@ -51,12 +51,12 @@ def install():
 def make():
     with virtualenv(VENV_DIR):
         with lcd(path.dirname(__file__)):
-            local('python dev_setup.py build_ext --inplace')
+            local('python setup.py build_ext --inplace')
 
 
 def clean():
     with lcd(path.dirname(__file__)):
-        local('python dev_setup.py clean --all')
+        local('python setup.py clean --all')
 
 
 def test():
