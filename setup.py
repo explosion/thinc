@@ -48,7 +48,7 @@ def run_setup(exts):
     setup(
         name='thinc',
         packages=['thinc'],
-        version='1.71',
+        version='1.72',
         description="Learn sparse linear models",
         author='Matthew Honnibal',
         author_email='honnibal@gmail.com',
@@ -65,7 +65,7 @@ def run_setup(exts):
     headers_workaround.install_headers('murmurhash')
 
 
-def main(modules, is_pypy):
+def main(modules, use_cython):
     language = "cpp"
     ext_func = cython_ext if use_cython else c_ext
     includes = ['.', path.join(sys.prefix, 'include')]
