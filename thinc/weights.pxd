@@ -16,7 +16,7 @@ from .features cimport Feature
 
 
 # Number of weights in a line. Should be aligned to cache lines.
-include "compile_time_constants.pxi"
+DEF LINE_SIZE = 8
 
 ctypedef weight_t[LINE_SIZE] weight_line_t
 
@@ -33,12 +33,12 @@ cdef struct MetaData:
     time_t time
     #weight_t rms_grad
     #weight_t rms_upd
-    
+
 
 cdef struct MDLine:
-    MetaData[LINE_SIZE] line
-
-
+     MetaData[LINE_SIZE] line
+ 
+ 
 cdef struct TrainFeat:
     WeightLine* weights
     MDLine* meta
@@ -46,16 +46,15 @@ cdef struct TrainFeat:
     uint32_t _resize_at
 
 
+cdef class_t get_nr_rows(const class_t n) nogil
+   
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1
 cdef TrainFeat* new_train_feat(const class_t nr_class) except NULL
 cdef int perceptron_update_feature(TrainFeat* feat, class_t clas, weight_t upd,
-                                   time_t time, class_t nr_classes) except -1
+                                   time_t time, const class_t nr_class) except -1
 cdef int gather_weights(MapStruct* maps, const class_t nr_class,
                         WeightLine* w_lines, const Feature* feats, const int n_feats) nogil
 cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
                     const class_t nr_rows, const class_t nr_class) nogil
- 
-
-cdef class_t get_nr_rows(const class_t n) nogil
 
 cdef void free_feature(TrainFeat* feat) nogil
