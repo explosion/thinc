@@ -2,7 +2,7 @@ from libc.stdio cimport fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
 from libc.string cimport memset
-from libc.stdlib cimport calloc, free
+from cpython.mem cimport PyMem_Malloc, PyMem_Free
 
 import random
 import cython
@@ -184,9 +184,9 @@ cdef class _Reader:
         assert status
         status = fread(&n_rows, sizeof(n_rows), 1, self._fp)
         assert status
-        feat = <TrainFeat*>calloc(sizeof(TrainFeat), 1)
+        feat = <TrainFeat*>PyMem_Malloc(sizeof(TrainFeat))
         feat.meta = NULL
-        feat.weights = <WeightLine*>calloc(sizeof(WeightLine), n_rows)
+        feat.weights = <WeightLine*>PyMem_Malloc(sizeof(WeightLine) * n_rows)
         feat.length = n_rows
         feat._resize_at = n_rows
         cdef int i

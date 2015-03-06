@@ -1,6 +1,6 @@
 cimport cython
 from libc.math cimport sqrt
-from libc.stdlib cimport calloc, free, realloc
+from cpython.mem cimport PyMem_Malloc, PyMem_Realloc, PyMem_Free
 from libc.string cimport memmove
 from libc.string cimport memset
 
@@ -70,9 +70,11 @@ cdef int set_scores(weight_t* scores, const WeightLine* weight_lines,
 
 
 cdef TrainFeat* new_train_feat(const class_t clas) except NULL:
-    cdef TrainFeat* output = <TrainFeat*>calloc(1, sizeof(TrainFeat))
-    output.weights = <WeightLine*>calloc(1, sizeof(WeightLine))
-    output.meta = <MDLine*>calloc(1, sizeof(MDLine))
+    cdef TrainFeat* output = <TrainFeat*>PyMem_Malloc(sizeof(TrainFeat))
+    output.weights = <WeightLine*>PyMem_Malloc(sizeof(WeightLine))
+    memset(output.weights, 0, sizeof(WeightLine))
+    output.meta = <MDLine*>PyMem_Malloc(sizeof(MDLine))
+    memset(output.meta, 0, sizeof(MDLine))
     output.length = 1
     output._resize_at = 1
     output.weights[0].start = clas - get_col(clas)
@@ -80,9 +82,10 @@ cdef TrainFeat* new_train_feat(const class_t clas) except NULL:
 
 
 cdef void free_feature(TrainFeat* feat) nogil:
-    free(feat.weights)
-    free(feat.meta)
-    free(feat)
+    with gil:
+        PyMem_Free(feat.weights)
+        PyMem_Free(feat.meta)
+        PyMem_Free(feat)
 
 
 cdef int average_weight(TrainFeat* feat, const class_t nr_class, const time_t time) except -1:
@@ -127,8 +130,8 @@ cdef int _insert_row(TrainFeat* feat, int i, class_t start, class_t nr_classes) 
     cdef class_t nr_rows = get_nr_rows(nr_classes)
     if feat.length == feat._resize_at:
         new_size = (feat.length +1) * 2 if (feat.length+1) * 2 < nr_rows else nr_rows
-        feat.weights = <WeightLine*>realloc(feat.weights, new_size * sizeof(WeightLine))
-        feat.meta = <MDLine*>realloc(feat.meta, new_size * sizeof(MDLine))
+        feat.weights = <WeightLine*>PyMem_Realloc(feat.weights, new_size * sizeof(WeightLine))
+        feat.meta = <MDLine*>PyMem_Realloc(feat.meta, new_size * sizeof(MDLine))
         feat._resize_at = new_size
     memmove(&feat.weights[i+1], &feat.weights[i], (feat.length - i) * sizeof(WeightLine))
     memmove(&feat.meta[i+1], &feat.meta[i], (feat.length - i) * sizeof(MDLine))
