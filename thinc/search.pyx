@@ -12,7 +12,6 @@ cdef class Beam:
         self.width = width
         self.size = 1
         self.mem = Pool()
-        self.q = new Queue()
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
         cdef int i
@@ -61,7 +60,8 @@ cdef class Beam:
         cdef bint** is_valid = self.is_valid
         cdef int** costs = self.costs
 
-        self._fill(scores, is_valid)
+        cdef Queue* q = new Queue()
+        self._fill(q, scores, is_valid)
         # For a beam of width k, we only ever need 2k state objects. How?
         # Each transition takes a parent and a class and produces a new state.
         # So, we don't need the whole history --- just the parent. So at
@@ -75,12 +75,12 @@ cdef class Beam:
         cdef class_t clas
         cdef _State* parent
         cdef _State* state
-        while i < self.width and not self.q.empty():
-            data = self.q.top()
+        while i < self.width and not q.empty():
+            data = q.top()
             p_i = data.second / self.nr_class
             clas = data.second % self.nr_class
             score = data.first
-            self.q.pop()
+            q.pop()
             parent = &self._parents[p_i]
             # Indicates terminal state reached; i.e. state is done
             if parent.is_done:
@@ -98,6 +98,7 @@ cdef class Beam:
             self.histories[i] = list(self._parent_histories[p_i])
             self.histories[i].append(clas)
             i += 1
+        del q
         self.size = i
         assert self.size >= 1
         for i in range(self.width):
@@ -116,14 +117,12 @@ cdef class Beam:
         else:
             self.is_done = True
 
-    cdef int _fill(self, weight_t** scores, bint** is_valid) except -1:
+    cdef int _fill(self, Queue* q, weight_t** scores, bint** is_valid) except -1:
         """Populate the queue from a k * n matrix of scores, where k is the
         beam-width, and n is the number of classes.
         """
         cdef Entry entry
         cdef weight_t score
-        del self.q
-        self.q = new Queue()
         cdef _State* s
         cdef int i, j, move_id
         assert self.size >= 1
@@ -137,13 +136,13 @@ cdef class Beam:
                 else:
                     entry.first = s.score
                 entry.second = move_id
-                self.q.push(entry)
+                q.push(entry)
                 continue
             for j in range(self.nr_class):
                 if is_valid[i][j]:
                     entry.first = s.score + scores[i][j]
                     entry.second = move_id + j
-                    self.q.push(entry)
+                    q.push(entry)
 
 
 cdef class MaxViolation:

@@ -38,14 +38,13 @@ cdef class Beam:
     cdef readonly bint is_done
     cdef list histories
     cdef list _parent_histories
-    cdef Queue* q
     cdef weight_t** scores
     cdef bint** is_valid
     cdef int** costs
     cdef _State* _parents
     cdef _State* _states
 
-    cdef int _fill(self, weight_t** scores, bint** is_valid) except -1
+    cdef int _fill(self, Queue* q, weight_t** scores, bint** is_valid) except -1
 
     cdef inline void* at(self, int i) nogil:
         return self._states[i].content
