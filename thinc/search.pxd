@@ -60,7 +60,8 @@ cdef class Beam:
         self.is_valid[i][j] = is_valid
         self.costs[i][j] = cost
         
-    cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1
+    cdef int set_row(self, int i, const weight_t* scores, const bint* is_valid,
+                     const int* costs) except -1
     cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1
 
 

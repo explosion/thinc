@@ -30,8 +30,13 @@ cdef class Beam:
     property score:
         def __get__(self):
             return self._states[0].score
+
+    property loss:
+        def __get__(self):
+            return self._states[0].loss
  
-    cdef int set_row(self, int i, weight_t* scores, bint* is_valid, int* costs) except -1:
+    cdef int set_row(self, int i, const weight_t* scores, const bint* is_valid,
+                     const int* costs) except -1:
         cdef int j
         for j in range(self.nr_class):
             self.scores[i][j] = scores[j]
