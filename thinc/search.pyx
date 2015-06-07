@@ -1,3 +1,4 @@
+from __future__ cimport division
 cimport cython
 from libc.string cimport memset, memcpy
 
@@ -11,6 +12,7 @@ cdef class Beam:
         self.nr_class = nr_class
         self.width = width
         self.size = 1
+        self.t = 0
         self.mem = Pool()
         self._parents = <_State*>self.mem.alloc(self.width, sizeof(_State))
         self._states = <_State*>self.mem.alloc(self.width, sizeof(_State))
@@ -88,16 +90,16 @@ cdef class Beam:
                 self._states[i] = parent[0]
                 self._states[i].score = score
                 i += 1
-                continue
-            state = &self._states[i]
-            # The supplied transition function should adjust the destination
-            # state to be the result of applying the class to the source state
-            transition_func(state.content, parent.content, clas, extra_args)
-            state.score = score
-            state.loss = parent.loss + costs[p_i][clas]
-            self.histories[i] = list(self._parent_histories[p_i])
-            self.histories[i].append(clas)
-            i += 1
+            else:
+                state = &self._states[i]
+                # The supplied transition function should adjust the destination
+                # state to be the result of applying the class to the source state
+                transition_func(state.content, parent.content, clas, extra_args)
+                state.score = score
+                state.loss = parent.loss + costs[p_i][clas]
+                self.histories[i] = list(self._parent_histories[p_i])
+                self.histories[i].append(clas)
+                i += 1
         del q
         self.size = i
         assert self.size >= 1
@@ -105,6 +107,7 @@ cdef class Beam:
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
             memset(self.is_valid[i], False, sizeof(bint) * self.nr_class)
             memset(self.costs[i], 0, sizeof(int) * self.nr_class)
+        self.t += 1
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
@@ -117,6 +120,7 @@ cdef class Beam:
         else:
             self.is_done = True
 
+    @cython.cdivision(True)
     cdef int _fill(self, Queue* q, weight_t** scores, bint** is_valid) except -1:
         """Populate the queue from a k * n matrix of scores, where k is the
         beam-width, and n is the number of classes.
@@ -132,17 +136,17 @@ cdef class Beam:
             if s.is_done:
                 # Update score by path average, following TACL '13 paper.
                 if self.histories[i]:
-                    entry.first = s.score + (s.score / len(self.histories[i]))
+                    entry.first = s.score + (s.score / self.t)
                 else:
                     entry.first = s.score
                 entry.second = move_id
                 q.push(entry)
-                continue
-            for j in range(self.nr_class):
-                if is_valid[i][j]:
-                    entry.first = s.score + scores[i][j]
-                    entry.second = move_id + j
-                    q.push(entry)
+            else:
+                for j in range(self.nr_class):
+                    if is_valid[i][j]:
+                        entry.first = s.score + scores[i][j]
+                        entry.second = move_id + j
+                        q.push(entry)
 
 
 cdef class MaxViolation:

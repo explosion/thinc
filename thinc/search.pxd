@@ -35,6 +35,7 @@ cdef class Beam:
     cdef class_t nr_class
     cdef class_t width
     cdef class_t size
+    cdef int t
     cdef readonly bint is_done
     cdef list histories
     cdef list _parent_histories
