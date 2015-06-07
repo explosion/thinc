@@ -1,8 +1,3 @@
-pytest
-cymem
-murmurhash
-preshed 
-humanize
-ujson
-fabric
-fabtools
+cymem == 1.11
+murmurhash == 0.24
+preshed == 0.37
