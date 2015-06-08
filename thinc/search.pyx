@@ -3,6 +3,8 @@ cimport cython
 from libc.string cimport memset, memcpy
 
 from cymem.cymem cimport Pool
+from preshed.maps cimport PreshMap
+from .typedefs cimport hash_t
 
 
 cdef class Beam:
@@ -57,7 +59,8 @@ cdef class Beam:
             self._parents[i].content = init_func(self.mem, n, extra_args)
 
     @cython.cdivision(True)
-    cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1:
+    cdef int advance(self, trans_func_t transition_func, hash_func_t hash_func,
+                     void* extra_args) except -1:
         cdef weight_t** scores = self.scores
         cdef bint** is_valid = self.is_valid
         cdef int** costs = self.costs
@@ -77,6 +80,9 @@ cdef class Beam:
         cdef class_t clas
         cdef _State* parent
         cdef _State* state
+        cdef hash_t key
+        cdef PreshMap seen_states = PreshMap(self.width)
+        cdef size_t is_seen
         while i < self.width and not q.empty():
             data = q.top()
             p_i = data.second / self.nr_class
@@ -95,11 +101,16 @@ cdef class Beam:
                 # The supplied transition function should adjust the destination
                 # state to be the result of applying the class to the source state
                 transition_func(state.content, parent.content, clas, extra_args)
-                state.score = score
-                state.loss = parent.loss + costs[p_i][clas]
-                self.histories[i] = list(self._parent_histories[p_i])
-                self.histories[i].append(clas)
-                i += 1
+                key = hash_func(state.content, extra_args) if hash_func is not NULL else 0
+                is_seen = <size_t>seen_states.get(key)
+                if key == 0 or not is_seen:
+                    if key != 0:
+                        seen_states.set(key, <void*>1)
+                    state.score = score
+                    state.loss = parent.loss + costs[p_i][clas]
+                    self.histories[i] = list(self._parent_histories[p_i])
+                    self.histories[i].append(clas)
+                    i += 1
         del q
         self.size = i
         assert self.size >= 1

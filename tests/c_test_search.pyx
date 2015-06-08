@@ -62,7 +62,7 @@ def test_transition(nr_class=3, beam_width=6, length=3):
     b.initialize(initialize, length, NULL)
     b.set_cell(0, 2, 30, True, 0)
     b.set_cell(0, 1, 42, False, 0)
-    b.advance(transition, NULL)
+    b.advance(transition, NULL, NULL)
     assert b.size == 1, b.size
     assert b.score == 30, b.score
     s = <TestState*>b.at(0)
@@ -70,7 +70,7 @@ def test_transition(nr_class=3, beam_width=6, length=3):
     assert b._states[0].score == 30, b._states[0].score
     b.set_cell(0, 1, 10, True, 0)
     b.set_cell(0, 2, 20, True, 0)
-    b.advance(transition, NULL)
+    b.advance(transition, NULL, NULL)
     assert b._states[0].score == 50, b._states[0].score
     assert b._states[1].score == 40
     s = <TestState*>b.at(0)

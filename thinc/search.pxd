@@ -1,12 +1,15 @@
 from cymem.cymem cimport Pool
 
 from libc.stdint cimport uint32_t
+from libc.stdint cimport uint64_t
 from libcpp.pair cimport pair
 from libcpp.queue cimport priority_queue
 from libcpp.vector cimport vector
 
 from thinc.learner cimport weight_t
 from thinc.learner cimport class_t
+from .typedefs cimport hash_t
+
 
 
 ctypedef pair[weight_t, size_t] Entry
@@ -18,6 +21,8 @@ ctypedef int (*trans_func_t)(void* dest, void* src, class_t clas, void* x) excep
 ctypedef void* (*init_func_t)(Pool mem, int n, void* extra_args) except NULL
 
 ctypedef int (*finish_func_t)(void* state, void* extra_args) except -1
+
+ctypedef hash_t (*hash_func_t)(void* state, void* x) except 0
 
 
 cdef struct _State:
@@ -51,7 +56,8 @@ cdef class Beam:
         return self._states[i].content
 
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1
-    cdef int advance(self, trans_func_t transition_func, void* extra_args) except -1
+    cdef int advance(self, trans_func_t transition_func, hash_func_t hash_func,
+                     void* extra_args) except -1
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1
  
 
