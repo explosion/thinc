@@ -1,50 +1,86 @@
 cimport numpy as np
 cimport cython
+import numpy
 
 from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t
 
 from libc.string cimport memcpy
+from libc.math cimport isnan
+
+
+cdef struct Param:
+    void update(Param* self, float* gradient, int t, float eta, float mu) except *
+    float* curr
+    float* avg
+    float* step
+    int length
+
+
+@cython.cdivision(True)
+cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) except *:
+    cdef int i
+    cdef float alpha = (1 / t)
+    alpha = alpha if alpha >= 0.001 else 0.001
+    alpha = alpha if alpha < 0.9 else 0.9
+
+    for i in range(self.length):
+        self.step[i] = (mu * self.step[i]) - grad[i]
+        self.curr[i] += (eta * self.step[i])
+        self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
+
  
+cdef Param Param_init(Pool mem, int length, initializer) except *:
+    cdef Param param
+    param.curr = <float*>mem.alloc(length, sizeof(float))
+    param.avg = <float*>mem.alloc(length, sizeof(float))
+    param.step = <float*>mem.alloc(length, sizeof(float))
+    param.update = Param_asgd
+    param.length = length
+
+    # Draw random values from the initializer. avg and curr should have the same
+    # values. Step is initialized to 0s
+    for i in range(length):
+        param.curr[i] = initializer()
+        param.avg[i] = param.curr[i]
+    return param
+
+
+cdef class Layer:
+    cdef Pool mem
+    cdef Param weights
+
+    def __init__(self, n_in, n_out, w_initializer, b_initializer):
+        mem = Pool()
+        weights = Param_init(mem, n_int * n_out, w_initializer)
+
 
 cdef class EmbeddingTable:
     cdef Pool mem
-    cdef weight_t** rows
-    cdef weight_t* _buffer
+    cdef Param* rows
     cdef readonly int n_rows
     cdef readonly int n_cols
-    cdef int _slice_size
-    def __init__(self, n_rows, n_cols, slice_size=4, get_value=None):
+    def __init__(self, n_rows, n_cols, initializer):
         n_rows += 1
-        n_cols += 1
         mem = Pool()
-        rows = <weight_t**>mem.alloc(n_rows, sizeof(weight_t*))
+        rows = <Param*>mem.alloc(n_rows, sizeof(Param))
 
-        cdef int i, j
+        cdef int i
         for i in range(n_rows):
-            rows[i] = <weight_t*>mem.alloc(n_cols, sizeof(weight_t))
-
-        if get_value is not None:
-            for i in range(n_rows):
-                for j in range(n_cols):
-                    rows[i][j] = get_value(i, j)
-
-        slice_buffer = <weight_t*>mem.alloc(slice_size * n_cols, sizeof(weight_t))
+            rows[i] = Param_init(mem, n_cols, initializer)
 
         self.n_rows = n_rows
         self.n_cols = n_cols
         self.mem = mem
         self.rows = rows
-        self._buffer = slice_buffer
-        self._slice_size = slice_size
 
     @cython.boundscheck(False)
-    def inc_row(self, int idx, weight_t[:] updates):
+    def inc_row(self, int idx, float[:] updates):
         cdef int i
-        cdef weight_t upd
+        cdef float upd
         for i, upd in enumerate(updates):
-            self.rows[idx][i] += upd
+            self.rows[idx].curr[i] += upd
 
 
 cdef class InputLayer:
@@ -54,7 +90,7 @@ cdef class InputLayer:
     cdef int length
     cdef readonly list lengths
     cdef readonly list tables
-    cdef weight_t* _buffer
+    cdef float* _buffer
 
     def __init__(self, lengths, tables):
         self.length = sum(n * t.n_cols for (n, t) in zip(lengths, tables))
@@ -65,23 +101,24 @@ cdef class InputLayer:
         return self.length
     
     @cython.boundscheck(False)
-    def fill(self, weight_t[:] output, slices):
+    def fill(self, float[:] output, slices):
         cdef int i, j, idx, c
         cdef EmbeddingTable table
         c = 0
         for i, (indices, table) in enumerate(zip(slices, self.tables)):
             for idx in indices:
                 for j in range(table.n_cols):
-                    output[c] = table.rows[idx][j]
+                    output[c] = table.rows[idx].curr[j]
                     c += 1
 
     @cython.boundscheck(False)
-    def update(self, weight_t[:] update, slices):
+    def update(self, float[:] gradient, slices, t, eta, mu):
         cdef int i, j, idx, c
         cdef EmbeddingTable table
+        cdef Param* param
         c = 0
         for i, (indices, table) in enumerate(zip(slices, self.tables)):
             for idx in indices:
-                for j in range(table.n_cols):
-                    table.rows[idx][j] += update[c]
-                    c += 1
+                param = &table.rows[idx]
+                param.update(param, &gradient[c], t, eta, mu)
+                c += param.length
