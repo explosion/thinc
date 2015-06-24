@@ -28,7 +28,10 @@ cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) excep
     for i in range(self.length):
         self.step[i] = (mu * self.step[i]) - grad[i]
         self.curr[i] += (eta * self.step[i])
-        self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
+        if t < 1000:
+            self.avg[i] = self.curr[i]
+        else:
+            self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
 
  
 cdef Param Param_init(Pool mem, int length, initializer) except *:
@@ -45,15 +48,6 @@ cdef Param Param_init(Pool mem, int length, initializer) except *:
         param.curr[i] = initializer()
         param.avg[i] = param.curr[i]
     return param
-
-
-cdef class Layer:
-    cdef Pool mem
-    cdef Param weights
-
-    def __init__(self, n_in, n_out, w_initializer, b_initializer):
-        mem = Pool()
-        weights = Param_init(mem, n_int * n_out, w_initializer)
 
 
 cdef class EmbeddingTable:
@@ -101,15 +95,19 @@ cdef class InputLayer:
         return self.length
     
     @cython.boundscheck(False)
-    def fill(self, float[:] output, slices):
+    def fill(self, float[:] output, slices, use_avg=False):
         cdef int i, j, idx, c
         cdef EmbeddingTable table
+        cdef const Param* param
         c = 0
         for i, (indices, table) in enumerate(zip(slices, self.tables)):
             for idx in indices:
-                for j in range(table.n_cols):
-                    output[c] = table.rows[idx].curr[j]
-                    c += 1
+                param = &table.rows[idx]
+                if use_avg:
+                    memcpy(&output[c], param.avg, param.length * sizeof(float))
+                else:
+                    memcpy(&output[c], param.curr, param.length * sizeof(float))
+                c += param.length
 
     @cython.boundscheck(False)
     def update(self, float[:] gradient, slices, t, eta, mu):
