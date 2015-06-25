@@ -144,6 +144,27 @@ cdef int _insert_row(TrainFeat* feat, int i, class_t start, class_t nr_classes) 
 
 
 
+cdef SparseFeat* transform_feat(Pool mem, const TrainFeat* feat) except NULL:
+    cdef int row, col
+    cdef int i = 0
+    cdef int length = 0
+    for row in range(feat.length):
+        for col in range(LINE_SIZE):
+            if feat.weights[row].line[col] != 0:
+                length += 1
+    
+    sparse = <SparseFeat*>mem.alloc(length + 1, sizeof(SparseFeat))
+    for row in range(feat.length):
+        for col in range(LINE_SIZE):
+            if feat.weights[row].line[col] != 0:
+                sparse[i].key = feat.weights[row].start + col
+                sparse[i].val = feat.weights[row].line[col]
+                i += 1
+    sparse[i].key = -1
+    sparse[i].val = 0
+    return sparse
+
+
 #DEF RHO = 0.95
 #DEF EPSILON = 1e-6
 #cdef weight_t _root_mean_square(weight_t prev, weight_t new) except -1:

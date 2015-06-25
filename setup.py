@@ -55,7 +55,7 @@ def run_setup(exts):
         url="http://github.com/syllog1sm/thinc",
         package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
         ext_modules=exts,
-        install_requires=["murmurhash", "cymem", "preshed"],
+        install_requires=["murmurhash", "cymem", "preshed", "numpy"],
         setup_requires=["headers_workaround"]
     )
 
@@ -63,6 +63,7 @@ def run_setup(exts):
 
     headers_workaround.fix_venv_pypy_include()
     headers_workaround.install_headers('murmurhash')
+    headers_workaround.install_headers('numpy')
 
 
 def main(modules, use_cython):
@@ -74,8 +75,9 @@ def main(modules, use_cython):
     run_setup(exts)
 
 
-MOD_NAMES = ['thinc.learner', 'thinc.weights', 'thinc.features',
-             'thinc.search', 'thinc.cache', 'tests.c_test_search']
+MOD_NAMES = ['thinc.learner', 'thinc.features',
+             'thinc.search', 'thinc.cache', 'tests.c_test_search',
+             'thinc.nn', 'thinc.api', 'thinc.sparse']
 
 
 if __name__ == '__main__':
