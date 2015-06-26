@@ -54,7 +54,7 @@ cdef SparseArrayC* resize(SparseArrayC* array) except NULL:
     cdef int length = 0
     while array[length].key != -2:
         length += 1
-    new_length = length * 2
+    cdef int new_length = length * 2
     array = <SparseArrayC*>PyMem_Realloc(array, new_length * sizeof(SparseArrayC))
     cdef int i
     for i in range(length, new_length-1):
