@@ -4,6 +4,8 @@ from libc.string cimport memcpy
 from libc.string cimport memset
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 
+from libc.stdlib cimport qsort
+
 import random
 import cython
 from os import path
@@ -170,13 +172,10 @@ cdef class LinearModel:
                         self.weights.set(feat_id, feat.curr)
 
     def end_training(self):
+        cdef feat_id
         cdef size_t feat_addr
-        cdef int length
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
-                length = sparse.find_key(<SparseArrayC*>feat_addr, -1)
-                qsort(<SparseArrayC*>feat_addr, length, sizeof(SparseArrayC),
-                      sparse.cmp_SparseArrayC)
                 average_weights(<TrainFeat*>feat_addr, self.time)
 
     def end_train_iter(self, iter_num, feat_thresh):
@@ -237,6 +236,8 @@ cdef class _Writer:
         
         _write(&length, sizeof(length), 1, self._fp)
         
+        qsort(feat, length, sizeof(SparseArrayC), sparse.cmp_SparseArrayC)
+        
         for i in range(length):
             _write(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
             _write(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
@@ -286,6 +287,7 @@ cdef class _Reader:
         # Trust We allocated correctly above
         feat[length].key = -2 # Indicates end of memory region
         feat[length].val = 0
+
 
         # Copy into the output variables
         out_feat[0] = feat
