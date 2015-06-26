@@ -17,3 +17,6 @@ cdef int find_key(const SparseArrayC* array, int key) except -2
 
 
 cdef SparseArrayC* resize(SparseArrayC* array) except NULL
+
+
+cdef int cmp_SparseArrayC(const void* a, const void* b) nogil

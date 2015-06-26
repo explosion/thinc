@@ -15,7 +15,7 @@ from preshed.maps cimport MapStruct
 from preshed.maps cimport map_get
 
 from .typedefs cimport feat_t
-
+from libc.stdlib cimport qsort
 
 cimport sparse
 
@@ -170,10 +170,13 @@ cdef class LinearModel:
                         self.weights.set(feat_id, feat.curr)
 
     def end_training(self):
-        cdef feat_id
         cdef size_t feat_addr
+        cdef int length
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
+                length = sparse.find_key(<SparseArrayC*>feat_addr, -1)
+                qsort(<SparseArrayC*>feat_addr, length, sizeof(SparseArrayC),
+                      sparse.cmp_SparseArrayC)
                 average_weights(<TrainFeat*>feat_addr, self.time)
 
     def end_train_iter(self, iter_num, feat_thresh):
