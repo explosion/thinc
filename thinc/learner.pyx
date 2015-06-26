@@ -17,7 +17,9 @@ from preshed.maps cimport MapStruct
 from preshed.maps cimport map_get
 
 from .typedefs cimport feat_t
-from libc.stdlib cimport qsort
+
+from cython.parallel import prange
+
 
 cimport sparse
 
@@ -137,14 +139,24 @@ cdef class LinearModel:
         cdef int i = 0
         cdef int j = 0
         cdef weight_t value = 0
+        cdef const MapStruct* weights_table = self.weights.c_map
+       
+        with gil:
+            active = <SparseArrayC**>PyMem_Malloc(n_feats * sizeof(SparseArrayC*))
+        for i in prange(n_feats, nogil=True):
+            active[i] = <SparseArrayC*>map_get(weights_table, feats[i].key)
+
+        cdef const SparseArrayC* weights
         for i in range(n_feats):
-            weights = <SparseArrayC*>self.weights.get(feats[i].key)
-            value = feats[i].value
-            if weights != NULL and value != 0:
+            weights = active[i]
+            if weights != NULL:
+                value = feats[i].value
                 j = 0
                 while weights[j].key >= 0:
                     scores[weights[j].key] += value * weights[j].val
                     j += 1
+        with gil:
+            PyMem_Free(active)
         return 0
 
     cpdef int update(self, dict updates) except -1:
