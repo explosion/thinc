@@ -75,7 +75,8 @@ def main(modules, use_cython):
 
 
 MOD_NAMES = ['thinc.learner', 'thinc.weights', 'thinc.features',
-             'thinc.search', 'thinc.cache', 'tests.c_test_search']
+             'thinc.search', 'thinc.cache', 'tests.c_test_search',
+             'thinc.api']
 
 
 if __name__ == '__main__':
