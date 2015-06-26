@@ -4,7 +4,7 @@ import numpy
 
 from cymem.cymem cimport Pool
 
-from .typedefs cimport weight_t
+from .typedefs cimport weight_t, atom_t
 
 from libc.string cimport memcpy
 from libc.math cimport isnan
@@ -43,47 +43,30 @@ cdef Param Param_init(Pool mem, int length, initializer) except *:
 
 
 cdef class EmbeddingTable:
-    cdef Pool mem
-    cdef Param* rows
-    cdef readonly int n_rows
-    cdef readonly int n_cols
-    def __init__(self, n_rows, n_cols, initializer):
-        n_rows += 1
-        mem = Pool()
-        rows = <Param*>mem.alloc(n_rows, sizeof(Param))
-
-        cdef int i
-        for i in range(n_rows):
-            rows[i] = Param_init(mem, n_cols, initializer)
-
-        self.n_rows = n_rows
+    def __init__(self, n_cols, initializer):
+        self.mem = Pool()
+        self.initializer = initializer
         self.n_cols = n_cols
-        self.mem = mem
-        self.rows = rows
+        self.table = PreshMap()
 
-    @cython.boundscheck(False)
-    def inc_row(self, int idx, float[:] updates):
-        cdef int i
-        cdef float upd
-        for i, upd in enumerate(updates):
-            self.rows[idx].curr[i] += upd
+    cdef Param* get(self, atom_t key) except NULL:
+        param = <Param*>self.table.get(key)
+        if param is NULL:
+            param = <Param*>self.mem.alloc(1, sizeof(Param))
+            param[0] = Param_init(self.mem, self.n_cols, self.initializer)
+            self.table.set(key, param)
+        return param
 
 
 cdef class InputLayer:
     '''An input layer to an NN.'''
-    cdef Pool mem
-
-    cdef int length
-    cdef readonly list fields
-    cdef readonly list tables
-
     def __init__(self, input_structure, initializer):
         self.mem = Pool()
         self.length = 0
         self.tables = []
         self.indices = []
-        for i, (n_rows, n_cols, fields) in enumerate(input_structure):
-            self.tables.append(EmbeddingTable(n_rows, n_cols, fields, initializer))
+        for i, (n_cols, fields) in enumerate(input_structure):
+            self.tables.append(EmbeddingTable(n_cols, initializer))
             self.indices.append(fields)
             self.length += len(fields) * n_cols
 
@@ -96,10 +79,10 @@ cdef class InputLayer:
         cdef EmbeddingTable table
         cdef const Param* param
         c = 0
-        for i in range(self.tables):
+        for table in self.tables:
             table = self.tables[i]
             for idx in self.indices[i]:
-                param = &table.rows[context[idx]]
+                param = table.get(context[idx])
                 if use_avg:
                     memcpy(&output[c], param.avg, param.length * sizeof(float))
                 else:
@@ -112,9 +95,9 @@ cdef class InputLayer:
         cdef EmbeddingTable table
         cdef Param* param
         c = 0
-        for i in range(self.tables):
+        for table in self.tables:
             table = self.tables[i]
             for idx in self.indices[i]:
-                param = &table.rows[context[idx]]
+                param = table.get(context[idx])
                 param.update(param, &gradient[c], t, eta, mu)
                 c += param.length
