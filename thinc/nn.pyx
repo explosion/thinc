@@ -10,14 +10,6 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 
 
-cdef struct Param:
-    void update(Param* self, float* gradient, int t, float eta, float mu) except *
-    float* curr
-    float* avg
-    float* step
-    int length
-
-
 @cython.cdivision(True)
 cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) except *:
     cdef int i
@@ -82,27 +74,32 @@ cdef class InputLayer:
     cdef Pool mem
 
     cdef int length
-    cdef readonly list lengths
+    cdef readonly list fields
     cdef readonly list tables
-    cdef float* _buffer
 
-    def __init__(self, lengths, tables):
-        self.length = sum(n * t.n_cols for (n, t) in zip(lengths, tables))
-        self.lengths = list(lengths)
-        self.tables = list(tables)
+    def __init__(self, input_structure, initializer):
+        self.mem = Pool()
+        self.length = 0
+        self.tables = []
+        self.indices = []
+        for i, (n_rows, n_cols, fields) in enumerate(input_structure):
+            self.tables.append(EmbeddingTable(n_rows, n_cols, fields, initializer))
+            self.indices.append(fields)
+            self.length += len(fields) * n_cols
 
     def __len__(self):
         return self.length
     
     @cython.boundscheck(False)
-    def fill(self, float[:] output, slices, use_avg=False):
+    def fill(self, float[:] output, atom_t[:] context, use_avg=False):
         cdef int i, j, idx, c
         cdef EmbeddingTable table
         cdef const Param* param
         c = 0
-        for i, (indices, table) in enumerate(zip(slices, self.tables)):
-            for idx in indices:
-                param = &table.rows[idx]
+        for i in range(self.tables):
+            table = self.tables[i]
+            for idx in self.indices[i]:
+                param = &table.rows[context[idx]]
                 if use_avg:
                     memcpy(&output[c], param.avg, param.length * sizeof(float))
                 else:
@@ -110,13 +107,14 @@ cdef class InputLayer:
                 c += param.length
 
     @cython.boundscheck(False)
-    def update(self, float[:] gradient, slices, t, eta, mu):
+    def update(self, float[:] gradient, atom_t[:] context, t, eta, mu):
         cdef int i, j, idx, c
         cdef EmbeddingTable table
         cdef Param* param
         c = 0
-        for i, (indices, table) in enumerate(zip(slices, self.tables)):
-            for idx in indices:
-                param = &table.rows[idx]
+        for i in range(self.tables):
+            table = self.tables[i]
+            for idx in self.indices[i]:
+                param = &table.rows[context[idx]]
                 param.update(param, &gradient[c], t, eta, mu)
                 c += param.length
