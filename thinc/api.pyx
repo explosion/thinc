@@ -23,4 +23,3 @@ cdef class Example:
         memset(self.is_valid, 0, self.n_classes * sizeof(self.is_valid[0]))
         memset(self.costs,    0, self.n_classes * sizeof(self.costs[0]))
         memset(self.scores,   0, self.n_classes * sizeof(self.scores[0]))
-
