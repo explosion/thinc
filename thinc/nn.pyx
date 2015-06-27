@@ -80,7 +80,6 @@ cdef class InputLayer:
         cdef const Param* param
         c = 0
         for table in self.tables:
-            table = self.tables[i]
             for idx in self.indices[i]:
                 param = table.get(context[idx])
                 if use_avg:
@@ -96,7 +95,6 @@ cdef class InputLayer:
         cdef Param* param
         c = 0
         for table in self.tables:
-            table = self.tables[i]
             for idx in self.indices[i]:
                 param = table.get(context[idx])
                 param.update(param, &gradient[c], t, eta, mu)
