@@ -6,7 +6,7 @@ python:
 # command to install dependencies
 install:
   - "pip install --upgrade setuptools"
-  - "pip install thinc"
-  - "rm -rf thinc/"
+  - "pip install cython"
+  " python setup.py build_ext --inplace"
 # command to run tests
 script: "py.test tests/"
