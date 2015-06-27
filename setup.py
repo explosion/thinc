@@ -55,7 +55,7 @@ def run_setup(exts):
         url="http://github.com/syllog1sm/thinc",
         package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
         ext_modules=exts,
-        install_requires=["murmurhash", "cymem", "preshed", "numpy"],
+        install_requires=["murmurhash", "cymem", "preshed"],
         setup_requires=["headers_workaround"]
     )
 
@@ -63,7 +63,6 @@ def run_setup(exts):
 
     headers_workaround.fix_venv_pypy_include()
     headers_workaround.install_headers('murmurhash')
-    headers_workaround.install_headers('numpy')
 
 
 def main(modules, use_cython):
