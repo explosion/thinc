@@ -7,6 +7,6 @@ python:
 install:
   - "pip install --upgrade setuptools"
   - "pip install cython"
-  " python setup.py build_ext --inplace"
+  - "python setup.py build_ext --inplace"
 # command to run tests
 script: "py.test tests/"
