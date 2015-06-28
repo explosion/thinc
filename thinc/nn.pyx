@@ -1,6 +1,4 @@
-cimport numpy as np
 cimport cython
-import numpy
 
 from cymem.cymem cimport Pool
 
