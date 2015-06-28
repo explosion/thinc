@@ -15,6 +15,7 @@ cdef class Example:
     cdef int[:] is_valid
     cdef int[:] costs
     cdef weight_t[:] scores
+    
     cdef atom_t[:] atoms
     cdef weight_t[:] embeddings
 
