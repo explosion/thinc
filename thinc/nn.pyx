@@ -58,7 +58,7 @@ cdef Param Param_init(Pool mem, int length, initializer) except *:
     param.curr = <float*>mem.alloc(length, sizeof(float))
     param.avg = <float*>mem.alloc(length, sizeof(float))
     param.step = <float*>mem.alloc(length, sizeof(float))
-    param.update = Param_sgd_cm
+    param.update = Param_asgd
     param.length = length
 
     # Draw random values from the initializer. avg and curr should have the same
