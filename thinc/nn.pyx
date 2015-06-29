@@ -5,7 +5,7 @@ from cymem.cymem cimport Pool
 from .typedefs cimport weight_t, atom_t
 
 from libc.string cimport memcpy
-from libc.math cimport isnan
+from libc.math cimport isnan, sqrt
 
 
 @cython.cdivision(True)
@@ -23,20 +23,49 @@ cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) excep
         else:
             self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
 
- 
+
+@cython.cdivision(True)
+cdef void Param_sgd_cm(Param* self, float* grad, int t, float eta, float mu) except *:
+    cdef int i
+    for i in range(self.length):
+        self.step[i] = (mu * self.step[i]) - grad[i]
+        self.curr[i] += (eta * self.step[i])
+
+
+@cython.cdivision(True)
+cdef void Param_adadelta(Param* self, float* grad, int t, float rho, float epsilon) except *:
+    cdef float accu, delta_accu, curr, g
+    cdef float accu_new, delta_accu_new, upd
+    cdef int i
+
+    for i in range(self.length):
+        accu = self.avg[i]
+        delta_accu = self.step[i]
+        curr = self.curr[i]
+        g = grad[i]
+
+        accu_new = rho * accu + (1-rho) * g ** 2
+        upd = (g * sqrt(delta_accu + epsilon) / sqrt(accu_new + epsilon))
+        delta_accu_new = rho * delta_accu
+
+        self.curr[i] -= upd
+        self.avg[i] = accu_new
+        self.step[i] = delta_accu_new
+
+
 cdef Param Param_init(Pool mem, int length, initializer) except *:
     cdef Param param
     param.curr = <float*>mem.alloc(length, sizeof(float))
     param.avg = <float*>mem.alloc(length, sizeof(float))
     param.step = <float*>mem.alloc(length, sizeof(float))
-    param.update = Param_asgd
+    param.update = Param_sgd_cm
     param.length = length
 
     # Draw random values from the initializer. avg and curr should have the same
     # values. Step is initialized to 0s
     for i in range(length):
         param.curr[i] = initializer()
-        param.avg[i] = param.curr[i]
+        param.avg[i] = 0
     return param
 
 
@@ -77,8 +106,8 @@ cdef class InputLayer:
         cdef EmbeddingTable table
         cdef const Param* param
         c = 0
-        for table in self.tables:
-            for idx in self.indices[i]:
+        for table, fields in zip(self.tables, self.indices):
+            for idx in fields:
                 param = table.get(context[idx])
                 if use_avg:
                     memcpy(&output[c], param.avg, param.length * sizeof(float))
@@ -92,8 +121,8 @@ cdef class InputLayer:
         cdef EmbeddingTable table
         cdef Param* param
         c = 0
-        for table in self.tables:
-            for idx in self.indices[i]:
+        for table, fields in zip(self.tables, self.indices):
+            for idx in fields:
                 param = table.get(context[idx])
                 param.update(param, &gradient[c], t, eta, mu)
                 c += param.length
