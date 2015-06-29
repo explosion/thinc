@@ -48,7 +48,7 @@ def run_setup(exts):
     setup(
         name='thinc',
         packages=['thinc'],
-        version='3.0',
+        version='3.1',
         description="Learn sparse linear models",
         author='Matthew Honnibal',
         author_email='honnibal@gmail.com',
@@ -76,7 +76,7 @@ def main(modules, use_cython):
 
 MOD_NAMES = ['thinc.learner', 'thinc.features',
              'thinc.search', 'thinc.cache', 'tests.c_test_search',
-             'thinc.api', 'thinc.sparse']
+             'thinc.api', 'thinc.sparse', 'thinc.nn']
 
 
 if __name__ == '__main__':
