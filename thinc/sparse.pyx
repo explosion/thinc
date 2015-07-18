@@ -32,12 +32,13 @@ cdef class SparseArray:
 cdef SparseArrayC* init(int key, weight_t value) except NULL:
     array = <SparseArrayC*>PyMem_Malloc(3 * sizeof(SparseArrayC))
     array[0] = SparseArrayC(key=key, val=value)
-    array[1] = SparseArrayC(key=-1, val=0)
-    array[2] = SparseArrayC(key=-2, val=0)
+    array[1] = SparseArrayC(key=-1, val=0) # -1 marks end of values
+    array[2] = SparseArrayC(key=-2, val=0) # -2 marks end of memory
     return array
 
 
 cdef int find_key(const SparseArrayC* array, int key) except -2:
+    # Find either the key, or a place to insert it.
     cdef int i = 0
     while array[i].key != -2:
         if array[i].key == key:
