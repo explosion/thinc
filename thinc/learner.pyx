@@ -2,9 +2,9 @@ from libc.stdio cimport fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
 from libc.string cimport memset
-from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 
 from libc.stdlib cimport qsort
+from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 
 import random
 import cython
@@ -136,27 +136,27 @@ cdef class LinearModel:
         return self.scores
 
     cdef int set_scores(self, weight_t* scores, const Feature* feats, int n_feats) nogil:
+        # This is the main bottle-neck of spaCy --- where we spend all our time.
+        # Typical sizes for the dependency parser model:
+        # * weights_table: ~9 million entries
+        # * n_feats: ~200
+        # * scores: ~80 classes
+        # 
+        # I think the bottle-neck is actually reading the weights from main memory.
         cdef int i = 0
         cdef int j = 0
         cdef weight_t value = 0
         cdef const MapStruct* weights_table = self.weights.c_map
        
-        with gil:
-            active = <SparseArrayC**>PyMem_Malloc(n_feats * sizeof(SparseArrayC*))
-        for i in prange(n_feats, nogil=True):
-            active[i] = <SparseArrayC*>map_get(weights_table, feats[i].key)
-
         cdef const SparseArrayC* weights
         for i in range(n_feats):
-            weights = active[i]
+            weights = <const SparseArrayC*>map_get(weights_table, feats[i].key)
             if weights != NULL:
                 value = feats[i].value
                 j = 0
                 while weights[j].key >= 0:
                     scores[weights[j].key] += value * weights[j].val
                     j += 1
-        with gil:
-            PyMem_Free(active)
         return 0
 
     cpdef int update(self, dict updates) except -1:
