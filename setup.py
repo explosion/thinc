@@ -48,14 +48,14 @@ def run_setup(exts):
     setup(
         name='thinc',
         packages=['thinc'],
-        version='3.4',
+        version='3.4.1',
         description="Learn sparse linear models",
         author='Matthew Honnibal',
         author_email='honnibal@gmail.com',
         url="http://github.com/honnibal/thinc",
         package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
         ext_modules=exts,
-        install_requires=["murmurhash", "cymem", "preshed"],
+        install_requires=["murmurhash", "cymem == 1.30", "preshed == 0.43"],
         setup_requires=["headers_workaround"],
         license="MIT",
     )

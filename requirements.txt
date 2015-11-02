@@ -1,3 +1,3 @@
-cymem == 1.11
+cymem == 1.30
 murmurhash == 0.24
-preshed == 0.37
+preshed == 0.43
