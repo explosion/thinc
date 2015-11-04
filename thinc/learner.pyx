@@ -123,8 +123,8 @@ cdef class LinearModel:
     Emphasis is on efficiency for multi-class classification, where the number
     of classes is in the dozens or low hundreds.
     '''
-    def __init__(self, n_classes=2):
-        self.extractor = None
+    def __init__(self, n_classes=2, extractor=None):
+        self.extractor = extractor
         self.total = 0
         self.n_corr = 0
         self.n_classes = n_classes
