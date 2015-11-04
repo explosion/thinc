@@ -28,6 +28,7 @@ from contextlib import contextmanager
 cimport sparse
 
 from sparse cimport SparseArrayC
+from .api cimport Example
 
 include "compile_time_constants.pxi"
 
@@ -85,9 +86,7 @@ cdef class LinearModel:
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
     Emphasis is on efficiency for multi-class classification, where the number
-    of classes is in the dozens or low hundreds.  The weights data structure
-    is neither fully dense nor fully sparse. Instead, it's organized into
-    small "lines", roughly corresponding to a cache line.
+    of classes is in the dozens or low hundreds.
     '''
     def __init__(self, n_classes=2):
         self.total = 0
@@ -97,8 +96,7 @@ cdef class LinearModel:
         self.weights = PreshMap()
         self.train_weights = PreshMap()
         self.mem = Pool()
-        # TODO: Fix this
-        self.scores = <weight_t*>self.mem.alloc(1000, sizeof(weight_t))
+        self.is_updating = False
 
     def __dealloc__(self):
         cdef size_t feat_addr
@@ -113,26 +111,15 @@ cdef class LinearModel:
                 PyMem_Free(feat.avgs)
                 PyMem_Free(feat.times)
 
-    def __call__(self, features):
-        cdef feat_t feat_id
-        cdef weight_t value
-        cdef int i = 0
-        cdef np.ndarray scores = np.zeros(shape=(self.n_classes,))
-        for feat_id, value in features:
-            feat = <SparseArrayC*>self.weights.get(feat_id)
-            if feat != NULL:
-                i = 0
-                while feat[i].key >= 0:
-                    scores[feat[i].key] += feat[i].val * value
-                    i += 1
-        return scores
+    def __call__(self, Example eg):
+        if self.extractor is not None:
+            self.extractor(eg)
+        self.set_scores(eg.c.scores, self.weights.c_map, eg.c.features, eg.c.nr_feat)
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-    cdef const weight_t* get_scores(self, const Feature* feats, int n_feats) nogil:
-        memset(self.scores, 0, self.n_classes * sizeof(weight_t))
-        self.set_scores(self.scores, feats, n_feats)
-        return self.scores
-
-    cdef int set_scores(self, weight_t* scores, const Feature* feats, int n_feats) nogil:
+    @staticmethod
+    cdef void set_scores(weight_t* scores, const MapStruct* weights_table,
+                         const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -140,43 +127,40 @@ cdef class LinearModel:
         # * scores: ~80 classes
         # 
         # I think the bottle-neck is actually reading the weights from main memory.
-        cdef int i = 0
-        cdef int j = 0
-        cdef weight_t value = 0
-        cdef const MapStruct* weights_table = self.weights.c_map
-       
-        cdef const SparseArrayC* weights
-        for i in range(n_feats):
-            weights = <const SparseArrayC*>map_get(weights_table, feats[i].key)
-            if weights != NULL:
-                value = feats[i].value
+ 
+        cdef int i, j
+        for i in range(nr_feat):
+            feat = feats[i]
+            class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
+            if class_weights != NULL:
                 j = 0
-                while weights[j].key >= 0:
-                    scores[weights[j].key] += value * weights[j].val
+                while class_weights[j].key >= 0:
+                    scores[class_weights[j].key] += class_weights[j].val * feat.value
                     j += 1
-        return 0
 
-    @contextmanager
-    def update_instance(self):
+    def begin_update(self):
         self.time += 1
-        self.receive_instance = True
+        self.is_updating = True
         yield
-        self.receive_instance = False
+        self.is_updating = False
 
-    cpdef int update(self, updates) except -1:
-        cdef:
-            feat_t feat_id
-            weight_t upd
-            class_t clas
-            int i
-            TrainFeat* feat
+    def train(self, Example eg):
+        self(eg)
+        eg.c.best = arg_max_if_zero(eg.c.scores, eg.c.costs, self.n_classes)
+        eg.c.cost = eg.c.costs[eg.c.guess]
+        self.update(eg.c.features, eg.c.nr_feat, eg.c.guess, eg.c.best, eg.c.cost)
 
-        with self.update_instance():
-            for clas, feat_updates in updates:
-                for feat_id, upd in feat_updates.items():
-                    self.update_weight(feat_id, clas, upd)
+    cdef int update(self, const Feature* feats, int nr_feat,
+                    int best, int guess, weight_t weight) except -1:
+        cdef int i
+        with self.begin_update():
+            for i in range(nr_feat):
+                self.update_weight(feats[i].key, best, weight * feats[i].val)
+                self.update_weight(feats[i].key, guess, -(weight * feats[i].val))
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        if not self.is_updating:
+            raise ValueError("update_weight must be called inside begin_update context")
         self.n_classes = max(self.n_classes, clas + 1)
         if upd != 0 and feat_id != 0:
             feat = <TrainFeat*>self.train_weights.get(feat_id)
