@@ -19,6 +19,10 @@ from preshed.maps cimport map_get
 from .typedefs cimport feat_t
 
 from cython.parallel import prange
+cimport numpy as np
+import numpy as np
+
+from contextlib import contextmanager
 
 
 cimport sparse
@@ -85,18 +89,16 @@ cdef class LinearModel:
     is neither fully dense nor fully sparse. Instead, it's organized into
     small "lines", roughly corresponding to a cache line.
     '''
-    def __init__(self, nr_class, nr_templates):
-        assert nr_templates != 0
+    def __init__(self, n_classes=2):
         self.total = 0
         self.n_corr = 0
-        self.nr_class = nr_class
-        self.nr_templates = nr_templates
+        self.n_classes = n_classes
         self.time = 0
-        self.cache = ScoresCache(nr_class)
         self.weights = PreshMap()
         self.train_weights = PreshMap()
         self.mem = Pool()
-        self.scores = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
+        # TODO: Fix this
+        self.scores = <weight_t*>self.mem.alloc(1000, sizeof(weight_t))
 
     def __dealloc__(self):
         cdef size_t feat_addr
@@ -111,27 +113,22 @@ cdef class LinearModel:
                 PyMem_Free(feat.avgs)
                 PyMem_Free(feat.times)
 
-    def __call__(self, list features):
-        cdef Address addr = Address(len(features), sizeof(Feature))
-        feats = <Feature*>addr.ptr
-        for i, feat_id in enumerate(features):
-            feats[i].i = i
-            feats[i].key = feat_id
-            feats[i].value = 1
-        memset(self.scores, 0, self.nr_class * sizeof(weight_t))
-        i = 0
-        j = 0
-        for i in range(len(features)):
-            feat = <SparseArrayC*>self.weights.get(feats[i].key)
+    def __call__(self, features):
+        cdef feat_t feat_id
+        cdef weight_t value
+        cdef int i = 0
+        cdef np.ndarray scores = np.zeros(shape=(self.n_classes,))
+        for feat_id, value in features:
+            feat = <SparseArrayC*>self.weights.get(feat_id)
             if feat != NULL:
-                j = 0
-                while feat[j].key >= 0:
-                    self.scores[feat[j].key] += feat[j].val
-                    j += 1
-        return [self.scores[i] for i in range(self.nr_class)]
+                i = 0
+                while feat[i].key >= 0:
+                    scores[feat[i].key] += feat[i].val * value
+                    i += 1
+        return scores
 
     cdef const weight_t* get_scores(self, const Feature* feats, int n_feats) nogil:
-        memset(self.scores, 0, self.nr_class * sizeof(weight_t))
+        memset(self.scores, 0, self.n_classes * sizeof(weight_t))
         self.set_scores(self.scores, feats, n_feats)
         return self.scores
 
@@ -159,29 +156,38 @@ cdef class LinearModel:
                     j += 1
         return 0
 
-    cpdef int update(self, dict updates) except -1:
-        cdef feat_t feat_id
-        cdef weight_t upd
-        cdef class_t clas
-        cdef int i
-        cdef TrainFeat* feat
+    @contextmanager
+    def update_instance(self):
         self.time += 1
-        for clas, feat_updates in updates.items():
-            assert clas >= 0
-            for (i, feat_id), upd in feat_updates.items():
-                if upd == 0:
-                    continue
-                if feat_id == 0:
-                    continue
-                feat = <TrainFeat*>self.train_weights.get(feat_id)
-                if feat == NULL:
-                    feat = init_feat(clas, upd, self.time)
-                    self.train_weights.set(feat_id, feat)
+        self.receive_instance = True
+        yield
+        self.receive_instance = False
+
+    cpdef int update(self, updates) except -1:
+        cdef:
+            feat_t feat_id
+            weight_t upd
+            class_t clas
+            int i
+            TrainFeat* feat
+
+        with self.update_instance():
+            for clas, feat_updates in updates:
+                for feat_id, upd in feat_updates.items():
+                    self.update_weight(feat_id, clas, upd)
+
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        self.n_classes = max(self.n_classes, clas + 1)
+        if upd != 0 and feat_id != 0:
+            feat = <TrainFeat*>self.train_weights.get(feat_id)
+            if feat == NULL:
+                feat = init_feat(clas, upd, self.time)
+                self.train_weights.set(feat_id, feat)
+                self.weights.set(feat_id, feat.curr)
+            else:  
+                is_resized = update_feature(feat, clas, upd, self.time)
+                if is_resized:
                     self.weights.set(feat_id, feat.curr)
-                else:  
-                    is_resized = update_feature(feat, clas, upd, self.time)
-                    if is_resized:
-                        self.weights.set(feat_id, feat.curr)
 
     def end_training(self):
         cdef feat_id
@@ -200,36 +206,37 @@ cdef class LinearModel:
         self.total = 0
         return msg
 
-    def dump(self, loc, class_t freq_thresh=0):
+    def dump(self, loc):
         cdef:
             feat_t key
             size_t i
             size_t feat_addr
 
-        cdef _Writer writer = _Writer(loc, self.nr_class, freq_thresh)
+        cdef _Writer writer = _Writer(loc, self.n_classes)
         for i, (key, feat_addr) in enumerate(self.weights.items()):
             if feat_addr != 0:
                 writer.write(key, <SparseArrayC*>feat_addr)
         writer.close()
 
-    def load(self, loc, freq_thresh=0):
+    def load(self, loc):
         cdef feat_t feat_id
         cdef SparseArrayC* feature
-        cdef _Reader reader = _Reader(loc, self.nr_class, freq_thresh)
+        cdef _Reader reader = _Reader(loc)
+        self.n_classes = reader._nr_class
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
 
 
 cdef class _Writer:
-    def __init__(self, object loc, nr_class, freq_thresh):
+    def __init__(self, object loc, n_classes):
         if path.exists(loc):
             assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'wb')
-        fseek(self._fp, 0, 0)
         assert self._fp != NULL
-        self._nr_class = nr_class
-        self._freq_thresh = freq_thresh
+        fseek(self._fp, 0, 0)
+        self._nr_class = n_classes
+        _write(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
 
     def close(self):
         cdef size_t status = fclose(self._fp)
@@ -261,16 +268,14 @@ cdef int _write(void* value, size_t size, int n, FILE* fp) except -1:
 
 
 cdef class _Reader:
-    def __init__(self, loc, nr_class, freq_thresh):
+    def __init__(self, loc):
         assert path.exists(loc)
         assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'rb')
         assert self._fp != NULL
         status = fseek(self._fp, 0, 0)
-        assert status == 0
-        self._nr_class = nr_class
-        self._freq_thresh = freq_thresh
+        status = fread(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
 
     def __dealloc__(self):
         fclose(self._fp)

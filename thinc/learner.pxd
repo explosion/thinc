@@ -17,8 +17,7 @@ from .sparse cimport SparseArrayC
 
 cdef class LinearModel:
     cdef time_t time
-    cdef readonly class_t nr_class
-    cdef readonly int nr_templates
+    cdef readonly class_t n_classes
     cdef size_t n_corr
     cdef size_t total
     cdef Pool mem
@@ -27,7 +26,7 @@ cdef class LinearModel:
     cdef ScoresCache cache
     cdef weight_t* scores
 
-    cpdef int update(self, dict counts) except -1
+    cpdef int update(self, counts) except -1
     cdef const weight_t* get_scores(self, const Feature* feats, int n_feats) nogil
     cdef int set_scores(self, weight_t* scores, const Feature* feats, int n_feats) nogil
 
