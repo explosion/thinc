@@ -26,11 +26,11 @@ cdef struct ExampleC:
 cdef class Example:
     cdef Pool mem
     cdef ExampleC c
-    cdef int[:] is_valid
-    cdef int[:] costs
-    cdef atom_t[:] atoms
-    cdef weight_t[:] embeddings
-    cdef weight_t[:] scores
+    cdef public int[:] is_valid
+    cdef public int[:] costs
+    cdef public atom_t[:] atoms
+    cdef public weight_t[:] embeddings
+    cdef public weight_t[:] scores
 
     @staticmethod
     cdef inline ExampleC init(Pool mem, int nr_class, int nr_atom,

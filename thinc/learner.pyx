@@ -80,6 +80,41 @@ cdef int average_weights(TrainFeat* feat, time_t time) except -1:
         i += 1
 
 
+cdef int arg_max(const weight_t* scores, const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = scores[0]
+    for i in range(1, n_classes):
+        if scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if is_valid[i] and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if costs[i] == 0 and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
 cdef class LinearModel:
     '''A linear model for online supervised classification. Currently uses
     the Averaged Perceptron algorithm to learn weights.
@@ -89,6 +124,7 @@ cdef class LinearModel:
     of classes is in the dozens or low hundreds.
     '''
     def __init__(self, n_classes=2):
+        self.extractor = None
         self.total = 0
         self.n_corr = 0
         self.n_classes = n_classes
@@ -102,47 +138,31 @@ cdef class LinearModel:
         cdef size_t feat_addr
         # Use 'raw' memory management, instead of cymem.Pool, for weights.
         # The memory overhead of cymem becomes significant here.
-        for feat_addr in self.weights.values():
-            if feat_addr != 0:
-                PyMem_Free(<SparseArrayC*>feat_addr)
-        for feat_addr in self.train_weights.values():
-            if feat_addr != 0:
-                feat = <TrainFeat*>feat_addr
-                PyMem_Free(feat.avgs)
-                PyMem_Free(feat.times)
+        if self.weights is not None:
+            for feat_addr in self.weights.values():
+                if feat_addr != 0:
+                    PyMem_Free(<SparseArrayC*>feat_addr)
+        if self.train_weights is not None:
+            for feat_addr in self.train_weights.values():
+                if feat_addr != 0:
+                    feat = <TrainFeat*>feat_addr
+                    PyMem_Free(feat.avgs)
+                    PyMem_Free(feat.times)
 
     def __call__(self, Example eg):
         if self.extractor is not None:
             self.extractor(eg)
-        self.set_scores(eg.c.scores, self.weights.c_map, eg.c.features, eg.c.nr_feat)
+        LinearModel.set_scores(eg.c.scores, self.weights.c_map, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-    @staticmethod
-    cdef void set_scores(weight_t* scores, const MapStruct* weights_table,
-                         const FeatureC* feats, int nr_feat) nogil:
-        # This is the main bottle-neck of spaCy --- where we spend all our time.
-        # Typical sizes for the dependency parser model:
-        # * weights_table: ~9 million entries
-        # * n_feats: ~200
-        # * scores: ~80 classes
-        # 
-        # I think the bottle-neck is actually reading the weights from main memory.
- 
-        cdef int i, j
-        for i in range(nr_feat):
-            feat = feats[i]
-            class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
-            if class_weights != NULL:
-                j = 0
-                while class_weights[j].key >= 0:
-                    scores[class_weights[j].key] += class_weights[j].val * feat.value
-                    j += 1
-
     def begin_update(self):
-        self.time += 1
-        self.is_updating = True
-        yield
-        self.is_updating = False
+        class ContextManager(object):
+            def __enter__(self2):
+                self.time += 1
+                self.is_updating = True
+            def __exit__(self2, *args):
+                self.is_updating = False
+        return ContextManager()
 
     def train(self, Example eg):
         self(eg)
@@ -155,8 +175,8 @@ cdef class LinearModel:
         cdef int i
         with self.begin_update():
             for i in range(nr_feat):
-                self.update_weight(feats[i].key, best, weight * feats[i].val)
-                self.update_weight(feats[i].key, guess, -(weight * feats[i].val))
+                self.update_weight(feats[i].key, best,    weight * feats[i].value)
+                self.update_weight(feats[i].key, guess, -(weight * feats[i].value))
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         if not self.is_updating:
@@ -179,16 +199,6 @@ cdef class LinearModel:
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
                 average_weights(<TrainFeat*>feat_addr, self.time)
-
-    def end_train_iter(self, iter_num, feat_thresh):
-        pc = lambda a, b: '%.1f' % ((float(a) / (b + 1e-100)) * 100)
-        acc = pc(self.n_corr, self.total)
-
-        map_size = self.weights.mem.size
-        msg = "#%d: Moves %d/%d=%s" % (iter_num, self.n_corr, self.total, acc)
-        self.n_corr = 0
-        self.total = 0
-        return msg
 
     def dump(self, loc):
         cdef:
