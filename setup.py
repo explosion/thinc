@@ -48,7 +48,7 @@ def run_setup(exts):
     setup(
         name='thinc',
         packages=['thinc'],
-        version='3.4.1',
+        version='4.0.0',
         description="Learn sparse linear models",
         author='Matthew Honnibal',
         author_email='honnibal@gmail.com',
