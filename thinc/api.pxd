@@ -1,14 +1,23 @@
 from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t, atom_t
-from .features cimport Feature
+from .structs cimport FeatureC
+
+
+cdef int arg_max(const weight_t* scores, const int n_classes) nogil
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
+                         const int n_classes) nogil
+
+cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
+                         const int n_classes) nogil
 
 
 cdef struct ExampleC:
     int* is_valid
     int* costs
     atom_t* atoms
-    Feature* features
+    FeatureC* features
     weight_t* embeddings
     weight_t* scores
 
@@ -40,7 +49,7 @@ cdef class Example:
             costs = <int*>mem.alloc(nr_class, sizeof(int)),
             scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
-            features = <Feature*>mem.alloc(nr_feat, sizeof(Feature)),
+            features = <FeatureC*>mem.alloc(nr_feat, sizeof(FeatureC)),
             embeddings = <weight_t*>mem.alloc(nr_embed, sizeof(weight_t)),
             nr_class = nr_class,
             nr_atom = nr_atom,

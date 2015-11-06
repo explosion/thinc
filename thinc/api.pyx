@@ -4,6 +4,42 @@ from cymem.cymem cimport Pool
 from .typedefs cimport weight_t, atom_t
 
 
+cdef int arg_max(const weight_t* scores, const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = scores[0]
+    for i in range(1, n_classes):
+        if scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if is_valid[i] and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if costs[i] == 0 and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+
 cdef class Example:
     @classmethod
     def from_feats(cls, int nr_class, feats):
@@ -75,3 +111,35 @@ cdef class Example:
             self.c.atoms[i] = 0
         for i in range(self.c.nr_feat):
             self.c.embeddings[i] = 0
+
+
+cdef class AveragedPerceptron:
+    def __init__(self, n_classes, extracter):
+        self.extracter = extracter
+        self.model = LinearModel(n_classes)
+        self.updater = AveragedPerceptronUpdate(n_classes, self.model.weights)
+        self.nr_class = nr_class
+        self.nr_atoms = extracter.nr_atom
+        self.nr_templ = self.extracter.nr_templ
+        self.nr_embed = self.extracter.nr_embed
+
+    cdef ExampleC allocate(self, Pool mem) except *:
+        return Example.init(mem, self.nr_class, self.nr_atom,
+                            self.nr_templ, self.nr_embed)
+
+    cdef void set_prediction(self, ExampleC* eg) except *:
+        memset(eg.scores, 0, eg.nr_class * sizeof(eg.scores[0]))
+        self.model.set_scores(eg.scores, eg.features, eg.nr_feat)
+        eg.guess = arg_max_if_valid(eg.scores, eg.is_valid, eg.nr_class)
+
+    cdef void set_costs(self, ExampleC* eg, int gold) except *:
+        if gold == 0:
+            memset(eg.costs, 0, eg.nr_class * sizeof(eg.costs[0]))
+            eg.best = arg_max(eg.scores, eg.nr_class)
+        else:
+            memset(eg.costs, 1, eg.nr_class * sizeof(eg.costs[0]))
+            eg.costs[gold] = 0
+            eg.best = gold
+
+    cdef void update(self, ExampleC* eg) except *:
+        self.updater.update(eg)
