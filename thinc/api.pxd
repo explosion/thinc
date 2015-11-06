@@ -1,4 +1,5 @@
 from cymem.cymem cimport Pool
+from libc.string cimport memset
 
 from .typedefs cimport weight_t, atom_t
 from .structs cimport FeatureC
@@ -47,8 +48,10 @@ cdef class Example:
     @staticmethod
     cdef inline ExampleC init(Pool mem, int nr_class, int nr_atom,
             int nr_feat, int nr_embed) except *:
+        is_valid = <int*>mem.alloc(nr_class, sizeof(int))
+        memset(is_valid, 1, sizeof(is_valid[0]) * nr_class)
         return ExampleC(
-            is_valid = <int*>mem.alloc(nr_class, sizeof(int)),
+            is_valid = is_valid,
             costs = <int*>mem.alloc(nr_class, sizeof(int)),
             scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
@@ -69,7 +72,7 @@ cdef class Learner:
     cdef readonly Model model
     cdef readonly Updater updater
     cdef readonly int nr_class
-    cdef readonly int nr_atoms
+    cdef readonly int nr_atom
     cdef readonly int nr_templ
     cdef readonly int nr_embed
 

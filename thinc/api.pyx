@@ -127,7 +127,7 @@ cdef class Learner:
         self.model = model
         self.updater = updater
         self.nr_class = nr_class
-        self.nr_atoms = extracter.nr_atom
+        self.nr_atom = extracter.nr_atom
         self.nr_templ = self.extracter.nr_templ
         self.nr_embed = self.extracter.nr_embed
 
@@ -146,7 +146,7 @@ cdef class Learner:
         eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
 
     cdef void set_costs(self, ExampleC* eg, int gold) except *:
-        if gold == 0:
+        if gold == -1:
             memset(eg.costs, 0, eg.nr_class * sizeof(eg.costs[0]))
         else:
             memset(eg.costs, 1, eg.nr_class * sizeof(eg.costs[0]))
@@ -154,6 +154,9 @@ cdef class Learner:
 
     cdef void update(self, ExampleC* eg) except *:
         self.updater.update(eg)
+
+    def end_training(self):
+        self.updater.end_training()
 
     def dump(self, loc):
         self.model.dump(self.nr_class, loc)
