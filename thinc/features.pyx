@@ -5,8 +5,7 @@ from murmurhash.mrmr cimport hash64
 
 from .api cimport Example
 
-
-DEF MAX_TEMPLATE_LEN = 10
+include "compile_time_constants.pxi"
 
 
 cdef class ConjunctionExtracter:
