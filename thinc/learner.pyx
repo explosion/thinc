@@ -123,7 +123,7 @@ cdef class LinearModel:
     Emphasis is on efficiency for multi-class classification, where the number
     of classes is in the dozens or low hundreds.
     '''
-    def __init__(self, n_classes=2, extractor=None):
+    def __init__(self, int n_classes=2, Extractor extractor=None):
         self.extractor = extractor
         self.total = 0
         self.n_corr = 0
@@ -152,46 +152,68 @@ cdef class LinearModel:
     def __call__(self, Example eg):
         if self.extractor is not None:
             self.extractor(eg)
-        LinearModel.set_scores(eg.c.scores, self.weights.c_map, eg.c.features, eg.c.nr_feat)
+        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-    def begin_update(self):
-        class ContextManager(object):
-            def __enter__(self2):
-                self.time += 1
-                self.is_updating = True
-            def __exit__(self2, *args):
-                self.is_updating = False
-        return ContextManager()
+    cdef void set_scores(self, weight_t* scores, const Feature* feats, int nr_feat) nogil:
+        # This is the main bottle-neck of spaCy --- where we spend all our time.
+        # Typical sizes for the dependency parser model:
+        # * weights_table: ~9 million entries
+        # * n_feats: ~200
+        # * scores: ~80 classes
+        # 
+        # I think the bottle-neck is actually reading the weights from main memory.
+
+        cdef const MapStruct* weights_table = self.weights.c_map
+ 
+        cdef int i, j
+        cdef Feature feat
+        for i in range(nr_feat):
+            feat = feats[i]
+            class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
+            if class_weights != NULL:
+                j = 0
+                while class_weights[j].key >= 0:
+                    scores[class_weights[j].key] += class_weights[j].val * feat.value
+                    j += 1
 
     def train(self, Example eg):
+        print("Train")
         self(eg)
-        eg.c.best = arg_max_if_zero(eg.c.scores, eg.c.costs, self.n_classes)
+        eg.c.best = arg_max_if_zero(eg.c.scores, eg.c.costs, eg.c.nr_class)
         eg.c.cost = eg.c.costs[eg.c.guess]
         self.update(eg.c.features, eg.c.nr_feat, eg.c.guess, eg.c.best, eg.c.cost)
+        print("Done")
 
     cdef int update(self, const Feature* feats, int nr_feat,
                     int best, int guess, weight_t weight) except -1:
-        cdef int i
-        with self.begin_update():
-            for i in range(nr_feat):
-                self.update_weight(feats[i].key, best,    weight * feats[i].value)
-                self.update_weight(feats[i].key, guess, -(weight * feats[i].value))
+        cdef:
+            int i
+            feat_t feat_id
+            weight_t upd
 
-    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
-        if not self.is_updating:
-            raise ValueError("update_weight must be called inside begin_update context")
-        self.n_classes = max(self.n_classes, clas + 1)
-        if upd != 0 and feat_id != 0:
-            feat = <TrainFeat*>self.train_weights.get(feat_id)
-            if feat == NULL:
-                feat = init_feat(clas, upd, self.time)
-                self.train_weights.set(feat_id, feat)
+        self.time += 1
+        if weight != 0:
+            for i in range(nr_feat):
+                feat_id = feats[i].key
+                upd = weight * feats[i].value
+                if upd != 0:
+                    self.update_weight(feat_id, best, upd)
+                    self.update_weight(feat_id, guess, -upd)
+
+    cdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        if clas >= self.n_classes:
+            self.n_classes = clas + 1
+        
+        feat = <TrainFeat*>self.train_weights.get(feat_id)
+        if feat == NULL:
+            feat = init_feat(clas, upd, self.time)
+            self.train_weights.set(feat_id, feat)
+            self.weights.set(feat_id, feat.curr)
+        else:  
+            is_resized = update_feature(feat, clas, upd, self.time)
+            if is_resized:
                 self.weights.set(feat_id, feat.curr)
-            else:  
-                is_resized = update_feature(feat, clas, upd, self.time)
-                if is_resized:
-                    self.weights.set(feat_id, feat.curr)
 
     def end_training(self):
         cdef feat_id
