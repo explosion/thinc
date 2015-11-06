@@ -2,7 +2,7 @@ from libc.stdint cimport int32_t, uint64_t
 from .typedefs cimport weight_t, atom_t
 
 
-DEF MAX_TEMPLATE_LEN = 10
+include "compile_time_constants.pxi"
 
 
 cdef struct SparseArrayC:

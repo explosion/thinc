@@ -40,7 +40,7 @@ cdef class LinearModel:
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-    cdef void set_scores(self, weight_t* scores, const Feature* feats, int nr_feat) nogil:
+    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -52,14 +52,14 @@ cdef class LinearModel:
         cdef const MapStruct* weights_table = self.weights.c_map
  
         cdef int i, j
-        cdef Feature feat
+        cdef FeatureC feat
         for i in range(nr_feat):
             feat = feats[i]
             class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
             if class_weights != NULL:
                 j = 0
                 while class_weights[j].key >= 0:
-                    scores[class_weights[j].key] += class_weights[j].val * feat.value
+                    scores[class_weights[j].key] += class_weights[j].val * feat.val
                     j += 1
     
     def dump(self, loc):

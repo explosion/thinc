@@ -114,10 +114,10 @@ cdef class Example:
 
 
 cdef class AveragedPerceptron:
-    def __init__(self, n_classes, extracter):
+    def __init__(self, nr_class, extracter):
         self.extracter = extracter
-        self.model = LinearModel(n_classes)
-        self.updater = AveragedPerceptronUpdate(n_classes, self.model.weights)
+        self.model = LinearModel(nr_class)
+        self.updater = AveragedPerceptronUpdater(nr_class, self.model.weights)
         self.nr_class = nr_class
         self.nr_atoms = extracter.nr_atom
         self.nr_templ = self.extracter.nr_templ
@@ -130,7 +130,7 @@ cdef class AveragedPerceptron:
     cdef void set_prediction(self, ExampleC* eg) except *:
         memset(eg.scores, 0, eg.nr_class * sizeof(eg.scores[0]))
         self.model.set_scores(eg.scores, eg.features, eg.nr_feat)
-        eg.guess = arg_max_if_valid(eg.scores, eg.is_valid, eg.nr_class)
+        eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
 
     cdef void set_costs(self, ExampleC* eg, int gold) except *:
         if gold == 0:

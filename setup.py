@@ -75,9 +75,8 @@ def main(modules, use_cython):
     run_setup(exts)
 
 
-MOD_NAMES = ['thinc.learner', 'thinc.features',
-             'thinc.search', 'thinc.cache', 'tests.c_test_search',
-             'thinc.api', 'thinc.sparse', 'thinc.nn']
+MOD_NAMES = ['thinc.api', "thinc.features", "thinc.model", "thinc.update",
+             'thinc.sparse', 'thinc.search', 'thinc.cache', 'tests.c_test_search']
 
 
 if __name__ == '__main__':
