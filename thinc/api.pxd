@@ -2,9 +2,9 @@ from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t, atom_t
 from .structs cimport FeatureC
-from .features cimport ConjunctionExtracter
-from .model cimport LinearModel
-from .update cimport AveragedPerceptronUpdater
+from .features cimport Extracter 
+from .model cimport Model
+from .update cimport Updater
 
 
 cdef int arg_max(const weight_t* scores, const int n_classes) nogil
@@ -64,14 +64,14 @@ cdef class Example:
             loss = 0)
 
 
-cdef class AveragedPerceptron:
-    cdef ConjunctionExtracter extracter
-    cdef LinearModel model
-    cdef AveragedPerceptronUpdater updater
-    cdef int nr_class
-    cdef int nr_atoms
-    cdef int nr_templ
-    cdef int nr_embed
+cdef class Learner:
+    cdef readonly Extracter extracter
+    cdef readonly Model model
+    cdef readonly Updater updater
+    cdef readonly int nr_class
+    cdef readonly int nr_atoms
+    cdef readonly int nr_templ
+    cdef readonly int nr_embed
 
     cdef ExampleC allocate(self, Pool mem) except *
 
@@ -81,4 +81,7 @@ cdef class AveragedPerceptron:
 
     cdef void update(self, ExampleC* eg) except *
 
+
+cdef class AveragedPerceptron(Learner):
+    pass
 

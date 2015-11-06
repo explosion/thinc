@@ -4,10 +4,15 @@ from .structs cimport TemplateC, FeatureC
 from .typedefs cimport atom_t
 
 
-cdef class ConjunctionExtracter:
+cdef class Extracter:
     cdef Pool mem
-    cdef TemplateC* templates
     cdef readonly int nr_templ
+    cdef readonly int nr_embed
     cdef readonly int nr_atom
 
     cdef int set_features(self, FeatureC* feats, const atom_t* atoms) nogil
+
+
+cdef class ConjunctionExtracter(Extracter):
+    cdef TemplateC* templates
+

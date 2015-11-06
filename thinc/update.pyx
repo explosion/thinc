@@ -88,7 +88,7 @@ cdef class AveragedPerceptronUpdater(Updater):
         if weight != 0:
             for i in range(eg.nr_feat):
                 feat_id = eg.features[i].key
-                upd = weight * eg.features[i].value
+                upd = weight * eg.features[i].val
                 if upd != 0:
                     self.update_weight(feat_id, eg.best, upd)
                     self.update_weight(feat_id, eg.guess, -upd)

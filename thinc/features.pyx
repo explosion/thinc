@@ -8,7 +8,15 @@ from .api cimport Example
 include "compile_time_constants.pxi"
 
 
-cdef class ConjunctionExtracter:
+cdef class Extracter:
+    cdef int set_features(self, FeatureC* feats, const atom_t* atoms) nogil:
+        pass
+
+    def __call__(self, Example eg):
+        pass
+
+
+cdef class ConjunctionExtracter(Extracter):
     """Extract composite features from a sequence of atomic values, according to
     the schema specified by a list of templates.
     """
@@ -18,6 +26,7 @@ cdef class ConjunctionExtracter:
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.
         templates = tuple(sorted(set([tuple(sorted(f)) for f in templates])))
+        self.nr_embed = 1
         self.nr_templ = len(templates) + 1
         self.templates = <TemplateC*>self.mem.alloc(len(templates), sizeof(TemplateC))
         # Sort each feature, and sort and unique the set of them

@@ -5,11 +5,11 @@ from .api cimport ExampleC
 
 
 cdef class Updater:
-    cdef int time
+    cdef public int time
     cdef Pool mem
     cdef PreshMap train_weights
     cdef PreshMap weights
-
+    
     cdef void update(self, ExampleC* eg) except *
 
 

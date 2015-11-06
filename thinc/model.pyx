@@ -16,7 +16,15 @@ from .structs cimport SparseArrayC
 from .typedefs cimport class_t, count_t
 
 
-cdef class LinearModel:
+cdef class Model:
+    def __init__(self):
+        raise NotImplementedError
+
+    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+        pass
+
+
+cdef class LinearModel(Model):
     '''A linear model for online supervised classification.
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
@@ -62,13 +70,13 @@ cdef class LinearModel:
                     scores[class_weights[j].key] += class_weights[j].val * feat.val
                     j += 1
     
-    def dump(self, loc):
+    def dump(self, nr_class, loc):
         cdef:
             feat_t key
             size_t i
             size_t feat_addr
 
-        cdef _Writer writer = _Writer(loc, self.n_classes)
+        cdef _Writer writer = _Writer(loc, nr_class)
         for i, (key, feat_addr) in enumerate(self.weights.items()):
             if feat_addr != 0:
                 writer.write(key, <SparseArrayC*>feat_addr)
@@ -78,9 +86,9 @@ cdef class LinearModel:
         cdef feat_t feat_id
         cdef SparseArrayC* feature
         cdef _Reader reader = _Reader(loc)
-        self.n_classes = reader._nr_class
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
+        return reader._nr_class
 
 
 cdef class _Writer:
@@ -88,14 +96,14 @@ cdef class _Writer:
     cdef class_t _nr_class
     cdef count_t _freq_thresh
 
-    def __init__(self, object loc, n_classes):
+    def __init__(self, object loc, nr_class):
         if path.exists(loc):
             assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'wb')
         assert self._fp != NULL
         fseek(self._fp, 0, 0)
-        self._nr_class = n_classes
+        self._nr_class = nr_class
         _write(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
 
     def close(self):

@@ -2,6 +2,8 @@ from libc.string cimport memset
 from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t, atom_t
+from .update cimport AveragedPerceptronUpdater
+from .model cimport LinearModel
 
 
 cdef int arg_max(const weight_t* scores, const int n_classes) nogil:
@@ -42,12 +44,18 @@ cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
 
 cdef class Example:
     @classmethod
-    def from_feats(cls, int nr_class, feats):
+    def from_feats(cls, int nr_class, feats, gold=None):
         nr_feat = len(feats)
         cdef Example self = cls(nr_class, nr_feat, nr_feat, nr_feat)
         for i, (key, value) in enumerate(feats):
             self.c.features[i].key = key
-            self.c.features[i].value = value
+            self.c.features[i].val = value
+        cdef int clas
+        if gold is not None:
+            for clas in range(self.c.nr_class):
+                self.c.costs[clas] = 1
+            self.c.costs[gold] = 0
+            self.c.best = gold
         return self
 
     def __init__(self, int nr_class, int nr_atom, int nr_feat, int nr_embed):
@@ -113,15 +121,19 @@ cdef class Example:
             self.c.embeddings[i] = 0
 
 
-cdef class AveragedPerceptron:
-    def __init__(self, nr_class, extracter):
+cdef class Learner:
+    def __init__(self, nr_class, extracter, model, updater):
         self.extracter = extracter
-        self.model = LinearModel(nr_class)
-        self.updater = AveragedPerceptronUpdater(nr_class, self.model.weights)
+        self.model = model
+        self.updater = updater
         self.nr_class = nr_class
         self.nr_atoms = extracter.nr_atom
         self.nr_templ = self.extracter.nr_templ
         self.nr_embed = self.extracter.nr_embed
+
+    def __call__(self, eg):
+        self.extracter(eg)
+        self.model(eg)
 
     cdef ExampleC allocate(self, Pool mem) except *:
         return Example.init(mem, self.nr_class, self.nr_atom,
@@ -131,15 +143,27 @@ cdef class AveragedPerceptron:
         memset(eg.scores, 0, eg.nr_class * sizeof(eg.scores[0]))
         self.model.set_scores(eg.scores, eg.features, eg.nr_feat)
         eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
+        eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
 
     cdef void set_costs(self, ExampleC* eg, int gold) except *:
         if gold == 0:
             memset(eg.costs, 0, eg.nr_class * sizeof(eg.costs[0]))
-            eg.best = arg_max(eg.scores, eg.nr_class)
         else:
             memset(eg.costs, 1, eg.nr_class * sizeof(eg.costs[0]))
             eg.costs[gold] = 0
-            eg.best = gold
 
     cdef void update(self, ExampleC* eg) except *:
         self.updater.update(eg)
+
+    def dump(self, loc):
+        self.model.dump(self.nr_class, loc)
+
+    def load(self, loc):
+        self.nr_class = self.model.load(loc)
+
+
+cdef class AveragedPerceptron(Learner):
+    def __init__(self, nr_class, extracter):
+        model = LinearModel()
+        updater = AveragedPerceptronUpdater(model.weights)
+        Learner.__init__(self, nr_class, extracter, model, updater)
