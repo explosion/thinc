@@ -12,6 +12,8 @@ cdef class Updater:
     
     cdef void update(self, ExampleC* eg) except *
 
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
+
 
 cdef class AveragedPerceptronUpdater(Updater):
-    cdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
+    pass

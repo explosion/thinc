@@ -72,6 +72,17 @@ cdef class Updater:
     cdef void update(self, ExampleC* eg) except *:
         raise NotImplementedError
 
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        feat = <SparseAverageC*>self.train_weights.get(feat_id)
+        if feat == NULL:
+            feat = init_feat(clas, upd, self.time)
+            self.train_weights.set(feat_id, feat)
+            self.weights.set(feat_id, feat.curr)
+        else:  
+            is_resized = update_feature(feat, clas, upd, self.time)
+            if is_resized:
+                self.weights.set(feat_id, feat.curr)
+
 
 cdef class AveragedPerceptronUpdater(Updater):
     def __call__(self, Example eg):
@@ -92,18 +103,7 @@ cdef class AveragedPerceptronUpdater(Updater):
                 if upd != 0:
                     self.update_weight(feat_id, eg.best, upd)
                     self.update_weight(feat_id, eg.guess, -upd)
-
-    cdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
-        feat = <SparseAverageC*>self.train_weights.get(feat_id)
-        if feat == NULL:
-            feat = init_feat(clas, upd, self.time)
-            self.train_weights.set(feat_id, feat)
-            self.weights.set(feat_id, feat.curr)
-        else:  
-            is_resized = update_feature(feat, clas, upd, self.time)
-            if is_resized:
-                self.weights.set(feat_id, feat.curr)
-
+    
     def end_training(self):
         cdef feat_id
         cdef size_t feat_addr

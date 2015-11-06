@@ -21,7 +21,7 @@ def test_basic():
         model.updater(eg)
     eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
     model(eg)
-    assert eg.guess == 0
+    assert eg.guess == 2
     eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
     model(eg)
     assert eg.scores[1] == 0
@@ -66,11 +66,8 @@ def model(instances):
     for counts in instances:
         model.updater.time += 1
         for clas, feats in counts.items():
-            eg = Example.from_feats(model.nr_class, feats.items(), gold=clas)
-            model(eg)
-            # This is to work-around the ticking problem
-            model.updater.time -= 1
-            model.updater(eg)
+            for key, value in feats.items():
+                model.updater.update_weight(key, clas, value)
     return model
 
 def get_score(model, feats, clas):
