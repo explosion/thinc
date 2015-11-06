@@ -55,7 +55,7 @@ def run_setup(exts):
         url="http://github.com/honnibal/thinc",
         package_data={"thinc": ["*.pyx", "*.pxd", "*.pxi"]},
         ext_modules=exts,
-        install_requires=["murmurhash", "cymem == 1.30", "preshed == 0.43"],
+        install_requires=["murmurhash", "cymem == 1.30", "preshed == 0.44"],
         setup_requires=["headers_workaround"],
         license="MIT",
     )
