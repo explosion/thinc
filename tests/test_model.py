@@ -1,6 +1,8 @@
 from __future__ import division
 
 import pytest
+import pickle
+import io
 
 from thinc.features import Extracter
 from thinc.api import AveragedPerceptron
@@ -120,6 +122,15 @@ def test_dump_load(model):
     assert get_scores(model, [(1, 1), (3, 1), (4, 1)]) == get_scores(new_model, [(1,1), (3, 1), (4,1)])
     assert get_scores(model, [(2, 1), (5, 1)]) == get_scores(new_model, [(2,1), (5,1)])
     assert get_scores(model, [(2, 1), (3, 1), (4, 1)]) == get_scores(new_model, [(2,1), (3,1), (4,1)])
+
+
+def test_pickle(model):
+    file_ = io.BytesIO()
+    pickle.dump(model, file_)
+    file_.seek(0)
+    loaded = pickle.load(file_)
+
+
 
 
 ## TODO: Need a test that exercises multiple lines. Example bug:
