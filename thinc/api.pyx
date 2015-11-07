@@ -1,12 +1,17 @@
 from libc.string cimport memset
 from cymem.cymem cimport Pool
-import copy_reg
 import tempfile
 from os import path
 
 from .typedefs cimport weight_t, atom_t
 from .update cimport AveragedPerceptronUpdater
 from .model cimport LinearModel
+
+
+try:
+    import copy_reg
+except ImportError:
+    import copyreg as copy_reg
 
 
 cdef int arg_max(const weight_t* scores, const int n_classes) nogil:
