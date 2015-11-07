@@ -183,11 +183,11 @@ cdef class AveragedPerceptron(Learner):
         tmp_dir = tempfile.mkdtemp()
         model_loc = path.join(tmp_dir, 'model')
         self.model.dump(self.nr_class, model_loc)
-        return (unpickle_ap, (self.nr_class, self.extracter, model_loc))
+        return (unpickle_ap, (self.__class__, self.nr_class, self.extracter, model_loc))
 
 
-def unpickle_ap(nr_class, extracter, model_loc):
-    model = AveragedPerceptron(nr_class, extracter)
+def unpickle_ap(cls, nr_class, extracter, model_loc):
+    model = cls(nr_class, extracter)
     model.load(model_loc)
     return model
 
