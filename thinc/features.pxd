@@ -15,4 +15,4 @@ cdef class Extracter:
 
 cdef class ConjunctionExtracter(Extracter):
     cdef TemplateC* templates
-
+    cdef object _py_templates

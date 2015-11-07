@@ -1,5 +1,8 @@
 from libc.string cimport memset
 from cymem.cymem cimport Pool
+import copy_reg
+import tempfile
+from os import path
 
 from .typedefs cimport weight_t, atom_t
 from .update cimport AveragedPerceptronUpdater
@@ -170,3 +173,18 @@ cdef class AveragedPerceptron(Learner):
         model = LinearModel()
         updater = AveragedPerceptronUpdater(model.weights)
         Learner.__init__(self, nr_class, extracter, model, updater)
+
+    def __reduce__(self):
+        tmp_dir = tempfile.mkdtemp()
+        model_loc = path.join(tmp_dir, 'model')
+        self.model.dump(self.nr_class, model_loc)
+        return (unpickle_ap, (self.nr_class, self.extracter, model_loc))
+
+
+def unpickle_ap(nr_class, extracter, model_loc):
+    model = AveragedPerceptron(nr_class, extracter)
+    model.load(model_loc)
+    return model
+
+
+copy_reg.constructor(unpickle_ap)

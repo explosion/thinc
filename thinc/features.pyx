@@ -15,6 +15,9 @@ cdef class Extracter:
     def __call__(self, Example eg):
         pass
 
+    def __reduce__(self):
+        return (self.__class__, tuple())
+
 
 cdef class ConjunctionExtracter(Extracter):
     """Extract composite features from a sequence of atomic values, according to
@@ -26,6 +29,7 @@ cdef class ConjunctionExtracter(Extracter):
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.
         templates = tuple(sorted(set([tuple(sorted(f)) for f in templates])))
+        self._py_templates = templates
         self.nr_embed = 1
         self.nr_templ = len(templates) + 1
         self.templates = <TemplateC*>self.mem.alloc(len(templates), sizeof(TemplateC))
@@ -62,3 +66,6 @@ cdef class ConjunctionExtracter(Extracter):
                 feat.val = 1
                 n_feats += 1
         return n_feats
+
+    def __reduce__(self):
+        return (self.__class__, (self.nr_atom, self._py_templates))
