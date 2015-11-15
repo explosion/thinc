@@ -91,6 +91,65 @@ cdef class LinearModel(Model):
         return reader._nr_class
 
 
+cdef class MultiLayerPerceptron(Model):
+    def __init__(self):
+        Model.__init__(self)
+        pass
+
+    def __call__(self, Example eg):
+        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
+
+    def __dealloc__(self):
+        pass
+
+    def __call__(self, Example eg):
+        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
+
+    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+        cdef MatrixC[5] stack_mem
+        with choose_buffer(&state, stack_mem, 5, nr_layer, sizeof(MatrixC)):
+            self.forward(state, feats, nr_feat)
+
+    cdef void forward(self, MatrixC* state, const FeatureC* feats, int nr_feat) nogil:
+        cdef int i
+        for i in range(feats):
+            embed = <const MatrixC*>self.weights.get(feats[i].key)
+            if embed is not NULL:
+                Matrix.add(state, embed, feats[i].val)
+
+        hidden = <const LayerC*>self.weights.get(1)
+        for i in range(self.nr_hidden):
+            Matrix.dot_bias(state + 1, &hidden.W, &layer.b, state)
+            ReLu.squash(state + 1, 0)
+            state += 1
+            hidden += 1
+        Matrix.softmax(scores, state, self.nr_class)
+
+    cdef void backprop(self, LayerC* gradients, const float* loss,
+                       const MatrixC* states) nogil:
+        delta = Matrix.zeros(state.nr_row, state.nr_col)
+        compute_loss(delta, loss) # TODO
+        
+        layers = <const LayerC*>self.weights.get(1)
+        for i in range(self.depth, 0, -1):
+            Layer.gradient(&gradients[i], delta, &states[i])
+            ReLu.delta(delta, &states[i], &layers[i].W)
+        Layer.gradient(&gradients[0], delta, &states[0])
+
+
+cdef void compute_gradient(MatrixC* grad, MatrixC* next_delta, const MatrixC* state,
+        const MatrixC* weights, const MatrixC* prev_delta) nogil:
+    Matrix.add(&gradients[i].b, &deltas[i+1])
+    Matrix.outer(update, &states[i], &deltas[i+1])
+    Matrix.add(&gradients[i].W, update)
+
+    Matrix.delta_rectify(&deltas[i], &states[i])
+    Matrix.dot_transpose(&deltas[i], &weights.W)
+
+
+
 cdef class _Writer:
     cdef FILE* _fp
     cdef class_t _nr_class

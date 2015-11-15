@@ -110,3 +110,52 @@ cdef class AveragedPerceptronUpdater(Updater):
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
                 average_weights(<SparseAverageC*>feat_addr, self.time)
+
+
+cdef class DenseUpdater(Updater):
+    def __init__(self, weights):
+        pass
+
+    cdef void update(self, ExampleC* eg) except *:
+        if gradient == NULL:
+            raise ValueError("Gradient uninitialized")
+        
+        self.L2_penalty(eg.gradient)
+        self.rescale(eg.gradient)
+        weights = <const LayerC*>self.weights.get(1)
+        for i in range(self.depth):
+            Matrix.add(&weights.W[i], &gradient[i].W, -1)
+    
+    cdef void L2_penalty(self, LayerC* gradient) except *:
+        cdef const LayerC* weights = self.weights.get(1)
+        # L2 Regularization
+        cdef int i
+        for i in range(gradient.depth):
+            Matrix.add(gradient.W[i], Matrix.L2(&weights[i].W), 1.0)
+
+    cdef void rescale(self, DenseC* gradient) except *:
+        pass
+
+    def end_training(self):
+        pass
+
+
+class Adagrad(DenseUpdater):
+    cdef void rescale(self, LayerC* gradient) except *:
+        cdef LayerC* h = &self.h
+        cdef MatrixC squared
+        cdef int _
+        for _ in range(self.depth):
+            Matrix.square(&squared, &gradient.W)
+            Matrix.add(&h.W, squared.W)
+
+            Matrix.square(&squared, &gradient.b)
+            Matrix.add(&h.b, squared)
+
+            curr_rate = self.learning_rate / (Matrix.sqrt(&h.W) + self.eps)
+            Matrix.mul(gradient.W, curr_rate)
+            curr_rate = self.learning_rate / (Matrix.sqrt(&h.b) + self.eps)
+            Matrix.mul(gradient.b, curr_rate)
+
+            gradient += 1
+            h += 1

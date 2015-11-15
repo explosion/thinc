@@ -126,3 +126,90 @@ cdef class InputLayer:
                 param = table.get(context[idx])
                 param.update(param, &gradient[c], t, eta, mu)
                 c += param.length
+
+
+cdef struct DenseC:
+    float[4][300] W
+    float[4][300] b
+    const int depth = 4
+    const int width = 300
+
+
+def softmax(actvn, W, b):
+    w = W.dot(actvn) + b
+    ew = numpy.exp(w - max(w))
+    return (ew / sum(ew)).ravel()
+
+
+def relu(actvn, W, b):
+    x = W.dot(actvn) + b
+    return x * (x > 0)
+
+
+def d_relu(x):
+    return x > 0
+
+
+class Adagrad(object):
+    def __init__(self, lr, rho, shape):
+        self.eps = 1e-3
+        # initial learning rate
+        self.learning_rate = lr
+        self.rho = rho
+        # stores sum of squared gradients 
+        self.h = numpy.zeros(gradient.data.shape)
+        self._curr_rate = 
+    
+    def __call__(self, weights, gradient, batch_size, word_freqs):
+        self.L2_penalty(gradient, weights, word_freqs)
+        update = self.rescale(gradient.data / batch_size)
+        weights.data -= update
+
+    def rescale(self, gradient):
+        curr_rate = numpy.zeros(gradient.data.shape)
+        self.h += gradient ** 2
+        curr_rate = self.learning_rate / (numpy.sqrt(self.h) + self.eps)
+        return curr_rate * gradient
+
+    def L2_penalty(self, gradient, weights, features):
+        # L2 Regularization
+        for i in range(len(weights.W)):
+            gradient.W[i] += weights.W[i] * self.rho
+            gradient.b[i] += weights.b[i] * self.rho
+        for w, freq in features.items():
+            if w < gradient.E.shape[0]:
+                gradient.E[w] += weights.E[w] * self.rho
+
+
+class Params(object):
+    @classmethod
+    def zero(cls, depth, n_embed, n_hidden, n_labels, n_vocab):
+        return cls(depth, n_embed, n_hidden, n_labels, n_vocab, lambda x: numpy.zeros((x,)))
+
+    @classmethod
+    def random(cls, depth, nE, nH, nL, nV):
+        return cls(depth, nE, nH, nL, nV, lambda x: (numpy.random.rand(x) * 2 - 1) * 0.08)
+
+    def __init__(self, depth, n_embed, n_hidden, n_labels, n_vocab, initializer):
+        nE = n_embed; nH = n_hidden; nL = n_labels; nV = n_vocab
+        n_weights = sum([
+            (nE * nH) + nH, 
+            (nH * nH  + nH) * depth,
+            (nH * nL) + nL,
+            (nV * nE)
+        ])
+        self.data = initializer(n_weights)
+        self.W = []
+        self.b = []
+        i = self._add_layer(0, nE, nH)
+        for _ in range(1, depth):
+            i = self._add_layer(i, nH, nH)
+        i = self._add_layer(i, nL, nH)
+        self.E = self.data[i : i + (nV * nE)].reshape((nV, nE))
+        self.E.fill(0)
+
+    def _add_layer(self, start, x, y):
+        end = start + (x * y)
+        self.W.append(self.data[start : end].reshape((x, y)))
+        self.b.append(self.data[end : end + x].reshape((x, )))
+        return end + x

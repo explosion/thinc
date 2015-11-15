@@ -186,6 +186,21 @@ cdef class AveragedPerceptron(Learner):
         return (unpickle_ap, (self.__class__, self.nr_class, self.extracter, model_loc))
 
 
+cdef class NeuralNetwork(Learner):
+    def train(self, batch):
+        cdef Pool mem = Pool()
+        state = <MatrixC*>mem.alloc(self.nr_layer, sizeof(MatrixC))
+        gradient = <LayerC*>mem.alloc(self.nr_layer, sizeof(LayerC))
+        for eg in batch:
+            memset(state, 0, self.nr_layer * sizeof(MatrixC))
+            self.model.forward(state, eg.features, eg.nr_feat)
+            self.set_loss(eg)
+            self.model.backprop(gradient, eg.loss, state)
+            count_feats(counts, eg.features, eg.nr_feat)
+        self.updater.update(gradient, counts)
+        return loss
+
+
 def unpickle_ap(cls, nr_class, extracter, model_loc):
     model = cls(nr_class, extracter)
     model.load(model_loc)

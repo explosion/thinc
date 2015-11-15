@@ -1,8 +1,21 @@
-from libc.stdint cimport int32_t, uint64_t
+from libc.stdint cimport int16_t, int32_t, uint64_t
 from .typedefs cimport weight_t, atom_t
 
 
 include "compile_time_constants.pxi"
+
+
+cdef struct MatrixC:
+    float[300 * 300] data
+    int32_t nr_row
+    int32_t nr_col
+
+
+cdef struct LayerC:
+    MatrixC W
+    MatrixC b
+    int32_t nr_in
+    int32_t nr_out
 
 
 cdef struct SparseArrayC:
