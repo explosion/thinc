@@ -191,19 +191,17 @@ cdef class NeuralNetwork(Learner):
     def train(self, batch):
         cdef Pool mem = Pool()
         cdef MultiLayerPerceptron model = self.model
-        state = <MatrixC*>mem.alloc(self.nr_layer, sizeof(MatrixC))
-        gradient = <LayerC*>mem.alloc(self.nr_layer, sizeof(LayerC))
-        #counts = {}
         cdef Example eg
+        cdef int i
         for eg in batch:
-            memset(state, 0, self.nr_layer * sizeof(MatrixC))
-            model.forward(state, eg.c.features, eg.c.nr_feat)
-            self.set_loss(eg)
-            model.backprop(gradient, eg.c.costs, state)
-            #count_feats(counts, eg.features, eg.nr_feat)
-        #self.updater.update(gradient, counts)
-        cdef ExampleC update
-        self.updater.update(&update)
+            model.forward(eg.c)
+            self.set_loss(eg.c)
+            model.backprop(eg.c)
+        
+        cdef Example batch_sums = Example()
+        for eg in batch:
+            batch_sums.add_grad(eg)
+        self.updater.update(batch_sums.c)
 
 
 def unpickle_ap(cls, nr_class, extracter, model_loc):

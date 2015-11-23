@@ -115,38 +115,32 @@ cdef class MultiLayerPerceptron(Model):
         #with choose_buffer(&state, stack_mem, 5, nr_layer, sizeof(MatrixC)):
         self.forward(stack_mem, feats, nr_feat)
 
-    cdef void forward(self, MatrixC* state, const FeatureC* feats, int nr_feat) nogil:
+    cdef void forward(self, ExampleC* eg) nogil:
+        cdef GradientC* grad = eg.grad
         cdef int i
         for i in range(nr_feat):
-            embed = <const MatrixC*>self.weights.get(feats[i].key)
+            embed = <const EmbedC*>self.weights.get(feats[i].key)
             if embed is not NULL:
-                Matrix.iaddC(state, embed, feats[i].val)
+                Vector.iaddC(&eg.embed[embed.offset], embed, embed.length,
+                             feats[i].val)
 
-        hidden = <const LayerC*>self.weights.get(1)
+        layers = <const LayerC*>self.weights.get(1)
+        input_ = eg.embed
         for i in range(self.depth):
-            Matrix.dot_biasC(state + 1, state, hidden.W, hidden.b)
-            hidden.activate(state + 1)
-            state += 1
-            hidden += 1
-        #Matrix.softmax(scores, state, self.nr_class) # TODO
+            Matrix.dot_biasC(&eg.signal[i], input_, layers[i].W, layers[i].b)
+            layers[i].activate(&eg.signal[i])
+            input_ = &eg.signal[i]
+        Matrix.softmax(eg.scores, input_, eg.nr_class) # TODO
 
-    cdef void backprop(self, LayerC* grad, MatrixC* delta, const MatrixC* states) nogil:
+    cdef void backprop(self, ExampleC* eg) nogil:
         cdef int i
+        memcpy(eg.deltas[self.depth], eg.scores, eg.nr_class * sizeof(eg.scores[0]))
+        Matrix.isubC(eg.deltas[self.depth], eg.target) # TODO
         layers = <const LayerC*>self.weights.get(1)
         for i in range(self.depth, 0, -1):
-            Matrix.iaddC(grad[i].b, delta, 1.0)
-            #Matrix.iadd_outerC(grad[i].W, delta, &states[i]) # TODO
-            layers[i].d_activate(delta, &layers[i], &states[i])
-
-
-#cdef void compute_gradient(GradientC* grad, int i, const MatrixC* state,
-#                           const LayerC* layer) nogil:
-#    Matrix.imul_T(delta, &weights.W)
-# 
-#    Matrix.delta_relu(delta, state)
-#
-#    Matrix.delta_rectify(&deltas[i], &states[i])
-#    Matrix.dot_transpose(&deltas[i], &weights.W)
+            Matrix.iaddC(eg.grad[i].b, &eg.deltas[i], 1.0)
+            Matrix.iadd_outerC(eg.grad[i].W, &eg.deltas[i], &eg.signal[i]) # TODO
+            layers[i].d_activate(&eg.delta[i-1], &layers[i], &eg.signal[i])
 
 
 cdef class _Writer:

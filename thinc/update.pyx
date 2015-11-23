@@ -117,33 +117,31 @@ cdef class DenseUpdater(Updater):
         pass
 
     cdef void update(self, ExampleC* eg) except *:
-        gradient = <LayerC*>eg.gradient
-        if gradient == NULL:
+        gradients = <LayerC*>eg.gradients
+        if gradients == NULL:
             raise ValueError("Gradient uninitialized")
-        
-        self.L2_penalty(eg.gradient)
-        self.rescale(eg.gradient)
+        weights = <const LayerC*>self.weights.get(1)
+        if weights == NULL:
+            raise ValueError("Weights uninitialized")
+        cdef int i
+        for i in range(self.depth):
+            self.L2_penalty(&gradients[i], &weights[i])
+            self.rescale(&gradients[i], &weights[i])
         for i in range(eg.nr_feat):
             feat = eg.features[i]
             embed = <MatrixC*>self.weights.get(feat.key)
             if embed is not NULL:
-                Matrix.add(embed, &gradients[0].W, -feat.val)
+                Matrix.iaddC(embed, &gradients[0], -feat.val)
 
-        for i in range(1, self.depth):
-            weights = <LayerC*>self.weights.get(i)
-            Layer.add(weights, gradients[i], -1)
-            Matrix.add(weights.W, &gradient[i].W, -1)
-            Matrix.add(weights.b, &gradient[i].b, -1)
+        weights = <LayerC*>self.weights.get(1)
+        for i in range(self.depth):
+            Matrix.iaddC(weights.W, &gradient[i].W, -1)
+            Matrix.iaddC(weights.b, &gradient[i].b, -1)
     
-    cdef void L2_penalty(self, MatrixC* gradient) except *:
-        cdef const LayerC* weights 
-        # L2 Regularization
-        cdef int i
-        for i in range(1, self.depth):
-            weights = self.weights.get(i)
-            Matrix.add(gradient.W[i], Matrix.L2(&weights[i].W), 1.0)
+    cdef void L2_penalty(self, MatrixC* gradient, const LayerC* weights) except *:
+        Matrix.iaddC(gradient.W, Matrix.L2(weights.W), 1.0)
 
-    cdef void rescale(self, LayerC* gradient) except *:
+    cdef void rescale(self, LayerC* gradient, const LayerC* weights) except *:
         pass
 
     def end_training(self):
