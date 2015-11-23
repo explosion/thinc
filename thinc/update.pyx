@@ -113,8 +113,8 @@ cdef class AveragedPerceptronUpdater(Updater):
 
 
 cdef class DenseUpdater(Updater):
-    def __init__(self, weights):
-        pass
+    def __init__(self, PreshMap weights):
+        self.weights = weights
 
     cdef void update(self, ExampleC* eg) except *:
         gradients = <LayerC*>eg.gradients
@@ -123,23 +123,28 @@ cdef class DenseUpdater(Updater):
         weights = <const LayerC*>self.weights.get(1)
         if weights == NULL:
             raise ValueError("Weights uninitialized")
+
         cdef int i
         for i in range(self.depth):
-            self.regularize(&gradients[i], &weights[i])
-            self.rescale(&gradients[i], &weights[i])
-        for i in range(eg.nr_feat):
-            feat = eg.features[i]
-            embed = <MatrixC*>self.weights.get(feat.key)
-            if embed is not NULL:
-                Matrix.iaddC(embed, &gradients[0], -(feat.val / eg.nr_feat))
-
-        weights = <LayerC*>self.weights.get(1)
-        for i in range(self.depth):
+            self.regularize(i+1, &gradients[i], &weights[i])
+            self.rescale(i+1, &gradients[i], &weights[i])
             Matrix.iaddC(weights.W, &gradient[i].W, -1)
             Matrix.iaddC(weights.b, &gradient[i].b, -1)
+
+        # TODO: Fix this
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            Matrix.mulC(tuning, &gradients[0], -(feat.val / eg.nr_feat))
+            self.rescale(feat.key, tuning)
+            embed = <MatrixC*>self.weights.get(feat.key)
+            if embed is not NULL:
+                Matrix.iaddC(embed, tuning)
     
-    cdef void regularize(self, LayerC* gradient, const LayerC* weights) except *:
-        Matrix.iaddC(gradient.W, Matrix.L2(weights.W), 1.0)
+    cdef void regularize(self, LayerC* gradients) except *:
+        weights = <const LayerC*>self.weights.get(1)
+        cdef int i
+        for i in range(self.depth):
+            Matrix.iaddC(gradients[i].W, Matrix.L2(weights[i].W), 1.0)
 
     cdef void rescale(self, LayerC* gradient, const LayerC* weights) except *:
         pass
@@ -149,11 +154,7 @@ cdef class DenseUpdater(Updater):
 
 
 class Adagrad(DenseUpdater):
-    cdef void rescale(self, LayerC* gradient, LayerC* h) except *:
-        cdef Pool mem = Pool()
-        cdef Layer squared = Layer.copy(h)
-        Layer.isquareC(squared.c)
-        Layer.iaddC(squared.c, h)
-        
-        curr_rate = self.learning_rate / (Layer.sqrtC(h) + self.eps)
-        Layer.imulC(gradient, curr_rate)
+    cdef void rescale(self, uint64_t id_, float* gradient, int n) except *:
+        # TODO: Do me
+        params = <float*>self.train_weights.get(id_)
+        raise NotImplementedError
