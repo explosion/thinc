@@ -125,20 +125,20 @@ cdef class DenseUpdater(Updater):
             raise ValueError("Weights uninitialized")
         cdef int i
         for i in range(self.depth):
-            self.L2_penalty(&gradients[i], &weights[i])
+            self.regularize(&gradients[i], &weights[i])
             self.rescale(&gradients[i], &weights[i])
         for i in range(eg.nr_feat):
             feat = eg.features[i]
             embed = <MatrixC*>self.weights.get(feat.key)
             if embed is not NULL:
-                Matrix.iaddC(embed, &gradients[0], -feat.val)
+                Matrix.iaddC(embed, &gradients[0], -(feat.val / eg.nr_feat))
 
         weights = <LayerC*>self.weights.get(1)
         for i in range(self.depth):
             Matrix.iaddC(weights.W, &gradient[i].W, -1)
             Matrix.iaddC(weights.b, &gradient[i].b, -1)
     
-    cdef void L2_penalty(self, MatrixC* gradient, const LayerC* weights) except *:
+    cdef void regularize(self, LayerC* gradient, const LayerC* weights) except *:
         Matrix.iaddC(gradient.W, Matrix.L2(weights.W), 1.0)
 
     cdef void rescale(self, LayerC* gradient, const LayerC* weights) except *:
@@ -150,9 +150,10 @@ cdef class DenseUpdater(Updater):
 
 class Adagrad(DenseUpdater):
     cdef void rescale(self, LayerC* gradient, LayerC* h) except *:
-        cdef LayerC squared = Layer.copy(h)
-        Layer.square(&squared) 
-        Layer.add(&h, &squared)
+        cdef Pool mem = Pool()
+        cdef Layer squared = Layer.copy(h)
+        Layer.isquareC(squared.c)
+        Layer.iaddC(squared.c, h)
         
-        curr_rate = self.learning_rate / (Layer.sqrt(h) + self.eps)
-        Layer.mul(gradient, curr_rate)
+        curr_rate = self.learning_rate / (Layer.sqrtC(h) + self.eps)
+        Layer.imulC(gradient, curr_rate)

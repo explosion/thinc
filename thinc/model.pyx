@@ -137,10 +137,11 @@ cdef class MultiLayerPerceptron(Model):
         memcpy(eg.deltas[self.depth], eg.scores, eg.nr_class * sizeof(eg.scores[0]))
         Matrix.isubC(eg.deltas[self.depth], eg.target) # TODO
         layers = <const LayerC*>self.weights.get(1)
-        for i in range(self.depth, 0, -1):
+        for i in range(self.depth, -1, -1):
             Matrix.iaddC(eg.grad[i].b, &eg.deltas[i], 1.0)
             Matrix.iadd_outerC(eg.grad[i].W, &eg.deltas[i], &eg.signal[i]) # TODO
-            layers[i].d_activate(&eg.delta[i-1], &layers[i], &eg.signal[i])
+            if i >= 1:
+                layers[i].d_activate(&eg.delta[i-1], &layers[i], &eg.signal[i])
 
 
 cdef class _Writer:
