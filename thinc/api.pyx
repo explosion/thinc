@@ -4,8 +4,9 @@ import tempfile
 from os import path
 
 from .typedefs cimport weight_t, atom_t
+from .structs cimport MatrixC, LayerC
 from .update cimport AveragedPerceptronUpdater
-from .model cimport LinearModel
+from .model cimport LinearModel, MultiLayerPerceptron
 
 
 try:
@@ -189,16 +190,20 @@ cdef class AveragedPerceptron(Learner):
 cdef class NeuralNetwork(Learner):
     def train(self, batch):
         cdef Pool mem = Pool()
+        cdef MultiLayerPerceptron model = self.model
         state = <MatrixC*>mem.alloc(self.nr_layer, sizeof(MatrixC))
         gradient = <LayerC*>mem.alloc(self.nr_layer, sizeof(LayerC))
+        #counts = {}
+        cdef Example eg
         for eg in batch:
             memset(state, 0, self.nr_layer * sizeof(MatrixC))
-            self.model.forward(state, eg.features, eg.nr_feat)
+            model.forward(state, eg.c.features, eg.c.nr_feat)
             self.set_loss(eg)
-            self.model.backprop(gradient, eg.loss, state)
-            count_feats(counts, eg.features, eg.nr_feat)
-        self.updater.update(gradient, counts)
-        return loss
+            model.backprop(gradient, eg.c.costs, state)
+            #count_feats(counts, eg.features, eg.nr_feat)
+        #self.updater.update(gradient, counts)
+        cdef ExampleC update
+        self.updater.update(&update)
 
 
 def unpickle_ap(cls, nr_class, extracter, model_loc):

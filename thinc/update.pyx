@@ -117,23 +117,33 @@ cdef class DenseUpdater(Updater):
         pass
 
     cdef void update(self, ExampleC* eg) except *:
+        gradient = <LayerC*>eg.gradient
         if gradient == NULL:
             raise ValueError("Gradient uninitialized")
         
         self.L2_penalty(eg.gradient)
         self.rescale(eg.gradient)
-        weights = <const LayerC*>self.weights.get(1)
-        for i in range(self.depth):
-            Matrix.add(&weights.W[i], &gradient[i].W, -1)
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            embed = <MatrixC*>self.weights.get(feat.key)
+            if embed is not NULL:
+                Matrix.add(embed, &gradients[0].W, -feat.val)
+
+        for i in range(1, self.depth):
+            weights = <LayerC*>self.weights.get(i)
+            Layer.add(weights, gradients[i], -1)
+            Matrix.add(weights.W, &gradient[i].W, -1)
+            Matrix.add(weights.b, &gradient[i].b, -1)
     
-    cdef void L2_penalty(self, LayerC* gradient) except *:
-        cdef const LayerC* weights = self.weights.get(1)
+    cdef void L2_penalty(self, MatrixC* gradient) except *:
+        cdef const LayerC* weights 
         # L2 Regularization
         cdef int i
-        for i in range(gradient.depth):
+        for i in range(1, self.depth):
+            weights = self.weights.get(i)
             Matrix.add(gradient.W[i], Matrix.L2(&weights[i].W), 1.0)
 
-    cdef void rescale(self, DenseC* gradient) except *:
+    cdef void rescale(self, LayerC* gradient) except *:
         pass
 
     def end_training(self):
@@ -141,21 +151,10 @@ cdef class DenseUpdater(Updater):
 
 
 class Adagrad(DenseUpdater):
-    cdef void rescale(self, LayerC* gradient) except *:
-        cdef LayerC* h = &self.h
-        cdef MatrixC squared
-        cdef int _
-        for _ in range(self.depth):
-            Matrix.square(&squared, &gradient.W)
-            Matrix.add(&h.W, squared.W)
-
-            Matrix.square(&squared, &gradient.b)
-            Matrix.add(&h.b, squared)
-
-            curr_rate = self.learning_rate / (Matrix.sqrt(&h.W) + self.eps)
-            Matrix.mul(gradient.W, curr_rate)
-            curr_rate = self.learning_rate / (Matrix.sqrt(&h.b) + self.eps)
-            Matrix.mul(gradient.b, curr_rate)
-
-            gradient += 1
-            h += 1
+    cdef void rescale(self, LayerC* gradient, LayerC* h) except *:
+        cdef LayerC squared = Layer.copy(h)
+        Layer.square(&squared) 
+        Layer.add(&h, &squared)
+        
+        curr_rate = self.learning_rate / (Layer.sqrt(h) + self.eps)
+        Layer.mul(gradient, curr_rate)

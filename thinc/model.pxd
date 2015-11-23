@@ -2,7 +2,7 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 from .typedefs cimport feat_t, weight_t
-from .structs cimport FeatureC
+from .structs cimport FeatureC, LayerC, MatrixC
 
 
 cdef class Model:
@@ -14,3 +14,11 @@ cdef class Model:
 
 cdef class LinearModel(Model):
     pass
+
+
+cdef class MultiLayerPerceptron(Model):
+    cdef int depth
+    cdef int width
+    cdef void forward(self, MatrixC* state, const FeatureC* feats, int nr_feat) nogil
+    cdef void backprop(self, LayerC* grad, MatrixC* delta, const MatrixC* states) nogil
+ 

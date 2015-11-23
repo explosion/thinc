@@ -14,6 +14,7 @@ from .sparse cimport SparseArray
 from .api cimport Example, arg_max, arg_max_if_zero, arg_max_if_true
 from .structs cimport SparseArrayC
 from .typedefs cimport class_t, count_t
+from .matrix cimport Matrix
 
 
 cdef class Model:
@@ -92,9 +93,10 @@ cdef class LinearModel(Model):
 
 
 cdef class MultiLayerPerceptron(Model):
-    def __init__(self):
+    def __init__(self, width, depth):
         Model.__init__(self)
-        pass
+        self.width = width
+        self.depth = depth
 
     def __call__(self, Example eg):
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
@@ -109,45 +111,42 @@ cdef class MultiLayerPerceptron(Model):
 
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         cdef MatrixC[5] stack_mem
-        with choose_buffer(&state, stack_mem, 5, nr_layer, sizeof(MatrixC)):
-            self.forward(state, feats, nr_feat)
+        memset(stack_mem, 0, sizeof(stack_mem))
+        #with choose_buffer(&state, stack_mem, 5, nr_layer, sizeof(MatrixC)):
+        self.forward(stack_mem, feats, nr_feat)
 
     cdef void forward(self, MatrixC* state, const FeatureC* feats, int nr_feat) nogil:
         cdef int i
-        for i in range(feats):
+        for i in range(nr_feat):
             embed = <const MatrixC*>self.weights.get(feats[i].key)
             if embed is not NULL:
-                Matrix.add(state, embed, feats[i].val)
+                Matrix.iaddC(state, embed, feats[i].val)
 
         hidden = <const LayerC*>self.weights.get(1)
-        for i in range(self.nr_hidden):
-            Matrix.dot_bias(state + 1, &hidden.W, &layer.b, state)
-            ReLu.squash(state + 1, 0)
+        for i in range(self.depth):
+            Matrix.dot_biasC(state + 1, state, hidden.W, hidden.b)
+            hidden.activate(state + 1)
             state += 1
             hidden += 1
-        Matrix.softmax(scores, state, self.nr_class)
+        #Matrix.softmax(scores, state, self.nr_class) # TODO
 
-    cdef void backprop(self, LayerC* gradients, const float* loss,
-                       const MatrixC* states) nogil:
-        delta = Matrix.zeros(state.nr_row, state.nr_col)
-        compute_loss(delta, loss) # TODO
-        
+    cdef void backprop(self, LayerC* grad, MatrixC* delta, const MatrixC* states) nogil:
+        cdef int i
         layers = <const LayerC*>self.weights.get(1)
         for i in range(self.depth, 0, -1):
-            Layer.gradient(&gradients[i], delta, &states[i])
-            ReLu.delta(delta, &states[i], &layers[i].W)
-        Layer.gradient(&gradients[0], delta, &states[0])
+            Matrix.iaddC(grad[i].b, delta, 1.0)
+            #Matrix.iadd_outerC(grad[i].W, delta, &states[i]) # TODO
+            layers[i].d_activate(delta, &layers[i], &states[i])
 
 
-cdef void compute_gradient(MatrixC* grad, MatrixC* next_delta, const MatrixC* state,
-        const MatrixC* weights, const MatrixC* prev_delta) nogil:
-    Matrix.add(&gradients[i].b, &deltas[i+1])
-    Matrix.outer(update, &states[i], &deltas[i+1])
-    Matrix.add(&gradients[i].W, update)
-
-    Matrix.delta_rectify(&deltas[i], &states[i])
-    Matrix.dot_transpose(&deltas[i], &weights.W)
-
+#cdef void compute_gradient(GradientC* grad, int i, const MatrixC* state,
+#                           const LayerC* layer) nogil:
+#    Matrix.imul_T(delta, &weights.W)
+# 
+#    Matrix.delta_relu(delta, state)
+#
+#    Matrix.delta_rectify(&deltas[i], &states[i])
+#    Matrix.dot_transpose(&deltas[i], &weights.W)
 
 
 cdef class _Writer:

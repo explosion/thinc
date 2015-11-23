@@ -6,14 +6,25 @@ include "compile_time_constants.pxi"
 
 
 cdef struct MatrixC:
-    float[300 * 300] data
+    float* data
     int32_t nr_row
     int32_t nr_col
 
 
 cdef struct LayerC:
-    MatrixC W
-    MatrixC b
+    MatrixC* W
+    MatrixC* b
+    int32_t nr_in
+    int32_t nr_out
+    void (*activate)(MatrixC* state) nogil
+    void (*d_activate)(MatrixC* delta, const LayerC* layer, const MatrixC* state) nogil
+    uint64_t id
+
+
+cdef struct NetworkWeightsC:
+    float* data
+    int32_t nr_wide
+    int32_t nr_deep
     int32_t nr_in
     int32_t nr_out
 
