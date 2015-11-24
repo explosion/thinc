@@ -88,6 +88,8 @@ cdef class AveragedPerceptronUpdater(Updater):
     def __call__(self, Example eg):
         self.update(&eg.c)
 
+    def update(self, updates):
+
     cdef void update(self, ExampleC* eg) except *:
         cdef weight_t weight, upd
         cdef feat_t feat_id
@@ -96,7 +98,7 @@ cdef class AveragedPerceptronUpdater(Updater):
         self.time += 1
         
         weight = eg.costs[eg.guess]
-        if weight != 0:
+        if weight != 0:o
             for i in range(eg.nr_feat):
                 feat_id = eg.features[i].key
                 upd = weight * eg.features[i].val
@@ -117,44 +119,39 @@ cdef class DenseUpdater(Updater):
         self.weights = weights
 
     cdef void update(self, ExampleC* eg) except *:
-        self.backprop(eg.c.gradients, eg.c.scores, eg.c.costs, eg.c.features,
-                      eg.c.nr_feat)
-
-        weights = <const LayerC*>self.weights.get(1)
-        if weights == NULL:
-            raise ValueError("Weights uninitialized")
-
-        cdef int i
-        for i in range(self.depth):
-            self.regularize(i+1, &gradients[i], &weights[i])
-            self.rescale(i+1, &gradients[i], &weights[i])
-            Matrix.iaddC(weights.W, &gradient[i].W, -1)
-            Matrix.iaddC(weights.b, &gradient[i].b, -1)
-
-        # TODO: Fix this
+        # TODO: Regularize?
+        # Dense update
+        self._update(self.weights.get(1), self.train_weights.get(1),
+                     eg.gradient, self.nr_dense)
+        # Sparse updates
         for i in range(eg.nr_feat):
             feat = eg.features[i]
-            Matrix.mulC(tuning, &gradients[0], -(feat.val / eg.nr_feat))
-            self.rescale(feat.key, tuning)
-            embed = <MatrixC*>self.weights.get(feat.key)
-            if embed is not NULL:
-                Matrix.iaddC(embed, tuning)
-    
-    cdef void regularize(self, LayerC* gradients) except *:
-        weights = <const LayerC*>self.weights.get(1)
-        cdef int i
-        for i in range(self.depth):
-            Matrix.iaddC(gradients[i].W, Matrix.L2(weights[i].W), 1.0)
+            param = self.weights.get(feat.key)
 
-    cdef void rescale(self, LayerC* gradient, const LayerC* weights) except *:
-        pass
+            gradient = buffer_
+            memcpy(gradient, tuning + param.offset,
+                   sizeof(tuning[0]) * param.size)
+            VecScal.mul_i(gradient, feat.val, param.size)
+            
+            support = self.train_weights.get(feat.key)
+            self._update(param.data, support, gradient, param.size)
+
+    cdef void _update(self, weight_t* param, void* support, weight_t* gradient,
+                      int32_t n):
+        VecVec.add_i(param, gradient, n)
 
     def end_training(self):
         pass
 
 
 class Adagrad(DenseUpdater):
-    cdef void rescale(self, uint64_t id_, float* gradient, int n) except *:
-        # TODO: Do me
-        params = <float*>self.train_weights.get(id_)
-        raise NotImplementedError
+    cdef void _update(self, weight_t* weights, void* support, weight_t* gradient,
+                      int32_t n):
+        h = <weight_t*>support
+
+        VecVec.add_pow_i(h, gradient, 2, n)
+
+        cdef int i
+        for i in range(n):
+            gradient[i] *= self.learning_rate / (sqrt(h[i]) + self.eps)
+        VecVec.i_add(weights, gradient, n, 1.0)

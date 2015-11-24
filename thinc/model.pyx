@@ -21,6 +21,15 @@ cdef class Model:
     def __init__(self):
         raise NotImplementedError
 
+    def __dealloc__(self):
+        cdef size_t feat_addr
+        # Use 'raw' memory management, instead of cymem.Pool, for weights.
+        # The memory overhead of cymem becomes significant here.
+        if self.weights is not None:
+            for feat_addr in self.weights.values():
+                if feat_addr != 0:
+                    PyMem_Free(<void*>feat_addr)
+
     def __call__(self, Example eg):
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
@@ -36,16 +45,7 @@ cdef class LinearModel(Model):
     def __init__(self):
         self.weights = PreshMap()
         self.mem = Pool()
-
-    def __dealloc__(self):
-        cdef size_t feat_addr
-        # Use 'raw' memory management, instead of cymem.Pool, for weights.
-        # The memory overhead of cymem becomes significant here.
-        if self.weights is not None:
-            for feat_addr in self.weights.values():
-                if feat_addr != 0:
-                    PyMem_Free(<SparseArrayC*>feat_addr)
-
+    
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
@@ -95,9 +95,6 @@ cdef class MultiLayerPerceptron(Model):
         self.width = width
         self.depth = depth
 
-    def __dealloc__(self):
-        pass
-
     def __call__(self, Example eg):
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
@@ -108,43 +105,54 @@ cdef class MultiLayerPerceptron(Model):
         # embeddings is at the end of the activity buffer, preceded by the activity
         # from the first hidden layer, etc.
         
-        input_ = get_embed(activity, self.shape) # TODO
+        input_ = (activity + self.nr_weight) - self.nr_embed
         cdef int i
         for i in range(nr_feat):
             embed = <const EmbedC*>self.weights.get(feats[i].key)
             if embed is not NULL:
-                Vector.iaddC(&input_[embed.offset], embed.data, embed.length,
+                Vector.iaddC(input_ + embed.offset, embed.data, embed.length,
                              feats[i].val)
 
         weights = <const weight_t*>self.weights.get(1)
+        activity += self.nr_all_out
+        prev_activity = input_
         for i in range(self.depth):
-            signal = get_activity(activity, i) # TODO
-            layer = get_layer(weights, i)      # TODO
+            layer = self.layers[i]
 
-            LinAlg.dotC(signal, layer.W, input_, layer.b)
+            activity -= layer.nr_out
+            layer.forward(
+                activity,      # Output of this layer
+                weights,       # Weight matrix
+                prev_activity, # Output of prev layer
+                weights + (layer.nr_wide * layer.nr_out), # bias
+                layer.nr_wide,           # Width of this layer (must match prev nr_out)
+                layer.nr_out             # Width of next layer
+            )
 
-            layer.activate(signal)
-            input_ = signal
+            weights += (layer.nr_wide * layer.nr_out) + layer.nr_out
+            prev_activity = activity
 
-    cdef void backprop(self, weight_t* grads, const weight_t* activity,
-                       const int* costs) except *:
-        # Set delta loss
-        set_delta_loss(deltas, scores, costs, self.nr_class)
+    cdef void backprop(self, weight_t* gradient, weight_t* delta,
+        const weight_t* activity, const int* costs) except *:
 
+        self.set_loss(delta, activity, costs, self.nr_class)
+        
         weights = <const weight_t*>self.weights.get(1)
-
+        weights += nr_all_weight
+        cdef int i
         for i in range(self.depth, -1, -1):
-            delta = get_layer_delta(deltas, i)
-            signal = get_layer_signal(signals, i)
-            grad = get_layer_grad(grads, i)
-            layer = get_layer(weights, i)
+            layer = self.layers[i]
+            weights  -= (layer.nr_wide * layer.nr_out) + layer.nr_out
+            gradient -= (layer.nr_wide * layer.nr_out) + layer.nr_out
 
-            LinAlg.iadd(gradient.b, delta, layer.nr_out)
-            LinAlg.iadd_outer(gradient.W, delta, signal)
-            if i != 0:
-                layer.d_activate(delta, signal)
-                LinAlg.mul_T(delta, layer.W, signal, layer.nr_wide, layer.nr_out)
+            layer.backward(
+                delta, gradient, gradient + (layer.nr_wide * layer.nr_out),
+                weights, activity,
+                layer.nr_wide, layer.nr_out
+            )
 
+            activity += layer.nr_out
+            delta    += layer.nr_out
 
 
 cdef class _Writer:
@@ -232,7 +240,6 @@ cdef class _Reader:
         # Trust We allocated correctly above
         feat[length].key = -2 # Indicates end of memory region
         feat[length].val = 0
-
 
         # Copy into the output variables
         out_feat[0] = feat

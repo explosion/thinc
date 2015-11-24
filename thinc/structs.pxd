@@ -11,21 +11,28 @@ cdef struct MatrixC:
     int32_t nr_col
 
 
-# Usually W and b will be pointers to a buffer allocated elsewhere
 cdef struct LayerC:
-    float* data
-    int32_t nr_in
-    int32_t nr_out
-    void (*activate)(MatrixC* state) nogil
-    void (*d_activate)(MatrixC* delta, const LayerC* layer, const MatrixC* state) nogil
-    uint64_t id
+    void (*forward)(
+        weight_t* activity,
+        const weight_t* W,
+        const weight_t* input_, 
+        const weight_t* bias,
+        int32_t nr_wide,
+        int32_t nr_out
+    ) nogil
 
+    void (*backward)(
+        weight_t* delta,
+        weight_t* grad_W,
+        weight_t* grad_b,
+        const weight_t* W, 
+        const weight_t* activity, 
+        const weight_t* prev_delta, 
+        int32_t nr_wide, 
+        int32_t nr_out
+    ) nogil
 
-cdef struct NetworkWeightsC:
-    float* data
     int32_t nr_wide
-    int32_t nr_deep
-    int32_t nr_in
     int32_t nr_out
 
 
