@@ -11,9 +11,9 @@ cdef struct MatrixC:
     int32_t nr_col
 
 
+# Usually W and b will be pointers to a buffer allocated elsewhere
 cdef struct LayerC:
-    MatrixC* W
-    MatrixC* b
+    float* data
     int32_t nr_in
     int32_t nr_out
     void (*activate)(MatrixC* state) nogil

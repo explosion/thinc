@@ -188,20 +188,17 @@ cdef class AveragedPerceptron(Learner):
 
 
 cdef class NeuralNetwork(Learner):
-    def train(self, batch):
-        cdef Pool mem = Pool()
+    def __init__(self, nr_class, layers):
+        model = MultilayerPerceptron(nr_class, layers)
+        updater = Adagrad()
+        extracter = None
+        Learner.__init__(nr_class, extracter, model, updater)
+
+    cdef void update(self, ExampleC* eg) except *:
         cdef MultiLayerPerceptron model = self.model
-        cdef Example eg
-        cdef int i
-        for eg in batch:
-            model.forward(eg.c)
-            self.set_loss(eg.c)
-            model.backprop(eg.c)
-        
-        cdef Example batch_sums = Example()
-        for eg in batch:
-            batch_sums.add_grad(eg)
-        self.updater.update(batch_sums.c)
+
+        model.backprop(eg.gradient, eg.scores, eg.costs)
+        self.updater.update(eg)
 
 
 def unpickle_ap(cls, nr_class, extracter, model_loc):

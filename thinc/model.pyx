@@ -21,8 +21,9 @@ cdef class Model:
     def __init__(self):
         raise NotImplementedError
 
-    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
-        pass
+    def __call__(self, Example eg):
+        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
 
 cdef class LinearModel(Model):
@@ -44,10 +45,6 @@ cdef class LinearModel(Model):
             for feat_addr in self.weights.values():
                 if feat_addr != 0:
                     PyMem_Free(<SparseArrayC*>feat_addr)
-
-    def __call__(self, Example eg):
-        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
@@ -98,10 +95,6 @@ cdef class MultiLayerPerceptron(Model):
         self.width = width
         self.depth = depth
 
-    def __call__(self, Example eg):
-        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
-
     def __dealloc__(self):
         pass
 
@@ -109,39 +102,49 @@ cdef class MultiLayerPerceptron(Model):
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
-        cdef MatrixC[5] stack_mem
-        memset(stack_mem, 0, sizeof(stack_mem))
-        #with choose_buffer(&state, stack_mem, 5, nr_layer, sizeof(MatrixC)):
-        self.forward(stack_mem, feats, nr_feat)
-
-    cdef void forward(self, ExampleC* eg) nogil:
-        cdef GradientC* grad = eg.grad
+    cdef void set_scores(self, weight_t* activity, const FeatureC* feats, int nr_feat) nogil:
+        # The start of 'activity' is the class scores, but the array holds the
+        # activations from each level, top down, i.e. the activity from the 
+        # embeddings is at the end of the activity buffer, preceded by the activity
+        # from the first hidden layer, etc.
+        
+        input_ = get_embed(activity, self.shape) # TODO
         cdef int i
         for i in range(nr_feat):
             embed = <const EmbedC*>self.weights.get(feats[i].key)
             if embed is not NULL:
-                Vector.iaddC(&eg.embed[embed.offset], embed, embed.length,
+                Vector.iaddC(&input_[embed.offset], embed.data, embed.length,
                              feats[i].val)
 
-        layers = <const LayerC*>self.weights.get(1)
-        input_ = eg.embed
+        weights = <const weight_t*>self.weights.get(1)
         for i in range(self.depth):
-            Matrix.dot_biasC(&eg.signal[i], input_, layers[i].W, layers[i].b)
-            layers[i].activate(&eg.signal[i])
-            input_ = &eg.signal[i]
-        Matrix.softmax(eg.scores, input_, eg.nr_class) # TODO
+            signal = get_activity(activity, i) # TODO
+            layer = get_layer(weights, i)      # TODO
 
-    cdef void backprop(self, ExampleC* eg) nogil:
-        cdef int i
-        memcpy(eg.deltas[self.depth], eg.scores, eg.nr_class * sizeof(eg.scores[0]))
-        Matrix.isubC(eg.deltas[self.depth], eg.target) # TODO
-        layers = <const LayerC*>self.weights.get(1)
+            LinAlg.dotC(signal, layer.W, input_, layer.b)
+
+            layer.activate(signal)
+            input_ = signal
+
+    cdef void backprop(self, weight_t* grads, const weight_t* activity,
+                       const int* costs) except *:
+        # Set delta loss
+        set_delta_loss(deltas, scores, costs, self.nr_class)
+
+        weights = <const weight_t*>self.weights.get(1)
+
         for i in range(self.depth, -1, -1):
-            Matrix.iaddC(eg.grad[i].b, &eg.deltas[i], 1.0)
-            Matrix.iadd_outerC(eg.grad[i].W, &eg.deltas[i], &eg.signal[i]) # TODO
-            if i >= 1:
-                layers[i].d_activate(&eg.delta[i-1], &layers[i], &eg.signal[i])
+            delta = get_layer_delta(deltas, i)
+            signal = get_layer_signal(signals, i)
+            grad = get_layer_grad(grads, i)
+            layer = get_layer(weights, i)
+
+            LinAlg.iadd(gradient.b, delta, layer.nr_out)
+            LinAlg.iadd_outer(gradient.W, delta, signal)
+            if i != 0:
+                layer.d_activate(delta, signal)
+                LinAlg.mul_T(delta, layer.W, signal, layer.nr_wide, layer.nr_out)
+
 
 
 cdef class _Writer:

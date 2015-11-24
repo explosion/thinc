@@ -24,6 +24,9 @@ cdef struct ExampleC:
     FeatureC* features
     weight_t* embeddings
     weight_t* scores
+    weight_t* gradient
+    weight_t* delta
+    weight_t* signal
 
     int nr_class
     int nr_atom

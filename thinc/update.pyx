@@ -117,9 +117,9 @@ cdef class DenseUpdater(Updater):
         self.weights = weights
 
     cdef void update(self, ExampleC* eg) except *:
-        gradients = <LayerC*>eg.gradients
-        if gradients == NULL:
-            raise ValueError("Gradient uninitialized")
+        self.backprop(eg.c.gradients, eg.c.scores, eg.c.costs, eg.c.features,
+                      eg.c.nr_feat)
+
         weights = <const LayerC*>self.weights.get(1)
         if weights == NULL:
             raise ValueError("Weights uninitialized")
