@@ -110,7 +110,7 @@ cdef class MultiLayerPerceptron(Model):
         for i in range(nr_feat):
             embed = <const EmbedC*>self.weights.get(feats[i].key)
             if embed is not NULL:
-                Vector.iaddC(input_ + embed.offset, embed.data, embed.length,
+                VecVec.add_i(input_ + embed.offset, embed.data, embed.size,
                              feats[i].val)
 
         weights = <const weight_t*>self.weights.get(1)

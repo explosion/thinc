@@ -1,10 +1,12 @@
 cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
+from libc.math cimport sqrt as c_sqrt
 
 from .api cimport Example
 from .typedefs cimport time_t, feat_t, weight_t, class_t
 from .structs cimport SparseAverageC
 from .sparse cimport SparseArray
+from .blas cimport Vec, VecVec
 
 
 cdef SparseAverageC* init_feat(int clas, weight_t weight, int time) except NULL:
@@ -88,8 +90,6 @@ cdef class AveragedPerceptronUpdater(Updater):
     def __call__(self, Example eg):
         self.update(&eg.c)
 
-    def update(self, updates):
-
     cdef void update(self, ExampleC* eg) except *:
         cdef weight_t weight, upd
         cdef feat_t feat_id
@@ -98,7 +98,7 @@ cdef class AveragedPerceptronUpdater(Updater):
         self.time += 1
         
         weight = eg.costs[eg.guess]
-        if weight != 0:o
+        if weight != 0:
             for i in range(eg.nr_feat):
                 feat_id = eg.features[i].key
                 upd = weight * eg.features[i].val
@@ -115,43 +115,48 @@ cdef class AveragedPerceptronUpdater(Updater):
 
 
 cdef class DenseUpdater(Updater):
-    def __init__(self, PreshMap weights):
-        self.weights = weights
+    def __init__(self, PreshMap weights, weight_t learning_rate, weight_t l2_penalty):
+        Updater.__init__(self, weights)
+        self.eta = learning_rate
+        self.eps = 1e-6
+        self.rho = l2_penalty
+        self.nr_dense = 0 # TODO
 
     cdef void update(self, ExampleC* eg) except *:
         # TODO: Regularize?
         # Dense update
-        self._update(self.weights.get(1), self.train_weights.get(1),
+        self._update(<weight_t*>self.weights.get(1), self.train_weights.get(1),
                      eg.gradient, self.nr_dense)
         # Sparse updates
+        cdef weight_t* buffer_
         for i in range(eg.nr_feat):
             feat = eg.features[i]
-            param = self.weights.get(feat.key)
+            param = <void*>self.weights.get(feat.key)
 
-            gradient = buffer_
-            memcpy(gradient, tuning + param.offset,
-                   sizeof(tuning[0]) * param.size)
-            VecScal.mul_i(gradient, feat.val, param.size)
+            #gradient = buffer_ # TODO
+            #memcpy(gradient, tuning + param.offset,
+            #       sizeof(tuning[0]) * param.size)
+            #Vec.mul_i(gradient, feat.val, param.size)
             
-            support = self.train_weights.get(feat.key)
-            self._update(param.data, support, gradient, param.size)
+            #support = <void*>self.train_weights.get(feat.key)
+            #self._update(param.data, support, gradient, param.size)
 
     cdef void _update(self, weight_t* param, void* support, weight_t* gradient,
-                      int32_t n):
+            int32_t n) except *:
         VecVec.add_i(param, gradient, n)
 
     def end_training(self):
         pass
 
 
-class Adagrad(DenseUpdater):
+cdef class Adagrad(DenseUpdater):
     cdef void _update(self, weight_t* weights, void* support, weight_t* gradient,
-                      int32_t n):
+            int32_t n) except *:
         h = <weight_t*>support
 
-        VecVec.add_pow_i(h, gradient, 2, n)
+        VecVec.add_pow_i(h, gradient, 2.0, n)
 
         cdef int i
         for i in range(n):
-            gradient[i] *= self.learning_rate / (sqrt(h[i]) + self.eps)
-        VecVec.i_add(weights, gradient, n, 1.0)
+            gradient[i] *= self.learning_rate / (c_sqrt(h[i]) + self.eps)
+        VecVec.add_i(weights, gradient, n)
