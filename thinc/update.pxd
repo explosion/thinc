@@ -5,7 +5,6 @@ from .typedefs cimport time_t, feat_t, weight_t, class_t
 from .api cimport ExampleC
 
 
-
 cdef class Updater:
     cdef public int time
     cdef Pool mem

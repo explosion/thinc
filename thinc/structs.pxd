@@ -5,12 +5,6 @@ from .typedefs cimport weight_t, atom_t
 include "compile_time_constants.pxi"
 
 
-cdef struct MatrixC:
-    float* data
-    int32_t nr_row
-    int32_t nr_col
-
-
 cdef struct LayerC:
     void (*forward)(
         weight_t* activity,
@@ -27,7 +21,6 @@ cdef struct LayerC:
         weight_t* grad_b,
         const weight_t* W, 
         const weight_t* activity, 
-        const weight_t* prev_delta, 
         int32_t nr_wide, 
         int32_t nr_out
     ) nogil
@@ -36,12 +29,18 @@ cdef struct LayerC:
     int32_t nr_out
 
 
+cdef struct EmbedC:
+    int32_t offset
+    int32_t nr
+
+
 cdef struct SparseArrayC:
     int32_t key
     weight_t val
 
 
 cdef struct FeatureC:
+    int32_t slot
     uint64_t key
     weight_t val
 

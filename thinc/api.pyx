@@ -197,7 +197,8 @@ cdef class NeuralNetwork(Learner):
     cdef void update(self, ExampleC* eg) except *:
         cdef MultiLayerPerceptron model = self.model
 
-        model.backprop(eg.gradient, eg.scores, eg.costs)
+        self.set_loss(eg.deltas, eg.activity, eg.costs, self.nr_class)
+        model.backprop(eg.gradient, eg.deltas, eg.scores, eg.costs)
         self.updater.update(eg)
 
 
