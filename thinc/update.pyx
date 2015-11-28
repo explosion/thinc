@@ -128,21 +128,35 @@ cdef class DenseUpdater(Updater):
         self._update(<weight_t*>self.weights.get(1), self.train_weights.get(1),
                      eg.gradient, self.nr_dense)
         # Sparse updates
-        cdef weight_t* buffer_
+        gradient = &eg.gradient[self.nr_dense]
+        cdef Pool mem = Pool()
+        # Each feature comes with a weight, and features might apply to only
+        # part of the embedding vector. Sum these weights
+        # We need these sums because we're going to multiply each feature's vector
+        # by these values, so we need to rescale the update
+        fine_tuning = <weight_t*>mem.alloc(self.nr_embed, sizeof(weight_t))
+        cdef int i
         for i in range(eg.nr_feat):
             feat = eg.features[i]
-            param = <void*>self.weights.get(feat.key)
+            offset = self.embeddings[feat.slot][0]
+            param_size = self.embeddings[feat.slot][1]
+            Vec.add_i(fine_tuning + offset, feat.val, param_size)
+        Vec.reciprocal_i(fine_tuning, self.nr_embed)
+        Vec.mul_i(fine_tuning, gradient, self.nr_embed)
 
-            #gradient = buffer_ # TODO
-            #memcpy(gradient, tuning + param.offset,
-            #       sizeof(tuning[0]) * param.size)
-            #Vec.mul_i(gradient, feat.val, param.size)
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            offset = self.embeddings[feat.slot][0]
+            param_size = self.embeddings[feat.slot][1]
+            memcpy(gradient + offset, fine_tuning, sizeof(gradient[0]) * param_size)
+            Vec.mul_i(gradient + offset, feat.val, param_size)
             
-            #support = <void*>self.train_weights.get(feat.key)
-            #self._update(param.data, support, gradient, param.size)
+            support = <void*>self.train_weights.get(feat.key)
+            self._update(param, support, gradient + self.offsets[feat.slot],
+                         self.sizes[feat.slot])
 
     cdef void _update(self, weight_t* param, void* support, weight_t* gradient,
-            int32_t n) except *:
+                      int32_t n) except *:
         VecVec.add_i(param, gradient, n)
 
     def end_training(self):
