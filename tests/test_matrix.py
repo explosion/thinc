@@ -1,4 +1,5 @@
 from thinc.blas import Matrix
+import numpy
 
 
 def test_init():
@@ -49,19 +50,51 @@ def test_dot_bias():
     assert output.get(0, 2) == 6.75
 
 
-def test_iadd():
-    me = Matrix(1, 3)
-    you = Matrix(1, 3)
+def test_vec_max():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    me = Matrix.from_array(array1)
+    assert max(me) == max(array1.flatten())
+    assert me.max() == max(array1.flatten())
 
-    me.set(0, 0, 1.0)
-    me.set(0, 1, 2.0)
-    me.set(0, 2, 3.0)
 
-    you.set(0, 0, 0.25)
-    you.set(0, 1, 0.5)
-    you.set(0, 2, 0.75)
+def test_vec_sum():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    me = Matrix.from_array(array1)
+    assert sum(me) == sum(array1.flatten())
+    assert me.sum() == sum(array1.flatten())
 
+
+def test_matrix_scalar_iadd():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    me = Matrix.from_array(array1)
+    me += 5
+    array1 += 5
+    assert me == array1.flatten(), list(me)
+
+
+def test_matrix_scalar_ipow():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    me = Matrix.from_array(array1)
+    me **= 2.0
+    array1 **= 2.0
+    assert me == array1.flatten(), list(me)
+
+
+def test_matrix_scalar_imul():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    me = Matrix.from_array(array1)
+    me *= 5
+    array1 *= 5
+    assert me == array1.flatten(), list(me)
+
+
+def test_mat_mat_iadd():
+    array1 = numpy.asarray([[5, 10, 20], [40, 50, 60]])
+    array2 = numpy.asarray([[1, 2, 3], [4, 5, 6]])
+    me = Matrix.from_array(array1)
+    you = Matrix.from_array(array2)
+    array1 += array2
     me += you
-    assert me.get(0, 0) == 1.25
-    assert me.get(0, 1) == 2.5
-    assert me.get(0, 2) == 3.75
+    for i in range(me.nr_row * me.nr_col):
+        print(i, me[i])
+    assert me == array1.flatten()

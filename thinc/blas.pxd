@@ -7,10 +7,10 @@ from .typedefs cimport weight_t
 
 
 cdef class Matrix:
-    cdef Pool mem
+    cdef readonly Pool mem
     cdef weight_t* data
-    cdef int32_t nr_row
-    cdef int32_t nr_col
+    cdef readonly int32_t nr_row
+    cdef readonly int32_t nr_col
 
 
 cdef class Vec:
@@ -56,6 +56,18 @@ cdef class Vec:
         cdef int i
         for i in range(nr):
             vec[i] *= scal
+
+    @staticmethod
+    cdef inline void pow(weight_t* output, const weight_t* vec, weight_t scal,
+                         int32_t nr) nogil:
+        memcpy(output, vec, sizeof(output[0]) * nr)
+        Vec.pow_i(output, scal, nr)
+
+    @staticmethod
+    cdef inline void pow_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
+        cdef int i
+        for i in range(nr):
+            vec[i] **= scal
 
     @staticmethod
     cdef inline void div(weight_t* output, const weight_t* vec, weight_t scal,

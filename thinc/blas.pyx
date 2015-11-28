@@ -1,24 +1,100 @@
+cimport cython
+
+
 cdef class Matrix:
+    @classmethod
+    def from_array(cls, ndarray):
+        assert len(ndarray.shape) == 2
+        cdef Matrix self = cls(ndarray.shape[0], ndarray.shape[1])
+        cdef int i
+        cdef weight_t value
+        for i, value in enumerate(ndarray.flatten()):
+            self.data[i] = value
+        return self
+
     def __init__(self, nr_row, nr_col):
         self.mem = Pool()
         self.nr_row = nr_row
         self.nr_col = nr_col
         self.data = <weight_t*>self.mem.alloc(nr_row * nr_col, sizeof(weight_t))
 
-    def __add__(self, Matrix other):
-        pass
+    def __iter__(self):
+        cdef int i
+        for i in range(self.nr_row * self.nr_col):
+            yield self.data[i]
+    
+    def __getitem__(self, int i):
+        return self.data[i]
 
-    def __iadd__(self, Matrix other):
-        assert self.nr_row == other.nr_row
-        assert self.nr_col == other.nr_col
-        MatMat.add_i(self.data, other.data, self.nr_row, self.nr_col)
+    def __richcmp__(Matrix self, other, int cmp_type):
+        # < 0
+        # == 2
+        # > 4
+        # <= 1
+        # != 3
+        # >= 5
+        cdef int i
+        if cmp_type == 0:
+            raise NotImplementedError
+        elif cmp_type == 2 or cmp_type == 3:
+            for i in range(self.nr_row * self.nr_col):
+                if other[i] != self.data[i]:
+                    return False if cmp_type == 2 else True
+            return True if cmp_type == 2 else False
+        elif cmp_type == 4:
+            raise NotImplementedError
+        elif cmp_type == 1:        
+            raise NotImplementedError
+        elif cmp_type == 5:
+            raise NotImplementedError
+        else:
+            raise ValueError
+
+    def __iadd__(self, other):
+        cdef Matrix other_mat
+        if isinstance(other, Matrix):
+            other_mat = other
+            assert self.nr_row == other_mat.nr_row
+            assert self.nr_col == other_mat.nr_col
+            if self.nr_row == 1:
+                VecVec.add_i(self.data, other_mat.data, 1.0, self.nr_row)
+            else:
+                MatMat.add_i(self.data, other_mat.data, self.nr_row, self.nr_col)
+        elif isinstance(other, int) or isinstance(other, float):
+            Vec.add_i(self.data, other, self.nr_row * self.nr_col)
+        else:
+            raise ValueError
         return self
 
-    def __imul__(self, Matrix other):
-        assert self.nr_row == other.nr_row
-        assert self.nr_col == other.nr_col
-        MatMat.mul_i(self.data, other.data, self.nr_row, self.nr_col)
+    def __imul__(self, other):
+        cdef Matrix other_mat
+        if isinstance(other, Matrix):
+            other_mat = other
+            assert self.nr_row == other.nr_row
+            assert self.nr_col == other.nr_col
+            if self.nr_row == 1:
+                VecVec.mul_i(self.data, other_mat.data, self.nr_row)
+            else:
+                MatMat.mul_i(self.data, other_mat.data, self.nr_row, self.nr_col)
+        elif isinstance(other, int) or isinstance(other, float):
+            Vec.mul_i(self.data, other, self.nr_row * self.nr_col)
+        else:
+            raise ValueError
         return self
+
+    def __idiv__(self, weight_t scalar):
+        Vec.div_i(self.data, scalar, self.nr_row * self.nr_col)
+        return self
+    
+    def __ipow__(self, weight_t scalar):
+        Vec.pow_i(self.data, scalar, self.nr_row * self.nr_col)
+        return self
+
+    def max(self):
+        return Vec.max(self.data, self.nr_row * self.nr_col)
+
+    def sum(self):
+        return Vec.sum(self.data, self.nr_row * self.nr_col)
 
     def dot_bias(self, Matrix W, Matrix b):
         assert self.nr_row == 1
