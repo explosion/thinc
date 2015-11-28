@@ -1,5 +1,16 @@
-from .typedefs cimport weight_t
 from libc.stdint cimport int32_t
+from libc.string cimport memcpy
+from libc.math cimport exp as c_exp
+from cymem.cymem cimport Pool
+
+from .typedefs cimport weight_t
+
+
+cdef class Matrix:
+    cdef Pool mem
+    cdef weight_t* data
+    cdef int32_t nr_row
+    cdef int32_t nr_col
 
 
 cdef class Vec:
@@ -29,7 +40,7 @@ cdef class Vec:
         Vec.add_i(output, inc, nr)
 
     @staticmethod
-    cdef inline void add_i(weight_t* x, weight_t inc, int32_t nr) nogil:
+    cdef inline void add_i(weight_t* vec, weight_t inc, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
             vec[i] += inc
@@ -37,7 +48,7 @@ cdef class Vec:
     @staticmethod
     cdef inline void mul(weight_t* output, const weight_t* vec, weight_t scal,
                          int32_t nr) nogil:
-        memcpy(output, x, sizeof(output[0]) * nr)
+        memcpy(output, vec, sizeof(output[0]) * nr)
         Vec.mul_i(output, scal, nr)
 
     @staticmethod
@@ -49,7 +60,7 @@ cdef class Vec:
     @staticmethod
     cdef inline void div(weight_t* output, const weight_t* vec, weight_t scal,
                          int32_t nr) nogil:
-        memcpy(output, x, sizeof(output[0]) * nr)
+        memcpy(output, vec, sizeof(output[0]) * nr)
         Vec.div_i(output, scal, nr)
 
     @staticmethod
@@ -59,9 +70,9 @@ cdef class Vec:
             vec[i] /= scal
 
     @staticmethod
-    cdef inline void exp(weight_t* vec, int32_t nr) nogil:
+    cdef inline void exp(weight_t* output, const weight_t* vec, int32_t nr) nogil:
         memcpy(output, vec, sizeof(output[0]) * nr)
-        Vec.div_i(output, nr)
+        Vec.exp_i(output, nr)
 
     @staticmethod
     cdef inline void exp_i(weight_t* vec, int32_t nr) nogil:
@@ -81,6 +92,7 @@ cdef class VecVec:
     cdef inline void add(weight_t* output,
                          const weight_t* x, 
                          const weight_t* y,
+                         weight_t scale,
                          int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
         VecVec.add_i(output, y, scale, nr)
@@ -101,7 +113,7 @@ cdef class VecVec:
                          weight_t power,
                          int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
-        VecVec.add_pow(output, y, power, nr)
+        VecVec.add_pow_i(output, y, power, nr)
 
    
     @staticmethod
@@ -119,7 +131,7 @@ cdef class VecVec:
                          const weight_t* y,
                          int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
-        VecVec.mul(output, y, nr)
+        VecVec.mul_i(output, y, nr)
    
     @staticmethod
     cdef inline void mul_i(weight_t* x, 
@@ -175,9 +187,11 @@ cdef class MatVec:
     @staticmethod
     cdef inline void T_dot_i(weight_t* vec,
                              const weight_t* mat,
-                             int32_t nr_wide,
-                             int32_t nr_out) nogil:
+                             int32_t nr_row,
+                             int32_t nr_col) nogil:
         cdef int i, row, col
+        cdef weight_t total = 0.0
+        cdef weight_t value
         for col in range(nr_col):
             value = vec[col]
             total = 0
@@ -210,7 +224,7 @@ cdef class MatMat:
                          const weight_t* x,
                          const weight_t* y,
                          int32_t nr_row, int32_t nr_col) nogil:
-        memcpy(output, x, sizeof(output[0]) * nr)
+        memcpy(output, x, sizeof(output[0]) * nr_row * nr_col)
         MatMat.mul_i(output, y, nr_row, nr_col)
 
     @staticmethod
