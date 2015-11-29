@@ -253,6 +253,10 @@ cdef class MatMat:
     cdef inline void add_outer_i(weight_t* mat,
                                  const weight_t* x,
                                  const weight_t* y,
-                                 int32_t nr_wide,
-                                 int32_t nr_out) nogil:
-        pass
+                                 int32_t nr_row,
+                                 int32_t nr_col) nogil:
+        cdef int i, j, row
+        for i in range(nr_row):
+            row = i * nr_col
+            for j in range(nr_col):
+                mat[row + j] += x[i] * y[j]

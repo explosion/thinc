@@ -189,6 +189,7 @@ cdef class AveragedPerceptron(Learner):
 
 cdef class NeuralNetwork(Learner):
     def __init__(self, nr_class, layers):
+        # TODO: Set up layers/network structure
         model = MultilayerPerceptron(nr_class, layers)
         updater = Adagrad()
         extracter = None
@@ -197,7 +198,7 @@ cdef class NeuralNetwork(Learner):
     cdef void update(self, ExampleC* eg) except *:
         cdef MultiLayerPerceptron model = self.model
 
-        self.set_loss(eg.deltas, eg.activity, eg.costs, self.nr_class)
+        self.set_loss(eg.deltas, eg.activity, eg.costs, self.nr_class) # TODO
         model.backprop(eg.gradient, eg.deltas, eg.scores, eg.costs)
         self.updater.update(eg)
 
