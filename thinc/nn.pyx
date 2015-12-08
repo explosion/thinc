@@ -1,215 +1,151 @@
 cimport cython
+from libc.stdint cimport int32_t
+from libc.string cimport memset, memcpy
+from libc.math cimport sqrt as c_sqrt
 
 from cymem.cymem cimport Pool
+from preshed.maps cimport PreshMap
 
+from .api cimport arg_max_if_true, arg_max_if_zero
+from .layer cimport Rectifier, Softmax
+from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
 from .typedefs cimport weight_t, atom_t
-
-from libc.string cimport memcpy
-from libc.math cimport isnan, sqrt
-
-
-@cython.cdivision(True)
-cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) except *:
-    cdef int i
-    cdef float alpha = (1 / t)
-    alpha = alpha if alpha >= 0.001 else 0.001
-    alpha = alpha if alpha < 0.9 else 0.9
-
-    for i in range(self.length):
-        self.step[i] = (mu * self.step[i]) - grad[i]
-        self.curr[i] += (eta * self.step[i])
-        if t < 1000:
-            self.avg[i] = self.curr[i]
-        else:
-            self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
+from .api cimport Example, Learner
+from .blas cimport VecVec
 
 
-@cython.cdivision(True)
-cdef void Param_sgd_cm(Param* self, float* grad, int t, float eta, float mu) except *:
-    cdef int i
-    for i in range(self.length):
-        self.step[i] = (mu * self.step[i]) - grad[i]
-        self.curr[i] += (eta * self.step[i])
+cdef class NeuralNetwork(Learner):
+    def __init__(self, nr_class, nr_embed, hidden_layers):
+        self.nr_layer = len(hidden_layers) + 1
+        self.nr_embed = nr_embed
+        self.nr_dense = 0
+        self.layers = <LayerC*>self.mem.alloc(self.nr_layer, sizeof(LayerC))
+        nr_wide = self.nr_embed
+        for i, (nr_out, activation) in hidden_layers:
+            self.layers[i] = Rectifier.init(nr_wide, nr_out, self.nr_dense)
+            nr_wide = nr_out
+            self.nr_dense += nr_wide * nr_out + nr_out
+        self.layers[i+1] = Softmax.init(nr_wide, self.nr_class, self.nr_dense)
+        self.nr_dense += nr_wide * self.nr_class + self.nr_class
 
-
-@cython.cdivision(True)
-cdef void Param_adadelta(Param* self, float* grad, int t, float rho, float epsilon) except *:
-    cdef float accu, delta_accu, curr, g
-    cdef float accu_new, delta_accu_new, upd
-    cdef int i
-
-    for i in range(self.length):
-        accu = self.avg[i]
-        delta_accu = self.step[i]
-        curr = self.curr[i]
-        g = grad[i]
-
-        accu_new = rho * accu + (1-rho) * g ** 2
-        upd = (g * sqrt(delta_accu + epsilon) / sqrt(accu_new + epsilon))
-        delta_accu_new = rho * delta_accu
-
-        self.curr[i] -= upd
-        self.avg[i] = accu_new
-        self.step[i] = delta_accu_new
-
-
-cdef Param Param_init(Pool mem, int length, initializer) except *:
-    cdef Param param
-    param.curr = <float*>mem.alloc(length, sizeof(float))
-    param.avg = <float*>mem.alloc(length, sizeof(float))
-    param.step = <float*>mem.alloc(length, sizeof(float))
-    param.update = Param_asgd
-    param.length = length
-
-    # Draw random values from the initializer. avg and curr should have the same
-    # values. Step is initialized to 0s
-    for i in range(length):
-        param.curr[i] = initializer()
-        param.avg[i] = 0
-    return param
-
-
-cdef class EmbeddingTable:
-    def __init__(self, n_cols, initializer):
-        self.mem = Pool()
-        self.initializer = initializer
-        self.n_cols = n_cols
-        self.table = PreshMap()
-
-    cdef Param* get(self, atom_t key) except NULL:
-        param = <Param*>self.table.get(key)
-        if param is NULL:
-            param = <Param*>self.mem.alloc(1, sizeof(Param))
-            param[0] = Param_init(self.mem, self.n_cols, self.initializer)
-            self.table.set(key, param)
-        return param
-
-
-cdef class InputLayer:
-    '''An input layer to an NN.'''
-    def __init__(self, input_structure, initializer):
-        self.mem = Pool()
-        self.length = 0
-        self.tables = []
-        self.indices = []
-        for i, (n_cols, fields) in enumerate(input_structure):
-            self.tables.append(EmbeddingTable(n_cols, initializer))
-            self.indices.append(fields)
-            self.length += len(fields) * n_cols
-
-    def __len__(self):
-        return self.length
+    def __call__(self, Example eg):
+        self.set_prediction(&eg.c)
     
-    @cython.boundscheck(False)
-    def fill(self, float[:] output, atom_t[:] context, use_avg=False):
-        cdef int i, j, idx, c
-        cdef EmbeddingTable table
-        cdef const Param* param
-        c = 0
-        for table, fields in zip(self.tables, self.indices):
-            for idx in fields:
-                param = table.get(context[idx])
-                if use_avg:
-                    memcpy(&output[c], param.avg, param.length * sizeof(float))
-                else:
-                    memcpy(&output[c], param.curr, param.length * sizeof(float))
-                c += param.length
+    cdef ExampleC allocate(self, Pool mem) except *:
+        cdef ExampleC eg
+        eg.is_valid = <int*>mem.alloc(self.nr_class, sizeof(eg.is_valid[0]))
+        eg.costs = <int*>mem.alloc(self.nr_class, sizeof(eg.costs[0]))
+        eg.atoms = <atom_t*>mem.alloc(self.nr_class, sizeof(eg.atoms[0]))
+        eg.scores = <weight_t*>mem.alloc(self.nr_class, sizeof(eg.scores[0]))
+        eg.loss = <weight_t*>mem.alloc(self.nr_class, sizeof(eg.loss[0]))
+        
+        eg.gradient = <weight_t*>mem.alloc(self.nr_dense, sizeof(eg.gradient[0]))
 
-    @cython.boundscheck(False)
-    def update(self, float[:] gradient, atom_t[:] context, t, eta, mu):
-        cdef int i, j, idx, c
-        cdef EmbeddingTable table
-        cdef Param* param
-        c = 0
-        for table, fields in zip(self.tables, self.indices):
-            for idx in fields:
-                param = table.get(context[idx])
-                param.update(param, &gradient[c], t, eta, mu)
-                c += param.length
+        eg.fwd_state = <weight_t**>mem.alloc(self.nr_layer, sizeof(eg.fwd_state[0]))
+        eg.bwd_state = <weight_t**>mem.alloc(self.nr_layer, sizeof(eg.bwd_state[0]))
 
+        cdef int i
+        for i in range(self.nr_layer):
+            eg.fwd_state[i] = <weight_t*>mem.alloc(self.layers[i].nr_out, sizeof(weight_t))
+            eg.bwd_state[i] = <weight_t*>mem.alloc(self.layers[i].nr_out, sizeof(weight_t))
 
-cdef struct DenseC:
-    float[4][300] W
-    float[4][300] b
-    const int depth = 4
-    const int width = 300
-
-
-def softmax(actvn, W, b):
-    w = W.dot(actvn) + b
-    ew = numpy.exp(w - max(w))
-    return (ew / sum(ew)).ravel()
-
-
-def relu(actvn, W, b):
-    x = W.dot(actvn) + b
-    return x * (x > 0)
-
-
-def d_relu(x):
-    return x > 0
-
-
-class Adagrad(object):
-    def __init__(self, lr, rho, shape):
-        self.eps = 1e-3
-        # initial learning rate
-        self.learning_rate = lr
-        self.rho = rho
-        # stores sum of squared gradients 
-        self.h = numpy.zeros(gradient.data.shape)
-        self._curr_rate = 
+        eg.nr_class = self.nr_class
+        eg.nr_atom = self.nr_atom
+        eg.nr_feat = self.nr_feat
+        eg.guess = 0
+        eg.best = 0
+        eg.cost = 0
+        return eg
     
-    def __call__(self, weights, gradient, batch_size, word_freqs):
-        self.L2_penalty(gradient, weights, word_freqs)
-        update = self.rescale(gradient.data / batch_size)
-        weights.data -= update
+    # from Learner cdef void set_costs(self, ExampleC* eg, int gold) except *:
+    # cdef void set_features(self, ExampleC* eg, something) except *:
 
-    def rescale(self, gradient):
-        curr_rate = numpy.zeros(gradient.data.shape)
-        self.h += gradient ** 2
-        curr_rate = self.learning_rate / (numpy.sqrt(self.h) + self.eps)
-        return curr_rate * gradient
+    cdef void set_prediction(self, ExampleC* eg) except *:
+        cdef int i
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            feat_embed = <const weight_t*>self.weights.get(feat.key)
+            if feat_embed is not NULL:
+                VecVec.add_i(eg.fwd_state[0], feat_embed, feat.val, feat.length)
 
-    def L2_penalty(self, gradient, weights, features):
-        # L2 Regularization
-        for i in range(len(weights.W)):
-            gradient.W[i] += weights.W[i] * self.rho
-            gradient.b[i] += weights.b[i] * self.rho
-        for w, freq in features.items():
-            if w < gradient.E.shape[0]:
-                gradient.E[w] += weights.E[w] * self.rho
+        cdef LayerC layer
+        weights = <const weight_t*>self.weights.get(1)
+        for i in range(self.nr_layer):
+            lyr = self.layers[i]
+            lyr.forward(
+                eg.fwd_state[i+1],
+                eg.fwd_state[i],
+                &weights[lyr.W],
+                &weights[lyr.bias],
+                lyr.nr_wide,
+                lyr.nr_out)
+        memcpy(eg.scores, eg.fwd_state[self.nr_layer],
+               sizeof(eg.scores[0]) * eg.nr_class)
+
+        eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
+        eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
+    
+    cdef void update(self, ExampleC* eg) except *:
+        # Here we'll take a little short-cut, and for now say the loss is the
+        # weight assigned to the 'best'  class
+        # Probably we want to give credit for assigning weight to other correct
+        # classes
+        cdef int32_t i
+        for i in range(eg.nr_class):
+            eg.bwd_state[self.nr_layer][i] = (i == eg.best) - eg.scores[i]
+        weights = <const weight_t*>self.weights.get(1)
+        for i in range(self.nr_layer-1, -1, -1):
+            layer = self.layers[i]
+
+            layer.backward(
+                eg.bwd_state[i],
+                &eg.gradient[layer.W],
+                &eg.gradient[layer.bias],
+                eg.bwd_state[i+1],
+                &weights[layer.W],
+                eg.fwd_state[i],
+                layer.nr_wide, layer.nr_out)
+        # L2 regularization
+        VecVec.add_i(eg.gradient, weights, self.hyper_params.rho, self.nr_dense)
+        # Dense update
+        adagrad(
+            <weight_t*>self.weights.get(1),
+            eg.gradient,
+            self.train_weights.get(1),
+            self.nr_dense,
+            <void*>&self.hyper_params)
+
+        # TODO: For simplicity for now, only support binary values.
+        # To support values, need to calculate total for each dimension, and then
+        # distribute to each feature by how much it contributed to that dimension
+        #
+        # What do we do about regularization for these updates? Nothing?
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            adagrad(
+                <weight_t*>self.weights.get(feat.key),
+                &eg.gradient[feat.i],
+                <void*>self.train_weights.get(feat.key),
+                feat.length,
+                <void*>&self.hyper_params)
+
+    # from Learner def end_training(self):
+    # from Learner def dump(self, loc):
+    # from Learner def load(self, loc):
 
 
-class Params(object):
-    @classmethod
-    def zero(cls, depth, n_embed, n_hidden, n_labels, n_vocab):
-        return cls(depth, n_embed, n_hidden, n_labels, n_vocab, lambda x: numpy.zeros((x,)))
+@cython.cdivision(True)
+cdef void adagrad(weight_t* weights, weight_t* gradient, void* _support, int32_t n,
+                  const void* _hyper_params) nogil:
+    '''
+    Update weights with Adagrad
+    '''
+    support = <weight_t*>_support
+    hp = <const HyperParamsC*>_hyper_params
 
-    @classmethod
-    def random(cls, depth, nE, nH, nL, nV):
-        return cls(depth, nE, nH, nL, nV, lambda x: (numpy.random.rand(x) * 2 - 1) * 0.08)
+    VecVec.add_pow_i(support, gradient, 2.0, n)
 
-    def __init__(self, depth, n_embed, n_hidden, n_labels, n_vocab, initializer):
-        nE = n_embed; nH = n_hidden; nL = n_labels; nV = n_vocab
-        n_weights = sum([
-            (nE * nH) + nH, 
-            (nH * nH  + nH) * depth,
-            (nH * nL) + nL,
-            (nV * nE)
-        ])
-        self.data = initializer(n_weights)
-        self.W = []
-        self.b = []
-        i = self._add_layer(0, nE, nH)
-        for _ in range(1, depth):
-            i = self._add_layer(i, nH, nH)
-        i = self._add_layer(i, nL, nH)
-        self.E = self.data[i : i + (nV * nE)].reshape((nV, nE))
-        self.E.fill(0)
-
-    def _add_layer(self, start, x, y):
-        end = start + (x * y)
-        self.W.append(self.data[start : end].reshape((x, y)))
-        self.b.append(self.data[end : end + x].reshape((x, )))
-        return end + x
+    cdef int i
+    for i in range(n):
+        gradient[i] *= hp.eta / (c_sqrt(support[i]) + hp.epsilon)
+    VecVec.add_i(weights, gradient, 1.0, n)

@@ -2,7 +2,7 @@ from cymem.cymem cimport Pool
 from libc.string cimport memset
 
 from .typedefs cimport weight_t, atom_t
-from .structs cimport FeatureC
+from .structs cimport FeatureC, ExampleC
 from .features cimport Extracter 
 from .model cimport Model
 from .update cimport Updater
@@ -15,28 +15,6 @@ cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
 
 cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
                          const int n_classes) nogil
-
-
-cdef struct ExampleC:
-    int* is_valid
-    int* costs
-    atom_t* atoms
-    FeatureC* features
-    weight_t* embeddings
-    weight_t* scores
-    weight_t* gradient
-    weight_t* delta
-    weight_t* signal
-
-    int nr_class
-    int nr_atom
-    int nr_feat
-    int nr_embed
-    
-    int guess
-    int best
-    int cost
-    weight_t loss
 
 
 cdef class Example:
@@ -59,15 +37,12 @@ cdef class Example:
             scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
             features = <FeatureC*>mem.alloc(nr_feat, sizeof(FeatureC)),
-            embeddings = <weight_t*>mem.alloc(nr_embed, sizeof(weight_t)),
             nr_class = nr_class,
             nr_atom = nr_atom,
             nr_feat = nr_feat,
-            nr_embed = nr_embed,
             guess = 0,
             best = 0,
-            cost = 0,
-            loss = 0)
+            cost = 0)
 
 
 cdef class Learner:
@@ -91,3 +66,6 @@ cdef class Learner:
 cdef class AveragedPerceptron(Learner):
     pass
 
+
+# Make these symbols available
+from .nn cimport NeuralNetwork

@@ -1,30 +1,23 @@
+cimport cython
+from libc.stdint cimport int32_t
+from libc.string cimport memset, memcpy
+from libc.math cimport sqrt as c_sqrt
+
 from cymem.cymem cimport Pool
-
-from .typedefs cimport weight_t, atom_t
-
 from preshed.maps cimport PreshMap
 
-
-cdef struct Param:
-    void update(Param* self, float* gradient, int t, float eta, float mu) except *
-    float* curr
-    float* avg
-    float* step
-    int length
+from .api cimport Learner
+from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
+from .typedefs cimport weight_t, atom_t
+from .api cimport Example
 
 
-cdef class EmbeddingTable:
+cdef class NeuralNetwork(Learner):
     cdef Pool mem
-    cdef public object initializer
-    cdef readonly PreshMap table
-    cdef readonly int n_cols
+    cdef PreshMap weights
+    cdef PreshMap train_weights
+    cdef LayerC* layers
+    cdef HyperParamsC hyper_params
+    cdef int32_t nr_dense
+    cdef int32_t nr_layer
  
-    cdef Param* get(self, atom_t key) except NULL
-
-
-cdef class InputLayer:
-    cdef Pool mem
-
-    cdef int length
-    cdef readonly list indices
-    cdef readonly list tables

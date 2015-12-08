@@ -4,9 +4,13 @@ import tempfile
 from os import path
 
 from .typedefs cimport weight_t, atom_t
-from .structs cimport MatrixC, LayerC
+from .structs cimport LayerC
 from .update cimport AveragedPerceptronUpdater
-from .model cimport LinearModel, MultiLayerPerceptron
+from .model cimport LinearModel
+
+
+# Make this symbol available
+from .nn import NeuralNetwork
 
 
 try:
@@ -73,7 +77,6 @@ cdef class Example:
         self.is_valid = <int[:nr_class]>self.c.is_valid
         self.costs = <int[:nr_class]>self.c.costs
         self.atoms = <atom_t[:nr_atom]>self.c.atoms
-        self.embeddings = <weight_t[:nr_embed]>self.c.embeddings
         self.scores = <weight_t[:nr_class]>self.c.scores
 
     property guess:
@@ -112,12 +115,6 @@ cdef class Example:
         def __set__(self, int value):
             self.c.nr_feat = value
  
-    property nr_embed:
-        def __get__(self):
-            return self.c.nr_embed
-        def __set__(self, int value):
-            self.c.nr_embed = value
-
     def wipe(self):
         cdef int i
         for i in range(self.c.nr_class):
@@ -126,8 +123,6 @@ cdef class Example:
             self.c.scores[i] = 0
         for i in range(self.c.nr_atom):
             self.c.atoms[i] = 0
-        for i in range(self.c.nr_feat):
-            self.c.embeddings[i] = 0
 
 
 cdef class Learner:
@@ -185,22 +180,6 @@ cdef class AveragedPerceptron(Learner):
         model_loc = path.join(tmp_dir, 'model')
         self.model.dump(self.nr_class, model_loc)
         return (unpickle_ap, (self.__class__, self.nr_class, self.extracter, model_loc))
-
-
-cdef class NeuralNetwork(Learner):
-    def __init__(self, nr_class, layers):
-        # TODO: Set up layers/network structure
-        model = MultilayerPerceptron(nr_class, layers)
-        updater = Adagrad()
-        extracter = None
-        Learner.__init__(nr_class, extracter, model, updater)
-
-    cdef void update(self, ExampleC* eg) except *:
-        cdef MultiLayerPerceptron model = self.model
-
-        self.set_loss(eg.deltas, eg.activity, eg.costs, self.nr_class) # TODO
-        model.backprop(eg.gradient, eg.deltas, eg.scores, eg.costs)
-        self.updater.update(eg)
 
 
 def unpickle_ap(cls, nr_class, extracter, model_loc):
