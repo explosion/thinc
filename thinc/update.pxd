@@ -18,17 +18,3 @@ cdef class Updater:
 
 cdef class AveragedPerceptronUpdater(Updater):
     pass
-
-
-cdef class DenseUpdater(Updater):
-    cdef readonly int nr_dense
-    cdef public weight_t eta
-    cdef public weight_t eps
-    cdef public weight_t rho
-    
-    cdef void _update(self, weight_t* weights, void* support, weight_t* gradient,
-            int32_t n) except *
-
-
-cdef class Adagrad(DenseUpdater):
-    pass

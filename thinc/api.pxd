@@ -34,9 +34,15 @@ cdef class Example:
         return ExampleC(
             is_valid = is_valid,
             costs = <int*>mem.alloc(nr_class, sizeof(int)),
-            scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
             features = <FeatureC*>mem.alloc(nr_feat, sizeof(FeatureC)),
+            scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
+
+            gradient = NULL,
+
+            fwd_state = NULL,
+            bwd_state = NULL,
+
             nr_class = nr_class,
             nr_atom = nr_atom,
             nr_feat = nr_feat,
@@ -65,7 +71,3 @@ cdef class Learner:
 
 cdef class AveragedPerceptron(Learner):
     pass
-
-
-# Make these symbols available
-from .nn cimport NeuralNetwork

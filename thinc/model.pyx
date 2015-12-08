@@ -33,7 +33,6 @@ cdef class Model:
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
 
-
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         pass
 
@@ -90,89 +89,6 @@ cdef class LinearModel(Model):
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
         return reader._nr_class
-
-
-cdef class MultiLayerPerceptron(Model):
-    def __init__(self, nr_class, embed_layer, hidden_layers):
-        Model.__init__(self)
-        # TODO: Set up layer definitions
-        self.nr_layer = len(hidden_layers) + 1
-        self.nr_embed = sum(embed_layer)
-        self.embed_slots = <int32_t[2]*>self.mem.alloc(len(embed_layer), sizeof(int32_t[2]))
-        offset = 0
-        for i, length in enumerate(embed_layer):
-            self.embed_slots[i][0] = offset
-            self.embed_slots[i][0] = length
-            offset += length
-        
-        self.layers = <LayerC*>self.mem.alloc(self.nr_layer, sizeof(LayerC))
-        nr_wide = self.nr_embed
-        for i, (nr_out, activation) in hidden_layers:
-            self.layers[i] = Rectifier.init(nr_wide, nr_out)
-            nr_wide = nr_out
-        self.layers[i+1] = Softmax.init(nr_wide, self.nr_class)
-
-    cdef void set_scores(self, weight_t* activity, const FeatureC* feats, int nr_feat) nogil:
-        # The start of 'activity' is the class scores, but the array holds the
-        # activations from each level, top down, i.e. the activity from the 
-        # embeddings is at the end of the activity buffer, preceded by the activity
-        # from the first hidden layer, etc.
-        
-        activity = (activity + self.nr_all_out) - self.nr_embed
-        cdef int i
-        for i in range(nr_feat):
-            feat = feats[i]
-            offset = self.embed_slots[feat.slot][0]
-            length = self.embed_slots[feat.slot][1]
-            embed = <const weight_t*>self.weights.get(feat.key)
-            if embed is NULL:
-                embed = <weight_t*>self.mem.alloc(length, sizeof(weight_t))
-                self.weights.set(feat.key, embed)
-            VecVec.add_i(activity + offset, embed, feat.val, length)
-
-        cdef const weight_t* weights = <const weight_t*>self.weights.get(1)
-        cdef LayerC layer
-        cdef int i
-        for i in range(self.nr_layer):
-            layer = self.layers[i]
-
-            layer.forward(
-                activity - layer.nr_out,      # Output of this layer
-                weights,       # Weight matrix
-                activity, # Output of prev layer
-                weights + (layer.nr_wide * layer.nr_out), # bias
-                layer.nr_wide,           # Width of this layer (must match prev nr_out)
-                layer.nr_out             # Width of next layer
-            )
-
-            weights += (layer.nr_wide * layer.nr_out) + layer.nr_out
-            activity -= layer.nr_out
-
-    cdef void backprop(self, weight_t* gradient, weight_t* deltas,
-                       const weight_t* activity) except *:
-        cdef const weight_t* weights = <const weight_t*>self.weights.get(1)
-        weights += self.nr_all_weight
-        cdef int i
-        for i in range(self.depth, -1, -1):
-            layer = self.layers[i]
-            weights  -= (layer.nr_wide * layer.nr_out) + layer.nr_out
-            gradient -= (layer.nr_wide * layer.nr_out) + layer.nr_out
-
-            layer.backward(
-                deltas,
-                gradient, # gradient of W
-                gradient + (layer.nr_wide * layer.nr_out), # gradient of bias
-                weights,  # W
-                activity, # signal from previous layer
-                layer.nr_wide,
-                layer.nr_out
-            )
-            activity += layer.nr_out
-            deltas += layer.nr_out
-
-    cdef void set_loss(self, weight_t* delta, const weight_t* activity,
-            const int* costs, int nr_class) nogil:
-        pass
 
 
 cdef class _Writer:
