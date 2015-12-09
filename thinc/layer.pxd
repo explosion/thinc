@@ -2,17 +2,31 @@ from libc.stdint cimport int32_t
 from libc.math cimport M_E
 from libc.string cimport memset
 
-from .structs cimport LayerC
+from preshed.maps cimport MapStruct, map_get
+
+from .structs cimport LayerC, FeatureC
 from .typedefs cimport weight_t
 from .blas cimport Vec, VecVec, MatVec, MatMat
 
 
+cdef class Embedding:
+    @staticmethod
+    cdef inline void set_layer(weight_t* output, const MapStruct* map_,
+                               const FeatureC* feats, int32_t nr_feat) nogil:
+        cdef int32_t i
+        for i in range(nr_feat):
+            feat = feats[i]
+            feat_embed = <const weight_t*>map_get(map_, feat.key)
+            if feat_embed is not NULL:
+                VecVec.add_i(&output[feat.i], feat_embed, feat.val, feat.length)
+
+
 cdef class Rectifier:
     @staticmethod
-    cdef inline LayerC init(int32_t nr_wide, int32_t nr_out, int32_t offset) nogil:
+    cdef inline LayerC init(int32_t nr_out, int32_t nr_wide, int32_t offset) nogil:
         cdef LayerC layer
-        layer.nr_wide = nr_wide
         layer.nr_out = nr_out
+        layer.nr_wide = nr_wide
         layer.W = offset
         layer.bias = offset + (nr_wide * nr_out)
         layer.forward = Rectifier.forward
@@ -21,81 +35,80 @@ cdef class Rectifier:
 
     @staticmethod
     cdef inline void forward(
-                        weight_t* output,
+                        weight_t* out,
                         const weight_t* W,
-                        const weight_t* x,
+                        const weight_t* in_,
                         const weight_t* bias,
-                        int32_t nr_wide,
-                        int32_t nr_out) nogil:
-        MatVec.dot(output, W, x, nr_wide, nr_out)
-        VecVec.add_i(output, bias, 1.0, nr_out)
+                        int32_t nr_out,
+                        int32_t nr_wide) nogil:
+        # We're a layer of M cells, which we can think of like classes
+        # Each class sums over N inputs, which we can think of as features
+        # Each feature has a weight. So we own M*N weights
+        # We receive an input vector of N dimensions. We produce an output vector
+        # of M activations.
+        MatVec.dot(out, W, in_, nr_out, nr_wide)
+        VecVec.add_i(out, bias, 1.0, nr_out)
         cdef int32_t i
         for i in range(nr_out):
-            if output[i] < 0:
-                output[i] = 0
+            if out[i] < 0:
+                out[i] = 0
 
     @staticmethod
-    cdef inline void backward(weight_t* delta_out, weight_t* grad_W, weight_t* grad_b,
-                              const weight_t* delta_in,
-                              const weight_t* W,
-                              const weight_t* fwd_state, 
-                              int32_t nr_wide, int32_t nr_out) nogil:
-
-        VecVec.add_i(grad_b, delta_in, 1.0, nr_out)
-        MatMat.add_outer_i(grad_W, delta_in, fwd_state, nr_wide, nr_out)
-
-        # Derivative of the rectifier:
-        # d_relu(point) = lambda x: 1 if x > 0 else 0
-        # 
-        # We need to set: 
-        #
-        # delta = d_relu(signal) * weights_column.dot(delta)
-        #
-        # Where weights_column are the weights connected to a given output.
-        # So, we do the dot product, and then set to 0 where x[i] <= 0
-        MatVec.T_dot_i(delta_out, W, nr_wide, nr_out)
+    cdef inline void backward(
+                        weight_t* delta_out,
+                        const weight_t* delta_in,
+                        const weight_t* signal_out,
+                        const weight_t* W,
+                        int32_t nr_out,
+                        int32_t nr_wide) nogil:
+        # delta = W.T.dot(prev_delta) * d_relu(signal_in)
+        # d_relu(signal_in) is a binary vector, 0 when signal_in < 0
+        # So, we do our dot product, and then clip to 0 on the dimensions where
+        # signal_in is 0
+        # Note that prev_delta is a column vector (the error of our output),
+        # while delta is a row vector (the error of our neurons, which must match
+        # the input layer's width)
+        MatVec.T_dot(delta_out, W, delta_in, nr_out, nr_wide)
         cdef int32_t i
-        for i in range(nr_out):
-            if fwd_state[i] < 0:
+        for i in range(nr_wide):
+            if signal_out[i] < 0:
                 delta_out[i] = 0
 
 
 cdef class Softmax:
     @staticmethod
-    cdef inline LayerC init(int32_t nr_wide, int32_t nr_out, int32_t offset) nogil:
+    cdef inline LayerC init(int32_t nr_out, int32_t nr_wide, int32_t offset) nogil:
         cdef LayerC layer
-        layer.nr_wide = nr_wide
         layer.nr_out = nr_out
+        layer.nr_wide = nr_wide
         layer.W = offset
-        layer.bias = offset + (nr_wide * nr_out)
+        layer.bias = offset + (nr_out * nr_wide)
         layer.forward = Rectifier.forward
         layer.backward = Rectifier.backward
         return layer
 
     @staticmethod
-    cdef inline void forward(weight_t* output,
+    cdef inline void forward(weight_t* out,
                              const weight_t* W,
-                             const weight_t* x,
+                             const weight_t* in_,
                              const weight_t* bias,
-                             int32_t nr_wide,
-                             int32_t nr_out) nogil:
+                             int32_t nr_out,
+                             int32_t nr_wide) nogil:
         #w = W.dot(actvn) + b
-        MatVec.dot(output, W, x, nr_wide, nr_out)
-        VecVec.add_i(output, bias, 1.0, nr_out)
+        MatVec.dot(out, W, in_, nr_out, nr_wide)
+        VecVec.add_i(out, bias, 1.0, nr_out)
         #w = numpy.exp(w - max(w))
-        Vec.add_i(output, -Vec.max(output, nr_out), nr_out)
-        Vec.exp_i(output, nr_out)
+        Vec.add_i(out, -Vec.max(out, nr_out), nr_out)
+        Vec.exp_i(out, nr_out)
         #w = w / sum(w)
-        Vec.div_i(output, Vec.sum(output, nr_out), nr_out)
+        Vec.div_i(out, Vec.sum(out, nr_out), nr_out)
 
     @staticmethod
-    cdef inline void backward(weight_t* delta_out,
-                              weight_t* grad_W,
-                              weight_t* grad_b,
-                              weight_t* delta_in,
-                              const weight_t* W,
-                              const weight_t* x, 
-                              int32_t nr_wide,
-                              int32_t nr_out) nogil:
-        MatMat.add_outer_i(grad_W, delta_in, x, nr_wide, nr_out)
-        VecVec.add_i(grad_b, delta_in, 1.0, nr_out)
+    cdef inline void backward(
+                        weight_t* delta_out,
+                        const weight_t* delta_in,
+                        const weight_t* signal_out,
+                        const weight_t* W,
+                        int32_t nr_out,
+                        int32_t nr_wide) nogil:
+        pass

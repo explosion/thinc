@@ -11,8 +11,7 @@ cdef struct ExampleC:
     atom_t* atoms
     FeatureC* features
     weight_t* scores
-    weight_t* loss
-    
+
     weight_t* gradient
     
     weight_t** fwd_state
@@ -33,17 +32,15 @@ cdef struct LayerC:
         const weight_t* W,
         const weight_t* input_, 
         const weight_t* bias,
-        int32_t nr_wide,
-        int32_t nr_out
+        int32_t nr_out,
+        int32_t nr_wide
     ) nogil
 
     void (*backward)(
         weight_t* delta_out,
-        weight_t* grad_W,
-        weight_t* grad_b,
         const weight_t* delta_in,
-        const weight_t* W, 
-        const weight_t* activity, 
+        const weight_t* signal_out,
+        const weight_t* W,
         int32_t nr_wide, 
         int32_t nr_out
     ) nogil

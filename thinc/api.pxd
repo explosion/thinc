@@ -37,9 +37,8 @@ cdef class Example:
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
             features = <FeatureC*>mem.alloc(nr_feat, sizeof(FeatureC)),
             scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
-
+            
             gradient = NULL,
-
             fwd_state = NULL,
             bwd_state = NULL,
 

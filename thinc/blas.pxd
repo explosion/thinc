@@ -197,19 +197,16 @@ cdef class MatVec:
                 output[i] += mat[row + col] * vec[col]
 
     @staticmethod
-    cdef inline void T_dot_i(weight_t* vec,
+    cdef inline void T_dot(weight_t* output,
                              const weight_t* mat,
+                             const weight_t* vec,
                              int32_t nr_row,
                              int32_t nr_col) nogil:
         cdef int i, row, col
-        cdef weight_t total = 0.0
         cdef weight_t value
-        for col in range(nr_col):
-            value = vec[col]
-            total = 0
-            for row in range(nr_row):
-                total += value * mat[(row * nr_col) + col]
-            vec[col] = total
+        for row in range(nr_row):
+            for col in range(nr_col):
+                output[col] += vec[row] * mat[(row * nr_col) + col]
 
 
 cdef class MatMat:

@@ -7,7 +7,7 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 from .api cimport arg_max_if_true, arg_max_if_zero
-from .layer cimport Rectifier, Softmax
+from .layer cimport Embedding, Rectifier, Softmax
 from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
 from .typedefs cimport weight_t, atom_t
 from .api cimport Example, Learner
@@ -37,18 +37,20 @@ cdef class NeuralNetwork(Learner):
         eg.costs = <int*>mem.alloc(self.nr_class, sizeof(eg.costs[0]))
         eg.atoms = <atom_t*>mem.alloc(self.nr_class, sizeof(eg.atoms[0]))
         eg.scores = <weight_t*>mem.alloc(self.nr_class, sizeof(eg.scores[0]))
-        eg.loss = <weight_t*>mem.alloc(self.nr_class, sizeof(eg.loss[0]))
         
         eg.gradient = <weight_t*>mem.alloc(self.nr_dense, sizeof(eg.gradient[0]))
 
-        eg.fwd_state = <weight_t**>mem.alloc(self.nr_layer, sizeof(eg.fwd_state[0]))
-        eg.bwd_state = <weight_t**>mem.alloc(self.nr_layer, sizeof(eg.bwd_state[0]))
-
+        eg.fwd_state = <weight_t**>mem.alloc(self.nr_layer+1, sizeof(eg.fwd_state[0]))
+        eg.bwd_state = <weight_t**>mem.alloc(self.nr_layer+1, sizeof(eg.bwd_state[0]))
+        eg.fwd_state[self.nr_layer] = <weight_t*>mem.alloc(self.nr_class, sizeof(weight_t))
+        eg.bwd_state[self.nr_layer] = <weight_t*>mem.alloc(self.nr_class, sizeof(weight_t))
         cdef int i
         for i in range(self.nr_layer):
-            eg.fwd_state[i] = <weight_t*>mem.alloc(self.layers[i].nr_out, sizeof(weight_t))
+            # Fwd state[i] is the incoming signal, so equal to layer size
+            eg.fwd_state[i] = <weight_t*>mem.alloc(self.layers[i].nr_wide, sizeof(weight_t))
+            # Bwd state[i] is the incoming error, so equal to output size
             eg.bwd_state[i] = <weight_t*>mem.alloc(self.layers[i].nr_out, sizeof(weight_t))
-
+        
         eg.nr_class = self.nr_class
         eg.nr_atom = self.nr_atom
         eg.nr_feat = self.nr_feat
@@ -61,59 +63,59 @@ cdef class NeuralNetwork(Learner):
     # cdef void set_features(self, ExampleC* eg, something) except *:
 
     cdef void set_prediction(self, ExampleC* eg) except *:
-        cdef int i
-        for i in range(eg.nr_feat):
-            feat = eg.features[i]
-            feat_embed = <const weight_t*>self.weights.get(feat.key)
-            if feat_embed is not NULL:
-                VecVec.add_i(eg.fwd_state[0], feat_embed, feat.val, feat.length)
-
-        cdef LayerC layer
+        Embedding.set_layer(eg.fwd_state[0], self.weights.c_map,
+                            eg.features, eg.nr_feat)
         weights = <const weight_t*>self.weights.get(1)
-        for i in range(self.nr_layer):
-            lyr = self.layers[i]
-            lyr.forward(
-                eg.fwd_state[i+1],
-                eg.fwd_state[i],
-                &weights[lyr.W],
-                &weights[lyr.bias],
-                lyr.nr_wide,
-                lyr.nr_out)
+
+        NeuralNetwork.forward(
+            eg.fwd_state,
+            <const weight_t*>self.weights.get(1),
+            self.layers, 
+            self.nr_layer
+        )
+
         memcpy(eg.scores, eg.fwd_state[self.nr_layer],
                sizeof(eg.scores[0]) * eg.nr_class)
-
         eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
     
-    cdef void update(self, ExampleC* eg) except *:
-        # Here we'll take a little short-cut, and for now say the loss is the
-        # weight assigned to the 'best'  class
-        # Probably we want to give credit for assigning weight to other correct
-        # classes
-        cdef int32_t i
-        for i in range(eg.nr_class):
-            eg.bwd_state[self.nr_layer][i] = (i == eg.best) - eg.scores[i]
-        weights = <const weight_t*>self.weights.get(1)
-        for i in range(self.nr_layer-1, -1, -1):
-            layer = self.layers[i]
 
-            layer.backward(
-                eg.bwd_state[i],
-                &eg.gradient[layer.W],
-                &eg.gradient[layer.bias],
-                eg.bwd_state[i+1],
-                &weights[layer.W],
-                eg.fwd_state[i],
-                layer.nr_wide, layer.nr_out)
+    cdef void update(self, ExampleC* eg) except *:
+        NeuralNetwork.set_loss(
+            eg.bwd_state[self.nr_layer],
+            eg.scores,
+            eg.best,
+            self.nr_class
+        )
+
+        NeuralNetwork.backward(
+            eg.bwd_state,
+            <const weight_t**>eg.fwd_state,
+            <const weight_t*>self.weights.get(1),
+            self.layers,
+            self.nr_layer
+        )
+
+        NeuralNetwork.set_gradients(
+            eg.gradient,
+            <const weight_t**>eg.bwd_state,
+            <const weight_t**>eg.fwd_state,
+            self.layers,
+            self.nr_layer
+        )
+        
         # L2 regularization
-        VecVec.add_i(eg.gradient, weights, self.hyper_params.rho, self.nr_dense)
+        VecVec.add_i(eg.gradient, <const weight_t*>self.weights.get(1),
+                     self.hyper_params.rho, self.nr_dense)
+
         # Dense update
         adagrad(
             <weight_t*>self.weights.get(1),
             eg.gradient,
             self.train_weights.get(1),
             self.nr_dense,
-            <void*>&self.hyper_params)
+            <void*>&self.hyper_params
+        )
 
         # TODO: For simplicity for now, only support binary values.
         # To support values, need to calculate total for each dimension, and then
