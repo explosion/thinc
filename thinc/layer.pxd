@@ -7,6 +7,7 @@ from preshed.maps cimport MapStruct, map_get
 from .structs cimport LayerC, FeatureC
 from .typedefs cimport weight_t
 from .blas cimport Vec, VecVec, MatVec, MatMat
+from .api cimport arg_max_if_zero
 
 
 cdef class Embedding:
@@ -105,10 +106,20 @@ cdef class Softmax:
 
     @staticmethod
     cdef inline void backward(
-                        weight_t* delta_out,
-                        const weight_t* delta_in,
-                        const weight_t* signal_out,
-                        const weight_t* W,
+                        weight_t* loss,
+                        const weight_t* costs,
+                        const weight_t* scores,
+                        const weight_t* __W_unused,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
-        pass
+        '''Compute derivative of log loss'''
+        # Here we'll take a little short-cut, and for now say the loss is the
+        # weight assigned to the 'best'  class
+        # Probably we want to give credit for assigning weight to other correct
+        # classes
+        cdef int best = arg_max_if_zero(scores, costs, nr_out)
+        cdef int i
+        for i in range(nr_out):
+            loss[i] = (i == best) - scores[i]
+
+

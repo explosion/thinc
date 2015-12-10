@@ -10,7 +10,7 @@ from .model cimport LinearModel
 
 
 # Make this symbol available
-from .nn import NeuralNetwork
+from .nn import NeuralNet
 
 
 try:
@@ -42,7 +42,7 @@ cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
     return best
 
 
-cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
+cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
                          const int n_classes) nogil:
     cdef int i
     cdef int best = 0
@@ -75,7 +75,7 @@ cdef class Example:
         self.mem = Pool()
         self.c = Example.init(self.mem, nr_class, nr_atom, nr_feat, nr_embed)
         self.is_valid = <int[:nr_class]>self.c.is_valid
-        self.costs = <int[:nr_class]>self.c.costs
+        self.costs = <weight_t[:nr_class]>self.c.costs
         self.atoms = <atom_t[:nr_atom]>self.c.atoms
         self.scores = <weight_t[:nr_class]>self.c.scores
 

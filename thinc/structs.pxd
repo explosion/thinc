@@ -7,7 +7,7 @@ include "compile_time_constants.pxi"
 
 cdef struct ExampleC:
     int* is_valid
-    int* costs
+    weight_t* costs
     atom_t* atoms
     FeatureC* features
     weight_t* scores
@@ -61,6 +61,18 @@ cdef struct HyperParamsC:
     weight_t rho
     weight_t sigma
     weight_t tau
+
+
+cdef struct NeuralNetC:
+    LayerC* layers
+    weight_t* weights
+    void* support
+    HyperParamsC hyper_params
+
+    int32_t nr_layer
+    int32_t nr_dense
+    int32_t nr_class
+    int32_t nr_in
 
 
 cdef struct SparseArrayC:

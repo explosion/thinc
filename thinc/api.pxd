@@ -13,7 +13,7 @@ cdef int arg_max(const weight_t* scores, const int n_classes) nogil
 cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
                          const int n_classes) nogil
 
-cdef int arg_max_if_zero(const weight_t* scores, const int* costs,
+cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
                          const int n_classes) nogil
 
 
@@ -21,7 +21,7 @@ cdef class Example:
     cdef Pool mem
     cdef ExampleC c
     cdef public int[:] is_valid
-    cdef public int[:] costs
+    cdef public weight_t[:] costs
     cdef public atom_t[:] atoms
     cdef public weight_t[:] embeddings
     cdef public weight_t[:] scores
@@ -33,7 +33,7 @@ cdef class Example:
         memset(is_valid, 1, sizeof(is_valid[0]) * nr_class)
         return ExampleC(
             is_valid = is_valid,
-            costs = <int*>mem.alloc(nr_class, sizeof(int)),
+            costs = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),
             atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t)),
             features = <FeatureC*>mem.alloc(nr_feat, sizeof(FeatureC)),
             scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t)),

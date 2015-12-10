@@ -6,21 +6,18 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 from .api cimport Learner
-from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
+from .structs cimport NeuralNetC, ExampleC, FeatureC, LayerC, HyperParamsC
 from .typedefs cimport weight_t, atom_t
 from .api cimport Example
 from .blas cimport MatMat, MatVec, VecVec
 
 
-cdef class NeuralNetwork(Learner):
+cdef class NeuralNet(Learner):
+    cdef NeuralNetC c
+    
     cdef Pool mem
     cdef PreshMap weights
     cdef PreshMap train_weights
-    cdef LayerC* layers
-    cdef HyperParamsC hyper_params
-    cdef int nr_dense
-    cdef int nr_layer
- 
     
     @staticmethod
     cdef inline void forward(
@@ -43,17 +40,6 @@ cdef class NeuralNetwork(Learner):
             )
 
     @staticmethod
-    cdef inline void set_loss(weight_t* loss, const weight_t* scores, int best,
-                              int nr_class) nogil:
-        # Here we'll take a little short-cut, and for now say the loss is the
-        # weight assigned to the 'best'  class
-        # Probably we want to give credit for assigning weight to other correct
-        # classes
-        cdef int i
-        for i in range(nr_class):
-            loss[i] = (i == best) - scores[i]
-
-    @staticmethod
     cdef inline void backward(
                         weight_t** bwd_state,
                         const weight_t** fwd_state,
@@ -68,7 +54,7 @@ cdef class NeuralNetwork(Learner):
             lyr.backward(
                 bwd_state[i],
                 bwd_state[i+1],
-                fwd_state[i],
+                fwd_state[i+1],
                 &weights[lyr.W],
                 lyr.nr_out,
                 lyr.nr_wide
