@@ -10,6 +10,7 @@ from numpy.testing import assert_allclose
 from thinc.api import NeuralNet
 from thinc.api import Example
 
+
 def test_create():
     model = NeuralNet(3, 4, (8,))
 
@@ -18,32 +19,6 @@ def test_create():
     assert model.nr_layer == 2
     assert model.layer_dims == [(8, 4), (3, 8)]
 
-#    instance = {1: {1: 1, 3: -5}, 2: {2: 4, 3: 5}}
-#    for clas, feats in instance.items():
-#        eg = Example.from_feats(model.nr_class, feats.items(), gold=clas)
-#        model(eg)
-#        model.updater(eg)
-#    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
-#    model(eg)
-#    assert eg.guess == 2
-#    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
-#    model(eg)
-#    assert eg.scores[1] == 0
-#    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
-#    model(eg)
-#    assert eg.scores[2] > 0
-#    eg = Example.from_feats(3, [(0, 1), (1, 1), (0, 1)])
-#    model(eg)
-#    assert eg.scores[1] > 0
-#    eg = Example.from_feats(3, [(0, 1), (0, 1), (0, 1), (3, 1)])
-#    model(eg)
-#    assert eg.scores[1] < 0 
-#    eg = Example.from_feats(3, [(0, 1), (0, 1), (0, 1), (3, 1)])
-#    model(eg)
-#    assert eg.scores[2] > 0 
-#
-#
-#
 
 def test_small_network():
     random.seed(0)
