@@ -71,6 +71,15 @@ def test_softmax():
     assert_allclose([sum(result)], [1.0])
 
 
+def test_softmax2():
+    weights = np.asarray([0, 0.1, -0.6, 0.5, 0.9, -0.1, 0.0, 0.0, 0.0], dtype='float32')
+    signal = np.asarray([-2.0, 1.0], dtype='float32').T
+    result = softmax(weights, 3, 2, signal)
+    np_result = numpy_softmax(weights, 3, 2, signal)
+    assert_allclose(result, np_result, rtol=1e-05)
+    assert_allclose([sum(result)], [1.0])
+
+
 def test_d_relu():
     nr_out = 3
     nr_wide = 2

@@ -14,12 +14,15 @@ cdef class Embedding:
     @staticmethod
     cdef inline void set_layer(weight_t* output, const MapStruct* map_,
                                const FeatureC* feats, int32_t nr_feat) nogil:
-        cdef int32_t i
+        cdef int32_t i, j
         for i in range(nr_feat):
             feat = feats[i]
             feat_embed = <const weight_t*>map_get(map_, feat.key)
             if feat_embed is not NULL:
                 VecVec.add_i(&output[feat.i], feat_embed, feat.val, feat.length)
+            else:
+                for j in range(feat.length):
+                    output[feat.i + j] = 0.25
 
 
 cdef class Rectifier:
@@ -51,7 +54,8 @@ cdef class Rectifier:
         VecVec.add_i(out, bias, 1.0, nr_out)
         cdef int32_t i
         for i in range(nr_out):
-            if out[i] < 0:
+            # Writing this way handles NaN
+            if not (out[i] > 0):
                 out[i] = 0
 
     @staticmethod
@@ -84,8 +88,8 @@ cdef class Softmax:
         layer.nr_wide = nr_wide
         layer.W = offset
         layer.bias = offset + (nr_out * nr_wide)
-        layer.forward = Rectifier.forward
-        layer.backward = Rectifier.backward
+        layer.forward = Softmax.forward
+        layer.backward = Softmax.backward
         return layer
 
     @staticmethod
@@ -117,9 +121,9 @@ cdef class Softmax:
         # weight assigned to the 'best'  class
         # Probably we want to give credit for assigning weight to other correct
         # classes
-        cdef int best = arg_max_if_zero(scores, costs, nr_out)
         cdef int i
         for i in range(nr_out):
-            loss[i] = (i == best) - scores[i]
-
-
+            loss[i] = -scores[i]
+        cdef int best = arg_max_if_zero(scores, costs, nr_out)
+        # We could branch in the loop, but this is probably faster
+        loss[best] = 1.0 - scores[best]

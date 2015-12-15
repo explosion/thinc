@@ -54,15 +54,16 @@ cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
     return best
 
 
-
 cdef class Example:
     @classmethod
     def from_feats(cls, int nr_class, feats, gold=None):
         nr_feat = len(feats)
         cdef Example self = cls(nr_class, nr_feat, nr_feat, nr_feat)
         for i, (key, value) in enumerate(feats):
+            self.c.features[i].i = i
             self.c.features[i].key = key
             self.c.features[i].val = value
+            self.c.features[i].length = 1
         cdef int clas
         if gold is not None:
             for clas in range(self.c.nr_class):
@@ -77,7 +78,10 @@ cdef class Example:
         self.is_valid = <int[:nr_class]>self.c.is_valid
         self.costs = <weight_t[:nr_class]>self.c.costs
         self.atoms = <atom_t[:nr_atom]>self.c.atoms
-        self.scores = <weight_t[:nr_class]>self.c.scores
+
+    property scores:
+        def __get__(self):
+            return <weight_t[:self.c.nr_class]>self.c.scores
 
     property guess:
         def __get__(self):

@@ -32,11 +32,11 @@ cdef class NeuralNet(Learner):
 
             lyr.forward(
                 fwd_state[i+1],
-                fwd_state[i],
                 &weights[lyr.W],
+                fwd_state[i],
                 &weights[lyr.bias],
-                lyr.nr_wide,
-                lyr.nr_out
+                lyr.nr_out,
+                lyr.nr_wide
             )
 
     @staticmethod

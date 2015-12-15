@@ -24,7 +24,6 @@ cdef class Example:
     cdef public weight_t[:] costs
     cdef public atom_t[:] atoms
     cdef public weight_t[:] embeddings
-    cdef public weight_t[:] scores
 
     @staticmethod
     cdef inline ExampleC init(Pool mem, int nr_class, int nr_atom,
