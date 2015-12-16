@@ -17,7 +17,7 @@ def test_create():
     assert model.nr_class == 3
     assert model.nr_embed == 4
     assert model.nr_layer == 2
-    assert model.layer_dims == [(8, 4), (3, 8)]
+    assert model.layers == [(8, 4), (3, 8)]
 
 
 def test_small_network():
@@ -30,17 +30,18 @@ def test_small_network():
     assert model.nr_embed == 3
     assert model.nr_layer == 2
     assert model.nr_dense == 30
-    assert model.layer_dims == [(4, 3), (2, 4)]
+    assert model.layers == [(4, 3), (2, 4)]
 
     for _ in range(500):
         for i, x in enumerate(Xs):
-            prev = model.Example(list(enumerate(x)), gold=ys[i])
+            features = [(i, value, i, 1) for i, value in enumerate(x)]
+            prev = model.Example(features, gold=ys[i])
             assert len(list(prev.scores)) == prev.nr_class == model.nr_class
             assert sum(prev.scores) == 0
             model(prev)
             assert_allclose([sum(prev.scores)], [1.0])
-            eg = model.Example(list(enumerate(x)), gold=ys[i])
+            eg = model.Example(features, gold=ys[i])
             model.train(eg)
-            eg = model.Example(list(enumerate(x)), gold=ys[i])
+            eg = model.Example(features, gold=ys[i])
             model(eg)
             assert prev.scores[ys[i]] < eg.scores[ys[i]]

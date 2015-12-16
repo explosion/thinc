@@ -1,6 +1,7 @@
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
+from libc.stdint cimport int32_t
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
@@ -18,7 +19,7 @@ cdef class NeuralNet(Learner):
     cdef Pool mem
     cdef PreshMap weights
     cdef PreshMap train_weights
-    
+
     @staticmethod
     cdef inline void forward(
                         weight_t** fwd_state,
@@ -59,6 +60,8 @@ cdef class NeuralNet(Learner):
                 lyr.nr_out,
                 lyr.nr_wide
             )
+        # Need to something like this to back-prop into embeddings
+        #MatVec.T_dot(bwd_state[1], weights, bwd_state[0], layers[0].nr_out, layers[0].nr_wide)
 
     @staticmethod
     cdef inline void set_gradients(

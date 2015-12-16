@@ -55,33 +55,8 @@ cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
 
 
 cdef class Example:
-    @classmethod
-    def from_feats(cls, int nr_class, feats, gold=None):
-        nr_feat = len(feats)
-        cdef Example self = cls(nr_class, nr_feat, nr_feat, nr_feat)
-        for i, (key, value) in enumerate(feats):
-            self.c.features[i].i = i
-            self.c.features[i].key = key
-            self.c.features[i].val = value
-            self.c.features[i].length = 1
-        cdef int clas
-        if gold is not None:
-            for clas in range(self.c.nr_class):
-                self.c.costs[clas] = 1
-            self.c.costs[gold] = 0
-            self.c.best = gold
-        return self
-
-    def __init__(self, int nr_class, int nr_atom, int nr_feat, int nr_embed):
+    def __init__(self):
         self.mem = Pool()
-        self.c = Example.init(self.mem, nr_class, nr_atom, nr_feat, nr_embed)
-        self.is_valid = <int[:nr_class]>self.c.is_valid
-        self.costs = <weight_t[:nr_class]>self.c.costs
-        self.atoms = <atom_t[:nr_atom]>self.c.atoms
-
-    property scores:
-        def __get__(self):
-            return <weight_t[:self.c.nr_class]>self.c.scores
 
     property guess:
         def __get__(self):
@@ -118,15 +93,33 @@ cdef class Example:
             return self.c.nr_feat
         def __set__(self, int value):
             self.c.nr_feat = value
+
+    property embed:
+        def __get__(self):
+            return [self.c.fwd_state[0][i] for i in range(self.c.nr_atom)]
+
+    property scores:
+        def __get__(self):
+            return [self.c.scores[i] for i in range(self.c.nr_class)]
+
+    property loss:
+        def __get__(self):
+            return 1 - self.c.scores[self.c.best]
  
     def wipe(self):
         cdef int i
-        for i in range(self.c.nr_class):
-            self.c.is_valid[i] = 0
-            self.c.costs[i] = 0
-            self.c.scores[i] = 0
-        for i in range(self.c.nr_atom):
-            self.c.atoms[i] = 0
+        if self.c.is_valid is not NULL:
+            for i in range(self.c.nr_class):
+                self.c.is_valid[i] = 0
+        if self.c.costs is not NULL:
+            for i in range(self.c.nr_class):
+                self.c.costs[i] = 0
+        if self.c.scores is not NULL:
+            for i in range(self.c.nr_class):
+                self.c.scores[i] = 0
+        if self.c.atoms is not NULL:
+            for i in range(self.c.nr_atom):
+                self.c.atoms[i] = 0
 
 
 cdef class Learner:
@@ -142,10 +135,6 @@ cdef class Learner:
     def __call__(self, eg):
         self.extracter(eg)
         self.model(eg)
-
-    cdef ExampleC allocate(self, Pool mem) except *:
-        return Example.init(mem, self.nr_class, self.nr_atom,
-                            self.nr_templ, self.nr_embed)
 
     cdef void set_prediction(self, ExampleC* eg) except *:
         memset(eg.scores, 0, eg.nr_class * sizeof(eg.scores[0]))

@@ -3,24 +3,25 @@ cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
-import random
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
+import numpy
 
 from .api cimport arg_max_if_true, arg_max_if_zero
 from .layer cimport Embedding, Rectifier, Softmax
 from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
-from .typedefs cimport weight_t, atom_t
+from .typedefs cimport weight_t, atom_t, feat_t
 from .api cimport Example, Learner
 from .blas cimport VecVec
 
 
 cdef class NeuralNet(Learner):
-    def __init__(self, nr_class, nr_embed, hidden_layers):
-        self.c.hyper_params.eta = 0.005
-        self.c.hyper_params.epsilon = 1e-6
-        self.c.hyper_params.rho = 1e-4
+    def __init__(self, nr_class, nr_embed, hidden_layers,
+                 weight_t eta=0.005, weight_t epsilon=1e-3, weight_t rho=1e-4):
+        self.c.hyper_params.eta = eta
+        self.c.hyper_params.epsilon = epsilon
+        self.c.hyper_params.rho = rho
         self.c.nr_class = nr_class
         self.c.nr_in = nr_embed
         self.c.nr_layer = len(hidden_layers) + 1
@@ -37,17 +38,23 @@ cdef class NeuralNet(Learner):
         self.c.nr_dense += nr_wide * self.c.nr_class + self.c.nr_class
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_dense, 
                                                    sizeof(self.c.weights[0]))
-        support = <weight_t*>self.mem.alloc(self.c.nr_dense, 
+        self.c.support = <weight_t*>self.mem.alloc(self.c.nr_dense, 
                                                    sizeof(self.c.weights[0]))
         self.weights = PreshMap()
         self.train_weights = PreshMap()
-        random.seed(0)
-        for i in range(self.c.nr_dense):
-            self.c.weights[i] = random.random()
-            support[i] = random.random()
-        self.c.support = support
+        numpy.random.seed(0)
+        # He initialization
+        # Note that we don't initialize 'support'! This is left 0
+        # http://arxiv.org/abs/1502.01852
+        for i in range(self.c.nr_layer-1):
+            n_weights = self.c.layers[i].nr_wide * self.c.layers[i].nr_out
+            std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / self.c.layers[i].nr_wide)
+            init_weights = numpy.random.normal(loc=0.0, scale=std, size=n_weights)
+            offset = self.c.layers[i].W
+            for j in range(n_weights):
+                self.c.weights[offset + j] = init_weights[j]
 
-    property layer_dims:
+    property layers:
         def __get__(self):
             return [(self.c.layers[i].nr_out, self.c.layers[i].nr_wide) for i
                     in range(self.c.nr_layer)]
@@ -67,55 +74,44 @@ cdef class NeuralNet(Learner):
     def train(self, Example eg):
         self.set_prediction(&eg.c)
         self.update(&eg.c)
+        return eg.loss
 
-    def Example(self, feats, gold=None):
-        cdef Example eg = Example(self.c.nr_class, len(feats), len(feats), len(feats))
-        eg.c = self.allocate(eg.mem)
-        eg.c.features = <FeatureC*>eg.mem.alloc(len(feats), sizeof(FeatureC))
-        eg.c.nr_feat = len(feats)
-        for i, (key, value) in enumerate(feats):
-            eg.c.features[i].i = i
+    def Example(self, features, gold=None):
+        cdef Example eg = Example()
+        Example.init_classes(&eg.c, eg.mem, self.c.nr_class) 
+        Example.init_nn_state(&eg.c, eg.mem, self.c.layers,
+                              self.c.nr_layer, self.c.nr_dense)
+        Example.init_features(&eg.c, eg.mem, self.c.nr_in, len(features))
+
+        cdef feat_t key
+        cdef weight_t value
+        cdef int offset
+        cdef int length
+        cdef int i
+        for i, (key, value, offset, length) in enumerate(features):
             eg.c.features[i].key = key
             eg.c.features[i].val = value
-            eg.c.features[i].length = 1
+            eg.c.features[i].i = offset
+            eg.c.features[i].length = length
+            embed = <weight_t*>self.weights.get(key)
+            if embed is NULL:
+                embed = <weight_t*>self.mem.alloc(length, sizeof(weight_t))
+                std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / length)
+                init_weights = numpy.random.normal(loc=0.0, scale=std, size=length)
+                for j, weight in enumerate(init_weights):
+                    embed[j] = weight
+                self.weights.set(key, <void*>embed)
+                self.train_weights.set(key, self.mem.alloc(length, sizeof(weight_t)))
+ 
         cdef int clas
-        for clas in range(eg.c.nr_class):
-            eg.c.is_valid[clas] = 1
         if gold is not None:
+            self.set_costs(&eg.c, gold)
             for clas in range(self.c.nr_class):
                 eg.c.costs[clas] = 1
             eg.c.costs[gold] = 0
             eg.c.best = gold
         return eg
 
-    cdef ExampleC allocate(self, Pool mem) except *:
-        cdef ExampleC eg
-        eg.is_valid = <int*>mem.alloc(self.c.nr_class, sizeof(eg.is_valid[0]))
-        eg.costs = <weight_t*>mem.alloc(self.c.nr_class, sizeof(eg.costs[0]))
-        eg.atoms = <atom_t*>mem.alloc(self.c.nr_class, sizeof(eg.atoms[0]))
-        eg.scores = <weight_t*>mem.alloc(self.c.nr_class, sizeof(eg.scores[0]))
-        
-        eg.gradient = <weight_t*>mem.alloc(self.c.nr_dense, sizeof(eg.gradient[0]))
-
-        eg.fwd_state = <weight_t**>mem.alloc(self.c.nr_layer+1, sizeof(eg.fwd_state[0]))
-        eg.bwd_state = <weight_t**>mem.alloc(self.c.nr_layer+1, sizeof(eg.bwd_state[0]))
-        cdef int i
-        for i in range(self.c.nr_layer):
-            # Fwd state[i] is the incoming signal, so equal to layer size
-            eg.fwd_state[i] = <weight_t*>mem.alloc(self.c.layers[i].nr_wide, sizeof(weight_t))
-            # Bwd state[i] is the incoming error, so equal to output size
-            eg.bwd_state[i] = <weight_t*>mem.alloc(self.c.layers[i].nr_out, sizeof(weight_t))
-        eg.fwd_state[self.c.nr_layer] = <weight_t*>mem.alloc(self.c.nr_class, sizeof(weight_t))
-        eg.bwd_state[self.c.nr_layer] = <weight_t*>mem.alloc(self.c.nr_class, sizeof(weight_t))
-
-        eg.nr_class = self.c.nr_class
-        eg.nr_atom = -1
-        eg.nr_feat = -1
-        eg.guess = 0
-        eg.best = 0
-        eg.cost = 0
-        return eg
-    
     # from Learner cdef void set_costs(self, ExampleC* eg, int gold) except *:
     # cdef void set_features(self, ExampleC* eg, something) except *:
 
@@ -135,9 +131,9 @@ cdef class NeuralNet(Learner):
 
         eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-    
 
     cdef void update(self, ExampleC* eg) except *:
+        # Copy cost to bwd_state
         memcpy(eg.bwd_state[self.c.nr_layer], eg.costs,
                self.c.nr_class * sizeof(eg.costs[0]))
 
@@ -161,7 +157,7 @@ cdef class NeuralNet(Learner):
         VecVec.add_i(eg.gradient, self.c.weights, self.c.hyper_params.rho,
                      self.c.nr_dense)
 
-        ## Dense update
+        # Dense update
         adagrad(
             self.c.weights,
             eg.gradient,
@@ -170,20 +166,19 @@ cdef class NeuralNet(Learner):
             <void*>&self.c.hyper_params
         )
 
-        ## TODO: For simplicity for now, only support binary values.
-        ## To support values, need to calculate total for each dimension, and then
-        ## distribute to each feature by how much it contributed to that dimension
-        ##
-        ## What do we do about regularization for these updates? Nothing?
-        #for i in range(eg.nr_feat):
-        #    feat = eg.features[i]
-        #    adagrad(
-        #        <weight_t*>self.weights.get(feat.key),
-        #        &eg.gradient[feat.i],
-        #        <void*>self.train_weights.get(feat.key),
-        #        feat.length,
-        #        <void*>&self.c.hyper_params
-        #    )
+        for i in range(eg.nr_feat):
+            feat = eg.features[i]
+            embed = <weight_t*>self.weights.get(feat.key)
+            support = <weight_t*>self.train_weights.get(feat.key)
+            if embed is not NULL and support is not NULL:
+                adagrad(
+                    embed,
+                    eg.gradient, # TODO fix this hack
+                    support,
+                    feat.length,
+                    <void*>&self.c.hyper_params
+                )
+
 
     # from Learner def end_training(self):
     # from Learner def dump(self, loc):
