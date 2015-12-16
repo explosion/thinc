@@ -1,6 +1,8 @@
+cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memcpy
 from libc.math cimport exp as c_exp
+from libc.math cimport isnan as c_is_nan
 from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t
@@ -14,6 +16,15 @@ cdef class Matrix:
 
 
 cdef class Vec:
+    @staticmethod
+    cdef inline int has_nan(const weight_t* weights, int n) nogil:
+        cdef int i
+        for i in range(n):
+            if c_is_nan(weights[i]):
+                return 1
+        else:
+            return 0
+
     @staticmethod
     cdef inline weight_t max(const weight_t* x, int32_t nr) nogil:
         if nr == 0:
@@ -70,12 +81,14 @@ cdef class Vec:
             vec[i] **= scal
 
     @staticmethod
+    @cython.cdivision(True)
     cdef inline void div(weight_t* output, const weight_t* vec, weight_t scal,
                          int32_t nr) nogil:
         memcpy(output, vec, sizeof(output[0]) * nr)
         Vec.div_i(output, scal, nr)
 
     @staticmethod
+    @cython.cdivision(True)
     cdef inline void div_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
