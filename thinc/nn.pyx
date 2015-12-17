@@ -169,17 +169,13 @@ cdef class NeuralNet(Learner):
     # cdef void set_features(self, ExampleC* eg, something) except *:
 
     cdef void set_prediction(self, ExampleC* eg) except *:
-        print('W', [self.c.weights[i] for i in range(self.c.nr_dense)])
         cdef int32_t i, i_lyr
         Embedding.set_layer(eg.fwd_state[0], self.weights.c_map,
                             eg.features, eg.nr_feat)
 
-        print('act0', [eg.fwd_state[0][i] for i in range(self.c.layers[0].nr_wide)])
 
         NeuralNet.forward(eg.fwd_state, self.c.layers, self.c.nr_layer)
         
-        print('act1', [eg.fwd_state[1][i] for i in range(self.c.layers[0].nr_out)])
-
         memcpy(eg.scores, eg.fwd_state[self.c.nr_layer],
                sizeof(eg.scores[0]) * eg.nr_class)
 
@@ -196,12 +192,9 @@ cdef class NeuralNet(Learner):
             self.c.layers, self.c.nr_layer
         )
 
-        print('bwd')
         cdef const LayerC* lyr
         for i in range(self.c.nr_layer):
             lyr = &self.c.layers[i]
-            print(i+1, [eg.bwd_state[i+1][j] for j in range(lyr.nr_out)])
-            print(i, [eg.fwd_state[i][j] for j in range(lyr.nr_out)])
 
         NeuralNet.set_gradients(
             eg.gradient,
@@ -211,12 +204,10 @@ cdef class NeuralNet(Learner):
             self.c.nr_layer
         )
         
-        print(self.layers)
-        print('Grad', [eg.gradient[i] for i in range(self.c.nr_dense)])
-        print('W', [self.c.weights[i] for i in range(self.c.nr_dense)])
         # L2 regularization
-        #VecVec.add_i(eg.gradient, self.c.weights, self.c.hyper_params.rho,
-        #             self.c.nr_dense)
+        if self.c.hyper_params.rho != 0:
+            VecVec.add_i(eg.gradient, self.c.weights, self.c.hyper_params.rho,
+                         self.c.nr_dense)
 
         # Dense update
         adagrad(
