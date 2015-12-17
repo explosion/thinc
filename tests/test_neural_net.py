@@ -243,3 +243,25 @@ def test_xor_rho(xor_data):
     assert rho_0_loss < rho_0001_loss
     assert rho_0001_loss < rho_001_loss
  
+
+def test_xor_deep(xor_data):
+    '''Test that more hidden layers allows faster learning.'''
+    hidden1 = NeuralNet(2, 2, (2,), rho=0.0001, eta=0.005)
+    hidden2 = NeuralNet(2, 2, (2,2), rho=0.001, eta=0.005)
+    hidden10 = NeuralNet(2, 2, (2,) * 10, rho=0.001, eta=0.005)
+    h1_loss = 0.0
+    h2_loss = 0.0
+    h10_loss = 0.0
+    for _ in range(10):
+        for i, (features, label) in enumerate(xor_data):
+            eg = hidden1.Example(features, gold=label)
+            h1_loss += hidden1.train(eg)
+            
+            eg = hidden2.Example(features, gold=label)
+            h2_loss += hidden2.train(eg)
+            
+            eg = hidden10.Example(features, gold=label)
+            h10_loss += hidden10.train(eg)
+    assert h2_loss < h1_loss
+    assert h10_loss < h2_loss
+ 
