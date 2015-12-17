@@ -48,8 +48,8 @@ cdef struct LayerC:
     int32_t nr_wide
     int32_t nr_out
 
-    int32_t W
-    int32_t bias
+    weight_t* W
+    weight_t* b
 
 
 cdef struct HyperParamsC:

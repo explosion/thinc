@@ -105,6 +105,9 @@ cdef class Example:
     property loss:
         def __get__(self):
             return 1 - self.c.scores[self.c.best]
+
+    def activation(self, int i, int j):
+        return self.c.fwd_state[i][j]
  
     def wipe(self):
         cdef int i

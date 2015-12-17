@@ -56,25 +56,12 @@ cdef class Embedding:
         #        Vec.div_i(gradient, feat.val, length)
 
 
-
-
 cdef class Rectifier:
-    @staticmethod
-    cdef inline LayerC init(int32_t nr_out, int32_t nr_wide, int32_t offset) nogil:
-        cdef LayerC layer
-        layer.nr_out = nr_out
-        layer.nr_wide = nr_wide
-        layer.W = offset
-        layer.bias = offset + (nr_wide * nr_out)
-        layer.forward = Rectifier.forward
-        layer.backward = Rectifier.backward
-        return layer
-
     @staticmethod
     cdef inline void forward(
                         weight_t* out,
-                        const weight_t* W,
                         const weight_t* in_,
+                        const weight_t* W,
                         const weight_t* bias,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
@@ -95,7 +82,7 @@ cdef class Rectifier:
     cdef inline void backward(
                         weight_t* delta_out,
                         const weight_t* delta_in,
-                        const weight_t* signal_out,
+                        const weight_t* signal_in,
                         const weight_t* W,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
@@ -109,26 +96,15 @@ cdef class Rectifier:
         MatVec.T_dot(delta_out, W, delta_in, nr_out, nr_wide)
         cdef int32_t i
         for i in range(nr_wide):
-            if signal_out[i] < 0:
+            if signal_in[i] < 0:
                 delta_out[i] = 0
 
 
 cdef class Softmax:
     @staticmethod
-    cdef inline LayerC init(int32_t nr_out, int32_t nr_wide, int32_t offset) nogil:
-        cdef LayerC layer
-        layer.nr_out = nr_out
-        layer.nr_wide = nr_wide
-        layer.W = offset
-        layer.bias = offset + (nr_out * nr_wide)
-        layer.forward = Softmax.forward
-        layer.backward = Softmax.backward
-        return layer
-
-    @staticmethod
     cdef inline void forward(weight_t* out,
-                             const weight_t* W,
                              const weight_t* in_,
+                             const weight_t* W,
                              const weight_t* bias,
                              int32_t nr_out,
                              int32_t nr_wide) nogil:
@@ -142,13 +118,11 @@ cdef class Softmax:
         Vec.div_i(out, Vec.sum(out, nr_out), nr_out)
 
     @staticmethod
-    cdef inline void backward(
+    cdef inline void delta_log_loss(
                         weight_t* loss,
                         const weight_t* costs,
                         const weight_t* scores,
-                        const weight_t* __W_unused,
-                        int32_t nr_out,
-                        int32_t nr_wide) nogil:
+                        int32_t nr_out) nogil:
         '''Compute derivative of log loss'''
         # Here we'll take a little short-cut, and for now say the loss is the
         # weight assigned to the 'best'  class
@@ -156,7 +130,7 @@ cdef class Softmax:
         # classes
         cdef int i
         for i in range(nr_out):
-            loss[i] = -scores[i]
+            loss[i] = scores[i]
         cdef int best = arg_max_if_zero(scores, costs, nr_out)
         # We could branch in the loop, but this is probably faster
-        loss[best] = 1.0 - scores[best]
+        loss[best] = scores[best] - 1.0
