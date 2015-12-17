@@ -70,9 +70,9 @@ def test_fwd_linear():
     model.set_bias(0, 1, 0.0) # Bias of class 1
     # Awkward sparse representation
     ff = []
-    ft = [(1, 1.0, 1, 1)]
     tf = [(1, 1.0, 0, 1)]
-    tt = [(1, 1.0, 0, 1), (1, 1.0, 1, 1)]
+    ft = [(2, 1.0, 1, 1)]
+    tt = [(1, 1.0, 0, 1), (2, 1.0, 1, 1)]
     eg = model.Example([])
     model(eg)
 
@@ -101,7 +101,7 @@ def test_fwd_linear():
     assert_allclose(eg.scores, [0.5, 0.5])
 
 
-def test_xor():
+def test_xor_manual():
     model = NeuralNet(2, 2, (2,), rho=0.0)
     assert model.nr_class == 2
     assert model.layers == [(2, 2), (2, 2)]
@@ -173,30 +173,73 @@ def test_xor():
     assert eg.activation(2, 1) > 0.5
  
 
-#
-#    #assert model.nr_class == 2
-#    #assert model.nr_embed == 3
-#    #assert model.nr_layer == 2
-#    #assert model.layers == [(4, 3), (2, 4)]
-#    #assert model.nr_dense == 26
-#
-#    #print(model.get_W(0))
-#    #print(model.get_W(1))
-#    #print(model.get_bias(0))
-#    #print(model.get_bias(1))
-#
-#    #for _ in range(500):
-#    #    for i, x in enumerate(Xs):
-#    #        features = [(j, value, j, 1) for j, value in enumerate(x)]
-#    #        prev = model.Example(features, gold=ys[i])
-#    #        assert len(list(prev.scores)) == prev.nr_class == model.nr_class
-#    #        assert sum(prev.scores) == 0
-#    #        model(prev)
-#    #        assert_allclose([sum(prev.scores)], [1.0])
-#    #        eg = model.Example(features, gold=ys[i])
-#    #        model.train(eg)
-#    #        eg = model.Example(features, gold=ys[i])
-#    #        model(eg)
-#    #        print(i, ys[i], eg.best, list(prev.scores), list(eg.scores))
-#    #        if prev.scores[ys[i]] != 1.0:
-#    #            assert prev.scores[ys[i]] < eg.scores[ys[i]]
+@pytest.fixture
+def xor_data():
+    # Awkward sparse representation
+    ff = []
+    tf = [(1, 1.0, 0, 1)]
+    ft = [(2, 1.0, 1, 1)]
+    tt = [(1, 1.0, 0, 1), (2, 1.0, 1, 1)]
+    return [(ff, 0), (tf, 1), (ft, 1), (tt, 1)]
+
+
+def test_xor_gradient(xor_data):
+    '''Test that after each update, we move towards the correct label.'''
+    model = NeuralNet(2, 2, (2,), rho=0.0)
+    assert model.nr_class == 2
+    assert model.layers == [(2, 2), (2, 2)]
+
+    assert model.nr_class == 2
+    assert model.nr_embed == 2
+    assert model.nr_layer == 2
+    
+    for _ in range(500):
+        for i, (features, label) in enumerate(xor_data):
+            prev = model.Example(features, gold=label)
+            assert len(list(prev.scores)) == prev.nr_class == model.nr_class
+            assert sum(prev.scores) == 0
+            model(prev)
+            assert_allclose([sum(prev.scores)], [1.0])
+            eg = model.Example(features, gold=label)
+            model.train(eg)
+            eg = model.Example(features, gold=label)
+            model(eg)
+            if prev.scores[label] != 1.0:
+                assert prev.scores[label] < eg.scores[label]
+
+def test_xor_eta(xor_data):
+    '''Test that a higher learning rate causes loss to decrease faster.'''
+    eta_005_model = NeuralNet(2, 2, (2,), rho=0.0, eta=0.005)
+    eta_01_model = NeuralNet(2, 2, (2,), rho=0.0, eta=0.01)
+    eta_005_loss = 0.0
+    eta_01_loss = 0.0
+    for _ in range(5):
+        for i, (features, label) in enumerate(xor_data):
+            eg = eta_005_model.Example(features, gold=label)
+            eta_005_loss += eta_005_model.train(eg)
+            eg = eta_01_model.Example(features, gold=label)
+            eta_01_loss += eta_01_model.train(eg)
+    assert eta_01_loss < eta_005_loss
+
+
+def test_xor_rho(xor_data):
+    '''Test that higher L2 penalty causes slower learning.'''
+    rho_0001_model = NeuralNet(2, 2, (2,), rho=0.0001, eta=0.005)
+    rho_001_model = NeuralNet(2, 2, (2,), rho=0.001, eta=0.005)
+    rho_0_model = NeuralNet(2, 2, (2,), rho=0.0, eta=0.005)
+    rho_0001_loss = 0.0
+    rho_001_loss = 0.0
+    rho_0_loss = 0.0
+    for _ in range(10):
+        for i, (features, label) in enumerate(xor_data):
+            eg = rho_0001_model.Example(features, gold=label)
+            rho_0001_loss += rho_0001_model.train(eg)
+            
+            eg = rho_001_model.Example(features, gold=label)
+            rho_001_loss += rho_001_model.train(eg)
+            
+            eg = rho_0_model.Example(features, gold=label)
+            rho_0_loss += rho_0_model.train(eg)
+    assert rho_0_loss < rho_0001_loss
+    assert rho_0001_loss < rho_001_loss
+ 
