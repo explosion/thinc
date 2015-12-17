@@ -245,23 +245,26 @@ def test_xor_rho(xor_data):
  
 
 def test_xor_deep(xor_data):
-    '''Test that more hidden layers allows faster learning.'''
-    hidden1 = NeuralNet(2, 2, (2,), rho=0.0001, eta=0.005)
-    hidden2 = NeuralNet(2, 2, (2,2), rho=0.001, eta=0.005)
-    hidden10 = NeuralNet(2, 2, (2,) * 10, rho=0.001, eta=0.005)
+    '''Compare a 0, 1 and 3 layer networks.
+    The 3 layer seems to do better, but it doesn't *have* to. But if the
+    0 layer works, something's wrong!'''
+    hidden1 = NeuralNet(2, 2, (2,), rho=0.0, eta=0.005)
+    hidden3 = NeuralNet(2, 2, (2,2,2), rho=0.0, eta=0.005)
+    linear = NeuralNet(2, 2, tuple(), rho=0.0, eta=0.005)
     h1_loss = 0.0
-    h2_loss = 0.0
-    h10_loss = 0.0
-    for _ in range(10):
+    h3_loss = 0.0
+    linear_loss = 0.0
+    for _ in range(500):
         for i, (features, label) in enumerate(xor_data):
+            eg = linear.Example(features, gold=label)
+            linear_loss += linear.train(eg)
+ 
             eg = hidden1.Example(features, gold=label)
             h1_loss += hidden1.train(eg)
             
-            eg = hidden2.Example(features, gold=label)
-            h2_loss += hidden2.train(eg)
-            
-            eg = hidden10.Example(features, gold=label)
-            h10_loss += hidden10.train(eg)
-    assert h2_loss < h1_loss
-    assert h10_loss < h2_loss
+            eg = hidden3.Example(features, gold=label)
+            h3_loss += hidden3.train(eg)
+        random.shuffle(xor_data)
+    assert h3_loss < h1_loss
+    assert h1_loss < linear_loss 
  
