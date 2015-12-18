@@ -80,9 +80,9 @@ cdef class Rectifier:
 
     @staticmethod
     cdef inline void backward(
-                        weight_t* delta_out,
-                        const weight_t* delta_in,
-                        const weight_t* signal_in,
+                        weight_t* delta_out,       # Len == nr_wide
+                        const weight_t* delta_in,  # Len == nr_out
+                        const weight_t* signal_in, # Len == nr_wide
                         const weight_t* W,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
