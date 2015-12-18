@@ -216,7 +216,6 @@ cdef class MatVec:
                              int32_t nr_row,
                              int32_t nr_col) nogil:
         cdef int i, row, col
-        cdef weight_t value
         for row in range(nr_row):
             for col in range(nr_col):
                 output[col] += vec[row] * mat[(row * nr_col) + col]
