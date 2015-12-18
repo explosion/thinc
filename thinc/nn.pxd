@@ -26,7 +26,13 @@ cdef class NeuralNet(Learner):
         cdef LayerC lyr
         for i in range(nr):
             lyr = layers[i]
-            lyr.forward(fwd[i+1], fwd[i], lyr.W, lyr.b, lyr.nr_out, lyr.nr_wide)
+            lyr.forward(
+                fwd[i+1], # Len=nr_out
+                fwd[i], # Len=nr_wide
+                lyr.W, # Len=nr_out * nr_wide
+                lyr.b, # Len=nr_out
+                lyr.nr_out,
+                lyr.nr_wide)
 
     @staticmethod
     cdef inline void backward(weight_t** bwd, const weight_t** fwd, 
@@ -60,12 +66,12 @@ cdef class NeuralNet(Learner):
         for i in range(nr-1, 0, -1):
             lyr = layers[i]
             lyr.backward(
-                bwd[i],     # Output: error of this layer
-                bwd[i+1],   # Input: error from layer above
-                fwd[i],     # Input: signal from layer below
+                bwd[i],     # Output: error of this layer, len=width
+                bwd[i+1],   # Input: error from layer above, len=nr_out
+                fwd[i],     # Input: signal from layer below, len=nr_wide
                 lyr.W,      # Weights of this layer
-                lyr.nr_out, # Width of next layer (width of incoming error)
-                lyr.nr_wide # Width of prev layer (width of signal and output error)
+                lyr.nr_out, # Width of next layer 
+                lyr.nr_wide # Width of prev layer 
             )
 
     @staticmethod
