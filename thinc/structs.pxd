@@ -66,7 +66,7 @@ cdef struct HyperParamsC:
 cdef struct NeuralNetC:
     LayerC* layers
     weight_t* weights
-    void* support
+    weight_t* support
     HyperParamsC hyper_params
 
     int32_t nr_layer
