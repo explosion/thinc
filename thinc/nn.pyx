@@ -23,14 +23,14 @@ cdef class NeuralNet(Learner):
         self.c.hyper_params.eta = eta
         self.c.hyper_params.epsilon = epsilon
         self.c.hyper_params.rho = rho
+        
         self.c.nr_class = nr_class
         self.c.nr_in = nr_embed
-        self.c.nr_layer = len(hidden_layers) + 1
-        
-        self.c.nr_dense = 0
-        self.c.layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
 
-        nr_wide = nr_embed
+        self.c.nr_dense = 0
+        self.c.nr_layer = len(hidden_layers) + 1
+        self.c.layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
+        nr_wide = self.c.nr_in
         for i, nr_out in enumerate(hidden_layers):
             self.c.layers[i].nr_out = nr_out
             self.c.layers[i].nr_wide = nr_wide
@@ -131,14 +131,14 @@ cdef class NeuralNet(Learner):
         cdef Example eg = Example()
         Example.init_classes(&eg.c, eg.mem, self.c.nr_class) 
         Example.init_nn_state(&eg.c, eg.mem, self.c.layers,
-                              self.c.nr_layer, self.c.nr_dense)
+                              self.c.nr_layer, self.c.nr_dense, self.c.nr_class)
         Example.init_features(&eg.c, eg.mem, self.c.nr_in, len(features))
 
         cdef feat_t key
         cdef weight_t value
         cdef int offset
         cdef int length
-        cdef int i
+        cdef int i, j
         for i, (key, value, offset, length) in enumerate(features):
             eg.c.features[i].key = key
             eg.c.features[i].val = value
@@ -177,24 +177,19 @@ cdef class NeuralNet(Learner):
         NeuralNet.forward(eg.fwd_state, self.c.layers, self.c.nr_layer)
         
         memcpy(eg.scores, eg.fwd_state[self.c.nr_layer],
-               sizeof(eg.scores[0]) * eg.nr_class)
+               sizeof(eg.scores[0]) * self.c.nr_class)
 
         eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
 
     cdef void update(self, ExampleC* eg) except *:
         Softmax.delta_log_loss(eg.bwd_state[self.c.nr_layer], eg.costs, eg.scores,
-                               self.c.nr_class)
-
+                               eg.nr_class)
         NeuralNet.backward(
             eg.bwd_state,
             <const weight_t**>eg.fwd_state,
             self.c.layers, self.c.nr_layer
         )
-
-        cdef const LayerC* lyr
-        for i in range(self.c.nr_layer):
-            lyr = &self.c.layers[i]
 
         NeuralNet.set_gradients(
             eg.gradient,
@@ -203,7 +198,7 @@ cdef class NeuralNet(Learner):
             self.c.layers,
             self.c.nr_layer
         )
-        
+
         # L2 regularization
         if self.c.hyper_params.rho != 0:
             VecVec.add_i(eg.gradient, self.c.weights, self.c.hyper_params.rho,
@@ -215,7 +210,7 @@ cdef class NeuralNet(Learner):
             eg.gradient,
             self.c.support,
             self.c.nr_dense,
-            <void*>&self.c.hyper_params
+            <void*>&self.c.hyper_params,
         )
 
         #for i in range(eg.nr_feat):
@@ -238,14 +233,12 @@ cdef class NeuralNet(Learner):
 
 
 @cython.cdivision(True)
-cdef void adagrad(weight_t* weights, weight_t* gradient, void* _support, int32_t n,
-                  const void* _hyper_params) nogil:
+cdef void adagrad(weight_t* weights, weight_t* gradient, weight_t* support,
+                  int32_t n, void* _hp_data) nogil:
     '''
     Update weights with Adagrad
     '''
-    support = <weight_t*>_support
-    hp = <const HyperParamsC*>_hyper_params
-
+    hp = <const HyperParamsC*>_hp_data
     VecVec.add_pow_i(support, gradient, 2.0, n)
 
     cdef int i
