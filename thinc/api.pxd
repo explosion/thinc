@@ -45,19 +45,21 @@ cdef class Example:
 
     @staticmethod
     cdef inline void init_nn_state(ExampleC* eg, Pool mem, const LayerC* layers,
-                                   int nr_layer, int nr_dense) except *:
+                                   int nr_layer, int nr_dense, nr_class) except *:
         eg.fwd_state = <weight_t**>mem.alloc(nr_layer+1, sizeof(eg.fwd_state[0]))
         eg.bwd_state = <weight_t**>mem.alloc(nr_layer+1, sizeof(eg.bwd_state[0]))
         cdef int i
         for i in range(nr_layer):
             # Fwd state[i] is the incoming signal, so equal to layer size
-            eg.fwd_state[i] = <weight_t*>mem.alloc(layers[i].nr_wide, sizeof(weight_t))
-            # Bwd state[i] is the incoming error, so equal to output size
-            eg.bwd_state[i] = <weight_t*>mem.alloc(layers[i].nr_out, sizeof(weight_t))
-        cdef int nr_class = layers[nr_layer-1].nr_out
-        eg.fwd_state[nr_layer] = <weight_t*>mem.alloc(nr_class, sizeof(weight_t))
-        eg.bwd_state[nr_layer] = <weight_t*>mem.alloc(nr_class, sizeof(weight_t))
-        
+            eg.fwd_state[i] = <weight_t*>mem.alloc(layers[i].nr_wide,
+                                                   sizeof(eg.fwd_state[0][0]))
+            # Bwd state[i] is the incoming error, so equal to layer width
+            eg.bwd_state[i] = <weight_t*>mem.alloc(layers[i].nr_wide,
+                                                   sizeof(eg.bwd_state[0][0]))
+        eg.fwd_state[nr_layer] = <weight_t*>mem.alloc(nr_class,
+                                                      sizeof(eg.fwd_state[0][0]))
+        eg.bwd_state[nr_layer] = <weight_t*>mem.alloc(nr_class,
+                                                      sizeof(eg.bwd_state[0][0]))
         eg.gradient = <weight_t*>mem.alloc(nr_dense, sizeof(eg.gradient[0]))
 
 
