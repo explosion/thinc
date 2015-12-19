@@ -26,53 +26,17 @@ cdef struct ExampleC:
     int cost
 
 
-cdef struct LayerC:
-    void (*forward)(
-        weight_t* activity,
-        const weight_t* W,
-        const weight_t* input_, 
-        const weight_t* bias,
-        int32_t nr_out,
-        int32_t nr_wide
-    ) nogil
-
-    void (*backward)(
-        weight_t* delta_out,
-        const weight_t* delta_in,
-        const weight_t* signal_out,
-        const weight_t* W,
-        int32_t nr_wide, 
-        int32_t nr_out
-    ) nogil
-
-    int32_t nr_wide
-    int32_t nr_out
-
-    weight_t* W
-    weight_t* b
-
-
-cdef struct HyperParamsC:
-    weight_t alpha
-    weight_t beta
-    weight_t gamma
-    weight_t eta
-    weight_t epsilon
-    weight_t rho
-    weight_t sigma
-    weight_t tau
-
-
 cdef struct NeuralNetC:
-    LayerC* layers
     weight_t* weights
     weight_t* support
-    HyperParamsC hyper_params
+    int* widths
 
     int32_t nr_layer
-    int32_t nr_dense
-    int32_t nr_class
-    int32_t nr_in
+    int32_t nr_weight
+
+    weight_t eta
+    weight_t rho
+    weight_t eps
 
 
 cdef struct SparseArrayC:

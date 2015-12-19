@@ -74,7 +74,26 @@ cdef class Updater:
     cdef void update(self, ExampleC* eg) except *:
         raise NotImplementedError
 
-    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+    cdef void update_embedding(self, feat_t feat_id, weight_t feat_value,
+                               const weight_t* gradient, int32_t length) except *:
+        weights = <weight_t*>self.weights.get(feat_id)
+        support = <weight_t*>self.train_weights.get(feat_id)
+        if weights is NULL:
+            weights = <weight_t*>self.mem.alloc(length, sizeof(weights[0]))
+            support = <weight_t*>self.mem.alloc(length, sizeof(weights[0]))
+            self.weights.set(feat_id, <void*>weights)
+            self.train_weights.set(feat_id, <void*>support)
+
+        adagrad(
+            weights,
+            support,
+            feat_value,
+            gradient,
+            length,
+            <void*>&self.c.hyper_params
+        )
+
+    cpdef int update_sparse(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         feat = <SparseAverageC*>self.train_weights.get(feat_id)
         if feat == NULL:
             feat = init_feat(clas, upd, self.time)
@@ -88,23 +107,21 @@ cdef class Updater:
 
 cdef class AveragedPerceptronUpdater(Updater):
     def __call__(self, Example eg):
-        self.update(&eg.c)
+        self.update(eg.c.gradient, eg.c.nr_class, eg.c.features, eg.c.nr_feat)
 
-    cdef void update(self, ExampleC* eg) except *:
+    cdef void update(self, const weight_t* upd, int32_t nr_class,
+                     const FeatureC* feats, int32_t nr_feat) except *:
         cdef weight_t weight, upd
         cdef feat_t feat_id
         cdef int i
         
         self.time += 1
         
-        weight = eg.costs[eg.guess]
-        if weight != 0:
-            for i in range(eg.nr_feat):
-                feat_id = eg.features[i].key
-                upd = weight * eg.features[i].val
-                if upd != 0:
-                    self.update_weight(feat_id, eg.best, upd)
-                    self.update_weight(feat_id, eg.guess, -upd)
+        for clas in range(nr_class):
+            if gradient[clas] != 0:
+                for i in range(nr_feat):
+                    if feats[i].val != 0:
+                        self.update_weight(feats[i].key, feats[i].val * upd[clas])
     
     def end_training(self):
         cdef feat_id
@@ -112,3 +129,6 @@ cdef class AveragedPerceptronUpdater(Updater):
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
                 average_weights(<SparseAverageC*>feat_addr, self.time)
+
+
+

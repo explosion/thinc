@@ -4,244 +4,168 @@ from libc.stdint cimport int32_t
 from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
 
-from cymem.cymem cimport Pool
+from cymem.cymem cimport Pool, Address
 from preshed.maps cimport PreshMap
 import numpy
 
-from .api cimport arg_max_if_true, arg_max_if_zero
-from .layer cimport Embedding, Rectifier, Softmax
-from .structs cimport ExampleC, FeatureC, LayerC, HyperParamsC
 from .typedefs cimport weight_t, atom_t, feat_t
-from .api cimport Example, Learner
 from .blas cimport VecVec
 
 
-cdef class NeuralNet(Learner):
-    def __init__(self, nr_class, nr_embed, hidden_layers,
-                 weight_t eta=0.005, weight_t epsilon=1e-6, weight_t rho=1e-4):
+cdef class NeuralNet:
+    def __init__(self, widths, weight_t eta=0.005, weight_t epsilon=1e-6, weight_t rho=1e-4):
         self.mem = Pool()
-        self.c.hyper_params.eta = eta
-        self.c.hyper_params.epsilon = epsilon
-        self.c.hyper_params.rho = rho
-        
-        self.c.nr_class = nr_class
-        self.c.nr_in = nr_embed
+        self.c.eta = eta
+        self.c.eps = epsilon
+        self.c.rho = rho
 
-        self.c.nr_dense = 0
-        self.c.nr_layer = len(hidden_layers) + 1
-        self.c.layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
-        nr_wide = self.c.nr_in
-        for i, nr_out in enumerate(hidden_layers):
-            self.c.layers[i].nr_out = nr_out
-            self.c.layers[i].nr_wide = nr_wide
-            self.c.layers[i].forward = Rectifier.forward
-            self.c.layers[i].backward = Rectifier.backward
-
-            self.c.nr_dense += (nr_wide * nr_out) + nr_out
-            nr_wide = nr_out
-
-        self.c.layers[self.c.nr_layer-1].nr_out = self.c.nr_class
-        self.c.layers[self.c.nr_layer-1].nr_wide = nr_wide
-        self.c.layers[self.c.nr_layer-1].forward = Softmax.forward
-        self.c.layers[self.c.nr_layer-1].backward = Rectifier.backward
-
-        self.c.nr_dense += nr_wide * self.c.nr_class + self.c.nr_class
-
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_dense, 
-                                                   sizeof(self.c.weights[0]))
-        self.c.support = <weight_t*>self.mem.alloc(self.c.nr_dense, 
-                                                   sizeof(self.c.weights[0]))
-       
-        cdef weight_t* W = self.c.weights
-        cdef LayerC* lyr
-        for i in range(self.c.nr_layer):
-            lyr = &self.c.layers[i]
-            lyr.W = W
-            lyr.b = W + (lyr.nr_wide * lyr.nr_out)
-            W += lyr.nr_wide * lyr.nr_out + lyr.nr_out
-        
-        self.weights = PreshMap()
-        self.train_weights = PreshMap()
-        numpy.random.seed(0)
-        # He initialization
-        # Note that we don't initialize 'support'! This is left 0
-        # http://arxiv.org/abs/1502.01852
+        self.c.nr_layer = len(widths)
+        self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
+        cdef int i
+        for i, width in enumerate(widths):
+            self.c.widths[i] = width
+        self.c.nr_weight = 0
         for i in range(self.c.nr_layer-1):
-            lyr = &self.c.layers[i]
-            n_weights = lyr.nr_wide * lyr.nr_out
-            std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / lyr.nr_wide)
-            init_weights = numpy.random.normal(loc=0.0, scale=std, size=n_weights)
-            for j in range(n_weights):
-                lyr.W[j] = init_weights[j]
-            for j in range(lyr.nr_out):
-                lyr.b[j] = 0.2
+            self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+        self.c.support = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
-    property layers:
+        cdef int nr_out, nr_wide, nr_weight
+        cdef weight_t* W = self.c.weights
+        for i in range(self.c.nr_layer-2): # Don't init softmax weights
+            nr_out = self.c.widths[i+1]
+            nr_wide = self.c.widths[i]
+            std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / nr_wide)
+            init_weights = numpy.random.normal(loc=0.0, scale=std, size=(nr_out * nr_wide))
+            for j in range(nr_out * nr_wide):
+                W[j] = init_weights[j]
+            W += nr_out * nr_wide
+            for j in range(nr_out):
+                W[j] = 0.2
+            W += nr_out
+    
+    property weights:
         def __get__(self):
-            return [(self.c.layers[i].nr_out, self.c.layers[i].nr_wide) for i
-                    in range(self.c.nr_layer)]
-
-    def set_weight(self, int i_lyr, int row, int col, weight_t value):
-        cdef LayerC* lyr = &self.c.layers[i_lyr]
-        lyr.W[row * lyr.nr_wide + col] = value
-
-    def set_bias(self, int i_lyr, int row, weight_t value):
-        cdef LayerC* lyr = &self.c.layers[i_lyr]
-        lyr.b[row] = value
-
-    def get_W(self, i_lyr):
-        cdef int i, j, k
-        cdef const LayerC* lyr = &self.c.layers[i_lyr]
-        W = []
-        for i in range(lyr.nr_out):
-            row = []
-            for j in range(lyr.nr_wide):
-                row.append(lyr.W[i * lyr.nr_wide + j])
-            W.append(row)
-        return W
-
-    def get_bias(self, i_lyr):
-        cdef int i, j, k
-        cdef const LayerC* lyr = &self.c.layers[i_lyr]
-        bias = []
-        for i in range(lyr.nr_out):
-            bias.append(lyr.b[i])
-        return bias
-
-
-    property nr_class:
-        def __get__(self): return self.c.nr_class
-    property nr_embed:
-        def __get__(self): return self.c.nr_in
+            return [self.c.weights[i] for i in range(self.c.nr_weight)]
+        def __set__(self, weights):
+            cdef int i
+            cdef weight_t weight
+            for i, weight in enumerate(weights):
+                self.c.weights[i] = weight
+    property support:
+        def __get__(self):
+            return [self.c.support[i] for i in range(self.nr_weight)]
+        def __set__(self, weights):
+            for i, weight in enumerate(weights):
+                self.c.support[i] = weight
+    property widths:
+        def __get__(self):
+            return tuple([self.c.widths[i] for i in range(self.c.nr_layer)])
     property nr_layer:
         def __get__(self): return self.c.nr_layer
-    property nr_dense:
-        def __get__(self): return self.c.nr_dense
+    property nr_weight:
+        def __get__(self): return self.c.nr_weight
+    property nr_out:
+        def __get__(self):
+            return self.c.widths[self.c.nr_layer-1]
+    property nr_in:
+        def __get__(self):
+            return self.c.widths[0]
+    property eta:
+        def __get__(self):
+            return self.c.eta
+        def __set__(self, eta):
+            self.c.eta = eta
+    property rho:
+        def __get__(self):
+            return self.c.rho
+        def __set__(self, rho):
+            self.c.rho = rho
+    property eps:
+        def __get__(self):
+            return self.c.eps
+        def __set__(self, eps):
+            self.c.eps = eps
+    
+    def __call__(self, input_):
+        if len(input_) != self.nr_in:
+            raise ValueError("Expected %d length input. Got %s" % (self.nr_in, input_))
+        cdef Pool mem = Pool()
+        fwd_state = <weight_t**>mem.alloc(self.c.nr_layer, sizeof(void*))
+        for i, width in enumerate(self.widths):
+            fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
 
-    def __call__(self, Example eg):
-        self.set_prediction(&eg.c)
-        return eg.c.guess
-
-    def train(self, Example eg):
-        self.set_prediction(&eg.c)
-        self.update(&eg.c)
-        return eg.loss
-
-    def Example(self, features, gold=None):
-        cdef Example eg = Example()
-        Example.init_classes(&eg.c, eg.mem, self.c.nr_class) 
-        Example.init_nn_state(&eg.c, eg.mem, self.c.layers,
-                              self.c.nr_layer, self.c.nr_dense, self.c.nr_class)
-        Example.init_features(&eg.c, eg.mem, self.c.nr_in, len(features))
-
-        cdef feat_t key
         cdef weight_t value
-        cdef int offset
-        cdef int length
-        cdef int i, j
-        for i, (key, value, offset, length) in enumerate(features):
-            eg.c.features[i].key = key
-            eg.c.features[i].val = value
-            eg.c.features[i].i = offset
-            eg.c.features[i].length = length
-            embed = <weight_t*>self.weights.get(key)
-            if embed is NULL:
-                embed = <weight_t*>self.mem.alloc(length, sizeof(weight_t))
-                for j in range(length):
-                    embed[j] = 1.0
-                #std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / length)
-                #init_weights = numpy.random.normal(loc=0.0, scale=std, size=length)
-                #for j, weight in enumerate(init_weights):
-                #    embed[j] = weight
-                self.weights.set(key, <void*>embed)
-                self.train_weights.set(key, self.mem.alloc(length, sizeof(weight_t)))
- 
-        cdef int clas
-        if gold is not None:
-            self.set_costs(&eg.c, gold)
-            for clas in range(self.c.nr_class):
-                eg.c.costs[clas] = 1
-            eg.c.costs[gold] = 0
-            eg.c.best = gold
-        return eg
-
-    # from Learner cdef void set_costs(self, ExampleC* eg, int gold) except *:
-    # cdef void set_features(self, ExampleC* eg, something) except *:
-
-    cdef void set_prediction(self, ExampleC* eg) except *:
-        cdef int32_t i, i_lyr
-        Embedding.set_layer(eg.fwd_state[0], self.weights.c_map,
-                            eg.features, eg.nr_feat)
-
-
-        NeuralNet.forward(eg.fwd_state, self.c.layers, self.c.nr_layer)
-        
-        memcpy(eg.scores, eg.fwd_state[self.c.nr_layer],
-               sizeof(eg.scores[0]) * self.c.nr_class)
-
-        eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
-        eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-
-    cdef void update(self, ExampleC* eg) except *:
-        Softmax.delta_log_loss(eg.bwd_state[self.c.nr_layer], eg.costs, eg.scores,
-                               eg.nr_class)
-        NeuralNet.backward(
-            eg.bwd_state,
-            <const weight_t**>eg.fwd_state,
-            self.c.layers, self.c.nr_layer
-        )
-
-        NeuralNet.set_gradients(
-            eg.gradient,
-            <const weight_t**>eg.bwd_state,
-            <const weight_t**>eg.fwd_state,
-            self.c.layers,
+        for i, value in enumerate(input_):
+            fwd_state[0][i] = value
+        NeuralNet.forward( # Implemented in nn.pxd
+            fwd_state,
+            self.c.weights,
+            self.c.widths,
             self.c.nr_layer
         )
+        return [fwd_state[self.nr_layer-1][i] for i in range(self.nr_out)]
+
+    def train(self, batch):
+        cdef Pool mem = Pool()
+        fwd_state = <weight_t**>mem.alloc(self.c.nr_layer, sizeof(void*))
+        bwd_state = <weight_t**>mem.alloc(self.c.nr_layer, sizeof(void*))
+        cdef int i
+        for i, width in enumerate(self.widths):
+            fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(fwd_state[0][0]))
+            bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(bwd_state[0][0]))
+        gradient = <weight_t*>mem.alloc(self.c.nr_weight, sizeof(weight_t))
+
+        cdef weight_t[:] input_
+        cdef weight_t[:] costs
+        cdef weight_t loss = 0
+        for input_, costs in batch:
+            # Wipe the fwd_state and bwd_state buffers between examples
+            for i in range(self.c.nr_layer):
+                memset(fwd_state[i], 0, self.c.widths[i] * sizeof(weight_t))
+                memset(bwd_state[i], 0, self.c.widths[i] * sizeof(weight_t))
+            for i, value in enumerate(input_):
+                fwd_state[0][i] = value
+            # These functions are implemented in nn.pxd
+            # We write the output variable inline with the declaration,
+            # with the arguments trailing.
+            NeuralNet.forward(fwd_state,
+                self.c.weights,
+                self.c.widths,
+                self.c.nr_layer
+            )
+            Softmax.delta_log_loss(bwd_state[self.c.nr_layer-1],
+                &costs[0],
+                fwd_state[self.c.nr_layer-1],
+                self.c.widths[self.c.nr_layer-1]
+            )
+            NeuralNet.backward(bwd_state,
+                fwd_state,
+                self.c.weights + self.c.nr_weight,
+                self.c.widths,
+                self.c.nr_layer
+            )
+            NeuralNet.set_gradients(gradient,
+                bwd_state,
+                fwd_state,
+                self.c.widths,
+                self.c.nr_layer
+            )
+            for i in range(self.nr_out):
+                if costs[i] != 0:
+                    loss += fwd_state[self.c.nr_layer - 1][i]
 
         # L2 regularization
-        if self.c.hyper_params.rho != 0:
-            VecVec.add_i(eg.gradient, self.c.weights, self.c.hyper_params.rho,
-                         self.c.nr_dense)
-
-        # Dense update
-        adagrad(
-            self.c.weights,
-            eg.gradient,
-            self.c.support,
-            self.c.nr_dense,
-            <void*>&self.c.hyper_params,
+        if self.c.rho != 0:
+            VecVec.add_i(gradient,
+                self.c.weights,
+                self.c.rho,
+                self.c.nr_weight
+            )
+       # This writes to three variables
+        Adagrad.update(self.c.weights, gradient, self.c.support,
+            self.c.nr_weight,
+            self.c.eta,
+            self.c.eps
         )
-
-        #for i in range(eg.nr_feat):
-        #    feat = eg.features[i]
-        #    embed = <weight_t*>self.weights.get(feat.key)
-        #    support = <weight_t*>self.train_weights.get(feat.key)
-        #    if embed is not NULL and support is not NULL:
-        #        adagrad(
-        #            embed,
-        #            eg.gradient, # TODO fix this hack
-        #            support,
-        #            feat.length,
-        #            <void*>&self.c.hyper_params
-        #        )
-
-
-    # from Learner def end_training(self):
-    # from Learner def dump(self, loc):
-    # from Learner def load(self, loc):
-
-
-@cython.cdivision(True)
-cdef void adagrad(weight_t* weights, weight_t* gradient, weight_t* support,
-                  int32_t n, void* _hp_data) nogil:
-    '''
-    Update weights with Adagrad
-    '''
-    hp = <const HyperParamsC*>_hp_data
-    VecVec.add_pow_i(support, gradient, 2.0, n)
-
-    cdef int i
-    for i in range(n):
-        gradient[i] *= hp.eta / (c_sqrt(support[i]) + hp.epsilon)
-    VecVec.add_i(weights, gradient, -1.0, n)
+        return loss
