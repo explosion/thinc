@@ -30,20 +30,10 @@ cdef class NeuralNet:
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         self.c.support = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
-        cdef int nr_out, nr_wide, nr_weight
         cdef weight_t* W = self.c.weights
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
-            nr_out = self.c.widths[i+1]
-            nr_wide = self.c.widths[i]
-            std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / nr_wide)
-            init_weights = numpy.random.normal(loc=0.0, scale=std, size=(nr_out * nr_wide))
-            for j in range(nr_out * nr_wide):
-                W[j] = init_weights[j]
-            W += nr_out * nr_wide
-            for j in range(nr_out):
-                W[j] = 0.2
-            W += nr_out
-    
+            W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
+   
     property weights:
         def __get__(self):
             return [self.c.weights[i] for i in range(self.c.nr_weight)]
@@ -58,27 +48,25 @@ cdef class NeuralNet:
         def __set__(self, weights):
             for i, weight in enumerate(weights):
                 self.c.support[i] = weight
+
     property widths:
-        def __get__(self):
-            return tuple([self.c.widths[i] for i in range(self.c.nr_layer)])
+        def __get__(self): return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
+
     property nr_layer:
         def __get__(self): return self.c.nr_layer
     property nr_weight:
         def __get__(self): return self.c.nr_weight
     property nr_out:
-        def __get__(self):
-            return self.c.widths[self.c.nr_layer-1]
+        def __get__(self): return self.c.widths[self.c.nr_layer-1]
     property nr_in:
-        def __get__(self):
-            return self.c.widths[0]
+        def __get__(self): return self.c.widths[0]
+
     property eta:
-        def __get__(self):
-            return self.c.eta
+        def __get__(self): return self.c.eta
         def __set__(self, eta):
             self.c.eta = eta
     property rho:
-        def __get__(self):
-            return self.c.rho
+        def __get__(self): return self.c.rho
         def __set__(self, rho):
             self.c.rho = rho
     property eps:
@@ -112,45 +100,16 @@ cdef class NeuralNet:
         bwd_state = <weight_t**>mem.alloc(self.c.nr_layer, sizeof(void*))
         cdef int i
         for i, width in enumerate(self.widths):
-            fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(fwd_state[0][0]))
-            bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(bwd_state[0][0]))
+            fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
         gradient = <weight_t*>mem.alloc(self.c.nr_weight, sizeof(weight_t))
 
         cdef weight_t[:] input_
         cdef weight_t[:] costs
         cdef weight_t loss = 0
         for input_, costs in batch:
-            # Wipe the fwd_state and bwd_state buffers between examples
-            for i in range(self.c.nr_layer):
-                memset(fwd_state[i], 0, self.c.widths[i] * sizeof(weight_t))
-                memset(bwd_state[i], 0, self.c.widths[i] * sizeof(weight_t))
-            for i, value in enumerate(input_):
-                fwd_state[0][i] = value
-            # These functions are implemented in nn.pxd
-            # We write the output variable inline with the declaration,
-            # with the arguments trailing.
-            NeuralNet.forward(fwd_state,
-                self.c.weights,
-                self.c.widths,
-                self.c.nr_layer
-            )
-            Softmax.delta_log_loss(bwd_state[self.c.nr_layer-1],
-                &costs[0],
-                fwd_state[self.c.nr_layer-1],
-                self.c.widths[self.c.nr_layer-1]
-            )
-            NeuralNet.backward(bwd_state,
-                fwd_state,
-                self.c.weights + self.c.nr_weight,
-                self.c.widths,
-                self.c.nr_layer
-            )
-            NeuralNet.set_gradients(gradient,
-                bwd_state,
-                fwd_state,
-                self.c.widths,
-                self.c.nr_layer
-            )
+            NeuralNet.forward_backward(gradient, fwd_state, bwd_state,
+                &input_[0], &costs[0], &self.c)
             for i in range(self.nr_out):
                 if costs[i] != 0:
                     loss += fwd_state[self.c.nr_layer - 1][i]
@@ -158,14 +117,20 @@ cdef class NeuralNet:
         # L2 regularization
         if self.c.rho != 0:
             VecVec.add_i(gradient,
-                self.c.weights,
-                self.c.rho,
-                self.c.nr_weight
-            )
-       # This writes to three variables
+                self.c.weights, self.c.rho, self.c.nr_weight)
+        
         Adagrad.update(self.c.weights, gradient, self.c.support,
-            self.c.nr_weight,
-            self.c.eta,
-            self.c.eps
-        )
+            self.c.nr_weight, self.c.eta, self.c.eps)
         return loss
+
+
+cdef weight_t* _init_layer_weights(weight_t* W, int nr_out, int nr_wide) except NULL:
+    cdef int i
+    std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / nr_wide)
+    values = numpy.random.normal(loc=0.0, scale=std, size=(nr_out * nr_wide))
+    for i in range(nr_out * nr_wide):
+        W[i] = values[i]
+    W += nr_out * nr_wide
+    for i in range(nr_out):
+        W[i] = 0.2
+    return W + nr_out
