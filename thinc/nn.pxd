@@ -41,6 +41,30 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     @staticmethod
+    cdef inline void forward_backward(
+            weight_t* gradient, weight_t** fwd_acts, weight_t** bwd_acts,
+            const weight_t* input_, const weight_t* costs, const NeuralNetC* nn) nogil:
+        # Ensure the fwd_state and bwd_state buffers are wiped
+        for i in range(nn.nr_layer):
+            memset(fwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
+            memset(bwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
+        for i in range(nn.widths[0]):
+            fwd_acts[0][i] = input_[0]
+
+        NeuralNet.forward(fwd_acts,
+            nn.weights, nn.widths, nn.nr_layer)
+
+        Softmax.delta_log_loss(bwd_acts[nn.nr_layer-1],
+            costs, fwd_acts[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
+        
+        NeuralNet.backward(bwd_acts,
+            fwd_acts, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
+        
+        NeuralNet.set_gradient(gradient,
+            bwd_acts, fwd_acts, nn.widths, nn.nr_layer)
+  
+
+    @staticmethod
     cdef inline void forward(weight_t** fwd,
                         const weight_t* W,
                         const int* widths, int n) nogil:
@@ -67,7 +91,7 @@ cdef class NeuralNet:
             )
 
     @staticmethod
-    cdef inline void set_gradients(weight_t* gradient,
+    cdef inline void set_gradient(weight_t* gradient,
                         const weight_t* const* bwd,
                         const weight_t* const* fwd,
                         const int* widths, int n) nogil:
