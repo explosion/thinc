@@ -10,128 +10,130 @@ from numpy.testing import assert_allclose
 from thinc.api import NeuralNet
 from thinc.api import Example
 
+np.random.seed(2)
 
-#def test_create():
-#    model = NeuralNet((4, 8, 3))
-#
-#    assert model.nr_in == 4
-#    assert model.nr_out == 3
-#    assert model.nr_layer == 3
-#    assert model.widths == (4, 8, 3)
-#
-#
-#def test_fwd_bias():
-#    model = NeuralNet((2, 2), rho=0.0)
-#    
-#    assert model.nr_weight == 6
-#    model.weights = [1.0] * model.nr_weight
-#
-#    scores = model([0, 0])
-#    assert_allclose(scores, [0.5, 0.5])
-#
-#    # Set bias for class 0
-#    model.weights = [1.,1.,1.,1.,100000.0,1.]
-#    assert model.weights == [1.,1.,1.,1.,100000.0,1.]
-#    scores = model([0, 0])
-#    assert_allclose(scores, [1.0, 0.0])
-#
-#    # Set bias for class 1
-#    model.weights = [1.,1.,1.,1.,1.,100000.0]
-#    scores = model([0,0])
-#    assert_allclose(scores, [0.0, 1.0])
-#
-#    # Set bias for both
-#    model.weights = [1.,1.,1.,1.,100000.0,100000.0]
-#    scores = model([0,0])
-#    assert_allclose(scores, [0.5, 0.5])
-#
-#
-#def test_fwd_linear():
-#    model = NeuralNet((2,2), rho=0.0)
-#    assert model.nr_out == 2
-#    assert model.widths == (2, 2)
-#
-#    model.weights = [1.,0.,0.,1.,0.,0.]
-#
-#    ff = [0,0]
-#    tf = [1,0]
-#    ft = [0,1]
-#    tt = [1,1]
-#    scores = model(ff)
-#
-#    assert_allclose(scores, [0.5, 0.5])
-#
-#    scores = model(ft)
-#    
-#    assert_allclose(scores, [ 0.26894142,  0.73105858])
-#    assert_allclose([sum(scores)], [1.0])
-#
-#    scores = model(tf)
-#    assert_allclose(scores, [0.73105858, 0.26894142])
-#    assert_allclose(sum(scores), [1.0])
-#
-#    scores = model(tt)
-#    assert_allclose(scores, [0.5, 0.5])
-#
-#
-#def test_xor_manual():
-#    model = NeuralNet((2,2,2), rho=0.0)
-#    assert model.nr_out == 2
-#    assert model.widths == (2, 2, 2)
-#
-#    # Make a network that detects X-or
-#    # It should output 0 if inputs are 0,0 or 1,1 and 1 if inputs are 0,1 or 1,0
-#    # A linear model can't do this!
-#    # 
-#    # What we do is create two intermediate predictors, for 0,1 and 1,0
-#    # These predictors rely on a bias towards 0. The non-linearity is essential
-#    # Then our output layer can detect either of these signals firing
-#    #
-#    # 0,0 --> neither fire
-#    # 0,1 --> A0 fires
-#    # 1,0 --> A1 fires
-#    # 1,1 --> neither fire
-#    #
-#    #model.set_weight(0, 0, 0, 4.0)    # Weight of A.0, in.0
-#    #model.set_weight(0, 0, 1, -10.0)  # Weight of A.0, in.1
-#    #model.set_weight(0, 1, 0, -10.0)  # Weight of A.1, in.0
-#    #model.set_weight(0, 1, 1, 5.0)    # Weight of A.1, in.1
-#    #model.set_weight(1, 0, 0, -10.0)  # Weight of out.0, A.0
-#    #model.set_weight(1, 0, 1, -10.0)  # Weight of out.0, A.1
-#    #model.set_weight(1, 1, 0, 10.0)   # Weight of out.1, A.0
-#    #model.set_weight(1, 1, 1, 10.0)   # Weight of out.1, A.1
-#    #model.set_bias(0, 0, 0.0)         # Bias of A 0
-#    #model.set_bias(0, 1, 0.0)         # Bias of A 1
-#    #model.set_bias(1, 0, 10.0)        # Bias of out 0
-#    #model.set_bias(1, 1, -10.0)       # Bias of out 1
-#
-#
-#    model.weights = np.asarray([
-#                [4.0, -10.0],   # A.0*in.0, A.0*in.1
-#                [-10.0, 5.0], # A.1*in.0, A.1*in.1
-#                [0.0, 0.0],     # A.0 bias, A.1 bias
-#                [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-#                [10.0, 10.0],   # out.1*A.0, out.1*A.1
-#                [10.0, -10.0]   # out.0 bias, out.1 bias
-#            ]).flatten()
-#
-#    ff = [0,0]
-#    tf = [1,0]
-#    ft = [0,1]
-#    tt = [1,1]
-#
-#    scores = model(ff)
-#    assert scores[0] > 0.99
-# 
-#    scores = model(tt)
-#    assert scores[0] > 0.99
-#    
-#    scores = model(tf)
-#    assert scores[1] > 0.99
-#
-#    scores = model(ft)
-#    assert scores[1] > 0.99
-# 
+
+def test_create():
+    model = NeuralNet((4, 8, 3))
+
+    assert model.nr_in == 4
+    assert model.nr_out == 3
+    assert model.nr_layer == 3
+    assert model.widths == (4, 8, 3)
+
+
+def test_fwd_bias():
+    model = NeuralNet((2, 2), rho=0.0)
+    
+    assert model.nr_weight == 6
+    model.weights = [1.0] * model.nr_weight
+
+    scores = model([0, 0])
+    assert_allclose(scores, [0.5, 0.5])
+
+    # Set bias for class 0
+    model.weights = [1.,1.,1.,1.,100000.0,1.]
+    assert model.weights == [1.,1.,1.,1.,100000.0,1.]
+    scores = model([0, 0])
+    assert_allclose(scores, [1.0, 0.0])
+
+    # Set bias for class 1
+    model.weights = [1.,1.,1.,1.,1.,100000.0]
+    scores = model([0,0])
+    assert_allclose(scores, [0.0, 1.0])
+
+    # Set bias for both
+    model.weights = [1.,1.,1.,1.,100000.0,100000.0]
+    scores = model([0,0])
+    assert_allclose(scores, [0.5, 0.5])
+
+
+def test_fwd_linear():
+    model = NeuralNet((2,2), rho=0.0)
+    assert model.nr_out == 2
+    assert model.widths == (2, 2)
+
+    model.weights = [1.,0.,0.,1.,0.,0.]
+
+    ff = [0,0]
+    tf = [1,0]
+    ft = [0,1]
+    tt = [1,1]
+    scores = model(ff)
+
+    assert_allclose(scores, [0.5, 0.5])
+
+    scores = model(ft)
+    
+    assert_allclose(scores, [ 0.26894142,  0.73105858])
+    assert_allclose([sum(scores)], [1.0])
+
+    scores = model(tf)
+    assert_allclose(scores, [0.73105858, 0.26894142])
+    assert_allclose(sum(scores), [1.0])
+
+    scores = model(tt)
+    assert_allclose(scores, [0.5, 0.5])
+
+
+def test_xor_manual():
+    model = NeuralNet((2,2,2), rho=0.0)
+    assert model.nr_out == 2
+    assert model.widths == (2, 2, 2)
+
+    # Make a network that detects X-or
+    # It should output 0 if inputs are 0,0 or 1,1 and 1 if inputs are 0,1 or 1,0
+    # A linear model can't do this!
+    # 
+    # What we do is create two intermediate predictors, for 0,1 and 1,0
+    # These predictors rely on a bias towards 0. The non-linearity is essential
+    # Then our output layer can detect either of these signals firing
+    #
+    # 0,0 --> neither fire
+    # 0,1 --> A0 fires
+    # 1,0 --> A1 fires
+    # 1,1 --> neither fire
+    #
+    #model.set_weight(0, 0, 0, 4.0)    # Weight of A.0, in.0
+    #model.set_weight(0, 0, 1, -10.0)  # Weight of A.0, in.1
+    #model.set_weight(0, 1, 0, -10.0)  # Weight of A.1, in.0
+    #model.set_weight(0, 1, 1, 5.0)    # Weight of A.1, in.1
+    #model.set_weight(1, 0, 0, -10.0)  # Weight of out.0, A.0
+    #model.set_weight(1, 0, 1, -10.0)  # Weight of out.0, A.1
+    #model.set_weight(1, 1, 0, 10.0)   # Weight of out.1, A.0
+    #model.set_weight(1, 1, 1, 10.0)   # Weight of out.1, A.1
+    #model.set_bias(0, 0, 0.0)         # Bias of A 0
+    #model.set_bias(0, 1, 0.0)         # Bias of A 1
+    #model.set_bias(1, 0, 10.0)        # Bias of out 0
+    #model.set_bias(1, 1, -10.0)       # Bias of out 1
+
+
+    model.weights = np.asarray([
+                [4.0, -10.0],   # A.0*in.0, A.0*in.1
+                [-10.0, 5.0], # A.1*in.0, A.1*in.1
+                [0.0, 0.0],     # A.0 bias, A.1 bias
+                [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+                [10.0, 10.0],   # out.1*A.0, out.1*A.1
+                [10.0, -10.0]   # out.0 bias, out.1 bias
+            ]).flatten()
+
+    ff = [0,0]
+    tf = [1,0]
+    ft = [0,1]
+    tt = [1,1]
+
+    scores = model(ff)
+    assert scores[0] > 0.99
+ 
+    scores = model(tt)
+    assert scores[0] > 0.99
+    
+    scores = model(tf)
+    assert scores[1] > 0.99
+
+    scores = model(ft)
+    assert scores[1] > 0.99
+ 
 
 @pytest.fixture
 def xor_data():
@@ -210,6 +212,7 @@ def test_xor_deep(xor_data):
         for i, (features, label, costs) in enumerate(xor_data):
             linear.train([(features, costs)])
             big.train([(features, costs)])
+            scores = big(features)
             small.train([(features, costs)])
         random.shuffle(xor_data)
 
