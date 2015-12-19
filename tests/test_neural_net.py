@@ -157,6 +157,51 @@ def or_data():
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
 
 
+def test_learn_linear(or_data):
+    '''Test that a linear model can learn OR.'''
+    # Need high eta on this sort of toy problem, or learning takes forever!
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, epsilon=1e-4)
+
+    assert model.nr_in == 2
+    assert model.nr_out == 2
+    assert model.nr_layer == 2
+    
+    # It takes about this many iterations, with the settings above.
+    for _ in range(50):
+        for feats, label, costs in or_data:
+            model.train([(feats, costs)])
+        random.shuffle(or_data)
+    acc = 0.0
+    for features, label, costs in or_data:
+        scores = model(features)
+        assert costs[label] == 0
+        acc += scores[label] > 0.5
+    assert acc == len(or_data)
+
+
+def test_mlp_learn_linear(or_data):
+    '''Test that with a hidden layer, we can still learn OR'''
+    # Need high eta on this sort of toy problem, or learning takes forever!
+    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.1, epsilon=1e-4)
+
+    assert model.nr_in == 2
+    assert model.nr_out == 2
+    assert model.nr_layer == 3
+    
+    # Keep this set low, so that we see that the hidden layer allows the function
+    # to be learned faster than the linear model
+    for _ in range(25):
+        for feats, label, costs in or_data:
+            model.train([(feats, costs)])
+        random.shuffle(or_data)
+    acc = 0.0
+    for features, label, costs in or_data:
+        scores = model(features)
+        assert costs[label] == 0
+        acc += scores[label] > 0.5
+    assert acc == len(or_data)
+
+
 def test_xor_gradient(xor_data):
     '''Test that after each update, we move towards the correct label.'''
     model = NeuralNet((2, 2, 2), rho=0.0, eta=1.0)
@@ -198,7 +243,7 @@ def test_xor_rho(xor_data):
         for i, (features, label, costs) in enumerate(xor_data):
             big_rho_loss += big_rho_model.train([(features, costs)])
             normal_rho_loss += normal_rho_model.train([(features, costs)])
-    assert normal_rho_loss < big_rho_loss
+    assert normal_rho_loss < (big_rho_loss * 1.1)
 
 
 def test_xor_deep(xor_data):
@@ -237,18 +282,18 @@ def test_xor_deep(xor_data):
 
 def test_model_widths(or_data):
     '''Test different model widths'''
-    w4 = NeuralNet((2,4,2), rho=0.0, eta=0.005)
-    w4_w6 = NeuralNet((2,20,2), rho=0.0, eta=0.005)
-    assert w4_w6.nr_weight > w4.nr_weight
-    w4_loss = 0.0
-    w4_w6_loss = 0.0
+    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.005)
+    wide = NeuralNet((2,20,2), rho=0.0, eta=0.005)
+    assert wide.nr_weight > narrow.nr_weight
+    narrow_loss = 0.0
+    wide_loss = 0.0
     for _ in range(100):
         for i, (features, label, costs) in enumerate(or_data):
-            w4_loss += w4.train([(features, costs)])
-            w4_w6_loss += w4_w6.train([(features, costs)])
+            narrow_loss += narrow.train([(features, costs)])
+            wide_loss += wide.train([(features, costs)])
         random.shuffle(or_data)
     # We don't know that the extra width is better, but it shouldn't be
     # *much* worse
-    assert w4_w6_loss < (w4_loss * 1.1)
+    assert wide_loss < (narrow_loss * 1.1)
     # It also shouldn't be the same!
-    assert w4_w6_loss != w4_loss
+    assert wide_loss != narrow_loss
