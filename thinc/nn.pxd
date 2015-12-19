@@ -49,7 +49,7 @@ cdef class NeuralNet:
             memset(fwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
             memset(bwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
         for i in range(nn.widths[0]):
-            fwd_acts[0][i] = input_[0]
+            fwd_acts[0][i] = input_[i]
 
         NeuralNet.forward(fwd_acts,
             nn.weights, nn.widths, nn.nr_layer)
