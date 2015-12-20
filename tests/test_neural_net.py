@@ -28,24 +28,24 @@ def test_fwd_bias():
     assert model.nr_weight == 6
     model.weights = [1.0] * model.nr_weight
 
-    scores = model([0, 0])
-    assert_allclose(scores, [0.5, 0.5])
+    eg = model([0, 0])
+    assert_allclose(eg.scores, [0.5, 0.5])
 
     # Set bias for class 0
     model.weights = [1.,1.,1.,1.,100000.0,1.]
     assert model.weights == [1.,1.,1.,1.,100000.0,1.]
-    scores = model([0, 0])
-    assert_allclose(scores, [1.0, 0.0])
+    eg = model([0, 0])
+    assert_allclose(eg.scores, [1.0, 0.0])
 
     # Set bias for class 1
     model.weights = [1.,1.,1.,1.,1.,100000.0]
-    scores = model([0,0])
-    assert_allclose(scores, [0.0, 1.0])
+    eg = model([0,0])
+    assert_allclose(eg.scores, [0.0, 1.0])
 
     # Set bias for both
     model.weights = [1.,1.,1.,1.,100000.0,100000.0]
-    scores = model([0,0])
-    assert_allclose(scores, [0.5, 0.5])
+    eg = model([0,0])
+    assert_allclose(eg.scores, [0.5, 0.5])
 
 
 def test_fwd_linear():
@@ -59,21 +59,21 @@ def test_fwd_linear():
     tf = [1,0]
     ft = [0,1]
     tt = [1,1]
-    scores = model(ff)
+    eg = model(ff)
 
-    assert_allclose(scores, [0.5, 0.5])
+    assert_allclose(eg.scores, [0.5, 0.5])
 
-    scores = model(ft)
+    eg = model(ft)
     
-    assert_allclose(scores, [ 0.26894142,  0.73105858])
-    assert_allclose([sum(scores)], [1.0])
+    assert_allclose(eg.scores, [ 0.26894142,  0.73105858])
+    assert_allclose([sum(eg.scores)], [1.0])
 
-    scores = model(tf)
-    assert_allclose(scores, [0.73105858, 0.26894142])
-    assert_allclose(sum(scores), [1.0])
+    eg = model(tf)
+    assert_allclose(eg.scores, [0.73105858, 0.26894142])
+    assert_allclose(sum(eg.scores), [1.0])
 
-    scores = model(tt)
-    assert_allclose(scores, [0.5, 0.5])
+    eg = model(tt)
+    assert_allclose(eg.scores, [0.5, 0.5])
 
 
 def test_xor_manual():
@@ -94,19 +94,6 @@ def test_xor_manual():
     # 1,0 --> A1 fires
     # 1,1 --> neither fire
     #
-    #model.set_weight(0, 0, 0, 4.0)    # Weight of A.0, in.0
-    #model.set_weight(0, 0, 1, -10.0)  # Weight of A.0, in.1
-    #model.set_weight(0, 1, 0, -10.0)  # Weight of A.1, in.0
-    #model.set_weight(0, 1, 1, 5.0)    # Weight of A.1, in.1
-    #model.set_weight(1, 0, 0, -10.0)  # Weight of out.0, A.0
-    #model.set_weight(1, 0, 1, -10.0)  # Weight of out.0, A.1
-    #model.set_weight(1, 1, 0, 10.0)   # Weight of out.1, A.0
-    #model.set_weight(1, 1, 1, 10.0)   # Weight of out.1, A.1
-    #model.set_bias(0, 0, 0.0)         # Bias of A 0
-    #model.set_bias(0, 1, 0.0)         # Bias of A 1
-    #model.set_bias(1, 0, 10.0)        # Bias of out 0
-    #model.set_bias(1, 1, -10.0)       # Bias of out 1
-
 
     model.weights = np.asarray([
                 [4.0, -10.0],   # A.0*in.0, A.0*in.1
@@ -122,17 +109,17 @@ def test_xor_manual():
     ft = [0,1]
     tt = [1,1]
 
-    scores = model(ff)
-    assert scores[0] > 0.99
+    eg = model(ff)
+    assert eg.scores[0] > 0.99
  
-    scores = model(tt)
-    assert scores[0] > 0.99
+    eg = model(tt)
+    assert eg.scores[0] > 0.99
     
-    scores = model(tf)
-    assert scores[1] > 0.99
+    eg = model(tf)
+    assert eg.scores[1] > 0.99
 
-    scores = model(ft)
-    assert scores[1] > 0.99
+    eg = model(ft)
+    assert eg.scores[1] > 0.99
  
 
 @pytest.fixture
@@ -160,7 +147,7 @@ def or_data():
 def test_learn_linear(or_data):
     '''Test that a linear model can learn OR.'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, epsilon=1e-4)
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4)
 
     assert model.nr_in == 2
     assert model.nr_out == 2
@@ -169,20 +156,20 @@ def test_learn_linear(or_data):
     # It takes about this many iterations, with the settings above.
     for _ in range(50):
         for feats, label, costs in or_data:
-            model.train([(feats, costs)])
+            model.train([feats], [costs])
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
-        scores = model(features)
+        eg = model(features)
         assert costs[label] == 0
-        acc += scores[label] > 0.5
+        acc += eg.scores[label] > 0.5
     assert acc == len(or_data)
 
 
 def test_mlp_learn_linear(or_data):
     '''Test that with a hidden layer, we can still learn OR'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.1, epsilon=1e-4)
+    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.1, eps=1e-4)
 
     assert model.nr_in == 2
     assert model.nr_out == 2
@@ -192,13 +179,13 @@ def test_mlp_learn_linear(or_data):
     # to be learned faster than the linear model
     for _ in range(25):
         for feats, label, costs in or_data:
-            model.train([(feats, costs)])
+            model.train([feats], [costs])
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
-        scores = model(features)
+        eg = model(features)
         assert costs[label] == 0
-        acc += scores[label] > 0.5
+        acc += eg.scores[label] > 0.5
     assert acc == len(or_data)
 
 
@@ -213,10 +200,11 @@ def test_xor_gradient(xor_data):
     for _ in range(500):
         for i, (features, label, costs) in enumerate(xor_data):
             prev = model(features)
-            assert_allclose([sum(prev)], [1.0])
-            model.train([(features, costs)])
-            scores = model(features)
-            assert prev[label] < scores[label] or prev[label] == scores[label] == 1.0
+            assert_allclose([sum(prev.scores)], [1.0])
+            model.train([features], [costs])
+            eg = model(features)
+            assert (prev.scores[label] < eg.scores[label] or \
+                    prev.scores[label] == eg.scores[label] == 1.0)
 
 
 def test_xor_eta(xor_data):
@@ -227,8 +215,8 @@ def test_xor_eta(xor_data):
     normal_eta_loss = 0.0
     for _ in range(100):
         for i, (features, label, costs) in enumerate(xor_data):
-            small_eta_loss += small_eta_model.train([(features, costs)])
-            normal_eta_loss += normal_eta_model.train([(features, costs)])
+            small_eta_loss += small_eta_model.train([features], [costs])
+            normal_eta_loss += normal_eta_model.train([features], [costs])
     assert normal_eta_loss < small_eta_loss
 
 
@@ -241,8 +229,8 @@ def test_xor_rho(xor_data):
     normal_rho_loss = 0.0
     for _ in range(10):
         for i, (features, label, costs) in enumerate(xor_data):
-            big_rho_loss += big_rho_model.train([(features, costs)])
-            normal_rho_loss += normal_rho_model.train([(features, costs)])
+            big_rho_loss += big_rho_model.train([features], [costs])
+            normal_rho_loss += normal_rho_model.train([features], [costs])
     assert normal_rho_loss < (big_rho_loss * 1.1)
 
 
@@ -255,24 +243,19 @@ def test_xor_deep(xor_data):
     big = NeuralNet((2,10,10,10,10,2), rho=0.0001, eta=0.005)
     for _ in range(10000):
         for i, (features, label, costs) in enumerate(xor_data):
-            linear.train([(features, costs)])
-            big.train([(features, costs)])
+            linear.train([features], [costs])
+            big.train([features], [costs])
             scores = big(features)
-            small.train([(features, costs)])
+            small.train([features], [costs])
         random.shuffle(xor_data)
 
     linear_loss = 0.0
     small_loss = 0.0
     big_loss = 0.0
     for i, (features, label, costs) in enumerate(xor_data):
-        scores = linear(features)
-        linear_loss += 1 - scores[label]
- 
-        scores = small(features)
-        small_loss += 1 - scores[label]
-            
-        scores = big(features)
-        big_loss += 1 - scores[label]
+        linear_loss += 1 - linear(features).scores[label]
+        small_loss += 1 - small(features).scores[label]
+        big_loss += 1 - big(features).scores[label]
     # The deep network learns, the shallow small one doesn't, the linear one
     # can't
     assert big_loss < 0.5
@@ -289,8 +272,8 @@ def test_model_widths(or_data):
     wide_loss = 0.0
     for _ in range(100):
         for i, (features, label, costs) in enumerate(or_data):
-            narrow_loss += narrow.train([(features, costs)])
-            wide_loss += wide.train([(features, costs)])
+            narrow_loss += narrow.train([features], [costs])
+            wide_loss += wide.train([features], [costs])
         random.shuffle(or_data)
     # We don't know that the extra width is better, but it shouldn't be
     # *much* worse

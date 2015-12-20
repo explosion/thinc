@@ -7,6 +7,7 @@ import numpy
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
 from .eg cimport Example, Batch
+from .structs cimport ExampleC
 
 
 cdef class NeuralNet:
@@ -36,16 +37,25 @@ cdef class NeuralNet:
 
         NeuralNet.forward(eg.c.fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer)
+        memcpy(eg.c.scores, eg.c.fwd_state[self.c.nr_layer-1],
+               self.nr_out * sizeof(weight_t)) 
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
+        eg.c.best = arg_max_if_zero(eg.c.scores, eg.c.costs, eg.c.nr_class)
         return eg
 
-    def train(self, X_y_pairs):
-        cdef Batch mb = self.make_batch(X_y_pairs)
+    def train(self, Xs, ys):
+        cdef Batch mb = self.make_batch(Xs, ys)
         gradient = mb.c.egs[0].gradient
         # Compute the gradient
-        for i in range(mb.c.nr):
+        cdef ExampleC* eg
+        for i in range(mb.c.nr_eg):
             eg = &mb.c.egs[i]
             NeuralNet.forward_backward(gradient, eg.fwd_state, eg.bwd_state,
                 eg.costs, &self.c)
+            memcpy(eg.scores, eg.fwd_state[self.c.nr_layer-1],
+                   self.nr_out * sizeof(weight_t))
+            eg.guess = arg_max_if_true(eg.scores, eg.is_valid, self.nr_out)
+            eg.best = arg_max_if_zero(eg.scores, eg.costs, self.nr_out)
         # L2 regularization
         VecVec.add_i(gradient,
             self.c.weights, self.c.rho, self.c.nr_weight)
@@ -57,10 +67,10 @@ cdef class NeuralNet:
     def make_example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        return Example.for_dense_nn(self.widths, input_, label)
+        return Example(nn_shape=self.widths, features=input_, label=label)
 
-    def make_batch(self, inputs, labels=None):
-        return Batch.for_dense_nn(self.widths, inputs, labels)
+    def make_batch(self, inputs, costs=None):
+        return Batch(self.widths, inputs, costs)
 
     property weights:
         def __get__(self):
@@ -119,3 +129,38 @@ cdef weight_t* _init_layer_weights(weight_t* W, int nr_out, int nr_wide) except 
     for i in range(nr_out):
         W[i] = 0.2
     return W + nr_out
+
+
+cdef int arg_max(const weight_t* scores, const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = scores[0]
+    for i in range(1, n_classes):
+        if scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if is_valid[i] and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
+
+
+cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
+                         const int n_classes) nogil:
+    cdef int i
+    cdef int best = 0
+    cdef weight_t mode = -900000
+    for i in range(n_classes):
+        if costs[i] == 0 and scores[i] > mode:
+            mode = scores[i]
+            best = i
+    return best
