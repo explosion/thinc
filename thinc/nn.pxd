@@ -34,22 +34,14 @@ from .blas cimport Vec, MatMat, MatVec, VecVec
 # gE here refers to the 'fine tuning' vector, for word embeddings
 
 
-
 cdef class NeuralNet:
     cdef Pool mem
-    
     cdef NeuralNetC c
 
     @staticmethod
     cdef inline void forward_backward(
             weight_t* gradient, weight_t** fwd_acts, weight_t** bwd_acts,
-            const weight_t* input_, const weight_t* costs, const NeuralNetC* nn) nogil:
-        # Ensure the fwd_state and bwd_state buffers are wiped
-        for i in range(nn.nr_layer):
-            memset(fwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
-            memset(bwd_acts[i], 0, nn.widths[i] * sizeof(weight_t))
-        for i in range(nn.widths[0]):
-            fwd_acts[0][i] = input_[i]
+            const weight_t* costs, const NeuralNetC* nn) nogil:
 
         NeuralNet.forward(fwd_acts,
             nn.weights, nn.widths, nn.nr_layer)
@@ -65,14 +57,16 @@ cdef class NeuralNet:
   
 
     @staticmethod
-    cdef inline void forward(weight_t** fwd,
+    cdef inline void forward(weight_t** state,
                         const weight_t* W,
                         const int* widths, int n) nogil:
         cdef int i
         for i in range(n-2): # Save last layer for softmax
-            Rectifier.forward(fwd[i+1], fwd[i], W, widths[i+1], widths[i])
+            Rectifier.forward(state[i+1],
+                state[i], W, widths[i+1], widths[i])
             W += widths[i+1] * widths[i] + widths[i+1]
-        Softmax.forward(fwd[n-1], fwd[n-2], W, widths[n-1], widths[n-2])
+        Softmax.forward(state[n-1],
+            state[n-2], W, widths[n-1], widths[n-2])
 
     @staticmethod
     cdef inline void backward(weight_t** bwd,
@@ -96,29 +90,33 @@ cdef class NeuralNet:
                         const weight_t* const* fwd,
                         const int* widths, int n) nogil:
         cdef int i
-        # Now set the gradients
         for i in range(n-1):
-            MatMat.add_outer_i(gradient, bwd[i+1], fwd[i], widths[i+1], widths[i])
-            gradient += widths[i+1] * widths[i]
-            VecVec.add_i(gradient, bwd[i+1], 1.0, widths[i+1])
-            gradient += widths[i+1]
+            MatMat.add_outer_i(gradient,
+                bwd[i+1], fwd[i], widths[i+1], widths[i])
+            VecVec.add_i(gradient + (widths[i+1] * widths[i]),
+                bwd[i+1], 1.0, widths[i+1])
+            gradient += (widths[i+1] * widths[i]) + widths[i+1]
 
 
 cdef class Rectifier:
     @staticmethod
     cdef inline void forward(weight_t* out,
-                        const weight_t* in_,
-                        const weight_t* W,
-                        int32_t nr_out,
-                        int32_t nr_wide) nogil:
-        # We're a layer of M cells, which we can think of like classes
-        # Each class sums over N inputs, which we can think of as features
-        # Each feature has a weight. So we own M*N weights
-        # We receive an input vector of N dimensions. We produce an output vector
-        # of M activations.
-        MatVec.dot(out, W, in_, nr_out, nr_wide)
+                        const weight_t* in_, const weight_t* W,
+                        int nr_out, int nr_wide) nogil:
+        # We're a layer of nr_wide cells, which we can think of as features.
+        # We write to an array of nr_out activations, one for each conenction
+        # to the next layer. We can think of the cells in the next layer like classes:
+        # we want to know whether we make that cell activate.
+        # 
+        # It's tempting to think at first as though we output nr_wide activations.
+        # We *receive* nr_wide activations. What we're determining now is,
+        # given those activations, our weights and our biases, what's the
+        # state of the next layer?
+        MatVec.dot(out,
+            W, in_, nr_out, nr_wide)
         # Bias
-        VecVec.add_i(out, W + (nr_out * nr_wide), 1.0, nr_out)
+        VecVec.add_i(out,
+            W + (nr_out * nr_wide), 1.0, nr_out)
         cdef int32_t i
         for i in range(nr_out):
             # Writing this way handles NaN
@@ -139,7 +137,8 @@ cdef class Rectifier:
         # Note that prev_delta is a column vector (the error of our output),
         # while delta is a row vector (the error of our neurons, which must match
         # the input layer's width)
-        MatVec.T_dot(delta_out, W, delta_in, nr_out, nr_wide)
+        MatVec.T_dot(delta_out,
+            W, delta_in, nr_out, nr_wide)
         cdef int32_t i
         for i in range(nr_wide):
             if signal_in[i] < 0:
@@ -154,25 +153,26 @@ cdef class Softmax:
                              int32_t nr_out,
                              int32_t nr_wide) nogil:
         #w = W.dot(actvn) + b
-        MatVec.dot(out, W, in_, nr_out, nr_wide)
+        MatVec.dot(out,
+            W, in_, nr_out, nr_wide)
         # Bias
-        VecVec.add_i(out, W + (nr_out * nr_wide), 1.0, nr_out)
+        VecVec.add_i(out,
+            W + (nr_out * nr_wide), 1.0, nr_out)
         #w = numpy.exp(w - max(w))
-        Vec.add_i(out, -Vec.max(out, nr_out), nr_out)
-        Vec.exp_i(out, nr_out)
+        Vec.add_i(out,
+            -Vec.max(out, nr_out), nr_out)
+        Vec.exp_i(out,
+            nr_out)
         #w = w / sum(w)
-        Vec.div_i(out, Vec.sum(out, nr_out), nr_out)
+        Vec.div_i(out,
+            Vec.sum(out, nr_out), nr_out)
 
     @staticmethod
     cdef inline void delta_log_loss(weight_t* loss,
                         const weight_t* costs,
                         const weight_t* scores,
                         int32_t nr_out) nogil:
-        '''Compute derivative of log loss'''
-        # Here we'll take a little short-cut, and for now say the loss is the
-        # weight assigned to the 'best'  class
-        # Probably we want to give credit for assigning weight to other correct
-        # classes
+        # This assumes only one true class
         cdef int i
         for i in range(nr_out):
             loss[i] = scores[i] - (costs[i] == 0)
@@ -186,8 +186,10 @@ cdef class Adagrad:
         '''
         Update weights with Adagrad
         '''
-        VecVec.add_pow_i(support, gradient, 2.0, n)
+        VecVec.add_pow_i(support,
+            gradient, 2.0, n)
         cdef int i
         for i in range(n):
             gradient[i] *= eta / (c_sqrt(support[i]) + eps)
-        VecVec.add_i(weights, gradient, -1.0, n)
+        VecVec.add_i(weights,
+            gradient, -1.0, n)
