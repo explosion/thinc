@@ -5,6 +5,19 @@ from .typedefs cimport weight_t, atom_t
 include "compile_time_constants.pxi"
 
 
+cdef struct NeuralNetC:
+    weight_t* weights
+    weight_t* support
+    int* widths
+
+    int32_t nr_layer
+    int32_t nr_weight
+
+    weight_t eta
+    weight_t rho
+    weight_t eps
+
+
 cdef struct ExampleC:
     int* is_valid
     weight_t* costs
@@ -26,17 +39,9 @@ cdef struct ExampleC:
     int cost
 
 
-cdef struct NeuralNetC:
-    weight_t* weights
-    weight_t* support
-    int* widths
-
-    int32_t nr_layer
-    int32_t nr_weight
-
-    weight_t eta
-    weight_t rho
-    weight_t eps
+cdef struct BatchC:
+    ExampleC* egs
+    int nr_eg
 
 
 cdef struct SparseArrayC:
