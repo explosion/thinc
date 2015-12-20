@@ -1,14 +1,20 @@
 from libc.stdint cimport int16_t, int32_t, uint64_t
+from preshed.maps cimport MapStruct
 from .typedefs cimport weight_t, atom_t
 
 
 include "compile_time_constants.pxi"
 
+# Alias this, so that it matches our naming scheme
+ctypedef MapStruct MapC
+
 
 cdef struct NeuralNetC:
+    int* widths
     weight_t* weights
     weight_t* support
-    int* widths
+    MapC sparse_weights
+    MapC sparse_support
 
     int32_t nr_layer
     int32_t nr_weight
@@ -41,6 +47,7 @@ cdef struct ExampleC:
 
 cdef struct BatchC:
     ExampleC* egs
+    weight_t* gradient
     int nr_eg
 
 

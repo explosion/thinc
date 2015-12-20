@@ -2,13 +2,16 @@ from __future__ import print_function
 cimport cython
 
 from cymem.cymem cimport Pool
-import numpy
+from preshed.maps cimport map_init as Map_init
+from preshed.maps cimport map_set as Map_set
+from preshed.maps cimport map_get as Map_get
 
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
 from .eg cimport Example, Batch
 from .structs cimport ExampleC
 
+import numpy
 
 cdef class NeuralNet:
     def __init__(self, widths, weight_t eta=0.005, weight_t eps=1e-6, weight_t rho=1e-4):
@@ -22,18 +25,31 @@ cdef class NeuralNet:
         cdef int i
         for i, width in enumerate(widths):
             self.c.widths[i] = width
+
         self.c.nr_weight = 0
         for i in range(self.c.nr_layer-1):
             self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         self.c.support = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+
+        Map_init(self.mem, &self.c.sparse_weights, 8)
+        Map_init(self.mem, &self.c.sparse_support, 8)
 
         cdef weight_t* W = self.c.weights
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
             W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
+
+    def Example(self, input_, label=None):
+        if isinstance(input_, Example):
+            return input_
+        return Example(nn_shape=self.widths, features=input_, label=label)
+
+    def Batch(self, inputs, costs=None):
+        return Batch(self.widths, inputs, costs)
    
     def __call__(self, input_):
-        cdef Example eg = self.make_example(input_)
+        cdef Example eg = self.Example(input_)
 
         NeuralNet.forward(eg.c.fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer)
@@ -44,34 +60,36 @@ cdef class NeuralNet:
         return eg
 
     def train(self, Xs, ys):
-        cdef Batch mb = self.make_batch(Xs, ys)
-        gradient = mb.c.egs[0].gradient
-        # Compute the gradient
+        cdef Batch mb = self.Batch(Xs, ys)
+        # Compute the gradient for each example in the batch
         cdef ExampleC* eg
         for i in range(mb.c.nr_eg):
             eg = &mb.c.egs[i]
-            NeuralNet.forward_backward(gradient, eg.fwd_state, eg.bwd_state,
+            NeuralNet.forward_backward(eg.gradient, eg.fwd_state, eg.bwd_state,
                 eg.costs, &self.c)
-            memcpy(eg.scores, eg.fwd_state[self.c.nr_layer-1],
-                   self.nr_out * sizeof(weight_t))
-            eg.guess = arg_max_if_true(eg.scores, eg.is_valid, self.nr_out)
-            eg.best = arg_max_if_zero(eg.scores, eg.costs, self.nr_out)
-        # L2 regularization
-        VecVec.add_i(gradient,
+        # Now sum the gradients
+        for i in range(mb.c.nr_eg):
+            VecVec.add_i(mb.c.gradient, mb.c.egs[i].gradient, 1.0, self.c.nr_weight)
+        # Apply L2 regularization
+        VecVec.add_i(mb.c.gradient,
             self.c.weights, self.c.rho, self.c.nr_weight)
         
-        Adagrad.update(self.c.weights, gradient, self.c.support,
+        Adagrad.update(self.c.weights, mb.c.gradient, self.c.support,
             self.c.nr_weight, self.c.eta, self.c.eps)
+
+        #for key, upd in sparse_gradient.items():
+        #    Adagrad.update(weight, upd, support,
+        #        length, self.c.eta, self.c.eps)
+        
+        # Fix the state of the examples
+        for i in range(mb.c.nr_eg):
+            eg = &mb.c.egs[i]
+            memcpy(eg.scores, eg.fwd_state[self.c.nr_layer-1],
+                   self.nr_out * sizeof(weight_t))
+            eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
+            eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
         return mb.loss
-
-    def make_example(self, input_, label=None):
-        if isinstance(input_, Example):
-            return input_
-        return Example(nn_shape=self.widths, features=input_, label=label)
-
-    def make_batch(self, inputs, costs=None):
-        return Batch(self.widths, inputs, costs)
-
+    
     property weights:
         def __get__(self):
             return [self.c.weights[i] for i in range(self.c.nr_weight)]
@@ -117,7 +135,7 @@ cdef class NeuralNet:
             return self.c.eps
         def __set__(self, eps):
             self.c.eps = eps
- 
+
 
 cdef weight_t* _init_layer_weights(weight_t* W, int nr_out, int nr_wide) except NULL:
     cdef int i

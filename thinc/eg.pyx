@@ -144,6 +144,9 @@ cdef class Batch:
             eg = Example(nn_shape=nn_shape, features=x, costs=y, mem=self.mem)
             self.c.egs[i] = eg.c
 
+        nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
+        self.c.gradient = <weight_t*>self.mem.alloc(nr_weight, sizeof(weight_t))
+
     def __iter__(self):
         for i in range(self.c.nr_eg):
             yield Example.from_ptr(self.mem, &self.c.egs[i])

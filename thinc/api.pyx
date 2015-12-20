@@ -54,76 +54,6 @@ cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
     return best
 
 
-cdef class Example:
-    def __init__(self):
-        self.mem = Pool()
-
-    property guess:
-        def __get__(self):
-            return self.c.guess
-        def __set__(self, int value):
-            self.c.guess = value
-
-    property best:
-        def __get__(self):
-            return self.c.best
-        def __set__(self, int value):
-            self.c.best = value
-    
-    property cost:
-        def __get__(self):
-            return self.c.cost
-        def __set__(self, int value):
-            self.c.cost = value
-    
-    property nr_class:
-        def __get__(self):
-            return self.c.nr_class
-        def __set__(self, int value):
-            self.c.nr_class = value
- 
-    property nr_atom:
-        def __get__(self):
-            return self.c.nr_atom
-        def __set__(self, int value):
-            self.c.nr_atom = value
- 
-    property nr_feat:
-        def __get__(self):
-            return self.c.nr_feat
-        def __set__(self, int value):
-            self.c.nr_feat = value
-
-    property embed:
-        def __get__(self):
-            return [self.c.fwd_state[0][i] for i in range(self.c.nr_atom)]
-
-    property scores:
-        def __get__(self):
-            return [self.c.scores[i] for i in range(self.c.nr_class)]
-
-    property loss:
-        def __get__(self):
-            return 1 - self.c.scores[self.c.best]
-
-    def activation(self, int i, int j):
-        return self.c.fwd_state[i][j]
- 
-    def wipe(self):
-        cdef int i
-        if self.c.is_valid is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.is_valid[i] = 0
-        if self.c.costs is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.costs[i] = 0
-        if self.c.scores is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.scores[i] = 0
-        if self.c.atoms is not NULL:
-            for i in range(self.c.nr_atom):
-                self.c.atoms[i] = 0
-
 
 cdef class Learner:
     @classmethod
@@ -154,9 +84,6 @@ cdef class Learner:
 
         def __set__(self, value):
             pass
-
-
-
 
 
 cdef class Learner:
