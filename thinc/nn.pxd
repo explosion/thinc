@@ -8,6 +8,7 @@ from cymem.cymem cimport Pool
 from .structs cimport NeuralNetC
 from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
+from .eg cimport BatchC
 
 # The input/output of the fwd/bwd pass can be confusing. Some notes.
 #
@@ -39,22 +40,45 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     @staticmethod
-    cdef inline void forward_backward(
-            weight_t* gradient, weight_t** fwd_acts, weight_t** bwd_acts,
-            const weight_t* costs, const NeuralNetC* nn) nogil:
+    cdef inline void trainC(NeuralNetC* nn, BatchC* mb) nogil:
+        cdef int i
+        # Compute forward and backward passes
+        for i in range(mb.nr_eg):
+            NeuralNet.forward_backward(mb.egs[i].fwd_state, mb.egs[i].bwd_state,
+                mb.egs[i].costs, nn)
+        # Get the averaged gradient for the minibatch
+        for i in range(mb.nr_eg):
+            NeuralNet.set_gradient(mb.gradient,
+                mb.egs[i].fwd_state, mb.egs[i].bwd_state, nn.widths, nn.nr_layer)
+        Vec.div_i(mb.gradient, mb.nr_eg, nn.nr_weight)
 
+        # Add the derivative of the L2-loss to the gradient
+        VecVec.add_i(mb.gradient,
+            nn.weights, nn.rho, nn.nr_weight)
+
+        # Vanilla SGD for now
+        VecVec.add_i(nn.weights,
+            mb.gradient, -nn.eta, nn.nr_weight)
+
+
+        #self.optimizer.update(self.c.weights, mb.c.gradient, self.c.support,
+        #    self.c.nr_weight)
+
+        #Batch.average_sparse_gradients(&mb.c.sparse_gradient,
+        #    mb.c.egs, mb.c.nr_eg)
+        #self.optimizer.update_sparse(self.c.sparse_weights, mb.c.sparse_gradient,
+        #    self.c.widths[0])
+
+
+    @staticmethod
+    cdef inline void forward_backward(weight_t** fwd_acts, weight_t** bwd_acts,
+            const weight_t* costs, const NeuralNetC* nn) nogil:
         NeuralNet.forward(fwd_acts,
             nn.weights, nn.widths, nn.nr_layer)
-
         Softmax.delta_log_loss(bwd_acts[nn.nr_layer-1],
             costs, fwd_acts[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        
         NeuralNet.backward(bwd_acts,
             fwd_acts, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
-        
-        NeuralNet.set_gradient(gradient,
-            bwd_acts, fwd_acts, nn.widths, nn.nr_layer)
-  
 
     @staticmethod
     cdef inline void forward(weight_t** state,
@@ -74,7 +98,7 @@ cdef class NeuralNet:
                         const weight_t* W,
                         const int* widths, int n) nogil:
         cdef int i
-        for i in range(n-2, -1, -1):
+        for i in range(n-2, 0, -1):
             W -= widths[i+1] * widths[i] + widths[i+1]
             Rectifier.backward(bwd[i], # Output: error of this layer, len=width
                 bwd[i+1],    # Input: error from layer above, len=nr_out
@@ -83,11 +107,14 @@ cdef class NeuralNet:
                 widths[i+1], # Width of next layer 
                 widths[i]    # Width of this layer 
             )
+        # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
+        W -= widths[1] * widths[0] + widths[1]
+        MatVec.T_dot(bwd[0], W, bwd[1], widths[1], widths[0])
 
     @staticmethod
     cdef inline void set_gradient(weight_t* gradient,
-                        const weight_t* const* bwd,
                         const weight_t* const* fwd,
+                        const weight_t* const* bwd,
                         const int* widths, int n) nogil:
         cdef int i
         for i in range(n-1):
@@ -181,8 +208,8 @@ cdef class Softmax:
 cdef class Adagrad:
     @staticmethod
     @cython.cdivision(True)
-    cdef inline void update(weight_t* weights, weight_t* gradient, weight_t* support,
-                            int32_t n, weight_t eta, weight_t eps) nogil:
+    cdef inline void rescale(weight_t* gradient, weight_t* support,
+                        int32_t n, weight_t eta, weight_t eps) nogil:
         '''
         Update weights with Adagrad
         '''
@@ -191,5 +218,3 @@ cdef class Adagrad:
         cdef int i
         for i in range(n):
             gradient[i] *= eta / (c_sqrt(support[i]) + eps)
-        VecVec.add_i(weights,
-            gradient, -1.0, n)

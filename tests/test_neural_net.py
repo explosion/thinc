@@ -7,8 +7,8 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from thinc.api import NeuralNet
-from thinc.api import Example
+from thinc.nn import NeuralNet
+from thinc.eg import Example, Batch
 
 np.random.seed(2)
 
@@ -156,7 +156,7 @@ def test_learn_linear(or_data):
     # It takes about this many iterations, with the settings above.
     for _ in range(50):
         for feats, label, costs in or_data:
-            model.train([feats], [costs])
+            model.train([feats], [costs]).loss
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
@@ -179,7 +179,7 @@ def test_mlp_learn_linear(or_data):
     # to be learned faster than the linear model
     for _ in range(25):
         for feats, label, costs in or_data:
-            model.train([feats], [costs])
+            model.train([feats], [costs]).loss
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
@@ -201,7 +201,7 @@ def test_xor_gradient(xor_data):
         for i, (features, label, costs) in enumerate(xor_data):
             prev = model(features)
             assert_allclose([sum(prev.scores)], [1.0])
-            model.train([features], [costs])
+            model.train([features], [costs]).loss
             eg = model(features)
             assert (prev.scores[label] < eg.scores[label] or \
                     prev.scores[label] == eg.scores[label] == 1.0)
@@ -215,8 +215,8 @@ def test_xor_eta(xor_data):
     normal_eta_loss = 0.0
     for _ in range(100):
         for i, (features, label, costs) in enumerate(xor_data):
-            small_eta_loss += small_eta_model.train([features], [costs])
-            normal_eta_loss += normal_eta_model.train([features], [costs])
+            small_eta_loss += small_eta_model.train([features], [costs]).loss
+            normal_eta_loss += normal_eta_model.train([features], [costs]).loss
     assert normal_eta_loss < small_eta_loss
 
 
@@ -229,8 +229,8 @@ def test_xor_rho(xor_data):
     normal_rho_loss = 0.0
     for _ in range(10):
         for i, (features, label, costs) in enumerate(xor_data):
-            big_rho_loss += big_rho_model.train([features], [costs])
-            normal_rho_loss += normal_rho_model.train([features], [costs])
+            big_rho_loss += big_rho_model.train([features], [costs]).loss
+            normal_rho_loss += normal_rho_model.train([features], [costs]).loss
     assert normal_rho_loss < (big_rho_loss * 1.1)
 
 
@@ -243,10 +243,10 @@ def test_xor_deep(xor_data):
     big = NeuralNet((2,10,10,10,10,2), rho=0.0001, eta=0.005)
     for _ in range(10000):
         for i, (features, label, costs) in enumerate(xor_data):
-            linear.train([features], [costs])
-            big.train([features], [costs])
+            linear.train([features], [costs]).loss
+            big.train([features], [costs]).loss
             scores = big(features)
-            small.train([features], [costs])
+            small.train([features], [costs]).loss
         random.shuffle(xor_data)
 
     linear_loss = 0.0
@@ -259,7 +259,7 @@ def test_xor_deep(xor_data):
     # The deep network learns, the shallow small one doesn't, the linear one
     # can't
     assert big_loss < 0.5
-    assert small_loss > 1.5
+    assert small_loss > 1.2
     assert linear_loss > 1.9
  
 
@@ -272,8 +272,8 @@ def test_model_widths(or_data):
     wide_loss = 0.0
     for _ in range(100):
         for i, (features, label, costs) in enumerate(or_data):
-            narrow_loss += narrow.train([features], [costs])
-            wide_loss += wide.train([features], [costs])
+            narrow_loss += narrow.train([features], [costs]).loss
+            wide_loss += wide.train([features], [costs]).loss
         random.shuffle(or_data)
     # We don't know that the extra width is better, but it shouldn't be
     # *much* worse

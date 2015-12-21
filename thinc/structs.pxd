@@ -48,6 +48,7 @@ cdef struct ExampleC:
 cdef struct BatchC:
     ExampleC* egs
     weight_t* gradient
+    MapC sparse_gradient
     int nr_eg
 
 
