@@ -1,7 +1,7 @@
 cimport cython
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 
-from .eg cimport Example
+from .api cimport Example
 from .typedefs cimport time_t, feat_t, weight_t, class_t
 from .structs cimport SparseAverageC
 from .sparse cimport SparseArray
@@ -110,48 +110,3 @@ cdef class AveragedPerceptronUpdater(Updater):
         for feat_id, feat_addr in self.train_weights.items():
             if feat_addr != 0:
                 average_weights(<SparseAverageC*>feat_addr, self.time)
-
-#cdef class Optimizer:
-#    def __init__(self, weight_t eta, weight_t eps, weight_t rho):
-#        self.eta = eta
-#        self.eps = eps
-#        self.rho = rho
-#
-#    cdef void rescale(self, weight_t* gradient, weight_t* support, int nr_weight) nogil:
-#        Vec.mul_i(gradient, self.c.eta, nr_weight)
-#
-#    cdef void update(self, weight_t* weights, weight_t* gradient, weight_t* support,
-#            int nr_weight) nogil:
-#        # Add the derivative of the L2-loss to the gradient
-#        VecVec.add_i(gradient,
-#            weights, self.c.rho, nr_weight)
-#
-#        # Rescale the gradient, using a method specified by the optimizer
-#        self.rescale(gradient, support,
-#            nr_weight)
-#        
-#        # Update the weights -- note that the learning-rate scaling was taken
-#        # care of in Adagrad.update
-#        VecVec.add_i(weights,
-#            gradient, -1.0, nr_weight)
-#
-#    cdef void update_sparse(self, MapC* weights, MapC* gradients, MapC* supports,
-#            int length) nogil:
-#        cdef feat_t key
-#        cdef void* addr
-#        cdef int i = 0
-#        while Map_iter(gradients, &i, &key, &addr):
-#            feat_w = <weight_t*>Map_get(weights, key)
-#            feat_s = <weight_t*>Map_get(supports, key)
-#            feat_g = <weight_t*>addr
-#
-#            self.update(feat_w, feat_g, feat_s,
-#                length)
-#            
-#            VecVec.add_i(feat_w,
-#                feat_g, -1.0, length)
-#
-#
-#cdef class Adagrad(Optimizer):
-#    cdef void rescale(self, weight_t* gradient, weight_t* support, int nr_weight) nogil:
-#        pass 

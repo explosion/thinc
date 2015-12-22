@@ -1,179 +1,128 @@
-from __future__ import print_function
 cimport cython
 
 from cymem.cymem cimport Pool
-from preshed.maps cimport map_init as Map_init
-from preshed.maps cimport map_set as Map_set
-from preshed.maps cimport map_get as Map_get
-from preshed.maps cimport map_iter as Map_iter
 
-from .typedefs cimport weight_t, atom_t, feat_t
-from .blas cimport VecVec
-from .eg cimport Example, Batch
-from .structs cimport ExampleC
+from .typedefs cimport weight_t, atom_t
 
-import numpy
+from libc.string cimport memcpy
+from libc.math cimport isnan, sqrt
 
 
-cdef class NeuralNet:
-    def __init__(self, widths, weight_t eta=0.005, weight_t eps=1e-6, weight_t rho=1e-4):
-        self.mem = Pool()
-        self.c.eta = eta
-        self.c.eps = eps
-        self.c.rho = rho
-
-        self.c.nr_layer = len(widths)
-        self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
-        cdef int i
-        for i, width in enumerate(widths):
-            self.c.widths[i] = width
-
-        self.c.nr_weight = 0
-        for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
-
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-
-        Map_init(self.mem, self.c.sparse, 8)
-
-        cdef weight_t* W = self.c.weights
-        for i in range(self.c.nr_layer-2): # Don't init softmax weights
-            W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
-
-    def make_example(self, input_, label=None):
-        cdef Example eg
-        if isinstance(input_, Example):
-            eg = input_
-        else:
-            eg = Example(self.nr_out)
-        Example.init_nn(&eg.c, eg.mem, self.widths)
-        #Example.set_dense(&eg.c, eg.mem, input_)
-        #Example.set_label(&eg.c, eg.mem, label)
-        return eg
-
-    def make_batch(self, examples):
-        if isinstance(examples, Batch):
-            return examples
-        return Batch(self.widths, examples)
-   
-    def predict(self, Example eg):
-        with nogil:
-            NeuralNet.forward(eg.c.fwd_state,
-                self.c.weights, self.c.widths, self.c.nr_layer)
-            Example.set_scores(&eg.c,
-                eg.c.fwd_state[self.c.nr_layer-1])
-        return eg
-
-    def train(self, minibatch):
-        cdef Batch mb = self.Batch(minibatch)
-        with nogil:
-            NeuralNet.trainC(&self.c, &mb.c)
-            for i in range(mb.c.nr_eg):
-                Example.set_scores(&mb.c.egs[i],
-                    mb.c.egs[i].fwd_state[self.c.nr_layer-1])
-        return mb
-
-    def update(self, Batch mb):
-        cdef int i
-        # Get the averaged gradient for the minibatch
-        for i in range(mb.c.nr_eg):
-            eg = &mb.c.egs[i]
-            NeuralNet.inc_gradient(mb.c.gradient,
-                eg.fwd_state, eg.bwd_state, self.c.widths, self.model.c.nr_layer)
-        # Vanilla SGD and L2 regularization (for now)
-        VecVec.add_i(mb.c.gradient,
-            self.c.weights, self.c.rho, self.c.nr_weight)
-        VecVec.add_i(self.c.weights,
-            mb.c.gradient, -self.c.eta, self.c.nr_weight)
-
-        # Gather the per-feature gradient
-        Batch.init_sparse_gradients(mb.c.sparse, mb.mem,
-            mb.c.egs, mb.c.nr_eg)
-        Batch.average_sparse_gradients(mb.c.sparse,
-            mb.c.egs, mb.c.nr_eg)
-        # Iterate over the sparse gradient, and update
-        cdef feat_t key
-        cdef void* addr
-        i = 0
-        while Map_iter(mb.c.sparse, &i, &key, &addr):
-            feat_w = <weight_t*>Map_get(self.c.sparse, key)
-            # This should never be null --- they should be preset.
-            # Still, we check.
-            if feat_w is not NULL and addr is not NULL:
-                feat_g = <weight_t*>addr
-                # Add the derivative of the L2-loss to the gradient
-                VecVec.add_i(feat_g,
-                    feat_w, self.c.rho, self.c.widths[0])
-                # Vanilla SGD for now
-                VecVec.add_i(feat_w,
-                    feat_g, -self.c.eta, self.c.widths[0])
-
-
-
-    def __call__(self, input_):
-        return self.predict(self.make_example(input_))
-    
-    property weights:
-        def __get__(self):
-            return [self.c.weights[i] for i in range(self.c.nr_weight)]
-        def __set__(self, weights):
-            for i, weight in enumerate(weights):
-                self.c.weights[i] = weight
-
-    property widths:
-        def __get__(self):
-            return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
-
-    property nr_layer:
-        def __get__(self):
-            return self.c.nr_layer
-    property nr_weight:
-        def __get__(self):
-            return self.c.nr_weight
-    property nr_out:
-        def __get__(self):
-            return self.c.widths[self.c.nr_layer-1]
-    property nr_in:
-        def __get__(self):
-            return self.c.widths[0]
-
-    property eta:
-        def __get__(self):
-            return self.c.eta
-        def __set__(self, eta):
-            self.c.eta = eta
-    property rho:
-        def __get__(self):
-            return self.c.rho
-        def __set__(self, rho):
-            self.c.rho = rho
-    property eps:
-        def __get__(self):
-            return self.c.eps
-        def __set__(self, eps):
-            self.c.eps = eps
-
-
-cdef weight_t* _init_layer_weights(weight_t* W, int nr_out, int nr_wide) except NULL:
+@cython.cdivision(True)
+cdef void Param_asgd(Param* self, float* grad, int t, float eta, float mu) except *:
     cdef int i
-    std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / nr_wide)
-    values = numpy.random.normal(loc=0.0, scale=std, size=(nr_out * nr_wide))
-    for i in range(nr_out * nr_wide):
-        W[i] = values[i]
-    W += nr_out * nr_wide
-    for i in range(nr_out):
-        W[i] = 0.2
-    return W + nr_out
+    cdef float alpha = (1 / t)
+    alpha = alpha if alpha >= 0.001 else 0.001
+    alpha = alpha if alpha < 0.9 else 0.9
+
+    for i in range(self.length):
+        self.step[i] = (mu * self.step[i]) - grad[i]
+        self.curr[i] += (eta * self.step[i])
+        if t < 1000:
+            self.avg[i] = self.curr[i]
+        else:
+            self.avg[i] = ((1 - alpha) * self.avg[i]) + (alpha * self.curr[i])
 
 
-#        # Pre-allocate and insert embedding vectors for any features we haven't
-#        # seen. Do it now so we can release the GIL later.
-#        for i in range(mb.c.nr_eg):
-#            for j in range(mb.c.egs[i].nr_feat):
-#                key = mb.c.egs[i].features[j].key
-#                embed = <weight_t*>Map_get(&self.c.sparse_weights, key)
-#                if embed is NULL:
-#                    embed = <weight_t*>self.mem.alloc(self.c.widths[0], sizeof(weight_t))
-#                    Map_set(self.mem, &self.c.sparse_weights,
-#                        key, embed)
-#
+@cython.cdivision(True)
+cdef void Param_sgd_cm(Param* self, float* grad, int t, float eta, float mu) except *:
+    cdef int i
+    for i in range(self.length):
+        self.step[i] = (mu * self.step[i]) - grad[i]
+        self.curr[i] += (eta * self.step[i])
+
+
+@cython.cdivision(True)
+cdef void Param_adadelta(Param* self, float* grad, int t, float rho, float epsilon) except *:
+    cdef float accu, delta_accu, curr, g
+    cdef float accu_new, delta_accu_new, upd
+    cdef int i
+
+    for i in range(self.length):
+        accu = self.avg[i]
+        delta_accu = self.step[i]
+        curr = self.curr[i]
+        g = grad[i]
+
+        accu_new = rho * accu + (1-rho) * g ** 2
+        upd = (g * sqrt(delta_accu + epsilon) / sqrt(accu_new + epsilon))
+        delta_accu_new = rho * delta_accu
+
+        self.curr[i] -= upd
+        self.avg[i] = accu_new
+        self.step[i] = delta_accu_new
+
+
+cdef Param Param_init(Pool mem, int length, initializer) except *:
+    cdef Param param
+    param.curr = <float*>mem.alloc(length, sizeof(float))
+    param.avg = <float*>mem.alloc(length, sizeof(float))
+    param.step = <float*>mem.alloc(length, sizeof(float))
+    param.update = Param_asgd
+    param.length = length
+
+    # Draw random values from the initializer. avg and curr should have the same
+    # values. Step is initialized to 0s
+    for i in range(length):
+        param.curr[i] = initializer()
+        param.avg[i] = 0
+    return param
+
+
+cdef class EmbeddingTable:
+    def __init__(self, n_cols, initializer):
+        self.mem = Pool()
+        self.initializer = initializer
+        self.n_cols = n_cols
+        self.table = PreshMap()
+
+    cdef Param* get(self, atom_t key) except NULL:
+        param = <Param*>self.table.get(key)
+        if param is NULL:
+            param = <Param*>self.mem.alloc(1, sizeof(Param))
+            param[0] = Param_init(self.mem, self.n_cols, self.initializer)
+            self.table.set(key, param)
+        return param
+
+
+cdef class InputLayer:
+    '''An input layer to an NN.'''
+    def __init__(self, input_structure, initializer):
+        self.mem = Pool()
+        self.length = 0
+        self.tables = []
+        self.indices = []
+        for i, (n_cols, fields) in enumerate(input_structure):
+            self.tables.append(EmbeddingTable(n_cols, initializer))
+            self.indices.append(fields)
+            self.length += len(fields) * n_cols
+
+    def __len__(self):
+        return self.length
+    
+    @cython.boundscheck(False)
+    def fill(self, float[:] output, atom_t[:] context, use_avg=False):
+        cdef int i, j, idx, c
+        cdef EmbeddingTable table
+        cdef const Param* param
+        c = 0
+        for table, fields in zip(self.tables, self.indices):
+            for idx in fields:
+                param = table.get(context[idx])
+                if use_avg:
+                    memcpy(&output[c], param.avg, param.length * sizeof(float))
+                else:
+                    memcpy(&output[c], param.curr, param.length * sizeof(float))
+                c += param.length
+
+    @cython.boundscheck(False)
+    def update(self, float[:] gradient, atom_t[:] context, t, eta, mu):
+        cdef int i, j, idx, c
+        cdef EmbeddingTable table
+        cdef Param* param
+        c = 0
+        for table, fields in zip(self.tables, self.indices):
+            for idx in fields:
+                param = table.get(context[idx])
+                param.update(param, &gradient[c], t, eta, mu)
+                c += param.length

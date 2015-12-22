@@ -20,19 +20,6 @@ cdef class Model:
     def __init__(self):
         raise NotImplementedError
 
-    def __dealloc__(self):
-        cdef size_t feat_addr
-        # Use 'raw' memory management, instead of cymem.Pool, for weights.
-        # The memory overhead of cymem becomes significant here.
-        if self.weights is not None:
-            for feat_addr in self.weights.values():
-                if feat_addr != 0:
-                    PyMem_Free(<void*>feat_addr)
-
-    def __call__(self, Example eg):
-        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
-
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         pass
 
@@ -47,7 +34,20 @@ cdef class LinearModel(Model):
     def __init__(self):
         self.weights = PreshMap()
         self.mem = Pool()
-    
+
+    def __dealloc__(self):
+        cdef size_t feat_addr
+        # Use 'raw' memory management, instead of cymem.Pool, for weights.
+        # The memory overhead of cymem becomes significant here.
+        if self.weights is not None:
+            for feat_addr in self.weights.values():
+                if feat_addr != 0:
+                    PyMem_Free(<SparseArrayC*>feat_addr)
+
+    def __call__(self, Example eg):
+        self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
+
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
@@ -176,6 +176,7 @@ cdef class _Reader:
         # Trust We allocated correctly above
         feat[length].key = -2 # Indicates end of memory region
         feat[length].val = 0
+
 
         # Copy into the output variables
         out_feat[0] = feat
