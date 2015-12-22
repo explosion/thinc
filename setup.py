@@ -234,7 +234,7 @@ def setup_package():
             url='https://github.com/honnibal/thinc',
             license='MIT',
             ext_modules=ext_modules,
-            install_requires=['numpy', 'murmurhash == 0.26', 'cymem == 1.30', 'preshed == 0.45'],
+            install_requires=['numpy', 'murmurhash == 0.26', 'cymem == 1.30', 'preshed == 0.46'],
             cmdclass = {
                 'build_ext': build_ext_subclass},
         )
