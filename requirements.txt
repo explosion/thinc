@@ -1,3 +1,5 @@
+cython
 cymem == 1.30
-murmurhash == 0.24
-preshed == 0.43
+murmurhash == 0.26
+preshed == 0.45
+numpy
