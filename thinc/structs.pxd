@@ -12,16 +12,18 @@ ctypedef MapStruct MapC
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
-    weight_t* support
-    MapC sparse_weights
-    MapC sparse_support
+    MapC* sparse
+    void* opt
+
+    void (*update)(void* opt, weight_t* weights, weight_t* gradient,
+        int nr_weight, const int* widths, int nr_layer)
 
     int32_t nr_layer
     int32_t nr_weight
 
-    weight_t eta
-    weight_t rho
     weight_t eps
+    weight_t rho
+    weight_t eta
 
 
 cdef struct ExampleC:
@@ -48,7 +50,7 @@ cdef struct ExampleC:
 cdef struct BatchC:
     ExampleC* egs
     weight_t* gradient
-    MapC sparse_gradient
+    MapC* sparse
     int nr_eg
 
 

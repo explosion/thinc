@@ -41,6 +41,13 @@ cdef class Example:
            eg.fwd_state[0][i] = input_value
 
     @staticmethod
+    cdef inline void init_sparse(ExampleC* eg, Pool mem, sparse_input) except *:
+        eg.nr_feat = len(sparse_input)
+        eg.features = <FeatureC*>mem.alloc(eg.nr_feat, sizeof(FeatureC))
+        for i, (feat_id, feat_value, offset, length) in enumerate(sparse_input):
+            eg.features[i] = FeatureC(key=feat_id, val=feat_value, i=offset, length=length)
+
+    @staticmethod
     cdef inline void init_nn(ExampleC* eg, Pool mem, widths) except *:
         eg.fwd_state = <weight_t**>mem.alloc(len(widths), sizeof(void*))
         eg.bwd_state = <weight_t**>mem.alloc(len(widths), sizeof(void*))

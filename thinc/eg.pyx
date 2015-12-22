@@ -1,65 +1,29 @@
 cdef class Example:
-    def __init__(self, nr_class=0, nn_shape=None, features=None, label=None,
-                 costs=None, is_valid=None, mem=None):
+    def __init__(self, shape, features, label, mem=None):
         if mem is None:
             mem = Pool()
+        # Idea: Lots of ways to specify the shape, the features, and the label
+        # but these are the types of information available, so freely accept
+        # combinations of them.
         self.mem = mem
-        nr_class = self.infer_nr_class(nr_class, nn_shape=nn_shape, label=label,
-                                       costs=costs, is_valid=is_valid)
-        Example.init_class(&self.c, self.mem, nr_class) 
-        
-        if nn_shape is not None:
-            Example.init_nn(&self.c, self.mem, nn_shape)
-        if features is not None: # TODO handle sparse features
-            Example.init_dense(&self.c, self.mem, features)
-        if costs is None:
-            costs = self.infer_costs(nr_class, costs, label)
-        self.costs = costs
 
-    @classmethod
-    def infer_nr_class(cls, nr_class, nn_shape=None, label=None,
-                       costs=None, is_valid=None):
-        if nr_class >= 1:
-            return nr_class
-        elif nn_shape is not None:
-            return nn_shape[-1]
-        elif costs is not None and is_valid is not None:
-            assert len(costs) == len(is_valid)
-            return len(costs)
-        elif costs is not None:
-            return len(costs)
-        elif is_valid is not None:
-            return len(is_valid)
-        elif label is not None:
-            return label + 1
-        else:
-            return 0
+    def set_shape(self, shape):
+        pass
 
-    @classmethod
-    def infer_costs(cls, nr_class, costs, label):
-        if costs is not None:
-            return costs
-        elif label is not None:
-            costs = [1] * nr_class
-            costs[label] = 0
-            return costs
-        else:
-            return [0] * nr_class
+    def set_shape_by_nr_class(self, nr_class):
+        pass
 
-    @classmethod
-    def infer_label(cls, nr_class, label, costs, scores):
-        if label is not None:
-            return label
-        elif costs is not None:
-            max_ = None
-            best = None
-            for i, score in enumerate(scores):
-                if costs[i] == 0 and score > best:
-                    max_ = score
-                    best = i
-            return best
-        else:
-            return None
+    def set_shape_by_widths(self, widths):
+        pass
+
+    def set_input(self, input_):
+        pass
+
+    def set_input_dense(self, input_):
+        pass
+
+    def set_input_sparse(self, input_, offset, length):
+        pass
 
     def wipe(self):
         cdef int i
@@ -146,7 +110,7 @@ cdef class Batch:
 
         nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
         self.c.gradient = <weight_t*>self.mem.alloc(nr_weight, sizeof(weight_t))
-        Batch.init_sparse_gradients(&self.c.sparse_gradient, self.mem,
+        Batch.init_sparse_gradients(self.c.sparse, self.mem,
             self.c.egs, self.c.nr_eg)
 
     def __iter__(self):

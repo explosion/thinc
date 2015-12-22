@@ -5,10 +5,15 @@ from libc.stdint cimport int32_t
 
 from cymem.cymem cimport Pool
 
-from .structs cimport NeuralNetC
-from .typedefs cimport weight_t
+from preshed.maps cimport map_init as Map_init
+from preshed.maps cimport map_iter as Map_iter
+from preshed.maps cimport map_set as Map_set
+from preshed.maps cimport map_get as Map_get
+
+from .structs cimport NeuralNetC, MapC, FeatureC
+from .typedefs cimport weight_t, feat_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
-from .eg cimport BatchC
+from .eg cimport Batch, BatchC
 
 # The input/output of the fwd/bwd pass can be confusing. Some notes.
 #
@@ -19,13 +24,12 @@ from .eg cimport BatchC
 # in1 = act0 = ReLu(in0 * W0 + b0)
 # in2 = act1 = ReLu(in1 * W1 + b1)
 # out = act2 = Softmax(in2 * W2 + b2)
-
-# Okay so our scores are at fwd_state[3]. Our loss will live there too.
+# 
+# Okay so our scores are at fwd[3]. Our loss will be at bwd[3].
+# 
 # The loss will then be used to calculate the gradient for layer 2.
-# We now sweep backward, and calculate the next loss, which will be used
-# to calculate the gradient for layer 1, etc.
-#
-# So, the total loss is at bwd_state[3]
+# We now sweep backward, and calculate the next loss.
+# These losses are used to calculate the gradient for the layer below.
 # 
 # g2 = d3 = out - target
 # g1 = d2 = Back(d3, in2, w2, b2)
@@ -42,48 +46,48 @@ cdef class NeuralNet:
     @staticmethod
     cdef inline void trainC(NeuralNetC* nn, BatchC* mb) nogil:
         cdef int i
-        # Compute forward and backward passes
+        # Compute forward and backward passes for each example
         for i in range(mb.nr_eg):
-            NeuralNet.forward_backward(mb.egs[i].fwd_state, mb.egs[i].bwd_state,
-                mb.egs[i].costs, nn)
+            NeuralNet.forward(mb.egs[i].fwd_state,
+                nn.weights, nn.widths, nn.nr_layer)
+        for i in range(mb.nr_eg):
+            eg = &mb.egs[i]
+            NeuralNet.backward(eg.bwd_state,
+                eg.costs, eg.fwd_state, nn.weights+nn.nr_weight, nn.widths, nn.nr_layer)
         # Get the averaged gradient for the minibatch
         for i in range(mb.nr_eg):
-            NeuralNet.set_gradient(mb.gradient,
+            NeuralNet.inc_gradient(mb.gradient,
                 mb.egs[i].fwd_state, mb.egs[i].bwd_state, nn.widths, nn.nr_layer)
-        Vec.div_i(mb.gradient, mb.nr_eg, nn.nr_weight)
-
-        # Add the derivative of the L2-loss to the gradient
+        Vec.div_i(mb.gradient,
+            mb.nr_eg, nn.nr_weight)
+        # Vanilla SGD and L2 regularization (for now)
         VecVec.add_i(mb.gradient,
             nn.weights, nn.rho, nn.nr_weight)
-
-        # Vanilla SGD for now
         VecVec.add_i(nn.weights,
             mb.gradient, -nn.eta, nn.nr_weight)
-
-
-        #self.optimizer.update(self.c.weights, mb.c.gradient, self.c.support,
-        #    self.c.nr_weight)
-
-        #Batch.average_sparse_gradients(&mb.c.sparse_gradient,
-        #    mb.c.egs, mb.c.nr_eg)
-        #self.optimizer.update_sparse(self.c.sparse_weights, mb.c.sparse_gradient,
-        #    self.c.widths[0])
-
-
-    @staticmethod
-    cdef inline void forward_backward(weight_t** fwd_acts, weight_t** bwd_acts,
-            const weight_t* costs, const NeuralNetC* nn) nogil:
-        NeuralNet.forward(fwd_acts,
-            nn.weights, nn.widths, nn.nr_layer)
-        Softmax.delta_log_loss(bwd_acts[nn.nr_layer-1],
-            costs, fwd_acts[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        NeuralNet.backward(bwd_acts,
-            fwd_acts, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
+        # Gather the per-feature gradient
+        Batch.average_sparse_gradients(mb.sparse,
+            mb.egs, mb.nr_eg)
+        # Iterate over the sparse gradient, ad update
+        cdef feat_t key
+        cdef void* addr
+        i = 0
+        while Map_iter(mb.sparse, &i, &key, &addr):
+            feat_w = <weight_t*>Map_get(nn.sparse, key)
+            # This should never be null --- they should be preset.
+            # Still, we check.
+            if feat_w is not NULL and addr is not NULL:
+                feat_g = <weight_t*>addr
+                # Add the derivative of the L2-loss to the gradient
+                VecVec.add_i(feat_g,
+                    feat_w, nn.rho, nn.widths[0])
+                # Vanilla SGD for now
+                VecVec.add_i(feat_w,
+                    feat_g, -nn.eta, nn.widths[0])
 
     @staticmethod
     cdef inline void forward(weight_t** state,
-                        const weight_t* W,
-                        const int* widths, int n) nogil:
+                        const weight_t* W, const int* widths, int n) nogil:
         cdef int i
         for i in range(n-2): # Save last layer for softmax
             Rectifier.forward(state[i+1],
@@ -94,9 +98,12 @@ cdef class NeuralNet:
 
     @staticmethod
     cdef inline void backward(weight_t** bwd,
+                        const weight_t* costs,
                         const weight_t* const* fwd, 
                         const weight_t* W,
                         const int* widths, int n) nogil:
+        Softmax.delta_log_loss(bwd[n-1],
+            costs, fwd[n-1], widths[n-1])
         cdef int i
         for i in range(n-2, 0, -1):
             W -= widths[i+1] * widths[i] + widths[i+1]
@@ -112,7 +119,7 @@ cdef class NeuralNet:
         MatVec.T_dot(bwd[0], W, bwd[1], widths[1], widths[0])
 
     @staticmethod
-    cdef inline void set_gradient(weight_t* gradient,
+    cdef inline void inc_gradient(weight_t* gradient,
                         const weight_t* const* fwd,
                         const weight_t* const* bwd,
                         const int* widths, int n) nogil:
@@ -123,6 +130,30 @@ cdef class NeuralNet:
             VecVec.add_i(gradient + (widths[i+1] * widths[i]),
                 bwd[i+1], 1.0, widths[i+1])
             gradient += (widths[i+1] * widths[i]) + widths[i+1]
+
+
+cdef class Embedding:
+    @staticmethod
+    cdef inline void set(MapC* table, Pool mem, feat_t key, weight_t* value) except *:
+        Map_set(mem, table, key, value)
+
+    @staticmethod
+    cdef inline weight_t* get(const MapC* table, feat_t key) nogil:
+        return <weight_t*>Map_get(table, key)
+
+    @staticmethod
+    cdef inline void set_input(weight_t* output, const MapC* table,
+                               const FeatureC* features, int nr_feat) nogil:
+        cdef int i, j
+        for i in range(nr_feat):
+            weights = Embedding.get(table, features[i].key)
+            if weights is not NULL:
+                VecVec.add_i(&output[features[i].i],
+                    weights, features[i].val, features[i].length)
+            else:
+                for j in range(features[i].length):
+                    # TODO: Unroll this hack, just setting default value for now
+                    output[features[i].i + j] = -0.01 * features[i].val
 
 
 cdef class Rectifier:
@@ -157,6 +188,7 @@ cdef class Rectifier:
                         const weight_t* W,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
+
         # delta = W.T.dot(prev_delta) * d_relu(signal_in)
         # d_relu(signal_in) is a binary vector, 0 when signal_in < 0
         # So, we do our dot product, and then clip to 0 on the dimensions where
@@ -218,3 +250,8 @@ cdef class Adagrad:
         cdef int i
         for i in range(n):
             gradient[i] *= eta / (c_sqrt(support[i]) + eps)
+
+
+#        Embedding.set_input(mb.egs[i].fwd_state[0],
+#                &nn.sparse_weights, mb.egs[i].features, mb.egs[i].nr_feat)
+

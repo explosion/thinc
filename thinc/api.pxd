@@ -2,7 +2,7 @@ from cymem.cymem cimport Pool
 from libc.string cimport memset
 
 from .typedefs cimport weight_t, atom_t
-from .structs cimport FeatureC, ExampleC, LayerC
+from .structs cimport FeatureC, ExampleC
 from .features cimport Extracter 
 from .model cimport Model
 from .update cimport Updater
