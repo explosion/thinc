@@ -33,10 +33,8 @@ cdef class NeuralNet:
             self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
 
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-        self.c.support = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         Map_init(self.mem, &self.c.sparse_weights, 8)
-        Map_init(self.mem, &self.c.sparse_support, 8)
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
         VanillaSGD.init(self.c.opt, self.mem,
@@ -79,12 +77,6 @@ cdef class NeuralNet:
         def __set__(self, weights):
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
-    property support:
-        def __get__(self):
-            return [self.c.support[i] for i in range(self.nr_weight)]
-        def __set__(self, weights):
-            for i, weight in enumerate(weights):
-                self.c.support[i] = weight
 
     property widths:
         def __get__(self):
