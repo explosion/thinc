@@ -52,6 +52,7 @@ cdef class Example:
         # of bias weights, of length y. So each layer has x*y+y weights.
         nr_weight = sum([x * y + y for x, y in zip(widths, widths[1:])])
         eg.gradient = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        eg.fine_tune = <weight_t*>mem.alloc(widths[0], sizeof(weight_t))
 
     @staticmethod
     cdef inline void set_scores(ExampleC* eg, const weight_t* scores) nogil:

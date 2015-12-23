@@ -8,7 +8,8 @@ include "compile_time_constants.pxi"
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
-ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* gradient, weight_t* weights, int nr) nogil
+ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* gradient, weight_t* weights,
+                            weight_t scale, int nr) nogil
 
 
 cdef struct OptimizerC:
@@ -26,14 +27,13 @@ cdef struct OptimizerC:
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
-    weight_t* support
     OptimizerC* opt
 
-    MapC sparse_weights
-    MapC sparse_support
+    MapC** embeds
 
     int32_t nr_layer
     int32_t nr_weight
+    int32_t nr_embed
 
     weight_t eta
     weight_t rho
@@ -48,6 +48,7 @@ cdef struct ExampleC:
     weight_t* scores
 
     weight_t* gradient
+    weight_t* fine_tune
     
     weight_t** fwd_state
     weight_t** bwd_state
@@ -64,7 +65,6 @@ cdef struct ExampleC:
 cdef struct BatchC:
     ExampleC* egs
     weight_t* gradient
-    MapC sparse_gradient
     int nr_eg
 
 
@@ -75,6 +75,7 @@ cdef struct SparseArrayC:
 
 cdef struct FeatureC:
     int32_t i
+    int32_t offset
     int32_t length
     uint64_t key
     weight_t val

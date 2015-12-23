@@ -146,8 +146,6 @@ cdef class Batch:
 
         nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
         self.c.gradient = <weight_t*>self.mem.alloc(nr_weight, sizeof(weight_t))
-        Batch.init_sparse_gradients(&self.c.sparse_gradient, self.mem,
-            self.c.egs, self.c.nr_eg)
 
     def __iter__(self):
         for i in range(self.c.nr_eg):

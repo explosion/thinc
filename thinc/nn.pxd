@@ -5,7 +5,9 @@ from libc.stdint cimport int32_t
 
 from cymem.cymem cimport Pool
 
-from .structs cimport NeuralNetC, OptimizerC
+from preshed.maps cimport map_get as Map_get
+
+from .structs cimport NeuralNetC, OptimizerC, FeatureC
 from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
 from .eg cimport BatchC
@@ -56,7 +58,21 @@ cdef class NeuralNet:
         Vec.div_i(mb.gradient, mb.nr_eg, nn.nr_weight)
 
         nn.opt.update(nn.opt, nn.weights, mb.gradient,
-            nn.nr_weight)
+            1.0, nn.nr_weight)
+
+        # Fine-tune the embeddings
+        # This is sort of wrong --- we're supposed to average over the minibatch.
+        # But doing that is annoying.
+        for i in range(mb.nr_eg):
+            eg = &mb.egs[i]
+            for j in range(eg.nr_feat):
+                # Reset eg.fine_tune, because we need to modify the gradient...
+                memcpy(eg.fine_tune, eg.bwd_state[0], sizeof(weight_t) * eg.nr_class)
+                feat = eg.features[j]
+                curr_embed = <weight_t*>Map_get(nn.embeds[feat.i], feat.key)
+                grad_embed = &eg.fine_tune[feat.offset]
+                nn.opt.update(nn.opt,
+                    curr_embed, grad_embed, feat.val, feat.length)
 
     @staticmethod
     cdef inline void forward(weight_t** state,
@@ -201,10 +217,11 @@ cdef class VanillaSGD:
 
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
-                        int nr_weight) nogil:
+                        weight_t scale, int nr_weight) nogil:
         '''
         Update weights with vanilla SGD
         '''
+        Vec.mul_i(gradient, scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
         VecVec.add_i(gradient,
             weights, opt.rho, nr_weight)

@@ -10,7 +10,7 @@ from preshed.maps cimport map_iter as Map_iter
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
 from .eg cimport Example, Batch
-from .structs cimport ExampleC, OptimizerC
+from .structs cimport ExampleC, OptimizerC, MapC
 
 import numpy
 
@@ -21,6 +21,9 @@ cdef class NeuralNet:
         self.c.eta = eta
         self.c.eps = eps
         self.c.rho = rho
+
+        # TODO
+        self.c.nr_embed = 1
 
         self.c.nr_layer = len(widths)
         self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
@@ -33,8 +36,11 @@ cdef class NeuralNet:
             self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
 
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-
-        Map_init(self.mem, &self.c.sparse_weights, 8)
+        
+        self.c.embeds = <MapC**>self.mem.alloc(self.c.nr_embed, sizeof(void*))
+        for i in range(self.c.nr_embed):
+            self.c.embeds[i] = <MapC*>self.mem.alloc(1, sizeof(MapC))
+            Map_init(self.mem, self.c.embeds[i], 8)
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
         VanillaSGD.init(self.c.opt, self.mem,
