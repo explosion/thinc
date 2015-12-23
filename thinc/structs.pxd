@@ -8,11 +8,27 @@ include "compile_time_constants.pxi"
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
+ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* gradient, weight_t* weights, int nr) nogil
+
+
+cdef struct OptimizerC:
+    update_f_t update
+    weight_t* params
+    #EmbeddingTableC* embed_params
+    void* ext
+
+    int nr
+    weight_t eta
+    weight_t eps
+    weight_t rho
+
 
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
     weight_t* support
+    OptimizerC* opt
+
     MapC sparse_weights
     MapC sparse_support
 

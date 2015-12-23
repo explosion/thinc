@@ -10,7 +10,7 @@ from preshed.maps cimport map_iter as Map_iter
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
 from .eg cimport Example, Batch
-from .structs cimport ExampleC
+from .structs cimport ExampleC, OptimizerC
 
 import numpy
 
@@ -38,9 +38,14 @@ cdef class NeuralNet:
         Map_init(self.mem, &self.c.sparse_weights, 8)
         Map_init(self.mem, &self.c.sparse_support, 8)
 
+        self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
+        VanillaSGD.init(self.c.opt, self.mem,
+            self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
+
         cdef weight_t* W = self.c.weights
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
             W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
+
 
     def Example(self, input_, label=None):
         if isinstance(input_, Example):

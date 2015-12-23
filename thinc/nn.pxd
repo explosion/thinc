@@ -5,7 +5,7 @@ from libc.stdint cimport int32_t
 
 from cymem.cymem cimport Pool
 
-from .structs cimport NeuralNetC
+from .structs cimport NeuralNetC, OptimizerC
 from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
 from .eg cimport BatchC
@@ -52,17 +52,8 @@ cdef class NeuralNet:
                 mb.egs[i].fwd_state, mb.egs[i].bwd_state, nn.widths, nn.nr_layer)
         Vec.div_i(mb.gradient, mb.nr_eg, nn.nr_weight)
 
-        # Add the derivative of the L2-loss to the gradient
-        VecVec.add_i(mb.gradient,
-            nn.weights, nn.rho, nn.nr_weight)
-
-        # Vanilla SGD for now
-        VecVec.add_i(nn.weights,
-            mb.gradient, -nn.eta, nn.nr_weight)
-
-
-        #self.optimizer.update(self.c.weights, mb.c.gradient, self.c.support,
-        #    self.c.nr_weight)
+        nn.opt.update(nn.opt, nn.weights, mb.gradient,
+            nn.nr_weight)
 
         #Batch.average_sparse_gradients(&mb.c.sparse_gradient,
         #    mb.c.egs, mb.c.nr_eg)
@@ -203,6 +194,32 @@ cdef class Softmax:
         cdef int i
         for i in range(nr_out):
             loss[i] = scores[i] - (costs[i] == 0)
+
+
+cdef class VanillaSGD:
+    @staticmethod
+    cdef inline void init(OptimizerC* opt, Pool mem, int nr_weight, int* widths,
+                    int nr_layer, weight_t eta, weight_t eps, weight_t rho) nogil:
+        opt.update = VanillaSGD.update
+        opt.eta = eta
+        opt.eps = eps
+        opt.rho = rho
+        opt.params = NULL
+        opt.ext = NULL
+        opt.nr = 0
+
+    @staticmethod
+    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
+                        int nr_weight) nogil:
+        '''
+        Update weights with vanilla SGD
+        '''
+        # Add the derivative of the L2-loss to the gradient
+        VecVec.add_i(gradient,
+            weights, opt.rho, nr_weight)
+
+        VecVec.add_i(weights,
+            gradient, -opt.eta, nr_weight)
 
 
 cdef class Adagrad:
