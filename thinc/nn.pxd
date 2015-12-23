@@ -44,8 +44,11 @@ cdef class NeuralNet:
         cdef int i
         # Compute forward and backward passes
         for i in range(mb.nr_eg):
-            NeuralNet.forward_backward(mb.egs[i].fwd_state, mb.egs[i].bwd_state,
-                mb.egs[i].costs, nn)
+            eg = &mb.egs[i]
+            NeuralNet.forward(eg.fwd_state,
+                nn.weights, nn.widths, nn.nr_layer)
+            NeuralNet.backward(eg.bwd_state,
+                eg.costs, eg.fwd_state, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
         # Get the averaged gradient for the minibatch
         for i in range(mb.nr_eg):
             NeuralNet.set_gradient(mb.gradient,
@@ -54,22 +57,6 @@ cdef class NeuralNet:
 
         nn.opt.update(nn.opt, nn.weights, mb.gradient,
             nn.nr_weight)
-
-        #Batch.average_sparse_gradients(&mb.c.sparse_gradient,
-        #    mb.c.egs, mb.c.nr_eg)
-        #self.optimizer.update_sparse(self.c.sparse_weights, mb.c.sparse_gradient,
-        #    self.c.widths[0])
-
-
-    @staticmethod
-    cdef inline void forward_backward(weight_t** fwd_acts, weight_t** bwd_acts,
-            const weight_t* costs, const NeuralNetC* nn) nogil:
-        NeuralNet.forward(fwd_acts,
-            nn.weights, nn.widths, nn.nr_layer)
-        Softmax.delta_log_loss(bwd_acts[nn.nr_layer-1],
-            costs, fwd_acts[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        NeuralNet.backward(bwd_acts,
-            fwd_acts, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
 
     @staticmethod
     cdef inline void forward(weight_t** state,
@@ -85,9 +72,13 @@ cdef class NeuralNet:
 
     @staticmethod
     cdef inline void backward(weight_t** bwd,
+                        const weight_t* costs,
                         const weight_t* const* fwd, 
                         const weight_t* W,
                         const int* widths, int n) nogil:
+        Softmax.delta_log_loss(bwd[n-1],
+            costs, fwd[n-1], widths[n-1])
+
         cdef int i
         for i in range(n-2, 0, -1):
             W -= widths[i+1] * widths[i] + widths[i+1]
@@ -220,18 +211,3 @@ cdef class VanillaSGD:
 
         VecVec.add_i(weights,
             gradient, -opt.eta, nr_weight)
-
-
-cdef class Adagrad:
-    @staticmethod
-    @cython.cdivision(True)
-    cdef inline void rescale(weight_t* gradient, weight_t* support,
-                        int32_t n, weight_t eta, weight_t eps) nogil:
-        '''
-        Update weights with Adagrad
-        '''
-        VecVec.add_pow_i(support,
-            gradient, 2.0, n)
-        cdef int i
-        for i in range(n):
-            gradient[i] *= eta / (c_sqrt(support[i]) + eps)
