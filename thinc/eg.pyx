@@ -36,7 +36,7 @@ cdef class Example:
                     table_id = 0
                 else:
                     table_id, key = key
-                features.append((0, key, value))
+                features.append((table_id, key, value))
         Example.init(&self.c, self.mem,
             model_shape, features, costs)
 

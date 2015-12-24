@@ -280,3 +280,12 @@ def test_model_widths(or_data):
     assert wide_loss < (narrow_loss * 1.1)
     # It also shouldn't be the same!
     assert wide_loss != narrow_loss
+
+
+def test_embedding():
+    model = NeuralNet((10,4,2), embed=((5,), (0,0)), rho=0.0, eta=0.005)
+    assert model.nr_in == 10
+    eg = model.Example({(0, 1): 1.0})
+    model(eg)
+    assert eg.activation(0, 0) == 1.0
+    

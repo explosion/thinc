@@ -147,6 +147,10 @@ cdef class Embedding:
         uniq_defaults = <weight_t**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             uniq_defaults[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            # TODO: This is only here for debugging
+            # in practice we need to think about how to default these.
+            for j in range(width):
+                uniq_defaults[i][j] = 1.0
             Map_init(mem, &uniqs[i],
                 8)
         self.offsets = <int*>mem.alloc(len(features), sizeof(int))

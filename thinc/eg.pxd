@@ -67,8 +67,6 @@ cdef class Example:
                 for i, value in enumerate(features):
                     self.fwd_state[0][i] = value
 
-
-
     @staticmethod
     cdef inline void init_dense(ExampleC* eg, Pool mem, dense_input) except *:
        cdef weight_t input_value
