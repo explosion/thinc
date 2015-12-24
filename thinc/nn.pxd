@@ -76,15 +76,9 @@ cdef class NeuralNet:
         # But doing that is annoying.
         for i in range(mb.nr_eg):
             eg = &mb.egs[i]
-            for j in range(eg.nr_feat):
-                # Reset eg.fine_tune, because we need to modify the gradient...
-                memcpy(eg.fine_tune, eg.bwd_state[0], sizeof(weight_t) * eg.nr_class)
-                feat = eg.features[j]
-                curr_embed = <weight_t*>Map_get(nn.embeds[feat.i], feat.key)
-                grad_embed = &eg.fine_tune[feat.offset]
-                nn.opt.update(nn.opt,
-                    curr_embed, grad_embed, feat.val, feat.length)
-
+            Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
+                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+    
     @staticmethod
     cdef inline void forward(weight_t** state,
                         const weight_t* W,
@@ -144,6 +138,20 @@ cdef class Embedding:
             if emb != NULL:
                 VecVec.add_i(&out[feat.offset], 
                     emb, feat.val, feat.length)
+
+    @staticmethod
+    cdef inline void fine_tune(OptimizerC* opt, MapC** tables, weight_t* fine_tune,
+                               const weight_t* delta, int nr_delta,
+                               const FeatureC* features, int nr_feat) nogil:
+                               
+        for i in range(nr_feat):
+            # Reset eg.fine_tune, because we need to modify the gradient...
+            memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
+            feat = features[i]
+            curr_embed = <weight_t*>Map_get(tables[feat.i], feat.key)
+            grad_embed = &fine_tune[feat.offset]
+            opt.update(opt,
+                curr_embed, grad_embed, feat.val, feat.length)
 
 
 cdef class Rectifier:
