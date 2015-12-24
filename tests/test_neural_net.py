@@ -285,7 +285,24 @@ def test_model_widths(or_data):
 def test_embedding():
     model = NeuralNet((10,4,2), embed=((5,), (0,0)), rho=0.0, eta=0.005)
     assert model.nr_in == 10
-    eg = model.Example({(0, 1): 1.0})
+    eg = model.Example({(0, 1): 2.5})
     model(eg)
-    assert eg.activation(0, 0) == 1.0
+    assert eg.activation(0, 0) != 0
+    assert eg.activation(0, 1) != 0
+    assert eg.activation(0, 2) != 0
+    assert eg.activation(0, 3) != 0
+    assert eg.activation(0, 4) != 0
+    
+    eg = model.Example({(1, 1867): 0.5})
+    model(eg)
+    assert eg.activation(0, 0) == 0.0
+    assert eg.activation(0, 1) == 0.0
+    assert eg.activation(0, 2) == 0.0
+    assert eg.activation(0, 3) == 0.0
+    assert eg.activation(0, 4) == 0.0
+    assert eg.activation(0, 5) != 0.0
+    assert eg.activation(0, 6) != 0.0
+    assert eg.activation(0, 7) != 0.0
+    assert eg.activation(0, 8) != 0.0
+    assert eg.activation(0, 9) != 0.0
     

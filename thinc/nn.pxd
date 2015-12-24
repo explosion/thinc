@@ -2,11 +2,13 @@ cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
 from libc.stdint cimport int32_t
+import numpy
 
 from cymem.cymem cimport Pool
 
 from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_get as Map_get
+from preshed.maps cimport map_set as Map_set
 
 from .structs cimport NeuralNetC, OptimizerC, FeatureC, BatchC, ExampleC, EmbeddingC, MapC
 from .typedefs cimport weight_t
@@ -43,46 +45,59 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     @staticmethod
-    cdef inline void predictC(ExampleC* eg, const NeuralNetC* nn) nogil:
-        Embedding.set_input(eg.fwd_state[0],
-            eg.features, eg.nr_feat, nn.embeds)
-        NeuralNet.forward(eg.fwd_state,
-            nn.weights, nn.widths, nn.nr_layer)
-        Example.set_scores(eg,
-            eg.fwd_state[nn.nr_layer-1])
-    
-    @staticmethod
-    cdef inline void trainC(NeuralNetC* nn, BatchC* mb) nogil:
-        cdef int i
-        # Compute forward and backward passes
-        for i in range(mb.nr_eg):
-            eg = &mb.egs[i]
+    cdef inline void predictC(ExampleC* egs, int nr_eg, const NeuralNetC* nn) nogil:
+        for i in range(nr_eg):
+            eg = &egs[i]
             if nn.embeds is not NULL and eg.features is not NULL:
                 Embedding.set_input(eg.fwd_state[0],
                     eg.features, eg.nr_feat, nn.embeds)
             NeuralNet.forward(eg.fwd_state,
                 nn.weights, nn.widths, nn.nr_layer)
+            Example.set_scores(eg,
+                eg.fwd_state[nn.nr_layer-1])
+     
+    @staticmethod
+    cdef inline void updateC(NeuralNetC* nn, weight_t* gradient,
+                             ExampleC* egs, int nr_eg) nogil:
+        for i in range(nr_eg):
+            eg = &egs[i]
             NeuralNet.backward(eg.bwd_state,
-                eg.costs, eg.fwd_state, nn.weights + nn.nr_weight, nn.widths, nn.nr_layer)
+                eg.costs, eg.fwd_state, nn.weights + nn.nr_weight, nn.widths,
+                nn.nr_layer)
         # Get the averaged gradient for the minibatch
-        for i in range(mb.nr_eg):
-            NeuralNet.set_gradient(mb.gradient,
-                mb.egs[i].fwd_state, mb.egs[i].bwd_state, nn.widths, nn.nr_layer)
-        Vec.div_i(mb.gradient, mb.nr_eg, nn.nr_weight)
-
-        nn.opt.update(nn.opt, nn.weights, mb.gradient,
+        for i in range(nr_eg):
+            NeuralNet.set_gradient(gradient,
+                egs[i].fwd_state, egs[i].bwd_state, nn.widths, nn.nr_layer)
+        Vec.div_i(gradient,
+            nr_eg, nn.nr_weight)
+        nn.opt.update(nn.opt, nn.weights, gradient,
             1.0, nn.nr_weight)
-
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # But doing that is annoying.
         if nn.embeds is not NULL:
-            for i in range(mb.nr_eg):
-                eg = &mb.egs[i]
+            for i in range(nr_eg):
+                eg = &egs[i]
                 if eg.features is not NULL:
                     Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
                         eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
-    
+
+    @staticmethod
+    cdef inline void insert_embeddingsC(NeuralNetC* nn, Pool mem,
+                                        const ExampleC* egs, int nr_eg) except *:
+        for i in range(nr_eg):
+            eg = &egs[i]
+            for j in range(eg.nr_feat):
+                feat = eg.features[j]
+                emb = <weight_t*>Map_get(nn.embeds.tables[feat.i], feat.key)
+                if emb is NULL:
+                    emb = <weight_t*>mem.alloc(nn.embeds.lengths[feat.i], sizeof(weight_t))
+                    Initializer.normal(emb,
+                        0.0, 1.0, nn.embeds.lengths[feat.i])
+                    for k in range(nn.embeds.lengths[feat.i]):
+                        emb[k] = 1.0
+                    Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
+  
     @staticmethod
     cdef inline void forward(weight_t** state,
                         const weight_t* W,
@@ -146,13 +161,10 @@ cdef class Embedding:
         uniqs = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_defaults = <weight_t**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
+            Map_init(mem, &uniqs[i], 8)
             uniq_defaults[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-            # TODO: This is only here for debugging
-            # in practice we need to think about how to default these.
-            for j in range(width):
-                uniq_defaults[i][j] = 1.0
-            Map_init(mem, &uniqs[i],
-                8)
+            Initializer.normal(uniq_defaults[i],
+                0.0, 1.0, width)
         self.offsets = <int*>mem.alloc(len(features), sizeof(int))
         self.lengths = <int*>mem.alloc(len(features), sizeof(int))
         self.tables = <MapC**>mem.alloc(len(features), sizeof(void*))
@@ -268,6 +280,21 @@ cdef class Softmax:
         cdef int i
         for i in range(nr_out):
             loss[i] = scores[i] - (costs[i] == 0)
+
+
+cdef class Initializer:
+    @staticmethod
+    cdef inline void normal(weight_t* weights, weight_t loc, weight_t scale, int n) except *:
+        # See equation 10 here:
+        # http://arxiv.org/pdf/1502.01852v1.pdf
+        values = numpy.random.normal(loc=0.0, scale=scale, size=n)
+        for i, value in enumerate(values):
+            weights[i] = value
+
+    @staticmethod
+    cdef inline void constant(weight_t* weights, weight_t value, int n) except *:
+        for i in range(n):
+            weights[i] = value
 
 
 cdef class VanillaSGD:

@@ -54,10 +54,35 @@ cdef class NeuralNet:
         VanillaSGD.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
+        # Leave b initialized to 0?
+        cdef weight_t bias_initial = 0.0
         cdef weight_t* W = self.c.weights
+        fan_in = 1.0
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
-            W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
+            Initializer.normal(W,
+                0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i+1] * self.c.widths[i])
+            W += self.c.widths[i+1] * self.c.widths[i]
+            Initializer.constant(W,
+                bias_initial, self.c.widths[i+1])
+            W += self.c.widths[i+1]
+            fan_in = self.c.widths[i]
 
+    def __call__(self, input_):
+        cdef Example eg = self.Example(input_)
+        NeuralNet.predictC(&eg.c, 1,
+            &self.c)
+        return eg
+   
+    def train(self, Xs, ys):
+        cdef Batch mb = self.Batch(Xs, ys)
+        NeuralNet.predictC(mb.c.egs,
+            mb.c.nr_eg, &self.c)
+        NeuralNet.insert_embeddingsC(&self.c, self.mem,
+            mb.c.egs, mb.c.nr_eg)
+        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
+            mb.c.nr_eg)
+        return mb
+ 
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
@@ -65,23 +90,7 @@ cdef class NeuralNet:
 
     def Batch(self, inputs, costs=None):
         return Batch(self.widths, inputs, costs)
-   
-    def __call__(self, input_):
-        cdef Example eg = self.Example(input_)
-        NeuralNet.predictC(&eg.c,
-            &self.c)
-        return eg
-
-    def train(self, Xs, ys):
-        cdef Batch mb = self.Batch(Xs, ys)
-
-        NeuralNet.trainC(&self.c, &mb.c)
-
-        for i in range(mb.c.nr_eg):
-            Example.set_scores(&mb.c.egs[i],
-                mb.c.egs[i].fwd_state[self.c.nr_layer-1])
-        return mb
-    
+ 
     property weights:
         def __get__(self):
             return [self.c.weights[i] for i in range(self.c.nr_weight)]
@@ -121,15 +130,3 @@ cdef class NeuralNet:
             return self.c.eps
         def __set__(self, eps):
             self.c.eps = eps
-
-
-cdef weight_t* _init_layer_weights(weight_t* W, int nr_out, int nr_wide) except NULL:
-    cdef int i
-    std = numpy.sqrt(2.0) * numpy.sqrt(1.0 / nr_wide)
-    values = numpy.random.normal(loc=0.0, scale=std, size=(nr_out * nr_wide))
-    for i in range(nr_out * nr_wide):
-        W[i] = values[i]
-    W += nr_out * nr_wide
-    for i in range(nr_out):
-        W[i] = 0.2
-    return W + nr_out

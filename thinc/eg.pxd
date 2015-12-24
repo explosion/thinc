@@ -84,48 +84,6 @@ cdef class Batch:
     cdef Pool mem
     cdef BatchC c
 
-    @staticmethod
-    cdef inline void init_sparse_gradients(MapC* map_, Pool mem,
-            const ExampleC* egs, int nr_eg) except *:
-        cdef const ExampleC* eg
-        cdef int i, j
-        for i in range(nr_eg):
-            eg = &egs[i]
-            for j in range(eg.nr_feat):
-                feat = eg.features[j]
-                grad = Map_get(map_, feat.key)
-                if grad is NULL:
-                    grad = mem.alloc(feat.length, sizeof(weight_t))
-                    Map_set(mem, map_,
-                        feat.key, grad)
-    @staticmethod
-    cdef inline void average_gradients(weight_t* gradient,
-            const ExampleC* egs, int nr_weight, int nr_eg) nogil:
-        for i in range(nr_eg):
-            VecVec.add_i(gradient, egs[i].gradient, 1.0, nr_weight)
-        Vec.div_i(gradient, nr_eg, nr_weight)
-
-    @staticmethod
-    cdef inline void average_sparse_gradients(MapC* gradients,
-            const ExampleC* egs, int nr_eg) nogil:
-        cdef int i, j
-        # Average the examples' 'fine tuning' gradients
-        # First we collect the total values of each feature.
-        cdef weight_t total = 0.0
-        for i in range(nr_eg):
-            for j in range(egs[i].nr_feat):
-                total += egs[i].features[j].val
-        for i in range(nr_eg):
-            for j in range(egs[i].nr_feat):
-                feat = egs[i].features[j]
-                feat_grad = <weight_t*>Map_get(gradients, feat.key)
-                if feat_grad is not NULL:
-                    # egs[i].bwd_state[0] holds the delta (error) for the input
-                    # for this example. We weight the example by the feature value's
-                    # proportion of the total.
-                    VecVec.add_i(feat_grad,
-                        egs[i].bwd_state[0], feat.val / total, feat.length)
- 
 
 cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
     cdef int i
