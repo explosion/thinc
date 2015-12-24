@@ -50,7 +50,6 @@ cdef class NeuralNet:
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
             W = _init_layer_weights(W, self.c.widths[i+1], self.c.widths[i])
 
-
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
@@ -61,10 +60,8 @@ cdef class NeuralNet:
    
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)
-        NeuralNet.forward(eg.c.fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer)
-        Example.set_scores(&eg.c,
-            eg.c.fwd_state[self.nr_layer-1])
+        NeuralNet.predictC(&eg.c,
+            &self.c)
         return eg
 
     def train(self, Xs, ys):

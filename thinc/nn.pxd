@@ -7,10 +7,10 @@ from cymem.cymem cimport Pool
 
 from preshed.maps cimport map_get as Map_get
 
-from .structs cimport NeuralNetC, OptimizerC, FeatureC
+from .structs cimport NeuralNetC, OptimizerC, FeatureC, BatchC, ExampleC, MapC
 from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
-from .eg cimport BatchC
+from .eg cimport Batch, Example
 
 # The input/output of the fwd/bwd pass can be confusing. Some notes.
 #
@@ -42,11 +42,22 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     @staticmethod
+    cdef inline void predictC(ExampleC* eg, const NeuralNetC* nn) nogil:
+        Embedding.set_input(eg.fwd_state[0],
+            eg.features, eg.nr_feat, nn.embeds, nn.nr_embed)
+        NeuralNet.forward(eg.fwd_state,
+            nn.weights, nn.widths, nn.nr_layer)
+        Example.set_scores(eg,
+            eg.fwd_state[nn.nr_layer-1])
+    
+    @staticmethod
     cdef inline void trainC(NeuralNetC* nn, BatchC* mb) nogil:
         cdef int i
         # Compute forward and backward passes
         for i in range(mb.nr_eg):
             eg = &mb.egs[i]
+            Embedding.set_input(eg.fwd_state[0],
+                eg.features, eg.nr_feat, nn.embeds, nn.nr_embed)
             NeuralNet.forward(eg.fwd_state,
                 nn.weights, nn.widths, nn.nr_layer)
             NeuralNet.backward(eg.bwd_state,
@@ -121,6 +132,18 @@ cdef class NeuralNet:
             VecVec.add_i(gradient + (widths[i+1] * widths[i]),
                 bwd[i+1], 1.0, widths[i+1])
             gradient += (widths[i+1] * widths[i]) + widths[i+1]
+
+
+cdef class Embedding:
+    @staticmethod
+    cdef inline void set_input(weight_t* out, const FeatureC* features, int nr_feat,
+                               const MapC* const* tables, int nr_table) nogil:
+        for i in range(nr_feat):
+            feat = features[i]
+            emb = <weight_t*>Map_get(tables[feat.i], feat.key)
+            if emb != NULL:
+                VecVec.add_i(&out[feat.offset], 
+                    emb, feat.val, feat.length)
 
 
 cdef class Rectifier:
