@@ -61,7 +61,7 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        return Example(nn_shape=self.widths, features=input_, label=label)
+        return Example(self.widths, features=input_, label=label)
 
     def Batch(self, inputs, costs=None):
         return Batch(self.widths, inputs, costs)

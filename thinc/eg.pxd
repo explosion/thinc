@@ -6,7 +6,7 @@ from preshed.maps cimport map_set as Map_set
 from preshed.maps cimport map_get as Map_get
 
 from .structs cimport ExampleC, BatchC, FeatureC, MapC
-from .typedefs cimport weight_t, atom_t
+from .typedefs cimport feat_t, weight_t, atom_t
 from .blas cimport Vec, VecVec
 
 
@@ -22,37 +22,58 @@ cdef class Example:
         return eg
 
     @staticmethod
-    cdef inline void init_class(ExampleC* eg, Pool mem, int nr_class) except *:
-        eg.nr_class = nr_class
-        eg.scores = <weight_t*>mem.alloc(nr_class, sizeof(eg.scores[0]))
-        eg.is_valid = <int*>mem.alloc(nr_class, sizeof(eg.is_valid[0]))
-        memset(eg.is_valid, 1, sizeof(eg.is_valid[0]) * eg.nr_class)
-        
-        eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(eg.costs[0]))
+    cdef inline void init(ExampleC* self, Pool mem, model_shape, features, costs) except *:
+        pass
 
-        eg.guess = 0
-        eg.best = 0
-        eg.cost = 0
+        self.fwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
+        self.bwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
+        for i, width in enumerate(model_shape):
+            self.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+        # Each layer is x wide and connected to y nodes in the next layer.
+        # So each layer has a weight matrix W with x*y weights, and an array
+        # of bias weights, of length y. So each layer has x*y+y weights.
+        nr_weight = sum([x * y + y for x, y in zip(model_shape, model_shape[1:])])
+        self.gradient = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.fine_tune = <weight_t*>mem.alloc(model_shape[0], sizeof(weight_t))
+
+        self.nr_class = model_shape[-1]
+        self.scores = <weight_t*>mem.alloc(self.nr_class, sizeof(self.scores[0]))
+        self.is_valid = <int*>mem.alloc(self.nr_class, sizeof(self.is_valid[0]))
+        memset(self.is_valid, 1, sizeof(self.is_valid[0]) * self.nr_class)
+        self.costs = <weight_t*>mem.alloc(self.nr_class, sizeof(self.costs[0]))
+
+        self.guess = 0
+        self.best = 0
+        self.cost = 0
+
+        if costs is not None:
+            assert len(costs) == self.nr_class
+            for i, cost in enumerate(costs):
+                self.costs[i] = cost
+                if cost == 0:
+                    self.best = cost
+
+        cdef weight_t value
+        cdef feat_t key
+        cdef int slot
+        if features is not None and len(features):
+            if hasattr(features[0], '__iter__'):
+                self.nr_feat = len(features)
+                self.features = <FeatureC*>mem.alloc(self.nr_feat, sizeof(FeatureC))
+                for i, (slot, key, value) in enumerate(features):
+                    self.features[i] = FeatureC(i=slot, key=key, val=value)
+            else:
+                for i, value in enumerate(features):
+                    self.fwd_state[0][i] = value
+
+
 
     @staticmethod
     cdef inline void init_dense(ExampleC* eg, Pool mem, dense_input) except *:
        cdef weight_t input_value
        for i, input_value in enumerate(dense_input):
            eg.fwd_state[0][i] = input_value
-
-    @staticmethod
-    cdef inline void init_nn(ExampleC* eg, Pool mem, widths) except *:
-        eg.fwd_state = <weight_t**>mem.alloc(len(widths), sizeof(void*))
-        eg.bwd_state = <weight_t**>mem.alloc(len(widths), sizeof(void*))
-        for i, width in enumerate(widths):
-            eg.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-            eg.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-        # Each layer is x wide and connected to y nodes in the next layer.
-        # So each layer has a weight matrix W with x*y weights, and an array
-        # of bias weights, of length y. So each layer has x*y+y weights.
-        nr_weight = sum([x * y + y for x, y in zip(widths, widths[1:])])
-        eg.gradient = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
-        eg.fine_tune = <weight_t*>mem.alloc(widths[0], sizeof(weight_t))
 
     @staticmethod
     cdef inline void set_scores(ExampleC* eg, const weight_t* scores) nogil:

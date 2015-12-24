@@ -1,65 +1,44 @@
 cdef class Example:
-    def __init__(self, nr_class=0, nn_shape=None, features=None, label=None,
-                 costs=None, is_valid=None, mem=None):
+    '''
+    model_shape:
+        - An int for number of classes, or
+        - a tuple of ints (layer widths)
+    features:
+        - None, or
+        - a sequence of ints, or
+        - a sequence of floats
+        - a dict of
+          - int: float
+          - (int, int): float
+    '''
+    def __init__(self, model_shape, features=None, label=None, mem=None):
         if mem is None:
             mem = Pool()
         self.mem = mem
-        nr_class = self.infer_nr_class(nr_class, nn_shape=nn_shape, label=label,
-                                       costs=costs, is_valid=is_valid)
-        Example.init_class(&self.c, self.mem, nr_class) 
-        
-        if nn_shape is not None:
-            Example.init_nn(&self.c, self.mem, nn_shape)
-        if features is not None: # TODO handle sparse features
-            Example.init_dense(&self.c, self.mem, features)
-        if costs is None:
-            costs = self.infer_costs(nr_class, costs, label)
-        self.costs = costs
+        if isinstance(model_shape, int):
+            model_shape = (model_shape,)
 
-    @classmethod
-    def infer_nr_class(cls, nr_class, nn_shape=None, label=None,
-                       costs=None, is_valid=None):
-        if nr_class >= 1:
-            return nr_class
-        elif nn_shape is not None:
-            return nn_shape[-1]
-        elif costs is not None and is_valid is not None:
-            assert len(costs) == len(is_valid)
-            return len(costs)
-        elif costs is not None:
-            return len(costs)
-        elif is_valid is not None:
-            return len(is_valid)
-        elif label is not None:
-            return label + 1
-        else:
-            return 0
-
-    @classmethod
-    def infer_costs(cls, nr_class, costs, label):
-        if costs is not None:
-            return costs
-        elif label is not None:
-            costs = [1] * nr_class
+        if label is None:
+            costs = [1] * model_shape[-1]
+        elif isinstance(label, int):
+            costs = [1] * model_shape[-1]
             costs[label] = 0
-            return costs
         else:
-            return [0] * nr_class
+            costs = label
 
-    @classmethod
-    def infer_label(cls, nr_class, label, costs, scores):
-        if label is not None:
-            return label
-        elif costs is not None:
-            max_ = None
-            best = None
-            for i, score in enumerate(scores):
-                if costs[i] == 0 and score > best:
-                    max_ = score
-                    best = i
-            return best
-        else:
-            return None
+        if features is None:
+            features = []
+        elif isinstance(features, dict):
+            feats_dict = features
+            features = []
+            for key, value in feats_dict.items():
+                if isinstance(key, int):
+                    table_id = 0
+                else:
+                    table_id, key = key
+                features.append((0, key, value))
+        Example.init(&self.c, self.mem,
+            model_shape, features, costs)
 
     def wipe(self):
         cdef int i
@@ -141,7 +120,7 @@ cdef class Batch:
 
         cdef Example eg
         for i, (x, y) in enumerate(zip(inputs, costs)):
-            eg = Example(nn_shape=nn_shape, features=x, costs=y, mem=self.mem)
+            eg = Example(nn_shape, features=x, label=y, mem=self.mem)
             self.c.egs[i] = eg.c
 
         nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
