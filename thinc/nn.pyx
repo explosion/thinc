@@ -25,7 +25,8 @@ cdef class Embedding:
 
 
 cdef class NeuralNet:
-    def __init__(self, widths, weight_t eta=0.005, weight_t eps=1e-6, weight_t rho=1e-4):
+    def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
+                 weight_t rho=1e-4):
         self.mem = Pool()
         self.c.eta = eta
         self.c.eps = eps
@@ -43,9 +44,11 @@ cdef class NeuralNet:
 
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
-        self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
-        Embedding.init(self.c.embeds, self.mem,
-            (10,), (0,))
+        if embed is not None:
+            table_widths, features = embed
+            self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
+            Embedding.init(self.c.embeds, self.mem,
+                table_widths, features)
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
         VanillaSGD.init(self.c.opt, self.mem,

@@ -57,8 +57,9 @@ cdef class NeuralNet:
         # Compute forward and backward passes
         for i in range(mb.nr_eg):
             eg = &mb.egs[i]
-            #Embedding.set_input(eg.fwd_state[0],
-            #    eg.features, eg.nr_feat, nn.embeds)
+            if nn.embeds is not NULL and eg.features is not NULL:
+                Embedding.set_input(eg.fwd_state[0],
+                    eg.features, eg.nr_feat, nn.embeds)
             NeuralNet.forward(eg.fwd_state,
                 nn.weights, nn.widths, nn.nr_layer)
             NeuralNet.backward(eg.bwd_state,
@@ -75,10 +76,12 @@ cdef class NeuralNet:
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # But doing that is annoying.
-        #for i in range(mb.nr_eg):
-        #    eg = &mb.egs[i]
-        #    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
-        #        eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+        if nn.embeds is not NULL:
+            for i in range(mb.nr_eg):
+                eg = &mb.egs[i]
+                if eg.features is not NULL:
+                    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
+                        eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
     
     @staticmethod
     cdef inline void forward(weight_t** state,
