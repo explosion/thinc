@@ -5,9 +5,10 @@ from libc.stdint cimport int32_t
 
 from cymem.cymem cimport Pool
 
+from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_get as Map_get
 
-from .structs cimport NeuralNetC, OptimizerC, FeatureC, BatchC, ExampleC, MapC
+from .structs cimport NeuralNetC, OptimizerC, FeatureC, BatchC, ExampleC, EmbeddingC, MapC
 from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
 from .eg cimport Batch, Example
@@ -44,7 +45,7 @@ cdef class NeuralNet:
     @staticmethod
     cdef inline void predictC(ExampleC* eg, const NeuralNetC* nn) nogil:
         Embedding.set_input(eg.fwd_state[0],
-            eg.features, eg.nr_feat, nn.embeds, nn.nr_embed)
+            eg.features, eg.nr_feat, nn.embeds)
         NeuralNet.forward(eg.fwd_state,
             nn.weights, nn.widths, nn.nr_layer)
         Example.set_scores(eg,
@@ -56,8 +57,8 @@ cdef class NeuralNet:
         # Compute forward and backward passes
         for i in range(mb.nr_eg):
             eg = &mb.egs[i]
-            Embedding.set_input(eg.fwd_state[0],
-                eg.features, eg.nr_feat, nn.embeds, nn.nr_embed)
+            #Embedding.set_input(eg.fwd_state[0],
+            #    eg.features, eg.nr_feat, nn.embeds)
             NeuralNet.forward(eg.fwd_state,
                 nn.weights, nn.widths, nn.nr_layer)
             NeuralNet.backward(eg.bwd_state,
@@ -74,10 +75,10 @@ cdef class NeuralNet:
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # But doing that is annoying.
-        for i in range(mb.nr_eg):
-            eg = &mb.egs[i]
-            Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
-                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+        #for i in range(mb.nr_eg):
+        #    eg = &mb.egs[i]
+        #    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
+        #        eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
     
     @staticmethod
     cdef inline void forward(weight_t** state,
@@ -129,29 +130,57 @@ cdef class NeuralNet:
 
 
 cdef class Embedding:
-    @staticmethod
-    cdef inline void set_input(weight_t* out, const FeatureC* features, int nr_feat,
-                               const MapC* const* tables, int nr_table) nogil:
-        for i in range(nr_feat):
-            feat = features[i]
-            emb = <weight_t*>Map_get(tables[feat.i], feat.key)
-            if emb != NULL:
-                VecVec.add_i(&out[feat.offset], 
-                    emb, feat.val, feat.length)
+    cdef Pool mem
+    cdef EmbeddingC* c
 
     @staticmethod
-    cdef inline void fine_tune(OptimizerC* opt, MapC** tables, weight_t* fine_tune,
+    cdef inline void init(EmbeddingC* self, Pool mem, vector_widths, features) except *: 
+        assert max(features) < len(vector_widths)
+        # Create tables, which may be shared between different features
+        # e.g., we might have a feature for this word, and a feature for next
+        # word. These occupy different parts of the input vector, but draw
+        # from the same embedding table.
+        uniqs = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_defaults = <weight_t**>mem.alloc(len(vector_widths), sizeof(void*))
+        for i, width in enumerate(vector_widths):
+            uniq_defaults[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            Map_init(mem, &uniqs[i],
+                8)
+        self.offsets = <int*>mem.alloc(len(features), sizeof(int))
+        self.lengths = <int*>mem.alloc(len(features), sizeof(int))
+        self.tables = <MapC**>mem.alloc(len(features), sizeof(void*))
+        self.defaults = <weight_t**>mem.alloc(len(features), sizeof(void*))
+        offset = 0
+        for i, table_id in enumerate(features):
+            self.tables[i] = &uniqs[table_id]
+            self.lengths[i] = vector_widths[table_id]
+            self.defaults[i] = uniq_defaults[table_id]
+            self.offsets[i] = offset
+            offset += vector_widths[table_id]
+
+    @staticmethod
+    cdef inline void set_input(weight_t* out, const FeatureC* features, int nr_feat,
+                               const EmbeddingC* layer) nogil:
+        for i in range(nr_feat):
+            feat = features[i]
+            emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
+            if emb == NULL:
+                emb = layer.defaults[feat.i]
+            VecVec.add_i(&out[layer.offsets[feat.i]], 
+                emb, feat.val, layer.lengths[feat.i])
+
+    @staticmethod
+    cdef inline void fine_tune(OptimizerC* opt, EmbeddingC* layer, weight_t* fine_tune,
                                const weight_t* delta, int nr_delta,
                                const FeatureC* features, int nr_feat) nogil:
-                               
         for i in range(nr_feat):
-            # Reset eg.fine_tune, because we need to modify the gradient...
+            # Reset fine_tune, because we need to modify the gradient
             memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
             feat = features[i]
-            curr_embed = <weight_t*>Map_get(tables[feat.i], feat.key)
-            grad_embed = &fine_tune[feat.offset]
-            opt.update(opt,
-                curr_embed, grad_embed, feat.val, feat.length)
+            weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
+            gradient = &fine_tune[layer.offsets[feat.i]]
+            opt.update(opt, weights, gradient,
+                feat.val, layer.lengths[feat.i])
 
 
 cdef class Rectifier:
@@ -236,15 +265,15 @@ cdef class Softmax:
 
 cdef class VanillaSGD:
     @staticmethod
-    cdef inline void init(OptimizerC* opt, Pool mem, int nr_weight, int* widths,
+    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
                     int nr_layer, weight_t eta, weight_t eps, weight_t rho) nogil:
-        opt.update = VanillaSGD.update
-        opt.eta = eta
-        opt.eps = eps
-        opt.rho = rho
-        opt.params = NULL
-        opt.ext = NULL
-        opt.nr = 0
+        self.update = VanillaSGD.update
+        self.eta = eta
+        self.eps = eps
+        self.rho = rho
+        self.params = NULL
+        self.ext = NULL
+        self.nr = 0
 
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,

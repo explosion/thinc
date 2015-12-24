@@ -15,15 +15,21 @@ from .structs cimport ExampleC, OptimizerC, MapC
 import numpy
 
 
+cdef class Embedding:
+    def __init__(self, vector_widths, features, mem=None):
+        if mem is None:
+            mem = Pool()
+        self.mem = mem
+        self.c = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
+        Embedding.init(self.c, self.mem, vector_widths, features)
+
+
 cdef class NeuralNet:
     def __init__(self, widths, weight_t eta=0.005, weight_t eps=1e-6, weight_t rho=1e-4):
         self.mem = Pool()
         self.c.eta = eta
         self.c.eps = eps
         self.c.rho = rho
-
-        # TODO
-        self.c.nr_embed = 1
 
         self.c.nr_layer = len(widths)
         self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
@@ -37,10 +43,9 @@ cdef class NeuralNet:
 
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
-        self.c.embeds = <MapC**>self.mem.alloc(self.c.nr_embed, sizeof(void*))
-        for i in range(self.c.nr_embed):
-            self.c.embeds[i] = <MapC*>self.mem.alloc(1, sizeof(MapC))
-            Map_init(self.mem, self.c.embeds[i], 8)
+        self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
+        Embedding.init(self.c.embeds, self.mem,
+            (10,), (0,))
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
         VanillaSGD.init(self.c.opt, self.mem,

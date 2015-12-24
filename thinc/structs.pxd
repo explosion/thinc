@@ -24,12 +24,20 @@ cdef struct OptimizerC:
     weight_t rho
 
 
+cdef struct EmbeddingC:
+    MapC** tables
+    weight_t** defaults
+    int* offsets
+    int* lengths
+    int nr
+
+
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
     OptimizerC* opt
 
-    MapC** embeds
+    EmbeddingC* embeds
 
     int32_t nr_layer
     int32_t nr_weight
