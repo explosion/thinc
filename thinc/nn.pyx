@@ -1,3 +1,4 @@
+# cython: profile=True
 from __future__ import print_function
 cimport cython
 
@@ -26,7 +27,7 @@ cdef class Embedding:
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t rho=1e-4):
+                 weight_t rho=1e-4, weight_t bias=0.2):
         self.mem = Pool()
         self.c.eta = eta
         self.c.eps = eps
@@ -51,11 +52,10 @@ cdef class NeuralNet:
                 table_widths, features)
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        VanillaSGD.init(self.c.opt, self.mem,
+        Adagrad.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
         # Leave b initialized to 0?
-        cdef weight_t bias_initial = 0.0
         cdef weight_t* W = self.c.weights
         fan_in = 1.0
         for i in range(self.c.nr_layer-2): # Don't init softmax weights
@@ -63,7 +63,7 @@ cdef class NeuralNet:
                 0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i+1] * self.c.widths[i])
             W += self.c.widths[i+1] * self.c.widths[i]
             Initializer.constant(W,
-                bias_initial, self.c.widths[i+1])
+                bias, self.c.widths[i+1])
             W += self.c.widths[i+1]
             fan_in = self.c.widths[i]
 
@@ -73,7 +73,7 @@ cdef class NeuralNet:
             &self.c)
         return eg
    
-    def train(self, Xs, ys):
+    def train(self, Xs, ys=None):
         cdef Batch mb = self.Batch(Xs, ys)
         NeuralNet.predictC(mb.c.egs,
             mb.c.nr_eg, &self.c)
@@ -89,6 +89,8 @@ cdef class NeuralNet:
         return Example(self.widths, features=input_, label=label)
 
     def Batch(self, inputs, costs=None):
+        if isinstance(inputs, Batch):
+            return inputs
         return Batch(self.widths, inputs, costs)
  
     property weights:

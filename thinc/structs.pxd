@@ -74,6 +74,7 @@ cdef struct BatchC:
     ExampleC* egs
     weight_t* gradient
     int nr_eg
+    int nr_weight
 
 
 cdef struct SparseArrayC:
@@ -83,8 +84,6 @@ cdef struct SparseArrayC:
 
 cdef struct FeatureC:
     int32_t i
-    int32_t offset
-    int32_t length
     uint64_t key
     weight_t val
 

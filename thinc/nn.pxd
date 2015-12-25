@@ -84,7 +84,7 @@ cdef class NeuralNet:
 
     @staticmethod
     cdef inline void insert_embeddingsC(NeuralNetC* nn, Pool mem,
-                                        const ExampleC* egs, int nr_eg) except *:
+            const ExampleC* egs, int nr_eg) except *:
         for i in range(nr_eg):
             eg = &egs[i]
             for j in range(eg.nr_feat):
@@ -179,7 +179,7 @@ cdef class Embedding:
 
     @staticmethod
     cdef inline void set_input(weight_t* out, const FeatureC* features, int nr_feat,
-                               const EmbeddingC* layer) nogil:
+            const EmbeddingC* layer) nogil:
         for i in range(nr_feat):
             feat = features[i]
             emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
@@ -198,7 +198,8 @@ cdef class Embedding:
             feat = features[i]
             weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
             gradient = &fine_tune[layer.offsets[feat.i]]
-            opt.update(opt, weights, gradient,
+            # TODO: We lack a way to store params for sparse variables in opt =/
+            VanillaSGD.update(opt, weights, gradient,
                 feat.val, layer.lengths[feat.i])
 
 
@@ -300,7 +301,7 @@ cdef class Initializer:
 cdef class VanillaSGD:
     @staticmethod
     cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-                    int nr_layer, weight_t eta, weight_t eps, weight_t rho) nogil:
+            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
         self.update = VanillaSGD.update
         self.eta = eta
         self.eps = eps
@@ -311,14 +312,65 @@ cdef class VanillaSGD:
 
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
-                        weight_t scale, int nr_weight) nogil:
+            weight_t scale, int nr_weight) nogil:
         '''
         Update weights with vanilla SGD
         '''
-        Vec.mul_i(gradient, scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        VecVec.add_i(gradient,
-            weights, opt.rho, nr_weight)
+        with gil:
+            Vec.mul_i(gradient, scale, nr_weight)
+            # Add the derivative of the L2-loss to the gradient
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
 
-        VecVec.add_i(weights,
-            gradient, -opt.eta, nr_weight)
+            VecVec.add_i(weights,
+                gradient, -opt.eta, nr_weight)
+
+
+cdef class Adagrad:
+    @staticmethod
+    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
+            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
+        self.update = Adagrad.update
+        self.eta = eta
+        self.eps = eps
+        self.rho = rho
+        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.ext = NULL
+        self.nr = 0
+
+    @staticmethod
+    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
+            weight_t scale, int nr_weight) nogil:
+        '''
+        Update weights with vanilla SGD
+        '''
+        # Add the derivative of the L2-loss to the gradient
+        cdef int i
+        with gil:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
+            VecVec.add_pow_i(opt.params,
+                gradient, 2.0, nr_weight)
+            for i in range(nr_weight):
+                gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
+            Vec.mul_i(gradient,
+                scale, nr_weight)
+            # Make the (already scaled) update
+            VecVec.add_i(weights,
+                gradient, -1.0, nr_weight)
+
+    #@staticmethod
+    #cdef inline void sparse_update(MapC* weights, MapC* gradient, MapC* params,
+    #                               const OptimizerC* opt, weight_t scale,
+    #                               const int* lengths, int nr_embed) nogil:
+    #    cdef int i, j
+    #    cdef feat_t key
+    #    cdef void* emb_ptr
+    #    for i in range(nr_embed):
+    #        j = 0
+    #        while Map_iter(&weights[i], &j, &key, &emb_ptr):
+    #            grad = Map_get(&gradients[i], key)
+    #            param = Map_get(&params[i], key)
+    #            opt.update(<weight_t*>emb_ptr, grad, param,
+    #                1.0, lengths[i])
+ 

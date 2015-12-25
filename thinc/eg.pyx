@@ -55,6 +55,11 @@ cdef class Example:
             for i in range(self.c.nr_atom):
                 self.c.atoms[i] = 0
 
+    property features:
+        def __get__(self):
+            for i in range(self.nr_feat):
+                yield self.c.features[i]
+
     property scores:
         def __get__(self):
             return [self.c.scores[i] for i in range(self.c.nr_class)]
@@ -123,8 +128,8 @@ cdef class Batch:
             eg = Example(nn_shape, features=x, label=y, mem=self.mem)
             self.c.egs[i] = eg.c
 
-        nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
-        self.c.gradient = <weight_t*>self.mem.alloc(nr_weight, sizeof(weight_t))
+        self.c.nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
+        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(weight_t))
 
     def __iter__(self):
         for i in range(self.c.nr_eg):
@@ -133,3 +138,7 @@ cdef class Batch:
     property loss:
         def __get__(self):
             return sum(eg.loss for eg in self)
+
+    property gradient:
+        def __get__(self):
+            return [self.c.gradient[i] for i in range(self.c.nr_weight)]

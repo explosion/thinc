@@ -45,14 +45,14 @@ cdef class Example:
 
         self.guess = 0
         self.best = 0
-        self.cost = 0
+        self.cost = 1
 
         if costs is not None:
             assert len(costs) == self.nr_class
             for i, cost in enumerate(costs):
                 self.costs[i] = cost
                 if cost == 0:
-                    self.best = cost
+                    self.best = i
 
         cdef weight_t value
         cdef feat_t key
