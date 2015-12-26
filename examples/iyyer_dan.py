@@ -76,7 +76,7 @@ class Extractor(object):
         return bow
 
 
-class DenseAveragedNetwork(object):
+class DenseAveragedNetwork(NeuralNet):
     '''A feed-forward neural network, where:
     
     * Input is an embedding layer averaged from the words in a document
@@ -88,24 +88,23 @@ class DenseAveragedNetwork(object):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6):
+                 eps=1e-6, bias=0.0):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
-        self.model = NeuralNet(nn_shape, embed=((300,), (0,)),
-                               rho=rho, eta=eta, eps=eps)
+        NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
+                           rho=rho, eta=eta, eps=eps, bias=bias)
         self.get_bow = get_bow
 
     def train(self, batch):
         loss = 0.0
         X = [self.get_bow(text) for text, _ in batch]
         y = [label for _, label in batch]
-        batch = Batch(self.model.widths, X, y)
-        self.model.train(batch)
+        batch = NeuralNet.train(self, X, y)
         return batch
 
     def predict(self, text):
         word_ids = self.get_bow(text, dropout=0.0)
-        eg = self.model.Example(word_ids)
-        self.model(eg)
+        eg = self.Example(word_ids)
+        self(eg)
         return eg
 
     def save(self):
@@ -124,16 +123,16 @@ class DenseAveragedNetwork(object):
     dropout=("Drop-out rate", "option", "r", float),
     rho=("Regularization penalty", "option", "p", float),
     eta=("Learning rate", "option", "e", float),
+    bias=("Initialize biases to", "option", "B", float),
     batch_size=("Batch size", "option", "b", int),
-    vocab_size=("Number of words to fine-tune", "option", "w", int),
 )
-def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5, vocab_size=40000,
-         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005):
+def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
+         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0):
     n_classes = 2
     print("Initializing model")
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
-                                 rho=rho, eta=eta, eps=1e-6)
-    print(model.model.widths)
+                                 rho=rho, eta=eta, eps=1e-6, bias=bias)
+    print(model.widths)
     print("Read data")
     train_data, dev_data = partition(read_data(data_dir / 'train'), 0.8)
     print("Begin training")
@@ -150,7 +149,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5, vocab_size=40
             #avg_grad += sum(abs(g) for g in batch.gradient) / model.model.nr_weight
         n_correct = sum(y[model.predict(x).guess] == 0 for x, y in dev_data)
         print(epoch, train_loss, n_correct / len(dev_data),
-              sum(model.model.weights) / model.model.nr_weight,
+              sum(model.weights) / model.nr_weight,
               avg_grad)
         if n_correct >= prev_best:
             prev_best = n_correct
