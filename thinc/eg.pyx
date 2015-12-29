@@ -44,7 +44,7 @@ cdef class Example:
         cdef int i
         if self.c.is_valid is not NULL:
             for i in range(self.c.nr_class):
-                self.c.is_valid[i] = 0
+                self.c.is_valid[i] = 1
         if self.c.costs is not NULL:
             for i in range(self.c.nr_class):
                 self.c.costs[i] = 0
@@ -142,3 +142,14 @@ cdef class Batch:
     property gradient:
         def __get__(self):
             return [self.c.gradient[i] for i in range(self.c.nr_weight)]
+
+    property l1_gradient:
+        def __get__(self):
+            cdef int i
+            cdef weight_t total = 0.0
+            for i in range(self.c.nr_weight):
+                if self.c.gradient[i] < 0:
+                    total -= self.c.gradient[i]
+                else:
+                    total += self.c.gradient[i]
+            return total / self.c.nr_weight

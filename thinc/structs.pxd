@@ -55,7 +55,6 @@ cdef struct ExampleC:
     FeatureC* features
     weight_t* scores
 
-    weight_t* gradient
     weight_t* fine_tune
     
     weight_t** fwd_state
