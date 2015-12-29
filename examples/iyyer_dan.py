@@ -66,10 +66,20 @@ class Extractor(object):
             dropout = self.dropout
         bow = defaultdict(float)
         all_words = defaultdict(float)
+        prev = 'EOL'
         for word in doc:
             id_ = self.vocab.setdefault(word, len(self.vocab) + 1)
             if numpy.random.random() >= dropout and word.isalpha():
                 bow[id_] += 1
+                all_words[id_] += 1
+                if prev is not None:
+                    bigram = (prev, word)
+                    id_ = self.vocab.setdefault(bigram, len(self.vocab) + 1)
+                    bow[id_] += 1
+                    all_words[id_] += 1
+                prev = word
+            else:
+                prev = None
             all_words[id_] += 1
         if sum(bow.values()) < 1:
             bow = all_words
@@ -133,6 +143,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
                                  rho=rho, eta=eta, eps=1e-6, bias=bias)
     print(model.widths)
+    print(model.nr_weight)
     print("Read data")
     train_data, dev_data = partition(read_data(data_dir / 'train'), 0.8)
     print("Begin training")
