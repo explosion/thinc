@@ -85,7 +85,7 @@ cdef class NeuralNet:
                         eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
 
     @staticmethod
-    cdef inline void batch_norm_training(NeuralNetworkC* nn, BatchC* mb) except *:
+    cdef inline void batch_norm_training(NeuralNetC* nn, BatchC* mb) except *:
         # Allocate. All this gets freed when mem gets cleaned up.
         cdef Pool mem = Pool()
         eg_fwd = <weight_t***>mem.alloc(nn.nr_layer, sizeof(void*))
@@ -100,8 +100,8 @@ cdef class NeuralNet:
             for j in range(mb.nr_eg):
                 eg_fwd[i][j] = mb.egs[j].fwd_state[i]
                 eg_bwd[i][j] = mb.egs[j].bwd_state[i]
+                bn_fwd[i][j] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
                 bn_bwd[i][j] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
-                fn_bwd[i][j] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
         fwd_avg = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
         bwd_avg = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
         fwd_var = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
@@ -112,73 +112,85 @@ cdef class NeuralNet:
             fwd_var[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
             bwd_var[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
         
+        # TODO
+        cdef weight_t* bn_W
+        cdef weight_t* d_bn_W
+        cdef weight_t* tmp
         # Embed
         for i in range(mb.nr_eg):
-            if nn.embeds is not NULL and eg.features is not NULL:
+            if nn.embeds is not NULL and mb.egs[i].features is not NULL:
                 Embedding.set_input(eg_fwd[i][0],
                     mb.egs[i].features, mb.egs[i].nr_feat, nn.embeds)
+
         # Forward
+        cdef weight_t* W = nn.weights
         for i in range(nn.nr_layer): # Save last layer for softmax
             BN.mean(fwd_avg[i],
                 eg_fwd[i], mb.nr_eg, nn.widths[i])
-            BN.variance(mb.fwd_var[i],
-                eg_fwd[i], mb.nr_eg, nn.widths[i])
+            BN.variance(fwd_var[i],
+                eg_fwd[i], fwd_avg[i], mb.nr_eg, nn.widths[i])
             for j in range(mb.nr_eg):
                 BN.forward(bn_fwd[i][j],
                     eg_fwd[i][j], bn_W, fwd_avg[i], fwd_var[i], nn.widths[i])
                 Rectifier.forward(eg_fwd[i+1][j],
                     bn_fwd[i][j], W, nn.widths[i+1], nn.widths[i])
             W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
-            bn_W = nn.widths[i+1]
+            bn_W += nn.widths[i+1]
         i_n1 = nn.nr_layer-1
         i_n2 = nn.nr_layer-2
         BN.mean(fwd_avg[i_n1],
             eg_fwd[i_n1], mb.nr_eg, nn.widths[i_n1])
         BN.variance(fwd_var[i_n1],
-            eg_fwd[i_n1], mb.nr_eg, nn.widths[i_n1])
+            eg_fwd[i_n1], fwd_avg[i_n1], mb.nr_eg, nn.widths[i_n1])
         for i in range(mb.nr_eg):
-            BN.forward(bn_fwd[i_n1][j],
-                eg_fwd[i_n1][j], bn_W, fwd_avg[i_n1], fwd_var[i_n1], nn.widths[i_n1])
-            Softmax.forward(eg_fwd[i_n1],
-                eg_fwd[i_n2], W, nn.widths[i_n1], nn.widths[i_n2])
+            BN.forward(bn_fwd[i_n1][i],
+                eg_fwd[i_n1][i], bn_W, fwd_avg[i_n1], fwd_var[i_n1], nn.widths[i_n1])
+            Softmax.forward(eg_fwd[i_n1][i],
+                eg_fwd[i_n2][i], W, nn.widths[i_n1], nn.widths[i_n2])
         # Backward
-        for i in range(n-2, 0, -1):
-            W -= widths[i+1] * widths[i] + widths[i+1]
+        for i in range(nn.nr_layer-2, 0, -1):
+            W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
             BN.delta_variance(bwd_var[i],
-                fwd_avg[i], ?, mb.nr_eg, nn.widths[i])
+                fwd_avg[i], fwd_var[i], bn_bwd[i+1], eg_fwd[i], mb.nr_eg, nn.widths[i])
             BN.delta_mean(bwd_avg[i], tmp,
-                ?, eg_fwd, mb.nr_eg, nn.widths[i])
+                bwd_var[i], bn_bwd[i],
+                eg_fwd[i],
+                fwd_avg[i], fwd_var[i], mb.nr_eg, nn.widths[i])
             for j in range(mb.nr_eg):
                 BN.backward(bn_bwd[i][j],
-                    bn_W, eg_bwd[i][j], fwd_avg[i], fwd_var[i],
-                    mb.bwd_avg[i], bwd_var[i], widths[i+1], widths[i])
+                    d_bn_W, eg_bwd[i][j], eg_fwd[i][j], bn_W, fwd_avg[i], fwd_var[i],
+                    bwd_avg[i], bwd_var[i], mb.nr_eg, nn.widths[i+1], nn.widths[i])
+                # TODO: We have to multiply bn_bwd[i] with gamma
                 Rectifier.backward(eg_bwd[i][j], # Output: error of this layer, len=width
                     bn_bwd[i+1][j],    # Input: error from layer above, len=nr_out
                     bn_fwd[i][j],      # Input: signal from layer below, len=nr_wide
                     W,              # Weights of this layer
-                    widths[i+1],    # Width of next layer 
-                    widths[i]       # Width of this layer 
+                    nn.widths[i+1],    # Width of next layer 
+                    nn.widths[i]       # Width of this layer 
                 )
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
-        W -= widths[1] * widths[0] + widths[1]
-        MatVec.T_dot(bwd[0], W, mb.bn_bwd[1], widths[1], widths[0])
+        W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
+        for i in range(mb.nr_eg):
+            MatVec.T_dot(bn_bwd[0][i],
+                W, bn_bwd[1][i], nn.widths[1], nn.widths[0])
         # Get the averaged gradient for the minibatch
         # We compute this over the batch norms
         for i in range(mb.nr_eg):
-            NeuralNet.set_gradient(gradient,
+            NeuralNet.set_gradient(mb.gradient,
                 bn_fwd[i], bn_bwd[i], nn.widths, nn.nr_layer)
-        nn.opt.update(nn.opt, nn.weights, gradient,
+        nn.opt.update(nn.opt, nn.weights, mb.gradient,
             1.0, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # However, most words are rare --- so most words will only have non-zero
         # gradient for 1 or 2 examples anyway.
+        cdef ExampleC* eg
         if nn.embeds is not NULL:
-            for i in range(nr_eg):
-                eg = &egs[i]
+            for i in range(mb.nr_eg):
+                eg = &mb.egs[i]
                 if eg.features is not NULL:
                     Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
-                        bn_bwd[0], nn.widths[0], eg.features, eg.nr_feat)
+                        <const weight_t*>bn_bwd[0], nn.widths[0], eg.features, eg.nr_feat)
 
     @staticmethod
     cdef inline void insert_embeddingsC(NeuralNetC* nn, Pool mem,
@@ -211,12 +223,9 @@ cdef class NeuralNet:
                         const weight_t* costs,
                         const weight_t* const* fwd, 
                         const weight_t* W,
-                        const int* widths, int n,
-                        const weight_t** mean_fwd,
-                        const weight_t** var_fwd) nogil:
+                        const int* widths, int n) nogil:
         Softmax.delta_log_loss(bwd[n-1],
             costs, fwd[n-1], widths[n-1])
-
         cdef int i
         for i in range(n-2, 0, -1):
             W -= widths[i+1] * widths[i] + widths[i+1]
@@ -226,12 +235,11 @@ cdef class NeuralNet:
                 W,           # Weights of this layer
                 widths[i+1], # Width of next layer 
                 widths[i]    # Width of this layer 
-                mean_fwd[i], # Batch mean of this layer
-                var_fwd[i]   # Batch variance of this layer
             )
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         W -= widths[1] * widths[0] + widths[1]
-        MatVec.T_dot(bwd[0], W, bwd[1], widths[1], widths[0])
+        MatVec.T_dot(bwd[0],
+            W, bwd[1], widths[1], widths[0])
 
     @staticmethod
     cdef inline void set_gradient(weight_t* gradient,
@@ -305,46 +313,50 @@ cdef class Embedding:
                 feat.val, layer.lengths[feat.i])
 
 
-cdef class BatchNormalizer:
+cdef class BN:
     @staticmethod
     cdef inline void mean(weight_t* mean,
-                          const weight_t** acts,
+                          const weight_t* const* acts,
                           int nr_eg, int nr_weight) nogil:
         for i in range(nr_eg):
             VecVec.add_i(mean,
                 acts[i], 1.0, nr_weight)
-        VecVec.div_i(mean,
+        Vec.div_i(mean,
             nr_eg, nr_weight)
 
-    cdef inline void variance(weight_t* var, const weight_t** acts,
-                                    int nr_eg, nr_weight) nogil:
+    @staticmethod
+    cdef inline void variance(weight_t* var, const weight_t* const* acts,
+                              const weight_t* mean, int nr_eg, int nr_weight) nogil:
         for i in range(nr_eg):
             for j in range(nr_weight):
                 var[j] += (acts[i][j] - mean[j]) ** 2
-        VecVec.div_i(var,
+        Vec.div_i(var,
             nr_eg, nr_weight)
 
     @staticmethod
     cdef inline void delta_variance(weight_t* d_var,
-            const weight_t* mean, const weight_t** d_x,
-            const weight_t** acts, int nr_eg, int nr_weight) nogil:
+            const weight_t* mean, const weight_t* var, const weight_t*const* d_x,
+            const weight_t* const* acts, int nr_eg, int nr_weight) nogil:
+        cdef weight_t eps = 0.000001
         for i in range(nr_eg):
             for j in range(nr_weight):
                 d_var[j] += d_x[i][j] * (acts[i][j] - mean[j])
         for i in range(nr_weight):
             d_var[i] *= 0.5 * (var[i] + eps) ** -1.5
 
-    @staticthod
+    @staticmethod
     cdef inline void delta_mean(weight_t* d_mean, weight_t* tmp,
-            const weight_t* d_var, const weight_t* d_x,
+            const weight_t* d_var, const weight_t* const* d_x,
+            const weight_t* const* x,
             const weight_t* mean, const weight_t* var, 
             int nr_eg, int nr_weight) nogil:
+        cdef weight_t eps = 0.000001 
         for i in range(nr_weight):
             tmp[i] = -1 / c_sqrt(d_var[i] + eps)
         for i in range(nr_eg):
             for j in range(nr_weight):
                 d_mean[j] += d_x[i][j] * tmp[j]
-        Initializer.uniform(tmp,
+        Initializer.constant(tmp,
             0, nr_weight)
         for i in range(nr_eg):
             for j in range(nr_weight):
@@ -356,15 +368,16 @@ cdef class BatchNormalizer:
 
     @staticmethod
     cdef inline void forward(weight_t* out,
-                        const weight_t* in_
+                        const weight_t* in_,
                         const weight_t* W,
                         const weight_t* avg, const weight_t* var,
-                        int nr_wide, weight_t eps) nogil:
+                        int nr_wide) nogil:
+        cdef weight_t eps = 0.000001 
         for i in range(nr_wide):
-            out[i] = (in_[i] - avg[i]) / c_sqrt(var[i] + eps))
+            out[i] = (in_[i] - avg[i]) / c_sqrt(var[i] + eps)
         # Scale
         VecVec.mul_i(out,
-            W, 1.0, nr_wide)
+            W, nr_wide)
         # Shift
         VecVec.add_i(out,
             &W[nr_wide], 1.0, nr_wide)
@@ -375,10 +388,11 @@ cdef class BatchNormalizer:
                         const weight_t* delta_y,    # Len == nr_out
                         const weight_t* X,   # Len == nr_wide
                         const weight_t* W,
-                        const weight_t* means,
-                        const weight_t* variances,
+                        const weight_t* mean,
+                        const weight_t* variance,
                         const weight_t* d_means,
                         const weight_t* d_vars,
+                        int32_t nr_eg,
                         int32_t nr_out,
                         int32_t nr_wide) nogil:
         # In fwd pass, we received x and output Y.
@@ -396,11 +410,12 @@ cdef class BatchNormalizer:
         # variances: These are the variances of the other Xs in our minibatch
         # d_means: The delta of the means in the batch 
         # d_vars: The delta of the variances in the batch
+        cdef weight_t eps = 0.000001 
         for i in range(nr_wide):
-            delta_out[i] = delta_y[i] * W[i]
-            delta_out[i] *= 1 / sqrt(variance[i] + eps)
-            delta_out[i] += d_vars[i] * (2 * (X[i] - means[i]) / nr_eg)
-            delta_out[i] += d_means[i] * (1 / nr_eg)
+            delta_x[i] = delta_y[i] * W[i]
+            delta_x[i] *= 1 / c_sqrt(variance[i] + eps)
+            delta_x[i] += d_vars[i] * (2 * (X[i] - mean[i]) / nr_eg)
+            delta_x[i] += d_means[i] * (1 / nr_eg)
 
  
 cdef class Rectifier:
@@ -493,7 +508,7 @@ cdef class Initializer:
             weights[i] = value
 
     @staticmethod
-    cdef inline void constant(weight_t* weights, weight_t value, int n) except *:
+    cdef inline void constant(weight_t* weights, weight_t value, int n) nogil:
         for i in range(n):
             weights[i] = value
 
