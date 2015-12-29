@@ -3,6 +3,7 @@ from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
 from libc.stdint cimport int32_t
 import numpy
+import numpy.random
 
 from cymem.cymem cimport Pool
 
@@ -74,7 +75,8 @@ cdef class NeuralNet:
             1.0, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
-        # But doing that is annoying.
+        # However, most words are rare --- so most words will only have non-zero
+        # gradient for 1 or 2 examples anyway.
         if nn.embeds is not NULL:
             for i in range(nr_eg):
                 eg = &egs[i]
@@ -94,8 +96,6 @@ cdef class NeuralNet:
                     emb = <weight_t*>mem.alloc(nn.embeds.lengths[feat.i], sizeof(weight_t))
                     Initializer.normal(emb,
                         0.0, 1.0, nn.embeds.lengths[feat.i])
-                    for k in range(nn.embeds.lengths[feat.i]):
-                        emb[k] = 1.0
                     Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
   
     @staticmethod
@@ -198,7 +198,9 @@ cdef class Embedding:
             feat = features[i]
             weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
             gradient = &fine_tune[layer.offsets[feat.i]]
-            # TODO: We lack a way to store params for sparse variables in opt =/
+            # TODO: Currently we can't store supporting parameters for the word
+            # vectors in opt, so we can only do vanilla SGD. In practice this
+            # seems to work very well!
             VanillaSGD.update(opt, weights, gradient,
                 feat.val, layer.lengths[feat.i])
 
@@ -316,14 +318,13 @@ cdef class VanillaSGD:
         '''
         Update weights with vanilla SGD
         '''
-        with gil:
-            Vec.mul_i(gradient, scale, nr_weight)
-            # Add the derivative of the L2-loss to the gradient
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
+        Vec.mul_i(gradient, scale, nr_weight)
+        # Add the derivative of the L2-loss to the gradient
+        VecVec.add_i(gradient,
+            weights, opt.rho, nr_weight)
 
-            VecVec.add_i(weights,
-                gradient, -opt.eta, nr_weight)
+        VecVec.add_i(weights,
+            gradient, -opt.eta, nr_weight)
 
 
 cdef class Adagrad:
@@ -346,31 +347,14 @@ cdef class Adagrad:
         '''
         # Add the derivative of the L2-loss to the gradient
         cdef int i
-        with gil:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-            VecVec.add_pow_i(opt.params,
-                gradient, 2.0, nr_weight)
-            for i in range(nr_weight):
-                gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
-            Vec.mul_i(gradient,
-                scale, nr_weight)
-            # Make the (already scaled) update
-            VecVec.add_i(weights,
-                gradient, -1.0, nr_weight)
-
-    #@staticmethod
-    #cdef inline void sparse_update(MapC* weights, MapC* gradient, MapC* params,
-    #                               const OptimizerC* opt, weight_t scale,
-    #                               const int* lengths, int nr_embed) nogil:
-    #    cdef int i, j
-    #    cdef feat_t key
-    #    cdef void* emb_ptr
-    #    for i in range(nr_embed):
-    #        j = 0
-    #        while Map_iter(&weights[i], &j, &key, &emb_ptr):
-    #            grad = Map_get(&gradients[i], key)
-    #            param = Map_get(&params[i], key)
-    #            opt.update(<weight_t*>emb_ptr, grad, param,
-    #                1.0, lengths[i])
- 
+        VecVec.add_i(gradient,
+            weights, opt.rho, nr_weight)
+        VecVec.add_pow_i(opt.params,
+            gradient, 2.0, nr_weight)
+        for i in range(nr_weight):
+            gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
+        Vec.mul_i(gradient,
+            scale, nr_weight)
+        # Make the (already scaled) update
+        VecVec.add_i(weights,
+            gradient, -1.0, nr_weight)
