@@ -1,4 +1,5 @@
 from cymem.cymem cimport Pool
+from libc.math cimport sqrt as c_sqrt
 from libc.string cimport memset, memcpy
 
 from preshed.maps cimport map_init as Map_init
@@ -23,8 +24,6 @@ cdef class Example:
 
     @staticmethod
     cdef inline void init(ExampleC* self, Pool mem, model_shape, features, costs) except *:
-        pass
-
         self.fwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         self.bwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         for i, width in enumerate(model_shape):
@@ -34,7 +33,6 @@ cdef class Example:
         # So each layer has a weight matrix W with x*y weights, and an array
         # of bias weights, of length y. So each layer has x*y+y weights.
         nr_weight = sum([x * y + y for x, y in zip(model_shape, model_shape[1:])])
-        self.gradient = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
         self.fine_tune = <weight_t*>mem.alloc(model_shape[0], sizeof(weight_t))
 
         self.nr_class = model_shape[-1]
