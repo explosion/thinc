@@ -85,6 +85,102 @@ cdef class NeuralNet:
                         eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
 
     @staticmethod
+    cdef inline void batch_norm_training(NeuralNetworkC* nn, BatchC* mb) except *:
+        # Allocate. All this gets freed when mem gets cleaned up.
+        cdef Pool mem = Pool()
+        eg_fwd = <weight_t***>mem.alloc(nn.nr_layer, sizeof(void*))
+        eg_bwd = <weight_t***>mem.alloc(nn.nr_layer, sizeof(void*))
+        bn_fwd = <weight_t***>mem.alloc(nn.nr_layer, sizeof(void*))
+        bn_bwd = <weight_t***>mem.alloc(nn.nr_layer, sizeof(void*))
+        for i in range(nn.nr_layer):
+            eg_fwd[i] = <weight_t**>mem.alloc(mb.nr_eg, sizeof(void*))
+            eg_bwd[i] = <weight_t**>mem.alloc(mb.nr_eg, sizeof(void*))
+            bn_fwd[i] = <weight_t**>mem.alloc(mb.nr_eg, sizeof(void*))
+            bn_bwd[i] = <weight_t**>mem.alloc(mb.nr_eg, sizeof(void*))
+            for j in range(mb.nr_eg):
+                eg_fwd[i][j] = mb.egs[j].fwd_state[i]
+                eg_bwd[i][j] = mb.egs[j].bwd_state[i]
+                bn_bwd[i][j] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+                fn_bwd[i][j] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+        fwd_avg = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
+        bwd_avg = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
+        fwd_var = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
+        bwd_var = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
+        for i in range(nn.nr_layer):
+            fwd_avg[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+            bwd_avg[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+            fwd_var[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+            bwd_var[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
+        
+        # Embed
+        for i in range(mb.nr_eg):
+            if nn.embeds is not NULL and eg.features is not NULL:
+                Embedding.set_input(eg_fwd[i][0],
+                    mb.egs[i].features, mb.egs[i].nr_feat, nn.embeds)
+        # Forward
+        for i in range(nn.nr_layer): # Save last layer for softmax
+            BN.mean(fwd_avg[i],
+                eg_fwd[i], mb.nr_eg, nn.widths[i])
+            BN.variance(mb.fwd_var[i],
+                eg_fwd[i], mb.nr_eg, nn.widths[i])
+            for j in range(mb.nr_eg):
+                BN.forward(bn_fwd[i][j],
+                    eg_fwd[i][j], bn_W, fwd_avg[i], fwd_var[i], nn.widths[i])
+                Rectifier.forward(eg_fwd[i+1][j],
+                    bn_fwd[i][j], W, nn.widths[i+1], nn.widths[i])
+            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            bn_W = nn.widths[i+1]
+        i_n1 = nn.nr_layer-1
+        i_n2 = nn.nr_layer-2
+        BN.mean(fwd_avg[i_n1],
+            eg_fwd[i_n1], mb.nr_eg, nn.widths[i_n1])
+        BN.variance(fwd_var[i_n1],
+            eg_fwd[i_n1], mb.nr_eg, nn.widths[i_n1])
+        for i in range(mb.nr_eg):
+            BN.forward(bn_fwd[i_n1][j],
+                eg_fwd[i_n1][j], bn_W, fwd_avg[i_n1], fwd_var[i_n1], nn.widths[i_n1])
+            Softmax.forward(eg_fwd[i_n1],
+                eg_fwd[i_n2], W, nn.widths[i_n1], nn.widths[i_n2])
+        # Backward
+        for i in range(n-2, 0, -1):
+            W -= widths[i+1] * widths[i] + widths[i+1]
+            BN.delta_variance(bwd_var[i],
+                fwd_avg[i], ?, mb.nr_eg, nn.widths[i])
+            BN.delta_mean(bwd_avg[i], tmp,
+                ?, eg_fwd, mb.nr_eg, nn.widths[i])
+            for j in range(mb.nr_eg):
+                BN.backward(bn_bwd[i][j],
+                    bn_W, eg_bwd[i][j], fwd_avg[i], fwd_var[i],
+                    mb.bwd_avg[i], bwd_var[i], widths[i+1], widths[i])
+                Rectifier.backward(eg_bwd[i][j], # Output: error of this layer, len=width
+                    bn_bwd[i+1][j],    # Input: error from layer above, len=nr_out
+                    bn_fwd[i][j],      # Input: signal from layer below, len=nr_wide
+                    W,              # Weights of this layer
+                    widths[i+1],    # Width of next layer 
+                    widths[i]       # Width of this layer 
+                )
+        # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
+        W -= widths[1] * widths[0] + widths[1]
+        MatVec.T_dot(bwd[0], W, mb.bn_bwd[1], widths[1], widths[0])
+        # Get the averaged gradient for the minibatch
+        # We compute this over the batch norms
+        for i in range(mb.nr_eg):
+            NeuralNet.set_gradient(gradient,
+                bn_fwd[i], bn_bwd[i], nn.widths, nn.nr_layer)
+        nn.opt.update(nn.opt, nn.weights, gradient,
+            1.0, nn.nr_weight)
+        # Fine-tune the embeddings
+        # This is sort of wrong --- we're supposed to average over the minibatch.
+        # However, most words are rare --- so most words will only have non-zero
+        # gradient for 1 or 2 examples anyway.
+        if nn.embeds is not NULL:
+            for i in range(nr_eg):
+                eg = &egs[i]
+                if eg.features is not NULL:
+                    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
+                        bn_bwd[0], nn.widths[0], eg.features, eg.nr_feat)
+
+    @staticmethod
     cdef inline void insert_embeddingsC(NeuralNetC* nn, Pool mem,
             const ExampleC* egs, int nr_eg) except *:
         for i in range(nr_eg):
@@ -212,8 +308,8 @@ cdef class Embedding:
 cdef class BatchNormalizer:
     @staticmethod
     cdef inline void mean(weight_t* mean,
-                                const weight_t** acts,
-                                int nr_eg, int nr_weight) nogil:
+                          const weight_t** acts,
+                          int nr_eg, int nr_weight) nogil:
         for i in range(nr_eg):
             VecVec.add_i(mean,
                 acts[i], 1.0, nr_weight)
