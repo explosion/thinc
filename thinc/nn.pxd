@@ -113,7 +113,6 @@ cdef class NeuralNet:
             bwd_var[i] = <weight_t*>mem.alloc(nn.widths[i], sizeof(weight_t))
         
         # TODO
-        cdef weight_t* bn_W
         cdef weight_t* d_bn_W
         cdef weight_t* tmp
         # Embed
@@ -123,19 +122,27 @@ cdef class NeuralNet:
                     mb.egs[i].features, mb.egs[i].nr_feat, nn.embeds)
 
         # Forward
+        # The weights vector is one contiguous chunk of memory, for all layers.
+        # For each layer of width M and N outputs, we have:
+        # - M gamma parameters, to scale the batch norm
+        # - M beta parameters, to shift the batch norm
+        # - M*N synapses
+        # - N bias parameters
         cdef weight_t* W = nn.weights
-        for i in range(nn.nr_layer): # Save last layer for softmax
+        for i in range(nn.nr_layer-2): # Save last layer for softmax
             BN.mean(fwd_avg[i],
                 eg_fwd[i], mb.nr_eg, nn.widths[i])
             BN.variance(fwd_var[i],
                 eg_fwd[i], fwd_avg[i], mb.nr_eg, nn.widths[i])
             for j in range(mb.nr_eg):
                 BN.forward(bn_fwd[i][j],
-                    eg_fwd[i][j], bn_W, fwd_avg[i], fwd_var[i], nn.widths[i])
+                    eg_fwd[i][j], W, fwd_avg[i], fwd_var[i], nn.widths[i])
                 Rectifier.forward(eg_fwd[i+1][j],
-                    bn_fwd[i][j], W, nn.widths[i+1], nn.widths[i])
-            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
-            bn_W += nn.widths[i+1]
+                    bn_fwd[i][j], W+(nn.widths[i]*2), nn.widths[i+1], nn.widths[i])
+            W += nn.widths[i] # Gamma 
+            W += nn.widths[i] # Beta
+            W += nn.widths[i+1] * nn.widths[i] # Synapses
+            W += nn.widths[i+1] # Bias
         i_n1 = nn.nr_layer-1
         i_n2 = nn.nr_layer-2
         BN.mean(fwd_avg[i_n1],
@@ -144,30 +151,51 @@ cdef class NeuralNet:
             eg_fwd[i_n1], fwd_avg[i_n1], mb.nr_eg, nn.widths[i_n1])
         for i in range(mb.nr_eg):
             BN.forward(bn_fwd[i_n1][i],
-                eg_fwd[i_n1][i], bn_W, fwd_avg[i_n1], fwd_var[i_n1], nn.widths[i_n1])
+                eg_fwd[i_n1][i], W, fwd_avg[i_n1], fwd_var[i_n1], nn.widths[i_n1])
             Softmax.forward(eg_fwd[i_n1][i],
-                eg_fwd[i_n2][i], W, nn.widths[i_n1], nn.widths[i_n2])
+                eg_fwd[i_n2][i], W+(nn.widths[i_n1]*2), nn.widths[i_n1], nn.widths[i_n2])
+        W += nn.widths[i_n1] # Gamma 
+        W += nn.widths[i_n1] # Beta
+        W += nn.widths[i_n1] * nn.widths[i_n2] # Synapses
+        W += nn.widths[i_n2] # Bias
+        for i in range(mb.nr_eg):
+            Softmax.delta_log_loss(eg_bwd[n-1],
+                costs, eg_fwd[n-1], nn.widths[n-1])
+ 
         # Backward
         for i in range(nn.nr_layer-2, 0, -1):
-            W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            W -= nn.widths[i+1] * nn.widths[i] # Synapses
+            W -= nn.widths[i+1] # Bias
+            for j in range(mb.nr_eg):
+                Rectifier.backward(eg_bwd[i][j], # Output: error of this layer, len=width
+                    bn_bwd[i+1][j], # Input: error from layer above, len=nr_out
+                    bn_fwd[i][j],   # Input: signal from layer below, len=nr_wide
+                    W,              # Weights of this layer
+                    nn.widths[i+1], # Width of next layer 
+                    nn.widths[i]    # Width of this layer 
+                )
+                # We've just placed dL/dY in eg_bwd[i][j]
+                # Now calculate dL/dB i.e. loss of shift param
+                VecVec.add_i(d_beta,
+                    eg_bwd[i][j], 1.0, nn.widths[i])
+                # Calculate dL/dG i.e. loss of scale param
+                VecVec.add_i(d_gamma,
+                    eg_bwd[i][j] * bn_fwd[i][j], 1.0, nn.widths[i])
+                # Transform dL/dY to dL/dX' by doing dL/dY * G
+                VecVec.mul_i(eg_bwd[i][j],
+                    gamma, nn.widths[i])
+                BN.backward(bn_bwd[i][j],
+                    eg_bwd[i][j], eg_fwd[i][j], fwd_avg[i], fwd_var[i],
+                    bwd_avg[i], bwd_var[i], mb.nr_eg, nn.widths[i+1], nn.widths[i])
+            W -= nn.widths[i] # Beta
+            W -= nn.widths[i] # Gamma
             BN.delta_variance(bwd_var[i],
                 fwd_avg[i], fwd_var[i], bn_bwd[i+1], eg_fwd[i], mb.nr_eg, nn.widths[i])
             BN.delta_mean(bwd_avg[i], tmp,
                 bwd_var[i], bn_bwd[i],
                 eg_fwd[i],
                 fwd_avg[i], fwd_var[i], mb.nr_eg, nn.widths[i])
-            for j in range(mb.nr_eg):
-                BN.backward(bn_bwd[i][j],
-                    d_bn_W, eg_bwd[i][j], eg_fwd[i][j], bn_W, fwd_avg[i], fwd_var[i],
-                    bwd_avg[i], bwd_var[i], mb.nr_eg, nn.widths[i+1], nn.widths[i])
-                # TODO: We have to multiply bn_bwd[i] with gamma
-                Rectifier.backward(eg_bwd[i][j], # Output: error of this layer, len=width
-                    bn_bwd[i+1][j],    # Input: error from layer above, len=nr_out
-                    bn_fwd[i][j],      # Input: signal from layer below, len=nr_wide
-                    W,              # Weights of this layer
-                    nn.widths[i+1],    # Width of next layer 
-                    nn.widths[i]       # Width of this layer 
-                )
+ 
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
         for i in range(mb.nr_eg):
@@ -383,11 +411,9 @@ cdef class BN:
             &W[nr_wide], 1.0, nr_wide)
 
     @staticmethod
-    cdef inline void backward(weight_t* delta_x,   # Len == nr_wide
-                              weight_t* delta_W,
-                        const weight_t* delta_y,    # Len == nr_out
-                        const weight_t* X,   # Len == nr_wide
-                        const weight_t* W,
+    cdef inline void backward(weight_t* d_x,  # Len == ?
+                        const weight_t* d_xh, # Len == ?
+                        const weight_t* X,    # Len == ?
                         const weight_t* mean,
                         const weight_t* variance,
                         const weight_t* d_means,
@@ -412,10 +438,9 @@ cdef class BN:
         # d_vars: The delta of the variances in the batch
         cdef weight_t eps = 0.000001 
         for i in range(nr_wide):
-            delta_x[i] = delta_y[i] * W[i]
-            delta_x[i] *= 1 / c_sqrt(variance[i] + eps)
-            delta_x[i] += d_vars[i] * (2 * (X[i] - mean[i]) / nr_eg)
-            delta_x[i] += d_means[i] * (1 / nr_eg)
+            d_x[i] *= 1 / c_sqrt(var[i] + eps)
+            d_x[i] += d_var[i] * ((2 * (X[i] - mean[i])) / nr_eg)
+            d_x[i] += d_mean[i] * (1 / nr_eg)
 
  
 cdef class Rectifier:
