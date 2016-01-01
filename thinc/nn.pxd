@@ -142,34 +142,19 @@ cdef class NeuralNet:
     cdef inline void backward(weight_t** bwd, weight_t** mean_bwd, weight_t** mean_bwd_dot_fwd,
             const weight_t* costs, const weight_t* const* fwd, const weight_t* W,
             const weight_t* variance, const int* widths, int n, weight_t alpha) nogil:
-        cdef int i = n-1
+        cdef int i = n
         Bwd.log_loss(bwd[i],
             costs, fwd[i], widths[i])
         for i in range(n-2, 0, -1):
-            W -= widths[i+1] # Beginning of bias
-            W -= widths[i] * widths[i+1] # Beginning of synapse weights
-            W -= widths[i+1] * 2 # Beginning of normalization weights
             Bwd.elu(bwd[i+1],  # Account for this layer's non-linearity
                 fwd[i+1], widths[i+1]
-
-            # Multiply the loss by the normalization scale, gamma, to get the loss
-            # X'
-            Vec.mul_i(bwd[i+1],
-                W), widths[i+1])
-            # if Y = (X-mean(X))/sqrt(var(X)+eps), then
-            # dE(Y)/dX =
-            #   (dE/dY - mean(dE/dY) - mean(dE/dY \cdot Y) \cdot Y)
-            #     ./ sqrt(var(X) + eps)
-            # So:
-            # delta_in -= mean_delta_in
-            # delta_in -= mean_delta_in_dot_Y
-            # delta_in *= Y
-            Bwd.update_averages(mean_bwd[i+1], mean_bwd_dot_fwd[i+1],
-                bwd[i+1], fwd[i+1], widths[i+1])
-            Bwd.normalize(state[i+1],
-                mean_bwd[i+1], mean_bwd_dot_fwd[i+1], variance[i+1], widths[i+1])
-            Bwd.linear(bwd[i], # Backprop to this layer's weights
-                W + (widths[i]+1*2), bwd[i+1], widths[i+1], widths[i])
+            # Account for normalization
+            Bwd.normalize(bwd[i+1], E_bwd[i+1], E_bwd_dot_fwd[i+1],
+                fwd[i+1], variance[i+1], W - widths[i+1], widths[i+1], alpha)
+            # Reverse pointer past gamma, beta, bias, and synapse weights
+            W -= (widths[i+1] * 3) + (widths[i] * widths[i+1])
+            Bwd.linear(bwd[i],
+                W, bwd[i+1], widths[i+1], widths[i])
 
     @staticmethod
     cdef inline void set_gradient(weight_t* gradient,
@@ -247,7 +232,7 @@ cdef class Fwd:
 
 cdef class Bwd:
     @staticmethod
-    cdef inline void d_log_loss(weight_t* loss, weight_t* costs, weight_t* scores,
+    cdef inline void log_loss(weight_t* loss, weight_t* costs, weight_t* scores,
             int nr_out) nogil:
         # This assumes only one true class
         cdef int i
@@ -265,31 +250,45 @@ cdef class Bwd:
                 delta[i] = 1.0
 
     @staticmethod
-    cdef inline void d_gamma(weight_t* out,
+    cdef inline void gamma(weight_t* out,
             weight_t* top_diff, weight_t* signal_in, int nr_in, int nr_out) nogil:
         pass
 
     @staticmethod
-    cdef inline void d_beta(weight_t* out,
+    cdef inline void beta(weight_t* out,
             weight_t* top_diff, weight_t* signal_in, int nr_in, int nr_out) nogil:
         pass
  
     @staticmethod
-    cdef inline void update_averages(
-            weight_t* mean_dEdY, weight_t* mean_dEdY_dot_Y, 
-            const weight_t* dEdY, const weight_t* y,
+    cdef inline void normalize(weight_t* bwd, weight_t* E_bwd, weight_t* E_bwd_dot_fwd,
+            const weight_t* fwd, const weight_t* variance, const weight_t* gamma,
             int n, weight_t alpha) nogil:
-        VecVec.mul_i(mean_dEdY,
+        # Simplification taken from Caffe, by cdoersch
+        # if Y = (X-mean(X))/sqrt(var(X)+eps), then
+        # dE(Y)/dX =
+        #   (dE/dY - mean(dE/dY) - mean(dE/dY * Y) * Y)
+        #     ./ sqrt(var(X) + eps)
+        # Multiply the loss by the normalization scale, gamma, to get the loss
+        # X'
+        Vec.mul_i(bwd,
+            gamma, n)
+        # Update EMA estimate of mean(dE/dY)
+        VecVec.mul_i(E_bwd,
             alpha, n)
-        VecVec.add_i(mean_dEdY,
-            dEdY, 1-alpha, n)
-        VecVec.mul_i(mean_dEdY_dot_Y,
+        VecVec.add_i(E_bwd,
+            bwd, 1-alpha, n)
+        # Update EMA estimate of mean(dE/dY \cdot Y)
+        VecVec.mul_i(E_bwd_dot_fwd,
             alpha, n)
         for i in range(n):
-            mean_dEdY_dot_Y[i] += (1-alpha) * dEdY[i] * y[i]
+            E_bwd_dot_fwd[i] += alpha * bwd_dot_fwd[i] * fwd[i]
+        for i in range(n):
+            bwd[i] = ((bwd[i] - E_bwd[i] - E_bwd_dot_fwd[i]) * fwd[i]) \
+                     /                                                 \
+                     c_sqrt(variance[i] + EPS)
    
     @staticmethod
-    cdef ineline void d_linear(weight_t* d_out,
+    cdef ineline void linear(weight_t* d_out,
             const weight_t* d_in, const weight_t* W, int nr_out, int nr_wide) nogil:
         MatVec.T_dot(delta_out,
             W, delta_in, nr_out, nr_wide)
@@ -351,193 +350,6 @@ cdef class Embedding:
             # seems to work very well!
             VanillaSGD.update(opt, weights, gradient,
                 feat.val, layer.lengths[feat.i])
-
-
-cdef class BN:
-    @staticmethod
-    cdef inline void mean(weight_t* mean,
-                          const weight_t* const* acts,
-                          int nr_eg, int nr_weight) nogil:
-        for i in range(nr_eg):
-            VecVec.add_i(mean,
-                acts[i], 1.0, nr_weight)
-        Vec.div_i(mean,
-            nr_eg, nr_weight)
-
-    @staticmethod
-    cdef inline void variance(weight_t* var, const weight_t* const* acts,
-                              const weight_t* mean, int nr_eg, int nr_weight) nogil:
-        for i in range(nr_eg):
-            for j in range(nr_weight):
-                var[j] += (acts[i][j] - mean[j]) ** 2
-        Vec.div_i(var,
-            nr_eg, nr_weight)
-
-    @staticmethod
-    cdef inline void delta_variance(weight_t* d_var,
-            const weight_t* mean, const weight_t* var, const weight_t*const* d_x,
-            const weight_t* const* acts, int nr_eg, int nr_weight) nogil:
-        cdef weight_t eps = 0.000001
-        for i in range(nr_eg):
-            for j in range(nr_weight):
-                d_var[j] += d_x[i][j] * (acts[i][j] - mean[j])
-        for i in range(nr_weight):
-            d_var[i] *= 0.5 * (var[i] + eps) ** -1.5
-
-    @staticmethod
-    cdef inline void delta_mean(weight_t* d_mean, weight_t* tmp,
-            const weight_t* d_var, const weight_t* const* d_x,
-            const weight_t* const* x,
-            const weight_t* mean, const weight_t* var, 
-            int nr_eg, int nr_weight) nogil:
-        cdef weight_t eps = 0.000001 
-        for i in range(nr_weight):
-            tmp[i] = -1 / c_sqrt(d_var[i] + eps)
-        for i in range(nr_eg):
-            for j in range(nr_weight):
-                d_mean[j] += d_x[i][j] * tmp[j]
-        Initializer.constant(tmp,
-            0, nr_weight)
-        for i in range(nr_eg):
-            for j in range(nr_weight):
-                tmp[j] += -2 * (x[i][j] - mean[j])
-        Vec.div_i(tmp,
-            nr_eg, nr_weight)
-        for i in range(nr_weight):
-            d_mean[i] += d_var[i] * tmp[i]
-
-    @staticmethod
-    cdef inline void forward(weight_t* out,
-                        const weight_t* in_,
-                        const weight_t* W,
-                        const weight_t* avg, const weight_t* var,
-                        int nr_wide) nogil:
-        cdef weight_t eps = 0.000001 
-        for i in range(nr_wide):
-            out[i] = (in_[i] - avg[i]) / c_sqrt(var[i] + eps)
-        # Scale
-        VecVec.mul_i(out,
-            W, nr_wide)
-        # Shift
-        VecVec.add_i(out,
-            &W[nr_wide], 1.0, nr_wide)
-
-    @staticmethod
-    cdef inline void backward(weight_t* d_x,  # Len == ?
-                        const weight_t* d_xh, # Len == ?
-                        const weight_t* X,    # Len == ?
-                        const weight_t* mean,
-                        const weight_t* var,
-                        const weight_t* d_mean,
-                        const weight_t* d_var,
-                        int32_t nr_eg,
-                        int32_t nr_out,
-                        int32_t nr_wide) nogil:
-        # In fwd pass, we received x and output Y.
-        # We computed Y  = norm(x) * g + b
-        # Call norm(x) x'. We computed x' = x - avg(X) / sqrt(var(X) + eps)
-        #
-        # Where avg(X) and var(X) were minibatch statistics.
-        #
-        # Here we receive:
-        #
-        # delta_out: This needs to be delta(x), just as though we did no batch norm
-        # delta_in: This is the delta(y), i.e. the error from the layer above
-        # X: This is the *input* to our layer, from which we computed Y.
-        # means: These are the averages of the other Xs in our minibatch
-        # variances: These are the variances of the other Xs in our minibatch
-        # d_means: The delta of the means in the batch 
-        # d_vars: The delta of the variances in the batch
-        cdef weight_t eps = 0.000001
-        for i in range(nr_wide):
-            d_x[i] *= 1 / c_sqrt(var[i] + eps)
-            d_x[i] += d_var[i] * ((2 * (X[i] - mean[i])) / nr_eg)
-            d_x[i] += d_mean[i] * (1 / nr_eg)
-
- 
-cdef class Rectifier:
-    @staticmethod
-    cdef inline void forward(weight_t* out,
-                        const weight_t* in_, const weight_t* W,
-                        int nr_out, int nr_wide) nogil:
-        # We're a layer of nr_wide cells, which we can think of as features.
-        # We write to an array of nr_out activations, one for each conenction
-        # to the next layer. We can think of the cells in the next layer like classes:
-        # we want to know whether we make that cell activate.
-        # 
-        # It's tempting to think at first as though we output nr_wide activations.
-        # We *receive* nr_wide activations. What we're determining now is,
-        # given those activations, our weights and our biases, what's the
-        # state of the next layer?
-        MatVec.dot(out,
-            W, in_, nr_out, nr_wide)
-        # Bias
-        VecVec.add_i(out,
-            W + (nr_out * nr_wide), 1.0, nr_out)
-        # Change to ELU
-        cdef weight_t alpha = 1.0
-        cdef int32_t i
-        for i in range(nr_out):
-            # Writing this way handles NaN
-            if not (out[i] >= 0):
-                out[i] = alpha * c_exp(out[i]) - 1
-
-    @staticmethod
-    cdef inline void backward(weight_t* delta_out,       # Len == nr_wide
-                        const weight_t* delta_in,  # Len == nr_out
-                        const weight_t* signal_in, # Len == nr_wide
-                        const weight_t* W,
-                        int32_t nr_out,
-                        int32_t nr_wide) nogil:
-        # delta = W.T.dot(prev_delta) * d_relu(signal_in)
-        # d_relu(signal_in) is a binary vector, 0 when signal_in < 0
-        # So, we do our dot product, and then clip to 0 on the dimensions where
-        # signal_in is 0
-        # Note that prev_delta is a column vector (the error of our output),
-        # while delta is a row vector (the error of our neurons, which must match
-        # the input layer's width)
-        MatVec.T_dot(delta_out,
-            W, delta_in, nr_out, nr_wide)
-        cdef int32_t i
-        cdef weight_t alpha = 1.0
-        for i in range(nr_wide):
-            if signal_in[i] < 0:
-                delta_out[i] += alpha
-            else:
-                delta_out[i] = 1.0
-
-
-cdef class Softmax:
-    @staticmethod
-    cdef inline void forward(weight_t* out,
-                             const weight_t* in_,
-                             const weight_t* W,
-                             int32_t nr_out,
-                             int32_t nr_wide) nogil:
-        #w = W.dot(actvn) + b
-        MatVec.dot(out,
-            W, in_, nr_out, nr_wide)
-        # Bias
-        VecVec.add_i(out,
-            W + (nr_out * nr_wide), 1.0, nr_out)
-        #w = numpy.exp(w - max(w))
-        Vec.add_i(out,
-            -Vec.max(out, nr_out), nr_out)
-        Vec.exp_i(out,
-            nr_out)
-        #w = w / sum(w)
-        Vec.div_i(out,
-            Vec.sum(out, nr_out), nr_out)
-
-    @staticmethod
-    cdef inline void delta_log_loss(weight_t* loss,
-                        const weight_t* costs,
-                        const weight_t* scores,
-                        int32_t nr_out) nogil:
-        # This assumes only one true class
-        cdef int i
-        for i in range(nr_out):
-            loss[i] = scores[i] - (costs[i] == 0)
 
 
 cdef class Initializer:
