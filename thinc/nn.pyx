@@ -27,11 +27,12 @@ cdef class Embedding:
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t rho=1e-4, weight_t bias=0.2):
+                 weight_t rho=1e-4, weight_t bias=0.2, weight_t alpha=0.0):
         self.mem = Pool()
         self.c.eta = eta
         self.c.eps = eps
         self.c.rho = rho
+        self.c.alpha = alpha
 
         self.c.nr_layer = len(widths)
         self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
@@ -40,8 +41,11 @@ cdef class NeuralNet:
             self.c.widths[i] = width
 
         self.c.nr_weight = 0
-        for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+        for i in range(1, self.c.nr_layer):
+            self.c.nr_weight += self.c.widths[i] * self.c.widths[i-1]
+            self.c.nr_weight += self.c.widths[i]
+            self.c.nr_weight += self.c.widths[i]
+            self.c.nr_weight += self.c.widths[i]
 
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
@@ -64,8 +68,11 @@ cdef class NeuralNet:
             Initializer.constant(W,
                 bias, self.c.widths[i])
             W += self.c.widths[i]
+            W += self.c.widths[i]
+            Initializer.constant(W,
+                1.0, self.c.widths[i])
+            W += self.c.widths[i]
             fan_in = self.c.widths[i]
-            W += self.c.widths[i] * 2
 
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)

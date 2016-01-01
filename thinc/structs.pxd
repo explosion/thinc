@@ -35,6 +35,10 @@ cdef struct EmbeddingC:
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
+    weight_t** fwd_mean
+    weight_t** fwd_variance
+    weight_t** bwd_mean
+    weight_t** bwd_mean2
     OptimizerC* opt
 
     EmbeddingC* embeds
@@ -43,6 +47,7 @@ cdef struct NeuralNetC:
     int32_t nr_weight
     int32_t nr_embed
 
+    weight_t alpha
     weight_t eta
     weight_t rho
     weight_t eps
