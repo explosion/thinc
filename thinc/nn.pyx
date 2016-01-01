@@ -55,17 +55,17 @@ cdef class NeuralNet:
         Adagrad.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
-        # Leave b initialized to 0?
         cdef weight_t* W = self.c.weights
         fan_in = 1.0
-        for i in range(self.c.nr_layer-2): # Don't init softmax weights
+        for i in range(1, self.c.nr_layer-1): # Don't init softmax weights
             Initializer.normal(W,
-                0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i+1] * self.c.widths[i])
-            W += self.c.widths[i+1] * self.c.widths[i]
+                0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i] * self.c.widths[i-1])
+            W += self.c.widths[i] * self.c.widths[i-1]
             Initializer.constant(W,
-                bias, self.c.widths[i+1])
-            W += self.c.widths[i+1]
+                bias, self.c.widths[i])
+            W += self.c.widths[i]
             fan_in = self.c.widths[i]
+            W += self.c.widths[i] * 2
 
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)
