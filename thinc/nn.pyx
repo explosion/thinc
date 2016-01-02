@@ -42,11 +42,7 @@ cdef class NeuralNet:
 
         self.c.nr_weight = 0
         for i in range(1, self.c.nr_layer):
-            self.c.nr_weight += self.c.widths[i] * self.c.widths[i-1]
-            self.c.nr_weight += self.c.widths[i]
-            self.c.nr_weight += self.c.widths[i]
-            self.c.nr_weight += self.c.widths[i]
-
+            self.c.nr_weight += NeuralNet.nr_weight(self.c.widths[i], self.c.widths[i-1])
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
         if embed is not None:
@@ -64,15 +60,10 @@ cdef class NeuralNet:
         for i in range(1, self.c.nr_layer-1): # Don't init softmax weights
             Initializer.normal(W,
                 0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i] * self.c.widths[i-1])
-            W += self.c.widths[i] * self.c.widths[i-1]
-            Initializer.constant(W,
+            Initializer.constant(W + self.c.widths[i] * self.c.widths[i-1],
                 bias, self.c.widths[i])
-            W += self.c.widths[i]
-            Initializer.constant(W,
-                1.0, self.c.widths[i])
-            W += self.c.widths[i]
-            W += self.c.widths[i]
             fan_in = self.c.widths[i]
+            W += NeuralNet.nr_weight(self.c.widths[i], self.c.widths[i-1])
 
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)
@@ -98,7 +89,7 @@ cdef class NeuralNet:
     def Batch(self, inputs, costs=None):
         if isinstance(inputs, Batch):
             return inputs
-        return Batch(self.widths, inputs, costs)
+        return Batch(self.widths, inputs, costs, self.c.nr_weight)
  
     property weights:
         def __get__(self):

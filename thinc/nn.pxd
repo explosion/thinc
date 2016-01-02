@@ -51,6 +51,11 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     @staticmethod
+    cdef inline int nr_weight(int nr_out, int nr_wide) nogil:
+        # Account for beta and gamma weights, for batch normalization
+        return nr_out * nr_wide + nr_out * 3
+
+    @staticmethod
     cdef inline void predictC(ExampleC* egs,
             int nr_eg, const NeuralNetC* nn) nogil:
         for i in range(nr_eg):
@@ -73,7 +78,7 @@ cdef class NeuralNet:
                 nn.widths, nn.nr_layer, nn.alpha)
         for i in range(nr_eg):
             NeuralNet.set_gradient(gradient,
-                egs[i].fwd_state, egs[i].bwd_state, nn.widths, nn.nr_layer)
+                egs[i].fwd_state, egs[i].bwd_state, nn.widths, nn.nr_layer, nn.alpha)
         nn.opt.update(nn.opt, nn.weights, gradient,
             1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
@@ -102,22 +107,24 @@ cdef class NeuralNet:
                     Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
   
     @staticmethod
-    cdef inline void forward(weight_t** acts, weight_t** E_acts, weight_t** V_acts,
-            const weight_t* W, const int* widths, int n, weight_t alpha) nogil:
+    cdef inline void forward(weight_t** acts, weight_t** stash, weight_t** E_acts,
+                            weight_t** V_acts, const weight_t* W, const int* widths,
+                            int n, weight_t alpha) nogil:
         cdef int i
-        for i in range(1, n-1): 
-            Fwd.linear(acts[i], 
+        for i in range(1, n-1):
+            Fwd.linear(acts[i],
                 acts[i-1], W, widths[i], widths[i-1])
-            W += widths[i] * widths[i-1] + widths[i]
-            #if 0 < alpha < 1:
-            #    Fwd.normalize(acts[i], E_acts[i], V_acts[i],
-            #        W, W + widths[i], widths[i], alpha)
-            W += widths[i] * 2
-            Fwd.relu(acts[i],
+            Fwd.estimate_normalizers(E_acts[i], V_acts[i],
+                acts[i], E_acts[i], widths[i], alpha)
+            Fwd.normalize(X_h[i],
+                acts[i], E_acts[i], V_acts[i], widths[i])
+            Fwd.linear(acts[i],
+                X_h[i], W+(widths[i] * widths[i-1])+widths[i], widths[i], 1)
+            Fwd.elu(acts[i],
                 widths[i])
-            if i >= 2:
-                Fwd.residual(acts[i],
-                    acts[i-2], widths[i-2], widths[i])
+            Fwd.residual(acts[i],
+                acts, widths, i)
+            W += NeuralNet.nr_weight(widths[i], widths[i-1])
         Fwd.linear(acts[n-1],
             acts[n-2], W, widths[n-1], widths[n-2])
         Fwd.softmax(acts[n-1],
@@ -128,40 +135,42 @@ cdef class NeuralNet:
                               weight_t** E_deltas,
                               weight_t** E_deltas_dot_acts,
             const weight_t* costs, const weight_t* const* acts,
-            const weight_t* const* V_acts, 
-            const weight_t* W,
+            cosnt weight_t* const* X_hat,
+            const weight_t* const* V_acts, const weight_t* W,
             const int* widths, int n, weight_t alpha) nogil:
-        Bwd.log_loss(deltas[n-1],
+        W -= NeuralNet.nr_weight(widths[n-1], widths[n-2])
+        Bwd.softmax(deltas[n-1],
             costs, acts[n-1], widths[n-1])
-        W -= widths[n-1] * widths[n-2] + widths[n-1] * 3
         Bwd.linear(deltas[n-2], 
             deltas[n-1], W, widths[n-1], widths[n-2])
         cdef int i
         for i in range(n-2, 0, -1):
-            # Reverse pointer past gamma, beta, bias, and synapse weights
-            W -= widths[i] * widths[i-1] + widths[i] * 3
-            Bwd.relu(deltas[i],
-                acts[i], widths[i])
-            #Bwd.normalize(deltas[i], E_deltas[i], E_deltas_dot_acts[i],
-            #    acts[i], V_acts[i], gamma, beta, widths[i], alpha)
+            W -= NeuralNet.nr_weight(widths[i], widths[i-1])
+            Bwd.residual(Y,
+                acts, widths, i)
+            # Set deltas[i] to dL/dY
+            Bwd.elu(deltas[i],
+                Y, widths[i])
+            Bwd.estimate_normalizers(E_deltas[i], E_deltas_dot_acts[i],
+                X_h[i], V_acts[i], widths[i], alpha)
+            # Set deltas[i] to dL/dX
+            Bwd.normalize(deltas[i],
+                X_h[i], E_acts[i], V_acts[i], widths[i])
             Bwd.linear(deltas[i-1],
                 deltas[i], W, widths[i], widths[i-1])
-        # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
-        W -= widths[1] * widths[0] + (widths[1] * 3)
-        MatVec.T_dot(deltas[0], W, deltas[1], widths[1], widths[0])
 
     @staticmethod
     cdef inline void set_gradient(weight_t* gradient,
             const weight_t* const* fwd,
             const weight_t* const* bwd,
-            const int* widths, int n) nogil:
+            const int* widths, int n, weight_t norm_weight) nogil:
         cdef int i
         for i in range(1, n):
             MatMat.add_outer_i(gradient,
                 bwd[i], fwd[i-1], widths[i], widths[i-1])
             VecVec.add_i(gradient + (widths[i] * widths[i-1]),
                 bwd[i], 1.0, widths[i])
-            gradient += (widths[i] * widths[i-1]) + (widths[i] * 3)
+            gradient += NeuralNet.nr_weight(widths[i], widths[i-1])
 
 
 cdef class Fwd:
@@ -175,27 +184,27 @@ cdef class Fwd:
             W + (nr_out * nr_wide), 1.0, nr_out)
 
     @staticmethod
-    cdef inline void normalize(weight_t* x, weight_t* avg, weight_t* var,
-            const weight_t* gamma, const weight_t* beta, int nr_out, weight_t alpha) nogil:
+    cdef inline void normalize(weight_t* x_hat,
+            const weight_t* E_x, const weight_t* V_x, const weight_t* x, int n) nogil:
+        for i in range(nr_out):
+            x[i] = (x[i] - E_x[i]) / c_sqrt(V_x[i] + EPS)
+
+    @staticmethod
+    cdef inline void estimate_mean(weight_t* E_x) nogil:
         # Upd EMA estimate of mean
-        Vec.mul_i(avg,
-            alpha, nr_out)
-        VecVec.add_i(avg,
-            x, 1-alpha, nr_out)
+        Vec.mul_i(E_x,
+            alpha, n)
+        VecVec.add_i(E_x,
+            x, 1-alpha, n)
+
+    @staticmethod
+    cdef inline void estimate_variance(weight_t* V_x,
+            const weight_t* E_x, const weight_t* x, weight_t alpha, int n) nogil:
         # Upd EMA estimate of variance
-        Vec.mul_i(var,
-            alpha, nr_out)
-        for i in range(nr_out):
-            var[i] += (1.0 - alpha) * (x[i] - avg[i]) ** 2
-        # Apply normalization
-        for i in range(nr_out):
-            x[i] = (x[i] - avg[i]) / c_sqrt(var[i] + EPS)
-        # Scale
-        VecVec.mul_i(x,
-            gamma, nr_out)
-        # Shift
-        VecVec.add_i(x,
-            beta, 1.0, nr_out)
+        Vec.mul_i(V_x,
+            alpha, n)
+        for i in range(n):
+            V_x[i] += (1.0 - alpha) * (x[i] - E_x[i]) ** 2
 
     @staticmethod
     cdef inline void relu(weight_t* out,
@@ -215,10 +224,11 @@ cdef class Fwd:
 
     @staticmethod
     cdef inline void residual(weight_t* out,
-            const weight_t* in_, int nr_in, int nr_out) nogil:
-        if nr_in == nr_out:
-            VecVec.add_i(out,
-                in_, 1.0, nr_out)
+            const weight_t* const* prev, const int* widths, int i) nogil:
+        pass
+        #if nr_in == nr_out:
+        #    VecVec.add_i(out,
+        #        in_, 1.0, nr_out)
 
     @staticmethod
     cdef inline void softmax(weight_t* out,
@@ -237,7 +247,7 @@ cdef class Fwd:
 
 cdef class Bwd:
     @staticmethod
-    cdef inline void log_loss(weight_t* loss,
+    cdef inline void softmax(weight_t* loss,
             const weight_t* costs, const weight_t* scores, int nr_out) nogil:
         # This assumes only one true class
         cdef int i
@@ -254,56 +264,49 @@ cdef class Bwd:
 
     @staticmethod
     cdef inline void elu(weight_t* delta,
-            const weight_t* x, int nr_wide) nogil:
+            const weight_t* output, int nr_wide) nogil:
         cdef int i
         for i in range(nr_wide):
             if x[i] < 0:
-                delta[i] *= x[i] + ALPHA
+                delta[i] *= output[i] + ALPHA
 
-    @staticmethod
-    cdef inline void normalize(weight_t* bwd, weight_t* E_bwd, weight_t* E_bwd_dot_fwd,
-            const weight_t* fwd, const weight_t* V_x,
-            const weight_t* gamma, const weight_t* beta,
-            int n, weight_t alpha) nogil:
-        # bwd *= gamma
-        VecVec.mul_i(bwd,
-            gamma, n)
-        # Update EMA estimate of mean(dE/dY)
-        Vec.mul_i(E_bwd,
-            alpha, n)
-        VecVec.add_i(E_bwd,
-            bwd, 1-alpha, n)
-        # Update EMA estimate of mean(dE/dY \cdot Y)
-        Vec.mul_i(E_bwd_dot_fwd,
-            alpha, n)
-        # X = (fwd - beta) / gamma
-        cdef weight_t X
-        for i in range(n):
-            X = (fwd[i] - beta[i]) / gamma[i]
-            E_bwd_dot_fwd[i] += (1-alpha) * bwd[i] * X
-        # Simplification taken from Caffe, I think by cdoersch
-        # if Y = (X-mean(X))/sqrt(var(X)+eps), then
-        # dE(Y)/dX =
-        #   (dE/dY - mean(dE/dY) - mean(dE/dY * Y) * Y)
-        #     ./ sqrt(var(X) + eps)
-        # where:
-        # dE(Y)/dX is the delta out, dE/dY is the delta in, Y is the normalized,
-        # unscaled activation.
-        # This doesn't take care of the scaling and shifting, so we have to map
-        # our 'fwd' into their X
-        # We start with bwd being the delta in, and we change it in-place to the
-        # delta out.
-        for i in range(n):
-            X = (fwd[i] - beta[i]) / gamma[i]
-            bwd[i] = bwd[i] - E_bwd[i] - E_bwd_dot_fwd[i] * X
-            bwd[i] /= c_sqrt(V_x[i] + EPS)
-   
     @staticmethod
     cdef inline void linear(weight_t* delta_out,
             const weight_t* delta_in, const weight_t* W, int nr_out, int nr_wide) nogil:
         MatVec.T_dot(delta_out,
             W, delta_in, nr_out, nr_wide)
 
+    @staticmethod
+    cdef inline void normalize(weight_t* bwd, weight_t* E_bwd, weight_t* E_bwd_dot_fwd,
+            const weight_t* X_hat, const weight_t* V_x,
+            const weight_t* W, int n, weight_t alpha) nogil:
+        cdef const weight_t* gamma = W
+        cdef const weight_t* beta = W + n
+        # We start with bwd being the delta in, and we change it in-place to the
+        # delta out.
+        # dL/dX^ = gamma * dL/dY
+        VecVec.mul_i(bwd,
+            gamma, n)
+        # Update EMA estimate of mean(dL/dX_hat)
+        Vec.mul_i(E_bwd,
+            alpha, n)
+        VecVec.add_i(E_bwd,
+            bwd, 1-alpha, n)
+        # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
+        Vec.mul_i(E_bwd_dot_fwd,
+            alpha, n)
+        # X_hat = (fwd - beta) / gamma
+        for i in range(n):
+            E_bwd_dot_fwd[i] += (1-alpha) * bwd[i] * X_hat[i]
+        # Simplification taken from Caffe, I think by cdoersch
+        # if X^ = (X-mean(X))/sqrt(var(X)+eps), then
+        # dE(X^)/dX =
+        #   (dE/dX^ - mean(dE/dX^) - mean(dE/dX^ * X^) * X^)
+        #     ./ sqrt(var(X) + eps)
+        for i in range(n):
+            bwd[i] = bwd[i] - E_bwd[i] - E_bwd_dot_fwd[i] * X_hat[i]
+            bwd[i] /= c_sqrt(V_x[i] + EPS)
+  
 
 cdef class Embedding:
     cdef Pool mem

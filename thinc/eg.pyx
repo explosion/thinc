@@ -121,7 +121,7 @@ cdef class Example:
 
 
 cdef class Batch:
-    def __init__(self, nn_shape, inputs, costs):
+    def __init__(self, nn_shape, inputs, costs, nr_weight):
         assert len(inputs) == len(costs)
         self.mem = Pool()
         self.c.nr_eg = len(inputs)
@@ -132,7 +132,7 @@ cdef class Batch:
             eg = Example(nn_shape, features=x, label=y, mem=self.mem)
             self.c.egs[i] = eg.c
 
-        self.c.nr_weight = sum([x * y + 3*y for x, y in zip(nn_shape, nn_shape[1:])])
+        self.c.nr_weight = nr_weight
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(weight_t))
 
     def __iter__(self):
