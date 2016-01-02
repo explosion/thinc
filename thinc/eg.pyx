@@ -115,6 +115,10 @@ cdef class Example:
     def activation(self, int i, int j):
         return self.c.fwd_state[i][j]
 
+    def delta(self, int i, int j):
+        return self.c.bwd_state[i][j]
+
+
 
 cdef class Batch:
     def __init__(self, nn_shape, inputs, costs):
@@ -128,7 +132,7 @@ cdef class Batch:
             eg = Example(nn_shape, features=x, label=y, mem=self.mem)
             self.c.egs[i] = eg.c
 
-        self.c.nr_weight = sum([x * y + y for x, y in zip(nn_shape, nn_shape[1:])])
+        self.c.nr_weight = sum([x * y + 3*y for x, y in zip(nn_shape, nn_shape[1:])])
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(weight_t))
 
     def __iter__(self):

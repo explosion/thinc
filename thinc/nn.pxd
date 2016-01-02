@@ -65,9 +65,12 @@ cdef class NeuralNet:
             int nr_eg) nogil:
         for i in range(nr_eg):
             eg = &egs[i]
-            NeuralNet.backward(gradient, eg.bwd_state, nn.bwd_mean, nn.bwd_mean2,
+            NeuralNet.backward(eg.bwd_state, nn.bwd_mean, nn.bwd_mean2,
                 eg.costs, eg.fwd_state, nn.fwd_mean, nn.weights + nn.nr_weight,
                 nn.widths, nn.nr_layer, nn.alpha)
+        for i in range(nr_eg):
+            NeuralNet.set_gradient(gradient,
+                egs[i].fwd_state, egs[i].bwd_state, nn.widths, nn.nr_layer)
         Vec.div_i(gradient,
             nr_eg, nn.nr_weight)
         nn.opt.update(nn.opt, nn.weights, gradient,
@@ -105,9 +108,9 @@ cdef class NeuralNet:
             Fwd.linear(acts[i], 
                 acts[i-1], W, widths[i], widths[i-1])
             W += widths[i] * widths[i-1] + widths[i]
-            if 0 < alpha < 1:
-                Fwd.normalize(acts[i], E_acts[i], V_acts[i],
-                    W, W + widths[i], widths[i], alpha)
+            #if 0 < alpha < 1:
+            #    Fwd.normalize(acts[i], E_acts[i], V_acts[i],
+            #        W, W + widths[i], widths[i], alpha)
             W += widths[i] * 2
             Fwd.elu(acts[i],
                 widths[i])
@@ -120,8 +123,7 @@ cdef class NeuralNet:
             widths[n-1])
 
     @staticmethod
-    cdef inline void backward(weight_t* gradient,
-                              weight_t** deltas,
+    cdef inline void backward(weight_t** deltas,
                               weight_t** E_deltas,
                               weight_t** E_deltas_dot_acts,
             const weight_t* costs, const weight_t* const* acts,
@@ -130,41 +132,36 @@ cdef class NeuralNet:
             const int* widths, int n, weight_t alpha) nogil:
         Bwd.log_loss(deltas[n-1],
             costs, acts[n-1], widths[n-1])
-        cdef const weight_t* beta
-        cdef const weight_t* gamma
         cdef int i
-        for i in range(n-2, 0, -1):
-            # Non-linearity
-            Bwd.elu(deltas[i],
-                acts[i], widths[i])
-            # Set gradient for beta
-            #VecVec.add_i(gradient,
-            #    deltas[i], 1.0, widths[i])
-            gradient -= widths[i]
-            #beta = W - widths[i]
-            #gamma = beta - widths[i]
-            ## Set gradient for gamma
-            #for j in range(widths[i]):
-            #    gradient[j] += deltas[i][j] * ((acts[i][j] - beta[j]) / gamma[j])
-            gradient -= widths[i]
-            #MatMat.add_outer_i(gradient,
-            #    deltas[i], acts[i-1], widths[i], widths[i-1])
-            ## Adjust gradient w.r.t normalization, track batch statistics.
+        for i in range(n-1, 0, -1):
+            # Reverse pointer past gamma, beta, bias, and synapse weights
+            W -= widths[i] * widths[i-1] + widths[i] * 3
+            Bwd.linear(deltas[i-1], # Output: error of this layer, len=width
+                deltas[i],     # Input: error from layer above, len=nr_out
+                W,             # Weights of this layer
+                widths[i],     # Width of this output 
+                widths[i-1]    # Width of prev output
+            )
             #Bwd.normalize(deltas[i], E_deltas[i], E_deltas_dot_acts[i],
             #    acts[i], V_acts[i], gamma, beta, widths[i], alpha)
-            # Reverse pointer past gamma, beta, bias, and synapse weights
-            W -= (widths[i] * 3) + (widths[i] * widths[i-1])
-            # Set gradient for bias
-            VecVec.add_i(gradient,
-                deltas[i], 1.0, widths[i])
-            gradient -= widths[i]
-            # Set gradient for synapses
+            Bwd.elu(deltas[i-1],
+                acts[i-1], widths[i-1])
+        # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
+        W -= widths[1] * widths[0] + (widths[1] * 3)
+        MatVec.T_dot(deltas[0], W, deltas[1], widths[1], widths[0])
+
+    @staticmethod
+    cdef inline void set_gradient(weight_t* gradient,
+            const weight_t* const* fwd,
+            const weight_t* const* bwd,
+            const int* widths, int n) nogil:
+        cdef int i
+        for i in range(1, n):
             MatMat.add_outer_i(gradient,
-                deltas[i], acts[i-1], widths[i], widths[i-1])
-            gradient -= widths[i] * widths[i-1]
-            # Send delta to layer below
-            Bwd.linear(deltas[i-1],
-                W, deltas[i], widths[i], widths[i-1])
+                bwd[i], fwd[i-1], widths[i], widths[i-1])
+            VecVec.add_i(gradient + (widths[i] * widths[i-1]),
+                bwd[i], 1.0, widths[i])
+            gradient += (widths[i] * widths[i-1]) + (widths[i] * 3)
 
 
 cdef class Fwd:
@@ -205,8 +202,10 @@ cdef class Fwd:
             int nr_out) nogil:
         cdef int i
         for i in range(nr_out):
-            if out[i] >= 0:
+            if out[i] < 0:
                 out[i] = c_exp(out[i]) - 1
+            elif not out[i] >= 0:
+                out[i] = 0
 
     @staticmethod
     cdef inline void residual(weight_t* out,
@@ -242,10 +241,7 @@ cdef class Bwd:
             const weight_t* signal_in, int nr_wide) nogil:
         cdef int i
         for i in range(nr_wide):
-            if signal_in[i] < 0:
-                delta[i] = signal_in[i]
-            else:
-                delta[i] = 1.0
+            delta[i] *= 1.0 if signal_in[i] > 0 else signal_in[i]+1
 
     @staticmethod
     cdef inline void normalize(weight_t* bwd, weight_t* E_bwd, weight_t* E_bwd_dot_fwd,
