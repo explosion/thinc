@@ -1,7 +1,6 @@
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport sqrt as c_sqrt
-from libc.math cimport exp as c_exp
 from libc.stdint cimport int32_t
 import numpy
 import numpy.random
@@ -17,7 +16,11 @@ from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
 from .eg cimport Batch, Example
 
+cdef extern from "math.h" nogil:
+    float expf(float x)
+
 DEF EPS = 0.000001 
+DEF ALPHA = 1.0
 # The input/output of the fwd/bwd pass can be confusing. Some notes.
 #
 # Forward pass. in0 is at fwd_state[0]. Activation of layer 1 is
@@ -71,10 +74,8 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NeuralNet.set_gradient(gradient,
                 egs[i].fwd_state, egs[i].bwd_state, nn.widths, nn.nr_layer)
-        Vec.div_i(gradient,
-            nr_eg, nn.nr_weight)
         nn.opt.update(nn.opt, nn.weights, gradient,
-            1.0, nn.nr_weight)
+            1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # However, most words are rare --- so most words will only have non-zero
@@ -112,7 +113,7 @@ cdef class NeuralNet:
             #    Fwd.normalize(acts[i], E_acts[i], V_acts[i],
             #        W, W + widths[i], widths[i], alpha)
             W += widths[i] * 2
-            Fwd.elu(acts[i],
+            Fwd.relu(acts[i],
                 widths[i])
             if i >= 2:
                 Fwd.residual(acts[i],
@@ -132,20 +133,19 @@ cdef class NeuralNet:
             const int* widths, int n, weight_t alpha) nogil:
         Bwd.log_loss(deltas[n-1],
             costs, acts[n-1], widths[n-1])
+        W -= widths[n-1] * widths[n-2] + widths[n-1] * 3
+        Bwd.linear(deltas[n-2], 
+            deltas[n-1], W, widths[n-1], widths[n-2])
         cdef int i
-        for i in range(n-1, 0, -1):
+        for i in range(n-2, 0, -1):
             # Reverse pointer past gamma, beta, bias, and synapse weights
             W -= widths[i] * widths[i-1] + widths[i] * 3
-            Bwd.linear(deltas[i-1], # Output: error of this layer, len=width
-                deltas[i],     # Input: error from layer above, len=nr_out
-                W,             # Weights of this layer
-                widths[i],     # Width of this output 
-                widths[i-1]    # Width of prev output
-            )
+            Bwd.relu(deltas[i],
+                acts[i], widths[i])
             #Bwd.normalize(deltas[i], E_deltas[i], E_deltas_dot_acts[i],
             #    acts[i], V_acts[i], gamma, beta, widths[i], alpha)
-            Bwd.elu(deltas[i-1],
-                acts[i-1], widths[i-1])
+            Bwd.linear(deltas[i-1],
+                deltas[i], W, widths[i], widths[i-1])
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         W -= widths[1] * widths[0] + (widths[1] * 3)
         MatVec.T_dot(deltas[0], W, deltas[1], widths[1], widths[0])
@@ -198,14 +198,20 @@ cdef class Fwd:
             beta, 1.0, nr_out)
 
     @staticmethod
+    cdef inline void relu(weight_t* out,
+            int nr_out) nogil:
+        cdef int i
+        for i in range(nr_out):
+            if not (out[i] > 0):
+                out[i] = 0
+
+    @staticmethod
     cdef inline void elu(weight_t* out,
             int nr_out) nogil:
         cdef int i
         for i in range(nr_out):
             if out[i] < 0:
-                out[i] = c_exp(out[i]) - 1
-            elif not out[i] >= 0:
-                out[i] = 0
+                out[i] = ALPHA * (expf(out[i])-1)
 
     @staticmethod
     cdef inline void residual(weight_t* out,
@@ -223,8 +229,10 @@ cdef class Fwd:
         Vec.exp_i(out,
             nr_out)
         #w = w / sum(w)
-        Vec.div_i(out,
-            Vec.sum(out, nr_out), nr_out)
+        cdef weight_t norm = Vec.sum(out, nr_out)
+        if norm != 0:
+            Vec.div_i(out,
+                norm, nr_out)
 
 
 cdef class Bwd:
@@ -237,11 +245,20 @@ cdef class Bwd:
             loss[i] = scores[i] - (costs[i] == 0)
 
     @staticmethod
-    cdef inline void elu(weight_t* delta,
-            const weight_t* signal_in, int nr_wide) nogil:
+    cdef inline void relu(weight_t* delta,
+            const weight_t* x, int nr_wide) nogil:
         cdef int i
         for i in range(nr_wide):
-            delta[i] *= 1.0 if signal_in[i] > 0 else signal_in[i]+1
+            if not (x[i] > 0):
+                delta[i] = 0
+
+    @staticmethod
+    cdef inline void elu(weight_t* delta,
+            const weight_t* x, int nr_wide) nogil:
+        cdef int i
+        for i in range(nr_wide):
+            if x[i] < 0:
+                delta[i] *= x[i] + ALPHA
 
     @staticmethod
     cdef inline void normalize(weight_t* bwd, weight_t* E_bwd, weight_t* E_bwd_dot_fwd,
@@ -381,8 +398,9 @@ cdef class VanillaSGD:
         '''
         Vec.mul_i(gradient, scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
-        VecVec.add_i(gradient,
-            weights, opt.rho, nr_weight)
+        if opt.rho != 0:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
 
         VecVec.add_i(weights,
             gradient, -opt.eta, nr_weight)
@@ -408,8 +426,9 @@ cdef class Adagrad:
         '''
         # Add the derivative of the L2-loss to the gradient
         cdef int i
-        VecVec.add_i(gradient,
-            weights, opt.rho, nr_weight)
+        if opt.rho != 0:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
         VecVec.add_pow_i(opt.params,
             gradient, 2.0, nr_weight)
         for i in range(nr_weight):

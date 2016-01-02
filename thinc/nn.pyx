@@ -68,9 +68,9 @@ cdef class NeuralNet:
             Initializer.constant(W,
                 bias, self.c.widths[i])
             W += self.c.widths[i]
-            W += self.c.widths[i]
             Initializer.constant(W,
                 1.0, self.c.widths[i])
+            W += self.c.widths[i]
             W += self.c.widths[i]
             fan_in = self.c.widths[i]
 

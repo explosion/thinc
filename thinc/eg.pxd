@@ -32,7 +32,6 @@ cdef class Example:
         # Each layer is x wide and connected to y nodes in the next layer.
         # So each layer has a weight matrix W with x*y weights, and an array
         # of bias weights, of length y. So each layer has x*y+y weights.
-        nr_weight = sum([x * y + y for x, y in zip(model_shape, model_shape[1:])])
         self.fine_tune = <weight_t*>mem.alloc(model_shape[0], sizeof(weight_t))
 
         self.nr_class = model_shape[-1]

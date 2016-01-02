@@ -3,7 +3,6 @@
 cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memcpy
-from libc.math cimport exp as c_exp
 from libc.math cimport isnan as c_is_nan
 from cymem.cymem cimport Pool
 
@@ -45,7 +44,8 @@ cdef extern from "cblas.h":
                                  float  beta, float  *C, int ldc) nogil
 
 
-
+cdef extern from "math.h" nogil:
+    float expf(float x)
 
 
 cdef class Matrix:
@@ -143,7 +143,7 @@ cdef class Vec:
     cdef inline void exp_i(weight_t* vec, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
-            vec[i] = c_exp(vec[i])
+            vec[i] = expf(vec[i])
 
     @staticmethod
     cdef inline void reciprocal_i(weight_t* vec, int32_t nr) nogil:
