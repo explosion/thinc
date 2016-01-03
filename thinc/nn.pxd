@@ -126,20 +126,21 @@ cdef class NN:
         while Fwd.iter(&it, widths, n):
             if it.i+1 >= n: # Save last layer fo softmax
                 break
-            with gil:
-                print("i", it.i, it.prev_x, it.X, it.Xh)
             Fwd.linear(fwd[it.X],
                 fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-            #Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
-            #    fwd[it.X], alpha, it.nr_out)
-            #Fwd.normalize(fwd[it.Xh],
-            #    fwd_norms[it.Ex], fwd_norms[it.Vx], it.nr_out)
-            # Scale-and-shift for the normalization
-            # We have to keep X's value intact, so that we can backprop
-            #Fwd.linear(fwd[it.Xh],
-            #    fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
-            memcpy(fwd[it.Xh],
-                fwd[it.X], sizeof(fwd[it.X][0]) * it.nr_out)
+            if 0 < alpha < 1:
+                Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
+                    fwd[it.X], alpha, it.nr_out)
+                Fwd.normalize(fwd[it.Xh],
+                    fwd_norms[it.Ex], fwd_norms[it.Vx], it.nr_out)
+                # Scale-and-shift for the normalization
+                # We have to keep X's value intact, so that we can backprop
+                Fwd.linear(fwd[it.Xh],
+                    fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+            else:
+                # No normalization, so pass forward Xh=X
+                memcpy(fwd[it.Xh],
+                    fwd[it.X], sizeof(fwd[it.X][0]) * it.nr_out)
             Fwd.elu(fwd[it.Xh],
                 it.nr_out)
         with gil:
