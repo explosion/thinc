@@ -116,10 +116,16 @@ cdef class NeuralNet:
 
 cdef class NN:
     @staticmethod
+    cdef inline int nr_weight(int nr_out, int nr_in) nogil:
+        return nr_out * nr_in + nr_out * 3
+
+    @staticmethod
     cdef inline void forward(weight_t** fwd, weight_t** fwd_norms,
             const weight_t* weights, const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it = Fwd.init_iter(widths, n)
         while Fwd.iter(&it, widths, n):
+            if it.i+1 >= n: # Save last layer fo softmax
+                break
             MatVec.dot(fwd[it.X],
                 &weights[it.W], fwd[it.prev_x], it.nr_out, it.nr_in)
             Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
@@ -200,14 +206,17 @@ cdef class Fwd:
             return 0
         it.nr_out = widths[it.i]
         it.nr_in = widths[it.i-1]
-        # TODO
         cdef int start_weight = 0
+        cdef int j
+        for j in range(1, it.i):
+            start_weight += NN.nr_weight(widths[j], widths[j-1])
+
         it.W = start_weight
         it.bias = start_weight + it.nr_out
         it.gamma = start_weight + it.nr_out + it.nr_out
         it.beta = start_weight + it.nr_out + it.nr_out + it.nr_out
 
-        it.prev_x = it.i * 2 - 1
+        it.prev_x = (it.i-1) * 2 + 1
         it.X = it.i * 2
         it.Xh = it.i * 2 + 1
         it.Ex = it.i * 2
@@ -304,14 +313,16 @@ cdef class Bwd:
             return 0
         it.nr_out = widths[it.i]
         it.nr_in = widths[it.i-1]
-        # TODO
         cdef int start_weight = 0
+        cdef int j
+        for j in range(1, it.i):
+            start_weight += NN.nr_weight(widths[j], widths[j-1])
         it.W = start_weight
         it.bias = start_weight + it.nr_out
         it.gamma = start_weight + it.nr_out + it.nr_out
         it.beta = start_weight + it.nr_out + it.nr_out + it.nr_out
 
-        it.prev_x = it.i * 2 - 1
+        it.prev_x = (it.i-1) * 2 + 1
         it.X = it.i * 2
         it.Xh = it.i * 2 + 1
         it.Ex = it.i * 2

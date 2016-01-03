@@ -36,33 +36,46 @@ cdef class NeuralNet:
 
         self.c.nr_layer = len(widths)
         self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
-        #cdef int i
-        #for i, width in enumerate(widths):
-        #    self.c.widths[i] = width
+        cdef int i
+        for i, width in enumerate(widths):
+            self.c.widths[i] = width
 
-        #self.c.nr_weight = 0
-        #for i in range(1, self.c.nr_layer):
-        #    self.c.nr_weight += NeuralNet.nr_weight(self.c.widths[i], self.c.widths[i-1])
-        #self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-        #
-        #if embed is not None:
-        #    table_widths, features = embed
-        #    self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
-        #    Embedding.init(self.c.embeds, self.mem,
-        #        table_widths, features)
+        self.c.nr_weight = 0
+        for i in range(1, self.c.nr_layer):
+            self.c.nr_weight += NN.nr_weight(self.c.widths[i], self.c.widths[i-1])
+        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
-        #self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        #Adagrad.init(self.c.opt, self.mem,
-        #    self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
+        if embed is not None:
+            table_widths, features = embed
+            self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
+            Embedding.init(self.c.embeds, self.mem,
+                table_widths, features)
 
-        #cdef weight_t* W = self.c.weights
-        #fan_in = 1.0
-        #for i in range(1, self.c.nr_layer-1): # Don't init softmax weights
-        #    Initializer.normal(W,
-        #        0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i] * self.c.widths[i-1])
-        #    Initializer.constant(W + self.c.widths[i] * self.c.widths[i-1],
-        #        bias, self.c.widths[i])
-        #    fan_in = self.c.widths[i]
+        self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
+        Adagrad.init(self.c.opt, self.mem,
+            self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
+
+
+        self.c.fwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
+        self.c.bwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
+        fan_in = 1.0
+        # Don't init softmax weights
+        cdef IteratorC it = Fwd.init_iter(self.c.widths, self.c.nr_layer-1)
+        while Fwd.iter(&it, self.c.widths, self.c.nr_layer-1):
+            # Allocate arrays for the normalizers
+            self.c.fwd_norms[it.Ex] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+            self.c.fwd_norms[it.Vx] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+            self.c.bwd_norms[it.E_dXh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+            self.c.bwd_norms[it.E_dXh_Xh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+            # Do He initialization, and allow bias to be initialized to a constant.
+            # Initialize the batch-norm scale, gamma, to 1.
+            Initializer.normal(&self.c.weights[it.W],
+                0.0, numpy.sqrt(2.0 / fan_in), it.nr_out * it.nr_in)
+            Initializer.constant(&self.c.weights[it.bias],
+                bias, it.nr_out)
+            Initializer.constant(&self.c.weights[it.gamma],
+                1.0, it.nr_out)
+            fan_in = it.nr_out
 
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)
