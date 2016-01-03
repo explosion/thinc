@@ -32,27 +32,12 @@ cdef struct EmbeddingC:
     int nr
 
 
-cdef struct LayerC:
-    weight_t* out
-    weight_t* norm
-    weight_t* E_x
-    weight_t* V_x
-    const weight_t* in_
-    const weight_t* W
-    const weight_t* bias
-    const weight_t* bn_scale
-    const weight_t* bn_shift
-    int nr_in
-    int nr_out
-
-
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
-    weight_t** fwd_mean
-    weight_t** fwd_variance
-    weight_t** bwd_mean
-    weight_t** bwd_mean2
+    weight_t** fwd_norms
+    weight_t** bwd_norms
+    
     OptimizerC* opt
 
     EmbeddingC* embeds
@@ -103,30 +88,29 @@ cdef struct IterFwdC:
     weight_t* Ex
     weight_t* Vx
 
-    weight_t** _X
-    weight_t** _Vx
-    weight_t** _Ex
+    weight_t** _states
+    weight_t** _norms
+    int i
+    int n
 
 
 cdef struct IterBwdC:
     const weight_t* prev
     weight_t* dEdY
-    weight_t* prev
-    weight_t* dEdXh
+    weight_t* dEdX
     weight_t* E_dEdXh
     weight_t* E_dEdXh_dot_Xh
 
-    weight_t** _bwd
-    weight_t** _E_dEdXh
-    weight_t** _E_dEdXh_dot_Xh
+    weight_t** states
+    weight_t** norms
 
 
 cdef struct IterWeightsC:
     weight_t* _data
-    weights_t* W
-    weights_t* bias
-    weights_t* gamma
-    weights_t* beta
+    weight_t* W
+    weight_t* bias
+    weight_t* gamma
+    weight_t* beta
     const int* widths
     int n
     int i
