@@ -81,41 +81,43 @@ cdef struct BatchC:
 
 
 # Iteration controllers
-cdef struct IterFwdC:
-    const weight_t* prev
+cdef struct BwdIteratorC:
+    const weight_t* W
+    const weight_t* bias
+    const weight_t* beta
+    const weight_t* gamma
+
+    const weight_t* Xh
+    const weight_t* Vx
+    weight_t* dX
+    weight_t* dY
+    weight_t* prev_d
+    weight_t* E_dXh
+    weight_t* E_dXh_Xh
+
+    int nr_out
+    int nr_in
+    int i
+    int n
+
+
+cdef struct FwdIteratorC:
+    const weight_t* W
+    const weight_t* bias
+    const weight_t* beta
+    const weight_t* gamma
+
     weight_t* X
     weight_t* Xh
     weight_t* Ex
     weight_t* Vx
-
-    weight_t** _states
-    weight_t** _norms
-    int i
-    int n
-
-
-cdef struct IterBwdC:
     const weight_t* prev
-    weight_t* dEdY
-    weight_t* dEdX
-    weight_t* E_dEdXh
-    weight_t* E_dEdXh_dot_Xh
 
-    weight_t** states
-    weight_t** norms
-
-
-cdef struct IterWeightsC:
-    weight_t* _data
-    weight_t* W
-    weight_t* bias
-    weight_t* gamma
-    weight_t* beta
-    const int* widths
-    int n
-    int i
     int nr_out
     int nr_in
+    int i
+    int n
+
 
 
 cdef struct SparseArrayC:

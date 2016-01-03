@@ -70,12 +70,8 @@ cdef class NeuralNet:
             if nn.embeds is not NULL and eg.features is not NULL:
                 Embedding.set_input(eg.fwd_state[0],
                     eg.features, eg.nr_feat, nn.embeds)
-            NN.forward(
-                IterActsC(states=eg.fwd_state, norms=nn.fwd_norms,
-                    i=0, n=nn.nr_layer),
-                IterWeightsC(
-                    data=nn.weights, widths=nn.widths, i=0, n=nn.nr_layer),
-                nn.alpha)
+            NN.forward(eg.fwd_state, nn.fwd_norms,
+                nn.weights, nn.widths, nn.nr_layer, nn.alpha)
             Example.set_scores(eg,
                 eg.fwd_state[nn.nr_layer-1])
      
@@ -84,21 +80,12 @@ cdef class NeuralNet:
             int nr_eg) nogil:
         for i in range(nr_eg):
             eg = &egs[i]
-            NN.backward(IterDeltasC(states=eg.bwd_states, norms=nn.bwd_norms,
-                    i=nn.nr_layer, n=0),
-                IterActsC(
-                    states=eg.fwd_states, norms=nn.fwd_norms,
-                    i=nn.nr_layer, n=0),
-                IterWeightsC(
-                    data=nn.weights, widths=nn.widths, i=nn.nr_layer, n=0),
-                eg.costs, nn.alpha)
+            NN.backward(eg.bwd_states, nn.bwd_norms,
+                eg.costs, eg.fwd_states, nn.fwd_norms, nn.weights, nn.widths,
+                nn.nr_layer, nn.alpha)
         for i in range(nr_eg):
-            NN.gradient(IterWeightsC(data=nn.gradient,
-                widths=nn.widths, i=0, n=nn.nr_layer),
-                IterDeltasC(
-                    states=eg.bwd_state, norms=nn.bwd_norms, i=0, n=nn.nr_layer),
-                IterActsC(
-                    states=eg.fwd_state, norms=nn.fwd_norms, i=0, n=nn.nr_layer))
+            NN.set_gradient(gradient,
+                eg.bwd_states, eg.fwd_states, nn.weights, nn.widths, nn.nr_layer)
         nn.opt.update(nn.opt, nn.weights, gradient,
             1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
@@ -127,120 +114,58 @@ cdef class NeuralNet:
                     Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
 
 
-cdef class Iter:
-    @staticmethod
-    cdef inline IterFwdC init_fwd(weight_t** states, weight_t** norms, int n) nogil:
-        cdef IterFwdC fwd
-        fwd.states = states
-        fwd.norms = norms
-        fwd.i = 0
-        fwd.n = n
-        return fwd
-
-    @staticmethod
-    cdef inline IterBwdC init_bwd(weight_t** deltas, weight_t** norms, const
-            weight_t* costs, int n) nogil:
-        cdef IterBwdC bwd
-        bwd.states = deltas
-        bwd.norms = norms
-        bwd.i = 0
-        bwd.n = n
-        return bwd
-
-    @staticmethod
-    cdef inline IterWeightsC init_weights(weight_t* data, const int* widths, int n) nogil:
-        cdef IterWeightsC w
-        w._data = data
-        w.widths = widths
-        w.i = 0
-        return w
-
-    @staticmethod
-    cdef inline int fwd(IterFwdC* fwd, IterWeightsC* weights) nogil:
-        fwd.i += 2
-        if fwd.i >= fwd.n:
-            return 0
-        fwd.prev = fwd.states[fwd.i-1]
-        fwd.X = fwd.states[fwd.i]
-        fwd.Xh = fwd.states[fwd.i+1]
-        fwd.Ex = fwd.norms[fwd.i]
-        fwd.Vx = fwd.norms[fwd.i+1]
-        weights.W += layer_size
-        weights.bias += layer_size
-        weights.gamma += layer_size
-        weights.beta += layer_size
-        weights.nr_out
-        weights.nr_in
-        return 1
-
-    @staticmethod
-    cdef inline int bwd(IterBwdC* bwd, IterFwdC* fwd, IterWeightsC* weights) nogil:
-        bwd.i -= 2
-        if bwd.i <= 0: # TODO: Fix clean-up state
-            return 0
-        bwd.prev = bwd.states[bwd.i-1]
-        bwd.dEdY = bwd.states[bwd.i]
-        bwd.dEdX = bwd.states[bwd.i+1]
-        bwd.E_dEdXh = bwd.norms[bwd.i]
-        bwd.E_dEdXh_dot_Xh = bwd.norms[bwd.i+1]
-        weights.i -= 1
-        weights.nr_out = weights.widths[i] 
-        weights.nr_in = weights.widths[i-1]
-        start_of_weights = TODO
-        weights.W = &weights.data[start_of_weights]
-        weights.bias = &weights.data[start_of_weights + nr_out]
-        weights.gamma = &weights.data[start_of_weights + nr_out + nr_out]
-        weights.beta = &weights.data[start_of_weights + nr_out + nr_out + nr_out]
-        return 1
- 
-
-
 cdef class NN:
     @staticmethod
-    cdef inline void forward(IterFwdC fwd, IterWeightsC weights, weight_t alpha) nogil:
-        cdef int nr_out, nr_in
-        while Iter.fwd(&fwd, &weights, &nr_out, &nr_in):
-            MatVec.dot(fwd.X,
-                weights.W, fwd.prev, nr_out, nr_in)
-            Fwd.estimate_normalizers(fwd.Ex, fwd.Vx,
-                fwd.X, alpha, nr_out)
-            Fwd.normalize(fwd.Xh,
-                fwd.Ex, fwd.Vx, nr_out)
+    cdef inline void forward(weight_t* fwd_states, weight_t* fwd_norms,
+            const_t* weights, const_t* widths, int n, weight_t alpha) nogil:
+        lyr = Fwd.init_iter(fwd_states, fwd_norms,
+                weights, widths, n)
+        while Fwd.iter(&itr, weights, widths, n):
+            MatVec.dot(lyr.X,
+                lyr.W, lyr.prev, lyr.nr_out, lyr.nr_in)
+            Fwd.estimate_normalizers(lyr.Ex, lyr.Vx,
+                lyr.X, alpha, lyr.nr_out)
+            Fwd.normalize(lyr.Xh,
+                lyr.Ex, lyr.Vx, lyr.nr_out)
             # Scale-and-shift for the normalization
             # We have to keep X's value intact, so that we can backprop
-            Fwd.linear(fwd.Xh,
-                fwd.X, weights.gamma, weights.beta, nr_out, 1)
-            Fwd.elu(fwd.Xh,
-                nr_out)
-        Fwd.linear(fwd.X,
-            fwd.prev, weights.W, weights.bias, nr_out, nr_in)
-        Fwd.softmax(fwd.X,
-            nr_out)
+            Fwd.linear(lyr.Xh,
+                lyr.X, lyr.gamma, lyr.beta, lyr.nr_out, 1)
+            Fwd.elu(lyr.Xh,
+                lyr.nr_out)
+        Fwd.linear(lyr.X,
+            lyr.prev, lyr.W, lyr.bias, lyr.nr_out, lyr.nr_in)
+        Fwd.softmax(lyr.X,
+            lyr.nr_out)
 
     @staticmethod
-    cdef inline void backward(IterBwdC bwd, IterFwdC fwd, IterWeightsC w) nogil:
-        Bwd.softmax(bwd.dEdY,
-            bwd.prev, fwd.X, w.nr_out)
-        while Iter.bwd(&bwd, &fwd, &w):
+    cdef inline void backward(weight_t** bwd_states, weight_t** bwd_norms,
+            const weight_t* costs, const weight_t* const* fwd_states,
+            const int* widths, int n, weight_t alpha) nogil:
+        lyr = Bwd.init_iter(bwd_states, bwd_norms,
+                costs, fwd_states, fwd_norms, weights, widths, n)
+        Bwd.softmax(itr.dY,
+            costs, itr.X, itr.nr_out)
+        while Bwd.iter(&lyr, bwd, bwd_norms, fwd, fwd_norms, weights, widths, n):
             # Set up the incoming error, dE/dY
-            Bwd.linear(bwd.dEdY,
-                bwd.prev, w.W, w.nr_out, w.nr_in)
-            Bwd.elu(bwd.dEdY,
-                fwd.Xh, w.nr_out)
+            Bwd.linear(lyr.dY,
+                lyr.W, lyr.nr_out, lyr.nr_in)
+            Bwd.elu(lyr.dY,
+                lyr.Xh, lyr.nr_out)
             # dE/dX' = dE/dY * gamma, i.e. the scale constant
-            VecVec.mul(bwd.dEdX,
-                bwd.dEdY, w.gamma, w.nr_out)
+            VecVec.mul(lyr.dX,
+                lyr.dY, lyr.gamma, lyr.nr_out)
             # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
-            Bwd.estimate_normalizers(bwd.E_dEdXh, bwd.E_dEdXh_dot_Xh,
-                bwd.dEdX, fwd.Vx, w.alpha, w.nr_out)
+            Bwd.estimate_normalizers(lyr.E_dXh, lyr.E_dXh_dot_Xh,
+                lyr.dX, lyr.Vx, alpha, lyr.nr_out)
             # Backprop through the normalization, to recover dE/dX from dE/X'
-            Bwd.normalize(bwd.dEdX,
-                bwd.E_dEdXh, bwd.E_dEdXh_dot_Xh, fwd.Xh, fwd.Vx, w.nr_out)
-        Bwd.linear(bwd.dEdY,
-            bwd.prev, w.W, w.nr_out, w.nr_in)
+            Bwd.normalize(lyr.dX,
+                lyr.E_dXH, lyr.E_dXh_dot_Xh, lyr.Xh, lyr.Vx, lyr.nr_out)
+        Bwd.linear(lyr.dY,
+            lyr.W, lyr.nr_out, lyr.nr_in)
    
     @staticmethod
-    cdef inline void gradient(IterWeightsC grad, IterBwdC bwd, IterFwdC fwd) nogil:
+    cdef inline void gradient() nogil:
         while Iter.bwd(&bwd, &fwd, &grad):
             MatMat.add_outer_i(grad.W, # Gradient of synapse weights
                 bwd.dEdX, fwd.X, grad.nr_out, grad.nr_in)
@@ -253,6 +178,27 @@ cdef class NN:
 
 
 cdef class Fwd:
+    @staticmethod
+    cdef inline int iter(FwdIteratorC* state, weight_t** acts, weight_t** norms,
+            const weight_t* weights, const int* widths, int nr_layer) nogil:
+        state.i += 2
+        if state.i >= state.n:
+            return 0
+        state.W = weights + start_weight
+        state.bias = weights + start_weight + nr_out
+        state.gamma = weights + start_weight + nr_out + nr_out
+        state.beta = weights + start_weight + nr_out + nr_out + nr_out
+        state.nr_out
+        state.nr_in
+
+        state.prev = acts[state.i-1]
+        state.X = acts[state.i]
+        state.Xh = acts[state.i+1]
+        state.Ex = norms[state.i]
+        state.Vx = norms[state.i+1]
+        return 1
+
+
     @staticmethod
     cdef inline void linear(weight_t* out,
             const weight_t* in_, const weight_t* W, const weight_t* bias,
@@ -323,9 +269,28 @@ cdef class Fwd:
 
 cdef class Bwd:
     @staticmethod
-    cdef inline int iter(int* i, const weight_t** W, const weight_t** bn_scale,
-            int* nr_out, int* nr_in, const int* widths, int n) nogil:
-        pass
+    cdef inline int iter(BwdIteratorC* state, weight_t** deltas, weight_t** norms,
+            const weight_t* const* acts, const weight_t* const* act_norms,
+            const weight_t* weights, const int* widths, int n) nogil:
+        state.i -= 2
+        if state.i <= 0:
+            return 0
+        
+        state.W = weights + layer_start
+        state.bias = weights + layer_start + nr_out
+        state.gamma = weights + layer_start + nr_out + nr_out + nr_out
+        state.beta = weights + layer_start + nr_out + nr_out + nr_out
+
+        state.Xh = acts[state.i+1]
+        state.dX = deltas[state.i]
+        state.dY = deltas[state.i+1]
+        state.E_dXh = norms[state.i]
+        state.E_dXh_Xh = norms[state.i+1]
+        state.prev_d = norms[state.i-1]
+        
+        state.nr_out = nr_out
+        state.nr_in = nr_in
+        return True
 
     @staticmethod
     cdef inline void softmax(weight_t* loss,
