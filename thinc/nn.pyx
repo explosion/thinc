@@ -59,14 +59,17 @@ cdef class NeuralNet:
         self.c.fwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         self.c.bwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         fan_in = 1.0
-        # Don't init softmax weights
-        cdef IteratorC it = Fwd.init_iter(self.c.widths, self.c.nr_layer-1)
-        while Fwd.iter(&it, self.c.widths, self.c.nr_layer-1):
+        cdef IteratorC it
+        it.i = 0
+        while NN.iter(&it, self.c.widths, self.c.nr_layer, 1):
             # Allocate arrays for the normalizers
             self.c.fwd_norms[it.Ex] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
             self.c.fwd_norms[it.Vx] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
             self.c.bwd_norms[it.E_dXh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
             self.c.bwd_norms[it.E_dXh_Xh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+            # Don't initialize the softmax weights
+            if (it.i+1) >= self.c.nr_layer:
+                break
             # Do He initialization, and allow bias to be initialized to a constant.
             # Initialize the batch-norm scale, gamma, to 1.
             Initializer.normal(&self.c.weights[it.W],
