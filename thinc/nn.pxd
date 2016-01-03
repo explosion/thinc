@@ -200,8 +200,8 @@ cdef class NeuralNet:
 
 cdef class Fwd:
     @staticmethod
-    cdef inline int iter(int* i, weight_t* const* W, weight_t* const* bn_scale,
-            weight_t* const* bn_shift, int* nr_out, int* nr_in,
+    cdef inline int iter(int* i, const weight_t** W, const weight_t** bn_scale,
+            const weight_t** bn_shift, int* nr_out, int* nr_in,
             const int* widths, int n) nogil:
         pass
 
@@ -275,7 +275,7 @@ cdef class Fwd:
 
 cdef class Bwd:
     @staticmethod
-    cdef inline int iter(int* i, weight_t* const* W, weight_t* const* bn_scale,
+    cdef inline int iter(int* i, const weight_t** W, const weight_t** bn_scale,
             int* nr_out, int* nr_in, const int* widths, int n) nogil:
         pass
 
