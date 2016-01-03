@@ -32,6 +32,20 @@ cdef struct EmbeddingC:
     int nr
 
 
+cdef struct LayerC:
+    weight_t* out
+    weight_t* norm
+    weight_t* E_x
+    weight_t* V_x
+    const weight_t* in_
+    const weight_t* W
+    const weight_t* bias
+    const weight_t* bn_scale
+    const weight_t* bn_shift
+    int nr_in
+    int nr_out
+
+
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights

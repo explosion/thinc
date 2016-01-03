@@ -107,90 +107,94 @@ cdef class NeuralNet:
                     Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
   
     @staticmethod
-    cdef inline void forward(weight_t** acts, weight_t** X_h, weight_t** E_acts,
-                            weight_t** V_acts, const weight_t* W, const int* widths,
+    cdef inline void forward(weight_t** acts, weight_t** ema_Ex,
+                            weight_t** ema_Vx, const weight_t* W, const int* widths,
                             int n, weight_t alpha) nogil:
-        cdef int i
-        for i in range(1, n-1):
-            Fwd.linear(acts[i],
-                acts[i-1], W, widths[i], widths[i-1])
-            Fwd.estimate_normalizers(E_acts[i], V_acts[i],
-                acts[i], E_acts[i], widths[i], alpha)
-            Fwd.normalize(X_h[i],
-                acts[i], E_acts[i], V_acts[i], widths[i])
-            Fwd.linear(acts[i], # Scale-and-shift part of the normalization
-                X_h[i], W+(widths[i] * widths[i-1])+widths[i], widths[i], 1)
-            Fwd.elu(acts[i],
-                widths[i])
-            Fwd.residual(acts[i],
-                acts, widths, i)
-            W += NeuralNet.nr_weight(widths[i], widths[i-1])
-        Fwd.linear(acts[n-1],
-            acts[n-2], W, widths[n-1], widths[n-2])
-        Fwd.softmax(acts[n-1],
+        cdef int i = 0
+        cdef LayerIteratorC lyr
+        while Fwd.iter(&i, &W, &bn_scale, &bn_shift, &nr_out, &nr_in, widths, n):
+            MatVec.dot(fwd[i],
+                W, fwd[i-1], nr_out, nr_in)
+            Fwd.estimate_normalizers(ema_E_fwd[i], ema_V_fwd[i],
+                fwd[i], alpha, nr_out)
+            Fwd.normalize(fwd[i],
+                ema_E_fwd[i], ema_V_fwd[i], nr_out)
+            # Scale-and-shift for the normalization
+            # We have to keep fwd[i]'s value intact, so that we can backprop
+            VecVec.mul(fwd[i+1],
+                fwd[i], bn_scale, nr_out)
+            VecVec.add_i(fwd[i+1],
+                bn_shift, 1.0, nr_out)
+            Fwd.elu(fwd[i+1],
+                nr_out)
+        Fwd.linear(fwd[n-1],
+            fwd[n-2], W, widths[n-1], widths[n-2])
+        Fwd.softmax(fwd[n-1],
             widths[n-1])
 
     @staticmethod
-    cdef inline void backward(weight_t** deltas, weight_t** delta_Ys,
-                              weight_t** E_dLdXh,
-                              weight_t** E_dLdXh_dot_Xh,
+    cdef inline void backward(weight_t** deltas, weight_t** E_dLdXh, weight_t** E_dLdXh_dot_Xh,
             const weight_t* costs, const weight_t* const* acts,
-            cosnt weight_t* const* X_hat,
             const weight_t* const* V_x, const weight_t* W,
             const int* widths, int n, weight_t alpha) nogil:
-        W -= NeuralNet.nr_weight(widths[n-1], widths[n-2])
-        Bwd.softmax(deltas[n-1],
-            costs, acts[n-1], widths[n-1])
-        Bwd.linear(deltas[n-2], 
-            deltas[n-1], W, widths[n-1], widths[n-2])
-        cdef int i
-        for i in range(n-2, 0, -1):
-            W -= NeuralNet.nr_weight(widths[i], widths[i-1])
-            Bwd.residual(Y,
-                acts, widths, i)
-            # Set deltas[i] to dL/dY
-            Bwd.elu(deltas[i],
-                Y, widths[i])
-            memcpy(delta_Ys[i],
-                deltas[i], sizeof(delta_Ys[i][0]) * widths[i])
-            # Set deltas[i] to dL/dX_h, by multiplying by gamma
-            VecVec.mul_i(deltas[i],
-                W + widths[i] * widths[i-1] + widths[i], widths[i])
-            Bwd.estimate_normalizers(E_dLdXh[i], E_dLdXh_dot_Xh[i],
-                X_h[i], V_x[i], alpha, widths[i])
-            # Set deltas[i] to dL/dX
-            Bwd.normalize(deltas[i],
-                X_h[i], E_acts[i], V_acts[i], widths[i])
-            Bwd.linear(deltas[i-1],
-                deltas[i], W, widths[i], widths[i-1])
-
+        Bwd.softmax(bwd[n-1],
+            widths[n-1])
+        cdef int i = 0
+        cdef LayerC lyr
+        # Layers go:
+        # 0. in u
+        # 1. A1 x = Wu+b
+        # 2. A2 u = y = elu(BN(x))
+        # 3. B1 x = Wu+b
+        # 4. B2 u = y = elu(BN(x))
+        # 5. S  u = softmax(Wu)
+        # 6. Scores
+        # Pre-iter: Bwd.softmax places the top loss in 6, then we set the next loss in 5
+        # Iter 0: Read from 4, write dL/dY to 4, dL/dX to 3, set up 2
+        # Iter 1: Read from 2, write dL/dY to 2, dL/dX to 1, set up 0
+        # Post-iter: Write dL/dX to 0 for fine-tuning
+        while Bwd.iter(&i, &W, &bn_scale, &bn_shift, &nr_out, &nr_in, widths, n):
+            Bwd.elu(bwd[i],
+                fwd[i], nr_out)
+            VecVec.mul(bwd[i-1],
+                bwd[i], bn_scale, nr_out)
+            Bwd.estimate_normalizers(ema_E_bwd[?], ema_E_bwd_dot_fwd[?],
+                bwd[?], ema_V_fwd[?], alpha, lyr.nr_out)
+            Bwd.normalize(bwd[i-1],
+                ema_E_bwd[?], ema_E_bwd_dot_fwd[?], fwd[?], nr_out)
+            Bwd.linear(bwd[i-2],
+                bwd[i-1], W, nr_out, nr_wide)
+   
     @staticmethod
     cdef inline void set_gradient(weight_t* gradient,
             const weight_t* const* fwd,
             const weight_t* const* bwd,
             const int* widths, int n, weight_t norm_weight) nogil:
         cdef int i
-        for i in range(1, n):
+        while ??.iter(&i, &lyr, fwd, bwd, gradient, widths, n):
             # Gradient of synapse weights
-            MatMat.add_outer_i(gradient,
-                bwd[i], fwd[i-1], widths[i], widths[i-1])
+            MatMat.add_outer_i(lyr.W,
+                lyr.dLdX, lyr.X, lyr.nr_out, lyr.nr_wide)
             # Gradient of bias weights
-            VecVec.add_i(gradient + (widths[i] * widths[i-1]),
-                bwd[i], 1.0, widths[i])
+            VecVec.add_i(lyr.bias,
+                lyr.dLdX, 1.0, lyr.nr_out)
             # Gradient of gammas
+            VecVec.add_outer_i(lyr.bn_scale,
+                lyr.dLdY, lyr.X_hat, lyr.nr_out, 1.0)
             # Gradient of betas
-            gradient += NeuralNet.nr_weight(widths[i], widths[i-1])
+            VecVec.add_i(lyr.bn_shift,
+                lyr.dLdY, 1.0, lyr.nr_out)
 
 
 cdef class Fwd:
     @staticmethod
     cdef inline void linear(weight_t* out,
-            const weight_t* in_, const weight_t* W, int nr_out, int nr_wide) nogil:
+            const weight_t* in_, const weight_t* W, const weight_t* bias,
+            int nr_out, int nr_wide) nogil:
         MatVec.dot(out,
             W, in_, nr_out, nr_wide)
-        # Bias
         VecVec.add_i(out,
-            W + (nr_out * nr_wide), 1.0, nr_out)
+            bias, 1.0, nr_out)
 
     @staticmethod
     cdef inline void normalize(weight_t* x_hat,
@@ -199,18 +203,18 @@ cdef class Fwd:
             x[i] = (x[i] - E_x[i]) / c_sqrt(V_x[i] + EPS)
 
     @staticmethod
-    cdef inline void estimate_normalizers(weight_t* E_x, weight_t* V_x,
+    cdef inline void estimate_normalizers(weight_t* ema_E_x, weight_t* ema_V_x,
             const weight_t* x, weight_t alpha, int n) nogil:
         # Upd EMA estimate of mean
-        Vec.mul_i(E_x,
+        Vec.mul_i(ema_E_x,
             alpha, n)
-        VecVec.add_i(E_x,
+        VecVec.add_i(ema_E_x,
             x, 1-alpha, n)
         # Upd EMA estimate of variance
-        Vec.mul_i(V_x,
+        Vec.mul_i(ema_V_x,
             alpha, n)
         for i in range(n):
-            V_x[i] += (1.0 - alpha) * (x[i] - E_x[i]) ** 2
+            ema_V_x[i] += (1.0 - alpha) * (x[i] - ema_E_x[i]) ** 2
 
     @staticmethod
     cdef inline void relu(weight_t* out,
@@ -310,7 +314,6 @@ cdef class Bwd:
         for i in range(n):
             E_bwd_dot_fwd[i] += (1-alpha) * bwd[i] * fwd[i]
 
-  
 
 cdef class Embedding:
     cdef Pool mem
