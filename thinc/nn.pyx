@@ -107,6 +107,7 @@ cdef class NeuralNet:
         def __get__(self):
             return [self.c.weights[i] for i in range(self.c.nr_weight)]
         def __set__(self, weights):
+            assert len(weights) == self.c.nr_weight
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
 

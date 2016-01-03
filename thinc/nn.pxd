@@ -73,7 +73,7 @@ cdef class NeuralNet:
             NN.forward(eg.fwd_state, nn.fwd_norms,
                 nn.weights, nn.widths, nn.nr_layer, nn.alpha)
             Example.set_scores(eg,
-                eg.fwd_state[nn.nr_layer-1])
+                eg.fwd_state[nn.nr_layer*2-1])
      
     @staticmethod
     cdef inline void updateC(NeuralNetC* nn, weight_t* gradient, ExampleC* egs,
@@ -126,21 +126,28 @@ cdef class NN:
         while Fwd.iter(&it, widths, n):
             if it.i+1 >= n: # Save last layer fo softmax
                 break
-            MatVec.dot(fwd[it.X],
-                &weights[it.W], fwd[it.prev_x], it.nr_out, it.nr_in)
-            Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
-                fwd[it.X], alpha, it.nr_out)
-            Fwd.normalize(fwd[it.Xh],
-                fwd_norms[it.Ex], fwd_norms[it.Vx], it.nr_out)
+            with gil:
+                print("i", it.i, it.prev_x, it.X, it.Xh)
+            Fwd.linear(fwd[it.X],
+                fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+            #Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
+            #    fwd[it.X], alpha, it.nr_out)
+            #Fwd.normalize(fwd[it.Xh],
+            #    fwd_norms[it.Ex], fwd_norms[it.Vx], it.nr_out)
             # Scale-and-shift for the normalization
             # We have to keep X's value intact, so that we can backprop
-            Fwd.linear(fwd[it.Xh],
-                fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+            #Fwd.linear(fwd[it.Xh],
+            #    fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+            memcpy(fwd[it.Xh],
+                fwd[it.X], sizeof(fwd[it.X][0]) * it.nr_out)
             Fwd.elu(fwd[it.Xh],
                 it.nr_out)
-        Fwd.linear(fwd[it.X],
+        with gil:
+            print(it.i, "W=", it.W, "bias=", it.bias, 'nr_out', it.nr_out, 'nr_in', it.nr_in)
+            print(it.i, "bias 0", weights[it.bias], 'bias 1', weights[it.bias + 1])
+        Fwd.linear(fwd[it.Xh],
             fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-        Fwd.softmax(fwd[it.X],
+        Fwd.softmax(fwd[it.Xh],
             it.nr_out)
 
     @staticmethod
@@ -202,21 +209,28 @@ cdef class Fwd:
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer) nogil:
         it.i += 1
-        if it.i >= nr_layer:
-            return 0
+        # Iter 0:
+        # prev_x = 0
+        # X = 2
+        # Xh = 3
+        # Iter 1:
+        # prev_x = 3
+        # X = 4
+        # Xh = 5
         it.nr_out = widths[it.i]
         it.nr_in = widths[it.i-1]
         cdef int start_weight = 0
         cdef int j
         for j in range(1, it.i):
             start_weight += NN.nr_weight(widths[j], widths[j-1])
-
         it.W = start_weight
-        it.bias = start_weight + it.nr_out
-        it.gamma = start_weight + it.nr_out + it.nr_out
-        it.beta = start_weight + it.nr_out + it.nr_out + it.nr_out
+        it.bias = start_weight + (it.nr_out * it.nr_in)
+        it.gamma = it.bias + it.nr_out
+        it.beta = it.gamma + it.nr_out
 
         it.prev_x = (it.i-1) * 2 + 1
+        if it.prev_x == 1:
+            it.prev_x = 0
         it.X = it.i * 2
         it.Xh = it.i * 2 + 1
         it.Ex = it.i * 2
@@ -227,7 +241,7 @@ cdef class Fwd:
         it.dX = it.i * 2
         it.E_dXh = it.i * 2
         it.E_dXh_Xh = it.i * 2 + 1
-        return 1
+        return it.i < nr_layer
 
 
     @staticmethod

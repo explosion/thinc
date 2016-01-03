@@ -24,11 +24,15 @@ cdef class Example:
 
     @staticmethod
     cdef inline void init(ExampleC* self, Pool mem, model_shape, features, costs) except *:
-        self.fwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
-        self.bwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
-        for i, width in enumerate(model_shape):
+        self.fwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
+        self.bwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
+        cdef int i = 0
+        for width in model_shape:
             self.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
             self.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.fwd_state[i+1] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.bwd_state[i+1] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            i += 2
         # Each layer is x wide and connected to y nodes in the next layer.
         # So each layer has a weight matrix W with x*y weights, and an array
         # of bias weights, of length y. So each layer has x*y+y weights.
