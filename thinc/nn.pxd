@@ -97,11 +97,11 @@ cdef class NeuralNet:
             for i in range(nr_eg):
                 eg = &egs[i]
                 if eg.features is not NULL:
-                    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
+                    Embedding.fine_tune(nn.opt, nn.embeds, eg.bwd_state[1],
                         eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
  
     @staticmethod
-    cdef inline void insert_embeddingsC(NeuralNetC* nn, Pool mem,
+    cdef inline void insert_embeddingsC(EmbeddingC* nn, Pool mem,
             const ExampleC* egs, int nr_eg) except *:
         for i in range(nr_eg):
             eg = &egs[i]
@@ -110,8 +110,12 @@ cdef class NeuralNet:
                 emb = <weight_t*>Map_get(nn.embeds.tables[feat.i], feat.key)
                 if emb is NULL:
                     emb = <weight_t*>mem.alloc(nn.embeds.lengths[feat.i], sizeof(weight_t))
-                    Initializer.normal(emb,
-                        0.0, 1.0, nn.embeds.lengths[feat.i])
+                    # We initialize with the defaults here so that we only have
+                    # to insert during training --- on the forward pass, we can
+                    # set default. But if we're doing that, the back pass needs
+                    # to be dealing with the same representation.
+                    memcpy(emb,
+                        nn.embeds.defaults[feat.i], sizeof(weight_t) * nn.embeds.lengths[feat.i])
                     Map_set(mem, nn.embeds.tables[feat.i], feat.key, emb)
 
 

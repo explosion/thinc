@@ -86,9 +86,11 @@ cdef class NeuralNet:
         cdef Batch mb = self.Batch(Xs, ys)
         NeuralNet.predictC(mb.c.egs,
             mb.c.nr_eg, &self.c)
-        NeuralNet.insert_embeddingsC(&self.c, self.mem,
+        NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
             mb.c.egs, mb.c.nr_eg)
-        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
+        NeuralNet.insert_embeddingsC(mb.c.sparse_gradient, self.mem,
+            mb.c.egs, mb.c.nr_eg)
+        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.sparse_gradient, mb.c.egs,
             mb.c.nr_eg)
         return mb
  
@@ -117,8 +119,6 @@ cdef class NeuralNet:
             it.i = 0
             while NN.iter(&it, self.c.widths, self.c.nr_layer-1, 1):
                 yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
-
-
 
     property widths:
         def __get__(self):
