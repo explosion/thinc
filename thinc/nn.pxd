@@ -152,17 +152,19 @@ cdef class NN:
 
     @staticmethod
     cdef inline void forward(weight_t** state, weight_t** norms,
-                        const weight_t* W,
+                        const weight_t* weights,
                         const int* widths, int n, weight_t alpha) nogil:
-        cdef int i
-        for i in range(n-2): # Save last layer for softmax
-            Fwd.linear(state[i+1],
-                state[i], W, W+(widths[i+1]*widths[i]), widths[i+1], widths[i])
-            Fwd.relu(state[i+1],
-                widths[i+1])
-            W += (widths[i+1] * widths[i]) + (widths[i+1]*3)
+        cdef IteratorC it
+        it.i = 0
+        cdef int i = 0
+        while NN.iter(&it, widths, n-2, 1):
+            i = it.i - 1
+            Fwd.linear(state[it.Xh],
+                state[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+            Fwd.relu(state[it.Xh],
+                it.nr_out)
         Fwd.linear(state[n-1],
-            state[n-2], W, W+(widths[i+1]*widths[i]), widths[n-1], widths[n-2])
+            state[n-2], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
         Fwd.softmax(state[n-1],
             widths[n-1])
 
@@ -248,26 +250,24 @@ cdef class NN:
 
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:
-        cdef int tmp = it.i
-        memset(it, 0, sizeof(IteratorC))
-        it.i = tmp + inc
-        it.nr_out = widths[it.i]
-        it.nr_in = widths[it.i-1]
+        it.nr_out = widths[it.i+1]
+        it.nr_in = widths[it.i]
         it.W = 0
         cdef int i
-        for i in range(1, it.i):
-            it.W += NN.nr_weight(widths[i], widths[i-1])
+        for i in range(it.i):
+            it.W += NN.nr_weight(widths[i+1], widths[i])
         it.bias = it.W + (it.nr_out * it.nr_in)
         it.gamma = it.bias + it.nr_out
         it.beta = it.gamma + it.nr_out
 
-        it.prev_x = (it.i-1) * 2 + 1
-        it.prev_d = it.i * 2 + 2
-        if it.prev_x == 1:
+        if it.i >= 1:
+            it.prev_x = (it.i-1) * 2 + 1
+        else:
             it.prev_x = 0
+        it.prev_d = it.i * 2 + 2
         
-        it.X = it.i * 2
-        it.Xh = it.i * 2 + 1
+        it.X = it.i
+        it.Xh = it.i + 1
         it.dX = it.X
         it.dY = it.Xh
 
@@ -275,7 +275,8 @@ cdef class NN:
         it.Vx = it.i * 2 + 1
         it.E_dXh = it.Ex
         it.E_dXh_Xh = it.Vx
-        if nr_layer > it.i and it.i > 0:
+        it.i += inc
+        if nr_layer >= it.i and it.i > 0:
             return True
         else:
             return False
