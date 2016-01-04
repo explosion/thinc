@@ -228,22 +228,23 @@ cdef class NN:
             const weight_t* const* bwd,
             const weight_t* const* fwd,
             const int* widths, int n) nogil:
-        cdef int i
-        for i in range(n-1):
-            MatMat.add_outer_i(gradient,
-                bwd[i+1], fwd[i], widths[i+1], widths[i])
-            VecVec.add_i(gradient + (widths[i+1] * widths[i]),
-                bwd[i+1], 1.0, widths[i+1])
-            gradient += (widths[i+1] * widths[i]) + widths[i+1]*3
-        #while NN.iter(&it, widths, n, 1):
-        #    MatMat.add_outer_i(&grad[it.W], # Gradient of synapse weights
-        #        bwd[it.prev_d], fwd[it.X], it.nr_out, it.nr_in)
-        #    VecVec.add_i(&grad[it.bias], # Gradient of bias weights
-        #        bwd[it.dX], 1.0, it.nr_out)
-        #    MatMat.add_outer_i(&grad[it.gamma], # Gradient of gammas
-        #        bwd[it.prev_d], fwd[it.Xh], it.nr_out, 1)
-        #    VecVec.add_i(&grad[it.beta], # Gradient of betas
-        #        bwd[it.prev_d], 1.0, it.nr_out)
+        #for i in range(n-1):
+        #    MatMat.add_outer_i(gradient,
+        #        bwd[i+1], fwd[i], widths[i+1], widths[i])
+        #    VecVec.add_i(gradient + (widths[i+1] * widths[i]),
+        #        bwd[i+1], 1.0, widths[i+1])
+        #    gradient += (widths[i+1] * widths[i]) + widths[i+1]*3
+        cdef IteratorC it
+        it.i = 0
+        while NN.iter(&it, widths, n-1, 1):
+            MatMat.add_outer_i(&gradient[it.W], # Gradient of synapse weights
+                bwd[it.Xh], fwd[it.X], it.nr_out, it.nr_in)
+            VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
+                bwd[it.Xh], 1.0, it.nr_out)
+            #MatMat.add_outer_i(&grad[it.gamma], # Gradient of gammas
+            #    bwd[it.prev_d], fwd[it.Xh], it.nr_out, 1)
+            #VecVec.add_i(&grad[it.beta], # Gradient of betas
+            #    bwd[it.prev_d], 1.0, it.nr_out)
 
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:
