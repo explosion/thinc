@@ -27,10 +27,14 @@ cdef class Example:
         self.fwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
         self.bwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
         i = 0
-        for width in model_shape:
+        for width in model_shape[:1]:
             self.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-            self.fwd_state[i+1] = <weight_t*>mem.alloc(width, sizeof(weight_t))
             self.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            i += 1
+        for width in model_shape[1:]:
+            self.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.fwd_state[i+1] = <weight_t*>mem.alloc(width, sizeof(weight_t))
             self.bwd_state[i+1] = <weight_t*>mem.alloc(width, sizeof(weight_t))
             i += 2
         # Each layer is x wide and connected to y nodes in the next layer.

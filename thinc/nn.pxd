@@ -120,55 +120,30 @@ cdef class NN:
     cdef inline int nr_weight(int nr_out, int nr_in) nogil:
         return nr_out * nr_in + nr_out * 3
 
-    #@staticmethod
-    #cdef inline void forward(weight_t** fwd, weight_t** fwd_norms,
-    #        const weight_t* weights, const int* widths, int n, weight_t alpha) nogil:
-    #    cdef IteratorC it
-    #    it.i = 0
-    #    while NN.iter(&it, widths, n, 1):
-    #        Fwd.linear(fwd[it.X],
-    #            fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-    #        if 0 < alpha < 1:
-    #            Fwd.estimate_normalizers(fwd_norms[it.Ex], fwd_norms[it.Vx],
-    #                fwd[it.X], alpha, it.nr_out)
-    #            Fwd.normalize(fwd[it.Xh],
-    #                fwd_norms[it.Ex], fwd_norms[it.Vx], it.nr_out)
-    #            # Scale-and-shift for the normalization
-    #            # We have to keep X's value intact, so that we can backprop
-    #            Fwd.linear(fwd[it.Xh],
-    #                fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
-    #        else:
-    #            # No normalization, so pass forward Xh=X
-    #            memcpy(fwd[it.Xh],
-    #                fwd[it.X], sizeof(fwd[it.Xh][0]) * it.nr_out)
-    #        Fwd.elu(fwd[it.Xh],
-    #            it.nr_out)
-    #    Fwd.linear(fwd[it.Xh],
-    #        fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-    #    Fwd.softmax(fwd[it.Xh],
-    #        it.nr_out)
-
     @staticmethod
     cdef inline void forward(weight_t** fwd, weight_t** norms,
                         const weight_t* weights,
                         const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it
         it.i = 0
+        alpha = 0.0
         while NN.iter(&it, widths, n-2, 1):
-            Fwd.linear(fwd[it.above],
-                fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
             if 0.0 < alpha < 1.0:
-                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
-                    fwd[it.below], alpha, it.nr_out)
-                Fwd.normalize(fwd[it.here],
-                    norms[it.Ex], norms[it.Vx], it.nr_out)
+                Fwd.linear(fwd[it.here],
+                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+                memcpy(fwd[it.above],
+                    fwd[it.here], sizeof(fwd[0][0]) * it.nr_out)
+                #Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
+                #    fwd[it.below], alpha, it.nr_out)
+                #Fwd.normalize(fwd[it.here],
+                #    norms[it.Ex], norms[it.Vx], it.nr_out)
                 # Scale-and-shift for the normalization
                 # We have to keep X's value intact, so that we can backprop
+                #Fwd.linear(fwd[it.above],
+                #    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+            else:
                 Fwd.linear(fwd[it.above],
-                    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
-            #else:
-            #    memcpy(fwd[it.above],
-            #        fwd[it.here], sizeof(fwd[0][0]) * it.nr_out)
+                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
             Fwd.relu(fwd[it.above],
                 it.nr_out)
         Fwd.linear(fwd[it.above],
@@ -225,10 +200,10 @@ cdef class NN:
                 bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
             VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
                 bwd[it.above], 1.0, it.nr_out)
-            MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
-                bwd[it.here], fwd[it.here], it.nr_out, 1)
-            VecVec.add_i(&gradient[it.beta], # Gradient of betas
-                bwd[it.here], 1.0, it.nr_out)
+            #MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
+            #    bwd[it.here], fwd[it.here], it.nr_out, 1)
+            #VecVec.add_i(&gradient[it.beta], # Gradient of betas
+            #    bwd[it.here], 1.0, it.nr_out)
 
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:
@@ -246,10 +221,10 @@ cdef class NN:
         it.here = it.below + 1
         it.above = it.below + 2
 
-        it.Ex = it.below
-        it.Vx = it.here
-        it.E_dXh = it.below
-        it.E_dXh_Xh = it.here
+        it.Ex = it.here
+        it.Vx = it.above
+        it.E_dXh = it.here
+        it.E_dXh_Xh = it.above
         it.i += inc
         if nr_layer >= it.i and it.i >= 0:
             return True
