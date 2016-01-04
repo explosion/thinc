@@ -319,19 +319,10 @@ def test_embedding():
     assert eg.activation(0, 9) != 0.0
     
 
-def test_simple_backprop():
-    model = NeuralNet((2, 3, 2))
-    syn1 = [-2.6, 1.59, 0.09, 1.23, 0.63, 0.01]
-    bias1 = [0.0 for _ in range(model.widths[1])]
-    beta1 = [0.0 for _ in range(model.widths[1])]
-    gamma1 = [0.0 for _ in range(model.widths[1])]
-    syn2 = [0.0 for _ in range(model.widths[1] * model.widths[2])]
-    bias2 = [0.0 for _ in range(model.widths[2])]
-    beta2 = [0.0 for _ in range(model.widths[2])]
-    gamma2 = [0.0 for _ in range(model.widths[2])]
-    model.weights = syn1 + bias1 + beta1 + gamma1 + syn2 + bias2 + beta2 + gamma2
-    for w, b in model.layers:
-        print('W', w)
-        print('b', b)
-    batch = model.train([(0, 1)], [(1, 0)])
-    print(batch.gradient)
+def test_sparse_backprop():
+    model = NeuralNet((2, 2, 2), embed=((2,), (0,)))
+    x = [{1: 4.0, 2: 3.0, 3: 4.0, 100: 1.0}, {10: 3.0, 2: 2.0}]
+    y = [(0, 1), (1, 0)]
+    batch1 = model.train(x, y)
+    batch2 = model.train(x, y)
+    assert batch1.loss > batch2.loss
