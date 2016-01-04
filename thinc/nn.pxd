@@ -156,17 +156,15 @@ cdef class NN:
                         const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it
         it.i = 0
-        cdef int i = 0
         while NN.iter(&it, widths, n-2, 1):
-            i = it.i - 1
             Fwd.linear(state[it.Xh],
                 state[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
             Fwd.relu(state[it.Xh],
                 it.nr_out)
-        Fwd.linear(state[n-1],
-            state[n-2], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-        Fwd.softmax(state[n-1],
-            widths[n-1])
+        Fwd.linear(state[it.Xh],
+            state[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+        Fwd.softmax(state[it.Xh],
+            it.nr_out)
 
     @staticmethod
     cdef inline void backward(weight_t** bwd, weight_t** bwd_norms,
