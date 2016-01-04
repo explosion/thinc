@@ -89,14 +89,11 @@ cdef struct IteratorC:
     int bias
     int gamma
     int beta
-    int prev_x
-    int X
-    int Xh
+    int below
+    int here
+    int above
     int Ex
     int Vx
-    int prev_d
-    int dY
-    int dX
     int E_dXh
     int E_dXh_Xh
 
