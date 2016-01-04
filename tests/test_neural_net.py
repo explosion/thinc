@@ -345,26 +345,34 @@ def test_sparse_backprop():
     e0 = model(x[0])
     assert f2s((e0.activation(0,0), e0.activation(0,1))) == '-0.740 21.726'
     assert f2s((e0.activation(1,0), e0.activation(1,1))) == '42.036 0.000'
+    assert f2s((e0.activation(2,0), e0.activation(2,1))) == '0.500 0.500'
     b1 = model.train(x, y)
     e1_0, e1_1 = b1
+    assert f2s((e1_0.activation(0,0), e1_0.activation(0,1))) == '-0.740 21.726'
     assert f2s((e1_0.activation(1,0), e1_0.activation(1,1))) == '42.036 0.000'
-    assert e1_0.activation(0, 0) == -0.7402383685112
-    assert e1_0.activation(0, 1) == 21.72637939453125
+    assert f2s((e1_0.activation(2,0), e1_0.activation(2,1))) == '0.500 0.500'
 
     assert f2s((e1_0.delta(2,0), e1_0.delta(2,1))) == '-0.500 0.500'
     assert f2s((e1_0.delta(1,0), e1_0.delta(1,1))) == '0.000 0.000'
+    assert f2s((e1_0.delta(0,0), e1_0.delta(0,1))) == '0.000 0.000'
    
-    assert e1_0.activation(0, 0) == -0.7402383685112
-    assert e1_0.activation(0, 1) == 21.72637939453125
     b2 = model.train(x, y)
     e2_0, e2_1 = b2
+
+    a0 = (e2_0.activation(0,0), e2_0.activation(0,1))
+    a1 = (e2_0.activation(1,0), e2_0.activation(1,1))
+    a2 = (e2_0.activation(2,0), e2_0.activation(2,1))
+    
+    assert f2s(a0) == '1.467 -7.604'
+    assert f2s(a1) == '0.000 1.582'
+    assert f2s(a2) == '0.500 0.500'
 
     d2 = (e2_0.delta(2,0), e2_0.delta(2,1))
     d1 = (e2_0.delta(1,0), e2_0.delta(1,1))
     d0 = (e2_0.delta(0,0), e2_0.delta(0,1))
  
 
-    assert f2s(d2) == '-0.501 0.501'
+    assert f2s(d2) == '-0.500 0.500'
     assert f2s(d1) == '-0.005 0.000'
     assert f2s(d0) == '-0.009 -0.010'
  
@@ -378,3 +386,5 @@ def test_sparse_backprop():
     b10 = model.train(x, y)
  
     assert b1.loss > b10.loss
+
+
