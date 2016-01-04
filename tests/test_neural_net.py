@@ -334,29 +334,39 @@ def test_sparse_backprop_single():
     assert b4.loss > b5.loss
 
 
+def f2s(fs):
+    return ' '.join('%.3f' % val for val in fs)
+
+
 def test_sparse_backprop():
-    model = NeuralNet((2, 2, 2), embed=((2,), (0,)))
+    model = NeuralNet((2, 2, 2), embed=((2,), (0,)), bias=0.2)
     x = [{1: 4.0, 2: 3.0, 3: 4.0, 100: 1.0}, {10: 3.0, 2: 2.0}]
     y = [(0, 1), (1, 0)]
+    e0 = model(x[0])
+    assert f2s((e0.activation(0,0), e0.activation(0,1))) == '-0.740 21.726'
+    assert f2s((e0.activation(1,0), e0.activation(1,1))) == '42.036 0.000'
     b1 = model.train(x, y)
     e1_0, e1_1 = b1
-    assert '%.3f %.3f' % (e1_0.delta(2,0), e1_0.delta(2,1)) == '-0.500 0.500'
-    assert '%.3f %.3f' % (e1_0.delta(1,0), e1_0.delta(1,1)) == '0.000 0.000'
-    print(e1_0.delta(1,1), e1_0.delta(1,0))
-    print(e1_0.delta(0,0), e1_0.delta(0,1))
+    assert f2s((e1_0.activation(1,0), e1_0.activation(1,1))) == '42.036 0.000'
+    assert e1_0.activation(0, 0) == -0.7402383685112
+    assert e1_0.activation(0, 1) == 21.72637939453125
+
+    assert f2s((e1_0.delta(2,0), e1_0.delta(2,1))) == '-0.500 0.500'
+    assert f2s((e1_0.delta(1,0), e1_0.delta(1,1))) == '0.000 0.000'
+   
     assert e1_0.activation(0, 0) == -0.7402383685112
     assert e1_0.activation(0, 1) == 21.72637939453125
     b2 = model.train(x, y)
     e2_0, e2_1 = b2
-    print(e2_0.delta(2,0), e2_0.delta(2,1))
-    print(e2_0.delta(1,1), e2_0.delta(1,0))
-    print(e2_0.delta(0,0), e2_0.delta(0,1))
- 
-    assert e2_0.delta(0, 0) == -0.00898053590208292
-    assert e2_0.delta(0, 1) == -0.009909887798130512
 
-    assert e2_0.delta(0, 0) == -0.00898053590208292
-    assert e2_0.delta(0, 1) == -0.009909887798130512
+    d2 = (e2_0.delta(2,0), e2_0.delta(2,1))
+    d1 = (e2_0.delta(1,0), e2_0.delta(1,1))
+    d0 = (e2_0.delta(0,0), e2_0.delta(0,1))
+ 
+
+    assert f2s(d2) == '-0.501 0.501'
+    assert f2s(d1) == '-0.005 0.000'
+    assert f2s(d0) == '-0.009 -0.010'
  
     b3 = model.train(x, y)
     b4 = model.train(x, y)
@@ -368,5 +378,3 @@ def test_sparse_backprop():
     b10 = model.train(x, y)
  
     assert b1.loss > b10.loss
-
-
