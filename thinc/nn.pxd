@@ -82,7 +82,7 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             eg = &egs[i]
             NN.backward(eg.bwd_state, nn.bwd_norms,
-                eg.costs, eg.fwd_state, nn.fwd_norms, nn.weights, nn.widths,
+                eg.costs, eg.fwd_state, nn.fwd_norms, nn.weights+nn.nr_weight, nn.widths,
                 nn.nr_layer, nn.alpha)
         for i in range(nr_eg):
             NN.gradient(gradient,
@@ -157,12 +157,12 @@ cdef class NN:
         cdef int i
         for i in range(n-2): # Save last layer for softmax
             Fwd.linear(state[i+1],
-                state[i], W, W+widths[i+1]*widths[i], widths[i+1], widths[i])
+                state[i], W, W+(widths[i+1]*widths[i]), widths[i+1], widths[i])
             Fwd.relu(state[i+1],
                 widths[i+1])
-            W += widths[i+1] * widths[i] + widths[i+1]*3
+            W += (widths[i+1] * widths[i]) + (widths[i+1]*3)
         Fwd.linear(state[n-1],
-            state[n-2], W, W+widths[i+1]*widths[i], widths[i+1], widths[i])
+            state[n-2], W, W+(widths[i+1]*widths[i]), widths[n-1], widths[n-2])
         Fwd.softmax(state[n-1],
             widths[n-1])
 
@@ -171,7 +171,7 @@ cdef class NN:
             const weight_t* costs,
             const weight_t* const* fwd,
             const weight_t* const* fwd_norms,
-            const weight_t* weights,
+            const weight_t* W,
             const int* widths,
             int n,
             weight_t alpha) nogil:
@@ -179,10 +179,6 @@ cdef class NN:
             costs, fwd[n-1], widths[n-1])
 
         cdef int i
-        cdef const weight_t* W = weights
-        for i in range(n-1):
-            #W += NN.nr_weight(widths[i+1], widths[i])
-            W += widths[i+1] * widths[i] + widths[i+1] * 3
         for i in range(n-2, 0, -1):
             W -= widths[i+1] * widths[i] + widths[i+1] * 3
             # Set up the incoming error, dE/dY
