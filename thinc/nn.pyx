@@ -27,7 +27,7 @@ cdef class Embedding:
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t rho=1e-4, weight_t bias=0.2, weight_t alpha=0.0):
+                 weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
         self.c.alpha = alpha
 
@@ -109,6 +109,16 @@ cdef class NeuralNet:
             assert len(weights) == self.c.nr_weight
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
+
+    property layers:
+        def __get__(self):
+            weights = self.weights
+            cdef IteratorC it
+            it.i = 0
+            while NN.iter(&it, self.c.widths, self.c.nr_layer-1, 1):
+                yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
+
+
 
     property widths:
         def __get__(self):
