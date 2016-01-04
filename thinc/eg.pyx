@@ -113,10 +113,12 @@ cdef class Example:
             return 1 - self.c.scores[self.c.best]
 
     def activation(self, int i, int j):
-        return self.c.fwd_state[i][j]
+        # TODO: Find a way to do this better!
+        return self.c.fwd_state[i*2][j]
 
     def delta(self, int i, int j):
-        return self.c.bwd_state[i][j]
+        # TODO: Find a way to do this better!
+        return self.c.bwd_state[i*2][j]
 
 
 
