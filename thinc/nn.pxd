@@ -177,9 +177,12 @@ cdef class NN:
             weight_t alpha) nogil:
         Bwd.softmax(bwd[n-1],
             costs, fwd[n-1], widths[n-1])
-
+        
+        cdef IteratorC it
+        it.i = n-2
         cdef int i
-        for i in range(n-2, 0, -1):
+        while NN.iter(&it, widths, n, -1):
+            i = it.i + 1
             W -= widths[i+1] * widths[i] + widths[i+1] * 3
             # Set up the incoming error, dE/dY
             Bwd.linear(bwd[i],
@@ -274,7 +277,7 @@ cdef class NN:
         it.E_dXh = it.Ex
         it.E_dXh_Xh = it.Vx
         it.i += inc
-        if nr_layer >= it.i and it.i > 0:
+        if nr_layer >= it.i and it.i >= 0:
             return True
         else:
             return False
