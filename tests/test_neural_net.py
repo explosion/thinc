@@ -319,10 +319,30 @@ def test_embedding():
     assert eg.activation(0, 9) != 0.0
     
 
+def test_sparse_backprop_single():
+    model = NeuralNet((2, 2, 2), embed=((2,), (0,)))
+    x = [{1: 4.0}]
+    y = [(0, 1)]
+    b1 = model.train(x, y)
+    b2 = model.train(x, y)
+    b3 = model.train(x, y)
+    b4 = model.train(x, y)
+    b5 = model.train(x, y)
+    assert b1.loss > b2.loss
+    assert b2.loss > b3.loss
+    assert b3.loss > b4.loss
+    assert b4.loss > b5.loss
+
+
 def test_sparse_backprop():
     model = NeuralNet((2, 2, 2), embed=((2,), (0,)))
     x = [{1: 4.0, 2: 3.0, 3: 4.0, 100: 1.0}, {10: 3.0, 2: 2.0}]
     y = [(0, 1), (1, 0)]
-    batch1 = model.train(x, y)
-    batch2 = model.train(x, y)
-    assert batch1.loss > batch2.loss
+    b1 = model.train(x, y)
+    b2 = model.train(x, y)
+    b3 = model.train(x, y)
+    b4 = model.train(x, y)
+    b5 = model.train(x, y)
+    assert b1.loss > b5.loss
+
+
