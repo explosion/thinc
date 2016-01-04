@@ -157,11 +157,10 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
               avg_grad)
         if n_correct >= prev_best:
             prev_best = n_correct
-
-    #print("Evaluating")
-    #eval_data = list(read_data(data_dir / 'test'))
-    #n_correct = sum(y[model.predict(x).guess] == 0 for x, y in eval_data)
-    #print(n_correct / len(eval_data))
+    print("Evaluating")
+    eval_data = list(read_data(data_dir / 'test'))
+    n_correct = sum(y[model.predict(x).guess] == 0 for x, y in eval_data)
+    print(n_correct / len(eval_data))
  
 
 if __name__ == '__main__':
