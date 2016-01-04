@@ -354,4 +354,9 @@ def test_sparse_backprop():
     b9 = model.train(x, y)
     b10 = model.train(x, y)
 
+    print(b1.gradient)
+    e1, e2 = b2
+    print(e1.activation(0,0))
+
     assert b1.loss > b3.loss > b10.loss
+    print(b1.loss, b10.loss)

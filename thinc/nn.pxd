@@ -87,8 +87,8 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
-        nn.opt.update(nn.opt, nn.weights, gradient,
-            1.0 / nr_eg, nn.nr_weight)
+        Adagrad.update(nn.opt.params, nn.weights, gradient,
+            1.0 / nr_eg, nn.opt.rho, nn.opt.eta, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # However, most words are rare --- so most words will only have non-zero
@@ -416,13 +416,12 @@ cdef class Embedding:
             # Reset fine_tune, because we need to modify the gradient
             memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
             feat = features[i]
-            weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
             gradient = &fine_tune[layer.offsets[feat.i]]
-            # TODO: Currently we can't store supporting parameters for the word
-            # vectors in opt, so we can only do vanilla SGD. In practice this
-            # seems to work very well!
-            VanillaSGD.update(opt, weights, gradient,
-                feat.val, layer.lengths[feat.i])
+            weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
+            params = <weight_t*>Map_get(opt.embed_params.tables[feat.i], feat.key)
+            # These should never be not-null.
+            Adagrad.update(params, weights, gradient,
+                1.0, opt.rho, opt.eta, layer.lengths[feat.i])
 
 
 cdef class Initializer:
@@ -472,7 +471,7 @@ cdef class Adagrad:
     @staticmethod
     cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
             int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Adagrad.update
+        #self.update = Adagrad.update
         self.eta = eta
         self.eps = eps
         self.rho = rho
@@ -481,53 +480,21 @@ cdef class Adagrad:
         self.nr = 0
 
     @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
-            weight_t scale, int nr_weight) nogil:
+    cdef inline void update(weight_t* params, weight_t* weights, weight_t* gradient,
+            weight_t scale, weight_t L2, weight_t learn_rate, int nr_weight) nogil:
+        cdef weight_t eps = 1e-6
         Vec.mul_i(gradient,
             scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
         cdef int i
-        if opt.rho != 0:
+        if L2 != 0:
             VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
+                weights, L2, nr_weight)
 
-        VecVec.add_pow_i(opt.params,
+        VecVec.add_pow_i(params,
             gradient, 2.0, nr_weight)
         for i in range(nr_weight):
-            gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
+            gradient[i] *= learn_rate / (c_sqrt(params[i] + eps) + eps)
         # Make the (already scaled) update
         VecVec.add_i(weights,
-            gradient, -1.0, nr_weight)
-
-
-#            else:
-#                memcpy(bwd[it.here],
-#                    bwd[it.below], sizeof(weight_t) * it.nr_out)
-#                # dE/dX' = dE/dY * gamma, i.e. the scale constant
-#                VecVec.mul(bwd[it.below],
-#                    bwd[it.here], &weights[it.gamma], it.nr_out)
-#                # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
-#                Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
-#                    bwd[it.below], fwd[it.here], alpha, it.nr_out)
-#                # Backprop through the normalization, to recover dE/dX from dE/X'
-#                Bwd.normalize(bwd[it.below],
-#                    bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.here],
-#                    fwd_norms[it.Vx], it.nr_out)
-#
-#            if 0.0 < alpha < 1.0:
-#                Fwd.linear(fwd[it.here],
-#                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-#                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
-#                    fwd[it.here], alpha, it.nr_out)
-#                Fwd.normalize(fwd[it.here],
-#                    norms[it.Ex], norms[it.Vx], it.nr_out)
-#                # Scale-and-shift for the normalization
-#                # We have to keep X's value intact, so that we can backprop
-#                Fwd.linear(fwd[it.above],
-#                    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
-#            else:
-#                Fwd.linear(fwd[it.above],
-#                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-#            Fwd.relu(fwd[it.above],
-#                it.nr_out)
-#
+            gradient, -learn_rate, nr_weight)

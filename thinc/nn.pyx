@@ -42,16 +42,23 @@ cdef class NeuralNet:
             self.c.nr_weight += NN.nr_weight(self.c.widths[i+1], self.c.widths[i])
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
+        self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
+        Adagrad.init(self.c.opt, self.mem,
+            self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
+
         if embed is not None:
             table_widths, features = embed
             self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
             Embedding.init(self.c.embeds, self.mem,
                 table_widths, features)
-
-        self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        Adagrad.init(self.c.opt, self.mem,
-            self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
-
+            self.c.opt.embed_params = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
+            Embedding.init(self.c.opt.embed_params, self.mem,
+                table_widths, features)
+            for i in range(self.c.opt.embed_params.nr):
+                # Ensure momentum terms start at zero
+                memset(self.c.opt.embed_params.defaults[i],
+                    0, sizeof(weight_t) * self.c.opt.embed_params.lengths[i])
+        
         self.c.fwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         self.c.bwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         fan_in = 1.0
@@ -87,6 +94,8 @@ cdef class NeuralNet:
         NeuralNet.predictC(mb.c.egs,
             mb.c.nr_eg, &self.c)
         NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
+            mb.c.egs, mb.c.nr_eg)
+        NeuralNet.insert_embeddingsC(self.c.opt.embed_params, self.mem,
             mb.c.egs, mb.c.nr_eg)
         NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
             mb.c.nr_eg)

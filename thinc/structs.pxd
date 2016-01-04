@@ -15,7 +15,7 @@ ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* gradient, weight_t* weigh
 cdef struct OptimizerC:
     update_f_t update
     weight_t* params
-    #EmbeddingTableC* embed_params
+    EmbeddingC* embed_params
     void* ext
 
     int nr
@@ -76,7 +76,6 @@ cdef struct ExampleC:
 cdef struct BatchC:
     ExampleC* egs
     weight_t* gradient
-    EmbeddingC* sparse_gradient
     int nr_eg
     int nr_weight
 
