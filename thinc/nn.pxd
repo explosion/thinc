@@ -82,7 +82,7 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             eg = &egs[i]
             NN.backward(eg.bwd_state, nn.bwd_norms,
-                eg.costs, eg.fwd_state, nn.fwd_norms, nn.weights+nn.nr_weight, nn.widths,
+                eg.costs, eg.fwd_state, nn.fwd_norms, nn.weights, nn.widths,
                 nn.nr_layer, nn.alpha)
         for i in range(nr_eg):
             NN.gradient(gradient,
@@ -171,32 +171,29 @@ cdef class NN:
             const weight_t* costs,
             const weight_t* const* fwd,
             const weight_t* const* fwd_norms,
-            const weight_t* W,
+            const weight_t* weights,
             const int* widths,
             int n,
             weight_t alpha) nogil:
         Bwd.softmax(bwd[n-1],
             costs, fwd[n-1], widths[n-1])
-        
         cdef IteratorC it
         it.i = n-2
         cdef int i
         while NN.iter(&it, widths, n, -1):
             i = it.i + 1
-            W -= widths[i+1] * widths[i] + widths[i+1] * 3
             # Set up the incoming error, dE/dY
-            Bwd.linear(bwd[i],
-                bwd[i+1], W, widths[i+1], widths[i])
-            Bwd.relu(bwd[i],
-                fwd[i], widths[i])
+            Bwd.linear(bwd[it.X],
+                bwd[it.Xh], &weights[it.W], it.nr_out, it.nr_in)
+            Bwd.relu(bwd[it.X],
+                fwd[it.X], it.nr_in)
 
                         #memcpy(bwd[i*2], bwd[(i*2)-1], sizeof(weight_t) * widths[i+1])
         #Bwd.linear(bwd[1],
         #    bwd[it.dX], weights, widths[1], widths[0])
  
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
-        W -= widths[1] * widths[0] + widths[1]*3
-        MatVec.T_dot(bwd[0], W, bwd[1], widths[1], widths[0])
+        MatVec.T_dot(bwd[0], &weights[it.W], bwd[1], widths[1], widths[0])
 
 
         #cdef IteratorC it
