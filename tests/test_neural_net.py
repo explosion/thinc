@@ -339,10 +339,23 @@ def test_sparse_backprop():
     x = [{1: 4.0, 2: 3.0, 3: 4.0, 100: 1.0}, {10: 3.0, 2: 2.0}]
     y = [(0, 1), (1, 0)]
     b1 = model.train(x, y)
+    e1_0, e1_1 = b1
+    assert e1_0.activation(0, 0) == -0.7402383685112
+    assert e1_0.activation(0, 1) == 21.72637939453125
     b2 = model.train(x, y)
+    e2_0, e2_1 = b2
+    assert e2_0.delta(0, 0) == -0.00898053590208292
+    assert e2_0.delta(0, 1) == -0.009909887798130512
+ 
     b3 = model.train(x, y)
     b4 = model.train(x, y)
     b5 = model.train(x, y)
-    assert b1.loss > b5.loss
+    b6 = model.train(x, y)
+    b7 = model.train(x, y)
+    b8 = model.train(x, y)
+    b9 = model.train(x, y)
+    b10 = model.train(x, y)
+ 
+    assert b1.loss > b10.loss
 
 
