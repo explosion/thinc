@@ -88,9 +88,7 @@ cdef class NeuralNet:
             mb.c.nr_eg, &self.c)
         NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
             mb.c.egs, mb.c.nr_eg)
-        NeuralNet.insert_embeddingsC(mb.c.sparse_gradient, self.mem,
-            mb.c.egs, mb.c.nr_eg)
-        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.sparse_gradient, mb.c.egs,
+        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
             mb.c.nr_eg)
         return mb
  
