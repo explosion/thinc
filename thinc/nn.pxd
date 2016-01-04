@@ -126,21 +126,18 @@ cdef class NN:
                         const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it
         it.i = 0
-        alpha = 0.0
         while NN.iter(&it, widths, n-2, 1):
             if 0.0 < alpha < 1.0:
                 Fwd.linear(fwd[it.here],
                     fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-                memcpy(fwd[it.above],
-                    fwd[it.here], sizeof(fwd[0][0]) * it.nr_out)
-                #Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
-                #    fwd[it.below], alpha, it.nr_out)
-                #Fwd.normalize(fwd[it.here],
-                #    norms[it.Ex], norms[it.Vx], it.nr_out)
+                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
+                    fwd[it.below], alpha, it.nr_out)
+                Fwd.normalize(fwd[it.here],
+                    norms[it.Ex], norms[it.Vx], it.nr_out)
                 # Scale-and-shift for the normalization
                 # We have to keep X's value intact, so that we can backprop
-                #Fwd.linear(fwd[it.above],
-                #    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+                Fwd.linear(fwd[it.above],
+                    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
             else:
                 Fwd.linear(fwd[it.above],
                     fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
@@ -200,10 +197,10 @@ cdef class NN:
                 bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
             VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
                 bwd[it.above], 1.0, it.nr_out)
-            #MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
-            #    bwd[it.here], fwd[it.here], it.nr_out, 1)
-            #VecVec.add_i(&gradient[it.beta], # Gradient of betas
-            #    bwd[it.here], 1.0, it.nr_out)
+            MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
+                bwd[it.here], fwd[it.here], it.nr_out, 1)
+            VecVec.add_i(&gradient[it.beta], # Gradient of betas
+                bwd[it.here], 1.0, it.nr_out)
 
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:

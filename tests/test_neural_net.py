@@ -169,8 +169,6 @@ def test_learn_linear(or_data):
     for _ in range(50):
         for feats, label, costs in or_data:
             batch = model.train([feats], [costs])
-            for eg in batch:
-                print(eg.scores)
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
