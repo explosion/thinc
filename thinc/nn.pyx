@@ -55,30 +55,43 @@ cdef class NeuralNet:
         Adagrad.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
+        # Leave b initialized to 0?
+        cdef weight_t* W = self.c.weights
+        fan_in = 1.0
+        for i in range(self.c.nr_layer-2): # Don't init softmax weights
+            Initializer.normal(W,
+                0.0, numpy.sqrt(2.0 / fan_in), self.c.widths[i+1] * self.c.widths[i])
+            W += self.c.widths[i+1] * self.c.widths[i]
+            Initializer.constant(W,
+                bias, self.c.widths[i+1])
+            W += self.c.widths[i+1]
+            fan_in = self.c.widths[i]
+            W += self.c.widths[i+1]
+            W += self.c.widths[i+1]
 
         self.c.fwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         self.c.bwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
         fan_in = 1.0
         cdef IteratorC it
         it.i = 0
-        while NN.iter(&it, self.c.widths, self.c.nr_layer, 1):
-            # Allocate arrays for the normalizers
-            self.c.fwd_norms[it.Ex] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.fwd_norms[it.Vx] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.bwd_norms[it.E_dXh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.bwd_norms[it.E_dXh_Xh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            # Don't initialize the softmax weights
-            if (it.i+1) >= self.c.nr_layer:
-                break
-            # Do He initialization, and allow bias to be initialized to a constant.
-            # Initialize the batch-norm scale, gamma, to 1.
-            Initializer.normal(&self.c.weights[it.W],
-                0.0, numpy.sqrt(2.0 / fan_in), it.nr_out * it.nr_in)
-            Initializer.constant(&self.c.weights[it.bias],
-                bias, it.nr_out)
-            Initializer.constant(&self.c.weights[it.gamma],
-                1.0, it.nr_out)
-            fan_in = it.nr_out
+        #while NN.iter(&it, self.c.widths, self.c.nr_layer, 1):
+        #    # Allocate arrays for the normalizers
+        #    self.c.fwd_norms[it.Ex] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+        #    self.c.fwd_norms[it.Vx] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+        #    self.c.bwd_norms[it.E_dXh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+        #    self.c.bwd_norms[it.E_dXh_Xh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
+        #    # Don't initialize the softmax weights
+        #    if (it.i+1) >= self.c.nr_layer:
+        #        break
+        #    # Do He initialization, and allow bias to be initialized to a constant.
+        #    # Initialize the batch-norm scale, gamma, to 1.
+        #    Initializer.normal(&self.c.weights[it.W],
+        #        0.0, numpy.sqrt(2.0 / fan_in), it.nr_out * it.nr_in)
+        #    Initializer.constant(&self.c.weights[it.bias],
+        #        bias, it.nr_out)
+        #    Initializer.constant(&self.c.weights[it.gamma],
+        #        1.0, it.nr_out)
+        #    fan_in = it.nr_out
 
     def __call__(self, input_):
         cdef Example eg = self.Example(input_)
