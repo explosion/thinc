@@ -87,8 +87,8 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
-        Adagrad.update(nn.opt.params, nn.weights, gradient,
-            1.0 / nr_eg, nn.opt.rho, nn.opt.eta, nn.nr_weight)
+        nn.opt.update(nn.opt, nn.weights, gradient,
+            1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # However, most words are rare --- so most words will only have non-zero
@@ -97,7 +97,7 @@ cdef class NeuralNet:
             for i in range(nr_eg):
                 eg = &egs[i]
                 if eg.features is not NULL:
-                    Embedding.fine_tune(nn.opt, nn.embeds, eg.bwd_state[1],
+                    Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
                         eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
  
     @staticmethod
@@ -419,9 +419,14 @@ cdef class Embedding:
             gradient = &fine_tune[layer.offsets[feat.i]]
             weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
             params = <weight_t*>Map_get(opt.embed_params.tables[feat.i], feat.key)
-            # These should never be not-null.
-            Adagrad.update(params, weights, gradient,
-                1.0, opt.rho, opt.eta, layer.lengths[feat.i])
+            # TODO: Currently we can't store supporting parameters for the word
+            # vectors in opt, so we can only do vanilla SGD. In practice this
+            # seems to work very well!
+            VanillaSGD.update(opt, weights, gradient,
+                feat.val, layer.lengths[feat.i])
+            ## These should never be not-null.
+            #Adagrad.update(params, weights, gradient,
+            #    1.0, opt.rho, opt.eta, layer.lengths[feat.i])
 
 
 cdef class Initializer:
@@ -471,7 +476,7 @@ cdef class Adagrad:
     @staticmethod
     cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
             int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        #self.update = Adagrad.update
+        self.update = Adagrad.update
         self.eta = eta
         self.eps = eps
         self.rho = rho
@@ -480,21 +485,21 @@ cdef class Adagrad:
         self.nr = 0
 
     @staticmethod
-    cdef inline void update(weight_t* params, weight_t* weights, weight_t* gradient,
-            weight_t scale, weight_t L2, weight_t learn_rate, int nr_weight) nogil:
+    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
+            weight_t scale, int nr_weight) nogil:
         cdef weight_t eps = 1e-6
         Vec.mul_i(gradient,
             scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
         cdef int i
-        if L2 != 0:
+        if opt.rho != 0:
             VecVec.add_i(gradient,
-                weights, L2, nr_weight)
+                weights, opt.rho, nr_weight)
 
-        VecVec.add_pow_i(params,
+        VecVec.add_pow_i(opt.params,
             gradient, 2.0, nr_weight)
         for i in range(nr_weight):
-            gradient[i] *= learn_rate / (c_sqrt(params[i] + eps) + eps)
+            gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
         # Make the (already scaled) update
         VecVec.add_i(weights,
-            gradient, -learn_rate, nr_weight)
+            gradient, -1.0, nr_weight)
