@@ -41,8 +41,8 @@ cdef class NeuralNet:
             self.c.widths[i] = width
 
         self.c.nr_weight = 0
-        for i in range(1, self.c.nr_layer):
-            self.c.nr_weight += NN.nr_weight(self.c.widths[i], self.c.widths[i-1])
+        for i in range(self.c.nr_layer-1):
+            self.c.nr_weight += NN.nr_weight(self.c.widths[i+1], self.c.widths[i])
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         if embed is not None:
