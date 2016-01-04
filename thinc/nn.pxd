@@ -454,13 +454,14 @@ cdef class VanillaSGD:
         '''
         Update weights with vanilla SGD
         '''
-        Vec.mul_i(gradient, scale, nr_weight)
+        Vec.mul_i(gradient,
+            scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
         VecVec.add_i(weights,
-            gradient, -opt.eta * scale, nr_weight)
+            gradient, -opt.eta, nr_weight)
 
 
 cdef class Adagrad:
@@ -478,6 +479,8 @@ cdef class Adagrad:
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
             weight_t scale, int nr_weight) nogil:
+        Vec.mul_i(gradient,
+            scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
         cdef int i
         if opt.rho != 0:
@@ -488,8 +491,6 @@ cdef class Adagrad:
             gradient, 2.0, nr_weight)
         for i in range(nr_weight):
             gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
-        Vec.mul_i(gradient,
-            scale, nr_weight)
         # Make the (already scaled) update
         VecVec.add_i(weights,
             gradient, -1.0, nr_weight)
