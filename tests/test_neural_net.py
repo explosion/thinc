@@ -219,7 +219,6 @@ def test_xor_gradient(xor_data):
                     prev.scores[label] == eg.scores[label] == 1.0)
 
 
-@pytest.mark.xfail
 def test_xor_eta(xor_data):
     '''Test that a higher learning rate causes loss to decrease faster.'''
     small_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.0000001)

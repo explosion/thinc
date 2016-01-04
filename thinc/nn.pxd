@@ -87,6 +87,8 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
+        Vec.div_i(gradient,
+            nr_eg, nn.nr_weight)
         nn.opt.update(nn.opt, nn.weights, gradient,
             1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
@@ -127,22 +129,8 @@ cdef class NN:
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, widths, n-2, 1):
-            if 0.0 < alpha < 1.0:
-                Fwd.linear(fwd[it.here],
-                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
-                    fwd[it.here], alpha, it.nr_out)
-                Fwd.normalize(fwd[it.here],
-                    norms[it.Ex], norms[it.Vx], it.nr_out)
-                # Scale-and-shift for the normalization
-                # We have to keep X's value intact, so that we can backprop
-                Fwd.linear(fwd[it.above],
-                    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
-            else:
-                Fwd.linear(fwd[it.above],
-                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-            Fwd.relu(fwd[it.above],
-                it.nr_out)
+            Rectifier.forward(fwd[it.above],
+                fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
         Fwd.linear(fwd[it.above],
             fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
         Fwd.softmax(fwd[it.above],
@@ -163,26 +151,8 @@ cdef class NN:
         Bwd.softmax(bwd[it.below],
             costs, fwd[it.below], widths[n-1])
         while NN.iter(&it, widths, n, -1):
-            # Set up the incoming error, dE/dY, from prev layer
-            Bwd.linear(bwd[it.below],
-                bwd[it.above], &weights[it.W], it.nr_out, it.nr_in)
-            Bwd.relu(bwd[it.below], 
-                fwd[it.below], it.nr_out)
-            if 1 >= alpha or 0 <= alpha:
-                pass
-            else:
-                memcpy(bwd[it.here],
-                    bwd[it.below], sizeof(weight_t) * it.nr_out)
-                # dE/dX' = dE/dY * gamma, i.e. the scale constant
-                VecVec.mul(bwd[it.below],
-                    bwd[it.here], &weights[it.gamma], it.nr_out)
-                # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
-                Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
-                    bwd[it.below], fwd[it.here], alpha, it.nr_out)
-                # Backprop through the normalization, to recover dE/dX from dE/X'
-                Bwd.normalize(bwd[it.below],
-                    bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.here],
-                    fwd_norms[it.Vx], it.nr_out)
+            Rectifier.backward(bwd[it.below],
+                bwd[it.above], fwd[it.below], &weights[it.W], it.nr_out, it.nr_in)
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         MatVec.T_dot(bwd[it.below],
             &weights[it.W], bwd[it.above], it.nr_out, it.nr_in)
@@ -302,6 +272,53 @@ cdef class Fwd:
                 norm, nr_out)
 
 
+cdef class Rectifier:
+    @staticmethod
+    cdef inline void forward(weight_t* out,
+            const weight_t* in_, const weight_t* W, const weight_t* bias,
+            int nr_out, int nr_wide) nogil:
+        # We're a layer of nr_wide cells, which we can think of as features.
+        # We write to an array of nr_out activations, one for each conenction
+        # to the next layer. We can think of the cells in the next layer like classes:
+        # we want to know whether we make that cell activate.
+        # 
+        # It's tempting to think at first as though we output nr_wide activations.
+        # We *receive* nr_wide activations. What we're determining now is,
+        # given those activations, our weights and our biases, what's the
+        # state of the next layer?
+        MatVec.dot(out,
+            W, in_, nr_out, nr_wide)
+        # Bias
+        VecVec.add_i(out,
+            bias, 1.0, nr_out)
+        cdef int32_t i
+        for i in range(nr_out):
+            # Writing this way handles NaN
+            if not (out[i] > 0):
+                out[i] = 0
+
+    @staticmethod
+    cdef inline void backward(weight_t* delta_out,       # Len == nr_wide
+                        const weight_t* delta_in,  # Len == nr_out
+                        const weight_t* signal_in, # Len == nr_wide
+                        const weight_t* W,
+                        int32_t nr_out,
+                        int32_t nr_wide) nogil:
+        # delta = W.T.dot(prev_delta) * d_relu(signal_in)
+        # d_relu(signal_in) is a binary vector, 0 when signal_in < 0
+        # So, we do our dot product, and then clip to 0 on the dimensions where
+        # signal_in is 0
+        # Note that prev_delta is a column vector (the error of our output),
+        # while delta is a row vector (the error of our neurons, which must match
+        # the input layer's width)
+        MatVec.T_dot(delta_out,
+            W, delta_in, nr_out, nr_wide)
+        cdef int32_t i
+        for i in range(nr_wide):
+            if signal_in[i] < 0:
+                delta_out[i] = 0
+    
+
 cdef class Bwd:
     @staticmethod
     cdef inline void softmax(weight_t* loss,
@@ -312,26 +329,12 @@ cdef class Bwd:
             loss[i] = scores[i] - (costs[i] == 0)
 
     @staticmethod
-    cdef inline void relu(weight_t* delta,
-            const weight_t* x, int nr_wide) nogil:
-        cdef int i
-        for i in range(nr_wide):
-            if not (x[i] > 0):
-                delta[i] = 0
-
-    @staticmethod
     cdef inline void elu(weight_t* delta,
             const weight_t* x, int nr_wide) nogil:
         cdef int i
         for i in range(nr_wide):
             if x[i] < 0:
                 delta[i] *= x[i] + ALPHA
-
-    @staticmethod
-    cdef inline void linear(weight_t* delta_out,
-            const weight_t* delta_in, const weight_t* W, int nr_out, int nr_wide) nogil:
-        MatVec.T_dot(delta_out,
-            W, delta_in, nr_out, nr_wide)
 
     @staticmethod
     cdef inline void normalize(weight_t* bwd,
@@ -493,3 +496,36 @@ cdef class Adagrad:
         # Make the (already scaled) update
         VecVec.add_i(weights,
             gradient, -1.0, nr_weight)
+
+
+#            else:
+#                memcpy(bwd[it.here],
+#                    bwd[it.below], sizeof(weight_t) * it.nr_out)
+#                # dE/dX' = dE/dY * gamma, i.e. the scale constant
+#                VecVec.mul(bwd[it.below],
+#                    bwd[it.here], &weights[it.gamma], it.nr_out)
+#                # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
+#                Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
+#                    bwd[it.below], fwd[it.here], alpha, it.nr_out)
+#                # Backprop through the normalization, to recover dE/dX from dE/X'
+#                Bwd.normalize(bwd[it.below],
+#                    bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.here],
+#                    fwd_norms[it.Vx], it.nr_out)
+#
+#            if 0.0 < alpha < 1.0:
+#                Fwd.linear(fwd[it.here],
+#                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+#                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
+#                    fwd[it.here], alpha, it.nr_out)
+#                Fwd.normalize(fwd[it.here],
+#                    norms[it.Ex], norms[it.Vx], it.nr_out)
+#                # Scale-and-shift for the normalization
+#                # We have to keep X's value intact, so that we can backprop
+#                Fwd.linear(fwd[it.above],
+#                    fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+#            else:
+#                Fwd.linear(fwd[it.above],
+#                    fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+#            Fwd.relu(fwd[it.above],
+#                it.nr_out)
+#

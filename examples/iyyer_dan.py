@@ -25,8 +25,6 @@ def read_data(data_dir):
             if len(text) >= 10:
                 yield text, label
                 i += 1
-            if i >= 10:
-                break
 
 
 def partition(examples, split_size):
@@ -68,20 +66,10 @@ class Extractor(object):
             dropout = self.dropout
         bow = defaultdict(float)
         all_words = defaultdict(float)
-        prev = 'EOL'
         for word in doc:
             id_ = self.vocab.setdefault(word, len(self.vocab) + 1)
             if numpy.random.random() >= dropout and word.isalpha():
                 bow[id_] += 1
-                all_words[id_] += 1
-                if prev is not None:
-                    bigram = (prev, word)
-                    id_ = self.vocab.setdefault(bigram, len(self.vocab) + 1)
-                    bow[id_] += 1
-                    all_words[id_] += 1
-                prev = word
-            else:
-                prev = None
             all_words[id_] += 1
         if sum(bow.values()) < 1:
             bow = all_words
@@ -103,7 +91,7 @@ class DenseAveragedNetwork(NeuralNet):
                  eps=1e-6, bias=0.0):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, eps=eps, bias=bias, alpha=0.9)
+                           rho=rho, eta=eta, eps=eps, bias=bias)
         self.get_bow = get_bow
 
     def train(self, batch):
