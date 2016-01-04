@@ -126,8 +126,6 @@ cdef class NN:
     #    cdef IteratorC it
     #    it.i = 0
     #    while NN.iter(&it, widths, n, 1):
-    #        if it.i+1 >= n: # Save last layer fo softmax
-    #            break
     #        Fwd.linear(fwd[it.X],
     #            fwd[it.prev_x], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
     #        if 0 < alpha < 1:
@@ -151,19 +149,30 @@ cdef class NN:
     #        it.nr_out)
 
     @staticmethod
-    cdef inline void forward(weight_t** state, weight_t** norms,
+    cdef inline void forward(weight_t** fwd, weight_t** norms,
                         const weight_t* weights,
                         const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, widths, n-2, 1):
-            Fwd.linear(state[it.Xh],
-                state[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-            Fwd.relu(state[it.Xh],
+            Fwd.linear(fwd[it.Xh],
+                fwd[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+            if 1 >= alpha or 0 <= alpha:
+                pass
+            else:
+                Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
+                    fwd[it.X], alpha, it.nr_out)
+                Fwd.normalize(fwd[it.Xh],
+                    norms[it.Ex], norms[it.Vx], it.nr_out)
+                # Scale-and-shift for the normalization
+                # We have to keep X's value intact, so that we can backprop
+                Fwd.linear(fwd[it.Xh],
+                    fwd[it.X], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+            Fwd.relu(fwd[it.Xh],
                 it.nr_out)
-        Fwd.linear(state[it.Xh],
-            state[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-        Fwd.softmax(state[it.Xh],
+        Fwd.linear(fwd[it.Xh],
+            fwd[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+        Fwd.softmax(fwd[it.Xh],
             it.nr_out)
 
     @staticmethod
@@ -186,42 +195,21 @@ cdef class NN:
                 bwd[it.Xh], &weights[it.W], it.nr_out, it.nr_in)
             Bwd.relu(bwd[it.X],
                 fwd[it.X], it.nr_in)
-
-                        #memcpy(bwd[i*2], bwd[(i*2)-1], sizeof(weight_t) * widths[i+1])
-        #Bwd.linear(bwd[1],
-        #    bwd[it.dX], weights, widths[1], widths[0])
- 
+            if 1 >= alpha or 0 <= alpha:
+                pass
+            else:
+                # dE/dX' = dE/dY * gamma, i.e. the scale constant
+                VecVec.mul(bwd[it.dX],
+                    bwd[it.dY], &weights[it.gamma], it.nr_out)
+                # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
+                Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
+                    bwd[it.dX], bwd[it.Vx], alpha, it.nr_out)
+                # Backprop through the normalization, to recover dE/dX from dE/X'
+                Bwd.normalize(bwd[it.dX],
+                    bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.Xh],
+                    fwd_norms[it.Vx], it.nr_out)
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         MatVec.T_dot(bwd[it.X], &weights[it.W], bwd[it.Xh], it.nr_out, it.nr_in)
-
-
-        #cdef IteratorC it
-        #it.i = n
-        #NN.iter(&it, widths, n, -1)
-        #Bwd.softmax(bwd[it.dY],
-        #    costs, fwd[it.Xh], it.nr_out)
-
-        #while NN.iter(&it, widths, n, -1):
-        #    # Set up the incoming error, dE/dY
-        #    Bwd.linear(bwd[it.dY],
-        #        bwd[it.prev_d], &weights[it.W], it.nr_out, it.nr_in)
-        #    Bwd.elu(bwd[it.dY],
-        #        fwd[it.Xh], it.nr_out)
-        #    if 0 < alpha < 1:
-        #        # dE/dX' = dE/dY * gamma, i.e. the scale constant
-        #        VecVec.mul(bwd[it.dX],
-        #            bwd[it.dY], &weights[it.gamma], it.nr_out)
-        #        # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
-        #        Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
-        #            bwd[it.dX], bwd[it.Vx], alpha, it.nr_out)
-        #        # Backprop through the normalization, to recover dE/dX from dE/X'
-        #        Bwd.normalize(bwd[it.dX],
-        #            bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.Xh],
-        #            fwd_norms[it.Vx], it.nr_out)
-        #    else:
-        #        memcpy(bwd[it.dX], bwd[it.dY], sizeof(bwd[it.dY][0]) * it.nr_out)
-        #Bwd.linear(bwd[1],
-        #    bwd[it.dX], weights, widths[1], widths[0])
    
     @staticmethod
     cdef inline void gradient(weight_t* gradient,
