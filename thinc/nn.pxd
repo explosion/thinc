@@ -74,7 +74,7 @@ cdef class NeuralNet:
             NN.forward(eg.fwd_state, nn.fwd_norms,
                 nn.weights, nn.widths, nn.nr_layer, nn.alpha)
             Example.set_scores(eg,
-                eg.fwd_state[nn.nr_layer-1])
+                eg.fwd_state[(nn.nr_layer*2)-2])
      
     @staticmethod
     cdef inline void updateC(NeuralNetC* nn, weight_t* gradient, ExampleC* egs,
@@ -246,15 +246,15 @@ cdef class NN:
             it.prev_x = 0
         it.prev_d = it.i * 2 + 2
         
-        it.X = it.i
-        it.Xh = it.i + 1
+        it.X = it.i * 2
+        it.Xh = it.X + 2
         it.dX = it.X
         it.dY = it.Xh
 
-        it.Ex = it.i * 2
-        it.Vx = it.i * 2 + 1
-        it.E_dXh = it.Ex
-        it.E_dXh_Xh = it.Vx
+        it.Ex = it.X
+        it.Vx = it.Xh
+        it.E_dXh = it.X
+        it.E_dXh_Xh = it.Xh
         it.i += inc
         if nr_layer >= it.i and it.i >= 0:
             return True
