@@ -175,13 +175,12 @@ cdef class NN:
             const int* widths,
             int n,
             weight_t alpha) nogil:
-        Bwd.softmax(bwd[n-1],
-            costs, fwd[n-1], widths[n-1])
         cdef IteratorC it
-        it.i = n-2
-        cdef int i
+        it.i = n-1
+        NN.iter(&it, widths, n, -1)
+        Bwd.softmax(bwd[it.X],
+            costs, fwd[it.X], widths[n-1])
         while NN.iter(&it, widths, n, -1):
-            i = it.i + 1
             # Set up the incoming error, dE/dY
             Bwd.linear(bwd[it.X],
                 bwd[it.Xh], &weights[it.W], it.nr_out, it.nr_in)
@@ -193,7 +192,7 @@ cdef class NN:
         #    bwd[it.dX], weights, widths[1], widths[0])
  
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
-        MatVec.T_dot(bwd[0], &weights[it.W], bwd[1], widths[1], widths[0])
+        MatVec.T_dot(bwd[it.X], &weights[it.W], bwd[it.Xh], it.nr_out, it.nr_in)
 
 
         #cdef IteratorC it
