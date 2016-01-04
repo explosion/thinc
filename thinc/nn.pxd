@@ -157,9 +157,7 @@ cdef class NN:
         while NN.iter(&it, widths, n-2, 1):
             Fwd.linear(fwd[it.Xh],
                 fwd[it.X], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-            if 1 >= alpha or 0 <= alpha:
-                pass
-            else:
+            if 0.0 < alpha or 0 < 1.0:
                 Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
                     fwd[it.X], alpha, it.nr_out)
                 Fwd.normalize(fwd[it.Xh],
