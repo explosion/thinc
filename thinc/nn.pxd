@@ -131,7 +131,7 @@ cdef class NN:
                 Fwd.linear(fwd[it.here],
                     fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
                 Fwd.estimate_normalizers(norms[it.Ex], norms[it.Vx],
-                    fwd[it.below], alpha, it.nr_out)
+                    fwd[it.here], alpha, it.nr_out)
                 Fwd.normalize(fwd[it.here],
                     norms[it.Ex], norms[it.Vx], it.nr_out)
                 # Scale-and-shift for the normalization
@@ -163,7 +163,7 @@ cdef class NN:
         Bwd.softmax(bwd[it.below],
             costs, fwd[it.below], widths[n-1])
         while NN.iter(&it, widths, n, -1):
-            # Set up the incoming error, dE/dY
+            # Set up the incoming error, dE/dY, from prev layer
             Bwd.linear(bwd[it.below],
                 bwd[it.above], &weights[it.W], it.nr_out, it.nr_in)
             Bwd.relu(bwd[it.below], 
@@ -171,12 +171,14 @@ cdef class NN:
             if 1 >= alpha or 0 <= alpha:
                 pass
             else:
+                memcpy(bwd[it.here],
+                    bwd[it.below], sizeof(weight_t) * it.nr_out)
                 # dE/dX' = dE/dY * gamma, i.e. the scale constant
                 VecVec.mul(bwd[it.below],
                     bwd[it.here], &weights[it.gamma], it.nr_out)
                 # Update estimators of mean(dE/dX') and mean(dE/dX' \cdot X')
                 Bwd.estimate_normalizers(bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh],
-                    bwd[it.here], fwd_norms[it.Vx], alpha, it.nr_out)
+                    bwd[it.below], fwd[it.here], alpha, it.nr_out)
                 # Backprop through the normalization, to recover dE/dX from dE/X'
                 Bwd.normalize(bwd[it.below],
                     bwd_norms[it.E_dXh], bwd_norms[it.E_dXh_Xh], fwd[it.here],
@@ -197,10 +199,10 @@ cdef class NN:
                 bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
             VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
                 bwd[it.above], 1.0, it.nr_out)
-            MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
-                bwd[it.here], fwd[it.here], it.nr_out, 1)
-            VecVec.add_i(&gradient[it.beta], # Gradient of betas
-                bwd[it.here], 1.0, it.nr_out)
+            #MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
+            #    bwd[it.here], fwd[it.here], it.nr_out, 1)
+            #VecVec.add_i(&gradient[it.beta], # Gradient of betas
+            #    bwd[it.here], 1.0, it.nr_out)
 
     @staticmethod
     cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:
@@ -256,6 +258,8 @@ cdef class Fwd:
         # Upd EMA estimate of variance
         Vec.mul_i(ema_V_x,
             alpha, n)
+        # I think this is a little bit wrong? See here:
+        # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
         for i in range(n):
             ema_V_x[i] += (1.0 - alpha) * (x[i] - ema_E_x[i]) ** 2
 
@@ -479,6 +483,7 @@ cdef class Adagrad:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
+
         VecVec.add_pow_i(opt.params,
             gradient, 2.0, nr_weight)
         for i in range(nr_weight):

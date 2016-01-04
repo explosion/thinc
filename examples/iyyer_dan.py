@@ -25,6 +25,8 @@ def read_data(data_dir):
             if len(text) >= 10:
                 yield text, label
                 i += 1
+            if i >= 10:
+                break
 
 
 def partition(examples, split_size):
@@ -101,7 +103,7 @@ class DenseAveragedNetwork(NeuralNet):
                  eps=1e-6, bias=0.0):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, eps=eps, bias=bias)
+                           rho=rho, eta=eta, eps=eps, bias=bias, alpha=0.9)
         self.get_bow = get_bow
 
     def train(self, batch):
@@ -156,7 +158,10 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         avg_grad = 0.0
         for X_y in minibatch(train_data, bs=batch_size):
             batch = model.train(X_y)
+            if str(batch.loss) == 'nan':
+                raise Exception(batch.gradient)
             train_loss += batch.loss
+            avg_grad += batch.l1_gradient
             #avg_grad += sum(abs(g) for g in batch.gradient) / model.model.nr_weight
         n_correct = sum(y[model.predict(x).guess] == 0 for x, y in dev_data)
         print(epoch, train_loss, n_correct / len(dev_data),
@@ -165,10 +170,10 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         if n_correct >= prev_best:
             prev_best = n_correct
 
-    print("Evaluating")
-    eval_data = list(read_data(data_dir / 'test'))
-    n_correct = sum(y[model.predict(x).guess] == 0 for x, y in eval_data)
-    print(n_correct / len(eval_data))
+    #print("Evaluating")
+    #eval_data = list(read_data(data_dir / 'test'))
+    #n_correct = sum(y[model.predict(x).guess] == 0 for x, y in eval_data)
+    #print(n_correct / len(eval_data))
  
 
 if __name__ == '__main__':
