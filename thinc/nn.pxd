@@ -87,8 +87,6 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
-        Vec.div_i(gradient,
-            nr_eg, nn.nr_weight)
         nn.opt.update(nn.opt, nn.weights, gradient,
             1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
@@ -461,9 +459,8 @@ cdef class VanillaSGD:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
-
         VecVec.add_i(weights,
-            gradient, -opt.eta, nr_weight)
+            gradient, -opt.eta * scale, nr_weight)
 
 
 cdef class Adagrad:
