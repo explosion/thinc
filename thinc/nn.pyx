@@ -43,7 +43,7 @@ cdef class NeuralNet:
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        Adagrad.init(self.c.opt, self.mem,
+        Adadelta.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
         if embed is not None:

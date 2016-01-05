@@ -419,14 +419,10 @@ cdef class Embedding:
             gradient = &fine_tune[layer.offsets[feat.i]]
             weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
             params = <weight_t*>Map_get(opt.embed_params.tables[feat.i], feat.key)
-            # TODO: Currently we can't store supporting parameters for the word
-            # vectors in opt, so we can only do vanilla SGD. In practice this
-            # seems to work very well!
-            VanillaSGD.update(opt, params, weights, gradient,
-                feat.val, layer.lengths[feat.i])
-            ## These should never be not-null.
-            #Adagrad.update(params, weights, gradient,
-            #    1.0, opt.rho, opt.eta, layer.lengths[feat.i])
+            ## These should never be null.
+            if weights is not NULL and params is not NULL:
+                Momentum.update(opt, params, weights, gradient,
+                    feat.val, layer.lengths[feat.i])
 
 
 cdef class Initializer:
@@ -481,6 +477,7 @@ cdef class Momentum:
         self.eta = eta
         self.eps = eps
         self.rho = rho
+        self.mu = 0.2
         self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
         self.ext = NULL
         self.nr = 0
@@ -498,10 +495,10 @@ cdef class Momentum:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
-        #Vec.mul_i(mtm,
-        #    opt.mu, nr_weight)
-        #VecVec.add_i(mtm,
-        #    gradient, -1.0, nr_weight)
+        Vec.mul_i(mtm,
+            opt.mu, nr_weight)
+        VecVec.add_i(mtm,
+            gradient, -1.0, nr_weight)
         VecVec.add_i(weights,
             gradient, -opt.eta, nr_weight)
 
@@ -537,3 +534,39 @@ cdef class Adagrad:
         # Make the (already scaled) update
         VecVec.add_i(weights,
             gradient, -1.0, nr_weight)
+
+
+cdef class Adadelta:
+    @staticmethod
+    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
+            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
+        self.update = Adadelta.update
+        self.eta = eta
+        self.eps = eps
+        self.rho = rho
+        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.ext = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.nr = 0
+
+    @staticmethod
+    cdef inline void update(OptimizerC* opt, weight_t* avg, weight_t* weights,
+            weight_t* gradient, weight_t scale, int nr_weight) nogil:
+        cdef weight_t eps = 1e-6
+        cdef weight_t alpha = 0.9
+        Vec.mul_i(gradient,
+            scale, nr_weight)
+        # Add the derivative of the L2-loss to the gradient
+        cdef int i
+        if opt.rho != 0:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
+
+        Vec.mul_i(avg,
+            alpha, nr_weight)
+        for i in range(nr_weight):
+            avg[i] += (1-alpha) * gradient[i] ** 2
+        step = <weight_t*>opt.ext
+        for i in range(nr_weight):
+            weights[i] -= (gradient[i] * c_sqrt(step[i] + EPS)) / c_sqrt(avg[i] + EPS)
+        Vec.mul_i(step,
+            alpha, nr_weight)
