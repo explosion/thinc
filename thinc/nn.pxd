@@ -87,7 +87,7 @@ cdef class NeuralNet:
         for i in range(nr_eg):
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
-        nn.opt.update(nn.opt, nn.weights, gradient,
+        nn.opt.update(nn.opt, nn.opt.params, nn.weights, gradient,
             1.0 / nr_eg, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
@@ -422,7 +422,7 @@ cdef class Embedding:
             # TODO: Currently we can't store supporting parameters for the word
             # vectors in opt, so we can only do vanilla SGD. In practice this
             # seems to work very well!
-            VanillaSGD.update(opt, weights, gradient,
+            VanillaSGD.update(opt, params, weights, gradient,
                 feat.val, layer.lengths[feat.i])
             ## These should never be not-null.
             #Adagrad.update(params, weights, gradient,
@@ -457,7 +457,8 @@ cdef class VanillaSGD:
         self.nr = 0
 
     @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
+    cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
+                            weight_t* gradient,
             weight_t scale, int nr_weight) nogil:
         '''
         Update weights with vanilla SGD
@@ -468,6 +469,39 @@ cdef class VanillaSGD:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
+        VecVec.add_i(weights,
+            gradient, -opt.eta, nr_weight)
+
+
+cdef class Momentum:
+    @staticmethod
+    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
+            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
+        self.update = Momentum.update
+        self.eta = eta
+        self.eps = eps
+        self.rho = rho
+        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.ext = NULL
+        self.nr = 0
+
+    @staticmethod
+    cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
+                            weight_t* gradient,
+            weight_t scale, int nr_weight) nogil:
+        '''
+        Update weights with classical momentum SGD
+        '''
+        Vec.mul_i(gradient,
+            scale, nr_weight)
+        # Add the derivative of the L2-loss to the gradient
+        if opt.rho != 0:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
+        #Vec.mul_i(mtm,
+        #    opt.mu, nr_weight)
+        #VecVec.add_i(mtm,
+        #    gradient, -1.0, nr_weight)
         VecVec.add_i(weights,
             gradient, -opt.eta, nr_weight)
 
@@ -485,8 +519,8 @@ cdef class Adagrad:
         self.nr = 0
 
     @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* weights, weight_t* gradient,
-            weight_t scale, int nr_weight) nogil:
+    cdef inline void update(OptimizerC* opt, weight_t* params, weight_t* weights,
+            weight_t* gradient, weight_t scale, int nr_weight) nogil:
         cdef weight_t eps = 1e-6
         Vec.mul_i(gradient,
             scale, nr_weight)

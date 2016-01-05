@@ -8,8 +8,8 @@ include "compile_time_constants.pxi"
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
-ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* gradient, weight_t* weights,
-                            weight_t scale, int nr) nogil
+ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* mtm, weight_t* gradient,
+                            weight_t* weights, weight_t scale, int nr) nogil
 
 
 cdef struct OptimizerC:
@@ -19,6 +19,7 @@ cdef struct OptimizerC:
     void* ext
 
     int nr
+    weight_t mu
     weight_t eta
     weight_t eps
     weight_t rho

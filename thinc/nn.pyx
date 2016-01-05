@@ -27,7 +27,7 @@ cdef class Embedding:
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
+                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
         self.c.alpha = alpha
 
