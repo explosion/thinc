@@ -131,7 +131,7 @@ cdef class NN:
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, widths, n-2, 1):
-            Rectifier.forward(fwd[it.above],
+            ELU.forward(fwd[it.above],
                 fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
         Fwd.linear(fwd[it.above],
             fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
@@ -153,7 +153,7 @@ cdef class NN:
         Bwd.softmax(bwd[it.below],
             costs, fwd[it.below], widths[n-1])
         while NN.iter(&it, widths, n, -1):
-            Rectifier.backward(bwd[it.below],
+            ELU.backward(bwd[it.below],
                 bwd[it.above], fwd[it.below], &weights[it.W], it.nr_out, it.nr_in)
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         MatVec.T_dot(bwd[it.below],
@@ -236,22 +236,6 @@ cdef class Fwd:
             ema_V_x[i] += (1.0 - alpha) * (x[i] - ema_E_x[i]) ** 2
 
     @staticmethod
-    cdef inline void relu(weight_t* out,
-            int nr_out) nogil:
-        cdef int i
-        for i in range(nr_out):
-            if not (out[i] > 0):
-                out[i] = 0
-
-    @staticmethod
-    cdef inline void elu(weight_t* out,
-            int nr_out) nogil:
-        cdef int i
-        for i in range(nr_out):
-            if out[i] < 0:
-                out[i] = ALPHA * (expf(out[i])-1)
-
-    @staticmethod
     cdef inline void residual(weight_t* out,
             const weight_t* const* prev, const int* widths, int i) nogil:
         pass
@@ -273,6 +257,36 @@ cdef class Fwd:
             Vec.div_i(out,
                 norm, nr_out)
 
+
+cdef class ELU:
+    @staticmethod
+    cdef inline void forward(weight_t* out,
+            const weight_t* in_, const weight_t* W, const weight_t* bias,
+            int nr_out, int nr_wide) nogil:
+        MatVec.dot(out,
+            W, in_, nr_out, nr_wide)
+        # Bias
+        VecVec.add_i(out,
+            bias, 1.0, nr_out)
+        cdef int i
+        for i in range(nr_out):
+            if out[i] < 0:
+                out[i] = ALPHA * (expf(out[i])-1)
+
+    @staticmethod
+    cdef inline void backward(weight_t* delta_out,       # Len == nr_wide
+                        const weight_t* delta_in,  # Len == nr_out
+                        const weight_t* signal_in, # Len == nr_wide
+                        const weight_t* W,
+                        int32_t nr_out,
+                        int32_t nr_wide) nogil:
+        MatVec.T_dot(delta_out,
+            W, delta_in, nr_out, nr_wide)
+        cdef int i
+        for i in range(nr_wide):
+            if signal_in[i] < 0:
+                delta_out[i] *= signal_in[i] + ALPHA
+    
 
 cdef class Rectifier:
     @staticmethod
@@ -329,14 +343,6 @@ cdef class Bwd:
         cdef int i
         for i in range(nr_out):
             loss[i] = scores[i] - (costs[i] == 0)
-
-    @staticmethod
-    cdef inline void elu(weight_t* delta,
-            const weight_t* x, int nr_wide) nogil:
-        cdef int i
-        for i in range(nr_wide):
-            if x[i] < 0:
-                delta[i] *= x[i] + ALPHA
 
     @staticmethod
     cdef inline void normalize(weight_t* bwd,
