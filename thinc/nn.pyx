@@ -7,6 +7,7 @@ from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_set as Map_set
 from preshed.maps cimport map_get as Map_get
 from preshed.maps cimport map_iter as Map_iter
+from preshed.maps cimport key_t
 
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
@@ -43,7 +44,7 @@ cdef class NeuralNet:
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        Adadelta.init(self.c.opt, self.mem,
+        Adam.init(self.c.opt, self.mem,
             self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
 
         if embed is not None:
@@ -130,6 +131,26 @@ cdef class NeuralNet:
     property widths:
         def __get__(self):
             return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
+
+    property layer_l1s:
+        def __get__(self):
+            for W, bias in self.layers:
+                w_l1 = sum(abs(w) for w in W) / len(W)
+                bias_l1 = sum(abs(w) for w in W) / len(bias)
+                yield w_l1, bias_l1
+
+    property embeddings:
+        def __get__(self):
+            cdef int i = 0
+            cdef int j = 0
+            cdef int k = 0
+            cdef key_t key
+            cdef void* value
+            for i in range(self.c.embeds.nr):
+                j = 0
+                while Map_iter(self.c.embeds.tables[i], &j, &key, &value):
+                    emb = <weight_t*>value
+                    yield key, [emb[k] for k in range(self.c.embeds.lengths[i])]
 
     property nr_layer:
         def __get__(self):

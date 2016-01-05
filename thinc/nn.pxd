@@ -77,8 +77,11 @@ cdef class NeuralNet:
                 eg.fwd_state[(nn.nr_layer*2)-2])
      
     @staticmethod
+    @cython.cdivision(True)
     cdef inline void updateC(NeuralNetC* nn, weight_t* gradient, ExampleC* egs,
             int nr_eg) nogil:
+        if nr_eg == 0:
+            return
         for i in range(nr_eg):
             eg = &egs[i]
             NN.backward(eg.bwd_state, nn.bwd_norms,
@@ -88,7 +91,7 @@ cdef class NeuralNet:
             NN.gradient(gradient,
                 eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer)
         nn.opt.update(nn.opt, nn.opt.params, nn.weights, gradient,
-            1.0 / nr_eg, nn.nr_weight)
+            1.0, nn.nr_weight)
         # Fine-tune the embeddings
         # This is sort of wrong --- we're supposed to average over the minibatch.
         # However, most words are rare --- so most words will only have non-zero
@@ -110,12 +113,14 @@ cdef class NeuralNet:
                 emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
                 if emb is NULL:
                     emb = <weight_t*>mem.alloc(layer.lengths[feat.i], sizeof(weight_t))
+                    Initializer.normal(emb,
+                        0.0, 1.0, layer.lengths[feat.i])
                     # We initialize with the defaults here so that we only have
                     # to insert during training --- on the forward pass, we can
                     # set default. But if we're doing that, the back pass needs
                     # to be dealing with the same representation.
-                    memcpy(emb,
-                        layer.defaults[feat.i], sizeof(weight_t) * layer.lengths[feat.i])
+                    #memcpy(emb,
+                    #    layer.defaults[feat.i], sizeof(weight_t) * layer.lengths[feat.i])
                     Map_set(mem, layer.tables[feat.i], feat.key, emb)
 
 
@@ -130,8 +135,10 @@ cdef class NN:
                         const int* widths, int n, weight_t alpha) nogil:
         cdef IteratorC it
         it.i = 0
+        cdef const weight_t* residual = NULL
+        cdef int width = 0
         while NN.iter(&it, widths, n-2, 1):
-            ELU.forward(fwd[it.above],
+            ELU.forward(fwd[it.above], fwd[it.here],
                 fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
         Fwd.linear(fwd[it.above],
             fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
@@ -153,7 +160,7 @@ cdef class NN:
         Bwd.softmax(bwd[it.below],
             costs, fwd[it.below], widths[n-1])
         while NN.iter(&it, widths, n, -1):
-            ELU.backward(bwd[it.below],
+            ELU.backward(bwd[it.below], bwd[it.here],
                 bwd[it.above], fwd[it.below], &weights[it.W], it.nr_out, it.nr_in)
         # The delta at bwd_state[0] can be used to 'fine tune' e.g. word vectors
         MatVec.T_dot(bwd[it.below],
@@ -260,7 +267,7 @@ cdef class Fwd:
 
 cdef class ELU:
     @staticmethod
-    cdef inline void forward(weight_t* out,
+    cdef inline void forward(weight_t* out, weight_t* tmp,
             const weight_t* in_, const weight_t* W, const weight_t* bias,
             int nr_out, int nr_wide) nogil:
         MatVec.dot(out,
@@ -274,7 +281,7 @@ cdef class ELU:
                 out[i] = ALPHA * (expf(out[i])-1)
 
     @staticmethod
-    cdef inline void backward(weight_t* delta_out,       # Len == nr_wide
+    cdef inline void backward(weight_t* delta_out, weight_t* tmp,
                         const weight_t* delta_in,  # Len == nr_out
                         const weight_t* signal_in, # Len == nr_wide
                         const weight_t* W,
@@ -557,7 +564,7 @@ cdef class Adadelta:
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* avg_then_step, weight_t* weights,
             weight_t* gradient, weight_t scale, int nr_weight) nogil:
-        cdef weight_t alpha = 0.95
+        cdef weight_t alpha = 0.90
         Vec.mul_i(gradient,
             scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
@@ -575,6 +582,62 @@ cdef class Adadelta:
             gradient[i] *= c_sqrt(step[i] + EPS) / c_sqrt(avg[i] + EPS)
         Vec.mul_i(step,
             alpha, nr_weight)
+        VecVec.add_i(weights,
+            gradient, -1.0, nr_weight)
+
+    @staticmethod
+    cdef inline void insert_embeddings(EmbeddingC* layer, Pool mem,
+            const ExampleC* egs, int nr_eg) except *:
+        for i in range(nr_eg):
+            eg = &egs[i]
+            for j in range(eg.nr_feat):
+                feat = eg.features[j]
+                emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
+                if emb is NULL:
+                    emb = <weight_t*>mem.alloc(layer.lengths[feat.i]*2, sizeof(weight_t))
+                    Map_set(mem, layer.tables[feat.i],
+                        feat.key, emb)
+
+
+cdef class Adam:
+    @staticmethod
+    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
+            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
+        self.update = Adadelta.update
+        self.eta = eta
+        self.eps = eps
+        self.rho = rho
+        self.params = <weight_t*>mem.alloc(nr_weight * 2, sizeof(weight_t))
+        self.ext = NULL
+        self.nr = 0
+
+    @staticmethod
+    cdef inline void update(OptimizerC* opt, weight_t* moments, weight_t* weights,
+            weight_t* gradient, weight_t scale, int nr_weight) nogil:
+        cdef weight_t beta1 = 0.90
+        cdef weight_t beta2 = 0.999
+        Vec.mul_i(gradient,
+            scale, nr_weight)
+        # Add the derivative of the L2-loss to the gradient
+        cdef int i
+        if opt.rho != 0:
+            VecVec.add_i(gradient,
+                weights, opt.rho, nr_weight)
+        mom1 = moments
+        mom2 = &moments[nr_weight]
+        Vec.mul_i(mom1,
+            beta1, nr_weight)
+        VecVec.add_i(mom1,
+            gradient, 1-beta1, nr_weight)
+        Vec.mul_i(mom2,
+            beta2, nr_weight)
+        for i in range(nr_weight):
+            mom2[i] += (1-beta2) * gradient[i] ** 2
+        for i in range(nr_weight):
+            gradient[i] = mom1[i] / (1-beta1)
+            gradient[i] /= c_sqrt(mom2[i] / (1-beta2)) + EPS
+        Vec.mul_i(gradient,
+            opt.eta, nr_weight)
         VecVec.add_i(weights,
             gradient, -1.0, nr_weight)
 
