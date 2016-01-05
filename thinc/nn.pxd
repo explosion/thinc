@@ -421,7 +421,7 @@ cdef class Embedding:
             params = <weight_t*>Map_get(opt.embed_params.tables[feat.i], feat.key)
             ## These should never be null.
             if weights is not NULL and params is not NULL:
-                Momentum.update(opt, params, weights, gradient,
+                opt.update(opt, params, weights, gradient,
                     feat.val, layer.lengths[feat.i])
 
 
