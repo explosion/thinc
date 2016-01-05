@@ -95,7 +95,7 @@ cdef class NeuralNet:
             mb.c.nr_eg, &self.c)
         NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
             mb.c.egs, mb.c.nr_eg)
-        NeuralNet.insert_embeddingsC(self.c.opt.embed_params, self.mem,
+        Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
             mb.c.egs, mb.c.nr_eg)
         NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
             mb.c.nr_eg)

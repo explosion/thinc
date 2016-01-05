@@ -544,15 +544,14 @@ cdef class Adadelta:
         self.eta = eta
         self.eps = eps
         self.rho = rho
-        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
-        self.ext = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
+        self.params = <weight_t*>mem.alloc(nr_weight * 2, sizeof(weight_t))
+        self.ext = NULL
         self.nr = 0
 
     @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* avg, weight_t* weights,
+    cdef inline void update(OptimizerC* opt, weight_t* avg_then_step, weight_t* weights,
             weight_t* gradient, weight_t scale, int nr_weight) nogil:
-        cdef weight_t eps = 1e-6
-        cdef weight_t alpha = 0.9
+        cdef weight_t alpha = 0.95
         Vec.mul_i(gradient,
             scale, nr_weight)
         # Add the derivative of the L2-loss to the gradient
@@ -560,13 +559,28 @@ cdef class Adadelta:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
-
+        avg = avg_then_step
+        step = &avg_then_step[nr_weight]
         Vec.mul_i(avg,
             alpha, nr_weight)
         for i in range(nr_weight):
             avg[i] += (1-alpha) * gradient[i] ** 2
-        step = <weight_t*>opt.ext
         for i in range(nr_weight):
-            weights[i] -= (gradient[i] * c_sqrt(step[i] + EPS)) / c_sqrt(avg[i] + EPS)
+            gradient[i] *= c_sqrt(step[i] + EPS) / c_sqrt(avg[i] + EPS)
         Vec.mul_i(step,
             alpha, nr_weight)
+        VecVec.add_i(weights,
+            gradient, -1.0, nr_weight)
+
+    @staticmethod
+    cdef inline void insert_embeddings(EmbeddingC* layer, Pool mem,
+            const ExampleC* egs, int nr_eg) except *:
+        for i in range(nr_eg):
+            eg = &egs[i]
+            for j in range(eg.nr_feat):
+                feat = eg.features[j]
+                emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
+                if emb is NULL:
+                    emb = <weight_t*>mem.alloc(layer.lengths[feat.i]*2, sizeof(weight_t))
+                    Map_set(mem, layer.tables[feat.i],
+                        feat.key, emb)
