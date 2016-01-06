@@ -21,23 +21,33 @@ cdef class Example:
         Example.init(&self.c, self.mem,
             model_shape)
 
-    def wipe(self):
+    def wipe(self, widths):
         self.c.guess = 0
         self.c.best = 0
         self.c.cost = 0
+        self.c.nr_feat = 0
         cdef int i
+        if self.c.features is not NULL:
+            self.mem.free(self.c.features)
+        for i, width in enumerate(widths):
+            if self.c.fwd_state is not NULL and self.c.fwd_state[i] is not NULL:
+                memset(self.c.fwd_state[i],
+                    0, sizeof(self.c.fwd_state[i][0]) * width)
+            if self.c.bwd_state is not NULL and self.c.bwd_state[i] is not NULL:
+                memset(self.c.bwd_state[i],
+                    0, sizeof(self.c.bwd_state[i][0]) * width)
         if self.c.is_valid is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.is_valid[i] = 1
+            memset(self.c.is_valid,
+                1, sizeof(self.c.is_valid[0]) * self.c.nr_class)
         if self.c.costs is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.costs[i] = 0
+            memset(self.c.costs,
+                0, sizeof(self.c.costs[0]) * self.c.nr_class)
         if self.c.scores is not NULL:
-            for i in range(self.c.nr_class):
-                self.c.scores[i] = 0
+            memset(self.c.scores,
+                0, sizeof(self.c.scores[0]) * self.c.nr_class)
         if self.c.atoms is not NULL:
-            for i in range(self.c.nr_atom):
-                self.c.atoms[i] = 0
+            memset(self.c.atoms,
+                0, sizeof(self.c.atoms[0]) * self.c.nr_class)
 
     def set_features(self, features):
         cdef weight_t value
@@ -51,17 +61,11 @@ cdef class Example:
                 else:
                     table_id, key = key
                 features.append((table_id, key, value))
-
         cdef feat_t feat
-        if features is not None and len(features):
-            if hasattr(features[0], '__iter__'):
-                self.c.nr_feat = len(features)
-                self.c.features = <FeatureC*>self.mem.alloc(self.c.nr_feat, sizeof(FeatureC))
-                for i, (slot, feat, value) in enumerate(features):
-                    self.c.features[i] = FeatureC(i=slot, key=feat, val=value)
-            else:
-                for i, value in enumerate(features):
-                    self.c.fwd_state[0][i] = value
+        self.c.nr_feat = len(features)
+        self.c.features = <FeatureC*>self.mem.alloc(self.c.nr_feat, sizeof(FeatureC))
+        for i, (slot, feat, value) in enumerate(features):
+            self.c.features[i] = FeatureC(i=slot, key=feat, val=value)
 
     def set_label(self, label):
         if label is None:
@@ -171,4 +175,3 @@ cdef class Batch:
     property loss:
         def __get__(self):
             return sum(eg.loss for eg in self)
-

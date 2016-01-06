@@ -87,7 +87,8 @@ cdef class NeuralNet:
         self.eg = Example(self.widths)
 
     def __call__(self, features):
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
         eg.set_features(features)
         NeuralNet.predictC(&eg.c, 1,
             &self.c)
@@ -96,7 +97,8 @@ cdef class NeuralNet:
     def train(self, features, y):
         memset(self.c.gradient,
             0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
         eg.set_features(features)
         eg.set_label(y)
 
