@@ -91,28 +91,23 @@ class Tagger(object):
         Xs = []
         ys = []
         inverted_classes = {i: tag for tag, i in self.classes.items()}
+        loss = 0.0
+        grad_l1 = 0.0
         for i, word in enumerate(words):
             feats = self._get_features(i, word, context, prev, prev2)
             if tags[i] not in ('ROOT', '<start>', None):
-                ys.append(self.classes[tags[i]])
-                Xs.append(feats)
-                eg = self.model.Example(feats, label=self.classes[tags[i]])
-                self.model(eg)
-                guess = inverted_classes[eg.guess]
-                best = inverted_classes[eg.best]
+                mb = self.model.train(feats, self.classes[tags[i]])
+                guess = inverted_classes[list(mb)[0].guess]
+                best = inverted_classes[list(mb)[0].best]
             else:
                 guess = tags[i]
             prev2 = prev
             prev = guess
             #print word, guess, tags[i]
             #print feats
-        if len(Xs):
-            batch = self.model.train(Xs, ys)
-            #print Xs
-            #print ys
-            return batch
-        else:
-            return model.Batch([], [])
+            #loss += eg.loss
+            grad_l1 += self.model.l1_gradient
+        return mb
 
     def save(self):
         # Pickle as a binary file
@@ -200,7 +195,7 @@ def train(tagger, sentences, nr_iter):
         for words, gold_tags, _, _1 in train_sents:
             batch = tagger.train_one(words, gold_tags)
             loss += batch.loss
-            grad_l1 += batch.l1_gradient
+            grad_l1 += tagger.model.l1_gradient
         corr = 0.0
         total = 1e-6
         for words, gold_tags, _, _1 in dev_sents:
