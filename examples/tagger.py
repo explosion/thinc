@@ -216,8 +216,13 @@ def main(model_dir, train_loc, heldout_gold):
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(load=False)
     sentences = list(read_conll(train_loc))
-    train(tagger, sentences, nr_iter=100)
+    train(tagger, sentences, nr_iter=2)
 
 
 if __name__ == '__main__':
-    plac.call(main)
+    import cProfile
+    import pstats
+    cProfile.runctx("main('/Users/matt/repos/thinc/parsers/', '/Users/matt/work_data/ym03_deps/train.tab', '/Users/matt/work_data/ym03_deps/dev.tab')", globals(), locals(), "Profile.prof")
+    s = pstats.Stats("Profile.prof")
+    s.strip_dirs().sort_stats("time").print_stats(100)
+    #plac.call(main)

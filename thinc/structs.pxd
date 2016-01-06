@@ -9,7 +9,7 @@ include "compile_time_constants.pxi"
 ctypedef MapStruct MapC
 
 ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* mtm, weight_t* gradient,
-                            weight_t* weights, weight_t scale, int nr) nogil
+        weight_t* weights, weight_t scale, int nr) except *
 
 
 cdef struct OptimizerC:

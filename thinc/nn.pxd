@@ -18,8 +18,11 @@ from .typedefs cimport weight_t
 from .blas cimport Vec, MatMat, MatVec, VecVec
 from .eg cimport Batch, Example
 
+
 cdef extern from "math.h" nogil:
     float expf(float x)
+    float sqrtf(float x)
+
 
 DEF EPS = 0.000001 
 DEF ALPHA = 1.0
@@ -66,7 +69,7 @@ cdef class NeuralNet:
 
     @staticmethod
     cdef inline void predictC(ExampleC* egs,
-            int nr_eg, const NeuralNetC* nn) nogil:
+            int nr_eg, const NeuralNetC* nn) except *:
         cdef int i
         for i in range(nr_eg):
             eg = &egs[i]
@@ -81,9 +84,10 @@ cdef class NeuralNet:
     @staticmethod
     @cython.cdivision(True)
     cdef inline void updateC(NeuralNetC* nn, weight_t* gradient, ExampleC* egs,
-            int nr_eg) nogil:
+            int nr_eg) except *:
         if nr_eg == 0:
             return
+        cdef int i
         for i in range(nr_eg):
             eg = &egs[i]
             NN.backward(eg.bwd_state, nn.bwd_norms,
@@ -155,7 +159,7 @@ cdef class NN:
             const weight_t* weights,
             const int* widths,
             int n,
-            weight_t alpha) nogil:
+            weight_t alpha) except *:
         cdef IteratorC it
         it.i = n-1
         NN.iter(&it, widths, n, -1)
@@ -172,7 +176,7 @@ cdef class NN:
     cdef inline void gradient(weight_t* gradient,
             const weight_t* const* bwd,
             const weight_t* const* fwd,
-            const int* widths, int n) nogil:
+            const int* widths, int n) except *:
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, widths, n-1, 1):
@@ -471,7 +475,7 @@ cdef class Embedding:
     @staticmethod
     cdef inline void fine_tune(OptimizerC* opt, EmbeddingC* layer, weight_t* fine_tune,
                                const weight_t* delta, int nr_delta,
-                               const FeatureC* features, int nr_feat) nogil:
+                               const FeatureC* features, int nr_feat) except *:
         for i in range(nr_feat):
             # Reset fine_tune, because we need to modify the gradient
             memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
@@ -515,7 +519,7 @@ cdef class VanillaSGD:
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
                             weight_t* gradient,
-            weight_t scale, int nr_weight) nogil:
+                            weight_t scale, int nr_weight) except *:
         '''
         Update weights with vanilla SGD
         '''
@@ -545,7 +549,7 @@ cdef class Momentum:
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
                             weight_t* gradient,
-            weight_t scale, int nr_weight) nogil:
+                            weight_t scale, int nr_weight) except *:
         '''
         Update weights with classical momentum SGD
         '''
@@ -577,7 +581,7 @@ cdef class Adagrad:
 
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* params, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
+            weight_t* gradient, weight_t scale, int nr_weight) except *:
         cdef weight_t eps = 1e-6
         Vec.mul_i(gradient,
             scale, nr_weight)
@@ -610,7 +614,7 @@ cdef class Adadelta:
 
     @staticmethod
     cdef inline void update(OptimizerC* opt, weight_t* avg_then_step, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
+            weight_t* gradient, weight_t scale, int nr_weight) except *:
         cdef weight_t alpha = 0.90
         Vec.mul_i(gradient,
             scale, nr_weight)
@@ -650,7 +654,7 @@ cdef class Adam:
     @staticmethod
     cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
             int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Adadelta.update
+        self.update = Adam.update
         self.eta = eta
         self.eps = eps
         self.rho = rho
@@ -659,8 +663,9 @@ cdef class Adam:
         self.nr = 0
 
     @staticmethod
+    @cython.cdivision(True)
     cdef inline void update(OptimizerC* opt, weight_t* moments, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
+            weight_t* gradient, weight_t scale, int nr_weight) except *:
         cdef weight_t beta1 = 0.90
         cdef weight_t beta2 = 0.999
         Vec.mul_i(gradient,
@@ -670,6 +675,8 @@ cdef class Adam:
         if opt.rho != 0:
             VecVec.add_i(gradient,
                 weights, opt.rho, nr_weight)
+        # This is all vectorized and in-place, so it's hard to read. See the
+        # paper.
         mom1 = moments
         mom2 = &moments[nr_weight]
         Vec.mul_i(mom1,
@@ -678,11 +685,14 @@ cdef class Adam:
             gradient, 1-beta1, nr_weight)
         Vec.mul_i(mom2,
             beta2, nr_weight)
+        VecVec.mul_i(gradient,
+            gradient, nr_weight)
+        VecVec.add_i(mom2,
+            gradient, 1-beta2, nr_weight)
+        Vec.div(gradient,
+            mom1, 1-beta1, nr_weight)
         for i in range(nr_weight):
-            mom2[i] += (1-beta2) * gradient[i] ** 2
-        for i in range(nr_weight):
-            gradient[i] = mom1[i] / (1-beta1)
-            gradient[i] /= c_sqrt(mom2[i] / (1-beta2)) + EPS
+            gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
         Vec.mul_i(gradient,
             opt.eta, nr_weight)
         VecVec.add_i(weights,
