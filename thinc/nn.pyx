@@ -42,6 +42,7 @@ cdef class NeuralNet:
         for i in range(self.c.nr_layer-1):
             self.c.nr_weight += NN.nr_weight(self.c.widths[i+1], self.c.widths[i])
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
         Adam.init(self.c.opt, self.mem,
@@ -92,25 +93,31 @@ cdef class NeuralNet:
    
     def train(self, Xs, ys=None):
         cdef Batch mb = self.Batch(Xs, ys)
-        NeuralNet.predictC(mb.c.egs,
-            mb.c.nr_eg, &self.c)
-        NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
-            mb.c.egs, mb.c.nr_eg)
-        Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
-            mb.c.egs, mb.c.nr_eg)
-        NeuralNet.updateC(&self.c, mb.c.gradient, mb.c.egs,
-            mb.c.nr_eg)
+        cdef int i
+        for i in range(mb.c.nr_eg):
+            memset(self.c.gradient,
+                0, sizeof(self.c.gradient[0]) * mb.c.nr_weight)
+            NeuralNet.predictC(&mb.c.egs[i],
+                1, &self.c)
+            NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
+                &mb.c.egs[i], 1)
+            Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
+                &mb.c.egs[i], 1)
+            NeuralNet.updateC(&self.c, self.c.gradient, &mb.c.egs[i],
+                1)
+            VecVec.add_i(mb.c.gradient,
+                self.c.gradient, 1.0, self.c.nr_weight)
         return mb
  
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        return Example(self.widths, features=input_, label=label)
+        return Example(self.widths, input_, label)
 
-    def Batch(self, inputs, costs=None):
+    def Batch(self, inputs, labels=None):
         if isinstance(inputs, Batch):
             return inputs
-        return Batch(self.widths, inputs, costs, self.c.nr_weight)
+        return Batch(self.widths, inputs, labels, self.c.nr_weight)
  
     property weights:
         def __get__(self):

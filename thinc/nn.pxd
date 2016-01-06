@@ -266,50 +266,50 @@ cdef class Fwd:
 
 
 cdef class ELU:
-    @staticmethod
-    cdef inline void norm_forward(weight_t* out, weight_t* tmp,
-            const weight_t* in_, const weight_t* E_out, const weight_t* V_out,
-            const weight_t* W, const weight_t* bias, const weight_t* gamma,
-            int nr_out, int nr_wide) nogil:
-        MatVec.dot(out, # x = weights * input
-            W, in_, nr_out, nr_wide)
-        
-        # Update estimates of mean and variance
-        Fwd.estimate_normalizers(E_out, V_out, 
-            out, alpha, nr_out)
-        VecVec.sub_i(out,
-            E_out, 1.0, nr_out)
-        for i in range(n):
-            x[i] /= c_sqrt(V_x[i] + EPS)
-        memcpy(tmp,
-            out, sizeof(tmp[0]) * nr_out)
-        VecVec.mul_i(out,
-            gamma, nr_out)
-        # Bias
-        VecVec.add_i(out,
-            bias, 1.0, nr_out)
+    #@staticmethod
+    #cdef inline void norm_forward(weight_t* out, weight_t* tmp,
+    #        const weight_t* in_, const weight_t* E_out, const weight_t* V_out,
+    #        const weight_t* W, const weight_t* bias, const weight_t* gamma,
+    #        int nr_out, int nr_wide) nogil:
+    #    MatVec.dot(out, # x = weights * input
+    #        W, in_, nr_out, nr_wide)
+    #    
+    #    # Update estimates of mean and variance
+    #    Fwd.estimate_normalizers(E_out, V_out, 
+    #        out, alpha, nr_out)
+    #    VecVec.sub_i(out,
+    #        E_out, 1.0, nr_out)
+    #    for i in range(n):
+    #        x[i] /= c_sqrt(V_x[i] + EPS)
+    #    memcpy(tmp,
+    #        out, sizeof(tmp[0]) * nr_out)
+    #    VecVec.mul_i(out,
+    #        gamma, nr_out)
+    #    # Bias
+    #    VecVec.add_i(out,
+    #        bias, 1.0, nr_out)
 
-        # Apply ELU non-linearity
-        cdef int i
-        for i in range(nr_out):
-            if out[i] < 0:
-                out[i] = ALPHA * (expf(out[i])-1)
+    #    # Apply ELU non-linearity
+    #    cdef int i
+    #    for i in range(nr_out):
+    #        if out[i] < 0:
+    #            out[i] = ALPHA * (expf(out[i])-1)
 
-    @staticmethod
-    cdef inline void norm_backward(weight_t* delta_out, weight_t* d_mean, weight_t* d_var,
-            const weight_t* x, const weight_t* x_norm, const weight_t* gamma) nogil:
-        MatVec.T_dot(delta_out,
-            W, delta_in, nr_out, nr_wide)
-        memcpy(tmp,
-            out, sizeof(tmp[0]) * nr_out)
-        VecVec.mul_i(delta_out,
-            gamma, nr_out)
-        cdef int i
-        for i in range(nr_wide):
-            delta_out[i] *= 1/sqr(V_x[i]+EPS) + d_var * (2*(x[i]-mean[i])/m) + (d_mean/m)
-        for i in range(nr_wide):
-            if x_norm[i] < 0:
-                delta_out[i] *= signal_in[i] + ALPHA
+    #@staticmethod
+    #cdef inline void norm_backward(weight_t* delta_out, weight_t* d_mean, weight_t* d_var,
+    #        const weight_t* x, const weight_t* x_norm, const weight_t* gamma) nogil:
+    #    MatVec.T_dot(delta_out,
+    #        W, delta_in, nr_out, nr_wide)
+    #    memcpy(tmp,
+    #        out, sizeof(tmp[0]) * nr_out)
+    #    VecVec.mul_i(delta_out,
+    #        gamma, nr_out)
+    #    cdef int i
+    #    for i in range(nr_wide):
+    #        delta_out[i] *= 1/sqr(V_x[i]+EPS) + d_var * (2*(x[i]-mean[i])/m) + (d_mean/m)
+    #    for i in range(nr_wide):
+    #        if x_norm[i] < 0:
+    #            delta_out[i] *= signal_in[i] + ALPHA
 
     @staticmethod
     cdef inline void forward(weight_t* out, weight_t* tmp,

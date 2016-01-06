@@ -15,6 +15,7 @@ ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* mtm, weight_t* gradient,
 cdef struct OptimizerC:
     update_f_t update
     weight_t* params
+    
     EmbeddingC* embed_params
     void* ext
 
@@ -36,6 +37,8 @@ cdef struct EmbeddingC:
 cdef struct NeuralNetC:
     int* widths
     weight_t* weights
+    weight_t* gradient
+    
     weight_t** fwd_norms
     weight_t** bwd_norms
     
