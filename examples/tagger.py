@@ -49,17 +49,17 @@ class Tagger(object):
         suffix_width = 5
         prefix_width = 5
         tags_width = 20
-        words_width = 100
+        words_width = 50
         #tables = (suffix_width, prefix_width, tags_width, words_width)
         #slots = (0, 1, 2, 2, 3, 3, 0, 3, 3, 0, 3)
-        tables = (words_width,words_width)
-        slots = (0,1)
+        tables = (words_width,tags_width)
+        slots = (0,0,0,0,0,1,1)
         input_length = sum(tables[slot] for slot in slots)
         self._make_tagdict(sentences)
         self.model = NeuralNet(
-            (input_length, input_length, input_length, input_length, len(self.classes)),
+            (input_length, len(self.classes)),
             embed=(tables, slots),
-        rho=0.0, eta=0.1)
+        rho=1e-7, eta=0.1)
     
     def tag(self, words):
         prev, prev2 = START
@@ -150,9 +150,13 @@ class Tagger(object):
         features = {}
         features[(0, _intify(word))] = 1
         features[(1, _intify(context[i-1]))] = 1
+        features[(2, _intify(context[i+1]))] = 1
+        features[(3, _intify(context[i-2]))] = 1
+        features[(4, _intify(context[i+2]))] = 1
+        features[(5, _intify(prev))] = 1 # Previous tag
+        features[(6, _intify(prev2))] = 1 # Prev prev tag
         #features[(0, _intify(word[-3:]))] = 1 # Suffix of word
         #features[(1, _intify(word[0]))] = 1 # Prefix of word
-        #features[(2, _intify(prev))] = 1 # Previous tag
         #features[(3, _intify(prev2))] = 1 # Prev prev tag
         #features[(4, _intify(word))] = 1 # Word
         #features[(5, _intify(context[i-1]))] = 1 # Previous word
@@ -233,7 +237,7 @@ def main(model_dir, train_loc, heldout_gold):
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(load=False)
     sentences = list(read_conll(train_loc))
-    train(tagger, sentences, nr_iter=50)
+    train(tagger, sentences, nr_iter=100)
 
 
 if __name__ == '__main__':
