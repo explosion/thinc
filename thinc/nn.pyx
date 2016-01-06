@@ -205,3 +205,44 @@ cdef class NeuralNet:
             return self.c.eps
         def __set__(self, eps):
             self.c.eps = eps
+
+
+
+
+@cython.cdivision(True)
+cdef void __tmp(OptimizerC* opt, weight_t* moments, weight_t* weights,
+        weight_t* gradient, weight_t scale, int nr_weight) nogil:
+    cdef weight_t beta1 = 0.90
+    cdef weight_t beta2 = 0.999
+    cdef weight_t EPS = 1e-6
+    Vec.mul_i(gradient,
+        scale, nr_weight)
+    # Add the derivative of the L2-loss to the gradient
+    cdef int i
+    if opt.rho != 0:
+        VecVec.add_i(gradient,
+            weights, opt.rho, nr_weight)
+    # This is all vectorized and in-place, so it's hard to read. See the
+    # paper.
+    mom1 = moments
+    mom2 = &moments[nr_weight]
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+    Vec.mul_i(mom2,
+        beta2, nr_weight)
+    VecVec.mul_i(gradient,
+        gradient, nr_weight)
+    VecVec.add_i(mom2,
+        gradient, 1-beta2, nr_weight)
+    Vec.div(gradient,
+        mom1, 1-beta1, nr_weight)
+    for i in range(nr_weight):
+        gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
+    Vec.mul_i(gradient,
+        opt.eta, nr_weight)
+    VecVec.add_i(weights,
+        gradient, -1.0, nr_weight)
+
+

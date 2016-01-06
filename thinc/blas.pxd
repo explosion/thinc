@@ -1,4 +1,5 @@
 # cython: profile=True
+# cython: cdivision=True
 
 cimport cython
 from libc.stdint cimport int32_t
@@ -167,10 +168,10 @@ cdef class VecVec:
                            const weight_t* y,
                            weight_t scale,
                            int32_t nr) nogil:
-        #cblas_saxpy(nr, scale, x, 1, y, 1)
-        cdef int i
-        for i in range(nr):
-            x[i] += y[i] * scale
+        cblas_saxpy(nr, scale, y, 1, x, 1)
+        #cdef int i
+        #for i in range(nr):
+        #    x[i] += y[i] * scale
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,
