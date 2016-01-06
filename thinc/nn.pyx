@@ -84,30 +84,31 @@ cdef class NeuralNet:
             Initializer.constant(&self.c.weights[it.gamma],
                 1.0, it.nr_out)
             fan_in = it.nr_out
+        self.eg = Example(self.widths)
 
-    def __call__(self, input_):
-        cdef Example eg = self.Example(input_)
+    def __call__(self, features):
+        cdef Example eg = Example(self.widths)
+        eg.set_features(features)
         NeuralNet.predictC(&eg.c, 1,
             &self.c)
         return eg
    
-    def train(self, X, y):
-        cdef Batch mb = self.Batch([X], [y])
-        cdef int i
-        for i in range(mb.c.nr_eg):
-            memset(self.c.gradient,
-                0, sizeof(self.c.gradient[0]) * mb.c.nr_weight)
-            NeuralNet.predictC(&mb.c.egs[i],
-                1, &self.c)
-            NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
-                &mb.c.egs[i], 1)
-            Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
-                &mb.c.egs[i], 1)
-            NeuralNet.updateC(&self.c, self.c.gradient, &mb.c.egs[i],
-                1)
-            VecVec.add_i(mb.c.gradient,
-                self.c.gradient, 1.0, self.c.nr_weight)
-        return mb
+    def train(self, features, y):
+        memset(self.c.gradient,
+            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
+        cdef Example eg = Example(self.widths)
+        eg.set_features(features)
+        eg.set_label(y)
+
+        NeuralNet.predictC(&eg.c,
+            1, &self.c)
+        NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
+            &eg.c, 1)
+        Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
+            &eg.c, 1)
+        NeuralNet.updateC(&self.c, self.c.gradient, &eg.c,
+            1)
+        return eg
  
     def Example(self, input_, label=None):
         if isinstance(input_, Example):

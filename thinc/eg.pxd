@@ -23,7 +23,7 @@ cdef class Example:
         return eg
 
     @staticmethod
-    cdef inline void init(ExampleC* self, Pool mem, model_shape, features, costs) except *:
+    cdef inline void init(ExampleC* self, Pool mem, model_shape) except *:
         self.fwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
         self.bwd_state = <weight_t**>mem.alloc(len(model_shape) * 2, sizeof(void*))
         i = 0
@@ -43,30 +43,6 @@ cdef class Example:
         self.is_valid = <int*>mem.alloc(self.nr_class, sizeof(self.is_valid[0]))
         memset(self.is_valid, 1, sizeof(self.is_valid[0]) * self.nr_class)
         self.costs = <weight_t*>mem.alloc(self.nr_class, sizeof(self.costs[0]))
-
-        self.guess = 0
-        self.best = 0
-        self.cost = 1
-
-        if costs is not None:
-            assert len(costs) == self.nr_class, '%d vs %d' % (len(costs), self.nr_class)
-            for i, cost in enumerate(costs):
-                self.costs[i] = cost
-                if cost == 0:
-                    self.best = i
-
-        cdef weight_t value
-        cdef feat_t key
-        cdef int slot
-        if features is not None and len(features):
-            if hasattr(features[0], '__iter__'):
-                self.nr_feat = len(features)
-                self.features = <FeatureC*>mem.alloc(self.nr_feat, sizeof(FeatureC))
-                for i, (slot, key, value) in enumerate(features):
-                    self.features[i] = FeatureC(i=slot, key=key, val=value)
-            else:
-                for i, value in enumerate(features):
-                    self.fwd_state[0][i] = value
 
     @staticmethod
     cdef inline void init_dense(ExampleC* eg, Pool mem, dense_input) except *:

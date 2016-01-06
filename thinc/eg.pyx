@@ -11,36 +11,20 @@ cdef class Example:
           - int: float
           - (int, int): float
     '''
-    def __init__(self, model_shape, features=None, label=None, mem=None):
+    def __init__(self, model_shape, mem=None):
         if mem is None:
             mem = Pool()
         self.mem = mem
         if isinstance(model_shape, int):
             model_shape = (model_shape,)
 
-        if label is None:
-            costs = [1] * model_shape[-1]
-        elif isinstance(label, int):
-            costs = [1] * model_shape[-1]
-            costs[label] = 0
-        else:
-            costs = label
-
-        if features is None:
-            features = []
-        elif isinstance(features, dict):
-            feats_dict = features
-            features = []
-            for key, value in feats_dict.items():
-                if isinstance(key, int):
-                    table_id = 0
-                else:
-                    table_id, key = key
-                features.append((table_id, key, value))
         Example.init(&self.c, self.mem,
-            model_shape, features, costs)
+            model_shape)
 
     def wipe(self):
+        self.c.guess = 0
+        self.c.best = 0
+        self.c.cost = 0
         cdef int i
         if self.c.is_valid is not NULL:
             for i in range(self.c.nr_class):
@@ -54,6 +38,49 @@ cdef class Example:
         if self.c.atoms is not NULL:
             for i in range(self.c.nr_atom):
                 self.c.atoms[i] = 0
+
+    def set_features(self, features):
+        cdef weight_t value
+        cdef int slot
+        if isinstance(features, dict):
+            feats_dict = features
+            features = []
+            for key, value in feats_dict.items():
+                if isinstance(key, int):
+                    table_id = 0
+                else:
+                    table_id, key = key
+                features.append((table_id, key, value))
+
+        cdef feat_t feat
+        if features is not None and len(features):
+            if hasattr(features[0], '__iter__'):
+                self.c.nr_feat = len(features)
+                self.c.features = <FeatureC*>self.mem.alloc(self.c.nr_feat, sizeof(FeatureC))
+                for i, (slot, feat, value) in enumerate(features):
+                    self.c.features[i] = FeatureC(i=slot, key=feat, val=value)
+            else:
+                for i, value in enumerate(features):
+                    self.c.fwd_state[0][i] = value
+
+    def set_label(self, label):
+        if label is None:
+            costs = [1] * self.c.nr_class
+        elif isinstance(label, int):
+            costs = [1] * self.c.nr_class
+            costs[label] = 0
+        else:
+            costs = label
+        self.c.guess = 0
+        self.c.best = 0
+        self.c.cost = 1
+
+        if costs is not None:
+            assert len(costs) == self.c.nr_class, '%d vs %d' % (len(costs), self.c.nr_class)
+            for i, cost in enumerate(costs):
+                self.c.costs[i] = cost
+                if cost == 0:
+                    self.c.best = i
 
     property features:
         def __get__(self):

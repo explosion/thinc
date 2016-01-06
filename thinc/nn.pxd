@@ -61,11 +61,13 @@ DEF ALPHA = 1.0
 
 cdef class NeuralNet:
     cdef Pool mem
+    cdef Example eg
     cdef NeuralNetC c
 
     @staticmethod
     cdef inline void predictC(ExampleC* egs,
             int nr_eg, const NeuralNetC* nn) nogil:
+        cdef int i
         for i in range(nr_eg):
             eg = &egs[i]
             if nn.embeds is not NULL and eg.features is not NULL:

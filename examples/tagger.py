@@ -94,20 +94,15 @@ class Tagger(object):
         loss = 0.0
         grad_l1 = 0.0
         for i, word in enumerate(words):
-            feats = self._get_features(i, word, context, prev, prev2)
-            if tags[i] not in ('ROOT', '<start>', None):
-                mb = self.model.train(feats, self.classes[tags[i]])
-                guess = inverted_classes[list(mb)[0].guess]
-                best = inverted_classes[list(mb)[0].best]
-            else:
-                guess = tags[i]
-            prev2 = prev
-            prev = guess
-            #print word, guess, tags[i]
-            #print feats
-            #loss += eg.loss
+            if tags[i] in ('ROOT', '<start>', None):
+                prev2, prev = prev, tags[i]
+                continue
+            features = self._get_features(i, word, context, prev, prev2)
+            eg = self.model.train(features, self.classes[tags[i]])
+            prev2, prev = prev, inverted_classes[eg.guess]
             grad_l1 += self.model.l1_gradient
-        return mb
+            loss += eg.loss
+        return loss, grad_l1
 
     def save(self):
         # Pickle as a binary file
@@ -150,16 +145,6 @@ class Tagger(object):
         features[(4, _intify(context[i+2]))] = 1
         features[(5, _intify(prev))] = 1 # Previous tag
         features[(6, _intify(prev2))] = 1 # Prev prev tag
-        #features[(0, _intify(word[-3:]))] = 1 # Suffix of word
-        #features[(1, _intify(word[0]))] = 1 # Prefix of word
-        #features[(3, _intify(prev2))] = 1 # Prev prev tag
-        #features[(4, _intify(word))] = 1 # Word
-        #features[(5, _intify(context[i-1]))] = 1 # Previous word
-        #features[(6, _intify(context[i-1][-3:]))] = 1 # Suffix of previous word
-        #features[(7, _intify(context[i-2]))] = 1 # Prev prev word
-        #features[(8, _intify(context[i+1]))] = 1 # Next word
-        #features[(9, _intify(context[i+1][-3:]))] = 1 # Suffix of next word
-        #features[(10, _intify(context[i+2]))] = 1 # Next next word
         return features
 
     def _make_tagdict(self, sentences):
@@ -191,11 +176,10 @@ def train(tagger, sentences, nr_iter):
     for itn in range(nr_iter):
         loss = 0
         grad_l1 = 0
-
         for words, gold_tags, _, _1 in train_sents:
-            batch = tagger.train_one(words, gold_tags)
-            loss += batch.loss
-            grad_l1 += tagger.model.l1_gradient
+            stats = tagger.train_one(words, gold_tags)
+            loss += stats[0]
+            grad_l1 += stats[1]
         corr = 0.0
         total = 1e-6
         for words, gold_tags, _, _1 in dev_sents:
