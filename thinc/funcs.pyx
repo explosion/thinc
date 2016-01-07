@@ -1,86 +1,162 @@
-cdef void feed_forward(float** activity, float** normalizers,
-        const FeatureC* features, int nr_feat, const NeuralNetC* nn) nogil:
-    cdef IteratorC it
-    nn.begin_fwd(&it, activity, normalizers,
-        features, nr_feat, nn)
-    while nn.iter(&it, nn.widths, nn.nr_layer-2, 1):
-        nn.activate(activity, normalizers,
-            &it, nn.weights, nn.widths, nn.nr_layer, nn.alpha)
-    nn.end_fwd(&it, activity, normalizers,
-        &it, nn)
+cdef void feed_forward(
+    float** fwd,
+    float** f_norms,
+        const int* widths,
+        int nr_layer,
+        const FeatureC* feats,
+        int nr_feat,
+        const float* weights,
+        int nr_weight,
+        const ConstantsC* hyper_params,
+        do_iter_t iter_layers,
+        do_begin_fwd_t begin_fwd,
+        do_feed_fwd_t step_fwd,
+        do_end_fwd_t end_fwd
+    ) nogil:
+
+    cdef IteratorC it = begin_fwd(&it, activity, normalizers,
+                              features, nr_feat, nn)
+    while iter_layers(&it, widths, nr_layer-2, 1):
+        step_fwd(fwd, f_norms,
+            &it, weights, nn.widths, nn.nr_layer, hyper_params)
+    end_fwd(&it, activity, normalizers,
+        widths, nr_layer, weights, nr_weight, hyper_params)
 
 
-cdef void back_propagate(float** bwd, float** b_norms,
-        const float* costs, const float* const* fwd, const float* const* f_norms,
-        const NeuralNetC* nn) nogil:
-    cdef IteratorC it
-    nn.begin_bwd(&it, bwd,
-        costs, fwd, nn)
-    while nn.iter(&it, nn.widths, nn.nr_layer, -1):
-        nn.backprop(bwd, b_norms,
-            &it, fwd, f_norms, nn.weights, nn.widths, nn.nr_layer, nn.alpha)
-    nn.end_bwd(&it, bwd, b_norms,
+cdef void back_propagate(
+    float** bwd,
+    float** b_norms,
+        const float* const* fwd,
+        const float* const* f_norms,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const float* costs,
+        const ConstantsC* hyper_params,
+        do_iter_t iter_layers,
+        do_begin_bwd_t begin_bwd,
+        do_feed_bwd_t step_bwd,
+        do_end_bwd_t end_bwd
+    ) nogil:
+    '''Iteratatively apply the step_bwd function, to back-prop through the network.
+    Fills partial derivatives for each layer into bwd, so that the gradient can
+    be computed. Updates estimates of normalization parameters in b_norms.'''
+    cdef IteratorC it = begin_bwd(bwd,
+                            costs, fwd, )
+    while iter_layers(&it, widths, nr_layer, -1):
+        feed_bwd(
+            bwd[it.below],
+            bwd[it.here],
+            bwd[it.above],
+            b_norms[it.dEdXh],
+            b_norms[it.dEdXh_dot_Xh],
+                &it,
+                fwd[it.below],
+                fwd[it.here],
+                fwd[it.above],
+                f_norms[it.Ex],
+                f_norms[it.Vx],
+                &weights[it.W]
+            &it, fwd, f_norms, weights, widths, nr_layer, hyper_params)
+    end_bwd(&it, bwd, b_norms,
         fwd, f_norms, nn.weights, nn.widths, nn.layers, nn.alpha)
  
 
-cdef void activate(float** fwd, float** for_bn,
-        const float* weights, int n, float alpha, IteratorC it) nogil:
-    above = fwd[it.above]
-    here = fwd[it.here]
-    below = fwd[it.below]
-    Ex = for_bn[it.Ex]
-    Vx = for_bn[it.Vx]
-    W = &weights[it.W]
-    bias = &weights[it.bias]
-    gamma = &weights[it.gamma]
-    nr_in = it.nr_in
-    nr_out = it.nr_out
+cdef void activate(
+    float** fwd,
+    float** moments,
+        const IteratorC* it
+        const float* below,
+        const float* weights,
+    ) nogil:
 
-    linear(here,
-        below, W, bias, nr_out, nr_in)
-    update_normalizers(Ex, Vx,
-        here, nr_out, alpha)
-    normalize(here, Ex, Vx,
-        nr_out, alpha) 
-    linear(above,
-        here, gamma, beta, nr_out, 1)
-    ELU(above,
-        nr_out)
+    dot_plus(fwd[it.here],
+        fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+    normalize(fwd[it.here], moments[it.Ex], moments[it.Vx],
+        fwd[it.here], it.nr_out, alpha) 
+    dot_plus(fwd[it.above],
+        fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+    ELU(fwd[it.above],
+        it.nr_out)
 
 
-cdef void backprop(float** bwd, float** for_bn,
-        const float* weights, int n, float alpha, IteratorC it) nogil:
-    d_in = bwd[it.above]
-    d_out = bwd[it.below]
-    W = &weights[it.W]
-    bias = &weights[it.bias]
-    beta = &weights[it.beta]
-    gamma = &weights[it.gamma]
-    
+cdef void backprop(
+    float** bwd,
+    float** b_mom,
+        const IteratorC* it,
+        const float* const* fwd,
+        const float* f_mom,
+        const float* weights,
+        int n,
+        float alpha
+    ) nogil:
+
     d_ELU(bwd[it.above],
         fwd[it.above], it.nr_out)
-    d_linear(bwd[it.here],
+    d_dot(bwd[it.here],
         fwd[it.here], &weights[it.gamma], it.nr_out, 1)
-    d_normalize(bwd[it.below], for_bn[it.E_dEdXh], for_bn[it.E_dEdXh_dot_Xh],
-        fwd[it.here], for_bn[it.Vx], it.nr_out, alpha)
+    d_normalize(bwd[it.below], b_mom[it.E_dEdXh], b_mom[it.E_dEdXh_dot_Xh],
+        fwd[it.here], f_mom[it.Vx], it.nr_out, alpha)
     # Stash dE/dY for backprop to gamma and beta
-    memcpy(b_here,
-        d_out, sizeof(b_here[0]) * it.nr_wide)
-    d_linear(b_below
-        f_below, &weights[it.W], it.nr_out, it.nr_in)
+    memcpy(bwd[it.here],
+        bwd[it.below], sizeof(b_here[0]) * it.nr_out)
+    d_linear(bwd[it.below]
+        fwd[it.below], &weights[it.W], it.nr_out, it.nr_in)
 
 
-cdef void linear(float* out,
-        const float* in_, const float* W, const float* bias,
-        int nr_out, int nr_wide) nogil:
+cdef void dot_plus(
+    float* out,
+        const float* in_,
+        const float* W,
+        const float* bias,
+        int nr_out,
+        int nr_wide
+    ) nogil:
+
     MatVec.dot(out,
         W, in_, nr_out, nr_wide)
     VecVec.add_i(out,
         bias, 1.0, nr_out)
 
 
-cdef void normalize(float* x, float* Ex, float* Vx,
-        int n, float alpha) nogil:
+cdef void d_dot(
+    float* d_out,
+        const float*,
+        const float* d_in,
+        int nr_out,
+        int nr_wide
+    ) nogil:
+
+    MatVec.T_dot(delta_out,
+        W, delta_in, nr_out, nr_wide)
+
+
+cdef void ELU(
+    weight_t* out,
+        int nr_out
+    ) nogil:
+
+    cdef int i
+    for i in range(nr_out):
+        if out[i] < 0:
+            out[i] = ALPHA * (expf(out[i])-1)
+
+
+cdef void d_ELU() nogil:
+    # Backprop the ELU transformation
+    for i in range(nr_wide):
+        if x_norm[i] < 0:
+            delta_out[i] *= signal_in[i] + ALPHA
+
+
+cdef void normalize(
+    float* x,
+    float* Ex,
+    float* Vx,
+        int n,
+        float alpha
+    ) nogil:
     # Upd EMA estimate of mean and variance
     # See eq at the end of this:
     # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
@@ -91,47 +167,20 @@ cdef void normalize(float* x, float* Ex, float* Vx,
         incr = alpha * diff
         V_x[i] = (1.0 - alpha) * (V_x[i] + diff * incr)
         E_x[i] += incr
+    # Normalize
     for i in range(n):
         x[i] = (x[i] - Ex[i]) / sqrf(V_x[i] + EPS)
 
 
-cdef void softmax(float* out,
-        int nr_out) nogil:
-    #w = exp(w - max(w))
-    Vec.add_i(out,
-        -Vec.max(out, nr_out), nr_out)
-    Vec.exp_i(out,
-        nr_out)
-    #w = w / sum(w)
-    cdef float norm = Vec.sum(out, nr_out)
-    if norm != 0:
-        Vec.div_i(out,
-            norm, nr_out)
-
-
-cdef void d_log_loss(float* loss,
-        const float* costs, const float* scores, int nr_out) nogil:
-    # This assumes only one true class
-    cdef int i
-    for i in range(nr_out):
-        loss[i] = scores[i] - (costs[i] == 0)
-
-
-cdef void d_linear(float* d_out,
-        const float*, const float* d_in, int nr_out, int nr_wide) nogil:
-    MatVec.T_dot(delta_out,
-        W, delta_in, nr_out, nr_wide)
-
-
-cdef void d_ELU() nogil:
-    # Backprop the ELU transformation
-    for i in range(nr_wide):
-        if x_norm[i] < 0:
-            delta_out[i] *= signal_in[i] + ALPHA
-
-
-cdef void d_normalize(float* dE, float* E_dEdXh, float* E_dEdXh_dot_Xh,
-        const float* Xh, const float* Vx, int n, weight_t alpha) nogil:
+cdef void d_normalize(
+    float* dE,
+    float* E_dEdXh,
+    float* E_dEdXh_dot_Xh,
+        const float* Xh,
+        const float* Vx,
+        int n,
+        float alpha
+    ) nogil:
     # Update EMA estimate of mean(dL/dX_hat)
     Vec.mul_i(E_bwd,
         alpha, n)
@@ -153,8 +202,40 @@ cdef void d_normalize(float* dE, float* E_dEdXh, float* E_dEdXh_dot_Xh,
         bwd[i] /= c_sqrt(V_x[i] + EPS)
 
 
-cdef void set_gradient(float* gradient,
-        const float* const* bwd, const float* const* fwd, const NeuralNetC* nn) nogil:
+cdef void softmax(
+    float* out,
+        int nr_out
+    ) nogil:
+    #w = exp(w - max(w))
+    Vec.add_i(out,
+        -Vec.max(out, nr_out), nr_out)
+    Vec.exp_i(out,
+        nr_out)
+    #w = w / sum(w)
+    cdef float norm = Vec.sum(out, nr_out)
+    if norm != 0:
+        Vec.div_i(out,
+            norm, nr_out)
+
+
+cdef void d_log_loss(
+    float* loss,
+        const float* costs,
+        const float* scores,
+        int nr_out
+    ) nogil:
+    # This assumes only one true class
+    cdef int i
+    for i in range(nr_out):
+        loss[i] = scores[i] - (costs[i] == 0)
+
+
+cdef void set_gradient(
+    float* gradient,
+        const float* const* bwd,
+        const float* const* fwd,
+        const NeuralNetC* nn
+    ) nogil:
     cdef IteratorC it
     it.i = 0
     while nn.iter(&it, nn.widths, nn.nr_layer-1, 1):
@@ -168,8 +249,14 @@ cdef void set_gradient(float* gradient,
             bwd[it.here], 1.0, it.nr_out)
 
 
-cdef void update(NeuralNetC* nn, float* gradient,
-        const float* bwd float*, FeatureC* features, int nr_feat) nogil: 
+cdef void update(
+    NeuralNetC* nn,
+    float* gradient,
+        const float* const* bwd,
+        FeatureC* features,
+        int nr_feat
+    ) nogil: 
+
     nn.opt.update(nn.opt, nn.opt.params, nn.weights, gradient,
         1.0, nn.nr_weight)
     # Fine-tune the embeddings
@@ -178,8 +265,15 @@ cdef void update(NeuralNetC* nn, float* gradient,
             eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
  
 
-cdef void fine_tune(OptimizerC* opt, EmbeddingC* layer, weight_t* fine_tune,
-    const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat) nogil:
+cdef void fine_tune(
+    OptimizerC* opt,
+    EmbeddingC* layer,
+    weight_t* fine_tune,
+        const weight_t* delta,
+        int nr_delta,
+        const FeatureC* features,
+        int nr_feat
+    ) nogil:
     for i in range(nr_feat):
         # Reset fine_tune, because we need to modify the gradient
         memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
@@ -193,8 +287,13 @@ cdef void fine_tune(OptimizerC* opt, EmbeddingC* layer, weight_t* fine_tune,
                 feat.val, layer.lengths[feat.i])
 
 
-cdef void insert_embeddingsC(EmbeddingC* layer, Pool mem,
-        const ExampleC* egs, int nr_eg) except *:
+cdef void insert_embeddingsC(
+    EmbeddingC* layer,
+    Pool mem,
+        const ExampleC* egs,
+        int nr_eg)
+    except *:
+
     for i in range(nr_eg):
         eg = &egs[i]
         for j in range(eg.nr_feat):
@@ -211,5 +310,3 @@ cdef void insert_embeddingsC(EmbeddingC* layer, Pool mem,
                 #memcpy(emb,
                 #    layer.defaults[feat.i], sizeof(float) * layer.lengths[feat.i])
                 Map_set(mem, layer.tables[feat.i], feat.key, emb)
-
-
