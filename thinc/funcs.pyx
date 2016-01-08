@@ -29,7 +29,6 @@ cdef class NN:
     def void init(
         NeuralNetC* nn,
             widths,
-            embed=None,
             float eta=0.005,
             float eps=1e-6,
             float mu=0.2,
@@ -48,33 +47,18 @@ cdef class NN:
             nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        Adam.init(nn.opt, mem,
-            nn.nr_weight, nn.widths, nn.nr_layer, eta, eps, rho)
-        if embed is not None:
-            table_widths, features = embed
-            nn.embeds = <EmbeddingC*>mem.alloc(1, sizeof(EmbeddingC))
-            Embedding.init(nn.embeds, mem,
-                table_widths, features)
-            nn.opt.embed_params = <EmbeddingC*>mem.alloc(1, sizeof(EmbeddingC))
-            Embedding.init(nn.opt.embed_params, mem,
-                table_widths, features)
-            for i in range(nn.opt.embed_params.nr):
-                # Ensure momentum terms start at zero
-                memset(nn.opt.embed_params.defaults[i],
-                    0, sizeof(float) * nn.opt.embed_params.lengths[i])
+        nn.momentum = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.averages = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         
-        nn.fwd_norms = <float**>mem.alloc(self.c.nr_layer*2, sizeof(void*))
-        nn.bwd_norms = <float**>mem.alloc(self.c.nr_layer*2, sizeof(void*))
-        fan_in = 1.0
+        nn.sparse_weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.sparse_gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.sparse_momentum = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.sparse_averages = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, nn.widths, nn.nr_layer-1, 1):
             # Allocate arrays for the normalizers
-            nn.fwd_norms[it.Ex] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
-            nn.fwd_norms[it.Vx] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
-            nn.bwd_norms[it.E_dXh] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
-            nn.bwd_norms[it.E_dXh_Xh] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
             # Don't initialize the softmax weights
             if (it.i+1) >= self.c.nr_layer:
                 break
@@ -335,10 +319,33 @@ cdef void dot_plus(
         const float* W,
         const float* bias,
         int nr_out,
-        int nr_wide
+        int nr_in
 ) nogil:
     MatVec.dot(out,
-        W, in_, nr_out, nr_wide)
+        W, in_, nr_out, nr_in)
+    VecVec.add_i(out,
+        bias, 1.0, nr_out)
+
+
+cdef void sparse_dot_plus(
+    float* out,
+        const FeatureC* in_,
+        const MapC* const* Ws,
+        const float* bias,
+        int nr_out,
+        int nr_in
+) nogil:
+    for i in range(nr_in):
+        W = Ws[feats[i].i]
+        if W is not NULL:
+            row = <const SparseArrayC*>Map_get(W, feats[i].key)
+            if row is not NULL:
+                j = 0
+                while row[j].key >= 0:
+                    # This shouldn't happen, but if it does, don't overflow
+                    if row[j].key < nr_out:
+                        out[row[j].key] += row[j].val * feats[i].val
+                    j += 1
     VecVec.add_i(out,
         bias, 1.0, nr_out)
 

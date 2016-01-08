@@ -32,7 +32,7 @@ cdef class NeuralNet:
                  weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
         self.eg = Example(self.widths)
-        NN.init(&self.c, mem)
+        NN.init(&self.c, mem, widths, eta, eps, mu, rho, bias, alpha)
 
     def __call__(self, features):
         cdef Example eg = self.eg
