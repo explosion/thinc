@@ -88,7 +88,6 @@ ctypedef void (*do_end_bwd_t)(
 
 
 cdef struct OptimizerC:
-    do_update_t update
     float* params
     
     EmbeddingC* embed_params
@@ -117,21 +116,21 @@ cdef struct NeuralNetC:
     do_begin_bwd_t begin_bwd
     do_feed_bwd_t feed_bwd
     do_end_bwd_t end_bwd
+    do_update_t update
 
     int* widths
     float* weights
     float* gradient
+    float* momentum
+    float* averages
     
-    float** fwd_norms
-    float** bwd_norms
-    
-    OptimizerC* opt
-
-    EmbeddingC* embeds
+    MapC* sparse_weights
+    MapC* sparse_gradient
+    MapC* sparse_momentum
+    MapC* sparse_averages
 
     int nr_layer
     int nr_weight
-    int nr_embed
 
     float alpha
     float eta
@@ -160,13 +159,6 @@ cdef struct ExampleC:
     int cost
 
 
-#cdef struct BatchC:
-#    ExampleC* egs
-#    float* gradient
-#    int nr_eg
-#    int nr_weight
-#
-#
 # Iteration controller
 cdef struct IteratorC:
     int nr_out
@@ -185,11 +177,10 @@ cdef struct IteratorC:
     int E_dXh_Xh
 
 
-#cdef struct SparseArrayC:
-#    int key
-#    float val
-#
-#
+cdef struct SparseArrayC:
+    int key
+    float val
+
 
 cdef struct FeatureC:
     int i
