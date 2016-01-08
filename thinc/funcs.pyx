@@ -1,7 +1,7 @@
 # cython: profile=True
 # cython: cdivision=True
 
-from .structs cimport NeuralNetC, FeatureC
+from .structs cimport NeuralNetC
 from .structs cimport IteratorC
 
 from .blas cimport MatVec, VecVec, Vec
@@ -92,7 +92,7 @@ cdef class NN:
     @staticmethod
     cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
         set_input(eg.fwd_state[0],
-            eg, nn)
+            eg.atoms, eg.nr_atom, nn)
         NN.forward(eg.fwd_state,
             eg.features, eg.nr_feat, nn)
         set_scores(eg, nn)
@@ -449,6 +449,22 @@ cdef void d_log_loss(
     cdef int i
     for i in range(nr_out):
         loss[i] = scores[i] - (costs[i] == 0)
+
+
+cdef void set_input(
+    float* out,
+    const uint64_t* keys,
+    int nr_key,
+        const float* defaults,
+        int length,
+        const MapC* table
+) nogil:
+    for i in range(nr_key):
+        emb = <const float*>Map_get(table, keys[i])
+        if emb == NULL:
+            emb = defaults
+        VecVec.add_i(out, 
+            emb, 1.0, length)
 
 
 cdef void insert_sparse(
