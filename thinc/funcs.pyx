@@ -1,5 +1,27 @@
+# cython: profile=True
+# cython: cdivision=True
+
 from .structs cimport NeuralNetC, FeatureC
 from .structs cimport IteratorC
+
+from .blas cimport MatVec, VecVec, Vec
+
+from .structs cimport do_iter_t
+from .structs cimport do_feed_fwd_t
+from .structs cimport do_end_fwd_t
+from .structs cimport do_begin_fwd_t
+from .structs cimport do_begin_bwd_t
+from .structs cimport do_end_bwd_t
+from .structs cimport do_feed_bwd_t
+
+
+cdef extern from "math.h" nogil:
+    float expf(float x)
+    float sqrtf(float x)
+
+
+DEF EPS = 0.000001 
+DEF ALPHA = 1.0
 
 
 cdef class NN:
@@ -12,40 +34,41 @@ cdef class NN:
     ) nogil:
         forward(fwd,
             nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, feats, nr_feat,
-            nn.hyper_params, nn.iterate, nn.begin_fwd, nn.end_fwd, nn.feed_fwd)
+            &nn.alpha, nn.iterate, nn.begin_fwd, nn.feed_fwd, nn.end_fwd)
 
     @staticmethod
     cdef void backward(
         float* bwd,
             const float* fwd,
+            const float* costs,
             const NeuralNetC* nn
     ) nogil:
         backward(bwd,
             fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, costs,
-            nn.hyper_params, nn.iterate, nn.begin_bwd, nn.end_bwd, nn.feed_bwd)
+            &nn.alpha, nn.iterate, nn.begin_bwd, nn.feed_bwd, nn.end_bwd)
 
 
 cdef void forward(
     float* fwd,
         const int* widths,
         int nr_layer,
-        const FeatureC* feats,
-        int nr_feat,
         const float* weights,
         int nr_weight,
-        const ConstantsC* hyper_params,
+        const FeatureC* feats,
+        int nr_feat,
+        const void* _ext,
         do_iter_t iterate,
         do_begin_fwd_t begin_fwd,
-        do_end_fwd_t end_fwd
         do_feed_fwd_t feed_fwd,
+        do_end_fwd_t end_fwd
 ) nogil:
     cdef IteratorC it = begin_fwd(fwd,
-            widths, nr_layer, weights, nr_weight, features, nr_feat, hyper_params)
+            widths, nr_layer, weights, nr_weight, feats, nr_feat, _ext)
     while iterate(<void*>&it, widths, nr_layer-2, 1):
         feed_fwd(fwd,
-            widths, nr_layer, weights, nr_weight, hyper_params, &it)
+            widths, nr_layer, weights, nr_weight, _ext, &it)
     end_fwd(&it, fwd,
-        widths, nr_layer, weights, nr_weight, hyper_params)
+        widths, nr_layer, weights, nr_weight, _ext)
 
 
 cdef void backward(
@@ -56,22 +79,22 @@ cdef void backward(
         const float* weights,
         int nr_weight,
         const float* costs,
-        const ConstantsC* hyper_params,
+        const void* _ext,
         do_iter_t iterate,
         do_begin_bwd_t begin_bwd,
-        do_feed_bwd_t step_bwd,
+        do_feed_bwd_t feed_bwd,
         do_end_bwd_t end_bwd
 ) nogil:
     '''Iteratatively apply the step_bwd function, to back-prop through the network.
     Fills partial derivatives for each layer into bwd, so that the gradient can
     be computed. Updates estimates of normalization parameters in b_norms.'''
     cdef IteratorC it = begin_bwd(bwd,
-                            fwd, widths, nr_layer, weights, nr_weight, hyper_params)
+            fwd, widths, nr_layer, weights, nr_weight, _ext)
     while iterate(&it, widths, nr_layer, -1):
         feed_bwd(bwd,
-            fwd, widths, nr_layer, weights, nr_weight, hyper_params, &it)
+            fwd, widths, nr_layer, weights, nr_weight, &it, _ext)
     end_bwd(&it, bwd,
-        fwd, widths, nr_layer, weights, nr_weight, hyper_params)
+        fwd, widths, nr_layer, weights, nr_weight, _ext)
 
 
 cdef void dotPlus_normalize_dotPlus_ELU(
@@ -80,26 +103,27 @@ cdef void dotPlus_normalize_dotPlus_ELU(
         int nr_layer,
         const float* weights,
         int nr_weight,
-        const ConstantsC* hyper_params,
-        const void* _it
+        const void* _it,
+        const void* _ext
 ) nogil:
-    it = <IteratorC*>_it
+    it = <const IteratorC*>_it
+    hyper_params = <const float*>_ext
     cdef float* here = fwd + it.here
     cdef float* above = fwd + it.above
+    cdef float* Ex = fwd + it.Ex
+    cdef float* Vx = fwd + it.Vx
     cdef const float* below = fwd + it.below
     cdef const float* W = weights + it.W
     cdef const float* bias = weights + it.bias
     cdef const float* gamma = weights + it.gamma
     cdef const float* beta = weights + it.beta
-    cdef const float* Ex = fwd + it.Ex
-    cdef const float* Vx = fwd + it.Vx
     cdef int nr_in = it.nr_in
     cdef int nr_out = it.nr_out
-    cdef float ema_speed = hyper_params.alpha
+    cdef float ema_speed = hyper_params[0]
     dot_plus(here,
         below, W, bias, nr_out, nr_in)
     normalize(here, Ex, Vx,
-        here, nr_out, ema_speed) 
+        nr_out, ema_speed) 
     dot_plus(above,
         here, gamma, beta, nr_out, 1)
     ELU(above,
@@ -113,15 +137,16 @@ cdef void dELU_dDot_dNormalize_dDot(
         int nr_layer,
         const float* weights,
         int nr_weight,
-        const ConstantsC* hyper_params
-        const void* _it
+        const void* _it,
+        const void* _ext
 ) nogil:
-    it = <IteratorC*>it
-    cdef float* dEdX = &bwd[it.below]
-    cdef float* dEdXh = &bwd[it.here]
-    cdef float* dEdY = &bwd[it.above]
-    cdef float* E_dEdXh = &bwd[it.E_dEdXh]
-    cdef float* E_dEdXh_dot_Xh = &bwd[it.E_dEdXh_dot_Xh]
+    it = <const IteratorC*>_it
+    hyper_params = <const float*>_ext
+    cdef float* dX = &bwd[it.below]
+    cdef float* dXh = &bwd[it.here]
+    cdef float* dY = &bwd[it.above]
+    cdef float* E_dXh = &bwd[it.E_dXh]
+    cdef float* E_dXh_Xh = &bwd[it.E_dXh_Xh]
     cdef const float* Y = &fwd[it.above]
     cdef const float* Xh = &fwd[it.here]
     cdef const float* Vx = &fwd[it.Vx]
@@ -129,15 +154,15 @@ cdef void dELU_dDot_dNormalize_dDot(
     cdef const float* gamma = &weights[it.gamma]
     cdef int nr_out = it.nr_out
     cdef int nr_in = it.nr_in
-    cdef float ema_speed = hyper_params.ema_speed
-    d_ELU(dEdY,
+    cdef float ema_speed = hyper_params[0]
+    d_ELU(dY,
         Y, nr_out) # Y = ELU(dot(G, BN(W*x+b))), i.e. our layer's final output
-    d_dot(dEdXh,
-        dEdY, gamma, nr_out, 1)
-    d_normalize(dEdXh, E_dEdXh, E_dEdXh_dot_Xh,
+    d_dot(dXh,
+        dY, gamma, nr_out, 1)
+    d_normalize(dXh, E_dXh, E_dXh_Xh,
         Xh, Vx, nr_out, ema_speed)
-    d_dot(dEdX,
-        dEdXh, W, nr_out, nr_in)
+    d_dot(dX,
+        dXh, W, nr_out, nr_in)
 
 
 cdef void dot_plus(
@@ -155,25 +180,27 @@ cdef void dot_plus(
 
 
 cdef void d_dot(
-    float* d_out,
-        const float*,
-        const float* d_in,
+    float* btm_diff,
+        const float* top_diff,
+        const float* W,
         int nr_out,
         int nr_wide
 ) nogil:
-    MatVec.T_dot(delta_out,
-        W, delta_in, nr_out, nr_wide)
+    MatVec.T_dot(btm_diff,
+        W, top_diff, nr_out, nr_wide)
 
 
-cdef void ELU(weight_t* out, int nr_out) nogil:
+cdef void ELU(float* out, int nr_out) nogil:
     cdef int i
     for i in range(nr_out):
         if out[i] < 0:
-            out[i] = ALPHA * (expf(out[i])-1)
+            out[i] = ALPHA * (expf(out[i]) - 1)
 
 
 cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
     # Backprop the ELU transformation
+    # Note that this is over the function _output_, not the function
+    # _input_!
     for i in range(n):
         if signal_out[i] < 0:
             delta[i] *= signal_out[i] + ALPHA
@@ -193,17 +220,17 @@ cdef void normalize(
     cdef float diff
     cdef float incr
     for i in range(n):
-        diff = x[i] - E_x[i]
+        diff = x[i] - Ex[i]
         incr = alpha * diff
-        V_x[i] = (1.0 - alpha) * (V_x[i] + diff * incr)
-        E_x[i] += incr
+        Vx[i] = (1.0 - alpha) * (Vx[i] + diff * incr)
+        Ex[i] += incr
     # Normalize
     for i in range(n):
-        x[i] = (x[i] - Ex[i]) / sqrf(V_x[i] + EPS)
+        x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
 
 
 cdef void d_normalize(
-    float* dE,
+    float* bwd,
     float* E_dEdXh,
     float* E_dEdXh_dot_Xh,
         const float* Xh,
@@ -212,24 +239,24 @@ cdef void d_normalize(
         float alpha
 ) nogil:
     # Update EMA estimate of mean(dL/dX_hat)
-    Vec.mul_i(E_bwd,
+    Vec.mul_i(E_dEdXh,
         alpha, n)
-    VecVec.add_i(E_bwd,
+    VecVec.add_i(E_dEdXh,
         bwd, 1-alpha, n)
     # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
-    Vec.mul_i(E_bwd_dot_fwd,
+    Vec.mul_i(E_dEdXh_dot_Xh,
         alpha, n)
     for i in range(n):
-        E_bwd_dot_fwd[i] += (1-alpha) * bwd[i] * fwd[i]
+        E_dEdXh_dot_Xh[i] += (1-alpha) * bwd[i] * Xh[i]
     # Simplification taken from Caffe, I think by cdoersch
     # if X' = (X-mean(X))/sqrt(var(X)+eps), then
     # dE/dX =
-    #   (dE/dX' - mean(dE/dX') - mean(dE/dX' * X') * X')
+    #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
     #     ./ sqrt(var(X) + eps)
-    # bwd is dE/dX' to start with. We change it to dE/dX in-place.
+    # bwd is dE/dXh to start with. We change it to dE/dX in-place.
     for i in range(n):
         bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
-        bwd[i] /= c_sqrt(V_x[i] + EPS)
+        bwd[i] /= sqrtf(Vx[i] + EPS)
 
 
 cdef void softmax(
