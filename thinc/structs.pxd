@@ -1,6 +1,5 @@
-from libc.stdint cimport int16_t, int32_t, uint64_t
+from libc.stdint cimport int16_t, int, uint64_t
 from preshed.maps cimport MapStruct
-from .typedefs cimport weight_t, atom_t
 
 
 include "compile_time_constants.pxi"
@@ -8,82 +7,166 @@ include "compile_time_constants.pxi"
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
-ctypedef void (*update_f_t)(OptimizerC* opt, weight_t* mtm, weight_t* gradient,
-        weight_t* weights, weight_t scale, int nr) nogil
+
+ctypedef void (*do_update_t)(OptimizerC* opt, float* mtm, float* gradient,
+        float* weights, float scale, int nr) nogil
+
+
+ctypedef int (*do_iter_t)(
+    void* _it,
+        const int* widths,
+        int nr_layer,
+        int step_size
+) nogil
+
+
+ctypedef void (*do_feed_fwd_t)(
+    float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const void* _it,
+        const void* _ext
+) nogil
+ 
+
+ctypedef IteratorC (*do_begin_fwd_t)(
+    float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const FeatureC* features,
+        int nr_feat,
+        const void* _ext
+) nogil
+
+
+ctypedef void (*do_end_fwd_t)(
+    void* _it, float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const void* _ext
+) nogil
+
+
+ctypedef IteratorC (*do_begin_bwd_t)(
+    float* bwd,
+        const float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        const int nr_weight,
+        const void* _ext
+) nogil
+
+
+ctypedef void (*do_feed_bwd_t)(
+    float* bwd,
+        const float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const void* _it,
+        const void* _ext
+) nogil
+
+
+ctypedef void (*do_end_bwd_t)(
+    void* _it, float* bwd,
+        const float* fwd,
+        const int* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const void* _ext
+) nogil
 
 
 cdef struct OptimizerC:
-    update_f_t update
-    weight_t* params
+    do_update_t update
+    float* params
     
     EmbeddingC* embed_params
     void* ext
 
     int nr
-    weight_t mu
-    weight_t eta
-    weight_t eps
-    weight_t rho
+    float mu
+    float eta
+    float eps
+    float rho
 
 
 cdef struct EmbeddingC:
     MapC** tables
-    weight_t** defaults
+    float** defaults
     int* offsets
     int* lengths
     int nr
 
 
 cdef struct NeuralNetC:
+    do_iter_t iterate
+    do_begin_fwd_t begin_fwd
+    do_end_fwd_t end_fwd
+    do_feed_fwd_t feed_fwd
+    do_begin_bwd_t begin_bwd
+    do_feed_bwd_t feed_bwd
+    do_end_bwd_t end_bwd
+
     int* widths
-    weight_t* weights
-    weight_t* gradient
+    float* weights
+    float* gradient
     
-    weight_t** fwd_norms
-    weight_t** bwd_norms
+    float** fwd_norms
+    float** bwd_norms
     
     OptimizerC* opt
 
     EmbeddingC* embeds
 
-    int32_t nr_layer
-    int32_t nr_weight
-    int32_t nr_embed
-
-    weight_t alpha
-    weight_t eta
-    weight_t rho
-    weight_t eps
-
-
-cdef struct ExampleC:
-    int* is_valid
-    weight_t* costs
-    atom_t* atoms
-    FeatureC* features
-    weight_t* scores
-
-    weight_t* fine_tune
-    
-    weight_t** fwd_state
-    weight_t** bwd_state
-
-    int nr_class
-    int nr_atom
-    int nr_feat
-    
-    int guess
-    int best
-    int cost
-
-
-cdef struct BatchC:
-    ExampleC* egs
-    weight_t* gradient
-    int nr_eg
+    int nr_layer
     int nr_weight
+    int nr_embed
+
+    float alpha
+    float eta
+    float rho
+    float eps
 
 
+#cdef struct ExampleC:
+#    int* is_valid
+#    float* costs
+#    atom_t* atoms
+#    FeatureC* features
+#    float* scores
+#
+#    float* fine_tune
+#    
+#    float** fwd_state
+#    float** bwd_state
+#
+#    int nr_class
+#    int nr_atom
+#    int nr_feat
+#    
+#    int guess
+#    int best
+#    int cost
+#
+#
+#cdef struct BatchC:
+#    ExampleC* egs
+#    float* gradient
+#    int nr_eg
+#    int nr_weight
+#
+#
 # Iteration controller
 cdef struct IteratorC:
     int nr_out
@@ -102,24 +185,25 @@ cdef struct IteratorC:
     int E_dXh_Xh
 
 
-cdef struct SparseArrayC:
-    int32_t key
-    weight_t val
-
+#cdef struct SparseArrayC:
+#    int key
+#    float val
+#
+#
 
 cdef struct FeatureC:
-    int32_t i
+    int i
     uint64_t key
-    weight_t val
+    float val
 
 
-cdef struct SparseAverageC:
-    SparseArrayC* curr
-    SparseArrayC* avgs
-    SparseArrayC* times
-
-
-cdef struct TemplateC:
-    int[MAX_TEMPLATE_LEN] indices
-    int length
-    atom_t[MAX_TEMPLATE_LEN] atoms
+#cdef struct SparseAverageC:
+#    SparseArrayC* curr
+#    SparseArrayC* avgs
+#    SparseArrayC* times
+#
+#
+#cdef struct TemplateC:
+#    int[MAX_TEMPLATE_LEN] indices
+#    int length
+#    atom_t[MAX_TEMPLATE_LEN] atoms

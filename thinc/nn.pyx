@@ -11,8 +11,9 @@ from preshed.maps cimport key_t
 
 from .typedefs cimport weight_t, atom_t, feat_t
 from .blas cimport VecVec
-from .eg cimport Example, Batch
+from .eg cimport Example
 from .structs cimport ExampleC, OptimizerC, MapC
+from .funcs cimport NN
 
 import numpy
 
@@ -30,67 +31,14 @@ cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
                  weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
-        self.c.alpha = alpha
-
-        self.c.nr_layer = len(widths)
-        self.c.widths = <int*>self.mem.alloc(self.c.nr_layer, sizeof(self.c.widths[0]))
-        cdef int i
-        for i, width in enumerate(widths):
-            self.c.widths[i] = width
-
-        self.c.nr_weight = 0
-        for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += NN.nr_weight(self.c.widths[i+1], self.c.widths[i])
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-
-        self.c.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
-        Adam.init(self.c.opt, self.mem,
-            self.c.nr_weight, self.c.widths, self.c.nr_layer, eta, eps, rho)
-
-        if embed is not None:
-            table_widths, features = embed
-            self.c.embeds = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
-            Embedding.init(self.c.embeds, self.mem,
-                table_widths, features)
-            self.c.opt.embed_params = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
-            Embedding.init(self.c.opt.embed_params, self.mem,
-                table_widths, features)
-            for i in range(self.c.opt.embed_params.nr):
-                # Ensure momentum terms start at zero
-                memset(self.c.opt.embed_params.defaults[i],
-                    0, sizeof(weight_t) * self.c.opt.embed_params.lengths[i])
-        
-        self.c.fwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
-        self.c.bwd_norms = <weight_t**>self.mem.alloc(self.c.nr_layer*2, sizeof(void*))
-        fan_in = 1.0
-        cdef IteratorC it
-        it.i = 0
-        while NN.iter(&it, self.c.widths, self.c.nr_layer-1, 1):
-            # Allocate arrays for the normalizers
-            self.c.fwd_norms[it.Ex] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.fwd_norms[it.Vx] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.bwd_norms[it.E_dXh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            self.c.bwd_norms[it.E_dXh_Xh] = <weight_t*>self.mem.alloc(it.nr_out, sizeof(weight_t))
-            # Don't initialize the softmax weights
-            if (it.i+1) >= self.c.nr_layer:
-                break
-            # Do He initialization, and allow bias to be initialized to a constant.
-            # Initialize the batch-norm scale, gamma, to 1.
-            Initializer.normal(&self.c.weights[it.W],
-                0.0, numpy.sqrt(2.0 / fan_in), it.nr_out * it.nr_in)
-            Initializer.constant(&self.c.weights[it.bias],
-                bias, it.nr_out)
-            Initializer.constant(&self.c.weights[it.gamma],
-                1.0, it.nr_out)
-            fan_in = it.nr_out
         self.eg = Example(self.widths)
+        NN.init(&self.c, mem)
 
     def __call__(self, features):
         cdef Example eg = self.eg
         eg.wipe(self.widths)
         eg.set_features(features)
-        NeuralNet.predictC(&eg.c, 1,
+        NN.predict_examples(&eg.c, 1,
             &self.c)
         return eg
    
@@ -102,14 +50,13 @@ cdef class NeuralNet:
         eg.set_features(features)
         eg.set_label(y)
 
-        NeuralNet.predictC(&eg.c,
-            1, &self.c)
-        NeuralNet.insert_embeddingsC(self.c.embeds, self.mem,
-            &eg.c, 1)
-        Adadelta.insert_embeddings(self.c.opt.embed_params, self.mem,
-            &eg.c, 1)
-        NeuralNet.updateC(&self.c, self.c.gradient, &eg.c,
-            1)
+        NN.predict_example(&eg.c, &self.c)
+        NN.insert_embeddings(self.c.embeds, self.mem,
+            &eg.c)
+        NN.insert_embeddings(self.c.opt.embed_params, self.mem,
+            &eg.c)
+        NN.update_dense(&self.c, self.c.gradient, &eg.c)
+        NN.update_sparse(&self.c, self.c.gradient, &eg.c)
         return eg
  
     def Example(self, input_, label=None):

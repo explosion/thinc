@@ -138,19 +138,20 @@ cdef class NN:
         return nr_out * nr_in + nr_out * 3
 
     @staticmethod
-    cdef inline void forward(weight_t** fwd, weight_t** norms,
+    cdef inline void forward(activation_t feed_forward, weight_t** fwd, weight_t** norms,
                         const weight_t* weights,
-                        const int* widths, int n, weight_t alpha) nogil:
+                        const int* widths, int n, weight_t alpha,
+                        activation_t activate) nogil:
         cdef IteratorC it
         it.i = 0
         cdef const weight_t* residual = NULL
         cdef int width = 0
         while NN.iter(&it, widths, n-2, 1):
-            ELU.forward(fwd[it.above], fwd[it.here],
-                fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-        Fwd.linear(fwd[it.above],
+            activate(fwd, norms,
+                it, weights, widths, n, alpha)
+        linear(fwd[it.above],
             fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
-        Fwd.softmax(fwd[it.above],
+        softmax(fwd[it.above],
             it.nr_out)
 
     @staticmethod
@@ -218,57 +219,57 @@ cdef class NN:
             return False
 
 
-cdef class Fwd:
-    @staticmethod
-    cdef inline void linear(weight_t* out,
-            const weight_t* in_, const weight_t* W, const weight_t* bias,
-            int nr_out, int nr_wide) nogil:
-        MatVec.dot(out,
-            W, in_, nr_out, nr_wide)
-        VecVec.add_i(out,
-            bias, 1.0, nr_out)
+cdef inline void activate(weight_t** fwd, weight_t** for_bn,
+        const weight_t* weights, int n, weight_t alpha, IteratorC it) nogil:
+    above = fwd[it.above]
+    here = fwd[it.here]
+    below = fwd[it.below]
+    Ex = for_bn[it.Ex]
+    Vx = for_bn[it.Vx]
+    W = &weights[it.W]
+    bias = &weights[it.bias]
+    gamma = &weights[it.gamma]
+    nr_in = it.nr_in
+    nr_out = it.nr_out
 
-    @staticmethod
-    cdef inline void normalize(weight_t* x,
-            const weight_t* E_x, const weight_t* V_x, int n) nogil:
-        for i in range(n):
-            x[i] = (x[i] - E_x[i]) / c_sqrt(V_x[i] + EPS)
+    update_normalizers(Ex, Vx,
+        below, n, alpha)
+    normalize(below, here,
+        Ex, Vx, gamma, beta, nr_in) 
+    linear(above,
+        below, W, bias, nr_out, nr_in)
+    ELU(above, here,
+        below, W, bias, nr_out, nr_in)
 
-    @staticmethod
-    cdef inline void estimate_normalizers(weight_t* E_x, weight_t* V_x,
-            const weight_t* x, weight_t alpha, int n) nogil:
-        # Upd EMA estimate of mean and variance
-        # See eq at the end of this:
-        # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
-        cdef int i
-        cdef weight_t diff, incr
-        for i in range(n):
-            diff = x[i] - E_x[i]
-            incr = alpha * diff
-            V_x[i] = (1.0 - alpha) * (V_x[i] + diff * incr)
-            E_x[i] += incr
 
-    @staticmethod
-    cdef inline void residual(weight_t* out,
-            const weight_t* const* prev, const int* widths, int i) nogil:
-        pass
-        #if nr_in == nr_out:
-        #    VecVec.add_i(out,
-        #        in_, 1.0, nr_out)
+cdef inline void backprop(weight_t** bwd, weight_t** for_bn,
+    const weight_t* weights, int n, weight_t alpha, IteratorC it) nogil:
+    d_in = bwd[it.above]
+    d_out = bwd[it.below]
+    W = &weights[it.W]
+    bias = &weights[it.bias]
+    beta = &weights[it.beta]
+    gamma = &weights[it.gamma]
 
-    @staticmethod
-    cdef inline void softmax(weight_t* out,
-            int nr_out) nogil:
-        #w = exp(w - max(w))
-        Vec.add_i(out,
-            -Vec.max(out, nr_out), nr_out)
-        Vec.exp_i(out,
-            nr_out)
-        #w = w / sum(w)
-        cdef weight_t norm = Vec.sum(out, nr_out)
-        if norm != 0:
-            Vec.div_i(out,
-                norm, nr_out)
+    MatVec.T_dot(d_out,
+        W, d_in, nr_out, nr_wide)
+    # Stash dE/dY for backprop to gamma and beta
+    memcpy(d_cache,
+        d_out, sizeof(d_cache[0]) * nr_wide)
+    # Convert dE/dY to dE/dXh in place
+    VecVec.mul_i(d_out,
+        gamma, nr_wide)
+    update_denormalizers(dEdXh, dEdXh_dot_Xh,
+        d_out, Xh, alpha, nr_wide)
+    # Convert dE/dXh to dE/dX in place
+    # i.e. backprop through the normalization
+    denormalize(d_out,
+        dEdXh, dEdXh_dot_Xh, Xh, Vx, nr_wide)
+    # Backprop the ELU transformation
+    # Does this have to be above??
+    for i in range(nr_wide):
+        if x_norm[i] < 0:
+            delta_out[i] *= signal_in[i] + ALPHA
 
 
 cdef class ELU:
@@ -305,26 +306,7 @@ cdef class ELU:
                                    weight_t* norm1, weight_t* norm2,
             const weight_t* d_in, const weight_t* x, const weight_t* xh,
             const weight_t* gamma) nogil:
-        MatVec.T_dot(d_out,
-            W, d_in, nr_out, nr_wide)
-        # Stash dE/dY for backprop to gamma and beta
-        memcpy(d_cache,
-            d_out, sizeof(d_cache[0]) * nr_wide)
-        # Convert dE/dY to dE/dXh in place
-        VecVec.mul_i(d_out,
-            gamma, nr_wide)
-        Bwd.update_normalizers(norm1, norm2,
-            d_out, xh, alpha, nr_wide)
-        # Convert dE/dXh to dE/dX in place
-        # i.e. backprop through the normalization
-        Bwd.normalize(d_out,
-            norm1, norm2, xh, V)
-        # Backprop the ELU transformation
-        # Does this have to be above??
-        for i in range(nr_wide):
-            if x_norm[i] < 0:
-                delta_out[i] *= signal_in[i] + ALPHA
-
+    
     @staticmethod
     cdef inline void forward(weight_t* out, weight_t* tmp,
             const weight_t* in_, const weight_t* W, const weight_t* bias,
@@ -401,18 +383,67 @@ cdef class Rectifier:
                 delta_out[i] = 0
     
 
-cdef class Bwd:
-    @staticmethod
-    cdef inline void softmax(weight_t* loss,
-            const weight_t* costs, const weight_t* scores, int nr_out) nogil:
-        # This assumes only one true class
-        cdef int i
-        for i in range(nr_out):
-            loss[i] = scores[i] - (costs[i] == 0)
+cdef inline void linear(weight_t* out,
+        const weight_t* in_, const weight_t* W, const weight_t* bias,
+        int nr_out, int nr_wide) nogil:
+    MatVec.dot(out,
+        W, in_, nr_out, nr_wide)
+    VecVec.add_i(out,
+        bias, 1.0, nr_out)
 
-    @staticmethod
-    cdef inline void normalize(weight_t* bwd,
-            const weight_t* E_dEdXh, const weight_t* E_dEdXh_dot_Xh,
+
+cdef inline void normalize(weight_t* x, weight_t* Ex, weight_t* Vx,
+        int n, weight_t alpha) nogil:
+    for i in range(n):
+        x[i] = (x[i] - Ex[i]) / sqrf(V_x[i] + EPS)
+
+
+cdef inline void update_normalizers(weight_t* Ex, weight_t* Vx,
+        const weight_t* x, weight_t alpha, int n) nogil:
+    # Upd EMA estimate of mean and variance
+    # See eq at the end of this:
+    # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
+    cdef int i
+    cdef weight_t diff, incr
+    for i in range(n):
+        diff = x[i] - E_x[i]
+        incr = alpha * diff
+        V_x[i] = (1.0 - alpha) * (V_x[i] + diff * incr)
+        E_x[i] += incr
+
+
+cdef inline void residual(weight_t* out,
+        const weight_t* const* prev, const int* widths, int i) nogil:
+    pass
+    #if nr_in == nr_out:
+    #    VecVec.add_i(out,
+    #        in_, 1.0, nr_out)
+
+
+cdef inline void softmax(weight_t* out,
+        int nr_out) nogil:
+    #w = exp(w - max(w))
+    Vec.add_i(out,
+        -Vec.max(out, nr_out), nr_out)
+    Vec.exp_i(out,
+        nr_out)
+    #w = w / sum(w)
+    cdef weight_t norm = Vec.sum(out, nr_out)
+    if norm != 0:
+        Vec.div_i(out,
+            norm, nr_out)
+
+
+
+cdef inline void delta_log_loss(weight_t* loss,
+        const weight_t* costs, const weight_t* scores, int nr_out) nogil:
+    # This assumes only one true class
+    cdef int i
+    for i in range(nr_out):
+        loss[i] = scores[i] - (costs[i] == 0)
+
+cdef inline void normalize(weight_t* bwd,
+        const weight_t* E_dEdXh, const weight_t* E_dEdXh_dot_Xh,
             const weight_t* Xh, const weight_t* V_x, int n) nogil:
         # Simplification taken from Caffe, I think by cdoersch
         # if X' = (X-mean(X))/sqrt(var(X)+eps), then
@@ -510,211 +541,3 @@ cdef class Initializer:
     cdef inline void constant(weight_t* weights, weight_t value, int n) nogil:
         for i in range(n):
             weights[i] = value
-
-
-cdef class VanillaSGD:
-    @staticmethod
-    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = VanillaSGD.update
-        self.eta = eta
-        self.eps = eps
-        self.rho = rho
-        self.params = NULL
-        self.ext = NULL
-        self.nr = 0
-
-    @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
-                            weight_t* gradient,
-                            weight_t scale, int nr_weight) nogil:
-        '''
-        Update weights with vanilla SGD
-        '''
-        Vec.mul_i(gradient,
-            scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        if opt.rho != 0:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-        VecVec.add_i(weights,
-            gradient, -opt.eta, nr_weight)
-
-
-cdef class Momentum:
-    @staticmethod
-    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Momentum.update
-        self.eta = eta
-        self.eps = eps
-        self.rho = rho
-        self.mu = 0.2
-        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
-        self.ext = NULL
-        self.nr = 0
-
-    @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* mtm, weight_t* weights,
-                            weight_t* gradient,
-                            weight_t scale, int nr_weight) nogil:
-        '''
-        Update weights with classical momentum SGD
-        '''
-        Vec.mul_i(gradient,
-            scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        if opt.rho != 0:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-        Vec.mul_i(mtm,
-            opt.mu, nr_weight)
-        VecVec.add_i(mtm,
-            gradient, -1.0, nr_weight)
-        VecVec.add_i(weights,
-            gradient, -opt.eta, nr_weight)
-
-
-cdef class Adagrad:
-    @staticmethod
-    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Adagrad.update
-        self.eta = eta
-        self.eps = eps
-        self.rho = rho
-        self.params = <weight_t*>mem.alloc(nr_weight, sizeof(weight_t))
-        self.ext = NULL
-        self.nr = 0
-
-    @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* params, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
-        cdef weight_t eps = 1e-6
-        Vec.mul_i(gradient,
-            scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        cdef int i
-        if opt.rho != 0:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-
-        VecVec.add_pow_i(opt.params,
-            gradient, 2.0, nr_weight)
-        for i in range(nr_weight):
-            gradient[i] *= opt.eta / (c_sqrt(opt.params[i]) + opt.eps)
-        # Make the (already scaled) update
-        VecVec.add_i(weights,
-            gradient, -1.0, nr_weight)
-
-
-cdef class Adadelta:
-    @staticmethod
-    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Adadelta.update
-        self.eta = eta
-        self.eps = eps
-        self.rho = rho
-        self.params = <weight_t*>mem.alloc(nr_weight * 2, sizeof(weight_t))
-        self.ext = NULL
-        self.nr = 0
-
-    @staticmethod
-    cdef inline void update(OptimizerC* opt, weight_t* avg_then_step, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
-        cdef weight_t alpha = 0.90
-        Vec.mul_i(gradient,
-            scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        cdef int i
-        if opt.rho != 0:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-        avg = avg_then_step
-        step = &avg_then_step[nr_weight]
-        Vec.mul_i(avg,
-            alpha, nr_weight)
-        for i in range(nr_weight):
-            avg[i] += (1-alpha) * gradient[i] ** 2
-        for i in range(nr_weight):
-            gradient[i] *= c_sqrt(step[i] + EPS) / c_sqrt(avg[i] + EPS)
-        Vec.mul_i(step,
-            alpha, nr_weight)
-        VecVec.add_i(weights,
-            gradient, -1.0, nr_weight)
-
-    @staticmethod
-    cdef inline void insert_embeddings(EmbeddingC* layer, Pool mem,
-            const ExampleC* egs, int nr_eg) except *:
-        for i in range(nr_eg):
-            eg = &egs[i]
-            for j in range(eg.nr_feat):
-                feat = eg.features[j]
-                emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
-                if emb is NULL:
-                    emb = <weight_t*>mem.alloc(layer.lengths[feat.i]*2, sizeof(weight_t))
-                    Map_set(mem, layer.tables[feat.i],
-                        feat.key, emb)
-
-
-cdef class Adam:
-    @staticmethod
-    cdef inline void init(OptimizerC* self, Pool mem, int nr_weight, int* widths,
-            int nr_layer, weight_t eta, weight_t eps, weight_t rho) except *:
-        self.update = Adam.update
-        self.eta = eta
-        self.eps = eps
-        self.rho = rho
-        self.params = <weight_t*>mem.alloc(nr_weight * 2, sizeof(weight_t))
-        self.ext = NULL
-        self.nr = 0
-
-    @staticmethod
-    @cython.cdivision(True)
-    cdef inline void update(OptimizerC* opt, weight_t* moments, weight_t* weights,
-            weight_t* gradient, weight_t scale, int nr_weight) nogil:
-        cdef weight_t beta1 = 0.90
-        cdef weight_t beta2 = 0.999
-        Vec.mul_i(gradient,
-            scale, nr_weight)
-        # Add the derivative of the L2-loss to the gradient
-        cdef int i
-        if opt.rho != 0:
-            VecVec.add_i(gradient,
-                weights, opt.rho, nr_weight)
-        # This is all vectorized and in-place, so it's hard to read. See the
-        # paper.
-        mom1 = moments
-        mom2 = &moments[nr_weight]
-        Vec.mul_i(mom1,
-            beta1, nr_weight)
-        VecVec.add_i(mom1,
-            gradient, 1-beta1, nr_weight)
-        Vec.mul_i(mom2,
-            beta2, nr_weight)
-        VecVec.mul_i(gradient,
-            gradient, nr_weight)
-        VecVec.add_i(mom2,
-            gradient, 1-beta2, nr_weight)
-        Vec.div(gradient,
-            mom1, 1-beta1, nr_weight)
-        for i in range(nr_weight):
-            gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
-        Vec.mul_i(gradient,
-            opt.eta, nr_weight)
-        VecVec.add_i(weights,
-            gradient, -1.0, nr_weight)
-
-    @staticmethod
-    cdef inline void insert_embeddings(EmbeddingC* layer, Pool mem,
-            const ExampleC* egs, int nr_eg) except *:
-        for i in range(nr_eg):
-            eg = &egs[i]
-            for j in range(eg.nr_feat):
-                feat = eg.features[j]
-                emb = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
-                if emb is NULL:
-                    emb = <weight_t*>mem.alloc(layer.lengths[feat.i]*2, sizeof(weight_t))
-                    Map_set(mem, layer.tables[feat.i],
-                        feat.key, emb)

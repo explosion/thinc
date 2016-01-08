@@ -26,6 +26,91 @@ DEF ALPHA = 1.0
 
 cdef class NN:
     @staticmethod
+    def void init(
+        NeuralNetC* nn,
+            widths,
+            embed=None,
+            float eta=0.005,
+            float eps=1e-6,
+            float mu=0.2,
+            float rho=1e-4,
+            float bias=0.0,
+            float alpha=0.0
+    ) except *:
+        nn.nr_layer = len(widths)
+        nn.widths = <int*>mem.alloc(nr_layer, sizeof(widths[0]))
+        cdef int i
+        for i, width in enumerate(widths):
+            nn.widths[i] = width
+
+        nn.nr_weight = 0
+        for i in range(nn.nr_layer-1):
+            nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.opt = <OptimizerC*>self.mem.alloc(1, sizeof(OptimizerC))
+        Adam.init(nn.opt, mem,
+            nn.nr_weight, nn.widths, nn.nr_layer, eta, eps, rho)
+        if embed is not None:
+            table_widths, features = embed
+            nn.embeds = <EmbeddingC*>mem.alloc(1, sizeof(EmbeddingC))
+            Embedding.init(nn.embeds, mem,
+                table_widths, features)
+            nn.opt.embed_params = <EmbeddingC*>mem.alloc(1, sizeof(EmbeddingC))
+            Embedding.init(nn.opt.embed_params, mem,
+                table_widths, features)
+            for i in range(nn.opt.embed_params.nr):
+                # Ensure momentum terms start at zero
+                memset(nn.opt.embed_params.defaults[i],
+                    0, sizeof(float) * nn.opt.embed_params.lengths[i])
+        
+        nn.fwd_norms = <float**>mem.alloc(self.c.nr_layer*2, sizeof(void*))
+        nn.bwd_norms = <float**>mem.alloc(self.c.nr_layer*2, sizeof(void*))
+        fan_in = 1.0
+        cdef IteratorC it
+        it.i = 0
+        while NN.iter(&it, nn.widths, nn.nr_layer-1, 1):
+            # Allocate arrays for the normalizers
+            nn.fwd_norms[it.Ex] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
+            nn.fwd_norms[it.Vx] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
+            nn.bwd_norms[it.E_dXh] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
+            nn.bwd_norms[it.E_dXh_Xh] = <float*>self.mem.alloc(it.nr_out, sizeof(float))
+            # Don't initialize the softmax weights
+            if (it.i+1) >= self.c.nr_layer:
+                break
+            # Do He initialization, and allow bias to be initialized to a constant.
+            # Initialize the batch-norm scale, gamma, to 1.
+            Initializer.normal(&self.c.weights[it.W],
+                0.0, numpy.sqrt(2.0 / fan_in), it.nr_out * it.nr_in)
+            Initializer.constant(&self.c.weights[it.bias],
+                bias, it.nr_out)
+            Initializer.constant(&self.c.weights[it.gamma],
+                1.0, it.nr_out)
+            fan_in = it.nr_out
+        self.eg = Example(self.widths)
+
+    @staticmethod
+    cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
+        set_input(eg.fwd_state[0],
+            eg, nn)
+        NN.forward(eg.fwd_state,
+            eg.features, eg.nr_feat, nn)
+        set_scores(eg, nn)
+
+    @staticmethod
+    cdef void train_example(NeuralNetC* nn, Pool mem ExampleC* eg) except *:
+        memset(nn.gradient,
+            0, sizeof(nn.gradient[0]) * nn.nr_weight)
+        NN.predict_example(eg,
+            nn)
+        NN.insert_embeddings(nn.embeds, mem,
+            eg)
+        Adam.insert_embeddings(nn.opt.embed_params, mem,
+            eg, 1)
+        NN.update(nn,
+            nn.gradient, eg)
+     
+    @staticmethod
     cdef void forward(
         float* fwd,
             const FeatureC* feats,
@@ -46,6 +131,44 @@ cdef class NN:
         backward(bwd,
             fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, costs,
             &nn.alpha, nn.iterate, nn.begin_bwd, nn.feed_bwd, nn.end_bwd)
+
+    @staticmethod
+    cdef void update(
+        NeuralNetC* nn,
+            const float* bwd,
+            const FeatureC* feats,
+            int nr_feat
+    ) nogil:
+        set_gradient(nn.gradient,
+            nn.weights, nn.nr_weight, bwd, fwd, nn.widths, nn.nr_layer, &nn.alpha)
+        dense_update(nn.weights, nn.opt.params, nn.gradient,
+            nn.nr_weight, nn.opt.update, nn.opt)
+        sparse_update(nn.embeds.tables, nn.opt.embed_params.tables, gradient,
+            nn.embed.lengths nn.embed.offsets, bwd, feats, nr_feat, nn.opt, nn.opt.update)
+
+    @staticmethod
+    cdef void insert_embeddings(
+        MapC** tables,
+        Pool mem,
+            const int* lengths,
+            const float** defaults,
+            const FeatureC* feats,
+            int nr_feat
+    ) except *:
+        for i in range(nr_feat):
+            emb = <float*>Map_get(tables[feats[i].i], feats[i].key)
+            if emb is NULL:
+                emb = <float*>mem.alloc(lengths[feat.i], sizeof(float))
+                Initializer.normal(emb,
+                    0.0, 1.0, lengths[feats[i].i])
+                # We initialize with the defaults here so that we only have
+                # to insert during training --- on the forward pass, we can
+                # set default. But if we're doing that, the back pass needs
+                # to be dealing with the same representation.
+                memcpy(emb,
+                    defaults[feats[i].i], sizeof(float) * lengths[feats[i].i])
+                Map_set(mem, tables[feats[i].i],
+                    feats[i].key, emb)
 
 
 cdef void forward(
@@ -95,6 +218,58 @@ cdef void backward(
             fwd, widths, nr_layer, weights, nr_weight, &it, _ext)
     end_bwd(&it, bwd,
         fwd, widths, nr_layer, weights, nr_weight, _ext)
+
+
+cdef void dense_update(
+    float* weights,
+    float* gradient,
+    float* moments,
+        const float* const* bwd,
+        const float* const* fwd,
+        const float* widths,
+        int nr_layer,
+        const float* weights,
+        int nr_weight,
+        const void* _ext,
+        do_update_t do_update
+) nogil:
+    cdef IteratorC it
+    it.i = 0
+    while iterate(&it, widths, nr_layer):
+        MatMat.add_outer_i(&gradient[it.W], # Gradient of synapse weights
+            bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
+        VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
+            bwd[it.above], 1.0, it.nr_out)
+        MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
+            bwd[it.here], fwd[it.here], it.nr_out, 1)
+        VecVec.add_i(&gradient[it.beta], # Gradient of betas
+            bwd[it.here], 1.0, it.nr_out)
+    do_update(weights, gradient, moments,
+        nr_weight, _ext)
+
+
+cdef void sparse_update(
+    MapC** weights_tables,
+    MapC** moments_tables,
+    float* tmp,
+        const int* lengths,
+        const int* offsets,
+        const float* gradient,
+        const FeatureC* feats,
+        int nr_feat,
+        const void* _ext
+        do_update_t do_update,
+) nogil:
+    for i in range(nr_feat):
+        # Copy the gradient into the temp buffer, so we can modify it in-place
+        memcpy(tmp,
+            gradient, sizeof(float) * nr_delta)
+        weights = <float*>Map_get(weights_tables[feats[i].i], feats[i].key)
+        moments = <float*>Map_get(moments_tables[feats[i].i], feats[i].key)
+        # These should never be null.
+        if weights is not NULL and moments is not NULL:
+            do_update(weights, momentums, &tmp[offsets[feats[i].i]],
+                feats[i].val, lengths[feats[i].i])
 
 
 cdef void dotPlus_normalize_dotPlus_ELU(
@@ -285,84 +460,3 @@ cdef void d_log_loss(
     cdef int i
     for i in range(nr_out):
         loss[i] = scores[i] - (costs[i] == 0)
-
-#
-#cdef void set_gradient(
-#    float* gradient,
-#        const float* const* bwd,
-#        const float* const* fwd,
-#        const NeuralNetC* nn
-#) nogil:
-#    cdef IteratorC it
-#    it.i = 0
-#    while nn.iter(&it, nn.widths, nn.nr_layer-1, 1):
-#        MatMat.add_outer_i(&gradient[it.W], # Gradient of synapse weights
-#            bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
-#        VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
-#            bwd[it.above], 1.0, it.nr_out)
-#        MatMat.add_outer_i(&gradient[it.gamma], # Gradient of gammas
-#            bwd[it.here], fwd[it.here], it.nr_out, 1)
-#        VecVec.add_i(&gradient[it.beta], # Gradient of betas
-#            bwd[it.here], 1.0, it.nr_out)
-#
-#
-#cdef void update(
-#    NeuralNetC* nn,
-#    float* gradient,
-#        const float* const* bwd,
-#        FeatureC* features,
-#        int nr_feat
-#) nogil: 
-#    nn.opt.update(nn.opt, nn.opt.params, nn.weights, gradient,
-#        1.0, nn.nr_weight)
-#    # Fine-tune the embeddings
-#    if nn.embeds is not NULL and features is not NULL:
-#        Embedding.fine_tune(nn.opt, nn.embeds, eg.fine_tune,
-#            eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
-# 
-#
-#cdef void fine_tune(
-#    OptimizerC* opt,
-#    EmbeddingC* layer,
-#    weight_t* fine_tune,
-#        const weight_t* delta,
-#        int nr_delta,
-#        const FeatureC* features,
-#        int nr_feat
-#) nogil:
-#    for i in range(nr_feat):
-#        # Reset fine_tune, because we need to modify the gradient
-#        memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
-#        feat = features[i]
-#        gradient = &fine_tune[layer.offsets[feat.i]]
-#        weights = <weight_t*>Map_get(layer.tables[feat.i], feat.key)
-#        params = <weight_t*>Map_get(opt.embed_params.tables[feat.i], feat.key)
-#        ## These should never be null.
-#        if weights is not NULL and params is not NULL:
-#            opt.update(opt, params, weights, gradient,
-#                feat.val, layer.lengths[feat.i])
-#
-#
-#cdef void insert_embeddingsC(
-#    EmbeddingC* layer,
-#    Pool mem,
-#        const ExampleC* egs,
-#        int nr_eg)
-#    except *:
-#
-#    for i in range(nr_eg):
-#        eg = &egs[i]
-#        for j in range(eg.nr_feat):
-#            feat = eg.features[j]
-#            emb = <float*>Map_get(layer.tables[feat.i], feat.key)
-#            if emb is NULL:
-#                emb = <float*>mem.alloc(layer.lengths[feat.i], sizeof(float))
-#                Initializer.normal(emb,
-#                    0.0, 1.0, layer.lengths[feat.i])
-#                # We initialize with the defaults here so that we only have
-#                # to insert during training --- on the forward pass, we can
-#                # set default. But if we're doing that, the back pass needs
-#                # to be dealing with the same representation.
-#                #memcpy(emb,
-#                #    layer.defaults[feat.i], sizeof(float) * layer.lengths[feat.i])
-#                Map_set(mem, layer.tables[feat.i], feat.key, emb)
