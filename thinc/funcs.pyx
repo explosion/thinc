@@ -103,10 +103,14 @@ cdef class NN:
             0, sizeof(nn.gradient[0]) * nn.nr_weight)
         NN.predict_example(eg,
             nn)
-        NN.insert_embeddings(nn.embeds, mem,
-            eg)
-        Adam.insert_embeddings(nn.opt.embed_params, mem,
-            eg, 1)
+        for i in range(nn.embeds.nr):
+            insert_sparse(nn.embeds.tables[i], mem,
+                nn.embeds.defaults[i], nn.embeds.lengths[i], eg.atoms, eg.nr_atom)
+            # N.B. If we switch the insert_sparse API away from taking this
+            # defaults argument, ensure that we allow zero-initialization option.
+            insert_sparse(nn.opt.embed_params.tables[i], mem,
+                nn.opt.embed_params.defaults[i], nn.opt.embed_params.lengths[i],
+                eg.atoms, eg.nr_atom)
         NN.update(nn,
             nn.gradient, eg)
      
@@ -135,40 +139,23 @@ cdef class NN:
     @staticmethod
     cdef void update(
         NeuralNetC* nn,
-            const float* bwd,
-            const FeatureC* feats,
-            int nr_feat
+            const ExampleC* eg
     ) nogil:
-        set_gradient(nn.gradient,
-            nn.weights, nn.nr_weight, bwd, fwd, nn.widths, nn.nr_layer, &nn.alpha)
-        dense_update(nn.weights, nn.opt.params, nn.gradient,
-            nn.nr_weight, nn.opt.update, nn.opt)
-        sparse_update(nn.embeds.tables, nn.opt.embed_params.tables, gradient,
-            nn.embed.lengths nn.embed.offsets, bwd, feats, nr_feat, nn.opt, nn.opt.update)
-
-    @staticmethod
-    cdef void insert_embeddings(
-        MapC** tables,
-        Pool mem,
-            const int* lengths,
-            const float** defaults,
-            const FeatureC* feats,
-            int nr_feat
-    ) except *:
-        for i in range(nr_feat):
-            emb = <float*>Map_get(tables[feats[i].i], feats[i].key)
-            if emb is NULL:
-                emb = <float*>mem.alloc(lengths[feat.i], sizeof(float))
-                Initializer.normal(emb,
-                    0.0, 1.0, lengths[feats[i].i])
-                # We initialize with the defaults here so that we only have
-                # to insert during training --- on the forward pass, we can
-                # set default. But if we're doing that, the back pass needs
-                # to be dealing with the same representation.
-                memcpy(emb,
-                    defaults[feats[i].i], sizeof(float) * lengths[feats[i].i])
-                Map_set(mem, tables[feats[i].i],
-                    feats[i].key, emb)
+        dense_update(nn.weights, nn.gradient, nn.opt.params,
+            nn.nr_weight, eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer,
+            nn.opt.update, nn.opt)
+        for i in range(nn.embeds.nr):
+            sparse_update(
+                nn.embeds.tables[i],
+                nn.opt.embed_params.tables[i],
+                nn.gradient,
+                    nn.embed.lengths,
+                    nn.embed.offsets,
+                    eg.bwd_state,
+                    eg.atoms,
+                    eg.nr_atom,
+                    nn.opt,
+                    nn.opt.update)
 
 
 cdef void forward(
@@ -249,27 +236,29 @@ cdef void dense_update(
 
 
 cdef void sparse_update(
-    MapC** weights_tables,
-    MapC** moments_tables,
+    MapC* weights_table,
+    MapC* moments_table,
     float* tmp,
-        const int* lengths,
-        const int* offsets,
-        const float* gradient,
-        const FeatureC* feats,
+        float* gradient,
+        int length,
+        uint64_t* keys,
+        float* values,
         int nr_feat,
         const void* _ext
         do_update_t do_update,
 ) nogil:
     for i in range(nr_feat):
-        # Copy the gradient into the temp buffer, so we can modify it in-place
-        memcpy(tmp,
-            gradient, sizeof(float) * nr_delta)
-        weights = <float*>Map_get(weights_tables[feats[i].i], feats[i].key)
-        moments = <float*>Map_get(moments_tables[feats[i].i], feats[i].key)
+        weights = <float*>Map_get(weights_table, key)
+        moments = <float*>Map_get(moments_table, key)
         # These should never be null.
         if weights is not NULL and moments is not NULL:
-            do_update(weights, momentums, &tmp[offsets[feats[i].i]],
-                feats[i].val, lengths[feats[i].i])
+            # Copy the gradient into the temp buffer, so we can modify it in-place
+            memcpy(tmp,
+                gradient, sizeof(float) * length)
+            Vec.mul_i(tmp,
+                value, length)
+            do_update(weights, moments, tmp,
+                length)
 
 
 cdef void dotPlus_normalize_dotPlus_ELU(
@@ -460,3 +449,30 @@ cdef void d_log_loss(
     cdef int i
     for i in range(nr_out):
         loss[i] = scores[i] - (costs[i] == 0)
+
+
+cdef void insert_sparse(
+    MapC* table,
+    Pool mem,
+        const float* default,
+        int length, 
+        const uint64_t* keys,
+        int nr_feat
+) except *:
+    for i in range(nr_feat):
+        emb = <float*>Map_get(table, keys[i])
+        if emb is NULL:
+            emb = <float*>mem.alloc(length, sizeof(emb[0]))
+            # TODO: Which is better here???
+            # N.B.: Careful enabling this. It can break use of this function to
+            # initialize things that should be zeroed.
+            #Initializer.normal(emb,
+            #    0.0, 1.0, length)
+            # We initialize with the defaults here so that we only have
+            # to insert during training --- on the forward pass, we can
+            # set default. But if we're doing that, the back pass needs
+            # to be dealing with the same representation.
+            memcpy(emb,
+                default, sizeof(emb[0]) * length)
+            Map_set(mem, table,
+                keys[i], emb)

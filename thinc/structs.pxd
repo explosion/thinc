@@ -139,27 +139,27 @@ cdef struct NeuralNetC:
     float eps
 
 
-#cdef struct ExampleC:
-#    int* is_valid
-#    float* costs
-#    atom_t* atoms
-#    FeatureC* features
-#    float* scores
-#
-#    float* fine_tune
-#    
-#    float** fwd_state
-#    float** bwd_state
-#
-#    int nr_class
-#    int nr_atom
-#    int nr_feat
-#    
-#    int guess
-#    int best
-#    int cost
-#
-#
+cdef struct ExampleC:
+    int* is_valid
+    float* costs
+    atom_t* atoms
+    FeatureC* features
+    float* scores
+
+    float* fine_tune
+    
+    float** fwd_state
+    float** bwd_state
+
+    int nr_class
+    int nr_atom
+    int nr_feat
+    
+    int guess
+    int best
+    int cost
+
+
 #cdef struct BatchC:
 #    ExampleC* egs
 #    float* gradient
