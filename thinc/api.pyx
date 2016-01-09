@@ -54,38 +54,6 @@ cdef int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
     return best
 
 
-
-cdef class Learner:
-    @classmethod
-    def load(cls, path_or_file):
-        pass
-
-    def __init__(self):
-        pass
-
-    def __call__(self, features):
-        return eg
-
-    def train(self, minibatch):
-        pass
-
-    def save(self, path_or_file):
-        pass
-
-    property W:
-        def __get__(self):
-            pass
-
-        def __set__(self, value):
-    
-    property bias:
-        def __get__(self):
-            pass
-
-        def __set__(self, value):
-            pass
-
-
 cdef class Learner:
     def __init__(self, nr_class, extracter, model, updater):
         self.extracter = extracter

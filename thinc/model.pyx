@@ -91,97 +91,114 @@ cdef class LinearModel(Model):
         return reader._nr_class
 
 
-cdef class _Writer:
-    cdef FILE* _fp
-    cdef class_t _nr_class
-    cdef count_t _freq_thresh
+cdef class NeuralNet(Model):
+    cdef readonly Pool mem
+    cdef NeuralNetC c
 
-    def __init__(self, object loc, nr_class):
-        if path.exists(loc):
-            assert not path.isdir(loc)
-        cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
-        self._fp = fopen(<char*>bytes_loc, 'wb')
-        assert self._fp != NULL
-        fseek(self._fp, 0, 0)
-        self._nr_class = nr_class
-        _write(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
+    def __init__(self, widths, embed=None, float eta=0.005, float eps=1e-6,
+                 float mu=0.2, float rho=1e-4, float bias=0.0, float alpha=0.0):
+        self.mem = Pool()
+        NN.init(&self.c, self.mem, widths, eta, eps, mu, rho, bias, alpha)
 
-    def close(self):
-        cdef size_t status = fclose(self._fp)
-        assert status == 0
+    def __call__(self, features):
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(features)
+        NN.predict_example(&eg.c,
+            &self.c)
+        return eg
+   
+    def train(self, features, y):
+        memset(self.c.gradient,
+            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(features)
+        eg.set_label(y)
 
-    cdef int write(self, feat_t feat_id, SparseArrayC* feat) except -1:
-        if feat == NULL:
-            return 0
-        
-        _write(&feat_id, sizeof(feat_id), 1, self._fp)
-        
-        cdef int i = 0
-        while feat[i].key >= 0:
-            i += 1
-        cdef int32_t length = i
-        
-        _write(&length, sizeof(length), 1, self._fp)
-        
-        qsort(feat, length, sizeof(SparseArrayC), SparseArray.cmp)
-        
-        for i in range(length):
-            _write(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
-            _write(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
+        NN.predict_example(&eg.c, &self.c)
+        insert_sparse(self.c.sparse_weights, self.mem,
+            self.c.embed_lengths, self.c.embed_offsets, self.c.embed_defaults,
+            eg.c.features, eg.nr_feat)
+        insert_sparse(self.c.sparse_momentum, self.mem,
+            self.c.embed_lengths, self.c.embed_offsets, self.c.embed_defaults,
+            eg.c.features, eg.c.nr_feat)
+        NN.update(&self.c, &eg.c)
+        return eg
+ 
+    def Example(self, input_, label=None):
+        if isinstance(input_, Example):
+            return input_
+        return Example(self.widths, input_, label)
 
+    property weights:
+        def __get__(self):
+            cdef np.npy_intp shape[1]
+            shape[0] = <np.npy_intp> self.c.nr_weight
+            return np.PyArray_SimpleNewFromData(1, shape, np.NPY_FLOAT, self.c.weights)
+            
+        def __set__(self, weights):
+            assert len(weights) == self.c.nr_weight
+            for i, weight in enumerate(weights):
+                self.c.weights[i] = weight
 
-cdef int _write(void* value, size_t size, int n, FILE* fp) except -1:
-    status = fwrite(value, size, 1, fp)
-    assert status == 1, status
+    property layers:
+        def __get__(self):
+            weights = self.weights
+            cdef IteratorC it
+            it.i = 0
+            while NN.iter(&it, self.c.widths, self.c.nr_layer-1, 1):
+                yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
 
+    property widths:
+        def __get__(self):
+            return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
 
-cdef class _Reader:
-    cdef FILE* _fp
-    cdef class_t _nr_class
-    cdef count_t _freq_thresh
+    property layer_l1s:
+        def __get__(self):
+            for W, bias in self.layers:
+                w_l1 = sum(abs(w) for w in W) / len(W)
+                bias_l1 = sum(abs(w) for w in W) / len(bias)
+                yield w_l1, bias_l1
 
-    def __init__(self, loc):
-        assert path.exists(loc)
-        assert not path.isdir(loc)
-        cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
-        self._fp = fopen(<char*>bytes_loc, 'rb')
-        assert self._fp != NULL
-        status = fseek(self._fp, 0, 0)
-        status = fread(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
+    property gradient:
+        def __get__(self):
+            return [self.c.gradient[i] for i in range(self.c.nr_weight)]
 
-    def __dealloc__(self):
-        fclose(self._fp)
+    property l1_gradient:
+        def __get__(self):
+            cdef int i
+            cdef float total = 0.0
+            for i in range(self.c.nr_weight):
+                if self.c.gradient[i] < 0:
+                    total -= self.c.gradient[i]
+                else:
+                    total += self.c.gradient[i]
+            return total / self.c.nr_weight
 
-    cdef int read(self, Pool mem, feat_t* out_id, SparseArrayC** out_feat) except -1:
-        cdef feat_t feat_id
-        cdef int32_t length
+    property embeddings:
+        def __get__(self):
+            cdef int i = 0
+            cdef int j = 0
+            cdef int k = 0
+            cdef key_t key
+            cdef void* value
+            for i in range(self.c.nr_embed):
+                j = 0
+                while Map_iter(self.c.sparse_weights[i], &j, &key, &value):
+                    emb = <float*>value
+                    yield key, [emb[k] for k in range(self.c.embed_lengths[i])]
 
-        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
-        if status == 0:
-            return 0
-        assert status
+    property nr_layer:
+        def __get__(self):
+            return self.c.nr_layer
+    property nr_weight:
+        def __get__(self):
+            return self.c.nr_weight
+    property nr_out:
+        def __get__(self):
+            return self.c.widths[self.c.nr_layer-1]
+    property nr_in:
+        def __get__(self):
+            return self.c.widths[0]
 
-        status = fread(&length, sizeof(length), 1, self._fp)
-        assert status
-        
-        feat = <SparseArrayC*>PyMem_Malloc((length + 1) * sizeof(SparseArrayC))
-        
-        cdef int i
-        for i in range(length):
-            status = fread(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
-            assert status
-            status = fread(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
-            assert status
-
-        # Trust We allocated correctly above
-        feat[length].key = -2 # Indicates end of memory region
-        feat[length].val = 0
-
-        # Copy into the output variables
-        out_feat[0] = feat
-        out_id[0] = feat_id
-        # Signal whether to continue reading, to the outer loop
-        if feof(self._fp):
-            return 0
-        else:
-            return 1
