@@ -13,13 +13,36 @@ cdef void forward(
         do_end_fwd_t end_fwd
 ) nogil:
     cdef IteratorC it = begin_fwd(fwd,
-        widths, nr_layer, weights, nr_weight, _ext)
+        widths, nr_layer, weights, nr_weight, feats, nr_feat, _ext)
     while iterate(&it,
             widths, nr_layer-2, 1):
         feed_fwd(fwd,
             widths, nr_layer, weights, nr_weight, &it)
     end_fwd(&it, scores, fwd,
         widths, nr_layer, weights, nr_weight, _ext)
+
+
+cdef IteratorC begin_fwd(
+    float** fwd,
+        const len_t* widths,
+        len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+        const MapC* const* embed_tables,
+        const int* embed_lengths,
+        const int* embed_offsets,
+        const float* defaults,
+            int nr_table,
+        const FeatureC* features,
+            len_t nr_feat,
+        const void* _ext
+) nogil:
+    for feat in features[:nr_feat]:
+        emb = <const float*>Map_get(tables[feat.i], feat.key)
+        if emb == NULL:
+            emb = &defaults[feat.i][embed_offsets[feat.i]]
+        VecVec.add_i(fwd[0][embed_offsets[feat.i]], 
+            emb, 1.0, embed_lengths[feat.i])
 
 
 cdef void backward(
@@ -109,7 +132,7 @@ cdef void sparse_update(
                 lengths[idx], _ext)
 
 
-cdef void dotPlus_normalize_dotPlus_ELU(
+cdef void dot_plus_normalize_dot_plus_ELU(
     float** fwd,
     float** averages,
         const len_t* widths,
@@ -134,7 +157,7 @@ cdef void dotPlus_normalize_dotPlus_ELU(
             hp.alpha)
             
 
-cdef void dotPlus__normalize__dotPlus__ELU(
+cdef void dot_plus__normalize__dot_plus__ELU(
     float* x_dotPlus_normalize,
     float* x_dotPlus_normalize_dotPlus_ELU,
     float* Ex,
@@ -159,7 +182,7 @@ cdef void dotPlus__normalize__dotPlus__ELU(
 
 cdef void default_feed_bwd(
     float** bwd,
-    float** averages,
+    float* averages,
         const float** fwd,
         const len_t* widths,
             len_t nr_layer,
@@ -169,7 +192,7 @@ cdef void default_feed_bwd(
         const ConstantsC* hp,
         const void* _ext
 ) nogil:
-    dELU_dDot_dNormalize_dDot(
+    dELU__dDot__dNormalize__dDot(
         bwd[it.below],
         bwd[it.here],
         bwd[it.above],
@@ -377,5 +400,22 @@ cdef int advance_iterator(
         return True
     else:
         return False
+
+
+cdef void set_input(
+    float* out,
+        const FeatureC* feats,
+        int nr_feat,
+        int* lengths,
+        int* offsets,
+        const float* const* defaults,
+        const MapC* const* tables,
+) nogil:
+    for f in range(nr_feat):
+        emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
+        if emb == NULL:
+            emb = defaults[feats[f].i]
+        VecVec.add_i(out, 
+            emb, 1.0, lengths[feats[f].i])
 
 
