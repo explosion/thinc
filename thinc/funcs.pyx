@@ -62,22 +62,23 @@ cdef class NeuralNet:
             &self.c)
         return eg
    
-    #def train(self, features, y):
-    #    memset(self.c.gradient,
-    #        0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
-    #    cdef Example eg = self.eg
-    #    eg.wipe(self.widths)
-    #    eg.set_features(features)
-    #    eg.set_label(y)
+    def train(self, features, y):
+        memset(self.c.gradient,
+            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(features)
+        eg.set_label(y)
 
-    #    NN.predict_example(&eg.c, &self.c)
-    #    NN.insert_embeddings(self.c.embeds, self.mem,
-    #        &eg.c)
-    #    NN.insert_embeddings(self.c.opt.embed_params, self.mem,
-    #        &eg.c)
-    #    NN.update_dense(&self.c, self.c.gradient, &eg.c)
-    #    NN.update_sparse(&self.c, self.c.gradient, &eg.c)
-    #    return eg
+        NN.predict_example(&eg.c, &self.c)
+        insert_sparse(self.c.sparse_weights, self.mem,
+            self.c.embed_lengths, self.c.embed_offsets, self.c.embed_defaults,
+            eg.c.features, eg.nr_feat)
+        insert_sparse(self.c.sparse_momentum, self.mem,
+            self.c.embed_lengths, self.c.embed_offsets, self.c.embed_defaults,
+            eg.c.features, eg.c.nr_feat)
+        NN.update(&self.c, &eg.c)
+        return eg
  
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
