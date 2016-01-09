@@ -192,33 +192,6 @@ cdef class NN:
             #VecVec.add_i(&gradient[it.beta], # Gradient of betas
             #    bwd[it.here], 1.0, it.nr_out)
 
-    @staticmethod
-    cdef inline int iter(IteratorC* it, const int* widths, int nr_layer, int inc) nogil:
-        it.nr_out = widths[it.i+1]
-        it.nr_in = widths[it.i]
-        it.W = 0
-        cdef int i
-        for i in range(it.i):
-            it.W += NN.nr_weight(widths[i+1], widths[i])
-        it.bias = it.W + (it.nr_out * it.nr_in)
-        it.gamma = it.bias + it.nr_out
-        it.beta = it.gamma + it.nr_out
-
-        it.below = it.i * 2
-        it.here = it.below + 1
-        it.above = it.below + 2
-
-        it.Ex = it.here
-        it.Vx = it.above
-        it.E_dXh = it.here
-        it.E_dXh_Xh = it.above
-        it.i += inc
-        if nr_layer >= it.i and it.i >= 0:
-            return True
-        else:
-            return False
-
-
 cdef inline void activate(weight_t** fwd, weight_t** for_bn,
         const weight_t* weights, int n, weight_t alpha, IteratorC it) nogil:
     above = fwd[it.above]

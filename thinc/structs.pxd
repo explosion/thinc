@@ -146,7 +146,7 @@ cdef struct NeuralNetC:
 cdef struct ExampleC:
     int* is_valid
     float* costs
-    atom_t* atoms
+    uint64_t* atoms
     FeatureC* features
     float* scores
 
