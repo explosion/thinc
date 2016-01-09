@@ -1,22 +1,94 @@
 from libc.stdint cimport int16_t, int, uint64_t
 from preshed.maps cimport MapStruct
 
+from .typedefs cimport len_t, idx_t
+
 
 include "compile_time_constants.pxi"
+
+
+ctypedef void (*do_update_t)(
+    float* weights,
+    float* momentum,
+    float* gradient,
+        len_t nr,
+        const ConstantsC* hp
+) nogil
+
+
+ctypedef int (*do_iter_t)(
+    IteratorC* it,
+        const len_t* widths,
+            len_t nr_layer,
+        int step_size
+) nogil
+
+
+ctypedef void (*do_feed_fwd_t)(
+    float** fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+        const IteratorC* it
+) nogil
+ 
+
+ctypedef IteratorC (*do_begin_fwd_t)(
+    float** fwd,
+        const len_t* widths,
+        len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+) nogil
+
+
+ctypedef void (*do_end_fwd_t)(
+    IteratorC* it,
+    float* scores,
+    float** fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+) nogil
+
+
+ctypedef IteratorC (*do_begin_bwd_t)(
+    float** bwd,
+        const float* const* fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* costs,
+            len_t nr_cost,
+        const float* weights,
+            const len_t nr_weight,
+) nogil
+
+
+ctypedef void (*do_feed_bwd_t)(
+    float** bwd,
+        const float* const* fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+        const IteratorC* it
+) nogil
+
+
+ctypedef void (*do_end_bwd_t)(
+    IteratorC* it, float** bwd,
+        const float* const* fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+) nogil
 
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
-cdef struct LayerC:
-    do_fwd_t forward
-    do_bwd_t backward
-
-    const float* W
-    const float* bias
-    const float* gamma
-
-    int nr_out
-    int nr_in
 
 cdef struct EmbeddingC:
     MapC** tables
@@ -89,6 +161,7 @@ cdef struct IteratorC:
     int i
     int W
     int bias
+    int beta
     int gamma
     int below
     int here
@@ -110,6 +183,29 @@ cdef struct FeatureC:
     float value
 
 
+cdef struct ConstantsC:
+    float a
+    float b
+    float c
+    float d
+    float e
+    float g
+    float h
+    float i
+    float j
+    float k
+    float l
+    float m
+    float n
+    float o
+    float p
+    float q
+    float w
+    float x
+    float y
+    float z
+
+
 #cdef struct SparseAverageC:
 #    SparseArrayC* curr
 #    SparseArrayC* avgs
@@ -120,3 +216,5 @@ cdef struct FeatureC:
 #    int[MAX_TEMPLATE_LEN] indices
 #    int length
 #    atom_t[MAX_TEMPLATE_LEN] atoms
+
+
