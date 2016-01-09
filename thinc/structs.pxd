@@ -7,6 +7,16 @@ include "compile_time_constants.pxi"
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
 
+cdef struct LayerC:
+    do_fwd_t forward
+    do_bwd_t backward
+
+    const float* W
+    const float* bias
+    const float* gamma
+
+    int nr_out
+    int nr_in
 
 cdef struct EmbeddingC:
     MapC** tables

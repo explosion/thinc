@@ -1,6 +1,6 @@
 cdef void forward(
     float** fwd,
-    float* scores,
+    float** averages,
         const len_t* widths,
         len_t nr_layer,
         const float* weights,
@@ -11,10 +11,9 @@ cdef void forward(
         do_feed_fwd_t feed_fwd,
         do_end_fwd_t end_fwd
 ) nogil:
-    cdef IteratorC it = begin_fwd(fwd,
-        widths, nr_layer, weights, nr_weight, _ext)
-    while iterate(&it,
-            widths, nr_layer-2, 1):
+    cdef IteratorC it
+    it.i = 0
+    while iterate(&it, widths, nr_layer-2, 1):
         feed_fwd(fwd,
             widths, nr_layer, weights, nr_weight, &it)
     end_fwd(&it, scores, fwd,
@@ -34,7 +33,7 @@ cdef IteratorC begin_fwd(
     return it
 
 
-cdef void default_feed_fwd(
+cdef void dot_plus__normalize__dot_plus__ELU(
     float** fwd,
     float** averages,
         const len_t* widths,
@@ -45,41 +44,13 @@ cdef void default_feed_fwd(
         const ConstantsC* hp,
         const void* _,
 ) nogil:
-    dotPlus__normalize__dotPlus__ELU(
-        fwd[it.above],
-        fwd[it.here],
-        &avg[it.Ex],
-        &avg[it.Vx],
-            &weights[it.bias],
-            &weights[it.gamma],
-                it.nr_out,
-            fwd[it.below],
-                it.nr_in,
-            &weights[it.W],
-            hp.alpha)
-            
-
-cdef void dot_plus__normalize__dot_plus__ELU(
-    float* x_dotPlus_normalize,
-    float* x_dotPlus_normalize_dotPlus_ELU,
-    float* Ex,
-    float* Vx,
-        const float* bias,
-        const float* gamma,
-        len_t nr_out,
-        const float* x,
-            len_t nr_in,
-        const weight_t* W,
-        float ema_stickiness
-) nogil:
-    dot_plus(x_dotPlus_normalize,
-        x, W, bias, nr_out, nr_in)
-    normalize(x_dotPlus_normalize, Ex, Vx,
-        nr_out, ema_stickiness) 
-    dot_plus(x_dotPlus_normalize_dotPlus_ELU,
-        here, gamma, beta, nr_out, 1)
-    ELU(x_dotPlus_normalize_dotPlus_ELU,
-        nr_out)
+    dot_plus(fwd[it.here],
+        fwd[it.below], &weights[it.W], &weights[it.bias], it.nr_out, it.nr_in)
+    normalize(fwd[it.here], avg[it.Ex], avg[it.Vx],
+        it.nr_out, hp.alpha) 
+    dot_plus(fwd[it.above],
+        fwd[it.here], &weights[it.gamma], &weights[it.beta], it.nr_out, 1)
+    ELU(fwd[it.above], fwd[it.here])
 
 
 cdef void backward(
