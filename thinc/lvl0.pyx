@@ -1,11 +1,10 @@
 cdef void forward(
     float** fwd,
+    float* scores,
         const len_t* widths,
         len_t nr_layer,
         const float* weights,
             len_t nr_weight,
-        const FeatureC* feats,
-            len_t nr_feat,
         const void* _ext,
         do_iter_t iterate,
         do_begin_fwd_t begin_fwd,
@@ -13,7 +12,7 @@ cdef void forward(
         do_end_fwd_t end_fwd
 ) nogil:
     cdef IteratorC it = begin_fwd(fwd,
-        widths, nr_layer, weights, nr_weight, feats, nr_feat, _ext)
+        widths, nr_layer, weights, nr_weight, _ext)
     while iterate(&it,
             widths, nr_layer-2, 1):
         feed_fwd(fwd,
@@ -28,21 +27,59 @@ cdef IteratorC begin_fwd(
         len_t nr_layer,
         const float* weights,
             len_t nr_weight,
-        const MapC* const* embed_tables,
-        const int* embed_lengths,
-        const int* embed_offsets,
-        const float* defaults,
-            int nr_table,
-        const FeatureC* features,
-            len_t nr_feat,
         const void* _ext
 ) nogil:
-    for feat in features[:nr_feat]:
-        emb = <const float*>Map_get(tables[feat.i], feat.key)
-        if emb == NULL:
-            emb = &defaults[feat.i][embed_offsets[feat.i]]
-        VecVec.add_i(fwd[0][embed_offsets[feat.i]], 
-            emb, 1.0, embed_lengths[feat.i])
+    cdef IteratorC it
+    it.i = 0
+    return it
+
+
+cdef void default_feed_fwd(
+    float** fwd,
+    float** averages,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+        const IteratorC* it,
+        const ConstantsC* hp,
+        const void* _,
+) nogil:
+    dotPlus__normalize__dotPlus__ELU(
+        fwd[it.above],
+        fwd[it.here],
+        &avg[it.Ex],
+        &avg[it.Vx],
+            &weights[it.bias],
+            &weights[it.gamma],
+                it.nr_out,
+            fwd[it.below],
+                it.nr_in,
+            &weights[it.W],
+            hp.alpha)
+            
+
+cdef void dot_plus__normalize__dot_plus__ELU(
+    float* x_dotPlus_normalize,
+    float* x_dotPlus_normalize_dotPlus_ELU,
+    float* Ex,
+    float* Vx,
+        const float* bias,
+        const float* gamma,
+        len_t nr_out,
+        const float* x,
+            len_t nr_in,
+        const weight_t* W,
+        float ema_stickiness
+) nogil:
+    dot_plus(x_dotPlus_normalize,
+        x, W, bias, nr_out, nr_in)
+    normalize(x_dotPlus_normalize, Ex, Vx,
+        nr_out, ema_stickiness) 
+    dot_plus(x_dotPlus_normalize_dotPlus_ELU,
+        here, gamma, beta, nr_out, 1)
+    ELU(x_dotPlus_normalize_dotPlus_ELU,
+        nr_out)
 
 
 cdef void backward(
@@ -131,53 +168,6 @@ cdef void sparse_update(
             do_update(&weights[offsets[idx]], &moments[offsets[idx]], &tmp[offsets[idx]],
                 lengths[idx], _ext)
 
-
-cdef void dot_plus_normalize_dot_plus_ELU(
-    float** fwd,
-    float** averages,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const IteratorC* it,
-        const ConstantsC* hp,
-        const void* _,
-) nogil:
-    dotPlus__normalize__dotPlus__ELU(
-        fwd[it.above],
-        fwd[it.here],
-        &avg[it.Ex],
-        &avg[it.Vx],
-            &weights[it.bias],
-            &weights[it.gamma],
-                it.nr_out,
-            fwd[it.below],
-                it.nr_in,
-            &weights[it.W],
-            hp.alpha)
-            
-
-cdef void dot_plus__normalize__dot_plus__ELU(
-    float* x_dotPlus_normalize,
-    float* x_dotPlus_normalize_dotPlus_ELU,
-    float* Ex,
-    float* Vx,
-        const float* bias,
-        const float* gamma,
-        len_t nr_out,
-        const float* x,
-            len_t nr_in,
-        const weight_t* W,
-        float ema_stickiness
-) nogil:
-    dot_plus(x_dotPlus_normalize,
-        x, W, bias, nr_out, nr_in)
-    normalize(x_dotPlus_normalize, Ex, Vx,
-        nr_out, ema_stickiness) 
-    dot_plus(x_dotPlus_normalize_dotPlus_ELU,
-        here, gamma, beta, nr_out, 1)
-    ELU(x_dotPlus_normalize_dotPlus_ELU,
-        nr_out)
 
 
 cdef void default_feed_bwd(
@@ -417,5 +407,3 @@ cdef void set_input(
             emb = defaults[feats[f].i]
         VecVec.add_i(out, 
             emb, 1.0, lengths[feats[f].i])
-
-
