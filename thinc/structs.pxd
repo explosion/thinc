@@ -8,8 +8,12 @@ include "compile_time_constants.pxi"
 ctypedef MapStruct MapC
 
 
-ctypedef void (*do_update_t)(OptimizerC* opt, float* mtm, float* gradient,
-        float* weights, float scale, int nr) nogil
+ctypedef void (*do_update_t)(
+    float* weights,
+    float* mtm,
+    float* gradient,
+        int nr,
+        const void* _ext) nogil
 
 
 ctypedef int (*do_iter_t)(
@@ -21,7 +25,7 @@ ctypedef int (*do_iter_t)(
 
 
 ctypedef void (*do_feed_fwd_t)(
-    float* fwd,
+    float** fwd,
         const int* widths,
         int nr_layer,
         const float* weights,
@@ -32,19 +36,17 @@ ctypedef void (*do_feed_fwd_t)(
  
 
 ctypedef IteratorC (*do_begin_fwd_t)(
-    float* fwd,
+    float** fwd,
         const int* widths,
         int nr_layer,
         const float* weights,
         int nr_weight,
-        const FeatureC* features,
-        int nr_feat,
         const void* _ext
 ) nogil
 
 
 ctypedef void (*do_end_fwd_t)(
-    void* _it, float* fwd,
+    void* _it, float** fwd,
         const int* widths,
         int nr_layer,
         const float* weights,
@@ -85,19 +87,6 @@ ctypedef void (*do_end_bwd_t)(
         int nr_weight,
         const void* _ext
 ) nogil
-
-
-cdef struct OptimizerC:
-    float* params
-    
-    EmbeddingC* embed_params
-    void* ext
-
-    int nr
-    float mu
-    float eta
-    float eps
-    float rho
 
 
 cdef struct EmbeddingC:

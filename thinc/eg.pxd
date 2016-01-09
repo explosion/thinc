@@ -6,7 +6,7 @@ from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_set as Map_set
 from preshed.maps cimport map_get as Map_get
 
-from .structs cimport ExampleC, BatchC, FeatureC, MapC
+from .structs cimport ExampleC, FeatureC, MapC
 from .typedefs cimport feat_t, weight_t, atom_t
 from .blas cimport Vec, VecVec
 
@@ -55,11 +55,6 @@ cdef class Example:
         memcpy(eg.scores, scores, eg.nr_class * sizeof(weight_t))
         eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-
-
-cdef class Batch:
-    cdef Pool mem
-    cdef BatchC c
 
 
 cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:

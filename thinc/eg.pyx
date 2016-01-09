@@ -150,28 +150,3 @@ cdef class Example:
     def delta(self, int i, int j):
         # TODO: Find a way to do this better!
         return self.c.bwd_state[i*2][j]
-
-
-
-cdef class Batch:
-    def __init__(self, nn_shape, inputs, costs, nr_weight):
-        assert len(inputs) == len(costs)
-        self.mem = Pool()
-        self.c.nr_eg = len(inputs)
-        self.c.egs = <ExampleC*>self.mem.alloc(self.c.nr_eg, sizeof(ExampleC))
-
-        cdef Example eg
-        for i, (x, y) in enumerate(zip(inputs, costs)):
-            eg = Example(nn_shape, features=x, label=y, mem=self.mem)
-            self.c.egs[i] = eg.c
-
-        self.c.nr_weight = nr_weight
-        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(weight_t))
-
-    def __iter__(self):
-        for i in range(self.c.nr_eg):
-            yield Example.from_ptr(self.mem, &self.c.egs[i])
-
-    property loss:
-        def __get__(self):
-            return sum(eg.loss for eg in self)
