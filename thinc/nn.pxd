@@ -65,8 +65,8 @@ DEF ALPHA = 1.0
 
 
 cdef class NeuralNet:
-    cdef Pool mem
-    cdef Example eg
+    cdef readonly Pool mem
+    cdef readonly Example eg
     cdef NeuralNetC c
 
     @staticmethod

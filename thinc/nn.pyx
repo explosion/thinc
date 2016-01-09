@@ -25,6 +25,7 @@ cdef class NeuralNet:
         self.eg = Example(self.widths)
         NN.init(&self.c, mem, widths, eta, eps, mu, rho, bias, alpha)
 
+
 #    def __call__(self, features):
 #        cdef Example eg = self.eg
 #        eg.wipe(self.widths)
