@@ -80,7 +80,6 @@ cdef struct IteratorC:
     int W
     int bias
     int gamma
-    int beta
     int below
     int here
     int above

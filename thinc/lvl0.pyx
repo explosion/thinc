@@ -120,31 +120,46 @@ cdef void dotPlus_normalize_dotPlus_ELU(
         const ConstantsC* hp,
         const void* _,
 ) nogil:
-    cdef float* x_dotPlus_normalize = &fwd[it.here]
-    cdef float* x_dotPlus_normalize_dotPlus_ELU = &fwd[it.above]
-    cdef float* Ex = &averages[it.Ex]
-    cdef float* Vx = &averages[it.Vx]
-    cdef const float* x = fwd[it.below]
-    cdef const float* W = weights[it.W]
-    cdef const float* bias = weights[it.bias]
-    cdef const float* gamma = &weights[it.gamma]
-    cdef const float* beta = &weights[it.beta]
-    cdef int nr_in = it.nr_in
-    cdef int nr_out = it.nr_out
-    cdef float ema_speed = hp.a
+    dotPlus__normalize__dotPlus__ELU(
+        fwd[it.above],
+        fwd[it.here],
+        &avg[it.Ex],
+        &avg[it.Vx],
+            &weights[it.bias],
+            &weights[it.gamma],
+                it.nr_out,
+            fwd[it.below],
+                it.nr_in,
+            &weights[it.W],
+            hp.alpha)
+            
 
+cdef void dotPlus__normalize__dotPlus__ELU(
+    float* x_dotPlus_normalize,
+    float* x_dotPlus_normalize_dotPlus_ELU,
+    float* Ex,
+    float* Vx,
+        const float* bias,
+        const float* gamma,
+        len_t nr_out,
+        const float* x,
+            len_t nr_in,
+        const weight_t* W,
+        float ema_stickiness
+) nogil:
     dot_plus(x_dotPlus_normalize,
         x, W, bias, nr_out, nr_in)
     normalize(x_dotPlus_normalize, Ex, Vx,
-        nr_out, ema_speed) 
+        nr_out, ema_stickiness) 
     dot_plus(x_dotPlus_normalize_dotPlus_ELU,
         here, gamma, beta, nr_out, 1)
     ELU(x_dotPlus_normalize_dotPlus_ELU,
         nr_out)
 
 
-cdef void dELU_dDot_dNormalize_dDot(
+cdef void default_feed_bwd(
     float** bwd,
+    float** averages,
         const float** fwd,
         const len_t* widths,
             len_t nr_layer,
@@ -154,19 +169,32 @@ cdef void dELU_dDot_dNormalize_dDot(
         const ConstantsC* hp,
         const void* _ext
 ) nogil:
-    cdef float* dY_dELU_dDot_dNormalize_dDot = &bwd[it.below]
-    cdef float* dXh = &bwd[it.here]
-    cdef float* dY = &bwd[it.above]
-    cdef float* E_dXh = &bwd[it.E_dXh]
-    cdef float* E_dXh_Xh = &bwd[it.E_dXh_Xh]
-    cdef const float* Y = &fwd[it.above]
-    cdef const float* Xh = &fwd[it.here]
-    cdef const float* Vx = &fwd[it.Vx]
-    cdef const float* W = &weights[it.W]
-    cdef const float* gamma = &weights[it.gamma]
-    cdef int nr_out = it.nr_out
-    cdef int nr_in = it.nr_in
-    cdef float ema_speed = hyper_params[0]
+    dELU_dDot_dNormalize_dDot(
+        bwd[it.below],
+        bwd[it.here],
+        bwd[it.above],
+        averages[it.E_dXh],
+        averages[it.E_dXh_Xh],
+            &fwd[it.above],
+            &fwd[it.here],
+            &fwd[it.Vx],
+            it.nr_out,
+            it.nr_in,
+            hp.a)
+
+
+cdef void dELU_dDot_dNormalize_dDot(
+    float* dY,
+    float* dXh,
+    float* dX,
+    float* E_dXh,
+    float* E_dXh_Xh,
+        const float* Xh,
+        const float* Vx,
+        len_t nr_out,
+        len_t nr_in,
+        float ema_speed
+) nogil:
     d_ELU(dY,
         Y, nr_out) # Y = ELU(dot(G, BN(W*x+b))), i.e. our layer's final output
     d_dot(dXh,
