@@ -18,15 +18,6 @@ from .funcs cimport NN
 import numpy
 
 
-cdef class Embedding:
-    def __init__(self, vector_widths, features, mem=None):
-        if mem is None:
-            mem = Pool()
-        self.mem = mem
-        self.c = <EmbeddingC*>self.mem.alloc(1, sizeof(EmbeddingC))
-        Embedding.init(self.c, self.mem, vector_widths, features)
-
-
 cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
                  weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):

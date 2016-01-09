@@ -124,13 +124,18 @@ cdef struct NeuralNetC:
     float* momentum
     float* averages
     
-    MapC* sparse_weights
-    MapC* sparse_gradient
-    MapC* sparse_momentum
-    MapC* sparse_averages
+    MapC** sparse_weights
+    MapC** sparse_gradient
+    MapC** sparse_momentum
+    MapC** sparse_averages
+
+    int* embed_offsets
+    int* embed_lengths
+    float** embed_defaults
 
     int nr_layer
     int nr_weight
+    int nr_embed
 
     float alpha
     float eta
@@ -185,7 +190,7 @@ cdef struct SparseArrayC:
 cdef struct FeatureC:
     int i
     uint64_t key
-    float val
+    float value
 
 
 #cdef struct SparseAverageC:

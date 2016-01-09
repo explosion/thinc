@@ -55,6 +55,14 @@ cdef class NN:
         nn.sparse_momentum = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.sparse_averages = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
 
+        nn.embed_offsets = <int*>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
+        nn.embed_lengths = <int*>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
+        nn.embed_defaults = <float**>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
+
+        for i in range(nn.nr_embed):
+            nn.embed_defaults[i] = <float*>mem.alloc(nn.embed_lengths[i],
+                                                     sizeof(nn.embed_defaults[i][0]))
+        
         cdef IteratorC it
         it.i = 0
         while NN.iter(&it, nn.widths, nn.nr_layer-1, 1):
@@ -75,8 +83,6 @@ cdef class NN:
 
     @staticmethod
     cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
-        set_input(eg.fwd_state[0],
-            eg.atoms, eg.nr_atom, nn)
         NN.forward(eg.fwd_state,
             eg.features, eg.nr_feat, nn)
         set_scores(eg, nn)
@@ -88,15 +94,13 @@ cdef class NN:
         NN.predict_example(eg,
             nn)
         for i in range(nn.embeds.nr):
-            insert_sparse(nn.embeds.tables[i], mem,
-                nn.embeds.defaults[i], nn.embeds.lengths[i], eg.atoms, eg.nr_atom)
+            insert_sparse(nn.sparse_weights[i], mem,
+                nn.embed_defaults[i], nn.embed_lengths[i], eg.features, eg.nr_feat)
             # N.B. If we switch the insert_sparse API away from taking this
             # defaults argument, ensure that we allow zero-initialization option.
-            insert_sparse(nn.opt.embed_params.tables[i], mem,
-                nn.opt.embed_params.defaults[i], nn.opt.embed_params.lengths[i],
-                eg.atoms, eg.nr_atom)
-        NN.update(nn,
-            nn.gradient, eg)
+            insert_sparse(nn.sparse_momentum[i], mem,
+                nn.embed_defaults[i], nn.embed_lengths[i], eg.features, eg.nr_feat)
+        NN.update(nn, eg)
      
     @staticmethod
     cdef void forward(
@@ -105,6 +109,9 @@ cdef class NN:
             int nr_feat,
             const NeuralNetC* nn
     ) nogil:
+        set_input(fwd[0],
+            feats, nr_feat, nn.sparse_weights, nn.embed_offsets, nn.embed_lengths,
+            nn.embed_defaults) 
         forward(fwd,
             nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, feats, nr_feat,
             &nn.alpha, nn.iterate, nn.begin_fwd, nn.feed_fwd, nn.end_fwd)
@@ -148,8 +155,6 @@ cdef void forward(
         int nr_layer,
         const float* weights,
         int nr_weight,
-        const FeatureC* feats,
-        int nr_feat,
         const void* _ext,
         do_iter_t iterate,
         do_begin_fwd_t begin_fwd,
@@ -157,7 +162,7 @@ cdef void forward(
         do_end_fwd_t end_fwd
 ) nogil:
     cdef IteratorC it = begin_fwd(fwd,
-            widths, nr_layer, weights, nr_weight, feats, nr_feat, _ext)
+            widths, nr_layer, weights, nr_weight, _ext)
     while iterate(<void*>&it, widths, nr_layer-2, 1):
         feed_fwd(fwd,
             widths, nr_layer, weights, nr_weight, _ext, &it)
@@ -187,7 +192,7 @@ cdef void backward(
     while iterate(&it, widths, nr_layer, -1):
         feed_bwd(bwd,
             fwd, widths, nr_layer, weights, nr_weight, &it, _ext)
-    end_bwd(&it, bwd,
+    end_bwd(&it, bwd, sparse_bwd,
         fwd, widths, nr_layer, weights, nr_weight, _ext)
 
 
@@ -220,29 +225,30 @@ cdef void dense_update(
 
 
 cdef void sparse_update(
-    MapC* weights_table,
-    MapC* moments_table,
+    MapC** weights_table,
+    MapC** moments_table,
     float* tmp,
         float* gradient,
-        int length,
-        uint64_t* keys,
-        float* values,
+        int* offsets,
+        int* lengths,
+        const FeatureC* feats
         int nr_feat,
         const void* _ext
         do_update_t do_update,
 ) nogil:
-    for i in range(nr_feat):
-        weights = <float*>Map_get(weights_table, key)
-        moments = <float*>Map_get(moments_table, key)
+    for f in range(nr_feat):
+        idx = feats[f].i
+        weights = <float*>Map_get(weights_tables[idx], key)
+        moments = <float*>Map_get(moments_tables[idx], key)
         # These should never be null.
         if weights is not NULL and moments is not NULL:
             # Copy the gradient into the temp buffer, so we can modify it in-place
-            memcpy(tmp,
-                gradient, sizeof(float) * length)
-            Vec.mul_i(tmp,
-                value, length)
-            do_update(weights, moments, tmp,
-                length)
+            memcpy(&tmp[offsets[idx]],
+                &gradient[offsets[idx]] sizeof(float) * lengths[idx])
+            Vec.mul_i(&tmp[offsets[idx]],
+                feats[f].value, lengths[idx])
+            do_update(&weights[offset[idx]], &moments[offset[idx]], &tmp[offset[idx]],
+                lengths[idx], _ext)
 
 
 cdef void dotPlus_normalize_dotPlus_ELU(
@@ -337,15 +343,11 @@ cdef void sparse_dot_plus(
 ) nogil:
     for i in range(nr_in):
         W = Ws[feats[i].i]
-        if W is not NULL:
-            row = <const SparseArrayC*>Map_get(W, feats[i].key)
-            if row is not NULL:
-                j = 0
-                while row[j].key >= 0:
-                    # This shouldn't happen, but if it does, don't overflow
-                    if row[j].key < nr_out:
-                        out[row[j].key] += row[j].val * feats[i].val
-                    j += 1
+        if W is not NULL: # Shouldn't be NULL
+            row = <const float*>Map_get(W, feats[i].key)
+            if row is not NULL: # Can be NULL
+                MatVec.dot(out,
+                    W, row, nr_out, nr_in)
     VecVec.add_i(out,
         bias, 1.0, nr_out)
 
@@ -460,32 +462,38 @@ cdef void d_log_loss(
 
 cdef void set_input(
     float* out,
-    const uint64_t* keys,
-    int nr_key,
-        const float* defaults,
-        int length,
-        const MapC* table
+        const FeatureC* feats,
+        int nr_feat,
+        const float* const* defaults,
+        int* lengths,
+        int* offsets,
+        const MapC* const* tables,
+        int nr_table
 ) nogil:
-    for i in range(nr_key):
-        emb = <const float*>Map_get(table, keys[i])
+    for f in range(nr_feat):
+        emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
         if emb == NULL:
-            emb = defaults
+            emb = defaults[feats[f].i]
         VecVec.add_i(out, 
-            emb, 1.0, length)
+            emb, 1.0, lengths[feats[f].i])
 
 
 cdef void insert_sparse(
-    MapC* table,
+    MapC** tables,
     Pool mem,
-        const float* default,
-        int length, 
-        const uint64_t* keys,
+        const float* const* default,
+        const int* lengths, 
+        const int* offsets,
+        int nr_table
+        const FeatureC* feats,
         int nr_feat
 ) except *:
-    for i in range(nr_feat):
-        emb = <float*>Map_get(table, keys[i])
+    for f in range(nr_feat):
+        if feats[f].i >= nr_table:
+            raise IndexError
+        emb = <float*>Map_get(tables[feats[f].i], feats[i])
         if emb is NULL:
-            emb = <float*>mem.alloc(length, sizeof(emb[0]))
+            emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
             # TODO: Which is better here???
             # N.B.: Careful enabling this. It can break use of this function to
             # initialize things that should be zeroed.
@@ -496,6 +504,6 @@ cdef void insert_sparse(
             # set default. But if we're doing that, the back pass needs
             # to be dealing with the same representation.
             memcpy(emb,
-                default, sizeof(emb[0]) * length)
-            Map_set(mem, table,
-                keys[i], emb)
+                defaults[feats[f].i], sizeof(emb[0]) * lengths[feats[f].i])
+            Map_set(mem, tables[feats[f].i],
+                feats[f].key, emb)
