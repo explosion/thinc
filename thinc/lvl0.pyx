@@ -245,6 +245,7 @@ cdef void adam(
         len_t nr_weight, const ConstantsC* hp) nogil:
     cdef float beta1 = 0.90
     cdef float beta2 = 0.999
+    cdef float eps = 0.000001 
     # Add the derivative of the L2-loss to the gradient
     cdef idx_t i
     if hp.r != 0:
@@ -254,18 +255,44 @@ cdef void adam(
     # Maybe there's another way?
     mom1 = moments
     mom2 = &moments[nr_weight]
-    ateb1 = 1-beta1
-    ateb2 = 1-beta2
+    cdef float ateb1 = 1-beta1
+    cdef float ateb2 = 1-beta2
     for i in range(nr_weight):
-        mom1[i] *= beta1
-        mom1[i] += ateb1 * gradient[i]
-        mom2[i] *= beta2
-        mom2[i] += ateb2 * gradient[i] ** 2
-        gradient[i] = (mom1[i] / ateb1) / (sqrtf(mom2[i] / ateb2) + EPS)
+        mom1[i] = (mom1[i] * beta1) + (ateb1 * gradient[i])
+    for i in range(nr_weight):
+        mom2[i] = (mom2[i] * beta2) + (ateb2 * gradient[i] * gradient[i])
+    for i in range(nr_weight):
+        gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
+        #gradient[i] = (mom1[i] / ateb1) / (sqrtf(mom2[i] / ateb2) + eps)
+    cdef float a_t = hp.e * (sqrtf(ateb2) / ateb1)
+    VecVec.add_i(weights,
+        gradient, -a_t, nr_weight)
+
+
+@cython.cdivision(True)
+cdef void adadelta(float* weights, float* momentum, float* gradient,
+        len_t nr_weight, float scale, const ConstantsC* hp) nogil:
+    cdef float alpha = 0.90
     Vec.mul_i(gradient,
-        hp.e, nr_weight)
+        scale, nr_weight)
+    # Add the derivative of the L2-loss to the gradient
+    cdef int i
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    avg = momentum
+    step = &momentum[nr_weight]
+    Vec.mul_i(avg,
+        alpha, nr_weight)
+    for i in range(nr_weight):
+        avg[i] += (1-alpha) * gradient[i] * gradient[i]
+    for i in range(nr_weight):
+        gradient[i] *= sqrtf(step[i] + EPS) / sqrtf(avg[i] + EPS)
+    Vec.mul_i(step,
+        alpha, nr_weight)
     VecVec.add_i(weights,
         gradient, -1.0, nr_weight)
+
 
 
 @cython.cdivision(True)
