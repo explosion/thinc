@@ -56,110 +56,110 @@ def test_fwd_bias():
     assert_allclose(eg.scores, [0.5, 0.5])
 
 
-#def test_fwd_linear():
-#    model = NeuralNet((2,2), rho=0.0)
-#    assert model.nr_out == 2
-#    assert model.widths == (2, 2)
-#
-#    syn = [1.,0.,0.,1.]
-#    bias = [0.,0.]
-#    gamma = [0.,0.]
-#    beta = [0.,0.]
-#    model.weights = syn+bias+gamma+beta
-#
-#    ff = [0,0]
-#    tf = [1,0]
-#    ft = [0,1]
-#    tt = [1,1]
-#    eg = model(ff)
-#
-#    assert_allclose(eg.scores, [0.5, 0.5])
-#
-#    eg = model(ft)
-#    
-#    assert_allclose(eg.scores, [ 0.26894142,  0.73105858])
-#    assert_allclose([sum(eg.scores)], [1.0])
-#
-#    eg = model(tf)
-#    assert_allclose(eg.scores, [0.73105858, 0.26894142])
-#    assert_allclose(sum(eg.scores), [1.0])
-#
-#    eg = model(tt)
-#    assert_allclose(eg.scores, [0.5, 0.5])
-#
-#
-#def test_xor_manual():
-#    model = NeuralNet((2,2,2), rho=0.0)
-#    assert model.nr_out == 2
-#    assert model.widths == (2, 2, 2)
-#
-#    # Make a network that detects X-or
-#    # It should output 0 if inputs are 0,0 or 1,1 and 1 if inputs are 0,1 or 1,0
-#    # A linear model can't do this!
-#    # 
-#    # What we do is create two intermediate predictors, for 0,1 and 1,0
-#    # These predictors rely on a bias towards 0. The non-linearity is essential
-#    # Then our output layer can detect either of these signals firing
-#    #
-#    # 0,0 --> neither fire
-#    # 0,1 --> A0 fires
-#    # 1,0 --> A1 fires
-#    # 1,1 --> neither fire
-#    #
-#
-#    model.weights = np.asarray([
-#                [4.0, -10.0],   # A.0*in.0, A.0*in.1
-#                [-10.0, 5.0], # A.1*in.0, A.1*in.1
-#                [0.0, 0.0],     # A.0 bias, A.1 bias
-#                [1.0, 1.0],     # A.0 gamma, A.1 gamma
-#                [0.0, 0.0],     # A.0 beta, A.1 beta
-#                [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-#                [10.0, 10.0],   # out.1*A.0, out.1*A.1
-#                [10.0, -10.0],   # out.0 bias, out.1 bias
-#                [1.0, 1.0],     # out.0 gamma, out.1 gamma
-#                [0.0, 0.0],     # out.0 beta, out.1 beta
-#            ]).flatten()
-#
-#    ff = [0,0]
-#    tf = [1,0]
-#    ft = [0,1]
-#    tt = [1,1]
-#
-#    eg = model(ff)
-#    assert eg.scores[0] > 0.99
-# 
-#    eg = model(tt)
-#    assert eg.scores[0] > 0.99
-#    
-#    eg = model(tf)
-#    assert eg.scores[1] > 0.99
-#
-#    eg = model(ft)
-#    assert eg.scores[1] > 0.99
-# 
-#
-#@pytest.fixture
-#def xor_data():
-#    ff = np.asarray([0.,0.], dtype='f')
-#    tf = np.asarray([1.,0.], dtype='f')
-#    ft = np.asarray([0.,1.], dtype='f')
-#    tt = np.asarray([1.,1.], dtype='f')
-#    costs0 = np.asarray([0., 1.], dtype='f')
-#    costs1 = np.asarray([1., 0.], dtype='f')
-#    return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 0, costs0)]
-#
-#
-#@pytest.fixture
-#def or_data():
-#    ff = np.asarray([0.,0.], dtype='f')
-#    tf = np.asarray([1.,0.], dtype='f')
-#    ft = np.asarray([0.,1.], dtype='f')
-#    tt = np.asarray([1.,1.], dtype='f')
-#    costs0 = np.asarray([0., 1.], dtype='f')
-#    costs1 = np.asarray([1., 0.], dtype='f')
-#    return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
-#
-#
+def test_fwd_linear():
+    model = NeuralNet((2,2), rho=0.0)
+    assert model.nr_out == 2
+    assert model.widths == (2, 2)
+
+    syn = [1.,0.,0.,1.]
+    bias = [0.,0.]
+    gamma = [0.,0.]
+    beta = [0.,0.]
+    model.weights = syn+bias+gamma+beta
+
+    ff = [0,0]
+    tf = [1,0]
+    ft = [0,1]
+    tt = [1,1]
+    eg = model.predict_dense(ff)
+
+    assert_allclose(eg.scores, [0.5, 0.5])
+
+    eg = model.predict_dense(ft)
+    
+    assert_allclose(eg.scores, [ 0.26894142,  0.73105858])
+    assert_allclose([sum(eg.scores)], [1.0])
+
+    eg = model.predict_dense(tf)
+    assert_allclose(eg.scores, [0.73105858, 0.26894142])
+    assert_allclose(sum(eg.scores), [1.0])
+
+    eg = model.predict_dense(tt)
+    assert_allclose(eg.scores, [0.5, 0.5])
+
+
+def test_xor_manual():
+    model = NeuralNet((2,2,2), rho=0.0)
+    assert model.nr_out == 2
+    assert model.widths == (2, 2, 2)
+
+    # Make a network that detects X-or
+    # It should output 0 if inputs are 0,0 or 1,1 and 1 if inputs are 0,1 or 1,0
+    # A linear model can't do this!
+    # 
+    # What we do is create two intermediate predictors, for 0,1 and 1,0
+    # These predictors rely on a bias towards 0. The non-linearity is essential
+    # Then our output layer can detect either of these signals firing
+    #
+    # 0,0 --> neither fire
+    # 0,1 --> A0 fires
+    # 1,0 --> A1 fires
+    # 1,1 --> neither fire
+    #
+
+    model.weights = np.asarray([
+                [4.0, -10.0],   # A.0*in.0, A.0*in.1
+                [-10.0, 5.0], # A.1*in.0, A.1*in.1
+                [0.0, 0.0],     # A.0 bias, A.1 bias
+                [1.0, 1.0],     # A.0 gamma, A.1 gamma
+                [0.0, 0.0],     # A.0 beta, A.1 beta
+                [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+                [10.0, 10.0],   # out.1*A.0, out.1*A.1
+                [10.0, -10.0],   # out.0 bias, out.1 bias
+                [1.0, 1.0],     # out.0 gamma, out.1 gamma
+                [0.0, 0.0],     # out.0 beta, out.1 beta
+            ]).flatten()
+
+    ff = [0,0]
+    tf = [1,0]
+    ft = [0,1]
+    tt = [1,1]
+
+    eg = model.predict_dense(ff)
+    assert eg.scores[0] > 0.99
+ 
+    eg = model.predict_dense(tt)
+    assert eg.scores[0] > 0.99
+    
+    eg = model.predict_dense(tf)
+    assert eg.scores[1] > 0.99
+
+    eg = model.predict_dense(ft)
+    assert eg.scores[1] > 0.99
+ 
+
+@pytest.fixture
+def xor_data():
+    ff = np.asarray([0.,0.], dtype='f')
+    tf = np.asarray([1.,0.], dtype='f')
+    ft = np.asarray([0.,1.], dtype='f')
+    tt = np.asarray([1.,1.], dtype='f')
+    costs0 = np.asarray([0., 1.], dtype='f')
+    costs1 = np.asarray([1., 0.], dtype='f')
+    return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 0, costs0)]
+
+
+@pytest.fixture
+def or_data():
+    ff = np.asarray([0.,0.], dtype='f')
+    tf = np.asarray([1.,0.], dtype='f')
+    ft = np.asarray([0.,1.], dtype='f')
+    tt = np.asarray([1.,1.], dtype='f')
+    costs0 = np.asarray([0., 1.], dtype='f')
+    costs1 = np.asarray([1., 0.], dtype='f')
+    return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
+
+
 #def test_learn_linear(or_data):
 #    '''Test that a linear model can learn OR.'''
 #    # Need high eta on this sort of toy problem, or learning takes forever!
