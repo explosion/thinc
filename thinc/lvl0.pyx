@@ -76,20 +76,24 @@ cdef void forward(
         const float* weights,
             len_t nr_weight,
         const void* _ext,
-        do_iter_t iterate,
-        do_begin_fwd_t begin_fwd,
-        do_feed_fwd_t feed_fwd,
-        do_end_fwd_t end_fwd
+        do_iter_t iterate=advance_iterator,
+        do_begin_fwd_t begin_fwd=default_begin_fwd,
+        do_feed_fwd_t feed_fwd=default_feed_fwd,
+        do_end_fwd_t end_fwd=default_end_fwd
 ) nogil:
+    if scores is NULL or fwd is NULL or widths is NULL or weights is NULL:
+        return
+    if begin_fwd is NULL or feed_fwd is NULL or end_fwd is NULL:
+        return
     cdef IteratorC it = begin_fwd(fwd, widths, nr_layer, weights, nr_weight)
     while iterate(&it, widths, nr_layer-2, 1):
         feed_fwd(fwd,
-            widths, nr_layer, weights, nr_weight, &it)
+            widths, nr_layer, weights, nr_weight, &it, NULL)
     end_fwd(&it, scores, fwd,
         widths, nr_layer, weights, nr_weight)
 
 
-cdef IteratorC begin_fwd(
+cdef IteratorC default_begin_fwd(
     float** fwd,
         const len_t* widths,
         len_t nr_layer,
@@ -118,6 +122,17 @@ cdef void default_feed_fwd(
                 it.nr_in,
             &weights[it.W])
             
+
+cdef void default_end_fwd(
+    IteratorC* it,
+    float* scores,
+    float** fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight) nogil:
+    pass
+
 
 cdef void dot_plus__ELU(
     float* output,

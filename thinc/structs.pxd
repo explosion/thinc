@@ -30,7 +30,8 @@ ctypedef void (*do_feed_fwd_t)(
             len_t nr_layer,
         const float* weights,
             len_t nr_weight,
-        const IteratorC* it
+        const IteratorC* it,
+        const ConstantsC* hp
 ) nogil
  
 
@@ -169,10 +170,12 @@ cdef struct ExampleC:
     
     float** fwd_state
     float** bwd_state
+    int* widths
 
     int nr_class
     int nr_atom
     int nr_feat
+    int nr_layer
     
     int guess
     int best

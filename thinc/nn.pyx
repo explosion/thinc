@@ -183,14 +183,26 @@ cdef class NeuralNet:
         NN.init(&self.c, self.mem, widths, eta, eps, mu, rho, bias, alpha)
         self.eg = Example(self.widths)
 
-    def __call__(self, features):
+    def predict_example(self, Example eg):
+        NN.predict_example(&eg.c,
+            &self.c)
+        return eg
+
+    def predict_sparse(self, features):
         cdef Example eg = self.eg
         eg.wipe(self.widths)
         eg.set_features(features)
         NN.predict_example(&eg.c,
             &self.c)
         return eg
-   
+
+    def predict_dense(self, features):
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_input(features)
+        self.predict_example(eg)
+        return eg
+  
     def train(self, features, y):
         memset(self.c.gradient,
             0, sizeof(self.c.gradient[0]) * self.c.nr_weight)

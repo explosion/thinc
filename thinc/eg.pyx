@@ -65,7 +65,14 @@ cdef class Example:
         self.c.nr_feat = len(features)
         self.c.features = <FeatureC*>self.mem.alloc(self.c.nr_feat, sizeof(FeatureC))
         for i, (slot, feat, value) in enumerate(features):
-            self.c.features[i] = FeatureC(i=slot, key=feat, val=value)
+            self.c.features[i] = FeatureC(i=slot, key=feat, value=value)
+
+    def set_input(self, input_):
+        if len(input_) > self.c.widths[0]:
+            lengths = (len(input_), self.c.widths[0])
+            raise IndexError("Cannot set %d elements to input of length %d" % lengths)
+        for i, value in enumerate(input_):
+            self.c.fwd_state[0][i] = value
 
     def set_label(self, label):
         if label is None:
