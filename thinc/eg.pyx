@@ -44,7 +44,7 @@ cdef class Example:
                 0, sizeof(self.c.scores[0]) * self.c.nr_class)
         if self.c.atoms is not NULL:
             memset(self.c.atoms,
-                0, sizeof(self.c.atoms[0]) * self.c.nr_class)
+                0, sizeof(self.c.atoms[0]) * self.c.nr_atom)
 
     def set_features(self, features):
         cdef weight_t value
@@ -138,8 +138,8 @@ cdef class Example:
 
     def activation(self, int i, int j):
         # TODO: Find a way to do this better!
-        return self.c.fwd_state[i*2][j]
+        return self.c.fwd_state[i][j]
 
     def delta(self, int i, int j):
         # TODO: Find a way to do this better!
-        return self.c.bwd_state[i*2][j]
+        return self.c.bwd_state[i][j]

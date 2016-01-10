@@ -36,7 +36,9 @@ def c_ext(mod_name, language, includes, compile_args):
 def cython_ext(mod_name, language, includes, compile_args):
     import Cython.Distutils
     import Cython.Build
+    import Cython.Compiler.Options
     mod_path = mod_name.replace('.', '/') + '.pyx'
+    Cython.Compiler.Options.cimport_from_pyx = True
     if language == 'cpp':
         language = 'c++'
     ext = Extension(mod_name, [mod_path], language=language, include_dirs=includes,
@@ -61,7 +63,6 @@ def run_setup(exts):
     )
 
     import headers_workaround
-
     headers_workaround.fix_venv_pypy_include()
     headers_workaround.install_headers('murmurhash')
 
@@ -70,12 +71,12 @@ def main(modules, use_cython):
     language = "cpp"
     ext_func = cython_ext if use_cython else c_ext
     includes = ['.', path.join(sys.prefix, 'include')]
-    compile_args = ['-O3']
+    compile_args = ['-O3', '-Wno-unused-function']
     exts = [ext_func(mn, language, includes, compile_args) for mn in modules]
     run_setup(exts)
 
 
-MOD_NAMES = ['thinc.blas', 'thinc.nn', 'thinc.eg']
+MOD_NAMES = ['thinc.blas', 'thinc.lvl0', 'thinc.nn', 'thinc.eg']
 #MOD_NAMES = ['thinc.api', "thinc.features", "thinc.model", "thinc.update",
 #             'thinc.blas', 'thinc.layer', 'thinc.nn',
 #             'thinc.sparse', 'thinc.search', 'thinc.cache',

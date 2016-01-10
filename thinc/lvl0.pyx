@@ -101,51 +101,6 @@ cdef void dense_update(
         nr_weight, hp)
 
 
-cdef void sparse_update(
-    MapC** weights_tables,
-    MapC** moments_tables,
-    float* tmp,
-        const float* gradient,
-            len_t nr_grad,
-        const len_t* lengths,
-        const idx_t* offsets,
-        const float* const* defaults,
-            len_t nr_table,
-        const FeatureC* feats,
-            len_t nr_feat,
-        const ConstantsC* hp,
-        do_update_t do_update,
-) nogil:
-    cdef idx_t f
-    cdef idx_t idx
-    for f in range(nr_feat):
-        # Copy the gradient into the temp buffer, so we can modify it in-place
-        memcpy(tmp, gradient, sizeof(tmp[0]) * nr_grad)
-        idx = feats[f].i
-        weights = <float*>Map_get(weights_tables[idx], feats[f].key)
-        moments = <float*>Map_get(moments_tables[idx], feats[f].key)
-        # These should never be null.
-        if weights is not NULL and moments is not NULL:
-            Vec.mul_i(&tmp[offsets[idx]],
-                feats[f].value, lengths[idx])
-            do_update(&weights[offsets[idx]], &moments[offsets[idx]], &tmp[offsets[idx]],
-                lengths[idx], hp)
-
-
-cdef void default_feed_bwd(
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const IteratorC* it,
-        const ConstantsC* hp,
-) nogil:
-    dELU__dDot(bwd[it.i], bwd[it.i+1],
-        it.nr_in, fwd[it.i+1], it.nr_out, weights)
-
-
 cdef void dELU__dDot(
     float* dX,
     float* dY,
@@ -260,38 +215,6 @@ cdef void set_input(
             emb = defaults[feats[f].i]
         VecVec.add_i(&out[offsets[feats[f].i]], 
             emb, feats[f].value, lengths[feats[f].i])
-
-
-cdef void insert_sparse(
-    Pool mem,
-    MapC** weights,
-    MapC** momentum,
-        const len_t* lengths, 
-        const idx_t* offsets,
-        const float* const* defaults,
-        const FeatureC* feats,
-        int nr_feat
-) except *:
-    for f in range(nr_feat):
-        emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
-        if emb is NULL:
-            emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
-            # TODO: Which is better here???
-            #Initializer.normal(emb,
-            #    0.0, 1.0, length)
-            # We initialize with the defaults here so that we only have
-            # to insert during training --- on the forward pass, we can
-            # set default. But if we're doing that, the back pass needs
-            # to be dealing with the same representation.
-            memcpy(emb,
-                defaults[feats[f].i], sizeof(emb[0]) * lengths[feats[f].i])
-            Map_set(mem, weights[feats[f].i],
-                feats[f].key, emb)
-            mom = <float*>mem.alloc(lengths[feats[f].i], sizeof(mom[0]))
-            Map_set(mem, momentum[feats[f].i],
-                feats[f].key, mom)
-            print("Insert", feats[f].key, "into", feats[f].i)
-
 
 
 @cython.cdivision(True)

@@ -26,9 +26,6 @@ from .eg cimport Example
 
 from .lvl0 cimport advance_iterator
 from .lvl0 cimport set_input
-from .lvl0 cimport insert_sparse
-from .lvl0 cimport sparse_update
-from .lvl0 cimport dense_update
 from .lvl0 cimport adam_update_step
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
@@ -108,7 +105,7 @@ cdef class NN:
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        insert_sparse(mem, nn.embed.weights, nn.embed.momentum,
+        insert_embeddings(mem, nn.embed.weights, nn.embed.momentum,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
         NN.predict_example(eg, nn)
@@ -168,20 +165,27 @@ cdef class NN:
             G += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
         nn.update(nn.weights, nn.momentum, nn.gradient,
             nn.nr_weight, &nn.hp)
-        sparse_update(
-            nn.embed.weights,
-            nn.embed.momentum,
-            nn.gradient,
-                eg.bwd_state[0],
-                    nn.widths[0],
-                nn.embed.lengths,
-                nn.embed.offsets,
-                nn.embed.defaults,
-                    nn.embed.nr,
-                eg.features,
-                    eg.nr_feat,
-                &nn.hp,
-                nn.update)
+        cdef idx_t f
+        cdef idx_t idx
+        cdef idx_t os
+        cdef float* emb
+        cdef float* mom
+        cdef float* upd = nn.gradient
+        for f in range(eg.nr_feat):
+            # Copy the fine-tuning into the temp buffer, so we can modify it in-place
+            memcpy(upd, eg.bwd_state[0], sizeof(upd[0]) * nn.widths[0])
+            idx = eg.features[f].i
+            os = nn.embed.offsets[idx]
+            with gil:
+                print(f, idx, os, eg.features[f].value, nn.embed.lengths[idx])
+            emb = <float*>Map_get(nn.embed.weights[idx], eg.features[f].key)
+            mom = <float*>Map_get(nn.embed.momentum[idx], eg.features[f].key)
+            # These should never be null.
+            if emb is not NULL and mom is not NULL:
+                Vec.mul_i(&upd[os],
+                    eg.features[f].value, nn.embed.lengths[idx])
+                nn.update(emb, mom, &upd[os],
+                    nn.embed.lengths[idx], &nn.hp)
 
 
 cdef class Embedding:
@@ -264,9 +268,8 @@ cdef class NeuralNet:
     def train_sparse(self, features, y):
         memset(self.c.gradient,
             0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
-        cdef Example eg = self.eg
+        cdef Example eg = self.Example(features)
         eg.wipe(self.widths)
-        eg.set_features(features)
         eg.set_label(y)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
@@ -365,45 +368,31 @@ cdef class NeuralNet:
             self.c.hp.p = eps
 
 
-
-
-#@cython.cdivision(True)
-#cdef void __tmp(OptimizerC* opt, weight_t* moments, weight_t* weights,
-#        weight_t* gradient, weight_t scale, int nr_weight) nogil:
-#    cdef weight_t beta1 = 0.90
-#    cdef weight_t beta2 = 0.999
-#    cdef weight_t EPS = 1e-6
-#    Vec.mul_i(gradient,
-#        scale, nr_weight)
-#    # Add the derivative of the L2-loss to the gradient
-#    cdef int i
-#    if opt.rho != 0:
-#        VecVec.add_i(gradient,
-#            weights, opt.rho, nr_weight)
-#    # This is all vectorized and in-place, so it's hard to read. See the
-#    # paper.
-#    mom1 = moments
-#    mom2 = &moments[nr_weight]
-#    Vec.mul_i(mom1,
-#        beta1, nr_weight)
-#    VecVec.add_i(mom1,
-#        gradient, 1-beta1, nr_weight)
-#    Vec.mul_i(mom2,
-#        beta2, nr_weight)
-#    VecVec.mul_i(gradient,
-#        gradient, nr_weight)
-#    VecVec.add_i(mom2,
-#        gradient, 1-beta2, nr_weight)
-#    Vec.div(gradient,
-#        mom1, 1-beta1, nr_weight)
-#    for i in range(nr_weight):
-#        gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
-#    Vec.mul_i(gradient,
-#        opt.eta, nr_weight)
-#    VecVec.add_i(weights,
-#        gradient, -1.0, nr_weight)
-#
-#
+cdef void insert_embeddings(
+    Pool mem,
+    MapC** weights,
+    MapC** momentum,
+        const len_t* lengths, 
+        const idx_t* offsets,
+        const float* const* defaults,
+        const FeatureC* feats,
+        int nr_feat
+) except *:
+    for f in range(nr_feat):
+        emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
+        if emb is NULL:
+            emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
+            # TODO: Which is better here???
+            he_normal_initializer(emb, 1, lengths[feats[f].i])
+            # We initialize with the defaults here so that we only have
+            # to insert during training --- on the forward pass, we can
+            # set default. But if we're doing that, the back pass needs
+            # to be dealing with the same representation.
+            Map_set(mem, weights[feats[f].i],
+                feats[f].key, emb)
+            mom = <float*>mem.alloc(lengths[feats[f].i], sizeof(mom[0]))
+            Map_set(mem, momentum[feats[f].i],
+                feats[f].key, mom)
 
 
 cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:

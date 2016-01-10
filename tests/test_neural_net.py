@@ -326,45 +326,48 @@ def test_embedding():
     assert eg.activation(0, 8) != 0.0
     assert eg.activation(0, 9) != 0.0
     
-
+#
 #def test_sparse_backprop_single():
-#    model = NeuralNet((2, 2, 2), embed=((2,), (0,)))
-#    x = [{1: 4.0}]
-#    y = [(0, 1)]
-#    b1 = model.train(x, y)
-#    b2 = model.train(x, y)
-#    b3 = model.train(x, y)
-#    b4 = model.train(x, y)
-#    b5 = model.train(x, y)
-#    assert b1.loss > b2.loss
-#    assert b2.loss > b3.loss
-#    assert b3.loss > b4.loss
-#    assert b4.loss > b5.loss
+#    model = NeuralNet((2, 2, 2), embed=((2,), (0,)), update_step='sgd', eta=0.1)
+#    x = {(0, 1): 4.0}
+#    y = (0, 1)
+#    b1 = model.train_sparse(x, y)
+#    b2 = model.train_sparse(x, y)
+#    b3 = model.train_sparse(x, y)
+#    b4 = model.train_sparse(x, y)
+#    b5 = model.train_sparse(x, y)
+#    assert b1.loss > b2.loss or b1.loss == 0.0
+#    assert b2.loss > b3.loss or b2.loss == 0.0
+#    assert b3.loss > b4.loss or b3.loss == 0.0
+#    assert b4.loss > b5.loss or b4.loss == 0.0
 #
-#
-#def f2s(fs):
-#    return ' '.join('%.3f' % val for val in fs)
-#
-#
-#def test_sparse_backprop():
-#    model = NeuralNet((2, 2, 2), embed=((2,), (0,)), bias=0.0, rho=0.0, eta=0.1)
-#    x = [{1: 4.0, 2: 3.0, 3: 4.0, 100: 1.0}, {10: 3.0, 2: 2.0}]
-#    y = [(0, 1), (1, 0)]
-#    e0 = model(x[0])
-#    b1 = model.train(x, y)
-#    b2 = model.train(x, y)
-#    b3 = model.train(x, y)
-#    b4 = model.train(x, y)
-#    b5 = model.train(x, y)
-#    b6 = model.train(x, y)
-#    b7 = model.train(x, y)
-#    b8 = model.train(x, y)
-#    b9 = model.train(x, y)
-#    b10 = model.train(x, y)
-#
-#    print(b1.gradient)
-#    e1, e2 = b2
-#    print(e1.activation(0,0))
-#
-#    assert b1.loss > b3.loss > b10.loss
-#    print(b1.loss, b10.loss)
+
+def f2s(fs):
+    return ' '.join('%.3f' % val for val in fs)
+
+
+def test_sparse_backprop():
+    def train_batch(model, (X, Y)):
+        loss = 0.0
+        for x,y in zip(X, Y):
+            eg = model.train_sparse(x, y)
+            loss += eg.loss
+        return loss
+
+    model = NeuralNet((2, 2, 2), embed=((10,), (0,)), bias=0.0, rho=0.0, eta=0.005,
+                      update_step='sgd')
+    X = [{(0, 1): 4.0, (0, 2): 3.0, (0, 3): 4.0, (0, 100): 1.0}, {(0, 10): 3.0,
+         (0, 2): 2.0}]
+    Y = [(0, 1), (1, 0)]
+    b1 = train_batch(model, (X, Y))
+    b2 = train_batch(model, (X, Y))
+    b3 = train_batch(model, (X, Y))
+    b4 = train_batch(model, (X, Y))
+    b5 = train_batch(model, (X, Y))
+    b6 = train_batch(model, (X, Y))
+    b7 = train_batch(model, (X, Y))
+    b8 = train_batch(model, (X, Y))
+    b9 = train_batch(model, (X, Y))
+    b10 = train_batch(model, (X, Y))
+
+    assert b1 > b3 > b10
