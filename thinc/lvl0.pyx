@@ -201,7 +201,7 @@ cdef void d_log_loss(
 
 
 @cython.cdivision(True)
-cdef void adam_update_step(
+cdef void old_adam(
     float* weights,
     float* moments,
     float* gradient,
@@ -237,6 +237,36 @@ cdef void adam_update_step(
         hp.e, nr_weight)
     VecVec.add_i(weights,
         gradient, -1.0, nr_weight)
+
+
+@cython.cdivision(True)
+cdef void adam(
+    float* weights, float* moments, float* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    cdef float beta1 = 0.90
+    cdef float beta2 = 0.999
+    # Add the derivative of the L2-loss to the gradient
+    cdef idx_t i
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    # This was all vectorized and in-place, but that turned out to be very slow.
+    # Maybe there's another way?
+    mom1 = moments
+    mom2 = &moments[nr_weight]
+    ateb1 = 1-beta1
+    ateb2 = 1-beta2
+    for i in range(nr_weight):
+        mom1[i] *= beta1
+        mom1[i] += ateb1 * gradient[i]
+        mom2[i] *= beta2
+        mom2[i] += ateb2 * gradient[i] ** 2
+        gradient[i] = (mom1[i] / ateb1) / (sqrtf(mom2[i] / ateb2) + EPS)
+    Vec.mul_i(gradient,
+        hp.e, nr_weight)
+    VecVec.add_i(weights,
+        gradient, -1.0, nr_weight)
+
 
 
 @cython.cdivision(True)

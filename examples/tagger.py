@@ -48,7 +48,7 @@ class Tagger(object):
     def start_training(self, sentences):
         suffix_width = 5
         prefix_width = 5
-        tags_width = 5
+        tags_width = 10
         words_width = 10
         #tables = (suffix_width, prefix_width, tags_width, words_width)
         #slots = (0, 1, 2, 2, 3, 3, 0, 3, 3, 0, 3)
@@ -57,9 +57,9 @@ class Tagger(object):
         input_length = sum(tables[slot] for slot in slots)
         self._make_tagdict(sentences)
         self.model = NeuralNet(
-            (input_length, input_length, input_length, len(self.classes)),
+            (input_length, input_length, len(self.classes)),
             embed=(tables, slots),
-        rho=1e-7, eta=0.1)
+        rho=1e-7, eta=0.001, update_step='adam')
     
     def tag(self, words):
         prev, prev2 = START
@@ -68,7 +68,7 @@ class Tagger(object):
         inverted_classes = {i: tag for tag, i in self.classes.items()}
         for i, word in enumerate(words):
             features = self._get_features(i, word, context, prev, prev2)
-            eg = self.model(features)
+            eg = self.model.predict_sparse(features)
             tag = inverted_classes[eg.guess]
             tags.append(tag)
             prev2 = prev
@@ -98,7 +98,7 @@ class Tagger(object):
                 prev2, prev = prev, tags[i]
                 continue
             features = self._get_features(i, word, context, prev, prev2)
-            eg = self.model.train(features, self.classes[tags[i]])
+            eg = self.model.train_sparse(features, self.classes[tags[i]])
             prev2, prev = prev, inverted_classes[eg.guess]
             grad_l1 += self.model.l1_gradient
             loss += eg.loss

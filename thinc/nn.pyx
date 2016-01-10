@@ -24,8 +24,7 @@ from .structs cimport EmbedC
 
 from .eg cimport Example
 
-from .lvl0 cimport advance_iterator
-from .lvl0 cimport adam_update_step
+from .lvl0 cimport adam
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
 from .lvl0 cimport dot_plus__ELU
@@ -65,10 +64,10 @@ cdef class NN:
             nn.widths[i] = width
 
         nn.iterate = advance_iterator
-        if update_step == 'adam':
+        if update_step == 'sgd':
             nn.update = vanilla_sgd_update_step
         else:
-            nn.update = adam_update_step
+            nn.update = adam
 
         nn.nr_weight = 0
         for i in range(nn.nr_layer-1):
@@ -120,12 +119,11 @@ cdef class NN:
             nn.embed.defaults, nn.embed.weights) 
         cdef int i
         cdef const float* W = nn.weights
-        cdef const float* bias = W + (nn.widths[0] * nn.widths[1])
         for i in range(nn.nr_layer-2): # Save last layer for softmax
+            bias = W + (nn.widths[0] * nn.widths[1])
             dot_plus__ELU(fwd[i+1],
                 bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
             W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
-            bias += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
         dot_plus(fwd[nn.nr_layer-1],
             bias, nn.widths[nn.nr_layer-1], fwd[nn.nr_layer-2], nn.widths[nn.nr_layer-2],
             W)
@@ -143,10 +141,10 @@ cdef class NN:
         cdef int i
         for i in range(nn.nr_layer-2, 0, -1):
             W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
-            d_ELU(bwd[i+1],
-                fwd[i+1], nn.widths[i+1])
             d_dot(bwd[i],
                 nn.widths[i], bwd[i+1], nn.widths[i+1], W)
+            d_ELU(bwd[i],
+                fwd[i], nn.widths[i])
         W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
         d_dot(bwd[0],
             nn.widths[0], bwd[1], nn.widths[1], W)
@@ -175,8 +173,6 @@ cdef class NN:
             memcpy(upd, eg.bwd_state[0], sizeof(upd[0]) * nn.widths[0])
             idx = eg.features[f].i
             os = nn.embed.offsets[idx]
-            with gil:
-                print(f, idx, os, eg.features[f].value, nn.embed.lengths[idx])
             emb = <float*>Map_get(nn.embed.weights[idx], eg.features[f].key)
             mom = <float*>Map_get(nn.embed.momentum[idx], eg.features[f].key)
             # These should never be null.
@@ -185,7 +181,6 @@ cdef class NN:
                     eg.features[f].value, nn.embed.lengths[idx])
                 nn.update(emb, mom, &upd[os],
                     nn.embed.lengths[idx], &nn.hp)
-
 
     @staticmethod
     cdef void set_input(
@@ -201,8 +196,7 @@ cdef class NN:
             if emb == NULL:
                 emb = defaults[feats[f].i]
             VecVec.add_i(&out[offsets[feats[f].i]], 
-                emb, feats[f].value, lengths[feats[f].i])
-
+                emb, 1.0, lengths[feats[f].i])
 
 
 cdef class Embedding:
@@ -258,16 +252,13 @@ cdef class NeuralNet:
         return eg
 
     def predict_sparse(self, features):
-        cdef Example eg = self.eg
-        eg.wipe(self.widths)
-        eg.set_features(features)
+        cdef Example eg = self.Example(features)
         NN.predict_example(&eg.c,
             &self.c)
         return eg
 
     def predict_dense(self, features):
-        cdef Example eg = self.eg
-        eg.wipe(self.widths)
+        cdef Example eg = Example(self.widths)
         eg.set_input(features)
         self.predict_example(eg)
         return eg
@@ -275,18 +266,12 @@ cdef class NeuralNet:
     def train_dense(self, features, y):
         memset(self.c.gradient,
             0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
-        cdef Example eg = self.eg
-        eg.wipe(self.widths)
-        eg.set_input(features)
-        eg.set_label(y)
+        cdef Example eg = self.Example(features, y)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
   
     def train_sparse(self, features, y):
-        memset(self.c.gradient,
-            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
         cdef Example eg = self.Example(features)
-        eg.wipe(self.widths)
         eg.set_label(y)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
@@ -400,14 +385,15 @@ cdef void insert_embeddings(
         if emb is NULL:
             emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
             # TODO: Which is better here???
-            he_normal_initializer(emb, 1, lengths[feats[f].i])
+            #he_normal_initializer(emb, 1, lengths[feats[f].i])
             # We initialize with the defaults here so that we only have
             # to insert during training --- on the forward pass, we can
             # set default. But if we're doing that, the back pass needs
             # to be dealing with the same representation.
             Map_set(mem, weights[feats[f].i],
                 feats[f].key, emb)
-            mom = <float*>mem.alloc(lengths[feats[f].i], sizeof(mom[0]))
+            # Need 2x length for momentum. Need to centralize this somewhere =/
+            mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
             Map_set(mem, momentum[feats[f].i],
                 feats[f].key, mom)
 
