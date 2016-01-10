@@ -2,8 +2,10 @@
 # cython: cdivision=True
 from libc.string cimport memcpy
 
+from cymem.cymem cimport Pool
 from preshed.maps cimport MapStruct as MapC
 from preshed.maps cimport map_get as Map_get
+from preshed.maps cimport map_set as Map_set
 
 from .structs cimport IteratorC
 from .structs cimport FeatureC
@@ -187,7 +189,7 @@ cdef void sparse_update(
         const len_t* lengths,
         const idx_t* offsets,
         const float* const* defaults,
-        len_t nr_table,
+            len_t nr_table,
         const FeatureC* feats,
             len_t nr_feat,
         const ConstantsC* hp,
@@ -330,9 +332,9 @@ cdef void d_log_loss(
 cdef void set_input(
     float* out,
         const FeatureC* feats,
-        int nr_feat,
-        int* lengths,
-        int* offsets,
+            len_t nr_feat,
+        len_t* lengths,
+        idx_t* offsets,
         const float* const* defaults,
         const MapC* const* tables,
 ) nogil:
@@ -342,6 +344,34 @@ cdef void set_input(
             emb = defaults[feats[f].i]
         VecVec.add_i(out, 
             emb, 1.0, lengths[feats[f].i])
+
+
+cdef void insert_sparse(
+    Pool mem,
+    MapC** tables,
+        const len_t* lengths, 
+        const idx_t* offsets,
+        const float* const* defaults,
+        const FeatureC* feats,
+        int nr_feat
+) except *:
+    for f in range(nr_feat):
+        emb = <float*>Map_get(tables[feats[f].i], feats[f].key)
+        if emb is NULL:
+            emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
+            # TODO: Which is better here???
+            # N.B.: Careful enabling this. It can break use of this function to
+            # initialize things that should be zeroed.
+            #Initializer.normal(emb,
+            #    0.0, 1.0, length)
+            # We initialize with the defaults here so that we only have
+            # to insert during training --- on the forward pass, we can
+            # set default. But if we're doing that, the back pass needs
+            # to be dealing with the same representation.
+            memcpy(emb,
+                defaults[feats[f].i], sizeof(emb[0]) * lengths[feats[f].i])
+            Map_set(mem, tables[feats[f].i],
+                feats[f].key, emb)
 
 
 ########

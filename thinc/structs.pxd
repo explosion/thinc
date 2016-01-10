@@ -90,6 +90,30 @@ ctypedef void (*do_end_bwd_t)(
 ctypedef MapStruct MapC
 
 
+cdef struct ConstantsC:
+    float a
+    float b
+    float c
+    float d
+    float e
+    float g
+    float h
+    float i
+    float j
+    float k
+    float l
+    float m
+    float n
+    float o
+    float p
+    float q
+    float w
+    float x
+    float y
+    float z
+
+
+
 cdef struct EmbeddingC:
     MapC** tables
     float** defaults
@@ -108,7 +132,7 @@ cdef struct NeuralNetC:
     do_end_bwd_t end_bwd
     do_update_t update
 
-    int* widths
+    len_t* widths
     float* weights
     float* gradient
     float* momentum
@@ -119,18 +143,15 @@ cdef struct NeuralNetC:
     MapC** sparse_momentum
     MapC** sparse_averages
 
-    int* embed_offsets
-    int* embed_lengths
+    idx_t* embed_offsets
+    len_t* embed_lengths
     float** embed_defaults
 
-    int nr_layer
-    int nr_weight
-    int nr_embed
+    len_t nr_layer
+    len_t nr_weight
+    len_t nr_embed
 
-    float alpha
-    float eta
-    float rho
-    float eps
+    ConstantsC hp
 
 
 cdef struct ExampleC:
@@ -181,29 +202,6 @@ cdef struct FeatureC:
     int i
     uint64_t key
     float value
-
-
-cdef struct ConstantsC:
-    float a
-    float b
-    float c
-    float d
-    float e
-    float g
-    float h
-    float i
-    float j
-    float k
-    float l
-    float m
-    float n
-    float o
-    float p
-    float q
-    float w
-    float x
-    float y
-    float z
 
 
 #cdef struct SparseAverageC:
