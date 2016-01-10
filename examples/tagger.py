@@ -48,8 +48,8 @@ class Tagger(object):
     def start_training(self, sentences):
         suffix_width = 5
         prefix_width = 5
-        tags_width = 20
-        words_width = 50
+        tags_width = 5
+        words_width = 10
         #tables = (suffix_width, prefix_width, tags_width, words_width)
         #slots = (0, 1, 2, 2, 3, 3, 0, 3, 3, 0, 3)
         tables = (words_width,tags_width)
@@ -57,7 +57,7 @@ class Tagger(object):
         input_length = sum(tables[slot] for slot in slots)
         self._make_tagdict(sentences)
         self.model = NeuralNet(
-            (input_length, len(self.classes)),
+            (input_length, input_length, input_length, len(self.classes)),
             embed=(tables, slots),
         rho=1e-7, eta=0.1)
     
@@ -216,13 +216,13 @@ def main(model_dir, train_loc, heldout_gold):
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(load=False)
     sentences = list(read_conll(train_loc))
-    train(tagger, sentences, nr_iter=2)
+    train(tagger, sentences, nr_iter=100)
 
 
 if __name__ == '__main__':
-    import cProfile
-    import pstats
-    cProfile.runctx("main('/Users/matt/repos/thinc/parsers/', '/Users/matt/work_data/ym03_deps/train.tab', '/Users/matt/work_data/ym03_deps/dev.tab')", globals(), locals(), "Profile.prof")
-    s = pstats.Stats("Profile.prof")
-    s.strip_dirs().sort_stats("time").print_stats(100)
-    #plac.call(main)
+    #import cProfile
+    #import pstats
+    #cProfile.runctx("main('/Users/matt/repos/thinc/parsers/', '/Users/matt/work_data/ym03_deps/train.tab', '/Users/matt/work_data/ym03_deps/dev.tab')", globals(), locals(), "Profile.prof")
+    #s = pstats.Stats("Profile.prof")
+    #s.strip_dirs().sort_stats("time").print_stats(100)
+    plac.call(main)
