@@ -107,6 +107,10 @@ cdef struct ConstantsC:
     float o
     float p
     float q
+    float r
+    float s
+    float t
+    float u
     float w
     float x
     float y

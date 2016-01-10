@@ -180,8 +180,8 @@ cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
                  weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
-        self.eg = Example(self.widths)
         NN.init(&self.c, self.mem, widths, eta, eps, mu, rho, bias, alpha)
+        self.eg = Example(self.widths)
 
     def __call__(self, features):
         cdef Example eg = self.eg
@@ -250,51 +250,51 @@ cdef class NeuralNet:
                     total += self.c.gradient[i]
             return total / self.c.nr_weight
 
-#    property embeddings:
-#        def __get__(self):
-#            cdef int i = 0
-#            cdef int j = 0
-#            cdef int k = 0
-#            cdef key_t key
-#            cdef void* value
-#            for i in range(self.c.embeds.nr):
-#                j = 0
-#                while Map_iter(self.c.embeds.tables[i], &j, &key, &value):
-#                    emb = <weight_t*>value
-#                    yield key, [emb[k] for k in range(self.c.embeds.lengths[i])]
-#
-#    property nr_layer:
-#        def __get__(self):
-#            return self.c.nr_layer
-#    property nr_weight:
-#        def __get__(self):
-#            return self.c.nr_weight
-#    property nr_out:
-#        def __get__(self):
-#            return self.c.widths[self.c.nr_layer-1]
-#    property nr_in:
-#        def __get__(self):
-#            return self.c.widths[0]
-#
-#    property eta:
-#        def __get__(self):
-#            return self.c.eta
-#        def __set__(self, eta):
-#            self.c.eta = eta
-#    property rho:
-#        def __get__(self):
-#            return self.c.rho
-#        def __set__(self, rho):
-#            self.c.rho = rho
-#    property eps:
-#        def __get__(self):
-#            return self.c.eps
-#        def __set__(self, eps):
-#            self.c.eps = eps
-#
-#
-#
-#
+    property embeddings:
+        def __get__(self):
+            cdef int i = 0
+            cdef int j = 0
+            cdef int k = 0
+            cdef key_t key
+            cdef void* value
+            for i in range(self.c.nr_embed):
+                j = 0
+                while Map_iter(self.c.sparse_weights[i], &j, &key, &value):
+                    emb = <weight_t*>value
+                    yield key, [emb[k] for k in range(self.c.embed_lengths[i])]
+
+    property nr_layer:
+        def __get__(self):
+            return self.c.nr_layer
+    property nr_weight:
+        def __get__(self):
+            return self.c.nr_weight
+    property nr_out:
+        def __get__(self):
+            return self.c.widths[self.c.nr_layer-1]
+    property nr_in:
+        def __get__(self):
+            return self.c.widths[0]
+
+    property eta:
+        def __get__(self):
+            return self.c.hp.e
+        def __set__(self, eta):
+            self.c.hp.e = eta
+    property rho:
+        def __get__(self):
+            return self.c.hp.rho
+        def __set__(self, rho):
+            self.c.hp.r = rho
+    property eps:
+        def __get__(self):
+            return self.c.hp.p
+        def __set__(self, eps):
+            self.c.hp.p = eps
+
+
+
+
 #@cython.cdivision(True)
 #cdef void __tmp(OptimizerC* opt, weight_t* moments, weight_t* weights,
 #        weight_t* gradient, weight_t scale, int nr_weight) nogil:
