@@ -74,22 +74,27 @@ class FeatureExtractor(object):
 
 
 class Tagger(object):
-    def __init__(self, extractor, classes=None, load=False):
+    def __init__(self, depth, extractor, learn_rate=0.01, L2=1e6, solver='adam',
+        classes=None, load=False):
         self.ex = extractor
         self.tagdict = {}
         if classes:
             self.classes = classes
         else:
             self.classes = {}
+        self.depth = depth
+        self.learn_rate = learn_rate
+        self.L2 = L2
+        self.solver = solver
         self.model = None
 
     def start_training(self, sentences):
         self._make_tagdict(sentences)
         input_length = self.ex.input_length
         self.model = NeuralNet(
-            (input_length, input_length, len(self.classes)),
+            (input_length,), * depth +  (len(self.classes),),
             embed=(self.ex.tables, self.ex.slots),
-        rho=1e-7, eta=0.01, update_step='adam')
+        rho=self.L2, eta=self.learn_rate, update_step=self.solver)
         print(self.model.widths)
     
     def tag(self, words):
@@ -213,12 +218,40 @@ def read_conll(loc):
         yield words, tags, heads, labels
 
 
-def main(model_dir, train_loc, heldout_gold):
+@plac.annotations(
+    depth=("Number of hidden layers", "option", "d", int),
+    learn_rate=("Number of hidden layers", "option", "e", float),
+    L2=("L2 regularization penalty", "r", float),
+    solver=("Optimization algorithm", "s", "option", str),
+    word_width=("Number of dimensions for word embeddings", "option", "w", int),
+    char_width=("Number of dimensions for char embeddings", "option", "c", int),
+    tag_width=("Number of dimensions for tag embeddings", "option", "t", int),
+    chars_per_word=("Number of characters to give the word", "option", "C", int),
+    left_words=("Number of words from the preceding context", "option", "L", int),
+    right_words=("Number of words from the following context", "option", "R", int),
+    left_tags=("Number of tags from the preceding context", "option", "T", int),
+)
+def main(model_dir, train_loc, heldout_gold,
+         L2=1e-6, learn_rate=0.01, solver="adam",
+         word_width=10, char_width=5, tag_width=5,
+         chars_per_word=10,
+         left_words=2, right_words=2,
+         left_tags=2):
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
+    word_context = [-i for i in range(left_words+1)] + [0] + [i for i in range(right_words)]
+    tag_context = [-i for i in range(left_tags)]
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
-    tagger = Tagger(FeatureExtractor(), load=False)
+    tagger = Tagger(depth,
+                FeatureExtractor(
+                    word_width, char_width, tag_width,
+                    chars_per_word,
+                    word_context, tag_context),
+                learn_rate=learn_rate,
+                solver=solver,
+                L2=L2,
+                load=False)
     sentences = list(read_conll(train_loc))
     train(tagger, sentences, nr_iter=100)
 
