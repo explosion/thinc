@@ -22,9 +22,6 @@ cdef class Example:
             model_shape)
 
     def wipe(self, widths):
-        self.c.guess = 0
-        self.c.best = 0
-        self.c.cost = 0
         self.c.nr_feat = 0
         cdef int i
         if self.c.features is not NULL:
@@ -82,16 +79,11 @@ cdef class Example:
             costs[label] = 0
         else:
             costs = label
-        self.c.guess = 0
-        self.c.best = 0
-        self.c.cost = 1
 
         if costs is not None:
             assert len(costs) == self.c.nr_class, '%d vs %d' % (len(costs), self.c.nr_class)
             for i, cost in enumerate(costs):
                 self.c.costs[i] = cost
-                if cost == 0:
-                    self.c.best = i
 
     property features:
         def __get__(self):
@@ -112,21 +104,15 @@ cdef class Example:
 
     property guess:
         def __get__(self):
-            return self.c.guess
-        def __set__(self, int value):
-            self.c.guess = value
+            return VecVec.arg_max_if_true(self.c.scores, self.c.is_valid, self.c.nr_class)
 
     property best:
         def __get__(self):
-            return self.c.best
-        def __set__(self, int value):
-            self.c.best = value
+            return VecVec.arg_max_if_zero(self.c.scores, self.c.costs, self.c.nr_class)
     
     property cost:
         def __get__(self):
-            return self.c.cost
-        def __set__(self, int value):
-            self.c.cost = value
+            return self.c.costs[self.guess]
     
     property nr_class:
         def __get__(self):

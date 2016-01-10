@@ -1,6 +1,6 @@
 from cymem.cymem cimport Pool
 from libc.math cimport sqrt as c_sqrt
-from libc.string cimport memset, memcpy
+from libc.string cimport memset, memcpy, memmove
 
 from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_set as Map_set
@@ -53,44 +53,3 @@ cdef class Example:
        cdef weight_t input_value
        for i, input_value in enumerate(dense_input):
            eg.fwd_state[0][i] = input_value
-
-    @staticmethod
-    cdef inline void set_scores(ExampleC* eg, const weight_t* scores) nogil:
-        memcpy(eg.scores, scores, eg.nr_class * sizeof(weight_t))
-        eg.guess = arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
-        eg.best = arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-
-
-cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
-    cdef int i
-    cdef int best = 0
-    cdef weight_t mode = scores[0]
-    for i in range(1, n_classes):
-        if scores[i] > mode:
-            mode = scores[i]
-            best = i
-    return best
-
-
-cdef inline int arg_max_if_true(const weight_t* scores, const int* is_valid,
-                         const int n_classes) nogil:
-    cdef int i
-    cdef int best = 0
-    cdef weight_t mode = -900000
-    for i in range(n_classes):
-        if is_valid[i] and scores[i] > mode:
-            mode = scores[i]
-            best = i
-    return best
-
-
-cdef inline int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
-                         const int n_classes) nogil:
-    cdef int i
-    cdef int best = 0
-    cdef weight_t mode = -900000
-    for i in range(n_classes):
-        if costs[i] == 0 and scores[i] > mode:
-            mode = scores[i]
-            best = i
-    return best
