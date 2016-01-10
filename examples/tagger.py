@@ -176,7 +176,7 @@ class Tagger(object):
                 self.tagdict[word] = self.classes[tag]
 
 
-def train(tagger, sentences, nr_iter):
+def train(tagger, sentences, nr_iter=100):
     sentences = list(sentences)
     random.shuffle(sentences)
     partition = int(len(sentences) / 10)
@@ -219,6 +219,7 @@ def read_conll(loc):
 
 
 @plac.annotations(
+    nr_iter=("Number of iterations", "option", "i", int),
     depth=("Number of hidden layers", "option", "d", int),
     learn_rate=("Number of hidden layers", "option", "e", float),
     L2=("L2 regularization penalty", "option", "r", float),
@@ -235,12 +236,12 @@ def main(model_dir, train_loc, heldout_gold,
          depth=2, L2=1e-6, learn_rate=0.01, solver="adam",
          word_width=10, char_width=5, tag_width=5,
          chars_per_word=10,
-         left_words=2, right_words=2,
-         left_tags=2):
+         left_words=2, right_words=2, left_tags=2,
+         nr_iter=1):
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
-    word_context = [-i for i in range(left_words+1)] + [0] + [i for i in range(right_words)]
+    word_context = [-i for i in range(left_words+1)] + [i for i in range(right_words)]
     tag_context = [-i for i in range(left_tags)]
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(depth,
@@ -253,7 +254,7 @@ def main(model_dir, train_loc, heldout_gold,
                 L2=L2,
                 load=False)
     sentences = list(read_conll(train_loc))
-    train(tagger, sentences, nr_iter=100)
+    train(tagger, sentences, nr_iter=nr_iter)
 
 
 if __name__ == '__main__':
