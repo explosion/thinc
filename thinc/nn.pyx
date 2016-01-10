@@ -1,7 +1,7 @@
 # cython: profile=True
 from __future__ import print_function
 
-from libc.string cimport memset
+from libc.string cimport memmove, memset
 
 cimport cython
 
@@ -38,6 +38,9 @@ from .lvl0 cimport default_end_bwd
 from .lvl0 cimport adam_update_step
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
+from .lvl0 cimport dot_plus__ELU
+from .lvl0 cimport dot_plus
+from .lvl0 cimport softmax
 
 import numpy
 
@@ -146,13 +149,19 @@ cdef class NN:
         set_input(fwd[0],
             feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
             nn.embed.defaults, nn.embed.weights) 
-        cdef IteratorC it = nn.begin_fwd(fwd,
-                nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
+        cdef IteratorC it 
+        it.i = 0
         while nn.iterate(&it, nn.widths, nn.nr_layer-2, 1):
-            nn.feed_fwd(fwd,
-                nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &it, NULL)
-        nn.end_fwd(&it, scores, fwd,
-            nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
+            dot_plus__ELU(fwd[it.above],
+                &nn.weights[it.bias], it.nr_out, fwd[it.below], it.nr_in,
+                &nn.weights[it.W])
+        dot_plus(fwd[it.above],
+            &nn.weights[it.bias], it.nr_out, fwd[it.below], it.nr_in,
+            &nn.weights[it.W])
+        softmax(fwd[it.above],
+            it.nr_out)
+        memmove(scores,
+            fwd[it.above], sizeof(scores[0]) * it.nr_out)
 
     @staticmethod
     cdef void backward(
