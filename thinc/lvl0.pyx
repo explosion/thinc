@@ -200,23 +200,6 @@ cdef void d_log_loss(
         loss[i] = scores[i] - (costs[i] == 0)
 
 
-cdef void set_input(
-    float* out,
-        const FeatureC* feats,
-            len_t nr_feat,
-        len_t* lengths,
-        idx_t* offsets,
-        const float* const* defaults,
-        const MapC* const* tables,
-) nogil:
-    for f in range(nr_feat):
-        emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
-        if emb == NULL:
-            emb = defaults[feats[f].i]
-        VecVec.add_i(&out[offsets[feats[f].i]], 
-            emb, feats[f].value, lengths[feats[f].i])
-
-
 @cython.cdivision(True)
 cdef void adam_update_step(
     float* weights,

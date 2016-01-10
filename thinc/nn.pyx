@@ -25,7 +25,6 @@ from .structs cimport EmbedC
 from .eg cimport Example
 
 from .lvl0 cimport advance_iterator
-from .lvl0 cimport set_input
 from .lvl0 cimport adam_update_step
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
@@ -116,7 +115,7 @@ cdef class NN:
     @staticmethod
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
                       int nr_feat, const NeuralNetC* nn) nogil:
-        set_input(fwd[0],
+        NN.set_input(fwd[0],
             feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
             nn.embed.defaults, nn.embed.weights) 
         cdef int i
@@ -186,6 +185,24 @@ cdef class NN:
                     eg.features[f].value, nn.embed.lengths[idx])
                 nn.update(emb, mom, &upd[os],
                     nn.embed.lengths[idx], &nn.hp)
+
+
+    @staticmethod
+    cdef void set_input(
+        float* out,
+            const FeatureC* feats,
+                len_t nr_feat,
+            len_t* lengths,
+            idx_t* offsets,
+            const float* const* defaults,
+            const MapC* const* tables) nogil:
+        for f in range(nr_feat):
+            emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
+            if emb == NULL:
+                emb = defaults[feats[f].i]
+            VecVec.add_i(&out[offsets[feats[f].i]], 
+                emb, feats[f].value, lengths[feats[f].i])
+
 
 
 cdef class Embedding:
