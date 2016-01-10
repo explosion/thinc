@@ -7,7 +7,7 @@ from libc.string cimport memcpy
 from libc.math cimport isnan as c_is_nan
 from cymem.cymem cimport Pool
 
-from .typedefs cimport weight_t
+ctypedef float weight_t
 
 
 # Copied from Shane Legg's Tokyo
@@ -65,6 +65,17 @@ cdef class Vec:
                 return 1
         else:
             return 0
+
+    @staticmethod    
+    cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
+        cdef int i
+        cdef int best = 0
+        cdef weight_t mode = scores[0]
+        for i in range(1, n_classes):
+            if scores[i] > mode:
+                mode = scores[i]
+                best = i
+        return best
 
     @staticmethod
     cdef inline weight_t max(const weight_t* x, int32_t nr) nogil:
@@ -219,6 +230,30 @@ cdef class VecVec:
             total += x[i] * y[i]
         return total
  
+    @staticmethod
+    cdef inline int arg_max_if_true(const weight_t* scores, const int* is_valid,
+                                    const int n_classes) nogil:
+        cdef int i
+        cdef int best = 0
+        cdef weight_t mode = -900000
+        for i in range(n_classes):
+            if is_valid[i] and scores[i] > mode:
+                mode = scores[i]
+                best = i
+        return best
+
+    @staticmethod
+    cdef inline int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
+                                    const int n_classes) nogil:
+        cdef int i
+        cdef int best = 0
+        cdef weight_t mode = -900000
+        for i in range(n_classes):
+            if costs[i] == 0 and scores[i] > mode:
+                mode = scores[i]
+                best = i
+        return best
+
 
 cdef class MatVec:
     @staticmethod

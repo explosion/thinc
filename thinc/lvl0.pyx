@@ -54,9 +54,9 @@ cdef int advance_iterator(
     it.gamma = it.bias + it.nr_out
     it.beta = it.gamma + it.nr_out
 
-    it.below = it.i * 2
-    it.here = it.below + 1
-    it.above = it.below + 2
+    it.below = it.i
+    it.here = it.below
+    it.above = it.below + 1
 
     it.Ex = it.here
     it.Vx = it.above

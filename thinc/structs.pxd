@@ -119,9 +119,9 @@ cdef struct ConstantsC:
     float z
 
 
-
 cdef struct EmbedC:
-    MapC** tables
+    MapC** weights
+    MapC** momentum
     float** defaults
     idx_t* offsets
     len_t* lengths
@@ -171,10 +171,6 @@ cdef struct ExampleC:
     int nr_atom
     int nr_feat
     int nr_layer
-    
-    int guess
-    int best
-    int cost
 
 
 # Iteration controller
