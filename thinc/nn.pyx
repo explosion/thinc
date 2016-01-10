@@ -41,6 +41,7 @@ from .lvl0 cimport advance_iterator
 from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus
 from .lvl0 cimport softmax
+from .lvl0 cimport d_log_loss
 
 import numpy
 
@@ -170,13 +171,15 @@ cdef class NN:
             const float* costs,
             const NeuralNetC* nn
     ) nogil:
-        cdef IteratorC it = nn.begin_bwd(bwd,
-            fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, costs)
+        cdef IteratorC it
+        it.i = nn.nr_layer-1
+        advance_iterator(&it,
+            nn.widths, nn.nr_layer, -1)
+        d_log_loss(bwd[it.below],
+            costs, fwd[it.below], nn.widths[nn.nr_layer-1])
         while nn.iterate(&it, nn.widths, nn.nr_layer, -1):
             nn.feed_bwd(bwd,
                 fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &it, &nn.hp)
-        nn.end_bwd(&it, bwd,
-            fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
 
     @staticmethod
     cdef void update(
