@@ -26,8 +26,8 @@ cdef extern from "cblas.h":
     void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
     void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
     float cblas_sdot(int N, float  *x, int incX, float  *y, int incY ) nogil
-    float  cblas_snrm2(int N, float  *x, int incX) nogil
-    float  cblas_sasum(int N, float  *x, int incX) nogil
+    float cblas_snrm2(int N, float  *x, int incX) nogil
+    float cblas_sasum(int N, float  *x, int incX) nogil
     int cblas_isamax(int N, float  *x, int incX) nogil
 
     # BLAS level 2 routines
@@ -116,9 +116,10 @@ cdef class Vec:
 
     @staticmethod
     cdef inline void mul_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
-        cdef int i
-        for i in range(nr):
-            vec[i] *= scal
+        cblas_sscal(nr, scal, vec, 1)
+        #cdef int i
+        #for i in range(nr):
+        #    vec[i] *= scal
 
     @staticmethod
     cdef inline void pow(weight_t* output, const weight_t* vec, weight_t scal,

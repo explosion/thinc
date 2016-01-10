@@ -25,7 +25,7 @@ from .structs cimport EmbedC
 
 from .eg cimport Example
 
-from .lvl0 cimport old_adam as adam
+from .lvl0 cimport adam
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
 from .lvl0 cimport dot_plus__ELU
@@ -53,6 +53,7 @@ cdef class NN:
             float bias=0.0,
             float alpha=0.0
     ) except *:
+        nn.hp.t = 0
         nn.hp.a = alpha
         nn.hp.b = bias
         nn.hp.r = rho
@@ -151,9 +152,9 @@ cdef class NN:
             nn.widths[0], bwd[1], nn.widths[1], W)
     
     @staticmethod
-    cdef void update(NeuralNetC* nn, const ExampleC* eg) nogil:
+    cdef void update(NeuralNetC* nn, const ExampleC* eg) except *:
+        nn.hp.t += 1
         cdef int i
-        memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
         cdef float* G = nn.gradient
         for i in range(nn.nr_layer-1):
             MatMat.add_outer_i(G,
@@ -280,7 +281,8 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = self.eg
+        self.eg.wipe(self.widths)
         eg.set_features(input_)
         if label is not None:
             eg.set_label(label)

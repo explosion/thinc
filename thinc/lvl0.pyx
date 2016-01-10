@@ -251,20 +251,20 @@ cdef void adam(
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
-    # This was all vectorized and in-place, but that turned out to be very slow.
-    # Maybe there's another way?
     mom1 = moments
     mom2 = &moments[nr_weight]
-    cdef float ateb1 = 1-beta1
-    cdef float ateb2 = 1-beta2
+    Vec.mul_i(mom1,
+        beta1, nr_weight) 
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+    Vec.mul_i(mom2,
+        beta2, nr_weight) 
     for i in range(nr_weight):
-        mom1[i] = (mom1[i] * beta1) + (ateb1 * gradient[i])
-    for i in range(nr_weight):
-        mom2[i] = (mom2[i] * beta2) + (ateb2 * gradient[i] * gradient[i])
+        mom2[i] += (1-beta2) * gradient[i] * gradient[i]
+    # More efficient version, from the paper
     for i in range(nr_weight):
         gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
-        #gradient[i] = (mom1[i] / ateb1) / (sqrtf(mom2[i] / ateb2) + eps)
-    cdef float a_t = hp.e * (sqrtf(ateb2) / ateb1)
+    cdef float a_t = hp.e * (sqrtf(1-beta2**hp.t) / (1-beta1**hp.t))
     VecVec.add_i(weights,
         gradient, -a_t, nr_weight)
 
