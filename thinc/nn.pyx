@@ -1,7 +1,7 @@
 # cython: profile=True
 from __future__ import print_function
 
-from libc.string cimport memmove, memset
+from libc.string cimport memmove, memset, memcpy
 
 cimport cython
 
@@ -14,7 +14,7 @@ from preshed.maps cimport key_t
 
 from .typedefs cimport weight_t, atom_t, feat_t
 from .typedefs cimport len_t, idx_t
-from .blas cimport VecVec
+from .blas cimport MatMat, MatVec, VecVec, Vec
 from .structs cimport MapC
 from .structs cimport NeuralNetC
 from .structs cimport IteratorC
@@ -130,37 +130,30 @@ cdef class NN:
             nn.iterate, nn.update)
      
     @staticmethod
-    cdef void forward(
-        float* scores,
-        float** fwd,
-            const FeatureC* feats,
-                int nr_feat,
-            const NeuralNetC* nn
-    ) nogil:
+    cdef void forward(float* scores, float** fwd, const FeatureC* feats,
+                      int nr_feat, const NeuralNetC* nn) nogil:
         set_input(fwd[0],
             feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
             nn.embed.defaults, nn.embed.weights) 
-        cdef IteratorC it 
-        it.i = 0
-        while nn.iterate(&it, nn.widths, nn.nr_layer-2, 1):
-            dot_plus__ELU(fwd[it.i+1],
-                &nn.weights[it.bias], it.nr_out, fwd[it.i], it.nr_in,
-                &nn.weights[it.W])
-        dot_plus(fwd[it.i+1],
-            &nn.weights[it.bias], it.nr_out, fwd[it.i], it.nr_in,
-            &nn.weights[it.W])
-        softmax(fwd[it.i+1],
-            it.nr_out)
-        memmove(scores,
-            fwd[it.i+1], sizeof(scores[0]) * it.nr_out)
+        cdef int i
+        cdef const float* W = nn.weights
+        cdef const float* bias = W + (nn.widths[0] * nn.widths[1])
+        for i in range(nn.nr_layer-2): # Save last layer for softmax
+            dot_plus__ELU(fwd[i+1],
+                bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
+            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            bias += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+        dot_plus(fwd[nn.nr_layer-1],
+            bias, nn.widths[nn.nr_layer-1], fwd[nn.nr_layer-2], nn.widths[nn.nr_layer-2],
+            W)
+        softmax(fwd[nn.nr_layer-1],
+            nn.widths[nn.nr_layer-1])
+        memcpy(scores,
+            fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
 
     @staticmethod
-    cdef void backward(
-        float** bwd,
-            const float* const* fwd,
-            const float* costs,
-            const NeuralNetC* nn
-    ) nogil:
+    cdef void backward(float** bwd,
+            const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
         cdef const float* W = nn.weights + nn.nr_weight
@@ -176,27 +169,28 @@ cdef class NN:
             nn.widths[1], bwd[1], nn.widths[1], W)
     
     @staticmethod
-    cdef void update(
-        NeuralNetC* nn,
-            const ExampleC* eg
-    ) nogil:
-        dense_update(nn.weights, nn.gradient, nn.momentum,
-            nn.nr_weight, eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer,
-            &nn.hp, nn.iterate, nn.update)
-        sparse_update(
-            nn.embed.weights,
-            nn.embed.momentum,
-            nn.gradient,
-                eg.bwd_state[0],
-                    nn.widths[0],
-                nn.embed.lengths,
-                nn.embed.offsets,
-                nn.embed.defaults,
-                    nn.embed.nr,
-                eg.features,
-                    eg.nr_feat,
-                &nn.hp,
-                nn.update)
+    cdef void update(NeuralNetC* nn, const ExampleC* eg) nogil:
+        cdef int i
+        for i in range(nn.nr_layer-1):
+            MatMat.add_outer_i(nn.gradient,
+                eg.bwd_state[i+1], eg.fwd_state[i], nn.widths[i+1], nn.widths[i])
+            VecVec.add_i(nn.gradient + (nn.widths[i+1] * nn.widths[i]),
+                eg.bwd_state[i+1], 1.0, nn.widths[i+1])
+            nn.gradient += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
+        #sparse_update(
+        #    nn.embed.weights,
+        #    nn.embed.momentum,
+        #    nn.gradient,
+        #        eg.bwd_state[0],
+        #            nn.widths[0],
+        #        nn.embed.lengths,
+        #        nn.embed.offsets,
+        #        nn.embed.defaults,
+        #            nn.embed.nr,
+        #        eg.features,
+        #            eg.nr_feat,
+        #        &nn.hp,
+        #        nn.update)
 
 
 cdef class Embedding:

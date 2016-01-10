@@ -220,10 +220,7 @@ cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
             delta[i] *= signal_out[i] + ALPHA
 
 
-cdef void softmax(
-    float* out,
-        len_t nr_out
-) nogil:
+cdef void softmax(float* out, len_t nr_out) nogil:
     #w = exp(w - max(w))
     Vec.add_i(out,
         -Vec.max(out, nr_out), nr_out)
