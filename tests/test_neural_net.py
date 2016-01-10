@@ -206,24 +206,24 @@ def test_mlp_learn_linear(or_data):
     assert acc == len(or_data)
 
 
-#def test_xor_gradient(xor_data):
-#    '''Test that after each update, we move towards the correct label.'''
-#    model = NeuralNet((2, 2, 2), rho=0.0, eta=1.0)
-#
-#    assert model.nr_in == 2
-#    assert model.nr_out == 2
-#    assert model.nr_layer == 3
-#    
-#    for _ in range(500):
-#        for i, (features, label, costs) in enumerate(xor_data):
-#            prev = model(features)
-#            assert_allclose([sum(prev.scores)], [1.0])
-#            model.train([features], [costs]).loss
-#            eg = model(features)
-#            assert (prev.scores[label] < eg.scores[label] or \
-#                    prev.scores[label] == eg.scores[label] == 1.0)
-#
-#
+def test_xor_gradient(xor_data):
+    '''Test that after each update, we move towards the correct label.'''
+    model = NeuralNet((2, 2, 2), rho=0.0, eta=1.0)
+
+    assert model.nr_in == 2
+    assert model.nr_out == 2
+    assert model.nr_layer == 3
+    
+    for _ in range(500):
+        for i, (features, label, costs) in enumerate(xor_data):
+            prev = model(features)
+            assert_allclose([sum(prev.scores)], [1.0])
+            model.train([features], [costs]).loss
+            eg = model(features)
+            assert (prev.scores[label] < eg.scores[label] or \
+                    prev.scores[label] == eg.scores[label] == 1.0)
+
+
 #def test_xor_eta(xor_data):
 #    '''Test that a higher learning rate causes loss to decrease faster.'''
 #    small_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.0000001)
