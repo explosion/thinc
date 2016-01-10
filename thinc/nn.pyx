@@ -24,8 +24,6 @@ from .structs cimport FeatureC
 from .eg cimport Example
 
 from .lvl0 cimport advance_iterator
-from .lvl0 cimport forward
-from .lvl0 cimport backward
 from .lvl0 cimport set_input
 from .lvl0 cimport insert_sparse
 from .lvl0 cimport sparse_update
@@ -33,6 +31,9 @@ from .lvl0 cimport dense_update
 from .lvl0 cimport default_begin_fwd
 from .lvl0 cimport default_feed_fwd
 from .lvl0 cimport default_end_fwd
+from .lvl0 cimport default_begin_bwd
+from .lvl0 cimport default_feed_bwd
+from .lvl0 cimport default_end_bwd
 from .lvl0 cimport advance_iterator
 
 import numpy
@@ -66,6 +67,9 @@ cdef class NN:
         nn.iterate = advance_iterator
         nn.feed_fwd = default_feed_fwd
         nn.end_fwd = default_end_fwd
+        nn.begin_bwd = default_begin_bwd
+        nn.feed_bwd = default_feed_bwd
+        nn.end_bwd = default_end_bwd
         nn.update = NULL
 
         nn.nr_weight = 0
@@ -140,9 +144,13 @@ cdef class NN:
         set_input(fwd[0],
             feats, nr_feat, nn.embed_lengths, nn.embed_offsets,
             nn.embed_defaults, nn.sparse_weights) 
-        forward(scores, fwd,
-            nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &nn.hp,
-            nn.iterate, nn.begin_fwd, nn.feed_fwd, nn.end_fwd)
+        cdef IteratorC it = nn.begin_fwd(fwd,
+                nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
+        while nn.iterate(&it, nn.widths, nn.nr_layer-2, 1):
+            nn.feed_fwd(fwd,
+                nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &it, NULL)
+        nn.end_fwd(&it, scores, fwd,
+            nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
 
     @staticmethod
     cdef void backward(
@@ -151,10 +159,13 @@ cdef class NN:
             const float* costs,
             const NeuralNetC* nn
     ) nogil:
-        backward(bwd,
-            fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight,
-            costs, nn.widths[nn.nr_layer-1], &nn.hp,
-            nn.iterate, nn.begin_bwd, nn.feed_bwd, nn.end_bwd)
+        cdef IteratorC it = nn.begin_bwd(bwd,
+            fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, costs)
+        while nn.iterate(&it, nn.widths, nn.nr_layer, -1):
+            nn.feed_bwd(bwd,
+                fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &it, &nn.hp)
+        nn.end_bwd(&it, bwd,
+            fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
 
     @staticmethod
     cdef void update(

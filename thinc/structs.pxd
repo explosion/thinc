@@ -60,10 +60,9 @@ ctypedef IteratorC (*do_begin_bwd_t)(
         const float* const* fwd,
         const len_t* widths,
             len_t nr_layer,
-        const float* costs,
-            len_t nr_cost,
         const float* weights,
             const len_t nr_weight,
+        const float* costs
 ) nogil
 
 
@@ -74,12 +73,14 @@ ctypedef void (*do_feed_bwd_t)(
             len_t nr_layer,
         const float* weights,
             len_t nr_weight,
-        const IteratorC* it
+        const IteratorC* it,
+        const ConstantsC* hp
 ) nogil
 
 
 ctypedef void (*do_end_bwd_t)(
-    IteratorC* it, float** bwd,
+    IteratorC* it,
+    float** bwd,
         const float* const* fwd,
         const len_t* widths,
             len_t nr_layer,

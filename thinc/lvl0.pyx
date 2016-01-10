@@ -68,31 +68,6 @@ cdef int advance_iterator(
         return False
 
 
-cdef void forward(
-    float* scores,
-    float** fwd,
-        const len_t* widths,
-        len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const void* _ext,
-        do_iter_t iterate=advance_iterator,
-        do_begin_fwd_t begin_fwd=default_begin_fwd,
-        do_feed_fwd_t feed_fwd=default_feed_fwd,
-        do_end_fwd_t end_fwd=default_end_fwd
-) nogil:
-    if scores is NULL or fwd is NULL or widths is NULL or weights is NULL:
-        return
-    if begin_fwd is NULL or feed_fwd is NULL or end_fwd is NULL:
-        return
-    cdef IteratorC it = begin_fwd(fwd, widths, nr_layer, weights, nr_weight)
-    while iterate(&it, widths, nr_layer-2, 1):
-        feed_fwd(fwd,
-            widths, nr_layer, weights, nr_weight, &it, NULL)
-    end_fwd(&it, scores, fwd,
-        widths, nr_layer, weights, nr_weight)
-
-
 cdef IteratorC default_begin_fwd(
     float** fwd,
         const len_t* widths,
@@ -139,6 +114,36 @@ cdef void default_end_fwd(
         fwd[it.above], sizeof(scores[0]) * it.nr_out)
 
 
+cdef IteratorC default_begin_bwd(
+    float** bwd,
+        const float* const* fwd,
+        const len_t* widths,
+        len_t nr_layer,
+        const float* weights,
+            len_t nr_weight,
+        const float* costs
+) nogil:
+    cdef IteratorC it
+    it.i = nr_layer-1
+    advance_iterator(&it,
+        widths, nr_layer, -1)
+    d_log_loss(bwd[it.below],
+        costs, fwd[it.below], widths[nr_layer-1])
+    return it
+
+
+cdef void default_end_bwd(
+    IteratorC* it,
+    float** bwd,
+        const float* const* fwd,
+        const len_t* widths,
+            len_t nr_layer,
+        const float* weights,
+            len_t nr_weight
+) nogil:
+    pass
+
+
 cdef void dot_plus__ELU(
     float* output,
         const float* bias,
@@ -150,30 +155,6 @@ cdef void dot_plus__ELU(
     dot_plus(output,
         bias, nr_out, input_, nr_in, W)
     ELU(output, nr_out)
-
-
-cdef void backward(
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const float* costs,
-            len_t nr_cost,
-        const void* _ext,
-        do_iter_t iterate,
-        do_begin_bwd_t begin_bwd,
-        do_feed_bwd_t feed_bwd,
-        do_end_bwd_t end_bwd
-) nogil:
-    cdef IteratorC it = begin_bwd(bwd,
-            fwd, widths, nr_layer, weights, nr_weight, costs, nr_cost)
-    while iterate(&it, widths, nr_layer, -1):
-        feed_bwd(bwd,
-            fwd, widths, nr_layer, weights, nr_weight, &it)
-    end_bwd(&it, bwd,
-        fwd, widths, nr_layer, weights, nr_weight)
 
 
 cdef void dense_update(
@@ -234,8 +215,7 @@ cdef void sparse_update(
 
 cdef void default_feed_bwd(
     float** bwd,
-    float* averages,
-        const float** fwd,
+        const float* const* fwd,
         const len_t* widths,
             len_t nr_layer,
         const float* weights,
