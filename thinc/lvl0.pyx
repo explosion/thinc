@@ -268,7 +268,6 @@ cdef void adam(
         gradient, -1.0, nr_weight)
 
 
-
 @cython.cdivision(True)
 cdef void vanilla_sgd_update_step(
     float* weights,

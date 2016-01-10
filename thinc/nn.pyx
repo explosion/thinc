@@ -1,4 +1,5 @@
 # cython: profile=True
+# cython: cdivision=True
 from __future__ import print_function
 
 from libc.string cimport memmove, memset, memcpy
@@ -24,7 +25,7 @@ from .structs cimport EmbedC
 
 from .eg cimport Example
 
-from .lvl0 cimport adam
+from .lvl0 cimport old_adam as adam
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
 from .lvl0 cimport dot_plus__ELU
