@@ -414,6 +414,25 @@ cdef void adam_update_step(
         gradient, -1.0, nr_weight)
 
 
+@cython.cdivision(True)
+cdef void vanilla_sgd_update_step(
+    float* weights,
+    float* moments,
+    float* gradient,
+        len_t nr_weight,
+        const ConstantsC* hp
+) nogil:
+    '''
+    Update weights with vanilla SGD
+    '''
+    # Add the derivative of the L2-loss to the gradient
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    VecVec.add_i(weights,
+        gradient, -hp.e, nr_weight)
+
+
 ########
 # Batch Normalization, non-functional draft
 
