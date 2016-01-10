@@ -48,101 +48,19 @@ cdef int advance_iterator(
     for i in range(it.i):
         it.W += widths[i+1] * widths[i]
         it.W += widths[i+1]
-        it.W += widths[i+1]
-        it.W += widths[i+1]
     it.bias = it.W + (it.nr_out * it.nr_in)
-    it.gamma = it.bias + it.nr_out
-    it.beta = it.gamma + it.nr_out
+    it.gamma = 0
+    it.beta = 0
 
-    it.below = it.i
-    it.here = it.below
-    it.above = it.below + 1
-
-    it.Ex = it.here
-    it.Vx = it.above
-    it.E_dXh = it.here
-    it.E_dXh_Xh = it.above
+    it.Ex = 0
+    it.Vx = 0
+    it.E_dXh = 0
+    it.E_dXh_Xh = 0
     it.i += inc
     if nr_layer >= it.i and it.i >= 0:
         return True
     else:
         return False
-
-
-cdef IteratorC default_begin_fwd(
-    float** fwd,
-        const len_t* widths,
-        len_t nr_layer,
-        const float* weights,
-            len_t nr_weight
-) nogil:
-    cdef IteratorC it
-    it.i = 0
-    return it
-
-
-cdef void default_feed_fwd(
-    float** fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const IteratorC* it,
-        const ConstantsC* hp
-) nogil:
-    dot_plus__ELU(
-        fwd[it.above],
-            &weights[it.bias],
-                it.nr_out,
-            fwd[it.below],
-                it.nr_in,
-            &weights[it.W])
-            
-
-cdef void default_end_fwd(
-    IteratorC* it,
-    float* scores,
-    float** fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight) nogil:
-    dot_plus(fwd[it.above],
-        &weights[it.bias], it.nr_out, fwd[it.below], it.nr_in, &weights[it.W])
-    softmax(fwd[it.above],
-       it.nr_out)
-    memcpy(scores,
-        fwd[it.above], sizeof(scores[0]) * it.nr_out)
-
-
-cdef IteratorC default_begin_bwd(
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-        len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const float* costs
-) nogil:
-    cdef IteratorC it
-    it.i = nr_layer-1
-    advance_iterator(&it,
-        widths, nr_layer, -1)
-    d_log_loss(bwd[it.below],
-        costs, fwd[it.below], widths[nr_layer-1])
-    return it
-
-
-cdef void default_end_bwd(
-    IteratorC* it,
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight
-) nogil:
-    pass
 
 
 cdef void dot_plus__ELU(
@@ -175,9 +93,9 @@ cdef void dense_update(
     it.i = 0
     while iterate(&it, widths, nr_layer, 1):
         MatMat.add_outer_i(&gradient[it.W], # Gradient of synapse weights
-            bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
+            bwd[it.i+1], fwd[it.i], it.nr_out, it.nr_in)
         VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
-            bwd[it.above], 1.0, it.nr_out)
+            bwd[it.i+1], 1.0, it.nr_out)
     do_update(weights, momentum, gradient,
         nr_weight, hp)
 
@@ -224,8 +142,8 @@ cdef void default_feed_bwd(
         const IteratorC* it,
         const ConstantsC* hp,
 ) nogil:
-    dELU__dDot(bwd[it.below], bwd[it.above],
-        it.nr_in, fwd[it.above], it.nr_out, weights)
+    dELU__dDot(bwd[it.i], bwd[it.i+1],
+        it.nr_in, fwd[it.i+1], it.nr_out, weights)
 
 
 cdef void dELU__dDot(

@@ -130,12 +130,6 @@ cdef struct EmbedC:
 
 cdef struct NeuralNetC:
     do_iter_t iterate
-    do_begin_fwd_t begin_fwd
-    do_end_fwd_t end_fwd
-    do_feed_fwd_t feed_fwd
-    do_begin_bwd_t begin_bwd
-    do_feed_bwd_t feed_bwd
-    do_end_bwd_t end_bwd
     do_update_t update
 
     len_t* widths
@@ -182,9 +176,6 @@ cdef struct IteratorC:
     int bias
     int beta
     int gamma
-    int below
-    int here
-    int above
     int Ex
     int Vx
     int E_dXh

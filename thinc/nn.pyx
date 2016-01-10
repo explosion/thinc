@@ -29,12 +29,6 @@ from .lvl0 cimport set_input
 from .lvl0 cimport insert_sparse
 from .lvl0 cimport sparse_update
 from .lvl0 cimport dense_update
-from .lvl0 cimport default_begin_fwd
-from .lvl0 cimport default_feed_fwd
-from .lvl0 cimport default_end_fwd
-from .lvl0 cimport default_begin_bwd
-from .lvl0 cimport default_feed_bwd
-from .lvl0 cimport default_end_bwd
 from .lvl0 cimport adam_update_step
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
@@ -42,6 +36,8 @@ from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus
 from .lvl0 cimport softmax
 from .lvl0 cimport d_log_loss
+from .lvl0 cimport d_dot
+from .lvl0 cimport d_ELU
 
 import numpy
 
@@ -72,13 +68,7 @@ cdef class NN:
         for i, width in enumerate(widths):
             nn.widths[i] = width
 
-        nn.begin_fwd = default_begin_fwd
         nn.iterate = advance_iterator
-        nn.feed_fwd = default_feed_fwd
-        nn.end_fwd = default_end_fwd
-        nn.begin_bwd = default_begin_bwd
-        nn.feed_bwd = default_feed_bwd
-        nn.end_bwd = default_end_bwd
         if update_step == 'sgd':
             nn.update = vanilla_sgd_update_step
         else:
@@ -115,7 +105,7 @@ cdef class NN:
 
     @staticmethod
     cdef int nr_weight(int nr_out, int nr_in) nogil:
-        return nr_out * nr_in + nr_out * 3
+        return nr_out * nr_in + nr_out
 
     @staticmethod
     cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
@@ -153,16 +143,16 @@ cdef class NN:
         cdef IteratorC it 
         it.i = 0
         while nn.iterate(&it, nn.widths, nn.nr_layer-2, 1):
-            dot_plus__ELU(fwd[it.above],
-                &nn.weights[it.bias], it.nr_out, fwd[it.below], it.nr_in,
+            dot_plus__ELU(fwd[it.i+1],
+                &nn.weights[it.bias], it.nr_out, fwd[it.i], it.nr_in,
                 &nn.weights[it.W])
-        dot_plus(fwd[it.above],
-            &nn.weights[it.bias], it.nr_out, fwd[it.below], it.nr_in,
+        dot_plus(fwd[it.i+1],
+            &nn.weights[it.bias], it.nr_out, fwd[it.i], it.nr_in,
             &nn.weights[it.W])
-        softmax(fwd[it.above],
+        softmax(fwd[it.i+1],
             it.nr_out)
         memmove(scores,
-            fwd[it.above], sizeof(scores[0]) * it.nr_out)
+            fwd[it.i+1], sizeof(scores[0]) * it.nr_out)
 
     @staticmethod
     cdef void backward(
@@ -171,16 +161,20 @@ cdef class NN:
             const float* costs,
             const NeuralNetC* nn
     ) nogil:
-        cdef IteratorC it
-        it.i = nn.nr_layer-1
-        advance_iterator(&it,
-            nn.widths, nn.nr_layer, -1)
-        d_log_loss(bwd[it.below],
-            costs, fwd[it.below], nn.widths[nn.nr_layer-1])
-        while nn.iterate(&it, nn.widths, nn.nr_layer, -1):
-            nn.feed_bwd(bwd,
-                fwd, nn.widths, nn.nr_layer, nn.weights, nn.nr_weight, &it, &nn.hp)
-
+        d_log_loss(bwd[nn.nr_layer-1],
+            costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
+        cdef const float* W = nn.weights + nn.nr_weight
+        cdef int i
+        for i in range(nn.nr_layer-2, 0, -1):
+            W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            d_dot(bwd[i],
+                nn.widths[i], bwd[i+1], nn.widths[i+1], W)
+            d_ELU(bwd[i],
+                fwd[i], nn.widths[i])
+        W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
+        d_dot(bwd[0],
+            nn.widths[1], bwd[1], nn.widths[1], W)
+    
     @staticmethod
     cdef void update(
         NeuralNetC* nn,
