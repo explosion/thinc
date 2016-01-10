@@ -139,8 +139,6 @@ cdef struct NeuralNetC:
     float* averages
     
     EmbedC embed
-    EmbedC embed_momentum
-    EmbedC embed_averages
 
     len_t nr_layer
     len_t nr_weight

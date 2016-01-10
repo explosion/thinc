@@ -69,7 +69,7 @@ cdef class NN:
             nn.widths[i] = width
 
         nn.iterate = advance_iterator
-        if update_step == 'sgd':
+        if update_step == 'adam':
             nn.update = vanilla_sgd_update_step
         else:
             nn.update = adam_update_step
@@ -85,23 +85,16 @@ cdef class NN:
         if embed is not None:
             vector_widths, features = embed
             Embedding.init(&nn.embed, mem, vector_widths, features)
-            Embedding.init(&nn.embed_momentum, mem, vector_widths, features)
-            Embedding.init(&nn.embed_averages, mem, vector_widths, features)
 
-        cdef IteratorC it
-        it.i = 0
-        while advance_iterator(&it, nn.widths, nn.nr_layer-1, 1):
-            # Allocate arrays for the normalizers
-            # Don't initialize the softmax weights
-            if (it.i+1) >= nn.nr_layer:
-                break
-            he_normal_initializer(&nn.weights[it.W],
-                fan_in, it.nr_out * it.nr_in)
-            constant_initializer(&nn.weights[it.bias],
-                bias, it.nr_out)
-            he_normal_initializer(&nn.weights[it.gamma],
-               1, it.nr_out)
-            fan_in = it.nr_out
+        W = nn.weights
+        fan_in = 1
+        for i in range(nn.nr_layer-1):
+            he_normal_initializer(W,
+                fan_in, nn.widths[i+1] * nn.widths[i])
+            constant_initializer(W,
+                bias, nn.widths[i+1])
+            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            fan_in = nn.widths[i]
 
     @staticmethod
     cdef int nr_weight(int nr_out, int nr_in) nogil:
@@ -114,20 +107,14 @@ cdef class NN:
 
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
-        memset(nn.gradient,
-            0, sizeof(nn.momentum[0]) * nn.nr_weight)
-        memset(nn.momentum,
-            0, sizeof(nn.gradient[0]) * nn.nr_weight)
+        memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
         insert_sparse(mem, nn.embed.weights,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
-        NN.predict_example(eg,
-            nn)
+        NN.predict_example(eg, nn)
         NN.backward(eg.bwd_state,
             eg.fwd_state, eg.costs, nn)
-        dense_update(nn.weights, nn.momentum, nn.gradient,
-            nn.nr_weight, eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer, &nn.hp,
-            nn.iterate, nn.update)
+        NN.update(nn, eg)
      
     @staticmethod
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
@@ -160,23 +147,27 @@ cdef class NN:
         cdef int i
         for i in range(nn.nr_layer-2, 0, -1):
             W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            d_ELU(bwd[i+1],
+                fwd[i+1], nn.widths[i+1])
             d_dot(bwd[i],
                 nn.widths[i], bwd[i+1], nn.widths[i+1], W)
-            d_ELU(bwd[i],
-                fwd[i], nn.widths[i])
         W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
         d_dot(bwd[0],
-            nn.widths[1], bwd[1], nn.widths[1], W)
+            nn.widths[0], bwd[1], nn.widths[1], W)
     
     @staticmethod
     cdef void update(NeuralNetC* nn, const ExampleC* eg) nogil:
         cdef int i
+        memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
+        cdef float* G = nn.gradient
         for i in range(nn.nr_layer-1):
-            MatMat.add_outer_i(nn.gradient,
+            MatMat.add_outer_i(G,
                 eg.bwd_state[i+1], eg.fwd_state[i], nn.widths[i+1], nn.widths[i])
-            VecVec.add_i(nn.gradient + (nn.widths[i+1] * nn.widths[i]),
+            VecVec.add_i(G + (nn.widths[i+1] * nn.widths[i]),
                 eg.bwd_state[i+1], 1.0, nn.widths[i+1])
-            nn.gradient += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
+            G += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
+        nn.update(nn.weights, nn.momentum, nn.gradient,
+            nn.nr_weight, &nn.hp)
         #sparse_update(
         #    nn.embed.weights,
         #    nn.embed.momentum,
@@ -209,6 +200,7 @@ cdef class Embedding:
         uniq_defaults = <float**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
+            Map_init(mem, &uniq_momentum[i], 8)
             uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
             he_normal_initializer(uniq_defaults[i],
                 1, width)
@@ -233,9 +225,10 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
+                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0,
+                 update_step='adam'):
         self.mem = Pool()
-        NN.init(&self.c, self.mem, widths, embed, eta, eps, mu, rho, bias, alpha)
+        NN.init(&self.c, self.mem, widths, embed, update_step, eta, eps, mu, rho, bias, alpha)
         self.eg = Example(self.widths)
 
     def predict_example(self, Example eg):
@@ -281,7 +274,11 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        return Example(self.widths, input_, label)
+        cdef Example eg = Example(self.widths)
+        eg.set_features(input_)
+        if label is not None:
+            eg.set_label(label)
+        return eg
 
     property weights:
         def __get__(self):

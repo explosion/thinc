@@ -1,5 +1,6 @@
 # cython: profile=True
 # cython: cdivision=True
+# cython: infer_types=True
 cimport cython
 from libc.string cimport memcpy
 
@@ -258,8 +259,8 @@ cdef void set_input(
         emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
         if emb == NULL:
             emb = defaults[feats[f].i]
-        VecVec.add_i(out, 
-            emb, 1.0, lengths[feats[f].i])
+        VecVec.add_i(&out[offsets[feats[f].i]], 
+            emb, feats[f].value, lengths[feats[f].i])
 
 
 cdef void insert_sparse(
