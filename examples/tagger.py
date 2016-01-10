@@ -92,7 +92,7 @@ class Tagger(object):
         self._make_tagdict(sentences)
         input_length = self.ex.input_length
         self.model = NeuralNet(
-            (input_length,), * depth +  (len(self.classes),),
+            (input_length,) * self.depth +  (len(self.classes),),
             embed=(self.ex.tables, self.ex.slots),
         rho=self.L2, eta=self.learn_rate, update_step=self.solver)
         print(self.model.widths)
@@ -221,8 +221,8 @@ def read_conll(loc):
 @plac.annotations(
     depth=("Number of hidden layers", "option", "d", int),
     learn_rate=("Number of hidden layers", "option", "e", float),
-    L2=("L2 regularization penalty", "r", float),
-    solver=("Optimization algorithm", "s", "option", str),
+    L2=("L2 regularization penalty", "option", "r", float),
+    solver=("Optimization algorithm","option", "s", str),
     word_width=("Number of dimensions for word embeddings", "option", "w", int),
     char_width=("Number of dimensions for char embeddings", "option", "c", int),
     tag_width=("Number of dimensions for tag embeddings", "option", "t", int),
@@ -232,7 +232,7 @@ def read_conll(loc):
     left_tags=("Number of tags from the preceding context", "option", "T", int),
 )
 def main(model_dir, train_loc, heldout_gold,
-         L2=1e-6, learn_rate=0.01, solver="adam",
+         depth=2, L2=1e-6, learn_rate=0.01, solver="adam",
          word_width=10, char_width=5, tag_width=5,
          chars_per_word=10,
          left_words=2, right_words=2,
