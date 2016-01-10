@@ -34,6 +34,7 @@ from .lvl0 cimport default_end_fwd
 from .lvl0 cimport default_begin_bwd
 from .lvl0 cimport default_feed_bwd
 from .lvl0 cimport default_end_bwd
+from .lvl0 cimport adam_update_step
 from .lvl0 cimport advance_iterator
 
 import numpy
@@ -70,15 +71,15 @@ cdef class NN:
         nn.begin_bwd = default_begin_bwd
         nn.feed_bwd = default_feed_bwd
         nn.end_bwd = default_end_bwd
-        nn.update = NULL
+        nn.update = adam_update_step
 
         nn.nr_weight = 0
         for i in range(nn.nr_layer-1):
             nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.momentum = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.averages = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.momentum = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
+        nn.averages = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
         
         nn.sparse_weights = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
         nn.sparse_gradient = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
@@ -121,8 +122,6 @@ cdef class NN:
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         memset(nn.gradient,
             0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        NN.predict_example(eg,
-            nn)
         insert_sparse(mem, nn.sparse_weights,
             nn.embed_lengths, nn.embed_offsets, nn.embed_defaults,
             eg.features, eg.nr_feat)
@@ -131,7 +130,13 @@ cdef class NN:
         insert_sparse(mem, nn.sparse_momentum,
             nn.embed_lengths, nn.embed_offsets, nn.embed_defaults,
             eg.features, eg.nr_feat)
-        NN.update(nn, eg)
+        NN.predict_example(eg,
+            nn)
+        NN.backward(eg.bwd_state,
+            eg.fwd_state, eg.costs, nn)
+        dense_update(nn.weights, nn.momentum, nn.gradient,
+            nn.nr_weight, eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer, &nn.hp,
+            nn.iterate, nn.update)
      
     @staticmethod
     cdef void forward(
@@ -191,7 +196,6 @@ cdef class NN:
                 nn.update)
 
 
-
 cdef class NeuralNet:
     cdef readonly Pool mem
     cdef readonly Example eg
@@ -222,17 +226,25 @@ cdef class NeuralNet:
         eg.set_input(features)
         self.predict_example(eg)
         return eg
+
+    def train_dense(self, features, y):
+        memset(self.c.gradient,
+            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_input(features)
+        eg.set_label(y)
+        NN.train_example(&self.c, self.mem, &eg.c)
+        return eg
   
-    def train(self, features, y):
+    def train_sparse(self, features, y):
         memset(self.c.gradient,
             0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
         cdef Example eg = self.eg
         eg.wipe(self.widths)
         eg.set_features(features)
         eg.set_label(y)
-
-        NN.predict_example(&eg.c, &self.c)
-        NN.update(&self.c, &eg.c)
+        NN.train_example(&self.c, self.mem, &eg.c)
         return eg
  
     def Example(self, input_, label=None):

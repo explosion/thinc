@@ -1,5 +1,6 @@
 # cython: profile=True
 # cython: cdivision=True
+cimport cython
 from libc.string cimport memcpy
 
 from cymem.cymem cimport Pool
@@ -177,7 +178,7 @@ cdef void dense_update(
             bwd[it.above], fwd[it.below], it.nr_out, it.nr_in)
         VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
             bwd[it.above], 1.0, it.nr_out)
-    do_update(weights, gradient, momentum,
+    do_update(weights, momentum, gradient,
         nr_weight, hp)
 
 
@@ -372,6 +373,45 @@ cdef void insert_sparse(
                 defaults[feats[f].i], sizeof(emb[0]) * lengths[feats[f].i])
             Map_set(mem, tables[feats[f].i],
                 feats[f].key, emb)
+
+
+@cython.cdivision(True)
+cdef void adam_update_step(
+    float* weights,
+    float* moments,
+    float* gradient,
+        len_t nr_weight,
+        const ConstantsC* hp
+) nogil:
+    cdef float beta1 = 0.90
+    cdef float beta2 = 0.999
+    # Add the derivative of the L2-loss to the gradient
+    cdef idx_t i
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    # This is all vectorized and in-place, so it's hard to read. See the
+    # paper.
+    mom1 = moments
+    mom2 = &moments[nr_weight]
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+    Vec.mul_i(mom2,
+        beta2, nr_weight)
+    VecVec.mul_i(gradient,
+        gradient, nr_weight)
+    VecVec.add_i(mom2,
+        gradient, 1-beta2, nr_weight)
+    Vec.div(gradient,
+        mom1, 1-beta1, nr_weight)
+    for i in range(nr_weight):
+        gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
+    Vec.mul_i(gradient,
+        hp.e, nr_weight)
+    VecVec.add_i(weights,
+        gradient, -1.0, nr_weight)
 
 
 ########
