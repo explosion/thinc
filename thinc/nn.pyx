@@ -28,8 +28,12 @@ from .lvl0 cimport forward
 from .lvl0 cimport backward
 from .lvl0 cimport set_input
 from .lvl0 cimport insert_sparse
-from .lvl0 cimport dense_update
 from .lvl0 cimport sparse_update
+from .lvl0 cimport dense_update
+from .lvl0 cimport default_begin_fwd
+from .lvl0 cimport default_feed_fwd
+from .lvl0 cimport default_end_fwd
+from .lvl0 cimport advance_iterator
 
 import numpy
 
@@ -57,6 +61,12 @@ cdef class NN:
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
+
+        nn.begin_fwd = default_begin_fwd
+        nn.iterate = advance_iterator
+        nn.feed_fwd = default_feed_fwd
+        nn.end_fwd = default_end_fwd
+        nn.update = NULL
 
         nn.nr_weight = 0
         for i in range(nn.nr_layer-1):
@@ -102,7 +112,6 @@ cdef class NN:
     cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
         NN.forward(eg.scores, eg.fwd_state,
             eg.features, eg.nr_feat, nn)
-        Example.set_scores(eg, eg.fwd_state[nn.nr_layer*2-2])
 
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:

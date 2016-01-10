@@ -131,7 +131,12 @@ cdef void default_end_fwd(
             len_t nr_layer,
         const float* weights,
             len_t nr_weight) nogil:
-    pass
+    dot_plus(fwd[it.above],
+        &weights[it.bias], it.nr_out, fwd[it.below], it.nr_in, &weights[it.W])
+    softmax(fwd[it.above],
+       it.nr_out)
+    memcpy(scores,
+        fwd[it.above], sizeof(scores[0]) * it.nr_out)
 
 
 cdef void dot_plus__ELU(
