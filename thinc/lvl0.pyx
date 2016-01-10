@@ -119,14 +119,13 @@ cdef void sparse_update(
     cdef idx_t f
     cdef idx_t idx
     for f in range(nr_feat):
+        # Copy the gradient into the temp buffer, so we can modify it in-place
+        memcpy(tmp, gradient, sizeof(tmp[0]) * nr_grad)
         idx = feats[f].i
         weights = <float*>Map_get(weights_tables[idx], feats[f].key)
         moments = <float*>Map_get(moments_tables[idx], feats[f].key)
         # These should never be null.
         if weights is not NULL and moments is not NULL:
-            # Copy the gradient into the temp buffer, so we can modify it in-place
-            memcpy(&tmp[offsets[idx]],
-                &gradient[offsets[idx]], sizeof(float) * lengths[idx])
             Vec.mul_i(&tmp[offsets[idx]],
                 feats[f].value, lengths[idx])
             do_update(&weights[offsets[idx]], &moments[offsets[idx]], &tmp[offsets[idx]],
@@ -265,7 +264,8 @@ cdef void set_input(
 
 cdef void insert_sparse(
     Pool mem,
-    MapC** tables,
+    MapC** weights,
+    MapC** momentum,
         const len_t* lengths, 
         const idx_t* offsets,
         const float* const* defaults,
@@ -273,12 +273,10 @@ cdef void insert_sparse(
         int nr_feat
 ) except *:
     for f in range(nr_feat):
-        emb = <float*>Map_get(tables[feats[f].i], feats[f].key)
+        emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
         if emb is NULL:
             emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
             # TODO: Which is better here???
-            # N.B.: Careful enabling this. It can break use of this function to
-            # initialize things that should be zeroed.
             #Initializer.normal(emb,
             #    0.0, 1.0, length)
             # We initialize with the defaults here so that we only have
@@ -287,8 +285,13 @@ cdef void insert_sparse(
             # to be dealing with the same representation.
             memcpy(emb,
                 defaults[feats[f].i], sizeof(emb[0]) * lengths[feats[f].i])
-            Map_set(mem, tables[feats[f].i],
+            Map_set(mem, weights[feats[f].i],
                 feats[f].key, emb)
+            mom = <float*>mem.alloc(lengths[feats[f].i], sizeof(mom[0]))
+            Map_set(mem, momentum[feats[f].i],
+                feats[f].key, mom)
+            print("Insert", feats[f].key, "into", feats[f].i)
+
 
 
 @cython.cdivision(True)

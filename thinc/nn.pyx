@@ -108,7 +108,7 @@ cdef class NN:
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        insert_sparse(mem, nn.embed.weights,
+        insert_sparse(mem, nn.embed.weights, nn.embed.momentum,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
         NN.predict_example(eg, nn)
@@ -168,20 +168,20 @@ cdef class NN:
             G += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
         nn.update(nn.weights, nn.momentum, nn.gradient,
             nn.nr_weight, &nn.hp)
-        #sparse_update(
-        #    nn.embed.weights,
-        #    nn.embed.momentum,
-        #    nn.gradient,
-        #        eg.bwd_state[0],
-        #            nn.widths[0],
-        #        nn.embed.lengths,
-        #        nn.embed.offsets,
-        #        nn.embed.defaults,
-        #            nn.embed.nr,
-        #        eg.features,
-        #            eg.nr_feat,
-        #        &nn.hp,
-        #        nn.update)
+        sparse_update(
+            nn.embed.weights,
+            nn.embed.momentum,
+            nn.gradient,
+                eg.bwd_state[0],
+                    nn.widths[0],
+                nn.embed.lengths,
+                nn.embed.offsets,
+                nn.embed.defaults,
+                    nn.embed.nr,
+                eg.features,
+                    eg.nr_feat,
+                &nn.hp,
+                nn.update)
 
 
 cdef class Embedding:
