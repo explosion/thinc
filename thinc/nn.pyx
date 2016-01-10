@@ -170,93 +170,86 @@ cdef class NN:
                 &nn.hp,
                 nn.update)
 
-#
-#
-#cdef class NeuralNet:
-#    def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-#                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
-#        self.mem = Pool()
-#        self.eg = Example(self.widths)
-#        NN.init(&self.c, mem, widths, eta, eps, mu, rho, bias, alpha)
-#
 
-#    def __call__(self, features):
-#        cdef Example eg = self.eg
-#        eg.wipe(self.widths)
-#        eg.set_features(features)
-#        NN.predict_examples(&eg.c, 1,
-#            &self.c)
-#        return eg
-#   
-#    def train(self, features, y):
-#        memset(self.c.gradient,
-#            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
-#        cdef Example eg = self.eg
-#        eg.wipe(self.widths)
-#        eg.set_features(features)
-#        eg.set_label(y)
-#
-#        NN.predict_example(&eg.c, &self.c)
-#        NN.insert_embeddings(self.c.embeds, self.mem,
-#            &eg.c)
-#        NN.insert_embeddings(self.c.opt.embed_params, self.mem,
-#            &eg.c)
-#        NN.update_dense(&self.c, self.c.gradient, &eg.c)
-#        NN.update_sparse(&self.c, self.c.gradient, &eg.c)
-#        return eg
-# 
-#    def Example(self, input_, label=None):
-#        if isinstance(input_, Example):
-#            return input_
-#        return Example(self.widths, input_, label)
-#
-#    def Batch(self, inputs, labels=None):
-#        if isinstance(inputs, Batch):
-#            return inputs
-#        return Batch(self.widths, inputs, labels, self.c.nr_weight)
-# 
-#    property weights:
-#        def __get__(self):
-#            return [self.c.weights[i] for i in range(self.c.nr_weight)]
-#        def __set__(self, weights):
-#            assert len(weights) == self.c.nr_weight
-#            for i, weight in enumerate(weights):
-#                self.c.weights[i] = weight
-#
-#    property layers:
-#        def __get__(self):
-#            weights = self.weights
-#            cdef IteratorC it
-#            it.i = 0
-#            while NN.iter(&it, self.c.widths, self.c.nr_layer-1, 1):
-#                yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
-#
-#    property widths:
-#        def __get__(self):
-#            return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
-#
-#    property layer_l1s:
-#        def __get__(self):
-#            for W, bias in self.layers:
-#                w_l1 = sum(abs(w) for w in W) / len(W)
-#                bias_l1 = sum(abs(w) for w in W) / len(bias)
-#                yield w_l1, bias_l1
-#
-#    property gradient:
-#        def __get__(self):
-#            return [self.c.gradient[i] for i in range(self.c.nr_weight)]
-#
-#    property l1_gradient:
-#        def __get__(self):
-#            cdef int i
-#            cdef weight_t total = 0.0
-#            for i in range(self.c.nr_weight):
-#                if self.c.gradient[i] < 0:
-#                    total -= self.c.gradient[i]
-#                else:
-#                    total += self.c.gradient[i]
-#            return total / self.c.nr_weight
-#
+
+cdef class NeuralNet:
+    cdef readonly Pool mem
+    cdef readonly Example eg
+    cdef NeuralNetC c
+
+    def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
+                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
+        self.mem = Pool()
+        self.eg = Example(self.widths)
+        NN.init(&self.c, self.mem, widths, eta, eps, mu, rho, bias, alpha)
+
+    def __call__(self, features):
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(features)
+        NN.predict_example(&eg.c,
+            &self.c)
+        return eg
+   
+    def train(self, features, y):
+        memset(self.c.gradient,
+            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(features)
+        eg.set_label(y)
+
+        NN.predict_example(&eg.c, &self.c)
+        NN.update(&self.c, &eg.c)
+        return eg
+ 
+    def Example(self, input_, label=None):
+        if isinstance(input_, Example):
+            return input_
+        return Example(self.widths, input_, label)
+
+    property weights:
+        def __get__(self):
+            return [self.c.weights[i] for i in range(self.c.nr_weight)]
+        def __set__(self, weights):
+            assert len(weights) == self.c.nr_weight
+            for i, weight in enumerate(weights):
+                self.c.weights[i] = weight
+
+    property layers:
+        def __get__(self):
+            weights = self.weights
+            cdef IteratorC it
+            it.i = 0
+            while self.c.iterate(&it, self.c.widths, self.c.nr_layer-1, 1):
+                yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
+
+    property widths:
+        def __get__(self):
+            return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
+
+    property layer_l1s:
+        def __get__(self):
+            for W, bias in self.layers:
+                w_l1 = sum(abs(w) for w in W) / len(W)
+                bias_l1 = sum(abs(w) for w in W) / len(bias)
+                yield w_l1, bias_l1
+
+    property gradient:
+        def __get__(self):
+            return [self.c.gradient[i] for i in range(self.c.nr_weight)]
+
+    property l1_gradient:
+        def __get__(self):
+            cdef int i
+            cdef weight_t total = 0.0
+            for i in range(self.c.nr_weight):
+                if self.c.gradient[i] < 0:
+                    total -= self.c.gradient[i]
+                else:
+                    total += self.c.gradient[i]
+            return total / self.c.nr_weight
+
 #    property embeddings:
 #        def __get__(self):
 #            cdef int i = 0
