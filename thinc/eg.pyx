@@ -134,7 +134,7 @@ cdef class Example:
 
     property loss:
         def __get__(self):
-            return 1 - self.c.scores[self.c.best]
+            return 1 - self.c.scores[self.best]
 
     def activation(self, int i, int j):
         # TODO: Find a way to do this better!
