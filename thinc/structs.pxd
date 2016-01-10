@@ -120,12 +120,12 @@ cdef struct ConstantsC:
 
 
 
-cdef struct EmbeddingC:
+cdef struct EmbedC:
     MapC** tables
     float** defaults
-    int* offsets
-    int* lengths
-    int nr
+    idx_t* offsets
+    len_t* lengths
+    len_t nr
 
 
 cdef struct NeuralNetC:
@@ -144,18 +144,12 @@ cdef struct NeuralNetC:
     float* momentum
     float* averages
     
-    MapC** sparse_weights
-    MapC** sparse_gradient
-    MapC** sparse_momentum
-    MapC** sparse_averages
-
-    idx_t* embed_offsets
-    len_t* embed_lengths
-    float** embed_defaults
+    EmbedC embed
+    EmbedC embed_momentum
+    EmbedC embed_averages
 
     len_t nr_layer
     len_t nr_weight
-    len_t nr_embed
 
     ConstantsC hp
 

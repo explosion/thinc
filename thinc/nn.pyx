@@ -20,6 +20,7 @@ from .structs cimport NeuralNetC
 from .structs cimport IteratorC
 from .structs cimport ExampleC
 from .structs cimport FeatureC
+from .structs cimport EmbedC
 
 from .eg cimport Example
 
@@ -35,6 +36,7 @@ from .lvl0 cimport default_begin_bwd
 from .lvl0 cimport default_feed_bwd
 from .lvl0 cimport default_end_bwd
 from .lvl0 cimport adam_update_step
+from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport advance_iterator
 
 import numpy
@@ -46,6 +48,8 @@ cdef class NN:
         NeuralNetC* nn,
         Pool mem,
             widths,
+            embed,
+            update_step='adam',
             float eta=0.005,
             float eps=1e-6,
             float mu=0.2,
@@ -71,7 +75,10 @@ cdef class NN:
         nn.begin_bwd = default_begin_bwd
         nn.feed_bwd = default_feed_bwd
         nn.end_bwd = default_end_bwd
-        nn.update = adam_update_step
+        if update_step == 'sgd':
+            nn.update = vanilla_sgd_update_step
+        else:
+            nn.update = adam_update_step
 
         nn.nr_weight = 0
         for i in range(nn.nr_layer-1):
@@ -81,19 +88,12 @@ cdef class NN:
         nn.momentum = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
         nn.averages = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
         
-        nn.sparse_weights = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
-        nn.sparse_gradient = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
-        nn.sparse_momentum = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
-        nn.sparse_averages = <MapC**>mem.alloc(nn.nr_embed, sizeof(void*))
+        if embed is not None:
+            vector_widths, features = embed
+            Embedding.init(&nn.embed, mem, vector_widths, features)
+            Embedding.init(&nn.embed_momentum, mem, vector_widths, features)
+            Embedding.init(&nn.embed_averages, mem, vector_widths, features)
 
-        nn.embed_offsets = <idx_t*>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
-        nn.embed_lengths = <len_t*>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
-        nn.embed_defaults = <float**>mem.alloc(nn.nr_embed, sizeof(nn.embed_offsets[0]))
-
-        for i in range(nn.nr_embed):
-            nn.embed_defaults[i] = <float*>mem.alloc(nn.embed_lengths[i],
-                                                     sizeof(nn.embed_defaults[i][0]))
-        
         cdef IteratorC it
         it.i = 0
         while advance_iterator(&it, nn.widths, nn.nr_layer-1, 1):
@@ -121,15 +121,17 @@ cdef class NN:
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         memset(nn.gradient,
+            0, sizeof(nn.momentum[0]) * nn.nr_weight)
+        memset(nn.momentum,
             0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        insert_sparse(mem, nn.sparse_weights,
-            nn.embed_lengths, nn.embed_offsets, nn.embed_defaults,
+        insert_sparse(mem, nn.embed.tables,
+            nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
         # N.B. If we switch the insert_sparse API away from taking this
         # defaults argument, ensure that we allow zero-initialization option.
-        insert_sparse(mem, nn.sparse_momentum,
-            nn.embed_lengths, nn.embed_offsets, nn.embed_defaults,
-            eg.features, eg.nr_feat)
+        insert_sparse(mem, nn.embed_momentum.tables,
+            nn.embed_momentum.lengths, nn.embed_momentum.offsets,
+            nn.embed_momentum.defaults, eg.features, eg.nr_feat)
         NN.predict_example(eg,
             nn)
         NN.backward(eg.bwd_state,
@@ -147,8 +149,8 @@ cdef class NN:
             const NeuralNetC* nn
     ) nogil:
         set_input(fwd[0],
-            feats, nr_feat, nn.embed_lengths, nn.embed_offsets,
-            nn.embed_defaults, nn.sparse_weights) 
+            feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
+            nn.embed.defaults, nn.embed.tables) 
         cdef IteratorC it = nn.begin_fwd(fwd,
                 nn.widths, nn.nr_layer, nn.weights, nn.nr_weight)
         while nn.iterate(&it, nn.widths, nn.nr_layer-2, 1):
@@ -181,19 +183,51 @@ cdef class NN:
             nn.nr_weight, eg.bwd_state, eg.fwd_state, nn.widths, nn.nr_layer,
             &nn.hp, nn.iterate, nn.update)
         sparse_update(
-            nn.sparse_weights,
-            nn.sparse_momentum,
+            nn.embed.tables,
+            nn.embed_momentum.tables,
             nn.gradient,
                 eg.bwd_state[0],
                     nn.widths[0],
-                nn.embed_lengths,
-                nn.embed_offsets,
-                nn.embed_defaults,
-                    nn.nr_embed,
+                nn.embed.lengths,
+                nn.embed.offsets,
+                nn.embed.defaults,
+                    nn.embed.nr,
                 eg.features,
                     eg.nr_feat,
                 &nn.hp,
                 nn.update)
+
+
+cdef class Embedding:
+    cdef Pool mem
+    cdef EmbedC* c
+
+    @staticmethod
+    cdef void init(EmbedC* self, Pool mem, vector_widths, features) except *: 
+        assert max(features) < len(vector_widths)
+        # Create tables, which may be shared between different features
+        # e.g., we might have a feature for this word, and a feature for next
+        # word. These occupy different parts of the input vector, but draw
+        # from the same embedding table.
+        uniqs = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_defaults = <float**>mem.alloc(len(vector_widths), sizeof(void*))
+        for i, width in enumerate(vector_widths):
+            Map_init(mem, &uniqs[i], 8)
+            uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
+            he_normal_initializer(uniq_defaults[i],
+                1, width)
+        self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
+        self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
+        self.tables = <MapC**>mem.alloc(len(features), sizeof(void*))
+        self.defaults = <float**>mem.alloc(len(features), sizeof(void*))
+        offset = 0
+        for i, table_id in enumerate(features):
+            self.tables[i] = &uniqs[table_id]
+            self.lengths[i] = vector_widths[table_id]
+            self.defaults[i] = uniq_defaults[table_id]
+            self.offsets[i] = offset
+            offset += vector_widths[table_id]
+
 
 
 cdef class NeuralNet:
@@ -204,7 +238,7 @@ cdef class NeuralNet:
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
                  weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0):
         self.mem = Pool()
-        NN.init(&self.c, self.mem, widths, eta, eps, mu, rho, bias, alpha)
+        NN.init(&self.c, self.mem, widths, embed, eta, eps, mu, rho, bias, alpha)
         self.eg = Example(self.widths)
 
     def predict_example(self, Example eg):
@@ -301,11 +335,11 @@ cdef class NeuralNet:
             cdef int k = 0
             cdef key_t key
             cdef void* value
-            for i in range(self.c.nr_embed):
+            for i in range(self.c.embed.nr):
                 j = 0
-                while Map_iter(self.c.sparse_weights[i], &j, &key, &value):
+                while Map_iter(self.c.embed.tables[i], &j, &key, &value):
                     emb = <weight_t*>value
-                    yield key, [emb[k] for k in range(self.c.embed_lengths[i])]
+                    yield key, [emb[k] for k in range(self.c.embed.lengths[i])]
 
     property nr_layer:
         def __get__(self):
