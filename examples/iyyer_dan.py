@@ -61,8 +61,7 @@ class Extractor(object):
 
     def __call__(self, text, dropout=True):
         doc = preprocess(text)
-        if dropout is True:
-            dropout = self.dropout
+        dropout = self.dropout if dropout is True else 0.0
         bow = defaultdict(float)
         all_words = defaultdict(float)
         for word in doc:
