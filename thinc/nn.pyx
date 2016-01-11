@@ -34,6 +34,8 @@ from .lvl0 cimport softmax
 from .lvl0 cimport d_log_loss
 from .lvl0 cimport d_dot
 from .lvl0 cimport d_ELU
+from .lvl0 cimport dot__normalize__dot_plus__ELU
+from .lvl0 cimport d_ELU__dot__normalize__dot
 
 import numpy
 
@@ -211,6 +213,123 @@ cdef class NN:
                 emb = defaults[feats[f].i]
             VecVec.add_i(&out[offsets[feats[f].i]], 
                 emb, 1.0, lengths[feats[f].i])
+
+    @staticmethod
+    cdef void bn_forward(
+        float* scores,
+        float** fwd,
+            const FeatureC* feats,
+                int nr_feat,
+            const NeuralNetC* nn
+    ) nogil:
+        NN.set_input(fwd[0],
+            feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
+            nn.embed.defaults, nn.embed.weights) 
+        cdef int i
+        cdef const float* W = nn.weights
+        # Normalization weights stored at end of W
+        cdef float* Ex = &nn.weights[nn.nr_weight]
+        cdef const len_t* shape = nn.widths
+        for i in range(nn.nr_layer-2): # Save last layer for softmax
+            # Normalized versions are stored after the activation
+            x_hat = fwd[i+1] + shape[1]
+
+            dot__normalize__dot_plus__ELU(fwd[i+1], x_hat, Ex, Vx,
+                bias, gamma, shape[1], fwd[i], shape[0], W, nn.hp.a)
+
+            W += shape[0] * shape[1] + shape[1] * 2
+            bias = W + shape[0] * shape[1]
+            gamma = W + shape[0] * shape[1] + shape[1]
+            Ex += shape[1] * 2
+            Vx = Ex + shape[1]
+            shape += 1
+        i = nn.nr_layer - 2
+        dot_plus(fwd[i],
+            bias, shape[1], fwd[i+1], nn.widths[i], W)
+        softmax(fwd[i+1],
+            shape[1])
+        memcpy(scores,
+            fwd[nn.nr_layer-1], sizeof(scores[0]) * shape[1])
+
+
+    @staticmethod
+    cdef void bn_backward(float** bwd,
+            const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
+        cdef int i = nn.nr_layer-2 
+        d_log_loss(bwd[i+1],
+            costs, fwd[i+1], nn.widths[i+1])
+        cdef const float* layer_weights = nn.weights + nn.nr_weight
+        cdef float* layer_means = nn.averages
+        for i in range(nn.nr_layer-2, 0, -1):
+            shape = &nn.widths[i]
+            layer_weights -= shape[0] * shape[1] + shape[1] * 2
+            layer_means   -= shape[1] * 4
+            
+            W     = layer_weights
+            bias  = layer_weights + shape[0] * shape[1]
+            gamma = layer_weights + shape[0] * shape[1] + shape[1]
+            
+            Vx       = layer_means + shape[1]
+            E_dXh    = layer_means + shape[1]
+            E_dXh_Xh = layer_means + shape[1]
+
+            dXh = bwd[i] + shape[1]
+            Xh  = fwd[i] + shape[1]
+
+            d_ELU__dot__normalize__dot(bwd[i+1], bwd[i], &bwd[i][shape[1]], E_dXh, E_dXh_Xh,
+                fwd[i], &fwd[i][shape[1]], Vx, gamma, shape[1], shape[0], W, nn.hp.a)
+        d_dot(bwd[0],
+            nn.widths[0], bwd[1], nn.widths[1], nn.weights)
+        
+    @staticmethod
+    cdef void bn_update(NeuralNetC* nn, const ExampleC* eg) except *:
+        nn.hp.t += 1
+        cdef int i
+        cdef float* layer_grad = nn.gradient
+
+        shape = nn.widths
+        bwd   = eg.bwd_state
+        fwd   = eg.fwd_state
+        W     = layer_grad
+        bias  = layer_grad + shape[0] * shape[1]
+        gamma = layer_grad + shape[0] * shape[1] + shape[1]
+        for i in range(nn.nr_layer-1):
+            MatMat.add_outer_i(W,
+                bwd[1], fwd[0], shape[1], shape[0])
+            VecVec.add_i(bias,
+                bwd[1], 1.0, shape[1])
+            VecVec.add_i(gamma,
+                bwd[1], 1.0, shape[1])
+
+            W     = layer_grad
+            bias  = layer_grad + shape[0] * shape[1]
+            gamma = layer_grad + shape[0] * shape[1] + shape[1]
+            layer_grad += shape[0] * shape[1] + shape[1] * 2
+            shape += 1
+            fwd += 1
+            bwd += 1
+        nn.update(nn.weights, nn.momentum, nn.gradient,
+            nn.nr_weight, &nn.hp)
+
+        cdef idx_t f
+        cdef idx_t idx
+        cdef idx_t os
+        cdef float* emb
+        cdef float* mom
+        cdef float* upd = nn.gradient
+        for f in range(eg.nr_feat):
+            # Copy the fine-tuning into the temp buffer, so we can modify it in-place
+            memcpy(upd, bwd[0], sizeof(upd[0]) * shape[0])
+            idx = eg.features[f].i
+            os = nn.embed.offsets[idx]
+            emb = <float*>Map_get(nn.embed.weights[idx], eg.features[f].key)
+            mom = <float*>Map_get(nn.embed.momentum[idx], eg.features[f].key)
+            # These should never be null.
+            if emb is not NULL and mom is not NULL:
+                Vec.mul_i(&upd[os],
+                    eg.features[f].value, nn.embed.lengths[idx])
+                nn.update(emb, mom, &upd[os],
+                    nn.embed.lengths[idx], &nn.hp)
 
 
 cdef class Embedding:

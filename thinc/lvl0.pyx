@@ -225,13 +225,8 @@ cdef void vanilla_sgd_update_step(
 ########
 # Batch Normalization, non-functional draft
 
-cdef void normalize(
-    float* x,
-    float* Ex,
-    float* Vx,
-        len_t nr_x,
-        float alpha
-) nogil:
+
+cdef void normalize(float* x, float* Ex, float* Vx, len_t nr_x, float alpha) nogil:
     # Upd EMA estimate of mean and variance
     # See eq at the end of this:
     # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
@@ -248,15 +243,8 @@ cdef void normalize(
         x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
 
 
-cdef void d_normalize(
-    float* bwd,
-    float* E_dEdXh,
-    float* E_dEdXh_dot_Xh,
-        const float* Xh,
-        const float* Vx,
-            len_t n,
-        float alpha
-) nogil:
+cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
+        const float* Xh, const float* Vx, len_t n, float alpha) nogil:
     # Update EMA estimate of mean(dL/dX_hat)
     Vec.mul_i(E_dEdXh,
         alpha, n)
@@ -278,49 +266,54 @@ cdef void d_normalize(
         bwd[i] /= sqrtf(Vx[i] + EPS)
 
 
-#cdef void dot_plus__normalize__dot_plus__ELU(
-#    float* output,
-#    float* normed,
-#    float* Ex,
-#    float* Vx,
-#        const float* bias,
-#        const float* gamma,
-#        len_t nr_out,
-#        const float* input_,
-#            len_t nr_in,
-#        const weight_t* W,
-#        float ema_stickiness
-#) nogil:
-#    dot_plus(output,
-#        input_, W, bias, nr_out, nr_in)
-#    normalize(normed, Ex, Vx,
-#        nr_out, ema_stickiness) 
-#    dot_plus(output,
-#        normed, gamma, beta, nr_out, 1)
-#    ELU(x_dotPlus_normalize_dotPlus_ELU,
-#        nr_out)
-#
-#
-#cdef void dELU_dDot_dNormalize_dDot(
-#    float* dY,
-#    float* dXh,
-#    float* dX,
-#    float* E_dXh,
-#    float* E_dXh_Xh,
-#        const float* Xh,
-#        const float* Vx,
-#        len_t nr_out,
-#        len_t nr_in,
-#        float ema_speed
-#) nogil:
-#    d_ELU(dY,
-#        Y, nr_out) # Y = ELU(dot(G, BN(W*x+b))), i.e. our layer's final output
-#    d_dot(dXh,
-#        dY, gamma, nr_out, 1)
-#    d_normalize(dXh, E_dXh, E_dXh_Xh,
-#        Xh, Vx, nr_out, ema_speed)
-#    d_dot(dX,
-#        dXh, W, nr_out, nr_in)
-#
-#
-#
+cdef void dot__normalize__dot_plus__ELU(
+    float* output,
+    float* mid_result,
+    float* Ex,
+    float* Vx,
+        const float* bias,
+        const float* gamma,
+        len_t nr_out,
+        const float* input_,
+            len_t nr_in,
+        const float* W,
+        float alpha
+) nogil:
+    MatVec.dot(mid_result,
+        input_, W, nr_out, nr_in)
+    normalize(mid_result, Ex, Vx,
+        nr_out, alpha)
+    VecVec.mul(output,
+        mid_result, gamma, nr_out)
+    VecVec.add_i(output,
+        bias, 1.0, nr_out)
+    ELU(output, nr_out)
+
+
+cdef void d_ELU__dot__normalize__dot(
+    float* dY,
+    float* dXh,
+    float* dX,
+    float* E_dXh,
+    float* E_dXh_Xh,
+        const float* Y,
+        const float* Xh,
+        const float* Vx,
+        const float* gamma,
+        len_t nr_out,
+        len_t nr_in,
+        const float* W,
+        float ema_speed
+) nogil:
+    # This must be wrong. X is from bottom, right?
+    # Y = ELU(dot(G, BN(W*x+b))), i.e. our layer's final output
+    d_ELU(dY,
+        Y, nr_out) 
+    VecVec.mul(dXh,
+        dY, gamma, nr_out)
+    d_normalize(dXh, E_dXh, E_dXh_Xh,
+        Xh, Vx, nr_out, ema_speed)
+    d_dot(dX,
+        nr_in, dXh, nr_out, W)
+
+
