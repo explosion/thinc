@@ -46,7 +46,9 @@ class FeatureExtractor(object):
         self.tag_context = tag_context
         self.strings = {}
         self.tables = (self.char_width, self.word_width, self.tag_width)
-        self.slots = (0,) * chars_per_word + (1,) * len(word_context) + (2,) * len(tag_context)
+        self.slots = (0,) * chars_per_word * len(word_context) #+ (2,) * len(tag_context)
+        print(self.slots)
+        print(self.tables)
 
     @property
     def input_length(self):
@@ -57,11 +59,15 @@ class FeatureExtractor(object):
         features = []
         word = word.ljust(self.chars_per_word, ' ')
         # Character features
-        features = [(0, self._intify(c), 1.0) for c in word]
+        features = [(0, ord(c), 1.0) for c in word]
+        vals = [c for c in word]
         for position in self.word_context:
-            features.append((1, self._intify(context[i+position]), 1.0))
-        for position in self.tag_context:
-            features.append((2, self._intify(prev_tags[position]), 1.0))
+            token = context[i+position].ljust(self.chars_per_word, ' ')
+            features.extend((0, ord(c), 1.0) for c in token)
+            vals.extend(c for c in token)
+            #features.append((1, self._intify(context[i+position]), 1.0))
+        #for position in self.tag_context:
+        #    features.append((2, self._intify(prev_tags[position]), 1.0))
         return features
     
     def _intify(self, string):
@@ -120,7 +126,8 @@ class Tagger(object):
     
     def train_one(self, words, tags):
         tag_history = DefaultList('') 
-        context = START + [self._normalize(w) for w in words] + END
+        #context = START + [self._normalize(w) for w in words] + END
+        context = START + [w for w in words] + END
         Xs = []
         ys = []
         inverted_classes = {i: tag for tag, i in self.classes.items()}
@@ -246,7 +253,7 @@ def main(model_dir, train_loc, heldout_gold,
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(depth,
                 FeatureExtractor(
-                    word_width, char_width, tag_width,
+                    char_width, word_width, tag_width,
                     chars_per_word,
                     word_context, tag_context),
                 learn_rate=learn_rate,
