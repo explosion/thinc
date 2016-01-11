@@ -37,33 +37,6 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef int advance_iterator(
-    IteratorC* it,
-        const len_t* widths,
-            len_t nr_layer,
-        int inc) nogil:
-    it.nr_out = widths[it.i+1]
-    it.nr_in = widths[it.i]
-    it.W = 0
-    cdef int i
-    for i in range(it.i):
-        it.W += widths[i+1] * widths[i]
-        it.W += widths[i+1]
-    it.bias = it.W + (it.nr_out * it.nr_in)
-    it.gamma = 0
-    it.beta = 0
-
-    it.Ex = 0
-    it.Vx = 0
-    it.E_dXh = 0
-    it.E_dXh_Xh = 0
-    it.i += inc
-    if nr_layer >= it.i and it.i >= 0:
-        return True
-    else:
-        return False
-
-
 cdef void dot_plus__ELU(
     float* output,
         const float* bias,
@@ -75,30 +48,6 @@ cdef void dot_plus__ELU(
     dot_plus(output,
         bias, nr_out, input_, nr_in, W)
     ELU(output, nr_out)
-
-
-cdef void dense_update(
-    float* weights,
-    float* momentum,
-    float* gradient,
-        len_t nr_weight,
-        const float* const* bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const ConstantsC* hp,
-        do_iter_t iterate,
-        do_update_t do_update
-) nogil:
-    cdef IteratorC it
-    it.i = 0
-    while iterate(&it, widths, nr_layer, 1):
-        MatMat.add_outer_i(&gradient[it.W], # Gradient of synapse weights
-            bwd[it.i+1], fwd[it.i], it.nr_out, it.nr_in)
-        VecVec.add_i(&gradient[it.bias], # Gradient of bias weights
-            bwd[it.i+1], 1.0, it.nr_out)
-    do_update(weights, momentum, gradient,
-        nr_weight, hp)
 
 
 cdef void dELU__dDot(
