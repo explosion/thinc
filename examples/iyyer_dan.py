@@ -14,7 +14,6 @@ import plac
 import numpy.random
 
 from thinc.nn import NeuralNet
-from thinc.eg import Batch
 
 
 def read_data(data_dir):
@@ -60,9 +59,9 @@ class Extractor(object):
         self.dropout = dropout
         self.vocab = {}
 
-    def __call__(self, text, dropout=None):
+    def __call__(self, text, dropout=True):
         doc = preprocess(text)
-        if dropout is None:
+        if dropout is True:
             dropout = self.dropout
         bow = defaultdict(float)
         all_words = defaultdict(float)
@@ -73,6 +72,10 @@ class Extractor(object):
             all_words[id_] += 1
         if sum(bow.values()) < 1:
             bow = all_words
+        # Normalize for frequency
+        total = sum(bow.values())
+        for word, freq in bow.items():
+            bow[word] = float(freq) / total
         return bow
 
 
@@ -88,24 +91,24 @@ class DenseAveragedNetwork(NeuralNet):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6, bias=0.0):
+                 eps=1e-6, bias=0.0, update_step='adadelta'):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, eps=eps, bias=bias)
+                           rho=rho, eta=eta, eps=eps, bias=bias,
+                           update_step=update_step)
         self.get_bow = get_bow
 
-    def train(self, batch):
-        loss = 0.0
-        X = [self.get_bow(text) for text, _ in batch]
-        y = [label for _, label in batch]
-        batch = NeuralNet.train(self, X, y)
-        return batch
+    def train(self, text, label):
+        feats = self.get_feats(text)
+        return self.train_sparse(feats, label)
 
     def predict(self, text):
-        word_ids = self.get_bow(text, dropout=0.0)
-        eg = self.Example(word_ids)
-        self(eg)
-        return eg
+        feats = self.get_feats(text, dropout=False)
+        return self.predict_sparse(feats)
+
+    def get_feats(self, text, dropout=True):
+        word_ids = self.get_bow(text, dropout=dropout)
+        return {(0, word_id): freq for (word_id, freq) in word_ids.items()}
 
     def save(self):
         raise NotImplementedError
@@ -131,7 +134,8 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     n_classes = 2
     print("Initializing model")
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
-                                 rho=rho, eta=eta, eps=1e-6, bias=bias)
+                                 update_step='adadelta', rho=rho, eta=eta, eps=1e-6,
+                                 bias=bias)
     print(model.widths)
     print(model.nr_weight)
     print("Read data")
@@ -144,14 +148,12 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         numpy.random.shuffle(train_data)
         train_loss = 0.0
         avg_grad = 0.0
-        for X_y in minibatch(train_data, bs=batch_size):
-            batch = model.train(X_y)
-            if str(batch.loss) == 'nan':
-                raise Exception(batch.gradient)
-            train_loss += batch.loss
-            avg_grad += batch.l1_gradient
-            #avg_grad += sum(abs(g) for g in batch.gradient) / model.model.nr_weight
-        n_correct = sum(y[model.predict(x).guess] == 0 for x, y in dev_data)
+        for text, label in train_data:
+            eg = model.train(text, label)
+            #print(list(model.layers[-1])[1])
+            train_loss += eg.loss
+            avg_grad += model.l1_gradient
+        n_correct = sum(model.predict(x).guess == y for x, y in dev_data)
         print(epoch, train_loss, n_correct / len(dev_data),
               sum(model.weights) / model.nr_weight,
               avg_grad)
