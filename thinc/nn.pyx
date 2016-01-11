@@ -26,8 +26,8 @@ from .structs cimport EmbedC
 from .eg cimport Example
 
 from .lvl0 cimport adam
+from .lvl0 cimport adadelta
 from .lvl0 cimport vanilla_sgd_update_step
-from .lvl0 cimport advance_iterator
 from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus
 from .lvl0 cimport softmax
@@ -38,7 +38,18 @@ from .lvl0 cimport d_ELU
 import numpy
 
 
+DEF USE_BATCH_NORM = False
+
+
 cdef class NN:
+    @staticmethod
+    cdef int nr_weight(int nr_out, int nr_in) nogil:
+        if not USE_BATCH_NORM:
+            return nr_out * nr_in + nr_out
+        else:
+            return nr_out * nr_in + nr_out * 2
+
+
     @staticmethod
     cdef void init(
         NeuralNetC* nn,
@@ -53,31 +64,37 @@ cdef class NN:
             float bias=0.0,
             float alpha=0.0
     ) except *:
+        if update_step == 'sgd':
+            print("Using SGD")
+            nn.update = vanilla_sgd_update_step
+        elif update_step == 'adadelta':
+            print("Using adadelta")
+            nn.update = adadelta
+        else:
+            print("Using adam")
+            nn.update = adam
         nn.hp.t = 0
         nn.hp.a = alpha
         nn.hp.b = bias
         nn.hp.r = rho
         nn.hp.m = mu
         nn.hp.e = eta
+
         nn.nr_layer = len(widths)
         nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
 
-        nn.iterate = advance_iterator
-        if update_step == 'sgd':
-            nn.update = vanilla_sgd_update_step
-        else:
-            nn.update = adam
-
         nn.nr_weight = 0
+        nn.nr_node = 0
         for i in range(nn.nr_layer-1):
             nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            nn.nr_node += nn.widths[i]
         nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.momentum = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
-        nn.averages = <float*>mem.alloc(nn.nr_weight*2, sizeof(nn.weights[0]))
+        nn.momentum = <float*>mem.alloc(nn.nr_weight * 2, sizeof(nn.weights[0]))
+        nn.averages = <float*>mem.alloc(nn.nr_node * 4, sizeof(nn.weights[0]))
         
         if embed is not None:
             vector_widths, features = embed
@@ -90,25 +107,17 @@ cdef class NN:
                 fan_in, nn.widths[i+1] * nn.widths[i])
             constant_initializer(W,
                 bias, nn.widths[i+1])
-            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
             fan_in = nn.widths[i]
-
-    @staticmethod
-    cdef int nr_weight(int nr_out, int nr_in) nogil:
-        return nr_out * nr_in + nr_out
-
-    @staticmethod
-    cdef void predict_example(ExampleC* eg, const NeuralNetC* nn) nogil:
-        NN.forward(eg.scores, eg.fwd_state,
-            eg.features, eg.nr_feat, nn)
-
+    
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        insert_embeddings(mem, nn.embed.weights, nn.embed.momentum,
+        Embedding.insert_missing(mem, nn.embed.weights, nn.embed.momentum,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
-        NN.predict_example(eg, nn)
+        NN.forward(eg.scores, eg.fwd_state,
+            eg.features, eg.nr_feat, nn)
         NN.backward(eg.bwd_state,
             eg.fwd_state, eg.costs, nn)
         NN.update(nn, eg)
@@ -125,24 +134,24 @@ cdef class NN:
             bias = W + (nn.widths[0] * nn.widths[1])
             dot_plus__ELU(fwd[i+1],
                 bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
-            W += nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
-        dot_plus(fwd[nn.nr_layer-1],
-            bias, nn.widths[nn.nr_layer-1], fwd[nn.nr_layer-2], nn.widths[nn.nr_layer-2],
-            W)
-        softmax(fwd[nn.nr_layer-1],
-            nn.widths[nn.nr_layer-1])
+            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        i = nn.nr_layer-2
+        dot_plus(fwd[i+1],
+            bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
+        softmax(fwd[i+1],
+            nn.widths[i+1])
         memcpy(scores,
-            fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
+            fwd[i+1], sizeof(scores[0]) * nn.widths[i+1])
 
     @staticmethod
     cdef void backward(float** bwd,
             const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
-        d_log_loss(bwd[nn.nr_layer-1],
-            costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
+        cdef int i = nn.nr_layer - 2
+        d_log_loss(bwd[i+1],
+            costs, fwd[i+1], nn.widths[i+1])
         cdef const float* W = nn.weights + nn.nr_weight
-        cdef int i
         for i in range(nn.nr_layer-2, 0, -1):
-            W -= nn.widths[i+1] * nn.widths[i] + nn.widths[i+1]
+            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             d_dot(bwd[i],
                 nn.widths[i], bwd[i+1], nn.widths[i+1], W)
             d_ELU(bwd[i],
@@ -153,6 +162,8 @@ cdef class NN:
     
     @staticmethod
     cdef void update(NeuralNetC* nn, const ExampleC* eg) except *:
+        memset(nn.gradient,
+            0, sizeof(nn.gradient[0]) * nn.nr_weight)
         nn.hp.t += 1
         cdef int i
         cdef float* G = nn.gradient
@@ -161,7 +172,7 @@ cdef class NN:
                 eg.bwd_state[i+1], eg.fwd_state[i], nn.widths[i+1], nn.widths[i])
             VecVec.add_i(G + (nn.widths[i+1] * nn.widths[i]),
                 eg.bwd_state[i+1], 1.0, nn.widths[i+1])
-            G += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
+            G += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         nn.update(nn.weights, nn.momentum, nn.gradient,
             nn.nr_weight, &nn.hp)
         cdef idx_t f
@@ -192,7 +203,8 @@ cdef class NN:
             len_t* lengths,
             idx_t* offsets,
             const float* const* defaults,
-            const MapC* const* tables) nogil:
+            const MapC* const* tables
+    ) nogil:
         for f in range(nr_feat):
             emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
             if emb == NULL:
@@ -235,6 +247,36 @@ cdef class Embedding:
             self.offsets[i] = offset
             offset += vector_widths[table_id]
 
+    @staticmethod
+    cdef void insert_missing(
+        Pool mem,
+        MapC** weights,
+        MapC** momentum,
+            const len_t* lengths, 
+            const idx_t* offsets,
+            const float* const* defaults,
+            const FeatureC* feats,
+            int nr_feat
+    ) except *:
+        for f in range(nr_feat):
+            emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
+            if emb is NULL:
+                emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
+                # TODO: Which is better here???
+                he_normal_initializer(emb, 1, lengths[feats[f].i])
+                # We initialize with the defaults here so that we only have
+                # to insert during training --- on the forward pass, we can
+                # set default. But if we're doing that, the back pass needs
+                # to be dealing with the same representation.
+                Map_set(mem, weights[feats[f].i],
+                    feats[f].key, emb)
+                # Need 2x length for momentum. Need to centralize this somewhere =/
+                mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
+                Map_set(mem, momentum[feats[f].i],
+                    feats[f].key, mom)
+
+
+
 
 cdef class NeuralNet:
     cdef readonly Pool mem
@@ -249,25 +291,20 @@ cdef class NeuralNet:
         self.eg = Example(self.widths)
 
     def predict_example(self, Example eg):
-        NN.predict_example(&eg.c,
-            &self.c)
+        NN.forward(eg.c.scores, eg.c.fwd_state,
+            eg.c.features, eg.c.nr_feat, &self.c)
         return eg
 
     def predict_sparse(self, features):
         cdef Example eg = self.Example(features)
-        NN.predict_example(&eg.c,
-            &self.c)
-        return eg
+        return self.predict_example(eg)
 
     def predict_dense(self, features):
         cdef Example eg = Example(self.widths)
         eg.set_input(features)
-        self.predict_example(eg)
-        return eg
+        return self.predict_example(eg)
 
     def train_dense(self, features, y):
-        memset(self.c.gradient,
-            0, sizeof(self.c.gradient[0]) * self.c.nr_weight)
         cdef Example eg = self.Example(features, y)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
@@ -371,34 +408,6 @@ cdef class NeuralNet:
             return self.c.hp.p
         def __set__(self, eps):
             self.c.hp.p = eps
-
-
-cdef void insert_embeddings(
-    Pool mem,
-    MapC** weights,
-    MapC** momentum,
-        const len_t* lengths, 
-        const idx_t* offsets,
-        const float* const* defaults,
-        const FeatureC* feats,
-        int nr_feat
-) except *:
-    for f in range(nr_feat):
-        emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
-        if emb is NULL:
-            emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
-            # TODO: Which is better here???
-            #he_normal_initializer(emb, 1, lengths[feats[f].i])
-            # We initialize with the defaults here so that we only have
-            # to insert during training --- on the forward pass, we can
-            # set default. But if we're doing that, the back pass needs
-            # to be dealing with the same representation.
-            Map_set(mem, weights[feats[f].i],
-                feats[f].key, emb)
-            # Need 2x length for momentum. Need to centralize this somewhere =/
-            mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
-            Map_set(mem, momentum[feats[f].i],
-                feats[f].key, mom)
 
 
 cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
