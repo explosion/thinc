@@ -11,15 +11,14 @@ cdef class Example:
           - int: float
           - (int, int): float
     '''
-    def __init__(self, model_shape, mem=None):
+    def __init__(self, model_shape, blocks_per_layer=1, mem=None):
         if mem is None:
             mem = Pool()
         self.mem = mem
         if isinstance(model_shape, int):
             model_shape = (model_shape,)
-
         Example.init(&self.c, self.mem,
-            model_shape)
+            model_shape, blocks_per_layer)
 
     def wipe(self, widths):
         self.c.nr_feat = 0

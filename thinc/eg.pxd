@@ -23,14 +23,17 @@ cdef class Example:
         return eg
 
     @staticmethod
-    cdef inline void init(ExampleC* self, Pool mem, model_shape) except *:
+    cdef inline void init(ExampleC* self, Pool mem, model_shape,
+                          blocks_per_layer) except *:
         self.fwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         self.bwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         self.widths = <int*>mem.alloc(len(model_shape), sizeof(int))
-        for i, width in enumerate(model_shape):
+        for i, (width, nr_block) in enumerate(model_shape):
             self.widths[i] = width
-            self.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-            self.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
+            self.fwd_state[i] = <weight_t*>mem.alloc(width * blocks_per_layer,
+                                                     sizeof(weight_t))
+            self.bwd_state[i] = <weight_t*>mem.alloc(width * blocks_per_layer,
+                                                     sizeof(weight_t))
         self.nr_layer = len(model_shape)
         # Each layer is x wide and connected to y nodes in the next layer.
         # So each layer has a weight matrix W with x*y weights, and an array
