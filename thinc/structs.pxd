@@ -142,6 +142,7 @@ cdef struct NeuralNetC:
 
     len_t nr_layer
     len_t nr_weight
+    len_t nr_node
 
     ConstantsC hp
 
@@ -153,8 +154,6 @@ cdef struct ExampleC:
     FeatureC* features
     float* scores
 
-    float* fine_tune
-    
     float** fwd_state
     float** bwd_state
     int* widths

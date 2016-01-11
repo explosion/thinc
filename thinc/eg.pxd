@@ -35,10 +35,6 @@ cdef class Example:
             self.bwd_state[i] = <weight_t*>mem.alloc(width * blocks_per_layer,
                                                      sizeof(weight_t))
         self.nr_layer = len(model_shape)
-        # Each layer is x wide and connected to y nodes in the next layer.
-        # So each layer has a weight matrix W with x*y weights, and an array
-        # of bias weights, of length y. So each layer has x*y+y weights.
-        self.fine_tune = <weight_t*>mem.alloc(model_shape[0], sizeof(weight_t))
 
         self.nr_class = model_shape[-1]
         self.scores = <weight_t*>mem.alloc(self.nr_class, sizeof(self.scores[0]))
