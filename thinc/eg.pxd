@@ -28,7 +28,7 @@ cdef class Example:
         self.fwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         self.bwd_state = <weight_t**>mem.alloc(len(model_shape), sizeof(void*))
         self.widths = <int*>mem.alloc(len(model_shape), sizeof(int))
-        for i, (width, nr_block) in enumerate(model_shape):
+        for i, width in enumerate(model_shape):
             self.widths[i] = width
             self.fwd_state[i] = <weight_t*>mem.alloc(width * blocks_per_layer,
                                                      sizeof(weight_t))
