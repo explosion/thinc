@@ -150,99 +150,58 @@ cdef void d_log_loss(
 
 
 @cython.cdivision(True)
-cdef void old_adam(
-    float* weights,
-    float* moments,
-    float* gradient,
-        len_t nr_weight,
-        const ConstantsC* hp
-) nogil:
-    cdef float beta1 = 0.90
-    cdef float beta2 = 0.999
-    # Add the derivative of the L2-loss to the gradient
-    cdef idx_t i
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
-    # This is all vectorized and in-place, so it's hard to read. See the
-    # paper.
-    mom1 = moments
-    mom2 = &moments[nr_weight]
-    Vec.mul_i(mom1,
-        beta1, nr_weight)
-    VecVec.add_i(mom1,
-        gradient, 1-beta1, nr_weight)
-    Vec.mul_i(mom2,
-        beta2, nr_weight)
-    VecVec.mul_i(gradient,
-        gradient, nr_weight)
-    VecVec.add_i(mom2,
-        gradient, 1-beta2, nr_weight)
-    Vec.div(gradient,
-        mom1, 1-beta1, nr_weight)
-    for i in range(nr_weight):
-        gradient[i] /= sqrtf(mom2[i] / (1-beta2)) + EPS
-    Vec.mul_i(gradient,
-        hp.e, nr_weight)
-    VecVec.add_i(weights,
-        gradient, -1.0, nr_weight)
-
-
-@cython.cdivision(True)
 cdef void adam(
     float* weights, float* moments, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     cdef float beta1 = 0.90
     cdef float beta2 = 0.999
-    cdef float eps = 0.000001 
     # Add the derivative of the L2-loss to the gradient
     cdef idx_t i
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
     mom1 = moments
-    mom2 = &moments[nr_weight]
     Vec.mul_i(mom1,
-        beta1, nr_weight) 
+        beta1, nr_weight)
     VecVec.add_i(mom1,
         gradient, 1-beta1, nr_weight)
+    mom2 = &moments[nr_weight]
     Vec.mul_i(mom2,
-        beta2, nr_weight) 
+        beta2, nr_weight)
+    # Add weighted gradient**2 to mom2
+    # Free to manipulate gradient in-place.
     for i in range(nr_weight):
-        mom2[i] += (1-beta2) * gradient[i] * gradient[i]
+        gradient[i] *= gradient[i]
+    VecVec.add_i(mom2,
+        gradient, 1-beta2, nr_weight)
     # More efficient version, from the paper
-    for i in range(nr_weight):
-        gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
     cdef float a_t = hp.e * (sqrtf(1-beta2**hp.t) / (1-beta1**hp.t))
-    VecVec.add_i(weights,
-        gradient, -a_t, nr_weight)
+    for i in range(nr_weight):
+        weights[i] -= a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
 
 
 @cython.cdivision(True)
 cdef void adadelta(float* weights, float* momentum, float* gradient,
-        len_t nr_weight, float scale, const ConstantsC* hp) nogil:
+        len_t nr_weight, const ConstantsC* hp) nogil:
     cdef float alpha = 0.90
-    Vec.mul_i(gradient,
-        scale, nr_weight)
     # Add the derivative of the L2-loss to the gradient
     cdef int i
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
     avg = momentum
-    step = &momentum[nr_weight]
     Vec.mul_i(avg,
         alpha, nr_weight)
     for i in range(nr_weight):
         avg[i] += (1-alpha) * gradient[i] * gradient[i]
+    step = &momentum[nr_weight]
     for i in range(nr_weight):
         gradient[i] *= sqrtf(step[i] + EPS) / sqrtf(avg[i] + EPS)
-    Vec.mul_i(step,
-        alpha, nr_weight)
     VecVec.add_i(weights,
         gradient, -1.0, nr_weight)
-
-
+    Vec.mul_i(step,
+        alpha, nr_weight)
+ 
 
 @cython.cdivision(True)
 cdef void vanilla_sgd_update_step(
@@ -266,61 +225,59 @@ cdef void vanilla_sgd_update_step(
 ########
 # Batch Normalization, non-functional draft
 
-#cdef void normalize(
-#    float* x,
-#    float* Ex,
-#    float* Vx,
-#        len_t nr_x,
-#        float alpha
-#) nogil:
-#    # Upd EMA estimate of mean and variance
-#    # See eq at the end of this:
-#    # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
-#    cdef idx_t i
-#    cdef float diff
-#    cdef float incr
-#    for i in range(nr_x):
-#        diff = x[i] - Ex[i]
-#        incr = alpha * diff
-#        Vx[i] = (1.0 - alpha) * (Vx[i] + diff * incr)
-#        Ex[i] += incr
-#    # Normalize
-#    for i in range(n):
-#        x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
-#
-#
-#cdef void d_normalize(
-#    float* bwd,
-#    float* E_dEdXh,
-#    float* E_dEdXh_dot_Xh,
-#        const float* Xh,
-#        const float* Vx,
-#            len_t n,
-#        float alpha
-#) nogil:
-#    # Update EMA estimate of mean(dL/dX_hat)
-#    Vec.mul_i(E_dEdXh,
-#        alpha, n)
-#    VecVec.add_i(E_dEdXh,
-#        bwd, 1-alpha, n)
-#    # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
-#    Vec.mul_i(E_dEdXh_dot_Xh,
-#        alpha, n)
-#    for i in range(n):
-#        E_dEdXh_dot_Xh[i] += (1-alpha) * bwd[i] * Xh[i]
-#    # Simplification taken from Caffe, I think by cdoersch
-#    # if X' = (X-mean(X))/sqrt(var(X)+eps), then
-#    # dE/dX =
-#    #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
-#    #     ./ sqrt(var(X) + eps)
-#    # bwd is dE/dXh to start with. We change it to dE/dX in-place.
-#    for i in range(n):
-#        bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
-#        bwd[i] /= sqrtf(Vx[i] + EPS)
-#
-#
-#
-#
+cdef void normalize(
+    float* x,
+    float* Ex,
+    float* Vx,
+        len_t nr_x,
+        float alpha
+) nogil:
+    # Upd EMA estimate of mean and variance
+    # See eq at the end of this:
+    # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
+    cdef idx_t i
+    cdef float diff
+    cdef float incr
+    for i in range(nr_x):
+        diff = x[i] - Ex[i]
+        incr = alpha * diff
+        Vx[i] = (1.0 - alpha) * (Vx[i] + diff * incr)
+        Ex[i] += incr
+    # Normalize
+    for i in range(nr_x):
+        x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
+
+
+cdef void d_normalize(
+    float* bwd,
+    float* E_dEdXh,
+    float* E_dEdXh_dot_Xh,
+        const float* Xh,
+        const float* Vx,
+            len_t n,
+        float alpha
+) nogil:
+    # Update EMA estimate of mean(dL/dX_hat)
+    Vec.mul_i(E_dEdXh,
+        alpha, n)
+    VecVec.add_i(E_dEdXh,
+        bwd, 1-alpha, n)
+    # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
+    Vec.mul_i(E_dEdXh_dot_Xh,
+        alpha, n)
+    for i in range(n):
+        E_dEdXh_dot_Xh[i] += (1-alpha) * bwd[i] * Xh[i]
+    # Simplification taken from Caffe, I think by cdoersch
+    # if X' = (X-mean(X))/sqrt(var(X)+eps), then
+    # dE/dX =
+    #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
+    #     ./ sqrt(var(X) + eps)
+    # bwd is dE/dXh to start with. We change it to dE/dX in-place.
+    for i in range(n):
+        bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
+        bwd[i] /= sqrtf(Vx[i] + EPS)
+
+
 #cdef void dot_plus__normalize__dot_plus__ELU(
 #    float* output,
 #    float* normed,
