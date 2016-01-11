@@ -152,7 +152,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
             #print(list(model.layers[-1])[1])
             train_loss += eg.loss
             avg_grad += model.l1_gradient
-        n_correct = sum(model.predict(x).guess == y for x, y in dev_data)
+        n_correct = sum(y[model.predict(x).guess] == 0 for x, y in dev_data)
         print(epoch, train_loss, n_correct / len(dev_data),
               sum(model.weights) / model.nr_weight,
               avg_grad)
