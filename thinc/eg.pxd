@@ -41,9 +41,3 @@ cdef class Example:
         self.is_valid = <int*>mem.alloc(self.nr_class, sizeof(self.is_valid[0]))
         memset(self.is_valid, 1, sizeof(self.is_valid[0]) * self.nr_class)
         self.costs = <weight_t*>mem.alloc(self.nr_class, sizeof(self.costs[0]))
-
-    @staticmethod
-    cdef inline void init_dense(ExampleC* eg, Pool mem, dense_input) except *:
-       cdef weight_t input_value
-       for i, input_value in enumerate(dense_input):
-           eg.fwd_state[0][i] = input_value

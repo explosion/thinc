@@ -67,6 +67,8 @@ cdef class Example:
         if len(input_) > self.c.widths[0]:
             lengths = (len(input_), self.c.widths[0])
             raise IndexError("Cannot set %d elements to input of length %d" % lengths)
+        cdef int i
+        cdef float value
         for i, value in enumerate(input_):
             self.c.fwd_state[0][i] = value
 

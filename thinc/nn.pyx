@@ -25,6 +25,7 @@ from .structs cimport EmbedC
 
 from .eg cimport Example
 
+from .lvl0 cimport expf
 from .lvl0 cimport adam
 from .lvl0 cimport adadelta
 from .lvl0 cimport vanilla_sgd_update_step
@@ -46,11 +47,10 @@ DEF USE_BATCH_NORM = False
 cdef class NN:
     @staticmethod
     cdef int nr_weight(int nr_out, int nr_in) nogil:
-        if not USE_BATCH_NORM:
-            return nr_out * nr_in + nr_out
-        else:
+        if USE_BATCH_NORM:
             return nr_out * nr_in + nr_out * 2
-
+        else:
+            return nr_out * nr_in + nr_out
 
     @staticmethod
     cdef void init(
@@ -66,14 +66,11 @@ cdef class NN:
             float bias=0.0,
             float alpha=0.0
     ) except *:
-        if update_step == 'sgd':
-            print("Using SGD")
+        if update_step == 'sgd' or 'testing':
             nn.update = vanilla_sgd_update_step
         elif update_step == 'adadelta':
-            print("Using adadelta")
             nn.update = adadelta
         else:
-            print("Using adam")
             nn.update = adam
         nn.hp.t = 0
         nn.hp.a = alpha
@@ -107,7 +104,7 @@ cdef class NN:
         for i in range(nn.nr_layer-1):
             he_normal_initializer(W,
                 fan_in, nn.widths[i+1] * nn.widths[i])
-            constant_initializer(W,
+            constant_initializer(W + (nn.widths[i+1] * nn.widths[i]),
                 bias, nn.widths[i+1])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
             fan_in = nn.widths[i]
@@ -127,16 +124,23 @@ cdef class NN:
     @staticmethod
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
                       int nr_feat, const NeuralNetC* nn) nogil:
-        NN.set_input(fwd[0],
-            feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
-            nn.embed.defaults, nn.embed.weights) 
-        cdef int i
+        if feats is not NULL:
+            NN.set_input(fwd[0],
+                feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
+                nn.embed.defaults, nn.embed.weights) 
+        cdef int i, j
         cdef const float* W = nn.weights
+        bias = W + (nn.widths[0] * nn.widths[1])
         for i in range(nn.nr_layer-2): # Save last layer for softmax
-            bias = W + (nn.widths[0] * nn.widths[1])
-            dot_plus__ELU(fwd[i+1],
-                bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
+            MatVec.dot(fwd[i+1],
+                W, fwd[i], nn.widths[i+1], nn.widths[i])
+            VecVec.add_i(fwd[i+1],
+                bias, 1.0, nn.widths[i+1])
+            for j in range(nn.widths[i+1]):
+                if fwd[i+1][j] < 0:
+                    fwd[i+1][j] = expf(fwd[i+1][j]) - 1
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            bias = W + (nn.widths[i] * nn.widths[i+1])
         i = nn.nr_layer-2
         dot_plus(fwd[i+1],
             bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
@@ -154,8 +158,8 @@ cdef class NN:
         cdef const float* W = nn.weights + nn.nr_weight
         for i in range(nn.nr_layer-2, 0, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            d_dot(bwd[i],
-                nn.widths[i], bwd[i+1], nn.widths[i+1], W)
+            MatVec.T_dot(bwd[i],
+                W, bwd[i+1], nn.widths[i+1], nn.widths[i])
             d_ELU(bwd[i],
                 fwd[i], nn.widths[i])
         W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
@@ -395,8 +399,6 @@ cdef class Embedding:
                     feats[f].key, mom)
 
 
-
-
 cdef class NeuralNet:
     cdef readonly Pool mem
     cdef readonly Example eg
@@ -414,17 +416,19 @@ cdef class NeuralNet:
             eg.c.features, eg.c.nr_feat, &self.c)
         return eg
 
-    def predict_sparse(self, features):
-        cdef Example eg = self.Example(features)
-        return self.predict_example(eg)
-
     def predict_dense(self, features):
         cdef Example eg = Example(self.widths)
         eg.set_input(features)
         return self.predict_example(eg)
 
+    def predict_sparse(self, features):
+        cdef Example eg = self.Example(features)
+        return self.predict_example(eg)
+    
     def train_dense(self, features, y):
-        cdef Example eg = self.Example(features, y)
+        cdef Example eg = Example(self.widths)
+        eg.set_input(features)
+        eg.set_label(y)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
   
@@ -437,8 +441,7 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = self.eg
-        self.eg.wipe(self.widths)
+        cdef Example eg = Example(self.widths)
         eg.set_features(input_)
         if label is not None:
             eg.set_label(label)
@@ -454,11 +457,15 @@ cdef class NeuralNet:
 
     property layers:
         def __get__(self):
-            weights = self.weights
-            cdef IteratorC it
-            it.i = 0
-            while self.c.iterate(&it, self.c.widths, self.c.nr_layer-1, 1):
-                yield (weights[it.W:it.bias], weights[it.bias:it.gamma])
+            weights = list(self.weights)
+            start = 0
+            for i in range(self.c.nr_layer-1):
+                nr_w = self.widths[i] * self.widths[i+1]
+                nr_bias = self.widths[i] * self.widths[i+1] + self.widths[i+1]
+                W = weights[start:start+nr_w]
+                bias = weights[start+nr_w:start+nr_w+bias]
+                yield W, bias
+                start = start + NN.nr_weight(self.widths[i+1], self.widths[i])
 
     property widths:
         def __get__(self):
@@ -533,6 +540,7 @@ cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
     values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
+    cdef float value
     for i, value in enumerate(values):
         weights[i] = value
 

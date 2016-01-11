@@ -38,11 +38,9 @@ def test_fwd_bias():
     # Set bias for class 0
     syn = [1.,1.,1.,1.]
     bias = [100000.,1.]
-    #gamma = [0,0]
-    #beta = [0,0]
-    #model.weights = syn + bias + gamma + beta
+    gamma = [0,0]
     model.weights = syn + bias
-    #assert model.weights == list(syn + bias + gamma + beta)
+    model.weights = syn + bias
     assert model.weights == list(syn + bias)
     eg = model.predict_dense([0, 0])
     assert_allclose(eg.scores, [1.0, 0.0])
@@ -211,26 +209,25 @@ def test_mlp_learn_linear(or_data):
 
 def test_xor_gradient(xor_data):
     '''Test that after each update, we move towards the correct label.'''
-    model = NeuralNet((2, 2, 2), rho=0.0, eta=1.0)
-
+    model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='adadelta')
     assert model.nr_in == 2
     assert model.nr_out == 2
     assert model.nr_layer == 3
     
     for _ in range(500):
         for i, (features, label, costs) in enumerate(xor_data):
-            prev = model.predict_dense(features)
-            assert_allclose([sum(prev.scores)], [1.0])
-            model.train_dense(features, costs).loss
+            prev = list(model.predict_dense(features).scores)
+            assert_allclose([sum(prev)], [1.0])
+            tmp = model.train_dense(features, costs)
             eg = model.predict_dense(features)
-            assert (prev.scores[label] <= eg.scores[label] or \
-                    prev.scores[label] == eg.scores[label] == 1.0)
+            assert (prev[label] <= eg.scores[label] or \
+                    prev[label] == eg.scores[label] == 1.0)
 
 
 def test_xor_eta(xor_data):
     '''Test that a higher learning rate causes loss to decrease faster.'''
-    small_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.0000001)
-    normal_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.1)
+    small_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.00000001, update_step='sgd')
+    normal_eta_model = NeuralNet((2, 10,10,10, 2), rho=0.0, eta=0.01, update_step='sgd')
     small_eta_loss = 0.0
     normal_eta_loss = 0.0
     for _ in range(100):
@@ -238,7 +235,6 @@ def test_xor_eta(xor_data):
             small_eta_loss += small_eta_model.train_dense(features, costs).loss
             normal_eta_loss += normal_eta_model.train_dense(features, costs).loss
     assert normal_eta_loss < small_eta_loss
-
 
 def test_xor_rho(xor_data):
     '''Test that higher L2 penalty causes slower learning.'''
@@ -258,10 +254,10 @@ def test_xor_deep(xor_data):
     '''Compare 0, 1 and 3 layer networks.
     The 3 layer seems to do better, but it doesn't *have* to. But if the
     0 layer works, something's wrong!'''
-    linear = NeuralNet((2,2), rho=0.0001, eta=0.005)
-    small = NeuralNet((2,2,2), rho=0.0001, eta=0.005)
-    big = NeuralNet((2,10,10,10,10,2), rho=0.0001, eta=0.005)
-    for _ in range(10000):
+    linear = NeuralNet((2,2), rho=0.0001, eta=0.01)
+    small = NeuralNet((2,2,2), rho=0.0001, eta=0.01, update_step='adadelta')
+    big = NeuralNet((2,2,2,2,2,2), rho=0.0001, eta=0.01, update_step='adadelta')
+    for _ in range(1000):
         for i, (features, label, costs) in enumerate(xor_data):
             linear.train_dense(features, costs).loss
             big.train_dense(features, costs).loss
@@ -283,14 +279,14 @@ def test_xor_deep(xor_data):
     assert linear_loss > 1.9
  
 
-def test_model_widths(or_data):
+def test_model_widths_sgd(or_data):
     '''Test different model widths'''
-    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.005)
-    wide = NeuralNet((2,20,2), rho=0.0, eta=0.005)
+    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.01, update_step='sgd')
+    wide = NeuralNet((2,20,2), rho=0.0, eta=0.01, update_step='sgd')
     assert wide.nr_weight > narrow.nr_weight
     narrow_loss = 0.0
     wide_loss = 0.0
-    for _ in range(100):
+    for _ in range(1000):
         for i, (features, label, costs) in enumerate(or_data):
             narrow_loss += narrow.train_dense(features, costs).loss
             wide_loss += wide.train_dense(features, costs).loss
@@ -299,7 +295,7 @@ def test_model_widths(or_data):
     # *much* worse
     assert wide_loss < (narrow_loss * 1.1)
     # It also shouldn't be the same!
-    #assert wide_loss != narrow_loss
+    assert wide_loss != narrow_loss
 
 
 def test_embedding():
@@ -326,21 +322,21 @@ def test_embedding():
     assert eg.activation(0, 8) != 0.0
     assert eg.activation(0, 9) != 0.0
     
-#
-#def test_sparse_backprop_single():
-#    model = NeuralNet((2, 2, 2), embed=((2,), (0,)), update_step='sgd', eta=0.1)
-#    x = {(0, 1): 4.0}
-#    y = (0, 1)
-#    b1 = model.train_sparse(x, y)
-#    b2 = model.train_sparse(x, y)
-#    b3 = model.train_sparse(x, y)
-#    b4 = model.train_sparse(x, y)
-#    b5 = model.train_sparse(x, y)
-#    assert b1.loss > b2.loss or b1.loss == 0.0
-#    assert b2.loss > b3.loss or b2.loss == 0.0
-#    assert b3.loss > b4.loss or b3.loss == 0.0
-#    assert b4.loss > b5.loss or b4.loss == 0.0
-#
+
+def test_sparse_backprop_single():
+    model = NeuralNet((2, 2, 2), embed=((2,), (0,)), update_step='sgd', eta=0.1)
+    x = {(0, 1): 4.0}
+    y = (0, 1)
+    b1 = model.train_sparse(x, y)
+    b2 = model.train_sparse(x, y)
+    b3 = model.train_sparse(x, y)
+    b4 = model.train_sparse(x, y)
+    b5 = model.train_sparse(x, y)
+    assert b1.loss > b2.loss or b1.loss == 0.0
+    assert b2.loss > b3.loss or b2.loss == 0.0
+    assert b3.loss > b4.loss or b3.loss == 0.0
+    assert b4.loss > b5.loss or b4.loss == 0.0
+
 
 def f2s(fs):
     return ' '.join('%.3f' % val for val in fs)
@@ -354,7 +350,7 @@ def test_sparse_backprop():
             loss += eg.loss
         return loss
 
-    model = NeuralNet((2, 2, 2), embed=((10,), (0,)), bias=0.0, rho=0.0, eta=0.005,
+    model = NeuralNet((10, 2, 2), embed=((10,), (0,)), bias=0.0, rho=0.0, eta=0.005,
                       update_step='sgd')
     X = [{(0, 1): 4.0, (0, 2): 3.0, (0, 3): 4.0, (0, 100): 1.0}, {(0, 10): 3.0,
          (0, 2): 2.0}]

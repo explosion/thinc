@@ -166,18 +166,12 @@ cdef void adam(
     VecVec.add_i(mom1,
         gradient, 1-beta1, nr_weight)
     mom2 = &moments[nr_weight]
-    Vec.mul_i(mom2,
-        beta2, nr_weight)
-    # Add weighted gradient**2 to mom2
-    # Free to manipulate gradient in-place.
     for i in range(nr_weight):
-        gradient[i] *= gradient[i]
-    VecVec.add_i(mom2,
-        gradient, 1-beta2, nr_weight)
+        mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # More efficient version, from the paper
-    cdef float a_t = hp.e * (sqrtf(1-beta2**hp.t) / (1-beta1**hp.t))
+    cdef float a_t = hp.e * sqrtf(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
+        weights[i] += a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
 
 
 @cython.cdivision(True)
