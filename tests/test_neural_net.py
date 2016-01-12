@@ -173,7 +173,7 @@ def test_learn_linear(or_data):
     for _ in range(50):
         for feats, label, costs in or_data:
             eg = model.train_dense(feats, costs)
-            assert model.l1_gradient != 0
+            print(label, feats, eg.loss, eg.scores)
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
@@ -238,8 +238,8 @@ def test_xor_eta(xor_data):
 
 def test_xor_rho(xor_data):
     '''Test that higher L2 penalty causes slower learning.'''
-    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005)
-    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005)
+    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005, update_step='adadelta')
+    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005, update_step='adadelta')
     big_rho_model.weights = list(normal_rho_model.weights)
     big_rho_loss = 0.0
     normal_rho_loss = 0.0
@@ -254,7 +254,7 @@ def test_xor_deep(xor_data):
     '''Compare 0, 1 and 3 layer networks.
     The 3 layer seems to do better, but it doesn't *have* to. But if the
     0 layer works, something's wrong!'''
-    linear = NeuralNet((2,2), rho=0.0001, eta=0.01)
+    linear = NeuralNet((2,2), rho=0.0001, eta=0.01, update_step='adadelta')
     small = NeuralNet((2,2,2), rho=0.0001, eta=0.01, update_step='adadelta')
     big = NeuralNet((2,2,2,2,2,2), rho=0.0001, eta=0.01, update_step='adadelta')
     for _ in range(1000):
