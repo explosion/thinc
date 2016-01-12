@@ -2,7 +2,7 @@
 # cython: cdivision=True
 # cython: infer_types=True
 cimport cython
-from libc.string cimport memcpy
+from libc.string cimport memcpy, memset
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport MapStruct as MapC
@@ -171,7 +171,27 @@ cdef void adam(
     # More efficient version, from the paper
     cdef float a_t = hp.e * sqrtf(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] += a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
+        weights[i] -= a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
+cdef void adagrad(
+    float* weights, float* moments, float* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    # Add the derivative of the L2-loss to the gradient
+    cdef int i
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    VecVec.add_pow_i(moments,
+        gradient, 2.0, nr_weight)
+    for i in range(nr_weight):
+        gradient[i] *= hp.e / (sqrtf(moments[i]) + EPS)
+    # Make the (already scaled) update
+    VecVec.add_i(weights,
+        gradient, -1.0, nr_weight)
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
 @cython.cdivision(True)
@@ -195,16 +215,12 @@ cdef void adadelta(float* weights, float* momentum, float* gradient,
         gradient, -1.0, nr_weight)
     Vec.mul_i(step,
         alpha, nr_weight)
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
  
 
 @cython.cdivision(True)
-cdef void vanilla_sgd_update_step(
-    float* weights,
-    float* moments,
-    float* gradient,
-        len_t nr_weight,
-        const ConstantsC* hp
-) nogil:
+cdef void vanilla_sgd_update_step(float* weights, float* moments, float* gradient,
+        len_t nr_weight,const ConstantsC* hp) nogil:
     '''
     Update weights with vanilla SGD
     '''
@@ -214,6 +230,7 @@ cdef void vanilla_sgd_update_step(
             weights, hp.r, nr_weight)
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
 ########
@@ -309,5 +326,3 @@ cdef void d_ELU__dot__normalize__dot(
         Xh, Vx, nr_out, ema_speed)
     d_dot(dX,
         nr_in, dXh, nr_out, W)
-
-
