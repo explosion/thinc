@@ -36,7 +36,7 @@ def pad_tokens(tokens):
 
 
 class FeatureExtractor(object):
-    def __init__(self, char_width=5, tag_width=5, word_width=10, chars_per_word=10,
+    def __init__(self, char_width=5, word_width=10, tag_width=5, chars_per_word=10,
             word_context=(-2, -1, 0, 1, 2), tag_context=(-2, -1)):
         self.char_width = char_width
         self.tag_width = tag_width
@@ -46,9 +46,10 @@ class FeatureExtractor(object):
         self.tag_context = tag_context
         self.strings = {}
         self.tables = (self.char_width, self.word_width, self.tag_width)
-        self.slots = (0,) * chars_per_word * len(word_context) #+ (2,) * len(tag_context)
-        print(self.slots)
-        print(self.tables)
+        char_slots = [0] * self.chars_per_word
+        word_slots = [1 for _ in self.word_context]
+        tag_slots = [2 for _ in self.tag_context]
+        self.slots = char_slots + word_slots + tag_slots
 
     @property
     def input_length(self):
@@ -62,12 +63,9 @@ class FeatureExtractor(object):
         features = [(0, ord(c), 1.0) for c in word]
         vals = [c for c in word]
         for position in self.word_context:
-            token = context[i+position].ljust(self.chars_per_word, ' ')
-            features.extend((0, ord(c), 1.0) for c in token)
-            vals.extend(c for c in token)
-            #features.append((1, self._intify(context[i+position]), 1.0))
-        #for position in self.tag_context:
-        #    features.append((2, self._intify(prev_tags[position]), 1.0))
+            features.append((1, self._intify(context[i+position]), 1.0))
+        for position in self.tag_context:
+            features.append((2, self._intify(prev_tags[position]), 1.0))
         return features
     
     def _intify(self, string):
@@ -216,7 +214,6 @@ def read_conll(loc):
         heads = [None]; labels = [None]
         for i, (word, pos, head, label) in enumerate(lines):
             words.append(intern(word))
-            #words.append(intern(normalize(word)))
             tags.append(intern(pos))
             heads.append(int(head) if head != '0' else len(lines) + 1)
             labels.append(label)
