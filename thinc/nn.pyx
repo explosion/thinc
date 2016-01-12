@@ -111,12 +111,11 @@ cdef class NN:
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
-        memset(nn.gradient, 0, sizeof(nn.gradient[0]) * nn.nr_weight)
+        NN.forward(eg.scores, eg.fwd_state,
+            eg.features, eg.nr_feat, nn)
         Embedding.insert_missing(mem, nn.embed.weights, nn.embed.momentum,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
-        NN.forward(eg.scores, eg.fwd_state,
-            eg.features, eg.nr_feat, nn)
         NN.backward(eg.bwd_state,
             eg.fwd_state, eg.costs, nn)
         NN.update(nn, eg)
@@ -125,7 +124,7 @@ cdef class NN:
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
                       int nr_feat, const NeuralNetC* nn) nogil:
         if feats is not NULL:
-            NN.set_input(fwd[0],
+            Embedding.set_input(fwd[0],
                 feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
                 nn.embed.defaults, nn.embed.weights) 
         cdef int i, j
@@ -200,24 +199,6 @@ cdef class NN:
                     eg.features[f].value, nn.embed.lengths[idx])
                 nn.update(emb, mom, &upd[os],
                     nn.embed.lengths[idx], &nn.hp)
-
-    @staticmethod
-    cdef void set_input(
-        float* out,
-            const FeatureC* feats,
-                len_t nr_feat,
-            len_t* lengths,
-            idx_t* offsets,
-            const float* const* defaults,
-            const MapC* const* tables
-    ) nogil:
-        for f in range(nr_feat):
-            emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
-            if emb == NULL:
-                emb = defaults[feats[f].i]
-            VecVec.add_i(&out[offsets[feats[f].i]], 
-                emb, 1.0, lengths[feats[f].i])
-
     @staticmethod
     cdef void bn_forward(
         float* scores,
@@ -226,7 +207,7 @@ cdef class NN:
                 int nr_feat,
             const NeuralNetC* nn
     ) nogil:
-        NN.set_input(fwd[0],
+        Embedding.set_input(fwd[0],
             feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
             nn.embed.defaults, nn.embed.weights) 
         cdef int i
@@ -397,6 +378,22 @@ cdef class Embedding:
                 mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
                 Map_set(mem, momentum[feats[f].i],
                     feats[f].key, mom)
+
+    @staticmethod
+    cdef void set_input(
+        float* out,
+            const FeatureC* feats,
+                len_t nr_feat,
+            len_t* lengths,
+            idx_t* offsets,
+            const float* const* defaults,
+            const MapC* const* tables
+    ) nogil:
+        for f in range(nr_feat):
+            emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
+            if emb != NULL:
+                VecVec.add_i(&out[offsets[feats[f].i]], 
+                    emb, feats[f].value, lengths[feats[f].i])
 
 
 cdef class NeuralNet:
