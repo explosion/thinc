@@ -127,10 +127,11 @@ cdef class NN:
         Embedding.get_gradients(nn.embed.gradient,
             nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
             eg.features, eg.nr_feat)
-        nn.update(nn.weights, nn.momentum, nn.gradient,
-            nn.nr_weight, &nn.hp)
-        Embedding.fine_tune(nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
-            nn.embed.lengths, nn.embed.nr, &nn.hp, nn.update)
+        if nn.hp.t % 10 == 0:
+            nn.update(nn.weights, nn.momentum, nn.gradient,
+                nn.nr_weight, &nn.hp)
+            Embedding.fine_tune(nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
+                nn.embed.lengths, nn.embed.nr, &nn.hp, nn.update)
      
     @staticmethod
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
@@ -351,26 +352,21 @@ cdef class Embedding:
     @staticmethod
     cdef void insert_missing(Pool mem, MapC** weights, MapC** gradient, MapC** momentum,
             const len_t* lengths, const idx_t* offsets, const float* const* defaults,
-            const FeatureC* feats, int nr_feat) except *:
-        for f in range(nr_feat):
-            emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
+            const FeatureC* features, int nr_feat) except *:
+        for feat in features[:nr_feat]:
+            emb = <float*>Map_get(weights[feat.i], feat.key)
             if emb is NULL:
-                emb = <float*>mem.alloc(lengths[feats[f].i], sizeof(emb[0]))
-                # TODO: Which is better here???
-                he_normal_initializer(emb, 1, lengths[feats[f].i])
-                # We initialize with the defaults here so that we only have
-                # to insert during training --- on the forward pass, we can
-                # set default. But if we're doing that, the back pass needs
-                # to be dealing with the same representation.
-                Map_set(mem, weights[feats[f].i],
-                    feats[f].key, emb)
-                grad = <float*>mem.alloc(lengths[feats[f].i], sizeof(grad[0]))
-                Map_set(mem, gradient[feats[f].i],
-                    feats[f].key, grad)
+                emb = <float*>mem.alloc(lengths[feat.i], sizeof(emb[0]))
+                he_normal_initializer(emb, 1, lengths[feat.i])
+                Map_set(mem, weights[feat.i],
+                    feat.key, emb)
+                grad = <float*>mem.alloc(lengths[feat.i], sizeof(grad[0]))
+                Map_set(mem, gradient[feat.i],
+                    feat.key, grad)
                 # Need 2x length for momentum. Need to centralize this somewhere =/
-                mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
-                Map_set(mem, momentum[feats[f].i],
-                    feats[f].key, mom)
+                mom = <float*>mem.alloc(lengths[feat.i] * 2, sizeof(mom[0]))
+                Map_set(mem, momentum[feat.i],
+                    feat.key, mom)
 
     @staticmethod
     cdef void get_gradients(MapC** gradient,
@@ -379,9 +375,8 @@ cdef class Embedding:
         for feat in features[:nr_feat]:
             g = <float*>Map_get(gradient[feat.i], feat.key)
             # Should never be null.
-            if g is not NULL:
-                VecVec.add_i(g,
-                    &diff[offsets[feat.i]], feat.value, lengths[feat.i])
+            VecVec.add_i(g,
+                &diff[offsets[feat.i]], feat.value, lengths[feat.i])
 
     @staticmethod
     cdef void fine_tune(MapC** weights, MapC** momentum, MapC** gradient,
@@ -397,9 +392,8 @@ cdef class Embedding:
                 m = <float*>Map_get(momentum[i], key)
                 g = <float*>value
                 # None of these should ever be null
-                if w is not NULL and m is not NULL and g is not NULL:
-                    do_update(w, m, g,
-                        lengths[i], hp)
+                do_update(w, m, g,
+                    lengths[i], hp)
 
 
 cdef class NeuralNet:
