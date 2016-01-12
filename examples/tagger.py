@@ -30,11 +30,6 @@ class DefaultList(list):
             return self.default
 
 
-def pad_tokens(tokens):
-    tokens.insert(0, '<start>')
-    tokens.append('ROOT')
-
-
 class FeatureExtractor(object):
     def __init__(self, char_width=5, word_width=10, tag_width=5, chars_per_word=10,
             word_context=(-2, -1, 0, 1, 2), tag_context=(-2, -1)):
@@ -58,10 +53,17 @@ class FeatureExtractor(object):
     def __call__(self, i, word, context, prev_tags):
         i += len(START)
         features = []
-        word = word.ljust(self.chars_per_word, ' ')
-        # Character features
-        features = [(0, ord(c), 1.0) for c in word]
-        vals = [c for c in word]
+        if self.chars_per_word > 0:
+            if len(word) > self.chars_per_word:
+                split = self.chars_per_word / 2
+                word = word[:split] + word[split:]
+                assert len(word) == self.chars_per_word
+            else:
+                word = word.ljust(self.chars_per_word, ' ')
+            # Character features
+            features = [(0, ord(c), 1.0) for c in word]
+        else:
+            features = []
         for position in self.word_context:
             features.append((1, self._intify(context[i+position]), 1.0))
         for position in self.tag_context:
@@ -98,7 +100,7 @@ class Tagger(object):
         self.model = NeuralNet(
             (input_length,) * self.depth +  (len(self.classes),),
             embed=(self.ex.tables, self.ex.slots),
-        rho=self.L2, eta=self.learn_rate, update_step=self.solver)
+            rho=self.L2, eta=self.learn_rate, update_step=self.solver)
         print(self.model.widths)
     
     def tag(self, words):
@@ -112,16 +114,6 @@ class Tagger(object):
             tags.append(tag)
         return tags
     
-    def train(self, sentences, save_loc=None, nr_iter=5):
-        '''Train a model from sentences, and save it at save_loc. nr_iter
-        controls the number of Perceptron training iterations.'''
-        self.start_training(sentences)
-        for iter_ in range(nr_iter):
-            for words, tags in sentences:
-                self.train_one(words, tags)
-            random.shuffle(sentences)
-        self.end_training(save_loc)
-    
     def train_one(self, words, tags):
         tag_history = DefaultList('') 
         #context = START + [self._normalize(w) for w in words] + END
@@ -130,7 +122,6 @@ class Tagger(object):
         ys = []
         inverted_classes = {i: tag for tag, i in self.classes.items()}
         loss = 0.0
-        grad_l1 = 0.0
         for i, word in enumerate(words):
             if tags[i] in ('ROOT', '<start>', None):
                 tag_history.append(tags[i])
@@ -138,9 +129,8 @@ class Tagger(object):
             features = self.ex(i, word, context, tag_history)
             eg = self.model.train_sparse(features, self.classes[tags[i]])
             tag_history.append(inverted_classes[eg.guess])
-            grad_l1 += self.model.l1_gradient
             loss += eg.loss
-        return loss, grad_l1
+        return loss
 
     def save(self):
         # Pickle as a binary file
@@ -190,21 +180,22 @@ def train(tagger, sentences, nr_iter=100):
     tagger.start_training(sentences)
     for itn in range(nr_iter):
         loss = 0
-        grad_l1 = 0
         for words, gold_tags, _, _1 in train_sents:
-            stats = tagger.train_one(words, gold_tags)
-            loss += stats[0]
-            grad_l1 += stats[1]
+            loss += tagger.train_one(words, gold_tags)
         corr = 0.0
         total = 1e-6
         for words, gold_tags, _, _1 in dev_sents:
             guesses = tagger.tag(words)
             assert len(gold_tags) == len(guesses)
             for guess, gold in zip(gold_tags, guesses):
-                corr += guess == gold
-            total += len(guesses)
-        print itn, '%.3f' % loss, '%.3f' % (corr / total), '%.3f' % grad_l1
+                if gold not in ('ROOT', '<start>', None):
+                    corr += guess == gold
+                    total += 1
+        print itn, '%.3f' % loss, '%.3f' % (corr / total)
+        print(' '.join('%s/%s' % (w, t) for w, t in zip(words, guesses)))
         random.shuffle(train_sents)
+        # Just a lazy way to be printing a different dev sent each iteration
+        random.shuffle(dev_sents) 
 
 
 def read_conll(loc):
@@ -217,8 +208,6 @@ def read_conll(loc):
             tags.append(intern(pos))
             heads.append(int(head) if head != '0' else len(lines) + 1)
             labels.append(label)
-        pad_tokens(words)
-        pad_tokens(tags)
         yield words, tags, heads, labels
 
 
@@ -239,7 +228,7 @@ def read_conll(loc):
 def main(model_dir, train_loc, heldout_gold,
          depth=2, L2=1e-6, learn_rate=0.01, solver="adam",
          word_width=10, char_width=5, tag_width=5,
-         chars_per_word=10,
+         chars_per_word=0,
          left_words=2, right_words=2, left_tags=2,
          nr_iter=1):
     if not os.path.exists(model_dir):
