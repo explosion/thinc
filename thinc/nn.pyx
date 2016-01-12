@@ -27,11 +27,13 @@ from .eg cimport Example
 
 from .lvl0 cimport expf
 from .lvl0 cimport adam
+from .lvl0 cimport jank
 from .lvl0 cimport adadelta
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus
 from .lvl0 cimport softmax
+from .lvl0 cimport d_jank_loss
 from .lvl0 cimport d_log_loss
 from .lvl0 cimport d_dot
 from .lvl0 cimport d_ELU
@@ -66,10 +68,13 @@ cdef class NN:
             float bias=0.0,
             float alpha=0.0
     ) except *:
-        if update_step == 'sgd' or 'testing':
+        print(update_step)
+        if update_step == 'sgd':
             nn.update = vanilla_sgd_update_step
         elif update_step == 'adadelta':
             nn.update = adadelta
+        elif update_step == 'jank':
+            nn.update = jank
         else:
             nn.update = adam
         nn.hp.t = 0
@@ -432,6 +437,10 @@ cdef class NeuralNet:
     def train_sparse(self, features, y):
         cdef Example eg = self.Example(features)
         eg.set_label(y)
+        NN.train_example(&self.c, self.mem, &eg.c)
+        return eg
+   
+    def train_example(self, Example eg):
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
  
