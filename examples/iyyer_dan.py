@@ -98,12 +98,19 @@ class DenseAveragedNetwork(NeuralNet):
         self.get_bow = get_bow
 
     def train(self, text, label):
+        eg = self.eg
         feats = self.get_feats(text)
-        return self.train_sparse(feats, label)
+        eg.wipe(self.widths)
+        eg.set_features(feats)
+        eg.set_label(label)
+        return self.train_example(eg)
 
     def predict(self, text):
         feats = self.get_feats(text, dropout=False)
-        return self.predict_sparse(feats)
+        eg = self.eg
+        eg.wipe(self.widths)
+        eg.set_features(feats)
+        return self.predict_example(eg)
 
     def get_feats(self, text, dropout=True):
         word_ids = self.get_bow(text, dropout=dropout)
@@ -127,13 +134,14 @@ class DenseAveragedNetwork(NeuralNet):
     eta=("Learning rate", "option", "e", float),
     bias=("Initialize biases to", "option", "B", float),
     batch_size=("Batch size", "option", "b", int),
+    solver=("Solver", "option", "s", str),
 )
 def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
-         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0):
+         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0, solver='adadelta'):
     n_classes = 2
     print("Initializing model")
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
-                                 update_step='adadelta', rho=rho, eta=eta, eps=1e-6,
+                                 update_step=solver, rho=rho, eta=eta, eps=1e-6,
                                  bias=bias)
     print(model.widths)
     print(model.nr_weight)
