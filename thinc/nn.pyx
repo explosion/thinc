@@ -134,8 +134,8 @@ cdef class NN:
                 nn.embed.defaults, nn.embed.weights) 
         cdef int i, j
         cdef const float* W = nn.weights
-        bias = W + (nn.widths[0] * nn.widths[1])
         for i in range(nn.nr_layer-2): # Save last layer for softmax
+            bias = W + (nn.widths[i] * nn.widths[i+1])
             MatVec.dot(fwd[i+1],
                 W, fwd[i], nn.widths[i+1], nn.widths[i])
             VecVec.add_i(fwd[i+1],
@@ -144,8 +144,8 @@ cdef class NN:
                 if fwd[i+1][j] < 0:
                     fwd[i+1][j] = expf(fwd[i+1][j]) - 1
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            bias = W + (nn.widths[i] * nn.widths[i+1])
         i = nn.nr_layer-2
+        bias = W + (nn.widths[i] * nn.widths[i+1])
         dot_plus(fwd[i+1],
             bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
         softmax(fwd[i+1],
