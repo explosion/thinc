@@ -18,22 +18,22 @@ from .typedefs cimport len_t, idx_t
 from .blas cimport MatMat, MatVec, VecVec, Vec
 from .structs cimport MapC
 from .structs cimport NeuralNetC
-from .structs cimport IteratorC
 from .structs cimport ExampleC
 from .structs cimport FeatureC
 from .structs cimport EmbedC
+from .structs cimport ConstantsC
+from .structs cimport do_update_t
 
 from .eg cimport Example
 
 from .lvl0 cimport expf
 from .lvl0 cimport adam
-from .lvl0 cimport jank
 from .lvl0 cimport adadelta
+from .lvl0 cimport adagrad
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus
 from .lvl0 cimport softmax
-from .lvl0 cimport d_jank_loss
 from .lvl0 cimport d_log_loss
 from .lvl0 cimport d_dot
 from .lvl0 cimport d_ELU
@@ -73,8 +73,8 @@ cdef class NN:
             nn.update = vanilla_sgd_update_step
         elif update_step == 'adadelta':
             nn.update = adadelta
-        elif update_step == 'jank':
-            nn.update = jank
+        elif update_step == 'adagrad':
+            nn.update = adagrad
         else:
             nn.update = adam
         nn.hp.t = 0
@@ -116,14 +116,21 @@ cdef class NN:
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
-        NN.forward(eg.scores, eg.fwd_state,
-            eg.features, eg.nr_feat, nn)
-        Embedding.insert_missing(mem, nn.embed.weights, nn.embed.momentum,
+        nn.hp.t += 1
+        Embedding.insert_missing(mem, nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
             nn.embed.lengths, nn.embed.offsets, nn.embed.defaults,
             eg.features, eg.nr_feat)
-        NN.backward(eg.bwd_state,
+        NN.forward(eg.scores, eg.fwd_state,
+            eg.features, eg.nr_feat, nn)
+        NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
-        NN.update(nn, eg)
+        Embedding.get_gradients(nn.embed.gradient,
+            nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
+            eg.features, eg.nr_feat)
+        nn.update(nn.weights, nn.momentum, nn.gradient,
+            nn.nr_weight, &nn.hp)
+        Embedding.fine_tune(nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
+            nn.embed.lengths, nn.embed.nr, &nn.hp, nn.update)
      
     @staticmethod
     cdef void forward(float* scores, float** fwd, const FeatureC* feats,
@@ -136,13 +143,8 @@ cdef class NN:
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-2): # Save last layer for softmax
             bias = W + (nn.widths[i] * nn.widths[i+1])
-            MatVec.dot(fwd[i+1],
-                W, fwd[i], nn.widths[i+1], nn.widths[i])
-            VecVec.add_i(fwd[i+1],
-                bias, 1.0, nn.widths[i+1])
-            for j in range(nn.widths[i+1]):
-                if fwd[i+1][j] < 0:
-                    fwd[i+1][j] = expf(fwd[i+1][j]) - 1
+            dot_plus__ELU(fwd[i+1],
+                bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         i = nn.nr_layer-2
         bias = W + (nn.widths[i] * nn.widths[i+1])
@@ -154,7 +156,7 @@ cdef class NN:
             fwd[i+1], sizeof(scores[0]) * nn.widths[i+1])
 
     @staticmethod
-    cdef void backward(float** bwd,
+    cdef void backward(float** bwd, float* gradient,
             const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
         cdef int i = nn.nr_layer - 2
         d_log_loss(bwd[i+1],
@@ -166,44 +168,19 @@ cdef class NN:
                 W, bwd[i+1], nn.widths[i+1], nn.widths[i])
             d_ELU(bwd[i],
                 fwd[i], nn.widths[i])
+            MatMat.add_outer_i(gradient + (W - nn.weights),
+                bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
+            VecVec.add_i(gradient + (W - nn.weights) + nn.widths[i]*nn.widths[i+1],
+                bwd[i+1], 1.0, nn.widths[i+1])
+        i = 0
         W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
+        MatMat.add_outer_i(gradient + (W - nn.weights),
+            bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
+        VecVec.add_i(gradient + (W - nn.weights) + nn.widths[i]*nn.widths[i+1],
+            bwd[i+1], 1.0, nn.widths[i+1])
         d_dot(bwd[0],
             nn.widths[0], bwd[1], nn.widths[1], W)
     
-    @staticmethod
-    cdef void update(NeuralNetC* nn, const ExampleC* eg) except *:
-        memset(nn.gradient,
-            0, sizeof(nn.gradient[0]) * nn.nr_weight)
-        nn.hp.t += 1
-        cdef int i
-        cdef float* G = nn.gradient
-        for i in range(nn.nr_layer-1):
-            MatMat.add_outer_i(G,
-                eg.bwd_state[i+1], eg.fwd_state[i], nn.widths[i+1], nn.widths[i])
-            VecVec.add_i(G + (nn.widths[i+1] * nn.widths[i]),
-                eg.bwd_state[i+1], 1.0, nn.widths[i+1])
-            G += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-        nn.update(nn.weights, nn.momentum, nn.gradient,
-            nn.nr_weight, &nn.hp)
-        cdef idx_t f
-        cdef idx_t idx
-        cdef idx_t os
-        cdef float* emb
-        cdef float* mom
-        cdef float* upd = nn.gradient
-        for f in range(eg.nr_feat):
-            # Copy the fine-tuning into the temp buffer, so we can modify it in-place
-            memcpy(upd, eg.bwd_state[0], sizeof(upd[0]) * nn.widths[0])
-            idx = eg.features[f].i
-            os = nn.embed.offsets[idx]
-            emb = <float*>Map_get(nn.embed.weights[idx], eg.features[f].key)
-            mom = <float*>Map_get(nn.embed.momentum[idx], eg.features[f].key)
-            # These should never be null.
-            if emb is not NULL and mom is not NULL:
-                Vec.mul_i(&upd[os],
-                    eg.features[f].value, nn.embed.lengths[idx])
-                nn.update(emb, mom, &upd[os],
-                    nn.embed.lengths[idx], &nn.hp)
     @staticmethod
     cdef void bn_forward(
         float* scores,
@@ -335,38 +312,46 @@ cdef class Embedding:
         # from the same embedding table.
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_gradient = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_defaults = <float**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
             Map_init(mem, &uniq_momentum[i], 8)
+            Map_init(mem, &uniq_gradient[i], 8)
             uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
             he_normal_initializer(uniq_defaults[i],
                 1, width)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
+        self.gradient = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.defaults = <float**>mem.alloc(len(features), sizeof(void*))
         offset = 0
         for i, table_id in enumerate(features):
             self.weights[i] = &uniq_weights[table_id]
+            self.gradient[i] = &uniq_gradient[table_id]
             self.momentum[i] = &uniq_momentum[table_id]
             self.lengths[i] = vector_widths[table_id]
             self.defaults[i] = uniq_defaults[table_id]
             self.offsets[i] = offset
             offset += vector_widths[table_id]
 
+
     @staticmethod
-    cdef void insert_missing(
-        Pool mem,
-        MapC** weights,
-        MapC** momentum,
-            const len_t* lengths, 
-            const idx_t* offsets,
-            const float* const* defaults,
-            const FeatureC* feats,
-            int nr_feat
-    ) except *:
+    cdef void set_input(float* out,
+            const FeatureC* feats, len_t nr_feat, len_t* lengths, idx_t* offsets,
+            const float* const* defaults, const MapC* const* tables) nogil:
+        for f in range(nr_feat):
+            emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
+            if emb != NULL:
+                VecVec.add_i(&out[offsets[feats[f].i]], 
+                    emb, feats[f].value, lengths[feats[f].i])
+
+    @staticmethod
+    cdef void insert_missing(Pool mem, MapC** weights, MapC** gradient, MapC** momentum,
+            const len_t* lengths, const idx_t* offsets, const float* const* defaults,
+            const FeatureC* feats, int nr_feat) except *:
         for f in range(nr_feat):
             emb = <float*>Map_get(weights[feats[f].i], feats[f].key)
             if emb is NULL:
@@ -379,26 +364,42 @@ cdef class Embedding:
                 # to be dealing with the same representation.
                 Map_set(mem, weights[feats[f].i],
                     feats[f].key, emb)
+                grad = <float*>mem.alloc(lengths[feats[f].i], sizeof(grad[0]))
+                Map_set(mem, gradient[feats[f].i],
+                    feats[f].key, grad)
                 # Need 2x length for momentum. Need to centralize this somewhere =/
                 mom = <float*>mem.alloc(lengths[feats[f].i] * 2, sizeof(mom[0]))
                 Map_set(mem, momentum[feats[f].i],
                     feats[f].key, mom)
 
     @staticmethod
-    cdef void set_input(
-        float* out,
-            const FeatureC* feats,
-                len_t nr_feat,
-            len_t* lengths,
-            idx_t* offsets,
-            const float* const* defaults,
-            const MapC* const* tables
-    ) nogil:
-        for f in range(nr_feat):
-            emb = <const float*>Map_get(tables[feats[f].i], feats[f].key)
-            if emb != NULL:
-                VecVec.add_i(&out[offsets[feats[f].i]], 
-                    emb, feats[f].value, lengths[feats[f].i])
+    cdef void get_gradients(MapC** gradient,
+            const len_t* lengths, const len_t* offsets, const float* diff,
+            const FeatureC* features, int nr_feat) nogil:
+        for feat in features[:nr_feat]:
+            g = <float*>Map_get(gradient[feat.i], feat.key)
+            # Should never be null.
+            if g is not NULL:
+                VecVec.add_i(g,
+                    &diff[offsets[feat.i]], feat.value, lengths[feat.i])
+
+    @staticmethod
+    cdef void fine_tune(MapC** weights, MapC** momentum, MapC** gradient,
+            const len_t* lengths, len_t nr_table, const ConstantsC* hp,
+            do_update_t do_update) nogil:
+        cdef int iter_state
+        cdef feat_t key
+        cdef void* value
+        for i in range(nr_table):
+            iter_state = 0
+            while Map_iter(gradient[i], &iter_state, &key, &value):
+                w  = <float*>Map_get(weights[i], key)
+                m = <float*>Map_get(momentum[i], key)
+                g = <float*>value
+                # None of these should ever be null
+                if w is not NULL and m is not NULL and g is not NULL:
+                    do_update(w, m, g,
+                        lengths[i], hp)
 
 
 cdef class NeuralNet:
@@ -414,6 +415,10 @@ cdef class NeuralNet:
         self.eg = Example(self.widths)
 
     def predict_example(self, Example eg):
+        Embedding.insert_missing(self.mem, self.c.embed.weights, self.c.embed.momentum,
+                                 self.c.embed.gradient, self.c.embed.lengths,
+                                 self.c.embed.offsets, self.c.embed.defaults,
+                                 eg.c.features, eg.c.nr_feat)
         NN.forward(eg.c.scores, eg.c.fwd_state,
             eg.c.features, eg.c.nr_feat, &self.c)
         return eg
@@ -447,7 +452,8 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = self.eg
+        eg.wipe(self.widths)
         eg.set_features(input_)
         if label is not None:
             eg.set_label(label)
