@@ -71,8 +71,9 @@ class Extractor(object):
             all_words[id_] += 1
         if sum(bow.values()) < 1:
             bow = all_words
-        # Normalize for frequency
+        # Normalize for frequency and adjust for dropout
         total = sum(bow.values())
+        total *= 1-dropout
         for word, freq in bow.items():
             bow[word] = float(freq) / total
         return bow
