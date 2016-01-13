@@ -33,6 +33,7 @@ from .lvl0 cimport adadelta
 from .lvl0 cimport adagrad
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport dot_plus__ELU
+from .lvl0 cimport dot_plus__residual__ELU
 from .lvl0 cimport d_ELU__dot
 from .lvl0 cimport softmax
 from .lvl0 cimport d_log_loss
@@ -132,7 +133,7 @@ cdef class NN:
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-1):
             nn.feed_fwd(&fwd[i],
-                W, &nn.widths[i], nn.nr_layer-(i+1))
+                W, &nn.widths[i], i, nn.nr_layer-(i+1))
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
@@ -148,7 +149,7 @@ cdef class NN:
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             nn.feed_bwd(G, &bwd[i],
-                W, &fwd[i], &nn.widths[i], i)
+                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i)
 
 
 cdef class Embedding:

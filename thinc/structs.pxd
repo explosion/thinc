@@ -20,6 +20,7 @@ ctypedef void (*do_feed_fwd_t)(
     float** fwd,
         const float* W,
         const len_t* shape,
+        int nr_below,
         int nr_above
 ) nogil
  
@@ -30,6 +31,7 @@ ctypedef void (*do_feed_bwd_t)(
         const float* W,
         const float* const* fwd,
         const len_t* shape,
+        int nr_above,
         int nr_below
 ) nogil
 
