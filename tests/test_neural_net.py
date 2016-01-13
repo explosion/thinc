@@ -160,6 +160,47 @@ def or_data():
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
 
 
+@pytest.fixture
+def bias_data():
+    ff = np.asarray([0.,0.], dtype='f')
+    costs0 = np.asarray([0., 1.], dtype='f')
+    costs1 = np.asarray([1., 0.], dtype='f')
+    def gen_random():
+        if random.random() > 0.7:
+            yield (ff, 0, costs0)
+        else:
+            yield (ff, 1, costs1)
+    return gen_random
+
+
+def test_linear_bias(bias_data):
+    '''Test that a linear model can learn a bias.'''
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd')
+
+    assert model.nr_in == 2
+    assert model.nr_out == 2
+    assert model.nr_layer == 2
+    
+    bias0, bias1 = model.weights[-2:]
+    assert bias0 == 0
+    assert bias1 == 0
+    for _ in range(20):
+        for feats, label, costs in bias_data():
+            eg = model.train_dense(feats, costs)
+    bias0, bias1 = model.weights[-2:]
+    assert bias1 > bias0
+    acc = 0.0
+    total = 0
+    for i in range(10):
+        for features, label, costs in bias_data():
+            eg = model.predict_dense(features)
+            assert costs[label] == 0
+            acc += eg.scores[label] > 0.5
+            total += 1
+    assert (acc/total) > 0.5
+    assert (acc/total) < 1.0
+
+
 def test_learn_linear(or_data):
     '''Test that a linear model can learn OR.'''
     # Need high eta on this sort of toy problem, or learning takes forever!
