@@ -86,10 +86,11 @@ cdef class NN:
 
         nn.nr_layer = len(widths)
         nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
+        nn.averages = <float**>mem.alloc(nn.nr_layer, sizeof(void*))
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
-
+            nn.averages[i] = <float*>mem.alloc(width, sizeof(nn.averages[i][0]))
         nn.nr_weight = 0
         nn.nr_node = 0
         for i in range(nn.nr_layer-1):
@@ -98,7 +99,6 @@ cdef class NN:
         nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.momentum = <float*>mem.alloc(nn.nr_weight * 2, sizeof(nn.weights[0]))
-        nn.averages = <float*>mem.alloc(nn.nr_node * 4, sizeof(nn.weights[0]))
         
         if embed is not None:
             vector_widths, features = embed
@@ -132,8 +132,8 @@ cdef class NN:
     cdef void forward(float* scores, float** fwd, const NeuralNetC* nn) nogil:
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i],
-                W, &nn.widths[i], i, nn.nr_layer-(i+1))
+            nn.feed_fwd(&fwd[i], nn.averages[i],
+                W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
@@ -148,8 +148,8 @@ cdef class NN:
         for i in range(nn.nr_layer-2, -1, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i],
-                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i)
+            nn.feed_bwd(G, &bwd[i], nn.averages[i],
+                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
 
 
 cdef class Embedding:

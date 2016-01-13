@@ -31,8 +31,9 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(float** fwd,
-        const float* W, const len_t* shape, int nr_below, int nr_above) nogil:
+cdef void dot_plus__ELU(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
+        const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     # Linear
     MatVec.dot(fwd[1],
@@ -48,8 +49,9 @@ cdef void dot_plus__ELU(float** fwd,
             shape[1])
  
 
-cdef void dot_plus__residual__ELU(float** fwd,
-        const float* W, const len_t* shape, int nr_below, int nr_above) nogil:
+cdef void dot_plus__residual__ELU(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
+        const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     # Linear
     MatVec.dot(fwd[1],
@@ -68,9 +70,9 @@ cdef void dot_plus__residual__ELU(float** fwd,
             shape[1])
 
 
-cdef void d_ELU__dot(float* gradient, float** bwd,
+cdef void d_ELU__dot(float* gradient, float** bwd, float* averages,
         const float* W, const float* const* fwd, const len_t* shape,
-        int nr_above, int nr_below) nogil:
+        int nr_above, int nr_below, const ConstantsC* hp) nogil:
     # Set the gradient for bwd[1] 
     MatMat.add_outer_i(gradient,
         bwd[1], fwd[0], shape[1], shape[0])

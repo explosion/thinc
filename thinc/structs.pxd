@@ -18,21 +18,25 @@ ctypedef void (*do_update_t)(
 
 ctypedef void (*do_feed_fwd_t)(
     float** fwd,
+    float* averages,
         const float* W,
         const len_t* shape,
         int nr_below,
-        int nr_above
+        int nr_above,
+        const ConstantsC* hp
 ) nogil
  
 
 ctypedef void (*do_feed_bwd_t)(
     float* G,
     float** bwd,
+    float* averages,
         const float* W,
         const float* const* fwd,
         const len_t* shape,
         int nr_above,
-        int nr_below
+        int nr_below,
+        const ConstantsC* hp
 ) nogil
 
 
@@ -84,7 +88,8 @@ cdef struct NeuralNetC:
     float* weights
     float* gradient
     float* momentum
-    float* averages
+
+    float** averages
     
     EmbedC embed
 
