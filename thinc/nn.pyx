@@ -130,25 +130,12 @@ cdef class NN:
                 nn.embed.lengths, nn.embed.nr, &nn.hp, nn.update)
      
     @staticmethod
-    cdef void forward(float* scores, float** fwd, const FeatureC* feats,
-                      int nr_feat, const NeuralNetC* nn) nogil:
-        if feats is not NULL:
-            Embedding.set_input(fwd[0],
-                feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
-                nn.embed.defaults, nn.embed.weights) 
-        shape = nn.weights
+    cdef void forward(float** fwd, const NeuralNetC* nn) nogil:
         cdef const float* W = nn.weights
-        for i in range(nn.nr_layer-2): # Save last layer for softmax
-            dot_plus__ELU(fwd[1],
-                fwd[0], W, shape[1], shape[0])
+        for i in range(nn.nr_layer-1):
+            nn.forward(&fwd[i], &W,
+                &nn.widths[i], nn.nr_layer-i)
             W += NN.nr_weight(shape[1], shape[0])
-            fwd += 1
-            shape += 1
-        i = nn.nr_layer-2
-        dot_plus__softmax(fwd[1],
-            fwd[0], shape[1], shape[0], W)
-        memcpy(scores,
-            fwd[1], sizeof(scores[0]) * shape[1])
 
     @staticmethod
     cdef void backward(float** bwd, float* gradient,

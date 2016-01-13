@@ -37,13 +37,25 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(float* output, const float* input_,
-        const float* W, len_t nr_out, len_t nr_in) nogil:
-    bias = W + nr_out * nr_in
-    dot_plus(output,
-        W, nr_out, input_, nr_in, W)
-    ELU(output, nr_out)
-
+cdef void dot_plus__ELU(float** fwd, float* const* weights_data,
+        const len_t* shape, int nr_above) nogil:
+    # Read the weights in, and advance the buffer
+    W = weights_data[0]
+    bias = weights_data[shape[1] * shape[0]]
+    weights_data[0] += (shape[1] * shape[0]) + shape[1]
+    # Linear
+    MatVec.dot(fwd[1],
+        W, fwd[0], shape[1], shape[0])
+    VecVec.add_i(fwd[1],
+        bias, 1.0, shape[1])
+    # Apply non-linearity
+    if nr_above >= 2:
+        ELU(fwd[1],
+            shape[1])
+    else:
+        softmax(fwd[1],
+            shape[1])
+ 
 
 cdef void d_ELU__dot(float* weights_data, float* gradient, float** bwd,
         const float* const* fwd, const len_t* shape, int iteration) nogil:
