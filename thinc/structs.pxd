@@ -18,16 +18,15 @@ ctypedef void (*do_update_t)(
 
 ctypedef void (*do_feed_fwd_t)(
     float** fwd,
-    const float** W,
+        const float* W,
         const len_t* shape,
         int nr_above
 ) nogil
  
 
 ctypedef void (*do_feed_bwd_t)(
-    float* gradient,
     float** bwd,
-    const float** W,
+        const float* W,
         const float* const* fwd,
         const len_t* shape,
         int nr_below
@@ -110,20 +109,6 @@ cdef struct ExampleC:
     int nr_atom
     int nr_feat
     int nr_layer
-
-# Iteration controller
-cdef struct IteratorC:
-    int nr_out
-    int nr_in
-    int i
-    int W
-    int bias
-    int beta
-    int gamma
-    int Ex
-    int Vx
-    int E_dXh
-    int E_dXh_Xh
 
 
 cdef struct SparseArrayC:

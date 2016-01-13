@@ -65,7 +65,6 @@ cdef class NN:
             float bias=0.0,
             float alpha=0.0
     ) except *:
-        print(update_step)
         if update_step == 'sgd':
             nn.update = vanilla_sgd_update_step
         elif update_step == 'adadelta':
@@ -121,21 +120,23 @@ cdef class NN:
             nn)
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
-        Embedding.get_gradients(nn.embed.gradient,
-            nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
-            eg.features, eg.nr_feat)
-        if nn.hp.t % 100 == 0:
-            nn.update(nn.weights, nn.momentum, nn.gradient,
-                nn.nr_weight, &nn.hp)
-            Embedding.fine_tune(nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
-                nn.embed.lengths, nn.embed.nr, &nn.hp, nn.update)
-     
+        nn.update(nn.weights, nn.momentum, nn.gradient,
+            nn.nr_weight, &nn.hp)
+        if eg.nr_feat != 0:
+            #Embedding.get_gradients(nn.embed.gradient,
+            #    nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
+            #    eg.features, eg.nr_feat)
+            Embedding.old_fine_tune(&nn.embed, nn.gradient,
+                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat,
+                &nn.hp, nn.update)
+    
     @staticmethod
     cdef void forward(float* scores, float** fwd, const NeuralNetC* nn) nogil:
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i], &W,
-                &nn.widths[i], nn.nr_layer-(i+1))
+            nn.feed_fwd(&fwd[i],
+                W, &nn.widths[i], nn.nr_layer-(i+1))
+            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
 
@@ -150,7 +151,8 @@ cdef class NN:
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
         cdef const float* W = nn.weights + nn.nr_weight
-        for i in range(nn.nr_layer-2, -1, -1):
+        for i in range(nn.nr_layer-2, 0, -1):
+            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             # First loop iteration is i=2
             # Sets gradient for (Hb, out), given bwd[3] and fwd[2]
             # Writes bwd[2] given input from bwd[3] and fwd[2].
@@ -160,8 +162,15 @@ cdef class NN:
             # Next i=0
             # Sets gradient for (in, Ha)
             # Wrtes bwd[0] given input from bwd[1] and fwd[0]
-            nn.feed_bwd(gradient, &bwd[i], &W,
-                &fwd[i], &nn.widths[i], i)
+            nn.feed_bwd(&bwd[i],
+                W, &fwd[i], &nn.widths[i], i)
+        MatVec.T_dot(bwd[0], nn.weights, bwd[1], nn.widths[1], nn.widths[0])
+        for i in range(nn.nr_layer-1):
+            MatMat.add_outer_i(gradient,
+                bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
+            VecVec.add_i(gradient + (nn.widths[i+1] * nn.widths[i]),
+                bwd[i+1], 1.0, nn.widths[i+1])
+            gradient += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
 
 
 cdef class Embedding:
@@ -207,9 +216,8 @@ cdef class Embedding:
             const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
         for feat in features[:nr_feat]:
             emb = <const float*>Map_get(embed.weights[feat.i], feat.key)
-            if emb != NULL:
-                VecVec.add_i(&out[embed.offsets[feat.i]], 
-                    emb, feat.value, embed.lengths[feat.i])
+            VecVec.add_i(&out[embed.offsets[feat.i]], 
+                emb, feat.value, embed.lengths[feat.i])
 
     @staticmethod
     cdef void insert_missing(Pool mem, EmbedC* embed,
@@ -228,6 +236,22 @@ cdef class Embedding:
                 mom = <float*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
                 Map_set(mem, embed.momentum[feat.i],
                     feat.key, mom)
+    
+    @staticmethod
+    cdef inline void old_fine_tune(EmbedC* layer, weight_t* fine_tune,
+            const weight_t* delta, int nr_delta,
+            const FeatureC* features, int nr_feat,
+            const ConstantsC* hp,
+            do_update_t do_update) nogil:
+        for feat in features[:nr_feat]:
+            # Reset fine_tune, because we need to modify the gradient
+            memcpy(fine_tune, delta, sizeof(float) * nr_delta)
+            weights = <weight_t*>Map_get(layer.weights[feat.i], feat.key)
+            gradient = &fine_tune[layer.offsets[feat.i]]
+            mom = <float*>Map_get(layer.momentum[feat.i], feat.key)
+            # None of these should ever be null
+            do_update(weights, mom, gradient,
+                layer.lengths[feat.i], hp)
 
     @staticmethod
     cdef void get_gradients(MapC** gradient,
@@ -237,7 +261,7 @@ cdef class Embedding:
             g = <float*>Map_get(gradient[feat.i], feat.key)
             # Should never be null.
             VecVec.add_i(g,
-                &diff[offsets[feat.i]], feat.value, lengths[feat.i])
+                &diff[offsets[feat.i]], 1.0, lengths[feat.i])
 
     @staticmethod
     cdef void fine_tune(MapC** weights, MapC** momentum, MapC** gradient,
@@ -270,11 +294,11 @@ cdef class NeuralNet:
         self.eg = Example(self.widths)
 
     def predict_example(self, Example eg):
-        if eg.c.features != NULL:
+        if eg.c.nr_feat != 0:
             Embedding.insert_missing(self.mem, &self.c.embed,
                 eg.c.features, eg.c.nr_feat)
-        Embedding.set_input(eg.c.fwd_state[0],
-            eg.c.features, eg.c.nr_feat, &self.c.embed)
+            Embedding.set_input(eg.c.fwd_state[0],
+                eg.c.features, eg.c.nr_feat, &self.c.embed)
         NN.forward(eg.c.scores, eg.c.fwd_state,
             &self.c)
         return eg
@@ -308,8 +332,7 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = self.eg
-        eg.wipe(self.widths)
+        cdef Example eg = Example(self.widths)
         eg.set_features(input_)
         if label is not None:
             eg.set_label(label)

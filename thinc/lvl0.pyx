@@ -31,19 +31,16 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(float** fwd, const float** weights_data,
-        const len_t* shape, int nr_above) nogil:
-    # Read the weights in, and advance the buffer
-    W = weights_data[0]
-    bias = weights_data[0] + shape[1] * shape[0]
-    weights_data[0] += (shape[1] * shape[0]) + shape[1]
+cdef void dot_plus__ELU(float** fwd,
+        const float* W, const len_t* shape, int nr_above) nogil:
+    bias = W + shape[1] * shape[0]
     # Linear
     MatVec.dot(fwd[1],
         W, fwd[0], shape[1], shape[0])
     VecVec.add_i(fwd[1],
         bias, 1.0, shape[1])
     # Apply non-linearity
-    if nr_above == 0:
+    if nr_above >= 2:
         ELU(fwd[1],
             shape[1])
     else:
@@ -51,22 +48,18 @@ cdef void dot_plus__ELU(float** fwd, const float** weights_data,
             shape[1])
  
 
-cdef void d_ELU__dot(float* gradient, float** bwd, const float** weights_data,
-        const float* const* fwd, const len_t* shape, int iteration) nogil:
-    weights_data[0] -= (shape[1] * shape[0]) + shape[1]
-    W = weights_data[0]
-    bias = weights_data[0] + (shape[1] * shape[0])
+cdef void d_ELU__dot(float** bwd,
+        const float* W, const float* const* fwd, const len_t* shape, int iteration) nogil:
     # Set the gradient for bwd[1] 
-    MatMat.add_outer_i(gradient + (W-weights_data[0]),
-        bwd[1], fwd[0], shape[1], shape[0])
-    VecVec.add_i(gradient + (bias-weights_data[0]),
-        bwd[1], 1.0, shape[1])
+    #MatMat.add_outer_i(gradient,
+    #    bwd[1], fwd[0], shape[1], shape[0])
+    ##VecVec.add_i(gradient + shape[1] * shape[0],
+    #    bwd[1], 1.0, shape[1])
     # Set the partial derivative for bwd[0], so next step can set its gradient
-    if iteration != 0:
-        d_ELU(bwd[0],
-            fwd[0], shape[0])
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
+    d_ELU(bwd[0],
+        fwd[0], shape[0])
     
 
 cdef void ELU(float* out, len_t nr_out) nogil:
@@ -191,4 +184,5 @@ cdef void vanilla_sgd_update_step(float* weights, float* moments, float* gradien
             weights, hp.r, nr_weight)
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
-    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+    memset(gradient,
+        0, sizeof(gradient[0]) * nr_weight)
