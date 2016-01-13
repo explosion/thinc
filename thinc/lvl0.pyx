@@ -48,13 +48,13 @@ cdef void dot_plus__ELU(float** fwd,
             shape[1])
  
 
-cdef void d_ELU__dot(float** bwd,
+cdef void d_ELU__dot(float* gradient, float** bwd,
         const float* W, const float* const* fwd, const len_t* shape, int iteration) nogil:
     # Set the gradient for bwd[1] 
-    #MatMat.add_outer_i(gradient,
-    #    bwd[1], fwd[0], shape[1], shape[0])
-    ##VecVec.add_i(gradient + shape[1] * shape[0],
-    #    bwd[1], 1.0, shape[1])
+    MatMat.add_outer_i(gradient,
+        bwd[1], fwd[0], shape[1], shape[0])
+    VecVec.add_i(gradient + shape[1] * shape[0],
+        bwd[1], 1.0, shape[1])
     # Set the partial derivative for bwd[0], so next step can set its gradient
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])

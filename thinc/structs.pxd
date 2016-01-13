@@ -25,6 +25,7 @@ ctypedef void (*do_feed_fwd_t)(
  
 
 ctypedef void (*do_feed_bwd_t)(
+    float* G,
     float** bwd,
         const float* W,
         const float* const* fwd,

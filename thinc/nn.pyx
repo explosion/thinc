@@ -143,17 +143,17 @@ cdef class NN:
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
         cdef const float* W = nn.weights + nn.nr_weight
+        cdef float* G = gradient + nn.nr_weight
         for i in range(nn.nr_layer-2, 0, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(&bwd[i],
+            G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            nn.feed_bwd(G, &bwd[i],
                 W, &fwd[i], &nn.widths[i], i)
         MatVec.T_dot(bwd[0], nn.weights, bwd[1], nn.widths[1], nn.widths[0])
-        for i in range(nn.nr_layer-1):
-            MatMat.add_outer_i(gradient,
-                bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
-            VecVec.add_i(gradient + (nn.widths[i+1] * nn.widths[i]),
-                bwd[i+1], 1.0, nn.widths[i+1])
-            gradient += (nn.widths[i+1] * nn.widths[i]) + nn.widths[i+1]
+        MatMat.add_outer_i(gradient,
+            bwd[1], fwd[0], nn.widths[1], nn.widths[0])
+        VecVec.add_i(gradient + (nn.widths[1] * nn.widths[0]),
+            bwd[1], 1.0, nn.widths[1])
 
 
 cdef class Embedding:
