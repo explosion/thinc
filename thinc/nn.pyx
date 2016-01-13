@@ -34,6 +34,8 @@ from .lvl0 cimport adagrad
 from .lvl0 cimport vanilla_sgd_update_step
 from .lvl0 cimport dot_plus__ELU
 from .lvl0 cimport dot_plus__residual__ELU
+from .lvl0 cimport dot__normalize__dot_plus__ELU
+from .lvl0 cimport d_ELU__dot__normalize__dot
 from .lvl0 cimport d_ELU__dot
 from .lvl0 cimport softmax
 from .lvl0 cimport d_log_loss
@@ -74,7 +76,10 @@ cdef class NN:
             nn.update = adagrad
         else:
             nn.update = adam
-        nn.feed_fwd = dot_plus__ELU
+        if USE_BATCH_NORM:
+            nn.feed_fwd = dot__normalize__dot_plus__ELU
+        else:
+            nn.feed_fwd = dot_plus__ELU
         nn.feed_bwd = d_ELU__dot
 
         nn.hp.t = 0
