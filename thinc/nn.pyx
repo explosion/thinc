@@ -123,10 +123,7 @@ cdef class NN:
         nn.update(nn.weights, nn.momentum, nn.gradient,
             nn.nr_weight, &nn.hp)
         if eg.nr_feat != 0:
-            #Embedding.get_gradients(nn.embed.gradient,
-            #    nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
-            #    eg.features, eg.nr_feat)
-            Embedding.old_fine_tune(&nn.embed, nn.gradient,
+            Embedding.fine_tune(&nn.embed, nn.gradient,
                 eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat,
                 &nn.hp, nn.update)
     
@@ -186,25 +183,21 @@ cdef class Embedding:
         # from the same embedding table.
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        uniq_gradient = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_defaults = <float**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
             Map_init(mem, &uniq_momentum[i], 8)
-            Map_init(mem, &uniq_gradient[i], 8)
             uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
             he_uniform_initializer(uniq_defaults[i],
                 width)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
-        self.gradient = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.defaults = <float**>mem.alloc(len(features), sizeof(void*))
         offset = 0
         for i, table_id in enumerate(features):
             self.weights[i] = &uniq_weights[table_id]
-            self.gradient[i] = &uniq_gradient[table_id]
             self.momentum[i] = &uniq_momentum[table_id]
             self.lengths[i] = vector_widths[table_id]
             self.defaults[i] = uniq_defaults[table_id]
@@ -229,20 +222,15 @@ cdef class Embedding:
                 he_uniform_initializer(emb, embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
-                grad = <float*>mem.alloc(embed.lengths[feat.i], sizeof(grad[0]))
-                Map_set(mem, embed.gradient[feat.i],
-                    feat.key, grad)
                 # Need 2x length for momentum. Need to centralize this somewhere =/
                 mom = <float*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
                 Map_set(mem, embed.momentum[feat.i],
                     feat.key, mom)
     
     @staticmethod
-    cdef inline void old_fine_tune(EmbedC* layer, weight_t* fine_tune,
-            const weight_t* delta, int nr_delta,
-            const FeatureC* features, int nr_feat,
-            const ConstantsC* hp,
-            do_update_t do_update) nogil:
+    cdef inline void fine_tune(EmbedC* layer, weight_t* fine_tune,
+            const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat,
+            const ConstantsC* hp, do_update_t do_update) nogil:
         for feat in features[:nr_feat]:
             # Reset fine_tune, because we need to modify the gradient
             memcpy(fine_tune, delta, sizeof(float) * nr_delta)
@@ -252,33 +240,6 @@ cdef class Embedding:
             # None of these should ever be null
             do_update(weights, mom, gradient,
                 layer.lengths[feat.i], hp)
-
-    @staticmethod
-    cdef void get_gradients(MapC** gradient,
-            const len_t* lengths, const len_t* offsets, const float* diff,
-            const FeatureC* features, int nr_feat) nogil:
-        for feat in features[:nr_feat]:
-            g = <float*>Map_get(gradient[feat.i], feat.key)
-            # Should never be null.
-            VecVec.add_i(g,
-                &diff[offsets[feat.i]], 1.0, lengths[feat.i])
-
-    @staticmethod
-    cdef void fine_tune(MapC** weights, MapC** momentum, MapC** gradient,
-            const len_t* lengths, len_t nr_table, const ConstantsC* hp,
-            do_update_t do_update) nogil:
-        cdef int iter_state
-        cdef feat_t key
-        cdef void* value
-        for i in range(nr_table):
-            iter_state = 0
-            while Map_iter(gradient[i], &iter_state, &key, &value):
-                w  = <float*>Map_get(weights[i], key)
-                m = <float*>Map_get(momentum[i], key)
-                g = <float*>value
-                # None of these should ever be null
-                do_update(w, m, g,
-                    lengths[i], hp)
 
 
 cdef class NeuralNet:

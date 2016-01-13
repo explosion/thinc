@@ -67,7 +67,6 @@ cdef struct ConstantsC:
 cdef struct EmbedC:
     MapC** weights
     MapC** momentum
-    MapC** gradient
     float** defaults
     idx_t* offsets
     len_t* lengths
