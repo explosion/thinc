@@ -151,6 +151,9 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     prev_best = 0
     best_weights = None
     numpy.random.seed(0)
+    for i, (w, b) in enumerate(model.layers):
+        print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
+
     for epoch in range(n_iter):
         numpy.random.shuffle(train_data)
         train_loss = 0.0
@@ -164,6 +167,8 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         print(epoch, train_loss, n_correct / len(dev_data),
               sum(model.weights) / model.nr_weight,
               avg_grad)
+        for i, (w, b) in enumerate(model.layers):
+            print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
         if n_correct >= prev_best:
             prev_best = n_correct
     print("Evaluating")
