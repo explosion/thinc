@@ -55,7 +55,7 @@ cdef void d_ELU__dot(float* gradient, float** bwd, const float** weights_data,
         const float* const* fwd, const len_t* shape, int iteration) nogil:
     weights_data[0] -= (shape[1] * shape[0]) + shape[1]
     W = weights_data[0]
-    bias = weights_data[shape[1] * shape[0]]
+    bias = weights_data[0] + (shape[1] * shape[0])
     # Set the gradient for bwd[1] 
     MatMat.add_outer_i(gradient + (W-weights_data[0]),
         bwd[1], fwd[0], shape[1], shape[0])
