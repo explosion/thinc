@@ -193,6 +193,10 @@ def train(tagger, sentences, nr_iter=100):
                     total += 1
         print itn, '%.3f' % loss, '%.3f' % (corr / total)
         print(' '.join('%s/%s' % (w, t) for w, t in zip(words, guesses)))
+        print(' '.join('%s/%s' % (w, t) for w, t in zip(words, gold_tags)))
+        for i, (w, b) in enumerate(tagger.model.layers):
+            print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
+ 
         random.shuffle(train_sents)
         # Just a lazy way to be printing a different dev sent each iteration
         random.shuffle(dev_sents) 
