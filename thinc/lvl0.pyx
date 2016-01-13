@@ -37,32 +37,31 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(
-    float* output,
-        const float* bias,
-        len_t nr_out,
-        const float* input_,
-            len_t nr_in,
-        const float* W
-) nogil:
+cdef void dot_plus__ELU(float* output, const float* input_,
+        const float* W, len_t nr_out, len_t nr_in) nogil:
+    bias = W + nr_out * nr_in
     dot_plus(output,
-        bias, nr_out, input_, nr_in, W)
+        W, nr_out, input_, nr_in, W)
     ELU(output, nr_out)
 
 
-cdef void dELU__dDot(
-    float* dX,
-    float* dY,
-        len_t nr_wide,
-        const float* Y,
-        len_t nr_above,
-        const float* W
-) nogil:
-    d_ELU(dY,
-        Y, nr_above)
-    d_dot(dX,
-        nr_above, dY, nr_wide, W)
-
+cdef void d_ELU__dot(float* weights_data, float* gradient, float** bwd,
+        const float* const* fwd, const len_t* shape, int iteration) nogil:
+    weights_data[0] -= (shape[1] * shape[0]) + shape[1]
+    W = weights_data[0]
+    bias = weights_data[shape[1] * shape[0]]
+    # Set the gradient for bwd[1] 
+    MatMat.add_outer_i(gradient + (W-weights_data[0]),
+        bwd[1], fwd[0], shape[1], shape[0])
+    VecVec.add_i(gradient + (bias-weights_data[0]),
+        bwd[1], 1.0, shape[1])
+    # Set the partial derivative for bwd[0], so next step can set its gradient
+    if iteration != 0:
+        d_ELU(bwd[0],
+            fwd[0], shape[0])
+    MatVec.T_dot(bwd[0],
+        W, bwd[1], shape[1], shape[0])
+    
 
 cdef void dot_plus(
     float* out,

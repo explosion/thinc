@@ -105,14 +105,10 @@ cdef class NN:
             Embedding.init(&nn.embed, mem, vector_widths, features)
 
         W = nn.weights
-        fan_in = 1
         for i in range(nn.nr_layer-1):
             he_uniform_initializer(W,
-                fan_in, nn.widths[i+1] * nn.widths[i])
-            constant_initializer(W + (nn.widths[i+1] * nn.widths[i]),
-                bias, nn.widths[i+1])
+                nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            fan_in = nn.widths[i]
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
@@ -140,47 +136,41 @@ cdef class NN:
             Embedding.set_input(fwd[0],
                 feats, nr_feat, nn.embed.lengths, nn.embed.offsets,
                 nn.embed.defaults, nn.embed.weights) 
-        cdef int i, j
+        shape = nn.weights
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-2): # Save last layer for softmax
-            bias = W + (nn.widths[i] * nn.widths[i+1])
-            dot_plus__ELU(fwd[i+1],
-                bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
-            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            dot_plus__ELU(fwd[1],
+                fwd[0], W, shape[1], shape[0])
+            W += NN.nr_weight(shape[1], shape[0])
+            fwd += 1
+            shape += 1
         i = nn.nr_layer-2
-        bias = W + (nn.widths[i] * nn.widths[i+1])
-        dot_plus(fwd[i+1],
-            bias, nn.widths[i+1], fwd[i], nn.widths[i], W)
-        softmax(fwd[i+1],
-            nn.widths[i+1])
+        dot_plus__softmax(fwd[1],
+            fwd[0], shape[1], shape[0], W)
         memcpy(scores,
-            fwd[i+1], sizeof(scores[0]) * nn.widths[i+1])
+            fwd[1], sizeof(scores[0]) * shape[1])
 
     @staticmethod
     cdef void backward(float** bwd, float* gradient,
-            const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
-        cdef int i = nn.nr_layer - 2
-        d_log_loss(bwd[i+1],
-            costs, fwd[i+1], nn.widths[i+1])
+            const float* const* fwd, const NeuralNetC* nn) nogil:
+        # Let's say nn.nr_layer=4
+        # input=0, Ha=1, Hb=2, out=3
+        # Weights go
+        # W1=(in, Ha), (Ha, Hb), (Hb, out)
+        # We start with costs at bwd[3] and scores at fwd[3]
         cdef const float* W = nn.weights + nn.nr_weight
-        for i in range(nn.nr_layer-2, 0, -1):
-            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            MatVec.T_dot(bwd[i],
-                W, bwd[i+1], nn.widths[i+1], nn.widths[i])
-            d_ELU(bwd[i],
-                fwd[i], nn.widths[i])
-            MatMat.add_outer_i(gradient + (W - nn.weights),
-                bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
-            VecVec.add_i(gradient + (W - nn.weights) + nn.widths[i]*nn.widths[i+1],
-                bwd[i+1], 1.0, nn.widths[i+1])
-        i = 0
-        W -= nn.widths[1] * nn.widths[0] + nn.widths[1]
-        MatMat.add_outer_i(gradient + (W - nn.weights),
-            bwd[i+1], fwd[i], nn.widths[i+1], nn.widths[i])
-        VecVec.add_i(gradient + (W - nn.weights) + nn.widths[i]*nn.widths[i+1],
-            bwd[i+1], 1.0, nn.widths[i+1])
-        d_dot(bwd[0],
-            nn.widths[0], bwd[1], nn.widths[1], W)
+        for i in range(nn.nr_layer-2, -1, -1):
+            # First loop iteration is i=2
+            # Sets gradient for (Hb, out), given bwd[3] and fwd[2]
+            # Writes bwd[2] given input from bwd[3] and fwd[2].
+            # Next i=1
+            # Sets gradient for (Ha, Hb)
+            # Writes bwd[1] given input from bwd[2] and fwd[1]
+            # Next i=0
+            # Sets gradient for (in, Ha)
+            # Wrtes bwd[0] given input from bwd[1] and fwd[0]
+            nn.backprop(&W, gradient, &bwd[i],
+                &fwd[i], &nn.widths[i], i)
     
     @staticmethod
     cdef void bn_forward(
@@ -321,7 +311,7 @@ cdef class Embedding:
             Map_init(mem, &uniq_gradient[i], 8)
             uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
             he_uniform_initializer(uniq_defaults[i],
-                1, width)
+                width)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
@@ -357,7 +347,7 @@ cdef class Embedding:
             emb = <float*>Map_get(weights[feat.i], feat.key)
             if emb is NULL:
                 emb = <float*>mem.alloc(lengths[feat.i], sizeof(emb[0]))
-                he_uniform_initializer(emb, 1, lengths[feat.i])
+                he_uniform_initializer(emb, lengths[feat.i])
                 Map_set(mem, weights[feat.i],
                     feat.key, emb)
                 grad = <float*>mem.alloc(lengths[feat.i], sizeof(grad[0]))
@@ -551,7 +541,7 @@ cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
         weights[i] = value
 
 
-cdef void he_uniform_initializer(float* weights, int fan_in, int n) except *:
+cdef void he_uniform_initializer(float* weights, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
     values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
