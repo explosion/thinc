@@ -140,25 +140,11 @@ cdef class NN:
     @staticmethod
     cdef void backward(float** bwd, float* gradient,
             const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
-        # Let's say nn.nr_layer=4
-        # input=0, Ha=1, Hb=2, out=3
-        # Weights go
-        # W1=(in, Ha), (Ha, Hb), (Hb, out)
-        # We start with costs at bwd[3] and scores at fwd[3]
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
         cdef const float* W = nn.weights + nn.nr_weight
         for i in range(nn.nr_layer-2, 0, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            # First loop iteration is i=2
-            # Sets gradient for (Hb, out), given bwd[3] and fwd[2]
-            # Writes bwd[2] given input from bwd[3] and fwd[2].
-            # Next i=1
-            # Sets gradient for (Ha, Hb)
-            # Writes bwd[1] given input from bwd[2] and fwd[1]
-            # Next i=0
-            # Sets gradient for (in, Ha)
-            # Wrtes bwd[0] given input from bwd[1] and fwd[0]
             nn.feed_bwd(&bwd[i],
                 W, &fwd[i], &nn.widths[i], i)
         MatVec.T_dot(bwd[0], nn.weights, bwd[1], nn.widths[1], nn.widths[0])
