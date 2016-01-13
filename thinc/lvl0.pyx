@@ -75,50 +75,6 @@ cdef void d_ELU__dot(float* weights_data, float* gradient, float** bwd,
         W, bwd[1], shape[1], shape[0])
     
 
-cdef void dot_plus(
-    float* out,
-        const float* bias,
-            len_t nr_out,
-        const float* in_,
-            len_t nr_in,
-        const float* W
-) nogil:
-    MatVec.dot(out,
-        W, in_, nr_out, nr_in)
-    VecVec.add_i(out,
-        bias, 1.0, nr_out)
-
-
-cdef void sparse_dot_plus(
-    float* out,
-        const float* bias,
-            len_t nr_out,
-        const FeatureC* feats,
-            len_t nr_feat,
-        const MapC* const* Ws
-) nogil:
-    for i in range(nr_feat):
-        W = Ws[feats[i].i]
-        if W is not NULL: # Shouldn't be NULL
-            row = <const float*>Map_get(W, feats[i].key)
-            if row is not NULL: # Can be NULL
-                VecVec.add_i(out,
-                    row, feats[i].value, nr_out)
-    VecVec.add_i(out,
-        bias, 1.0, nr_out)
-
-
-cdef void d_dot(
-    float* btm_diff,
-        len_t nr_btm,
-        const float* top_diff,
-        len_t nr_top,
-        const float* W,
-) nogil:
-    MatVec.T_dot(btm_diff,
-        W, top_diff, nr_top, nr_btm)
-
-
 cdef void ELU(float* out, len_t nr_out) nogil:
     cdef idx_t i
     for i in range(nr_out):
