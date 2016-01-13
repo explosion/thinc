@@ -183,24 +183,18 @@ cdef class Embedding:
         # from the same embedding table.
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        uniq_defaults = <float**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
             Map_init(mem, &uniq_momentum[i], 8)
-            uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
-            he_uniform_initializer(uniq_defaults[i],
-                width)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
-        self.defaults = <float**>mem.alloc(len(features), sizeof(void*))
         offset = 0
         for i, table_id in enumerate(features):
             self.weights[i] = &uniq_weights[table_id]
             self.momentum[i] = &uniq_momentum[table_id]
             self.lengths[i] = vector_widths[table_id]
-            self.defaults[i] = uniq_defaults[table_id]
             self.offsets[i] = offset
             offset += vector_widths[table_id]
 
