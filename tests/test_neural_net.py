@@ -191,7 +191,35 @@ def test_linear_bias(bias_data):
     assert bias1 > bias0
     acc = 0.0
     total = 0
-    for i in range(10):
+    for i in range(20):
+        for features, label, costs in bias_data():
+            eg = model.predict_dense(features)
+            assert costs[label] == 0
+            acc += eg.scores[label] > 0.5
+            total += 1
+    assert (acc/total) > 0.5
+    assert (acc/total) < 1.0
+
+
+def test_deep_bias(bias_data):
+    '''Test that a deep model can learn a bias.'''
+    model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='adadelta')
+
+    assert model.nr_in == 2
+    assert model.nr_out == 2
+    assert model.nr_layer > 2
+    
+    bias0, bias1 = model.weights[-2:]
+    assert bias0 == 0
+    assert bias1 == 0
+    for _ in range(20):
+        for feats, label, costs in bias_data():
+            eg = model.train_dense(feats, costs)
+    bias0, bias1 = model.weights[-2:]
+    assert bias1 > bias0
+    acc = 0.0
+    total = 0
+    for i in range(20):
         for features, label, costs in bias_data():
             eg = model.predict_dense(features)
             assert costs[label] == 0
