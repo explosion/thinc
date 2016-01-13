@@ -107,7 +107,7 @@ cdef class NN:
         W = nn.weights
         fan_in = 1
         for i in range(nn.nr_layer-1):
-            he_normal_initializer(W,
+            he_uniform_initializer(W,
                 fan_in, nn.widths[i+1] * nn.widths[i])
             constant_initializer(W + (nn.widths[i+1] * nn.widths[i]),
                 bias, nn.widths[i+1])
@@ -127,7 +127,7 @@ cdef class NN:
         Embedding.get_gradients(nn.embed.gradient,
             nn.embed.lengths, nn.embed.offsets, eg.bwd_state[0],
             eg.features, eg.nr_feat)
-        if nn.hp.t % 10 == 0:
+        if nn.hp.t % 100 == 0:
             nn.update(nn.weights, nn.momentum, nn.gradient,
                 nn.nr_weight, &nn.hp)
             Embedding.fine_tune(nn.embed.weights, nn.embed.momentum, nn.embed.gradient,
@@ -320,7 +320,7 @@ cdef class Embedding:
             Map_init(mem, &uniq_momentum[i], 8)
             Map_init(mem, &uniq_gradient[i], 8)
             uniq_defaults[i] = <float*>mem.alloc(width, sizeof(float))
-            he_normal_initializer(uniq_defaults[i],
+            he_uniform_initializer(uniq_defaults[i],
                 1, width)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
@@ -357,7 +357,7 @@ cdef class Embedding:
             emb = <float*>Map_get(weights[feat.i], feat.key)
             if emb is NULL:
                 emb = <float*>mem.alloc(lengths[feat.i], sizeof(emb[0]))
-                he_normal_initializer(emb, 1, lengths[feat.i])
+                he_uniform_initializer(emb, 1, lengths[feat.i])
                 Map_set(mem, weights[feat.i],
                     feat.key, emb)
                 grad = <float*>mem.alloc(lengths[feat.i], sizeof(grad[0]))
@@ -469,7 +469,7 @@ cdef class NeuralNet:
                 nr_w = self.widths[i] * self.widths[i+1]
                 nr_bias = self.widths[i] * self.widths[i+1] + self.widths[i+1]
                 W = weights[start:start+nr_w]
-                bias = weights[start+nr_w:start+nr_w+bias]
+                bias = weights[start+nr_w:start+nr_w+nr_bias]
                 yield W, bias
                 start = start + NN.nr_weight(self.widths[i+1], self.widths[i])
 
@@ -546,6 +546,15 @@ cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
     values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
+    cdef float value
+    for i, value in enumerate(values):
+        weights[i] = value
+
+
+cdef void he_uniform_initializer(float* weights, int fan_in, int n) except *:
+    # See equation 10 here:
+    # http://arxiv.org/pdf/1502.01852v1.pdf
+    values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
     cdef float value
     for i, value in enumerate(values):
         weights[i] = value
