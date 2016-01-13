@@ -18,12 +18,7 @@ from .typedefs cimport idx_t
 
 from .blas cimport MatMat, MatVec, VecVec, Vec
 
-from .structs cimport do_iter_t
 from .structs cimport do_feed_fwd_t
-from .structs cimport do_end_fwd_t
-from .structs cimport do_begin_fwd_t
-from .structs cimport do_begin_bwd_t
-from .structs cimport do_end_bwd_t
 from .structs cimport do_feed_bwd_t
 from .structs cimport do_update_t
 
@@ -37,7 +32,7 @@ DEF EPS = 0.000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(float** fwd, float* const* weights_data,
+cdef void dot_plus__ELU(float** fwd, const float** weights_data,
         const len_t* shape, int nr_above) nogil:
     # Read the weights in, and advance the buffer
     W = weights_data[0]
@@ -49,7 +44,7 @@ cdef void dot_plus__ELU(float** fwd, float* const* weights_data,
     VecVec.add_i(fwd[1],
         bias, 1.0, shape[1])
     # Apply non-linearity
-    if nr_above >= 2:
+    if nr_above >= 1:
         ELU(fwd[1],
             shape[1])
     else:
@@ -57,7 +52,7 @@ cdef void dot_plus__ELU(float** fwd, float* const* weights_data,
             shape[1])
  
 
-cdef void d_ELU__dot(float* weights_data, float* gradient, float** bwd,
+cdef void d_ELU__dot(float* gradient, float** bwd, const float** weights_data,
         const float* const* fwd, const len_t* shape, int iteration) nogil:
     weights_data[0] -= (shape[1] * shape[0]) + shape[1]
     W = weights_data[0]
@@ -198,98 +193,3 @@ cdef void vanilla_sgd_update_step(float* weights, float* moments, float* gradien
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
-
-
-########
-# Batch Normalization, non-functional draft
-
-
-cdef void normalize(float* x, float* Ex, float* Vx, len_t nr_x, float alpha) nogil:
-    # Upd EMA estimate of mean and variance
-    # See eq at the end of this:
-    # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
-    cdef idx_t i
-    cdef float diff
-    cdef float incr
-    for i in range(nr_x):
-        diff = x[i] - Ex[i]
-        incr = alpha * diff
-        Vx[i] = (1.0 - alpha) * (Vx[i] + diff * incr)
-        Ex[i] += incr
-    # Normalize
-    for i in range(nr_x):
-        x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
-
-
-cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
-        const float* Xh, const float* Vx, len_t n, float alpha) nogil:
-    # Update EMA estimate of mean(dL/dX_hat)
-    Vec.mul_i(E_dEdXh,
-        alpha, n)
-    VecVec.add_i(E_dEdXh,
-        bwd, 1-alpha, n)
-    # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
-    Vec.mul_i(E_dEdXh_dot_Xh,
-        alpha, n)
-    for i in range(n):
-        E_dEdXh_dot_Xh[i] += (1-alpha) * bwd[i] * Xh[i]
-    # Simplification taken from Caffe, I think by cdoersch
-    # if X' = (X-mean(X))/sqrt(var(X)+eps), then
-    # dE/dX =
-    #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
-    #     ./ sqrt(var(X) + eps)
-    # bwd is dE/dXh to start with. We change it to dE/dX in-place.
-    for i in range(n):
-        bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
-        bwd[i] /= sqrtf(Vx[i] + EPS)
-
-
-cdef void dot__normalize__dot_plus__ELU(
-    float* output,
-    float* mid_result,
-    float* Ex,
-    float* Vx,
-        const float* bias,
-        const float* gamma,
-        len_t nr_out,
-        const float* input_,
-            len_t nr_in,
-        const float* W,
-        float alpha
-) nogil:
-    MatVec.dot(mid_result,
-        input_, W, nr_out, nr_in)
-    normalize(mid_result, Ex, Vx,
-        nr_out, alpha)
-    VecVec.mul(output,
-        mid_result, gamma, nr_out)
-    VecVec.add_i(output,
-        bias, 1.0, nr_out)
-    ELU(output, nr_out)
-
-
-cdef void d_ELU__dot__normalize__dot(
-    float* dY,
-    float* dXh,
-    float* dX,
-    float* E_dXh,
-    float* E_dXh_Xh,
-        const float* Y,
-        const float* Xh,
-        const float* Vx,
-        const float* gamma,
-        len_t nr_out,
-        len_t nr_in,
-        const float* W,
-        float ema_speed
-) nogil:
-    # This must be wrong. X is from bottom, right?
-    # Y = ELU(dot(G, BN(W*x+b))), i.e. our layer's final output
-    d_ELU(dY,
-        Y, nr_out) 
-    VecVec.mul(dXh,
-        dY, gamma, nr_out)
-    d_normalize(dXh, E_dXh, E_dXh_Xh,
-        Xh, Vx, nr_out, ema_speed)
-    d_dot(dX,
-        nr_in, dXh, nr_out, W)

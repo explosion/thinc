@@ -16,77 +16,23 @@ ctypedef void (*do_update_t)(
 ) nogil
 
 
-ctypedef int (*do_iter_t)(
-    IteratorC* it,
-        const len_t* widths,
-            len_t nr_layer,
-        int step_size
-) nogil
-
-
 ctypedef void (*do_feed_fwd_t)(
     float** fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const IteratorC* it,
-        const ConstantsC* hp
+    const float** W,
+        const len_t* shape,
+        int nr_above
 ) nogil
  
 
-ctypedef IteratorC (*do_begin_fwd_t)(
-    float** fwd,
-        const len_t* widths,
-        len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-) nogil
-
-
-ctypedef void (*do_end_fwd_t)(
-    IteratorC* it,
-    float* scores,
-    float** fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-) nogil
-
-
-ctypedef IteratorC (*do_begin_bwd_t)(
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            const len_t nr_weight,
-        const float* costs
-) nogil
-
-
 ctypedef void (*do_feed_bwd_t)(
+    float* gradient,
     float** bwd,
+    const float** W,
         const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-        const IteratorC* it,
-        const ConstantsC* hp
+        const len_t* shape,
+        int nr_below
 ) nogil
 
-
-ctypedef void (*do_end_bwd_t)(
-    IteratorC* it,
-    float** bwd,
-        const float* const* fwd,
-        const len_t* widths,
-            len_t nr_layer,
-        const float* weights,
-            len_t nr_weight,
-) nogil
 
 # Alias this, so that it matches our naming scheme
 ctypedef MapStruct MapC
@@ -130,7 +76,8 @@ cdef struct EmbedC:
 
 
 cdef struct NeuralNetC:
-    do_iter_t iterate
+    do_feed_fwd_t feed_fwd
+    do_feed_bwd_t feed_bwd
     do_update_t update
 
     len_t* widths
@@ -163,7 +110,6 @@ cdef struct ExampleC:
     int nr_atom
     int nr_feat
     int nr_layer
-
 
 # Iteration controller
 cdef struct IteratorC:
