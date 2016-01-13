@@ -9,7 +9,6 @@ from preshed.maps cimport MapStruct as MapC
 from preshed.maps cimport map_get as Map_get
 from preshed.maps cimport map_set as Map_set
 
-from .structs cimport IteratorC
 from .structs cimport FeatureC
 from .structs cimport ConstantsC
 
@@ -36,7 +35,7 @@ cdef void dot_plus__ELU(float** fwd, const float** weights_data,
         const len_t* shape, int nr_above) nogil:
     # Read the weights in, and advance the buffer
     W = weights_data[0]
-    bias = weights_data[shape[1] * shape[0]]
+    bias = weights_data[0] + shape[1] * shape[0]
     weights_data[0] += (shape[1] * shape[0]) + shape[1]
     # Linear
     MatVec.dot(fwd[1],
@@ -44,7 +43,7 @@ cdef void dot_plus__ELU(float** fwd, const float** weights_data,
     VecVec.add_i(fwd[1],
         bias, 1.0, shape[1])
     # Apply non-linearity
-    if nr_above >= 1:
+    if nr_above == 0:
         ELU(fwd[1],
             shape[1])
     else:
