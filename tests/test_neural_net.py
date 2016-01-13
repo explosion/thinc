@@ -29,7 +29,6 @@ def test_create():
 def test_fwd_bias():
     model = NeuralNet((2, 2), rho=0.0)
     
-    assert model.nr_weight == 6
     model.weights = [1.0] * model.nr_weight
 
     eg = model.predict_dense([0, 0])
@@ -39,34 +38,46 @@ def test_fwd_bias():
     syn = [1.,1.,1.,1.]
     bias = [100000.,1.]
     gamma = [0,0]
-    model.weights = syn + bias
-    model.weights = syn + bias
-    assert model.weights == list(syn + bias)
+    if model.nr_weight == len(syn) + len(bias):
+        model.weights = syn + bias
+        assert model.weights == list(syn + bias)
+    else:
+        model.weights = syn + bias + gamma
+        assert model.weights == list(syn + bias + gamma)
     eg = model.predict_dense([0, 0])
     assert_allclose(eg.scores, [1.0, 0.0])
 
     # Set bias for class 1
-    model.weights = syn + [1.,10000.0]
+    if model.nr_weight == 6:
+        model.weights = syn + [1.,10000.0]
+    else:
+        model.weights = syn + [1.,10000.0] + gamma
     eg = model.predict_dense([0,0])
     assert_allclose(eg.scores, [0.0, 1.0])
 
     # Set bias for both
-    model.weights = syn + [10000.0,10000.0]
+    if model.nr_weight == 6:
+        model.weights = syn + [10000.0,10000.0]
+    else:
+        model.weights = syn + [10000.0,10000.0] + gamma
     eg = model.predict_dense([0,0])
     assert_allclose(eg.scores, [0.5, 0.5])
 
 
 def test_fwd_linear():
-    model = NeuralNet((2,2), rho=0.0)
+    model = NeuralNet((2,2), rho=0.0, alpha=0.5)
     assert model.nr_out == 2
     assert model.widths == (2, 2)
 
     syn = [1.,0.,0.,1.]
     bias = [0.,0.]
-    gamma = [0.,0.]
-    beta = [0.,0.]
-    model.weights = syn+bias
-
+    gamma = [1.,1.]
+    if model.use_batch_norm:
+        model.weights = syn+bias+gamma
+    else:
+        model.weights = syn+bias
+    print(model.weights)
+    
     ff = [0,0]
     tf = [1,0]
     ft = [0,1]
@@ -85,6 +96,7 @@ def test_fwd_linear():
     assert_allclose(sum(eg.scores), [1.0])
 
     eg = model.predict_dense(tt)
+
     assert_allclose(eg.scores, [0.5, 0.5])
 
 
@@ -107,18 +119,26 @@ def test_xor_manual():
     # 1,1 --> neither fire
     #
 
-    model.weights = np.asarray([
-                [4.0, -10.0],   # A.0*in.0, A.0*in.1
-                [-10.0, 5.0], # A.1*in.0, A.1*in.1
-                [0.0, 0.0],     # A.0 bias, A.1 bias
-                #[1.0, 1.0],     # A.0 gamma, A.1 gamma
-                #[0.0, 0.0],     # A.0 beta, A.1 beta
-                [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-                [10.0, 10.0],   # out.1*A.0, out.1*A.1
-                [10.0, -10.0],   # out.0 bias, out.1 bias
-                #[1.0, 1.0],     # out.0 gamma, out.1 gamma
-                #[0.0, 0.0],     # out.0 beta, out.1 beta
-            ]).flatten()
+    if not model.use_batch_norm:
+        model.weights = np.asarray([
+                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
+                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
+                    [0.0, 0.0],     # A.0 bias, A.1 bias
+                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
+                    [10.0, -10.0],   # out.0 bias, out.1 bias
+                ]).flatten()
+    else:
+        model.weights = np.asarray([
+                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
+                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
+                    [0.0, 0.0],     # A.0 bias, A.1 bias
+                    [1.0, 1.0],     # A.0 gamma, A.1 gamma
+                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
+                    [10.0, -10.0],   # out.0 bias, out.1 bias
+                    [1.0, 1.0],     # out.0 gamma, out.1 gamma
+                ]).flatten()
 
     ff = [0,0]
     tf = [1,0]
@@ -181,13 +201,20 @@ def test_linear_bias(bias_data):
     assert model.nr_out == 2
     assert model.nr_layer == 2
     
-    bias0, bias1 = model.weights[-2:]
+    if not model.use_batch_norm:
+        bias0, bias1 = model.weights[-2:]
+    else:
+        bias0, bias1 = model.weights[-4:-2]
+
     assert bias0 == 0
     assert bias1 == 0
-    for _ in range(20):
+    for _ in range(10):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
-    bias0, bias1 = model.weights[-2:]
+    if not model.use_batch_norm:
+        bias0, bias1 = model.weights[-2:]
+    else:
+        bias0, bias1 = model.weights[-4:-2]
     assert bias1 > bias0
     acc = 0.0
     total = 0
@@ -209,13 +236,20 @@ def test_deep_bias(bias_data):
     assert model.nr_out == 2
     assert model.nr_layer > 2
     
-    bias0, bias1 = model.weights[-2:]
+    if not model.use_batch_norm:
+        bias0, bias1 = model.weights[-2:]
+    else:
+        bias0, bias1 = model.weights[-4:-2]
     assert bias0 == 0
     assert bias1 == 0
     for _ in range(20):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
-    bias0, bias1 = model.weights[-2:]
+    if not model.use_batch_norm:
+        bias0, bias1 = model.weights[-2:]
+    else:
+        bias0, bias1 = model.weights[-4:-2]
+ 
     assert bias1 > bias0
     acc = 0.0
     total = 0
@@ -232,18 +266,20 @@ def test_deep_bias(bias_data):
 def test_learn_linear(or_data):
     '''Test that a linear model can learn OR.'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd')
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd',
+                       alpha=0.8)
 
     assert model.nr_in == 2
     assert model.nr_out == 2
     assert model.nr_layer == 2
     
     # It takes about this many iterations, with the settings above.
-    for _ in range(50):
+    for _ in range(900):
         for feats, label, costs in or_data:
             eg = model.train_dense(feats, costs)
-            print(label, feats, eg.loss, eg.scores)
         random.shuffle(or_data)
+    for avg in model.averages:
+        print(avg)
     acc = 0.0
     for features, label, costs in or_data:
         eg = model.predict_dense(features)

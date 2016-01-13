@@ -27,7 +27,7 @@ cdef extern from "math.h" nogil:
     float sqrtf(float x)
 
 
-DEF EPS = 0.000001 
+DEF EPS = 0.00000001 
 DEF ALPHA = 1.0
 
 
@@ -89,9 +89,10 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
         const float* W, const len_t* shape, int nr_before, int nr_above,
         const ConstantsC* hp) nogil:
     # Read the bias and gamma terms from the weights data
-    bias = &W[shape[1] * shape[0]]
+
+    bias = W + shape[1] * shape[0]
     # Gamma is the normalization rescaling weights
-    gamma = &W[shape[1] * shape[0] + shape[1]]
+    gamma = bias + shape[1]
     # Read the E(x) and Var(x) estimates from 'averages'
     Ex = averages
     Vx = &averages[shape[1]]
@@ -100,9 +101,9 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
     # we compute in fwd[1][n...2n], and preserve for the backward pass.
     x_norm = &fwd[1][shape[1]]
     MatVec.dot(fwd[1],
-        fwd[0], W, shape[1], shape[0])
+        W, fwd[0], shape[1], shape[0])
     normalize(x_norm, Ex, Vx,
-        shape[1], hp.a)
+        fwd[1], shape[1], hp.a, hp.t)
     VecVec.mul(fwd[1],
         x_norm, gamma, shape[1])
     VecVec.add_i(fwd[1],
@@ -275,21 +276,30 @@ cdef void vanilla_sgd_update_step(float* weights, float* moments, float* gradien
         0, sizeof(gradient[0]) * nr_weight)
 
 
-cdef void normalize(float* x, float* Ex, float* Vx, len_t nr_x, float alpha) nogil:
+cdef void normalize(float* x_norm, float* Ex, float* Vx,
+        const float* x, len_t nr_x, float alpha, float time) nogil:
     # Upd EMA estimate of mean and variance
     # See eq at the end of this:
     # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
     cdef idx_t i
     cdef float diff
     cdef float incr
+    cdef float one = 1.0
     for i in range(nr_x):
         diff = x[i] - Ex[i]
         incr = alpha * diff
-        Vx[i] = (1.0 - alpha) * (Vx[i] + diff * incr)
+        Vx[i] = (one - alpha) * (Vx[i] + diff * incr)
         Ex[i] += incr
     # Normalize
-    for i in range(nr_x):
-        x[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
+    if True: #time < 10000:
+        for i in range(nr_x):
+            x_norm[i] = x[i]
+    else:
+        for i in range(nr_x):
+            if (x[i] - Ex[i]) == 0:
+                x_norm[i] = 0
+            else:
+                x_norm[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
 
 
 cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,

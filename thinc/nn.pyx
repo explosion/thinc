@@ -95,7 +95,7 @@ cdef class NN:
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
-            nn.averages[i] = <float*>mem.alloc(width, sizeof(nn.averages[i][0]))
+            nn.averages[i] = <float*>mem.alloc(width*4, sizeof(nn.averages[i][0]))
         nn.nr_weight = 0
         nn.nr_node = 0
         for i in range(nn.nr_layer-1):
@@ -117,6 +117,11 @@ cdef class NN:
                 constant_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
                     1.0, nn.widths[i+1])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        if USE_BATCH_NORM:
+            i = nn.nr_layer-2
+            constant_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
+                1.0, nn.widths[i+1])
+
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
@@ -140,7 +145,7 @@ cdef class NN:
     cdef void forward(float* scores, float** fwd, const NeuralNetC* nn) nogil:
         cdef const float* W = nn.weights
         for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i], nn.averages[i],
+            nn.feed_fwd(&fwd[i], nn.averages[i+1],
                 W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
@@ -236,7 +241,7 @@ cdef class NeuralNet:
                  update_step='adam'):
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step, eta, eps, mu, rho, bias, alpha)
-        self.eg = Example(self.widths)
+        self.eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
 
     def predict_example(self, Example eg):
         if eg.c.nr_feat != 0:
@@ -249,7 +254,7 @@ cdef class NeuralNet:
         return eg
 
     def predict_dense(self, features):
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
         eg.set_input(features)
         return self.predict_example(eg)
 
@@ -258,7 +263,7 @@ cdef class NeuralNet:
         return self.predict_example(eg)
     
     def train_dense(self, features, y):
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
         eg.set_input(features)
         eg.set_label(y)
         NN.train_example(&self.c, self.mem, &eg.c)
@@ -277,11 +282,15 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = Example(self.widths)
+        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
         eg.set_features(input_)
         if label is not None:
             eg.set_label(label)
         return eg
+
+    property use_batch_norm:
+        def __get__(self):
+            return USE_BATCH_NORM
 
     property weights:
         def __get__(self):
@@ -290,6 +299,10 @@ cdef class NeuralNet:
             assert len(weights) == self.c.nr_weight
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
+    property averages:
+        def __get__(self):
+            for i, width in enumerate(self.widths):
+                yield [self.c.averages[i][j] for j in range(width*4)]
 
     property layers:
         def __get__(self):
