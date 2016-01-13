@@ -105,7 +105,7 @@ cdef class NN:
             Embedding.init(&nn.embed, mem, vector_widths, features)
 
         W = nn.weights
-        for i in range(nn.nr_layer-1):
+        for i in range(nn.nr_layer-2):
             he_uniform_initializer(W,
                 nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
