@@ -107,7 +107,13 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
         x_norm, gamma, shape[1])
     VecVec.add_i(fwd[1],
         bias, 1.0, shape[1])
-    ELU(fwd[1], shape[1])
+    # Apply non-linearity
+    if nr_above >= 2:
+        ELU(fwd[1],
+            shape[1])
+    else:
+        softmax(fwd[1],
+            shape[1])
 
 
 cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averages,
