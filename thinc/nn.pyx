@@ -43,7 +43,7 @@ from .lvl0 cimport d_log_loss
 import numpy
 
 
-DEF USE_BATCH_NORM = False
+DEF USE_BATCH_NORM = True
 
 
 cdef class NN:
@@ -113,6 +113,9 @@ cdef class NN:
         for i in range(nn.nr_layer-2):
             he_uniform_initializer(W,
                 nn.widths[i+1] * nn.widths[i])
+            if USE_BATCH_NORM:
+                constant_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
+                    1.0, nn.widths[i+1])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
     
     @staticmethod
