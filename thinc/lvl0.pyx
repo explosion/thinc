@@ -73,14 +73,14 @@ cdef void dot_plus__residual__ELU(float** fwd, float* averages,
 cdef void d_ELU__dot(float* gradient, float** bwd, float* averages,
         const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    # Set the gradient for bwd[1] 
+    d_ELU(bwd[1],
+        fwd[1], shape[1])
+    # Set the gradient for F(W * fwd[0]) 
     MatMat.add_outer_i(gradient,
         bwd[1], fwd[0], shape[1], shape[0])
     VecVec.add_i(gradient + shape[1] * shape[0],
         bwd[1], 1.0, shape[1])
     # Set the partial derivative for bwd[0], so next step can set its gradient
-    d_ELU(bwd[1],
-        fwd[1], shape[1])
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
 
@@ -100,6 +100,7 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
     # An imporant intermediary result is the batch normed activation, which
     # we compute in fwd[1][n...2n], and preserve for the backward pass.
     x_norm = fwd[1] + shape[1]
+
     MatVec.dot(fwd[1],
         W, fwd[0], shape[1], shape[0])
     normalize(x_norm, Ex, Vx,
@@ -120,33 +121,35 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
 cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averages,
         const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    # Set the gradient for the layer's synapse weights
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    # Read the bias and gamma terms from the weights data
+    # D{ELU(BN(Lin(x)))} = ELU'(BN(Lin(x))) * BN'(Lin(x)) * Lin'(x)
+    d_ELU(bwd[1],
+        fwd[1], shape[1])
+    # At this point we have what the paper refers to as dE/dY. Set the gradient
+    # for the bias and gamma params now.
     bias = W + (shape[1] * shape[0])
     gamma = bias + shape[1]
-
+    x_norm = fwd[1] + shape[1]
+    gamma_grad = gradient + (shape[1] * shape[0]) + shape[1]
+    for i in range(shape[1]):
+        gamma_grad[i] += bwd[1][i] * x_norm[i]
+    VecVec.add_i(gradient + (shape[1] * shape[0]),
+        bwd[1], 1.0, shape[1])
+    # Now continue computing BN'. We transform dE/dY into dE/dX'.
+    # We have to transform it into dE/dX, so that we can calculate the gradient
+    # for our weights.
+    VecVec.mul_i(bwd[1],
+        gamma, shape[1])
     # Read the E(x), Var(x), E_dXh, E_dXh_dot_Xh estimates from 'averages'
     cdef const float* Ex = averages
     cdef const float* Vx = averages + shape[1]
     cdef float* E_dXh = averages + shape[1] * 2
     cdef float* E_dXh_Xh = averages + shape[1] * 3
-    
-    x_norm = fwd[1] + shape[1]
-    
-    d_ELU(bwd[1],
-        fwd[1], shape[1])
-    gamma_grad = gradient + (shape[1] * shape[0]) + shape[1]
-    for i in range(shape[1]):
-        gamma_grad[i] += bwd[1][i] * x_norm[i]
-    # Set the gradients for the bias and gamma weights
-    VecVec.add_i(gradient + (shape[1] * shape[0]),
-        bwd[1], 1.0, shape[1])
-    VecVec.mul_i(bwd[1],
-        gamma, shape[1])
     d_normalize(bwd[1], E_dXh, E_dXh_Xh,
         x_norm, Vx, shape[1], hp.a, hp.t)
+    # Finally we have dE/dX. Now we can calculate the gradient of W
+    MatMat.add_outer_i(gradient,
+        bwd[1], fwd[0], shape[1], shape[0])
+    # And calculate the error w.r.t the previous layer
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
    
