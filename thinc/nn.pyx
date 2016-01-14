@@ -60,12 +60,12 @@ cdef class NN:
         Pool mem,
             widths,
             embed=None,
+            class_priors=None,
             update_step='adam',
             float eta=0.005,
             float eps=1e-6,
             float mu=0.2,
             float rho=1e-4,
-            float bias=0.0,
             float alpha=0.5
     ) except *:
         if update_step == 'sgd':
@@ -118,6 +118,12 @@ cdef class NN:
                 he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
                     nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        cdef float bias
+        if class_priors:
+            W += nn.widths[nn.nr_layer-2] * nn.widths[nn.nr_layer-1]
+            for class_, bias in class_priors:
+                W[class_] = bias
+
         if USE_BATCH_NORM:
             i = nn.nr_layer-2
             he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
@@ -176,6 +182,7 @@ cdef class Embedding:
         # e.g., we might have a feature for this word, and a feature for next
         # word. These occupy different parts of the input vector, but draw
         # from the same embedding table.
+        self.nr = len(features)
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         for i, width in enumerate(vector_widths):
@@ -198,13 +205,16 @@ cdef class Embedding:
             const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
         for feat in features[:nr_feat]:
             emb = <const float*>Map_get(embed.weights[feat.i], feat.key)
-            VecVec.add_i(&out[embed.offsets[feat.i]], 
-                emb, feat.value, embed.lengths[feat.i])
+            if emb is not NULL:
+                VecVec.add_i(&out[embed.offsets[feat.i]], 
+                    emb, feat.value, embed.lengths[feat.i])
 
     @staticmethod
     cdef void insert_missing(Pool mem, EmbedC* embed,
             const FeatureC* features, len_t nr_feat) except *:
         for feat in features[:nr_feat]:
+            if feat.i >= embed.nr:
+                continue
             emb = <float*>Map_get(embed.weights[feat.i], feat.key)
             if emb is NULL:
                 emb = <float*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
@@ -236,11 +246,13 @@ cdef class NeuralNet:
     cdef readonly Example eg
     cdef NeuralNetC c
 
-    def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.99,
+    def __init__(self, widths, embed=None, class_priors=None,
+                 weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
+                 weight_t rho=1e-4, weight_t alpha=0.99,
                  update_step='adam'):
         self.mem = Pool()
-        NN.init(&self.c, self.mem, widths, embed, update_step, eta, eps, mu, rho, bias, alpha)
+        NN.init(&self.c, self.mem, widths, embed, class_priors, update_step,
+                eta, eps, mu, rho, alpha)
         self.eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
 
     def predict_example(self, Example eg):

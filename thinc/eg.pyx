@@ -53,10 +53,10 @@ cdef class Example:
             features = []
             for key, value in feats_dict.items():
                 if isinstance(key, int):
-                    table_id = 0
+                    slot = 0
                 else:
-                    table_id, key = key
-                features.append((table_id, key, value))
+                    slot, key = key
+                features.append((slot, key, value))
         cdef feat_t feat
         self.c.nr_feat = len(features)
         self.c.features = <FeatureC*>self.mem.alloc(self.c.nr_feat, sizeof(FeatureC))

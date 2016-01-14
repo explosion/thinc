@@ -11,8 +11,8 @@ ctypedef float weight_t
 
 
 # Copied from Shane Legg's Tokyo
-cdef extern from "cblas.h":
-
+#cdef extern from "cblas.h":
+cdef extern from "Accelerate/Accelerate.h":
     enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
     enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
     enum CBLAS_UPLO:      CblasUpper, CblasLower

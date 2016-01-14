@@ -45,6 +45,8 @@ class FeatureExtractor(object):
         word_slots = [1 for _ in self.word_context]
         tag_slots = [2 for _ in self.tag_context]
         self.slots = char_slots + word_slots + tag_slots
+        print(self.tables)
+        print(self.slots)
 
     @property
     def input_length(self):
@@ -56,18 +58,18 @@ class FeatureExtractor(object):
         if self.chars_per_word > 0:
             if len(word) > self.chars_per_word:
                 split = self.chars_per_word / 2
-                word = word[:split] + word[split:]
+                word = word[:split] + word[-split:]
                 assert len(word) == self.chars_per_word
             else:
                 word = word.ljust(self.chars_per_word, ' ')
             # Character features
-            features = [(0, ord(c), 1.0) for c in word]
+            features = [(len(features), ord(c), 1.0) for c in word]
         else:
             features = []
         for position in self.word_context:
-            features.append((1, self._intify(context[i+position]), 1.0))
+            features.append((len(features), self._intify(context[i+position]), 1.0))
         for position in self.tag_context:
-            features.append((2, self._intify(prev_tags[position]), 1.0))
+            features.append((len(features), self._intify(prev_tags[position]), 1.0))
         return features
     
     def _intify(self, string):
@@ -107,9 +109,12 @@ class Tagger(object):
         tags = DefaultList('') 
         context = START + [self._normalize(w) for w in words] + END
         inverted_classes = {i: tag for tag, i in self.classes.items()}
+        eg = self.model.Example([])
         for i, word in enumerate(words):
+            eg.wipe(self.model.widths)
             features = self.ex(i, word, context, tags)
-            eg = self.model.predict_sparse(features)
+            eg.set_features(features)
+            eg = self.model.predict_example(eg)
             tag = inverted_classes[eg.guess]
             tags.append(tag)
         return tags
@@ -122,12 +127,16 @@ class Tagger(object):
         ys = []
         inverted_classes = {i: tag for tag, i in self.classes.items()}
         loss = 0.0
+        eg = self.model.Example([])
         for i, word in enumerate(words):
             if tags[i] in ('ROOT', '<start>', None):
                 tag_history.append(tags[i])
                 continue
+            eg.wipe(self.model.widths)
             features = self.ex(i, word, context, tag_history)
-            eg = self.model.train_sparse(features, self.classes[tags[i]])
+            eg.set_features(features)
+            eg.set_label(self.classes[tags[i]])
+            eg = self.model.train_example(eg)
             tag_history.append(inverted_classes[eg.guess])
             loss += eg.loss
         return loss
@@ -238,8 +247,9 @@ def main(model_dir, train_loc, heldout_gold,
     if not os.path.exists(model_dir):
         os.mkdir(model_dir)
 
-    word_context = [-i for i in range(left_words+1)] + [i for i in range(right_words)]
+    word_context = [-(i+1) for i in range(left_words)] + [0] + [i+1 for i in range(right_words)]
     tag_context = [-i for i in range(left_tags)]
+    print("Word context", word_context)
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     tagger = Tagger(depth,
                 FeatureExtractor(
