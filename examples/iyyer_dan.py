@@ -59,15 +59,23 @@ class Extractor(object):
         self.dropout = dropout
         self.vocab = {}
 
-    def __call__(self, text, dropout=True):
+    def __call__(self, text, dropout=True, bigrams=False):
         doc = preprocess(text)
         dropout = self.dropout if dropout is True else 0.0
         bow = defaultdict(float)
         all_words = defaultdict(float)
+        prev = None
         for word in doc:
             id_ = self.vocab.setdefault(word, len(self.vocab) + 1)
             if numpy.random.random() >= dropout and word.isalpha():
                 bow[id_] += 1
+                if bigrams and prev is not None:
+                    bi = self.vocab.setdefault(prev+'_'+word, len(self.vocab) + 1)
+                    bow[bi] += 1
+                    all_words[bi] += 1
+                prev = word
+            else:
+                prev = None
             all_words[id_] += 1
         if sum(bow.values()) < 1:
             bow = all_words
