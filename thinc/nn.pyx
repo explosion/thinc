@@ -66,7 +66,7 @@ cdef class NN:
             float mu=0.2,
             float rho=1e-4,
             float bias=0.0,
-            float alpha=0.0
+            float alpha=0.5
     ) except *:
         if update_step == 'sgd':
             nn.update = vanilla_sgd_update_step
@@ -115,14 +115,13 @@ cdef class NN:
             he_uniform_initializer(W,
                 nn.widths[i+1] * nn.widths[i])
             if USE_BATCH_NORM:
-                constant_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
-                    1.0, nn.widths[i+1])
+                he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
+                    nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         if USE_BATCH_NORM:
             i = nn.nr_layer-2
-            constant_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
-                1.0, nn.widths[i+1])
-
+            he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
+                nn.widths[i+1] * nn.widths[i])
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
@@ -162,7 +161,7 @@ cdef class NN:
         for i in range(nn.nr_layer-2, -1, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i], nn.averages[i],
+            nn.feed_bwd(G, &bwd[i], nn.averages[i+1],
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
 
 
@@ -238,7 +237,7 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.0,
+                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.2,
                  update_step='adam'):
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step, eta, eps, mu, rho, bias, alpha)

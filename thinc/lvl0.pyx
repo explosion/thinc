@@ -123,30 +123,30 @@ cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averag
     # Set the gradient for the layer's synapse weights
     MatMat.add_outer_i(gradient,
         bwd[1], fwd[0], shape[1], shape[0])
-    # Set the gradients for the bias and gamma weights
-    VecVec.add_i(gradient + (shape[1] * shape[0]),
-        bwd[1], 1.0, shape[1])
     # Read the bias and gamma terms from the weights data
     bias = W + (shape[1] * shape[0])
     gamma = bias + shape[1]
 
     # Read the E(x), Var(x), E_dXh, E_dXh_dot_Xh estimates from 'averages'
     cdef const float* Ex = averages
-    cdef const float* Vx = &averages[shape[1]]
-    cdef float* E_dXh = &averages[shape[1] * 2]
-    cdef float* E_dXh_Xh = &averages[shape[1] * 2]
+    cdef const float* Vx = averages + shape[1]
+    cdef float* E_dXh = averages + shape[1] * 2
+    cdef float* E_dXh_Xh = averages + shape[1] * 3
     
     x_norm = fwd[1] + shape[1]
     
     d_ELU(bwd[1],
         fwd[1], shape[1])
     gamma_grad = gradient + (shape[1] * shape[0]) + shape[1]
-    #for i in range(shape[1]):
-    #    gamma_grad[i] += bwd[1][i] * x_norm[i]
+    for i in range(shape[1]):
+        gamma_grad[i] += bwd[1][i] * x_norm[i]
+    # Set the gradients for the bias and gamma weights
+    VecVec.add_i(gradient + (shape[1] * shape[0]),
+        bwd[1], 1.0, shape[1])
     VecVec.mul_i(bwd[1],
         gamma, shape[1])
-    #d_normalize(bwd[1], E_dXh, E_dXh_Xh,
-    #    x_norm, Vx, shape[1], hp.a)
+    d_normalize(bwd[1], E_dXh, E_dXh_Xh,
+        x_norm, Vx, shape[1], hp.a, hp.t)
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
    
@@ -292,7 +292,7 @@ cdef void normalize(float* x_norm, float* Ex, float* Vx,
         Vx[i] = (one - alpha) * (Vx[i] + diff * incr)
         Ex[i] += incr
     # Normalize
-    if True: #time < 1000:
+    if time < 100:
         for i in range(nr_x):
             x_norm[i] = x[i]
     else:
@@ -304,7 +304,7 @@ cdef void normalize(float* x_norm, float* Ex, float* Vx,
 
 
 cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
-        const float* Xh, const float* Vx, len_t n, float alpha) nogil:
+        const float* Xh, const float* Vx, len_t n, float alpha, float time) nogil:
     # Update EMA estimate of mean(dL/dX_hat)
     Vec.mul_i(E_dEdXh,
         alpha, n)
@@ -321,8 +321,7 @@ cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
     #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
     #     ./ sqrt(var(X) + eps)
     # bwd is dE/dXh to start with. We change it to dE/dX in-place.
-    for i in range(n):
-        bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
-        bwd[i] /= sqrtf(Vx[i] + EPS)
-
-
+    if time >= 100:
+        for i in range(n):
+            bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
+            bwd[i] /= sqrtf(Vx[i] + EPS)
