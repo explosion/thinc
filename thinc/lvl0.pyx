@@ -99,7 +99,7 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
     # We write our output in fwd[1][0...n]
     # An imporant intermediary result is the batch normed activation, which
     # we compute in fwd[1][n...2n], and preserve for the backward pass.
-    x_norm = &fwd[1][shape[1]]
+    x_norm = fwd[1] + shape[1]
     MatVec.dot(fwd[1],
         W, fwd[0], shape[1], shape[0])
     normalize(x_norm, Ex, Vx,
@@ -123,9 +123,12 @@ cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averag
     # Set the gradient for the layer's synapse weights
     MatMat.add_outer_i(gradient,
         bwd[1], fwd[0], shape[1], shape[0])
+    # Set the gradients for the bias and gamma weights
+    VecVec.add_i(gradient + (shape[1] * shape[0]),
+        bwd[1], 1.0, shape[1])
     # Read the bias and gamma terms from the weights data
-    bias = &W[shape[1] * shape[0]]
-    gamma = &W[shape[1] * shape[0] + shape[1]]
+    bias = W + (shape[1] * shape[0])
+    gamma = bias + shape[1]
 
     # Read the E(x), Var(x), E_dXh, E_dXh_dot_Xh estimates from 'averages'
     cdef const float* Ex = averages
@@ -133,19 +136,17 @@ cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averag
     cdef float* E_dXh = &averages[shape[1] * 2]
     cdef float* E_dXh_Xh = &averages[shape[1] * 2]
     
-    x_norm = &fwd[1][shape[1]]
+    x_norm = fwd[1] + shape[1]
     
     d_ELU(bwd[1],
         fwd[1], shape[1])
-    # Set the gradients for the normalization weights
-    VecVec.add_i(gradient + (shape[1] * shape[0]),
-        bwd[1], 1.0, shape[1])
-    for i in range(shape[1]):
-        gradient[shape[1] * shape[0] + shape[1] + i] += bwd[1][i] * x_norm[i]
+    gamma_grad = gradient + (shape[1] * shape[0]) + shape[1]
+    #for i in range(shape[1]):
+    #    gamma_grad[i] += bwd[1][i] * x_norm[i]
     VecVec.mul_i(bwd[1],
         gamma, shape[1])
-    d_normalize(bwd[1], E_dXh, E_dXh_Xh,
-        x_norm, Vx, shape[1], hp.a)
+    #d_normalize(bwd[1], E_dXh, E_dXh_Xh,
+    #    x_norm, Vx, shape[1], hp.a)
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
    
@@ -291,7 +292,7 @@ cdef void normalize(float* x_norm, float* Ex, float* Vx,
         Vx[i] = (one - alpha) * (Vx[i] + diff * incr)
         Ex[i] += incr
     # Normalize
-    if True: #time < 10000:
+    if True: #time < 1000:
         for i in range(nr_x):
             x_norm[i] = x[i]
     else:
