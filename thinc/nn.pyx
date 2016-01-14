@@ -43,7 +43,7 @@ from .lvl0 cimport d_log_loss
 import numpy
 
 
-DEF USE_BATCH_NORM = True
+DEF USE_BATCH_NORM = False
 
 
 cdef class NN:
@@ -80,7 +80,7 @@ cdef class NN:
             nn.feed_fwd = dot__normalize__dot_plus__ELU
             nn.feed_bwd = d_ELU__dot__normalize__dot
         else:
-            nn.feed_fwd = dot_plus__ELU
+            nn.feed_fwd = dot_plus__residual__ELU
             nn.feed_bwd = d_ELU__dot
 
         nn.hp.t = 0
@@ -237,7 +237,7 @@ cdef class NeuralNet:
     cdef NeuralNetC c
 
     def __init__(self, widths, embed=None, weight_t eta=0.005, weight_t eps=1e-6,
-                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.2,
+                 weight_t mu=0.2, weight_t rho=1e-4, weight_t bias=0.0, weight_t alpha=0.99,
                  update_step='adam'):
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step, eta, eps, mu, rho, bias, alpha)
