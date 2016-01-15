@@ -85,7 +85,6 @@ cdef class NN:
 
         nn.hp.t = 0
         nn.hp.a = alpha
-        nn.hp.b = bias
         nn.hp.r = rho
         nn.hp.m = mu
         nn.hp.e = eta

@@ -176,14 +176,14 @@ cdef class VecVec:
         VecVec.add_i(output, y, scale, nr)
    
     @staticmethod
-    cdef inline void add_i(weight_t* x, 
-                           const weight_t* y,
-                           weight_t scale,
+    cdef inline void add_i(float* x, 
+                           const float* y,
+                           float scale,
                            int32_t nr) nogil:
         cblas_saxpy(nr, scale, y, 1, x, 1)
         #cdef int i
         #for i in range(nr):
-        #    x[i] += y[i] * scale
+        #    x[i] += y[i] #* scale
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,

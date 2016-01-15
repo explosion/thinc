@@ -35,11 +35,8 @@ cdef void dot_plus__ELU(float** fwd, float* averages,
         const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
-    # Linear
-    MatVec.dot(fwd[1],
-        W, fwd[0], shape[1], shape[0])
-    VecVec.add_i(fwd[1],
-        bias, 1.0, shape[1])
+    dot_plus(fwd[1],
+        bias, shape[1], fwd[0], shape[0], W)
     # Apply non-linearity
     if nr_above >= 2:
         ELU(fwd[1],
@@ -53,11 +50,8 @@ cdef void dot_plus__residual__ELU(float** fwd, float* averages,
         const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
-    # Linear
-    MatVec.dot(fwd[1],
-        W, fwd[0], shape[1], shape[0])
-    VecVec.add_i(fwd[1],
-        bias, 1.0, shape[1])
+    dot_plus(fwd[1],
+        bias, shape[1], fwd[0], shape[0], W)
     if nr_below >= 1 and shape[-1] == shape[1]:
         VecVec.add_i(fwd[1],
             fwd[-1], 1.0, shape[1])
@@ -152,7 +146,28 @@ cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averag
     # And calculate the error w.r.t the previous layer
     MatVec.T_dot(bwd[0],
         W, bwd[1], shape[1], shape[0])
-   
+
+
+cdef void dot_plus(float* out,
+        const float* bias, len_t nr_out,
+        const float* x, len_t nr_in,
+        const float* W) nogil:
+    MatVec.dot(out,
+        W, x, nr_out, nr_in)
+    cdef float one = 1.0
+    if bias is not NULL:
+        VecVec.add_i(out,
+            bias, one, nr_out)
+
+
+cdef void d_dot(float* btm_diff,
+        int nr_btm,
+        const float* top_diff, int nr_top,
+        const float* W) nogil:
+    # And calculate the error w.r.t the previous layer
+    MatVec.T_dot(btm_diff,
+        W, top_diff, nr_top, nr_btm)
+ 
 
 cdef void ELU(float* out, len_t nr_out) nogil:
     cdef idx_t i

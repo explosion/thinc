@@ -363,7 +363,6 @@ def test_xor_deep(xor_data):
     linear = NeuralNet((2,2), rho=0.0000, eta=0.1, update_step='sgd')
     small = NeuralNet((2,2,2), rho=0.0000, eta=0.1, update_step='sgd')
     big = NeuralNet((2,2,2,2,2,2), rho=0.0000, eta=0.1, update_step='sgd')
-    print(big.weights)
     for _ in range(1000):
         for i, (features, label, costs) in enumerate(xor_data):
             ln = linear.train_dense(features, costs)
