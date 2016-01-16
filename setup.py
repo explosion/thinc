@@ -42,7 +42,8 @@ def cython_ext(mod_name, language, includes, compile_args):
     if language == 'cpp':
         language = 'c++'
     ext = Extension(mod_name, [mod_path], language=language, include_dirs=includes,
-                    extra_compile_args=compile_args, libraries=['cblas'])
+                    extra_compile_args=compile_args,
+                    extra_link_args=['-Wl,-framework', '-Wl,Accelerate'])
     return Cython.Build.cythonize([ext])[0]
 
 
@@ -71,12 +72,13 @@ def main(modules, use_cython):
     language = "cpp"
     ext_func = cython_ext if use_cython else c_ext
     includes = ['.', path.join(sys.prefix, 'include')]
-    compile_args = ['-O3', '-Wno-unused-function']
+    compile_args = ['-frounding-math', '-fsignaling-nans', '-Wno-unused-function']
     exts = [ext_func(mn, language, includes, compile_args) for mn in modules]
     run_setup(exts)
 
 
-MOD_NAMES = ['thinc.blas', 'thinc.lvl0', 'thinc.nn', 'thinc.eg']
+MOD_NAMES = ['thinc.blas', 'thinc.lvl0', 'thinc.nn', 'thinc.eg',
+             'thinc.tests._funcs_shim', 'thinc.tests._backprop_shim']
 #MOD_NAMES = ['thinc.api', "thinc.features", "thinc.model", "thinc.update",
 #             'thinc.blas', 'thinc.layer', 'thinc.nn',
 #             'thinc.sparse', 'thinc.search', 'thinc.cache',

@@ -86,6 +86,7 @@ cdef class LinearModel(Model):
         cdef feat_t feat_id
         cdef SparseArrayC* feature
         cdef _Reader reader = _Reader(loc)
+        cdef int i = 0
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
         return reader._nr_class

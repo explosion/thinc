@@ -46,6 +46,21 @@ cdef void dot_plus__ELU(float** fwd, float* averages,
             shape[1])
  
 
+cdef void dot_plus__ReLu(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
+        const ConstantsC* hp) nogil:
+    bias = W + shape[1] * shape[0]
+    dot_plus(fwd[1],
+        bias, shape[1], fwd[0], shape[0], W)
+    # Apply non-linearity
+    if nr_above >= 2:
+        ReLu(fwd[1],
+            shape[1])
+    else:
+        softmax(fwd[1],
+            shape[1])
+ 
+
 cdef void dot_plus__residual__ELU(float** fwd, float* averages,
         const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
@@ -68,6 +83,21 @@ cdef void d_ELU__dot(float* gradient, float** bwd, float* averages,
         const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
     d_ELU(bwd[1],
+        fwd[1], shape[1])
+    # Set the gradient for F(W * fwd[0]) 
+    MatMat.add_outer_i(gradient,
+        bwd[1], fwd[0], shape[1], shape[0])
+    VecVec.add_i(gradient + shape[1] * shape[0],
+        bwd[1], 1.0, shape[1])
+    # Set the partial derivative for bwd[0], so next step can set its gradient
+    MatVec.T_dot(bwd[0],
+        W, bwd[1], shape[1], shape[0])
+
+
+cdef void d_ReLu__dot(float* gradient, float** bwd, float* averages,
+        const float* W, const float* const* fwd, const len_t* shape,
+        int nr_above, int nr_below, const ConstantsC* hp) nogil:
+    d_ReLu(bwd[1],
         fwd[1], shape[1])
     # Set the gradient for F(W * fwd[0]) 
     MatMat.add_outer_i(gradient,
@@ -181,8 +211,24 @@ cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
     # Note that this is over the function _output_, not the function
     # _input_!
     for i in range(n):
-        if signal_out[i] < 0:
+        if signal_out[i] <= 0:
             delta[i] *= signal_out[i] + ALPHA
+
+
+cdef void ReLu(float* out, len_t nr_out) nogil:
+    cdef idx_t i
+    for i in range(nr_out):
+        if out[i] < 0:
+            out[i] = 0
+
+
+cdef void d_ReLu(float* delta, const float* signal_out, int n) nogil:
+    # Backprop the ELU transformation
+    # Note that this is over the function _output_, not the function
+    # _input_!
+    for i in range(n):
+        if signal_out[i] <= 0:
+            delta[i] = 0
 
 
 cdef void softmax(float* out, len_t nr_out) nogil:
