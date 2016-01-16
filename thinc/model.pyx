@@ -1,5 +1,7 @@
+cimport cython
 from os import path
 from cpython.mem cimport PyMem_Free, PyMem_Malloc
+from cpython.exc cimport PyErr_CheckSignals
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
@@ -47,6 +49,7 @@ cdef class LinearModel(Model):
     def __call__(self, Example eg):
         self.set_scores(eg.c.scores, eg.c.features, eg.c.nr_feat)
         eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
+        PyErr_CheckSignals()
 
     cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
@@ -70,6 +73,7 @@ cdef class LinearModel(Model):
                     scores[class_weights[j].key] += class_weights[j].val * feat.val
                     j += 1
     
+    @cython.cdivision(True)
     def dump(self, nr_class, loc):
         cdef:
             feat_t key
@@ -80,14 +84,21 @@ cdef class LinearModel(Model):
         for i, (key, feat_addr) in enumerate(self.weights.items()):
             if feat_addr != 0:
                 writer.write(key, <SparseArrayC*>feat_addr)
+            if i % 1000 == 0:
+                PyErr_CheckSignals()
         writer.close()
 
+    @cython.cdivision(True)
     def load(self, loc):
         cdef feat_t feat_id
         cdef SparseArrayC* feature
         cdef _Reader reader = _Reader(loc)
+        cdef int i = 0
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
+            if i % 1000 == 0:
+                PyErr_CheckSignals()
+            i += 1
         return reader._nr_class
 
 
@@ -156,7 +167,7 @@ cdef class _Reader:
         cdef feat_t feat_id
         cdef int32_t length
 
-        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
+        cdef int status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
         if status == 0:
             return 0
         assert status
@@ -169,9 +180,11 @@ cdef class _Reader:
         cdef int i
         for i in range(length):
             status = fread(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
-            assert status
+            if not status:
+                raise IOError("Error reading statistical model")
             status = fread(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
-            assert status
+            if not status:
+                raise IOError("Error reading statistical model")
 
         # Trust We allocated correctly above
         feat[length].key = -2 # Indicates end of memory region
