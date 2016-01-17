@@ -58,11 +58,11 @@ class FeatureExtractor(object):
         if self.chars_per_word > 0:
             if len(word) > self.chars_per_word:
                 split = self.chars_per_word / 2
-                word = word[:split] + word[-split:]
+                word = word[:split+1] + word[-split:]
             else:
                 word = word.ljust(self.chars_per_word, ' ')
             # Character features
-            assert len(word) == self.chars_per_word
+            assert len(word) == self.chars_per_word, repr(word)
             features = [(len(features), ord(c), 1.0) for c in word]
         else:
             features = []
@@ -81,8 +81,40 @@ class FeatureExtractor(object):
             return i
 
 
+class CharacterExtracter(object):
+    def __init__(self, chars_per_word=10, char_width=5, nr_left=1, nr_right=1):
+        self.char_width = char_width
+        self.chars_per_word = chars_per_word
+        self.nr_right = nr_right
+        self.nr_left = nr_left
+        self.word_context = [-(i+1) for i in range(nr_left)] + [0] + [i+1 for i in range(nr_right)]
+        self.strings = {}
+        self.tables = (self.char_width,)
+        self.slots = []
+        for _ in self.word_context:
+            self.slots.extend([0] * self.chars_per_word)
+ 
+    @property
+    def input_length(self):
+        return self.char_width * self.chars_per_word * (1 + self.nr_left + self.nr_right)
+
+    def __call__(self, i, word, context, prev_tags):
+        i += len(START)
+        features = []
+        for position in self.word_context:
+            word = context[i+position]
+            if len(word) > self.chars_per_word:
+                split = self.chars_per_word / 2
+                word = word[:split+1] + word[-split:]
+            else:
+                word = word.ljust(self.chars_per_word, ' ')
+            for c in word:
+                features.append((len(features), ord(c), 1.0 if c != ' ' else 0))
+        return features
+ 
+
 class Tagger(object):
-    def __init__(self, depth, extractor, learn_rate=0.01, L2=1e6, solver='adam',
+    def __init__(self, depth, hidden_width, extractor, learn_rate=0.01, L2=1e6, solver='adam',
         classes=None, load=False):
         self.ex = extractor
         self.tagdict = {}
@@ -91,6 +123,7 @@ class Tagger(object):
         else:
             self.classes = {}
         self.depth = depth
+        self.hidden_width = hidden_width
         self.learn_rate = learn_rate
         self.L2 = L2
         self.solver = solver
@@ -99,15 +132,16 @@ class Tagger(object):
     def start_training(self, sentences):
         self._make_tagdict(sentences)
         input_length = self.ex.input_length
+        widths = [input_length] + [self.hidden_width] * self.depth + [len(self.classes)]
         self.model = NeuralNet(
-            (input_length,) * self.depth +  (len(self.classes),),
+            widths,
             embed=(self.ex.tables, self.ex.slots),
             rho=self.L2, eta=self.learn_rate, update_step=self.solver)
         print(self.model.widths)
     
     def tag(self, words):
         tags = DefaultList('') 
-        context = START + [self._normalize(w) for w in words] + END
+        context = START + [w for w in words] + END
         inverted_classes = {i: tag for tag, i in self.classes.items()}
         eg = self.model.Example([])
         for i, word in enumerate(words):
@@ -129,9 +163,6 @@ class Tagger(object):
         loss = 0.0
         eg = self.model.Example([])
         for i, word in enumerate(words):
-            if tags[i] in ('ROOT', '<start>', None):
-                tag_history.append(tags[i])
-                continue
             eg.wipe(self.model.widths)
             features = self.ex(i, word, context, tag_history)
             eg.set_features(features)
@@ -184,13 +215,15 @@ def train(tagger, sentences, nr_iter=100):
     sentences = list(sentences)
     random.shuffle(sentences)
     partition = int(len(sentences) / 10)
-    train_sents = sentences[:partition]
-    dev_sents = sentences[partition:]
+    train_sents = sentences[partition:]
+    dev_sents = sentences[:partition]
     tagger.start_training(sentences)
     for itn in range(nr_iter):
         loss = 0
+        nr_words = 0
         for words, gold_tags, _, _1 in train_sents:
             loss += tagger.train_one(words, gold_tags)
+            nr_words += len(words)
         corr = 0.0
         total = 1e-6
         for words, gold_tags, _, _1 in dev_sents:
@@ -200,11 +233,11 @@ def train(tagger, sentences, nr_iter=100):
                 if gold not in ('ROOT', '<start>', None):
                     corr += guess == gold
                     total += 1
-        print itn, '%.3f' % loss, '%.3f' % (corr / total)
+        print itn, '%.3f' % (loss / nr_words), '%.3f' % (corr / total)
         print(' '.join('%s/%s' % (w, t) for w, t in zip(words, guesses)))
-        print(' '.join('%s/%s' % (w, t) for w, t in zip(words, gold_tags)))
-        for i, (w, b) in enumerate(tagger.model.layers):
-            print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
+        #print(' '.join('%s/%s' % (w, t) for w, t in zip(words, gold_tags)))
+        #for i, (w, b) in enumerate(tagger.model.layers):
+        #    print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
  
         random.shuffle(train_sents)
         # Just a lazy way to be printing a different dev sent each iteration
@@ -212,6 +245,7 @@ def train(tagger, sentences, nr_iter=100):
 
 
 def read_conll(loc):
+    n = 0
     for sent_str in open(loc).read().strip().split('\n\n'):
         lines = [line.split() for line in sent_str.split('\n')]
         words = DefaultList(''); tags = DefaultList('')
@@ -222,11 +256,15 @@ def read_conll(loc):
             heads.append(int(head) if head != '0' else len(lines) + 1)
             labels.append(label)
         yield words, tags, heads, labels
+        #n += 1
+        #if n >= 500:
+        #    break
 
 
 @plac.annotations(
     nr_iter=("Number of iterations", "option", "i", int),
     depth=("Number of hidden layers", "option", "d", int),
+    hidden_width=("Number of dimensions for hidden layers", "option", "D", int),
     learn_rate=("Number of hidden layers", "option", "e", float),
     L2=("L2 regularization penalty", "option", "r", float),
     solver=("Optimization algorithm","option", "s", str),
@@ -240,6 +278,7 @@ def read_conll(loc):
 )
 def main(model_dir, train_loc, heldout_gold,
          depth=2, L2=1e-6, learn_rate=0.01, solver="adam",
+         hidden_width=100,
          word_width=10, char_width=5, tag_width=5,
          chars_per_word=0,
          left_words=2, right_words=2, left_tags=2,
@@ -251,11 +290,12 @@ def main(model_dir, train_loc, heldout_gold,
     tag_context = [-i for i in range(left_tags)]
     print("Word context", word_context)
     input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
-    tagger = Tagger(depth,
-                FeatureExtractor(
-                    char_width, word_width, tag_width,
-                    chars_per_word,
-                    word_context, tag_context),
+    ex = FeatureExtractor(char_width, word_width, tag_width,
+                          chars_per_word,
+                          word_context, tag_context)
+    #ex = CharacterExtracter(char_width=char_width, chars_per_word=chars_per_word,
+    #                        nr_left=left_words, nr_right=right_words)
+    tagger = Tagger(depth, hidden_width, ex,
                 learn_rate=learn_rate,
                 solver=solver,
                 L2=L2,
