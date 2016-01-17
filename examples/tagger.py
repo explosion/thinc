@@ -13,8 +13,8 @@ random.seed(0)
 from thinc.nn import NeuralNet
 
 
-START = ['-START-', '-START2-']
-END = ['-END-', '-END2-']
+START = ['-START-'] * 5
+END = ['-END-'] * 5
 
 
 class DefaultList(list):
@@ -59,10 +59,10 @@ class FeatureExtractor(object):
             if len(word) > self.chars_per_word:
                 split = self.chars_per_word / 2
                 word = word[:split] + word[-split:]
-                assert len(word) == self.chars_per_word
             else:
                 word = word.ljust(self.chars_per_word, ' ')
             # Character features
+            assert len(word) == self.chars_per_word
             features = [(len(features), ord(c), 1.0) for c in word]
         else:
             features = []
