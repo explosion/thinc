@@ -183,48 +183,39 @@ cdef class VecVec:
         cblas_saxpy(nr, scale, y, 1, x, 1)
         #cdef int i
         #for i in range(nr):
-        #    x[i] += y[i] #* scale
+        #    x[i] += y[i] * scale
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,
-                         const weight_t* x, 
-                         const weight_t* y,
-                         weight_t power,
-                         int32_t nr) nogil:
+            const weight_t* x, const weight_t* y, weight_t power, int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
         VecVec.add_pow_i(output, y, power, nr)
 
    
     @staticmethod
     cdef inline void add_pow_i(weight_t* x, 
-                               const weight_t* y,
-                               weight_t power,
-                               int32_t nr) nogil:
+            const weight_t* y, weight_t power, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
             x[i] += y[i] ** power
  
     @staticmethod
     cdef inline void mul(weight_t* output,
-                         const weight_t* x, 
-                         const weight_t* y,
-                         int32_t nr) nogil:
+            const weight_t* x, const weight_t* y, int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
         VecVec.mul_i(output, y, nr)
    
     @staticmethod
     cdef inline void mul_i(weight_t* x, 
-                           const weight_t* y,
-                           int32_t nr) nogil:
+            const weight_t* y, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
             x[i] *= y[i]
 
  
     @staticmethod
-    cdef inline weight_t dot(const weight_t* x, 
-                             const weight_t* y,
-                             int32_t nr) nogil:
+    cdef inline weight_t dot(
+            const weight_t* x, const weight_t* y, int32_t nr) nogil:
         cdef int i
         cdef weight_t total = 0
         for i in range(nr):
@@ -232,8 +223,8 @@ cdef class VecVec:
         return total
  
     @staticmethod
-    cdef inline int arg_max_if_true(const weight_t* scores, const int* is_valid,
-                                    const int n_classes) nogil:
+    cdef inline int arg_max_if_true(
+            const weight_t* scores, const int* is_valid, const int n_classes) nogil:
         cdef int i
         cdef int best = 0
         cdef weight_t mode = -900000
@@ -244,8 +235,8 @@ cdef class VecVec:
         return best
 
     @staticmethod
-    cdef inline int arg_max_if_zero(const weight_t* scores, const weight_t* costs,
-                                    const int n_classes) nogil:
+    cdef inline int arg_max_if_zero(
+            const weight_t* scores, const weight_t* costs, const int n_classes) nogil:
         cdef int i
         cdef int best = 0
         cdef weight_t mode = -900000
