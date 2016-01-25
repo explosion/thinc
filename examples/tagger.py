@@ -58,7 +58,7 @@ class FeatureExtractor(object):
         if self.chars_per_word > 0:
             if len(word) > self.chars_per_word:
                 split = self.chars_per_word / 2
-                word = word[:split+1] + word[-split:]
+                word = word[:split] + word[-split:]
             else:
                 word = word.ljust(self.chars_per_word, ' ')
             # Character features
@@ -224,25 +224,22 @@ def train(tagger, sentences, nr_iter=100):
         for words, gold_tags, _, _1 in train_sents:
             loss += tagger.train_one(words, gold_tags)
             nr_words += len(words)
-        corr = 0.0
-        total = 1e-6
-        for words, gold_tags, _, _1 in dev_sents:
-            guesses = tagger.tag(words)
-            assert len(gold_tags) == len(guesses)
-            for guess, gold in zip(gold_tags, guesses):
-                if gold not in ('ROOT', '<start>', None):
-                    corr += guess == gold
-                    total += 1
-        print itn, '%.3f' % (loss / nr_words), '%.3f' % (corr / total)
-        print(' '.join('%s/%s' % (w, t) for w, t in zip(words, guesses)))
-        #print(' '.join('%s/%s' % (w, t) for w, t in zip(words, gold_tags)))
-        #for i, (w, b) in enumerate(tagger.model.layers):
-        #    print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
- 
+        acc = evaluate(tagger, dev_sents)
+        print itn, '%.3f' % (loss / nr_words), '%.3f' % acc
         random.shuffle(train_sents)
-        # Just a lazy way to be printing a different dev sent each iteration
-        random.shuffle(dev_sents) 
 
+
+def evaluate(tagger, sentences):
+    corr = 0.0
+    total = 1e-6
+    for words, gold_tags, _, _1 in sentences:
+        guesses = tagger.tag(words)
+        assert len(gold_tags) == len(guesses)
+        for guess, gold in zip(gold_tags, guesses):
+            corr += guess == gold
+            total += 1
+    return corr / total
+ 
 
 def read_conll(loc):
     n = 0
@@ -250,15 +247,16 @@ def read_conll(loc):
         lines = [line.split() for line in sent_str.split('\n')]
         words = DefaultList(''); tags = DefaultList('')
         heads = [None]; labels = [None]
-        for i, (word, pos, head, label) in enumerate(lines):
+        for i, pieces in enumerate(lines):
+            if len(pieces) == 4:
+                word, pos, head, label = pieces
+            else:
+                idx, word, lemma, pos1, pos, morph, head, label, _, _2 = pieces
             words.append(intern(word))
             tags.append(intern(pos))
             heads.append(int(head) if head != '0' else len(lines) + 1)
             labels.append(label)
         yield words, tags, heads, labels
-        #n += 1
-        #if n >= 500:
-        #    break
 
 
 @plac.annotations(
@@ -276,7 +274,7 @@ def read_conll(loc):
     right_words=("Number of words from the following context", "option", "R", int),
     left_tags=("Number of tags from the preceding context", "option", "T", int),
 )
-def main(model_dir, train_loc, heldout_gold,
+def main(model_dir, train_loc, dev_loc,
          depth=2, L2=1e-6, learn_rate=0.01, solver="adam",
          hidden_width=100,
          word_width=10, char_width=5, tag_width=5,
@@ -289,7 +287,6 @@ def main(model_dir, train_loc, heldout_gold,
     word_context = [-(i+1) for i in range(left_words)] + [0] + [i+1 for i in range(right_words)]
     tag_context = [-i for i in range(left_tags)]
     print("Word context", word_context)
-    input_sents = [words for words, tags, labels, heads in read_conll(heldout_gold)]
     ex = FeatureExtractor(char_width, word_width, tag_width,
                           chars_per_word,
                           word_context, tag_context)
@@ -302,6 +299,7 @@ def main(model_dir, train_loc, heldout_gold,
                 load=False)
     sentences = list(read_conll(train_loc))
     train(tagger, sentences, nr_iter=nr_iter)
+    print evaluate(tagger, list(read_conll(dev_loc)))
 
 
 if __name__ == '__main__':
