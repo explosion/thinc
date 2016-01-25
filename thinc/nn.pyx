@@ -42,6 +42,8 @@ from .lvl0 cimport d_ReLu__dot
 from .lvl0 cimport softmax
 from .lvl0 cimport d_log_loss
 
+from libc.string cimport memcpy
+from libc.math cimport isnan, sqrt
 import numpy
 
 

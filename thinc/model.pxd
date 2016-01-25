@@ -2,7 +2,7 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 from .typedefs cimport feat_t, weight_t
-from .structs cimport FeatureC, LayerC
+from .structs cimport FeatureC
 
 
 cdef class Model:

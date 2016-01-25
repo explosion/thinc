@@ -1,7 +1,7 @@
 from libc.stdint cimport int16_t, int, uint64_t
 from preshed.maps cimport MapStruct
 
-from .typedefs cimport len_t, idx_t
+from .typedefs cimport len_t, idx_t, atom_t
 
 
 include "compile_time_constants.pxi"
@@ -128,15 +128,13 @@ cdef struct FeatureC:
     float value
 
 
-#cdef struct SparseAverageC:
-#    SparseArrayC* curr
-#    SparseArrayC* avgs
-#    SparseArrayC* times
-#
-#
-#cdef struct TemplateC:
-#    int[MAX_TEMPLATE_LEN] indices
-#    int length
-#    atom_t[MAX_TEMPLATE_LEN] atoms
+cdef struct SparseAverageC:
+    SparseArrayC* curr
+    SparseArrayC* avgs
+    SparseArrayC* times
 
 
+cdef struct TemplateC:
+    int[MAX_TEMPLATE_LEN] indices
+    int length
+    atom_t[MAX_TEMPLATE_LEN] atoms

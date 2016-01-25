@@ -22,11 +22,6 @@ from .structs cimport do_feed_bwd_t
 from .structs cimport do_update_t
 
 
-cdef extern from "math.h" nogil:
-    float expf(float x)
-    float sqrtf(float x)
-
-
 DEF EPS = 0.00000001 
 DEF ALPHA = 1.0
 

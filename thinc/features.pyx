@@ -69,5 +69,3 @@ cdef class ConjunctionExtracter(Extracter):
 
     def __reduce__(self):
         return (self.__class__, (self.nr_atom, self._py_templates))
-
-
