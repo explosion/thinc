@@ -84,8 +84,8 @@ cdef class NN:
             nn.feed_fwd = dot__normalize__dot_plus__ELU
             nn.feed_bwd = d_ELU__dot__normalize__dot
         else:
-            nn.feed_fwd = dot_plus__ReLu
-            nn.feed_bwd = d_ReLu__dot
+            nn.feed_fwd = dot_plus__ELU
+            nn.feed_bwd = d_ELU__dot
 
         nn.hp.t = 0
         nn.hp.a = alpha

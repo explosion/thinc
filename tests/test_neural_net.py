@@ -291,7 +291,7 @@ def test_learn_linear(or_data):
 def test_mlp_learn_linear(or_data):
     '''Test that with a hidden layer, we can still learn OR'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5, eps=1e-4, bias=0.0,
+    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5, eps=1e-4,
                       update_step='sgd')
 
     assert model.nr_in == 2
@@ -452,7 +452,7 @@ def test_sparse_backprop():
             loss += eg.loss
         return loss
 
-    model = NeuralNet((10, 2, 2), embed=((10,), (0,)), bias=0.0, rho=0.0, eta=0.005,
+    model = NeuralNet((10, 2, 2), embed=((10,), (0,)), rho=0.0, eta=0.005,
                       update_step='sgd')
     X = [{(0, 1): 4.0, (0, 2): 3.0, (0, 3): 4.0, (0, 100): 1.0}, {(0, 10): 3.0,
          (0, 2): 2.0}]
