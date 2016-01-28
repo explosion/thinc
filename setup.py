@@ -21,11 +21,21 @@ ISRELEASED = True
 VERSION    = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 
-PACKAGES = ['thinc']
+PACKAGES = ['thinc', 'thinc.linear']
 
 
-MOD_NAMES = ['thinc.blas', 'thinc.lvl0', 'thinc.nn', 'thinc.eg',
-             'thinc.tests._funcs_shim', 'thinc.tests._backprop_shim']
+MOD_NAMES = [
+    'thinc.linalg',
+    'thinc.structs',
+    'thinc.typedefs',
+    'thinc.linear.avgtron',
+    'thinc.linear.features',
+    'thinc.linear.serialize',
+    'thinc.linear.sparse',
+    'thinc.extra.eg',
+    'thinc.extra.search',
+    'thinc.extra.cache'
+]
 
 #MOD_NAMES = ['thinc.api',
 #             'thinc.features',
@@ -138,7 +148,7 @@ if not release:
 
 
 def generate_cython(root, source):
-    print('Cythonizing sources')
+    print('Cythonizing sources', source)
     p = subprocess.call([sys.executable,
                          os.path.join(root, 'bin', 'cythonize.py'),
                          source])
