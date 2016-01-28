@@ -25,4 +25,10 @@ tests/model/*
 tests/model/
 *.orig
 .coverage
+.cache/
+.hypothesis/
 *.pyo
+tmp/
+*.pickle
+*.dat
+.eggs/
