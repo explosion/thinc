@@ -3,9 +3,9 @@ from cymem.cymem cimport Pool
 
 from murmurhash.mrmr cimport hash64
 
-from .api cimport Example
+from ..extra.eg cimport Example
 
-include "compile_time_constants.pxi"
+include "../compile_time_constants.pxi"
 
 
 cdef class ConjunctionExtracter:

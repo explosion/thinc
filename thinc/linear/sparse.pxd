@@ -1,7 +1,7 @@
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 from libc.stdint cimport int32_t
-from .typedefs cimport weight_t
-from .structs cimport SparseArrayC
+from ..typedefs cimport weight_t
+from ..structs cimport SparseArrayC
 
 
 cdef class SparseArray:
