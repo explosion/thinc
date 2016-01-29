@@ -1,4 +1,4 @@
-from thinc.sparse import SparseArray
+from thinc.linear.sparse import SparseArray
 
 
 def test_init():
