@@ -4,9 +4,8 @@ import pytest
 import pickle
 import io
 
-from thinc.features import Extracter
-from thinc.api import AveragedPerceptron
-from thinc.api import Example
+from thinc.linear.avgtron import AveragedPerceptron
+from thinc.extra.eg import Example
 
 
 def assert_near_eq(float1, float2):
@@ -14,29 +13,40 @@ def assert_near_eq(float1, float2):
 
 
 def test_basic():
-    model = AveragedPerceptron(3, Extracter())
-
-    instance = {1: {1: 1, 3: -5}, 2: {2: 4, 3: 5}}
-    for clas, feats in instance.items():
-        eg = Example.from_feats(model.nr_class, feats.items(), gold=clas)
+    nr_class = 3
+    model = AveragedPerceptron(((1,), (2,), (3,), (4,), (5,)))
+    instances = [
+        (1, {1: 1, 3: -5}),
+        (2, {2: 4, 3: 5})
+    ]
+    for clas, feats in instances:
+        eg = Example(nr_class)
+        eg.set_features(feats)
         model(eg)
-        model.updater(eg)
-    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
+        eg.set_label(clas)
+        model.update(eg)
+    eg = Example(nr_class)
+    eg.set_features({1: 2, 2: 1})
     model(eg)
     assert eg.guess == 2
-    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
+    eg = Example(nr_class)
+    eg.set_features({0: 2, 2: 1})
     model(eg)
     assert eg.scores[1] == 0
-    eg = Example.from_feats(3, [(0, 1), (0, 1), (2, 1)])
+    eg = Example(nr_class)
+    eg.set_features({1: 2, 2: 1})
     model(eg)
     assert eg.scores[2] > 0
-    eg = Example.from_feats(3, [(0, 1), (1, 1), (0, 1)])
+    eg = Example(nr_class)
+    eg.set_features({1: 2, 1: 1})
     model(eg)
     assert eg.scores[1] > 0
-    eg = Example.from_feats(3, [(0, 1), (0, 1), (0, 1), (3, 1)])
+    eg = Example(nr_class)
+    eg.set_features({0: 3, 3: 1})
     model(eg)
     assert eg.scores[1] < 0 
-    eg = Example.from_feats(3, [(0, 1), (0, 1), (0, 1), (3, 1)])
+    eg = Example(nr_class)
+    eg.set_features({0: 3, 3: 1})
     model(eg)
     assert eg.scores[2] > 0 
 
@@ -44,93 +54,101 @@ def test_basic():
 @pytest.fixture
 def instances():
     instances = [
-        {
-            1: {1: -1, 2: 1},
-            2: {1: 5, 2: -5},
-            3: {1: 3, 2: -3},
-        },
-        {
-            1: {1: -1, 2: 1},
-            2: {1: -1, 2: 2},
-            3: {1: 3, 2: -3},
-        },
-        {
-            1: {1: -1, 2: 2},
-            2: {1: 5, 2: -5}, 
-            3: {4: 1, 5: -7, 2: 1}
-        }
+        [
+            (1, {1: -1, 2: 1}),
+            (2, {1: 5, 2: -5}),
+            (3, {1: 3, 2: -3}),
+        ],
+        [
+            (1, {1: -1, 2: 1}),
+            (2, {1: -1, 2: 2}),
+            (3, {1: 3, 2: -3})
+        ],
+        [
+            (1, {1: -1, 2: 2}),
+            (2, {1: 5, 2: -5}), 
+            (3, {4: 1, 5: -7, 2: 1})
+        ]
     ]
     return instances
 
 @pytest.fixture
 def model(instances):
-    model = AveragedPerceptron(4, Extracter())
-    for counts in instances:
-        model.updater.time += 1
-        for clas, feats in counts.items():
+    templates = []
+    for batch in instances:
+        for _, feats in batch:
+            for key in feats:
+                templates.append((key,))
+    templates = tuple(set(templates))
+    model = AveragedPerceptron(templates)
+    for batch in instances:
+        model.time += 1
+        for clas, feats in batch:
             for key, value in feats.items():
-                model.updater.update_weight(key, clas, value)
+                model.update_weight(key, clas, value)
     return model
 
-def get_score(model, feats, clas):
-    eg = Example.from_feats(model.nr_class, feats, gold=clas)
+def get_score(nr_class, model, feats, clas):
+    eg = Example(nr_class)
+    eg.set_features(feats)
+    eg.set_label(clas)
     model(eg)
     return eg.scores[clas]
 
 
-def get_scores(model, feats):
-    eg = Example.from_feats(model.nr_class, feats)
+def get_scores(nr_class, model, feats):
+    eg = Example(nr_class)
+    eg.set_features(feats)
     model(eg)
     return list(eg.scores)
 
 
 def test_averaging(model):
-    model.updater.end_training()
+    model.end_training()
+    nr_class = 4
     # Feature 1
-    assert_near_eq(get_score(model, [(1, 1)], 1), sum([-1, -2, -3]) / 3.0)
-    assert_near_eq(get_score(model, [(1, 1)], 2), sum([5, 4, 9]) / 3.0)
-    assert_near_eq(get_score(model, [(1, 1)], 3), sum([3, 6, 6]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {1: 1}, 1), sum([-1, -2, -3]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {1: 1}, 2), sum([5, 4, 9]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {1: 1}, 3), sum([3, 6, 6]) / 3.0)
     # Feature 2
-    assert_near_eq(get_score(model, [(2, 1)], 1), sum([1, 2, 4]) / 3.0)
-    assert_near_eq(get_score(model, [(2, 1)], 2), sum([-5, -3, -8]) / 3.0)
-    assert_near_eq(get_score(model, [(2, 1)], 3), sum([-3, -6, -5]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {2: 1}, 1), sum([1, 2, 4]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {2: 1}, 2), sum([-5, -3, -8]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {2: 1}, 3), sum([-3, -6, -5]) / 3.0)
     # Feature 3 (absent)
-    assert_near_eq(get_score(model, [(3, 1)], 1), 0)
-    assert_near_eq(get_score(model, [(3, 1)], 2), 0)
-    assert_near_eq(get_score(model, [(3, 1)], 3), 0)
+    assert_near_eq(get_score(nr_class, model, {3: 1}, 1), 0)
+    assert_near_eq(get_score(nr_class, model, {3: 1}, 2), 0)
+    assert_near_eq(get_score(nr_class, model, {3: 1}, 3), 0)
     # Feature 4
-    assert_near_eq(get_score(model, [(4, 1)], 1), sum([0, 0, 0]) / 3.0)
-    assert_near_eq(get_score(model, [(4, 1)], 2), sum([0, 0, 0]) / 3.0)
-    assert_near_eq(get_score(model, [(4, 1)], 3), sum([0, 0, 1]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {4: 1}, 1), sum([0, 0, 0]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {4: 1}, 2), sum([0, 0, 0]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {4: 1}, 3), sum([0, 0, 1]) / 3.0)
     # Feature 5
-    assert_near_eq(get_score(model, [(5, 1)], 1), sum([0, 0, 0]) / 3.0)
-    assert_near_eq(get_score(model, [(5, 1)], 2), sum([0, 0, 0]) / 3.0)
-    assert_near_eq(get_score(model, [(5, 1)], 3), sum([0, 0, -7]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {5: 1}, 1), sum([0, 0, 0]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {5: 1}, 2), sum([0, 0, 0]) / 3.0)
+    assert_near_eq(get_score(nr_class, model, {5: 1}, 3), sum([0, 0, -7]) / 3.0)
 
 
 def test_dump_load(model):
     loc = '/tmp/test_model'
-    model.updater.end_training()
+    model.end_training()
     model.dump(loc)
     string = open(loc, 'rb').read()
     assert string
-    new_model = AveragedPerceptron(model.nr_class, Extracter())
-    assert get_scores(model, [(1, 1), (3, 1), (4, 1)]) != get_scores(new_model, [(1,1), (3, 1), (4, 1)])
-    assert get_scores(model, [(2, 1), (5, 1)]) != get_scores(new_model, [(2,1), (5, 1)])
-    assert get_scores(model, [(2, 1), (3,1), (4, 1)]) != get_scores(new_model, [(2,1), (3,1), (4,1)])
+    new_model = AveragedPerceptron([(1,), (2,), (3,), (4,)])
+    nr_class = 5
+    assert get_scores(nr_class, model, {1: 1, 3: 1, 4: 1}) != \
+           get_scores(nr_class, new_model, {1:1, 3:1, 4:1})
+    assert get_scores(nr_class, model, {2:1, 5:1}) != \
+            get_scores(nr_class, new_model, {2:1, 5:1})
+    assert get_scores(nr_class, model, {2:1, 3:1, 4:1}) != \
+           get_scores(nr_class, new_model, {2:1, 3:1, 4:1})
     new_model.load(loc)
-    assert get_scores(model, [(1, 1), (3, 1), (4, 1)]) == get_scores(new_model, [(1,1), (3, 1), (4,1)])
-    assert get_scores(model, [(2, 1), (5, 1)]) == get_scores(new_model, [(2,1), (5,1)])
-    assert get_scores(model, [(2, 1), (3, 1), (4, 1)]) == get_scores(new_model, [(2,1), (3,1), (4,1)])
-
-
-def test_pickle(model):
-    file_ = io.BytesIO()
-    pickle.dump(model, file_)
-    file_.seek(0)
-    loaded = pickle.load(file_)
-
-
+    assert get_scores(nr_class, model, {1:1, 3:1, 4:1}) == \
+           get_scores(nr_class, new_model, {1:1, 3:1, 4:1})
+    assert get_scores(nr_class, model, {2:1, 5:1}) == \
+           get_scores(nr_class, new_model, {2:1, 5:1})
+    assert get_scores(nr_class, model, {2:1, 3:1, 4:1}) == \
+           get_scores(nr_class, new_model, {2:1, 3:1, 4:1})
 
 
 ## TODO: Need a test that exercises multiple lines. Example bug:
