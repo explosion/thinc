@@ -11,7 +11,6 @@ cdef class Writer:
     cdef class_t _nr_class
     cdef count_t _freq_thresh
 
-
     cdef int write(self, feat_t feat_id, SparseArrayC* feat) except -1
 
 

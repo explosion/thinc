@@ -22,15 +22,13 @@ from os import path
 
 
 cdef class Writer:
-    def __init__(self, object loc, nr_class):
+    def __init__(self, object loc):
         if path.exists(loc):
             assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'wb')
         assert self._fp != NULL
         fseek(self._fp, 0, 0)
-        self._nr_class = nr_class
-        _write(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
 
     def close(self):
         cdef size_t status = fclose(self._fp)
@@ -68,8 +66,6 @@ cdef class Reader:
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'rb')
         assert self._fp != NULL
-        status = fseek(self._fp, 0, 0)
-        status = fread(&self._nr_class, sizeof(self._nr_class), 1, self._fp)
 
     def __dealloc__(self):
         fclose(self._fp)
@@ -81,7 +77,6 @@ cdef class Reader:
         status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
         if status == 0:
             return 0
-        assert status
 
         status = fread(&length, sizeof(length), 1, self._fp)
         assert status
