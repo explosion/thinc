@@ -21,7 +21,7 @@ ISRELEASED = True
 VERSION    = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 
-PACKAGES = ['thinc', 'thinc.linear']
+PACKAGES = ['thinc', 'thinc.linear', 'thinc.extra', 'thinc.neural']
 
 
 MOD_NAMES = [
@@ -37,15 +37,6 @@ MOD_NAMES = [
     'thinc.extra.cache'
 ]
 
-#MOD_NAMES = ['thinc.api',
-#             'thinc.features',
-#             'thinc.model',
-#             'thinc.update',
-#             'thinc.sparse',
-#             'thinc.search',
-#             'thinc.cache',
-#             'tests.c_test_search']
-
 
 if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[0:2] < (3, 4):
     raise RuntimeError('Python version 2.7 or >= 3.4 required.')
@@ -56,7 +47,7 @@ if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[0:2] < (3, 4):
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [],
-                    'other' : []}
+                    'other' : ['-lcblas']}
 
 if sys.platform.startswith('darwin'):
     compile_options['other'].append('-mmacosx-version-min=10.8')
