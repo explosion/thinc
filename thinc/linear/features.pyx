@@ -12,8 +12,11 @@ cdef class ConjunctionExtracter:
     """Extract composite features from a sequence of atomic values, according to
     the schema specified by a list of templates.
     """
-    def __init__(self, nr_atom, templates):
+    def __init__(self, templates):
         self.mem = Pool()
+        nr_atom = 0
+        for templ in templates:
+            nr_atom = max(nr_atom, max(templ))
         self.nr_atom = nr_atom
         # Value that indicates the value has been "masked", e.g. it was pruned
         # as a rare word. If a feature contains any masked values, it is dropped.

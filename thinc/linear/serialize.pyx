@@ -29,6 +29,9 @@ cdef class Writer:
         self._fp = fopen(<char*>bytes_loc, 'wb')
         assert self._fp != NULL
         fseek(self._fp, 0, 0)
+        # Write a 32 bit int to the file, for what used to be the number of classes
+        cdef int32_t dummy_int = 0
+        _write(&dummy_int, sizeof(dummy_int), 1, self._fp)
 
     def close(self):
         cdef size_t status = fclose(self._fp)
@@ -66,6 +69,10 @@ cdef class Reader:
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'rb')
         assert self._fp != NULL
+        tatus = fseek(self._fp, 0, 0)
+        cdef int32_t dummy_int = 0
+        status = fread(&dummy_int, sizeof(dummy_int), 1, self._fp)
+
 
     def __dealloc__(self):
         fclose(self._fp)

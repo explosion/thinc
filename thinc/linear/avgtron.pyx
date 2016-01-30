@@ -7,7 +7,6 @@ from cpython.exc cimport PyErr_CheckSignals
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
 from libc.string cimport memcpy
-from libc.string cimport memset
 
 from libc.stdlib cimport qsort
 from libc.stdint cimport int32_t
@@ -32,13 +31,12 @@ cdef class AveragedPerceptron:
     Emphasis is on efficiency for multi-class classification, where the number
     of classes is in the dozens or low hundreds.
     '''
-    def __init__(self, input_shape, model_shape=None):
+    def __init__(self, templates, *args, **kwargs):
         self.weights = PreshMap()
         self.time = 0
         self.averages = PreshMap()
         self.mem = Pool()
-        nr_context, templates = input_shape
-        self.extracter = ConjunctionExtracter(nr_context, templates)
+        self.extracter = ConjunctionExtracter(templates)
 
     def __dealloc__(self):
         cdef size_t feat_addr
@@ -56,15 +54,18 @@ cdef class AveragedPerceptron:
                     PyMem_Free(feat.times)
 
     def __call__(self, Example eg):
-        self.extracter.set_features(eg.c.features,
-            eg.c.atoms)
-        self.set_scores(eg.c.scores,
+        self.set_scoresC(eg.c.scores,
             eg.c.features, eg.c.nr_feat)
-        #eg.c.guess = arg_max_if_true(eg.c.scores, eg.c.is_valid, eg.c.nr_class)
         PyErr_CheckSignals()
+        return eg.guess
+
+    def update(self, Example eg):
+        self.updateC(&eg.c)
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc)
+        cdef feat_t key
+        cdef size_t feat_addr
         for i, (key, feat_addr) in enumerate(self.weights.items()):
             if feat_addr != 0:
                 writer.write(key, <SparseArrayC*>feat_addr)
@@ -90,13 +91,18 @@ cdef class AveragedPerceptron:
         for feat_id, feat_addr in self.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
+                i = 0
                 while feat.curr[i].key >= 0:
                     unchanged = (self.time + 1) - <time_t>feat.times[i].val
                     feat.avgs[i].val += unchanged * feat.curr[i].val
                     feat.curr[i].val = feat.avgs[i].val / self.time
                     i += 1
 
-    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+    property nr_feat:
+        def __get__(self):
+            return self.extracter.nr_templ
+
+    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -117,7 +123,7 @@ cdef class AveragedPerceptron:
                     j += 1
 
     @cython.cdivision(True)
-    cdef void update(self, ExampleC* eg) except *:
+    cdef void updateC(self, ExampleC* eg) except *:
         self.time += 1
         guess = VecVec.arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         if eg.costs[guess] > 0:
@@ -141,15 +147,15 @@ cdef class AveragedPerceptron:
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
         else:  
-            i = SparseArray.find_key(feat.curr, feat_id)
-            if i <= 0:
+            i = SparseArray.find_key(feat.curr, clas)
+            if i < 0:
                 feat.curr = SparseArray.resize(feat.curr)
                 feat.avgs = SparseArray.resize(feat.avgs)
                 feat.times = SparseArray.resize(feat.times)
                 self.weights.set(feat_id, feat.curr)
-                i = SparseArray.find_key(feat.curr, feat_id)
-            feat.curr[i].key = feat_id
-            feat.avgs[i].key = feat_id
+                i = SparseArray.find_key(feat.curr, clas)
+            feat.curr[i].key = clas
+            feat.avgs[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
             feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
             feat.curr[i].val += upd

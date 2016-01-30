@@ -11,8 +11,8 @@ cdef class AveragedPerceptron:
     cdef readonly PreshMap weights
     cdef readonly PreshMap averages
     cdef ConjunctionExtracter extracter
-    cdef int time
+    cdef public int time
     
-    cdef void set_scores(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil
-    cdef void update(self, ExampleC* eg) except *
+    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil
+    cdef void updateC(self, ExampleC* eg) except *
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
