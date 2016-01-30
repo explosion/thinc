@@ -47,7 +47,7 @@ if sys.version_info[:2] < (2, 7) or (3, 0) <= sys.version_info[0:2] < (3, 4):
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [],
-                    'other' : ['-lcblas']}
+                    'other' : []}
 
 if sys.platform.startswith('darwin'):
     compile_options['other'].append('-mmacosx-version-min=10.8')
