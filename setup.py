@@ -168,7 +168,8 @@ def copy_include(src, dst, path):
 
 def prepare_includes(path):
     include_dir = os.path.join(path, 'include')
-    os.mkdir(include_dir)
+    if not os.path.exists(include_dir):
+        os.mkdir(include_dir)
 
     numpy = import_include('numpy')
     copy_include(numpy.get_include(), include_dir, 'numpy')
