@@ -9,9 +9,10 @@ from cymem.cymem cimport Pool
 
 ctypedef float weight_t
 
+include "compile_time_constants.pxi"
+
 
 # Copied from Shane Legg's Tokyo
-#cdef extern from "cblas.h":
 cdef extern from "cblas.h":
     enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
     enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
@@ -116,10 +117,12 @@ cdef class Vec:
 
     @staticmethod
     cdef inline void mul_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
-        cblas_sscal(nr, scal, vec, 1)
-        #cdef int i
-        #for i in range(nr):
-        #    vec[i] *= scal
+        cdef int i
+        if USE_BLAS:
+            cblas_sscal(nr, scal, vec, 1)
+        else:
+            for i in range(nr):
+                vec[i] *= scal
 
     @staticmethod
     cdef inline void pow(weight_t* output, const weight_t* vec, weight_t scal,
@@ -180,10 +183,12 @@ cdef class VecVec:
                            const float* y,
                            float scale,
                            int32_t nr) nogil:
-        cblas_saxpy(nr, scale, y, 1, x, 1)
-        #cdef int i
-        #for i in range(nr):
-        #    x[i] += y[i] * scale
+        cdef int i
+        if USE_BLAS:
+            cblas_saxpy(nr, scale, y, 1, x, 1)
+        else:
+            for i in range(nr):
+                x[i] += y[i] * scale
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,
@@ -271,26 +276,28 @@ cdef class MatVec:
                          const weight_t* mat,
                          const weight_t* vec,
                          int32_t nr_row, int32_t nr_col) nogil:
-        cblas_sgemv(
-            CblasRowMajor,
-            CblasNoTrans,
-            nr_row,
-            nr_col,
-            1.0,
-            mat,
-            nr_col,
-            vec,
-            1,
-            0.0,
-            output,
-            1
-        )
-        #cdef int i, row, col
-        #for i in range(nr_row):
-        #    output[i] = 0
-        #    row = i * nr_col
-        #    for col in range(nr_col):
-        #        output[i] += mat[row + col] * vec[col]
+        cdef int i, row, col
+        if USE_BLAS:
+            cblas_sgemv(
+                CblasRowMajor,
+                CblasNoTrans,
+                nr_row,
+                nr_col,
+                1.0,
+                mat,
+                nr_col,
+                vec,
+                1,
+                0.0,
+                output,
+                1
+            )
+        else:
+            for i in range(nr_row):
+                output[i] = 0
+                row = i * nr_col
+                for col in range(nr_col):
+                    output[i] += mat[row + col] * vec[col]
 
     @staticmethod
     cdef inline void T_dot(weight_t* output,
@@ -298,24 +305,26 @@ cdef class MatVec:
                              const weight_t* vec,
                              int32_t nr_row,
                              int32_t nr_col) nogil:
-        cblas_sgemv(
-            CblasRowMajor,
-            CblasTrans,
-            nr_row,
-            nr_col,
-            1.0,
-            mat,
-            nr_col,
-            vec,
-            1,
-            0.0,
-            output,
-            1
-        )
-        #cdef int i, row, col
-        #for row in range(nr_row):
-        #    for col in range(nr_col):
-        #        output[col] += vec[row] * mat[(row * nr_col) + col]
+        cdef int i, row, col
+        if USE_BLAS:
+            cblas_sgemv(
+                CblasRowMajor,
+                CblasTrans,
+                nr_row,
+                nr_col,
+                1.0,
+                mat,
+                nr_col,
+                vec,
+                1,
+                0.0,
+                output,
+                1
+            )
+        else:
+            for row in range(nr_row):
+                for col in range(nr_col):
+                    output[col] += vec[row] * mat[(row * nr_col) + col]
 
 
 cdef class MatMat:
