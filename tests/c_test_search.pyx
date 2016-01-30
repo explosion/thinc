@@ -1,5 +1,5 @@
 from __future__ import unicode_literals
-from thinc.search cimport Beam
+from thinc.extra.search cimport Beam
 from cymem.cymem cimport Pool
 from thinc.typedefs cimport class_t, weight_t
 
