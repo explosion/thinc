@@ -159,6 +159,8 @@ def import_include(module_name):
 def copy_include(src, dst, path):
     assert os.path.isdir(src)
     assert os.path.isdir(dst)
+    if os.path.exists(os.path.join(dst, path)):
+        shutil.rmtree(os.path.join(dst, path))
     shutil.copytree(
         os.path.join(src, path),
         os.path.join(dst, path))
@@ -166,8 +168,6 @@ def copy_include(src, dst, path):
 
 def prepare_includes(path):
     include_dir = os.path.join(path, 'include')
-    if os.path.exists(include_dir):
-        shutil.rmtree(include_dir)
     os.mkdir(include_dir)
 
     numpy = import_include('numpy')
