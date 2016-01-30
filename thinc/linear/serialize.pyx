@@ -22,16 +22,18 @@ from os import path
 
 
 cdef class Writer:
-    def __init__(self, object loc):
+    def __init__(self, object loc, int32_t nr_feat):
         if path.exists(loc):
             assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'wb')
         assert self._fp != NULL
         fseek(self._fp, 0, 0)
-        # Write a 32 bit int to the file, for what used to be the number of classes
-        cdef int32_t dummy_int = 0
-        _write(&dummy_int, sizeof(dummy_int), 1, self._fp)
+        # Write a 32 bit int to the file representing the number of features.
+        # Before v0.100, this was the number of classes. Now it's the *total*
+        # length of the hash table, including empty slots. This ensures the hash
+        # table never has to be resized, speeding loading up by 10x
+        _write(&nr_feat, sizeof(nr_feat), 1, self._fp)
 
     def close(self):
         cdef size_t status = fclose(self._fp)
@@ -70,9 +72,15 @@ cdef class Reader:
         self._fp = fopen(<char*>bytes_loc, 'rb')
         assert self._fp != NULL
         tatus = fseek(self._fp, 0, 0)
-        cdef int32_t dummy_int = 0
-        status = fread(&dummy_int, sizeof(dummy_int), 1, self._fp)
-
+        status = fread(&self.nr_feat, sizeof(self.nr_feat), 1, self._fp)
+        # TODO: Remove this hack once users have migrated away from the v0.100.2
+        # spaCy data. This hack allows previously distributed data to load quickly.
+        # In previous versions, the initial 32 bit int at the start of the model
+        # represented the number of classes. Now we use it to represent the
+        # number of features, so that the hash table can be resized.
+        # The hack here hard-codes the mapping from the number of classes in
+        if self.nr_feat == 92:
+            self.nr_feat = 16777216
 
     def __dealloc__(self):
         fclose(self._fp)

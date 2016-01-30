@@ -63,7 +63,7 @@ cdef class AveragedPerceptron:
         self.updateC(&eg.c)
 
     def dump(self, loc):
-        cdef Writer writer = Writer(loc)
+        cdef Writer writer = Writer(loc, self.weights.length)
         cdef feat_t key
         cdef size_t feat_addr
         for i, (key, feat_addr) in enumerate(self.weights.items()):
@@ -77,6 +77,7 @@ cdef class AveragedPerceptron:
         cdef feat_t feat_id
         cdef SparseArrayC* feature
         cdef Reader reader = Reader(loc)
+        self.weights = PreshMap(reader.nr_feat)
         cdef int i = 0
         while reader.read(self.mem, &feat_id, &feature):
             self.weights.set(feat_id, feature)
