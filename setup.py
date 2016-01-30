@@ -14,10 +14,10 @@ except ImportError:
     from distutils.core import Extension, setup
 
 
-MAJOR      = 4
-MINOR      = 2
+MAJOR      = 5
+MINOR      = 0
 MICRO      = 0
-ISRELEASED = True
+ISRELEASED = False
 VERSION    = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 
