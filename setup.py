@@ -21,7 +21,16 @@ ISRELEASED = False
 VERSION    = '%d.%d.%d' % (MAJOR, MINOR, MICRO)
 
 
-PACKAGES = ['thinc', 'thinc.linear', 'thinc.extra', 'thinc.neural']
+PACKAGES = [
+    'thinc',
+    'thinc.linear',
+    'thinc.extra',
+    'thinc.neural',
+    'thinc.test',
+    'thinc.linear.test',
+    'thinc.extra.test',
+    'thinc.neural.test'
+]
 
 
 MOD_NAMES = [
@@ -34,7 +43,9 @@ MOD_NAMES = [
     'thinc.linear.sparse',
     'thinc.extra.eg',
     'thinc.extra.search',
-    'thinc.extra.cache'
+    'thinc.extra.cache',
+    'thinc.neural.lvl0',
+    'thinc.neural.nn',
 ]
 
 
