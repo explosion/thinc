@@ -21,32 +21,32 @@ def test_basic():
     ]
     for clas, feats in instances:
         eg = Example(nr_class)
-        eg.set_features(feats)
+        eg.features = feats
         model(eg)
-        eg.set_label(clas)
+        eg.costs = [i != clas for i in range(nr_class)]
         model.update(eg)
     eg = Example(nr_class)
-    eg.set_features({1: 2, 2: 1})
+    eg.features = {1: 2, 2: 1}
     model(eg)
     assert eg.guess == 2
     eg = Example(nr_class)
-    eg.set_features({0: 2, 2: 1})
+    eg.features = {0: 2, 2: 1}
     model(eg)
     assert eg.scores[1] == 0
     eg = Example(nr_class)
-    eg.set_features({1: 2, 2: 1})
+    eg.features = {1: 2, 2: 1}
     model(eg)
     assert eg.scores[2] > 0
     eg = Example(nr_class)
-    eg.set_features({1: 2, 1: 1})
+    eg.features = {1: 2, 1: 1}
     model(eg)
     assert eg.scores[1] > 0
     eg = Example(nr_class)
-    eg.set_features({0: 3, 3: 1})
+    eg.features = {0: 3, 3: 1}
     model(eg)
     assert eg.scores[1] < 0 
     eg = Example(nr_class)
-    eg.set_features({0: 3, 3: 1})
+    eg.features = {0: 3, 3: 1}
     model(eg)
     assert eg.scores[2] > 0 
 
@@ -90,15 +90,15 @@ def model(instances):
 
 def get_score(nr_class, model, feats, clas):
     eg = Example(nr_class)
-    eg.set_features(feats)
-    eg.set_label(clas)
+    eg.features = feats
+    eg.costs = [i != clas for i in range(nr_class)]
     model(eg)
     return eg.scores[clas]
 
 
 def get_scores(nr_class, model, feats):
     eg = Example(nr_class)
-    eg.set_features(feats)
+    eg.features = feats
     model(eg)
     return list(eg.scores)
 
