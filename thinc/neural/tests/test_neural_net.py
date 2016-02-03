@@ -7,8 +7,8 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from thinc.neural.nn import NeuralNet
-from thinc.extra.eg import Example
+from ..nn import NeuralNet
+from ...extra.eg import Example
 
 np.random.seed(2)
 
