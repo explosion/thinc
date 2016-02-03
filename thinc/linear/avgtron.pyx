@@ -124,7 +124,7 @@ cdef class AveragedPerceptron:
                     j += 1
 
     @cython.cdivision(True)
-    cdef void updateC(self, ExampleC* eg) except *:
+    cdef int updateC(self, const ExampleC* eg) except -1:
         self.time += 1
         guess = VecVec.arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
         if eg.costs[guess] > 0:
