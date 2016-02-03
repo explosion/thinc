@@ -15,10 +15,11 @@ cdef class Example:
     cdef Pool mem
     cdef ExampleC c
 
-    cpdef int reset_features(self, int nr_feat) except -1
-    cpdef int reset_atoms(self, int nr_atom) except -1
-    cpdef int reset_classes(self, int nr_class) except -1
-    cpdef int reset_activations(self, widths) except -1
+    cpdef int fill_atoms(self, atom_t value, int nr_atom) except -1
+    cpdef int fill_features(self, int value, int nr_feat) except -1
+    cpdef int fill_is_valid(self, int value, int nr_class) except -1
+    cpdef int fill_costs(self, weight_t value, int nr_class) except -1
+    cpdef int fill_scores(self, weight_t value, int nr_class) except -1
 
     @staticmethod
     cdef inline Example from_ptr(Pool mem, ExampleC* ptr):

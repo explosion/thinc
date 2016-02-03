@@ -4,69 +4,76 @@ cdef class Example:
         if mem is None:
             mem = Pool()
         self.mem = mem
-        if nr_class is not None:
-            self.reset_classes(nr_class)
-        if nr_feat is not None:
-            self.reset_features(nr_feat)
-        if nr_atom is not None:
-            self.reset_atoms(nr_atom)
-        if model_shape is not None:
-            self.reset_activations(model_shape)
+        self.fill_features(0, nr_feat)
+        self.fill_atoms(0, nr_atom)
+        self.fill_is_valid(1, nr_class)
+        self.fill_scores(0, nr_class)
+        self.fill_costs(0, nr_class)
 
-    cpdef int reset_features(self, int nr_feat) except -1:
-        self.c.features = <FeatureC*>zero_or_alloc(self.mem, self.c.features,
-            sizeof(self.c.features[0]), self.c.nr_feat, nr_feat)
+    cpdef int fill_features(self, int value, int nr_feat) except -1:
+        if self.c.nr_feat < nr_feat:
+            self.c.features = <FeatureC*>self.mem.realloc(self.c.features,
+                sizeof(self.c.features[0]) * nr_feat)
+        for i in range(nr_feat):
+            self.c.features[i].i = value
+            self.c.features[i].key = value
+            self.c.features[i].value = value
         self.c.nr_feat = nr_feat
 
-    cpdef int reset_atoms(self, int nr_atom) except -1:
-        self.c.atoms = <atom_t*>zero_or_alloc(self.mem, self.c.atoms,
-            sizeof(self.c.atoms[0]), self.c.nr_atom, nr_atom)
+    cpdef int fill_atoms(self, atom_t value, int nr_atom) except -1:
+        if self.c.atoms == NULL:
+            self.c.atoms = <atom_t*>self.mem.alloc(sizeof(self.c.atoms[0]), nr_atom)
+            self.c.nr_atom = nr_atom
+        elif self.c.nr_atom < nr_atom:
+            self.c.atoms = <atom_t*>self.mem.realloc(self.c.atoms,
+                sizeof(self.c.atoms[0]) * nr_atom)
+        for i in range(nr_atom):
+            self.c.atoms[i] = value
         self.c.nr_atom = nr_atom
 
-    cpdef int reset_classes(self, int nr_class) except -1:
-        self.c.is_valid = <int*>zero_or_alloc(self.mem, self.c.is_valid,
-            sizeof(self.c.is_valid[0]), self.c.nr_class, nr_class)
+    cpdef int fill_scores(self, weight_t value, int nr_class) except -1:
+        if self.c.scores == NULL:
+            self.c.scores = <weight_t*>self.mem.alloc(sizeof(self.c.scores[0]), nr_class)
+            self.c.nr_class = nr_class
+        elif self.c.nr_class < nr_class:
+            self.c.scores = <weight_t*>self.mem.realloc(self.c.scores,
+                sizeof(self.c.scores[0]) * nr_class)
         for i in range(nr_class):
-            self.c.is_valid[i] = 1
-        self.c.costs = <weight_t*>zero_or_alloc(self.mem, self.c.costs,
-            sizeof(self.c.costs[0]), self.c.nr_class, nr_class)
-        self.c.scores = <weight_t*>zero_or_alloc(self.mem, self.c.scores,
-            sizeof(self.c.scores[0]), self.c.nr_class, nr_class)
+            self.c.scores[i] = value
         self.c.nr_class = nr_class
 
-    cpdef int reset_activations(self, widths) except -1:
-        # Don't use zero_or_alloc here --- we can't just clobber the pointers
-        raise NotImplementedError
-
+    cpdef int fill_is_valid(self, int value, int nr_class) except -1:
+        if self.c.is_valid == NULL:
+            self.c.is_valid = <int*>self.mem.alloc(sizeof(self.c.is_valid[0]), nr_class)
+            self.c.nr_class = nr_class
+        elif self.c.nr_class < nr_class:
+            self.c.is_valid = <int*>self.mem.realloc(self.c.is_valid,
+                sizeof(self.c.is_valid[0]) * nr_class)
+        for i in range(nr_class):
+            self.c.is_valid[i] = value
+        self.c.nr_class = nr_class
+   
+    cpdef int fill_costs(self, weight_t value, int nr_class) except -1:
+        if self.c.costs == NULL:
+            self.c.costs = <weight_t*>self.mem.alloc(sizeof(self.c.costs[0]), nr_class)
+            self.c.nr_class = nr_class
+        elif self.c.nr_class < nr_class:
+            self.c.costs = <weight_t*>self.mem.realloc(self.c.costs,
+                sizeof(self.c.costs[0]) * nr_class)
+        for i in range(nr_class):
+            self.c.costs[i] = value
+        self.c.nr_class = nr_class
+    
     def reset(self, int nr_feat=-1, int nr_class=-1, int nr_atom=-1, widths=None):
         if nr_feat >= 1:
-            self.reset_features(nr_feat)
+            self.fill_features(0, nr_feat)
         if nr_atom >= 1:
-            self.reset_atoms(nr_atom)
+            self.fill_atoms(0, nr_atom)
         if nr_class >= 1:
-            self.rest_classes(nr_class)
-        if widths is not None:
-            self.reset_activations(widths)
+            self.fill_scores(0, nr_class)
+            self.fill_costs(0, nr_class)
+            self.fill_is_valid(0, nr_class)
    
-    def set_features(self, features):
-        cdef weight_t value
-        cdef int slot
-        if isinstance(features, dict):
-            feats_dict = features
-            features = []
-            for key, value in feats_dict.items():
-                if isinstance(key, int):
-                    slot = 0
-                else:
-                    slot, key = key
-                features.append((slot, key, value))
-        self.c.features = <FeatureC*>zero_or_alloc(self.mem, self.c.features,
-                sizeof(FeatureC), self.c.nr_feat, len(features))
-        self.c.nr_feat = len(features)
-        cdef feat_t feat
-        for i, (slot, feat, value) in enumerate(features):
-            self.c.features[i] = FeatureC(i=slot, key=feat, value=value)
-
     def set_input(self, input_):
         if len(input_) > self.c.widths[0]:
             lengths = (len(input_), self.c.widths[0])
@@ -76,38 +83,60 @@ cdef class Example:
         for i, value in enumerate(input_):
             self.c.fwd_state[0][i] = value
 
-    def set_label(self, label):
-        if label is None:
-            costs = [1] * self.c.nr_class
-        elif isinstance(label, int):
-            costs = [1] * self.c.nr_class
-            costs[label] = 0
-        else:
-            costs = label
-
-        if costs is not None:
-            assert len(costs) == self.c.nr_class, '%d vs %d' % (len(costs), self.c.nr_class)
-            for i, cost in enumerate(costs):
-                self.c.costs[i] = cost
-
     property features:
         def __get__(self):
             for i in range(self.nr_feat):
                 yield self.c.features[i]
+        def __set__(self, features):
+            cdef weight_t value
+            cdef int slot
+            if isinstance(features, dict):
+                feats_dict = features
+                features = []
+                for key, value in feats_dict.items():
+                    if isinstance(key, int):
+                        slot = 0
+                    else:
+                        slot, key = key
+                    features.append((slot, key, value))
+            self.nr_feat = len(features)
+            cdef feat_t feat
+            for i, (slot, feat, value) in enumerate(features):
+                self.c.features[i] = FeatureC(i=slot, key=feat, value=value)
 
     property scores:
         def __get__(self):
             return [self.c.scores[i] for i in range(self.c.nr_class)]
+        def __set__(self, scores):
+            is_valid = list(scores)
+            if len(scores) < self.nr_class:
+                self.fill_scores(0, self.nr_class)
+            else:
+                self.nr_class = len(scores)
+            for i, score in enumerate(scores):
+                self.c.scores[i] = score
 
     property is_valid:
         def __get__(self):
             return [self.c.is_valid[i] for i in range(self.c.nr_class)]
+        def __set__(self, is_valid):
+            is_valid = list(is_valid)
+            if len(is_valid) < self.nr_class:
+                self.fill_is_valid(0, self.nr_class)
+            else:
+                self.nr_class = len(is_valid)
+            for i, is_valid in enumerate(is_valid):
+                self.c.is_valid[i] = is_valid
 
     property costs:
         def __get__(self):
             return [self.c.costs[i] for i in range(self.c.nr_class)]
         def __set__(self, costs):
-            assert len(costs) == self.nr_class, len(costs)
+            costs = list(costs)
+            if len(costs) < self.nr_class:
+                self.fill_costs(0, self.nr_class)
+            else:
+                self.nr_class = len(costs)
             for i, cost in enumerate(costs):
                 self.c.costs[i] = cost
 
@@ -122,24 +151,59 @@ cdef class Example:
     property cost:
         def __get__(self):
             return self.c.costs[self.guess]
-    
+        def __set__(self, weight_t value):
+            self.c.costs[self.guess] = value
+   
     property nr_class:
         def __get__(self):
             return self.c.nr_class
-        def __set__(self, int value):
-            self.c.nr_class = value
+        def __set__(self, int nr_class):
+            if self.c.nr_class != nr_class:
+                if self.c.scores is NULL:
+                    self.c.scores = <weight_t*>self.mem.alloc(
+                        sizeof(self.c.scores[0]), nr_class)
+                else:
+                    self.c.scores = <weight_t*>self.mem.realloc(self.c.scores,
+                        sizeof(self.c.scores[0]) * nr_class)
+                if self.c.is_valid is NULL:
+                    self.c.is_valid = <int*>self.mem.alloc(
+                        sizeof(self.c.is_valid[0]), nr_class)
+                else:
+                    self.c.is_valid = <int*>self.mem.realloc(self.c.is_valid,
+                        sizeof(self.c.is_valid[0]) * nr_class)
+                if self.c.costs is NULL:
+                    self.c.costs = <weight_t*>self.mem.alloc(
+                        sizeof(self.c.costs[0]), nr_class)
+                else: 
+                    self.c.costs = <weight_t*>self.mem.realloc(self.c.costs,
+                        sizeof(self.c.costs[0]) * nr_class)
+                self.c.nr_class = nr_class
  
     property nr_atom:
         def __get__(self):
             return self.c.nr_atom
-        def __set__(self, int value):
-            self.c.nr_atom = value
+        def __set__(self, int nr_atom):
+            if self.c.nr_atom != nr_atom:
+                if self.c.atoms is NULL:
+                    self.c.atoms = <atom_t*>self.mem.alloc(
+                        sizeof(self.c.atoms[0]), nr_atom)
+                else:
+                    self.c.atoms = <atom_t*>self.mem.realloc(self.c.atoms,
+                        sizeof(self.c.atoms[0]) * nr_atom)
+                self.c.nr_atom = nr_atom
  
     property nr_feat:
         def __get__(self):
             return self.c.nr_feat
-        def __set__(self, int value):
-            self.c.nr_feat = value
+        def __set__(self, int nr_feat):
+            if self.c.nr_feat != nr_feat:
+                if self.c.features is NULL:
+                    self.c.features = <FeatureC*>self.mem.alloc(
+                        sizeof(self.c.features[0]), nr_feat)
+                else:
+                    self.c.features = <FeatureC*>self.mem.realloc(self.c.features,
+                        sizeof(self.c.features[0]) * nr_feat)
+            self.c.nr_feat = nr_feat
 
     property loss:
         def __get__(self):
@@ -152,13 +216,3 @@ cdef class Example:
     def delta(self, int i, int j):
         # TODO: Find a way to do this better!
         return self.c.bwd_state[i][j]
-
-
-cdef void* zero_or_alloc(Pool mem, void* ptr, size_t elem_size,
-        int old_nr, int new_nr) except *:
-    if ptr is NULL:
-        ptr = mem.alloc(new_nr, elem_size)
-    elif new_nr > old_nr:
-        ptr = mem.realloc(ptr, new_nr * elem_size)
-    memset(ptr, 0, new_nr * elem_size)
-    return ptr
