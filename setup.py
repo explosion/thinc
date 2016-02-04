@@ -26,10 +26,10 @@ PACKAGES = [
     'thinc.linear',
     'thinc.extra',
     'thinc.neural',
-    'thinc.test',
-    'thinc.linear.test',
-    'thinc.extra.test',
-    'thinc.neural.test'
+    'thinc.tests',
+    'thinc.linear.tests',
+    'thinc.extra.tests',
+    'thinc.neural.tests'
 ]
 
 
