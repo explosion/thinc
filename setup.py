@@ -44,8 +44,11 @@ MOD_NAMES = [
     'thinc.extra.eg',
     'thinc.extra.search',
     'thinc.extra.cache',
-    'thinc.neural.lvl0',
     'thinc.neural.nn',
+    'thinc.neural.solve',
+    'thinc.neural.forward',
+    'thinc.neural.backward',
+    'thinc.neural.tests._funcs_shim'
 ]
 
 
