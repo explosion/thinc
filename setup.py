@@ -48,7 +48,8 @@ MOD_NAMES = [
     'thinc.neural.solve',
     'thinc.neural.forward',
     'thinc.neural.backward',
-    'thinc.neural.tests._funcs_shim'
+    'thinc.neural.tests._funcs_shim',
+    'thinc.neural.tests._backprop_shim',
 ]
 
 
