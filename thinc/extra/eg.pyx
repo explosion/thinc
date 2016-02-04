@@ -1,6 +1,6 @@
 cdef class Example:
     def __init__(self, int nr_class=0, int nr_atom=0,
-            int nr_feat=0, model_shape=None, Pool mem=None):
+            int nr_feat=0, widths=None, Pool mem=None):
         if mem is None:
             mem = Pool()
         self.mem = mem
@@ -9,6 +9,18 @@ cdef class Example:
         self.fill_is_valid(1, nr_class)
         self.fill_scores(0, nr_class)
         self.fill_costs(0, nr_class)
+        if widths is not None:
+            self.c.widths = <int*>self.mem.alloc(
+                sizeof(self.c.widths[0]), len(widths))
+            self.c.fwd_state = <weight_t**>self.mem.alloc(
+                sizeof(self.c.fwd_state[0]), len(widths))
+            self.c.bwd_state = <weight_t**>self.mem.alloc(
+                sizeof(self.c.bwd_state[0]), len(widths))
+            for i, width in enumerate(widths):
+                self.c.fwd_state[i] = <weight_t*>self.mem.alloc(
+                    sizeof(self.c.fwd_state[i][0]), width)
+                self.c.bwd_state[i] = <weight_t*>self.mem.alloc(
+                    sizeof(self.c.bwd_state[i][0]), width)
 
     cpdef int fill_features(self, int value, int nr_feat) except -1:
         if self.c.nr_feat < nr_feat:
@@ -137,6 +149,8 @@ cdef class Example:
                 self.fill_costs(0, self.nr_class)
             else:
                 self.nr_class = len(costs)
+            cdef int i
+            cdef weight_t cost
             for i, cost in enumerate(costs):
                 self.c.costs[i] = cost
 
