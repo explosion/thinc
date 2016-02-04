@@ -26,7 +26,6 @@ PACKAGES = [
     'thinc.linear',
     'thinc.extra',
     'thinc.neural',
-    'thinc.tests',
     'thinc.linear.tests',
     'thinc.extra.tests',
     'thinc.neural.tests'
