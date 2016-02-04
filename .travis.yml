@@ -9,4 +9,4 @@ install:
   - "pip install -r requirements.txt"
   - "python setup.py build_ext --inplace"
 # command to run tests
-script: "py.test tests/"
+script: "py.test thinc/"
