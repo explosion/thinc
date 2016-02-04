@@ -1,8 +1,8 @@
 from ...extra.eg cimport Example
 from ...structs cimport ConstantsC
 from ...typedefs cimport len_t
-from ..lvl0 cimport dot_plus
-from ..lvl0 cimport ELU
+from ..forward cimport dot_plus
+from ..forward cimport ELU
 
 import numpy as np
 
