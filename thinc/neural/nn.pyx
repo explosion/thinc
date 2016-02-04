@@ -27,20 +27,21 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .lvl0 cimport expf
-from .lvl0 cimport adam
-from .lvl0 cimport adadelta
-from .lvl0 cimport adagrad
-from .lvl0 cimport vanilla_sgd_update_step
-from .lvl0 cimport dot_plus__ELU
-from .lvl0 cimport dot_plus__ReLu
-from .lvl0 cimport dot_plus__residual__ELU
-from .lvl0 cimport dot__normalize__dot_plus__ELU
-from .lvl0 cimport d_ELU__dot__normalize__dot
-from .lvl0 cimport d_ELU__dot
-from .lvl0 cimport d_ReLu__dot
-from .lvl0 cimport softmax
-from .lvl0 cimport d_log_loss
+from .solve cimport vanilla_sgd, adam, adagrad
+
+from .solve cimport adam
+from .solve cimport adadelta
+from .solve cimport adagrad
+from .solve cimport vanilla_sgd
+from .forward cimport dot_plus__ELU
+from .forward cimport dot_plus__ReLu
+from .forward cimport dot_plus__residual__ELU
+from .forward cimport dot__normalize__dot_plus__ELU
+from .backward cimport d_ELU__dot__normalize__dot
+from .backward cimport d_ELU__dot
+from .backward cimport d_ReLu__dot
+
+from .backward cimport d_log_loss
 
 from libc.string cimport memcpy
 from libc.math cimport isnan, sqrt
