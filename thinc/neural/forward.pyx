@@ -6,7 +6,11 @@ cimport cython
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec
+from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf, expf
+
+
+DEF EPS = 0.00000001 
+DEF ALPHA = 1.0
 
 
 cdef void dot_plus__ELU(float** fwd, float* averages,

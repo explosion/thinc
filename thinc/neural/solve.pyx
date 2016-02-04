@@ -7,7 +7,11 @@ from libc.string cimport memcpy, memset
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec
+from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf
+
+
+DEF EPS = 0.00000001 
+DEF ALPHA = 1.0
 
 
 @cython.cdivision(True)

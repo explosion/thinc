@@ -74,7 +74,7 @@ cdef class NN:
             float alpha=0.5
     ) except *:
         if update_step == 'sgd':
-            nn.update = vanilla_sgd_update_step
+            nn.update = vanilla_sgd
         elif update_step == 'adadelta':
             nn.update = adadelta
         elif update_step == 'adagrad':

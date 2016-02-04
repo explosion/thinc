@@ -25,4 +25,13 @@ cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
         const ConstantsC* hp) nogil
 
 
+cdef void dot_plus(float* out,
+        const float* bias, len_t nr_out,
+        const float* x, len_t nr_in,
+        const float* W) nogil
+  
+
 cdef void softmax(float* out, len_t nr_out) nogil
+
+
+cdef void ELU(float* out, len_t nr_out) nogil

@@ -25,3 +25,12 @@ cdef void d_log_loss(
         const float* costs,
         const float* scores,
             len_t nr_out) nogil
+
+
+cdef void d_dot(float* btm_diff,
+        int nr_btm,
+        const float* top_diff, int nr_top,
+        const float* W) nogil
+ 
+
+cdef void d_ELU(float* delta, const float* signal_out, int n) nogil
