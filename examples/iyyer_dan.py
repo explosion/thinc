@@ -13,7 +13,7 @@ from pathlib import Path
 import plac
 import numpy.random
 
-from thinc.nn import NeuralNet
+from thinc.neural.nn import NeuralNet
 
 
 def read_data(data_dir):
@@ -99,18 +99,18 @@ class DenseAveragedNetwork(NeuralNet):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6, bias=0.0, update_step='adadelta'):
+                 eps=1e-6, update_step='adadelta'):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, eps=eps, bias=bias,
+                           rho=rho, eta=eta, eps=eps,
                            update_step=update_step)
         self.get_bow = get_bow
 
     def train(self, text, label):
         eg = self.eg
         feats = self.get_feats(text)
-        eg.wipe(self.widths)
-        eg.set_features(feats)
+        eg.reset()
+        eg.features = feats
         eg.set_label(label)
         return self.train_example(eg)
 
@@ -150,8 +150,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     n_classes = 2
     print("Initializing model")
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
-                                 update_step=solver, rho=rho, eta=eta, eps=1e-6,
-                                 bias=bias)
+                                 update_step=solver, rho=rho, eta=eta, eps=1e-6)
     print(model.widths)
     print(model.nr_weight)
     print("Read data")
