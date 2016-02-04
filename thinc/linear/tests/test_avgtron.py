@@ -130,7 +130,7 @@ def test_averaging(model):
 
 
 def test_dump_load(model):
-    loc = tempfile.mkdtemp()
+    loc = tempfile.mkstemp()
     model.end_training()
     model.dump(loc)
     string = open(loc, 'rb').read()
