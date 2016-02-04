@@ -64,7 +64,7 @@ elif install_mode == 'test':
         old = os.getcwd()
         os.chdir('tmp')
 
-        x('python -m pytest ../thinc')
+        x("python -m pytest `python -c 'import os, thinc; print(os.path.dirname(thinc.__file__))'`")
 
     finally:
         os.chdir(old)
