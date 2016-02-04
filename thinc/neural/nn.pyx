@@ -256,7 +256,7 @@ cdef class NeuralNet:
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, class_priors, update_step,
                 eta, eps, mu, rho, alpha)
-        self.eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
+        self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
     def predict_example(self, Example eg):
         if eg.c.nr_feat != 0:
@@ -269,8 +269,10 @@ cdef class NeuralNet:
         return eg
 
     def predict_dense(self, features):
-        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
-        eg.set_input(features)
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+        cdef weight_t value
+        for i, value in enumerate(features):
+            eg.c.fwd_state[0][i] = value
         return self.predict_example(eg)
 
     def predict_sparse(self, features):
@@ -278,15 +280,21 @@ cdef class NeuralNet:
         return self.predict_example(eg)
     
     def train_dense(self, features, y):
-        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
-        eg.set_input(features)
-        eg.set_label(y)
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+        cdef weight_t value 
+        for i, value in enumerate(features):
+            eg.c.fwd_state[0][i] = value
+        eg.costs = y
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
   
-    def train_sparse(self, features, y):
+    def train_sparse(self, features, label):
         cdef Example eg = self.Example(features)
-        eg.set_label(y)
+        if label is not None:
+            if isinstance(label, int):
+                eg.costs = [i != label for i in range(eg.nr_class)]
+            else:
+                eg.costs = label
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
    
@@ -297,10 +305,13 @@ cdef class NeuralNet:
     def Example(self, input_, label=None):
         if isinstance(input_, Example):
             return input_
-        cdef Example eg = Example(self.widths, blocks_per_layer=1+USE_BATCH_NORM)
-        eg.set_features(input_)
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+        eg.features = input_
         if label is not None:
-            eg.set_label(label)
+            if isinstance(label, int):
+                eg.costs = [i != label for i in range(eg.nr_class)]
+            else:
+                eg.costs = label
         return eg
 
     property use_batch_norm:
@@ -376,7 +387,7 @@ cdef class NeuralNet:
     property nr_weight:
         def __get__(self):
             return self.c.nr_weight
-    property nr_out:
+    property nr_class:
         def __get__(self):
             return self.c.widths[self.c.nr_layer-1]
     property nr_in:
