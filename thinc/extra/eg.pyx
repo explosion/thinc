@@ -76,15 +76,13 @@ cdef class Example:
             self.c.costs[i] = value
         self.c.nr_class = nr_class
     
-    def reset(self, int nr_feat=-1, int nr_class=-1, int nr_atom=-1, widths=None):
-        if nr_feat >= 1:
-            self.fill_features(0, nr_feat)
-        if nr_atom >= 1:
-            self.fill_atoms(0, nr_atom)
-        if nr_class >= 1:
-            self.fill_scores(0, nr_class)
-            self.fill_costs(0, nr_class)
-            self.fill_is_valid(0, nr_class)
+    def reset(self):
+        self.fill_features(0, self.c.nr_feat)
+        self.fill_atoms(0, self.c.nr_atom)
+        self.fill_scores(0, self.c.nr_class)
+        self.fill_costs(0, self.c.nr_class)
+        self.fill_is_valid(0, self.c.nr_class)
+        # TODO: Reset fwd/bwd state
    
     def set_input(self, input_):
         if len(input_) > self.c.widths[0]:
