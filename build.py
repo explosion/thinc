@@ -22,6 +22,7 @@ install_mode = sys.argv[1]
 
 
 if install_mode == 'prepare':
+    x('python setup.py clean --all')
     x('python pip-clear.py')
 
     pip_date = len(sys.argv) > 2 and sys.argv[2]
