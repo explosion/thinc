@@ -11,13 +11,14 @@ from ..nn import NeuralNet
 from ...extra.eg import Example
 
 np.random.seed(2)
+random.seed(0)
 
 
 def test_create():
     model = NeuralNet((4, 8, 3))
 
     assert model.nr_in == 4
-    assert model.nr_out == 3
+    assert model.nr_class == 3
     assert model.nr_layer == 3
     assert model.widths == (4, 8, 3)
     assert model.mem is not None
@@ -25,13 +26,13 @@ def test_create():
     with pytest.raises(AttributeError) as excinfo:
         model.mem = None
 
-
 def test_fwd_bias():
     model = NeuralNet((2, 2), rho=0.0)
     
     model.weights = [1.0] * model.nr_weight
 
     eg = model.predict_dense([0, 0])
+    assert eg.nr_class == 2
     assert_allclose(eg.scores, [0.5, 0.5])
 
     # Set bias for class 0
@@ -66,7 +67,7 @@ def test_fwd_bias():
 
 def test_fwd_linear():
     model = NeuralNet((2,2), rho=0.0, alpha=0.5)
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.widths == (2, 2)
 
     syn = [1.,0.,0.,1.]
@@ -76,7 +77,6 @@ def test_fwd_linear():
         model.weights = syn+bias+gamma
     else:
         model.weights = syn+bias
-    print(model.weights)
     
     ff = [0,0]
     tf = [1,0]
@@ -102,7 +102,7 @@ def test_fwd_linear():
 
 def test_xor_manual():
     model = NeuralNet((2,2,2), rho=0.0)
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.widths == (2, 2, 2)
 
     # Make a network that detects X-or
@@ -198,7 +198,7 @@ def test_linear_bias(bias_data):
     model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd')
 
     assert model.nr_in == 2
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.nr_layer == 2
     
     if not model.use_batch_norm:
@@ -208,7 +208,7 @@ def test_linear_bias(bias_data):
 
     assert bias0 == 0
     assert bias1 == 0
-    for _ in range(10):
+    for _ in range(100):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
     if not model.use_batch_norm:
@@ -233,7 +233,7 @@ def test_deep_bias(bias_data):
     model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='adadelta')
 
     assert model.nr_in == 2
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.nr_layer > 2
     
     if not model.use_batch_norm:
@@ -270,7 +270,7 @@ def test_learn_linear(or_data):
                        alpha=0.8)
 
     assert model.nr_in == 2
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.nr_layer == 2
     
     # It takes about this many iterations, with the settings above.
@@ -295,7 +295,7 @@ def test_mlp_learn_linear(or_data):
                       update_step='sgd')
 
     assert model.nr_in == 2
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.nr_layer == 3
     
     # Keep this set low, so that we see that the hidden layer allows the function
@@ -316,7 +316,7 @@ def test_xor_gradient(xor_data):
     '''Test that after each update, we move towards the correct label.'''
     model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='adadelta')
     assert model.nr_in == 2
-    assert model.nr_out == 2
+    assert model.nr_class == 2
     assert model.nr_layer == 3
     
     for _ in range(500):
@@ -341,6 +341,7 @@ def test_xor_eta(xor_data):
             small_eta_loss += small_eta_model.train_dense(features, costs).loss
             normal_eta_loss += normal_eta_model.train_dense(features, costs).loss
     assert normal_eta_loss < small_eta_loss
+
 
 def test_xor_rho(xor_data):
     '''Test that higher L2 penalty causes slower learning.'''
