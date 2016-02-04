@@ -17,7 +17,7 @@ from thinc.neural.nn import NeuralNet
 
 
 def read_data(data_dir):
-    for subdir, label in (('pos', (0, 1)), ('neg', (1, 0))):
+    for subdir, label in (('pos', 1), ('neg', 0)):
         i = 0
         for filename in (data_dir / subdir).iterdir():
             text = filename.open().read()
@@ -107,19 +107,16 @@ class DenseAveragedNetwork(NeuralNet):
         self.get_bow = get_bow
 
     def train(self, text, label):
-        eg = self.eg
-        feats = self.get_feats(text)
-        eg.reset()
-        eg.features = feats
-        eg.set_label(label)
-        return self.train_example(eg)
+        self.eg.reset()
+        self.eg.features = self.get_feats(text)
+        self.eg.costs = [i != label for i in range(self.eg.nr_class)]
+        eg = self.train_example(self.eg)
+        return eg
 
     def predict(self, text):
-        feats = self.get_feats(text, dropout=False)
-        eg = self.eg
-        eg.wipe(self.widths)
-        eg.set_features(feats)
-        return self.predict_example(eg)
+        self.eg.reset()
+        self.eg.features = self.get_feats(text, dropout=False)
+        return self.predict_example(self.eg)
 
     def get_feats(self, text, dropout=True):
         word_ids = self.get_bow(text, dropout=dropout)
@@ -146,7 +143,7 @@ class DenseAveragedNetwork(NeuralNet):
     solver=("Solver", "option", "s", str),
 )
 def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
-         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0, solver='adadelta'):
+         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0, solver='sgd'):
     n_classes = 2
     print("Initializing model")
     model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
@@ -171,7 +168,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
             #print(list(model.layers[-1])[1])
             train_loss += eg.loss
             avg_grad += model.l1_gradient
-        n_correct = sum(y[model.predict(x).guess] == 0 for x, y in dev_data)
+        n_correct = sum(model.predict(x).guess == y for x, y in dev_data)
         print(epoch, train_loss, n_correct / len(dev_data),
               sum(model.weights) / model.nr_weight,
               avg_grad)
@@ -181,7 +178,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
             prev_best = n_correct
     print("Evaluating")
     eval_data = list(read_data(data_dir / 'test'))
-    n_correct = sum(y[model.predict(x).guess] == 0 for x, y in eval_data)
+    n_correct = sum(model.predict(x).guess == y for x, y in eval_data)
     print(n_correct / len(eval_data))
  
 

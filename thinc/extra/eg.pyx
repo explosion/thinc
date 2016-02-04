@@ -4,12 +4,13 @@ cdef class Example:
         if mem is None:
             mem = Pool()
         self.mem = mem
-        self.fill_features(0, nr_feat)
-        self.fill_atoms(0, nr_atom)
-        self.fill_is_valid(1, nr_class)
-        self.fill_scores(0, nr_class)
-        self.fill_costs(0, nr_class)
+        self.fill_features(0, nr_feat or 1)
+        self.fill_atoms(0, nr_atom or 1)
+        self.fill_is_valid(1, nr_class or 1)
+        self.fill_scores(0, nr_class or 1)
+        self.fill_costs(0, nr_class or 1)
         if widths is not None:
+            self.c.nr_layer = len(widths)
             self.c.widths = <int*>self.mem.alloc(
                 sizeof(self.c.widths[0]), len(widths))
             self.c.fwd_state = <weight_t**>self.mem.alloc(
@@ -23,7 +24,11 @@ cdef class Example:
                     sizeof(self.c.bwd_state[i][0]), width)
 
     cpdef int fill_features(self, int value, int nr_feat) except -1:
-        if self.c.nr_feat < nr_feat:
+        if self.c.features == NULL:
+            self.c.features = <FeatureC*>self.mem.alloc(
+                sizeof(self.c.features[0]), nr_feat)
+            self.c.nr_feat = nr_feat
+        elif self.c.nr_feat < nr_feat:
             self.c.features = <FeatureC*>self.mem.realloc(self.c.features,
                 sizeof(self.c.features[0]) * nr_feat)
         for i in range(nr_feat):
@@ -81,8 +86,12 @@ cdef class Example:
         self.fill_atoms(0, self.c.nr_atom)
         self.fill_scores(0, self.c.nr_class)
         self.fill_costs(0, self.c.nr_class)
-        self.fill_is_valid(0, self.c.nr_class)
-        # TODO: Reset fwd/bwd state
+        self.fill_is_valid(1, self.c.nr_class)
+        for i in range(self.c.nr_layer):
+            memset(self.c.fwd_state[i],
+                0, sizeof(self.c.fwd_state[i][0]) * self.c.widths[i])
+            memset(self.c.bwd_state[i],
+                0, sizeof(self.c.bwd_state[i][0]) * self.c.widths[i])
    
     def set_input(self, input_):
         if len(input_) > self.c.widths[0]:
@@ -132,7 +141,7 @@ cdef class Example:
         def __set__(self, is_valid):
             is_valid = list(is_valid)
             if len(is_valid) < self.nr_class:
-                self.fill_is_valid(0, self.nr_class)
+                self.fill_is_valid(1, self.nr_class)
             else:
                 self.nr_class = len(is_valid)
             for i, is_valid in enumerate(is_valid):
@@ -171,24 +180,18 @@ cdef class Example:
             return self.c.nr_class
         def __set__(self, int nr_class):
             if self.c.nr_class != nr_class:
-                if self.c.scores is NULL:
-                    self.c.scores = <weight_t*>self.mem.alloc(
-                        sizeof(self.c.scores[0]), nr_class)
-                else:
-                    self.c.scores = <weight_t*>self.mem.realloc(self.c.scores,
-                        sizeof(self.c.scores[0]) * nr_class)
-                if self.c.is_valid is NULL:
-                    self.c.is_valid = <int*>self.mem.alloc(
-                        sizeof(self.c.is_valid[0]), nr_class)
-                else:
-                    self.c.is_valid = <int*>self.mem.realloc(self.c.is_valid,
-                        sizeof(self.c.is_valid[0]) * nr_class)
-                if self.c.costs is NULL:
-                    self.c.costs = <weight_t*>self.mem.alloc(
-                        sizeof(self.c.costs[0]), nr_class)
-                else: 
-                    self.c.costs = <weight_t*>self.mem.realloc(self.c.costs,
-                        sizeof(self.c.costs[0]) * nr_class)
+                if self.c.scores is not NULL:
+                    self.mem.free(self.c.scores)
+                if self.c.is_valid is not NULL:
+                    self.mem.free(self.c.is_valid)
+                if self.c.costs is not NULL:
+                    self.mem.free(self.c.costs)
+                self.c.scores = <weight_t*>self.mem.alloc(
+                    sizeof(self.c.scores[0]), nr_class)
+                self.c.is_valid = <int*>self.mem.alloc(
+                    sizeof(self.c.is_valid[0]), nr_class)
+                self.c.costs = <weight_t*>self.mem.alloc(
+                    sizeof(self.c.costs[0]), nr_class)
                 self.c.nr_class = nr_class
  
     property nr_atom:
@@ -196,26 +199,22 @@ cdef class Example:
             return self.c.nr_atom
         def __set__(self, int nr_atom):
             if self.c.nr_atom != nr_atom:
-                if self.c.atoms is NULL:
-                    self.c.atoms = <atom_t*>self.mem.alloc(
-                        sizeof(self.c.atoms[0]), nr_atom)
-                else:
-                    self.c.atoms = <atom_t*>self.mem.realloc(self.c.atoms,
-                        sizeof(self.c.atoms[0]) * nr_atom)
-                self.c.nr_atom = nr_atom
+                if self.c.atoms is not NULL:
+                    self.mem.free(self.c.atoms)
+            self.c.atoms = <atom_t*>self.mem.alloc(
+                sizeof(self.c.atoms[0]), nr_atom)
+            self.c.nr_atom = nr_atom
  
     property nr_feat:
         def __get__(self):
             return self.c.nr_feat
         def __set__(self, int nr_feat):
             if self.c.nr_feat != nr_feat:
-                if self.c.features is NULL:
-                    self.c.features = <FeatureC*>self.mem.alloc(
-                        sizeof(self.c.features[0]), nr_feat)
-                else:
-                    self.c.features = <FeatureC*>self.mem.realloc(self.c.features,
-                        sizeof(self.c.features[0]) * nr_feat)
-            self.c.nr_feat = nr_feat
+                if self.c.features is not NULL:
+                    self.mem.free(self.c.features)
+                self.c.features = <FeatureC*>self.mem.alloc(
+                    sizeof(self.c.features[0]), nr_feat)
+                self.c.nr_feat = nr_feat
 
     property loss:
         def __get__(self):
