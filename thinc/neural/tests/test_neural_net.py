@@ -446,7 +446,8 @@ def f2s(fs):
 
 
 def test_sparse_backprop():
-    def train_batch(model, (X, Y)):
+    def train_batch(model, xy):
+        x, y = xy
         loss = 0.0
         for x,y in zip(X, Y):
             eg = model.train_sparse(x, y)
