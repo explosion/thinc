@@ -4,11 +4,11 @@ cdef class Example:
         if mem is None:
             mem = Pool()
         self.mem = mem
-        self.fill_features(0, nr_feat or 1)
-        self.fill_atoms(0, nr_atom or 1)
-        self.fill_is_valid(1, nr_class or 1)
-        self.fill_scores(0, nr_class or 1)
-        self.fill_costs(0, nr_class or 1)
+        self.fill_features(0, nr_feat)
+        self.fill_atoms(0, nr_atom)
+        self.fill_is_valid(1, nr_class)
+        self.fill_scores(0, nr_class)
+        self.fill_costs(0, nr_class)
         if widths is not None:
             self.c.nr_layer = len(widths)
             self.c.widths = <int*>self.mem.alloc(
