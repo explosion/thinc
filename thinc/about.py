@@ -1,8 +1,13 @@
-# THIS FILE IS GENERATED FROM SETUP.PY
-short_version = '5.0.0'
-version = '5.0.0'
-full_version = '5.0.0.dev0+3681565'
-git_revision = '3681565cc40a10f56fd8fc9e7d217bde02eb7549'
-release = False
-if not release:
-    version = full_version
+# inspired from:
+
+# https://python-packaging-user-guide.readthedocs.org/en/latest/single_source_version/
+# https://github.com/pypa/warehouse/blob/master/warehouse/__about__.py
+
+__name__ = 'thinc'
+__version__ = '5.0.0'
+__summary__ = 'Learn sparse linear models'
+__uri__ = 'https://github.com/spacy-io/thinc'
+__author__ = 'Matthew Honnibal'
+__email__ = 'matt@spacy.io'
+__license__ = 'MIT'
+__release__ = False
