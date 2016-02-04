@@ -48,6 +48,7 @@ cdef extern from "cblas.h":
 
 cdef extern from "math.h" nogil:
     float expf(float x)
+    float sqrtf(float x)
 
 
 cdef class Matrix:
