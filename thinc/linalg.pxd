@@ -11,10 +11,6 @@ ctypedef float weight_t
 include "compile_time_constants.pxi"
 
 
-cdef extern from "numpy/npy_math.h":
-    bint npy_isnan(double x) nogil
-
-
 # Copied from Shane Legg's Tokyo
 #cdef extern from "cblas.h":
 #    enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
@@ -49,6 +45,11 @@ cdef extern from "numpy/npy_math.h":
 #                                 float  beta, float  *C, int ldc) nogil
 #
 
+
+cdef extern from "math_ext.h":
+    bint isnan(double x) nogil
+
+
 cdef extern from "math.h" nogil:
     float expf(float x)
     float sqrtf(float x)
@@ -66,7 +67,7 @@ cdef class Vec:
     cdef inline int has_nan(const weight_t* weights, int n) nogil:
         cdef int i
         for i in range(n):
-            if npy_isnan(weights[i]):
+            if isnan(weights[i]):
                 return 1
         else:
             return 0
