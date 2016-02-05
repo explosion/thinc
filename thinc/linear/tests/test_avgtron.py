@@ -3,6 +3,7 @@ from __future__ import division
 import pytest
 import pickle
 import io
+import tempfile
 
 from thinc.linear.avgtron import AveragedPerceptron
 from thinc.extra.eg import Example
@@ -129,7 +130,7 @@ def test_averaging(model):
 
 
 def test_dump_load(model):
-    loc = '/tmp/test_model'
+    loc = tempfile.mkstemp()[1]
     model.end_training()
     model.dump(loc)
     string = open(loc, 'rb').read()
