@@ -40,11 +40,11 @@ cdef void sgd_cm(float* weights, float* momentum, float* gradient,
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
-    Vec.mul_i(momentum, 1-hp.m, nr_weight)
+    Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
-        gradient, hp.m, nr_weight)
+        gradient, hp.e, nr_weight)
     VecVec.add_i(weights,
-        momentum, -hp.e, nr_weight)
+        momentum, -1.0, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)
 
