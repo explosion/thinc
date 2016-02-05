@@ -29,8 +29,12 @@ def sdist():
         local('python setup.py sdist')
 
 
-def publish():
+def publish(version):
     with virtualenv(VENV_DIR):
+        local('git push origin master')
+        local('git tag -a %s' % version)
+        local('git push origin %s' % version)
+        local('python setup.py sdist')
         local('python setup.py register')
         local('twine upload dist/*.tar.gz')
 
