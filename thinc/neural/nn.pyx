@@ -27,7 +27,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, adam, adagrad
+from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
 
 from .solve cimport adam
 from .solve cimport adadelta
@@ -69,12 +69,14 @@ cdef class NN:
             update_step='adam',
             float eta=0.005,
             float eps=1e-6,
-            float mu=0.2,
+            float mu=0.9,
             float rho=1e-4,
             float alpha=0.5
     ) except *:
         if update_step == 'sgd':
             nn.update = vanilla_sgd
+        elif update_step == 'sgd_cm':
+            nn.update = sgd_cm
         elif update_step == 'adadelta':
             nn.update = adadelta
         elif update_step == 'adagrad':

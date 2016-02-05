@@ -31,6 +31,25 @@ cdef void vanilla_sgd(float* weights, float* moments, float* gradient,
 
 
 @cython.cdivision(True)
+cdef void sgd_cm(float* weights, float* momentum, float* gradient,
+        len_t nr_weight,const ConstantsC* hp) nogil:
+    '''
+    Update weights with SGD and classical momentum
+    '''
+    # Add the derivative of the L2-loss to the gradient
+    if hp.r != 0:
+        VecVec.add_i(gradient,
+            weights, hp.r, nr_weight)
+    Vec.mul_i(momentum, 1-hp.m, nr_weight)
+    VecVec.add_i(momentum,
+        gradient, hp.m, nr_weight)
+    VecVec.add_i(weights,
+        momentum, -hp.e, nr_weight)
+    memset(gradient,
+        0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
 cdef void adam(
     float* weights, float* moments, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:

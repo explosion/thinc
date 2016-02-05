@@ -8,6 +8,10 @@ cdef void vanilla_sgd(float* weights, float* moments, float* gradient,
         len_t nr_weight,const ConstantsC* hp) nogil
 
 
+cdef void sgd_cm(float* weights, float* moments, float* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil
+
+
 cdef void adam(
     float* weights, float* moments, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil
