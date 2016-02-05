@@ -85,7 +85,7 @@ cdef class NN:
             nn.feed_fwd = dot__normalize__dot_plus__ELU
             nn.feed_bwd = d_ELU__dot__normalize__dot
         else:
-            nn.feed_fwd = dot_plus__ELU
+            nn.feed_fwd = dot_plus__residual__ELU
             nn.feed_bwd = d_ELU__dot
 
         nn.hp.t = 0
@@ -290,12 +290,7 @@ cdef class NeuralNet:
         return eg
   
     def train_sparse(self, features, label):
-        cdef Example eg = self.Example(features)
-        if label is not None:
-            if isinstance(label, int):
-                eg.costs = [i != label for i in range(eg.nr_class)]
-            else:
-                eg.costs = label
+        cdef Example eg = self.Example(features, label=label)
         NN.train_example(&self.c, self.mem, &eg.c)
         return eg
    
@@ -326,6 +321,7 @@ cdef class NeuralNet:
             assert len(weights) == self.c.nr_weight
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
+
     property averages:
         def __get__(self):
             for i, width in enumerate(self.widths):
