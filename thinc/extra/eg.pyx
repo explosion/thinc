@@ -18,6 +18,7 @@ cdef class Example:
             self.c.bwd_state = <weight_t**>self.mem.alloc(
                 sizeof(self.c.bwd_state[0]), len(widths))
             for i, width in enumerate(widths):
+                self.c.widths[i] = width
                 self.c.fwd_state[i] = <weight_t*>self.mem.alloc(
                     sizeof(self.c.fwd_state[i][0]), width)
                 self.c.bwd_state[i] = <weight_t*>self.mem.alloc(
