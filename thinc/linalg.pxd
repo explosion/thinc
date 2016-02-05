@@ -4,12 +4,15 @@
 cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memcpy
-from libc.math cimport isnan as c_is_nan
 from cymem.cymem cimport Pool
 
 ctypedef float weight_t
 
 include "compile_time_constants.pxi"
+
+
+cdef extern from "numpy/npy_math.h":
+    bint npy_isnan(double x) nogil
 
 
 # Copied from Shane Legg's Tokyo
@@ -63,7 +66,7 @@ cdef class Vec:
     cdef inline int has_nan(const weight_t* weights, int n) nogil:
         cdef int i
         for i in range(n):
-            if c_is_nan(weights[i]):
+            if npy_isnan(weights[i]):
                 return 1
         else:
             return 0
