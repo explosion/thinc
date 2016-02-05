@@ -9,16 +9,6 @@ thinc is a Cython library for learning models with millions of parameters and
 dozens of classes.  It drives https://spacy.io , a pipeline of very efficient NLP components.
 I've only used thinc from Cython; no real Python API is currently available.
 
-Currently the only model implemented is the averaged perceptron, which is
-surprisingly competitive for these problems.
-
-Despite the recent enthusiasm for deep learning, linear models can still
-perform very well, if the right feature engineering is applied.  The key is
-adding good conjunction features --- e.g., "next_word=X && next_next_word=Y".
-For this, I have a helper-class thinc.features.Extractor, which you pass a list
-of templates, which then performs your feature extraction, given an array of
-atomic context items.
-
 License
 -------
 
