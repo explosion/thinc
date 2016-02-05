@@ -59,6 +59,15 @@ cdef class AveragedPerceptron:
         PyErr_CheckSignals()
         return eg.guess
 
+    def train_example(self, Example eg):
+        self(eg)
+        self.update(eg)
+        return eg
+
+    def predict_example(self, Example eg):
+        self(eg)
+        return eg
+
     def update(self, Example eg):
         self.updateC(&eg.c)
 
