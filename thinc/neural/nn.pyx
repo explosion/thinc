@@ -45,7 +45,8 @@ from .backward cimport d_log_loss
 
 from libc.string cimport memcpy
 from libc.math cimport isnan, sqrt
-import numpy
+
+import random
 
 
 DEF USE_BATCH_NORM = False
@@ -413,7 +414,7 @@ cdef class NeuralNet:
 cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
+    values = [random.normal(0.0, sqrt(2.0 / float(fan_in))) for _ in range(n)]
     cdef float value
     for i, value in enumerate(values):
         weights[i] = value
@@ -422,7 +423,7 @@ cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
 cdef void he_uniform_initializer(float* weights, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
+    values = [random.random() * sqrt(2.0 / float(n)) for _ in range(n)]
     cdef float value
     for i, value in enumerate(values):
         weights[i] = value
