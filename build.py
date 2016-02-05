@@ -30,6 +30,7 @@ if install_mode == 'prepare':
         x('python pip-date.py %s pip setuptools wheel six' % pip_date)
 
     x('pip install -r requirements.txt')
+    x('pip install -r dev-requirements.txt')
     x('pip list')
 
 
