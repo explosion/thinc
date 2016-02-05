@@ -66,7 +66,6 @@ cdef class NN:
         Pool mem,
             widths,
             embed=None,
-            class_priors=None,
             update_step='adam',
             float eta=0.005,
             float eps=1e-6,
@@ -125,12 +124,6 @@ cdef class NN:
                 he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
                     nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-        cdef float bias
-        if class_priors:
-            W += nn.widths[nn.nr_layer-2] * nn.widths[nn.nr_layer-1]
-            for class_, bias in class_priors:
-                W[class_] = bias
-
         if USE_BATCH_NORM:
             i = nn.nr_layer-2
             he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
