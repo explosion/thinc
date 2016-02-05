@@ -2,11 +2,11 @@
 thinc: Learn super-sparse multi-class models
 =============================================
 
-.. image:: https://travis-ci.org/honnibal/thinc.svg?branch=master
-    :target: https://travis-ci.org/honnibal/thinc
+.. image:: https://travis-ci.org/spacy-io/thinc.svg?branch=master
+    :target: https://travis-ci.org/spacy-io/thinc
 
 thinc is a Cython library for learning models with millions of parameters and
-dozens of classes.  It drives http://honnibal.github.io/spaCy , a pipeline of very efficient NLP components.
+dozens of classes.  It drives https://spacy.io , a pipeline of very efficient NLP components.
 I've only used thinc from Cython; no real Python API is currently available.
 
 Currently the only model implemented is the averaged perceptron, which is
