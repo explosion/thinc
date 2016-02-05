@@ -46,10 +46,6 @@ include "compile_time_constants.pxi"
 #
 
 
-cdef extern from "math_ext.h":
-    bint isnan(double x) nogil
-
-
 cdef extern from "math.h" nogil:
     float expf(float x)
     float sqrtf(float x)
@@ -63,15 +59,6 @@ cdef class Matrix:
 
 
 cdef class Vec:
-    @staticmethod
-    cdef inline int has_nan(const weight_t* weights, int n) nogil:
-        cdef int i
-        for i in range(n):
-            if isnan(weights[i]):
-                return 1
-        else:
-            return 0
-
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
         cdef int i
