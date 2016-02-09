@@ -8,6 +8,7 @@
         "install": [
             "python pip-clear.py",
             "pip install source.tar.gz",
+            "pip install -r dev-requirements.txt"
         ]
     },
     "test": {
