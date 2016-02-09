@@ -47,6 +47,7 @@ from libc.string cimport memcpy
 from libc.math cimport isnan, sqrt
 
 import random
+import numpy
 
 
 DEF USE_BATCH_NORM = False
@@ -55,10 +56,7 @@ DEF USE_BATCH_NORM = False
 cdef class NN:
     @staticmethod
     cdef int nr_weight(int nr_out, int nr_in) nogil:
-        if USE_BATCH_NORM:
-            return nr_out * nr_in + nr_out * 2
-        else:
-            return nr_out * nr_in + nr_out
+        return nr_out * nr_in + nr_out
 
     @staticmethod
     cdef void init(
@@ -66,7 +64,6 @@ cdef class NN:
         Pool mem,
             widths,
             embed=None,
-            class_priors=None,
             update_step='adam',
             float eta=0.005,
             float eps=1e-6,
@@ -84,12 +81,8 @@ cdef class NN:
             nn.update = adagrad
         else:
             nn.update = adam
-        if USE_BATCH_NORM:
-            nn.feed_fwd = dot__normalize__dot_plus__ELU
-            nn.feed_bwd = d_ELU__dot__normalize__dot
-        else:
-            nn.feed_fwd = dot_plus__residual__ELU
-            nn.feed_bwd = d_ELU__dot
+        nn.feed_fwd = dot_plus__ELU
+        nn.feed_bwd = d_ELU__dot
 
         nn.hp.t = 0
         nn.hp.a = alpha
@@ -125,12 +118,6 @@ cdef class NN:
                 he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
                     nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-        cdef float bias
-        if class_priors:
-            W += nn.widths[nn.nr_layer-2] * nn.widths[nn.nr_layer-1]
-            for class_, bias in class_priors:
-                W[class_] = bias
-
         if USE_BATCH_NORM:
             i = nn.nr_layer-2
             he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
@@ -253,12 +240,12 @@ cdef class NeuralNet:
     cdef readonly Example eg
     cdef NeuralNetC c
 
-    def __init__(self, widths, embed=None, class_priors=None,
+    def __init__(self, widths, embed=None,
                  weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
                  weight_t rho=1e-4, weight_t alpha=0.99,
                  update_step='adam'):
         self.mem = Pool()
-        NN.init(&self.c, self.mem, widths, embed, class_priors, update_step,
+        NN.init(&self.c, self.mem, widths, embed, update_step,
                 eta, eps, mu, rho, alpha)
         self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
@@ -414,7 +401,7 @@ cdef class NeuralNet:
 cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = [random.normal(0.0, sqrt(2.0 / float(fan_in))) for _ in range(n)]
+    values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
     cdef float value
     for i, value in enumerate(values):
         weights[i] = value
@@ -423,7 +410,7 @@ cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
 cdef void he_uniform_initializer(float* weights, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = [random.random() * sqrt(2.0 / float(n)) for _ in range(n)]
+    values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
     cdef float value
     for i, value in enumerate(values):
         weights[i] = value
