@@ -3,16 +3,15 @@
         "sdist": [
             "python pip-clear.py",
             "pip install -r requirements.txt",
-            "pip install -r dev-requirements.txt",
             "python setup.py sdist"
         ],
         "install": [
             "python pip-clear.py",
-            "pip install source.tar.gz",
-            "pip install -r dev-requirements.txt"
+            "pip install source.tar.gz"
         ]
     },
     "test": {
+        "dependencies": ["hypothesis"],
         "after": ["install"],
         "package": "thinc",
         "args": "--tb=native"
