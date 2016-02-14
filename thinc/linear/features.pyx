@@ -37,25 +37,27 @@ cdef class ConjunctionExtracter:
         eg.c.nr_feat = self.set_features(eg.c.features, eg.c.atoms)
 
     cdef int set_features(self, FeatureC* feats, const atom_t* atoms) nogil:
-        cdef TemplateC* templ
-        cdef FeatureC* feat
+        cdef const TemplateC* templ
+        cdef const FeatureC* feat
         feats[0].key = 1
         feats[0].value = 1
         cdef bint seen_non_zero
         cdef int templ_id
         cdef int n_feats = 1
         cdef int i
+        cdef atom_t[MAX_TEMPLATE_LEN] extracted
         for templ_id in range(self.nr_templ-1):
             templ = &self.templates[templ_id]
             seen_non_zero = False
             for i in range(templ.length):
-                templ.atoms[i] = atoms[templ.indices[i]]
-                seen_non_zero = seen_non_zero or templ.atoms[i]
+                extracted[i] = atoms[templ.indices[i]]
+                seen_non_zero = seen_non_zero or extracted[i]
             if seen_non_zero:
                 feat = &feats[n_feats]
-                feat.key = hash64(templ.atoms, templ.length * sizeof(templ.atoms[0]),
-                                  templ_id)
-                feat.value = 1
+                feats[n_feats].key = hash64(extracted, templ.length * sizeof(extracted[0]),
+                                           templ_id)
+                feats[n_feats].value = 1
+                feats[n_feats].i = templ_id
                 n_feats += 1
         return n_feats
 
