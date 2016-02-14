@@ -10,4 +10,4 @@ __uri__ = 'https://github.com/spacy-io/thinc'
 __author__ = 'Matthew Honnibal'
 __email__ = 'matt@spacy.io'
 __license__ = 'MIT'
-__release__ = True
+__release__ = False

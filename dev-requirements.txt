@@ -1,3 +1,2 @@
-cython
 pytest
 hypothesis
