@@ -236,10 +236,6 @@ cdef class Embedding:
 
 
 cdef class NeuralNet:
-    cdef readonly Pool mem
-    cdef readonly Example eg
-    cdef NeuralNetC c
-
     def __init__(self, widths, embed=None,
                  weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
                  weight_t rho=1e-4, weight_t alpha=0.99,
