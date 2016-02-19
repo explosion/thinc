@@ -4,10 +4,10 @@
 # https://github.com/pypa/warehouse/blob/master/warehouse/__about__.py
 
 __name__ = 'thinc'
-__version__ = '5.0.4'
+__version__ = '5.0.5'
 __summary__ = 'Learn sparse linear models'
 __uri__ = 'https://github.com/spacy-io/thinc'
 __author__ = 'Matthew Honnibal'
 __email__ = 'matt@spacy.io'
 __license__ = 'MIT'
-__release__ = False
+__release__ = True
