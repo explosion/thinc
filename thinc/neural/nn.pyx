@@ -29,7 +29,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
+from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad, backtrack
 
 from .solve cimport adam
 from .solve cimport adadelta
@@ -134,7 +134,7 @@ cdef class NN:
         Embedding.set_input(eg.fwd_state[0],
             eg.features, eg.nr_feat, &nn.embed)
         NN.forward(eg.scores, eg.fwd_state,
-            nn)
+            nn, True)
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
         nn.update(nn.weights, nn.momentum, nn.gradient,
@@ -258,6 +258,7 @@ cdef class NeuralNet:
                  weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
                  weight_t rho=1e-4, weight_t alpha=0.99,
                  update_step='adam'):
+        prng.normal_setup()
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step,
                 eta, eps, mu, rho, alpha)
@@ -270,7 +271,7 @@ cdef class NeuralNet:
             Embedding.set_input(eg.c.fwd_state[0],
                 eg.c.features, eg.c.nr_feat, &self.c.embed)
         NN.forward(eg.c.scores, eg.c.fwd_state,
-            &self.c)
+            &self.c, False)
         return eg
 
     def predict_dense(self, features):
@@ -313,6 +314,41 @@ cdef class NeuralNet:
             else:
                 eg.costs = label
         return eg
+
+    def backtrack(self):
+        backtrack(self.c.weights, self.c.momentum, self.c.gradient,
+            self.c.nr_weight, &self.c.hp)
+        cdef int i = 0
+        cdef int j = 0
+        cdef int k = 0
+        cdef key_t key
+        cdef void* value
+        for i in range(self.c.embed.nr):
+            j = 0
+            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
+                emb = <weight_t*>value
+                mom = <weight_t*>Map_get(self.c.embed.momentum[i], key)
+                if emb != NULL and mom != NULL: # None of these should ever be null
+                    backtrack(emb, mom, self.c.gradient,
+                        self.c.embed.lengths[i], &self.c.hp)
+
+    def keep_update(self):
+        memset(self.c.momentum,
+            0, self.c.nr_weight * sizeof(self.c.momentum[0]))
+        cdef int i = 0
+        cdef int j = 0
+        cdef int k = 0
+        cdef key_t key
+        cdef void* value
+        for i in range(self.c.embed.nr):
+            j = 0
+            while Map_iter(self.c.embed.momentum[i], &j, &key, &value):
+                mom = <weight_t*>value
+                if mom != NULL: # None of these should ever be null
+                    memset(mom,
+                        0, self.c.embed.lengths[i] * sizeof(mom[0]))
+
+
 
     property use_batch_norm:
         def __get__(self):

@@ -9,10 +9,16 @@ from ..typedefs cimport idx_t
 from ..typedefs cimport weight_t
 
 from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf
+from .. cimport prng
+
+import numpy
 
 
 DEF EPS = 0.00000001 
 DEF ALPHA = 1.0
+
+
+prng.normal_setup()
 
 
 @cython.cdivision(True)
@@ -26,10 +32,30 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
+    cdef weight_t variance = hp.e / ((1 + hp.t) ** 0.55)
+    for i in range(nr_weight):
+        gradient[i] += prng.normal() * variance
+    # Clip gradient
+    grad_norm = Vec.norm(gradient, nr_weight)
+    if grad_norm >= 100:
+        Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
     VecVec.add_i(weights,
+        gradient, -hp.e, nr_weight)
+    VecVec.add_i(diff,
         gradient, -hp.e, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)
+
+
+cdef void backtrack(weight_t* weights, weight_t* diff, weight_t* gradient,
+        len_t nr_weight,const ConstantsC* hp) nogil:
+    '''
+    Undo updates
+    '''
+    VecVec.add_i(weights,
+        diff, -1.0, nr_weight)
+    memset(diff,
+        0, sizeof(diff[0]) * nr_weight)
 
 
 @cython.cdivision(True)
