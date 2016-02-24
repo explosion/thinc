@@ -29,7 +29,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad, backtrack
+from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
 
 from .solve cimport adam
 from .solve cimport adadelta
@@ -314,39 +314,6 @@ cdef class NeuralNet:
             else:
                 eg.costs = label
         return eg
-
-    def backtrack(self):
-        backtrack(self.c.weights, self.c.momentum, self.c.gradient,
-            self.c.nr_weight, &self.c.hp)
-        cdef int i = 0
-        cdef int j = 0
-        cdef int k = 0
-        cdef key_t key
-        cdef void* value
-        for i in range(self.c.embed.nr):
-            j = 0
-            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
-                emb = <weight_t*>value
-                mom = <weight_t*>Map_get(self.c.embed.momentum[i], key)
-                if emb != NULL and mom != NULL: # None of these should ever be null
-                    backtrack(emb, mom, self.c.gradient,
-                        self.c.embed.lengths[i], &self.c.hp)
-
-    def keep_update(self):
-        memset(self.c.momentum,
-            0, self.c.nr_weight * sizeof(self.c.momentum[0]))
-        cdef int i = 0
-        cdef int j = 0
-        cdef int k = 0
-        cdef key_t key
-        cdef void* value
-        for i in range(self.c.embed.nr):
-            j = 0
-            while Map_iter(self.c.embed.momentum[i], &j, &key, &value):
-                mom = <weight_t*>value
-                if mom != NULL: # None of these should ever be null
-                    memset(mom,
-                        0, self.c.embed.lengths[i] * sizeof(mom[0]))
 
     property use_batch_norm:
         def __get__(self):
