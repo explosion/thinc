@@ -1,18 +1,21 @@
 {
     "build": {
         "sdist": [
-            "python pip-clear.py",
             "pip install -r requirements.txt",
             "python setup.py sdist"
         ],
         "install": [
-            "python pip-clear.py",
-            "pip install source.tar.gz"
+            "pip install -v source.tar.gz"
+        ],
+        "wheel": [
+            "python untar.py source.tar.gz src",
+            "python src/setup.py bdist_wheel",
+            "python cpdist.py src/dist"
         ]
     },
     "test": {
         "dependencies": ["hypothesis"],
-        "after": ["install"],
+        "after": ["install", "wheel"],
         "package": "thinc",
         "args": "--tb=native"
     }
