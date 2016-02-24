@@ -348,8 +348,6 @@ cdef class NeuralNet:
                     memset(mom,
                         0, self.c.embed.lengths[i] * sizeof(mom[0]))
 
-
-
     property use_batch_norm:
         def __get__(self):
             return USE_BATCH_NORM
@@ -412,11 +410,24 @@ cdef class NeuralNet:
             cdef int k = 0
             cdef key_t key
             cdef void* value
+            embeddings = []
             for i in range(self.c.embed.nr):
                 j = 0
+                table = []
                 while Map_iter(self.c.embed.weights[i], &j, &key, &value):
                     emb = <weight_t*>value
-                    yield key, [emb[k] for k in range(self.c.embed.lengths[i])]
+                    table.append((key, [emb[k] for k in range(self.c.embed.lengths[i])]))
+                embeddings.append(table)
+            return embeddings
+
+        def __set__(self, embeddings):
+            cdef weight_t val
+            for i, table in enumerate(embeddings):
+                for key, value in table:
+                    emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
+                    for j, val in enumerate(value):
+                        emb[j] = val
+                    Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
 
     property nr_layer:
         def __get__(self):
