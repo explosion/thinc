@@ -4,6 +4,7 @@
 from __future__ import print_function
 
 from libc.string cimport memmove, memset, memcpy
+from libc.stdint cimport uint64_t
 
 cimport cython
 
@@ -17,6 +18,7 @@ from preshed.maps cimport key_t
 from ..typedefs cimport weight_t, atom_t, feat_t
 from ..typedefs cimport len_t, idx_t
 from ..linalg cimport MatMat, MatVec, VecVec, Vec
+from .. cimport prng
 from ..structs cimport MapC
 from ..structs cimport NeuralNetC
 from ..structs cimport ExampleC
@@ -27,7 +29,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
+from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad, backtrack
 
 from .solve cimport adam
 from .solve cimport adadelta
@@ -65,12 +67,13 @@ cdef class NN:
             widths,
             embed=None,
             update_step='adam',
-            float eta=0.005,
-            float eps=1e-6,
-            float mu=0.9,
-            float rho=1e-4,
-            float alpha=0.5
+            weight_t eta=0.005,
+            weight_t eps=1e-6,
+            weight_t mu=0.9,
+            weight_t rho=1e-4,
+            weight_t alpha=0.5
     ) except *:
+        prng.normal_setup()
         if update_step == 'sgd':
             nn.update = vanilla_sgd
         elif update_step == 'sgd_cm':
@@ -92,19 +95,19 @@ cdef class NN:
 
         nn.nr_layer = len(widths)
         nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
-        nn.averages = <float**>mem.alloc(nn.nr_layer, sizeof(void*))
+        nn.averages = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
-            nn.averages[i] = <float*>mem.alloc(width*4, sizeof(nn.averages[i][0]))
+            nn.averages[i] = <weight_t*>mem.alloc(width*4, sizeof(nn.averages[i][0]))
         nn.nr_weight = 0
         nn.nr_node = 0
         for i in range(nn.nr_layer-1):
             nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
             nn.nr_node += nn.widths[i]
-        nn.weights = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.gradient = <float*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.momentum = <float*>mem.alloc(nn.nr_weight * 2, sizeof(nn.weights[0]))
+        nn.weights = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.gradient = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+        nn.momentum = <weight_t*>mem.alloc(nn.nr_weight * 2, sizeof(nn.weights[0]))
         
         if embed is not None:
             vector_widths, features = embed
@@ -131,7 +134,7 @@ cdef class NN:
         Embedding.set_input(eg.fwd_state[0],
             eg.features, eg.nr_feat, &nn.embed)
         NN.forward(eg.scores, eg.fwd_state,
-            nn)
+            nn, True)
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
         nn.update(nn.weights, nn.momentum, nn.gradient,
@@ -142,8 +145,12 @@ cdef class NN:
                 &nn.hp, nn.update)
     
     @staticmethod
-    cdef void forward(float* scores, float** fwd, const NeuralNetC* nn) nogil:
-        cdef const float* W = nn.weights
+    cdef void forward(weight_t* scores, weight_t** fwd,
+            const NeuralNetC* nn, bint dropout) nogil:
+        cdef const weight_t* W = nn.weights
+        cdef uint64_t bit_mask
+        cdef uint64_t j
+        cdef uint64_t one = 1
         for i in range(nn.nr_layer-1):
             nn.feed_fwd(&fwd[i], nn.averages[i+1],
                 W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
@@ -152,17 +159,28 @@ cdef class NN:
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
 
     @staticmethod
-    cdef void backward(float** bwd, float* gradient,
-            const float* const* fwd, const float* costs, const NeuralNetC* nn) nogil:
+    cdef void backward(weight_t** bwd, weight_t* gradient,
+            const weight_t* const* fwd, const weight_t* costs, const NeuralNetC* nn) nogil:
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        cdef const float* W = nn.weights + nn.nr_weight
-        cdef float* G = gradient + nn.nr_weight
+        cdef const weight_t* W = nn.weights + nn.nr_weight
+        cdef weight_t* G = gradient + nn.nr_weight
         for i in range(nn.nr_layer-2, -1, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             nn.feed_bwd(G, &bwd[i], nn.averages[i+1],
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
+
+
+cdef uint64_t xorshift64(uint64_t seed1, uint64_t seed2) nogil:
+    '''XORShift algorithm https://en.wikipedia.org/wiki/Xorshift
+    '''
+    cdef uint64_t seed = seed1 << 32 | seed2
+    seed ^= (seed << 21)
+    seed ^= (seed >> 35)
+    seed ^= (seed << 4)
+    cdef uint64_t mix = 2685821657736338717
+    return seed * mix
 
 
 cdef class Embedding:
@@ -195,10 +213,10 @@ cdef class Embedding:
             offset += vector_widths[table_id]
 
     @staticmethod
-    cdef void set_input(float* out,
+    cdef void set_input(weight_t* out,
             const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
         for feat in features[:nr_feat]:
-            emb = <const float*>Map_get(embed.weights[feat.i], feat.key)
+            emb = <const weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is not NULL:
                 VecVec.add_i(&out[embed.offsets[feat.i]], 
                     emb, feat.value, embed.lengths[feat.i])
@@ -209,14 +227,14 @@ cdef class Embedding:
         for feat in features[:nr_feat]:
             if feat.i >= embed.nr:
                 continue
-            emb = <float*>Map_get(embed.weights[feat.i], feat.key)
+            emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is NULL:
-                emb = <float*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
+                emb = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
                 he_uniform_initializer(emb, embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
                 # Need 2x length for momentum. Need to centralize this somewhere =/
-                mom = <float*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
+                mom = <weight_t*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
                 Map_set(mem, embed.momentum[feat.i],
                     feat.key, mom)
     
@@ -226,24 +244,21 @@ cdef class Embedding:
             const ConstantsC* hp, do_update_t do_update) nogil:
         for feat in features[:nr_feat]:
             # Reset fine_tune, because we need to modify the gradient
-            memcpy(fine_tune, delta, sizeof(float) * nr_delta)
+            memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
             weights = <weight_t*>Map_get(layer.weights[feat.i], feat.key)
             gradient = &fine_tune[layer.offsets[feat.i]]
-            mom = <float*>Map_get(layer.momentum[feat.i], feat.key)
+            mom = <weight_t*>Map_get(layer.momentum[feat.i], feat.key)
             # None of these should ever be null
             do_update(weights, mom, gradient,
                 layer.lengths[feat.i], hp)
 
 
 cdef class NeuralNet:
-    cdef readonly Pool mem
-    cdef readonly Example eg
-    cdef NeuralNetC c
-
     def __init__(self, widths, embed=None,
                  weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
                  weight_t rho=1e-4, weight_t alpha=0.99,
                  update_step='adam'):
+        prng.normal_setup()
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step,
                 eta, eps, mu, rho, alpha)
@@ -256,7 +271,7 @@ cdef class NeuralNet:
             Embedding.set_input(eg.c.fwd_state[0],
                 eg.c.features, eg.c.nr_feat, &self.c.embed)
         NN.forward(eg.c.scores, eg.c.fwd_state,
-            &self.c)
+            &self.c, False)
         return eg
 
     def predict_dense(self, features):
@@ -299,6 +314,41 @@ cdef class NeuralNet:
             else:
                 eg.costs = label
         return eg
+
+    def backtrack(self):
+        backtrack(self.c.weights, self.c.momentum, self.c.gradient,
+            self.c.nr_weight, &self.c.hp)
+        cdef int i = 0
+        cdef int j = 0
+        cdef int k = 0
+        cdef key_t key
+        cdef void* value
+        for i in range(self.c.embed.nr):
+            j = 0
+            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
+                emb = <weight_t*>value
+                mom = <weight_t*>Map_get(self.c.embed.momentum[i], key)
+                if emb != NULL and mom != NULL: # None of these should ever be null
+                    backtrack(emb, mom, self.c.gradient,
+                        self.c.embed.lengths[i], &self.c.hp)
+
+    def keep_update(self):
+        memset(self.c.momentum,
+            0, self.c.nr_weight * sizeof(self.c.momentum[0]))
+        cdef int i = 0
+        cdef int j = 0
+        cdef int k = 0
+        cdef key_t key
+        cdef void* value
+        for i in range(self.c.embed.nr):
+            j = 0
+            while Map_iter(self.c.embed.momentum[i], &j, &key, &value):
+                mom = <weight_t*>value
+                if mom != NULL: # None of these should ever be null
+                    memset(mom,
+                        0, self.c.embed.lengths[i] * sizeof(mom[0]))
+
+
 
     property use_batch_norm:
         def __get__(self):
@@ -398,24 +448,24 @@ cdef class NeuralNet:
             self.c.hp.p = eps
 
 
-cdef void he_normal_initializer(float* weights, int fan_in, int n) except *:
+cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
     values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
-    cdef float value
+    cdef weight_t value
     for i, value in enumerate(values):
         weights[i] = value
 
 
-cdef void he_uniform_initializer(float* weights, int n) except *:
+cdef void he_uniform_initializer(weight_t* weights, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf
     values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
-    cdef float value
+    cdef weight_t value
     for i, value in enumerate(values):
         weights[i] = value
 
 
-cdef void constant_initializer(float* weights, float value, int n) nogil:
+cdef void constant_initializer(weight_t* weights, weight_t value, int n) nogil:
     for i in range(n):
         weights[i] = value
