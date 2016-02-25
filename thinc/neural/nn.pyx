@@ -395,6 +395,8 @@ cdef class NeuralNet:
                     for j, val in enumerate(value):
                         emb[j] = val
                     Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
+                    mom = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
+                    Map_set(self.mem, self.c.embed.momentum[i], <key_t>key, mom)
 
     property nr_layer:
         def __get__(self):
