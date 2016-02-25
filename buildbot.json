@@ -9,8 +9,8 @@
         ],
         "wheel": [
             "python untar.py source.tar.gz src",
-            "python src/setup.py bdist_wheel",
-            "python cpdist.py src/dist"
+            "python src/setup.py bdist_wheel -d dist",
+            "python cpdist.py dist"
         ]
     },
     "test": {
