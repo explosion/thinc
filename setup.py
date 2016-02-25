@@ -147,7 +147,7 @@ def setup_package():
 
         include_dirs = [
             get_python_inc(plat_specific=True),
-            '/opt/OpenBLAS/include',
+            # '/opt/OpenBLAS/include',
             os.path.join(root, 'include')]
 
         ext_modules = []
@@ -156,7 +156,8 @@ def setup_package():
             ext_modules.append(
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs,
-                    libraries=['blas']))
+                    # libraries=['blas']
+                ))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
