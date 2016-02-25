@@ -12,59 +12,59 @@ include "compile_time_constants.pxi"
 
 
 # Copied from Shane Legg's Tokyo
-cdef extern from "cblas.h":
-    enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
-    enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
-    enum CBLAS_UPLO:      CblasUpper, CblasLower
-    enum CBLAS_DIAG:      CblasNonUnit, CblasUnit
-    enum CBLAS_SIDE:      CblasLeft, CblasRight
+# cdef extern from "cblas.h":
+#     enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
+#     enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
+#     enum CBLAS_UPLO:      CblasUpper, CblasLower
+#     enum CBLAS_DIAG:      CblasNonUnit, CblasUnit
+#     enum CBLAS_SIDE:      CblasLeft, CblasRight
 
-    # BLAS level 1 routines
+#     # BLAS level 1 routines
 
-    void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
-    void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
-    void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
-    void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
-    void cblas_dswap(int M, double  *x, int incX, double  *y, int incY) nogil
-    void cblas_dscal(int N, double  alpha, double *x, int incX) nogil
-    void cblas_dcopy(int N, double *x, int incX, double  *y, int incY) nogil
-    void cblas_daxpy(int N, double  alpha, double *x, int incX, double *y, int incY ) nogil
+#     void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
+#     void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
+#     void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
+#     void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
+#     void cblas_dswap(int M, double  *x, int incX, double  *y, int incY) nogil
+#     void cblas_dscal(int N, double  alpha, double *x, int incX) nogil
+#     void cblas_dcopy(int N, double *x, int incX, double  *y, int incY) nogil
+#     void cblas_daxpy(int N, double  alpha, double *x, int incX, double *y, int incY ) nogil
  
-    float cblas_sdot(int N, float  *x, int incX, float *y, int incY ) nogil
-    float cblas_snrm2(int N, float  *x, int incX) nogil
-    float cblas_sasum(int N, float  *x, int incX) nogil
-    int cblas_isamax(int N, float  *x, int incX) nogil
-    double cblas_ddot(int N, double  *x, int incX, double  *y, int incY ) nogil
-    double cblas_dnrm2(int N, double  *x, int incX) nogil
-    double cblas_dasum(int N, double  *x, int incX) nogil
-    int cblas_idamax(int N, double  *x, int incX) nogil
+#     float cblas_sdot(int N, float  *x, int incX, float *y, int incY ) nogil
+#     float cblas_snrm2(int N, float  *x, int incX) nogil
+#     float cblas_sasum(int N, float  *x, int incX) nogil
+#     int cblas_isamax(int N, float  *x, int incX) nogil
+#     double cblas_ddot(int N, double  *x, int incX, double  *y, int incY ) nogil
+#     double cblas_dnrm2(int N, double  *x, int incX) nogil
+#     double cblas_dasum(int N, double  *x, int incX) nogil
+#     int cblas_idamax(int N, double  *x, int incX) nogil
 
 
-    # BLAS level 2 routines
-    void cblas_sgemv(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA, int M, int N,
-                    float  alpha, float *A, int lda, float *x, int incX,
-                                 float beta, float *y, int incY) nogil
+#     # BLAS level 2 routines
+#     void cblas_sgemv(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA, int M, int N,
+#                     float  alpha, float *A, int lda, float *x, int incX,
+#                                  float beta, float *y, int incY) nogil
 
-    void cblas_sger(CBLAS_ORDER Order, int M, int N, float  alpha, float  *x,
-                                int incX, float  *y, int incY, float  *A, int lda) nogil
+#     void cblas_sger(CBLAS_ORDER Order, int M, int N, float  alpha, float  *x,
+#                                 int incX, float  *y, int incY, float  *A, int lda) nogil
 
-    void cblas_dgemv(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA, int M, int N,
-                     double  alpha, double  *A, int lda, double  *x, int incX,
-                     double  beta, double  *y, int incY) nogil
+#     void cblas_dgemv(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA, int M, int N,
+#                      double  alpha, double  *A, int lda, double  *x, int incX,
+#                      double  beta, double  *y, int incY) nogil
 
-    void cblas_dger(CBLAS_ORDER Order, int M, int N, double  alpha, double  *x,
-                    int incX, double  *y, int incY, double  *A, int lda) nogil
+#     void cblas_dger(CBLAS_ORDER Order, int M, int N, double  alpha, double  *x,
+#                     int incX, double  *y, int incY, double  *A, int lda) nogil
 
-    # BLAS level 3 routines
-    void cblas_sgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-                                 CBLAS_TRANSPOSE TransB, int M, int N, int K,
-                                 float  alpha, float  *A, int lda, float  *B, int ldb,
-                                 float  beta, float  *C, int ldc) nogil
+#     # BLAS level 3 routines
+#     void cblas_sgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
+#                                  CBLAS_TRANSPOSE TransB, int M, int N, int K,
+#                                  float  alpha, float  *A, int lda, float  *B, int ldb,
+#                                  float  beta, float  *C, int ldc) nogil
     
-    void cblas_dgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-                                 CBLAS_TRANSPOSE TransB, int M, int N, int K,
-                                 double  alpha, double  *A, int lda, double  *B, int ldb,
-                                 double  beta, double  *C, int ldc) nogil
+#     void cblas_dgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
+#                                  CBLAS_TRANSPOSE TransB, int M, int N, int K,
+#                                  double  alpha, double  *A, int lda, double  *B, int ldb,
+#                                  double  beta, double  *C, int ldc) nogil
 
 
 cdef extern from "math.h" nogil:
@@ -112,7 +112,13 @@ cdef class Vec:
 
     @staticmethod
     cdef inline weight_t norm(const weight_t* vec, int32_t nr) nogil:
-        return cblas_dnrm2(nr, vec, 1)
+        cdef weight_t total = 0
+        if USE_BLAS:
+            return cblas_dnrm2(nr, vec, 1)
+        else:
+            for i in range(nr):
+                total += vec[i] ** 2
+            return sqrtf(total)
 
     @staticmethod
     cdef inline void add(weight_t* output, const weight_t* x,
