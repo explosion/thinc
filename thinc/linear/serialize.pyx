@@ -1,5 +1,5 @@
 from cpython.mem cimport PyMem_Free, PyMem_Malloc
-from cpython.exc cimport PyErr_CheckSignals
+from cpython.exc cimport PyErr_CheckSignals, PyErr_SetFromErrno
 
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
 from libc.errno cimport errno
@@ -70,9 +70,12 @@ cdef class Reader:
         assert not path.isdir(loc)
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'rb')
-        assert self._fp != NULL
+        if not self._fp:
+            PyErr_SetFromErrno(IOError)
         tatus = fseek(self._fp, 0, 0)
         status = fread(&self.nr_feat, sizeof(self.nr_feat), 1, self._fp)
+        if status < 1:
+            PyErr_SetFromErrno(IOError)
         # TODO: Remove this hack once users have migrated away from the v0.100.2
         # spaCy data. This hack allows previously distributed data to load quickly.
         # In previous versions, the initial 32 bit int at the start of the model
@@ -89,15 +92,18 @@ cdef class Reader:
         cdef feat_t feat_id
         cdef int32_t length
 
-        status = fread(&feat_id, sizeof(feat_t), 1, self._fp)
-        if status == 0:
+        status = fread(&feat_id, sizeof(feat_id), 1, self._fp)
+        if status < 1:
             return 0
 
         status = fread(&length, sizeof(length), 1, self._fp)
-        assert status
-        
+        if status < 1:
+            PyErr_SetFromErrno(IOError)
+
         feat = <SparseArrayC*>PyMem_Malloc((length + 1) * sizeof(SparseArrayC))
-        
+        if not feat:
+            raise MemoryError()
+
         cdef int i
         for i in range(length):
             status = fread(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
