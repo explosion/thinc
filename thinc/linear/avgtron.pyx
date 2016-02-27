@@ -18,7 +18,7 @@ from .sparse cimport SparseArray
 
 from ..extra.eg cimport Example
 from ..structs cimport SparseArrayC, SparseAverageC
-from ..typedefs cimport class_t, count_t, time_t
+from ..typedefs cimport class_t, count_t, time_t, feat_t
 from ..linalg cimport Vec, VecVec
 from .serialize cimport Writer
 from .serialize cimport Reader
