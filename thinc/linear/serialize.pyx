@@ -64,6 +64,12 @@ cdef int _write(void* value, size_t size, int n, FILE* fp) except -1:
     assert status == 1, status
 
 
+cdef packed struct _header_t:
+    # row header as defined by model file format
+    feat_t feat_id
+    int32_t length
+
+
 cdef class Reader:
     def __init__(self, loc):
         assert path.exists(loc)
@@ -89,32 +95,28 @@ cdef class Reader:
         fclose(self._fp)
 
     cdef int read(self, Pool mem, feat_t* out_id, SparseArrayC** out_feat) except -1:
-        cdef feat_t feat_id
-        cdef int32_t length
-
-        status = fread(&feat_id, sizeof(feat_id), 1, self._fp)
+        cdef _header_t header
+        status = fread(&header, sizeof(header), 1, self._fp)
         if status < 1:
-            return 0
+            if errno:
+                PyErr_SetFromErrno(IOError)
+            return 0  # end of file
 
-        status = fread(&length, sizeof(length), 1, self._fp)
-        if status < 1:
-            PyErr_SetFromErrno(IOError)
-
-        feat = <SparseArrayC*>PyMem_Malloc((length + 1) * sizeof(SparseArrayC))
+        feat = <SparseArrayC*>PyMem_Malloc((header.length + 1) * sizeof(SparseArrayC))
         if not feat:
             raise MemoryError()
 
-        status = fread(feat, sizeof(SparseArrayC), length, self._fp)
-        if status != <size_t> length:
+        status = fread(feat, sizeof(SparseArrayC), header.length, self._fp)
+        if status != <size_t> header.length:
             PyErr_SetFromErrno(IOError)
 
         # Trust We allocated correctly above
-        feat[length].key = -2 # Indicates end of memory region
-        feat[length].val = 0
+        feat[header.length].key = -2 # Indicates end of memory region
+        feat[header.length].val = 0
 
         # Copy into the output variables
         out_feat[0] = feat
-        out_id[0] = feat_id
+        out_id[0] = header.feat_id
         # Signal whether to continue reading, to the outer loop
         if feof(self._fp):
             return 0
