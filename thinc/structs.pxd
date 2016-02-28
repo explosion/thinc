@@ -1,4 +1,4 @@
-from libc.stdint cimport int16_t, int, uint64_t
+from libc.stdint cimport int16_t, int, int32_t, uint64_t
 from preshed.maps cimport MapStruct
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
@@ -117,8 +117,8 @@ cdef struct ExampleC:
     int nr_layer
 
 
-cdef struct SparseArrayC:
-    int key
+cdef packed struct SparseArrayC:
+    int32_t key
     weight_t val
 
 
