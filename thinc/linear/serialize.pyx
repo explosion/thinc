@@ -72,7 +72,7 @@ cdef class Reader:
         self._fp = fopen(<char*>bytes_loc, 'rb')
         if not self._fp:
             PyErr_SetFromErrno(IOError)
-        tatus = fseek(self._fp, 0, 0)
+        status = fseek(self._fp, 0, 0)
         status = fread(&self.nr_feat, sizeof(self.nr_feat), 1, self._fp)
         if status < 1:
             PyErr_SetFromErrno(IOError)
@@ -104,12 +104,9 @@ cdef class Reader:
         if not feat:
             raise MemoryError()
 
-        cdef int i
-        for i in range(length):
-            status = fread(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
-            assert status
-            status = fread(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
-            assert status
+        status = fread(feat, sizeof(SparseArrayC), length, self._fp)
+        if status != <size_t> length:
+            PyErr_SetFromErrno(IOError)
 
         # Trust We allocated correctly above
         feat[length].key = -2 # Indicates end of memory region
