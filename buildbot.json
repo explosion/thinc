@@ -14,7 +14,7 @@
         ]
     },
     "test": {
-        "dependencies": ["hypothesis"],
+        "dependencies": ["hypothesis>=2,<3"],
         "after": ["install", "wheel"],
         "package": "thinc",
         "args": "--tb=native"

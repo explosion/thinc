@@ -1,2 +1,2 @@
 pytest
-hypothesis
+hypothesis>=2,<3
