@@ -13,8 +13,8 @@ DEF EPS = 0.00000001
 DEF ALPHA = 1.0
 
 
-cdef void d_ELU__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
+cdef void d_ELU__dot(float* gradient, float** bwd, float* averages,
+        const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
     d_ELU(bwd[1],
         fwd[1], shape[1])
@@ -28,8 +28,8 @@ cdef void d_ELU__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
         W, bwd[1], shape[1], shape[0])
 
 
-cdef void d_ReLu__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
+cdef void d_ReLu__dot(float* gradient, float** bwd, float* averages,
+        const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
     d_ReLu(bwd[1],
         fwd[1], shape[1])
@@ -43,8 +43,8 @@ cdef void d_ReLu__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
         W, bwd[1], shape[1], shape[0])
 
 
-cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
+cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averages,
+        const float* W, const float* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
     # D{ELU(BN(Lin(x)))} = ELU'(BN(Lin(x))) * BN'(Lin(x)) * Lin'(x)
     d_ELU(bwd[1],
@@ -65,10 +65,10 @@ cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_
     VecVec.mul_i(bwd[1],
         gamma, shape[1])
     # Read the E(x), Var(x), E_dXh, E_dXh_dot_Xh estimates from 'averages'
-    cdef const weight_t* Ex = averages
-    cdef const weight_t* Vx = averages + shape[1]
-    cdef weight_t* E_dXh = averages + shape[1] * 2
-    cdef weight_t* E_dXh_Xh = averages + shape[1] * 3
+    cdef const float* Ex = averages
+    cdef const float* Vx = averages + shape[1]
+    cdef float* E_dXh = averages + shape[1] * 2
+    cdef float* E_dXh_Xh = averages + shape[1] * 3
     d_normalize(bwd[1], E_dXh, E_dXh_Xh,
         x_norm, Vx, shape[1], hp.a, hp.t)
     # Finally we have dE/dX. Now we can calculate the gradient of W
@@ -79,16 +79,16 @@ cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_
         W, bwd[1], shape[1], shape[0])
 
 
-cdef void d_dot(weight_t* btm_diff,
+cdef void d_dot(float* btm_diff,
         int nr_btm,
-        const weight_t* top_diff, int nr_top,
-        const weight_t* W) nogil:
+        const float* top_diff, int nr_top,
+        const float* W) nogil:
     # And calculate the error w.r.t the previous layer
     MatVec.T_dot(btm_diff,
         W, top_diff, nr_top, nr_btm)
  
 
-cdef void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
+cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
     # Backprop the ELU transformation
     # Note that this is over the function _output_, not the function
     # _input_!
@@ -98,7 +98,7 @@ cdef void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
 
 
 
-cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
+cdef void d_ReLu(float* delta, const float* signal_out, int n) nogil:
     # Backprop the ELU transformation
     # Note that this is over the function _output_, not the function
     # _input_!
@@ -108,9 +108,9 @@ cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
 
 
 cdef void d_log_loss(
-    weight_t* loss,
-        const weight_t* costs,
-        const weight_t* scores,
+    float* loss,
+        const float* costs,
+        const float* scores,
             len_t nr_out
 ) nogil:
     # This assumes only one true class
@@ -119,8 +119,8 @@ cdef void d_log_loss(
         loss[i] = scores[i] - (costs[i] == 0)
 
 
-cdef void d_normalize(weight_t* bwd, weight_t* E_dEdXh, weight_t* E_dEdXh_dot_Xh,
-        const weight_t* Xh, const weight_t* Vx, len_t n, weight_t alpha, weight_t time) nogil:
+cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
+        const float* Xh, const float* Vx, len_t n, float alpha, float time) nogil:
     # Update EMA estimate of mean(dL/dX_hat)
     Vec.mul_i(E_dEdXh,
         alpha, n)

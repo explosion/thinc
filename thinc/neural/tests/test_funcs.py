@@ -19,7 +19,7 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
 
 
 def ndarrays_of_shape(shape, lo=-1000.0, hi=1000.0):
-    return arrays('float64', shape=shape, elements=floats(min_value=lo, max_value=hi))
+    return arrays('float32', shape=shape, elements=floats(min_value=lo, max_value=hi))
     
 
 def ndarrays(min_len=0, max_len=10, min_val=-10000000.0, max_val=1000000.0):
@@ -42,14 +42,14 @@ def negative_ndarrays(min_len=0, max_len=10, min_val=-100000.0):
     return ndarrays(min_len=min_len, max_len=max_len, min_val=min_val, max_val=-1e-10)
 
 #return lengths.flatmap(
-    #    lambda n: arrays('float64', shape=(n,), elements=elements))
+    #    lambda n: arrays('float32', shape=(n,), elements=elements))
 
 def parse_layer(layer_data):
     # Get the first row, excluding the first column
     x = layer_data[0,1:]
     # Get the first column, excluding the first row
     # .ascontiguousarray is support important here!!!!
-    b = np.ascontiguousarray(layer_data[1:,0], dtype='float64')
+    b = np.ascontiguousarray(layer_data[1:,0], dtype='float32')
     # Slice out the row and the column used for the X and the bias
     W = layer_data[1:,1:]
     assert x.ndim == 1
@@ -73,7 +73,7 @@ def split_row(layer_data):
                 min_value=-1.0, max_value=1.0))
 def test_dot_plus(layer_data):
     x, b, W = parse_layer(layer_data)
-    my_result = np.zeros(shape=(len(b),), dtype='float64')
+    my_result = np.zeros(shape=(len(b),), dtype='float32')
     call_dot_plus(my_result,
         x, W.flatten(), b, len(b), len(x))
     numpy_result = W.dot(x) + b
@@ -84,7 +84,7 @@ def test_dot_plus(layer_data):
                 min_value=-1.0, max_value=1.0))
 def test_d_dot(layer_data):
     x, top_diff, W = parse_layer(layer_data)
-    my_result = np.zeros(shape=(len(x),), dtype='float64')
+    my_result = np.zeros(shape=(len(x),), dtype='float32')
     call_d_dot(my_result,
         top_diff, W.flatten(), W.shape[0], W.shape[1])
     numpy_result = W.T.dot(top_diff)

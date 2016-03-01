@@ -1,25 +1,25 @@
 from libc.stdint cimport int16_t, int, int32_t, uint64_t
 from preshed.maps cimport MapStruct
 
-from .typedefs cimport len_t, idx_t, atom_t, weight_t
+from .typedefs cimport len_t, idx_t, atom_t
 
 
 include "compile_time_constants.pxi"
 
 
 ctypedef void (*do_update_t)(
-    weight_t* weights,
-    weight_t* momentum,
-    weight_t* gradient,
+    float* weights,
+    float* momentum,
+    float* gradient,
         len_t nr,
         const ConstantsC* hp
 ) nogil
 
 
 ctypedef void (*do_feed_fwd_t)(
-    weight_t** fwd,
-    weight_t* averages,
-        const weight_t* W,
+    float** fwd,
+    float* averages,
+        const float* W,
         const len_t* shape,
         int nr_below,
         int nr_above,
@@ -28,11 +28,11 @@ ctypedef void (*do_feed_fwd_t)(
  
 
 ctypedef void (*do_feed_bwd_t)(
-    weight_t* G,
-    weight_t** bwd,
-    weight_t* averages,
-        const weight_t* W,
-        const weight_t* const* fwd,
+    float* G,
+    float** bwd,
+    float* averages,
+        const float* W,
+        const float* const* fwd,
         const len_t* shape,
         int nr_above,
         int nr_below,
@@ -45,30 +45,30 @@ ctypedef MapStruct MapC
 
 
 cdef struct ConstantsC:
-    weight_t a
-    weight_t b
-    weight_t c
-    weight_t d
-    weight_t e
-    weight_t g
-    weight_t h
-    weight_t i
-    weight_t j
-    weight_t k
-    weight_t l
-    weight_t m
-    weight_t n
-    weight_t o
-    weight_t p
-    weight_t q
-    weight_t r
-    weight_t s
-    weight_t t
-    weight_t u
-    weight_t w
-    weight_t x
-    weight_t y
-    weight_t z
+    float a
+    float b
+    float c
+    float d
+    float e
+    float g
+    float h
+    float i
+    float j
+    float k
+    float l
+    float m
+    float n
+    float o
+    float p
+    float q
+    float r
+    float s
+    float t
+    float u
+    float w
+    float x
+    float y
+    float z
 
 
 cdef struct EmbedC:
@@ -85,11 +85,11 @@ cdef struct NeuralNetC:
     do_update_t update
 
     len_t* widths
-    weight_t* weights
-    weight_t* gradient
-    weight_t* momentum
+    float* weights
+    float* gradient
+    float* momentum
 
-    weight_t** averages
+    float** averages
     
     EmbedC embed
 
@@ -102,13 +102,13 @@ cdef struct NeuralNetC:
 
 cdef struct ExampleC:
     int* is_valid
-    weight_t* costs
+    float* costs
     uint64_t* atoms
     FeatureC* features
-    weight_t* scores
+    float* scores
 
-    weight_t** fwd_state
-    weight_t** bwd_state
+    float** fwd_state
+    float** bwd_state
     int* widths
 
     int nr_class
@@ -119,13 +119,13 @@ cdef struct ExampleC:
 
 cdef packed struct SparseArrayC:
     int32_t key
-    weight_t val
+    float val
 
 
 cdef struct FeatureC:
     int i
     uint64_t key
-    weight_t value
+    float value
 
 
 cdef struct SparseAverageC:

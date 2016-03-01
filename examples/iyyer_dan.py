@@ -159,24 +159,21 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     for i, (w, b) in enumerate(model.layers):
         print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
 
-    prev_score = 0.0
     for epoch in range(n_iter):
         numpy.random.shuffle(train_data)
         train_loss = 0.0
+        avg_grad = 0.0
         for text, label in train_data:
             eg = model.train(text, label)
             #print(list(model.layers[-1])[1])
             train_loss += eg.loss
-        score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
-        print(epoch, train_loss, score,
-              sum(model.weights) / model.nr_weight)
-        if prev_score >= score:
-            model.backtrack()
-            prev_score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
-            print("Backtrack", score, prev_score, model.eta)
-        else:
-            model.keep_update()
-            prev_score = score
+            avg_grad += model.l1_gradient
+        n_correct = sum(model.predict(x).guess == y for x, y in dev_data)
+        print(epoch, train_loss, n_correct / len(dev_data),
+              sum(model.weights) / model.nr_weight,
+              avg_grad)
+        if n_correct >= prev_best:
+            prev_best = n_correct
     print("Evaluating")
     eval_data = list(read_data(data_dir / 'test'))
     n_correct = sum(model.predict(x).guess == y for x, y in eval_data)

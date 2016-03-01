@@ -13,8 +13,8 @@ DEF EPS = 0.00000001
 DEF ALPHA = 1.0
 
 
-cdef void dot_plus__ELU(weight_t** fwd, weight_t* averages,
-        const weight_t* W, const len_t* shape, int nr_below, int nr_above,
+cdef void dot_plus__ELU(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     dot_plus(fwd[1],
@@ -28,8 +28,8 @@ cdef void dot_plus__ELU(weight_t** fwd, weight_t* averages,
             shape[1])
  
 
-cdef void dot_plus__ReLu(weight_t** fwd, weight_t* averages,
-        const weight_t* W, const len_t* shape, int nr_below, int nr_above,
+cdef void dot_plus__ReLu(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     dot_plus(fwd[1],
@@ -43,8 +43,8 @@ cdef void dot_plus__ReLu(weight_t** fwd, weight_t* averages,
             shape[1])
  
 
-cdef void dot_plus__residual__ELU(weight_t** fwd, weight_t* averages,
-        const weight_t* W, const len_t* shape, int nr_below, int nr_above,
+cdef void dot_plus__residual__ELU(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_below, int nr_above,
         const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     dot_plus(fwd[1],
@@ -61,8 +61,8 @@ cdef void dot_plus__residual__ELU(weight_t** fwd, weight_t* averages,
             shape[1])
 
 
-cdef void dot__normalize__dot_plus__ELU(weight_t** fwd, weight_t* averages,
-        const weight_t* W, const len_t* shape, int nr_before, int nr_above,
+cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
+        const float* W, const len_t* shape, int nr_before, int nr_above,
         const ConstantsC* hp) nogil:
     # Read the bias and gamma terms from the weights data
     bias = W + shape[1] * shape[0]
@@ -93,54 +93,54 @@ cdef void dot__normalize__dot_plus__ELU(weight_t** fwd, weight_t* averages,
             shape[1])
 
 
-cdef void dot_plus(weight_t* out,
-        const weight_t* bias, len_t nr_out,
-        const weight_t* x, len_t nr_in,
-        const weight_t* W) nogil:
+cdef void dot_plus(float* out,
+        const float* bias, len_t nr_out,
+        const float* x, len_t nr_in,
+        const float* W) nogil:
     MatVec.dot(out,
         W, x, nr_out, nr_in)
-    cdef weight_t one = 1.0
+    cdef float one = 1.0
     if bias is not NULL:
         VecVec.add_i(out,
             bias, one, nr_out)
 
 
-cdef void ELU(weight_t* out, len_t nr_out) nogil:
+cdef void ELU(float* out, len_t nr_out) nogil:
     cdef idx_t i
     for i in range(nr_out):
         if out[i] < 0:
             out[i] = ALPHA * (expf(out[i]) - 1)
 
 
-cdef void ReLu(weight_t* out, len_t nr_out) nogil:
+cdef void ReLu(float* out, len_t nr_out) nogil:
     cdef idx_t i
     for i in range(nr_out):
         if out[i] < 0:
             out[i] = 0
 
 
-cdef void softmax(weight_t* out, len_t nr_out) nogil:
+cdef void softmax(float* out, len_t nr_out) nogil:
     #w = exp(w - max(w))
     Vec.add_i(out,
         -Vec.max(out, nr_out), nr_out)
     Vec.exp_i(out,
         nr_out)
     #w = w / sum(w)
-    cdef weight_t norm = Vec.sum(out, nr_out)
+    cdef float norm = Vec.sum(out, nr_out)
     if norm != 0:
         Vec.div_i(out,
             norm, nr_out)
 
 
-cdef void normalize(weight_t* x_norm, weight_t* Ex, weight_t* Vx,
-        const weight_t* x, len_t nr_x, weight_t alpha, weight_t time) nogil:
+cdef void normalize(float* x_norm, float* Ex, float* Vx,
+        const float* x, len_t nr_x, float alpha, float time) nogil:
     # Upd EMA estimate of mean and variance
     # See eq at the end of this:
     # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
     cdef idx_t i
-    cdef weight_t diff
-    cdef weight_t incr
-    cdef weight_t one = 1.0
+    cdef float diff
+    cdef float incr
+    cdef float one = 1.0
     for i in range(nr_x):
         diff = x[i] - Ex[i]
         incr = alpha * diff

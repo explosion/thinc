@@ -27,7 +27,6 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
-    'thinc.prng',
     'thinc.structs',
     'thinc.typedefs',
     'thinc.linear.avgtron',
@@ -147,7 +146,6 @@ def setup_package():
 
         include_dirs = [
             get_python_inc(plat_specific=True),
-            # '/opt/OpenBLAS/include',
             os.path.join(root, 'include')]
 
         ext_modules = []
@@ -155,9 +153,7 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs,
-                    # libraries=['blas']
-                ))
+                    language='c++', include_dirs=include_dirs))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')

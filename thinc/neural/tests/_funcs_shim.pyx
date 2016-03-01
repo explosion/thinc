@@ -4,10 +4,10 @@ from ..backward cimport *
 
 
 def call_dot_plus(
-    weight_t[:] out,
-        weight_t[:] in_,
-        weight_t[:] W,
-        weight_t[:] bias,
+    float[:] out,
+        float[:] in_,
+        float[:] W,
+        float[:] bias,
         int nr_top,
         int nr_btm):
     dot_plus(&out[0],
@@ -16,9 +16,9 @@ def call_dot_plus(
 
 
 def call_d_dot(
-    weight_t[:] btm_diff,
-        weight_t[:] top_diff,
-        weight_t[:] W,
+    float[:] btm_diff,
+        float[:] top_diff,
+        float[:] W,
         int nr_top,
         int nr_btm):
     d_dot(&btm_diff[0],
@@ -26,11 +26,11 @@ def call_d_dot(
     return btm_diff
 
 
-def call_ELU(weight_t[:] out, int nr_out):
+def call_ELU(float[:] out, int nr_out):
     ELU(&out[0], nr_out)
     return out
 
 
-def call_d_ELU(weight_t[:] delta, weight_t[:] signal_out, int nr_out):
+def call_d_ELU(float[:] delta, float[:] signal_out, int nr_out):
     d_ELU(&delta[0], &signal_out[0], nr_out)
     return delta

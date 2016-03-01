@@ -6,60 +6,32 @@ from libc.string cimport memcpy, memset
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
-from ..typedefs cimport weight_t
 
 from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf
-from .. cimport prng
-
-import numpy
 
 
 DEF EPS = 0.00000001 
 DEF ALPHA = 1.0
 
 
-prng.normal_setup()
-
-
 @cython.cdivision(True)
-cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
+cdef void vanilla_sgd(float* weights, float* moments, float* gradient,
         len_t nr_weight,const ConstantsC* hp) nogil:
     '''
     Update weights with vanilla SGD
     '''
     # Add the derivative of the L2-loss to the gradient
-    cdef int i
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
-    cdef weight_t variance = hp.e / ((1 + hp.t) ** 0.55)
-    for i in range(nr_weight):
-        gradient[i] += prng.normal() * variance
-    # Clip gradient
-    grad_norm = Vec.norm(gradient, nr_weight)
-    if grad_norm >= 100:
-        Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
     VecVec.add_i(weights,
-        gradient, -hp.e, nr_weight)
-    VecVec.add_i(diff,
         gradient, -hp.e, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)
 
 
-cdef void backtrack(weight_t* weights, weight_t* diff, weight_t* gradient,
-        len_t nr_weight,const ConstantsC* hp) nogil:
-    '''
-    Undo updates
-    '''
-    VecVec.add_i(weights,
-        diff, -1.0, nr_weight)
-    memset(diff,
-        0, sizeof(diff[0]) * nr_weight)
-
-
 @cython.cdivision(True)
-cdef void sgd_cm(weight_t* weights, weight_t* momentum, weight_t* gradient,
+cdef void sgd_cm(float* weights, float* momentum, float* gradient,
         len_t nr_weight,const ConstantsC* hp) nogil:
     '''
     Update weights with SGD and classical momentum
@@ -79,10 +51,10 @@ cdef void sgd_cm(weight_t* weights, weight_t* momentum, weight_t* gradient,
 
 @cython.cdivision(True)
 cdef void adam(
-    weight_t* weights, weight_t* moments, weight_t* gradient,
+    float* weights, float* moments, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    cdef weight_t beta1 = 0.90
-    cdef weight_t beta2 = 0.999
+    cdef float beta1 = 0.90
+    cdef float beta2 = 0.999
     # Add the derivative of the L2-loss to the gradient
     cdef idx_t i
     if hp.r != 0:
@@ -97,7 +69,7 @@ cdef void adam(
     for i in range(nr_weight):
         mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # More efficient version, from the paper
-    cdef weight_t a_t = hp.e * sqrtf(1-beta2**hp.t) / (1-beta1**hp.t)
+    cdef float a_t = hp.e * sqrtf(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
         weights[i] -= a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
@@ -105,7 +77,7 @@ cdef void adam(
 
 @cython.cdivision(True)
 cdef void adagrad(
-    weight_t* weights, weight_t* moments, weight_t* gradient,
+    float* weights, float* moments, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     # Add the derivative of the L2-loss to the gradient
     cdef int i
@@ -123,9 +95,9 @@ cdef void adagrad(
 
 
 @cython.cdivision(True)
-cdef void adadelta(weight_t* weights, weight_t* momentum, weight_t* gradient,
+cdef void adadelta(float* weights, float* momentum, float* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    cdef weight_t alpha = 0.90
+    cdef float alpha = 0.90
     # Add the derivative of the L2-loss to the gradient
     cdef int i
     if hp.r != 0:
