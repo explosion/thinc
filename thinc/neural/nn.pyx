@@ -35,11 +35,9 @@ from .solve cimport adam
 from .solve cimport adadelta
 from .solve cimport adagrad
 from .solve cimport vanilla_sgd
+
 from .forward cimport dot_plus__ELU
 from .forward cimport dot_plus__ReLu
-from .forward cimport dot_plus__residual__ELU
-from .forward cimport dot__normalize__dot_plus__ELU
-from .backward cimport d_ELU__dot__normalize__dot
 from .backward cimport d_ELU__dot
 from .backward cimport d_ReLu__dot
 
@@ -50,9 +48,6 @@ from libc.math cimport isnan, sqrt
 
 import random
 import numpy
-
-
-DEF USE_BATCH_NORM = False
 
 
 cdef class NN:
@@ -117,14 +112,7 @@ cdef class NN:
         for i in range(nn.nr_layer-2):
             he_uniform_initializer(W,
                 nn.widths[i+1] * nn.widths[i])
-            if USE_BATCH_NORM:
-                he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
-                    nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-        if USE_BATCH_NORM:
-            i = nn.nr_layer-2
-            he_uniform_initializer(W+nn.widths[i+1] * nn.widths[i] + nn.widths[i+1],
-                nn.widths[i+1] * nn.widths[i])
     
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
@@ -315,10 +303,6 @@ cdef class NeuralNet:
             else:
                 eg.costs = label
         return eg
-
-    property use_batch_norm:
-        def __get__(self):
-            return USE_BATCH_NORM
 
     property weights:
         def __get__(self):
