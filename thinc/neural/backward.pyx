@@ -115,8 +115,14 @@ cdef void d_log_loss(
 ) nogil:
     # This assumes only one true class
     cdef idx_t i
+    cdef idx_t best = 0
+    cdef weight_t score = 0.0
     for i in range(nr_out):
-        loss[i] = scores[i] - (costs[i] == 0)
+        if scores[i] >= score and costs[i] == 0:
+            score = scores[i]
+            best = i
+    for i in range(nr_out):
+        loss[i] = scores[i] - (i == best)
 
 
 cdef void d_normalize(weight_t* bwd, weight_t* E_dEdXh, weight_t* E_dEdXh_dot_Xh,
