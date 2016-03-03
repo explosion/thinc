@@ -32,6 +32,7 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
     if hp.r != 0:
         VecVec.add_i(gradient,
             weights, hp.r, nr_weight)
+    # Add gradient noise
     cdef weight_t variance = hp.e / ((1 + hp.t) ** 0.55)
     for i in range(nr_weight):
         gradient[i] += prng.normal() * variance
@@ -40,8 +41,6 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
     if grad_norm >= 100:
         Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
     VecVec.add_i(weights,
-        gradient, -hp.e, nr_weight)
-    VecVec.add_i(diff,
         gradient, -hp.e, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)

@@ -129,17 +129,18 @@ cdef class NN:
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         nn.hp.t += 1
-        Embedding.insert_missing(mem, &nn.embed,
-            eg.features, eg.nr_feat)
-        Embedding.set_input(eg.fwd_state[0],
-            eg.features, eg.nr_feat, &nn.embed)
+        if eg.nr_feat >= 1:
+            Embedding.insert_missing(mem, &nn.embed,
+                eg.features, eg.nr_feat)
+            Embedding.set_input(eg.fwd_state[0],
+                eg.features, eg.nr_feat, &nn.embed)
         NN.forward(eg.scores, eg.fwd_state,
             nn, True)
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
         nn.update(nn.weights, nn.momentum, nn.gradient,
             nn.nr_weight, &nn.hp)
-        if eg.nr_feat != 0:
+        if eg.nr_feat >= 1:
             Embedding.fine_tune(&nn.embed, nn.gradient,
                 eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat,
                 &nn.hp, nn.update)
@@ -265,7 +266,7 @@ cdef class NeuralNet:
         self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
     def predict_example(self, Example eg):
-        if eg.c.nr_feat != 0:
+        if eg.c.nr_feat >= 1:
             Embedding.insert_missing(self.mem, &self.c.embed,
                 eg.c.features, eg.c.nr_feat)
             Embedding.set_input(eg.c.fwd_state[0],
@@ -418,7 +419,7 @@ cdef class NeuralNet:
             self.c.hp.e = eta
     property rho:
         def __get__(self):
-            return self.c.hp.rho
+            return self.c.hp.r
         def __set__(self, rho):
             self.c.hp.r = rho
     property eps:
@@ -426,6 +427,13 @@ cdef class NeuralNet:
             return self.c.hp.p
         def __set__(self, eps):
             self.c.hp.p = eps
+
+    property tau:
+        def __get__(self):
+            return self.c.hp.t
+        def __set__(self, tau):
+            self.c.hp.t = tau
+
 
 
 cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
