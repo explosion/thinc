@@ -161,17 +161,6 @@ cdef class NN:
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
 
 
-cdef uint64_t xorshift64(uint64_t seed1, uint64_t seed2) nogil:
-    '''XORShift algorithm https://en.wikipedia.org/wiki/Xorshift
-    '''
-    cdef uint64_t seed = seed1 << 32 | seed2
-    seed ^= (seed << 21)
-    seed ^= (seed >> 35)
-    seed ^= (seed << 4)
-    cdef uint64_t mix = 2685821657736338717
-    return seed * mix
-
-
 cdef class Embedding:
     cdef Pool mem
     cdef EmbedC* c
