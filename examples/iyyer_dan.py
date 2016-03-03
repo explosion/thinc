@@ -171,11 +171,8 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         print(epoch, train_loss, score,
               sum(model.weights) / model.nr_weight)
         if prev_score >= score:
-            model.backtrack()
             prev_score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
-            print("Backtrack", score, prev_score, model.eta)
         else:
-            model.keep_update()
             prev_score = score
     print("Evaluating")
     eval_data = list(read_data(data_dir / 'test'))
