@@ -113,7 +113,7 @@ cdef void d_log_loss(
         const weight_t* scores,
             len_t nr_out
 ) nogil:
-    # This assumes only one true class
+    # If there's more than one gold class, appoint the top scoring one the best
     cdef idx_t i
     cdef idx_t best = 0
     cdef weight_t score = 0.0
