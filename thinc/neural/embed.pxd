@@ -90,7 +90,7 @@ cdef class Embedding:
             emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is NULL:
                 emb = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
-                he_uniform_initializer(emb, embed.lengths[feat.i])
+                he_uniform_initializer(emb, -0.1, 0.1, embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
                 # Need 2x length for momentum. Need to centralize this somewhere =/
