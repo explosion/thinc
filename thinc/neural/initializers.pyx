@@ -1,3 +1,4 @@
+from ..typedefs cimport weight_t
 import numpy
 
 cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
@@ -9,10 +10,9 @@ cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
         weights[i] = value
 
 
-cdef void he_uniform_initializer(weight_t* weights, int n) except *:
-    # See equation 10 here:
-    # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
+cdef void he_uniform_initializer(weight_t* weights,
+        weight_t low, weight_t high, int n) except *:
+    values = numpy.random.uniform(size=n, low=low, high=high)
     cdef weight_t value
     for i, value in enumerate(values):
         weights[i] = value
