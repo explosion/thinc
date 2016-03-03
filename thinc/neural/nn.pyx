@@ -112,8 +112,8 @@ cdef class NN:
 
         W = nn.weights
         for i in range(nn.nr_layer-2):
-            he_uniform_initializer(W,
-                nn.widths[i+1] * nn.widths[i])
+            he_normal_initializer(W,
+                nn.widths[i+1], nn.widths[i+1] * nn.widths[i])
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
     
     @staticmethod
@@ -246,7 +246,7 @@ cdef class NeuralNet:
                 nr_w = self.widths[i] * self.widths[i+1]
                 nr_bias = self.widths[i] * self.widths[i+1] + self.widths[i+1]
                 W = weights[start:start+nr_w]
-                bias = weights[start+nr_w:start+nr_w+nr_bias]
+                bias = weights[start+nr_w:start+nr_bias]
                 yield W, bias
                 start = start + NN.nr_weight(self.widths[i+1], self.widths[i])
 
