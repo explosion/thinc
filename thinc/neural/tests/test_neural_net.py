@@ -72,11 +72,7 @@ def test_fwd_linear():
 
     syn = [1.,0.,0.,1.]
     bias = [0.,0.]
-    gamma = [1.,1.]
-    if model.use_batch_norm:
-        model.weights = syn+bias+gamma
-    else:
-        model.weights = syn+bias
+    model.weights = syn+bias
     
     ff = [0,0]
     tf = [1,0]
@@ -119,26 +115,14 @@ def test_xor_manual():
     # 1,1 --> neither fire
     #
 
-    if not model.use_batch_norm:
-        model.weights = np.asarray([
-                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
-                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
-                    [0.0, 0.0],     # A.0 bias, A.1 bias
-                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
-                    [10.0, -10.0],   # out.0 bias, out.1 bias
-                ]).flatten()
-    else:
-        model.weights = np.asarray([
-                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
-                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
-                    [0.0, 0.0],     # A.0 bias, A.1 bias
-                    [1.0, 1.0],     # A.0 gamma, A.1 gamma
-                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
-                    [10.0, -10.0],   # out.0 bias, out.1 bias
-                    [1.0, 1.0],     # out.0 gamma, out.1 gamma
-                ]).flatten()
+    model.weights = np.asarray([
+        [4.0, -10.0],   # A.0*in.0, A.0*in.1
+        [-10.0, 5.0], # A.1*in.0, A.1*in.1
+        [0.0, 0.0],     # A.0 bias, A.1 bias
+        [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+        [10.0, 10.0],   # out.1*A.0, out.1*A.1
+        [10.0, -10.0],   # out.0 bias, out.1 bias
+    ]).flatten()
 
     ff = [0,0]
     tf = [1,0]
@@ -201,20 +185,14 @@ def test_linear_bias(bias_data):
     assert model.nr_class == 2
     assert model.nr_layer == 2
     
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
 
     assert bias0 == 0
     assert bias1 == 0
     for _ in range(100):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
     assert bias1 > bias0
     acc = 0.0
     total = 0
@@ -236,19 +214,13 @@ def test_deep_bias(bias_data):
     assert model.nr_class == 2
     assert model.nr_layer > 2
     
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
     assert bias0 == 0
     assert bias1 == 0
     for _ in range(20):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
  
     assert bias1 > bias0
     acc = 0.0
