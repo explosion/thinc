@@ -30,6 +30,7 @@ MOD_NAMES = [
     'thinc.prng',
     'thinc.structs',
     'thinc.typedefs',
+    'thinc.eigen',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
@@ -41,6 +42,8 @@ MOD_NAMES = [
     'thinc.neural.solve',
     'thinc.neural.forward',
     'thinc.neural.backward',
+    'thinc.neural.embed',
+    'thinc.neural.initializers',
     'thinc.neural.tests._funcs_shim',
     'thinc.neural.tests._backprop_shim',
 ]
@@ -147,7 +150,7 @@ def setup_package():
 
         include_dirs = [
             get_python_inc(plat_specific=True),
-            # '/opt/OpenBLAS/include',
+            '/opt/OpenBLAS/include',
             os.path.join(root, 'include')]
 
         ext_modules = []
@@ -156,7 +159,7 @@ def setup_package():
             ext_modules.append(
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs,
-                    # libraries=['blas']
+                    libraries=['/opt/OpenBLAS/lib/openblas']
                 ))
 
         if not is_source_release(root):

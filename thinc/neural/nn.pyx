@@ -40,8 +40,10 @@ from .forward cimport dot_plus__ELU
 from .forward cimport dot_plus__ReLu
 from .backward cimport d_ELU__dot
 from .backward cimport d_ReLu__dot
-
 from .backward cimport d_log_loss
+
+from .embed cimport Embedding
+from .initializers cimport he_normal_initializer, he_uniform_initializer
 
 from libc.string cimport memcpy
 from libc.math cimport isnan, sqrt
@@ -159,76 +161,6 @@ cdef class NN:
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             nn.feed_bwd(G, &bwd[i], nn.averages[i+1],
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
-
-
-cdef class Embedding:
-    cdef Pool mem
-    cdef EmbedC* c
-
-    @staticmethod
-    cdef void init(EmbedC* self, Pool mem, vector_widths, features) except *: 
-        assert max(features) < len(vector_widths)
-        # Create tables, which may be shared between different features
-        # e.g., we might have a feature for this word, and a feature for next
-        # word. These occupy different parts of the input vector, but draw
-        # from the same embedding table.
-        self.nr = len(features)
-        uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        for i, width in enumerate(vector_widths):
-            Map_init(mem, &uniq_weights[i], 8)
-            Map_init(mem, &uniq_momentum[i], 8)
-        self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
-        self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
-        self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
-        self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
-        offset = 0
-        for i, table_id in enumerate(features):
-            self.weights[i] = &uniq_weights[table_id]
-            self.momentum[i] = &uniq_momentum[table_id]
-            self.lengths[i] = vector_widths[table_id]
-            self.offsets[i] = offset
-            offset += vector_widths[table_id]
-
-    @staticmethod
-    cdef void set_input(weight_t* out,
-            const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
-        for feat in features[:nr_feat]:
-            emb = <const weight_t*>Map_get(embed.weights[feat.i], feat.key)
-            if emb is not NULL:
-                VecVec.add_i(&out[embed.offsets[feat.i]], 
-                    emb, feat.value, embed.lengths[feat.i])
-
-    @staticmethod
-    cdef void insert_missing(Pool mem, EmbedC* embed,
-            const FeatureC* features, len_t nr_feat) except *:
-        for feat in features[:nr_feat]:
-            if feat.i >= embed.nr:
-                continue
-            emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
-            if emb is NULL:
-                emb = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
-                he_uniform_initializer(emb, embed.lengths[feat.i])
-                Map_set(mem, embed.weights[feat.i],
-                    feat.key, emb)
-                # Need 2x length for momentum. Need to centralize this somewhere =/
-                mom = <weight_t*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
-                Map_set(mem, embed.momentum[feat.i],
-                    feat.key, mom)
-    
-    @staticmethod
-    cdef inline void fine_tune(EmbedC* layer, weight_t* fine_tune,
-            const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat,
-            const ConstantsC* hp, do_update_t do_update) nogil:
-        for feat in features[:nr_feat]:
-            # Reset fine_tune, because we need to modify the gradient
-            memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
-            weights = <weight_t*>Map_get(layer.weights[feat.i], feat.key)
-            gradient = &fine_tune[layer.offsets[feat.i]]
-            mom = <weight_t*>Map_get(layer.momentum[feat.i], feat.key)
-            # None of these should ever be null
-            do_update(weights, mom, gradient,
-                layer.lengths[feat.i], hp)
 
 
 cdef class NeuralNet:
@@ -406,27 +338,3 @@ cdef class NeuralNet:
             return self.c.hp.t
         def __set__(self, tau):
             self.c.hp.t = tau
-
-
-
-cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
-    # See equation 10 here:
-    # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / float(fan_in)), size=n)
-    cdef weight_t value
-    for i, value in enumerate(values):
-        weights[i] = value
-
-
-cdef void he_uniform_initializer(weight_t* weights, int n) except *:
-    # See equation 10 here:
-    # http://arxiv.org/pdf/1502.01852v1.pdf
-    values = numpy.random.randn(n) * numpy.sqrt(2.0/n)
-    cdef weight_t value
-    for i, value in enumerate(values):
-        weights[i] = value
-
-
-cdef void constant_initializer(weight_t* weights, weight_t value, int n) nogil:
-    for i in range(n):
-        weights[i] = value
