@@ -89,8 +89,6 @@ cdef struct NeuralNetC:
     weight_t* gradient
     weight_t* momentum
 
-    weight_t** averages
-    
     EmbedC embed
 
     len_t nr_layer
