@@ -250,8 +250,6 @@ def test_learn_linear(or_data):
         for feats, label, costs in or_data:
             eg = model.train_dense(feats, costs)
         random.shuffle(or_data)
-    for avg in model.averages:
-        print(avg)
     acc = 0.0
     for features, label, costs in or_data:
         eg = model.predict_dense(features)
