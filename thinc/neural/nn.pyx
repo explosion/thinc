@@ -63,7 +63,7 @@ cdef class NN:
         Pool mem,
             widths,
             embed=None,
-            update_step='adam',
+            update_step='sgd',
             weight_t eta=0.005,
             weight_t eps=1e-6,
             weight_t mu=0.9,
