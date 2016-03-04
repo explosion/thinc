@@ -199,16 +199,16 @@ cdef class NeuralNet:
         for i, value in enumerate(features):
             eg.c.fwd_state[0][i] = value
         eg.costs = y
-        NN.train_example(&self.c, self.mem, &eg.c)
+        NN.train_example(&self.c, self.mem, eg.c)
         return eg
   
     def train_sparse(self, features, label):
         cdef Example eg = self.Example(features, label=label)
-        NN.train_example(&self.c, self.mem, &eg.c)
+        NN.train_example(&self.c, self.mem, eg.c)
         return eg
    
     def train_example(self, Example eg):
-        NN.train_example(&self.c, self.mem, &eg.c)
+        NN.train_example(&self.c, self.mem, eg.c)
         return eg
  
     def Example(self, input_, label=None):
