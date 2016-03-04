@@ -92,11 +92,9 @@ cdef class NN:
 
         nn.nr_layer = len(widths)
         nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
-        nn.averages = <weight_t**>mem.alloc(nn.nr_layer, sizeof(void*))
         cdef int i
         for i, width in enumerate(widths):
             nn.widths[i] = width
-            nn.averages[i] = <weight_t*>mem.alloc(width*4, sizeof(nn.averages[i][0]))
         nn.nr_weight = 0
         nn.nr_node = 0
         for i in range(nn.nr_layer-1):
@@ -143,7 +141,7 @@ cdef class NN:
         cdef uint64_t j
         cdef uint64_t one = 1
         for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i], nn.averages[i+1],
+            nn.feed_fwd(&fwd[i], NULL,
                 W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
@@ -159,7 +157,7 @@ cdef class NN:
         for i in range(nn.nr_layer-2, -1, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i], nn.averages[i+1],
+            nn.feed_bwd(G, &bwd[i], NULL,
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
 
 
@@ -232,11 +230,6 @@ cdef class NeuralNet:
             assert len(weights) == self.c.nr_weight
             for i, weight in enumerate(weights):
                 self.c.weights[i] = weight
-
-    property averages:
-        def __get__(self):
-            for i, width in enumerate(self.widths):
-                yield [self.c.averages[i][j] for j in range(width*4)]
 
     property layers:
         def __get__(self):
