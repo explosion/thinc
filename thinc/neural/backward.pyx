@@ -52,7 +52,7 @@ cdef void d_dot(weight_t* btm_diff,
         W, top_diff, nr_top, nr_btm)
  
 
-cdef void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
+cdef inline void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
     # Backprop the ELU transformation
     # Note that this is over the function _output_, not the function
     # _input_!
@@ -70,22 +70,19 @@ cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
             delta[i] = 0
 
 
-cdef void d_log_loss(
-    weight_t* loss,
-        const weight_t* costs,
-        const weight_t* scores,
-            len_t nr_out
+cdef void d_log_loss(weight_t* loss,
+    const weight_t* costs, const weight_t* scores, len_t nr_out
 ) nogil:
     # If there's more than one gold class, appoint the top scoring one the best
     cdef idx_t i
     cdef idx_t best = 0
     cdef weight_t score = 0.0
     for i in range(nr_out):
+        loss[i] = scores[i]
         if scores[i] >= score and costs[i] == 0:
             score = scores[i]
             best = i
-    for i in range(nr_out):
-        loss[i] = scores[i] - (i == best)
+    loss[best] -= 1
 
 
 #cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
