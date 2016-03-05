@@ -19,19 +19,6 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
-
-from .solve cimport adam
-from .solve cimport adadelta
-from .solve cimport adagrad
-from .solve cimport vanilla_sgd
-
-from .forward cimport dot_plus__ELU
-from .forward cimport dot_plus__ReLu
-from .backward cimport d_ELU__dot
-from .backward cimport d_ReLu__dot
-from .backward cimport d_log_loss
-
 from .initializers cimport he_normal_initializer, he_uniform_initializer
 
 from libc.string cimport memcpy
@@ -39,8 +26,6 @@ from libc.math cimport isnan, sqrt
 
 import random
 import numpy
-
-
 
 
 cdef class Embedding:
@@ -57,17 +42,21 @@ cdef class Embedding:
         self.nr = len(features)
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_timestamps = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
             Map_init(mem, &uniq_momentum[i], 8)
+            Map_init(mem, &uniq_timestamps[i], 8)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
+        self.timestamps = <MapC**>mem.alloc(len(features), sizeof(void*))
         offset = 0
         for i, table_id in enumerate(features):
             self.weights[i] = &uniq_weights[table_id]
             self.momentum[i] = &uniq_momentum[table_id]
+            self.timestamps[i] = &uniq_timestamps[table_id]
             self.lengths[i] = vector_widths[table_id]
             self.offsets[i] = offset
             offset += vector_widths[table_id]
@@ -97,17 +86,22 @@ cdef class Embedding:
                 mom = <weight_t*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
                 Map_set(mem, embed.momentum[feat.i],
                     feat.key, mom)
+                Map_set(mem, embed.timestamps[feat.i],
+                    feat.key, <void*><size_t>1)
     
     @staticmethod
     cdef inline void fine_tune(EmbedC* layer, weight_t* fine_tune,
             const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat,
             const ConstantsC* hp, do_update_t do_update) nogil:
+        cdef size_t last_update
         for feat in features[:nr_feat]:
             # Reset fine_tune, because we need to modify the gradient
             memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
             weights = <weight_t*>Map_get(layer.weights[feat.i], feat.key)
             gradient = &fine_tune[layer.offsets[feat.i]]
+            last_update = <size_t>Map_get(layer.timestamps[feat.i], feat.key)
             mom = <weight_t*>Map_get(layer.momentum[feat.i], feat.key)
             # None of these should ever be null
             do_update(weights, mom, gradient,
-                layer.lengths[feat.i], hp)
+                layer.lengths[feat.i], hp, last_update)
+

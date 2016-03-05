@@ -22,8 +22,8 @@ prng.normal_setup()
 
 
 @cython.cdivision(True)
-cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
-        len_t nr_weight,const ConstantsC* hp) nogil:
+cdef void sgd_clip_noise_l2(weight_t* weights, weight_t* diff, weight_t* gradient,
+        len_t nr_weight,const ConstantsC* hp, weight_t last_update) nogil:
     '''
     Update weights with vanilla SGD
     '''
@@ -31,13 +31,14 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
     cdef int i
     if hp.r != 0:
         VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
+            weights, hp.r * (hp.t - last_update), nr_weight)
     # Clip gradient
     grad_norm = Vec.norm(gradient, nr_weight)
     if grad_norm >= 100:
         Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
+    cdef weight_t variance 
     # Add gradient noise
-    cdef weight_t variance = hp.e / ((1 + hp.t) ** 0.55)
+    variance = hp.e / ((1 + hp.t) ** 0.55)
     for i in range(nr_weight):
         gradient[i] += prng.normal() * variance
     VecVec.add_i(weights,
@@ -46,27 +47,12 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* diff, weight_t* gradient,
         0, sizeof(gradient[0]) * nr_weight)
 
 
-cdef void backtrack(weight_t* weights, weight_t* diff, weight_t* gradient,
-        len_t nr_weight,const ConstantsC* hp) nogil:
-    '''
-    Undo updates
-    '''
-    VecVec.add_i(weights,
-        diff, -1.0, nr_weight)
-    memset(diff,
-        0, sizeof(diff[0]) * nr_weight)
-
-
 @cython.cdivision(True)
 cdef void sgd_cm(weight_t* weights, weight_t* momentum, weight_t* gradient,
         len_t nr_weight,const ConstantsC* hp) nogil:
     '''
     Update weights with SGD and classical momentum
     '''
-    # Add the derivative of the L2-loss to the gradient
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
     Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
         gradient, hp.e, nr_weight)
@@ -82,11 +68,6 @@ cdef void adam(
         len_t nr_weight, const ConstantsC* hp) nogil:
     cdef weight_t beta1 = 0.90
     cdef weight_t beta2 = 0.999
-    # Add the derivative of the L2-loss to the gradient
-    cdef idx_t i
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
     mom1 = moments
     Vec.mul_i(mom1,
         beta1, nr_weight)
@@ -106,11 +87,6 @@ cdef void adam(
 cdef void adagrad(
     weight_t* weights, weight_t* moments, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    # Add the derivative of the L2-loss to the gradient
-    cdef int i
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
     VecVec.add_pow_i(moments,
         gradient, 2.0, nr_weight)
     for i in range(nr_weight):
@@ -125,11 +101,7 @@ cdef void adagrad(
 cdef void adadelta(weight_t* weights, weight_t* momentum, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     cdef weight_t alpha = 0.90
-    # Add the derivative of the L2-loss to the gradient
     cdef int i
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
     avg = momentum
     Vec.mul_i(avg,
         alpha, nr_weight)

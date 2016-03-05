@@ -29,12 +29,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport vanilla_sgd, sgd_cm, adam, adagrad
-
-from .solve cimport adam
-from .solve cimport adadelta
-from .solve cimport adagrad
-from .solve cimport vanilla_sgd
+from .solve cimport sgd_clip_noise_l2
 
 from .forward cimport dot_plus__ELU
 from .forward cimport dot_plus__ReLu
@@ -72,15 +67,9 @@ cdef class NN:
     ) except *:
         prng.normal_setup()
         if update_step == 'sgd':
-            nn.update = vanilla_sgd
-        elif update_step == 'sgd_cm':
-            nn.update = sgd_cm
-        elif update_step == 'adadelta':
-            nn.update = adadelta
-        elif update_step == 'adagrad':
-            nn.update = adagrad
+            nn.update = sgd_clip_noise_l2
         else:
-            nn.update = adam
+            raise NotImplementedError(update_step)
         nn.feed_fwd = dot_plus__ELU
         nn.feed_bwd = d_ELU__dot
 
@@ -127,11 +116,14 @@ cdef class NN:
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
         nn.update(nn.weights, nn.momentum, nn.gradient,
-            nn.nr_weight, &nn.hp)
+            nn.nr_weight, &nn.hp, nn.hp.t - 1)
         if eg.nr_feat >= 1:
             Embedding.fine_tune(&nn.embed, nn.gradient,
                 eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat,
                 &nn.hp, nn.update)
+            for feat in eg.features[:eg.nr_feat]:
+                Map_set(mem, nn.embed.timestamps[feat.i],
+                    feat.key, <void*><size_t>nn.hp.t)
     
     @staticmethod
     cdef void forward(weight_t* scores, weight_t** fwd,
