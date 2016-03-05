@@ -113,9 +113,9 @@ cdef class Vec:
     @staticmethod
     cdef inline weight_t norm(const weight_t* vec, int32_t nr) nogil:
         cdef weight_t total = 0
-        if USE_BLAS:
+        IF USE_BLAS:
             return cblas_dnrm2(nr, vec, 1)
-        else:
+        ELSE:
             for i in range(nr):
                 total += vec[i] ** 2
             return sqrtf(total)
@@ -141,9 +141,9 @@ cdef class Vec:
     @staticmethod
     cdef inline void mul_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
         cdef int i
-        if USE_BLAS:
+        IF USE_BLAS:
             cblas_dscal(nr, scal, vec, 1)
-        else:
+        ELSE:
             for i in range(nr):
                 vec[i] *= scal
 
@@ -207,9 +207,9 @@ cdef class VecVec:
                            weight_t scale,
                            int32_t nr) nogil:
         cdef int i
-        if USE_BLAS:
+        IF USE_BLAS:
             cblas_daxpy(nr, scale, y, 1, x, 1)
-        else:
+        ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
  
@@ -300,7 +300,7 @@ cdef class MatVec:
                          const weight_t* vec,
                          int32_t nr_row, int32_t nr_col) nogil:
         cdef int i, row, col
-        if USE_BLAS:
+        IF USE_BLAS:
             cblas_dgemv(
                 CblasRowMajor,
                 CblasNoTrans,
@@ -315,7 +315,7 @@ cdef class MatVec:
                 output,
                 1
             )
-        else:
+        ELSE:
             for i in range(nr_row):
                 output[i] = 0
                 row = i * nr_col
@@ -329,7 +329,7 @@ cdef class MatVec:
                              int32_t nr_row,
                              int32_t nr_col) nogil:
         cdef int i, row, col
-        if USE_BLAS:
+        IF USE_BLAS:
             cblas_dgemv(
                 CblasRowMajor,
                 CblasTrans,
@@ -344,7 +344,7 @@ cdef class MatVec:
                 output,
                 1
             )
-        else:
+        ELSE:
             for row in range(nr_row):
                 for col in range(nr_col):
                     output[col] += vec[row] * mat[(row * nr_col) + col]
