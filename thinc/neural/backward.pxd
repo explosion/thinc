@@ -6,17 +6,12 @@ from ..typedefs cimport idx_t
 from ..typedefs cimport weight_t
 
 
-cdef void d_ELU__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
+cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil
    
 
-cdef void d_ReLu__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil
-
-
-cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
+cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil
 
@@ -35,3 +30,12 @@ cdef void d_dot(weight_t* btm_diff,
  
 
 cdef void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil
+
+cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil
+
+
+#cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
+#        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
+#        int nr_above, int nr_below, const ConstantsC* hp) nogil
+#
+#

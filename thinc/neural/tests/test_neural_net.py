@@ -66,7 +66,7 @@ def test_fwd_bias():
 
 
 def test_fwd_linear():
-    model = NeuralNet((2,2), rho=0.0, alpha=0.5)
+    model = NeuralNet((2,2), rho=0.0)
     assert model.nr_class == 2
     assert model.widths == (2, 2)
 
@@ -179,7 +179,7 @@ def bias_data():
 
 def test_linear_bias(bias_data):
     '''Test that a linear model can learn a bias.'''
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd')
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
@@ -208,7 +208,7 @@ def test_linear_bias(bias_data):
 
 def test_deep_bias(bias_data):
     '''Test that a deep model can learn a bias.'''
-    model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='adadelta')
+    model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
@@ -238,8 +238,7 @@ def test_deep_bias(bias_data):
 def test_learn_linear(or_data):
     '''Test that a linear model can learn OR.'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd',
-                       alpha=0.8)
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
@@ -261,7 +260,7 @@ def test_learn_linear(or_data):
 def test_mlp_learn_linear(or_data):
     '''Test that with a hidden layer, we can still learn OR'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5, eps=1e-4,
+    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5,
                       update_step='sgd')
 
     assert model.nr_in == 2
@@ -284,7 +283,7 @@ def test_mlp_learn_linear(or_data):
 
 def test_xor_gradient(xor_data):
     '''Test that after each update, we move towards the correct label.'''
-    model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='adadelta')
+    model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='sgd')
     assert model.nr_in == 2
     assert model.nr_class == 2
     assert model.nr_layer == 3
@@ -315,8 +314,8 @@ def test_xor_eta(xor_data):
 
 def test_xor_rho(xor_data):
     '''Test that higher L2 penalty causes slower learning.'''
-    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005, update_step='adadelta')
-    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005, update_step='adadelta')
+    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005, update_step='sgd')
+    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005, update_step='sgd')
     big_rho_model.weights = list(normal_rho_model.weights)
     big_rho_loss = 0.0
     normal_rho_loss = 0.0

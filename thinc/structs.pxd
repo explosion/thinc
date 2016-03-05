@@ -25,7 +25,6 @@ ctypedef void (*do_update_t)(
 
 ctypedef void (*do_feed_fwd_t)(
     weight_t** fwd,
-    weight_t* averages,
         const weight_t* W,
         const len_t* shape,
         int nr_below,
@@ -37,7 +36,6 @@ ctypedef void (*do_feed_fwd_t)(
 ctypedef void (*do_feed_bwd_t)(
     weight_t* G,
     weight_t** bwd,
-    weight_t* averages,
         const weight_t* W,
         const weight_t* const* fwd,
         const len_t* shape,

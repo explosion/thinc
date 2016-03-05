@@ -31,10 +31,10 @@ from ..extra.eg cimport Example
 
 from .solve cimport sgd_clip_noise_l2
 
-from .forward cimport dot_plus__ELU
-from .forward cimport dot_plus__ReLu
-from .backward cimport d_ELU__dot
-from .backward cimport d_ReLu__dot
+from .forward cimport ELU_forward
+from .forward cimport ReLu_forward
+from .backward cimport ELU_backward
+from .backward cimport ReLu_backward
 from .backward cimport d_log_loss
 
 from .embed cimport Embedding
@@ -60,23 +60,18 @@ cdef class NN:
             embed=None,
             update_step='sgd',
             weight_t eta=0.005,
-            weight_t eps=1e-6,
-            weight_t mu=0.9,
             weight_t rho=1e-4,
-            weight_t alpha=0.5
     ) except *:
         prng.normal_setup()
         if update_step == 'sgd':
             nn.update = sgd_clip_noise_l2
         else:
             raise NotImplementedError(update_step)
-        nn.feed_fwd = dot_plus__ELU
-        nn.feed_bwd = d_ELU__dot
+        nn.feed_fwd = ELU_forward
+        nn.feed_bwd = ELU_backward
 
         nn.hp.t = 0
-        nn.hp.a = alpha
         nn.hp.r = rho
-        nn.hp.m = mu
         nn.hp.e = eta
 
         nn.nr_layer = len(widths)
@@ -133,7 +128,7 @@ cdef class NN:
         cdef uint64_t j
         cdef uint64_t one = 1
         for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i], NULL,
+            nn.feed_fwd(&fwd[i],
                 W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
@@ -149,19 +144,17 @@ cdef class NN:
         for i in range(nn.nr_layer-2, -1, -1):
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i], NULL,
+            nn.feed_bwd(G, &bwd[i],
                 W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
 
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None,
-                 weight_t eta=0.005, weight_t eps=1e-6, weight_t mu=0.2,
-                 weight_t rho=1e-4, weight_t alpha=0.99,
-                 update_step='adam'):
+                 weight_t eta=0.005, weight_t rho=1e-4, update_step='sgd'):
         prng.normal_setup()
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step,
-                eta, eps, mu, rho, alpha)
+                eta, rho)
         self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
     def predict_example(self, Example eg):
