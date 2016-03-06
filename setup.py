@@ -159,7 +159,7 @@ def setup_package():
             ext_modules.append(
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs,
-                    libraries=['/opt/OpenBLAS/lib/openblas']
+                    libraries=['blas']
                 ))
 
         if not is_source_release(root):
