@@ -1,5 +1,4 @@
 from libc.stdint cimport int16_t, int, int32_t, uint64_t
-from libc.stdlib cimport calloc, free, realloc
 from preshed.maps cimport MapStruct
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, calloc, free, realloc
@@ -104,6 +103,11 @@ cdef struct NeuralNetC:
     ConstantsC hp
 
 
+cdef extern from "stdlib.h":
+    int posix_memalign(void **memptr, size_t alignment, size_t size) nogil
+    void* valloc (size_t size) nogil
+
+
 cdef cppclass ExampleC:
     int* is_valid
     weight_t* costs
@@ -131,7 +135,8 @@ cdef cppclass ExampleC:
         this.nr_feat = nr_feat
         this.nr_layer = len(widths)
 
-        this.scores = <weight_t*>calloc(nr_class, sizeof(this.scores[0]))
+        this.scores = <weight_t*>valloc(nr_class * sizeof(this.scores[0]))
+        memset(this.scores, 0, nr_class * sizeof(this.scores[0]))
         this.costs = <weight_t*>calloc(nr_class, sizeof(this.costs[0]))
         this.atoms = <atom_t*>calloc(nr_atom, sizeof(this.atoms[0]))
         this.features = <FeatureC*>calloc(nr_feat, sizeof(this.features[0]))
@@ -144,15 +149,17 @@ cdef cppclass ExampleC:
         this.bwd_state = <weight_t**>calloc(len(widths), sizeof(this.bwd_state[0]))
         for i, width in enumerate(widths):
             this.widths[i] = width
-            this.fwd_state[i] = <weight_t*>calloc(sizeof(this.fwd_state[i][0]), width)
-            this.bwd_state[i] = <weight_t*>calloc(sizeof(this.bwd_state[i][0]), width)
+            this.fwd_state[i] = <weight_t*>valloc(sizeof(this.fwd_state[i][0]) * width)
+            memset(this.fwd_state[i], 0, width * sizeof(this.fwd_state[0]))
+            this.bwd_state[i] = <weight_t*>valloc(sizeof(this.bwd_state[i][0]) * width)
+            memset(this.bwd_state[i], 0, width * sizeof(this.bwd_state[0]))
     
     __dealloc__() nogil:
-        free(this.is_valid)
+        free(this.scores)
         free(this.costs)
         free(this.atoms)
         free(this.features)
-        free(this.scores)
+        free(this.is_valid)
         for i in range(this.nr_layer):
             free(this.fwd_state[i])
             free(this.bwd_state[i])
