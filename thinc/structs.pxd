@@ -14,11 +14,9 @@ ctypedef vector[weight_t] vector_weight_t
 
 ctypedef void (*do_update_t)(
     weight_t* weights,
-    weight_t* momentum,
     weight_t* gradient,
         len_t nr,
         const ConstantsC* hp,
-        weight_t last_update
 ) nogil
 
 
@@ -77,8 +75,7 @@ cdef struct ConstantsC:
 
 cdef struct EmbedC:
     MapC** weights
-    MapC** momentum
-    MapC** timestamps
+    MapC** gradients
     idx_t* offsets
     len_t* lengths
     len_t nr
@@ -92,7 +89,6 @@ cdef struct NeuralNetC:
     len_t* widths
     weight_t* weights
     weight_t* gradient
-    weight_t* momentum
 
     EmbedC embed
 

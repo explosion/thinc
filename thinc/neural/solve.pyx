@@ -22,16 +22,13 @@ prng.normal_setup()
 
 
 @cython.cdivision(True)
-cdef void sgd_clip_noise_l2(weight_t* weights, weight_t* diff, weight_t* gradient,
-        len_t nr_weight,const ConstantsC* hp, weight_t last_update) nogil:
-    '''
-    Update weights with vanilla SGD
-    '''
+cdef void noisy_update(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
     # Add the derivative of the L2-loss to the gradient
     cdef int i
     if hp.r != 0:
         VecVec.add_i(gradient,
-            weights, hp.r * (hp.t - last_update), nr_weight)
+            weights, hp.r, nr_weight)
     # Clip gradient
     grad_norm = Vec.norm(gradient, nr_weight)
     if grad_norm >= 100:
@@ -40,11 +37,22 @@ cdef void sgd_clip_noise_l2(weight_t* weights, weight_t* diff, weight_t* gradien
     # Add gradient noise
     variance = hp.e / ((1 + hp.t) ** 0.55)
     for i in range(nr_weight):
-        gradient[i] += prng.normal() * variance
+        if gradient[i] != 0:
+            gradient[i] += prng.normal() * variance
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
+cdef void vanilla_sgd(weight_t* gradient,
+        const weight_t* increment, len_t nr_weight, const ConstantsC* hp) nogil:
+    '''
+    Increment the gradient for vanilla SGD
+    '''
+    VecVec.add_i(gradient,
+        increment, -hp.e, nr_weight)
 
 
 @cython.cdivision(True)

@@ -41,22 +41,18 @@ cdef class Embedding:
         # from the same embedding table.
         self.nr = len(features)
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        uniq_momentum = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
-        uniq_timestamps = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_gradients = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
-            Map_init(mem, &uniq_momentum[i], 8)
-            Map_init(mem, &uniq_timestamps[i], 8)
+            Map_init(mem, &uniq_gradients[i], 8)
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
-        self.momentum = <MapC**>mem.alloc(len(features), sizeof(void*))
-        self.timestamps = <MapC**>mem.alloc(len(features), sizeof(void*))
+        self.gradients = <MapC**>mem.alloc(len(features), sizeof(void*))
         offset = 0
         for i, table_id in enumerate(features):
             self.weights[i] = &uniq_weights[table_id]
-            self.momentum[i] = &uniq_momentum[table_id]
-            self.timestamps[i] = &uniq_timestamps[table_id]
+            self.gradients[i] = &uniq_gradients[table_id]
             self.lengths[i] = vector_widths[table_id]
             self.offsets[i] = offset
             offset += vector_widths[table_id]
@@ -65,6 +61,8 @@ cdef class Embedding:
     cdef inline void set_input(weight_t* out,
             const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
         for feat in features[:nr_feat]:
+            if feat.value == 0:
+                continue
             emb = <const weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is not NULL:
                 VecVec.add_i(&out[embed.offsets[feat.i]], 
@@ -73,8 +71,9 @@ cdef class Embedding:
     @staticmethod
     cdef inline void insert_missing(Pool mem, EmbedC* embed,
             const FeatureC* features, len_t nr_feat) except *:
+        cdef weight_t* grad
         for feat in features[:nr_feat]:
-            if feat.i >= embed.nr:
+            if feat.i >= embed.nr or feat.value == 0:
                 continue
             emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is NULL:
@@ -82,26 +81,34 @@ cdef class Embedding:
                 he_uniform_initializer(emb, -0.5, 0.5, embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
-                # Need 2x length for momentum. Need to centralize this somewhere =/
-                mom = <weight_t*>mem.alloc(embed.lengths[feat.i] * 2, sizeof(mom[0]))
-                Map_set(mem, embed.momentum[feat.i],
-                    feat.key, mom)
-                Map_set(mem, embed.timestamps[feat.i],
-                    feat.key, <void*><size_t>1)
+                grad = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(grad[0]))
+                Map_set(mem, embed.gradients[feat.i],
+                    feat.key, grad)
     
     @staticmethod
-    cdef inline void fine_tune(EmbedC* layer, weight_t* fine_tune,
-            const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat,
-            const ConstantsC* hp, do_update_t do_update) nogil:
+    cdef inline void fine_tune(EmbedC* layer,
+            const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat) nogil:
         cdef size_t last_update
         for feat in features[:nr_feat]:
-            # Reset fine_tune, because we need to modify the gradient
-            memcpy(fine_tune, delta, sizeof(weight_t) * nr_delta)
-            weights = <weight_t*>Map_get(layer.weights[feat.i], feat.key)
-            gradient = &fine_tune[layer.offsets[feat.i]]
-            last_update = <size_t>Map_get(layer.timestamps[feat.i], feat.key)
-            mom = <weight_t*>Map_get(layer.momentum[feat.i], feat.key)
+            if feat.value == 0:
+                continue
+            gradient = <weight_t*>Map_get(layer.gradients[feat.i], feat.key)
             # None of these should ever be null
-            do_update(weights, mom, gradient,
-                layer.lengths[feat.i], hp, last_update)
+            if gradient is not NULL:
+                VecVec.add_i(gradient,
+                    &delta[layer.offsets[feat.i]], feat.value, layer.lengths[feat.i])
 
+    @staticmethod
+    cdef inline void update_all(EmbedC* layer,
+            const ConstantsC* hp, do_update_t do_update) nogil:
+        cdef key_t key
+        cdef void* value
+        cdef int i, j
+        for i in range(layer.nr):
+            j = 0
+            while Map_iter(layer.weights[i], &j, &key, &value):
+                emb = <weight_t*>value
+                grad = <weight_t*>Map_get(layer.gradients[i], key)
+                if emb is not NULL and grad is not NULL:
+                    do_update(emb, grad,
+                        layer.lengths[i], hp)

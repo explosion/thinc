@@ -29,7 +29,7 @@ from ..structs cimport do_update_t
 
 from ..extra.eg cimport Example
 
-from .solve cimport sgd_clip_noise_l2
+from .solve cimport noisy_update, vanilla_sgd
 
 from .forward cimport ELU_forward
 from .forward cimport ReLu_forward
@@ -64,7 +64,7 @@ cdef class NN:
     ) except *:
         prng.normal_setup()
         if update_step == 'sgd':
-            nn.update = sgd_clip_noise_l2
+            nn.update = noisy_update
         else:
             raise NotImplementedError(update_step)
         nn.feed_fwd = ELU_forward
@@ -86,7 +86,6 @@ cdef class NN:
             nn.nr_node += nn.widths[i]
         nn.weights = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
         nn.gradient = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.momentum = <weight_t*>mem.alloc(nn.nr_weight * 2, sizeof(nn.weights[0]))
         
         if embed is not None:
             vector_widths, features = embed
@@ -110,15 +109,14 @@ cdef class NN:
             nn, True)
         NN.backward(eg.bwd_state, nn.gradient,
             eg.fwd_state, eg.costs, nn)
-        nn.update(nn.weights, nn.momentum, nn.gradient,
-            nn.nr_weight, &nn.hp, nn.hp.t - 1)
         if eg.nr_feat >= 1:
-            Embedding.fine_tune(&nn.embed, nn.gradient,
-                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat,
+            Embedding.fine_tune(&nn.embed,
+                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+        if not nn.hp.t % 100:
+            nn.update(nn.weights, nn.gradient,
+                nn.nr_weight, &nn.hp)
+            Embedding.update_all(&nn.embed,
                 &nn.hp, nn.update)
-            for feat in eg.features[:eg.nr_feat]:
-                Map_set(mem, nn.embed.timestamps[feat.i],
-                    feat.key, <void*><size_t>nn.hp.t)
     
     @staticmethod
     cdef void forward(weight_t* scores, weight_t** fwd,
@@ -279,8 +277,6 @@ cdef class NeuralNet:
                     for j, val in enumerate(value):
                         emb[j] = val
                     Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
-                    mom = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
-                    Map_set(self.mem, self.c.embed.momentum[i], <key_t>key, mom)
 
     property nr_layer:
         def __get__(self):
