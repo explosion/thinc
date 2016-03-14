@@ -394,7 +394,20 @@ cdef class MatMat:
                                  int32_t nr_row,
                                  int32_t nr_col) nogil:
         cdef int i, j, row
-        for i in range(nr_row):
-            row = i * nr_col
-            for j in range(nr_col):
-                mat[row + j] += x[i] * y[j]
+        IF USE_BLAS:
+            cblas_dger(
+                CblasRowMajor,
+                nr_row,
+                nr_col,
+                1.0,
+                x,
+                1,
+                y,
+                1,
+                mat,
+                nr_col)
+        ELSE:
+            for i in range(nr_row):
+                row = i * nr_col
+                for j in range(nr_col):
+                    mat[row + j] += x[i] * y[j]
