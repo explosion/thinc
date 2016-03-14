@@ -27,10 +27,9 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
-    'thinc.prng',
+    #'thinc.prng',
     'thinc.structs',
     'thinc.typedefs',
-    'thinc.eigen',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
@@ -52,9 +51,10 @@ MOD_NAMES = [
 # By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
+                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
+                               '-msse3']}
 link_options    =  {'msvc'  : [],
-                    'other' : []}
+                    'other' : ['-Wl,-framework', '-Wl,Accelerate']}
 
 class build_ext_options:
     def build_options(self):
@@ -150,7 +150,6 @@ def setup_package():
 
         include_dirs = [
             get_python_inc(plat_specific=True),
-            '/opt/OpenBLAS/include',
             os.path.join(root, 'include')]
 
         ext_modules = []
