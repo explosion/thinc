@@ -1,4 +1,6 @@
 # cython: infer_types=True
+cimport cython
+
 
 cdef class Example:
     def __init__(self, int nr_class=0, int nr_atom=0,
@@ -38,14 +40,16 @@ cdef class Example:
         self.fill_is_valid(1, self.c.nr_class)
         self.fill_state(0, self.widths)
    
-    def set_input(self, input_):
-        if len(input_) > self.c.widths[0]:
+    @cython.boundscheck(False)
+    def set_input(self, weight_t[:] input_):
+        cdef int length = input_.shape[0]
+        if length > self.c.widths[0]:
             lengths = (len(input_), self.c.widths[0])
             raise IndexError("Cannot set %d elements to input of length %d" % lengths)
         cdef int i
         cdef weight_t value
-        for i, value in enumerate(input_):
-            self.c.fwd_state[0][i] = value
+        for i in range(length):
+            self.c.fwd_state[0][i] = input_[i]
 
     property widths:
         def __get__(self):
