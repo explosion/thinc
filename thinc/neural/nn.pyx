@@ -119,6 +119,28 @@ cdef class NN:
                 &nn.hp, nn.update)
     
     @staticmethod
+    cdef void train_batch(NeuralNetC* nn, Pool mem, ExampleC** egs, int nr_eg) except *:
+        for eg in egs[:nr_eg]:
+            nn.hp.t += 1
+            if eg.nr_feat >= 1:
+                Embedding.insert_missing(mem, &nn.embed,
+                    eg.features, eg.nr_feat)
+                Embedding.set_input(eg.fwd_state[0],
+                    eg.features, eg.nr_feat, &nn.embed)
+            NN.forward(eg.scores, eg.fwd_state,
+                nn, True)
+            NN.backward(eg.bwd_state, nn.gradient,
+                eg.fwd_state, eg.costs, nn)
+            if eg.nr_feat >= 1:
+                Embedding.fine_tune(&nn.embed,
+                    eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+            if not nn.hp.t % 100:
+                nn.update(nn.weights, nn.gradient,
+                    nn.nr_weight, &nn.hp)
+                Embedding.update_all(&nn.embed,
+                    &nn.hp, nn.update)
+ 
+    @staticmethod
     cdef void forward(weight_t* scores, weight_t** fwd,
             const NeuralNetC* nn, bint dropout) nogil:
         cdef const weight_t* W = nn.weights
@@ -193,6 +215,16 @@ cdef class NeuralNet:
     def train_example(self, Example eg):
         NN.train_example(&self.c, self.mem, eg.c)
         return eg
+
+    def train(self, egs):
+        cdef ExampleC* minibatch[100]
+        cdef Example eg
+        for i, eg in enumerate(egs):
+            if i and not i % 100:
+                NN.train_batch(&self.c, self.mem, minibatch, 100)
+            minibatch[i % 100] = eg.c
+        if i % 100:
+            NN.train_batch(&self.c, self.mem, minibatch, (i % 100) + 1)
  
     def Example(self, input_, label=None):
         if isinstance(input_, Example):

@@ -411,3 +411,43 @@ cdef class MatMat:
                 row = i * nr_col
                 for j in range(nr_col):
                     mat[row + j] += x[i] * y[j]
+
+    @staticmethod 
+    cdef inline void batch_add_outer_i(weight_t* gradient,
+                                 const weight_t* bwd_top,
+                                 const weight_t* fwd_btm,
+                                 int32_t top_width,
+                                 int32_t btm_width,
+                                 int32_t nr_batch) nogil:
+        # Let's say we have a length 5 layer above a length 3 layer
+        # the weight matrix is organized 5x3
+        # If we have a batch size of 2, we have two matrices,
+        # 5x2 and 3x2. We want to get the result of summing the two entries,
+        # so like weights += 2x5 * 3*2
+        cdef int i, j, _, row
+        cdef char trans_a = 'T'
+        cdef char trans_b = 'N'
+        IF USE_BLAS:
+            cblas_dgemm(
+                CblasRowMajor,
+                CblasTrans,
+                CblasNoTrans,
+                top_width,
+                btm_width,
+                nr_batch,
+                1.0,
+                bwd_top,
+                top_width,
+                fwd_btm,
+                btm_width,
+                1.0,
+                gradient,
+                btm_width)
+        ELSE:
+            for _ in range(nr_batch):
+                for i in range(nr_row):
+                    row = i * nr_col
+                    for j in range(nr_col):
+                        mat[row + j] += x[i] * y[j]
+                x += nr_row
+                y += nr_col

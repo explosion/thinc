@@ -16,16 +16,26 @@ DEF ALPHA = 1.0
 cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
         int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    d_ELU(bwd[1],
-        fwd[1], shape[1])
+    cdef int batch_size = 1
+    top_width = shape[1]
+    btm_width = shape[0]
+    bwd_top = bwd[1]
+    bwd_btm = bwd[0]
+    fwd_top = fwd[1]
+    fwd_btm = fwd[0]
+    d_ELU(bwd_top,
+        fwd_top, top_width * batch_size)
     # Set the gradient for F(W * fwd[0]) 
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    VecVec.add_i(gradient + shape[1] * shape[0],
-        bwd[1], 1.0, shape[1])
+    MatMat.batch_add_outer_i(gradient,
+        bwd_top, fwd_btm, top_width, btm_width, batch_size)
+    cdef int b
+    for b in range(batch_size):
+        VecVec.add_i(gradient + top_width * btm_width,
+            &bwd_top[b * top_width], 1.0, top_width)
     # Set the partial derivative for bwd[0], so next step can set its gradient
-    MatVec.T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0])
+    for b in range(batch_size):
+        MatVec.T_dot(&bwd_btm[b * top_width],
+            W, &bwd_top[b * top_width], top_width, btm_width)
 
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
