@@ -15,32 +15,30 @@ DEF ALPHA = 1.0
 
 cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    cdef int batch_size = 1
+        int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil:
     top_width = shape[1]
     btm_width = shape[0]
-    bwd_top = bwd[1]
-    bwd_btm = bwd[0]
-    fwd_top = fwd[1]
-    fwd_btm = fwd[0]
-    d_ELU(bwd_top,
-        fwd_top, top_width * batch_size)
-    # Set the gradient for F(W * fwd[0]) 
-    MatMat.batch_add_outer_i(gradient,
-        bwd_top, fwd_btm, top_width, btm_width, batch_size)
-    cdef int b
-    for b in range(batch_size):
+    for b in range(nr_batch):
+        bwd_top = &(bwd[1][b * top_width])
+        bwd_btm = &(bwd[0][b * btm_width])
+        fwd_top = &(fwd[1][b * top_width])
+        fwd_btm = &(fwd[0][b * btm_width])
+
+        d_ELU(bwd_top,
+            fwd_top, top_width)
+        # Set the gradient for F(W * fwd[0]) 
+        MatMat.add_outer_i(gradient,
+            bwd_top, fwd_btm, top_width, btm_width)
         VecVec.add_i(gradient + top_width * btm_width,
-            &bwd_top[b * top_width], 1.0, top_width)
-    # Set the partial derivative for bwd[0], so next step can set its gradient
-    for b in range(batch_size):
-        MatVec.T_dot(&bwd_btm[b * top_width],
-            W, &bwd_top[b * top_width], top_width, btm_width)
+            bwd_top, 1.0, shape[1])
+        # Set the partial derivative for bwd[0], so next step can set its gradient
+        MatVec.T_dot(bwd_btm,
+            W, bwd_top, top_width, btm_width)
 
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil:
+        int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil:
     d_ReLu(bwd[1],
         fwd[1], shape[1])
     # Set the gradient for F(W * fwd[0]) 

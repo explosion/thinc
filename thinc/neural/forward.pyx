@@ -15,22 +15,28 @@ DEF ALPHA = 1.0
 
 cdef void ELU_forward(weight_t** fwd,
         const weight_t* W, const len_t* shape, int nr_below, int nr_above,
-        const ConstantsC* hp) nogil:
+        int nr_batch, const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
-    dot_plus(fwd[1],
-        bias, shape[1], fwd[0], shape[0], W)
-    # Apply non-linearity
-    if nr_above >= 2:
-        ELU(fwd[1],
-            shape[1])
-    else:
-        softmax(fwd[1],
-            shape[1])
+    top_width = shape[1]
+    btm_width = shape[0]
+    for b in range(nr_batch):
+        fwd_top = &(fwd[1][b * top_width])
+        fwd_btm = &(fwd[0][b * btm_width])
+
+        dot_plus(fwd_top,
+            bias, shape[1], fwd_btm, shape[0], W)
+        # Apply non-linearity
+        if nr_above >= 2:
+            ELU(fwd_top,
+                shape[1])
+        else:
+            softmax(fwd_top,
+                shape[1])
  
 
 cdef void ReLu_forward(weight_t** fwd,
         const weight_t* W, const len_t* shape, int nr_below, int nr_above,
-        const ConstantsC* hp) nogil:
+        int nr_batch, const ConstantsC* hp) nogil:
     bias = W + shape[1] * shape[0]
     dot_plus(fwd[1],
         bias, shape[1], fwd[0], shape[0], W)

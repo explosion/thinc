@@ -120,36 +120,52 @@ cdef class NN:
     
     @staticmethod
     cdef void train_batch(NeuralNetC* nn, Pool mem, ExampleC** egs, int nr_eg) except *:
-        for eg in egs[:nr_eg]:
-            nn.hp.t += 1
-            if eg.nr_feat >= 1:
-                Embedding.insert_missing(mem, &nn.embed,
-                    eg.features, eg.nr_feat)
-                Embedding.set_input(eg.fwd_state[0],
-                    eg.features, eg.nr_feat, &nn.embed)
-            NN.forward(eg.scores, eg.fwd_state,
-                nn, True)
-            NN.backward(eg.bwd_state, nn.gradient,
-                eg.fwd_state, eg.costs, nn)
-            if eg.nr_feat >= 1:
-                Embedding.fine_tune(&nn.embed,
-                    eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
-            if not nn.hp.t % 100:
-                nn.update(nn.weights, nn.gradient,
-                    nn.nr_weight, &nn.hp)
-                Embedding.update_all(&nn.embed,
-                    &nn.hp, nn.update)
+        cdef Pool tmp_mem = Pool()
+        fwd = <weight_t**>tmp_mem.alloc(nr_eg, sizeof(void*))
+        bwd = <weight_t**>tmp_mem.alloc(nr_eg, sizeof(void*))
+        for i in range(nn.nr_layer):
+            fwd[i] = <weight_t*>tmp_mem.alloc(nn.widths[i] * nr_eg, sizeof(weight_t))
+            bwd[i] = <weight_t*>tmp_mem.alloc(nn.widths[i] * nr_eg, sizeof(weight_t))
+        nr_class = nn.widths[nn.nr_layer-1]
+        costs = <weight_t*>tmp_mem.alloc(nr_eg * nr_class, sizeof(weight_t))
+        for i in range(nr_eg):
+            eg = egs[i]
+            memcpy(&(fwd[0][i * nn.widths[0]]),
+                eg.fwd_state[0], nn.widths[0] * sizeof(fwd[0][0]))
+            memcpy(&costs[i * nr_class],
+                eg.costs, nr_class * sizeof(costs[0]))
+        cdef const weight_t* W = nn.weights
+        for i in range(nn.nr_layer-1):
+            nn.feed_fwd(&fwd[i],
+                W, &nn.widths[i], i, nn.nr_layer-(i+1), nr_eg, &nn.hp)
+            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        for i in range(nr_eg):
+            d_log_loss(&(bwd[nn.nr_layer-1][i * nr_class]),
+                &costs[i * nr_class], &(fwd[nn.nr_layer-1][i * nr_class]), nr_class)
+        W = nn.weights + nn.nr_weight
+        cdef weight_t* G = nn.gradient + nn.nr_weight
+        for i in range(nn.nr_layer-2, -1, -1):
+            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
+            nn.feed_bwd(G, &bwd[i],
+                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, nr_eg, &nn.hp)
+
+        nn.hp.t += nr_eg
+        nn.update(nn.weights, nn.gradient,
+            nn.nr_weight, &nn.hp)
+        for i in range(nr_eg):
+            memcpy(egs[i].scores,
+                &(fwd[nn.nr_layer-1][i * nr_class]), nr_class * sizeof(weight_t))
+
+
  
     @staticmethod
     cdef void forward(weight_t* scores, weight_t** fwd,
             const NeuralNetC* nn, bint dropout) nogil:
         cdef const weight_t* W = nn.weights
-        cdef uint64_t bit_mask
-        cdef uint64_t j
-        cdef uint64_t one = 1
         for i in range(nn.nr_layer-1):
             nn.feed_fwd(&fwd[i],
-                W, &nn.widths[i], i, nn.nr_layer-(i+1), &nn.hp)
+                W, &nn.widths[i], i, nn.nr_layer-(i+1), 1, &nn.hp)
             W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
         memcpy(scores,
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1])
@@ -165,7 +181,7 @@ cdef class NN:
             W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
             nn.feed_bwd(G, &bwd[i],
-                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, &nn.hp)
+                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, 1, &nn.hp)
 
 
 cdef class NeuralNet:

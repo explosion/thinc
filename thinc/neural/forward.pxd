@@ -8,11 +8,13 @@ from ..typedefs cimport weight_t
 
 cdef void ELU_forward(weight_t** fwd,
         const weight_t* W, const len_t* shape, int nr_below, int nr_above,
+        int nr_batch,
         const ConstantsC* hp) nogil
  
 
 cdef void ReLu_forward(weight_t** fwd,
         const weight_t* W, const len_t* shape, int nr_below, int nr_above,
+        int nr_batch,
         const ConstantsC* hp) nogil
  
 
