@@ -16,24 +16,16 @@ DEF ALPHA = 1.0
 cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
         int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil:
-    top_width = shape[1]
-    btm_width = shape[0]
-    for b in range(nr_batch):
-        bwd_top = &(bwd[1][b * top_width])
-        bwd_btm = &(bwd[0][b * btm_width])
-        fwd_top = &(fwd[1][b * top_width])
-        fwd_btm = &(fwd[0][b * btm_width])
-
-        d_ELU(bwd_top,
-            fwd_top, top_width)
-        # Set the gradient for F(W * fwd[0]) 
-        MatMat.add_outer_i(gradient,
-            bwd_top, fwd_btm, top_width, btm_width)
-        VecVec.add_i(gradient + top_width * btm_width,
-            bwd_top, 1.0, shape[1])
-        # Set the partial derivative for bwd[0], so next step can set its gradient
-        MatVec.T_dot(bwd_btm,
-            W, bwd_top, top_width, btm_width)
+    d_ELU(bwd[1],
+        fwd[1], shape[1] * nr_batch)
+    # Set the gradient for F(W * fwd[0]) 
+    MatMat.batch_add_outer_i(gradient,
+        bwd[1], fwd[0], shape[1], shape[0], nr_batch)
+    VecVec.batch_add_i(gradient + shape[1] * shape[0],
+        bwd[1], 1.0, shape[1], nr_batch)
+    # Set the partial derivative for bwd[0], so next step can set its gradient
+    MatVec.batch_T_dot(bwd[0],
+        W, bwd[1], shape[1], shape[0], nr_batch)
 
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,

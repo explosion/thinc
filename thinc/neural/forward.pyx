@@ -16,22 +16,22 @@ DEF ALPHA = 1.0
 cdef void ELU_forward(weight_t** fwd,
         const weight_t* W, const len_t* shape, int nr_below, int nr_above,
         int nr_batch, const ConstantsC* hp) nogil:
-    bias = W + shape[1] * shape[0]
     top_width = shape[1]
     btm_width = shape[0]
-    for b in range(nr_batch):
-        fwd_top = &(fwd[1][b * top_width])
-        fwd_btm = &(fwd[0][b * btm_width])
-
-        dot_plus(fwd_top,
-            bias, shape[1], fwd_btm, shape[0], W)
-        # Apply non-linearity
-        if nr_above >= 2:
-            ELU(fwd_top,
-                shape[1])
-        else:
+    MatVec.batch_dot(fwd[1],
+        W, fwd[0], top_width, btm_width, nr_batch)
+    VecVec.batch_add_i(fwd[1],
+        W + top_width * btm_width, 1.0, top_width, nr_batch)
+    # Apply non-linearity
+    if nr_above >= 2:
+        ELU(fwd[1],
+            top_width * nr_batch)
+    else:
+        fwd_top = fwd[1]
+        for _ in range(nr_batch):
             softmax(fwd_top,
-                shape[1])
+                top_width)
+            fwd_top += top_width
  
 
 cdef void ReLu_forward(weight_t** fwd,

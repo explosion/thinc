@@ -133,8 +133,7 @@ cdef cppclass ExampleC:
         this.nr_feat = nr_feat
         this.nr_layer = len(widths)
 
-        this.scores = <weight_t*>valloc(nr_class * sizeof(this.scores[0]))
-        memset(this.scores, 0, nr_class * sizeof(this.scores[0]))
+        this.scores = <weight_t*>calloc(nr_class, sizeof(this.scores[0]))
         this.costs = <weight_t*>calloc(nr_class, sizeof(this.costs[0]))
         this.atoms = <atom_t*>calloc(nr_atom, sizeof(this.atoms[0]))
         this.features = <FeatureC*>calloc(nr_feat, sizeof(this.features[0]))
@@ -147,10 +146,8 @@ cdef cppclass ExampleC:
         this.bwd_state = <weight_t**>calloc(len(widths), sizeof(this.bwd_state[0]))
         for i, width in enumerate(widths):
             this.widths[i] = width
-            this.fwd_state[i] = <weight_t*>valloc(sizeof(this.fwd_state[i][0]) * width)
-            memset(this.fwd_state[i], 0, width * sizeof(this.fwd_state[0]))
-            this.bwd_state[i] = <weight_t*>valloc(sizeof(this.bwd_state[i][0]) * width)
-            memset(this.bwd_state[i], 0, width * sizeof(this.bwd_state[0]))
+            this.fwd_state[i] = <weight_t*>calloc(sizeof(this.fwd_state[i][0]), width)
+            this.bwd_state[i] = <weight_t*>calloc(sizeof(this.bwd_state[i][0]), width)
     
     __dealloc__() nogil:
         free(this.scores)

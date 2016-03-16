@@ -212,6 +212,17 @@ cdef class VecVec:
         ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
+    
+    @staticmethod
+    cdef inline void batch_add_i(weight_t* x, 
+                           const weight_t* y,
+                           weight_t scale,
+                           int32_t nr, int32_t nr_batch) nogil:
+        cdef int i, _
+        for _ in range(nr_batch):
+            VecVec.add_i(x,
+                y, scale, nr)
+            y += nr
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,
@@ -321,6 +332,45 @@ cdef class MatVec:
                 row = i * nr_col
                 for col in range(nr_col):
                     output[i] += mat[row + col] * vec[col]
+    
+    @staticmethod
+    cdef inline void batch_dot(weight_t* output,
+                         const weight_t* mat,
+                         const weight_t* vec,
+                         int32_t nr_row, int32_t nr_col, int32_t nr_batch) nogil:
+        # Output dim: batch_size * nr_row
+        # vec dim:    batch_size * nr_col
+        # mat dim:    nr_row     * nr_col
+        # batch_size must be M, because can't transpose C
+        # so nr_row must be N
+        # so nr_col must be K
+
+        # vec:   M * K
+        # mat.T: K * N
+        # out:   M * N
+        cdef int i, row, col
+        IF USE_BLAS:
+            cblas_dgemm(
+                CblasRowMajor,
+                CblasNoTrans,
+                CblasTrans,
+                nr_batch,
+                nr_row,
+                nr_col,
+                1.0,
+                vec,
+                nr_col,
+                mat,
+                nr_col,
+                1.0,
+                output,
+                nr_row)
+        ELSE:
+            for b in range(nr_batch):
+                MatVec.dot(output,
+                    mat, vec, nr_row, nr_col)
+                output += nr_col
+                vec += nr_col
 
     @staticmethod
     cdef inline void T_dot(weight_t* output,
@@ -330,24 +380,61 @@ cdef class MatVec:
                              int32_t nr_col) nogil:
         cdef int i, row, col
         IF USE_BLAS:
-            cblas_dgemv(
-                CblasRowMajor,
-                CblasTrans,
-                nr_row,
-                nr_col,
+            cblas_dgemv(CblasRowMajor, CblasTrans,
+                nr_row, nr_col,
                 1.0,
-                mat,
-                nr_col,
-                vec,
-                1,
+                mat, nr_col,
+                vec, 1,
                 0.0,
-                output,
-                1
+                output, 1
             )
         ELSE:
             for row in range(nr_row):
                 for col in range(nr_col):
                     output[col] += vec[row] * mat[(row * nr_col) + col]
+
+    @staticmethod
+    cdef inline void batch_T_dot(weight_t* output,
+                             const weight_t* mat,
+                             const weight_t* vec,
+                             int32_t nr_row,
+                             int32_t nr_col,
+                             int32_t nr_batch) nogil:
+        cdef int _
+        IF USE_BLAS:
+            # output is (nr_batch, nr_col)
+            # mat is (nr_row, nr_col)
+            # vec is (nr_batch, nr_row)
+            # Output defined as (M, N)
+            # So
+            # nr_batch = M
+            # nr_col = N
+            # nr_row = K
+            #
+            # vec:  M * K
+            # mat:  K * N
+            # out:  M * N
+            cblas_dgemm(
+                CblasRowMajor,
+                CblasNoTrans,
+                CblasNoTrans,
+                nr_batch,
+                nr_col,
+                nr_row,
+                1.0,
+                vec,
+                nr_row,
+                mat,
+                nr_col,
+                1.0,
+                output,
+                nr_col)
+        ELSE:
+            for _ in range(nr_batch):
+                MatVec.T_dot(output,
+                    mat, vec, nr_row, nr_col)
+                output += nr_col
+                vec += nr_row
 
 
 cdef class MatMat:
@@ -413,36 +500,40 @@ cdef class MatMat:
                     mat[row + j] += x[i] * y[j]
 
     @staticmethod 
-    cdef inline void batch_add_outer_i(weight_t* gradient,
-                                 const weight_t* bwd_top,
-                                 const weight_t* fwd_btm,
-                                 int32_t top_width,
-                                 int32_t btm_width,
+    cdef inline void batch_add_outer_i(weight_t* output,
+                                 const weight_t* x,
+                                 const weight_t* y,
+                                 int32_t nr_row,
+                                 int32_t nr_col,
                                  int32_t nr_batch) nogil:
-        # Let's say we have a length 5 layer above a length 3 layer
-        # the weight matrix is organized 5x3
-        # If we have a batch size of 2, we have two matrices,
-        # 5x2 and 3x2. We want to get the result of summing the two entries,
-        # so like weights += 2x5 * 3*2
-        cdef int i, j, _, row
-        cdef char trans_a = 'T'
-        cdef char trans_b = 'N'
+        # Output dim: nr_row * nr_col
+        # x dim:    batch_size * nr_row
+        # y dim:    batch_size * nr_col
+        # 
+        # Output is M*N (can't transpose)
+        # nr_row = M
+        # nr_col = N
+        # batch_size = K
+
+        # x.T:  M * K
+        # y:    K * N
+        # out:  M * N
         IF USE_BLAS:
             cblas_dgemm(
                 CblasRowMajor,
                 CblasTrans,
                 CblasNoTrans,
-                top_width,
-                btm_width,
+                nr_row,
+                nr_col,
                 nr_batch,
                 1.0,
-                bwd_top,
-                top_width,
-                fwd_btm,
-                btm_width,
+                x,
+                nr_row,
+                y,
+                nr_col,
                 1.0,
-                gradient,
-                btm_width)
+                output,
+                nr_col)
         ELSE:
             for _ in range(nr_batch):
                 for i in range(nr_row):
