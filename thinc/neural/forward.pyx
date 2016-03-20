@@ -14,24 +14,26 @@ DEF ALPHA = 1.0
 
 
 cdef void ELU_forward(weight_t** fwd,
-        const weight_t* W, const len_t* shape, int nr_below, int nr_above,
-        int nr_batch, const ConstantsC* hp) nogil:
-    top_width = shape[1]
-    btm_width = shape[0]
-    MatVec.batch_dot(fwd[1],
-        W, fwd[0], top_width, btm_width, nr_batch)
-    VecVec.batch_add_i(fwd[1],
-        W + top_width * btm_width, 1.0, top_width, nr_batch)
-    # Apply non-linearity
-    if nr_above >= 2:
-        ELU(fwd[1],
-            top_width * nr_batch)
-    else:
-        fwd_top = fwd[1]
-        for _ in range(nr_batch):
-            softmax(fwd_top,
-                top_width)
-            fwd_top += top_width
+        const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
+        const ConstantsC* hp) nogil:
+    for i in range(nr_layer-2):
+        MatVec.batch_dot(fwd[i+1],
+            W, fwd[i], widths[i+1], widths[i], nr_batch)
+        MatVec.add_i(fwd[i+1],
+            W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
+        ELU(fwd[i+1],
+            widths[i+1] * nr_batch)
+        W += widths[i+1] * widths[i] + widths[i+1]
+    i = nr_layer - 2
+    MatVec.batch_dot(fwd[i+1],
+        W, fwd[i], widths[i+1], widths[i], nr_batch)
+    MatVec.add_i(fwd[i+1],
+        W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
+    scores = fwd[i+1]
+    for _ in range(nr_batch):
+        softmax(scores,
+            widths[i+1])
+        scores += widths[i+1]
  
 
 cdef void ReLu_forward(weight_t** fwd,

@@ -8,6 +8,7 @@ from libc.stdint cimport uint64_t
 from libc.stdlib cimport malloc, calloc, free
 
 cimport cython
+cimport numpy as np
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport map_init as Map_init
@@ -51,6 +52,44 @@ from cytoolz import partition
 
 prng.normal_setup()
 
+
+cdef cppclass MinibatchC:
+    weight_t** _fwd
+    weight_t** _bwd
+    len_t* widths
+    int nr_layer
+    int batch_size
+
+    __init__(len_t* widths, int nr_layer, int batch_size) nogil:
+        this.nr_layer = nr_layer
+        this.batch_size = batch_size
+        this.widths = <len_t*>calloc(nr_layer, sizeof(len_t))
+        this._fwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
+        this._bwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
+        for i in range(nr_layer):
+            this.widths[i] = widths[i]
+            this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
+            this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
+
+    __dealloc__() nogil:
+        for i in range(this.nr_layer):
+            free(this._fwd[i])
+            free(this._bwd[i])
+        free(this._fwd)
+        free(this._bwd)
+        free(this.widths)
+
+    weight_t* fwd(int i, int j) nogil:
+        return this._fwd[i] + (j * this.widths[i])
+ 
+    weight_t* bwd(int i, int j) nogil:
+        return this._bwd[i] + (j * this.widths[i])
+  
+    weight_t* scores(int i) nogil:
+        return this.fwd(this.nr_layer-1, i)
+
+    weight_t* losses(int i) nogil:
+        return this.bwd(this.nr_layer-1, i)
 
 cdef class NN:
     @staticmethod
@@ -124,54 +163,38 @@ cdef class NN:
     
     @staticmethod
     cdef void train_batch(NeuralNetC* nn, Pool mem, ExampleC** egs, int nr_eg) except *:
-        cdef Pool tmp_mem = Pool()
-        fwd = <weight_t**>tmp_mem.alloc(nn.nr_layer, sizeof(void*))
-        bwd = <weight_t**>tmp_mem.alloc(nn.nr_layer, sizeof(void*))
-        for i in range(nn.nr_layer):
-            fwd[i] = <weight_t*>tmp_mem.alloc(nn.widths[i] * nr_eg, sizeof(weight_t))
-            bwd[i] = <weight_t*>tmp_mem.alloc(nn.widths[i] * nr_eg, sizeof(weight_t))
-        nr_class = nn.widths[nn.nr_layer-1]
-        input_ = fwd[0]
-        for i in range(nr_eg):
-            eg = egs[i]
-            memcpy(input_,
-                eg.fwd_state[0], nn.widths[0] * sizeof(weight_t))
-            input_ += nn.widths[0]
-        cdef const weight_t* W = nn.weights
-        for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i],
-                W, &nn.widths[i], i, nn.nr_layer-(i+1), nr_eg, &nn.hp)
-            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-        # Set scores onto the ExampleC objects
-        cdef weight_t* scores = fwd[nn.nr_layer-1]
-        cdef weight_t* loss = bwd[nn.nr_layer-1]
-        for i in range(nr_eg):
-            memcpy(egs[i].scores,
-                scores, nr_class * sizeof(weight_t))
-            # Set loss from the ExampleC costs 
-            d_log_loss(loss,
-                egs[i].costs, scores, nr_class)
-            scores += nr_class
-            loss += nr_class
-        W = nn.weights + nn.nr_weight
-        G = nn.gradient + nn.nr_weight
-        for i in range(nn.nr_layer-2, -1, -1):
-            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i],
-                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, nr_eg, &nn.hp)
         nn.hp.t += nr_eg
+        cdef MinibatchC* mb = new MinibatchC(nn.widths, nn.nr_layer, nr_eg)
+        nr_class = nn.widths[nn.nr_layer-1]
+        for i in range(nr_eg):
+            memcpy(mb.fwd(0, i),
+                egs[i].fwd_state[0], sizeof(weight_t) * mb.widths[0])
+        nn.feed_fwd(mb._fwd,
+            nn.weights, nn.widths, nn.nr_layer, nr_eg, &nn.hp)
+        # Set scores onto the ExampleC objects
+        for i in range(mb.batch_size):
+            memcpy(egs[i].scores,
+                mb.scores(i), nr_class * sizeof(weight_t))
+            # Set loss from the ExampleC costs 
+            d_log_loss(mb.losses(i),
+                egs[i].costs, mb.scores(i), nr_class)
+        nn.feed_bwd(nn.gradient + nn.nr_weight, mb._bwd,
+            nn.weights + nn.nr_weight, mb._fwd, nn.widths, nn.nr_layer,
+            nr_eg, &nn.hp)
         nn.update(nn.weights, nn.gradient,
             nn.nr_weight, &nn.hp)
+        # Set scores onto the ExampleC objects
+        for i in range(mb.batch_size):
+            memcpy(egs[i].scores,
+                mb.scores(i), nr_class * sizeof(weight_t))
+        del mb
 
     @staticmethod
     cdef void forward(weight_t* scores, weight_t** fwd,
             int batch_size, const NeuralNetC* nn) nogil:
         cdef const weight_t* W = nn.weights
-        for i in range(nn.nr_layer-1):
-            nn.feed_fwd(&fwd[i],
-                W, &nn.widths[i], i, nn.nr_layer-(i+1), batch_size, &nn.hp)
-            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
+        nn.feed_fwd(fwd,
+            nn.weights, nn.widths, nn.nr_layer, batch_size, &nn.hp)
         memcpy(scores,
             fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1] * batch_size)
 
@@ -181,14 +204,10 @@ cdef class NN:
             const NeuralNetC* nn) nogil:
         d_log_loss(bwd[nn.nr_layer-1],
             costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        cdef const weight_t* W = nn.weights + nn.nr_weight
-        cdef weight_t* G = gradient + nn.nr_weight
-        for i in range(nn.nr_layer-2, -1, -1):
-            W -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            G -= NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.feed_bwd(G, &bwd[i],
-                W, &fwd[i], &nn.widths[i], nn.nr_layer-(i+1), i, 1, &nn.hp)
-
+        nn.feed_bwd(gradient + nn.nr_weight, bwd,
+            nn.weights + nn.nr_weight, fwd, nn.widths, nn.nr_layer,
+            batch_size, &nn.hp)
+ 
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None,
@@ -196,7 +215,21 @@ cdef class NeuralNet:
         self.mem = Pool()
         NN.init(&self.c, self.mem, widths, embed, update_step,
                 eta, rho)
-        self.eg = Example(nr_class=self.nr_class, widths=self.widths)
+        self.eg = Example(nr_class=self.nr_class, widths=widths)
+
+    def predict_batch(self, inputs):
+        mb = new MinibatchC(self.c.widths, self.c.nr_layer, len(inputs))
+        cdef weight_t[::1] input_
+        for i, input_ in enumerate(inputs):
+            memcpy(mb.fwd(0, i),
+                &input_[0], sizeof(weight_t) * self.c.widths[0])
+        cdef np.ndarray scores = numpy.zeros(shape=(mb.batch_size, self.nr_class),
+                                               dtype='float64')
+        NN.forward(<weight_t*>scores.data, mb._fwd,
+            mb.batch_size, &self.c)
+        scores.reshape((mb.batch_size, self.nr_class))
+        del mb
+        return scores
 
     def predict_example(self, Example eg):
         if eg.c.nr_feat >= 1:
@@ -237,14 +270,24 @@ cdef class NeuralNet:
         NN.train_example(&self.c, self.mem, eg.c)
         return eg
 
-    def train(self, egs):
-        minibatch = <ExampleC**>malloc(100 * sizeof(ExampleC*))
+    def train(self, x_y, batch_size=50):
+        minibatch = <ExampleC**>malloc(batch_size * sizeof(ExampleC*))
+        correct = 0.0
+        total = 0.0
         cdef Example eg
-        for batch in partition(50, egs):
-            for i, eg in enumerate(batch):
+        for batch in partition(batch_size, x_y):
+            egs = []
+            for i, (x, y) in enumerate(batch):
+                eg = Example(nr_class=self.nr_class, widths=self.widths)
+                eg.set_input(x)
+                eg.costs = [clas != y for clas in range(self.nr_class)]
                 minibatch[i] = eg.c
-            NN.train_batch(&self.c, self.mem, minibatch, 50)
+                egs.append(eg)
+            NN.train_batch(&self.c, self.mem, minibatch, len(batch))
+            correct += sum(eg.guess == eg.best for eg in egs)
+            total += len(batch)
         free(minibatch)
+        return correct / total
  
     def Example(self, input_, label=None):
         if isinstance(input_, Example):

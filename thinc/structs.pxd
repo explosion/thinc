@@ -24,8 +24,7 @@ ctypedef void (*do_feed_fwd_t)(
     weight_t** fwd,
         const weight_t* W,
         const len_t* shape,
-        int nr_below,
-        int nr_above,
+        int nr_layer,
         int nr_batch,
         const ConstantsC* hp
 ) nogil
@@ -37,8 +36,7 @@ ctypedef void (*do_feed_bwd_t)(
         const weight_t* W,
         const weight_t* const* fwd,
         const len_t* shape,
-        int nr_above,
-        int nr_below,
+        int nr_layer,
         int nr_batch,
         const ConstantsC* hp
 ) nogil

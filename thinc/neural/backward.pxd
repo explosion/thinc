@@ -8,7 +8,7 @@ from ..typedefs cimport weight_t
 
 cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil
+        int nr_layer, int nr_batch, const ConstantsC* hp) nogil
    
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,

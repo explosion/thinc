@@ -218,6 +218,7 @@ cdef class VecVec:
                            const weight_t* y,
                            weight_t scale,
                            int32_t nr, int32_t nr_batch) nogil:
+        # For fixed x, matrix of y
         cdef int i, _
         for _ in range(nr_batch):
             VecVec.add_i(x,
@@ -287,6 +288,14 @@ cdef class VecVec:
 
 
 cdef class MatVec:
+    @staticmethod
+    cdef inline void add_i(weight_t* mat,
+            const weight_t* vec, weight_t scale, int32_t nr_row, int32_t nr_col) nogil:
+        cdef int i
+        for i in range(nr_row):
+            VecVec.add_i(mat + (i * nr_col),
+                vec, 1.0, nr_col)
+
     @staticmethod
     cdef inline void mul(weight_t* output,
                          const weight_t* mat,

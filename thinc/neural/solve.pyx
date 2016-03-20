@@ -33,12 +33,12 @@ cdef void noisy_update(weight_t* weights, weight_t* gradient,
     grad_norm = Vec.norm(gradient, nr_weight)
     if grad_norm >= 100:
         Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
-    cdef weight_t variance 
+    #cdef weight_t variance 
     # Add gradient noise
-    variance = hp.e / ((1 + hp.t) ** 0.55)
+    #variance = hp.e / ((1 + hp.t) ** 0.55)
+    variance = hp.e
     for i in range(nr_weight):
-        if gradient[i] != 0:
-            gradient[i] += prng.normal() * variance
+        gradient[i] += prng.normal() * variance
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient,

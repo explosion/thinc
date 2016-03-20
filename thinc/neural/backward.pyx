@@ -13,20 +13,23 @@ DEF EPS = 0.00000001
 DEF ALPHA = 1.0
 
 
-cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil:
-    d_ELU(bwd[1],
-        fwd[1], shape[1] * nr_batch)
-    # Set the gradient for F(W * fwd[0]) 
-    MatMat.batch_add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0], nr_batch)
-    VecVec.batch_add_i(gradient + shape[1] * shape[0],
-        bwd[1], 1.0, shape[1], nr_batch)
-    # Set the partial derivative for bwd[0], so next step can set its gradient
-    MatVec.batch_T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0], nr_batch)
-
+cdef void ELU_backward(weight_t* G, weight_t** bwd,
+        const weight_t* W, const weight_t* const* fwd, const len_t* widths,
+        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+    for i in range(nr_layer-2, -1, -1):
+        W -= widths[i+1] * widths[i] + widths[i+1]
+        G -= widths[i+1] * widths[i] + widths[i+1]
+        d_ELU(bwd[i+1],
+            fwd[i+1], widths[i+1] * nr_batch)
+        # Set the gradient for F(W * fwd[0]) 
+        MatMat.batch_add_outer_i(G,
+            bwd[i+1], fwd[i], widths[i+1], widths[i], nr_batch)
+        VecVec.batch_add_i(G + widths[i+1] * widths[i],
+            bwd[i+1], 1.0, widths[i+1], nr_batch)
+        # Set the partial derivative for bwd[0], so next step can set its gradient
+        MatVec.batch_T_dot(bwd[i],
+            W, bwd[i+1], widths[i+1], widths[i], nr_batch)
+    
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* shape,
