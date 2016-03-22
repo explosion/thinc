@@ -38,7 +38,8 @@ cdef void noisy_update(weight_t* weights, weight_t* gradient,
     #variance = hp.e / ((1 + hp.t) ** 0.55)
     variance = hp.e
     for i in range(nr_weight):
-        gradient[i] += prng.normal() * variance
+        if gradient[i] != 0:
+            gradient[i] += prng.normal() * variance
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient,

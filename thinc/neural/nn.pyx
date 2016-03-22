@@ -91,55 +91,12 @@ cdef cppclass MinibatchC:
     weight_t* losses(int i) nogil:
         return this.bwd(this.nr_layer-1, i)
 
+
 cdef class NN:
     @staticmethod
     cdef int nr_weight(int nr_out, int nr_in) nogil:
         return nr_out * nr_in + nr_out
 
-    @staticmethod
-    cdef void init(
-        NeuralNetC* nn,
-        Pool mem,
-            widths,
-            embed=None,
-            update_step='sgd',
-            weight_t eta=0.005,
-            weight_t rho=1e-4,
-    ) except *:
-        if update_step == 'sgd':
-            nn.update = noisy_update
-        else:
-            raise NotImplementedError(update_step)
-        nn.feed_fwd = ELU_forward
-        nn.feed_bwd = ELU_backward
-
-        nn.hp.t = 0
-        nn.hp.r = rho
-        nn.hp.e = eta
-
-        nn.nr_layer = len(widths)
-        nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
-        cdef int i
-        for i, width in enumerate(widths):
-            nn.widths[i] = width
-        nn.nr_weight = 0
-        nn.nr_node = 0
-        for i in range(nn.nr_layer-1):
-            nn.nr_weight += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-            nn.nr_node += nn.widths[i]
-        nn.weights = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        nn.gradient = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
-        
-        if embed is not None:
-            vector_widths, features = embed
-            Embedding.init(&nn.embed, mem, vector_widths, features)
-
-        W = nn.weights
-        for i in range(nn.nr_layer-2):
-            he_normal_initializer(W,
-                nn.widths[i+1], nn.widths[i+1] * nn.widths[i])
-            W += NN.nr_weight(nn.widths[i+1], nn.widths[i])
-    
     @staticmethod
     cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
         nn.hp.t += 1
@@ -148,10 +105,13 @@ cdef class NN:
                 eg.features, eg.nr_feat)
             Embedding.set_input(eg.fwd_state[0],
                 eg.features, eg.nr_feat, &nn.embed)
-        NN.forward(eg.scores, eg.fwd_state,
-            1, nn)
-        NN.backward(eg.bwd_state, nn.gradient,
-            eg.fwd_state, eg.costs, 1, nn)
+        nn.feed_fwd(eg.fwd_state,
+            nn.weights, nn.widths, nn.nr_layer, 1, &nn.hp)
+        d_log_loss(eg.bwd_state[nn.nr_layer-1],
+            eg.costs, eg.fwd_state[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
+        nn.feed_bwd(nn.gradient + nn.nr_weight, eg.bwd_state,
+            nn.weights + nn.nr_weight, eg.fwd_state, nn.widths, nn.nr_layer,
+            1, &nn.hp)
         if eg.nr_feat >= 1:
             Embedding.fine_tune(&nn.embed,
                 eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
@@ -167,6 +127,11 @@ cdef class NN:
         cdef MinibatchC* mb = new MinibatchC(nn.widths, nn.nr_layer, nr_eg)
         nr_class = nn.widths[nn.nr_layer-1]
         for i in range(nr_eg):
+            if egs[i].nr_feat >= 1:
+                Embedding.insert_missing(mem, &nn.embed,
+                    egs[i].features, egs[i].nr_feat)
+                Embedding.set_input(egs[i].fwd_state[0],
+                    egs[i].features, egs[i].nr_feat, &nn.embed)
             memcpy(mb.fwd(0, i),
                 egs[i].fwd_state[0], sizeof(weight_t) * mb.widths[0])
         nn.feed_fwd(mb._fwd,
@@ -183,39 +148,54 @@ cdef class NN:
             nr_eg, &nn.hp)
         nn.update(nn.weights, nn.gradient,
             nn.nr_weight, &nn.hp)
+
         # Set scores onto the ExampleC objects
         for i in range(mb.batch_size):
             memcpy(egs[i].scores,
                 mb.scores(i), nr_class * sizeof(weight_t))
+        for eg in egs[:mb.batch_size]:
+            if eg.nr_feat >= 1:
+                Embedding.fine_tune(&nn.embed,
+                    eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
+        Embedding.update_all(&nn.embed,
+            &nn.hp, nn.update)
         del mb
 
-    @staticmethod
-    cdef void forward(weight_t* scores, weight_t** fwd,
-            int batch_size, const NeuralNetC* nn) nogil:
-        cdef const weight_t* W = nn.weights
-        nn.feed_fwd(fwd,
-            nn.weights, nn.widths, nn.nr_layer, batch_size, &nn.hp)
-        memcpy(scores,
-            fwd[nn.nr_layer-1], sizeof(scores[0]) * nn.widths[nn.nr_layer-1] * batch_size)
-
-    @staticmethod
-    cdef void backward(weight_t** bwd, weight_t* gradient,
-            const weight_t* const* fwd, const weight_t* costs, int batch_size,
-            const NeuralNetC* nn) nogil:
-        d_log_loss(bwd[nn.nr_layer-1],
-            costs, fwd[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        nn.feed_bwd(gradient + nn.nr_weight, bwd,
-            nn.weights + nn.nr_weight, fwd, nn.widths, nn.nr_layer,
-            batch_size, &nn.hp)
- 
 
 cdef class NeuralNet:
     def __init__(self, widths, embed=None,
                  weight_t eta=0.005, weight_t rho=1e-4, update_step='sgd'):
         self.mem = Pool()
-        NN.init(&self.c, self.mem, widths, embed, update_step,
-                eta, rho)
-        self.eg = Example(nr_class=self.nr_class, widths=widths)
+        self.c.update = noisy_update
+        self.c.feed_fwd = ELU_forward
+        self.c.feed_bwd = ELU_backward
+
+        self.c.hp.t = 0
+        self.c.hp.r = rho
+        self.c.hp.e = eta
+
+        self.c.nr_layer = len(widths)
+        self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
+        cdef int i
+        for i, width in enumerate(widths):
+            self.c.widths[i] = width
+        self.c.nr_weight = 0
+        self.c.nr_node = 0
+        for i in range(self.c.nr_layer-1):
+            self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+            self.c.nr_node += self.c.widths[i]
+        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+        
+        if embed is not None:
+            vector_widths, features = embed
+            Embedding.init(&self.c.embed, self.mem, vector_widths, features)
+
+        W = self.c.weights
+        for i in range(self.c.nr_layer-2):
+            he_normal_initializer(W,
+                self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
+            W += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
 
     def predict_batch(self, inputs):
         mb = new MinibatchC(self.c.widths, self.c.nr_layer, len(inputs))
@@ -225,8 +205,11 @@ cdef class NeuralNet:
                 &input_[0], sizeof(weight_t) * self.c.widths[0])
         cdef np.ndarray scores = numpy.zeros(shape=(mb.batch_size, self.nr_class),
                                                dtype='float64')
-        NN.forward(<weight_t*>scores.data, mb._fwd,
-            mb.batch_size, &self.c)
+        self.c.feed_fwd(mb._fwd,
+            self.c.weights, self.c.widths, self.c.nr_layer, mb.batch_size, &self.c.hp)
+        memcpy(<weight_t*>scores.data,
+            mb._fwd[self.c.nr_layer-1],
+            sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1] * mb.batch_size)
         scores.reshape((mb.batch_size, self.nr_class))
         del mb
         return scores
@@ -237,8 +220,11 @@ cdef class NeuralNet:
                 eg.c.features, eg.c.nr_feat)
             Embedding.set_input(eg.c.fwd_state[0],
                 eg.c.features, eg.c.nr_feat, &self.c.embed)
-        NN.forward(eg.c.scores, eg.c.fwd_state,
-            1, &self.c)
+        self.c.feed_fwd(eg.c.fwd_state,
+            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        memcpy(eg.c.scores,
+            eg.c.fwd_state[self.c.nr_layer-1],
+            sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
         return eg
 
     def predict_dense(self, features):
