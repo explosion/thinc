@@ -1,22 +1,15 @@
-from cpython.mem cimport PyMem_Free, PyMem_Malloc
-from cpython.exc cimport PyErr_CheckSignals, PyErr_SetFromErrno
+from cpython.mem cimport PyMem_Malloc
+from cpython.exc cimport PyErr_SetFromErrno
 
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
-from libc.errno cimport errno
-from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
-from libc.errno cimport errno
-from libc.string cimport memcpy
-from libc.string cimport memset
 
 from libc.stdlib cimport qsort
 from libc.stdint cimport int32_t
 
-from preshed.maps cimport PreshMap, MapStruct, map_get
 from .sparse cimport SparseArray
 
-from ..extra.eg cimport Example
 from ..structs cimport SparseArrayC
-from ..typedefs cimport class_t, count_t, feat_t
+from ..typedefs cimport feat_t
 
 from os import path
 
@@ -81,7 +74,7 @@ cdef class Reader:
         status = fseek(self._fp, 0, 0)
         status = fread(&self.nr_feat, sizeof(self.nr_feat), 1, self._fp)
         if status < 1:
-            PyErr_SetFromErrno(IOError)
+            raise IOError("empty input file" if feof(self._fp) else "error reading input file")
         # TODO: Remove this hack once users have migrated away from the v0.100.2
         # spaCy data. This hack allows previously distributed data to load quickly.
         # In previous versions, the initial 32 bit int at the start of the model
@@ -98,9 +91,9 @@ cdef class Reader:
         cdef _header_t header
         status = fread(&header, sizeof(header), 1, self._fp)
         if status < 1:
-            if errno:
-                PyErr_SetFromErrno(IOError)
-            return 0  # end of file
+            if feof(self._fp):
+                return 0  # end of file
+            raise IOError("error reading input file")
 
         feat = <SparseArrayC*>PyMem_Malloc((header.length + 1) * sizeof(SparseArrayC))
         if not feat:
@@ -108,7 +101,7 @@ cdef class Reader:
 
         status = fread(feat, sizeof(SparseArrayC), header.length, self._fp)
         if status != <size_t> header.length:
-            PyErr_SetFromErrno(IOError)
+            raise IOError("error reading input file")
 
         # Trust We allocated correctly above
         feat[header.length].key = -2 # Indicates end of memory region
