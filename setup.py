@@ -10,8 +10,11 @@ from distutils.sysconfig import get_python_inc
 
 try:
     from setuptools import Extension, setup
+    from pkg_resources import resource_filename
 except ImportError:
     from distutils.core import Extension, setup
+    def resource_filename(package, _):
+        return import_include(package).get_include()
 
 
 PACKAGES = [
@@ -52,19 +55,20 @@ compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
-class build_ext_options:
-    def build_options(self):
+class build_ext_subclass(build_ext):
+    def build_extensions(self):
+        for mod_name in ['numpy', 'murmurhash']:
+            mod = import_include(mod_name)
+            if mod:
+                self.compiler.add_include_dir(resource_filename(
+                    mod_name, os.path.relpath(mod.get_include(), mod.__path__[0])))
+
         for e in self.extensions:
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
         for e in self.extensions:
             e.extra_link_args = link_options.get(
                 self.compiler.compiler_type, link_options['other'])
-
-
-class build_ext_subclass(build_ext, build_ext_options):
-    def build_extensions(self):
-        build_ext_options.build_options(self)
         build_ext.build_extensions(self)
 
 
@@ -81,31 +85,7 @@ def import_include(module_name):
     try:
         return __import__(module_name, globals(), locals(), [], 0)
     except ImportError:
-        raise ImportError('Unable to import %s. Create a virtual environment '
-                          'and install all dependencies from requirements.txt, '
-                          'e.g., run "pip install -r requirements.txt".' % module_name)
-
-
-def copy_include(src, dst, path):
-    assert os.path.isdir(src)
-    assert os.path.isdir(dst)
-    if os.path.exists(os.path.join(dst, path)):
-        shutil.rmtree(os.path.join(dst, path))
-    shutil.copytree(
-        os.path.join(src, path),
-        os.path.join(dst, path))
-
-
-def prepare_includes(path):
-    include_dir = os.path.join(path, 'include')
-    if not os.path.exists(include_dir):
-        os.mkdir(include_dir)
-
-    numpy = import_include('numpy')
-    copy_include(numpy.get_include(), include_dir, 'numpy')
-
-    murmurhash = import_include('murmurhash')
-    copy_include(murmurhash.get_include(), include_dir, 'murmurhash')
+        pass
 
 
 def is_source_release(path):
@@ -135,12 +115,13 @@ def chdir(new_dir):
 
 def setup_package():
     root = os.path.abspath(os.path.dirname(__file__))
+    src_path = 'thinc'
 
     if len(sys.argv) > 1 and sys.argv[1] == 'clean':
         return clean(root)
 
     with chdir(root):
-        with open(os.path.join(root, 'thinc', 'about.py')) as f:
+        with open(os.path.join(root, src_path, 'about.py')) as f:
             about = {}
             exec(f.read(), about)
 
@@ -148,8 +129,7 @@ def setup_package():
             readme = f.read()
 
         include_dirs = [
-            get_python_inc(plat_specific=True),
-            os.path.join(root, 'include')]
+            get_python_inc(plat_specific=True)]
 
         ext_modules = []
         for mod_name in MOD_NAMES:
@@ -159,8 +139,7 @@ def setup_package():
                     language='c++', include_dirs=include_dirs))
 
         if not is_source_release(root):
-            generate_cython(root, 'thinc')
-            prepare_includes(root)
+            generate_cython(root, src_path)
 
         setup(
             name=about['__title__'],
