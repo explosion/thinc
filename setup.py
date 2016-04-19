@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import os
-import shutil
 import subprocess
 import sys
 import contextlib
@@ -45,13 +44,13 @@ MOD_NAMES = [
 ]
 
 
-# By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
-# http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
+# By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
+# http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_options:
     def build_options(self):
         for e in self.extensions:
@@ -75,37 +74,6 @@ def generate_cython(root, source):
                          source])
     if p != 0:
         raise RuntimeError('Running cythonize failed')
-
-
-def import_include(module_name):
-    try:
-        return __import__(module_name, globals(), locals(), [], 0)
-    except ImportError:
-        raise ImportError('Unable to import %s. Create a virtual environment '
-                          'and install all dependencies from requirements.txt, '
-                          'e.g., run "pip install -r requirements.txt".' % module_name)
-
-
-def copy_include(src, dst, path):
-    assert os.path.isdir(src)
-    assert os.path.isdir(dst)
-    if os.path.exists(os.path.join(dst, path)):
-        shutil.rmtree(os.path.join(dst, path))
-    shutil.copytree(
-        os.path.join(src, path),
-        os.path.join(dst, path))
-
-
-def prepare_includes(path):
-    include_dir = os.path.join(path, 'include')
-    if not os.path.exists(include_dir):
-        os.mkdir(include_dir)
-
-    numpy = import_include('numpy')
-    copy_include(numpy.get_include(), include_dir, 'numpy')
-
-    murmurhash = import_include('murmurhash')
-    copy_include(murmurhash.get_include(), include_dir, 'murmurhash')
 
 
 def is_source_release(path):
@@ -160,7 +128,6 @@ def setup_package():
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
-            prepare_includes(root)
 
         setup(
             name=about['__title__'],
@@ -176,7 +143,7 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'numpy',
+                'numpy>=1.7',
                 'murmurhash>=0.26,<0.27',
                 'cymem>=1.30,<1.32',
                 'preshed>=0.46,<0.47'],
