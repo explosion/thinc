@@ -136,7 +136,7 @@ def setup_package():
 
         setup(
             name=about['__title__'],
-            zip_safe=True,
+            zip_safe=False,
             packages=PACKAGES,
             package_data={'': ['*.pyx', '*.pxd', '*.pxi']},
             description=about['__summary__'],
