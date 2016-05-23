@@ -27,7 +27,7 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
-    #'thinc.prng',
+    'thinc.prng',
     'thinc.structs',
     'thinc.typedefs',
     'thinc.linear.avgtron',
