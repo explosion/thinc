@@ -99,11 +99,10 @@ class DenseAveragedNetwork(NeuralNet):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6, update_step='adadelta'):
+                 eps=1e-6, update_step='sgd'):
         nn_shape = tuple([width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, eps=eps,
-                           update_step=update_step)
+                           rho=rho, eta=eta, update_step=update_step)
         self.get_bow = get_bow
 
     def train(self, text, label):
