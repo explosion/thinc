@@ -13,6 +13,8 @@ from thinc.extra.eg import Example
 np.random.seed(2)
 random.seed(0)
 
+FLOAT_TYPE = 'float64'
+
 
 def test_create():
     model = NeuralNet((4, 8, 3))
@@ -144,31 +146,31 @@ def test_xor_manual():
 
 @pytest.fixture
 def xor_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    tf = np.asarray([1.,0.], dtype='f')
-    ft = np.asarray([0.,1.], dtype='f')
-    tt = np.asarray([1.,1.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    tf = np.asarray([1.,0.], dtype=FLOAT_TYPE)
+    ft = np.asarray([0.,1.], dtype=FLOAT_TYPE)
+    tt = np.asarray([1.,1.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 0, costs0)]
 
 
 @pytest.fixture
 def or_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    tf = np.asarray([1.,0.], dtype='f')
-    ft = np.asarray([0.,1.], dtype='f')
-    tt = np.asarray([1.,1.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    tf = np.asarray([1.,0.], dtype=FLOAT_TYPE)
+    ft = np.asarray([0.,1.], dtype=FLOAT_TYPE)
+    tt = np.asarray([1.,1.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
 
 
 @pytest.fixture
 def bias_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     def gen_random():
         if random.random() > 0.7:
             yield (ff, 0, costs0)
@@ -354,8 +356,8 @@ def test_xor_deep(xor_data):
 
 def test_model_widths_sgd(or_data):
     '''Test different model widths'''
-    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.01, update_step='sgd')
-    wide = NeuralNet((2,20,2), rho=0.0, eta=0.01, update_step='sgd')
+    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.1, update_step='noisy')
+    wide = NeuralNet((2,20,2), rho=0.0, eta=0.1, update_step='noisy')
     assert wide.nr_weight > narrow.nr_weight
     narrow_loss = 0.0
     wide_loss = 0.0
@@ -374,16 +376,18 @@ def test_model_widths_sgd(or_data):
 def test_embedding():
     model = NeuralNet((10,4,2), embed=((5,), (0,0)), rho=0.0, eta=0.005)
     assert model.nr_in == 10
-    eg = model.Example({(0, 1): 2.5})
-    model.predict_example(eg)
+    eg = Example(nr_class=model.nr_class, widths=model.widths)
+    eg.features = {(0, 1): 2.5}
+    model(eg)
     assert eg.activation(0, 0) != 0
     assert eg.activation(0, 1) != 0
     assert eg.activation(0, 2) != 0
     assert eg.activation(0, 3) != 0
     assert eg.activation(0, 4) != 0
     
-    eg = model.Example({(1, 1867): 0.5})
-    model.predict_example(eg)
+    eg = Example(nr_class=model.nr_class, widths=model.widths)
+    eg.features = {(1, 1867): 0.5}
+    model(eg)
     assert eg.activation(0, 0) == 0.0
     assert eg.activation(0, 1) == 0.0
     assert eg.activation(0, 2) == 0.0
@@ -419,7 +423,10 @@ def test_sparse_backprop():
         x, y = xy
         loss = 0.0
         for x,y in zip(X, Y):
-            eg = model.train_sparse(x, y)
+            eg = Example(nr_class=model.nr_class, widths=model.widths)
+            eg.features = x
+            eg.costs = y
+            model.update(eg)
             loss += eg.loss
         return loss
 

@@ -8,7 +8,7 @@ from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 from ..typedefs cimport weight_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf
+from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt
 from .. cimport prng
 
 import numpy
@@ -47,13 +47,12 @@ cdef void noisy_update(weight_t* weights, weight_t* gradient,
 
 
 @cython.cdivision(True)
-cdef void vanilla_sgd(weight_t* gradient,
-        const weight_t* increment, len_t nr_weight, const ConstantsC* hp) nogil:
-    '''
-    Increment the gradient for vanilla SGD
-    '''
-    VecVec.add_i(gradient,
-        increment, -hp.e, nr_weight)
+cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    VecVec.add_i(weights,
+        gradient, -hp.e, nr_weight)
+    memset(gradient,
+        0, sizeof(gradient[0]) * nr_weight)
 
 
 @cython.cdivision(True)
@@ -86,9 +85,9 @@ cdef void adam(
     for i in range(nr_weight):
         mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # More efficient version, from the paper
-    cdef weight_t a_t = hp.e * sqrtf(1-beta2**hp.t) / (1-beta1**hp.t)
+    cdef weight_t a_t = hp.e * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= a_t * (mom1[i] / (sqrtf(mom2[i]) + EPS))
+        weights[i] -= a_t * (mom1[i] / (sqrt(mom2[i]) + EPS))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
@@ -99,7 +98,7 @@ cdef void adagrad(
     VecVec.add_pow_i(moments,
         gradient, 2.0, nr_weight)
     for i in range(nr_weight):
-        gradient[i] *= hp.e / (sqrtf(moments[i]) + EPS)
+        gradient[i] *= hp.e / (sqrt(moments[i]) + EPS)
     # Make the (already scaled) update
     VecVec.add_i(weights,
         gradient, -1.0, nr_weight)
@@ -118,7 +117,7 @@ cdef void adadelta(weight_t* weights, weight_t* momentum, weight_t* gradient,
         avg[i] += (1-alpha) * gradient[i] * gradient[i]
     step = &momentum[nr_weight]
     for i in range(nr_weight):
-        gradient[i] *= sqrtf(step[i] + EPS) / sqrtf(avg[i] + EPS)
+        gradient[i] *= sqrt(step[i] + EPS) / sqrt(avg[i] + EPS)
     VecVec.add_i(weights,
         gradient, -1.0, nr_weight)
     Vec.mul_i(step,

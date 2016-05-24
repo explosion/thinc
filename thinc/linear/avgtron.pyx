@@ -24,7 +24,7 @@ from .serialize cimport Writer
 from .serialize cimport Reader
 
 
-cdef class AveragedPerceptron:
+cdef class AveragedPerceptron(Model):
     '''A linear model for online supervised classification.
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
@@ -55,21 +55,14 @@ cdef class AveragedPerceptron:
 
     def __call__(self, Example eg):
         self.set_scoresC(eg.c.scores,
-            eg.c.features, eg.c.nr_feat)
+            eg.c.features, eg.c.nr_feat, 1)
         PyErr_CheckSignals()
         return eg.guess
 
-    def train_example(self, Example eg):
-        self(eg)
-        self.update(eg)
-        return eg
-
-    def predict_example(self, Example eg):
-        self(eg)
-        return eg
-
     def update(self, Example eg):
+        self(eg)
         self.updateC(eg.c)
+        return eg
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc, self.weights.length)
@@ -112,9 +105,9 @@ cdef class AveragedPerceptron:
     def nr_feat(self):
         return self.extracter.nr_templ
 
-    cdef void set_scoresC(self, weight_t* scores, weight_t* scratch,
-            int nr_scratch, const weight_t* dense, int nr_dense,
-            const FeatureC* sparse, int nr_sparse) nogil:
+    cdef void set_scoresC(self, weight_t* scores,
+            const void* _feats, int nr_feat, int is_sparse) nogil:
+        feats = <const FeatureC*>_feats
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -125,18 +118,13 @@ cdef class AveragedPerceptron:
         cdef const MapStruct* weights_table = self.weights.c_map
         cdef int i
         cdef FeatureC feat
-        for feat in sparse[:nr_sparse]:
+        for feat in feats[:nr_feat]:
             class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
             if class_weights != NULL:
                 i = 0
                 while class_weights[i].key >= 0:
                     scores[class_weights[i].key] += class_weights[i].val * feat.value
                     i += 1
-
-        dense_weights = <const weight_t*>map_get(weights_table, 2)
-        if dense_weights != NULL:
-            for i in dense[:nr_dense]:
-                scores[i] += dense[i] * self.dense[i]
 
     @cython.cdivision(True)
     cdef int updateC(self, const ExampleC* eg) except -1:

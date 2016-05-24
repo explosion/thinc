@@ -17,6 +17,7 @@ from preshed.maps cimport map_get as Map_get
 from preshed.maps cimport map_iter as Map_iter
 from preshed.maps cimport key_t
 
+from ..base cimport Model
 from ..typedefs cimport weight_t, atom_t, feat_t
 from ..typedefs cimport len_t, idx_t
 from ..linalg cimport MatMat, MatVec, VecVec, Vec
@@ -58,17 +59,18 @@ cdef int get_nr_weight(int nr_out, int nr_in) nogil:
     return nr_out * nr_in + nr_out
 
 
-cdef class NeuralNet:
-    def __init__(self, widths, embed=None,
-                 weight_t eta=0.005, weight_t rho=1e-4, update_step='sgd'):
+cdef class NeuralNet(Model):
+    def __init__(self, widths, *args, **kwargs):
         self.mem = Pool()
-        self.c.update = noisy_update
+
+        self.c.hp.e = kwargs.get('eta', 0.01)
+        self.c.hp.r = kwargs.get('rho', 0.00)
+        if kwargs.get('update_step') == 'sgd':
+            self.c.update = vanilla_sgd
+        else:
+            self.c.update = noisy_update
         self.c.feed_fwd = ELU_forward
         self.c.feed_bwd = ELU_backward
-
-        self.c.hp.t = 0
-        self.c.hp.r = rho
-        self.c.hp.e = eta
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
@@ -78,20 +80,50 @@ cdef class NeuralNet:
         self.c.nr_weight = 0
         self.c.nr_node = 0
         for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+            self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
             self.c.nr_node += self.c.widths[i]
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
-        if embed is not None:
-            vector_widths, features = embed
+        if kwargs.get('embed') is not None:
+            vector_widths, features = kwargs['embed']
             Embedding.init(&self.c.embed, self.mem, vector_widths, features)
 
         W = self.c.weights
         for i in range(self.c.nr_layer-2):
             he_normal_initializer(W,
                 self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
-            W += self.c.widths[i+1] * self.c.widths[i] + self.c.widths[i+1]
+            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
+
+    def __call__(self, Example eg):
+        if eg.c.nr_feat >= 1:
+            Embedding.insert_missing(self.mem, &self.c.embed,
+                eg.c.features, eg.c.nr_feat)
+            Embedding.set_input(eg.c.fwd_state[0],
+                eg.c.features, eg.c.nr_feat, &self.c.embed)
+        self.c.feed_fwd(eg.c.fwd_state,
+            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        memcpy(eg.c.scores,
+            eg.c.fwd_state[self.c.nr_layer-1],
+            sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
+        return eg
+
+    def update(self, Example eg):
+        self.updateC(eg.c)
+        return eg
+
+    def predict_dense(self, features):
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+        cdef weight_t value
+        for i, value in enumerate(features):
+            eg.c.fwd_state[0][i] = value
+        return self(eg)
+
+    def predict_sparse(self, features):
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+        eg.features = features
+        self(eg)
+        return eg
 
     def predict_batch(self, inputs):
         mb = new MinibatchC(self.c.widths, self.c.nr_layer, len(inputs))
@@ -110,45 +142,21 @@ cdef class NeuralNet:
         del mb
         return scores
 
-    def predict_example(self, Example eg):
-        if eg.c.nr_feat >= 1:
-            Embedding.insert_missing(self.mem, &self.c.embed,
-                eg.c.features, eg.c.nr_feat)
-            Embedding.set_input(eg.c.fwd_state[0],
-                eg.c.features, eg.c.nr_feat, &self.c.embed)
-        self.c.feed_fwd(eg.c.fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
-        memcpy(eg.c.scores,
-            eg.c.fwd_state[self.c.nr_layer-1],
-            sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
-        return eg
-
-    def predict_dense(self, features):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        cdef weight_t value
-        for i, value in enumerate(features):
-            eg.c.fwd_state[0][i] = value
-        return self.predict_example(eg)
-
-    def predict_sparse(self, features):
-        cdef Example eg = self.Example(features)
-        return self.predict_example(eg)
-    
     def train_dense(self, features, y):
         cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
         cdef weight_t value 
         for i, value in enumerate(features):
             eg.c.fwd_state[0][i] = value
-        eg.costs = y
+        if y is not None:
+            if isinstance(y, int):
+                eg.costs = [i != y for i in range(eg.nr_class)]
+            else:
+                eg.costs = y
         self.updateC(eg.c)
         return eg
   
     def train_sparse(self, features, label):
-        cdef Example eg = self.Example(features, label=label)
-        self.updateC(eg.c)
-        return eg
-   
-    def train_example(self, Example eg):
+        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
         self.updateC(eg.c)
         return eg
 
@@ -170,29 +178,32 @@ cdef class NeuralNet:
             total += len(batch)
         free(minibatch)
         return correct / total
- 
-    def Example(self, input_, label=None):
-        if isinstance(input_, Example):
-            return input_
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        eg.features = input_
-        if label is not None:
-            if isinstance(label, int):
-                eg.costs = [i != label for i in range(eg.nr_class)]
-            else:
-                eg.costs = label
-        return eg
-    
-    cdef void set_scoresC(self, weight_t* scores, weight_t* scratch,
-            int nr_scratch, const weight_t* dense, int nr_dense,
-            const FeatureC* sparse, int nr_sparse) nogil:
+
+    def dump(self, loc):
+        pass
+
+    def load(self, loc):
+        pass
+
+    def end_training(self):
+        pass
+
+    @property
+    def nr_feat(self):
+        return self.c.widths[0]
+   
+    cdef void set_scoresC(self, weight_t* scores, const void* feats, int nr_feat,
+            int is_sparse) nogil:
         fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
         for i in range(self.c.nr_layer):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
  
-        if nr_feat >= 1:
+        if is_sparse:
             Embedding.set_input(fwd_state[0],
-                feats, nr_feat, &self.c.embed)
+                <const FeatureC*>feats, nr_feat, &self.c.embed)
+        else:
+            memcpy(fwd_state[0],
+                <const weight_t*>feats, nr_feat * sizeof(fwd_state[0]))
         self.c.feed_fwd(fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
         memcpy(scores,
@@ -210,6 +221,9 @@ cdef class NeuralNet:
                 eg.features, eg.nr_feat, &self.c.embed)
         self.c.feed_fwd(eg.fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        memcpy(eg.scores,
+            eg.fwd_state[self.c.nr_layer-1],
+            sizeof(eg.scores[0]) * self.c.widths[self.c.nr_layer-1])
         d_log_loss(eg.bwd_state[self.c.nr_layer-1],
             eg.costs, eg.fwd_state[self.c.nr_layer-1], self.c.widths[self.c.nr_layer-1])
         self.c.feed_bwd(self.c.gradient + self.c.nr_weight, eg.bwd_state,
@@ -218,11 +232,11 @@ cdef class NeuralNet:
         if eg.nr_feat >= 1:
             Embedding.fine_tune(&self.c.embed,
                 eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
-        if not self.c.hp.t % 100:
-            self.c.update(self.c.weights, self.c.gradient,
-                self.c.nr_weight, &self.c.hp)
-            Embedding.update_all(&self.c.embed,
-                &self.c.hp, self.c.update)
+        #if not self.c.hp.t % 100:
+        self.c.update(self.c.weights, self.c.gradient,
+            self.c.nr_weight, &self.c.hp)
+        Embedding.update_all(&self.c.embed,
+            &self.c.hp, self.c.update)
 
     cdef void update_batchC(self, ExampleC** egs, int nr_eg) except *:
         self.c.hp.t += nr_eg
@@ -387,3 +401,49 @@ cdef class NeuralNet:
     @tau.setter
     def tau(self, tau):
         self.c.hp.t = tau
+
+
+# 
+#    def Example(self, input_, label=None):
+#        if isinstance(input_, Example):
+#            return input_
+#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+#        eg.features = input_
+#        if label is not None:
+#            if isinstance(label, int):
+#                eg.costs = [i != label for i in range(eg.nr_class)]
+#            else:
+#                eg.costs = label
+#        return eg
+# 
+
+#    def predict_dense(self, features):
+#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+#        cdef weight_t value
+#        for i, value in enumerate(features):
+#            eg.c.fwd_state[0][i] = value
+#        return self.predict_example(eg)
+#
+#    def predict_sparse(self, features):
+#        cdef Example eg = self.Example(features)
+#        return self.predict_example(eg)
+#    
+#    def train_dense(self, features, y):
+#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
+#        cdef weight_t value 
+#        for i, value in enumerate(features):
+#            eg.c.fwd_state[0][i] = value
+#        eg.costs = y
+#        self.updateC(eg.c)
+#        return eg
+#  
+#    def train_sparse(self, features, label):
+#        cdef Example eg = self.Example(features, label=label)
+#        self.updateC(eg.c)
+#        return eg
+#   
+#    def train_example(self, Example eg):
+#        self.updateC(eg.c)
+#        return eg
+#
+#

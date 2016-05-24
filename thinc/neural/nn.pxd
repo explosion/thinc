@@ -1,3 +1,4 @@
+from ..base cimport Model
 from ..typedefs cimport weight_t, feat_t, class_t
 from ..structs cimport NeuralNetC, FeatureC, ExampleC
 from ..extra.eg cimport Example
@@ -5,12 +6,12 @@ from ..extra.eg cimport Example
 from cymem.cymem cimport Pool
 
 
-cdef class NeuralNet:
+cdef class NeuralNet(Model):
     cdef readonly Pool mem
-    cdef readonly Example eg
     cdef NeuralNetC c
 
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil
+    cdef void set_scoresC(self, weight_t* scores,
+        const void* feats, int nr_feat, int is_sparse) nogil
 
     cdef int updateC(self, const ExampleC* eg) except -1
 

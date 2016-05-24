@@ -6,7 +6,7 @@ cimport cython
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf, expf
+from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
 
 
 DEF EPS = 0.00000001 
@@ -67,7 +67,7 @@ cdef void ELU(weight_t* out, len_t nr_out) nogil:
     cdef idx_t i
     for i in range(nr_out):
         if out[i] < 0:
-            out[i] = ALPHA * (expf(out[i]) - 1)
+            out[i] = ALPHA * (exp(out[i]) - 1)
 
 
 cdef void ReLu(weight_t* out, len_t nr_out) nogil:

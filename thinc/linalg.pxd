@@ -68,8 +68,8 @@ cdef extern from "/opt/OpenBLAS/include/cblas.h":
 
 
 cdef extern from "math.h" nogil:
-    weight_t expf(weight_t x)
-    weight_t sqrtf(weight_t x)
+    weight_t exp(weight_t x)
+    weight_t sqrt(weight_t x)
 
 
 cdef class Matrix:
@@ -182,7 +182,7 @@ cdef class Vec:
     cdef inline void exp_i(weight_t* vec, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
-            vec[i] = expf(vec[i])
+            vec[i] = exp(vec[i])
 
     @staticmethod
     cdef inline void reciprocal_i(weight_t* vec, int32_t nr) nogil:
