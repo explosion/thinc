@@ -92,74 +92,8 @@ cdef cppclass MinibatchC:
         return this.bwd(this.nr_layer-1, i)
 
 
-cdef class NN:
-    @staticmethod
-    cdef int nr_weight(int nr_out, int nr_in) nogil:
-        return nr_out * nr_in + nr_out
-
-    @staticmethod
-    cdef void train_example(NeuralNetC* nn, Pool mem, ExampleC* eg) except *:
-        nn.hp.t += 1
-        if eg.nr_feat >= 1:
-            Embedding.insert_missing(mem, &nn.embed,
-                eg.features, eg.nr_feat)
-            Embedding.set_input(eg.fwd_state[0],
-                eg.features, eg.nr_feat, &nn.embed)
-        nn.feed_fwd(eg.fwd_state,
-            nn.weights, nn.widths, nn.nr_layer, 1, &nn.hp)
-        d_log_loss(eg.bwd_state[nn.nr_layer-1],
-            eg.costs, eg.fwd_state[nn.nr_layer-1], nn.widths[nn.nr_layer-1])
-        nn.feed_bwd(nn.gradient + nn.nr_weight, eg.bwd_state,
-            nn.weights + nn.nr_weight, eg.fwd_state, nn.widths, nn.nr_layer,
-            1, &nn.hp)
-        if eg.nr_feat >= 1:
-            Embedding.fine_tune(&nn.embed,
-                eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
-        if not nn.hp.t % 100:
-            nn.update(nn.weights, nn.gradient,
-                nn.nr_weight, &nn.hp)
-            Embedding.update_all(&nn.embed,
-                &nn.hp, nn.update)
-    
-    @staticmethod
-    cdef void train_batch(NeuralNetC* nn, Pool mem, ExampleC** egs, int nr_eg) except *:
-        nn.hp.t += nr_eg
-        cdef MinibatchC* mb = new MinibatchC(nn.widths, nn.nr_layer, nr_eg)
-        nr_class = nn.widths[nn.nr_layer-1]
-        for i in range(nr_eg):
-            if egs[i].nr_feat >= 1:
-                Embedding.insert_missing(mem, &nn.embed,
-                    egs[i].features, egs[i].nr_feat)
-                Embedding.set_input(egs[i].fwd_state[0],
-                    egs[i].features, egs[i].nr_feat, &nn.embed)
-            memcpy(mb.fwd(0, i),
-                egs[i].fwd_state[0], sizeof(weight_t) * mb.widths[0])
-        nn.feed_fwd(mb._fwd,
-            nn.weights, nn.widths, nn.nr_layer, nr_eg, &nn.hp)
-        # Set scores onto the ExampleC objects
-        for i in range(mb.batch_size):
-            memcpy(egs[i].scores,
-                mb.scores(i), nr_class * sizeof(weight_t))
-            # Set loss from the ExampleC costs 
-            d_log_loss(mb.losses(i),
-                egs[i].costs, mb.scores(i), nr_class)
-        nn.feed_bwd(nn.gradient + nn.nr_weight, mb._bwd,
-            nn.weights + nn.nr_weight, mb._fwd, nn.widths, nn.nr_layer,
-            nr_eg, &nn.hp)
-        nn.update(nn.weights, nn.gradient,
-            nn.nr_weight, &nn.hp)
-
-        # Set scores onto the ExampleC objects
-        for i in range(mb.batch_size):
-            memcpy(egs[i].scores,
-                mb.scores(i), nr_class * sizeof(weight_t))
-        for eg in egs[:mb.batch_size]:
-            if eg.nr_feat >= 1:
-                Embedding.fine_tune(&nn.embed,
-                    eg.bwd_state[0], nn.widths[0], eg.features, eg.nr_feat)
-        Embedding.update_all(&nn.embed,
-            &nn.hp, nn.update)
-        del mb
+cdef int get_nr_weight(int nr_out, int nr_in) nogil:
+    return nr_out * nr_in + nr_out
 
 
 cdef class NeuralNet:
@@ -244,16 +178,16 @@ cdef class NeuralNet:
         for i, value in enumerate(features):
             eg.c.fwd_state[0][i] = value
         eg.costs = y
-        NN.train_example(&self.c, self.mem, eg.c)
+        self.updateC(eg.c)
         return eg
   
     def train_sparse(self, features, label):
         cdef Example eg = self.Example(features, label=label)
-        NN.train_example(&self.c, self.mem, eg.c)
+        self.updateC(eg.c)
         return eg
    
     def train_example(self, Example eg):
-        NN.train_example(&self.c, self.mem, eg.c)
+        self.updateC(eg.c)
         return eg
 
     def train(self, x_y, batch_size=50):
@@ -269,7 +203,7 @@ cdef class NeuralNet:
                 eg.costs = [clas != y for clas in range(self.nr_class)]
                 minibatch[i] = eg.c
                 egs.append(eg)
-            NN.train_batch(&self.c, self.mem, minibatch, len(batch))
+            self.update_batchC(minibatch, len(batch))
             correct += sum(eg.guess == eg.best for eg in egs)
             total += len(batch)
         free(minibatch)
@@ -286,17 +220,105 @@ cdef class NeuralNet:
             else:
                 eg.costs = label
         return eg
+    
+    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+        pass
+        #fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
+        #for i in range(self.c.nr_layer):
+        #    fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
+ 
+        #if nr_feat >= 1:
+        #    Embedding.set_input(fwd_state[0],
+        #        feats, nr_feat, &self.c.embed)
+        #self.c.feed_fwd(fwd_state,
+        #    self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        #memcpy(scores,
+        #    fwd_state[self.c.nr_layer-1], sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1])
+        #for i in range(self.c.nr_layer):
+        #    free(fwd_state[i])
+        #free(fwd_state)
+ 
 
-    property weights:
-        def __get__(self):
-            return [self.c.weights[i] for i in range(self.c.nr_weight)]
-        def __set__(self, weights):
-            assert len(weights) == self.c.nr_weight
-            cdef weight_t weight
-            for i, weight in enumerate(weights):
-                self.c.weights[i] = weight
+    cdef int updateC(self, const ExampleC* eg) except -1:
+        pass
+        #self.c.hp.t += 1
+        #if eg.nr_feat >= 1:
+        #    Embedding.insert_missing(self.mem, &self.c.embed,
+        #        eg.features, eg.nr_feat)
+        #    Embedding.set_input(eg.fwd_state[0],
+        #        eg.features, eg.nr_feat, &self.c.embed)
+        #self.c.feed_fwd(eg.fwd_state,
+        #    self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        #d_log_loss(eg.bwd_state[self.c.nr_layer-1],
+        #    eg.costs, eg.fwd_state[self.c.nr_layer-1], self.c.widths[self.c.nr_layer-1])
+        #self.c.feed_bwd(self.c.gradient + self.c.nr_weight, eg.bwd_state,
+        #    self.c.weights + self.c.nr_weight, eg.fwd_state, self.c.widths, self.c.nr_layer,
+        #    1, &self.c.hp)
+        #if eg.nr_feat >= 1:
+        #    Embedding.fine_tune(&self.c.embed,
+        #        eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
+        #if not self.c.hp.t % 100:
+        #    self.c.update(self.c.weights, self.c.gradient,
+        #        self.c.nr_weight, &self.c.hp)
+        #    Embedding.update_all(&self.c.embed,
+        #        &self.c.hp, self.c.update)
+
+    cdef void update_batchC(self, ExampleC** egs, int nr_eg) except *:
+        pass
+        #self.c.hp.t += nr_eg
+        #cdef MinibatchC* mb = new MinibatchC(self.c.widths, self.c.nr_layer, nr_eg)
+        #nr_class = self.c.widths[self.c.nr_layer-1]
+        #for i in range(nr_eg):
+        #    if egs[i].nr_feat >= 1:
+        #        Embedding.insert_missing(self.mem, &self.c.embed,
+        #            egs[i].features, egs[i].nr_feat)
+        #        Embedding.set_input(egs[i].fwd_state[0],
+        #            egs[i].features, egs[i].nr_feat, &self.c.embed)
+        #    memcpy(mb.fwd(0, i),
+        #        egs[i].fwd_state[0], sizeof(weight_t) * mb.widths[0])
+        #self.c.feed_fwd(mb._fwd,
+        #    self.c.weights, self.c.widths, self.c.nr_layer, nr_eg, &self.c.hp)
+        ## Set scores onto the ExampleC objects
+        #for i in range(mb.batch_size):
+        #    memcpy(egs[i].scores,
+        #        mb.scores(i), nr_class * sizeof(weight_t))
+        #    # Set loss from the ExampleC costs 
+        #    d_log_loss(mb.losses(i),
+        #        egs[i].costs, mb.scores(i), nr_class)
+        #self.c.feed_bwd(self.c.gradient + self.c.nr_weight, mb._bwd,
+        #    self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
+        #    nr_eg, &self.c.hp)
+        #self.c.update(self.c.weights, self.c.gradient,
+        #    self.c.nr_weight, &self.c.hp)
+
+        ## Set scores onto the ExampleC objects
+        #for i in range(mb.batch_size):
+        #    memcpy(egs[i].scores,
+        #        mb.scores(i), nr_class * sizeof(weight_t))
+        #for eg in egs[:mb.batch_size]:
+        #    if eg.nr_feat >= 1:
+        #        Embedding.fine_tune(&self.c.embed,
+        #            eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
+        #Embedding.update_all(&self.c.embed,
+        #    &self.c.hp, self.c.update)
+        #del mb
+
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        pass
+
+    @property
+    def weights(self):
+        return [self.c.weights[i] for i in range(self.c.nr_weight)]
+    
+    @weights.setter
+    def weights(self, weights):
+        assert len(weights) == self.c.nr_weight
+        cdef weight_t weight
+        for i, weight in enumerate(weights):
+            self.c.weights[i] = weight
 
     property layers:
+        # TODO: Apparent Cython bug: @property syntax fails on generators?
         def __get__(self):
             weights = list(self.weights)
             start = 0
@@ -306,91 +328,102 @@ cdef class NeuralNet:
                 W = weights[start:start+nr_w]
                 bias = weights[start+nr_w:start+nr_bias]
                 yield W, bias
-                start = start + NN.nr_weight(self.widths[i+1], self.widths[i])
+                start = start + get_nr_weight(self.widths[i+1], self.widths[i])
 
-    property widths:
-        def __get__(self):
-            return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
+    @property
+    def widths(self):
+        return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
 
     property layer_l1s:
+        # TODO: Apparent Cython bug: @property syntax fails on generators?
         def __get__(self):
             for W, bias in self.layers:
                 w_l1 = sum(abs(w) for w in W) / len(W)
                 bias_l1 = sum(abs(w) for w in W) / len(bias)
                 yield w_l1, bias_l1
 
-    property gradient:
-        def __get__(self):
-            return [self.c.gradient[i] for i in range(self.c.nr_weight)]
+    @property
+    def gradient(self):
+        return [self.c.gradient[i] for i in range(self.c.nr_weight)]
 
-    property l1_gradient:
-        def __get__(self):
-            cdef int i
-            cdef weight_t total = 0.0
-            for i in range(self.c.nr_weight):
-                if self.c.gradient[i] < 0:
-                    total -= self.c.gradient[i]
-                else:
-                    total += self.c.gradient[i]
-            return total / self.c.nr_weight
+    @property
+    def l1_gradient(self):
+        cdef int i
+        cdef weight_t total = 0.0
+        for i in range(self.c.nr_weight):
+            if self.c.gradient[i] < 0:
+                total -= self.c.gradient[i]
+            else:
+                total += self.c.gradient[i]
+        return total / self.c.nr_weight
 
-    property embeddings:
-        def __get__(self):
-            cdef int i = 0
-            cdef int j = 0
-            cdef int k = 0
-            cdef key_t key
-            cdef void* value
-            embeddings = []
-            for i in range(self.c.embed.nr):
-                j = 0
-                table = []
-                while Map_iter(self.c.embed.weights[i], &j, &key, &value):
-                    emb = <weight_t*>value
-                    table.append((key, [emb[k] for k in range(self.c.embed.lengths[i])]))
-                embeddings.append(table)
-            return embeddings
+    @property
+    def embeddings(self):
+        cdef int i = 0
+        cdef int j = 0
+        cdef int k = 0
+        cdef key_t key
+        cdef void* value
+        embeddings = []
+        for i in range(self.c.embed.nr):
+            j = 0
+            table = []
+            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
+                emb = <weight_t*>value
+                table.append((key, [emb[k] for k in range(self.c.embed.lengths[i])]))
+            embeddings.append(table)
+        return embeddings
 
-        def __set__(self, embeddings):
-            cdef weight_t val
-            for i, table in enumerate(embeddings):
-                for key, value in table:
-                    emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
-                    for j, val in enumerate(value):
-                        emb[j] = val
-                    Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
+    @embeddings.setter
+    def embeddings(self, embeddings):
+        cdef weight_t val
+        for i, table in enumerate(embeddings):
+            for key, value in table:
+                emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
+                for j, val in enumerate(value):
+                    emb[j] = val
+                Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
 
-    property nr_layer:
-        def __get__(self):
-            return self.c.nr_layer
-    property nr_weight:
-        def __get__(self):
-            return self.c.nr_weight
-    property nr_class:
-        def __get__(self):
-            return self.c.widths[self.c.nr_layer-1]
-    property nr_in:
-        def __get__(self):
-            return self.c.widths[0]
+    @property
+    def nr_layer(self):
+        return self.c.nr_layer
 
-    property eta:
-        def __get__(self):
-            return self.c.hp.e
-        def __set__(self, eta):
+    @property
+    def nr_weight(self):
+        return self.c.nr_weight
+
+    @property
+    def nr_class(self):
+        return self.c.widths[self.c.nr_layer-1]
+
+    @property
+    def nr_in(self):
+        return self.c.widths[0]
+
+    @property
+    def eta(self):
+        return self.c.hp.e
+    @eta.setter
+    def eta(self, eta):
             self.c.hp.e = eta
-    property rho:
-        def __get__(self):
-            return self.c.hp.r
-        def __set__(self, rho):
-            self.c.hp.r = rho
-    property eps:
-        def __get__(self):
-            return self.c.hp.p
-        def __set__(self, eps):
-            self.c.hp.p = eps
 
-    property tau:
-        def __get__(self):
-            return self.c.hp.t
-        def __set__(self, tau):
-            self.c.hp.t = tau
+    @property
+    def rho(self):
+        return self.c.hp.r
+    @rho.setter
+    def rho(self, rho):
+        self.c.hp.r = rho
+    
+    @property
+    def eps(self):
+        return self.c.hp.p
+    @eps.setter
+    def eps(self, eps):
+        self.c.hp.p = eps
+
+    @property
+    def tau(self):
+        return self.c.hp.t
+    @tau.setter
+    def tau(self, tau):
+        self.c.hp.t = tau
