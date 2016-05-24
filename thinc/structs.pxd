@@ -209,6 +209,47 @@ cdef cppclass ExampleC:
         this.fill_state(0)
 
 
+cdef cppclass MinibatchC:
+    weight_t** _fwd
+    weight_t** _bwd
+    len_t* widths
+    int nr_layer
+    int batch_size
+
+    __init__(len_t* widths, int nr_layer, int batch_size) nogil:
+        this.nr_layer = nr_layer
+        this.batch_size = batch_size
+        this.widths = <len_t*>calloc(nr_layer, sizeof(len_t))
+        this._fwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
+        this._bwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
+        for i in range(nr_layer):
+            this.widths[i] = widths[i]
+            this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
+            this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
+
+    __dealloc__() nogil:
+        for i in range(this.nr_layer):
+            free(this._fwd[i])
+            free(this._bwd[i])
+        free(this._fwd)
+        free(this._bwd)
+        free(this.widths)
+
+    weight_t* fwd(int i, int j) nogil:
+        return this._fwd[i] + (j * this.widths[i])
+ 
+    weight_t* bwd(int i, int j) nogil:
+        return this._bwd[i] + (j * this.widths[i])
+  
+    weight_t* scores(int i) nogil:
+        return this.fwd(this.nr_layer-1, i)
+
+    weight_t* losses(int i) nogil:
+        return this.bwd(this.nr_layer-1, i)
+
+
+
+
 cdef packed struct SparseArrayC:
     int32_t key
     weight_t val

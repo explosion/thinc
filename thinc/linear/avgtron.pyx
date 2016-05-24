@@ -108,11 +108,13 @@ cdef class AveragedPerceptron:
                     feat.curr[i].val = feat.avgs[i].val / self.time
                     i += 1
 
-    property nr_feat:
-        def __get__(self):
-            return self.extracter.nr_templ
+    @property
+    def nr_feat(self):
+        return self.extracter.nr_templ
 
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+    cdef void set_scoresC(self, weight_t* scores, weight_t* scratch,
+            int nr_scratch, const weight_t* dense, int nr_dense,
+            const FeatureC* sparse, int nr_sparse) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -121,16 +123,20 @@ cdef class AveragedPerceptron:
         # 
         # I think the bottle-neck is actually reading the weights from main memory.
         cdef const MapStruct* weights_table = self.weights.c_map
-        cdef int i, j
+        cdef int i
         cdef FeatureC feat
-        for i in range(nr_feat):
-            feat = feats[i]
+        for feat in sparse[:nr_sparse]:
             class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
             if class_weights != NULL:
-                j = 0
-                while class_weights[j].key >= 0:
-                    scores[class_weights[j].key] += class_weights[j].val * feat.value
-                    j += 1
+                i = 0
+                while class_weights[i].key >= 0:
+                    scores[class_weights[i].key] += class_weights[i].val * feat.value
+                    i += 1
+
+        dense_weights = <const weight_t*>map_get(weights_table, 2)
+        if dense_weights != NULL:
+            for i in dense[:nr_dense]:
+                scores[i] += dense[i] * self.dense[i]
 
     @cython.cdivision(True)
     cdef int updateC(self, const ExampleC* eg) except -1:

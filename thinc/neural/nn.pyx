@@ -24,6 +24,7 @@ from .. cimport prng
 from ..structs cimport MapC
 from ..structs cimport NeuralNetC
 from ..structs cimport ExampleC
+from ..structs cimport MinibatchC
 from ..structs cimport FeatureC
 from ..structs cimport EmbedC
 from ..structs cimport ConstantsC
@@ -51,45 +52,6 @@ from cytoolz import partition
 
 
 prng.normal_setup()
-
-
-cdef cppclass MinibatchC:
-    weight_t** _fwd
-    weight_t** _bwd
-    len_t* widths
-    int nr_layer
-    int batch_size
-
-    __init__(len_t* widths, int nr_layer, int batch_size) nogil:
-        this.nr_layer = nr_layer
-        this.batch_size = batch_size
-        this.widths = <len_t*>calloc(nr_layer, sizeof(len_t))
-        this._fwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
-        this._bwd = <weight_t**>calloc(nr_layer, sizeof(weight_t*))
-        for i in range(nr_layer):
-            this.widths[i] = widths[i]
-            this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
-            this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
-
-    __dealloc__() nogil:
-        for i in range(this.nr_layer):
-            free(this._fwd[i])
-            free(this._bwd[i])
-        free(this._fwd)
-        free(this._bwd)
-        free(this.widths)
-
-    weight_t* fwd(int i, int j) nogil:
-        return this._fwd[i] + (j * this.widths[i])
- 
-    weight_t* bwd(int i, int j) nogil:
-        return this._bwd[i] + (j * this.widths[i])
-  
-    weight_t* scores(int i) nogil:
-        return this.fwd(this.nr_layer-1, i)
-
-    weight_t* losses(int i) nogil:
-        return this.bwd(this.nr_layer-1, i)
 
 
 cdef int get_nr_weight(int nr_out, int nr_in) nogil:
@@ -221,7 +183,9 @@ cdef class NeuralNet:
                 eg.costs = label
         return eg
     
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+    cdef void set_scoresC(self, weight_t* scores, weight_t* scratch,
+            int nr_scratch, const weight_t* dense, int nr_dense,
+            const FeatureC* sparse, int nr_sparse) nogil:
         fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
         for i in range(self.c.nr_layer):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
@@ -237,7 +201,6 @@ cdef class NeuralNet:
             free(fwd_state[i])
         free(fwd_state)
  
-
     cdef int updateC(self, const ExampleC* eg) except -1:
         self.c.hp.t += 1
         if eg.nr_feat >= 1:
