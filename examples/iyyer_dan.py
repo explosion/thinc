@@ -14,6 +14,7 @@ import plac
 import numpy.random
 
 from thinc.neural.nn import NeuralNet
+from thinc.extra.eg import Example
 
 
 def read_data(data_dir):
@@ -104,18 +105,19 @@ class DenseAveragedNetwork(NeuralNet):
         NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
                            rho=rho, eta=eta, update_step=update_step)
         self.get_bow = get_bow
+        self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
     def train(self, text, label):
         self.eg.reset()
         self.eg.features = self.get_feats(text)
         self.eg.costs = [i != label for i in range(self.eg.nr_class)]
-        eg = self.train_example(self.eg)
-        return eg
+        self.update(self.eg)
+        return self.eg
 
     def predict(self, text):
         self.eg.reset()
         self.eg.features = self.get_feats(text, dropout=False)
-        return self.predict_example(self.eg)
+        return self(self.eg)
 
     def get_feats(self, text, dropout=True):
         word_ids = self.get_bow(text, dropout=dropout)

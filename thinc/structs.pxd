@@ -209,6 +209,7 @@ cdef cppclass ExampleC:
         this.fill_state(0)
 
 
+
 cdef cppclass MinibatchC:
     weight_t** _fwd
     weight_t** _bwd

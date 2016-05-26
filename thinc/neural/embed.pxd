@@ -34,7 +34,7 @@ cdef class Embedding:
 
     @staticmethod
     cdef inline void init(EmbedC* self, Pool mem, vector_widths, features) except *: 
-        assert max(features) < len(vector_widths)
+        assert max(features) < len(vector_widths), repr((features, vector_widths))
         # Create tables, which may be shared between different features
         # e.g., we might have a feature for this word, and a feature for next
         # word. These occupy different parts of the input vector, but draw

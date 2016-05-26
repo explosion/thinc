@@ -197,7 +197,7 @@ cdef class NeuralNet(Model):
         fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
         for i in range(self.c.nr_layer):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
- 
+
         if is_sparse:
             Embedding.set_input(fwd_state[0],
                 <const FeatureC*>feats, nr_feat, &self.c.embed)
@@ -232,11 +232,11 @@ cdef class NeuralNet(Model):
         if eg.nr_feat >= 1:
             Embedding.fine_tune(&self.c.embed,
                 eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
-        #if not self.c.hp.t % 100:
-        self.c.update(self.c.weights, self.c.gradient,
-            self.c.nr_weight, &self.c.hp)
-        Embedding.update_all(&self.c.embed,
-            &self.c.hp, self.c.update)
+        if not self.c.hp.t % 100:
+            self.c.update(self.c.weights, self.c.gradient,
+                self.c.nr_weight, &self.c.hp)
+            Embedding.update_all(&self.c.embed,
+                &self.c.hp, self.c.update)
 
     cdef void update_batchC(self, ExampleC** egs, int nr_eg) except *:
         self.c.hp.t += nr_eg
