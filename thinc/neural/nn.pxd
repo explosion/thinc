@@ -2,6 +2,7 @@ from ..base cimport Model
 from ..typedefs cimport weight_t, feat_t, class_t
 from ..structs cimport NeuralNetC, FeatureC, MinibatchC, ExampleC
 from ..extra.eg cimport Example
+from ..extra.mb cimport Minibatch
 
 from cymem.cymem cimport Pool
 
@@ -14,8 +15,8 @@ cdef class NeuralNet(Model):
     cdef void set_scoresC(self, weight_t* scores,
         const void* feats, int nr_feat, int is_sparse) nogil
 
-    cdef int updateC(self, const FeatureC* feats, int nr_feat,
-        weight_t* costs, int* is_valid) except -1
+    cdef Minibatch updateC(self, const FeatureC* feats, int nr_feat,
+        weight_t* costs, int* is_valid, int force_update)
 
     cdef int _updateC(self, MinibatchC* mb) except -1
 

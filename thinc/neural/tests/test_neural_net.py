@@ -193,7 +193,7 @@ def test_linear_bias(bias_data):
     assert bias1 == 0
     for _ in range(100):
         for feats, label, costs in bias_data():
-            eg = model.train_dense(feats, costs)
+            model.train_dense(feats, costs)
     bias0, bias1 = model.weights[-2:]
     assert bias1 > bias0
     acc = 0.0
@@ -426,7 +426,7 @@ def test_sparse_backprop():
             eg = Example(nr_class=model.nr_class, widths=model.widths)
             eg.features = x
             eg.costs = y
-            model.update(eg)
+            eg = list(model.update(eg, force_update=True))[-1]
             loss += eg.loss
         return loss
 

@@ -260,8 +260,8 @@ cdef cppclass MinibatchC:
     int nr_out() nogil:
         return this.widths[this.nr_layer - 1]
 
-    int push_back(const FeatureC* feats, int nr_feat, weight_t* costs, int* is_valid) nogil:
-        this.i += 1
+    int push_back(const FeatureC* feats, int nr_feat, const weight_t* costs,
+            const int* is_valid) nogil:
         if this.i < this.batch_size:
             this._nr_feat[this.i] = nr_feat
             this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(feats[0]))
@@ -271,7 +271,8 @@ cdef cppclass MinibatchC:
                 costs, this.nr_out() * sizeof(costs[0]))
             memcpy(this.is_valid(this.i),
                 is_valid, this.nr_out() * sizeof(is_valid[0]))
-        return this.i <= this.batch_size
+            this.i += 1
+        return this.i >= this.batch_size
 
     FeatureC* features(int i) nogil:
         return this._feats[i]
