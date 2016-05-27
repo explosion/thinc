@@ -94,6 +94,7 @@ cdef class NeuralNet(Model):
             he_normal_initializer(W,
                 self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
+        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
     def __call__(self, Example eg):
         if eg.c.nr_feat >= 1:
@@ -109,7 +110,7 @@ cdef class NeuralNet(Model):
         return eg
 
     def update(self, Example eg):
-        self.updateC(eg.c)
+        self.updateC(eg.c.features, eg.c.nr_feat, eg.c.costs, eg.c.is_valid)
         return eg
 
     def predict_dense(self, features):
@@ -152,32 +153,25 @@ cdef class NeuralNet(Model):
                 eg.costs = [i != y for i in range(eg.nr_class)]
             else:
                 eg.costs = y
-        self.updateC(eg.c)
-        return eg
+        self.update(eg)
   
     def train_sparse(self, features, label):
         cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        self.updateC(eg.c)
-        return eg
+        eg.features = features
+        if label is not None:
+            if isinstance(label, int):
+                eg.costs = [i != label for i in range(eg.nr_class)]
+            else:
+                eg.costs = label
+        self.update(eg)
 
-    def train(self, x_y, batch_size=50):
-        minibatch = <ExampleC**>malloc(batch_size * sizeof(ExampleC*))
-        correct = 0.0
-        total = 0.0
+    def train(self, x_y):
         cdef Example eg
-        for batch in partition(batch_size, x_y):
-            egs = []
-            for i, (x, y) in enumerate(batch):
-                eg = Example(nr_class=self.nr_class, widths=self.widths)
-                eg.set_input(x)
-                eg.costs = [clas != y for clas in range(self.nr_class)]
-                minibatch[i] = eg.c
-                egs.append(eg)
-            self.update_batchC(minibatch, len(batch))
-            correct += sum(eg.guess == eg.best for eg in egs)
-            total += len(batch)
-        free(minibatch)
-        return correct / total
+        for x, y in x_y:
+            eg = Example(nr_class=self.nr_class, widths=self.widths)
+            eg.features = x
+            eg.costs = [clas != y for clas in range(self.nr_class)]
+            self.update(eg)
 
     def dump(self, loc):
         pass
@@ -212,70 +206,45 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef int updateC(self, const ExampleC* eg) except -1:
+    cdef int updateC(self, const FeatureC* features, int nr_feat,
+            weight_t* costs, int* is_valid) except -1:
         self.c.hp.t += 1
-        if eg.nr_feat >= 1:
-            Embedding.insert_missing(self.mem, &self.c.embed,
-                eg.features, eg.nr_feat)
-            Embedding.set_input(eg.fwd_state[0],
-                eg.features, eg.nr_feat, &self.c.embed)
-        self.c.feed_fwd(eg.fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
-        memcpy(eg.scores,
-            eg.fwd_state[self.c.nr_layer-1],
-            sizeof(eg.scores[0]) * self.c.widths[self.c.nr_layer-1])
-        d_log_loss(eg.bwd_state[self.c.nr_layer-1],
-            eg.costs, eg.fwd_state[self.c.nr_layer-1], self.c.widths[self.c.nr_layer-1])
-        self.c.feed_bwd(self.c.gradient + self.c.nr_weight, eg.bwd_state,
-            self.c.weights + self.c.nr_weight, eg.fwd_state, self.c.widths, self.c.nr_layer,
-            1, &self.c.hp)
-        if eg.nr_feat >= 1:
-            Embedding.fine_tune(&self.c.embed,
-                eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
-        if not self.c.hp.t % 100:
-            self.c.update(self.c.weights, self.c.gradient,
-                self.c.nr_weight, &self.c.hp)
-            Embedding.update_all(&self.c.embed,
-                &self.c.hp, self.c.update)
+        is_full = self._mb.push_back(features, nr_feat, costs, is_valid)
+        if is_full:
+            self._updateC(self._mb)
+            batch_size = self._mb.batch_size
+            del self._mb
+            self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, batch_size)
 
-    cdef void update_batchC(self, ExampleC** egs, int nr_eg) except *:
-        self.c.hp.t += nr_eg
-        cdef MinibatchC* mb = new MinibatchC(self.c.widths, self.c.nr_layer, nr_eg)
+    cdef int _updateC(self, MinibatchC* mb) except -1:
         nr_class = self.c.widths[self.c.nr_layer-1]
-        for i in range(nr_eg):
-            if egs[i].nr_feat >= 1:
-                Embedding.insert_missing(self.mem, &self.c.embed,
-                    egs[i].features, egs[i].nr_feat)
-                Embedding.set_input(egs[i].fwd_state[0],
-                    egs[i].features, egs[i].nr_feat, &self.c.embed)
-            memcpy(mb.fwd(0, i),
-                egs[i].fwd_state[0], sizeof(weight_t) * mb.widths[0])
-        self.c.feed_fwd(mb._fwd,
-            self.c.weights, self.c.widths, self.c.nr_layer, nr_eg, &self.c.hp)
-        # Set scores onto the ExampleC objects
+        
         for i in range(mb.batch_size):
-            memcpy(egs[i].scores,
-                mb.scores(i), nr_class * sizeof(weight_t))
-            # Set loss from the ExampleC costs 
+            Embedding.insert_missing(self.mem, &self.c.embed,
+                mb.features(i), mb.nr_feat(i))
+            Embedding.set_input(mb.fwd(i, 0),
+                mb.features(i), mb.nr_feat(i), &self.c.embed)
+
+        self.c.feed_fwd(mb._fwd,
+            self.c.weights, self.c.widths, self.c.nr_layer, mb.batch_size, &self.c.hp)
+        for i in range(mb.batch_size):
+            # Set loss from the costs 
             d_log_loss(mb.losses(i),
-                egs[i].costs, mb.scores(i), nr_class)
+                mb.costs(i), mb.fwd(i, mb.nr_layer-1), nr_class)
+
         self.c.feed_bwd(self.c.gradient + self.c.nr_weight, mb._bwd,
             self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
-            nr_eg, &self.c.hp)
+            mb.batch_size, &self.c.hp)
+
         self.c.update(self.c.weights, self.c.gradient,
             self.c.nr_weight, &self.c.hp)
 
-        # Set scores onto the ExampleC objects
         for i in range(mb.batch_size):
-            memcpy(egs[i].scores,
-                mb.scores(i), nr_class * sizeof(weight_t))
-        for eg in egs[:mb.batch_size]:
-            if eg.nr_feat >= 1:
-                Embedding.fine_tune(&self.c.embed,
-                    eg.bwd_state[0], self.c.widths[0], eg.features, eg.nr_feat)
+            Embedding.fine_tune(&self.c.embed,
+                mb.bwd(i, 0), self.c.widths[0], mb.features(i), mb.nr_feat(i))
         Embedding.update_all(&self.c.embed,
             &self.c.hp, self.c.update)
-        del mb
+
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         pass

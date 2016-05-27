@@ -209,15 +209,23 @@ cdef cppclass ExampleC:
         this.fill_state(0)
 
 
-
 cdef cppclass MinibatchC:
     weight_t** _fwd
     weight_t** _bwd
+    
+    FeatureC** _feats
+    int* _nr_feat
+    
+    weight_t* _costs
+    int* _is_valid
+
     len_t* widths
+    int i
     int nr_layer
     int batch_size
 
     __init__(len_t* widths, int nr_layer, int batch_size) nogil:
+        this.i = 0
         this.nr_layer = nr_layer
         this.batch_size = batch_size
         this.widths = <len_t*>calloc(nr_layer, sizeof(len_t))
@@ -227,14 +235,49 @@ cdef cppclass MinibatchC:
             this.widths[i] = widths[i]
             this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
             this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
+        this._feats = <FeatureC**>calloc(batch_size, sizeof(void*))
+        this._nr_feat = <int*>calloc(batch_size, sizeof(int))
+        this._is_valid = <int*>calloc(batch_size * widths[nr_layer-1], sizeof(int))
+        this._costs = <weight_t*>calloc(batch_size * widths[nr_layer-1], sizeof(weight_t))
 
     __dealloc__() nogil:
+        free(this.widths)
         for i in range(this.nr_layer):
             free(this._fwd[i])
             free(this._bwd[i])
+        for i in range(this.batch_size):
+            free(this._feats[i])
         free(this._fwd)
         free(this._bwd)
-        free(this.widths)
+        free(this._feats)
+        free(this._nr_feat)
+        free(this._is_valid)
+        free(this._costs)
+
+    int nr_in() nogil:
+        return this.widths[0]
+
+    int nr_out() nogil:
+        return this.widths[this.nr_layer - 1]
+
+    int push_back(const FeatureC* feats, int nr_feat, weight_t* costs, int* is_valid) nogil:
+        this.i += 1
+        if this.i < this.batch_size:
+            this._nr_feat[this.i] = nr_feat
+            this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(feats[0]))
+            memcpy(this._feats[this.i],
+                feats, nr_feat * sizeof(feats[0]))
+            memcpy(this.costs(this.i),
+                costs, this.nr_out() * sizeof(costs[0]))
+            memcpy(this.is_valid(this.i),
+                is_valid, this.nr_out() * sizeof(is_valid[0]))
+        return this.i <= this.batch_size
+
+    FeatureC* features(int i) nogil:
+        return this._feats[i]
+
+    int nr_feat(int i) nogil:
+        return this._nr_feat[i]
 
     weight_t* fwd(int i, int j) nogil:
         return this._fwd[i] + (j * this.widths[i])
@@ -247,8 +290,12 @@ cdef cppclass MinibatchC:
 
     weight_t* losses(int i) nogil:
         return this.bwd(this.nr_layer-1, i)
+ 
+    weight_t* costs(int i) nogil:
+        return this._costs + (i * this.nr_out())
 
-
+    int* is_valid(int i) nogil:
+        return this._is_valid + (i * this.nr_out())
 
 
 cdef packed struct SparseArrayC:

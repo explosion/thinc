@@ -53,12 +53,14 @@ cdef class ConjunctionExtracter:
                 extracted[i] = atoms[templ.indices[i]]
                 seen_non_zero = seen_non_zero or extracted[i]
             if seen_non_zero:
-                feat = &feats[n_feats]
                 feats[n_feats].key = hash64(extracted, templ.length * sizeof(extracted[0]),
-                                           templ_id)
-                feats[n_feats].value = 1
-                feats[n_feats].i = templ_id
-                n_feats += 1
+                                            0)
+                feats[n_feats].value = seen_non_zero
+            else:
+                feats[n_feats].key = 0
+                feats[n_feats].value = 0
+            feats[n_feats].i = templ_id
+            n_feats += 1
         return n_feats
 
     def __reduce__(self):
