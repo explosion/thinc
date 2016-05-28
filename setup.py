@@ -36,6 +36,7 @@ MOD_NAMES = [
     'thinc.linear.serialize',
     'thinc.linear.sparse',
     'thinc.extra.eg',
+    'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
     'thinc.neural.nn',
