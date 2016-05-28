@@ -110,10 +110,6 @@ cdef class NeuralNet(Model):
             sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
         return eg
 
-    def update(self, Example eg, force_update=False):
-        return self.updateC(eg.c.features, eg.c.nr_feat, eg.c.costs, eg.c.is_valid,
-            force_update)
-
     def predict_dense(self, features):
         cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
         cdef weight_t value
@@ -154,7 +150,7 @@ cdef class NeuralNet(Model):
                 eg.costs = [i != y for i in range(eg.nr_class)]
             else:
                 eg.costs = y
-        minibatch = self.update(eg, force_update=True)
+        minibatch = self.update(eg, force_update=True, is_sparse=False)
         return list(minibatch)[-1]
   
     def train_sparse(self, features, label):
@@ -177,6 +173,14 @@ cdef class NeuralNet(Model):
             mb = self.update(eg)
             if mb is not None:
                 yield from mb
+
+    def update(self, Example eg, is_sparse=True, force_update=False):
+        if is_sparse:
+            return self.updateC(eg.c.features, eg.c.nr_feat, 1, eg.c.costs, eg.c.is_valid,
+                force_update)
+        else:
+            return self.updateC(eg.c.fwd_state[0], 0, 0, eg.c.costs, eg.c.is_valid,
+                force_update)
 
     def dump(self, loc):
         pass
@@ -211,10 +215,10 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef Minibatch updateC(self, const FeatureC* features, int nr_feat,
-            weight_t* costs, int* is_valid, int force_update):
+    cdef Minibatch updateC(self, const void* features, int nr_feat, int is_sparse,
+            const weight_t* costs, const int* is_valid, int force_update):
         self.c.hp.t += 1
-        is_full = self._mb.push_back(features, nr_feat, costs, is_valid)
+        is_full = self._mb.push_back(features, nr_feat, is_sparse, costs, is_valid)
         if is_full or force_update:
             self._updateC(self._mb)
             batch_size = self._mb.batch_size
@@ -228,17 +232,18 @@ cdef class NeuralNet(Model):
         nr_class = self.c.widths[self.c.nr_layer-1]
         
         for i in range(mb.i):
-            Embedding.insert_missing(self.mem, &self.c.embed,
-                mb.features(i), mb.nr_feat(i))
-            Embedding.set_input(mb.fwd(i, 0),
-                mb.features(i), mb.nr_feat(i), &self.c.embed)
+            if mb.nr_feat(i) != 0:
+                Embedding.insert_missing(self.mem, &self.c.embed,
+                    mb.features(i), mb.nr_feat(i))
+                Embedding.set_input(mb.fwd(0, i),
+                    mb.features(i), mb.nr_feat(i), &self.c.embed)
 
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
         for i in range(mb.i):
             # Set loss from the costs 
             d_log_loss(mb.losses(i),
-                mb.costs(i), mb.fwd(i, mb.nr_layer-1), nr_class)
+                mb.costs(i), mb.fwd(mb.nr_layer-1, i), nr_class)
 
         self.c.feed_bwd(self.c.gradient + self.c.nr_weight, mb._bwd,
             self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
@@ -248,8 +253,9 @@ cdef class NeuralNet(Model):
             self.c.nr_weight, &self.c.hp)
 
         for i in range(mb.i):
-            Embedding.fine_tune(&self.c.embed,
-                mb.bwd(i, 0), self.c.widths[0], mb.features(i), mb.nr_feat(i))
+            if mb.nr_feat(i) != 0:
+                Embedding.fine_tune(&self.c.embed,
+                    mb.bwd(0, i), self.c.widths[0], mb.features(i), mb.nr_feat(i))
         Embedding.update_all(&self.c.embed,
             &self.c.hp, self.c.update)
 

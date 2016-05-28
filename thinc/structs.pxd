@@ -245,7 +245,7 @@ cdef cppclass MinibatchC:
         for i in range(this.nr_layer):
             free(this._fwd[i])
             free(this._bwd[i])
-        for i in range(this.batch_size):
+        for i in range(this.i):
             free(this._feats[i])
         free(this._fwd)
         free(this._bwd)
@@ -260,13 +260,20 @@ cdef cppclass MinibatchC:
     int nr_out() nogil:
         return this.widths[this.nr_layer - 1]
 
-    int push_back(const FeatureC* feats, int nr_feat, const weight_t* costs,
-            const int* is_valid) nogil:
+    int push_back(const void* feats, int nr_feat, int is_sparse,
+            const weight_t* costs, const int* is_valid) nogil:
         if this.i < this.batch_size:
-            this._nr_feat[this.i] = nr_feat
-            this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(feats[0]))
-            memcpy(this._feats[this.i],
-                feats, nr_feat * sizeof(feats[0]))
+            if is_sparse:
+                this._nr_feat[this.i] = nr_feat
+                this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
+                memcpy(this._feats[this.i],
+                    feats, nr_feat * sizeof(this._feats[this.i][0]))
+            else:
+                this._nr_feat[this.i] = 0
+                this._feats[this.i] = NULL
+                memcpy(this.fwd(this.i, 0),
+                    feats, this.widths[0] * sizeof(weight_t))
+
             memcpy(this.costs(this.i),
                 costs, this.nr_out() * sizeof(costs[0]))
             memcpy(this.is_valid(this.i),

@@ -273,7 +273,7 @@ def test_mlp_learn_linear(or_data):
     # to be learned faster than the linear model
     for _ in range(50):
         for feats, label, costs in or_data:
-            batch = model.train_dense(feats, costs)
+            eg = model.train_dense(feats, costs)
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
@@ -445,5 +445,4 @@ def test_sparse_backprop():
     b8 = train_batch(model, (X, Y))
     b9 = train_batch(model, (X, Y))
     b10 = train_batch(model, (X, Y))
-
     assert b1 > b3 > b10
