@@ -5,6 +5,7 @@ from libc.stdlib cimport malloc, calloc, free, realloc
 from libc.string cimport memcpy, memset
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
+from .linalg cimport VecVec
 
 
 include "compile_time_constants.pxi"
@@ -304,6 +305,13 @@ cdef cppclass MinibatchC:
 
     int* is_valid(int i) nogil:
         return this._is_valid + (i * this.nr_out())
+
+    int guess(int i) nogil:
+        return VecVec.arg_max_if_true(this.scores(i), this.is_valid(i), this.nr_out())
+    
+    int best(int i) nogil:
+        return VecVec.arg_max_if_zero(this.scores(i), this.costs(i), this.nr_out())
+
 
 
 cdef packed struct SparseArrayC:

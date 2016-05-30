@@ -3,6 +3,9 @@ from libc.string cimport memcpy
 from .eg cimport Example
 
 cdef class Minibatch:
+    def __dealloc__(self):
+        del self.c
+
     def __len__(self):
         return self.c.i
 
@@ -36,4 +39,13 @@ cdef class Minibatch:
     @property
     def nr_class(self):
         return self.c.nr_out()
+
+    def guess(self, i):
+        return self.c.guess(i)
+
+    def best(self, i):
+        return self.c.best(i)
+
+    def loss(self, i):
+        return 1.0 - self.c.scores(i)[self.c.best(i)]
 
