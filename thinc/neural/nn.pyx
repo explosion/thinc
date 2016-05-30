@@ -215,29 +215,33 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef Minibatch updateC(self, const void* features, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid, int force_update):
+    cdef weight_t updateC(self, const void* features, int nr_feat, int is_sparse,
+            const weight_t* costs, const int* is_valid, int force_update) nogil:
         self.c.hp.t += 1
         is_full = self._mb.push_back(features, nr_feat, is_sparse, costs, is_valid)
+        if nr_feat != 0 and is_sparse:
+            with gil:
+                Embedding.insert_missing(self.mem, &self.c.embed,
+                    <const FeatureC*>features, nr_feat)
+
+        cdef weight_t loss = 0.0
+        cdef int i
         if is_full or force_update:
             self._updateC(self._mb)
+            for i in range(self._mb.i):
+                loss += 1.0 - self._mb.scores(i)[self._mb.best(i)]
             batch_size = self._mb.batch_size
-            minibatch = Minibatch.take_ownership(self._mb)
+            del self._mb
             self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, batch_size)
-            return minibatch
-        else:
-            return None
+        return loss
 
-    cdef int _updateC(self, MinibatchC* mb) except -1:
+    cdef void _updateC(self, MinibatchC* mb) nogil:
         nr_class = self.c.widths[self.c.nr_layer-1]
         
         for i in range(mb.i):
             if mb.nr_feat(i) != 0:
-                Embedding.insert_missing(self.mem, &self.c.embed,
-                    mb.features(i), mb.nr_feat(i))
                 Embedding.set_input(mb.fwd(0, i),
                     mb.features(i), mb.nr_feat(i), &self.c.embed)
-
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
         for i in range(mb.i):
@@ -256,8 +260,10 @@ cdef class NeuralNet(Model):
             if mb.nr_feat(i) != 0:
                 Embedding.fine_tune(&self.c.embed,
                     mb.bwd(0, i), self.c.widths[0], mb.features(i), mb.nr_feat(i))
-        Embedding.update_all(&self.c.embed,
-            &self.c.hp, self.c.update)
+        for i in range(mb.i):
+            for feat in mb.features(i)[:mb.nr_feat(i)]:
+                Embedding.update(&self.c.embed,
+                    feat.i, feat.key, &self.c.hp, self.c.update)
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         pass

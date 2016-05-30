@@ -1,3 +1,7 @@
+# cython: profile=True
+# cython: cdivision=True
+# cython: infer_types=True
+
 from cymem.cymem cimport Pool
 from preshed.maps cimport map_init as Map_init
 from preshed.maps cimport map_set as Map_set
@@ -97,6 +101,22 @@ cdef class Embedding:
             if gradient is not NULL:
                 VecVec.add_i(gradient,
                     &delta[layer.offsets[feat.i]], feat.value, layer.lengths[feat.i])
+
+    @staticmethod
+    cdef inline void update(EmbedC* layer, int i, key_t key, const ConstantsC* hp,
+            do_update_t do_update) nogil:
+        gradient = <weight_t*>Map_get(layer.gradients[i], key)
+        length = layer.lengths[i]
+        # None of these should ever be null
+        if gradient is NULL or length == 0:
+            return
+        for weight in gradient[:length]:
+            if weight == 0:
+                return
+        emb = <weight_t*>Map_get(layer.weights[i], key)
+        if emb is not NULL:
+            do_update(emb, gradient,
+                length, hp)
 
     @staticmethod
     cdef inline void update_all(EmbedC* layer,

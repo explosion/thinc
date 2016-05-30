@@ -15,9 +15,9 @@ cdef class NeuralNet(Model):
     cdef void set_scoresC(self, weight_t* scores,
         const void* feats, int nr_feat, int is_sparse) nogil
 
-    cdef Minibatch updateC(self, const void* feats, int nr_feat, int is_sparse,
-        weight_t* costs, int* is_valid, int force_update)
+    cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
+        weight_t* costs, int* is_valid, int force_update) nogil
 
-    cdef int _updateC(self, MinibatchC* mb) except -1
+    cdef void _updateC(self, MinibatchC* mb) nogil
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
