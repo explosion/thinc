@@ -110,69 +110,22 @@ cdef class NeuralNet(Model):
             sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
         return eg
 
-    def predict_dense(self, features):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        cdef weight_t value
-        for i, value in enumerate(features):
-            eg.c.fwd_state[0][i] = value
-        return self(eg)
-
-    def predict_sparse(self, features):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        eg.features = features
-        self(eg)
-        return eg
-
-    def predict_batch(self, inputs):
-        mb = new MinibatchC(self.c.widths, self.c.nr_layer, len(inputs))
-        cdef weight_t[::1] input_
-        for i, input_ in enumerate(inputs):
-            memcpy(mb.fwd(0, i),
-                &input_[0], sizeof(weight_t) * self.c.widths[0])
-        cdef np.ndarray scores = numpy.zeros(shape=(mb.batch_size, self.nr_class),
-                                               dtype='float64')
-        self.c.feed_fwd(mb._fwd,
-            self.c.weights, self.c.widths, self.c.nr_layer, mb.batch_size, &self.c.hp)
-        memcpy(<weight_t*>scores.data,
-            mb._fwd[self.c.nr_layer-1],
-            sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1] * mb.batch_size)
-        scores.reshape((mb.batch_size, self.nr_class))
-        del mb
-        return scores
-
-    def train_dense(self, features, y):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        cdef weight_t value 
-        for i, value in enumerate(features):
-            eg.c.fwd_state[0][i] = value
-        if y is not None:
-            if isinstance(y, int):
-                eg.costs = [i != y for i in range(eg.nr_class)]
-            else:
-                eg.costs = y
-        minibatch = self.update(eg, force_update=True, is_sparse=False)
-        return list(minibatch)[-1]
-  
-    def train_sparse(self, features, label):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-        eg.features = features
-        if label is not None:
-            if isinstance(label, int):
-                eg.costs = [i != label for i in range(eg.nr_class)]
-            else:
-                eg.costs = label
-        minibatch = self.update(eg, force_update=True)
-        return list(minibatch)[-1]
-
-    def train(self, x_y):
+    def train(self, examples):
         cdef Example eg
-        for x, y in x_y:
-            eg = Example(nr_class=self.nr_class, widths=self.widths)
-            eg.features = x
-            eg.costs = [clas != y for clas in range(self.nr_class)]
-            mb = self.update(eg)
-            if mb is not None:
-                yield from mb
+        for eg in examples:
+            self.c.hp.t += 1
+            if eg.c.nr_feat != 0:
+                with gil:
+                    Embedding.insert_missing(self.mem, &self.c.embed,
+                        eg.c.features, eg.c.nr_feat)
+            is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat, True,
+                                         eg.c.costs, eg.c.is_valid)
+            if is_full:
+                self._updateC(self._mb)
+                minibatch = Minibatch.take_ownership(self._mb)
+                yield from minibatch
+                self._mb = new MinibatchC(self.c.widths, self.c.nr_layer,
+                                          minibatch.batch_size)
 
     def update(self, Example eg, is_sparse=True, force_update=False):
         if is_sparse:
@@ -389,49 +342,3 @@ cdef class NeuralNet(Model):
     @tau.setter
     def tau(self, tau):
         self.c.hp.t = tau
-
-
-# 
-#    def Example(self, input_, label=None):
-#        if isinstance(input_, Example):
-#            return input_
-#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-#        eg.features = input_
-#        if label is not None:
-#            if isinstance(label, int):
-#                eg.costs = [i != label for i in range(eg.nr_class)]
-#            else:
-#                eg.costs = label
-#        return eg
-# 
-
-#    def predict_dense(self, features):
-#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-#        cdef weight_t value
-#        for i, value in enumerate(features):
-#            eg.c.fwd_state[0][i] = value
-#        return self.predict_example(eg)
-#
-#    def predict_sparse(self, features):
-#        cdef Example eg = self.Example(features)
-#        return self.predict_example(eg)
-#    
-#    def train_dense(self, features, y):
-#        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths)
-#        cdef weight_t value 
-#        for i, value in enumerate(features):
-#            eg.c.fwd_state[0][i] = value
-#        eg.costs = y
-#        self.updateC(eg.c)
-#        return eg
-#  
-#    def train_sparse(self, features, label):
-#        cdef Example eg = self.Example(features, label=label)
-#        self.updateC(eg.c)
-#        return eg
-#   
-#    def train_example(self, Example eg):
-#        self.updateC(eg.c)
-#        return eg
-#
-#
