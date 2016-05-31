@@ -115,9 +115,8 @@ cdef class NeuralNet(Model):
         for eg in examples:
             self.c.hp.t += 1
             if eg.c.nr_feat != 0:
-                with gil:
-                    Embedding.insert_missing(self.mem, &self.c.embed,
-                        eg.c.features, eg.c.nr_feat)
+                Embedding.insert_missing(self.mem, &self.c.embed,
+                    eg.c.features, eg.c.nr_feat)
             is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat, True,
                                          eg.c.costs, eg.c.is_valid)
             if is_full:
@@ -127,13 +126,8 @@ cdef class NeuralNet(Model):
                 self._mb = new MinibatchC(self.c.widths, self.c.nr_layer,
                                           minibatch.batch_size)
 
-    def update(self, Example eg, is_sparse=True, force_update=False):
-        if is_sparse:
-            return self.updateC(eg.c.features, eg.c.nr_feat, 1, eg.c.costs, eg.c.is_valid,
-                force_update)
-        else:
-            return self.updateC(eg.c.fwd_state[0], 0, 0, eg.c.costs, eg.c.is_valid,
-                force_update)
+    def update(self, Example eg, force_update=False):
+        return self.updateC(eg.c, force_update)
 
     def dump(self, loc):
         pass
@@ -168,14 +162,13 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef weight_t updateC(self, const void* features, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid, int force_update) nogil:
+    cdef weight_t updateC(self, const ExampleC* eg, int force_update) nogil:
         self.c.hp.t += 1
-        is_full = self._mb.push_back(features, nr_feat, is_sparse, costs, is_valid)
-        if nr_feat != 0 and is_sparse:
+        is_full = self._mb.push_back(eg.features, eg.nr_feat, 1, eg.costs, eg.is_valid)
+        if eg.nr_feat != 0:
             with gil:
                 Embedding.insert_missing(self.mem, &self.c.embed,
-                    <const FeatureC*>features, nr_feat)
+                    eg.features, eg.nr_feat)
 
         cdef weight_t loss = 0.0
         cdef int i

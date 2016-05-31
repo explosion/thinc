@@ -62,7 +62,7 @@ cdef class AveragedPerceptron(Model):
     def update(self, Example eg):
         self(eg)
         self.updateC(eg.c)
-        return eg
+        return eg.loss
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc, self.weights.length)

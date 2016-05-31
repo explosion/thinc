@@ -29,3 +29,6 @@ cdef class Model:
     cdef void set_scoresC(self, weight_t* scores,
             const void* feats, int nr_feat, int is_sparse) nogil:
         pass
+
+    cdef void set_featuresC(self, ExampleC* eg, const void* state) nogil: 
+        pass
