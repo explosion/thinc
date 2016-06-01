@@ -111,8 +111,8 @@ class DenseAveragedNetwork(NeuralNet):
         self.eg.reset()
         self.eg.features = self.get_feats(text)
         self.eg.costs = [i != label for i in range(self.eg.nr_class)]
-        self.update(self.eg)
-        return self.eg
+        loss = self.update(self.eg)
+        return loss
 
     def predict(self, text):
         self.eg.reset()
@@ -165,9 +165,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         numpy.random.shuffle(train_data)
         train_loss = 0.0
         for text, label in train_data:
-            eg = model.train(text, label)
-            #print(list(model.layers[-1])[1])
-            train_loss += eg.loss
+            train_loss += model.train(text, label)
         score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
         print(epoch, train_loss, score,
               sum(model.weights) / model.nr_weight)
@@ -179,6 +177,12 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
     eval_data = list(read_data(data_dir / 'test'))
     n_correct = sum(model.predict(x).guess == y for x, y in eval_data)
     print(n_correct / len(eval_data))
+    print("After averaging")
+    model.end_training()
+    eval_data = list(read_data(data_dir / 'test'))
+    n_correct = sum(model.predict(x).guess == y for x, y in eval_data)
+    print(n_correct / len(eval_data))
+
  
 
 if __name__ == '__main__':
