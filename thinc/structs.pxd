@@ -80,6 +80,7 @@ cdef struct EmbedC:
     idx_t* offsets
     len_t* lengths
     len_t nr
+    int nr_support
 
 
 cdef struct NeuralNetC:
