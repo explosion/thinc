@@ -47,7 +47,7 @@ cdef class ConjunctionExtracter:
         for templ_id in range(self.nr_templ-1):
             templ = self.templates[templ_id]
             if templ.length == 1:
-                feats[n_feats].key = atoms[templ.indices[i]]
+                feats[n_feats].key = atoms[templ.indices[0]]
                 feats[n_feats].value = 1.0 if feats[n_feats].key != 0 else 0.0
             else:
                 seen_non_zero = False
