@@ -9,19 +9,22 @@ cdef void vanilla_sgd(weight_t* gradient, weight_t* increment,
         len_t nr_weight, const ConstantsC* hp) nogil
 
 
+cdef void asgd(weight_t* gradient, weight_t* increment,
+        len_t nr_weight, const ConstantsC* hp) nogil
+
+
 cdef void noisy_update(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil
 
 
-cdef void sgd_cm(weight_t* weights, weight_t* moments, weight_t* gradient,
+cdef void sgd_cm(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil
 
 
-cdef void adam(
-    weight_t* weights, weight_t* moments, weight_t* gradient,
+cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil
 
- 
+
 cdef void adagrad(
     weight_t* weights, weight_t* moments, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil

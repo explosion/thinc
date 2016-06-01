@@ -22,24 +22,38 @@ prng.normal_setup()
 
 
 @cython.cdivision(True)
-cdef void noisy_update(weight_t* weights, weight_t* gradient,
-        len_t nr_weight, const ConstantsC* hp) nogil:
-    # Add the derivative of the L2-loss to the gradient
-    cdef int i
-    if hp.r != 0:
-        VecVec.add_i(gradient,
-            weights, hp.r, nr_weight)
+cdef void clip_gradient(weight_t* gradient, weight_t threshold, int nr_weight) nogil:
     # Clip gradient
     grad_norm = Vec.norm(gradient, nr_weight)
-    if grad_norm >= 100:
-        Vec.mul_i(gradient, 100.0 / grad_norm, nr_weight)
-    #cdef weight_t variance 
-    # Add gradient noise
-    #variance = hp.e / ((1 + hp.t) ** 0.55)
-    variance = hp.e
+    if grad_norm >= threshold:
+        Vec.mul_i(gradient, threshold / grad_norm, nr_weight)
+
+
+@cython.cdivision(True)
+cdef void add_gradient_noise(weight_t* gradient, weight_t variance, int nr_weight) nogil:
     for i in range(nr_weight):
         if gradient[i] != 0:
             gradient[i] += prng.normal() * variance
+
+
+@cython.cdivision(True)
+cdef void l2_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L2-loss to the gradient
+    if strength != 0:
+        VecVec.add_i(gradient,
+            weights, strength, nr_weight)
+
+
+@cython.cdivision(True)
+cdef void noisy_update(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    l2_regularize(gradient,
+        weights, hp.r, nr_weight)
+    clip_gradient(gradient,
+        100.0, nr_weight)
+    add_gradient_noise(gradient,
+        hp.e, nr_weight)
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient,
@@ -49,6 +63,10 @@ cdef void noisy_update(weight_t* weights, weight_t* gradient,
 @cython.cdivision(True)
 cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
+    l2_regularize(gradient,
+        weights, hp.r, nr_weight)
+    clip_gradient(gradient,
+        100.0, nr_weight)
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
     memset(gradient,
@@ -56,11 +74,34 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
 
 
 @cython.cdivision(True)
-cdef void sgd_cm(weight_t* weights, weight_t* momentum, weight_t* gradient,
-        len_t nr_weight,const ConstantsC* hp) nogil:
+cdef void asgd(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    l2_regularize(gradient,
+        weights, hp.r, nr_weight)
+    clip_gradient(gradient,
+        100.0, nr_weight)
+    VecVec.add_i(weights,
+        gradient, -hp.e, nr_weight)
+    ema = weights + nr_weight
+    for i in range(nr_weight):
+        ema[i] += (1.0 - 0.9999) * (ema[i] - weights[i])
+    memset(gradient,
+        0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
+cdef void sgd_cm(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
     '''
     Update weights with SGD and classical momentum
     '''
+    l2_regularize(gradient,
+        weights, hp.r, nr_weight)
+    clip_gradient(gradient,
+        100.0, nr_weight)
+    add_gradient_noise(gradient,
+        hp.e, nr_weight)
+    momentum = weights + nr_weight
     Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
         gradient, hp.e, nr_weight)
@@ -71,24 +112,37 @@ cdef void sgd_cm(weight_t* weights, weight_t* momentum, weight_t* gradient,
 
 
 @cython.cdivision(True)
-cdef void adam(
-    weight_t* weights, weight_t* moments, weight_t* gradient,
+cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
+    l2_regularize(gradient,
+        weights, hp.r, nr_weight)
+    clip_gradient(gradient,
+        100.0, nr_weight)
+    add_gradient_noise(gradient,
+        hp.e, nr_weight)
     cdef weight_t beta1 = 0.90
     cdef weight_t beta2 = 0.999
-    mom1 = moments
+    cdef weight_t eps = 1e-08
+    cdef weight_t learn_rate = 0.001
+    mom1 = weights + nr_weight * 2
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
         gradient, 1-beta1, nr_weight)
-    mom2 = &moments[nr_weight]
+    mom2 = weights + nr_weight * 3
     for i in range(nr_weight):
         mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # More efficient version, from the paper
-    cdef weight_t a_t = hp.e * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
+    cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= a_t * (mom1[i] / (sqrt(mom2[i]) + EPS))
+        weights[i] -= a_t * (mom1[i] / (sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+    ema = weights + nr_weight
+    cdef weight_t decay = (1.0 + hp.t) / (10.0 + hp.t)
+    if decay > 0.9999:
+        decay = 0.9999
+    for i in range(nr_weight):
+        ema[i] -= (1-decay) * (ema[i] - weights[i])
 
 
 @cython.cdivision(True)
