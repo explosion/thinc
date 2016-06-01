@@ -81,8 +81,13 @@ cdef class Embedding:
                 continue
             emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
             if emb is NULL:
-                emb = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(emb[0]))
-                he_uniform_initializer(emb, -0.5, 0.5, embed.lengths[feat.i])
+                emb = <weight_t*>mem.alloc(embed.lengths[feat.i] * embed.nr_support,
+                                           sizeof(emb[0]))
+                stdev = 1.0 / embed.lengths[feat.i] ** 0.5
+                values = numpy.random.normal(loc=0.0, scale=stdev, size=embed.lengths[feat.i])
+                for i, value in enumerate(values):
+                    emb[i] = value
+                #he_uniform_initializer(emb, -0.5, 0.5, embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
                 grad = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(grad[0]))
@@ -132,3 +137,19 @@ cdef class Embedding:
                 if emb is not NULL and grad is not NULL:
                     do_update(emb, grad,
                         layer.lengths[i], hp)
+
+    @staticmethod
+    cdef inline void average(EmbedC* layer, weight_t time) nogil:
+        cdef key_t key
+        cdef void* value
+        cdef int i, j
+        cdef weight_t decay = (1.0 + time) / (10.0 + time)
+        if decay > 0.9999:
+            decay = 0.9999
+        for i in range(layer.nr):
+            j = 0
+            while Map_iter(layer.weights[i], &j, &key, &value):
+                emb = <weight_t*>value
+                avg = emb + layer.lengths[i]
+                for k in range(layer.lengths[i]):
+                    avg[k] -= (1-decay) * (avg[k] - emb[k])
