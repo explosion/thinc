@@ -34,7 +34,7 @@ from ..structs cimport do_update_t
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 
-from .solve cimport noisy_update, vanilla_sgd
+from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
 
 from .forward cimport ELU_forward
 from .forward cimport ReLu_forward
@@ -68,8 +68,20 @@ cdef class NeuralNet(Model):
         self.c.hp.r = kwargs.get('rho', 0.00)
         if kwargs.get('update_step') == 'sgd':
             self.c.update = vanilla_sgd
+            nr_support = 1
+        elif kwargs.get('update_step') == 'asgd':
+            self.c.update = asgd
+            nr_support = 2
+        elif kwargs.get('update_step') == 'sgd_cm':
+            self.c.update = sgd_cm
+            nr_support = 2
+        elif kwargs.get('update_step') == 'adam':
+            self.c.update = adam
+            nr_support = 4
         else:
             self.c.update = noisy_update
+            nr_support = 1
+        self.c.embed.nr_support = nr_support
         self.c.feed_fwd = ELU_forward
         self.c.feed_bwd = ELU_backward
 
@@ -83,7 +95,8 @@ cdef class NeuralNet(Model):
         for i in range(self.c.nr_layer-1):
             self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
             self.c.nr_node += self.c.widths[i]
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
+        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
+                                                   sizeof(self.c.weights[0]))
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
         
         if kwargs.get('embed') is not None:
@@ -113,7 +126,6 @@ cdef class NeuralNet(Model):
     def train(self, examples):
         cdef Example eg
         for eg in examples:
-            self.c.hp.t += 1
             if eg.c.nr_feat != 0:
                 Embedding.insert_missing(self.mem, &self.c.embed,
                     eg.c.features, eg.c.nr_feat)
@@ -136,7 +148,10 @@ cdef class NeuralNet(Model):
         pass
 
     def end_training(self):
-        pass
+        acc = self.c.weights + self.c.nr_weight
+        for i in range(self.c.nr_weight):
+            self.c.weights[i] = acc[i]
+        Embedding.average(&self.c.embed, self.c.hp.t)
 
     @property
     def nr_feat(self):
@@ -163,7 +178,6 @@ cdef class NeuralNet(Model):
         free(fwd_state)
  
     cdef weight_t updateC(self, const ExampleC* eg, int force_update) nogil:
-        self.c.hp.t += 1
         is_full = self._mb.push_back(eg.features, eg.nr_feat, 1, eg.costs, eg.is_valid)
         if eg.nr_feat != 0:
             with gil:
@@ -199,6 +213,7 @@ cdef class NeuralNet(Model):
             self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
             mb.i, &self.c.hp)
 
+        self.c.hp.t += 1
         self.c.update(self.c.weights, self.c.gradient,
             self.c.nr_weight, &self.c.hp)
 
