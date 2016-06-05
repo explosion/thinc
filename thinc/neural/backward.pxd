@@ -22,6 +22,12 @@ cdef void d_log_loss(
         const weight_t* scores,
             len_t nr_out) nogil
 
+cdef void d_hinge_loss(
+    weight_t* loss,
+        const weight_t* costs,
+        const weight_t* scores,
+            len_t nr_out) nogil
+
 
 cdef void d_dot(weight_t* btm_diff,
         int nr_btm,

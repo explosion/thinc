@@ -2,6 +2,7 @@
 # cython: cdivision=True
 # cython: infer_types=True
 cimport cython
+from libc.stdlib cimport rand
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
@@ -23,6 +24,33 @@ cdef void ELU_forward(weight_t** fwd,
             W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
         ELU(fwd[i+1],
             widths[i+1] * nr_batch)
+        W += widths[i+1] * widths[i] + widths[i+1]
+ 
+    i = nr_layer - 2
+    MatVec.batch_dot(fwd[i+1],
+        W, fwd[i], widths[i+1], widths[i], nr_batch)
+    MatVec.add_i(fwd[i+1],
+        W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
+    scores = fwd[i+1]
+    for _ in range(nr_batch):
+        softmax(scores,
+            widths[i+1])
+        scores += widths[i+1]
+
+
+cdef void ELU_forward_residual(weight_t** fwd,
+        const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
+        const ConstantsC* hp) nogil:
+    for i in range(nr_layer-2):
+        MatVec.batch_dot(fwd[i+1],
+            W, fwd[i], widths[i+1], widths[i], nr_batch)
+        MatVec.add_i(fwd[i+1],
+            W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
+        ELU(fwd[i+1],
+            widths[i+1] * nr_batch)
+        if widths[i+1] == widths[i]:
+            VecVec.add_i(fwd[i+1],
+                fwd[i], 1.0, widths[i])
         W += widths[i+1] * widths[i] + widths[i+1]
     i = nr_layer - 2
     MatVec.batch_dot(fwd[i+1],

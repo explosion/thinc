@@ -278,8 +278,12 @@ cdef cppclass MinibatchC:
 
             memcpy(this.costs(this.i),
                 costs, this.nr_out() * sizeof(costs[0]))
-            memcpy(this.is_valid(this.i),
-                is_valid, this.nr_out() * sizeof(is_valid[0]))
+            if is_valid is not NULL:
+                memcpy(this.is_valid(this.i),
+                    is_valid, this.nr_out() * sizeof(is_valid[0]))
+            else:
+                for i in range(this.nr_out()):
+                    this.is_valid(this.i)[i] = 1
             this.i += 1
         return this.i >= this.batch_size
 

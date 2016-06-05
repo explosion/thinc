@@ -88,6 +88,19 @@ cdef void d_log_loss(weight_t* loss,
     loss[best] -= 1
 
 
+cdef void d_hinge_loss(weight_t* loss,
+    const weight_t* costs, const weight_t* scores, len_t nr_out
+) nogil:
+    for i in range(nr_out):
+        loss[i] = 0.0
+
+    guess = Vec.arg_max(scores, nr_out)
+    best = VecVec.arg_max_if_zero(scores, costs, nr_out)
+    margin = scores[guess] - scores[best]
+    loss[best] = -(margin * costs[guess])
+    loss[guess] = (margin * costs[guess])
+        
+
 #cdef void d_ELU__dot__normalize__dot(weight_t* gradient, weight_t** bwd, weight_t* averages,
 #        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
 #        int nr_above, int nr_below, const ConstantsC* hp) nogil:

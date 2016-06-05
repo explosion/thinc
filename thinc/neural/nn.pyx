@@ -4,11 +4,12 @@
 from __future__ import print_function
 
 from libc.string cimport memmove, memset, memcpy
-from libc.stdint cimport uint64_t
-from libc.stdlib cimport malloc, calloc, free
+from libc.stdint cimport uint64_t, uintptr_t
+from libc.stdlib cimport malloc, calloc, free, rand
 
 cimport cython
 cimport numpy as np
+from cpython.exc cimport PyErr_CheckSignals
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport map_init as Map_init
@@ -16,6 +17,7 @@ from preshed.maps cimport map_set as Map_set
 from preshed.maps cimport map_get as Map_get
 from preshed.maps cimport map_iter as Map_iter
 from preshed.maps cimport key_t
+from murmurhash.mrmr cimport hash64
 
 from ..base cimport Model
 from ..typedefs cimport weight_t, atom_t, feat_t
@@ -36,11 +38,12 @@ from ..extra.mb cimport Minibatch
 
 from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
 
+from .forward cimport softmax
 from .forward cimport ELU_forward
 from .forward cimport ReLu_forward
 from .backward cimport ELU_backward
 from .backward cimport ReLu_backward
-from .backward cimport d_log_loss
+from .backward cimport d_log_loss, d_hinge_loss
 
 from .embed cimport Embedding
 from .initializers cimport he_normal_initializer, he_uniform_initializer
@@ -51,6 +54,7 @@ from libc.math cimport isnan, sqrt
 import random
 import numpy
 from cytoolz import partition
+import cPickle
 
 
 prng.normal_setup()
@@ -66,6 +70,7 @@ cdef class NeuralNet(Model):
 
         self.c.hp.e = kwargs.get('eta', 0.01)
         self.c.hp.r = kwargs.get('rho', 0.00)
+        self.c.hp.m = kwargs.get('mu', 0.9)
         if kwargs.get('update_step') == 'sgd':
             self.c.update = vanilla_sgd
             nr_support = 1
@@ -74,7 +79,7 @@ cdef class NeuralNet(Model):
             nr_support = 2
         elif kwargs.get('update_step') == 'sgd_cm':
             self.c.update = sgd_cm
-            nr_support = 2
+            nr_support = 3
         elif kwargs.get('update_step') == 'adam':
             self.c.update = adam
             nr_support = 4
@@ -139,13 +144,47 @@ cdef class NeuralNet(Model):
                                           minibatch.batch_size)
 
     def update(self, Example eg, force_update=False):
-        return self.updateC(eg.c, force_update)
+        return self.updateC(eg.c.features, eg.c.nr_feat, True,
+                            eg.c.costs, eg.c.is_valid, force_update)
+    
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        pass
+
+    def set_embedding(self, int i, key_t key, values):
+        if len(values) != self.c.embed.lengths[i]:
+            msg_vals = (i, self.c.embed.lengths[i], len(values))
+            raise ValueError(
+                "set_embedding %d expected embedding of length %d. Got length %d." % msg_vals)
+        emb = <weight_t*>Map_get(self.c.embed.weights[i], key)
+        grad = <weight_t*>Map_get(self.c.embed.gradients[i], key)
+        if emb is NULL or grad is NULL:
+            # If one is null both should be. But free just in case, to avoid mem
+            # leak.
+            free(emb)
+            free(grad)
+            emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i] * self.c.embed.nr_support,
+                    sizeof(emb[0]))
+            grad = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
+            Map_set(self.mem, self.c.embed.weights[i],
+                key, emb)
+            Map_set(self.mem, self.c.embed.gradients[i],
+                key, grad)
+ 
+        for j, value in enumerate(values):
+            emb[j] = value
+            emb[len(values) + j] = value # For average
 
     def dump(self, loc):
-        pass
+        data = (list(self.embeddings), self.weights, dict(self.c.hp)) 
+        with open(loc, 'wb') as file_:
+            cPickle.dump(data, file_, cPickle.HIGHEST_PROTOCOL)
 
     def load(self, loc):
-        pass
+        with open(loc, 'rb') as file_:
+            embeddings, weights, hp = cPickle.load(file_)
+        self.embeddings = embeddings
+        self.weights = weights
+        self.c.hp = hp
 
     def end_training(self):
         acc = self.c.weights + self.c.nr_weight
@@ -163,12 +202,8 @@ cdef class NeuralNet(Model):
         for i in range(self.c.nr_layer):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
 
-        if is_sparse:
-            Embedding.set_input(fwd_state[0],
-                <const FeatureC*>feats, nr_feat, &self.c.embed)
-        else:
-            memcpy(fwd_state[0],
-                <const weight_t*>feats, nr_feat * sizeof(fwd_state[0]))
+        self._extractC(fwd_state[0], feats, nr_feat, is_sparse)
+
         self.c.feed_fwd(fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
         memcpy(scores,
@@ -177,12 +212,13 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef weight_t updateC(self, const ExampleC* eg, int force_update) nogil:
-        is_full = self._mb.push_back(eg.features, eg.nr_feat, 1, eg.costs, eg.is_valid)
-        if eg.nr_feat != 0:
+    cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
+            const weight_t* costs, const int* is_valid, int force_update) nogil:
+        is_full = self._mb.push_back(feats, nr_feat, is_sparse, costs, is_valid)
+        if nr_feat > 0 and is_sparse:
             with gil:
                 Embedding.insert_missing(self.mem, &self.c.embed,
-                    eg.features, eg.nr_feat)
+                    <const FeatureC*>feats, nr_feat)
 
         cdef weight_t loss = 0.0
         cdef int i
@@ -196,19 +232,17 @@ cdef class NeuralNet(Model):
         return loss
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
-        nr_class = self.c.widths[self.c.nr_layer-1]
-        
         for i in range(mb.i):
-            if mb.nr_feat(i) != 0:
-                Embedding.set_input(mb.fwd(0, i),
-                    mb.features(i), mb.nr_feat(i), &self.c.embed)
+            self._dropoutC(mb.features(i), mb.nr_feat(i), 1)
+            self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), 1)
+        
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
+        
         for i in range(mb.i):
-            # Set loss from the costs 
-            d_log_loss(mb.losses(i),
-                mb.costs(i), mb.fwd(mb.nr_layer-1, i), nr_class)
-
+            self._set_delta_lossC(mb.losses(i),
+                mb.costs(i), mb.fwd(mb.nr_layer-1, i))
+        
         self.c.feed_bwd(self.c.gradient + self.c.nr_weight, mb._bwd,
             self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
             mb.i, &self.c.hp)
@@ -218,16 +252,48 @@ cdef class NeuralNet(Model):
             self.c.nr_weight, &self.c.hp)
 
         for i in range(mb.i):
-            if mb.nr_feat(i) != 0:
-                Embedding.fine_tune(&self.c.embed,
-                    mb.bwd(0, i), self.c.widths[0], mb.features(i), mb.nr_feat(i))
+            self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         for i in range(mb.i):
-            for feat in mb.features(i)[:mb.nr_feat(i)]:
-                Embedding.update(&self.c.embed,
-                    feat.i, feat.key, &self.c.hp, self.c.update)
+            self._update_extracterC(mb.features(i), mb.nr_feat(i), 1)
 
-    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
-        pass
+    cdef void _dropoutC(self, void* _feats, int nr_feat, int is_sparse) nogil:
+        if is_sparse:
+            feats = <FeatureC*>_feats
+            for i in range(nr_feat):
+                if rand() % 2:
+                    feats[i].value *= 2
+                else:
+                    feats[i].value = 0
+    
+    cdef void _extractC(self, weight_t* input_,
+            const void* feats, int nr_feat, int is_sparse) nogil:
+        if is_sparse:
+            Embedding.set_input(input_,
+                <const FeatureC*>feats, nr_feat, &self.c.embed)
+        else:
+            memcpy(input_,
+                <const weight_t*>feats, nr_feat * sizeof(input_))
+
+    cdef void _set_delta_lossC(self, weight_t* delta_loss,
+            const weight_t* costs, const weight_t* scores) nogil:
+        d_log_loss(delta_loss,
+            costs, scores, self.c.widths[self.c.nr_layer-1])
+
+    cdef void _backprop_extracterC(self, const weight_t* deltas, const void* feats,
+            int nr_feat, int is_sparse) nogil:
+        if nr_feat < 1 or not is_sparse:
+            return
+        Embedding.fine_tune(&self.c.embed,
+            deltas, self.c.widths[0], <const FeatureC*>feats, nr_feat)
+
+    cdef void _update_extracterC(self, const void* _feats,
+            int nr_feat, int is_sparse) nogil:
+        if nr_feat < 1 or not is_sparse:
+            return
+        feats = <const FeatureC*>_feats
+        for feat in feats[:nr_feat]:
+            Embedding.update(&self.c.embed,
+                feat.i, feat.key, &self.c.hp, self.c.update)
 
     @property
     def weights(self):
@@ -288,19 +354,31 @@ cdef class NeuralNet(Model):
         cdef key_t key
         cdef void* value
         embeddings = []
+        seen_tables = {}
         for i in range(self.c.embed.nr):
-            j = 0
-            table = []
-            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
-                emb = <weight_t*>value
-                table.append((key, [emb[k] for k in range(self.c.embed.lengths[i])]))
+            addr = <uintptr_t>self.c.weights[i]
+            if addr in seen_tables:
+                table = seen_tables[addr]
+            else:
+                j = 0
+                table = []
+                length = self.c.embed.lengths[i]
+                while Map_iter(self.c.embed.weights[i], &j, &key, &value):
+                    emb = <weight_t*>value
+                    table.append((key, [val for val in emb[:length]]))
+                seen_tables[addr] = table
             embeddings.append(table)
         return embeddings
 
     @embeddings.setter
     def embeddings(self, embeddings):
         cdef weight_t val
+        uniq_tables = {}
         for i, table in enumerate(embeddings):
+            if id(table) in uniq_tables:
+                self.c.weights[i] = self.c.weights[uniq_tables[id(table)]]
+                continue
+            uniq_tables[id(table)] = i
             for key, value in table:
                 emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
                 for j, val in enumerate(value):

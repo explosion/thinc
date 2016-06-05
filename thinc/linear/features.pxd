@@ -9,6 +9,7 @@ cdef class ConjunctionExtracter:
     cdef readonly int nr_templ
     cdef readonly int nr_embed
     cdef readonly int nr_atom
+    cdef public int linear_mode
 
     cdef int set_features(self, FeatureC* feats, const atom_t* atoms) nogil
     

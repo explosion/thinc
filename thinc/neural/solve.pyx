@@ -44,6 +44,15 @@ cdef void l2_regularize(weight_t* gradient,
         VecVec.add_i(gradient,
             weights, strength, nr_weight)
 
+@cython.cdivision(True)
+cdef void l1_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L1-loss to the gradient
+    if strength != 0:
+        for i in range(nr_weight):
+            sign = 1 if weights[i] > 0 else -1
+            gradient[i] += sign * weights[i] * strength
+
 
 @cython.cdivision(True)
 cdef void noisy_update(weight_t* weights, weight_t* gradient,
@@ -99,9 +108,11 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
         weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
-    add_gradient_noise(gradient,
-        hp.e, nr_weight)
-    momentum = weights + nr_weight
+    noise_variance = 1.0 / ((1 + hp.t) ** 0.55)
+    if noise_variance >= 0.000001:
+        add_gradient_noise(gradient,
+            hp.e, nr_weight)
+    momentum = weights + nr_weight * 2
     Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
         gradient, hp.e, nr_weight)
@@ -109,6 +120,14 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
         momentum, -1.0, nr_weight)
     memset(gradient,
         0, sizeof(gradient[0]) * nr_weight)
+    ema = weights + nr_weight
+    cdef weight_t decay = (1.0 + hp.t) / (10.0 + hp.t)
+    if decay > 0.9999:
+        decay = 0.9999
+    for i in range(nr_weight):
+        ema[i] -= (1-decay) * (ema[i] - weights[i])
+
+
 
 
 @cython.cdivision(True)
@@ -116,14 +135,18 @@ cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     l2_regularize(gradient,
         weights, hp.r, nr_weight)
+    #l1_regularize(gradient,
+    #    weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
-    add_gradient_noise(gradient,
-        hp.e, nr_weight)
+    noise_variance = 1.0 / ((1 + hp.t) ** 0.55)
+    if noise_variance >= 0.000001:
+        add_gradient_noise(gradient,
+            hp.e, nr_weight)
     cdef weight_t beta1 = 0.90
     cdef weight_t beta2 = 0.999
     cdef weight_t eps = 1e-08
-    cdef weight_t learn_rate = 0.001
+    cdef weight_t learn_rate = hp.e
     mom1 = weights + nr_weight * 2
     Vec.mul_i(mom1,
         beta1, nr_weight)
