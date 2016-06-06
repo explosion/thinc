@@ -258,6 +258,7 @@ cdef class NeuralNet(Model):
 
     cdef void _dropoutC(self, void* _feats, int nr_feat, int is_sparse) nogil:
         cdef int dropout = 7
+        cdef weight_t drop_score = 7.0 / 6.0
         if is_sparse:
             feats = <FeatureC*>_feats
             for i in range(nr_feat):
@@ -268,7 +269,7 @@ cdef class NeuralNet(Model):
                     # I think I read this somewhere.
                     # If not...well, it makes sense right?
                     # Right?
-                    feats[i].value *= dropout / (dropout-1)
+                    feats[i].value *= drop_score
                 else:
                     feats[i].value = 0
     
