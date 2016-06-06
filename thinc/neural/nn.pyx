@@ -257,11 +257,18 @@ cdef class NeuralNet(Model):
             self._update_extracterC(mb.features(i), mb.nr_feat(i), 1)
 
     cdef void _dropoutC(self, void* _feats, int nr_feat, int is_sparse) nogil:
+        cdef int dropout = 7
         if is_sparse:
             feats = <FeatureC*>_feats
             for i in range(nr_feat):
-                if rand() % 2:
-                    feats[i].value *= 2
+                if rand() % dropout:
+                    # Preserve the mean activation, by increasing the activation
+                    # of the non-dropped units. This way, we don't have to
+                    # re-balance the weights.
+                    # I think I read this somewhere.
+                    # If not...well, it makes sense right?
+                    # Right?
+                    feats[i].value *= dropout / (dropout-1)
                 else:
                     feats[i].value = 0
     
