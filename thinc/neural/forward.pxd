@@ -11,8 +11,8 @@ cdef void ELU_forward(weight_t** fwd,
         const ConstantsC* hp) nogil
  
 
-cdef void ELU_forward_residual(weight_t** fwd,
-        const weight_t* W, const len_t* shape, int nr_layer, int nr_batch,
+cdef void ELU_batch_norm_forward(weight_t** fwd,
+        const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil
  
 

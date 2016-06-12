@@ -26,7 +26,7 @@ cdef struct _State:
     void* content
     class_t* hist
     weight_t score
-    int loss
+    weight_t loss
     int i
     int t
     bint is_done
@@ -42,12 +42,12 @@ cdef class Beam:
     cdef list histories
     cdef list _parent_histories
     cdef weight_t** scores
-    cdef bint** is_valid
-    cdef int** costs
+    cdef int** is_valid
+    cdef weight_t** costs
     cdef _State* _parents
     cdef _State* _states
 
-    cdef int _fill(self, Queue* q, weight_t** scores, bint** is_valid) except -1
+    cdef int _fill(self, Queue* q, weight_t** scores, int** is_valid) except -1
 
     cdef inline void* at(self, int i) nogil:
         return self._states[i].content
@@ -58,20 +58,22 @@ cdef class Beam:
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1
  
 
-    cdef inline void set_cell(self, int i, int j, weight_t score, bint is_valid, int cost) nogil:
+    cdef inline void set_cell(self, int i, int j, weight_t score, int is_valid, weight_t cost) nogil:
         self.scores[i][j] = score
         self.is_valid[i][j] = is_valid
         self.costs[i][j] = cost
         
-    cdef int set_row(self, int i, const weight_t* scores, const bint* is_valid,
-                     const int* costs) except -1
-    cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1
+    cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
+                     const weight_t* costs) except -1
+    cdef int set_table(self, weight_t** scores, int** is_valid, weight_t** costs) except -1
 
 
 cdef class MaxViolation:
     cdef Pool mem
-    cdef int cost
+    cdef weight_t cost
     cdef weight_t delta
+    cdef readonly weight_t p_score
+    cdef readonly weight_t g_score
     cdef class_t n
     cdef readonly list p_hist
     cdef readonly list g_hist

@@ -40,13 +40,15 @@ from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
+from .forward cimport ELU_batch_norm_forward
 from .forward cimport ReLu_forward
 from .backward cimport ELU_backward
 from .backward cimport ReLu_backward
+from .backward cimport ELU_batch_norm_backward
 from .backward cimport d_log_loss, d_hinge_loss
 
 from .embed cimport Embedding
-from .initializers cimport he_normal_initializer, he_uniform_initializer
+from .initializers cimport he_normal_initializer, he_uniform_initializer, constant_initializer
 
 from libc.string cimport memcpy
 from libc.math cimport isnan, sqrt
@@ -61,7 +63,7 @@ prng.normal_setup()
 
 
 cdef int get_nr_weight(int nr_out, int nr_in) nogil:
-    return nr_out * nr_in + nr_out
+    return nr_out * nr_in + nr_out + nr_out
 
 
 cdef class NeuralNet(Model):
@@ -87,8 +89,8 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        self.c.feed_fwd = ELU_forward
-        self.c.feed_bwd = ELU_backward
+        self.c.feed_fwd = ELU_batch_norm_forward
+        self.c.feed_bwd = ELU_batch_norm_backward
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
@@ -112,6 +114,12 @@ cdef class NeuralNet(Model):
         for i in range(self.c.nr_layer-2):
             he_normal_initializer(W,
                 self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
+            nr_W = self.c.widths[i+1] * self.c.widths[i]
+            nr_bias = self.c.widths[i+1]
+            if get_nr_weight(self.c.widths[i+1], self.c.widths[i]) > (nr_W + nr_bias):
+                # Initialise gamma terms
+                constant_initializer(W + nr_W + nr_bias,
+                    1.0, self.c.widths[i + 1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
         self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
@@ -250,7 +258,6 @@ cdef class NeuralNet(Model):
         self.c.hp.t += 1
         self.c.update(self.c.weights, self.c.gradient,
             self.c.nr_weight, &self.c.hp)
-
         for i in range(mb.i):
             self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         for i in range(mb.i):

@@ -146,8 +146,8 @@ cdef cppclass ExampleC:
         this.bwd_state = <weight_t**>calloc(len(widths), sizeof(this.bwd_state[0]))
         for i, width in enumerate(widths):
             this.widths[i] = width
-            this.fwd_state[i] = <weight_t*>calloc(sizeof(this.fwd_state[i][0]), width)
-            this.bwd_state[i] = <weight_t*>calloc(sizeof(this.bwd_state[i][0]), width)
+            this.fwd_state[i] = <weight_t*>calloc(width, sizeof(this.fwd_state[i][0]))
+            this.bwd_state[i] = <weight_t*>calloc(width, sizeof(this.bwd_state[i][0]))
     
     __dealloc__() nogil:
         free(this.scores)

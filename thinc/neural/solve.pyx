@@ -128,15 +128,11 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
         ema[i] -= (1-decay) * (ema[i] - weights[i])
 
 
-
-
 @cython.cdivision(True)
 cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     l2_regularize(gradient,
         weights, hp.r, nr_weight)
-    #l1_regularize(gradient,
-    #    weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
     noise_variance = 1.0 / ((1 + hp.t) ** 0.55)

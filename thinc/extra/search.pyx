@@ -23,30 +23,34 @@ cdef class Beam:
         self._parent_histories = [[] for i in range(self.width)]
 
         self.scores = <weight_t**>self.mem.alloc(self.width, sizeof(weight_t*))
-        self.is_valid = <bint**>self.mem.alloc(self.width, sizeof(bint*))
-        self.costs = <int**>self.mem.alloc(self.width, sizeof(int*))
+        self.is_valid = <int**>self.mem.alloc(self.width, sizeof(weight_t*))
+        self.costs = <weight_t**>self.mem.alloc(self.width, sizeof(weight_t*))
         for i in range(self.width):
             self.scores[i] = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
-            self.is_valid[i] = <bint*>self.mem.alloc(self.nr_class, sizeof(bint))
-            self.costs[i] = <int*>self.mem.alloc(self.nr_class, sizeof(int))
+            self.is_valid[i] = <int*>self.mem.alloc(self.nr_class, sizeof(int))
+            self.costs[i] = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
 
     property score:
         def __get__(self):
             return self._states[0].score
 
+    property min_score:
+        def __get__(self):
+            return self._states[self.size-1].score
+
     property loss:
         def __get__(self):
             return self._states[0].loss
  
-    cdef int set_row(self, int i, const weight_t* scores, const bint* is_valid,
-                     const int* costs) except -1:
+    cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
+                     const weight_t* costs) except -1:
         cdef int j
         for j in range(self.nr_class):
             self.scores[i][j] = scores[j]
             self.is_valid[i][j] = is_valid[j]
             self.costs[i][j] = costs[j]
 
-    cdef int set_table(self, weight_t** scores, bint** is_valid, int** costs) except -1:
+    cdef int set_table(self, weight_t** scores, int** is_valid, weight_t** costs) except -1:
         cdef int i, j
         for i in range(self.width):
             memcpy(self.scores[i], scores[i], sizeof(weight_t) * self.nr_class)
@@ -62,8 +66,8 @@ cdef class Beam:
     cdef int advance(self, trans_func_t transition_func, hash_func_t hash_func,
                      void* extra_args) except -1:
         cdef weight_t** scores = self.scores
-        cdef bint** is_valid = self.is_valid
-        cdef int** costs = self.costs
+        cdef int** is_valid = self.is_valid
+        cdef weight_t** costs = self.costs
 
         cdef Queue* q = new Queue()
         self._fill(q, scores, is_valid)
@@ -116,8 +120,8 @@ cdef class Beam:
         assert self.size >= 1
         for i in range(self.width):
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
-            memset(self.is_valid[i], False, sizeof(bint) * self.nr_class)
-            memset(self.costs[i], 0, sizeof(int) * self.nr_class)
+            memset(self.is_valid[i], 0, sizeof(int) * self.nr_class)
+            memset(self.costs[i], 0, sizeof(weight_t) * self.nr_class)
         self.t += 1
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
@@ -132,7 +136,7 @@ cdef class Beam:
             self.is_done = True
 
     @cython.cdivision(True)
-    cdef int _fill(self, Queue* q, weight_t** scores, bint** is_valid) except -1:
+    cdef int _fill(self, Queue* q, weight_t** scores, int** is_valid) except -1:
         """Populate the queue from a k * n matrix of scores, where k is the
         beam-width, and n is the number of classes.
         """
