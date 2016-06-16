@@ -31,3 +31,5 @@ cdef void dot_plus(weight_t* out,
 cdef void softmax(weight_t* out, len_t nr_out) nogil
 cdef void ELU(weight_t* out, len_t nr_out) nogil
 cdef void ReLu(weight_t* out, len_t nr_out) nogil
+
+cdef void normalize(weight_t* x, int nr_batch, int n) except *

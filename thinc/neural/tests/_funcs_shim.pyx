@@ -1,6 +1,7 @@
 from ..solve cimport *
 from ..forward cimport *
 from ..backward cimport *
+import numpy
 
 
 def call_dot_plus(
@@ -34,3 +35,9 @@ def call_ELU(weight_t[:] out, int nr_out):
 def call_d_ELU(weight_t[:] delta, weight_t[:] signal_out, int nr_out):
     d_ELU(&delta[0], &signal_out[0], nr_out)
     return delta
+
+
+def call_normalize(weight_t[:, :] data, int nr_batch, int n):
+    cdef weight_t[:] flattened = numpy.ascontiguousarray(data).flatten()
+    normalize(&flattened[0], nr_batch, n)
+    return numpy.ascontiguousarray(flattened).reshape((nr_batch, n))

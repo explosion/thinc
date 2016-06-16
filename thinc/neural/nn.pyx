@@ -89,8 +89,8 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        self.c.feed_fwd = ELU_batch_norm_forward
-        self.c.feed_bwd = ELU_batch_norm_backward
+        self.c.feed_fwd = ELU_forward
+        self.c.feed_bwd = ELU_backward
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
