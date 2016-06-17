@@ -184,48 +184,23 @@ cdef void d_batchnorm(weight_t* _dx,
         for j in range(nr_out):
             dy[i, j] = _dx[i * nr_out + j]
             x[i, j] = _x[i * nr_out + j]
-    eps = 1e-5
-    mu = 1. / float(nr_batch) * np.sum(x, axis=0)
-    # Step 2 - shape of var (N,D)
-    xmu = x - mu
-    # Step 3 - shape of carre (N,D)
-    carre = xmu**2
-    # Step 4 - shape of var (D,)
-    var = 1 / float(nr_batch) * np.sum(carre, axis=0)
-    # Step 5 - Shape sqrtvar (D,)
-    sqrtvar = np.sqrt(var + eps)
-    # Step 6 - Shape invvar (D,)
-    invvar = 1. / sqrtvar
-    # Step 7 - Shape va2 (N,D)
-    out = xmu * invvar
-    
-    dout = dy
+
+    # Simplification by Clement Thorey, here:
+    # http://cthorey.github.io./backpropagation/
     N = nr_batch
     D = nr_out
-    dva2 = dout
+    inv_sqrt_var = x.var(0) ** (-1. / 2.)
+    inv_var = x.var(0) ** -1.
+    mu = x.mean(0)
 
-    # Backprop step 7
-    dxmu = invvar * dva2
-    dinvvar = np.sum(xmu * dva2, axis=0)
-
-    # Backprop step 6
-    dsqrtvar = -1. / (sqrtvar**2) * dinvvar
-
-    # Backprop step 5
-    dvar = 0.5 * (var + eps)**(-0.5) * dsqrtvar
-
-    # Backprop step 4
-    dcarre = 1 / float(N) * np.ones((carre.shape)) * dvar
-
-    # Backprop step 3
-    dxmu += 2 * xmu * dcarre
-
-    # Backprop step 2
-    dx = dxmu
-    dmu = - np.sum(dxmu, axis=0)
-
-    # Basckprop step 1
-    dx += 1 / float(N) * np.ones((dxmu.shape)) * dmu
+    dx = (1. / N) \
+       * inv_sqrt_var \
+       * (N \
+         * dy \
+         - np.sum(dy, axis=0) \
+         - (x - mu) \
+           * inv_var \
+           * np.sum(dy * (x - mu), axis=0))
 
     for i in range(nr_batch):
         for j in range(nr_out):
