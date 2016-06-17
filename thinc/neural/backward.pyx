@@ -111,7 +111,7 @@ cdef void d_hinge_loss(weight_t* loss,
 from .forward cimport affine, normalize
         
 
-cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
+cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
         const weight_t* W, const weight_t* const* fwd, const len_t* widths,
         int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
 
@@ -157,7 +157,7 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
         normalize(x_norm[i],
             W+mean, W+variance, nr_out, nr_batch)
 
-        d_ReLu(bwd[i],
+        d_ELU(bwd[i],
             fwd[i], nr_out * nr_batch)
         d_transform(bwd[i], G + gamma, G + beta,
             x_norm[i], W + gamma, nr_out, nr_batch)
@@ -183,15 +183,18 @@ cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
         for j in range(nr_out):
             dy[i, j] = _dx[i * nr_out + j]
             x[i, j] = _x[i * nr_out + j]
+    mu = np.zeros(shape=(nr_out,), dtype='float64')
+    var = np.zeros(shape=(nr_out,), dtype='float64')
+    for i in range(nr_out):
+        mu[i] = est_mean[i]
+        var[i] = est_var[i]
 
     # Simplification by Clement Thorey, here:
     # http://cthorey.github.io./backpropagation/
     N = nr_batch
     D = nr_out
-    var = x.var(0) + EPS
     inv_sqrt_var = var ** (-1. / 2.)
     inv_var = var ** -1.
-    mu = x.mean(0)
 
     dx = (1. / N) \
        * inv_sqrt_var \
@@ -205,9 +208,11 @@ cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
     for i in range(nr_batch):
         for j in range(nr_out):
             _dx[i * nr_out + j] = dx[i, j]
+    true_mu = x.mean(0)
+    true_var = x.var(0)
     for i in range(nr_out):
-        est_mean[i] = (0.9 * est_mean[i]) + (0.1 * mu[i])
-        est_var[i] = (0.9 * est_var[i]) + (0.1 * var[i])
+        est_mean[i] = (0.9 * est_mean[i]) + (0.1 * true_mu[i])
+        est_var[i] = (0.9 * est_var[i]) + (0.1 * true_var[i])
 
 
 cdef void d_affine(weight_t* d_x, weight_t* d_w, weight_t* d_b,

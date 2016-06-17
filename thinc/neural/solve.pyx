@@ -107,7 +107,7 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
     l2_regularize(gradient,
         weights, hp.r, nr_weight)
     clip_gradient(gradient,
-        100.0, nr_weight)
+        1000.0, nr_weight)
     noise_variance = 1.0 / ((1 + hp.t) ** 0.55)
     if noise_variance >= 0.000001:
         add_gradient_noise(gradient,

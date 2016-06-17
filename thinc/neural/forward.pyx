@@ -98,7 +98,7 @@ cdef void softmax(weight_t* out, len_t nr_out) nogil:
             norm, nr_out)
 
 
-cdef void ReLu_batch_norm_forward(weight_t** fwd,
+cdef void ELU_batch_norm_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil:
     for i in range(1, nr_layer-1):
@@ -116,7 +116,7 @@ cdef void ReLu_batch_norm_forward(weight_t** fwd,
             W+mean, W+variance, nr_out, nr_batch)
         transform(fwd[i],
             W+gamma, W+beta, nr_out, nr_batch)
-        ReLu(fwd[i],
+        ELU(fwd[i],
             nr_out * nr_batch)
         W += nr_out * nr_in + nr_out * 5
 

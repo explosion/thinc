@@ -105,7 +105,7 @@ cdef class NeuralNet(Model):
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
                                                    sizeof(self.c.weights[0]))
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-        
+
         if kwargs.get('embed') is not None:
             vector_widths, features = kwargs['embed']
             Embedding.init(&self.c.embed, self.mem, vector_widths, features)
@@ -120,6 +120,8 @@ cdef class NeuralNet(Model):
                 # Initialise gamma terms
                 constant_initializer(W + nr_W + nr_bias,
                     1.0, self.c.widths[i + 1])
+                constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
+                    1.0, self.c.widths[i+1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
         self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
