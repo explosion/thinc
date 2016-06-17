@@ -40,11 +40,11 @@ from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
-from .forward cimport ReLu_batch_norm_forward
+from .forward cimport ELU_batch_norm_forward
 from .forward cimport ReLu_forward
 from .backward cimport ELU_backward
 from .backward cimport ReLu_backward
-from .backward cimport ReLu_batch_norm_backward
+from .backward cimport ELU_batch_norm_backward
 from .backward cimport d_log_loss, d_hinge_loss
 
 from .embed cimport Embedding
@@ -89,8 +89,8 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        self.c.feed_fwd = ReLu_batch_norm_forward
-        self.c.feed_bwd = ReLu_batch_norm_backward
+        self.c.feed_fwd = ELU_batch_norm_forward
+        self.c.feed_bwd = ELU_batch_norm_backward
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))

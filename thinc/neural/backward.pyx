@@ -183,27 +183,27 @@ cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
         for j in range(nr_out):
             dy[i, j] = _dx[i * nr_out + j]
             x[i, j] = _x[i * nr_out + j]
-    mu = np.zeros(shape=(nr_out,), dtype='float64')
-    var = np.zeros(shape=(nr_out,), dtype='float64')
-    for i in range(nr_out):
-        mu[i] = est_mean[i]
-        var[i] = est_var[i]
 
+    mu = x.mean(0)
+    var = x.var(0) + EPS
+    x_mu = x - mu
     # Simplification by Clement Thorey, here:
     # http://cthorey.github.io./backpropagation/
     N = nr_batch
     D = nr_out
     inv_sqrt_var = var ** (-1. / 2.)
     inv_var = var ** -1.
+    sum_dy = np.sum(dy, axis=0)
+    sum_dy_xmu = np.sum(dy * x_mu, axis=0)
 
     dx = (1. / N) \
        * inv_sqrt_var \
        * (N \
          * dy \
-         - np.sum(dy, axis=0) \
-         - (x - mu) \
+         - sum_dy \
+         - x_mu \
            * inv_var \
-           * np.sum(dy * (x - mu), axis=0))
+           * sum_dy_xmu)
 
     for i in range(nr_batch):
         for j in range(nr_out):
