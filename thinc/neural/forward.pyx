@@ -113,7 +113,7 @@ cdef void ReLu_batch_norm_forward(weight_t** fwd,
         affine(fwd[i],
             fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
         with gil:
-            normalize(fwd[i], W+mean, W+variance,
+            normalize(fwd[i],
                 nr_batch, nr_out)
         transform(fwd[i],
             W+gamma, W+beta, nr_out, nr_batch)
@@ -151,12 +151,8 @@ cdef void transform(weight_t* x,
  
 
 cdef void normalize(weight_t* _x,
-        const weight_t* ema_mean, const weight_t* ema_var, int N, int D) except *:
+        int N, int D) except *:
     if N == 1:
-        #VecVec.add_i(_x,
-        #    ema_mean, -1.0, D)
-        #for i in range(D):
-        #    _x[i] /= sqrt(ema_var[i] + EPS)
         return
     x = np.zeros(shape=(N, D), dtype='float64')
     for i in range(N):

@@ -127,8 +127,8 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
     nr_out = widths[i]
     nr_in = widths[i-1]
 
-    W -= nr_out * nr_in + nr_out * 3
-    G -= nr_out * nr_in + nr_out * 3
+    W -= nr_out * nr_in + nr_out * 5
+    G -= nr_out * nr_in + nr_out * 5
     b = nr_out * nr_in
     gamma = b + nr_out
     beta = gamma + nr_out
@@ -157,7 +157,7 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
         memcpy(x_norm[i], x[i], sizeof(weight_t) * nr_batch * nr_out)
         with gil:
             normalize(x_norm[i],
-                W+mean, W+variance, nr_batch, nr_out)
+                nr_batch, nr_out)
 
         d_ReLu(bwd[i],
             fwd[i], nr_out * nr_batch)
