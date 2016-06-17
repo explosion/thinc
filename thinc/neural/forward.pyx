@@ -5,7 +5,7 @@ cimport cython
 from libc.stdlib cimport rand
 from libc.string cimport memset
 cimport numpy as np
-import numpy
+import numpy as np
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
@@ -24,19 +24,17 @@ cdef void ELU_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil:
     for i in range(1, nr_layer):
-        in_ = fwd[i-1]
-        out = fwd[i]
         nr_in = widths[i-1]
         nr_out = widths[i]
+        b = nr_out * nr_in
 
-        MatVec.batch_dot(out,
-            W, in_, nr_out, nr_in, nr_batch)
-        MatVec.add_i(out,
-            W + nr_out * nr_in, 1.0, nr_batch, nr_out)
+        affine(fwd[i],
+            fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
+ 
         if (i+1) < nr_layer:
-            ELU(out,
+            ELU(fwd[i],
                 nr_out * nr_batch)
-        W += nr_out * nr_in + nr_out + nr_out
+        W += nr_out * nr_in + nr_out * 3
  
     scores = fwd[nr_layer - 1]
     nr_out = widths[nr_layer - 1]
@@ -100,54 +98,108 @@ cdef void softmax(weight_t* out, len_t nr_out) nogil:
             norm, nr_out)
 
 
-cdef void ELU_batch_norm_forward(weight_t** fwd,
+cdef void ReLu_batch_norm_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil:
-    
-    for i in range(nr_layer-2):
-        MatVec.batch_dot(fwd[i+1],
-            W, fwd[i], widths[i+1], widths[i], nr_batch)
+    for i in range(1, nr_layer-1):
+        nr_out = widths[i]
+        nr_in = widths[i-1]
+        b = nr_out * nr_in
+        gamma = b + nr_out
+        beta = gamma + nr_out
+        mean = beta + nr_out
+        variance = mean + nr_out
+
+        affine(fwd[i],
+            fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
         with gil:
-            normalize(fwd[i+1],
-                nr_batch, widths[i+1])
-        # Affine transformation with bias and gamma
-        #MatVec.mul_i(fwd[i+1],
-        #    W + widths[i+1] * widths[i] + widths[i+1], widths[i+1], nr_batch)
-        MatVec.add_i(fwd[i+1],
-            W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
- 
-        # Activate
-        ReLu(fwd[i+1],
-            widths[i+1] * nr_batch)
-        W += widths[i+1] * widths[i] + widths[i+1] + widths[i+1]
- 
-    i = nr_layer - 2
-    MatVec.batch_dot(fwd[i+1],
-        W, fwd[i], widths[i+1], widths[i], nr_batch)
-    MatVec.add_i(fwd[i+1],
-        W + widths[i+1] * widths[i], 1.0, nr_batch, widths[i+1])
- 
-    scores = fwd[i+1]
-    for _ in range(nr_batch):
-        softmax(scores,
-            widths[i+1])
-        scores += widths[i+1]
+            normalize(fwd[i], W+mean, W+variance,
+                nr_batch, nr_out)
+        transform(fwd[i],
+            W+gamma, W+beta, nr_out, nr_batch)
+        ReLu(fwd[i],
+            nr_out * nr_batch)
+        W += nr_out * nr_in + nr_out * 5
+
+    i = nr_layer-1
+    nr_out = widths[i]
+    nr_in = widths[i-1]
+    b = nr_out * nr_in
+    
+    affine(fwd[i],
+        fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
+    for j in range(nr_batch):
+        softmax(fwd[i] + j * nr_out,
+            nr_out)
 
 
-cdef void normalize(weight_t* x, int nr_batch, int n) except *:
-    cdef weight_t[300] Ex
-    for i in range(n):
-        Ex[i] = 0
-    for i in range(nr_batch):
-        VecVec.add_i(Ex, x + (i * n), 1.0, n)
-    Vec.mul_i(Ex, 1.0 / nr_batch, n)
-    cdef weight_t[300] Vx
-    for i in range(300):
-        Vx[i] = 0
-    for i in range(nr_batch):
-        VecVec.add_i(x + (i * n), Ex, -1.0, n)
-        VecVec.add_pow_i(Vx, x + (i * n), 2.0, n)
-    Vec.mul_i(Vx, 1.0 / nr_batch, n)
-    for i in range(nr_batch):
-        for j in range(n):
-            x[i * n + j] /= sqrt(Vx[j] + EPS)
+cdef void affine(weight_t* out,
+        const weight_t* x, const weight_t* w, const weight_t* bias,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    MatVec.batch_dot(out,
+        w, x, nr_out, nr_in, nr_batch)
+    MatVec.add_i(out,
+        bias, 1.0, nr_batch, nr_out)
+
+
+cdef void transform(weight_t* x,
+        const weight_t* gamma, const weight_t* beta, int nr_out, int nr_batch) nogil:
+    MatVec.mul_i(x,
+        gamma, nr_batch, nr_out)
+    MatVec.add_i(x,
+        beta, 1.0, nr_batch, nr_out)
+ 
+
+cdef void normalize(weight_t* _x,
+        const weight_t* ema_mean, const weight_t* ema_var, int N, int D) except *:
+    if N == 1:
+        #VecVec.add_i(_x,
+        #    ema_mean, -1.0, D)
+        #for i in range(D):
+        #    _x[i] /= sqrt(ema_var[i] + EPS)
+        return
+    x = np.zeros(shape=(N, D), dtype='float64')
+    for i in range(N):
+        for j in range(D):
+            x[i, j] = _x[i * D + j]
+    # Step 1 - shape of mu (D,)
+    mu = 1 / float(N) * np.sum(x, axis=0)
+
+    # Step 2 - shape of var (N,D)
+    xmu = x - mu
+
+    # Step 3 - shape of carre (N,D)
+    carre = xmu**2
+
+    # Step 4 - shape of var (D,)
+    var = 1 / float(N) * np.sum(carre, axis=0)
+
+    # Step 5 - Shape sqrtvar (D,)
+    sqrtvar = np.sqrt(var + EPS)
+
+    # Step 6 - Shape invvar (D,)
+    invvar = 1. / sqrtvar
+
+    # Step 7 - Shape out (N,D)
+    out = xmu * invvar
+
+    for i in range(N):
+        for j in range(D):
+            _x[i * D + j] = out[i, j]
+    #cdef weight_t[300] Ex
+    #for i in range(n):
+    #    Ex[i] = 0
+    #for i in range(nr_batch):
+    #    VecVec.add_i(Ex, x + (i * n), 1.0, n)
+    #Vec.mul_i(Ex, 1.0 / nr_batch, n)
+    #cdef weight_t[300] Vx
+    #for i in range(300):
+    #    Vx[i] = 0
+    #for i in range(nr_batch):
+    #    VecVec.add_i(x + (i * n), Ex, -1.0, n)
+    #    VecVec.add_pow_i(Vx, x + (i * n), 2.0, n)
+    #Vec.mul_i(Vx, 1.0 / nr_batch, n)
+    #for i in range(n):
+    #    Vx[i] = 1. / sqrt(Vx[i] + 1e-5)
+    #MatVec.mul_i(x,
+    #    Vx, nr_batch, n)

@@ -16,15 +16,15 @@ def call_dot_plus(
     return out
 
 
-def call_d_dot(
-    weight_t[:] btm_diff,
-        weight_t[:] top_diff,
-        weight_t[:] W,
-        int nr_top,
-        int nr_btm):
-    d_dot(&btm_diff[0],
-        nr_btm, &top_diff[0], nr_top, &W[0])
-    return btm_diff
+#def call_d_dot(
+#    weight_t[:] btm_diff,
+#        weight_t[:] top_diff,
+#        weight_t[:] W,
+#        int nr_top,
+#        int nr_btm):
+#    d_dot(&btm_diff[0],
+#        nr_btm, &top_diff[0], nr_top, &W[0])
+#    return btm_diff
 
 
 def call_ELU(weight_t[:] out, int nr_out):
@@ -38,6 +38,7 @@ def call_d_ELU(weight_t[:] delta, weight_t[:] signal_out, int nr_out):
 
 
 def call_normalize(weight_t[:, :] data, int nr_batch, int n):
+    assert nr_batch != 1 # Fix NULL calls to normalize to use with minibatch 1
     cdef weight_t[:] flattened = numpy.ascontiguousarray(data).flatten()
-    normalize(&flattened[0], nr_batch, n)
+    normalize(&flattened[0], NULL, NULL, nr_batch, n)
     return numpy.ascontiguousarray(flattened).reshape((nr_batch, n))

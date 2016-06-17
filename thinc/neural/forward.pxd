@@ -11,7 +11,7 @@ cdef void ELU_forward(weight_t** fwd,
         const ConstantsC* hp) nogil
  
 
-cdef void ELU_batch_norm_forward(weight_t** fwd,
+cdef void ReLu_batch_norm_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil
  
@@ -32,4 +32,9 @@ cdef void softmax(weight_t* out, len_t nr_out) nogil
 cdef void ELU(weight_t* out, len_t nr_out) nogil
 cdef void ReLu(weight_t* out, len_t nr_out) nogil
 
-cdef void normalize(weight_t* x, int nr_batch, int n) except *
+cdef void normalize(weight_t* x, const weight_t* ema_mean, const weight_t* ema_var,
+        int nr_batch, int n) except *
+
+cdef void affine(weight_t* out,
+        const weight_t* x, const weight_t* w, const weight_t* bias,
+        int nr_out, int nr_in, int nr_batch) nogil

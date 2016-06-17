@@ -332,7 +332,6 @@ cdef class MatVec:
             )
         ELSE:
             for i in range(nr_row):
-                output[i] = 0
                 row = i * nr_col
                 for col in range(nr_col):
                     output[i] += mat[row + col] * vec[col]
