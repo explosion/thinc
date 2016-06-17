@@ -112,9 +112,8 @@ cdef void ReLu_batch_norm_forward(weight_t** fwd,
 
         affine(fwd[i],
             fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
-        with gil:
-            normalize(fwd[i],
-                nr_batch, nr_out)
+        normalize(fwd[i],
+            nr_out, nr_batch)
         transform(fwd[i],
             W+gamma, W+beta, nr_out, nr_batch)
         ReLu(fwd[i],
@@ -150,52 +149,21 @@ cdef void transform(weight_t* x,
         beta, 1.0, nr_batch, nr_out)
  
 
-cdef void normalize(weight_t* _x,
-        int N, int D) except *:
-    if N == 1:
+cdef void normalize(weight_t* x, int nr_out, int nr_batch) nogil:
+    if nr_batch == 1:
         return
-    x = np.zeros(shape=(N, D), dtype='float64')
-    for i in range(N):
-        for j in range(D):
-            x[i, j] = _x[i * D + j]
-    # Step 1 - shape of mu (D,)
-    mu = 1 / float(N) * np.sum(x, axis=0)
-
-    # Step 2 - shape of var (N,D)
-    xmu = x - mu
-
-    # Step 3 - shape of carre (N,D)
-    carre = xmu**2
-
-    # Step 4 - shape of var (D,)
-    var = 1 / float(N) * np.sum(carre, axis=0)
-
-    # Step 5 - Shape sqrtvar (D,)
-    sqrtvar = np.sqrt(var + EPS)
-
-    # Step 6 - Shape invvar (D,)
-    invvar = 1. / sqrtvar
-
-    # Step 7 - Shape out (N,D)
-    out = xmu * invvar
-
-    for i in range(N):
-        for j in range(D):
-            _x[i * D + j] = out[i, j]
-    #cdef weight_t[300] Ex
-    #for i in range(n):
-    #    Ex[i] = 0
-    #for i in range(nr_batch):
-    #    VecVec.add_i(Ex, x + (i * n), 1.0, n)
-    #Vec.mul_i(Ex, 1.0 / nr_batch, n)
-    #cdef weight_t[300] Vx
-    #for i in range(300):
-    #    Vx[i] = 0
-    #for i in range(nr_batch):
-    #    VecVec.add_i(x + (i * n), Ex, -1.0, n)
-    #    VecVec.add_pow_i(Vx, x + (i * n), 2.0, n)
-    #Vec.mul_i(Vx, 1.0 / nr_batch, n)
-    #for i in range(n):
-    #    Vx[i] = 1. / sqrt(Vx[i] + 1e-5)
-    #MatVec.mul_i(x,
-    #    Vx, nr_batch, n)
+    cdef weight_t[300] Ex
+    memset(Ex, 0, sizeof(Ex))
+    for i in range(nr_batch):
+        VecVec.add_i(Ex, x + (i * nr_out), 1.0, nr_out)
+    Vec.mul_i(Ex, 1.0 / nr_batch, nr_out)
+    cdef weight_t[300] Vx
+    memset(Vx, 0, sizeof(Vx))
+    for i in range(nr_batch):
+        VecVec.add_i(x + (i * nr_out), Ex, -1.0, nr_out)
+        VecVec.add_pow_i(Vx, x + (i * nr_out), 2.0, nr_out)
+    Vec.mul_i(Vx, 1.0 / nr_batch, nr_out)
+    for i in range(nr_out):
+        Vx[i] = 1. / sqrt(Vx[i] + EPS)
+    MatVec.mul_i(x,
+        Vx, nr_batch, nr_out)

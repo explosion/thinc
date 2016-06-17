@@ -155,9 +155,8 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
         affine(x[i],
             fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
         memcpy(x_norm[i], x[i], sizeof(weight_t) * nr_batch * nr_out)
-        with gil:
-            normalize(x_norm[i],
-                nr_batch, nr_out)
+        normalize(x_norm[i],
+            nr_out, nr_batch)
 
         d_ReLu(bwd[i],
             fwd[i], nr_out * nr_batch)

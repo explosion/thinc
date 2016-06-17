@@ -32,7 +32,7 @@ cdef void softmax(weight_t* out, len_t nr_out) nogil
 cdef void ELU(weight_t* out, len_t nr_out) nogil
 cdef void ReLu(weight_t* out, len_t nr_out) nogil
 
-cdef void normalize(weight_t* x, int nr_batch, int n) except *
+cdef void normalize(weight_t* x, int nr_out, int nr_batch) nogil
 
 cdef void affine(weight_t* out,
         const weight_t* x, const weight_t* w, const weight_t* bias,
