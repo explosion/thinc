@@ -16,7 +16,6 @@ from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
 np.import_array()
 
 
-
 cdef weight_t EPS = 1e-5
 DEF ALPHA = 1.0
 
@@ -156,14 +155,14 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
             fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
         memcpy(x_norm[i], x[i], sizeof(weight_t) * nr_batch * nr_out)
         normalize(x_norm[i],
-            nr_out, nr_batch)
+            W+mean, W+variance, nr_out, nr_batch)
 
         d_ReLu(bwd[i],
             fwd[i], nr_out * nr_batch)
         d_transform(bwd[i], G + gamma, G + beta,
             x_norm[i], W + gamma, nr_out, nr_batch)
         with gil:
-            d_batchnorm(bwd[i],
+            d_batchnorm(bwd[i], <weight_t*>(W+mean), <weight_t*>(W+variance),
                 x[i], nr_out, nr_batch)
         d_affine(bwd[i-1], G, G + b,
             bwd[i], fwd[i-1], W, nr_out, nr_in, nr_batch)
@@ -174,7 +173,7 @@ cdef void ReLu_batch_norm_backward(weight_t* G, weight_t** bwd,
     free(x_norm)
 
 
-cdef void d_batchnorm(weight_t* _dx,
+cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
         const weight_t* _x, int nr_out, int nr_batch) except *:
     if nr_batch == 1:
         return
@@ -189,8 +188,9 @@ cdef void d_batchnorm(weight_t* _dx,
     # http://cthorey.github.io./backpropagation/
     N = nr_batch
     D = nr_out
-    inv_sqrt_var = x.var(0) ** (-1. / 2.)
-    inv_var = x.var(0) ** -1.
+    var = x.var(0) + EPS
+    inv_sqrt_var = var ** (-1. / 2.)
+    inv_var = var ** -1.
     mu = x.mean(0)
 
     dx = (1. / N) \
@@ -205,6 +205,9 @@ cdef void d_batchnorm(weight_t* _dx,
     for i in range(nr_batch):
         for j in range(nr_out):
             _dx[i * nr_out + j] = dx[i, j]
+    for i in range(nr_out):
+        est_mean[i] = (0.9 * est_mean[i]) + (0.1 * mu[i])
+        est_var[i] = (0.9 * est_var[i]) + (0.1 * var[i])
 
 
 cdef void d_affine(weight_t* d_x, weight_t* d_w, weight_t* d_b,

@@ -113,7 +113,7 @@ cdef void ReLu_batch_norm_forward(weight_t** fwd,
         affine(fwd[i],
             fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
         normalize(fwd[i],
-            nr_out, nr_batch)
+            W+mean, W+variance, nr_out, nr_batch)
         transform(fwd[i],
             W+gamma, W+beta, nr_out, nr_batch)
         ReLu(fwd[i],
@@ -149,16 +149,21 @@ cdef void transform(weight_t* x,
         beta, 1.0, nr_batch, nr_out)
  
 
-cdef void normalize(weight_t* x, int nr_out, int nr_batch) nogil:
+cdef void normalize(weight_t* x, const weight_t* est_Ex, const weight_t* est_Vx,
+        int nr_out, int nr_batch) nogil:
     if nr_batch == 1:
+        for i in range(nr_batch):
+            for j in range(nr_out):
+                x[i * nr_out + j] -= est_Ex[j]
+                x[i * nr_out + j] /= sqrt(est_Vx[j] + EPS)
         return
     cdef weight_t[300] Ex
+    cdef weight_t[300] Vx
+    memset(Vx, 0, sizeof(Vx))
     memset(Ex, 0, sizeof(Ex))
     for i in range(nr_batch):
         VecVec.add_i(Ex, x + (i * nr_out), 1.0, nr_out)
     Vec.mul_i(Ex, 1.0 / nr_batch, nr_out)
-    cdef weight_t[300] Vx
-    memset(Vx, 0, sizeof(Vx))
     for i in range(nr_batch):
         VecVec.add_i(x + (i * nr_out), Ex, -1.0, nr_out)
         VecVec.add_pow_i(Vx, x + (i * nr_out), 2.0, nr_out)
@@ -167,3 +172,4 @@ cdef void normalize(weight_t* x, int nr_out, int nr_batch) nogil:
         Vx[i] = 1. / sqrt(Vx[i] + EPS)
     MatVec.mul_i(x,
         Vx, nr_batch, nr_out)
+
