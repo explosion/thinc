@@ -108,16 +108,17 @@ cdef class Embedding:
                     &delta[layer.offsets[feat.i]], feat.value, layer.lengths[feat.i])
 
     @staticmethod
-    cdef inline void update(EmbedC* layer, int i, key_t key, const ConstantsC* hp,
-            do_update_t do_update) nogil:
+    cdef inline void update(EmbedC* layer, int i, key_t key, int batch_size,
+            const ConstantsC* hp, do_update_t do_update) nogil:
         gradient = <weight_t*>Map_get(layer.gradients[i], key)
         length = layer.lengths[i]
-        # None of these should ever be null
         if gradient is NULL or length == 0:
             return
         for weight in gradient[:length]:
-            if weight == 0:
-                return
+            if weight != 0.0:
+                break
+        else:
+            return
         emb = <weight_t*>Map_get(layer.weights[i], key)
         if emb is not NULL:
             do_update(emb, gradient,
@@ -125,18 +126,24 @@ cdef class Embedding:
 
     @staticmethod
     cdef inline void update_all(EmbedC* layer,
-            const ConstantsC* hp, do_update_t do_update) nogil:
+            int batch_size, const ConstantsC* hp, do_update_t do_update) nogil:
         cdef key_t key
         cdef void* value
         cdef int i, j
         for i in range(layer.nr):
             j = 0
-            while Map_iter(layer.weights[i], &j, &key, &value):
-                emb = <weight_t*>value
-                grad = <weight_t*>Map_get(layer.gradients[i], key)
-                if emb is not NULL and grad is not NULL:
+            length = layer.lengths[i]
+            while Map_iter(layer.gradients[i], &j, &key, &value):
+                grad = <weight_t*>value
+                for weight in grad[:length]:
+                    if weight != 0.0:
+                        break
+                else:
+                    continue
+                emb = <weight_t*>Map_get(layer.weights[i], key)
+                if emb is not NULL:
                     do_update(emb, grad,
-                        layer.lengths[i], hp)
+                        length, hp)
 
     @staticmethod
     cdef inline void average(EmbedC* layer, weight_t time) nogil:

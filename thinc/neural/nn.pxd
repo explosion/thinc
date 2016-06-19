@@ -34,4 +34,4 @@ cdef class NeuralNet(Model):
             int nr_feat, int is_sparse) nogil
  
     cdef void _update_extracterC(self, const void* _feats,
-            int nr_feat, int is_sparse) nogil
+            int nr_feat, int is_sparse, int batch_size) nogil

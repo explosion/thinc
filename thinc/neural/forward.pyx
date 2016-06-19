@@ -34,7 +34,7 @@ cdef void ELU_forward(weight_t** fwd,
         if (i+1) < nr_layer:
             ELU(fwd[i],
                 nr_out * nr_batch)
-        W += nr_out * nr_in + nr_out * 3
+        W += nr_out * nr_in + nr_out * 5
  
     scores = fwd[nr_layer - 1]
     nr_out = widths[nr_layer - 1]

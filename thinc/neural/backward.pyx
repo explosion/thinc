@@ -6,6 +6,7 @@ from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
 cimport numpy as np
 import numpy as np
+from cpython.exc cimport PyErr_CheckSignals
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
@@ -31,8 +32,8 @@ cdef void ELU_backward(weight_t* G, weight_t** bwd,
         top_d = bwd[i]
         btm_d = bwd[i-1]
 
-        W -= nr_out * nr_in + nr_out * 3
-        G -= nr_out * nr_in + nr_out * 3
+        W -= nr_out * nr_in + nr_out * 5
+        G -= nr_out * nr_in + nr_out * 5
 
         if (i+1) < nr_layer:
             d_ELU(top_d,
@@ -164,6 +165,7 @@ cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
         with gil:
             d_batchnorm(bwd[i], <weight_t*>(W+mean), <weight_t*>(W+variance),
                 x[i], nr_out, nr_batch)
+            PyErr_CheckSignals()
         d_affine(bwd[i-1], G, G + b,
             bwd[i], fwd[i-1], W, nr_out, nr_in, nr_batch)
     for i in range(nr_layer):
@@ -184,26 +186,23 @@ cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
             dy[i, j] = _dx[i * nr_out + j]
             x[i, j] = _x[i * nr_out + j]
 
-    mu = x.mean(0)
-    var = x.var(0) + EPS
-    x_mu = x - mu
     # Simplification by Clement Thorey, here:
     # http://cthorey.github.io./backpropagation/
     N = nr_batch
     D = nr_out
+    var = x.var(0) + EPS
     inv_sqrt_var = var ** (-1. / 2.)
     inv_var = var ** -1.
-    sum_dy = np.sum(dy, axis=0)
-    sum_dy_xmu = np.sum(dy * x_mu, axis=0)
+    x_mu = x - x.mean(0)
 
     dx = (1. / N) \
        * inv_sqrt_var \
        * (N \
          * dy \
-         - sum_dy \
+         - np.sum(dy, axis=0) \
          - x_mu \
            * inv_var \
-           * sum_dy_xmu)
+           * np.sum(dy * x_mu, axis=0))
 
     for i in range(nr_batch):
         for j in range(nr_out):

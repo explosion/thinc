@@ -125,6 +125,9 @@ cdef class NeuralNet(Model):
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
         self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
+    def __dealloc__(self):
+        del self._mb
+
     def __call__(self, Example eg):
         if eg.c.nr_feat >= 1:
             Embedding.insert_missing(self.mem, &self.c.embed,
@@ -263,7 +266,7 @@ cdef class NeuralNet(Model):
         for i in range(mb.i):
             self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         for i in range(mb.i):
-            self._update_extracterC(mb.features(i), mb.nr_feat(i), 1)
+            self._update_extracterC(mb.features(i), mb.nr_feat(i), 1, mb.i)
 
     cdef void _dropoutC(self, void* _feats, int nr_feat, int is_sparse) nogil:
         cdef int dropout = 7
@@ -304,13 +307,13 @@ cdef class NeuralNet(Model):
             deltas, self.c.widths[0], <const FeatureC*>feats, nr_feat)
 
     cdef void _update_extracterC(self, const void* _feats,
-            int nr_feat, int is_sparse) nogil:
+            int nr_feat, int is_sparse, int batch_size) nogil:
         if nr_feat < 1 or not is_sparse:
             return
         feats = <const FeatureC*>_feats
         for feat in feats[:nr_feat]:
             Embedding.update(&self.c.embed,
-                feat.i, feat.key, &self.c.hp, self.c.update)
+                feat.i, feat.key, batch_size, &self.c.hp, self.c.update)
 
     @property
     def weights(self):
