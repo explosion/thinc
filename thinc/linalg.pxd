@@ -276,6 +276,7 @@ cdef class VecVec:
     cdef inline int arg_max_if_zero(
             const weight_t* scores, const weight_t* costs, const int n_classes) nogil:
         cdef int i
+        cdef int best = -1
         for i in range(n_classes):
             if costs[i] == 0 and (best == -1 or scores[i] > scores[best]):
                 best = i
