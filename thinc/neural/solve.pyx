@@ -37,28 +37,8 @@ cdef void add_gradient_noise(weight_t* gradient, weight_t variance, int nr_weigh
 
 
 @cython.cdivision(True)
-cdef void l2_regularize(weight_t* gradient,
-        const weight_t* weights, weight_t strength, int nr_weight) nogil:
-    # Add the derivative of the L2-loss to the gradient
-    if strength != 0:
-        VecVec.add_i(gradient,
-            weights, strength, nr_weight)
-
-@cython.cdivision(True)
-cdef void l1_regularize(weight_t* gradient,
-        const weight_t* weights, weight_t strength, int nr_weight) nogil:
-    # Add the derivative of the L1-loss to the gradient
-    if strength != 0:
-        for i in range(nr_weight):
-            sign = 1 if weights[i] > 0 else -1
-            gradient[i] += sign * weights[i] * strength
-
-
-@cython.cdivision(True)
 cdef void noisy_update(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    l2_regularize(gradient,
-        weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
@@ -72,8 +52,6 @@ cdef void noisy_update(weight_t* weights, weight_t* gradient,
 @cython.cdivision(True)
 cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    l2_regularize(gradient,
-        weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
     VecVec.add_i(weights,
@@ -85,8 +63,6 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
 @cython.cdivision(True)
 cdef void asgd(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    l2_regularize(gradient,
-        weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
     VecVec.add_i(weights,
@@ -104,14 +80,12 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
     '''
     Update weights with SGD and classical momentum
     '''
-    l2_regularize(gradient,
-        weights, hp.r, nr_weight)
     clip_gradient(gradient,
-        1000.0, nr_weight)
-    noise_variance = 1.0 / ((1 + hp.t) ** 0.55)
-    if noise_variance >= 0.000001:
-        add_gradient_noise(gradient,
-            hp.e, nr_weight)
+        100.0, nr_weight)
+    #noise_variance = 0.1 / ((1 + hp.t) ** 0.55)
+    #if noise_variance >= 0.000001:
+    #    add_gradient_noise(gradient,
+    #        hp.e, nr_weight)
     momentum = weights + nr_weight * 2
     Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
@@ -131,11 +105,9 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
 @cython.cdivision(True)
 cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
-    l2_regularize(gradient,
-        weights, hp.r, nr_weight)
     clip_gradient(gradient,
         100.0, nr_weight)
-    noise_variance = 1.0 / ((1 + hp.t) ** 0.55)
+    noise_variance = 10.0 / ((1 + hp.t) ** 0.55)
     if noise_variance >= 0.000001:
         add_gradient_noise(gradient,
             hp.e, nr_weight)

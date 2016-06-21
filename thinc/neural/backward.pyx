@@ -4,14 +4,17 @@
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
+from libc.stdint cimport uint64_t
 cimport numpy as np
 import numpy as np
 from cpython.exc cimport PyErr_CheckSignals
+from murmurhash.mrmr cimport hash64
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
 from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
+from .forward cimport skip_layer
 
 
 np.import_array()
@@ -102,11 +105,16 @@ cdef void d_hinge_loss(weight_t* loss,
 ) nogil:
     for i in range(nr_out):
         loss[i] = 0.0
-    guess = Vec.arg_max(scores, nr_out)
+
     best = VecVec.arg_max_if_zero(scores, costs, nr_out)
-    margin = scores[guess] - scores[best]
-    loss[best] = -(margin * costs[guess])
-    loss[guess] = (margin * costs[guess])
+    if best == -1:
+        for i in range(nr_out):
+            loss[i] = 1.0
+    else:
+        for i in range(nr_out):
+            if costs[i] != 0 and scores[i] > (scores[best] + 1.0):
+                loss[best] -= 1.0
+                loss[i] = 1.0
 
 
 from .forward cimport affine, normalize
@@ -145,6 +153,7 @@ cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
 
         W -= nr_out * nr_in + nr_out * 5
         G -= nr_out * nr_in + nr_out * 5
+
         b = nr_out * nr_in
         gamma = b + nr_out
         beta = gamma + nr_out
@@ -157,9 +166,12 @@ cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
         memcpy(x_norm[i], x[i], sizeof(weight_t) * nr_batch * nr_out)
         normalize(x_norm[i],
             W+mean, W+variance, nr_out, nr_batch)
-
         d_ELU(bwd[i],
             fwd[i], nr_out * nr_batch)
+        if i >= 2 and widths[i] == widths[i-2]:
+            VecVec.add_i(bwd[i-2],
+                bwd[i], 1.0, nr_out * nr_batch)
+
         d_transform(bwd[i], G + gamma, G + beta,
             x_norm[i], W + gamma, nr_out, nr_batch)
         with gil:
@@ -168,6 +180,8 @@ cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
             PyErr_CheckSignals()
         d_affine(bwd[i-1], G, G + b,
             bwd[i], fwd[i-1], W, nr_out, nr_in, nr_batch)
+        l2_regularize(G,
+            W, hp.r, nr_out * nr_in)
     for i in range(nr_layer):
         free(x[i])
         free(x_norm[i])
@@ -242,3 +256,26 @@ cdef void d_transform(weight_t* d_x, weight_t* d_gamma, weight_t* d_beta,
     for i in range(nr_batch):
         VecVec.mul_i(d_x + i * nr_out,
             gamma, nr_out)
+
+
+
+@cython.cdivision(True)
+cdef inline void l2_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L2-loss to the gradient
+    if strength != 0:
+        VecVec.add_i(gradient,
+            weights, strength, nr_weight)
+
+
+@cython.cdivision(True)
+cdef inline void l1_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t cross,
+        weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L1-loss to the gradient
+    if strength != 0:
+        for i in range(nr_weight):
+            if weights[i] > cross:
+                gradient[i] += strength
+            elif weights[i] < cross:
+                gradient[i] -= strength

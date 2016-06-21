@@ -3,9 +3,11 @@
 # cython: infer_types=True
 cimport cython
 from libc.stdlib cimport rand
-from libc.string cimport memset
+from libc.string cimport memset, memcpy
 cimport numpy as np
 import numpy as np
+from libc.stdint cimport uint64_t
+from murmurhash.mrmr cimport hash64
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
@@ -98,6 +100,15 @@ cdef void softmax(weight_t* out, len_t nr_out) nogil:
             norm, nr_out)
 
 
+cdef int skip_layer(weight_t timestep, uint64_t layer, int nr_in, int nr_out) nogil:
+    if nr_in != nr_out:
+        return False
+    elif hash64(&timestep, sizeof(timestep), layer) % 2:
+        return False
+    else:
+        return True
+
+
 cdef void ELU_batch_norm_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil:
@@ -116,6 +127,11 @@ cdef void ELU_batch_norm_forward(weight_t** fwd,
             W+mean, W+variance, nr_out, nr_batch)
         transform(fwd[i],
             W+gamma, W+beta, nr_out, nr_batch)
+        ELU(fwd[i],
+            nr_out * nr_batch)
+        if i >= 2 and widths[i] == widths[i-2]:
+            VecVec.add_i(fwd[i],
+                fwd[i-2], 1.0, nr_out * nr_batch)
         ELU(fwd[i],
             nr_out * nr_batch)
         W += nr_out * nr_in + nr_out * 5

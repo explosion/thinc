@@ -1,3 +1,4 @@
+from libc.stdint cimport uint64_t
 from ..structs cimport FeatureC
 from ..structs cimport ConstantsC
 
@@ -21,6 +22,7 @@ cdef void ReLu_forward(weight_t** fwd,
         int nr_batch,
         const ConstantsC* hp) nogil
  
+cdef int skip_layer(weight_t timestep, uint64_t layer, int nr_in, int nr_out) nogil
 
 cdef void dot_plus(weight_t* out,
         const weight_t* bias, len_t nr_out,
