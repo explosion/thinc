@@ -4,16 +4,16 @@ from ..backward cimport *
 import numpy
 
 
-def call_dot_plus(
-    weight_t[:] out,
-        weight_t[:] in_,
-        weight_t[:] W,
-        weight_t[:] bias,
-        int nr_top,
-        int nr_btm):
-    dot_plus(&out[0],
-        &bias[0], nr_top, &in_[0], nr_btm, &W[0])
-    return out
+#def call_dot_plus(
+#    weight_t[:] out,
+#        weight_t[:] in_,
+#        weight_t[:] W,
+#        weight_t[:] bias,
+#        int nr_top,
+#        int nr_btm):
+#    dot_plus(&out[0],
+#        &bias[0], nr_top, &in_[0], nr_btm, &W[0])
+#    return out
 
 
 #def call_d_dot(

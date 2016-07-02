@@ -49,6 +49,12 @@ cdef class ConjunctionExtracter:
         cdef atom_t[MAX_TEMPLATE_LEN] extracted
         for templ_id in range(self.nr_templ-1):
             templ = self.templates[templ_id]
+            if not self.linear_mode and templ.length == 1:
+                feats[n_feats].key = atoms[templ.indices[0]]
+                feats[n_feats].value = 1
+                feats[n_feats].i = templ_id
+                n_feats += 1
+                continue
             seen_non_zero = False
             for i in range(templ.length):
                 extracted[i] = atoms[templ.indices[i]]

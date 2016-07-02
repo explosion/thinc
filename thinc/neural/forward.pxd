@@ -12,24 +12,16 @@ cdef void ELU_forward(weight_t** fwd,
         const ConstantsC* hp) nogil
  
 
-cdef void ELU_batch_norm_forward(weight_t** fwd,
+cdef void ELU_batch_norm_residual_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil
  
 
 cdef void ReLu_forward(weight_t** fwd,
-        const weight_t* W, const len_t* shape, int nr_below, int nr_above,
-        int nr_batch,
+        const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil
  
 cdef int skip_layer(weight_t timestep, uint64_t layer, int nr_in, int nr_out) nogil
-
-cdef void dot_plus(weight_t* out,
-        const weight_t* bias, len_t nr_out,
-        const weight_t* x, len_t nr_in,
-        const weight_t* W) nogil
-  
-
 cdef void softmax(weight_t* out, len_t nr_out) nogil
 cdef void ELU(weight_t* out, len_t nr_out) nogil
 cdef void ReLu(weight_t* out, len_t nr_out) nogil

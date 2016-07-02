@@ -40,11 +40,11 @@ from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
-from .forward cimport ELU_batch_norm_forward
+from .forward cimport ELU_batch_norm_residual_forward
 from .forward cimport ReLu_forward
 from .backward cimport ELU_backward
 from .backward cimport ReLu_backward
-from .backward cimport ELU_batch_norm_backward
+from .backward cimport ELU_batch_norm_residual_backward
 from .backward cimport d_log_loss, d_hinge_loss
 
 from .embed cimport Embedding
@@ -89,8 +89,13 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        self.c.feed_fwd = ELU_batch_norm_forward
-        self.c.feed_bwd = ELU_batch_norm_backward
+        if kwargs.get('batch_norm', True):
+            self.c.feed_fwd = ELU_batch_norm_residual_forward
+            self.c.feed_bwd = ELU_batch_norm_residual_backward
+        else:
+            self.c.feed_fwd = ELU_forward
+            self.c.feed_bwd = ELU_backward
+
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
@@ -102,6 +107,7 @@ cdef class NeuralNet(Model):
         for i in range(self.c.nr_layer-1):
             self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
             self.c.nr_node += self.c.widths[i]
+        print(self.c.nr_weight)
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
                                                    sizeof(self.c.weights[0]))
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
@@ -256,8 +262,8 @@ cdef class NeuralNet(Model):
             self._set_delta_lossC(mb.losses(i),
                 mb.costs(i), mb.fwd(mb.nr_layer-1, i))
         
-        self.c.feed_bwd(self.c.gradient + self.c.nr_weight, mb._bwd,
-            self.c.weights + self.c.nr_weight, mb._fwd, self.c.widths, self.c.nr_layer,
+        self.c.feed_bwd(self.c.gradient, mb._bwd,
+            self.c.weights, mb._fwd, self.c.widths, self.c.nr_layer,
             mb.i, &self.c.hp)
 
         self.c.hp.t += 1

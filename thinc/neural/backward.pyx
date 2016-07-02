@@ -14,7 +14,9 @@ from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
 from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
+from .weights cimport parse_weights, parse_batch_norm_weights
 from .forward cimport skip_layer
+from .forward cimport affine, normalize
 
 
 np.import_array()
@@ -24,47 +26,138 @@ cdef weight_t EPS = 1e-5
 DEF ALPHA = 1.0
 
 
-cdef void ELU_backward(weight_t* G, weight_t** bwd,
-        const weight_t* W, const weight_t* const* fwd, const len_t* widths,
+cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
+        const weight_t* weights, const weight_t* const* fwd, const len_t* widths,
         int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
-    for i in range(nr_layer-1, 0, -1):
-        nr_out = widths[i]
-        nr_in = widths[i-1]
-        top_x = fwd[i]
-        btm_x = fwd[i-1]
-        top_d = bwd[i]
-        btm_d = bwd[i-1]
+    '''Backward pass with ELU activation.
 
-        W -= nr_out * nr_in + nr_out * 5
-        G -= nr_out * nr_in + nr_out * 5
+    Sequence of operations to compute the ith layer of activations
+    
+    x[i] = x[i-1] * W + b # Affine
+    x[i] = ELU(x[i]) # ELU
+
+    Arguments:
+        fwd: array to write the forward activations
+        widths: array of layer widths
+        nr_layer: length of the widths array
+        nr_batch: batch size
+        hp: Hyper-parameters
+    '''
+    cdef int W
+    cdef int bias
+    for i in range(1, nr_layer-1):
+        parse_weights(&W, &bias, 
+            widths, i, nr_layer)
 
         if (i+1) < nr_layer:
-            d_ELU(top_d,
-                top_x, nr_out * nr_batch)
+            d_ELU(bwd[i],
+                fwd[i], widths[i] * nr_batch)
         # Set the gradient for W
-        MatMat.batch_add_outer_i(G,
-            top_d, btm_x, nr_out, nr_in, nr_batch)
+        MatMat.batch_add_outer_i(&gradient[W],
+            bwd[i], fwd[i-1], widths[i], widths[i-1], nr_batch)
         # Set the gradient for bias
-        VecVec.batch_add_i(G + nr_out * nr_in,
-            top_d, 1.0, nr_out, nr_batch)
+        VecVec.batch_add_i(&gradient[bias],
+            bwd[i], 1.0, widths[i], nr_batch)
         # Set the gradient of fwd[i]
-        MatVec.batch_T_dot(btm_d,
-            W, top_d, nr_out, nr_in, nr_batch)
-    
+        MatVec.batch_T_dot(bwd[i-1],
+            &weights[W], bwd[i], widths[i], widths[i-1], nr_batch)
+ 
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
-        const weight_t* W, const weight_t* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, int nr_batch, const ConstantsC* hp) nogil:
-    d_ReLu(bwd[1],
-        fwd[1], shape[1])
-    # Set the gradient for F(W * fwd[0]) 
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    VecVec.add_i(gradient + shape[1] * shape[0],
-        bwd[1], 1.0, shape[1])
-    # Set the partial derivative for bwd[0], so next step can set its gradient
-    MatVec.T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0])
+        const weight_t* weights, const weight_t* const* fwd, const len_t* widths,
+        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+    '''Backward pass with ELU activation.
+
+    Sequence of operations to compute the ith layer of activations
+    
+    x[i] = x[i-1] * W + b # Affine
+    x[i] = ELU(x[i]) # ELU
+
+    Arguments:
+        fwd: array to write the forward activations
+        widths: array of layer widths
+        nr_layer: length of the widths array
+        nr_batch: batch size
+        hp: Hyper-parameters
+    '''
+    cdef int W
+    cdef int bias
+    for i in range(1, nr_layer-1):
+        parse_weights(&W, &bias, 
+            widths, i, nr_layer)
+
+        if (i+1) < nr_layer:
+            d_ReLu(bwd[i],
+                fwd[i], widths[i] * nr_batch)
+        # Set the gradient for W
+        MatMat.batch_add_outer_i(&gradient[W],
+            bwd[i], fwd[i-1], widths[i], widths[i-1], nr_batch)
+        # Set the gradient for bias
+        VecVec.batch_add_i(&gradient[bias],
+            bwd[i], 1.0, widths[i], nr_batch)
+        # Set the gradient of fwd[i]
+        MatVec.batch_T_dot(bwd[i-1],
+            &gradient[W], bwd[i], widths[i], widths[i-1], nr_batch)
+ 
+        
+cdef void ELU_batch_norm_residual_backward(weight_t* gradient, weight_t** bwd,
+        const weight_t* weights, const weight_t* const* fwd, const len_t* widths,
+        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+    cdef int W
+    cdef int bias
+    cdef int gamma
+    cdef int beta
+    cdef int mean
+    cdef int variance
+
+    x = <weight_t**>calloc(nr_layer, sizeof(void*))
+    x_norm = <weight_t**>calloc(nr_layer, sizeof(void*))
+    for i in range(nr_layer):
+        x[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
+        x_norm[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
+    memcpy(x[0], fwd[0], sizeof(weight_t) * widths[0] * nr_batch)
+    # Recalculate x and x_norm, for batchnorm
+    for i in range(1, nr_layer-1):
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+            widths, i, nr_layer)
+
+        affine(x[i],
+            fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+        memcpy(x_norm[i],
+            x[i], sizeof(weight_t) * nr_batch * widths[i])
+        normalize(x_norm[i],
+            &weights[mean], &weights[variance], widths[i], nr_batch)
+
+    i = nr_layer-1
+    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+        widths, i, nr_layer)
+
+    d_affine(bwd[i-1], gradient + W, gradient + bias,
+        bwd[i], fwd[i-1],
+        weights + W, widths[i], widths[i-1], nr_batch)
+
+    for i in range(nr_layer-2, 0, -1):
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+            widths, i, nr_layer)
+
+        d_ELU(bwd[i],
+            fwd[i], widths[i] * nr_batch)
+        d_residual(bwd,
+            2, i, widths, nr_layer, nr_batch)
+        d_transform(bwd[i], gradient + gamma, gradient + beta,
+            x_norm[i], weights + gamma, widths[i], nr_batch)
+        with gil:
+            d_batchnorm(bwd[i], <weight_t*>&weights[mean], <weight_t*>&weights[variance],
+                x[i], widths[i], nr_batch)
+        d_affine(bwd[i-1], gradient + W, gradient + bias,
+            bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
+        l2_regularize(gradient + W,
+            weights + W, hp.r, widths[i] * widths[i-1])
+    for i in range(nr_layer):
+        free(x[i])
+        free(x_norm[i])
+    free(x)
+    free(x_norm)
 
 
 cdef inline void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
@@ -83,6 +176,20 @@ cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
     for i in range(n):
         if signal_out[i] <= 0:
             delta[i] = 0
+
+
+cdef void d_residual(weight_t** bwd, int skip, int i, const len_t* widths,
+        int nr_layer, int nr_batch) nogil:
+    if i < skip:
+        return
+    elif i >= nr_layer:
+        # Error!
+        return
+    elif widths[i] != widths[i-skip]:
+        return
+    else:
+        VecVec.add_i(bwd[i-skip],
+            bwd[i], 1.0, widths[i-skip] * nr_batch)
 
 
 cdef void d_log_loss(weight_t* loss,
@@ -115,78 +222,6 @@ cdef void d_hinge_loss(weight_t* loss,
             if costs[i] != 0 and scores[i] > (scores[best] + 1.0):
                 loss[best] -= 1.0
                 loss[i] = 1.0
-
-
-from .forward cimport affine, normalize
-        
-
-cdef void ELU_batch_norm_backward(weight_t* G, weight_t** bwd,
-        const weight_t* W, const weight_t* const* fwd, const len_t* widths,
-        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
-
-    x = <weight_t**>calloc(nr_layer, sizeof(void*))
-    x_norm = <weight_t**>calloc(nr_layer, sizeof(void*))
-    for i in range(nr_layer):
-        x[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
-        x_norm[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
-    memcpy(x[0], fwd[0], sizeof(weight_t) * widths[0] * nr_batch)
-
-    i = nr_layer-1
-    nr_out = widths[i]
-    nr_in = widths[i-1]
-
-    W -= nr_out * nr_in + nr_out * 5
-    G -= nr_out * nr_in + nr_out * 5
-    b = nr_out * nr_in
-    gamma = b + nr_out
-    beta = gamma + nr_out
-    mean = beta + nr_out
-    variance = mean + nr_out
-
-    d_affine(bwd[i-1], G, G+b,
-        bwd[i], fwd[i-1],
-        W, nr_out, nr_in, nr_batch)
-
-    for i in range(nr_layer-2, 0, -1):
-        nr_out = widths[i]
-        nr_in = widths[i-1]
-
-        W -= nr_out * nr_in + nr_out * 5
-        G -= nr_out * nr_in + nr_out * 5
-
-        b = nr_out * nr_in
-        gamma = b + nr_out
-        beta = gamma + nr_out
-        mean = beta + nr_out
-        variance = mean + nr_out
-
-        # Recalculate x and x_norm, for batchnorm
-        affine(x[i],
-            fwd[i-1], W, W+b, nr_out, nr_in, nr_batch)
-        memcpy(x_norm[i], x[i], sizeof(weight_t) * nr_batch * nr_out)
-        normalize(x_norm[i],
-            W+mean, W+variance, nr_out, nr_batch)
-        d_ELU(bwd[i],
-            fwd[i], nr_out * nr_batch)
-        if i >= 2 and widths[i] == widths[i-2]:
-            VecVec.add_i(bwd[i-2],
-                bwd[i], 1.0, nr_out * nr_batch)
-
-        d_transform(bwd[i], G + gamma, G + beta,
-            x_norm[i], W + gamma, nr_out, nr_batch)
-        with gil:
-            d_batchnorm(bwd[i], <weight_t*>(W+mean), <weight_t*>(W+variance),
-                x[i], nr_out, nr_batch)
-            PyErr_CheckSignals()
-        d_affine(bwd[i-1], G, G + b,
-            bwd[i], fwd[i-1], W, nr_out, nr_in, nr_batch)
-        l2_regularize(G,
-            W, hp.r, nr_out * nr_in)
-    for i in range(nr_layer):
-        free(x[i])
-        free(x_norm[i])
-    free(x)
-    free(x_norm)
 
 
 cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
