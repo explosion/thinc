@@ -1,4 +1,5 @@
 # cython: profile=True
+# cython: infer_types=True
 # cython: cdivision=True
 
 cimport cython
@@ -61,10 +62,101 @@ cdef extern from "/opt/OpenBLAS/include/cblas.h":
                                  float  alpha, float  *A, int lda, float  *B, int ldb,
                                  float  beta, float  *C, int ldc) nogil
   
-    void cblas_dgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-                                 CBLAS_TRANSPOSE TransB, int M, int N, int K,
-                                 double  alpha, double  *A, int lda, double  *B, int ldb,
-                                 double  beta, double  *C, int ldc) nogil
+
+cdef extern from "blis.h" nogil:
+    ctypedef int gint_t
+    ctypedef int dim_t
+    ctypedef int inc_t
+    ctypedef int doff_t
+
+    enum err_t:
+        pass
+
+    ctypedef enum trans_t:
+        BLIS_NO_TRANSPOSE
+        BLIS_TRANSPOSE
+        BLIS_CONJ_NO_TRANSPOSE
+        BLIS_CONJ_TRANSPOSE
+
+    enum conj_t:
+        BLIS_NO_CONJUGATE
+        BLIS_CONJUGATE
+
+    enum side_t:
+        BLIS_LEFT
+        BLIS_RIGHT
+
+    enum uplo_t:
+        BLIS_LOWER
+        BLIS_UPPER
+        BLIS_DENSE
+
+    enum diag_t:
+        BLIS_NONUNIT_DIAG
+        BLIS_UNIT_DIAG
+
+    err_t bli_init()
+    err_t bli_finalize()
+
+    # BLAS level 3 routines
+    void bli_dgemm(
+       trans_t transa,
+       trans_t transb,
+       dim_t   m,
+       dim_t   n,
+       dim_t   k,
+       double*  alpha,
+       double*  a, inc_t rsa, inc_t csa,
+       double*  b, inc_t rsb, inc_t csb,
+       double*  beta,
+       double*  c, inc_t rsc, inc_t csc,
+       cntx_t* cntx
+    )
+
+    void bli_dger(
+       conj_t  conjx,
+       conj_t  conjy,
+       dim_t   m,
+       dim_t   n,
+       double*  alpha,
+       double*  x, inc_t incx,
+       double*  y, inc_t incy,
+       double*  a, inc_t rsa, inc_t csa,
+       cntx_t* cntx
+    )
+
+    void bli_dgemv(
+       trans_t transa,
+       conj_t  conjx,
+       dim_t   m,
+       dim_t   n,
+       double*  alpha,
+       double*  a, inc_t rsa, inc_t csa,
+       double*  x, inc_t incx,
+       double*  beta,
+       double*  y, inc_t incy,
+       cntx_t* cntx
+     )
+
+    void bli_daxpyv(
+       conj_t  conjx,
+       dim_t   m,
+       double*  alpha,
+       double*  x, inc_t incx,
+       double*  y, inc_t incy,
+       cntx_t* cntx
+     )
+
+    void bli_dscalv(
+       conj_t  conjalpha,
+       dim_t   m,
+       double*  alpha,
+       double*  x, inc_t incx,
+       cntx_t* cntx
+    )
+
+    struct cntx_t:
+        pass
 
 
 cdef extern from "math.h" nogil:
@@ -113,12 +205,12 @@ cdef class Vec:
     @staticmethod
     cdef inline weight_t norm(const weight_t* vec, int32_t nr) nogil:
         cdef weight_t total = 0
-        IF USE_BLAS:
+        if True:
             return cblas_dnrm2(nr, vec, 1)
-        ELSE:
+        else:
             for i in range(nr):
                 total += vec[i] ** 2
-            return sqrtf(total)
+            return sqrt(total)
 
     @staticmethod
     cdef inline void add(weight_t* output, const weight_t* x,
@@ -139,11 +231,11 @@ cdef class Vec:
         Vec.mul_i(output, scal, nr)
 
     @staticmethod
-    cdef inline void mul_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
+    cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
-        IF USE_BLAS:
-            cblas_dscal(nr, scal, vec, 1)
-        ELSE:
+        if True:
+            bli_dscalv(BLIS_NO_CONJUGATE, nr, &scal, vec, 1, NULL)
+        else:
             for i in range(nr):
                 vec[i] *= scal
 
@@ -207,9 +299,9 @@ cdef class VecVec:
                            weight_t scale,
                            int32_t nr) nogil:
         cdef int i
-        IF USE_BLAS:
-            cblas_daxpy(nr, scale, y, 1, x, 1)
-        ELSE:
+        if True:
+            bli_daxpyv(BLIS_NO_CONJUGATE, nr, &scale, <weight_t*>y, 1, x, 1, NULL)
+        else:
             for i in range(nr):
                 x[i] += y[i] * scale
     
@@ -316,22 +408,36 @@ cdef class MatVec:
                          const weight_t* vec,
                          int32_t nr_row, int32_t nr_col) nogil:
         cdef int i, row, col
-        IF USE_BLAS:
-            cblas_dgemv(
-                CblasRowMajor,
-                CblasNoTrans,
+        cdef double zero = 0.0
+        cdef double one = 1.0
+        if True:
+            bli_dgemv(
+                BLIS_NO_TRANSPOSE,
+                BLIS_NO_CONJUGATE,
                 nr_row,
                 nr_col,
-                1.0,
-                mat,
-                nr_col,
-                vec,
-                1,
-                0.0,
-                output,
-                1
+                &one,
+                <weight_t*>mat, nr_col, 1,
+                <weight_t*>vec, 1,
+                &zero, # TODO: We sure we want this? Seems better to add
+                output, 1,
+                NULL
             )
-        ELSE:
+            #cblas_dgemv(
+            #    CblasRowMajor,
+            #    CblasNoTrans,
+            #    nr_row,
+            #    nr_col,
+            #    1.0,
+            #    mat,
+            #    nr_col,
+            #    vec,
+            #    1,
+            #    0.0,
+            #    output,
+            #    1
+            #)
+        else:
             for i in range(nr_row):
                 row = i * nr_col
                 for col in range(nr_col):
@@ -353,23 +459,27 @@ cdef class MatVec:
         # mat.T: K * N
         # out:   M * N
         cdef int i, row, col
-        IF USE_BLAS:
-            cblas_dgemm(
-                CblasRowMajor,
-                CblasNoTrans,
-                CblasTrans,
+        cdef double one = 1.0
+        if True:
+            bli_dgemm(
+                BLIS_NO_TRANSPOSE,
+                BLIS_TRANSPOSE,
                 nr_batch,
                 nr_row,
                 nr_col,
-                1.0,
-                vec,
+                &one,
+                <weight_t*>vec,
                 nr_col,
-                mat,
+                1,
+                <weight_t*>mat,
                 nr_col,
-                1.0,
+                1,
+                &one,
                 output,
-                nr_row)
-        ELSE:
+                nr_row,
+                1,
+                NULL)
+        else:
             for b in range(nr_batch):
                 MatVec.dot(output,
                     mat, vec, nr_row, nr_col)
@@ -383,16 +493,29 @@ cdef class MatVec:
                              int32_t nr_row,
                              int32_t nr_col) nogil:
         cdef int i, row, col
-        IF USE_BLAS:
-            cblas_dgemv(CblasRowMajor, CblasTrans,
+        cdef double zero = 0.0
+        cdef double one = 1.0
+        if True:
+            bli_dgemv(
+                BLIS_TRANSPOSE,
+                BLIS_NO_CONJUGATE,
                 nr_row, nr_col,
-                1.0,
-                mat, nr_col,
-                vec, 1,
-                0.0,
-                output, 1
+                &one,
+                <weight_t*>mat, nr_col, 1,
+                <weight_t*>vec, 1,
+                &one,
+                output, 1,
+                NULL
             )
-        ELSE:
+            #cblas_dgemv(CblasRowMajor, CblasTrans,
+            #    nr_row, nr_col,
+            #    1.0,
+            #    mat, nr_col,
+            #    vec, 1,
+            #    0.0,
+            #    output, 1
+            #)
+        else:
             for row in range(nr_row):
                 for col in range(nr_col):
                     output[col] += vec[row] * mat[(row * nr_col) + col]
@@ -405,7 +528,8 @@ cdef class MatVec:
                              int32_t nr_col,
                              int32_t nr_batch) nogil:
         cdef int _
-        IF USE_BLAS:
+        cdef double one = 1.0
+        if True:
             # output is (nr_batch, nr_col)
             # mat is (nr_row, nr_col)
             # vec is (nr_batch, nr_row)
@@ -418,22 +542,25 @@ cdef class MatVec:
             # vec:  M * K
             # mat:  K * N
             # out:  M * N
-            cblas_dgemm(
-                CblasRowMajor,
-                CblasNoTrans,
-                CblasNoTrans,
+            bli_dgemm(
+                BLIS_NO_TRANSPOSE,
+                BLIS_NO_TRANSPOSE,
                 nr_batch,
                 nr_col,
                 nr_row,
-                1.0,
-                vec,
+                &one,
+                <weight_t*>vec,
                 nr_row,
-                mat,
+                1,
+                <weight_t*>mat,
                 nr_col,
-                1.0,
+                1,
+                &one,
                 output,
-                nr_col)
-        ELSE:
+                nr_col,
+                1,
+                NULL)
+        else:
             for _ in range(nr_batch):
                 MatVec.T_dot(output,
                     mat, vec, nr_row, nr_col)
@@ -485,19 +612,18 @@ cdef class MatMat:
                                  int32_t nr_row,
                                  int32_t nr_col) nogil:
         cdef int i, j, row
-        IF USE_BLAS:
-            cblas_dger(
-                CblasRowMajor,
-                nr_row,
-                nr_col,
-                1.0,
-                x,
-                1,
-                y,
-                1,
-                mat,
-                nr_col)
-        ELSE:
+        cdef double one = 1.0
+        if True:
+            bli_dger(
+                BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE,
+                nr_row, nr_col,
+                &one,
+                <weight_t*>x, 1,
+                <weight_t*>y, 1,
+                mat, nr_col, 1,
+                NULL
+            )
+        else:
             for i in range(nr_row):
                 row = i * nr_col
                 for j in range(nr_col):
@@ -522,27 +648,31 @@ cdef class MatMat:
         # x.T:  M * K
         # y:    K * N
         # out:  M * N
-        IF USE_BLAS:
-            cblas_dgemm(
-                CblasRowMajor,
-                CblasTrans,
-                CblasNoTrans,
+        cdef double one = 1.0
+        if True:
+            bli_dgemm(
+                BLIS_TRANSPOSE,
+                BLIS_NO_TRANSPOSE,
                 nr_row,
                 nr_col,
                 nr_batch,
-                1.0,
-                x,
+                &one,
+                <weight_t*>x,
                 nr_row,
-                y,
+                1,
+                <weight_t*>y,
                 nr_col,
-                1.0,
+                1,
+                &one,
                 output,
-                nr_col)
-        ELSE:
+                nr_col,
+                1,
+                NULL)
+        else:
             for _ in range(nr_batch):
                 for i in range(nr_row):
                     row = i * nr_col
                     for j in range(nr_col):
-                        mat[row + j] += x[i] * y[j]
+                        output[row + j] += x[i] * y[j]
                 x += nr_row
                 y += nr_col
