@@ -39,6 +39,7 @@ MOD_NAMES = [
     'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
+    'thinc.neural.weights',
     'thinc.neural.nn',
     'thinc.neural.solve',
     'thinc.neural.forward',
@@ -54,9 +55,11 @@ MOD_NAMES = [
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
-                               '-msse3']}
+                               '-msse3',
+                                '-I/Users/matt/blis/include/blis',
+                               ]}
 link_options    =  {'msvc'  : [],
-                    'other' : ['-Wl,-framework', '-Wl,Accelerate']}
+                    'other' : []}
 
 class build_ext_options:
     def build_options(self):
@@ -160,7 +163,7 @@ def setup_package():
             ext_modules.append(
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs,
-                    libraries=['blas']
+                    libraries=['/Users/matt/blis/lib/blis']
                 ))
 
         if not is_source_release(root):
