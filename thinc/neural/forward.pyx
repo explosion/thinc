@@ -2,7 +2,7 @@
 # cython: cdivision=True
 # cython: infer_types=True
 cimport cython
-from libc.stdlib cimport rand
+from libc.stdlib cimport rand, calloc, free
 from libc.string cimport memset, memcpy
 cimport numpy as np
 import numpy as np
@@ -12,7 +12,7 @@ from murmurhash.mrmr cimport hash64
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
 from .weights cimport parse_weights, parse_batch_norm_weights
 
 
@@ -184,24 +184,20 @@ cdef void normalize(weight_t* x, const weight_t* est_Ex, const weight_t* est_Vx,
                 x[i * nr_out + j] -= est_Ex[j]
                 x[i * nr_out + j] /= sqrt(est_Vx[j] + EPS)
         return
-    if nr_out > 300:
-        # Error!
-        return
-    cdef weight_t[300] Ex
-    cdef weight_t[300] Vx
-    memset(Vx, 0, sizeof(Vx))
-    memset(Ex, 0, sizeof(Ex))
-    for i in range(nr_batch):
-        VecVec.add_i(Ex, x + (i * nr_out), 1.0, nr_out)
-    Vec.mul_i(Ex, 1.0 / nr_batch, nr_out)
-    for i in range(nr_batch):
-        VecVec.add_i(x + (i * nr_out), Ex, -1.0, nr_out)
-        VecVec.add_pow_i(Vx, x + (i * nr_out), 2.0, nr_out)
-    Vec.mul_i(Vx, 1.0 / nr_batch, nr_out)
-    for i in range(nr_out):
-        Vx[i] = 1. / sqrt(Vx[i] + EPS)
+    Ex = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    Vx = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    Mat.mean_row(Ex,
+        x, nr_batch, nr_out)
+    Mat.var_row(Vx,
+        x, Ex, nr_batch, nr_out, EPS)
+    MatVec.add_i(x,
+        Ex, -1.0, nr_batch, nr_out)
+    # Get inverse square variance
+    Vec.pow_i(Vx, -1. / 2., nr_out)
     MatVec.mul_i(x,
         Vx, nr_batch, nr_out)
+    free(Ex)
+    free(Vx)
 
 
 cdef void residual(weight_t** fwd, int skip, int i, const len_t* widths,

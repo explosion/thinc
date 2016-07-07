@@ -13,7 +13,7 @@ from murmurhash.mrmr cimport hash64
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt, exp
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
 from .weights cimport parse_weights, parse_batch_norm_weights
 from .forward cimport skip_layer
 from .forward cimport affine, normalize
@@ -146,9 +146,8 @@ cdef void ELU_batch_norm_residual_backward(weight_t* gradient, weight_t** bwd,
             2, i, widths, nr_layer, nr_batch)
         d_transform(bwd[i], gradient + gamma, gradient + beta,
             x_norm[i], weights + gamma, widths[i], nr_batch)
-        with gil:
-            d_batchnorm(bwd[i], <weight_t*>&weights[mean], <weight_t*>&weights[variance],
-                x[i], widths[i], nr_batch)
+        d_batchnorm(bwd[i], <weight_t*>&weights[mean], <weight_t*>&weights[variance],
+            x[i], widths[i], nr_batch)
         d_affine(bwd[i-1], gradient + W, gradient + bias,
             bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
         l2_regularize(gradient + W,
@@ -225,45 +224,51 @@ cdef void d_hinge_loss(weight_t* loss,
 
 
 @cython.boundscheck(False)
-cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
-        const weight_t* _x, int nr_out, int nr_batch) except *:
-    if nr_batch == 1:
-        return
-    cdef np.ndarray[double, ndim=2] x, dy, dx, x_mu
-    cdef np.ndarray[double, ndim=1] var, inv_sqrt_var, inv_var, true_mu, true_var
-    dy = np.zeros(shape=(nr_batch, nr_out), dtype='float64')
-    x = np.zeros(shape=(nr_batch, nr_out), dtype='float64')
-    for i in range(nr_batch):
-        for j in range(nr_out):
-            dy[i, j] = _dx[i * nr_out + j]
-            x[i, j] = _x[i * nr_out + j]
-
+cdef void d_batchnorm(weight_t* diff, weight_t* est_mean, weight_t* est_var,
+        const weight_t* _x, int nr_out, int nr_batch) nogil:
     # Simplification by Clement Thorey, here:
     # http://cthorey.github.io./backpropagation/
-    N = nr_batch
-    D = nr_out
-    var = x.var(0) + EPS
-    inv_sqrt_var = var ** (-1. / 2.)
-    inv_var = var ** -1.
-    x_mu = x - x.mean(0)
+    # N = nr_batch
+    # D = nr_out
+    # cdef np.ndarray[double, ndim=1] var, inv_sqrt_var, inv_var
+    # var = x.var(0) + EPS
+    # inv_var = var ** -1.
+    # inv_sqrt_var = var ** (-1. / 2.)
+    # x_mu = x - x.mean(0)
+    #dx = (1. / N) \
+    #   * inv_sqrt_var \
+    #   * (N \
+    #     * dy \
+    #     - np.sum(dy, axis=0) \
+    #     - x_mu \
+    #       * inv_var \
+    #       * np.sum(dy * x_mu, axis=0))
+    if nr_batch == 1:
+        return
 
-    dx = (1. / N) \
-       * inv_sqrt_var \
-       * (N \
-         * dy \
-         - np.sum(dy, axis=0) \
-         - x_mu \
-           * inv_var \
-           * np.sum(dy * x_mu, axis=0))
-
-    for i in range(nr_batch):
+    sum_dy = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    sum_dy_x_mu = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    Ex = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    Vx = <weight_t*>calloc(nr_out, sizeof(weight_t))
+    Mat.mean_row(Ex, _x, nr_batch, nr_out)
+    Mat.var_row(Vx, _x, Ex, nr_batch, nr_out, 0.0)
+    for i from 0 <= i < (nr_batch * nr_out) by nr_out:
         for j in range(nr_out):
-            _dx[i * nr_out + j] = dx[i, j]
-    true_mu = x.mean(0)
-    true_var = x.var(0)
+            sum_dy[j] += diff[i+j]
+            sum_dy_x_mu[j] += diff[i+j] * (_x[i+j] - Ex[j])
+    for i from 0 <= i < (nr_batch * nr_out) by nr_out:
+        Vec.mul_i(&diff[i], nr_batch, nr_out)
+        VecVec.add_i(&diff[i], sum_dy, -1., nr_out)
+        for j in range(nr_out):
+            diff[i+j] -= (_x[i+j] - Ex[j]) * Vx[j] ** -1. * sum_dy_x_mu[j]
+    Vec.mul_i(diff, 1. / nr_batch, nr_batch * nr_out)
     for i in range(nr_out):
-        est_mean[i] = (0.9 * est_mean[i]) + (0.1 * true_mu[i])
-        est_var[i] = (0.9 * est_var[i]) + (0.1 * true_var[i])
+        est_mean[i] = (0.9 * est_mean[i]) + (0.1 * Ex[i])
+        est_var[i] = (0.9 * est_var[i]) + (0.1 * Vx[i])
+    free(Ex)
+    free(Vx)
+    free(sum_dy)
+    free(sum_dy_x_mu)
 
 
 cdef void d_affine(weight_t* d_x, weight_t* d_w, weight_t* d_b,
