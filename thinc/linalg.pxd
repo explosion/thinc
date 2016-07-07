@@ -3,7 +3,7 @@
 
 cimport cython
 from libc.stdint cimport int32_t
-from libc.string cimport memcpy
+from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
 
 from .typedefs cimport weight_t
@@ -319,6 +319,34 @@ cdef class VecVec:
         return best
 
 
+cdef class Mat:
+    @staticmethod
+    cdef inline void mean_row(weight_t* Ex,
+            const weight_t* mat, int32_t nr_row, int32_t nr_col) nogil:
+        memset(Ex, 0, sizeof(Ex[0]) * nr_col)
+        for i in range(nr_row):
+            VecVec.add_i(Ex, &mat[i * nr_col], 1.0, nr_col)
+        Vec.mul_i(Ex, 1.0 / nr_row, nr_col)
+
+    @staticmethod
+    cdef inline void var_row(weight_t* Vx,
+            const weight_t* mat, const weight_t* Ex,
+            int32_t nr_row, int32_t nr_col, weight_t eps) nogil:
+        # From https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        if nr_row == 0 or nr_col == 0:
+            return
+        cdef weight_t sum_, sum2
+        for i in range(nr_col):
+            sum_ = 0.0
+            sum2 = 0.0
+            for j in range(nr_row):
+                x = mat[j * nr_col + i]
+                sum2 += (x - Ex[i]) ** 2
+                sum_ += x - Ex[i]
+            Vx[i] = (sum2 - sum_**2 / nr_row) / nr_row
+            Vx[i] += eps
+ 
+
 cdef class MatVec:
     @staticmethod
     cdef inline void add_i(weight_t* mat,
@@ -326,7 +354,7 @@ cdef class MatVec:
         cdef int i
         for i in range(nr_row):
             VecVec.add_i(mat + (i * nr_col),
-                vec, 1.0, nr_col)
+                vec, scale, nr_col)
 
     @staticmethod
     cdef inline void mul(weight_t* output,
