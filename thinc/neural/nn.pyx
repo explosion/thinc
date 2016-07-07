@@ -62,8 +62,11 @@ import cPickle
 prng.normal_setup()
 
 
-cdef int get_nr_weight(int nr_out, int nr_in) nogil:
-    return nr_out * nr_in + nr_out * 5
+cdef int get_nr_weight(int nr_out, int nr_in, int batch_norm) nogil:
+    if batch_norm:
+        return nr_out * nr_in + nr_out * 5
+    else:
+        return nr_out * nr_in + nr_out
 
 
 cdef class NeuralNet(Model):
@@ -89,7 +92,8 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        if kwargs.get('batch_norm', True):
+        use_batch_norm = kwargs.get('batch_norm', True)
+        if use_batch_norm:
             self.c.feed_fwd = ELU_batch_norm_residual_forward
             self.c.feed_bwd = ELU_batch_norm_residual_backward
         else:
@@ -105,7 +109,8 @@ cdef class NeuralNet(Model):
         self.c.nr_weight = 0
         self.c.nr_node = 0
         for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
+            self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i],
+                                              use_batch_norm)
             self.c.nr_node += self.c.widths[i]
         print(self.c.nr_weight)
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
@@ -122,13 +127,13 @@ cdef class NeuralNet(Model):
                 self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
             nr_W = self.c.widths[i+1] * self.c.widths[i]
             nr_bias = self.c.widths[i+1]
-            if get_nr_weight(self.c.widths[i+1], self.c.widths[i]) > (nr_W + nr_bias):
+            if use_batch_norm:
                 # Initialise gamma terms
                 constant_initializer(W + nr_W + nr_bias,
                     1.0, self.c.widths[i + 1])
                 constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
                     1.0, self.c.widths[i+1])
-            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i])
+            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
         self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
     def __dealloc__(self):
@@ -342,7 +347,8 @@ cdef class NeuralNet(Model):
                 W = weights[start:start+nr_w]
                 bias = weights[start+nr_w:start+nr_bias]
                 yield W, bias
-                start = start + get_nr_weight(self.widths[i+1], self.widths[i])
+                start = start + get_nr_weight(self.widths[i+1], self.widths[i],
+                                              True) # TODO
 
     @property
     def widths(self):

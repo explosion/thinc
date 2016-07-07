@@ -224,10 +224,13 @@ cdef void d_hinge_loss(weight_t* loss,
                 loss[i] = 1.0
 
 
+@cython.boundscheck(False)
 cdef void d_batchnorm(weight_t* _dx, weight_t* est_mean, weight_t* est_var,
         const weight_t* _x, int nr_out, int nr_batch) except *:
     if nr_batch == 1:
         return
+    cdef np.ndarray[double, ndim=2] x, dy, dx, x_mu
+    cdef np.ndarray[double, ndim=1] var, inv_sqrt_var, inv_var, true_mu, true_var
     dy = np.zeros(shape=(nr_batch, nr_out), dtype='float64')
     x = np.zeros(shape=(nr_batch, nr_out), dtype='float64')
     for i in range(nr_batch):
