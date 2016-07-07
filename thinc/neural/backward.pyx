@@ -97,31 +97,20 @@ cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         
 cdef void ELU_batch_norm_residual_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* weights, const weight_t* const* fwd, const len_t* widths,
-        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+        int nr_layer, int nr_batch, const ConstantsC* hp) with gil:
     cdef int W
     cdef int bias
     cdef int gamma
     cdef int beta
     cdef int mean
     cdef int variance
-
-    x = <weight_t**>calloc(nr_layer, sizeof(void*))
-    x_norm = <weight_t**>calloc(nr_layer, sizeof(void*))
+    
+    max_ = 0
     for i in range(nr_layer):
-        x[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
-        x_norm[i] = <weight_t*>calloc(widths[i] * nr_batch, sizeof(weight_t))
-    memcpy(x[0], fwd[0], sizeof(weight_t) * widths[0] * nr_batch)
-    # Recalculate x and x_norm, for batchnorm
-    for i in range(1, nr_layer-1):
-        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
-            widths, i, nr_layer)
-
-        affine(x[i],
-            fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
-        memcpy(x_norm[i],
-            x[i], sizeof(weight_t) * nr_batch * widths[i])
-        normalize(x_norm[i],
-            &weights[mean], &weights[variance], widths[i], nr_batch)
+        if widths[i] >= widths[max_]:
+            max_ = i
+    x = <weight_t*>calloc(nr_batch * widths[max_], sizeof(weight_t))
+    x_norm = <weight_t*>calloc(nr_batch * widths[max_], sizeof(weight_t))
 
     i = nr_layer-1
     parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
@@ -135,21 +124,27 @@ cdef void ELU_batch_norm_residual_backward(weight_t* gradient, weight_t** bwd,
         parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
             widths, i, nr_layer)
 
+        # Recalculate x and x_norm, for batchnorm
+        memset(x, 0, sizeof(weight_t) * widths[max_] * nr_batch)
+        affine(x,
+            fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+        memcpy(x_norm,
+            x, sizeof(weight_t) * nr_batch * widths[i])
+        normalize(x_norm,
+            &weights[mean], &weights[variance], widths[i], nr_batch)
+
         d_ELU(bwd[i],
             fwd[i], widths[i] * nr_batch)
         d_residual(bwd,
             2, i, widths, nr_layer, nr_batch)
         d_transform(bwd[i], gradient + gamma, gradient + beta,
-            x_norm[i], weights + gamma, widths[i], nr_batch)
+            x_norm, weights + gamma, widths[i], nr_batch)
         d_batchnorm(bwd[i], <weight_t*>&weights[mean], <weight_t*>&weights[variance],
-            x[i], widths[i], nr_batch)
+            x, widths[i], nr_batch)
         d_affine(bwd[i-1], gradient + W, gradient + bias,
             bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
         l2_regularize(gradient + W,
             weights + W, hp.r, widths[i] * widths[i-1])
-    for i in range(nr_layer):
-        free(x[i])
-        free(x_norm[i])
     free(x)
     free(x_norm)
 
