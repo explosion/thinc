@@ -5,8 +5,6 @@ cimport cython
 from libc.string cimport memset, memcpy
 from libc.stdlib cimport calloc, free
 from libc.stdint cimport uint64_t
-cimport numpy as np
-import numpy as np
 from cpython.exc cimport PyErr_CheckSignals
 from murmurhash.mrmr cimport hash64
 
@@ -17,9 +15,6 @@ from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
 from .weights cimport parse_weights, parse_batch_norm_weights
 from .forward cimport skip_layer
 from .forward cimport affine, normalize
-
-
-np.import_array()
 
 
 cdef weight_t EPS = 1e-5
