@@ -141,8 +141,6 @@ cdef class NeuralNet(Model):
 
     def __call__(self, Example eg):
         if eg.c.nr_feat >= 1:
-            Embedding.insert_missing(self.mem, &self.c.embed,
-                eg.c.features, eg.c.nr_feat)
             Embedding.set_input(eg.c.fwd_state[0],
                 eg.c.features, eg.c.nr_feat, &self.c.embed)
         self.c.feed_fwd(eg.c.fwd_state,
@@ -155,9 +153,6 @@ cdef class NeuralNet(Model):
     def train(self, examples):
         cdef Example eg
         for eg in examples:
-            if eg.c.nr_feat != 0:
-                Embedding.insert_missing(self.mem, &self.c.embed,
-                    eg.c.features, eg.c.nr_feat)
             is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat, True,
                                          eg.c.costs, eg.c.is_valid)
             if is_full:
@@ -197,6 +192,30 @@ cdef class NeuralNet(Model):
         for j, value in enumerate(values):
             emb[j] = value
             emb[len(values) + j] = value # For average
+
+    def sparsify_embeddings(self, weight_t penalty):
+        cdef key_t key
+        cdef void* value
+        cdef int i, j
+        cdef weight_t infinity_norm
+        cdef weight_t nr_trimmed = 0
+        cdef weight_t total = 0.0
+        for i in range(self.c.embed.nr):
+            j = 0
+            length = self.c.embed.lengths[i]
+            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
+                if value == NULL:
+                    continue # Shouldn't happen! Raise...
+                emb = <weight_t*>value
+                max_ = 0
+                for i in range(length):
+                    if abs(emb[i]) >= penalty:
+                        break
+                else:
+                    memset(emb, 0, sizeof(emb[0]) * length * 3)
+                    nr_trimmed += 1
+                total += 1
+        return nr_trimmed / total
 
     def dump(self, loc):
         data = (list(self.embeddings), self.weights, dict(self.c.hp)) 
@@ -257,7 +276,7 @@ cdef class NeuralNet(Model):
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            self._dropoutC(mb.features(i), 7.0 / 8.0, mb.nr_feat(i), 1)
+            self._dropoutC(mb.features(i), 1. / 2., mb.nr_feat(i), 1)
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         
         self.c.feed_fwd(mb._fwd,
