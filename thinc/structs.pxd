@@ -77,6 +77,8 @@ cdef struct ConstantsC:
 cdef struct EmbedC:
     MapC** weights
     MapC** gradients
+    weight_t** defaults
+    weight_t** d_defaults
     idx_t* offsets
     len_t* lengths
     len_t nr
@@ -92,7 +94,7 @@ cdef struct NeuralNetC:
     weight_t* weights
     weight_t* gradient
 
-    EmbedC embed
+    EmbedC* embed
 
     len_t nr_layer
     len_t nr_weight
