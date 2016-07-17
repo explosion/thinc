@@ -71,7 +71,8 @@ cdef int get_nr_weight(int nr_out, int nr_in, int batch_norm) nogil:
 
 cdef class NeuralNet(Model):
     def __init__(self, widths, *args, **kwargs):
-        self.mem = Pool()
+        self.mem = kwargs.get('mem') or Pool()
+        self.c.embed = <EmbedC*>self.mem.alloc(sizeof(EmbedC), 1)
 
         self.c.hp.e = kwargs.get('eta', 0.01)
         self.c.hp.r = kwargs.get('rho', 0.00)
@@ -92,7 +93,7 @@ cdef class NeuralNet(Model):
             self.c.update = noisy_update
             nr_support = 1
         self.c.embed.nr_support = nr_support
-        use_batch_norm = kwargs.get('batch_norm', True)
+        use_batch_norm = kwargs.get('batch_norm', False)
         if use_batch_norm:
             self.c.feed_fwd = ELU_batch_norm_residual_forward
             self.c.feed_bwd = ELU_batch_norm_residual_backward
@@ -112,14 +113,13 @@ cdef class NeuralNet(Model):
             self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i],
                                               use_batch_norm)
             self.c.nr_node += self.c.widths[i]
-        print(self.c.nr_weight)
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
                                                    sizeof(self.c.weights[0]))
         self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
 
         if kwargs.get('embed') is not None:
             vector_widths, features = kwargs['embed']
-            Embedding.init(&self.c.embed, self.mem, vector_widths, features)
+            Embedding.init(self.c.embed, self.mem, vector_widths, features)
 
         W = self.c.weights
         for i in range(self.c.nr_layer-2):
@@ -142,7 +142,7 @@ cdef class NeuralNet(Model):
     def __call__(self, Example eg):
         if eg.c.nr_feat >= 1:
             Embedding.set_input(eg.c.fwd_state[0],
-                eg.c.features, eg.c.nr_feat, &self.c.embed)
+                eg.c.features, eg.c.nr_feat, self.c.embed)
         self.c.feed_fwd(eg.c.fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
         memcpy(eg.c.scores,
@@ -170,6 +170,7 @@ cdef class NeuralNet(Model):
         pass
 
     def set_embedding(self, int i, key_t key, values):
+        '''Insert an embedding for a given key.'''
         if len(values) != self.c.embed.lengths[i]:
             msg_vals = (i, self.c.embed.lengths[i], len(values))
             raise ValueError(
@@ -193,7 +194,14 @@ cdef class NeuralNet(Model):
             emb[j] = value
             emb[len(values) + j] = value # For average
 
-    def sparsify_embeddings(self, weight_t penalty):
+    def sparsify_embeddings(self, weight_t threshold, int use_infinity_norm=True):
+        '''Prune all embeddings where:
+        
+        | embed - default |_infinity < threshold
+
+        That is, if max(abs(embed - default)) < threshold, allow the embedding to
+        be represented by the default.
+        '''
         cdef key_t key
         cdef void* value
         cdef int i, j
@@ -203,17 +211,27 @@ cdef class NeuralNet(Model):
         for i in range(self.c.embed.nr):
             j = 0
             length = self.c.embed.lengths[i]
+            default = self.c.embed.defaults[i]
             while Map_iter(self.c.embed.weights[i], &j, &key, &value):
                 if value == NULL:
                     continue # Shouldn't happen! Raise...
                 emb = <weight_t*>value
-                max_ = 0
-                for i in range(length):
-                    if abs(emb[i]) >= penalty:
-                        break
+                if use_infinity_norm:
+                    for i in range(length):
+                        if abs(emb[i]-default[i]) >= threshold:
+                            break
+                    else:
+                        # TODO: Remove hard-coded nr_support here...
+                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        nr_trimmed += 1
                 else:
-                    memset(emb, 0, sizeof(emb[0]) * length * 3)
-                    nr_trimmed += 1
+                    norm = 0
+                    for i in range(length):
+                        norm += abs(emb[i]-default[i])
+                    if norm < threshold:
+                        # TODO: Remove hard-coded nr_support here...
+                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        nr_trimmed += 1
                 total += 1
         return nr_trimmed / total
 
@@ -233,7 +251,7 @@ cdef class NeuralNet(Model):
         acc = self.c.weights + self.c.nr_weight
         for i in range(self.c.nr_weight):
             self.c.weights[i] = acc[i]
-        Embedding.average(&self.c.embed, self.c.hp.t)
+        Embedding.average(self.c.embed, self.c.hp.t)
 
     @property
     def nr_feat(self):
@@ -246,7 +264,6 @@ cdef class NeuralNet(Model):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
 
         self._extractC(fwd_state[0], feats, nr_feat, is_sparse)
-
         self.c.feed_fwd(fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
         memcpy(scores,
@@ -258,11 +275,6 @@ cdef class NeuralNet(Model):
     cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
             const weight_t* costs, const int* is_valid, int force_update) nogil:
         is_full = self._mb.push_back(feats, nr_feat, is_sparse, costs, is_valid)
-        if nr_feat > 0 and is_sparse:
-            with gil:
-                Embedding.insert_missing(self.mem, &self.c.embed,
-                    <const FeatureC*>feats, nr_feat)
-
         cdef weight_t loss = 0.0
         cdef int i
         if is_full or force_update:
@@ -272,11 +284,15 @@ cdef class NeuralNet(Model):
             batch_size = self._mb.batch_size
             del self._mb
             self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, batch_size)
+        if nr_feat > 0 and is_sparse:
+            with gil:
+                Embedding.insert_missing(self.mem, self.c.embed,
+                    <const FeatureC*>feats, nr_feat)
         return loss
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            self._dropoutC(mb.features(i), 1. / 2., mb.nr_feat(i), 1)
+            self._dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         
         self.c.feed_fwd(mb._fwd,
@@ -318,7 +334,7 @@ cdef class NeuralNet(Model):
             const void* feats, int nr_feat, int is_sparse) nogil:
         if is_sparse:
             Embedding.set_input(input_,
-                <const FeatureC*>feats, nr_feat, &self.c.embed)
+                <const FeatureC*>feats, nr_feat, self.c.embed)
         else:
             memcpy(input_,
                 <const weight_t*>feats, nr_feat * sizeof(input_))
@@ -332,7 +348,7 @@ cdef class NeuralNet(Model):
             int nr_feat, int is_sparse) nogil:
         if nr_feat < 1 or not is_sparse:
             return
-        Embedding.fine_tune(&self.c.embed,
+        Embedding.fine_tune(self.c.embed,
             deltas, self.c.widths[0], <const FeatureC*>feats, nr_feat)
 
     cdef void _update_extracterC(self, const void* _feats,
@@ -341,7 +357,7 @@ cdef class NeuralNet(Model):
             return
         feats = <const FeatureC*>_feats
         for feat in feats[:nr_feat]:
-            Embedding.update(&self.c.embed,
+            Embedding.update(self.c.embed,
                 feat.i, feat.key, batch_size, &self.c.hp, self.c.update)
 
     @property
@@ -456,7 +472,7 @@ cdef class NeuralNet(Model):
         return self.c.hp.e
     @eta.setter
     def eta(self, eta):
-            self.c.hp.e = eta
+        self.c.hp.e = eta
 
     @property
     def rho(self):
