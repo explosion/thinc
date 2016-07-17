@@ -40,23 +40,30 @@ cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
     '''
     cdef int W
     cdef int bias
-    for i in range(1, nr_layer-1):
-        parse_weights(&W, &bias, 
+    cdef int gamma
+    cdef int beta
+    cdef int mean
+    cdef int variance
+    
+    i = nr_layer-1
+    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+        widths, i, nr_layer)
+
+    d_affine(bwd[i-1], gradient + W, gradient + bias,
+        bwd[i], fwd[i-1],
+        weights + W, widths[i], widths[i-1], nr_batch)
+
+    for i in range(nr_layer-2, 0, -1):
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
             widths, i, nr_layer)
 
-        if (i+1) < nr_layer:
-            d_ELU(bwd[i],
-                fwd[i], widths[i] * nr_batch)
-        # Set the gradient for W
-        MatMat.batch_add_outer_i(&gradient[W],
-            bwd[i], fwd[i-1], widths[i], widths[i-1], nr_batch)
-        # Set the gradient for bias
-        VecVec.batch_add_i(&gradient[bias],
-            bwd[i], 1.0, widths[i], nr_batch)
-        # Set the gradient of fwd[i]
-        MatVec.batch_T_dot(bwd[i-1],
-            &weights[W], bwd[i], widths[i], widths[i-1], nr_batch)
- 
+        d_ELU(bwd[i],
+            fwd[i], widths[i] * nr_batch)
+        d_affine(bwd[i-1], gradient + W, gradient + bias,
+            bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
+        l2_regularize(gradient + W,
+            weights + W, hp.r, widths[i] * widths[i-1])
+
 
 cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         const weight_t* weights, const weight_t* const* fwd, const len_t* widths,

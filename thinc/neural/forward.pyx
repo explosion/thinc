@@ -99,8 +99,12 @@ cdef void ELU_forward(weight_t** fwd,
     '''
     cdef int W
     cdef int bias
+    cdef int gamma
+    cdef int beta
+    cdef int mean
+    cdef int variance
     for i in range(1, nr_layer-1):
-        parse_weights(&W, &bias, 
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
             widths, i, nr_layer)
 
         affine(fwd[i],
@@ -109,9 +113,9 @@ cdef void ELU_forward(weight_t** fwd,
             widths[i] * nr_batch)
 
     i = nr_layer-1
-    parse_weights(&W, &bias, 
+    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
         widths, i, nr_layer)
- 
+
     affine(fwd[i],
         fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
     for j in range(nr_batch):
