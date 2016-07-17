@@ -46,11 +46,20 @@ cdef class Embedding:
         self.nr = len(features)
         uniq_weights = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
         uniq_gradients = <MapC*>mem.alloc(len(vector_widths), sizeof(MapC))
+        uniq_defaults = <weight_t**>mem.alloc(len(vector_widths), sizeof(void*))
+        uniq_d_defaults = <weight_t**>mem.alloc(len(vector_widths), sizeof(void*))
         for i, width in enumerate(vector_widths):
             Map_init(mem, &uniq_weights[i], 8)
             Map_init(mem, &uniq_gradients[i], 8)
+            # Note that we need the support parameters, because we plan to
+            # learn good defaults.
+            uniq_defaults[i] = <weight_t*>mem.alloc(width * self.nr_support, sizeof(weight_t))
+            he_normal_initializer(uniq_defaults[i], 2, width)
+            uniq_d_defaults[i] = <weight_t*>mem.alloc(width * self.nr_support, sizeof(weight_t))
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
+        self.defaults = <weight_t**>mem.alloc(len(features), sizeof(void*))
+        self.d_defaults = <weight_t**>mem.alloc(len(features), sizeof(void*))
         self.weights = <MapC**>mem.alloc(len(features), sizeof(void*))
         self.gradients = <MapC**>mem.alloc(len(features), sizeof(void*))
         offset = 0
@@ -59,16 +68,23 @@ cdef class Embedding:
             self.gradients[i] = &uniq_gradients[table_id]
             self.lengths[i] = vector_widths[table_id]
             self.offsets[i] = offset
+            self.defaults[i] = uniq_defaults[table_id]
+            self.d_defaults[i] = uniq_d_defaults[table_id]
             offset += vector_widths[table_id]
 
     @staticmethod
     cdef inline void set_input(weight_t* out,
             const FeatureC* features, len_t nr_feat, const EmbedC* embed) nogil:
         for feat in features[:nr_feat]:
-            if feat.value == 0:
+            if feat.value == 0 or embed.lengths[feat.i] == 0:
                 continue
             emb = <const weight_t*>Map_get(embed.weights[feat.i], feat.key)
-            if emb is not NULL:
+            if emb is NULL:
+                # If feature is missing, we use the default values. These defaults
+                # should be back-propped appropriately.
+                VecVec.add_i(&out[embed.offsets[feat.i]],
+                    embed.defaults[feat.i], feat.value, embed.lengths[feat.i])
+            else:
                 VecVec.add_i(&out[embed.offsets[feat.i]], 
                     emb, feat.value, embed.lengths[feat.i])
 
@@ -83,11 +99,10 @@ cdef class Embedding:
             if emb is NULL:
                 emb = <weight_t*>mem.alloc(embed.lengths[feat.i] * embed.nr_support,
                                            sizeof(emb[0]))
-                stdev = 1.0 / embed.lengths[feat.i] ** 0.5
-                values = numpy.random.normal(loc=0.0, scale=stdev, size=embed.lengths[feat.i])
-                for i, value in enumerate(values):
-                    emb[i] = value
-                #he_uniform_initializer(emb, -0.5, 0.5, embed.lengths[feat.i])
+                # Inherit defaults
+                memcpy(emb,
+                    embed.defaults[feat.i],
+                    sizeof(emb[0]) * embed.lengths[feat.i] * embed.nr_support)
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
                 grad = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(grad[0]))
@@ -99,30 +114,35 @@ cdef class Embedding:
             const weight_t* delta, int nr_delta, const FeatureC* features, int nr_feat) nogil:
         cdef size_t last_update
         for feat in features[:nr_feat]:
-            if feat.value == 0:
+            if feat.value == 0 or layer.lengths[feat.i] == 0:
                 continue
             gradient = <weight_t*>Map_get(layer.gradients[feat.i], feat.key)
-            # None of these should ever be null
-            if gradient is not NULL:
-                VecVec.add_i(gradient,
-                    &delta[layer.offsets[feat.i]], feat.value, layer.lengths[feat.i])
+            if gradient is NULL:
+                # This means the feature was missing, so we update the default
+                # This allows us to learn a good default representation.
+                gradient = layer.d_defaults[feat.i]
+            VecVec.add_i(gradient,
+                &delta[layer.offsets[feat.i]], feat.value, layer.lengths[feat.i])
 
     @staticmethod
     cdef inline void update(EmbedC* layer, int i, key_t key, int batch_size,
             const ConstantsC* hp, do_update_t do_update) nogil:
-        gradient = <weight_t*>Map_get(layer.gradients[i], key)
         length = layer.lengths[i]
-        if gradient is NULL or length == 0:
+        if length == 0:
             return
+        gradient = <weight_t*>Map_get(layer.gradients[i], key)
+        if gradient is NULL:
+            gradient = layer.d_defaults[i]
+            emb = layer.defaults[i]
+        else:
+            emb = <weight_t*>Map_get(layer.weights[i], key)
         for weight in gradient[:length]:
             if weight != 0.0:
                 break
         else:
             return
-        emb = <weight_t*>Map_get(layer.weights[i], key)
-        if emb is not NULL:
-            do_update(emb, gradient,
-                length, hp)
+        do_update(emb, gradient,
+            length, hp)
 
     @staticmethod
     cdef inline void update_all(EmbedC* layer,
@@ -144,6 +164,14 @@ cdef class Embedding:
                 if emb is not NULL:
                     do_update(emb, grad,
                         length, hp)
+        # Additionally, update defaults
+        for i in range(layer.nr):
+            length = layer.lengths[i]
+            for weight in layer.d_defaults[i][:length]:
+                if weight != 0.0:
+                    do_update(layer.defaults[i], layer.d_defaults[i],
+                        layer.lengths[i], hp)
+                    break
 
     @staticmethod
     cdef inline void average(EmbedC* layer, weight_t time) nogil:
@@ -160,3 +188,9 @@ cdef class Embedding:
                 avg = emb + layer.lengths[i]
                 for k in range(layer.lengths[i]):
                     avg[k] -= (1-decay) * (avg[k] - emb[k])
+        # Additionally, average defaults
+        for i in range(layer.nr):
+            emb = layer.defaults[i]
+            avg = emb + layer.lengths[i]
+            for k in range(layer.lengths[i]):
+                avg[k] -= (1-decay) * (avg[k] - emb[k])
