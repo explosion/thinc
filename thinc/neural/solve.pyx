@@ -82,10 +82,10 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
     '''
     clip_gradient(gradient,
         100.0, nr_weight)
-    #noise_variance = 0.1 / ((1 + hp.t) ** 0.55)
-    #if noise_variance >= 0.000001:
-    #    add_gradient_noise(gradient,
-    #        hp.e, nr_weight)
+    noise_variance = 0.1 / ((1 + hp.t) ** 0.55)
+    if noise_variance >= 0.000001:
+        add_gradient_noise(gradient,
+            hp.e, nr_weight)
     momentum = weights + nr_weight * 2
     Vec.mul_i(momentum, hp.m, nr_weight)
     VecVec.add_i(momentum,
