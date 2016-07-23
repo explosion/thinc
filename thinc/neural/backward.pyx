@@ -204,20 +204,21 @@ cdef void d_log_loss(weight_t* loss,
 
 
 cdef void d_hinge_loss(weight_t* loss,
-    const weight_t* costs, const weight_t* scores, len_t nr_out
-) nogil:
+        const weight_t* costs, const weight_t* scores, int nr_out) nogil:
+    cdef int best = -1
+    cdef int guess = -1
     for i in range(nr_out):
         loss[i] = 0.0
-
-    best = VecVec.arg_max_if_zero(scores, costs, nr_out)
-    if best == -1:
-        for i in range(nr_out):
-            loss[i] = 1.0
-    else:
-        for i in range(nr_out):
-            if costs[i] != 0 and scores[i] > (scores[best] + 1.0):
-                loss[best] -= 1.0
-                loss[i] = 1.0
+        if costs[i] == 0:
+            if best == -1 or scores[i] >= scores[best]:
+                best = i
+        elif costs[i] > 0:
+            if guess == -1 or scores[i] >= scores[guess]:
+                guess = i
+    margin = (scores[guess] - scores[best]) + 1
+    if margin > 0:
+        loss[best] = -margin
+        loss[guess] = margin
 
 
 @cython.boundscheck(False)
