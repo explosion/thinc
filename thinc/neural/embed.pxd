@@ -54,7 +54,9 @@ cdef class Embedding:
             # Note that we need the support parameters, because we plan to
             # learn good defaults.
             uniq_defaults[i] = <weight_t*>mem.alloc(width * self.nr_support, sizeof(weight_t))
-            he_normal_initializer(uniq_defaults[i], 2, width)
+            he_uniform_initializer(uniq_defaults[i], 0.5, -0.5, width)
+            memcpy(&uniq_defaults[i][width],
+                uniq_defaults[i], width * sizeof(uniq_defaults[i][0]))
             uniq_d_defaults[i] = <weight_t*>mem.alloc(width * self.nr_support, sizeof(weight_t))
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
@@ -92,11 +94,12 @@ cdef class Embedding:
     cdef inline void insert_missing(Pool mem, EmbedC* embed,
             const FeatureC* features, len_t nr_feat) except *:
         cdef weight_t* grad
+        cdef weight_t add_prob = 0.5
         for feat in features[:nr_feat]:
             if feat.i >= embed.nr or feat.value == 0:
                 continue
             emb = <weight_t*>Map_get(embed.weights[feat.i], feat.key)
-            if emb is NULL:
+            if emb is NULL and numpy.random.random() < add_prob:
                 emb = <weight_t*>mem.alloc(embed.lengths[feat.i] * embed.nr_support,
                                            sizeof(emb[0]))
                 # Inherit defaults
