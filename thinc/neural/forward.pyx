@@ -74,9 +74,6 @@ cdef void ELU_batch_norm_residual_forward(weight_t** fwd,
 
     affine(fwd[i],
         fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
-    for j in range(nr_batch):
-        softmax(fwd[i] + j * widths[i],
-            widths[i])
 
 
 cdef void ELU_forward(weight_t** fwd,
@@ -118,9 +115,6 @@ cdef void ELU_forward(weight_t** fwd,
 
     affine(fwd[i],
         fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
-    for j in range(nr_batch):
-        softmax(fwd[i] + j * widths[i],
-            widths[i])
 
 
 cdef void ReLu_forward(weight_t** fwd,
@@ -158,9 +152,6 @@ cdef void ReLu_forward(weight_t** fwd,
  
     affine(fwd[i],
         fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
-    for j in range(nr_batch):
-        softmax(fwd[i] + j * widths[i],
-            widths[i])
 
 
 cdef void affine(weight_t* out,
@@ -242,13 +233,10 @@ cdef void ReLu(weight_t* out, len_t nr_out) nogil:
 
 
 cdef void softmax(weight_t* out, len_t nr_out) nogil:
-    #w = exp(w - max(w))
     Vec.add_i(out,
         -Vec.max(out, nr_out), nr_out)
     Vec.exp_i(out,
         nr_out)
-    #w = w / sum(w)
-    cdef weight_t norm = Vec.sum(out, nr_out)
-    if norm != 0:
-        Vec.div_i(out,
-            norm, nr_out)
+    Z = Vec.sum(out, nr_out)
+    Vec.div_i(out,
+        Z, nr_out)
