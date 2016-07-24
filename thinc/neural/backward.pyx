@@ -204,7 +204,7 @@ cdef void d_log_loss(weight_t* loss,
 
 
 cdef void d_hinge_loss(weight_t* loss,
-        const weight_t* costs, const weight_t* scores, int nr_out) nogil:
+        const weight_t* costs, const weight_t* scores, len_t nr_out) nogil:
     cdef int best = -1
     cdef int guess = -1
     for i in range(nr_out):
