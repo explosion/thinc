@@ -7,6 +7,7 @@ from __future__ cimport division
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport log, exp
+import math
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
@@ -231,19 +232,17 @@ cdef class MaxViolation:
                     g_scores.append(gold._states[i].score)
                     g_hist.append(list(gold.histories[i]))
 
-            p_scores = map(exp, p_scores)
-            g_scores = map(exp, g_scores)
-            p_scores = [score+1e-20 for score in p_scores]
-            g_scores = [score+1e-20 for score in g_scores]
-
-            gZ = sum(g_scores)
-            Z = sum(p_scores) + gZ
+            all_probs = _softmax(p_scores + g_scores)
+            p_probs = all_probs[:len(p_scores)]
+            g_probs_all = all_probs[len(p_scores):]
+            g_probs = _softmax(g_scores)
+            
             self.cost = pred.loss
             self.delta = d
             self.p_hist = p_hist
             self.g_hist = g_hist
             # TODO: These variables are misnamed! These are the gradients of the loss.
-            self.p_probs = [score / Z for score in p_scores]
+            self.p_probs = p_probs
             # Intuition here:
             # The gradient of the loss is:
             # P(model) - P(truth)
@@ -251,6 +250,11 @@ cdef class MaxViolation:
             # But, if we want to do the "partial credit" scheme, we want
             # to create a distribution over the gold, proportional to the scores
             # awarded.
-            self.g_probs = [(score/Z)-(score / gZ) for score in g_scores]
-            self.Z = Z
-            self.gZ = gZ
+            self.g_probs = [x-y for x, y in zip(g_probs_all, g_probs)]
+
+
+def _softmax(nums):
+    max_ = max(nums)
+    nums = [exp(n-max_) for n in nums]
+    Z = sum(nums)
+    return [n/Z for n in nums]
