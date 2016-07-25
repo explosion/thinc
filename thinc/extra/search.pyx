@@ -201,6 +201,16 @@ cdef class MaxViolation:
                     self.gZ += prob
 
     cpdef int check_crf(self, Beam pred, Beam gold) except -1:
+        if pred.is_done and pred.loss == 0:
+            self.cost = 0
+            self.delta = -1
+            self.p_hist = []
+            self.g_hist = []
+            self.p_probs = []
+            self.g_probs = []
+            self.p_score = pred.score
+            self.g_score = gold.score
+            return 0
         p_hist = []
         p_scores = []
         for i in range(pred.size):
@@ -216,17 +226,26 @@ cdef class MaxViolation:
 
         p_scores = map(exp, p_scores)
         g_scores = map(exp, g_scores)
+        p_scores = [score+1e-20 for score in p_scores]
+        g_scores = [score+1e-20 for score in g_scores]
 
-        Z = sum(p_scores) + sum(g_scores)
-        gZ = sum(g_scores) + 1e-10
+        gZ = sum(g_scores)
+        Z = sum(p_scores) + gZ
         d = Z - gZ
-        if self.cost == 0 or d > self.delta:
+        if self.cost == 0 or d > self.delta or pred.is_done:
             self.cost = pred.loss
             self.delta = d
             self.p_hist = p_hist
             self.g_hist = g_hist
             # TODO: These variables are misnamed! These are the gradients of the loss.
             self.p_probs = [score / Z for score in p_scores]
-            self.g_probs = [(score / gZ)-(score/Z) for score in g_scores]
+            # Intuition here:
+            # The gradient of the loss is:
+            # P(model) - P(truth)
+            # Normally, P(truth) is 1 for the gold
+            # But, if we want to do the "partial credit" scheme, we want
+            # to create a distribution over the gold, proportional to the scores
+            # awarded.
+            self.g_probs = [(score/Z)-(score / gZ) for score in g_scores]
             self.Z = Z
             self.gZ = gZ
