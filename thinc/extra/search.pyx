@@ -1,6 +1,7 @@
 from __future__ cimport division
 cimport cython
 from libc.string cimport memset, memcpy
+from libc.math cimport log, exp
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
@@ -166,10 +167,16 @@ cdef class Beam:
 
 cdef class MaxViolation:
     def __init__(self):
+        self.p_score = 0.0
+        self.g_score = 0.0
+        self.Z = 0.0
+        self.gZ = 0.0
         self.delta = -1
         self.cost = 0
         self.p_hist = []
         self.g_hist = []
+        self.p_probs = []
+        self.g_probs = []
 
     cpdef int check(self, Beam pred, Beam gold) except -1:
         cdef _State* p = &pred._states[0]
@@ -180,3 +187,46 @@ cdef class MaxViolation:
             self.delta = d
             self.p_hist = list(pred.histories[0])
             self.g_hist = list(gold.histories[0])
+            self.p_score = p.score
+            self.g_score = g.score
+            self.Z = 1e-10
+            self.gZ = 1e-10
+            for i in range(pred.size):
+                if pred._states[i].loss > 0:
+                    self.Z += exp(pred._states[i].score)
+            for i in range(gold.size):
+                if gold._states[i].loss == 0:
+                    prob = exp(gold._states[i].score)
+                    self.Z += prob
+                    self.gZ += prob
+
+    cpdef int check_crf(self, Beam pred, Beam gold) except -1:
+        p_hist = []
+        p_scores = []
+        for i in range(pred.size):
+            if pred._states[i].loss > 0:
+                p_scores.append(pred._states[i].score)
+                p_hist.append(list(pred.histories[i]))
+        g_hist = []
+        g_scores = []
+        for i in range(gold.size):
+            if gold._states[i].loss == 0:
+                g_scores.append(gold._states[i].score)
+                g_hist.append(list(gold.histories[i]))
+
+        p_scores = map(exp, p_scores)
+        g_scores = map(exp, g_scores)
+
+        Z = sum(p_scores) + sum(g_scores)
+        gZ = sum(g_scores) + 1e-10
+        d = Z - gZ
+        if self.cost == 0 or d > self.delta:
+            self.cost = pred.loss
+            self.delta = d
+            self.p_hist = p_hist
+            self.g_hist = g_hist
+            # TODO: These variables are misnamed! These are the gradients of the loss.
+            self.p_probs = [score / Z for score in p_scores]
+            self.g_probs = [(score / gZ)-(score/Z) for score in g_scores]
+            self.Z = Z
+            self.gZ = gZ

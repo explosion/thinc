@@ -74,8 +74,13 @@ cdef class MaxViolation:
     cdef weight_t delta
     cdef readonly weight_t p_score
     cdef readonly weight_t g_score
+    cdef readonly long double Z
+    cdef readonly long double gZ
     cdef class_t n
     cdef readonly list p_hist
     cdef readonly list g_hist
+    cdef readonly list p_probs
+    cdef readonly list g_probs
 
     cpdef int check(self, Beam pred, Beam gold) except -1
+    cpdef int check_crf(self, Beam pred, Beam gold) except -1
