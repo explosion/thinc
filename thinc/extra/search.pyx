@@ -1,3 +1,8 @@
+# cython: profile=True
+# cython: experimental_cpp_class_def=True
+# cython: cdivision=True
+# cython: infer_types=True
+
 from __future__ cimport division
 cimport cython
 from libc.string cimport memset, memcpy
@@ -211,28 +216,28 @@ cdef class MaxViolation:
             self.p_score = pred.score
             self.g_score = gold.score
             return 0
-        p_hist = []
-        p_scores = []
-        for i in range(pred.size):
-            if pred._states[i].loss > 0:
-                p_scores.append(pred._states[i].score)
-                p_hist.append(list(pred.histories[i]))
-        g_hist = []
-        g_scores = []
-        for i in range(gold.size):
-            if gold._states[i].loss == 0:
-                g_scores.append(gold._states[i].score)
-                g_hist.append(list(gold.histories[i]))
-
-        p_scores = map(exp, p_scores)
-        g_scores = map(exp, g_scores)
-        p_scores = [score+1e-20 for score in p_scores]
-        g_scores = [score+1e-20 for score in g_scores]
-
-        gZ = sum(g_scores)
-        Z = sum(p_scores) + gZ
-        d = Z - gZ
+        d = pred.score - gold.score
         if self.cost == 0 or d > self.delta or pred.is_done:
+            p_hist = []
+            p_scores = []
+            for i in range(pred.size):
+                if pred._states[i].loss > 0:
+                    p_scores.append(pred._states[i].score)
+                    p_hist.append(list(pred.histories[i]))
+            g_hist = []
+            g_scores = []
+            for i in range(gold.size):
+                if gold._states[i].loss == 0:
+                    g_scores.append(gold._states[i].score)
+                    g_hist.append(list(gold.histories[i]))
+
+            p_scores = map(exp, p_scores)
+            g_scores = map(exp, g_scores)
+            p_scores = [score+1e-20 for score in p_scores]
+            g_scores = [score+1e-20 for score in g_scores]
+
+            gZ = sum(g_scores)
+            Z = sum(p_scores) + gZ
             self.cost = pred.loss
             self.delta = d
             self.p_hist = p_hist
