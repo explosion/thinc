@@ -233,10 +233,13 @@ cdef void ReLu(weight_t* out, len_t nr_out) nogil:
 
 
 cdef void softmax(weight_t* out, len_t nr_out) nogil:
+    #w = exp(w - max(w))
     Vec.add_i(out,
         -Vec.max(out, nr_out), nr_out)
     Vec.exp_i(out,
         nr_out)
-    Z = Vec.sum(out, nr_out)
-    Vec.div_i(out,
-        Z, nr_out)
+    #w = w / sum(w)
+    cdef weight_t norm = Vec.sum(out, nr_out)
+    if norm != 0:
+        Vec.div_i(out,
+            norm, nr_out)

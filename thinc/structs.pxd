@@ -3,6 +3,7 @@ from preshed.maps cimport MapStruct
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, calloc, free, realloc
 from libc.string cimport memcpy, memset
+from murmurhash.mrmr cimport hash64
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
 from .linalg cimport VecVec
@@ -222,6 +223,7 @@ cdef cppclass MinibatchC:
     
     weight_t* _costs
     int* _is_valid
+    uint64_t* signatures
 
     len_t* widths
     int i
@@ -243,6 +245,7 @@ cdef cppclass MinibatchC:
         this._nr_feat = <int*>calloc(batch_size, sizeof(int))
         this._is_valid = <int*>calloc(batch_size * widths[nr_layer-1], sizeof(int))
         this._costs = <weight_t*>calloc(batch_size * widths[nr_layer-1], sizeof(weight_t))
+        this.signatures = <uint64_t*>calloc(batch_size, sizeof(uint64_t))
 
     __dealloc__() nogil:
         free(this.widths)
@@ -257,6 +260,7 @@ cdef cppclass MinibatchC:
         free(this._nr_feat)
         free(this._is_valid)
         free(this._costs)
+        free(this.signatures)
 
     int nr_in() nogil:
         return this.widths[0]
@@ -266,7 +270,21 @@ cdef cppclass MinibatchC:
 
     int push_back(const void* feats, int nr_feat, int is_sparse,
             const weight_t* costs, const int* is_valid) nogil:
+        # Hash the features, to see if the batch has a matching input.
+        if is_sparse:
+            signature = hash64(<void*>feats, sizeof(FeatureC) * nr_feat, 0)
+        else:
+            signature = hash64(<void*>feats, sizeof(weight_t) * nr_feat, 0)
+
+        # If it does, just update the gradient for it.
+        for i in range(this.i):
+            if signature == this.signatures[i]:
+                VecVec.add_i(this.costs(i),
+                    costs, 1.0, this.nr_out())
+                return 0
+        
         if this.i < this.batch_size:
+            this.signatures[this.i] = signature
             if is_sparse:
                 this._nr_feat[this.i] = nr_feat
                 this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))

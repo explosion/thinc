@@ -27,6 +27,8 @@ cdef class NeuralNet(Model):
     
     cdef void _dropoutC(self, void* _feats, weight_t prob, int nr_feat, int is_sparse) nogil
     
+    cdef void _softmaxC(self, weight_t* output) nogil
+    
     cdef void _set_delta_lossC(self, weight_t* delta_loss,
         const weight_t* costs, const weight_t* scores) nogil
 

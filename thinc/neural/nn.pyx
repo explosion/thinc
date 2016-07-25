@@ -134,7 +134,10 @@ cdef class NeuralNet(Model):
                 constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
                     1.0, self.c.widths[i+1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
-        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
+        # Initialise the averages to the starting values
+        memcpy(&self.c.weights[self.c.nr_weight],
+            self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
+        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 500)
 
     def __dealloc__(self):
         del self._mb
@@ -266,6 +269,8 @@ cdef class NeuralNet(Model):
         self._extractC(fwd_state[0], feats, nr_feat, is_sparse)
         self.c.feed_fwd(fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
+        self._softmaxC(fwd_state[self.c.nr_layer-1])
+ 
         memcpy(scores,
             fwd_state[self.c.nr_layer-1], sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1])
         for i in range(self.c.nr_layer):
@@ -297,7 +302,9 @@ cdef class NeuralNet(Model):
         
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
-        
+
+        for i in range(mb.i):
+            self._softmaxC(mb.fwd(self.c.nr_layer-1, i))
         for i in range(mb.i):
             self._set_delta_lossC(mb.losses(i),
                 mb.costs(i), mb.fwd(mb.nr_layer-1, i))
@@ -338,6 +345,9 @@ cdef class NeuralNet(Model):
         else:
             memcpy(input_,
                 <const weight_t*>feats, nr_feat * sizeof(input_))
+    
+    cdef void _softmaxC(self, weight_t* output) nogil:
+        softmax(output, self.c.widths[self.c.nr_layer-1])
 
     cdef void _set_delta_lossC(self, weight_t* delta_loss,
             const weight_t* costs, const weight_t* scores) nogil:
@@ -384,6 +394,10 @@ cdef class NeuralNet(Model):
                 yield W, bias
                 start = start + get_nr_weight(self.widths[i+1], self.widths[i],
                                               True) # TODO
+
+    @property
+    def time(self):
+        return self.c.hp.t
 
     @property
     def widths(self):
