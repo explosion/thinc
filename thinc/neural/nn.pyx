@@ -137,7 +137,7 @@ cdef class NeuralNet(Model):
         # Initialise the averages to the starting values
         memcpy(&self.c.weights[self.c.nr_weight],
             self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
-        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 500)
+        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
 
     def __dealloc__(self):
         del self._mb
@@ -278,8 +278,9 @@ cdef class NeuralNet(Model):
         free(fwd_state)
  
     cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid, int force_update) nogil:
-        is_full = self._mb.push_back(feats, nr_feat, is_sparse, costs, is_valid)
+            const weight_t* costs, const int* is_valid, int force_update,
+            uint64_t key=0) nogil:
+        is_full = self._mb.push_back(feats, nr_feat, is_sparse, costs, is_valid, key=key)
         cdef weight_t loss = 0.0
         cdef int i
         if is_full or force_update:

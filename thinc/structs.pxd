@@ -3,7 +3,7 @@ from preshed.maps cimport MapStruct
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, calloc, free, realloc
 from libc.string cimport memcpy, memset
-from murmurhash.mrmr cimport hash64
+from murmurhash.mrmr cimport real_hash64 as hash64
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
 from .linalg cimport VecVec
@@ -269,22 +269,18 @@ cdef cppclass MinibatchC:
         return this.widths[this.nr_layer - 1]
 
     int push_back(const void* feats, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid) nogil:
+            const weight_t* costs, const int* is_valid, uint64_t key=0) nogil:
         # Hash the features, to see if the batch has a matching input.
-        if is_sparse:
-            signature = hash64(<void*>feats, sizeof(FeatureC) * nr_feat, 0)
-        else:
-            signature = hash64(<void*>feats, sizeof(weight_t) * nr_feat, 0)
-
         # If it does, just update the gradient for it.
-        for i in range(this.i):
-            if signature == this.signatures[i]:
-                VecVec.add_i(this.costs(i),
-                    costs, 1.0, this.nr_out())
-                return 0
-        
+        if key != 0:
+            for i in range(this.i):
+                if this.signatures[i] == key:
+                    VecVec.add_i(this.costs(i),
+                        costs, 1.0, this.nr_out())
+                    return 0
+ 
         if this.i < this.batch_size:
-            this.signatures[this.i] = signature
+            this.signatures[this.i] = key
             if is_sparse:
                 this._nr_feat[this.i] = nr_feat
                 this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
