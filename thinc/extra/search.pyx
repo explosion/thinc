@@ -114,8 +114,8 @@ cdef class Beam:
                 transition_func(state.content, parent.content, clas, extra_args)
                 key = hash_func(state.content, extra_args) if hash_func is not NULL else 0
                 is_seen = <size_t>seen_states.get(key)
-                if key == 0 or not is_seen:
-                    if key != 0:
+                if key == 0 or key == 1 or not is_seen:
+                    if key != 0 and key != 1:
                         seen_states.set(key, <void*>1)
                     state.score = score
                     state.loss = parent.loss + costs[p_i][clas]
@@ -218,15 +218,20 @@ cdef class MaxViolation:
             self.g_score = gold.score
             return 0
         d = pred.score - gold.score
-        if self.cost == 0 or d > self.delta or pred.is_done:
+        if pred.loss > 0 and (self.cost == 0 or d > self.delta or pred.is_done):
             p_hist = []
             p_scores = []
+            g_hist = []
+            g_scores = []
             for i in range(pred.size):
                 if pred._states[i].loss > 0:
                     p_scores.append(pred._states[i].score)
                     p_hist.append(list(pred.histories[i]))
-            g_hist = []
-            g_scores = []
+                # This can happen from non-monotonic actions
+                # If we find a better gold analysis this way, be sure to keep it.
+                elif pred._states[i].loss == 0 and pred._states[i].score > gold.score:
+                    g_scores.append(pred._states[i].score)
+                    g_hist.append(list(pred.histories[i]))
             for i in range(gold.size):
                 if gold._states[i].loss == 0:
                     g_scores.append(gold._states[i].score)
