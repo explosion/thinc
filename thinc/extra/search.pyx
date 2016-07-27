@@ -210,18 +210,8 @@ cdef class MaxViolation:
                     self.gZ += prob
 
     cpdef int check_crf(self, Beam pred, Beam gold) except -1:
-        if pred.is_done and pred.loss == 0:
-            self.cost = 0
-            self.delta = -1
-            self.p_hist = []
-            self.g_hist = []
-            self.p_probs = []
-            self.g_probs = []
-            self.p_score = pred.score
-            self.g_score = gold.score
-            return 0
         d = pred.score - gold.score
-        if pred.loss > 0 and (self.cost == 0 or d > self.delta or pred.is_done):
+        if pred.loss > 0 and (self.cost == 0 or d > self.delta):
             p_hist = []
             p_scores = []
             g_hist = []
