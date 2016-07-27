@@ -298,7 +298,7 @@ cdef class NeuralNet(Model):
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            self._dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
+            self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), 1)
         
         self.c.feed_fwd(mb._fwd,
@@ -322,22 +322,7 @@ cdef class NeuralNet(Model):
         for i in range(mb.i):
             self._update_extracterC(mb.features(i), mb.nr_feat(i), 1, mb.i)
 
-    cdef void _dropoutC(self, void* _feats, weight_t drop_prob,
-            int nr_feat, int is_sparse) nogil:
-        if is_sparse:
-            feats = <FeatureC*>_feats
-            for i in range(nr_feat):
-                if prng.uniform_double_PRN() < drop_prob:
-                    # Preserve the mean activation, by increasing the activation
-                    # of the non-dropped units. This way, we don't have to
-                    # re-balance the weights.
-                    # I think I read this somewhere.
-                    # If not...well, it makes sense right?
-                    # Right?
-                    feats[i].value *= 1.0 / drop_prob
-                else:
-                    feats[i].value = 0
-    
+   
     cdef void _extractC(self, weight_t* input_,
             const void* feats, int nr_feat, int is_sparse) nogil:
         if is_sparse:
