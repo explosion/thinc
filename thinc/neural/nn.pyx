@@ -137,7 +137,7 @@ cdef class NeuralNet(Model):
         # Initialise the averages to the starting values
         memcpy(&self.c.weights[self.c.nr_weight],
             self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
-        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 100)
+        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 200)
 
     def __dealloc__(self):
         del self._mb

@@ -1,3 +1,5 @@
+from libc.stdint cimport uint64_t
+
 from ..base cimport Model
 from ..typedefs cimport weight_t, feat_t, class_t
 from ..structs cimport NeuralNetC, FeatureC, MinibatchC, ExampleC
@@ -18,7 +20,7 @@ cdef class NeuralNet(Model):
         const void* feats, int nr_feat, int is_sparse) nogil
 
     cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
-        const weight_t* costs, const int* is_valid, int force_update) nogil
+        const weight_t* costs, const int* is_valid, int force_update, uint64_t key=*) nogil
 
     cdef void _updateC(self, MinibatchC* mb) nogil
 
