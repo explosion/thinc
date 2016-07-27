@@ -21,6 +21,11 @@ cdef void ReLu_backward(weight_t* gradient, weight_t** bwd,
         int nr_layer, int nr_batch, const ConstantsC* hp) nogil
 
 
+cdef void d_affine(weight_t* d_x, weight_t* d_w, weight_t* d_b,
+        const weight_t* d_out, const weight_t* x, const weight_t* w,
+        int nr_out, int nr_in, int nr_batch) nogil
+  
+
 cdef void d_log_loss(
     weight_t* loss,
         const weight_t* costs,
