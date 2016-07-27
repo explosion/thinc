@@ -163,14 +163,18 @@ cdef class Beam:
                 else:
                     entry.first = s.score
                 entry.second = move_id
-                if q.empty() or entry.first >= (q.top().first * self.min_density):
+                if q.empty() \
+                or q.top().first < 0 \
+                or entry.first >= (q.top().first * self.min_density):
                     q.push(entry)
             else:
                 for j in range(self.nr_class):
                     if is_valid[i][j]:
                         entry.first = s.score + scores[i][j]
                         entry.second = move_id + j
-                        if q.empty() or entry.first >= (q.top().first * self.min_density):
+                        if q.empty() \
+                        or q.top().first < 0 \
+                        or entry.first >= (q.top().first * self.min_density):
                             q.push(entry)
 
 
