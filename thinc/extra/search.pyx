@@ -15,11 +15,12 @@ from ..typedefs cimport hash_t
 
 
 cdef class Beam:
-    def __init__(self, class_t nr_class, class_t width):
+    def __init__(self, class_t nr_class, class_t width, weight_t min_density=0.0):
         assert nr_class != 0
         assert width != 0
         self.nr_class = nr_class
         self.width = width
+        self.min_density = min_density
         self.size = 1
         self.t = 0
         self.mem = Pool()
@@ -162,13 +163,15 @@ cdef class Beam:
                 else:
                     entry.first = s.score
                 entry.second = move_id
-                q.push(entry)
+                if entry.first >= (q.top().first * self.min_density):
+                    q.push(entry)
             else:
                 for j in range(self.nr_class):
                     if is_valid[i][j]:
                         entry.first = s.score + scores[i][j]
                         entry.second = move_id + j
-                        q.push(entry)
+                        if entry.first >= (q.top().first * self.min_density):
+                            q.push(entry)
 
 
 cdef class MaxViolation:
