@@ -1,3 +1,7 @@
+# cython: profile=True
+# cython: cdivision=True
+# cython: infer_types=True
+
 from .extra.eg cimport Example
 from . cimport prng
 
