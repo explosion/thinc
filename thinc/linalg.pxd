@@ -83,7 +83,7 @@ cdef class Vec:
     cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
-            blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1, NULL)
+            blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1)
         ELSE:
             for i in range(nr):
                 vec[i] *= scal
@@ -148,9 +148,9 @@ cdef class VecVec:
                            weight_t scale,
                            int32_t nr) nogil:
         cdef int i
-        if True:
-            blis.axpyv(blis.NO_CONJUGATE, nr, scale, <weight_t*>y, 1, x, 1, NULL)
-        else:
+        IF USE_BLAS:
+            blis.axpyv(blis.NO_CONJUGATE, nr, scale, <weight_t*>y, 1, x, 1)
+        ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
     
@@ -295,8 +295,7 @@ cdef class MatVec:
                 <weight_t*>mat, nr_col, 1,
                 <weight_t*>vec, 1,
                 1.0,
-                output, 1,
-                NULL
+                output, 1
             )
         ELSE:
             for i in range(nr_row):
@@ -338,8 +337,7 @@ cdef class MatVec:
                 1.0,
                 output,
                 nr_row,
-                1,
-                NULL)
+                1)
         ELSE:
             for b in range(nr_batch):
                 MatVec.dot(output,
@@ -366,7 +364,6 @@ cdef class MatVec:
                 <weight_t*>vec, 1,
                 1.0,
                 output, 1,
-                NULL
             )
         ELSE:
             for row in range(nr_row):
@@ -411,8 +408,7 @@ cdef class MatVec:
                 1.0,
                 output,
                 nr_col,
-                1,
-                NULL)
+                1)
         ELSE:
             for _ in range(nr_batch):
                 MatVec.T_dot(output,
@@ -473,8 +469,7 @@ cdef class MatMat:
                 1.0,
                 <weight_t*>x, 1,
                 <weight_t*>y, 1,
-                mat, nr_col, 1,
-                NULL
+                mat, nr_col, 1
             )
         ELSE:
             for i in range(nr_row):
@@ -519,8 +514,7 @@ cdef class MatMat:
                 1.0,
                 output,
                 nr_col,
-                1,
-                NULL)
+                1)
         ELSE:
             for _ in range(nr_batch):
                 for i in range(nr_row):
