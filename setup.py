@@ -55,8 +55,7 @@ MOD_NAMES = [
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
-                               '-msse3',
-                                '-I/Users/matt/blis/include/blis',
+                               '-msse3'
                                ]}
 link_options    =  {'msvc'  : [],
                     'other' : []}
@@ -162,8 +161,7 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs,
-                    libraries=['/Users/matt/blis/lib/blis']
+                    language='c++', include_dirs=include_dirs
                 ))
 
         if not is_source_release(root):
