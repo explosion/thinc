@@ -5,107 +5,11 @@ cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
+from blis cimport blis
 
 from .typedefs cimport weight_t
 
 include "compile_time_constants.pxi"
-
-
-cdef extern from "blis.h" nogil:
-    ctypedef int gint_t
-    ctypedef int dim_t
-    ctypedef int inc_t
-    ctypedef int doff_t
-
-    enum err_t:
-        pass
-
-    ctypedef enum trans_t:
-        BLIS_NO_TRANSPOSE
-        BLIS_TRANSPOSE
-        BLIS_CONJ_NO_TRANSPOSE
-        BLIS_CONJ_TRANSPOSE
-
-    enum conj_t:
-        BLIS_NO_CONJUGATE
-        BLIS_CONJUGATE
-
-    enum side_t:
-        BLIS_LEFT
-        BLIS_RIGHT
-
-    enum uplo_t:
-        BLIS_LOWER
-        BLIS_UPPER
-        BLIS_DENSE
-
-    enum diag_t:
-        BLIS_NONUNIT_DIAG
-        BLIS_UNIT_DIAG
-
-    err_t bli_init()
-    err_t bli_finalize()
-
-    # BLAS level 3 routines
-    void bli_dgemm(
-       trans_t transa,
-       trans_t transb,
-       dim_t   m,
-       dim_t   n,
-       dim_t   k,
-       double*  alpha,
-       double*  a, inc_t rsa, inc_t csa,
-       double*  b, inc_t rsb, inc_t csb,
-       double*  beta,
-       double*  c, inc_t rsc, inc_t csc,
-       cntx_t* cntx
-    )
-
-    void bli_dger(
-       conj_t  conjx,
-       conj_t  conjy,
-       dim_t   m,
-       dim_t   n,
-       double*  alpha,
-       double*  x, inc_t incx,
-       double*  y, inc_t incy,
-       double*  a, inc_t rsa, inc_t csa,
-       cntx_t* cntx
-    )
-
-    void bli_dgemv(
-       trans_t transa,
-       conj_t  conjx,
-       dim_t   m,
-       dim_t   n,
-       double*  alpha,
-       double*  a, inc_t rsa, inc_t csa,
-       double*  x, inc_t incx,
-       double*  beta,
-       double*  y, inc_t incy,
-       cntx_t* cntx
-     )
-
-    void bli_daxpyv(
-       conj_t  conjx,
-       dim_t   m,
-       double*  alpha,
-       double*  x, inc_t incx,
-       double*  y, inc_t incy,
-       cntx_t* cntx
-     )
-
-    void bli_dscalv(
-       conj_t  conjalpha,
-       dim_t   m,
-       double*  alpha,
-       double*  x, inc_t incx,
-       cntx_t* cntx
-    )
-
-    struct cntx_t:
-        pass
-
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
@@ -179,7 +83,7 @@ cdef class Vec:
     cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
-            bli_dscalv(BLIS_NO_CONJUGATE, nr, &scal, vec, 1, NULL)
+            blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1, NULL)
         ELSE:
             for i in range(nr):
                 vec[i] *= scal
@@ -245,7 +149,7 @@ cdef class VecVec:
                            int32_t nr) nogil:
         cdef int i
         if True:
-            bli_daxpyv(BLIS_NO_CONJUGATE, nr, &scale, <weight_t*>y, 1, x, 1, NULL)
+            blis.axpyv(blis.NO_CONJUGATE, nr, scale, <weight_t*>y, 1, x, 1, NULL)
         else:
             for i in range(nr):
                 x[i] += y[i] * scale
@@ -381,17 +285,16 @@ cdef class MatVec:
                          int32_t nr_row, int32_t nr_col) nogil:
         cdef int i, row, col
         cdef double zero = 0.0
-        cdef double one = 1.0
         IF USE_BLAS:
-            bli_dgemv(
-                BLIS_NO_TRANSPOSE,
-                BLIS_NO_CONJUGATE,
+            blis.gemv(
+                blis.NO_TRANSPOSE,
+                blis.NO_CONJUGATE,
                 nr_row,
                 nr_col,
-                &one,
+                1.0,
                 <weight_t*>mat, nr_col, 1,
                 <weight_t*>vec, 1,
-                &one,
+                1.0,
                 output, 1,
                 NULL
             )
@@ -419,20 +322,20 @@ cdef class MatVec:
         cdef int i, row, col
         cdef double one = 1.0
         IF USE_BLAS:
-            bli_dgemm(
-                BLIS_NO_TRANSPOSE,
-                BLIS_TRANSPOSE,
+            blis.gemm(
+                blis.NO_TRANSPOSE,
+                blis.TRANSPOSE,
                 nr_batch,
                 nr_row,
                 nr_col,
-                &one,
+                1.0,
                 <weight_t*>vec,
                 nr_col,
                 1,
                 <weight_t*>mat,
                 nr_col,
                 1,
-                &one,
+                1.0,
                 output,
                 nr_row,
                 1,
@@ -454,14 +357,14 @@ cdef class MatVec:
         cdef double zero = 0.0
         cdef double one = 1.0
         IF USE_BLAS:
-            bli_dgemv(
-                BLIS_TRANSPOSE,
-                BLIS_NO_CONJUGATE,
+            blis.gemv(
+                blis.TRANSPOSE,
+                blis.NO_CONJUGATE,
                 nr_row, nr_col,
-                &one,
+                1.0,
                 <weight_t*>mat, nr_col, 1,
                 <weight_t*>vec, 1,
-                &one,
+                1.0,
                 output, 1,
                 NULL
             )
@@ -492,20 +395,20 @@ cdef class MatVec:
             # vec:  M * K
             # mat:  K * N
             # out:  M * N
-            bli_dgemm(
-                BLIS_NO_TRANSPOSE,
-                BLIS_NO_TRANSPOSE,
+            blis.gemm(
+                blis.NO_TRANSPOSE,
+                blis.NO_TRANSPOSE,
                 nr_batch,
                 nr_col,
                 nr_row,
-                &one,
+                1.0,
                 <weight_t*>vec,
                 nr_row,
                 1,
                 <weight_t*>mat,
                 nr_col,
                 1,
-                &one,
+                1.0,
                 output,
                 nr_col,
                 1,
@@ -564,10 +467,10 @@ cdef class MatMat:
         cdef int i, j, row
         cdef double one = 1.0
         IF USE_BLAS:
-            bli_dger(
-                BLIS_NO_CONJUGATE, BLIS_NO_CONJUGATE,
+            blis.ger(
+                blis.NO_CONJUGATE, blis.NO_CONJUGATE,
                 nr_row, nr_col,
-                &one,
+                1.0,
                 <weight_t*>x, 1,
                 <weight_t*>y, 1,
                 mat, nr_col, 1,
@@ -600,20 +503,20 @@ cdef class MatMat:
         # out:  M * N
         cdef double one = 1.0
         IF USE_BLAS:
-            bli_dgemm(
-                BLIS_TRANSPOSE,
-                BLIS_NO_TRANSPOSE,
+            blis.gemm(
+                blis.TRANSPOSE,
+                blis.NO_TRANSPOSE,
                 nr_row,
                 nr_col,
                 nr_batch,
-                &one,
+                1.0,
                 <weight_t*>x,
                 nr_row,
                 1,
                 <weight_t*>y,
                 nr_col,
                 1,
-                &one,
+                1.0,
                 output,
                 nr_col,
                 1,
