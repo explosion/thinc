@@ -54,8 +54,7 @@ cdef class AveragedPerceptron(Model):
                     PyMem_Free(feat.times)
 
     def __call__(self, Example eg):
-        self.set_scoresC(eg.c.scores,
-            eg.c.features, eg.c.nr_feat, 1)
+        self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
         PyErr_CheckSignals()
         return eg.guess
 
@@ -106,8 +105,7 @@ cdef class AveragedPerceptron(Model):
         return self.extracter.nr_templ
 
     cdef void set_scoresC(self, weight_t* scores,
-            const void* _feats, int nr_feat, int is_sparse) nogil:
-        feats = <const FeatureC*>_feats
+            const FeatureC* feats, int nr_feat) nogil:
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries

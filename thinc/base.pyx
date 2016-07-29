@@ -32,24 +32,22 @@ cdef class Model:
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         pass
     cdef void set_scoresC(self, weight_t* scores,
-            const void* feats, int nr_feat, int is_sparse) nogil:
+            const FeatureC* feats, int nr_feat) nogil:
         pass
 
     cdef void set_featuresC(self, ExampleC* eg, const void* state) nogil: 
         pass
 
-    cdef void dropoutC(self, void* _feats, weight_t drop_prob,
-            int nr_feat, int is_sparse) nogil:
-        if is_sparse:
-            feats = <FeatureC*>_feats
-            for i in range(nr_feat):
-                if prng.uniform_double_PRN() < drop_prob:
-                    # Preserve the mean activation, by increasing the activation
-                    # of the non-dropped units. This way, we don't have to
-                    # re-balance the weights.
-                    # I think I read this somewhere.
-                    # If not...well, it makes sense right?
-                    # Right?
-                    feats[i].value *= 1.0 / drop_prob
-                else:
-                    feats[i].value = 0
+    cdef void dropoutC(self, FeatureC* feats, weight_t drop_prob,
+            int nr_feat) nogil:
+        for i in range(nr_feat):
+            if prng.uniform_double_PRN() < drop_prob:
+                # Preserve the mean activation, by increasing the activation
+                # of the non-dropped units. This way, we don't have to
+                # re-balance the weights.
+                # I think I read this somewhere.
+                # If not...well, it makes sense right?
+                # Right?
+                feats[i].value *= 1.0 / drop_prob
+            else:
+                feats[i].value = 0

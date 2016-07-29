@@ -262,14 +262,30 @@ cdef cppclass MinibatchC:
         free(this._costs)
         free(this.signatures)
 
+    void reset() nogil:
+        for i in range(this.nr_layer):
+            memset(this._fwd[i],
+                0, sizeof(this._fwd[i][0]) * this.batch_size * this.widths[i])
+            memset(this._bwd[i],
+                0, sizeof(this._bwd[i][0]) * this.batch_size * this.widths[i])
+        memset(this._nr_feat, 0, sizeof(this.signatures[0]) * this.batch_size)
+        memset(this.signatures, 0, sizeof(this._nr_feat[0]) * this.batch_size)
+        memset(this._costs,
+            0, sizeof(this._costs[0]) * this.nr_out() * this.batch_size)
+        memset(this._is_valid,
+            0, sizeof(this._is_valid[0]) * this.nr_out() * this.batch_size)
+        for i in range(this.i):
+            free(this._feats[i])
+            this._feats[i] = NULL
+
     int nr_in() nogil:
         return this.widths[0]
 
     int nr_out() nogil:
         return this.widths[this.nr_layer - 1]
 
-    int push_back(const void* feats, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid, uint64_t key=0) nogil:
+    int push_back(const FeatureC* feats, int nr_feat,
+            const weight_t* costs, const int* is_valid, uint64_t key) nogil:
         # Hash the features, to see if the batch has a matching input.
         # If it does, just update the gradient for it.
         if key != 0:
@@ -281,16 +297,10 @@ cdef cppclass MinibatchC:
  
         if this.i < this.batch_size:
             this.signatures[this.i] = key
-            if is_sparse:
-                this._nr_feat[this.i] = nr_feat
-                this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
-                memcpy(this._feats[this.i],
-                    feats, nr_feat * sizeof(this._feats[this.i][0]))
-            else:
-                this._nr_feat[this.i] = 0
-                this._feats[this.i] = NULL
-                memcpy(this.fwd(this.i, 0),
-                    feats, this.widths[0] * sizeof(weight_t))
+            this._nr_feat[this.i] = nr_feat
+            this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
+            memcpy(this._feats[this.i],
+                feats, nr_feat * sizeof(this._feats[this.i][0]))
 
             memcpy(this.costs(this.i),
                 costs, this.nr_out() * sizeof(costs[0]))

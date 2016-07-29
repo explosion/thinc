@@ -156,8 +156,8 @@ cdef class NeuralNet(Model):
     def train(self, examples):
         cdef Example eg
         for eg in examples:
-            is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat, True,
-                                         eg.c.costs, eg.c.is_valid)
+            is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat,
+                                         eg.c.costs, eg.c.is_valid, 0)
             if is_full:
                 self._updateC(self._mb)
                 minibatch = Minibatch.take_ownership(self._mb)
@@ -166,8 +166,8 @@ cdef class NeuralNet(Model):
                                           minibatch.batch_size)
 
     def update(self, Example eg, force_update=False):
-        return self.updateC(eg.c.features, eg.c.nr_feat, True,
-                            eg.c.costs, eg.c.is_valid, force_update)
+        return self.updateC(eg.c.features, eg.c.nr_feat,
+                            eg.c.costs, eg.c.is_valid, force_update, 0)
     
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         pass
@@ -260,13 +260,12 @@ cdef class NeuralNet(Model):
     def nr_feat(self):
         return self.c.widths[0]
    
-    cdef void set_scoresC(self, weight_t* scores, const void* feats, int nr_feat,
-            int is_sparse) nogil:
+    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
         fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
         for i in range(self.c.nr_layer):
             fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
 
-        self._extractC(fwd_state[0], feats, nr_feat, is_sparse)
+        self._extractC(fwd_state[0], feats, nr_feat)
         self.c.feed_fwd(fwd_state,
             self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
         self._softmaxC(fwd_state[self.c.nr_layer-1])
@@ -277,10 +276,10 @@ cdef class NeuralNet(Model):
             free(fwd_state[i])
         free(fwd_state)
  
-    cdef weight_t updateC(self, const void* feats, int nr_feat, int is_sparse,
-            const weight_t* costs, const int* is_valid, int force_update,
-            uint64_t key=0) nogil:
-        is_full = self._mb.push_back(feats, nr_feat, is_sparse, costs, is_valid, key=key)
+    cdef weight_t updateC(self, const FeatureC* feats, int nr_feat,
+                          const weight_t* costs, const int* is_valid,
+                          int force_update, uint64_t key) nogil:
+        is_full = self._mb.push_back(feats, nr_feat, costs, is_valid, key)
         cdef weight_t loss = 0.0
         cdef int i
         if is_full or force_update:
@@ -290,16 +289,15 @@ cdef class NeuralNet(Model):
             batch_size = self._mb.batch_size
             del self._mb
             self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, batch_size)
-        if nr_feat > 0 and is_sparse:
+        if nr_feat > 0:
             with gil:
-                Embedding.insert_missing(self.mem, self.c.embed,
-                    <const FeatureC*>feats, nr_feat)
+                Embedding.insert_missing(self.mem, self.c.embed, feats, nr_feat)
         return loss
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
             #self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
-            self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), 1)
+            self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))
         
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
@@ -318,19 +316,14 @@ cdef class NeuralNet(Model):
         self.c.update(self.c.weights, self.c.gradient,
             self.c.nr_weight, &self.c.hp)
         for i in range(mb.i):
-            self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i), 1)
+            self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i))
         for i in range(mb.i):
-            self._update_extracterC(mb.features(i), mb.nr_feat(i), 1, mb.i)
+            self._update_extracterC(mb.features(i), mb.nr_feat(i), mb.i)
 
    
-    cdef void _extractC(self, weight_t* input_,
-            const void* feats, int nr_feat, int is_sparse) nogil:
-        if is_sparse:
-            Embedding.set_input(input_,
-                <const FeatureC*>feats, nr_feat, self.c.embed)
-        else:
-            memcpy(input_,
-                <const weight_t*>feats, nr_feat * sizeof(input_))
+    cdef void _extractC(self, weight_t* input_, const FeatureC* feats, int nr_feat) nogil:
+        Embedding.set_input(input_,
+            <const FeatureC*>feats, nr_feat, self.c.embed)
     
     cdef void _softmaxC(self, weight_t* output) nogil:
         softmax(output, self.c.widths[self.c.nr_layer-1])
@@ -340,18 +333,17 @@ cdef class NeuralNet(Model):
         d_log_loss(delta_loss,
             costs, scores, self.c.widths[self.c.nr_layer-1])
 
-    cdef void _backprop_extracterC(self, const weight_t* deltas, const void* feats,
-            int nr_feat, int is_sparse) nogil:
-        if nr_feat < 1 or not is_sparse:
+    cdef void _backprop_extracterC(self, const weight_t* deltas, const FeatureC* feats,
+            int nr_feat) nogil:
+        if nr_feat < 1:
             return
         Embedding.fine_tune(self.c.embed,
-            deltas, self.c.widths[0], <const FeatureC*>feats, nr_feat)
+            deltas, self.c.widths[0], feats, nr_feat)
 
-    cdef void _update_extracterC(self, const void* _feats,
-            int nr_feat, int is_sparse, int batch_size) nogil:
-        if nr_feat < 1 or not is_sparse:
+    cdef void _update_extracterC(self, const FeatureC* feats,
+            int nr_feat, int batch_size) nogil:
+        if nr_feat < 1:
             return
-        feats = <const FeatureC*>_feats
         for feat in feats[:nr_feat]:
             Embedding.update(self.c.embed,
                 feat.i, feat.key, batch_size, &self.c.hp, self.c.update)
