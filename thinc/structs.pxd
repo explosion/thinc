@@ -268,8 +268,8 @@ cdef cppclass MinibatchC:
                 0, sizeof(this._fwd[i][0]) * this.batch_size * this.widths[i])
             memset(this._bwd[i],
                 0, sizeof(this._bwd[i][0]) * this.batch_size * this.widths[i])
-        memset(this._nr_feat, 0, sizeof(this.signatures[0]) * this.batch_size)
-        memset(this.signatures, 0, sizeof(this._nr_feat[0]) * this.batch_size)
+        memset(this._nr_feat, 0, sizeof(this._nr_feat[0]) * this.batch_size)
+        memset(this.signatures, 0, sizeof(this.signatures[0]) * this.batch_size)
         memset(this._costs,
             0, sizeof(this._costs[0]) * this.nr_out() * this.batch_size)
         memset(this._is_valid,
@@ -277,6 +277,7 @@ cdef cppclass MinibatchC:
         for i in range(this.i):
             free(this._feats[i])
             this._feats[i] = NULL
+        this.i = 0
 
     int nr_in() nogil:
         return this.widths[0]
@@ -294,6 +295,8 @@ cdef cppclass MinibatchC:
                     VecVec.add_i(this.costs(i),
                         costs, 1.0, this.nr_out())
                     return 0
+        if this.i >= this.batch_size:
+            this.reset()
  
         if this.i < this.batch_size:
             this.signatures[this.i] = key

@@ -137,10 +137,7 @@ cdef class NeuralNet(Model):
         # Initialise the averages to the starting values
         memcpy(&self.c.weights[self.c.nr_weight],
             self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
-        self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, 200)
-
-    def __dealloc__(self):
-        del self._mb
+        self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 200))
 
     def __call__(self, Example eg):
         if eg.c.nr_feat >= 1:
@@ -156,14 +153,11 @@ cdef class NeuralNet(Model):
     def train(self, examples):
         cdef Example eg
         for eg in examples:
-            is_full = self._mb.push_back(eg.c.features, eg.c.nr_feat,
+            is_full = self._mb.c.push_back(eg.c.features, eg.c.nr_feat,
                                          eg.c.costs, eg.c.is_valid, 0)
             if is_full:
-                self._updateC(self._mb)
-                minibatch = Minibatch.take_ownership(self._mb)
-                yield from minibatch
-                self._mb = new MinibatchC(self.c.widths, self.c.nr_layer,
-                                          minibatch.batch_size)
+                self._updateC(self._mb.c)
+                yield from self._mb
 
     def update(self, Example eg, force_update=False):
         return self.updateC(eg.c.features, eg.c.nr_feat,
@@ -279,16 +273,13 @@ cdef class NeuralNet(Model):
     cdef weight_t updateC(self, const FeatureC* feats, int nr_feat,
                           const weight_t* costs, const int* is_valid,
                           int force_update, uint64_t key) nogil:
-        is_full = self._mb.push_back(feats, nr_feat, costs, is_valid, key)
+        is_full = self._mb.c.push_back(feats, nr_feat, costs, is_valid, key)
         cdef weight_t loss = 0.0
         cdef int i
         if is_full or force_update:
-            self._updateC(self._mb)
-            for i in range(self._mb.i):
-                loss += 1.0 - self._mb.scores(i)[self._mb.best(i)]
-            batch_size = self._mb.batch_size
-            del self._mb
-            self._mb = new MinibatchC(self.c.widths, self.c.nr_layer, batch_size)
+            self._updateC(self._mb.c)
+            for i in range(self._mb.c.i):
+                loss += 1.0 - self._mb.c.scores(i)[self._mb.c.best(i)]
         if nr_feat > 0:
             with gil:
                 Embedding.insert_missing(self.mem, self.c.embed, feats, nr_feat)

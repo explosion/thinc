@@ -11,8 +11,8 @@ from cymem.cymem cimport Pool
 
 cdef class NeuralNet(Model):
     cdef readonly Pool mem
+    cdef readonly Minibatch _mb
     cdef NeuralNetC c
-    cdef MinibatchC* _mb
 
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
     

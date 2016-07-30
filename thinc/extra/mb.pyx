@@ -31,7 +31,7 @@ cdef class Minibatch:
     def __iter__(self):
         for i in range(len(self)):
             yield self[i]
-        
+
     @property
     def widths(self):
         return [self.c.widths[i] for i in range(self.c.nr_layer)]
