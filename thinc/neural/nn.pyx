@@ -36,7 +36,7 @@ from ..structs cimport do_update_t
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 
-from .solve cimport noisy_update, vanilla_sgd, adam, sgd_cm, asgd
+from .solve cimport vanilla_sgd, sgd_cm, adagrad, adadelta, adam
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
@@ -79,28 +79,29 @@ cdef class NeuralNet(Model):
         self.c.hp.m = kwargs.get('mu', 0.9)
         if kwargs.get('update_step') == 'sgd':
             self.c.update = vanilla_sgd
-            nr_support = 1
-        elif kwargs.get('update_step') == 'asgd':
-            self.c.update = asgd
             nr_support = 2
-        elif kwargs.get('update_step') == 'sgd_cm':
+        elif kwargs.get('update_step', 'sgd_cm') == 'sgd_cm':
             self.c.update = sgd_cm
             nr_support = 3
+        elif kwargs.get('update_step') == 'adagrad':
+            self.c.update = adagrad
+            nr_support = 3
+        elif kwargs.get('update_step') == 'adadelta':
+            self.c.update = adadelta
+            nr_support = 4
         elif kwargs.get('update_step') == 'adam':
             self.c.update = adam
             nr_support = 4
         else:
-            self.c.update = noisy_update
-            nr_support = 1
+            raise ValueError(kwargs.get('update_step'))
         self.c.embed.nr_support = nr_support
-        use_batch_norm = kwargs.get('batch_norm', False)
+        use_batch_norm = kwargs.get('batch_norm', True)
         if use_batch_norm:
             self.c.feed_fwd = ELU_batch_norm_residual_forward
             self.c.feed_bwd = ELU_batch_norm_residual_backward
         else:
             self.c.feed_fwd = ELU_forward
             self.c.feed_bwd = ELU_backward
-
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
@@ -159,6 +160,13 @@ cdef class NeuralNet(Model):
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         pass
 
+    def has_embedding(self, int i, key_t key):
+        emb = <weight_t*>Map_get(self.c.embed.weights[i], key)
+        return True if emb is not NULL else False
+
+    def default_embedding(self, int i):
+        return [self.c.embed.defaults[i][j] for j in range(self.c.embed.lengths[i])]
+
     def set_embedding(self, int i, key_t key, values):
         '''Insert an embedding for a given key.'''
         if len(values) != self.c.embed.lengths[i]:
@@ -170,8 +178,10 @@ cdef class NeuralNet(Model):
         if emb is NULL or grad is NULL:
             # If one is null both should be. But free just in case, to avoid mem
             # leak.
-            free(emb)
-            free(grad)
+            if emb is not NULL:
+                self.mem.free(emb)
+            if grad is not NULL:
+                self.mem.free(grad)
             emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i] * self.c.embed.nr_support,
                     sizeof(emb[0]))
             grad = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
@@ -350,12 +360,12 @@ cdef class NeuralNet(Model):
             start = 0
             for i in range(self.c.nr_layer-1):
                 nr_w = self.widths[i] * self.widths[i+1]
-                nr_bias = self.widths[i] * self.widths[i+1] + self.widths[i+1]
+                nr_bias = self.widths[i+1]
                 W = weights[start:start+nr_w]
-                bias = weights[start+nr_w:start+nr_bias]
+                bias = weights[start+nr_w:start+nr_w+nr_bias]
                 yield W, bias
-                start = start + get_nr_weight(self.widths[i+1], self.widths[i],
-                                              True) # TODO
+                start += get_nr_weight(self.widths[i+1], self.widths[i],
+                                       False) # TODO
 
     @property
     def time(self):
