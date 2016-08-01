@@ -1,36 +1,84 @@
 # cython: infer_types=True
 cimport cython
 
+cdef ExampleC* init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
+    if widths is None:
+        widths = [nr_class]
+    if nr_class == 0:
+        nr_class = widths[-1]
+
+    eg = <ExampleC*>mem.alloc(1, sizeof(ExampleC))
+    eg.nr_class = nr_class
+    eg.nr_atom = nr_atom
+    eg.nr_feat = nr_feat
+    eg.nr_layer = len(widths)
+
+    eg.scores = <weight_t*>mem.alloc(nr_class, sizeof(eg.scores[0]))
+    eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(eg.costs[0]))
+    eg.atoms = <atom_t*>mem.alloc(nr_atom, sizeof(eg.atoms[0]))
+    eg.features = <FeatureC*>mem.alloc(nr_feat, sizeof(eg.features[0]))
+        
+    eg.is_valid = <int*>mem.alloc(nr_class, sizeof(eg.is_valid[0]))
+    for i in range(eg.nr_class):
+        eg.is_valid[i] = 1
+
+    eg.widths = <int*>mem.alloc(len(widths), sizeof(eg.widths[0]))
+    eg.fwd_state = <weight_t**>mem.alloc(len(widths), sizeof(eg.fwd_state[0]))
+    eg.bwd_state = <weight_t**>mem.alloc(len(widths), sizeof(eg.bwd_state[0]))
+    for i, width in enumerate(widths):
+        eg.widths[i] = width
+        eg.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(eg.fwd_state[i][0]))
+        eg.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(eg.bwd_state[i][0]))
+    return eg
+    
+
+#cdef void free_eg(ExampleC* eg) nogil:
+#    free(eg.scores)
+#    free(eg.costs)
+#    free(eg.atoms)
+#    free(eg.features)
+#    free(eg.is_valid)
+#    for i in range(eg.nr_layer):
+#        free(eg.fwd_state[i])
+#        free(eg.bwd_state[i])
+#        free(eg.fwd_state)
+#        free(eg.bwd_state)
+#        free(eg.widths)
+
 
 cdef class Example:
-    def __init__(self, int nr_class=0, int nr_atom=0,
-            int nr_feat=0, widths=None, Pool mem=None):
-        self.c = new ExampleC(
-            widths=widths,
-            nr_class=nr_class,
-            nr_atom=nr_atom,
-            nr_feat=nr_feat)
-
-    def __dealloc__(self):
-        del self.c
+    def __init__(self, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
+        self.mem = Pool()
+        self.c = init_eg(self.mem, nr_class=nr_class, nr_atom=nr_atom,
+                         nr_feat=nr_feat, widths=widths)
 
     def fill_features(self, int value, int nr_feat):
-        self.c.fill_features(value)
+        for i in range(nr_feat):
+            self.c.features[i].i = value
+            self.c.features[i].key = value
+            self.c.features[i].value = value
 
     def fill_atoms(self, atom_t value, int nr_atom):
-        self.c.fill_atoms(value)
+        for i in range(self.c.nr_atom):
+            self.c.atoms[i] = value
 
     def fill_scores(self, weight_t value, int nr_class):
-        self.c.fill_scores(value)
+        for i in range(self.c.nr_class):
+            self.c.scores[i] = value
 
     def fill_is_valid(self, int value, int nr_class):
-        self.c.fill_is_valid(value)
+        for i in range(self.c.nr_class):
+            self.c.is_valid[i] = value
    
     def fill_costs(self, weight_t value, int nr_class):
-        self.c.fill_costs(value)
+        for i in range(self.c.nr_class):
+            self.c.costs[i] = value
 
     def fill_state(self, weight_t value, widths):
-        self.c.fill_state(value)
+        for i in range(self.c.nr_layer):
+            for j in range(self.c.widths[i]):
+                self.c.fwd_state[i][j] = value
+                self.c.bwd_state[i][j] = value
     
     def reset(self):
         self.fill_features(0, self.c.nr_feat)
@@ -128,13 +176,14 @@ cdef class Example:
         def __get__(self):
             return self.c.nr_atom
         def __set__(self, int nr_atom):
-            self.c.resize_atoms(nr_atom)
+            self.resize_atoms(nr_atom)
 
     property nr_feat:
         def __get__(self):
             return self.c.nr_feat
         def __set__(self, int nr_feat):
-            self.c.resize_features(nr_feat)
+            self.c.nr_feat = nr_feat
+            #self.resize_features(nr_feat)
 
     property loss:
         def __get__(self):

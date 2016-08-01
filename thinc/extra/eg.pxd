@@ -12,6 +12,7 @@ from ..linalg cimport Vec, VecVec
 
 
 cdef class Example:
+    cdef Pool mem
     cdef ExampleC* c
 
     @staticmethod
