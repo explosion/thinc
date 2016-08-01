@@ -140,14 +140,7 @@ cdef class NeuralNet(Model):
         self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 200))
 
     def __call__(self, Example eg):
-        if eg.c.nr_feat >= 1:
-            Embedding.set_input(eg.c.fwd_state[0],
-                eg.c.features, eg.c.nr_feat, self.c.embed)
-        self.c.feed_fwd(eg.c.fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
-        memcpy(eg.c.scores,
-            eg.c.fwd_state[self.c.nr_layer-1],
-            sizeof(eg.c.scores[0]) * self.c.widths[self.c.nr_layer-1])
+        self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
         return eg
 
     def train(self, examples):
