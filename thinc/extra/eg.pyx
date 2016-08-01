@@ -11,7 +11,6 @@ cdef ExampleC* init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, w
     eg.nr_class = nr_class
     eg.nr_atom = nr_atom
     eg.nr_feat = nr_feat
-    eg.nr_layer = len(widths)
 
     eg.scores = <weight_t*>mem.alloc(nr_class, sizeof(eg.scores[0]))
     eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(eg.costs[0]))
@@ -21,36 +20,13 @@ cdef ExampleC* init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, w
     eg.is_valid = <int*>mem.alloc(nr_class, sizeof(eg.is_valid[0]))
     for i in range(eg.nr_class):
         eg.is_valid[i] = 1
-
-    eg.widths = <int*>mem.alloc(len(widths), sizeof(eg.widths[0]))
-    eg.fwd_state = <weight_t**>mem.alloc(len(widths), sizeof(eg.fwd_state[0]))
-    eg.bwd_state = <weight_t**>mem.alloc(len(widths), sizeof(eg.bwd_state[0]))
-    for i, width in enumerate(widths):
-        eg.widths[i] = width
-        eg.fwd_state[i] = <weight_t*>mem.alloc(width, sizeof(eg.fwd_state[i][0]))
-        eg.bwd_state[i] = <weight_t*>mem.alloc(width, sizeof(eg.bwd_state[i][0]))
     return eg
     
 
-#cdef void free_eg(ExampleC* eg) nogil:
-#    free(eg.scores)
-#    free(eg.costs)
-#    free(eg.atoms)
-#    free(eg.features)
-#    free(eg.is_valid)
-#    for i in range(eg.nr_layer):
-#        free(eg.fwd_state[i])
-#        free(eg.bwd_state[i])
-#        free(eg.fwd_state)
-#        free(eg.bwd_state)
-#        free(eg.widths)
-
-
 cdef class Example:
-    def __init__(self, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
+    def __init__(self, int nr_class=0, int nr_atom=0, int nr_feat=0):
         self.mem = Pool()
-        self.c = init_eg(self.mem, nr_class=nr_class, nr_atom=nr_atom,
-                         nr_feat=nr_feat, widths=widths)
+        self.c = init_eg(self.mem, nr_class=nr_class, nr_atom=nr_atom, nr_feat=nr_feat)
 
     def fill_features(self, int value, int nr_feat):
         for i in range(nr_feat):
@@ -74,35 +50,13 @@ cdef class Example:
         for i in range(self.c.nr_class):
             self.c.costs[i] = value
 
-    def fill_state(self, weight_t value, widths):
-        for i in range(self.c.nr_layer):
-            for j in range(self.c.widths[i]):
-                self.c.fwd_state[i][j] = value
-                self.c.bwd_state[i][j] = value
-    
     def reset(self):
         self.fill_features(0, self.c.nr_feat)
         self.fill_atoms(0, self.c.nr_atom)
         self.fill_scores(0, self.c.nr_class)
         self.fill_costs(0, self.c.nr_class)
         self.fill_is_valid(1, self.c.nr_class)
-        self.fill_state(0, self.widths)
    
-    @cython.boundscheck(False)
-    def set_input(self, weight_t[:] input_):
-        cdef int length = input_.shape[0]
-        if length > self.c.widths[0]:
-            lengths = (len(input_), self.c.widths[0])
-            raise IndexError("Cannot set %d elements to input of length %d" % lengths)
-        cdef int i
-        cdef weight_t value
-        for i in range(length):
-            self.c.fwd_state[0][i] = input_[i]
-
-    property widths:
-        def __get__(self):
-            return [self.c.widths[i] for i in range(self.c.nr_layer)]
-
     property features:
         def __get__(self):
             for i in range(self.nr_feat):
@@ -188,11 +142,3 @@ cdef class Example:
     property loss:
         def __get__(self):
             return 1 - self.c.scores[self.best]
-
-    def activation(self, int i, int j):
-        # TODO: Find a way to do this better!
-        return self.c.fwd_state[i][j]
-
-    def delta(self, int i, int j):
-        # TODO: Find a way to do this better!
-        return self.c.bwd_state[i][j]
