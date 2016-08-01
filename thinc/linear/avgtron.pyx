@@ -56,7 +56,7 @@ cdef class AveragedPerceptron(Model):
     def __call__(self, Example eg):
         self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
         PyErr_CheckSignals()
-        return eg.guess
+        return eg
 
     def update(self, Example eg):
         self(eg)
