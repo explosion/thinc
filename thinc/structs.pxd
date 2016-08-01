@@ -116,14 +116,9 @@ cdef struct ExampleC:
     FeatureC* features
     weight_t* scores
 
-    weight_t** fwd_state
-    weight_t** bwd_state
-    int* widths
-
     int nr_class
     int nr_atom
     int nr_feat
-    int nr_layer
 
 
 cdef cppclass MinibatchC:
