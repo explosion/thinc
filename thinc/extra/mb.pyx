@@ -10,8 +10,7 @@ cdef class Minibatch:
         return self.c.i
 
     def __getitem__(self, int i):
-        cdef Example eg = Example(nr_class=self.nr_class, widths=self.widths,
-                            nr_feat=self.c.nr_feat(i))
+        cdef Example eg = Example(nr_class=self.nr_class, nr_feat=self.c.nr_feat(i))
         memcpy(eg.c.features,
             self.c.features(i), eg.nr_feat * sizeof(eg.c.features[0]))
         memcpy(eg.c.scores,
@@ -20,12 +19,6 @@ cdef class Minibatch:
             self.c.costs(i), eg.c.nr_class * sizeof(eg.c.costs[0]))
         memcpy(eg.c.is_valid,
             self.c.is_valid(i), eg.c.nr_class * sizeof(eg.c.is_valid[0]))
-        cdef int j
-        for j in range(eg.c.nr_layer):
-            memcpy(eg.c.fwd_state[j],
-                self.c.fwd(j, i), eg.c.widths[j] * sizeof(eg.c.fwd_state[j][0]))
-            memcpy(eg.c.bwd_state[j],
-                self.c.bwd(j, i), eg.c.widths[j] * sizeof(eg.c.bwd_state[j][0]))
         return eg
 
     def __iter__(self):
