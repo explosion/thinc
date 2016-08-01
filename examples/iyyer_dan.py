@@ -8,12 +8,14 @@ from __future__ import unicode_literals
 from __future__ import print_function
 from __future__ import division
 
+from itertools import imap
 from collections import defaultdict
 from pathlib import Path
 import plac
 import numpy.random
 
 from thinc.neural.nn import NeuralNet
+from thinc.linear.avgtron import AveragedPerceptron
 from thinc.extra.eg import Example
 
 
@@ -55,36 +57,32 @@ def preprocess(text):
 
 
 class Extractor(object):
-    def __init__(self, nr_embed, dropout=0.3):
-        self.nr_embed = nr_embed
+    def __init__(self, dropout=0.3, bigrams=False):
         self.dropout = dropout
+        self.bigrams = bigrams
         self.vocab = {}
 
-    def __call__(self, text, dropout=True, bigrams=False):
+    def __call__(self, text, dropout=True):
         doc = preprocess(text)
         dropout = self.dropout if dropout is True else 0.0
         bow = defaultdict(float)
         all_words = defaultdict(float)
         prev = None
+        inc = (1./(1-dropout))
         for word in doc:
             id_ = self.vocab.setdefault(word, len(self.vocab) + 1)
             if numpy.random.random() >= dropout and word.isalpha():
-                bow[id_] += 1
-                if bigrams and prev is not None:
+                bow[id_] += inc
+                if self.bigrams and prev is not None:
                     bi = self.vocab.setdefault(prev+'_'+word, len(self.vocab) + 1)
-                    bow[bi] += 1
-                    all_words[bi] += 1
+                    bow[bi] += inc
+                    all_words[bi] += inc
                 prev = word
             else:
                 prev = None
-            all_words[id_] += 1
+            all_words[id_] += inc
         if sum(bow.values()) < 1:
             bow = all_words
-        # Normalize for frequency and adjust for dropout
-        total = sum(bow.values())
-        total *= 1-dropout
-        for word, freq in bow.items():
-            bow[word] = float(freq) / total
         return bow
 
 
@@ -100,28 +98,63 @@ class DenseAveragedNetwork(NeuralNet):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6, update_step='sgd'):
-        nn_shape = tuple([width] + [width] * depth + [n_classes])
-        NeuralNet.__init__(self, nn_shape, embed=((width,), (0,)),
-                           rho=rho, eta=eta, update_step=update_step)
+                 eps=1e-6, batch_norm=False, update_step='sgd'):
+        unigram_width = int(width/2)
+        bigram_width = int(width/2)
+        nn_shape = tuple([unigram_width + bigram_width] + [width] * depth + [n_classes])
+        NeuralNet.__init__(self, nn_shape, embed=((width,bigram_width), (0,1)),
+                           rho=rho, eta=eta, update_step=update_step,
+                           batch_norm=batch_norm)
         self.get_bow = get_bow
-        self.eg = Example(nr_class=self.nr_class, widths=self.widths)
 
-    def train(self, text, label):
-        self.eg.reset()
-        self.eg.features = self.get_feats(text)
-        self.eg.costs = [i != label for i in range(self.eg.nr_class)]
-        loss = self.update(self.eg)
-        return loss
-
-    def predict(self, text):
-        self.eg.reset()
-        self.eg.features = self.get_feats(text, dropout=False)
-        return self(self.eg)
+    def Eg(self, text, label=None):
+        bow = self.get_feats(text, dropout=bool(label is not None))
+        eg = Example(nr_class=self.nr_class, nr_feat=len(bow))
+        eg.costs = [i != label for i in range(self.nr_class)]
+        eg.features = bow
+        return eg
 
     def get_feats(self, text, dropout=True):
-        word_ids = self.get_bow(text, dropout=dropout)
-        return {(0, word_id): freq for (word_id, freq) in word_ids.items()}
+        bow = self.get_bow(text, dropout=dropout)
+        output = {}
+        for word_id, freq in bow.items():
+            output[(0, word_id)] = freq
+        return output
+
+    def save(self):
+        raise NotImplementedError
+
+    def load(self):
+        raise NotImplementedError
+
+
+class BOWTron(AveragedPerceptron):
+    def __init__(self, n_classes, get_bow, *args, **kwargs):
+        AveragedPerceptron.__init__(self, tuple())
+        self.nr_class = n_classes
+        self.get_bow = get_bow
+
+    @property
+    def nr_weight(self):
+        return 1
+
+    @property
+    def weights(self):
+        return [self.mem.size]
+
+    def Eg(self, text, label=None):
+        bow = self.get_feats(text, dropout=bool(label is not None))
+        eg = Example(nr_class=self.nr_class, nr_feat=len(bow))
+        eg.costs = [i != label for i in range(self.nr_class)]
+        eg.features = bow
+        return eg
+
+    def get_feats(self, text, dropout=True):
+        bow = self.get_bow(text, dropout=dropout)
+        output = {}
+        for word_id, freq in bow.items():
+            output[(0, word_id)] = freq
+        return output
 
     def save(self):
         raise NotImplementedError
@@ -139,57 +172,49 @@ class DenseAveragedNetwork(NeuralNet):
     dropout=("Drop-out rate", "option", "r", float),
     rho=("Regularization penalty", "option", "p", float),
     eta=("Learning rate", "option", "e", float),
-    bias=("Initialize biases to", "option", "B", float),
+    batch_norm=("Use batch normalization", "flag", "B"),
     batch_size=("Batch size", "option", "b", int),
     solver=("Solver", "option", "s", str),
 )
 def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
-         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, bias=0.0, solver='sgd'):
+         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, batch_norm=False, solver='sgd'):
     n_classes = 2
     print("Initializing model")
-    model = DenseAveragedNetwork(n_classes, width, depth, Extractor(width, dropout),
-                                 update_step=solver, rho=rho, eta=eta, eps=1e-6)
-    print(model.widths)
-    print(model.nr_weight)
+    #model = DenseAveragedNetwork(n_classes, width, depth,
+    #                             Extractor(width, dropout, bigrams=True),
+    #                             update_step=solver, rho=rho, eta=eta, eps=1e-6,
+    #                             batch_norm=batch_norm)
+    model = BOWTron(2, Extractor(dropout, bigrams=True))
     print("Read data")
     train_data, dev_data = partition(read_data(data_dir / 'train'), 0.8)
     print("Begin training")
     prev_best = 0
     best_weights = None
     numpy.random.seed(0)
-    for i, (w, b) in enumerate(model.layers):
-        print("Layer %d means:" % i, sum(w)/len(w), sum(b)/len(b))
 
     prev_score = 0.0
-    for epoch in range(n_iter):
-        numpy.random.shuffle(train_data)
-        train_loss = 0.0
-        for text, label in train_data:
-            train_loss += model.train(text, label)
-        score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
-        print(epoch, train_loss, score,
-              sum(model.weights) / model.nr_weight)
-        if prev_score >= score:
-            prev_score = sum(model.predict(x).guess == y for x, y in dev_data) / len(dev_data)
-        else:
-            prev_score = score
+    try:
+        for epoch in range(n_iter):
+            numpy.random.shuffle(train_data)
+            train_loss = 0.0
+            for text, label in train_data:
+                eg = model.Eg(text, label)
+                train_loss += model.update(eg)
+            nr_correct = sum(model(model.Eg(x)).guess == y for x, y in dev_data)
+            print(epoch, train_loss, nr_correct / len(dev_data),
+                  sum(model.weights) / model.nr_weight)
+    except KeyboardInterrupt:
+        print("Stopping")
     print("Evaluating")
     eval_data = list(read_data(data_dir / 'test'))
-    n_correct = sum(model.predict(x).guess == y for x, y in eval_data)
+    n_correct = sum(model(model.Eg(x)).guess == y for x, y in eval_data)
     print(n_correct / len(eval_data))
     print("After averaging")
     model.end_training()
     eval_data = list(read_data(data_dir / 'test'))
-    n_correct = sum(model.predict(x).guess == y for x, y in eval_data)
+    n_correct = sum(model(model.Eg(x)).guess == y for x, y in eval_data)
     print(n_correct / len(eval_data))
-
  
 
 if __name__ == '__main__':
-    #import cProfile
-    #import pstats
-    #cProfile.runctx("main(Path('/Users/matt/repos/sentiment_tutorial/data/aclImdb'))", globals(), locals(), "Profile.prof")
-    #s = pstats.Stats("Profile.prof")
-    #s.strip_dirs().sort_stats("time").print_stats(100)
-
     plac.call(main)
