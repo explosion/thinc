@@ -204,23 +204,23 @@ cdef cppclass MinibatchC:
                     return 0
         if this.i >= this.batch_size:
             this.reset()
+            this.i = 0 # This is done in reset() --- but make it obvious
  
-        if this.i < this.batch_size:
-            this.signatures[this.i] = key
-            this._nr_feat[this.i] = nr_feat
-            this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
-            memcpy(this._feats[this.i],
-                feats, nr_feat * sizeof(this._feats[this.i][0]))
+        this.signatures[this.i] = key
+        this._nr_feat[this.i] = nr_feat
+        this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
+        memcpy(this._feats[this.i],
+            feats, nr_feat * sizeof(this._feats[this.i][0]))
 
-            memcpy(this.costs(this.i),
-                costs, this.nr_out() * sizeof(costs[0]))
-            if is_valid is not NULL:
-                memcpy(this.is_valid(this.i),
-                    is_valid, this.nr_out() * sizeof(is_valid[0]))
-            else:
-                for i in range(this.nr_out()):
-                    this.is_valid(this.i)[i] = 1
-            this.i += 1
+        memcpy(this.costs(this.i),
+            costs, this.nr_out() * sizeof(costs[0]))
+        if is_valid is not NULL:
+            memcpy(this.is_valid(this.i),
+                is_valid, this.nr_out() * sizeof(is_valid[0]))
+        else:
+            for i in range(this.nr_out()):
+                this.is_valid(this.i)[i] = 1
+        this.i += 1
         return this.i >= this.batch_size
 
     FeatureC* features(int i) nogil:
