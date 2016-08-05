@@ -55,7 +55,7 @@ cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
-        hp.e, hp.t, nr_weight)
+        hp.w, hp.t, nr_weight)
  
     VecVec.add_i(weights,
         gradient, -hp.e, nr_weight)
@@ -75,7 +75,7 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
-        hp.e, hp.t, nr_weight)
+        hp.w, hp.t, nr_weight)
     
     momentum = weights + nr_weight * 2
     Vec.mul_i(momentum, hp.m, nr_weight)
@@ -96,7 +96,7 @@ cdef void adam(weight_t* weights, weight_t* gradient,
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
-        hp.e, hp.t, nr_weight)
+        hp.w, hp.t, nr_weight)
  
     cdef weight_t beta1 = 0.90
     cdef weight_t beta2 = 0.999
@@ -126,7 +126,7 @@ cdef void adagrad(weight_t* weights, weight_t* gradient,
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
-        hp.e, hp.t, nr_weight)
+        hp.w, hp.t, nr_weight)
     
     momentum = weights + nr_weight * 2
     VecVec.add_pow_i(momentum,
@@ -149,7 +149,7 @@ cdef void adadelta(weight_t* weights, weight_t* gradient,
     clip_gradient(gradient,
         100.0, nr_weight)
     add_gradient_noise(gradient,
-        hp.e, hp.t, nr_weight)
+        hp.w, hp.t, nr_weight)
     
     avg = weights + nr_weight * 2
     step = weights + nr_weight * 3
