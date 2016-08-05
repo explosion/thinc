@@ -38,6 +38,9 @@ cdef class Beam:
             self.is_valid[i] = <int*>self.mem.alloc(self.nr_class, sizeof(int))
             self.costs[i] = <weight_t*>self.mem.alloc(self.nr_class, sizeof(weight_t))
 
+    def __len__(self):
+        return self.size
+
     property score:
         def __get__(self):
             return self._states[0].score
@@ -49,6 +52,10 @@ cdef class Beam:
     property loss:
         def __get__(self):
             return self._states[0].loss
+
+    property probs:
+        def __get__(self):
+            return _softmax([self._states[i].score for i in range(self.size)])
  
     cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
                      const weight_t* costs) except -1:
@@ -256,7 +263,9 @@ cdef class MaxViolation:
 
 
 def _softmax(nums):
+    if not nums:
+        return []
     max_ = max(nums)
-    nums = [exp(n-max_) for n in nums]
-    Z = sum(nums)
-    return [n/Z for n in nums]
+    nums = [(exp(n-max_) if n is not None else None) for n in nums]
+    Z = sum(n for n in nums if n is not None)
+    return [(n/Z if n is not None else None) for n in nums]
