@@ -177,23 +177,20 @@ cdef class Embedding:
                     break
 
     @staticmethod
-    cdef inline void average(EmbedC* layer, weight_t time) nogil:
+    cdef inline void average(EmbedC* layer) nogil:
         cdef key_t key
         cdef void* value
         cdef int i, j
-        cdef weight_t decay = (1.0 + time) / (10.0 + time)
-        if decay > 0.9999:
-            decay = 0.9999
         for i in range(layer.nr):
             j = 0
             while Map_iter(layer.weights[i], &j, &key, &value):
                 emb = <weight_t*>value
                 avg = emb + layer.lengths[i]
                 for k in range(layer.lengths[i]):
-                    avg[k] -= (1-decay) * (avg[k] - emb[k])
+                    emb[k] = avg[k]
         # Additionally, average defaults
         for i in range(layer.nr):
             emb = layer.defaults[i]
             avg = emb + layer.lengths[i]
             for k in range(layer.lengths[i]):
-                avg[k] -= (1-decay) * (avg[k] - emb[k])
+                emb[k] = avg[k]

@@ -55,7 +55,6 @@ from libc.math cimport isnan, sqrt
 
 import random
 import numpy
-from cytoolz import partition
 import cPickle
 
 
@@ -251,7 +250,7 @@ cdef class NeuralNet(Model):
         acc = self.c.weights + self.c.nr_weight
         for i in range(self.c.nr_weight):
             self.c.weights[i] = acc[i]
-        Embedding.average(self.c.embed, self.c.hp.t)
+        Embedding.average(self.c.embed)
 
     @property
     def nr_feat(self):
