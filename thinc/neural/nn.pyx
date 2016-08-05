@@ -74,9 +74,14 @@ cdef class NeuralNet(Model):
         self.mem = kwargs.get('mem') or Pool()
         self.c.embed = <EmbedC*>self.mem.alloc(sizeof(EmbedC), 1)
 
+        # Learning rate
         self.c.hp.e = kwargs.get('eta', 0.01)
+        # Regularization
         self.c.hp.r = kwargs.get('rho', 0.00)
+        # Momentum
         self.c.hp.m = kwargs.get('mu', 0.9)
+        # Gradient noise
+        self.c.hp.w = kwargs.get('noise', 0.0)
         if kwargs.get('update_step') == 'sgd':
             self.c.update = vanilla_sgd
             nr_support = 2
@@ -95,7 +100,7 @@ cdef class NeuralNet(Model):
         else:
             raise ValueError(kwargs.get('update_step'))
         self.c.embed.nr_support = nr_support
-        use_batch_norm = kwargs.get('batch_norm', True)
+        use_batch_norm = kwargs.get('batch_norm', False)
         if use_batch_norm:
             self.c.feed_fwd = ELU_batch_norm_residual_forward
             self.c.feed_bwd = ELU_batch_norm_residual_backward
