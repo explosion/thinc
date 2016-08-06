@@ -6,40 +6,39 @@ from __future__ import unicode_literals, print_function
 import numpy as np
 import code
 
-class LSTM:
+
+class LSTMModel(object):
     '''
     Code by Andrej Karpathy, here: https://gist.github.com/karpathy/587454dc0146a6ae21fc
     '''
-    @staticmethod
-    def init(input_size, hidden_size, fancy_forget_bias_init = 3):
+    def __init__(self, input_size, hidden_size, fancy_forget_bias_init = 3):
         """ 
         Initialize parameters of the LSTM (both weights and biases in one matrix) 
         One might way to have a positive fancy_forget_bias_init number (e.g. maybe even up to 5, in some papers)
         """
         # +1 for the biases, which will be the first row of WLSTM
-        WLSTM = np.random.randn(input_size + hidden_size + 1, 4 * hidden_size) / np.sqrt(input_size + hidden_size)
-        WLSTM[0,:] = 0 # initialize biases to zero
+        self.weights = np.random.randn(input_size + hidden_size + 1, 4 * hidden_size)
+        self.weights /= np.sqrt(input_size + hidden_size)
+        self.weights[0,:] = 0 # initialize biases to zero
         if fancy_forget_bias_init != 0:
             # forget gates get little bit negative bias initially to encourage them to be turned off
             # remember that due to Xavier initialization above, the raw output activations from gates before
             # nonlinearity are zero mean and on order of standard deviation ~1
-            WLSTM[0,hidden_size:2*hidden_size] = fancy_forget_bias_init
-        return WLSTM
+            self.weights[0,hidden_size:2*hidden_size] = fancy_forget_bias_init
   
-    @staticmethod
-    def forward(X, WLSTM, c0 = None, h0 = None):
+    def forward(self, X, c0 = None, h0 = None):
         """
         X should be of shape (n,b,input_size), where n = length of sequence, b = batch size
         """
         n, b, input_size = X.shape
-        d = WLSTM.shape[1]/4 # hidden size
+        d = self.weights.shape[1]/4 # hidden size
         if c0 is None:
             c0 = np.zeros((b,d))
         if h0 is None:
             h0 = np.zeros((b,d))
     
         # Perform the LSTM forward pass with X as the input
-        xphpb = WLSTM.shape[0] # x plus h plus bias, lol
+        xphpb = self.weights.shape[0] # x plus h plus bias, lol
         Hin = np.zeros((n, b, xphpb)) # input [1, xt, ht-1] to each tick of the LSTM
         Hout = np.zeros((n, b, d)) # hidden representation of the LSTM (gated cell content)
         IFOG = np.zeros((n, b, d * 4)) # input, forget, output, gate (IFOG)
@@ -53,7 +52,7 @@ class LSTM:
             Hin[t,:,1:input_size+1] = X[t]
             Hin[t,:,input_size+1:] = prevh
             # compute all gate activations. dots: (most work is this line)
-            IFOG[t] = Hin[t].dot(WLSTM)
+            IFOG[t] = Hin[t].dot(self.weights)
             # non-linearities
             IFOGf[t,:,:3*d] = 1.0/(1.0+np.exp(-IFOG[t,:,:3*d])) # sigmoids; these are the gates
             IFOGf[t,:,3*d:] = np.tanh(IFOG[t,:,3*d:]) # tanh
@@ -64,7 +63,6 @@ class LSTM:
             Hout[t] = IFOGf[t,:,2*d:3*d] * Ct[t]
 
         cache = {}
-        cache['WLSTM'] = WLSTM
         cache['Hout'] = Hout
         cache['IFOGf'] = IFOGf
         cache['IFOG'] = IFOG
@@ -76,9 +74,7 @@ class LSTM:
         # return C[t], as well so we can continue LSTM with prev state init if needed
         return Hout, C[t], Hout[t], cache
   
-    @staticmethod
-    def backward(dHout_in, cache, dcn = None, dhn = None): 
-        WLSTM = cache['WLSTM']
+    def backward(self, dHout_in, cache, dcn = None, dhn = None): 
         Hout = cache['Hout']
         IFOGf = cache['IFOGf']
         IFOG = cache['IFOG']
@@ -88,12 +84,12 @@ class LSTM:
         c0 = cache['c0']
         h0 = cache['h0']
         n,b,d = Hout.shape
-        input_size = WLSTM.shape[0] - d - 1 # -1 due to bias
+        input_size = self.weights.shape[0] - d - 1 # -1 due to bias
  
         # backprop the LSTM
         dIFOG = np.zeros(IFOG.shape)
         dIFOGf = np.zeros(IFOGf.shape)
-        dWLSTM = np.zeros(WLSTM.shape)
+        dWLSTM = np.zeros(self.weights.shape)
         dHin = np.zeros(Hin.shape)
         dC = np.zeros(C.shape)
         dX = np.zeros((n,b,input_size))
@@ -125,7 +121,7 @@ class LSTM:
  
             # backprop matrix multiply
             dWLSTM += np.dot(Hin[t].transpose(), dIFOG[t])
-            dHin[t] = dIFOG[t].dot(WLSTM.transpose())
+            dHin[t] = dIFOG[t].dot(self.weights.transpose())
  
             # backprop the identity transforms into Hin
             dX[t] = dHin[t,:,1:input_size+1]
@@ -134,7 +130,6 @@ class LSTM:
             else:
                 dh0 += dHin[t,:,input_size+1:]
         return dX, dWLSTM, dc0, dh0
-
 
 
 # -------------------
@@ -146,7 +141,7 @@ def checkSequentialMatchesBatch():
     """ check LSTM I/O forward/backward interactions """
     n,b,d = (5, 3, 4) # sequence length, batch size, hidden size
     input_size = 10
-    WLSTM = LSTM.init(input_size, d) # input size, hidden size
+    LSTM = LSTMModel(input_size, d) # input size, hidden size
     X = np.random.randn(n,b,input_size)
     h0 = np.random.randn(b,d)
     c0 = np.random.randn(b,d)
@@ -158,12 +153,12 @@ def checkSequentialMatchesBatch():
     Hcat = np.zeros((n,b,d))
     for t in xrange(n):
         xt = X[t:t+1]
-        _, cprev, hprev, cache = LSTM.forward(xt, WLSTM, cprev, hprev)
+        _, cprev, hprev, cache = LSTM.forward(xt, cprev, hprev)
         caches[t] = cache
         Hcat[t] = hprev
 
     # sanity check: perform batch forward to check that we get the same thing
-    H, _, _, batch_cache = LSTM.forward(X, WLSTM, c0, h0)
+    H, _, _, batch_cache = LSTM.forward(X, c0, h0)
     assert np.allclose(H, Hcat), 'Sequential and Batch forward don''t match!'
 
     # eval loss
@@ -176,7 +171,7 @@ def checkSequentialMatchesBatch():
 
     # now perform sequential backward
     dX = np.zeros_like(X)
-    dWLSTM = np.zeros_like(WLSTM)
+    dWLSTM = np.zeros_like(LSTM.weights)
     dc0 = np.zeros_like(c0)
     dh0 = np.zeros_like(h0)
     dcnext = None
@@ -207,27 +202,27 @@ def checkBatchGradient():
     # lets gradient check this beast
     n,b,d = (5, 3, 4) # sequence length, batch size, hidden size
     input_size = 10
-    WLSTM = LSTM.init(input_size, d) # input size, hidden size
+    LSTM = LSTMModel(input_size, d) # input size, hidden size
     X = np.random.randn(n,b,input_size)
     h0 = np.random.randn(b,d)
     c0 = np.random.randn(b,d)
 
     # batch forward backward
-    H, Ct, Ht, cache = LSTM.forward(X, WLSTM, c0, h0)
+    H, Ct, Ht, cache = LSTM.forward(X, c0, h0)
     wrand = np.random.randn(*H.shape)
     loss = np.sum(H * wrand) # weighted sum is a nice hash to use I think
     dH = wrand
     dX, dWLSTM, dc0, dh0 = LSTM.backward(dH, cache)
 
     def fwd():
-        h,_,_,_ = LSTM.forward(X, WLSTM, c0, h0)
+        h,_,_,_ = LSTM.forward(X, c0, h0)
         return np.sum(h * wrand)
 
     # now gradient check all
     delta = 1e-5
     rel_error_thr_warning = 1e-2
     rel_error_thr_error = 1
-    tocheck = [X, WLSTM, c0, h0]
+    tocheck = [X, LSTM.weights, c0, h0]
     grads_analytic = [dX, dWLSTM, dc0, dh0]
     names = ['X', 'WLSTM', 'c0', 'h0']
     for j in xrange(len(tocheck)):
@@ -262,11 +257,12 @@ def checkBatchGradient():
             print('%s checking param %s index %s (val = %+8f), analytic = %+8f, numerical = %+8f, relative error = %+8f' % (status, name, `np.unravel_index(i, mat.shape)`, old_val, grad_analytic, grad_numerical, rel_error))
 
 
+
 if __name__ == "__main__":
-  checkSequentialMatchesBatch()
-  raw_input('check OK, press key to continue to gradient check')
-  checkBatchGradient()
-  print('every line should start with OK. Have a nice day!')
+    checkSequentialMatchesBatch()
+    raw_input('check OK, press key to continue to gradient check')
+    checkBatchGradient()
+    print('every line should start with OK. Have a nice day!')
 
 
 #
