@@ -26,7 +26,7 @@ class LSTMModel(object):
             # nonlinearity are zero mean and on order of standard deviation ~1
             self.weights[0,hidden_size:2*hidden_size] = fancy_forget_bias_init
   
-    def forward(self, X, c0 = None, h0 = None):
+    def get_fwd_cache(self, X, c0 = None, h0 = None):
         """
         X should be of shape (n,b,input_size), where n = length of sequence, b = batch size
         """
@@ -73,7 +73,50 @@ class LSTMModel(object):
         cache['h0'] = h0
         # return C[t], as well so we can continue LSTM with prev state init if needed
         return Hout, C[t], Hout[t], cache
-  
+      
+    def forward(self, X, c0 = None, h0 = None):
+        """
+        X should be of shape (n,b,input_size), where n = length of sequence, b = batch size
+        """
+        n, b, input_size = X.shape
+        d = self.weights.shape[1]/4 # hidden size
+        if c0 is None:
+            c0 = np.zeros((b,d))
+        if h0 is None:
+            h0 = np.zeros((b,d))
+    
+        # Perform the LSTM forward pass with X as the input
+        xphpb = self.weights.shape[0] # x plus h plus bias, lol
+        Hout = np.zeros((n, b, d)) # hidden representation of the LSTM (gated cell content)
+        IFOG = np.zeros((b, d * 4)) # input, forget, output, gate (IFOG)
+        C = np.zeros((n, b, d)) # cell content
+        prevh = h0
+        prevc = c0
+        for t in xrange(n):
+            # concat [x,h] as input to the LSTM
+            # (with 1 prepended for bias)
+            Hin = np.hstack((np.ones((b, 1)), X[t], prevh))
+            # compute all gate activations. dots: (most work is this line)
+            np.dot(Hin, self.weights, out=IFOG)
+            # non-linearities, computed in-place
+            IFO = IFOG[:,:3*d]
+            G = IFOG[:,3*d:]
+            IFO *= -1
+            np.exp(IFO, out=IFO)
+            IFO += 1
+            IFO **= -1
+            np.tanh(G, out=G) # tanh
+            I = IFO[:,:d]
+            F = IFO[:,d:2*d]
+            O = IFO[:,2*d:3*d]
+            # compute the cell activation
+            C[t] = I * G + F * prevc
+            Hout[t] = O * np.tanh(C[t])
+            prevc = C[t]
+            prevh = Hout[t]
+        # return C[t], as well so we can continue LSTM with prev state init if needed
+        return Hout, C[t], Hout[t], {}
+ 
     def backward(self, dHout_in, cache, dcn = None, dhn = None): 
         Hout = cache['Hout']
         IFOGf = cache['IFOGf']
@@ -153,12 +196,12 @@ def checkSequentialMatchesBatch():
     Hcat = np.zeros((n,b,d))
     for t in xrange(n):
         xt = X[t:t+1]
-        _, cprev, hprev, cache = LSTM.forward(xt, cprev, hprev)
+        _, cprev, hprev, cache = LSTM.get_fwd_cache(xt, cprev, hprev)
         caches[t] = cache
         Hcat[t] = hprev
 
     # sanity check: perform batch forward to check that we get the same thing
-    H, _, _, batch_cache = LSTM.forward(X, c0, h0)
+    H, _, _, batch_cache = LSTM.get_fwd_cache(X, c0, h0)
     assert np.allclose(H, Hcat), 'Sequential and Batch forward don''t match!'
 
     # eval loss
@@ -208,7 +251,7 @@ def checkBatchGradient():
     c0 = np.random.randn(b,d)
 
     # batch forward backward
-    H, Ct, Ht, cache = LSTM.forward(X, c0, h0)
+    H, Ct, Ht, cache = LSTM.get_fwd_cache(X, c0, h0)
     wrand = np.random.randn(*H.shape)
     loss = np.sum(H * wrand) # weighted sum is a nice hash to use I think
     dH = wrand
@@ -260,7 +303,6 @@ def checkBatchGradient():
 
 if __name__ == "__main__":
     checkSequentialMatchesBatch()
-    raw_input('check OK, press key to continue to gradient check')
     checkBatchGradient()
     print('every line should start with OK. Have a nice day!')
 
