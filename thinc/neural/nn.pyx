@@ -140,9 +140,6 @@ cdef class NeuralNet(Model):
                 constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
                     1.0, self.c.widths[i+1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
-        # Initialise the averages to the starting values
-        memcpy(&self.c.weights[self.c.nr_weight],
-            self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
         self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 200))
 
     def __call__(self, Example eg):
