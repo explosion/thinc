@@ -309,7 +309,7 @@ cdef class NeuralNet(Model):
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            #self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
+            self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i))
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))
         
         self.c.feed_fwd(mb._fwd,
