@@ -241,8 +241,7 @@ cdef class NeuralNet(Model):
                         if abs(emb[i]-default[i]) >= threshold:
                             break
                     else:
-                        # TODO: Remove hard-coded nr_support here...
-                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
                         nr_trimmed += 1
                 else:
                     norm = 0
@@ -250,7 +249,7 @@ cdef class NeuralNet(Model):
                         norm += abs(emb[i]-default[i])
                     if norm < threshold:
                         # TODO: Remove hard-coded nr_support here...
-                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
                         nr_trimmed += 1
                 total += 1
         return nr_trimmed / total
