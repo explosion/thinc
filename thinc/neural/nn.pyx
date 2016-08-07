@@ -472,12 +472,11 @@ cdef class NeuralNet(Model):
     def nr_in(self):
         return self.c.widths[0]
 
-    @property
-    def eta(self):
-        return self.c.hp.e
-    @eta.setter
-    def eta(self, eta):
-        self.c.hp.e = eta
+    property eta:
+        def __get__(self):
+            return self.c.hp.e
+        def __set__(self, eta):
+            self.c.hp.e = eta
 
     @property
     def rho(self):
