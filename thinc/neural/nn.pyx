@@ -36,7 +36,7 @@ from ..structs cimport do_update_t
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 
-from .solve cimport vanilla_sgd, sgd_cm, adagrad, adadelta, adam
+from .solve cimport vanilla_sgd, sgd_cm, nag, adagrad, adadelta, adam
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
@@ -87,6 +87,9 @@ cdef class NeuralNet(Model):
             nr_support = 2
         elif kwargs.get('update_step', 'sgd_cm') == 'sgd_cm':
             self.c.update = sgd_cm
+            nr_support = 3
+        elif kwargs.get('update_step') == 'nag':
+            self.c.update = nag
             nr_support = 3
         elif kwargs.get('update_step') == 'adagrad':
             self.c.update = adagrad
