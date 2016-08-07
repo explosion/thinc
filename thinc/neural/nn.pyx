@@ -144,13 +144,25 @@ cdef class NeuralNet(Model):
                     1.0, self.c.widths[i+1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
         # Initialise the averages to the starting values
-        memcpy(&self.c.weights[self.c.nr_weight],
+        memcpy(self.c.weights + self.c.nr_weight,
             self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
         self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 200))
 
-    def __call__(self, Example eg):
-        self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        return eg
+    def __call__(self, eg_or_mb):
+        cdef Example eg
+        cdef Minibatch mb
+        if isinstance(eg_or_mb, Example):
+            eg = eg_or_mb
+            self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        elif isinstance(eg_or_mb, Minibatch):
+            mb = eg_or_mb
+            for i in range(mb.c.i):
+                self._extractC(mb.c.fwd(0, i), mb.c.features(i), mb.c.nr_feat(i))
+            self.c.feed_fwd(mb.c._fwd,
+                self.c.weights, self.c.widths, self.c.nr_layer, mb.c.i, &self.c.hp)
+            for i in range(mb.c.i):
+                self._softmaxC(mb.c.fwd(self.c.nr_layer-1, i))
+        return eg_or_mb
 
     def train(self, examples):
         cdef Example eg
