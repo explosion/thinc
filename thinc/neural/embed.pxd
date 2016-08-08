@@ -104,10 +104,13 @@ cdef class Embedding:
             if emb is NULL and numpy.random.random() < add_prob:
                 emb = <weight_t*>mem.alloc(embed.lengths[feat.i] * embed.nr_support,
                                            sizeof(emb[0]))
-                # Inherit defaults
+                # Inherit default
                 memcpy(emb,
                     embed.defaults[feat.i],
                     sizeof(emb[0]) * embed.lengths[feat.i])
+                # Initialize average
+                memcpy(emb + embed.lengths[feat.i],
+                    emb, sizeof(emb[0]) * embed.lengths[feat.i])
                 Map_set(mem, embed.weights[feat.i],
                     feat.key, emb)
                 grad = <weight_t*>mem.alloc(embed.lengths[feat.i], sizeof(grad[0]))
