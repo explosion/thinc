@@ -96,7 +96,7 @@ cdef class Embedding:
     cdef inline void insert_missing(Pool mem, EmbedC* embed,
             const FeatureC* features, len_t nr_feat) except *:
         cdef weight_t* grad
-        cdef weight_t add_prob = 0.5
+        cdef weight_t add_prob = 1.0
         for feat in features[:nr_feat]:
             if feat.i >= embed.nr or feat.value == 0:
                 continue
