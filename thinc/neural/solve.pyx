@@ -90,6 +90,43 @@ cdef void sgd_cm(weight_t* weights, weight_t* gradient,
         weights, nr_weight, hp.t)
 
 
+
+@cython.cdivision(True)
+cdef void nag(weight_t* weights, weight_t* gradient,
+        len_t nr_weight, const ConstantsC* hp) nogil:
+    '''
+    Update weights with SGD and classical momentum
+    '''
+    clip_gradient(gradient,
+        100.0, nr_weight)
+    add_gradient_noise(gradient,
+        hp.w, hp.t, nr_weight)
+    
+    momentum = weights + nr_weight * 2
+    # http://cs231n.github.io/neural-networks-3/
+    # v_prev = v # back this up
+    # v = mu * v - lr * gradient # velocity update stays the same
+    # x += -mu * v_prev + (1 + mu) * v # position update changes form
+    # Implement this as
+    # x += -mu * v
+    # v *= mu
+    # v -= lr * gradient
+    # x += (1+mu) * v
+    VecVec.add_i(weights,
+        momentum, -hp.m, nr_weight)
+    Vec.mul_i(momentum,
+        hp.m, nr_weight)
+    VecVec.add_i(momentum,
+        gradient, -hp.e, nr_weight)
+    VecVec.add_i(weights,
+        momentum, 1+hp.m, nr_weight)
+
+    memset(gradient,
+        0, sizeof(gradient[0]) * nr_weight)
+    update_averages(weights+nr_weight,
+        weights, nr_weight, hp.t)
+
+
 @cython.cdivision(True)
 cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:

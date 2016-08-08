@@ -5,6 +5,7 @@
 from .extra.eg cimport Example
 from . cimport prng
 
+prng.normal_setup()
 
 cdef class Model:
     def __call__(self, Example eg):

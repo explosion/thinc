@@ -1,10 +1,23 @@
 from libc.string cimport memcpy
+from libc.stdlib cimport calloc, free
+from ..typedefs cimport len_t
 
 from .eg cimport Example
 
 cdef class Minibatch:
+    def __cinit__(self, widths=None, batch_size=0):
+        self.c = NULL
+        if widths != None:
+            c_widths = <len_t*>calloc(len(widths), sizeof(len_t))
+            for i, width in enumerate(widths):
+                c_widths[i] = width
+            self.c = new MinibatchC(c_widths, len(widths), batch_size)
+            free(c_widths)
+
     def __dealloc__(self):
-        del self.c
+        if self.c != NULL:
+            del self.c
+        self.c = NULL
 
     def __len__(self):
         return self.c.i

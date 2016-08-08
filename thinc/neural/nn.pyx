@@ -36,7 +36,7 @@ from ..structs cimport do_update_t
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 
-from .solve cimport vanilla_sgd, sgd_cm, adagrad, adadelta, adam
+from .solve cimport vanilla_sgd, sgd_cm, nag, adagrad, adadelta, adam
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
@@ -86,6 +86,9 @@ cdef class NeuralNet(Model):
             nr_support = 2
         elif kwargs.get('update_step', 'sgd_cm') == 'sgd_cm':
             self.c.update = sgd_cm
+            nr_support = 3
+        elif kwargs.get('update_step') == 'nag':
+            self.c.update = nag
             nr_support = 3
         elif kwargs.get('update_step') == 'adagrad':
             self.c.update = adagrad
@@ -139,11 +142,26 @@ cdef class NeuralNet(Model):
                 constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
                     1.0, self.c.widths[i+1])
             W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
+        # Initialise the averages to the starting values
+        memcpy(self.c.weights + self.c.nr_weight,
+            self.c.weights, self.c.nr_weight * sizeof(self.c.weights[0]))
         self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 200))
 
-    def __call__(self, Example eg):
-        self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        return eg
+    def __call__(self, eg_or_mb):
+        cdef Example eg
+        cdef Minibatch mb
+        if isinstance(eg_or_mb, Example):
+            eg = eg_or_mb
+            self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        elif isinstance(eg_or_mb, Minibatch):
+            mb = eg_or_mb
+            for i in range(mb.c.i):
+                self._extractC(mb.c.fwd(0, i), mb.c.features(i), mb.c.nr_feat(i))
+            self.c.feed_fwd(mb.c._fwd,
+                self.c.weights, self.c.widths, self.c.nr_layer, mb.c.i, &self.c.hp)
+            for i in range(mb.c.i):
+                self._softmaxC(mb.c.fwd(self.c.nr_layer-1, i))
+        return eg_or_mb
 
     def train(self, examples):
         cdef Example eg
@@ -222,8 +240,7 @@ cdef class NeuralNet(Model):
                         if abs(emb[i]-default[i]) >= threshold:
                             break
                     else:
-                        # TODO: Remove hard-coded nr_support here...
-                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
                         nr_trimmed += 1
                 else:
                     norm = 0
@@ -231,7 +248,7 @@ cdef class NeuralNet(Model):
                         norm += abs(emb[i]-default[i])
                     if norm < threshold:
                         # TODO: Remove hard-coded nr_support here...
-                        memcpy(emb, default, sizeof(emb[0]) * length * 3)
+                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
                         nr_trimmed += 1
                 total += 1
         return nr_trimmed / total
@@ -291,7 +308,7 @@ cdef class NeuralNet(Model):
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            #self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i), 1)
+            self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i))
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))
         
         self.c.feed_fwd(mb._fwd,
@@ -454,12 +471,11 @@ cdef class NeuralNet(Model):
     def nr_in(self):
         return self.c.widths[0]
 
-    @property
-    def eta(self):
-        return self.c.hp.e
-    @eta.setter
-    def eta(self, eta):
-        self.c.hp.e = eta
+    property eta:
+        def __get__(self):
+            return self.c.hp.e
+        def __set__(self, eta):
+            self.c.hp.e = eta
 
     @property
     def rho(self):
