@@ -60,7 +60,7 @@ cdef class Embedding:
             memcpy(uniq_defaults[i] + width,
                 uniq_defaults[i], width * sizeof(uniq_defaults[i][0]))
             uniq_d_defaults[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
-        self.offsets = <idx_t*>mem.alloc(len(features), sizeof(len_t))
+        self.offsets = <idx_t*>mem.alloc(len(features), sizeof(idx_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
         self.defaults = <weight_t**>mem.alloc(len(features), sizeof(void*))
         self.d_defaults = <weight_t**>mem.alloc(len(features), sizeof(void*))
