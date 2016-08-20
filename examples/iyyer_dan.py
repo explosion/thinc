@@ -83,6 +83,10 @@ class Extractor(object):
             all_words[id_] += inc
         if sum(bow.values()) < 1:
             bow = all_words
+        # Normalize for frequency and adjust for dropout
+        total = sum(bow.values())
+        for word, freq in bow.items():
+            bow[word] = float(freq) / total
         return bow
 
 
@@ -98,13 +102,13 @@ class DenseAveragedNetwork(NeuralNet):
     * Dropout is applied at the token level
     '''
     def __init__(self, n_classes, width, depth, get_bow, rho=1e-5, eta=0.005,
-                 eps=1e-6, batch_norm=False, update_step='sgd'):
-        unigram_width = int(width/2)
-        bigram_width = int(width/2)
+                 eps=1e-6, batch_norm=False, update_step='sgd_cm', noise=0.001):
+        unigram_width = width
+        bigram_width = 0
         nn_shape = tuple([unigram_width + bigram_width] + [width] * depth + [n_classes])
         NeuralNet.__init__(self, nn_shape, embed=((width,bigram_width), (0,1)),
                            rho=rho, eta=eta, update_step=update_step,
-                           batch_norm=batch_norm)
+                           batch_norm=batch_norm, noise=noise)
         self.get_bow = get_bow
 
     def Eg(self, text, label=None):
@@ -175,16 +179,18 @@ class BOWTron(AveragedPerceptron):
     batch_norm=("Use batch normalization", "flag", "B"),
     batch_size=("Batch size", "option", "b", int),
     solver=("Solver", "option", "s", str),
+    noise=("Gradient noise", "option", "w", float),
 )
 def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
-         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, batch_norm=False, solver='sgd'):
+         batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, batch_norm=False,
+         solver='sgd_cm', noise=0.0):
     n_classes = 2
     print("Initializing model")
-    #model = DenseAveragedNetwork(n_classes, width, depth,
-    #                             Extractor(width, dropout, bigrams=True),
-    #                             update_step=solver, rho=rho, eta=eta, eps=1e-6,
-    #                             batch_norm=batch_norm)
-    model = BOWTron(2, Extractor(dropout, bigrams=True))
+    model = DenseAveragedNetwork(n_classes, width, depth,
+                                 Extractor(dropout=dropout, bigrams=False),
+                                 update_step=solver, rho=rho, eta=eta, eps=1e-6,
+                                 batch_norm=batch_norm, noise=noise)
+    #model = BOWTron(2, Extractor(dropout, bigrams=True))
     print("Read data")
     train_data, dev_data = partition(read_data(data_dir / 'train'), 0.8)
     print("Begin training")
@@ -203,6 +209,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
             nr_correct = sum(model(model.Eg(x)).guess == y for x, y in dev_data)
             print(epoch, train_loss, nr_correct / len(dev_data),
                   sum(model.weights) / model.nr_weight)
+            model.eta *= 0.9
     except KeyboardInterrupt:
         print("Stopping")
     print("Evaluating")
