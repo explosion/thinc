@@ -1,4 +1,4 @@
-from libc.stdint cimport int16_t, int, int32_t, uint64_t
+from libc.stdint cimport int16_t, int32_t, uint64_t
 from preshed.maps cimport MapStruct
 from libcpp.vector cimport vector
 from libc.stdlib cimport malloc, calloc, free, realloc
@@ -126,7 +126,7 @@ cdef cppclass MinibatchC:
     weight_t** _bwd
     
     FeatureC** _feats
-    int* _nr_feat
+    len_t* _nr_feat
     
     weight_t* _costs
     int* _is_valid
@@ -149,7 +149,7 @@ cdef cppclass MinibatchC:
             this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
             this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
         this._feats = <FeatureC**>calloc(batch_size, sizeof(void*))
-        this._nr_feat = <int*>calloc(batch_size, sizeof(int))
+        this._nr_feat = <len_t*>calloc(batch_size, sizeof(len_t))
         this._is_valid = <int*>calloc(batch_size * widths[nr_layer-1], sizeof(int))
         this._costs = <weight_t*>calloc(batch_size * widths[nr_layer-1], sizeof(weight_t))
         this.signatures = <uint64_t*>calloc(batch_size, sizeof(uint64_t))
