@@ -301,9 +301,6 @@ cdef class NeuralNet(Model):
             self._updateC(self._mb.c)
             for i in range(self._mb.c.i):
                 loss += 1.0 - self._mb.c.scores(i)[self._mb.c.best(i)]
-        if nr_feat > 0:
-            with gil:
-                Embedding.insert_missing(self.mem, self.c.embed, feats, nr_feat)
         return loss
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
@@ -331,8 +328,11 @@ cdef class NeuralNet(Model):
             self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i))
         for i in range(mb.i):
             self._update_extracterC(mb.features(i), mb.nr_feat(i), mb.i)
+        with gil:
+            for i in range(mb.i):
+                Embedding.insert_missing(self.mem, self.c.embed, mb.features(i), mb.nr_feat(i))
 
-   
+
     cdef void _extractC(self, weight_t* input_, const FeatureC* feats, int nr_feat) nogil:
         Embedding.set_input(input_,
             <const FeatureC*>feats, nr_feat, self.c.embed)
