@@ -58,9 +58,6 @@ import numpy
 import cPickle
 
 
-prng.normal_setup()
-
-
 cdef int get_nr_weight(int nr_out, int nr_in, int batch_norm) nogil:
     if batch_norm:
         return nr_out * nr_in + nr_out * 5
@@ -81,6 +78,8 @@ cdef class NeuralNet(Model):
         self.c.hp.m = kwargs.get('mu', 0.9)
         # Gradient noise
         self.c.hp.w = kwargs.get('noise', 0.0)
+        # Dropout
+        self.c.hp.d = kwargs.get('dropout', 0.0)
         if kwargs.get('update_step') == 'sgd':
             self.c.update = vanilla_sgd
             nr_support = 2
@@ -301,11 +300,15 @@ cdef class NeuralNet(Model):
             self._updateC(self._mb.c)
             for i in range(self._mb.c.i):
                 loss += 1.0 - self._mb.c.scores(i)[self._mb.c.best(i)]
+            for i in range(self._mb.c.i):
+                Embedding.insert_missing(self.mem, self.c.embed,
+                    self._mb.c.features(i), self._mb.c.nr_feat(i))
+            PyErr_CheckSignals()
         return loss
 
     cdef void _updateC(self, MinibatchC* mb) nogil:
         for i in range(mb.i):
-            self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i))
+            self.dropoutC(mb.features(i), 1.-self.c.hp.d, mb.nr_feat(i))
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))
         
         self.c.feed_fwd(mb._fwd,
