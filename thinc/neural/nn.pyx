@@ -292,7 +292,7 @@ cdef class NeuralNet(Model):
  
     cdef weight_t updateC(self, const FeatureC* feats, int nr_feat,
                           const weight_t* costs, const int* is_valid,
-                          int force_update, uint64_t key) nogil:
+                          int force_update, uint64_t key) except -1:
         is_full = self._mb.c.push_back(feats, nr_feat, costs, is_valid, key)
         cdef weight_t loss = 0.0
         cdef int i
@@ -306,7 +306,7 @@ cdef class NeuralNet(Model):
             PyErr_CheckSignals()
         return loss
 
-    cdef void _updateC(self, MinibatchC* mb) nogil:
+    cdef void _updateC(self, MinibatchC* mb) except *:
         for i in range(mb.i):
             self.dropoutC(mb.features(i), 1.-self.c.hp.d, mb.nr_feat(i))
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))

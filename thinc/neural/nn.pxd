@@ -20,9 +20,9 @@ cdef class NeuralNet(Model):
         const FeatureC* feats, int nr_feat) nogil
 
     cdef weight_t updateC(self, const FeatureC* feats, int nr_feat,
-        const weight_t* costs, const int* is_valid, int force_update, uint64_t key) nogil
+        const weight_t* costs, const int* is_valid, int force_update, uint64_t key) except -1
 
-    cdef void _updateC(self, MinibatchC* mb) nogil
+    cdef void _updateC(self, MinibatchC* mb) except *
 
     cdef void _extractC(self, weight_t* input_,
         const FeatureC* feats, int nr_feat) nogil
