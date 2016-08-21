@@ -244,7 +244,6 @@ cdef class NeuralNet(Model):
                     for i in range(length):
                         norm += abs(emb[i]-default[i])
                     if norm < threshold:
-                        # TODO: Remove hard-coded nr_support here...
                         memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
                         nr_trimmed += 1
                 total += 1
@@ -329,14 +328,10 @@ cdef class NeuralNet(Model):
             self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i))
         for i in range(mb.i):
             self._update_extracterC(mb.features(i), mb.nr_feat(i), mb.i)
-        with gil:
-            for i in range(mb.i):
-                Embedding.insert_missing(self.mem, self.c.embed, mb.features(i), mb.nr_feat(i))
-
 
     cdef void _extractC(self, weight_t* input_, const FeatureC* feats, int nr_feat) nogil:
         Embedding.set_input(input_,
-            <const FeatureC*>feats, nr_feat, self.c.embed)
+            feats, nr_feat, self.c.embed)
     
     cdef void _softmaxC(self, weight_t* output) nogil:
         softmax(output, self.c.widths[self.c.nr_layer-1])
