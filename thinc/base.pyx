@@ -5,7 +5,6 @@
 from .extra.eg cimport Example
 from . cimport prng
 
-prng.normal_setup()
 
 cdef class Model:
     def __call__(self, Example eg):
@@ -39,16 +38,18 @@ cdef class Model:
     cdef void set_featuresC(self, ExampleC* eg, const void* state) nogil: 
         pass
 
-    cdef void dropoutC(self, FeatureC* feats, weight_t drop_prob,
+    cdef void dropoutC(self, FeatureC* feats, weight_t keep_prob,
             int nr_feat) nogil:
+        if keep_prob == 1.0:
+            return
         for i in range(nr_feat):
-            if prng.uniform_double_PRN() < drop_prob:
+            if prng.get_uniform() < keep_prob:
                 # Preserve the mean activation, by increasing the activation
                 # of the non-dropped units. This way, we don't have to
                 # re-balance the weights.
                 # I think I read this somewhere.
                 # If not...well, it makes sense right?
                 # Right?
-                feats[i].value *= 1.0 / drop_prob
+                feats[i].value *= 1.0 / keep_prob
             else:
                 feats[i].value = 0
