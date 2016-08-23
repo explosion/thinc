@@ -112,21 +112,23 @@ cdef extern from "stdlib.h":
 cdef struct ExampleC:
     int* is_valid
     weight_t* costs
-    uint64_t* atoms
-    FeatureC* features
+    atom_t* atoms
+    void* features
     weight_t* scores
 
     int nr_class
     int nr_atom
     int nr_feat
+    int is_sparse
 
 
 cdef cppclass MinibatchC:
     weight_t** _fwd
     weight_t** _bwd
     
-    FeatureC** _feats
+    void** _feats
     len_t* _nr_feat
+    int* _is_sparse
     
     weight_t* _costs
     int* _is_valid
@@ -148,8 +150,9 @@ cdef cppclass MinibatchC:
             this.widths[i] = widths[i]
             this._fwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
             this._bwd[i] = <weight_t*>calloc(this.widths[i] * batch_size, sizeof(weight_t))
-        this._feats = <FeatureC**>calloc(batch_size, sizeof(void*))
+        this._feats = <void**>calloc(batch_size, sizeof(void*))
         this._nr_feat = <len_t*>calloc(batch_size, sizeof(len_t))
+        this._is_sparse = <int*>calloc(batch_size, sizeof(int))
         this._is_valid = <int*>calloc(batch_size * widths[nr_layer-1], sizeof(int))
         this._costs = <weight_t*>calloc(batch_size * widths[nr_layer-1], sizeof(weight_t))
         this.signatures = <uint64_t*>calloc(batch_size, sizeof(uint64_t))
@@ -165,6 +168,7 @@ cdef cppclass MinibatchC:
         free(this._bwd)
         free(this._feats)
         free(this._nr_feat)
+        free(this._is_sparse)
         free(this._is_valid)
         free(this._costs)
         free(this.signatures)
@@ -176,6 +180,7 @@ cdef cppclass MinibatchC:
             memset(this._bwd[i],
                 0, sizeof(this._bwd[i][0]) * this.batch_size * this.widths[i])
         memset(this._nr_feat, 0, sizeof(this._nr_feat[0]) * this.batch_size)
+        memset(this._is_sparse, 0, sizeof(this._is_sparse[0]) * this.batch_size)
         memset(this.signatures, 0, sizeof(this.signatures[0]) * this.batch_size)
         memset(this._costs,
             0, sizeof(this._costs[0]) * this.nr_out() * this.batch_size)
@@ -192,10 +197,8 @@ cdef cppclass MinibatchC:
     int nr_out() nogil:
         return this.widths[this.nr_layer - 1]
 
-    int push_back(const FeatureC* feats, int nr_feat,
+    int push_back(const void* feats, int nr_feat, int is_sparse,
             const weight_t* costs, const int* is_valid, uint64_t key) nogil:
-        # Hash the features, to see if the batch has a matching input.
-        # If it does, just update the gradient for it.
         if key != 0:
             for i in range(this.i):
                 if this.signatures[i] == key:
@@ -208,9 +211,15 @@ cdef cppclass MinibatchC:
  
         this.signatures[this.i] = key
         this._nr_feat[this.i] = nr_feat
-        this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
-        memcpy(this._feats[this.i],
-            feats, nr_feat * sizeof(this._feats[this.i][0]))
+        this._is_sparse[i] = is_sparse
+        if is_sparse:
+            this._feats[this.i] = calloc(nr_feat, sizeof(FeatureC))
+            memcpy(this._feats[this.i],
+                feats, nr_feat * sizeof(FeatureC))
+        else:
+            this._feats[this.i] = calloc(nr_feat, sizeof(weight_t))
+            memcpy(this._feats[this.i],
+                feats, nr_feat * sizeof(weight_t))
 
         memcpy(this.costs(this.i),
             costs, this.nr_out() * sizeof(costs[0]))
@@ -223,11 +232,14 @@ cdef cppclass MinibatchC:
         this.i += 1
         return this.i >= this.batch_size
 
-    FeatureC* features(int i) nogil:
+    void* features(int i) nogil:
         return this._feats[i]
 
     int nr_feat(int i) nogil:
         return this._nr_feat[i]
+    
+    int is_sparse(int i) nogil:
+        return this._is_sparse[i]
 
     weight_t* fwd(int i, int j) nogil:
         return this._fwd[i] + (j * this.widths[i])
@@ -264,6 +276,11 @@ cdef struct FeatureC:
     int i
     uint64_t key
     weight_t value
+
+
+cdef fused input_ft:
+    FeatureC
+    weight_t
 
 
 cdef struct SparseAverageC:
