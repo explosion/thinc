@@ -15,6 +15,7 @@ cdef class AveragedPerceptron(Model):
     cdef ConjunctionExtracter extracter
     cdef public int time
     
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil
+    cdef void set_scoresC(self, weight_t* scores, const void* feats,
+            int nr_feat, int is_sparse) nogil
     cdef int updateC(self, const ExampleC* eg) except -1
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1

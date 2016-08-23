@@ -54,7 +54,8 @@ cdef class AveragedPerceptron(Model):
                     PyMem_Free(feat.times)
 
     def __call__(self, Example eg):
-        self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
+        assert eg.c.is_sparse
+        self.set_scoresC(eg.c.scores, <const FeatureC*>eg.c.features, eg.c.nr_feat, True)
         PyErr_CheckSignals()
         return eg
 
@@ -105,7 +106,8 @@ cdef class AveragedPerceptron(Model):
         return self.extracter.nr_templ
 
     cdef void set_scoresC(self, weight_t* scores,
-            const FeatureC* feats, int nr_feat) nogil:
+            const void* _feats, int nr_feat, int is_sparse) nogil:
+        feats = <const FeatureC*>_feats
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -128,9 +130,11 @@ cdef class AveragedPerceptron(Model):
     cdef int updateC(self, const ExampleC* eg) except -1:
         self.time += 1
         guess = VecVec.arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
+        assert eg.is_sparse
+        features = <const FeatureC*>eg.features
         if eg.costs[guess] > 0:
             best = VecVec.arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-            for feat in eg.features[:eg.nr_feat]:
+            for feat in features[:eg.nr_feat]:
                 self.update_weight(feat.key, best,   feat.value * eg.costs[guess])
                 self.update_weight(feat.key, guess, -feat.value * eg.costs[guess])
 

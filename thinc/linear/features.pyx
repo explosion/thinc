@@ -35,7 +35,8 @@ cdef class ConjunctionExtracter:
             self.templates[i].length = len(indices)
 
     def __call__(self, Example eg):
-        eg.c.nr_feat = self.set_features(eg.c.features, eg.c.atoms)
+        assert eg.c.is_sparse
+        eg.c.nr_feat = self.set_features(<FeatureC*>eg.c.features, eg.c.atoms)
 
     cdef int set_features(self, FeatureC* feats, const atom_t* atoms) nogil:
         cdef int n_feats = 0
