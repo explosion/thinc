@@ -17,6 +17,11 @@ cdef void ELU_batch_norm_residual_forward(weight_t** fwd,
         const ConstantsC* hp) nogil
  
 
+cdef void ELU_layer_norm_forward(weight_t** fwd,
+        const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
+        const ConstantsC* hp) nogil
+ 
+
 cdef void ReLu_forward(weight_t** fwd,
         const weight_t* W, const len_t* widths, int nr_layer, int nr_batch,
         const ConstantsC* hp) nogil
@@ -29,6 +34,9 @@ cdef void ReLu(weight_t* out, len_t nr_out) nogil
 
 cdef void normalize(weight_t* x, const weight_t* Ex, const weight_t* Vx,
         int nr_out, int nr_batch) nogil
+
+cdef void layer_normalize(weight_t* x, int nr_out, int nr_batch) nogil
+
 
 
 cdef void affine(weight_t* out,

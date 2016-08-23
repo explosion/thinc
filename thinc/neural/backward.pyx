@@ -14,7 +14,7 @@ from ..typedefs cimport idx_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
 from .weights cimport parse_weights, parse_batch_norm_weights
 from .forward cimport skip_layer
-from .forward cimport affine, normalize
+from .forward cimport affine, normalize, layer_normalize
 
 
 cdef weight_t EPS = 1e-5
@@ -137,16 +137,68 @@ cdef void ELU_batch_norm_residual_backward(weight_t* gradient, weight_t** bwd,
             fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
         memcpy(x_norm,
             x, sizeof(weight_t) * nr_batch * widths[i])
-        normalize(x_norm,
-            &weights[mean], &weights[variance], widths[i], nr_batch)
+        normalize(x_norm, &weights[mean], &weights[variance],
+            widths[i], nr_batch)
 
         d_ELU(bwd[i],
             fwd[i], widths[i] * nr_batch)
         d_residual(bwd,
-            2, i, widths, nr_layer, nr_batch)
+            2, i, 1.0, widths, nr_layer, nr_batch)
         d_transform(bwd[i], gradient + gamma, gradient + beta,
             x_norm, weights + gamma, widths[i], nr_batch)
         d_batchnorm(bwd[i], <weight_t*>&weights[mean], <weight_t*>&weights[variance],
+            x, widths[i], nr_batch)
+        d_affine(bwd[i-1], gradient + W, gradient + bias,
+            bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
+        l2_regularize(gradient + W,
+            weights + W, hp.r, widths[i] * widths[i-1])
+    free(x)
+    free(x_norm)
+
+        
+cdef void ELU_layer_norm_backward(weight_t* gradient, weight_t** bwd,
+        const weight_t* weights, const weight_t* const* fwd, const len_t* widths,
+        int nr_layer, int nr_batch, const ConstantsC* hp) with gil:
+    cdef int W
+    cdef int bias
+    cdef int gamma
+    cdef int beta
+    cdef int mean
+    cdef int variance
+    
+    max_ = 0
+    for i in range(nr_layer):
+        if widths[i] >= widths[max_]:
+            max_ = i
+    x = <weight_t*>calloc(nr_batch * widths[max_], sizeof(weight_t))
+    x_norm = <weight_t*>calloc(nr_batch * widths[max_], sizeof(weight_t))
+
+    i = nr_layer-1
+    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+        widths, i, nr_layer)
+
+    d_affine(bwd[i-1], gradient + W, gradient + bias,
+        bwd[i], fwd[i-1],
+        weights + W, widths[i], widths[i-1], nr_batch)
+
+    for i in range(nr_layer-2, 0, -1):
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+            widths, i, nr_layer)
+
+        # Recalculate x and x_norm, for batchnorm
+        memset(x, 0, sizeof(weight_t) * widths[max_] * nr_batch)
+        affine(x,
+            fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+        memcpy(x_norm,
+            x, sizeof(weight_t) * nr_batch * widths[i])
+        layer_normalize(x_norm,
+            widths[i], nr_batch)
+
+        d_ELU(bwd[i],
+            fwd[i], widths[i] * nr_batch)
+        d_transform(bwd[i], gradient + gamma, gradient + beta,
+            x_norm, weights + gamma, widths[i], nr_batch)
+        d_layernorm(bwd[i],
             x, widths[i], nr_batch)
         d_affine(bwd[i-1], gradient + W, gradient + bias,
             bwd[i], fwd[i-1], weights + W, widths[i], widths[i-1], nr_batch)
@@ -174,7 +226,7 @@ cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
             delta[i] = 0
 
 
-cdef void d_residual(weight_t** bwd, int skip, int i, const len_t* widths,
+cdef void d_residual(weight_t** bwd, int skip, int i, weight_t strength, const len_t* widths,
         int nr_layer, int nr_batch) nogil:
     if i < skip:
         return
@@ -185,7 +237,7 @@ cdef void d_residual(weight_t** bwd, int skip, int i, const len_t* widths,
         return
     else:
         VecVec.add_i(bwd[i-skip],
-            bwd[i], 1.0, widths[i-skip] * nr_batch)
+            bwd[i], strength, widths[i-skip] * nr_batch)
 
 
 cdef void d_log_loss(weight_t* loss,
@@ -267,6 +319,40 @@ cdef void d_batchnorm(weight_t* diff, weight_t* est_mean, weight_t* est_var,
     free(Vx)
     free(sum_dy)
     free(sum_dy_x_mu)
+
+@cython.boundscheck(False)
+cdef void d_layernorm(weight_t* diff,
+        const weight_t* _x, int nr_out, int nr_batch) nogil:
+    # Simplification by Clement Thorey, here:
+    # http://cthorey.github.io./backpropagation/
+    # N = nr_batch
+    # D = nr_out
+    # cdef np.ndarray[double, ndim=1] var, inv_sqrt_var, inv_var
+    # var = x.var(0) + EPS
+    # inv_var = var ** -1.
+    # inv_sqrt_var = var ** (-1. / 2.)
+    # x_mu = x - x.mean(0)
+    #dx = (1. / N) \
+    #   * inv_sqrt_var \
+    #   * (N \
+    #     * dy \
+    #     - np.sum(dy, axis=0) \
+    #     - x_mu \
+    #       * inv_var \
+    #       * np.sum(dy * x_mu, axis=0))
+    for i from 0 <= i < (nr_batch * nr_out) by nr_out:
+        Ex = Vec.mean(&_x[i], nr_out)
+        Vx = Vec.variance(&_x[i], nr_out)
+        sum_dy = 0.0
+        sum_dy_x_mu = 0.0
+        for j in range(nr_out):
+            sum_dy += diff[i+j]
+            sum_dy_x_mu += diff[i+j] * (_x[i+j] - Ex)
+        Vec.mul_i(&diff[i], nr_out, nr_out)
+        Vec.add_i(&diff[i], -sum_dy, nr_out)
+        for j in range(nr_out):
+            diff[i+j] -= (_x[i+j] - Ex) * Vx ** -1. * sum_dy_x_mu
+    Vec.mul_i(diff, 1. / nr_out, nr_batch * nr_out)
 
 
 cdef void d_affine(weight_t* d_x, weight_t* d_w, weight_t* d_b,

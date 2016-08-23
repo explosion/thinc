@@ -57,23 +57,66 @@ cdef void ELU_batch_norm_residual_forward(weight_t** fwd,
 
         affine(fwd[i],
             fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
-        normalize(fwd[i],
-            &weights[mean], &weights[variance], widths[i], nr_batch)
+        layer_normalize(fwd[i], widths[i], nr_batch)
         transform(fwd[i],
             &weights[gamma], &weights[beta], widths[i], nr_batch)
         ELU(fwd[i],
             widths[i] * nr_batch)
         residual(fwd,
-            2, i, widths, nr_layer, nr_batch)
+            2, i, 1.0, widths, nr_layer, nr_batch)
         ELU(fwd[i],
             widths[i] * nr_batch)
-
     i = nr_layer-1
     parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
         widths, i, nr_layer)
 
     affine(fwd[i],
         fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+
+
+cdef void ELU_layer_norm_forward(weight_t** fwd,
+        const weight_t* weights, const len_t* widths, int nr_layer, int nr_batch,
+        const ConstantsC* hp) nogil:
+    '''Forward pass with ELU activation, using layer normalization. 
+
+    Sequence of operations to compute the ith layer of activations
+    
+    x[i] = x[i-1] * W + b # Affine
+    x[i] = layer_normalize(x[i]) * gamma + beta # Layer norm and transform
+    x[i] = ELU(x[i]) # ELU
+
+    Arguments:
+        fwd: array to write the forward activations
+        weights_buffer: The weights data for all layers, as a contiguous array
+        widths: array of layer widths
+        nr_layer: length of the widths array
+        nr_batch: batch size
+        hp: Hyper-parameters
+    '''
+    cdef int W
+    cdef int bias
+    cdef int gamma
+    cdef int beta
+    cdef int mean
+    cdef int variance
+    for i in range(1, nr_layer-1):
+        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+            widths, i, nr_layer)
+
+        affine(fwd[i],
+            fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+        layer_normalize(fwd[i], widths[i], nr_batch)
+        transform(fwd[i],
+            &weights[gamma], &weights[beta], widths[i], nr_batch)
+        ELU(fwd[i],
+            widths[i] * nr_batch)
+    i = nr_layer-1
+    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+        widths, i, nr_layer)
+
+    affine(fwd[i],
+        fwd[i-1], &weights[W], &weights[bias], widths[i], widths[i-1], nr_batch)
+
 
 
 cdef void ELU_forward(weight_t** fwd,
@@ -195,7 +238,15 @@ cdef void normalize(weight_t* x, const weight_t* est_Ex, const weight_t* est_Vx,
     free(Vx)
 
 
-cdef void residual(weight_t** fwd, int skip, int i, const len_t* widths,
+cdef void layer_normalize(weight_t* x, int nr_out, int nr_batch) nogil:
+    for i in range(nr_batch):
+        Ex = Vec.mean(&x[i*nr_out], nr_out)
+        Vx = Vec.variance(&x[i*nr_out], nr_out)
+        Vec.add_i(&x[i*nr_out], -Ex, nr_out)
+        Vec.mul_i(&x[i*nr_out], Vx ** -1./2., nr_out)
+
+
+cdef void residual(weight_t** fwd, int skip, int i, weight_t strength, const len_t* widths,
         int nr_layer, int nr_batch) nogil:
     if i < skip:
         return
@@ -206,7 +257,7 @@ cdef void residual(weight_t** fwd, int skip, int i, const len_t* widths,
         return
     else:
         VecVec.add_i(fwd[i],
-            fwd[i-skip], 1.0, widths[i] * nr_batch)
+            fwd[i-skip], strength, widths[i] * nr_batch)
 
 
 cdef int skip_layer(weight_t timestep, uint64_t layer, int nr_in, int nr_out) nogil:
