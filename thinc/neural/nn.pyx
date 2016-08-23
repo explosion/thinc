@@ -41,10 +41,12 @@ from .solve cimport vanilla_sgd, sgd_cm, nag, adagrad, adadelta, adam
 from .forward cimport softmax
 from .forward cimport ELU_forward
 from .forward cimport ELU_batch_norm_residual_forward
+from .forward cimport ELU_layer_norm_forward
 from .forward cimport ReLu_forward
 from .backward cimport ELU_backward
 from .backward cimport ReLu_backward
 from .backward cimport ELU_batch_norm_residual_backward
+from .backward cimport ELU_layer_norm_backward
 from .backward cimport d_log_loss, d_hinge_loss
 
 from .embed cimport Embedding
@@ -71,7 +73,7 @@ cdef class NeuralNet(Model):
         self.c.embed = <EmbedC*>self.mem.alloc(sizeof(EmbedC), 1)
 
         # Learning rate
-        self.c.hp.e = kwargs.get('eta', 0.01)
+        self.c.hp.e = kwargs.get('eta', 0.001)
         # Regularization
         self.c.hp.r = kwargs.get('rho', 0.00)
         # Momentum
@@ -103,8 +105,8 @@ cdef class NeuralNet(Model):
         self.c.embed.nr_support = nr_support
         use_batch_norm = kwargs.get('batch_norm', False)
         if use_batch_norm:
-            self.c.feed_fwd = ELU_batch_norm_residual_forward
-            self.c.feed_bwd = ELU_batch_norm_residual_backward
+            self.c.feed_fwd = ELU_layer_norm_forward
+            self.c.feed_bwd = ELU_layer_norm_backward
         else:
             self.c.feed_fwd = ELU_forward
             self.c.feed_bwd = ELU_backward
