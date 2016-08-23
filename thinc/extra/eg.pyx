@@ -1,38 +1,69 @@
 # cython: infer_types=True
 cimport cython
 
-cdef ExampleC* init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
-    if widths is None:
-        widths = [nr_class]
-    if nr_class == 0:
-        nr_class = widths[-1]
+from ..linalg cimport Vec, VecVec
+from libc.math cimport sqrt as c_sqrt
+from libc.string cimport memset, memcpy, memmove
 
+from preshed.maps cimport map_init as Map_init
+from preshed.maps cimport map_set as Map_set
+from preshed.maps cimport map_get as Map_get
+
+cimport numpy as np
+
+
+
+
+cdef ExampleC* init_eg(Pool mem, int nr_class, int nr_feat, int nr_atom, int is_sparse) except NULL:
     eg = <ExampleC*>mem.alloc(1, sizeof(ExampleC))
     eg.nr_class = nr_class
     eg.nr_atom = nr_atom
     eg.nr_feat = nr_feat
+    eg.is_sparse = is_sparse
 
-    eg.scores = <weight_t*>mem.alloc(nr_class, sizeof(eg.scores[0]))
-    eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(eg.costs[0]))
-    eg.atoms = <atom_t*>mem.alloc(nr_atom, sizeof(eg.atoms[0]))
-    eg.features = <FeatureC*>mem.alloc(nr_feat, sizeof(eg.features[0]))
+    eg.scores = <weight_t*>mem.alloc(nr_class, sizeof(weight_t))
+    eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(weight_t))
+    eg.atoms = <atom_t*>mem.alloc(nr_atom, sizeof(atom_t))
+    if is_sparse:
+        eg.features = mem.alloc(nr_feat, sizeof(FeatureC))
+    else:
+        eg.features = mem.alloc(nr_feat, sizeof(weight_t))
         
-    eg.is_valid = <int*>mem.alloc(nr_class, sizeof(eg.is_valid[0]))
+    eg.is_valid = <int*>mem.alloc(nr_class, sizeof(int))
     for i in range(eg.nr_class):
         eg.is_valid[i] = 1
     return eg
     
 
 cdef class Example:
-    def __init__(self, int nr_class=0, int nr_atom=0, int nr_feat=0):
+    @classmethod
+    def dense(cls, nr_class, X, y=None):
+        cdef Example eg = Example(nr_class=nr_class, nr_feat=len(X), is_sparse=False)
+        dense = <weight_t*>eg.c.features
+        cdef weight_t value
+        cdef int i
+        for i, value in enumerate(X):
+            dense[i] = value
+        if y is not None:
+            for i in range(eg.c.nr_class):
+                eg.c.costs[i] = 0 if i == y else 1 
+        return eg
+
+    def __cinit__(self, int nr_class=0, int nr_atom=0, int nr_feat=0, is_sparse=True):
         self.mem = Pool()
-        self.c = init_eg(self.mem, nr_class=nr_class, nr_atom=nr_atom, nr_feat=nr_feat)
+        self.c = init_eg(self.mem, nr_class, nr_feat, nr_atom, 1 if is_sparse else 0)
 
     def fill_features(self, int value, int nr_feat):
-        for i in range(nr_feat):
-            self.c.features[i].i = value
-            self.c.features[i].key = value
-            self.c.features[i].value = value
+        if self.c.is_sparse:
+            features = <FeatureC*>self.c.features
+            for i in range(nr_feat):
+                features[i].i = value
+                features[i].key = value
+                features[i].value = value
+        else:
+            dense = <weight_t*>self.c.features
+            for i in range(nr_feat):
+                dense[i] = <weight_t>value
 
     def fill_atoms(self, atom_t value, int nr_atom):
         for i in range(self.c.nr_atom):
@@ -59,8 +90,15 @@ cdef class Example:
    
     property features:
         def __get__(self):
+            if self.c.is_sparse:
+                sparse = <FeatureC*>self.c.features
+            else:
+                dense = <weight_t*>self.c.features
             for i in range(self.nr_feat):
-                yield self.c.features[i]
+                if self.c.is_sparse:
+                    yield sparse[i]
+                else:
+                    yield dense[i]
         def __set__(self, features):
             cdef weight_t value
             cdef int slot
@@ -75,8 +113,14 @@ cdef class Example:
                     features.append((slot, key, value))
             self.nr_feat = len(features)
             cdef feat_t feat
-            for i, (slot, feat, value) in enumerate(features):
-                self.c.features[i] = FeatureC(i=slot, key=feat, value=value)
+            if self.c.is_sparse:
+                sparse = <FeatureC*>self.c.features
+                for i, (slot, feat, value) in enumerate(features):
+                    sparse[i] = FeatureC(i=slot, key=feat, value=value)
+            else:
+                dense = <weight_t*>self.c.features
+                for slot, _, value in features:
+                    dense[slot] = value
 
     property scores:
         def __get__(self):
