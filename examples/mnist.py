@@ -27,21 +27,22 @@ from keras.utils import np_utils
 
 
 from thinc.neural.nn import NeuralNet
+import thinc.base
 
 
 def score_model(x_y, model):
     correct = 0
     total = 0
-    scores = model.predict_batch([x for x, y in x_y])
-    for i, (_, gold) in enumerate(x_y):
-        correct += scores[i].argmax() == gold
+    for X, y in x_y:
+        eg = Example.dense(model.nr_class, X, y)
+        correct += model(eg).guess == y
         total += 1
     return float(correct) / total
 
 
-def best_first_sgd(model, train_data, check_data):
+def best_first_sgd(model, train_data, check_data, kwargs):
     print(model.widths)
-    print("Itn:\tParent\tScore\tNew\tTrain\tCheck\tEta")
+    print("Itn:\tParent\tScore\tNew\tTrain\tCheck\tEta\tMu\tRho\tDrop\tNoise")
     train_acc = 0
     queue = [[score_model(check_data, model), 0, model]]
     limit = 8
@@ -55,15 +56,16 @@ def best_first_sgd(model, train_data, check_data):
             queue = queue[:limit]
             prev_score, parent, model = queue[0]
             queue[0][0] -= 0.0005
-            train_acc, new_model = get_new_model(train_data, model)
+            train_acc, new_model = get_new_model(train_data, model, **kwargs)
             check_acc = score_model(check_data, new_model)
             ratio = min(check_acc / train_acc, 1.0)
             
             i += 1
             queue.append([check_acc * ratio, i, new_model])
             
-            print('%d:\t%d\t%.5f\t%.5f\t%.5f\t%.5f\t%.4f' % (i, parent, prev_score,
-                queue[-1][0], train_acc, check_acc, new_model.eta))
+            print('%d:\t%d\t%.5f\t%.5f\t%.5f\t%.5f\t%.4f\t%.4f\t%.4f\t%.4f\t%.4f' % (i, parent, prev_score,
+                queue[-1][0], train_acc, check_acc,
+                new_model.eta, new_model.mu, new_model.rho, new_model.dropout, new_model.noise))
             if check_acc >= best_acc:
                 best_acc = check_acc
                 best_i = i
@@ -73,33 +75,45 @@ def best_first_sgd(model, train_data, check_data):
     return best_model
 
 
-def get_new_model(train_data, model):
-    learn_rate = np.random.normal(loc=model.eta, scale=0.001)
+def get_new_model(train_data, model, **kwargs):
+    kwargs = dict(kwargs)
+    learn_rate = np.random.normal(loc=model.eta, scale=0.0001)
     if learn_rate < 0.0001:
         learn_rate = 0.0001
 
-    new_model = NeuralNet(model.widths, update_step='sgd', eta=learn_rate, rho=model.rho)
+    kwargs['eta'] = learn_rate
+    kwargs['mu'] = min(np.random.normal(loc=model.mu, scale=0.01), 0.99)
+    kwargs['rho'] = max(0.0, np.random.normal(loc=model.rho, scale=0.0001))
+    kwargs['noise'] = max(0.0, np.random.normal(loc=model.noise, scale=0.001))
+    kwargs['dropout'] = np.random.normal(loc=model.dropout, scale=0.01)
+    new_model = NeuralNet(model.widths, **kwargs)
     new_model.weights = model.weights
     new_model.tau = model.tau
     train_data = train_data + train_data
     random.shuffle(train_data)
-    acc = new_model.train(train_data, batch_size=100)
-    return acc, new_model
+    acc = 0.0
+    for X, y in train_data:
+        acc += new_model.update(Example.dense(model.nr_class, X, y))
+    return acc / len(train_data), new_model
 
 
 def sequential_sgd(model, train_data, check_data, n_iter=5):
     print(model.widths)
     print(model.nr_class)
-    train_acc = 0.0
+    loss = 0.0
     check_acc = 0.0
-    batch_size = 100
-    for itn in range(n_iter):
-        random.shuffle(train_data)
-        train_acc = model.train(train_data, batch_size=batch_size)
-        check_acc = score_model(check_data, model)
-        print('%d:\t%.3f\t%.3f' % (itn, train_acc, check_acc))
-        #batch_size = max(1, int(batch_size * 0.9))
-    return check_acc, model
+    print("Begin")
+    try:
+        for itn in range(n_iter):
+            random.shuffle(train_data)
+            for X, y in train_data:
+                eg = Example.dense(model.nr_class, X, y) 
+                loss += model.update(eg)
+            check_acc = score_model(check_data, model)
+            print('%d:\t%.3f\t%.3f' % (itn, loss, check_acc))
+    except KeyboardInterrupt:
+        pass
+    return model
 
 
 def stepdown_fixed_increment(input_width, output_width, n_hidden=5, scale=2):
@@ -160,12 +174,22 @@ def main(batch_size=128, nb_epoch=10, nb_classes=10):
     heldout_data = train_data[:int(nr_train * 0.1)] 
     train_data = train_data[len(heldout_data):]
 
-    model = NeuralNet(power_of_two(784, 10, n_hidden=20, scale=6),
-                      update_step='sgd', eta=0.01, rho=0.0)
-    #acc, model = sequential_sgd(model, train_data, heldout_data, n_iter=50)
+    kwargs = {
+        'eta': 0.001,
+        'rho': 1e-4,
+        'mu': 0.9,
+        'update_step': 'sgd_cm',
+        'batch_norm': True,
+        'noise': 0.0,
+        'dropout': 0.25}
+    model = NeuralNet((784,) + (64,) * 24 + (nb_classes,), **kwargs)
+    print(model.nr_weight)
+    model = sequential_sgd(model, train_data, heldout_data, n_iter=25)
   
-    model = best_first_sgd(model, train_data, heldout_data)
+    #model = best_first_sgd(model, train_data, heldout_data, kwargs)
     print('Test score:', score_model(zip(X_test, y_test), model))
+    model.end_training()
+    print('Test score (avg):', score_model(zip(X_test, y_test), model))
 
 
 if __name__ == '__main__':
