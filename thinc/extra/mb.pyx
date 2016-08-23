@@ -1,6 +1,7 @@
 from libc.string cimport memcpy
 from libc.stdlib cimport calloc, free
-from ..typedefs cimport len_t
+from ..typedefs cimport len_t, weight_t
+from ..structs cimport FeatureC
 
 from .eg cimport Example
 
@@ -23,9 +24,14 @@ cdef class Minibatch:
         return self.c.i
 
     def __getitem__(self, int i):
-        cdef Example eg = Example(nr_class=self.nr_class, nr_feat=self.c.nr_feat(i))
-        memcpy(eg.c.features,
-            self.c.features(i), eg.nr_feat * sizeof(eg.c.features[0]))
+        cdef Example eg = Example(nr_class=self.nr_class, nr_feat=self.c.nr_feat(i),
+                                  is_sparse=self.c.is_sparse(i))
+        if self.c.is_sparse(i):
+            memcpy(eg.c.features,
+                self.c.features(i), eg.nr_feat * sizeof(FeatureC))
+        else:
+            memcpy(eg.c.features,
+                self.c.features(i), eg.nr_feat * sizeof(weight_t))
         memcpy(eg.c.scores,
             self.c.scores(i), eg.c.nr_class * sizeof(eg.c.scores[0]))
         memcpy(eg.c.costs,
