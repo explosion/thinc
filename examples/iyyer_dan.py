@@ -13,6 +13,7 @@ from collections import defaultdict
 from pathlib import Path
 import plac
 import numpy.random
+from math import exp
 
 from thinc.neural.nn import NeuralNet
 from thinc.linear.avgtron import AveragedPerceptron
@@ -113,7 +114,7 @@ class DenseAveragedNetwork(NeuralNet):
 
     def Eg(self, text, label=None):
         bow = self.get_feats(text, dropout=bool(label is not None))
-        eg = Example(nr_class=self.nr_class, nr_feat=len(bow))
+        eg = Example(nr_class=self.nr_class, nr_feat=len(bow), is_sparse=True)
         eg.costs = [i != label for i in range(self.nr_class)]
         eg.features = bow
         return eg
@@ -130,6 +131,64 @@ class DenseAveragedNetwork(NeuralNet):
 
     def load(self):
         raise NotImplementedError
+
+
+class NeuralNGram(NeuralNet):
+    def __init__(self, n_classes, width, depth, window_size, rho=1e-5, eta=0.005,
+                 eps=1e-6, norm_type=None, update_step='sgd_cm', noise=0.001):
+        self.vocab = {}
+        self.window_size = window_size
+        unigram_width = int(width / window_size)
+        nn_shape = tuple([width] * depth + [n_classes])
+        print(unigram_width, nn_shape)
+        NeuralNet.__init__(self, nn_shape, embed=((unigram_width,), (0,0,0,0)),
+                           rho=rho, eta=eta, update_step=update_step,
+                           norm_type=norm_type, noise=noise)
+
+    def Eg(self, text, label=None):
+        doc = preprocess(text)
+        doc += ['-EOL-'] * (len(doc) % self.window_size)
+        doc = [self.vocab.setdefault(word, len(self.vocab) + 1) for word in doc]
+        egs = []
+        for i in range(0, len(doc)):
+            ngram = doc[i:i+self.window_size]
+            feats = [(i, id_, 1) for i, id_ in enumerate(ngram)]
+            eg = Example(nr_class=self.nr_class, nr_feat=len(feats), is_sparse=True)
+            eg.costs = [i != label for i in range(self.nr_class)]
+            eg.features = feats
+            egs.append(eg)
+        return egs
+
+    def __call__(self, egs):
+        total = Example(nr_class=self.nr_class)
+        scores = [0 for _ in range(self.nr_class)]
+        for eg in egs:
+            eg = NeuralNet.__call__(self, eg)
+            eg_scores = eg.scores
+            for i in range(self.nr_class):
+                scores[i] += eg_scores[i]
+        total.scores = _softmax(scores)
+        total.costs = egs[0].costs
+        return total
+
+    def update(self, egs):
+        total = self(egs)
+        label = total.best
+        delta_loss = [0.0 for _ in range(self.nr_class)]
+        for i in range(self.nr_class):
+            delta_loss[i] = total.scores[i] - (1 if i == label else 0)
+        for eg in egs:
+            eg.costs = delta_loss
+            NeuralNet.update(self, eg)
+        return total.loss
+
+
+def _softmax(nums):
+    max_ = max(nums)
+    nums = [exp(n-max_) for n in nums]
+    Z = sum(nums)
+    return [n/Z for n in nums]
+
 
 
 class BOWTron(AveragedPerceptron):
@@ -181,15 +240,15 @@ class BOWTron(AveragedPerceptron):
     solver=("Solver", "option", "s", str),
     noise=("Gradient noise", "option", "w", float),
 )
-def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
+def main(data_dir, vectors_loc=None, depth=3, width=300, n_iter=5,
          batch_size=24, dropout=0.5, rho=1e-5, eta=0.005, batch_norm=False,
          solver='sgd_cm', noise=0.0):
     n_classes = 2
     print("Initializing model")
-    model = DenseAveragedNetwork(n_classes, width, depth,
-                                 Extractor(dropout=dropout, bigrams=False),
-                                 update_step=solver, rho=rho, eta=eta, eps=1e-6,
-                                 batch_norm=batch_norm, noise=noise)
+    get_bow = Extractor(dropout=dropout, bigrams=False),
+    model = NeuralNGram(n_classes, width, depth, 4,
+                        update_step=solver, rho=rho, eta=eta, eps=1e-6,
+                        norm_type='layer' if batch_norm else None, noise=noise)
     #model = BOWTron(2, Extractor(dropout, bigrams=True))
     print("Read data")
     train_data, dev_data = partition(read_data(data_dir / 'train'), 0.8)
@@ -203,7 +262,7 @@ def main(data_dir, vectors_loc=None, depth=2, width=300, n_iter=5,
         for epoch in range(n_iter):
             numpy.random.shuffle(train_data)
             train_loss = 0.0
-            for text, label in train_data:
+            for text, label in train_data[:1000]:
                 eg = model.Eg(text, label)
                 train_loss += model.update(eg)
             nr_correct = sum(model(model.Eg(x)).guess == y for x, y in dev_data)
