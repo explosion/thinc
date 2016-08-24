@@ -75,17 +75,18 @@ def best_first_sgd(model, train_data, check_data, kwargs):
     return best_model
 
 
+def resample(old, low=0.0, high=1.0):
+    return min(high, max(low, np.random.normal(loc=old, scale=old / 10)))
+
+
 def get_new_model(train_data, model, **kwargs):
     kwargs = dict(kwargs)
-    learn_rate = np.random.normal(loc=model.eta, scale=0.0001)
-    if learn_rate < 0.0001:
-        learn_rate = 0.0001
+    kwargs['eta'] = resample(model.eta, low=0.00001)
+    kwargs['mu'] = resample(model.mu)
+    kwargs['rho'] = resample(model.rho)
+    kwargs['noise'] = resample(model.noise)
+    kwargs['dropout'] = resample(model.dropout, high=0.95)
 
-    kwargs['eta'] = learn_rate
-    kwargs['mu'] = min(np.random.normal(loc=model.mu, scale=0.01), 0.99)
-    kwargs['rho'] = max(0.0, np.random.normal(loc=model.rho, scale=0.0001))
-    kwargs['noise'] = max(0.0, np.random.normal(loc=model.noise, scale=0.001))
-    kwargs['dropout'] = np.random.normal(loc=model.dropout, scale=0.01)
     new_model = NeuralNet(model.widths, **kwargs)
     new_model.weights = model.weights
     new_model.tau = model.tau
@@ -179,14 +180,14 @@ def main(batch_size=128, nb_epoch=10, nb_classes=10):
         'rho': 1e-4,
         'mu': 0.9,
         'update_step': 'sgd_cm',
-        'batch_norm': True,
-        'noise': 0.0,
-        'dropout': 0.25}
-    model = NeuralNet((784,) + (64,) * 24 + (nb_classes,), **kwargs)
+        'norm_type': 'layer',
+        'noise': 0.001,
+        'dropout': 0.2}
+    model = NeuralNet((784,) + (256,) * 4 + (nb_classes,), **kwargs)
     print(model.nr_weight)
-    model = sequential_sgd(model, train_data, heldout_data, n_iter=25)
+    #model = sequential_sgd(model, train_data, heldout_data, n_iter=25)
   
-    #model = best_first_sgd(model, train_data, heldout_data, kwargs)
+    model = best_first_sgd(model, train_data, heldout_data, kwargs)
     print('Test score:', score_model(zip(X_test, y_test), model))
     model.end_training()
     print('Test score (avg):', score_model(zip(X_test, y_test), model))
