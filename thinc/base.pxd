@@ -10,7 +10,7 @@ cdef class Model:
  
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1
 
-    cdef void set_featuresC(self, ExampleC* eg, const void* state) nogil 
+    cdef int set_featuresC(self, FeatureC* feats, const void* state) nogil 
 
     cdef void dropoutC(self, FeatureC* feats, weight_t drop_prob,
             int nr_feat) nogil

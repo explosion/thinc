@@ -36,7 +36,7 @@ cdef class Model:
             const FeatureC* feats, int nr_feat) nogil:
         pass
 
-    cdef void set_featuresC(self, ExampleC* eg, const void* state) nogil: 
+    cdef int set_featuresC(self, FeatureC* feats, const void* state) nogil: 
         pass
 
     cdef void dropoutC(self, FeatureC* feats, weight_t drop_prob,
