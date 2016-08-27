@@ -101,7 +101,8 @@ cdef class Beam:
         cdef _State* state
         cdef hash_t key
         cdef PreshMap seen_states = PreshMap(self.width)
-        cdef size_t is_seen
+        cdef uint64_t is_seen
+        cdef uint64_t one = 1
         while i < self.width and not q.empty():
             data = q.top()
             p_i = data.second / self.nr_class
@@ -114,6 +115,7 @@ cdef class Beam:
                 # Now parent will not be changed, so we don't have to copy.
                 self._states[i] = parent[0]
                 self._states[i].score = score
+                self.histories[i] = list(self._parent_histories[p_i])
                 i += 1
             else:
                 state = &self._states[i]
@@ -121,10 +123,10 @@ cdef class Beam:
                 # state to be the result of applying the class to the source state
                 transition_func(state.content, parent.content, clas, extra_args)
                 key = hash_func(state.content, extra_args) if hash_func is not NULL else 0
-                is_seen = <size_t>seen_states.get(key)
+                is_seen = <uint64_t>seen_states.get(key)
                 if key == 0 or key == 1 or not is_seen:
                     if key != 0 and key != 1:
-                        seen_states.set(key, <void*>1)
+                        seen_states.set(key, <void*>one)
                     state.score = score
                     state.loss = parent.loss + costs[p_i][clas]
                     self.histories[i] = list(self._parent_histories[p_i])
@@ -133,7 +135,7 @@ cdef class Beam:
         del q
         self.size = i
         assert self.size >= 1
-        for i in range(self.width):
+        for i in range(self.size):
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
             memset(self.is_valid[i], 0, sizeof(int) * self.nr_class)
             memset(self.costs[i], 0, sizeof(weight_t) * self.nr_class)
@@ -141,14 +143,12 @@ cdef class Beam:
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
+        self.is_done = True
         for i in range(self.size):
             if not self._states[i].is_done:
                 self._states[i].is_done = finish_func(self._states[i].content, extra_args)
                 if not self._states[i].is_done:
                     self.is_done = False
-                    break
-        else:
-            self.is_done = True
 
     @cython.cdivision(True)
     cdef int _fill(self, Queue* q, weight_t** scores, int** is_valid) except -1:
