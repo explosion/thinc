@@ -57,8 +57,6 @@ cdef class Embedding:
             # learn good defaults.
             uniq_defaults[i] = <weight_t*>mem.alloc(width * self.nr_support, sizeof(weight_t))
             he_uniform_initializer(uniq_defaults[i], 0.5, -0.5, width)
-            memcpy(uniq_defaults[i] + width,
-                uniq_defaults[i], width * sizeof(uniq_defaults[i][0]))
             uniq_d_defaults[i] = <weight_t*>mem.alloc(width, sizeof(weight_t))
         self.offsets = <idx_t*>mem.alloc(len(features), sizeof(idx_t))
         self.lengths = <len_t*>mem.alloc(len(features), sizeof(len_t))
