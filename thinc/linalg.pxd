@@ -55,6 +55,20 @@ cdef class Vec:
         return total
 
     @staticmethod
+    cdef inline weight_t mean(const weight_t* vec, int32_t nr) nogil:
+        return Vec.sum(vec, nr) / nr
+    
+    @staticmethod
+    cdef inline weight_t variance(const weight_t* vec, int32_t nr) nogil:
+        Ex = Vec.mean(vec, nr)
+        sum_ = 0.0
+        sum2 = 0.0
+        for i in range(nr):
+            sum2 += (vec[i] - Ex) ** 2
+            sum_ += vec[i] - Ex
+        return (sum2 - sum_**2 / nr) / nr + EPS
+ 
+    @staticmethod
     cdef inline weight_t norm(const weight_t* vec, int32_t nr) nogil:
         cdef weight_t total = 0
         for i in range(nr):
@@ -82,7 +96,7 @@ cdef class Vec:
     @staticmethod
     cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
-        IF USE_BLAS:
+        IF True:
             blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1)
         ELSE:
             for i in range(nr):
@@ -285,16 +299,17 @@ cdef class MatVec:
                          int32_t nr_row, int32_t nr_col) nogil:
         cdef int i, row, col
         cdef double zero = 0.0
-        IF USE_BLAS:
+        cdef double one = 1.0
+        IF True:
             blis.gemv(
                 blis.NO_TRANSPOSE,
                 blis.NO_CONJUGATE,
                 nr_row,
                 nr_col,
-                1.0,
+                one,
                 <weight_t*>mat, nr_col, 1,
                 <weight_t*>vec, 1,
-                1.0,
+                one,
                 output, 1
             )
         ELSE:
@@ -320,21 +335,21 @@ cdef class MatVec:
         # out:   M * N
         cdef int i, row, col
         cdef double one = 1.0
-        IF USE_BLAS:
+        IF True:
             blis.gemm(
                 blis.NO_TRANSPOSE,
                 blis.TRANSPOSE,
                 nr_batch,
                 nr_row,
                 nr_col,
-                1.0,
+                one,
                 <weight_t*>vec,
                 nr_col,
                 1,
                 <weight_t*>mat,
                 nr_col,
                 1,
-                1.0,
+                one,
                 output,
                 nr_row,
                 1)
@@ -354,15 +369,15 @@ cdef class MatVec:
         cdef int i, row, col
         cdef double zero = 0.0
         cdef double one = 1.0
-        IF USE_BLAS:
+        IF True:
             blis.gemv(
                 blis.TRANSPOSE,
                 blis.NO_CONJUGATE,
                 nr_row, nr_col,
-                1.0,
+                one,
                 <weight_t*>mat, nr_col, 1,
                 <weight_t*>vec, 1,
-                1.0,
+                one,
                 output, 1,
             )
         ELSE:
@@ -379,7 +394,7 @@ cdef class MatVec:
                              int32_t nr_batch) nogil:
         cdef int _
         cdef double one = 1.0
-        IF USE_BLAS:
+        IF True:
             # output is (nr_batch, nr_col)
             # mat is (nr_row, nr_col)
             # vec is (nr_batch, nr_row)
@@ -398,14 +413,14 @@ cdef class MatVec:
                 nr_batch,
                 nr_col,
                 nr_row,
-                1.0,
+                one,
                 <weight_t*>vec,
                 nr_row,
                 1,
                 <weight_t*>mat,
                 nr_col,
                 1,
-                1.0,
+                one,
                 output,
                 nr_col,
                 1)
@@ -462,11 +477,11 @@ cdef class MatMat:
                                  int32_t nr_col) nogil:
         cdef int i, j, row
         cdef double one = 1.0
-        IF USE_BLAS:
+        IF True:
             blis.ger(
                 blis.NO_CONJUGATE, blis.NO_CONJUGATE,
                 nr_row, nr_col,
-                1.0,
+                one,
                 <weight_t*>x, 1,
                 <weight_t*>y, 1,
                 mat, nr_col, 1
@@ -497,21 +512,21 @@ cdef class MatMat:
         # y:    K * N
         # out:  M * N
         cdef double one = 1.0
-        IF USE_BLAS:
+        IF True:
             blis.gemm(
                 blis.TRANSPOSE,
                 blis.NO_TRANSPOSE,
                 nr_row,
                 nr_col,
                 nr_batch,
-                1.0,
+                one,
                 <weight_t*>x,
                 nr_row,
                 1,
                 <weight_t*>y,
                 nr_col,
                 1,
-                1.0,
+                one,
                 output,
                 nr_col,
                 1)

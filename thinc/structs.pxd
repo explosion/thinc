@@ -7,6 +7,7 @@ from murmurhash.mrmr cimport real_hash64 as hash64
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
 from .linalg cimport VecVec
+from . cimport prng
 
 
 include "compile_time_constants.pxi"
@@ -22,9 +23,13 @@ ctypedef void (*do_update_t)(
 ) nogil
 
 
+ctypedef void (*do_activate_t)(weight_t* x, len_t nr_out, len_t nr_batch) nogil
+
+
 ctypedef void (*do_feed_fwd_t)(
     weight_t** fwd,
-        const weight_t* W,
+        const LayerC* W,
+        const weight_t* randoms,
         const len_t* shape,
         int nr_layer,
         int nr_batch,
@@ -33,10 +38,11 @@ ctypedef void (*do_feed_fwd_t)(
  
 
 ctypedef void (*do_feed_bwd_t)(
-    weight_t* G,
+    LayerC* G,
     weight_t** bwd,
-        const weight_t* W,
+        const LayerC* W,
         const weight_t* const* fwd,
+        const weight_t* randoms,
         const len_t* shape,
         int nr_layer,
         int nr_batch,
@@ -86,6 +92,13 @@ cdef struct EmbedC:
     int nr_support
 
 
+cdef struct LayerC:
+    SparseArrayC** sparse
+    weight_t* dense
+    weight_t* bias
+    do_activate_t activate
+
+
 cdef struct NeuralNetC:
     do_feed_fwd_t feed_fwd
     do_feed_bwd_t feed_bwd
@@ -94,6 +107,8 @@ cdef struct NeuralNetC:
     len_t* widths
     weight_t* weights
     weight_t* gradient
+    LayerC* layers
+    LayerC* d_layers
 
     EmbedC* embed
 
@@ -264,7 +279,6 @@ cdef cppclass MinibatchC:
     
     int best(int i) nogil:
         return VecVec.arg_max_if_zero(this.scores(i), this.costs(i), this.nr_out())
-
 
 
 cdef packed struct SparseArrayC:

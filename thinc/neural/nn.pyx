@@ -29,6 +29,7 @@ from ..structs cimport NeuralNetC
 from ..structs cimport ExampleC
 from ..structs cimport MinibatchC
 from ..structs cimport FeatureC
+from ..structs cimport LayerC
 from ..structs cimport EmbedC
 from ..structs cimport ConstantsC
 from ..structs cimport do_update_t
@@ -40,14 +41,16 @@ from .solve cimport vanilla_sgd, sgd_cm, nag, adagrad, adadelta, adam
 
 from .forward cimport softmax
 from .forward cimport ELU_forward
-from .forward cimport ELU_batch_norm_residual_forward
-from .forward cimport ELU_layer_norm_forward
 from .forward cimport ReLu_forward
-from .backward cimport ELU_backward
+from .forward cimport ReLu
 from .backward cimport ReLu_backward
-from .backward cimport ELU_batch_norm_residual_backward
-from .backward cimport ELU_layer_norm_backward
-from .backward cimport d_log_loss, d_hinge_loss
+from .backward cimport ELU_backward
+from .backward cimport d_ReLu, d_softmax
+
+#from .forward cimport ELU_batch_norm_residual_forward
+#from .forward cimport ReLu_layer_norm_forward
+#from .backward cimport ELU_batch_norm_residual_backward
+#from .backward cimport ReLu_layer_norm_backward
 
 from .embed cimport Embedding
 from .initializers cimport he_normal_initializer, he_uniform_initializer, constant_initializer
@@ -103,13 +106,15 @@ cdef class NeuralNet(Model):
         else:
             raise ValueError(kwargs.get('update_step'))
         self.c.embed.nr_support = nr_support
-        use_batch_norm = kwargs.get('batch_norm', False)
-        if use_batch_norm:
-            self.c.feed_fwd = ELU_layer_norm_forward
-            self.c.feed_bwd = ELU_layer_norm_backward
-        else:
-            self.c.feed_fwd = ELU_forward
-            self.c.feed_bwd = ELU_backward
+        norm_type = kwargs.get('norm_type', None)
+        #if norm_type == 'layer':
+        #    self.c.feed_fwd = ReLu_layer_norm_forward
+        #    self.c.feed_bwd = ReLu_layer_norm_backward
+        #elif norm_type == 'batch':
+        #    raise NotImplementedError
+        #else:
+        self.c.feed_fwd = ReLu_forward
+        self.c.feed_bwd = ReLu_backward
 
         self.c.nr_layer = len(widths)
         self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
@@ -120,7 +125,7 @@ cdef class NeuralNet(Model):
         self.c.nr_node = 0
         for i in range(self.c.nr_layer-1):
             self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i],
-                                              use_batch_norm)
+                                              norm_type != None)
             self.c.nr_node += self.c.widths[i]
         self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
                                                    sizeof(self.c.weights[0]))
@@ -128,23 +133,53 @@ cdef class NeuralNet(Model):
 
         if kwargs.get('embed') is not None:
             vector_widths, features = kwargs['embed']
+            print("Make embed", vector_widths, features)
             Embedding.init(self.c.embed, self.mem, vector_widths, features)
 
+        self.c.layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
+        self.c.d_layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
         W = self.c.weights
+        G = self.c.gradient
         for i in range(self.c.nr_layer-2):
             he_normal_initializer(W,
                 self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
             nr_W = self.c.widths[i+1] * self.c.widths[i]
+            self.c.layers[i].activate = ReLu
+            self.c.layers[i].sparse = NULL
+            self.c.layers[i].dense = W
+            self.c.layers[i].bias = W+nr_W
+            self.c.d_layers[i].activate = NULL
+            self.c.d_layers[i].sparse = NULL
+            self.c.d_layers[i].dense = G
+            self.c.d_layers[i].bias = G+nr_W
+            for j in range(nr_W):
+                if random.random() < 0.4:
+                    W[j] = 0.0
             nr_bias = self.c.widths[i+1]
-            if use_batch_norm:
+            constant_initializer(W+nr_W,
+                -0.000001, self.c.widths[i+1] * self.c.widths[i])
+            if norm_type != None:
                 # Initialise gamma terms
                 constant_initializer(W + nr_W + nr_bias,
                     1.0, self.c.widths[i + 1])
                 # Initialize variance
                 constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
                     1.0, self.c.widths[i+1])
-            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
-        self._mb = Minibatch(self.widths, 200)
+            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], norm_type != None)
+            G += get_nr_weight(self.c.widths[i+1], self.c.widths[i], norm_type != None)
+        i = self.c.nr_layer - 2
+        constant_initializer(W,
+            1e-6, self.c.widths[i+1] * self.c.widths[i])
+        constant_initializer(W+self.c.widths[i+1]*self.c.widths[i],
+            1e-6, self.c.widths[i+1])
+        self.c.layers[i].activate = softmax
+        self.c.layers[i].dense = W
+        self.c.layers[i].bias = W+(self.c.widths[i]*self.c.widths[i+1])
+        self.c.d_layers[i].activate = NULL
+        self.c.d_layers[i].dense = G
+        self.c.d_layers[i].bias = G+(self.c.widths[i]*self.c.widths[i+1])
+ 
+        self._mb = Minibatch(self.widths, kwargs.get('batch_size', 200))
 
     def __call__(self, eg_or_mb):
         cdef Example eg
@@ -158,9 +193,7 @@ cdef class NeuralNet(Model):
                 self._extractC(mb.c.fwd(0, i),
                     mb.c.features(i), mb.c.nr_feat(i), mb.c.is_sparse(i))
             self.c.feed_fwd(mb.c._fwd,
-                self.c.weights, self.c.widths, self.c.nr_layer, mb.c.i, &self.c.hp)
-            for i in range(mb.c.i):
-                self._softmaxC(mb.c.fwd(self.c.nr_layer-1, i))
+                self.c.layers, NULL, self.c.widths, self.c.nr_layer, mb.c.i, &self.c.hp)
         return eg_or_mb
 
     def train(self, examples):
@@ -283,8 +316,7 @@ cdef class NeuralNet(Model):
 
         self._extractC(fwd_state[0], feats, nr_feat, is_sparse)
         self.c.feed_fwd(fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
-        self._softmaxC(fwd_state[self.c.nr_layer-1])
+            self.c.layers, NULL, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
  
         memcpy(scores,
             fwd_state[self.c.nr_layer-1], sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1])
@@ -311,21 +343,22 @@ cdef class NeuralNet(Model):
 
     cdef void _updateC(self, MinibatchC* mb) except *:
         for i in range(mb.i):
-            self.dropoutC(mb.features(i), 1.-self.c.hp.d, mb.nr_feat(i), mb.is_sparse(i))
             self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i), mb.is_sparse(i))
         
+        randoms = <weight_t*>calloc(self.c.nr_node * mb.i, sizeof(weight_t))
+        for i in range(self.c.nr_node * mb.i):
+            randoms[i] = prng.get_uniform()
         self.c.feed_fwd(mb._fwd,
-            self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
+            self.c.layers, randoms, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
 
-        for i in range(mb.i):
-            self._softmaxC(mb.fwd(self.c.nr_layer-1, i))
         for i in range(mb.i):
             self._set_delta_lossC(mb.losses(i),
                 mb.costs(i), mb.fwd(mb.nr_layer-1, i))
         
-        self.c.feed_bwd(self.c.gradient, mb._bwd,
-            self.c.weights, mb._fwd, self.c.widths, self.c.nr_layer,
+        self.c.feed_bwd(self.c.d_layers, mb._bwd,
+            self.c.layers, mb._fwd, randoms, self.c.widths, self.c.nr_layer,
             mb.i, &self.c.hp)
+        free(randoms)
 
         self.c.hp.t += 1
         self.c.update(self.c.weights, self.c.gradient,
@@ -345,12 +378,9 @@ cdef class NeuralNet(Model):
         else:
             memcpy(input_, feats, nr_feat * sizeof(input_[0]))
     
-    cdef void _softmaxC(self, weight_t* output) nogil:
-        softmax(output, self.c.widths[self.c.nr_layer-1])
-
     cdef void _set_delta_lossC(self, weight_t* delta_loss,
             const weight_t* costs, const weight_t* scores) nogil:
-        d_log_loss(delta_loss,
+        d_softmax(delta_loss,
             costs, scores, self.c.widths[self.c.nr_layer-1])
 
     cdef void _backprop_extracterC(self, const weight_t* deltas,
@@ -427,6 +457,13 @@ cdef class NeuralNet(Model):
                 w_l1 = sum(abs(w) for w in W) / len(W)
                 bias_l1 = sum(abs(w) for w in W) / len(bias)
                 yield w_l1, bias_l1
+
+    property layer_sparsity:
+        def __get__(self):
+            for W, bias in self.layers:
+                w_sparsity = sum(w == 0 for w in W) / float(len(W))
+                bias_sparsity = sum(w == 0 for w in bias) / float(len(bias))
+                yield w_sparsity, bias_sparsity
 
     @property
     def gradient(self):
@@ -523,6 +560,8 @@ cdef class NeuralNet(Model):
     property dropout:
         def __get__(self):
             return self.c.hp.d
+        def __set__(self, drop_prob):
+            self.c.hp.d = drop_prob
    
     @property
     def eps(self):

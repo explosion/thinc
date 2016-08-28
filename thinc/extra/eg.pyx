@@ -129,7 +129,7 @@ cdef class Example:
             if len(scores) < self.nr_class:
                 self.fill_scores(0, self.nr_class)
             else:
-                self.nr_class = len(scores)
+                self.c.nr_class = len(scores)
             for i, score in enumerate(scores):
                 self.c.scores[i] = score
 

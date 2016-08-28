@@ -46,6 +46,13 @@ cdef void update_averages(weight_t* ema,
         ema[i] -= (1-decay) * (ema[i] - weights[i])
 
 
+cdef void ensure_sparsity(weight_t* gradient,
+        const weight_t* weights, int nr_weight) nogil:
+    for i in range(nr_weight):
+        if weights[i] == 0:
+            gradient[i] = 0
+ 
+
 @cython.cdivision(True)
 cdef void vanilla_sgd(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
@@ -129,6 +136,9 @@ cdef void adam(weight_t* weights, weight_t* gradient,
         len_t nr_weight, const ConstantsC* hp) nogil:
     clip_gradient(gradient,
         100.0, nr_weight)
+    ensure_sparsity(gradient,
+        weights, nr_weight)
+ 
     add_gradient_noise(gradient,
         hp.w, hp.t, nr_weight)
  
