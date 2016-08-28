@@ -23,6 +23,36 @@ cdef class Matrix:
     cdef readonly int32_t nr_col
 
 
+from .structs cimport const_weights_ft, const_dense_weights_t, const_sparse_weights_t
+from .structs cimport weights_ft, dense_weights_t, sparse_weights_t
+
+
+cdef void v_fill(weights_ft vec, weight_t value, int nr) nogil
+
+cdef weight_t v_norm(const_weights_ft vec, int32_t nr) nogil
+
+cdef void v_mul(weights_ft vec, weight_t scal, int32_t nr) nogil
+
+cdef void v_pow(weights_ft vec, const weight_t scal, int32_t nr) nogil
+cdef void vv_add(weights_ft x, 
+                    const_weights_ft y, weight_t scale, int32_t nr) nogil
+ 
+cdef void vv_batch_add(weight_t* x, 
+                       const weight_t* y, weight_t scale, int32_t nr, int32_t nr_batch) nogil
+
+cdef void vv_add_pow(weights_ft x, 
+                    const_weights_ft y, weight_t power, int32_t nr) nogil
+ 
+cdef void vv_mul(weights_ft x, const_weights_ft y, int32_t nr) nogil
+ 
+cdef weight_t vv_dot(const weight_t* x, const weight_t* y, int32_t nr) nogil
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid, const int n_classes) nogil
+
+cdef int arg_max_if_zero(
+        const weight_t* scores, const weight_t* costs, const int n_classes) nogil
+
+ 
 cdef class Vec:
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
