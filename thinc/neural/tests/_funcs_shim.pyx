@@ -32,7 +32,7 @@ def call_d_dot(
 
 
 def call_ELU(weight_t[:] out, int nr_out):
-    ELU(&out[0], nr_out)
+    ELU(&out[0], nr_out, 1)
     return out
 
 

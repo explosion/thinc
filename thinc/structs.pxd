@@ -6,20 +6,43 @@ from libc.string cimport memcpy, memset
 from murmurhash.mrmr cimport real_hash64 as hash64
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
-from .linalg cimport VecVec
 from . cimport prng
 
 
 include "compile_time_constants.pxi"
 
+ctypedef SparseArrayC** sparse_weights_t
+ctypedef weight_t* dense_weights_t 
+ctypedef const SparseArrayC* const* const_sparse_weights_t
+ctypedef const weight_t* const_dense_weights_t 
+
+
 ctypedef vector[weight_t] vector_weight_t
 
 
+cdef fused weights_ft:
+    sparse_weights_t
+    dense_weights_t
+
+
+cdef fused const_weights_ft:
+    const_sparse_weights_t
+    const_dense_weights_t
+
+
 ctypedef void (*do_update_t)(
-    weight_t* weights,
-    weight_t* gradient,
+    weights_ft weights,
+    weights_ft gradient,
         len_t nr,
-        const ConstantsC* hp,
+        const ConstantsC* hp
+) nogil
+
+
+ctypedef void (*dense_update_t)(
+    dense_weights_t weights,
+    dense_weights_t gradient,
+        len_t nr,
+        const ConstantsC* hp
 ) nogil
 
 
@@ -102,7 +125,8 @@ cdef struct LayerC:
 cdef struct NeuralNetC:
     do_feed_fwd_t feed_fwd
     do_feed_bwd_t feed_bwd
-    do_update_t update
+    
+    int update
 
     len_t* widths
     weight_t* weights
@@ -217,8 +241,9 @@ cdef cppclass MinibatchC:
         if key != 0:
             for i in range(this.i):
                 if this.signatures[i] == key:
-                    VecVec.add_i(this.costs(i),
-                        costs, 1.0, this.nr_out())
+                    my_costs = this.costs(i)
+                    for j in range(this.nr_out()):
+                        my_costs[j] += costs[j]
                     return 0
         if this.i >= this.batch_size:
             this.reset()
@@ -226,7 +251,7 @@ cdef cppclass MinibatchC:
  
         this.signatures[this.i] = key
         this._nr_feat[this.i] = nr_feat
-        this._is_sparse[i] = is_sparse
+        this._is_sparse[this.i] = is_sparse
         if is_sparse:
             this._feats[this.i] = calloc(nr_feat, sizeof(FeatureC))
             memcpy(this._feats[this.i],
@@ -275,10 +300,23 @@ cdef cppclass MinibatchC:
         return this._is_valid + (i * this.nr_out())
 
     int guess(int i) nogil:
-        return VecVec.arg_max_if_true(this.scores(i), this.is_valid(i), this.nr_out())
+        # Don't use the linalg methods here to avoid circular import
+        guess = -1
+        for clas in range(this.nr_out()):
+            if this.is_valid(i)[clas]:
+                if guess == -1 or this.scores(i)[clas] >= this.scores(i)[guess]:
+                    guess = clas
+        return guess
     
     int best(int i) nogil:
-        return VecVec.arg_max_if_zero(this.scores(i), this.costs(i), this.nr_out())
+        # Don't use the linalg methods here to avoid circular import
+        best = -1
+        for clas in range(this.nr_out()):
+            if this.costs(i)[clas] == 0:
+                if best == -1 or this.scores(i)[clas] >= this.scores(i)[best]:
+                    best = clas
+        return best
+ 
 
 
 cdef packed struct SparseArrayC:

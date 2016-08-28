@@ -1,6 +1,7 @@
 from ..typedefs cimport weight_t
 import numpy
 
+
 cdef void he_normal_initializer(weight_t* weights, int fan_in, int n) except *:
     # See equation 10 here:
     # http://arxiv.org/pdf/1502.01852v1.pdf

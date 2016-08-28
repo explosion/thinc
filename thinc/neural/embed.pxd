@@ -19,7 +19,9 @@ from ..structs cimport ExampleC
 from ..structs cimport FeatureC
 from ..structs cimport EmbedC
 from ..structs cimport ConstantsC
-from ..structs cimport do_update_t
+from ..structs cimport dense_update_t
+from ..structs cimport const_weights_ft, const_dense_weights_t, const_sparse_weights_t
+from ..structs cimport weights_ft, dense_weights_t, sparse_weights_t
 
 from ..extra.eg cimport Example
 
@@ -129,7 +131,7 @@ cdef class Embedding:
 
     @staticmethod
     cdef inline void update(EmbedC* layer, int i, key_t key, int batch_size,
-            const ConstantsC* hp, do_update_t do_update) nogil:
+            const ConstantsC* hp, dense_update_t do_update) nogil:
         length = layer.lengths[i]
         if length == 0:
             return
@@ -146,7 +148,7 @@ cdef class Embedding:
 
     @staticmethod
     cdef inline void update_all(EmbedC* layer,
-            int batch_size, const ConstantsC* hp, do_update_t do_update) nogil:
+            int batch_size, const ConstantsC* hp, dense_update_t do_update) nogil:
         cdef key_t key
         cdef void* value
         cdef int i, j

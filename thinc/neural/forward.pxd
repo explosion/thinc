@@ -7,15 +7,15 @@ from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 from ..typedefs cimport weight_t
 
+from ..structs cimport LayerC, SparseArrayC
+from ..structs cimport const_weights_ft, const_dense_weights_t, const_sparse_weights_t
+from ..structs cimport weights_ft, dense_weights_t, sparse_weights_t
 
-cdef void ELU_forward(weight_t** fwd,
-        const weight_t* W, const weight_t* randoms, const len_t* shape,
-        int nr_layer, int nr_batch, const ConstantsC* hp) nogil
  
 cdef void ReLu_forward(weight_t** fwd,
         const LayerC* weights, const weight_t* randoms, const len_t* widths,
         int nr_layer, int nr_batch, const ConstantsC* hp) nogil
- 
+
 #cdef void ELU_batch_norm_residual_forward(weight_t** fwd,
 #        const weight_t* W, const weight_t* randoms, const len_t* widths,
 #        int nr_layer, int nr_batch, const ConstantsC* hp) nogil
@@ -43,5 +43,6 @@ cdef void ELU(weight_t* out, len_t nr_out, len_t nr_batch) nogil
 cdef void ReLu(weight_t* out, len_t nr_out, len_t nr_batch) nogil
 
 cdef void affine(weight_t* out,
-        const weight_t* x, const weight_t* w, const weight_t* bias,
+        const weight_t* in_, const_weights_ft W, const weight_t* bias,
         int nr_out, int nr_in, int nr_batch) nogil
+ 

@@ -24,6 +24,7 @@ from ..typedefs cimport weight_t, atom_t, feat_t
 from ..typedefs cimport len_t, idx_t
 from ..linalg cimport MatMat, MatVec, VecVec, Vec
 from .. cimport prng
+from ..structs cimport SparseArrayC
 from ..structs cimport MapC
 from ..structs cimport NeuralNetC
 from ..structs cimport ExampleC
@@ -37,20 +38,14 @@ from ..structs cimport do_update_t
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 
-from .solve cimport vanilla_sgd, sgd_cm, nag, adagrad, adadelta, adam
+from .solve cimport sgd_cm, nag, adam
 
 from .forward cimport softmax
-from .forward cimport ELU_forward
 from .forward cimport ReLu_forward
 from .forward cimport ReLu
 from .backward cimport ReLu_backward
-from .backward cimport ELU_backward
 from .backward cimport d_ReLu, d_softmax
 
-#from .forward cimport ELU_batch_norm_residual_forward
-#from .forward cimport ReLu_layer_norm_forward
-#from .backward cimport ELU_batch_norm_residual_backward
-#from .backward cimport ReLu_layer_norm_backward
 
 from .embed cimport Embedding
 from .initializers cimport he_normal_initializer, he_uniform_initializer, constant_initializer
@@ -86,33 +81,28 @@ cdef class NeuralNet(Model):
         # Dropout
         self.c.hp.d = kwargs.get('dropout', 0.0)
         if kwargs.get('update_step') == 'sgd':
-            self.c.update = vanilla_sgd
+            self.c.update = 0
+            self.c.hp.m = 0.0
             nr_support = 2
         elif kwargs.get('update_step', 'sgd_cm') == 'sgd_cm':
-            self.c.update = sgd_cm
+            self.c.update = 1
             nr_support = 3
         elif kwargs.get('update_step') == 'nag':
-            self.c.update = nag
+            self.c.update = 2
             nr_support = 3
-        elif kwargs.get('update_step') == 'adagrad':
-            self.c.update = adagrad
-            nr_support = 3
-        elif kwargs.get('update_step') == 'adadelta':
-            self.c.update = adadelta
             nr_support = 4
         elif kwargs.get('update_step') == 'adam':
-            self.c.update = adam
+            self.c.update = 3
             nr_support = 4
         else:
             raise ValueError(kwargs.get('update_step'))
         self.c.embed.nr_support = nr_support
-        norm_type = kwargs.get('norm_type', None)
-        #if norm_type == 'layer':
-        #    self.c.feed_fwd = ReLu_layer_norm_forward
-        #    self.c.feed_bwd = ReLu_layer_norm_backward
-        #elif norm_type == 'batch':
-        #    raise NotImplementedError
-        #else:
+        if kwargs.get('embed') is not None:
+            vector_widths, features = kwargs['embed']
+            print("Make embed", vector_widths, features)
+            Embedding.init(self.c.embed, self.mem, vector_widths, features)
+
+
         self.c.feed_fwd = ReLu_forward
         self.c.feed_bwd = ReLu_backward
 
@@ -121,64 +111,64 @@ cdef class NeuralNet(Model):
         cdef int i
         for i, width in enumerate(widths):
             self.c.widths[i] = width
-        self.c.nr_weight = 0
-        self.c.nr_node = 0
-        for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i],
-                                              norm_type != None)
-            self.c.nr_node += self.c.widths[i]
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
-                                                   sizeof(self.c.weights[0]))
-        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-
-        if kwargs.get('embed') is not None:
-            vector_widths, features = kwargs['embed']
-            print("Make embed", vector_widths, features)
-            Embedding.init(self.c.embed, self.mem, vector_widths, features)
+            self.c.nr_node += width
 
         self.c.layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
         self.c.d_layers = <LayerC*>self.mem.alloc(self.c.nr_layer, sizeof(LayerC))
-        W = self.c.weights
-        G = self.c.gradient
-        for i in range(self.c.nr_layer-2):
-            he_normal_initializer(W,
-                self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
-            nr_W = self.c.widths[i+1] * self.c.widths[i]
-            self.c.layers[i].activate = ReLu
-            self.c.layers[i].sparse = NULL
-            self.c.layers[i].dense = W
-            self.c.layers[i].bias = W+nr_W
-            self.c.d_layers[i].activate = NULL
-            self.c.d_layers[i].sparse = NULL
-            self.c.d_layers[i].dense = G
-            self.c.d_layers[i].bias = G+nr_W
-            for j in range(nr_W):
-                if random.random() < 0.4:
-                    W[j] = 0.0
-            nr_bias = self.c.widths[i+1]
-            constant_initializer(W+nr_W,
-                -0.000001, self.c.widths[i+1] * self.c.widths[i])
-            if norm_type != None:
-                # Initialise gamma terms
-                constant_initializer(W + nr_W + nr_bias,
-                    1.0, self.c.widths[i + 1])
-                # Initialize variance
-                constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
-                    1.0, self.c.widths[i+1])
-            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], norm_type != None)
-            G += get_nr_weight(self.c.widths[i+1], self.c.widths[i], norm_type != None)
-        i = self.c.nr_layer - 2
-        constant_initializer(W,
-            1e-6, self.c.widths[i+1] * self.c.widths[i])
-        constant_initializer(W+self.c.widths[i+1]*self.c.widths[i],
-            1e-6, self.c.widths[i+1])
-        self.c.layers[i].activate = softmax
-        self.c.layers[i].dense = W
-        self.c.layers[i].bias = W+(self.c.widths[i]*self.c.widths[i+1])
-        self.c.d_layers[i].activate = NULL
-        self.c.d_layers[i].dense = G
-        self.c.d_layers[i].bias = G+(self.c.widths[i]*self.c.widths[i+1])
- 
+
+        weight_sparsity = 0.5
+        # Set up the (sparse) weights
+        print("Allocate")
+        self.c.nr_weight = 0
+        for i in range(1, self.c.nr_layer):
+            is_last_layer = i == self.c.nr_layer-1
+            width = self.c.widths[i]
+            if is_last_layer:
+                self.c.layers[i].activate = softmax
+            else:
+                self.c.layers[i].activate = ReLu
+            # Set up the biases.
+            self.c.layers[i].bias = <weight_t*>self.mem.alloc(width*nr_support,
+                                                              sizeof(weight_t))
+            self.c.d_layers[i].bias = <weight_t*>self.mem.alloc(width, sizeof(weight_t))
+            self.c.layers[i].dense = NULL
+            self.c.d_layers[i].dense = NULL
+            self.c.layers[i].sparse = <SparseArrayC**>self.mem.alloc(width*nr_support,
+                                                                     sizeof(SparseArrayC*))
+            self.c.d_layers[i].sparse = <SparseArrayC**>self.mem.alloc(width,
+                                                                       sizeof(SparseArrayC*))
+            for j in range(width):
+                inputs = [k for k in range(self.c.widths[i-1])
+                          if random.random() >= weight_sparsity]
+                nr_in = len(inputs)
+                syn = <SparseArrayC*>self.mem.alloc(nr_in+1, sizeof(SparseArrayC))
+                for k, clas in enumerate(inputs):
+                    syn[k].key = clas
+                    if is_last_layer:
+                        syn[k].val = 0
+                    else:
+                        syn[k].val = numpy.random.normal(loc=0.0, scale=numpy.sqrt(2.0 / nr_in))
+                syn[nr_in].key = -1
+                self.c.layers[i].sparse[j] = syn
+                self.c.nr_weight += nr_in
+                # Now we need to set up the sparse gradient
+                # There's no value initialization here, but we need the same keys
+                # as the weights.
+                syn = <SparseArrayC*>self.mem.alloc(nr_in+1, sizeof(SparseArrayC))
+                for k, clas in enumerate(inputs):
+                    syn[k].key = clas
+                    syn[k].val = 0
+                syn[nr_in].key = -1
+                self.c.d_layers[i].sparse[j] = syn
+                # Finally, we need the support weights, for the momentum etc.
+                for sup in range(1, nr_support):
+                    syn = <SparseArrayC*>self.mem.alloc(nr_in+1, sizeof(SparseArrayC))
+                    for k, clas in enumerate(inputs):
+                        syn[k].key = clas
+                        syn[k].val = 0
+                    syn[nr_in].key = -1
+                    self.c.layers[i].sparse[sup*width+j] = syn
+        print("Done", self.c.nr_weight)
         self._mb = Minibatch(self.widths, kwargs.get('batch_size', 200))
 
     def __call__(self, eg_or_mb):
@@ -360,9 +350,20 @@ cdef class NeuralNet(Model):
             mb.i, &self.c.hp)
         free(randoms)
 
+        ## Do the update (call adam, sgd_cm etc)
         self.c.hp.t += 1
-        self.c.update(self.c.weights, self.c.gradient,
-            self.c.nr_weight, &self.c.hp)
+        for i in range(1, self.c.nr_layer):
+            layer = self.c.layers[i]
+            grad = self.c.d_layers[i]
+            if layer.dense:
+                sgd_cm(layer.dense, grad.dense,
+                    self.c.widths[i] * self.c.widths[i-1], &self.c.hp)
+            else:
+                sgd_cm(layer.sparse, grad.sparse,
+                    self.c.widths[i], &self.c.hp)
+            sgd_cm(layer.bias, grad.bias,
+                self.c.widths[i], &self.c.hp)
+ 
         for i in range(mb.i):
             self._backprop_extracterC(mb.bwd(0, i),
                 mb.features(i), mb.nr_feat(i), mb.is_sparse(i))
@@ -400,7 +401,7 @@ cdef class NeuralNet(Model):
         feats = <const FeatureC*>_feats
         for feat in feats[:nr_feat]:
             Embedding.update(self.c.embed,
-                feat.i, feat.key, batch_size, &self.c.hp, self.c.update)
+                feat.i, feat.key, batch_size, &self.c.hp, sgd_cm)
         # Additionally, update defaults
         for i in range(self.c.embed.nr):
             length = self.c.embed.lengths[i]
@@ -408,7 +409,7 @@ cdef class NeuralNet(Model):
             emb = self.c.embed.defaults[i]
             for weight in gradient[:length]:
                 if weight != 0.0:
-                    self.c.update(emb, gradient,
+                    sgd_cm(emb, gradient,
                         length, &self.c.hp)
                     break
 
