@@ -205,9 +205,11 @@ cdef class AveragedPerceptron(Model):
             if feat is NULL:
                 msg = (feat_id, clas, grad)
                 raise MemoryError("Error allocating memory for feature: %s" % msg)
-            feat.curr  = SparseArray.init(clas, grad * -self.learn_rate)
+            feat.curr  = SparseArray.init(clas, 0)
+            feat.mom1  = SparseArray.init(clas, 0)
+            feat.mom2  = SparseArray.init(clas, 0)
             feat.avgs  = SparseArray.init(clas, 0)
-            feat.times = SparseArray.init(clas, <weight_t>self.time)
+            feat.times = SparseArray.init(clas, 0)
             feat.penalty = SparseArray.init(clas, 0)
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
@@ -216,20 +218,24 @@ cdef class AveragedPerceptron(Model):
             i = SparseArray.find_key(feat.curr, clas)
             if i < 0:
                 feat.curr = SparseArray.resize(feat.curr)
+                feat.mom1 = SparseArray.resize(feat.mom1)
+                feat.mom2 = SparseArray.resize(feat.mom2)
                 feat.avgs = SparseArray.resize(feat.avgs)
                 feat.times = SparseArray.resize(feat.times)
                 feat.penalty = SparseArray.resize(feat.penalty)
                 self.weights.set(feat_id, feat.curr)
                 i = SparseArray.find_key(feat.curr, clas)
             feat.curr[i].key = clas
+            feat.mom1[i].key = clas
+            feat.mom2[i].key = clas
             feat.avgs[i].key = clas
             feat.times[i].key = clas
             feat.penalty[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
             feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
-            # Calculate update with Adam
-            feat.curr[i].val -= self.learn_rate * grad
-            feat.times[i].val = self.time
+        adam_update(&feat.curr[i].val, &feat.mom1[i].val, &feat.mom2[i].val,
+            self.time, feat.times[i].val, grad, self.learn_rate, self.momentum) 
+        feat.times[i].val = <weight_t>self.time
         # Apply cumulative L1 penalty, from here:
         # http://www.aclweb.org/anthology/P09-1054 
         if self.l1_penalty > 0.0:
@@ -240,4 +246,19 @@ cdef class AveragedPerceptron(Model):
                 feat.curr[i].val = max(0, z-(u+q))
             elif z < 0:
                 feat.curr[i].val = min(0, z+(u-q))
-        feat.penalty[i].val += feat.curr[i].val - z
+            feat.penalty[i].val += feat.curr[i].val - z
+
+cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
+        weight_t t, weight_t last_upd, weight_t grad, weight_t learn_rate, weight_t _) nogil:
+     # Calculate update with Adam
+     beta1 = 0.9
+     beta2 = 0.999
+     eps = 1e-08
+
+     m1[0] = (m1[0] * beta1) + ((1-beta1) * grad)
+     m2[0] = (m2[0] * beta2) + ((1-beta2) * grad**2)
+     
+     m1t = m1[0] / (1-beta1**2)
+     m2t = m2[0] / (1-beta2**2)
+    
+     w[0] -= learn_rate * m1t / (sqrt(m2t) + eps)
