@@ -40,21 +40,16 @@ cdef void ELU_backward(weight_t* gradient, weight_t** bwd,
     '''
     cdef int W
     cdef int bias
-    cdef int gamma
-    cdef int beta
-    cdef int mean
-    cdef int variance
     
     i = nr_layer-1
-    parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
-        widths, i, nr_layer)
+    parse_weights(&W, &bias, widths, i, nr_layer)
 
     d_affine(bwd[i-1], gradient + W, gradient + bias,
         bwd[i], fwd[i-1],
         weights + W, widths[i], widths[i-1], nr_batch)
 
     for i in range(nr_layer-2, 0, -1):
-        parse_batch_norm_weights(&W, &bias, &gamma, &beta, &mean, &variance,
+        parse_weights(&W, &bias, 
             widths, i, nr_layer)
 
         d_ELU(bwd[i],
