@@ -113,8 +113,15 @@ cdef class Example:
 
     property best:
         def __get__(self):
-            return VecVec.arg_max_if_zero(
-                self.c.scores, self.c.costs, self.c.nr_class)
+            cdef int i
+            cdef int best = -1
+            # Account for negative costs, so don't use arg_max_if_zero
+            for i in range(self.c.nr_class):
+                if self.c.is_valid[i] \
+                and self.c.costs[i] <= 0 \
+                and (best == -1 or self.c.scores[i] > self.c.scores[best]):
+                    best = i
+            return best
     
     property cost:
         def __get__(self):
