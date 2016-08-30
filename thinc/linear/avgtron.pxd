@@ -14,6 +14,9 @@ cdef class AveragedPerceptron(Model):
     cdef readonly PreshMap averages
     cdef ConjunctionExtracter extracter
     cdef public int time
+    cdef public weight_t learn_rate
+    cdef public weight_t l1_penalty
+    cdef public weight_t momentum
     
     cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil
     cdef int updateC(self, const ExampleC* eg) except -1
