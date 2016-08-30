@@ -32,11 +32,11 @@ cdef void clip_gradient(weight_t* gradient, weight_t threshold, int nr_weight) n
 @cython.cdivision(True)
 cdef void add_gradient_noise(weight_t* gradient, weight_t noise_level,
         weight_t timestep, int nr_weight) nogil:
-    variance = noise_level / ((1 + timestep) ** 0.55)
-    if variance >= 0.000001:
-        for i in range(nr_weight):
-            if gradient[i] != 0:
-                gradient[i] += prng.normal() * variance
+    #variance = noise_level / ((1 + timestep) ** 0.55)
+    #if variance >= 0.000001:
+    for i in range(nr_weight):
+        if gradient[i] != 0:
+            gradient[i] += prng.normal() * noise_level
 
 
 @cython.cdivision(True)
