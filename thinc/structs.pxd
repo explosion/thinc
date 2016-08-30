@@ -268,7 +268,10 @@ cdef struct FeatureC:
 
 cdef struct SparseAverageC:
     SparseArrayC* curr
+    SparseArrayC* mom1
+    SparseArrayC* mom2
     SparseArrayC* avgs
+    SparseArrayC* penalty
     SparseArrayC* times
 
 
