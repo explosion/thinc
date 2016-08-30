@@ -135,7 +135,7 @@ cdef class Beam:
         del q
         self.size = i
         assert self.size >= 1
-        for i in range(self.size):
+        for i in range(self.width):
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
             memset(self.is_valid[i], 0, sizeof(int) * self.nr_class)
             memset(self.costs[i], 0, sizeof(weight_t) * self.nr_class)
