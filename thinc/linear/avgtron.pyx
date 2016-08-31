@@ -272,8 +272,33 @@ cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
 
      m1[0] = (m1[0] * beta1) + ((1-beta1) * grad)
      m2[0] = (m2[0] * beta2) + ((1-beta2) * grad**2)
+
+     # Estimate the number of updates, using time from last update
+     nr_update = (t * (last_upd / t)) + 1
      
-     m1t = m1[0] / (1-beta1**2)
-     m2t = m2[0] / (1-beta2**2)
+     m1t = m1[0] / (1-beta1**nr_update)
+     m2t = m2[0] / (1-beta2**nr_update)
     
      w[0] -= learn_rate * m1t / (sqrt(m2t) + eps)
+
+
+cdef weight_t group_lasso(SparseArrayC* weights, weight_t penalty_paid,
+                          weight_t total_penalty) nogil:
+    norm = 0.0
+    i = 0
+    while weights[i].key >= 0:
+        if weights[i].val > 0:
+            norm += weights[i].val
+        else:
+            norm -= weights[i].val
+        i += 1
+    # Find what we want the norm to be
+    target = max(0, norm - (penalty_paid + total_penalty))
+    while weights.key >= 0:
+        # If weights[i].val is negative, we want to add anyway ---
+        # so should all work out.
+        # The ideea here is to reduce the norm of the feature
+        # proportionally.
+        weights.val = (weights.val/norm) * target
+        weights += 1
+    return target - norm
