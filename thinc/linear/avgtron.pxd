@@ -12,6 +12,7 @@ cdef class AveragedPerceptron(Model):
     cdef readonly Pool mem
     cdef readonly PreshMap weights
     cdef readonly PreshMap averages
+    cdef readonly PreshMap lasso_ledger
     cdef ConjunctionExtracter extracter
     cdef public int time
     cdef public weight_t learn_rate
