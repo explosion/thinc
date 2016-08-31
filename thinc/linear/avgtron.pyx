@@ -99,40 +99,34 @@ cdef class AveragedPerceptron(Model):
             if i % 1000 == 0:
                 PyErr_CheckSignals()
             i += 1
-
+    
+    def apply_owed_L1(self):
+        cdef size_t feat_addr
+        u = self.time * self.learn_rate * self.l1_penalty
+        for feat_id, feat_addr in self.averages.items():
+            if feat_addr != 0:
+                feat = <SparseAverageC*>feat_addr
+                feat.penalty += group_lasso(feat.curr, feat.penalty, u)
+ 
     def end_training(self):
-        cdef feat_id
         cdef size_t feat_addr
         cdef int i = 0
         u = self.time * self.learn_rate * self.l1_penalty
         for feat_id, feat_addr in self.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
-                i = 0
+                #feat.penalty += group_lasso(feat.curr, feat.penalty, u)
                 W = feat.curr
-                times = feat.times
                 avg = feat.avgs
-                penalty = feat.penalty
+                times = feat.times
                 while W.key >= 0:
-                    # Apply cumulative L1 penalty, from here:
-                    # http://www.aclweb.org/anthology/P09-1054 
-                    z = W.val
-                    q = penalty.val
-                    if z > 0:
-                        W.val = max(0, z-(u+q))
-                    elif z < 0:
-                        W.val = min(0, z+(u-q))
-                    # Average
                     if W.val != 0:
-                        unchanged = (self.time + 1) - <time_t>times.val
+                        unchanged = (self.time + 1) - times.val
                         avg.val += unchanged * W.val
                         W.val = avg.val / self.time
-
-                    penalty.val += W.val - z
                     W += 1
                     times += 1
                     avg += 1
-                    penalty += 1
 
     @property
     def L1(self):
@@ -225,7 +219,8 @@ cdef class AveragedPerceptron(Model):
             feat.mom2  = SparseArray.init(clas, 0)
             feat.avgs  = SparseArray.init(clas, 0)
             feat.times = SparseArray.init(clas, 0)
-            feat.penalty = SparseArray.init(clas, 0)
+            #feat.penalty = SparseArray.init(clas, 0)
+            feat.penalty = 0.0
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
             i = 0
@@ -237,7 +232,7 @@ cdef class AveragedPerceptron(Model):
                 feat.mom2 = SparseArray.resize(feat.mom2)
                 feat.avgs = SparseArray.resize(feat.avgs)
                 feat.times = SparseArray.resize(feat.times)
-                feat.penalty = SparseArray.resize(feat.penalty)
+                #feat.penalty = SparseArray.resize(feat.penalty)
                 self.weights.set(feat_id, feat.curr)
                 i = SparseArray.find_key(feat.curr, clas)
             feat.curr[i].key = clas
@@ -245,23 +240,26 @@ cdef class AveragedPerceptron(Model):
             feat.mom2[i].key = clas
             feat.avgs[i].key = clas
             feat.times[i].key = clas
-            feat.penalty[i].key = clas
+            #feat.penalty[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
             feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
         adam_update(&feat.curr[i].val, &feat.mom1[i].val, &feat.mom2[i].val,
             self.time, feat.times[i].val, grad, self.learn_rate, self.momentum) 
-        feat.times[i].val = <weight_t>self.time
+        feat.times[i].val = self.time
         # Apply cumulative L1 penalty, from here:
         # http://www.aclweb.org/anthology/P09-1054 
         if self.l1_penalty > 0.0:
-            u = self.time * self.learn_rate * self.l1_penalty
-            z = feat.curr[i].val
-            q = feat.penalty[i].val
-            if z > 0:
-                feat.curr[i].val = max(0, z-(u+q))
-            elif z < 0:
-                feat.curr[i].val = min(0, z+(u-q))
-            feat.penalty[i].val += feat.curr[i].val - z
+            feat.penalty += group_lasso(feat.curr, feat.penalty,
+                                        self.time*self.learn_rate*self.l1_penalty)
+            #u = self.time * self.learn_rate * self.l1_penalty
+            #z = feat.curr[i].val
+            #q = feat.penalty[i].val
+            #if z > 0:
+            #    feat.curr[i].val = max(0, z-(u+q))
+            #elif z < 0:
+            #    feat.curr[i].val = min(0, z+(u-q))
+            #feat.penalty[i].val += feat.curr[i].val - z
+
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
         weight_t t, weight_t last_upd, weight_t grad, weight_t learn_rate, weight_t _) nogil:

@@ -271,8 +271,8 @@ cdef struct SparseAverageC:
     SparseArrayC* mom1
     SparseArrayC* mom2
     SparseArrayC* avgs
-    SparseArrayC* penalty
     SparseArrayC* times
+    weight_t penalty
 
 
 cdef struct TemplateC:
