@@ -149,6 +149,21 @@ cdef class AveragedPerceptron(Model):
         return l1
 
     @property
+    def nr_active_feat(self):
+        n = 0
+        cdef size_t feat_addr
+        for feat_addr in self.weights.values():
+            if feat_addr == 0:
+                continue
+            feat = <const SparseArrayC*>feat_addr
+            while feat.key >= 0:
+                if feat.val != 0:
+                    n += 1
+                    break
+                feat += 1
+        return n
+ 
+    @property
     def nr_weight(self):
         n = 0
         cdef size_t feat_addr
