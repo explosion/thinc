@@ -76,7 +76,10 @@ def best_first_sgd(model, train_data, check_data, kwargs):
 
 
 def resample(old, low=0.0, high=1.0):
-    return min(high, max(low, np.random.normal(loc=old, scale=old / 10)))
+    if old == 0:
+        return 0
+    else:
+        return min(high, max(low, np.random.normal(loc=old, scale=old / 10)))
 
 
 def get_new_model(train_data, model, **kwargs):
@@ -101,17 +104,17 @@ def get_new_model(train_data, model, **kwargs):
 def sequential_sgd(model, train_data, check_data, n_iter=5):
     print(model.widths)
     print(model.nr_class)
-    loss = 0.0
     check_acc = 0.0
     print("Begin")
     try:
         for itn in range(n_iter):
+            acc = 0.0
             random.shuffle(train_data)
             for X, y in train_data:
                 eg = Example.dense(model.nr_class, X, y) 
-                loss += model.update(eg)
-            check_acc = score_model(check_data, model)
-            print('%d:\t%.3f\t%.3f' % (itn, loss, check_acc))
+                acc += model.update(eg)
+            #check_acc = score_model(check_data, model)
+            print('%d:\t%.3f\t%.3f' % (itn, acc/len(train_data), check_acc))
     except KeyboardInterrupt:
         pass
     return model
@@ -180,14 +183,15 @@ def main(batch_size=128, nb_epoch=10, nb_classes=10):
         'rho': 1e-4,
         'mu': 0.9,
         'update_step': 'sgd_cm',
-        'norm_type': 'layer',
-        'noise': 0.001,
+        'norm_type': None,
+        'noise': 0.0,
         'dropout': 0.2}
-    model = NeuralNet((784,) + (256,) * 4 + (nb_classes,), **kwargs)
+    print(kwargs)
+    model = NeuralNet((784,) + (256,)*2 + (nb_classes,), **kwargs)
     print(model.nr_weight)
-    #model = sequential_sgd(model, train_data, heldout_data, n_iter=25)
+    model = sequential_sgd(model, train_data, heldout_data, n_iter=60)
   
-    model = best_first_sgd(model, train_data, heldout_data, kwargs)
+    #model = best_first_sgd(model, train_data, heldout_data, kwargs)
     print('Test score:', score_model(zip(X_test, y_test), model))
     model.end_training()
     print('Test score (avg):', score_model(zip(X_test, y_test), model))
