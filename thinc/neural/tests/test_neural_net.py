@@ -13,6 +13,8 @@ from thinc.extra.eg import Example
 np.random.seed(2)
 random.seed(0)
 
+FLOAT_TYPE = 'float64'
+
 
 def test_create():
     model = NeuralNet((4, 8, 3))
@@ -66,17 +68,13 @@ def test_fwd_bias():
 
 
 def test_fwd_linear():
-    model = NeuralNet((2,2), rho=0.0, alpha=0.5)
+    model = NeuralNet((2,2), rho=0.0)
     assert model.nr_class == 2
     assert model.widths == (2, 2)
 
     syn = [1.,0.,0.,1.]
     bias = [0.,0.]
-    gamma = [1.,1.]
-    if model.use_batch_norm:
-        model.weights = syn+bias+gamma
-    else:
-        model.weights = syn+bias
+    model.weights = syn+bias
     
     ff = [0,0]
     tf = [1,0]
@@ -119,26 +117,14 @@ def test_xor_manual():
     # 1,1 --> neither fire
     #
 
-    if not model.use_batch_norm:
-        model.weights = np.asarray([
-                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
-                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
-                    [0.0, 0.0],     # A.0 bias, A.1 bias
-                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
-                    [10.0, -10.0],   # out.0 bias, out.1 bias
-                ]).flatten()
-    else:
-        model.weights = np.asarray([
-                    [4.0, -10.0],   # A.0*in.0, A.0*in.1
-                    [-10.0, 5.0], # A.1*in.0, A.1*in.1
-                    [0.0, 0.0],     # A.0 bias, A.1 bias
-                    [1.0, 1.0],     # A.0 gamma, A.1 gamma
-                    [-10.0, -10.0],  # out.0*A.0, out.0*A.1
-                    [10.0, 10.0],   # out.1*A.0, out.1*A.1
-                    [10.0, -10.0],   # out.0 bias, out.1 bias
-                    [1.0, 1.0],     # out.0 gamma, out.1 gamma
-                ]).flatten()
+    model.weights = np.asarray([
+        [4.0, -10.0],   # A.0*in.0, A.0*in.1
+        [-10.0, 5.0], # A.1*in.0, A.1*in.1
+        [0.0, 0.0],     # A.0 bias, A.1 bias
+        [-10.0, -10.0],  # out.0*A.0, out.0*A.1
+        [10.0, 10.0],   # out.1*A.0, out.1*A.1
+        [10.0, -10.0],   # out.0 bias, out.1 bias
+    ]).flatten()
 
     ff = [0,0]
     tf = [1,0]
@@ -160,31 +146,31 @@ def test_xor_manual():
 
 @pytest.fixture
 def xor_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    tf = np.asarray([1.,0.], dtype='f')
-    ft = np.asarray([0.,1.], dtype='f')
-    tt = np.asarray([1.,1.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    tf = np.asarray([1.,0.], dtype=FLOAT_TYPE)
+    ft = np.asarray([0.,1.], dtype=FLOAT_TYPE)
+    tt = np.asarray([1.,1.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 0, costs0)]
 
 
 @pytest.fixture
 def or_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    tf = np.asarray([1.,0.], dtype='f')
-    ft = np.asarray([0.,1.], dtype='f')
-    tt = np.asarray([1.,1.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    tf = np.asarray([1.,0.], dtype=FLOAT_TYPE)
+    ft = np.asarray([0.,1.], dtype=FLOAT_TYPE)
+    tt = np.asarray([1.,1.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     return [(ff, 0, costs0), (tf, 1, costs1), (ft, 1, costs1), (tt, 1, costs1)]
 
 
 @pytest.fixture
 def bias_data():
-    ff = np.asarray([0.,0.], dtype='f')
-    costs0 = np.asarray([0., 1.], dtype='f')
-    costs1 = np.asarray([1., 0.], dtype='f')
+    ff = np.asarray([0.,0.], dtype=FLOAT_TYPE)
+    costs0 = np.asarray([0., 1.], dtype=FLOAT_TYPE)
+    costs1 = np.asarray([1., 0.], dtype=FLOAT_TYPE)
     def gen_random():
         if random.random() > 0.7:
             yield (ff, 0, costs0)
@@ -195,26 +181,20 @@ def bias_data():
 
 def test_linear_bias(bias_data):
     '''Test that a linear model can learn a bias.'''
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd')
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
     assert model.nr_layer == 2
     
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
 
     assert bias0 == 0
     assert bias1 == 0
     for _ in range(100):
         for feats, label, costs in bias_data():
-            eg = model.train_dense(feats, costs)
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+            model.train_dense(feats, costs)
+    bias0, bias1 = model.weights[-2:]
     assert bias1 > bias0
     acc = 0.0
     total = 0
@@ -230,25 +210,19 @@ def test_linear_bias(bias_data):
 
 def test_deep_bias(bias_data):
     '''Test that a deep model can learn a bias.'''
-    model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='adadelta')
+    model = NeuralNet((2,2,2,2,2,2,2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
     assert model.nr_layer > 2
     
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
     assert bias0 == 0
     assert bias1 == 0
     for _ in range(20):
         for feats, label, costs in bias_data():
             eg = model.train_dense(feats, costs)
-    if not model.use_batch_norm:
-        bias0, bias1 = model.weights[-2:]
-    else:
-        bias0, bias1 = model.weights[-4:-2]
+    bias0, bias1 = model.weights[-2:]
  
     assert bias1 > bias0
     acc = 0.0
@@ -266,8 +240,7 @@ def test_deep_bias(bias_data):
 def test_learn_linear(or_data):
     '''Test that a linear model can learn OR.'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 2), rho=0.0, eta=0.1, eps=1e-4, update_step='sgd',
-                       alpha=0.8)
+    model = NeuralNet((2, 2), rho=0.0, eta=0.1, update_step='sgd')
 
     assert model.nr_in == 2
     assert model.nr_class == 2
@@ -278,8 +251,6 @@ def test_learn_linear(or_data):
         for feats, label, costs in or_data:
             eg = model.train_dense(feats, costs)
         random.shuffle(or_data)
-    for avg in model.averages:
-        print(avg)
     acc = 0.0
     for features, label, costs in or_data:
         eg = model.predict_dense(features)
@@ -291,7 +262,7 @@ def test_learn_linear(or_data):
 def test_mlp_learn_linear(or_data):
     '''Test that with a hidden layer, we can still learn OR'''
     # Need high eta on this sort of toy problem, or learning takes forever!
-    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5, eps=1e-4,
+    model = NeuralNet((2, 3, 2), rho=0.0, eta=0.5,
                       update_step='sgd')
 
     assert model.nr_in == 2
@@ -302,7 +273,7 @@ def test_mlp_learn_linear(or_data):
     # to be learned faster than the linear model
     for _ in range(50):
         for feats, label, costs in or_data:
-            batch = model.train_dense(feats, costs)
+            eg = model.train_dense(feats, costs)
         random.shuffle(or_data)
     acc = 0.0
     for features, label, costs in or_data:
@@ -314,7 +285,7 @@ def test_mlp_learn_linear(or_data):
 
 def test_xor_gradient(xor_data):
     '''Test that after each update, we move towards the correct label.'''
-    model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='adadelta')
+    model = NeuralNet((2, 2, 2), rho=0.0, eta=0.1, update_step='sgd')
     assert model.nr_in == 2
     assert model.nr_class == 2
     assert model.nr_layer == 3
@@ -345,8 +316,8 @@ def test_xor_eta(xor_data):
 
 def test_xor_rho(xor_data):
     '''Test that higher L2 penalty causes slower learning.'''
-    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005, update_step='adadelta')
-    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005, update_step='adadelta')
+    big_rho_model = NeuralNet((2,10,10,10,2), rho=0.8, eta=0.005, update_step='sgd')
+    normal_rho_model = NeuralNet((2, 10,10,10, 2), rho=1e-4, eta=0.005, update_step='sgd')
     big_rho_model.weights = list(normal_rho_model.weights)
     big_rho_loss = 0.0
     normal_rho_loss = 0.0
@@ -385,8 +356,8 @@ def test_xor_deep(xor_data):
 
 def test_model_widths_sgd(or_data):
     '''Test different model widths'''
-    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.01, update_step='sgd')
-    wide = NeuralNet((2,20,2), rho=0.0, eta=0.01, update_step='sgd')
+    narrow = NeuralNet((2,4,2), rho=0.0, eta=0.1, update_step='noisy')
+    wide = NeuralNet((2,20,2), rho=0.0, eta=0.1, update_step='noisy')
     assert wide.nr_weight > narrow.nr_weight
     narrow_loss = 0.0
     wide_loss = 0.0
@@ -405,16 +376,18 @@ def test_model_widths_sgd(or_data):
 def test_embedding():
     model = NeuralNet((10,4,2), embed=((5,), (0,0)), rho=0.0, eta=0.005)
     assert model.nr_in == 10
-    eg = model.Example({(0, 1): 2.5})
-    model.predict_example(eg)
+    eg = Example(nr_class=model.nr_class, widths=model.widths)
+    eg.features = {(0, 1): 2.5}
+    model(eg)
     assert eg.activation(0, 0) != 0
     assert eg.activation(0, 1) != 0
     assert eg.activation(0, 2) != 0
     assert eg.activation(0, 3) != 0
     assert eg.activation(0, 4) != 0
     
-    eg = model.Example({(1, 1867): 0.5})
-    model.predict_example(eg)
+    eg = Example(nr_class=model.nr_class, widths=model.widths)
+    eg.features = {(1, 1867): 0.5}
+    model(eg)
     assert eg.activation(0, 0) == 0.0
     assert eg.activation(0, 1) == 0.0
     assert eg.activation(0, 2) == 0.0
@@ -450,7 +423,10 @@ def test_sparse_backprop():
         x, y = xy
         loss = 0.0
         for x,y in zip(X, Y):
-            eg = model.train_sparse(x, y)
+            eg = Example(nr_class=model.nr_class, widths=model.widths)
+            eg.features = x
+            eg.costs = y
+            eg = list(model.update(eg, force_update=True))[-1]
             loss += eg.loss
         return loss
 
@@ -469,5 +445,4 @@ def test_sparse_backprop():
     b8 = train_batch(model, (X, Y))
     b9 = train_batch(model, (X, Y))
     b10 = train_batch(model, (X, Y))
-
     assert b1 > b3 > b10

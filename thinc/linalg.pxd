@@ -1,54 +1,20 @@
-# cython: profile=True
+# cython: infer_types=True
 # cython: cdivision=True
 
 cimport cython
 from libc.stdint cimport int32_t
-from libc.string cimport memcpy
+from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
+from blis cimport blis
 
 ctypedef float weight_t
 
 include "compile_time_constants.pxi"
 
 
-# Copied from Shane Legg's Tokyo
-#cdef extern from "cblas.h":
-#    enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
-#    enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
-#    enum CBLAS_UPLO:      CblasUpper, CblasLower
-#    enum CBLAS_DIAG:      CblasNonUnit, CblasUnit
-#    enum CBLAS_SIDE:      CblasLeft, CblasRight
-#
-#    # BLAS level 1 routines
-#
-#    void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
-#    void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
-#    void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
-#    void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
-#    float cblas_sdot(int N, float  *x, int incX, float  *y, int incY ) nogil
-#    float cblas_snrm2(int N, float  *x, int incX) nogil
-#    float cblas_sasum(int N, float  *x, int incX) nogil
-#    int cblas_isamax(int N, float  *x, int incX) nogil
-#
-#    # BLAS level 2 routines
-#    void cblas_sgemv(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA, int M, int N,
-#                                 float  alpha, float  *A, int lda, float  *x, int incX,
-#                                 float  beta, float  *y, int incY) nogil
-#
-#    void cblas_sger(CBLAS_ORDER Order, int M, int N, float  alpha, float  *x,
-#                                int incX, float  *y, int incY, float  *A, int lda) nogil
-#
-#    # BLAS level 3 routines
-#    void cblas_sgemm(CBLAS_ORDER Order, CBLAS_TRANSPOSE TransA,
-#                                 CBLAS_TRANSPOSE TransB, int M, int N, int K,
-#                                 float  alpha, float  *A, int lda, float  *B, int ldb,
-#                                 float  beta, float  *C, int ldc) nogil
-#
-
-
 cdef extern from "math.h" nogil:
-    float expf(float x)
-    float sqrtf(float x)
+    weight_t exp(weight_t x)
+    weight_t sqrt(weight_t x)
 
 
 cdef class Matrix:
@@ -58,6 +24,36 @@ cdef class Matrix:
     cdef readonly int32_t nr_col
 
 
+from .structs cimport const_weights_ft, const_dense_weights_t, const_sparse_weights_t
+from .structs cimport weights_ft, dense_weights_t, sparse_weights_t
+
+
+cdef void v_fill(weights_ft vec, weight_t value, int nr) nogil
+
+cdef weight_t v_norm(const_weights_ft vec, int32_t nr) nogil
+
+cdef void v_mul(weights_ft vec, weight_t scal, int32_t nr) nogil
+
+cdef void v_pow(weights_ft vec, const weight_t scal, int32_t nr) nogil
+cdef void vv_add(weights_ft x, 
+                    const_weights_ft y, weight_t scale, int32_t nr) nogil
+ 
+cdef void vv_batch_add(weight_t* x, 
+                       const weight_t* y, weight_t scale, int32_t nr, int32_t nr_batch) nogil
+
+cdef void vv_add_pow(weights_ft x, 
+                    const_weights_ft y, weight_t power, int32_t nr) nogil
+ 
+cdef void vv_mul(weights_ft x, const_weights_ft y, int32_t nr) nogil
+ 
+cdef weight_t vv_dot(const weight_t* x, const weight_t* y, int32_t nr) nogil
+
+cdef int arg_max_if_true(const weight_t* scores, const int* is_valid, const int n_classes) nogil
+
+cdef int arg_max_if_zero(
+        const weight_t* scores, const weight_t* costs, const int n_classes) nogil
+
+ 
 cdef class Vec:
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
@@ -90,6 +86,27 @@ cdef class Vec:
         return total
 
     @staticmethod
+    cdef inline weight_t mean(const weight_t* vec, int32_t nr) nogil:
+        return Vec.sum(vec, nr) / nr
+    
+    @staticmethod
+    cdef inline weight_t variance(const weight_t* vec, int32_t nr) nogil:
+        Ex = Vec.mean(vec, nr)
+        sum_ = 0.0
+        sum2 = 0.0
+        for i in range(nr):
+            sum2 += (vec[i] - Ex) ** 2
+            sum_ += vec[i] - Ex
+        return (sum2 - sum_**2 / nr) / nr + EPS
+ 
+    @staticmethod
+    cdef inline weight_t norm(const weight_t* vec, int32_t nr) nogil:
+        cdef weight_t total = 0
+        for i in range(nr):
+            total += vec[i] ** 2
+        return sqrt(total)
+
+    @staticmethod
     cdef inline void add(weight_t* output, const weight_t* x,
             weight_t inc, int32_t nr) nogil:
         memcpy(output, x, sizeof(output[0]) * nr)
@@ -108,11 +125,11 @@ cdef class Vec:
         Vec.mul_i(output, scal, nr)
 
     @staticmethod
-    cdef inline void mul_i(weight_t* vec, const weight_t scal, int32_t nr) nogil:
+    cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
-        if USE_BLAS:
-            cblas_sscal(nr, scal, vec, 1)
-        else:
+        IF True:
+            blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1)
+        ELSE:
             for i in range(nr):
                 vec[i] *= scal
 
@@ -151,7 +168,7 @@ cdef class Vec:
     cdef inline void exp_i(weight_t* vec, int32_t nr) nogil:
         cdef int i
         for i in range(nr):
-            vec[i] = expf(vec[i])
+            vec[i] = exp(vec[i])
 
     @staticmethod
     cdef inline void reciprocal_i(weight_t* vec, int32_t nr) nogil:
@@ -176,11 +193,23 @@ cdef class VecVec:
                            float scale,
                            int32_t nr) nogil:
         cdef int i
-        if USE_BLAS:
-            cblas_saxpy(nr, scale, y, 1, x, 1)
-        else:
+        IF USE_BLAS:
+            blis.axpyv(blis.NO_CONJUGATE, nr, scale, <weight_t*>y, 1, x, 1)
+        ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
+    
+    @staticmethod
+    cdef inline void batch_add_i(weight_t* x, 
+                           const weight_t* y,
+                           weight_t scale,
+                           int32_t nr, int32_t nr_batch) nogil:
+        # For fixed x, matrix of y
+        cdef int i, _
+        for _ in range(nr_batch):
+            VecVec.add_i(x,
+                y, scale, nr)
+            y += nr
  
     @staticmethod
     cdef inline void add_pow(weight_t* output,
@@ -209,7 +238,6 @@ cdef class VecVec:
         for i in range(nr):
             x[i] *= y[i]
 
- 
     @staticmethod
     cdef inline weight_t dot(
             const weight_t* x, const weight_t* y, int32_t nr) nogil:
@@ -223,11 +251,9 @@ cdef class VecVec:
     cdef inline int arg_max_if_true(
             const weight_t* scores, const int* is_valid, const int n_classes) nogil:
         cdef int i
-        cdef int best = 0
-        cdef weight_t mode = -900000
+        cdef int best = -1
         for i in range(n_classes):
-            if is_valid[i] and scores[i] > mode:
-                mode = scores[i]
+            if is_valid[i] and (best == -1 or scores[i] > scores[best]):
                 best = i
         return best
 
@@ -235,16 +261,50 @@ cdef class VecVec:
     cdef inline int arg_max_if_zero(
             const weight_t* scores, const weight_t* costs, const int n_classes) nogil:
         cdef int i
-        cdef int best = 0
-        cdef weight_t mode = -900000
+        cdef int best = -1
         for i in range(n_classes):
-            if costs[i] == 0 and scores[i] > mode:
-                mode = scores[i]
+            if costs[i] == 0 and (best == -1 or scores[i] > scores[best]):
                 best = i
         return best
 
 
+cdef class Mat:
+    @staticmethod
+    cdef inline void mean_row(weight_t* Ex,
+            const weight_t* mat, int32_t nr_row, int32_t nr_col) nogil:
+        memset(Ex, 0, sizeof(Ex[0]) * nr_col)
+        for i in range(nr_row):
+            VecVec.add_i(Ex, &mat[i * nr_col], 1.0, nr_col)
+        Vec.mul_i(Ex, 1.0 / nr_row, nr_col)
+
+    @staticmethod
+    cdef inline void var_row(weight_t* Vx,
+            const weight_t* mat, const weight_t* Ex,
+            int32_t nr_row, int32_t nr_col, weight_t eps) nogil:
+        # From https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance
+        if nr_row == 0 or nr_col == 0:
+            return
+        cdef weight_t sum_, sum2
+        for i in range(nr_col):
+            sum_ = 0.0
+            sum2 = 0.0
+            for j in range(nr_row):
+                x = mat[j * nr_col + i]
+                sum2 += (x - Ex[i]) ** 2
+                sum_ += x - Ex[i]
+            Vx[i] = (sum2 - sum_**2 / nr_row) / nr_row
+            Vx[i] += eps
+ 
+
 cdef class MatVec:
+    @staticmethod
+    cdef inline void add_i(weight_t* mat,
+            const weight_t* vec, weight_t scale, int32_t nr_row, int32_t nr_col) nogil:
+        cdef int i
+        for i in range(nr_row):
+            VecVec.add_i(mat + (i * nr_col),
+                vec, scale, nr_col)
+
     @staticmethod
     cdef inline void mul(weight_t* output,
                          const weight_t* mat,
@@ -269,27 +329,67 @@ cdef class MatVec:
                          const weight_t* vec,
                          int32_t nr_row, int32_t nr_col) nogil:
         cdef int i, row, col
-        if USE_BLAS:
-            cblas_sgemv(
-                CblasRowMajor,
-                CblasNoTrans,
+        cdef double zero = 0.0
+        cdef double one = 1.0
+        IF True:
+            blis.gemv(
+                blis.NO_TRANSPOSE,
+                blis.NO_CONJUGATE,
                 nr_row,
                 nr_col,
-                1.0,
-                mat,
-                nr_col,
-                vec,
-                1,
-                0.0,
-                output,
-                1
+                one,
+                <weight_t*>mat, nr_col, 1,
+                <weight_t*>vec, 1,
+                one,
+                output, 1
             )
-        else:
+        ELSE:
             for i in range(nr_row):
-                output[i] = 0
                 row = i * nr_col
                 for col in range(nr_col):
                     output[i] += mat[row + col] * vec[col]
+    
+    @staticmethod
+    cdef inline void batch_dot(weight_t* output,
+                         const weight_t* mat,
+                         const weight_t* vec,
+                         int32_t nr_row, int32_t nr_col, int32_t nr_batch) nogil:
+        # Output dim: batch_size * nr_row
+        # vec dim:    batch_size * nr_col
+        # mat dim:    nr_row     * nr_col
+        # batch_size must be M, because can't transpose C
+        # so nr_row must be N
+        # so nr_col must be K
+
+        # vec:   M * K
+        # mat.T: K * N
+        # out:   M * N
+        cdef int i, row, col
+        cdef double one = 1.0
+        IF True:
+            blis.gemm(
+                blis.NO_TRANSPOSE,
+                blis.TRANSPOSE,
+                nr_batch,
+                nr_row,
+                nr_col,
+                one,
+                <weight_t*>vec,
+                nr_col,
+                1,
+                <weight_t*>mat,
+                nr_col,
+                1,
+                one,
+                output,
+                nr_row,
+                1)
+        ELSE:
+            for b in range(nr_batch):
+                MatVec.dot(output,
+                    mat, vec, nr_row, nr_col)
+                output += nr_row
+                vec += nr_col
 
     @staticmethod
     cdef inline void T_dot(weight_t* output,
@@ -298,25 +398,69 @@ cdef class MatVec:
                              int32_t nr_row,
                              int32_t nr_col) nogil:
         cdef int i, row, col
-        if USE_BLAS:
-            cblas_sgemv(
-                CblasRowMajor,
-                CblasTrans,
-                nr_row,
-                nr_col,
-                1.0,
-                mat,
-                nr_col,
-                vec,
-                1,
-                0.0,
-                output,
-                1
+        cdef double zero = 0.0
+        cdef double one = 1.0
+        IF True:
+            blis.gemv(
+                blis.TRANSPOSE,
+                blis.NO_CONJUGATE,
+                nr_row, nr_col,
+                one,
+                <weight_t*>mat, nr_col, 1,
+                <weight_t*>vec, 1,
+                one,
+                output, 1,
             )
-        else:
+        ELSE:
             for row in range(nr_row):
                 for col in range(nr_col):
                     output[col] += vec[row] * mat[(row * nr_col) + col]
+
+    @staticmethod
+    cdef inline void batch_T_dot(weight_t* output,
+                             const weight_t* mat,
+                             const weight_t* vec,
+                             int32_t nr_row,
+                             int32_t nr_col,
+                             int32_t nr_batch) nogil:
+        cdef int _
+        cdef double one = 1.0
+        IF True:
+            # output is (nr_batch, nr_col)
+            # mat is (nr_row, nr_col)
+            # vec is (nr_batch, nr_row)
+            # Output defined as (M, N)
+            # So
+            # nr_batch = M
+            # nr_col = N
+            # nr_row = K
+            #
+            # vec:  M * K
+            # mat:  K * N
+            # out:  M * N
+            blis.gemm(
+                blis.NO_TRANSPOSE,
+                blis.NO_TRANSPOSE,
+                nr_batch,
+                nr_col,
+                nr_row,
+                one,
+                <weight_t*>vec,
+                nr_row,
+                1,
+                <weight_t*>mat,
+                nr_col,
+                1,
+                one,
+                output,
+                nr_col,
+                1)
+        ELSE:
+            for _ in range(nr_batch):
+                MatVec.T_dot(output,
+                    mat, vec, nr_row, nr_col)
+                output += nr_col
+                vec += nr_row
 
 
 cdef class MatMat:
@@ -363,7 +507,65 @@ cdef class MatMat:
                                  int32_t nr_row,
                                  int32_t nr_col) nogil:
         cdef int i, j, row
-        for i in range(nr_row):
-            row = i * nr_col
-            for j in range(nr_col):
-                mat[row + j] += x[i] * y[j]
+        cdef double one = 1.0
+        IF True:
+            blis.ger(
+                blis.NO_CONJUGATE, blis.NO_CONJUGATE,
+                nr_row, nr_col,
+                one,
+                <weight_t*>x, 1,
+                <weight_t*>y, 1,
+                mat, nr_col, 1
+            )
+        ELSE:
+            for i in range(nr_row):
+                row = i * nr_col
+                for j in range(nr_col):
+                    mat[row + j] += x[i] * y[j]
+
+    @staticmethod 
+    cdef inline void batch_add_outer_i(weight_t* output,
+                                 const weight_t* x,
+                                 const weight_t* y,
+                                 int32_t nr_row,
+                                 int32_t nr_col,
+                                 int32_t nr_batch) nogil:
+        # Output dim: nr_row * nr_col
+        # x dim:    batch_size * nr_row
+        # y dim:    batch_size * nr_col
+        # 
+        # Output is M*N (can't transpose)
+        # nr_row = M
+        # nr_col = N
+        # batch_size = K
+
+        # x.T:  M * K
+        # y:    K * N
+        # out:  M * N
+        cdef double one = 1.0
+        IF True:
+            blis.gemm(
+                blis.TRANSPOSE,
+                blis.NO_TRANSPOSE,
+                nr_row,
+                nr_col,
+                nr_batch,
+                one,
+                <weight_t*>x,
+                nr_row,
+                1,
+                <weight_t*>y,
+                nr_col,
+                1,
+                one,
+                output,
+                nr_col,
+                1)
+        ELSE:
+            for _ in range(nr_batch):
+                for i in range(nr_row):
+                    row = i * nr_col
+                    for j in range(nr_col):
+                        output[row + j] += x[i] * y[j]
+                x += nr_row
+                y += nr_col

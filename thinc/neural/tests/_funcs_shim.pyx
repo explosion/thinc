@@ -1,6 +1,7 @@
 from ..solve cimport *
 from ..forward cimport *
 from ..backward cimport *
+import numpy
 
 
 def call_dot_plus(
@@ -10,27 +11,38 @@ def call_dot_plus(
         float[:] bias,
         int nr_top,
         int nr_btm):
-    dot_plus(&out[0],
-        &bias[0], nr_top, &in_[0], nr_btm, &W[0])
+    affine(&out[0],
+        &in_[0], &W[0], &bias[0], nr_top, nr_btm, 1)
     return out
 
 
 def call_d_dot(
-    float[:] btm_diff,
-        float[:] top_diff,
-        float[:] W,
+    weight_t[:] d_x,
+    weight_t[:] d_w,
+    weight_t[:] d_b,
+        weight_t[:] d_out,
+        weight_t[:] x,
+        weight_t[:] w,
         int nr_top,
-        int nr_btm):
-    d_dot(&btm_diff[0],
-        nr_btm, &top_diff[0], nr_top, &W[0])
-    return btm_diff
+        int nr_btm,
+        int nr_batch):
+    d_affine(&d_x[0], &d_w[0], &d_b[0],
+        &d_out[0], &x[0], &w[0], nr_top, nr_btm, 1)
+    return d_x
 
 
-def call_ELU(float[:] out, int nr_out):
-    ELU(&out[0], nr_out)
+def call_ELU(weight_t[:] out, int nr_out):
+    ELU(&out[0], nr_out, 1)
     return out
 
 
 def call_d_ELU(float[:] delta, float[:] signal_out, int nr_out):
     d_ELU(&delta[0], &signal_out[0], nr_out)
     return delta
+
+#
+#def call_normalize(weight_t[:, :] data, int nr_batch, int n):
+#    assert nr_batch != 1 # Fix NULL calls to normalize to use with minibatch 1
+#    cdef weight_t[:] flattened = numpy.ascontiguousarray(data).flatten()
+#    normalize(&flattened[0], NULL, NULL, nr_batch, n)
+#    return numpy.ascontiguousarray(flattened).reshape((nr_batch, n))

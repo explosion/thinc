@@ -2,124 +2,92 @@
 # cython: cdivision=True
 # cython: infer_types=True
 cimport cython
+from libc.stdlib cimport rand, calloc, free
+from libc.string cimport memset, memcpy
+cimport numpy as np
+import numpy as np
+from libc.stdint cimport uint64_t
+from murmurhash.mrmr cimport hash64
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
+from ..structs cimport LayerC
+from ..structs cimport const_weights_ft, const_dense_weights_t, const_sparse_weights_t
+from ..structs cimport weights_ft, dense_weights_t, sparse_weights_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf, expf
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
+from .weights cimport parse_weights, parse_batch_norm_weights
 
 
-DEF EPS = 0.00000001 
+np.import_array()
+
+
+cdef weight_t EPS = 1e-5
 DEF ALPHA = 1.0
 
+cdef void ReLu_forward(weight_t** fwd,
+        const LayerC* weights, const weight_t* randoms, const len_t* widths,
+        int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+    '''Forward pass with ReLu activation'''
+    for i in range(1, nr_layer):
+        layer = weights[i]
+        if layer.sparse:
+            sparse_affine(fwd[i],
+                fwd[i-1], layer.sparse, layer.bias,
+                widths[i], widths[i-1], nr_batch)
+        else:
+            dense_affine(fwd[i],
+                fwd[i-1], layer.dense, layer.bias,
+                widths[i], widths[i-1], nr_batch)
+        layer.activate(fwd[i],
+            widths[i], nr_batch)
 
-cdef void dot_plus__ELU(float** fwd, float* averages,
-        const float* W, const len_t* shape, int nr_below, int nr_above,
-        const ConstantsC* hp) nogil:
-    bias = W + shape[1] * shape[0]
-    dot_plus(fwd[1],
-        bias, shape[1], fwd[0], shape[0], W)
-    # Apply non-linearity
-    if nr_above >= 2:
-        ELU(fwd[1],
-            shape[1])
+
+cdef void affine(weight_t* out,
+        const weight_t* in_, const_weights_ft W, const weight_t* bias,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    if const_weights_ft is const_dense_weights_t:
+        dense_affine(out,
+            in_, W, bias, nr_out, nr_in, nr_batch)
     else:
-        softmax(fwd[1],
-            shape[1])
- 
-
-cdef void dot_plus__ReLu(float** fwd, float* averages,
-        const float* W, const len_t* shape, int nr_below, int nr_above,
-        const ConstantsC* hp) nogil:
-    bias = W + shape[1] * shape[0]
-    dot_plus(fwd[1],
-        bias, shape[1], fwd[0], shape[0], W)
-    # Apply non-linearity
-    if nr_above >= 2:
-        ReLu(fwd[1],
-            shape[1])
-    else:
-        softmax(fwd[1],
-            shape[1])
- 
-
-cdef void dot_plus__residual__ELU(float** fwd, float* averages,
-        const float* W, const len_t* shape, int nr_below, int nr_above,
-        const ConstantsC* hp) nogil:
-    bias = W + shape[1] * shape[0]
-    dot_plus(fwd[1],
-        bias, shape[1], fwd[0], shape[0], W)
-    if nr_below >= 1 and shape[-1] == shape[1]:
-        VecVec.add_i(fwd[1],
-            fwd[-1], 1.0, shape[1])
-    # Apply non-linearity
-    if nr_above >= 2:
-        ELU(fwd[1],
-            shape[1])
-    else:
-        softmax(fwd[1],
-            shape[1])
+        sparse_affine(out,
+            in_, W, bias, nr_out, nr_in, nr_batch)
 
 
-cdef void dot__normalize__dot_plus__ELU(float** fwd, float* averages,
-        const float* W, const len_t* shape, int nr_before, int nr_above,
-        const ConstantsC* hp) nogil:
-    # Read the bias and gamma terms from the weights data
-    bias = W + shape[1] * shape[0]
-    # Gamma is the normalization rescaling weights
-    gamma = bias + shape[1]
-    # Read the E(x) and Var(x) estimates from 'averages'
-    Ex = averages
-    Vx = &averages[shape[1]]
-    # We write our output in fwd[1][0...n]
-    # An imporant intermediary result is the batch normed activation, which
-    # we compute in fwd[1][n...2n], and preserve for the backward pass.
-    x_norm = fwd[1] + shape[1]
-
-    MatVec.dot(fwd[1],
-        W, fwd[0], shape[1], shape[0])
-    normalize(x_norm, Ex, Vx,
-        fwd[1], shape[1], hp.a, hp.t)
-    VecVec.mul(fwd[1],
-        x_norm, gamma, shape[1])
-    VecVec.add_i(fwd[1],
-        bias, 1.0, shape[1])
-    # Apply non-linearity
-    if nr_above >= 2:
-        ELU(fwd[1],
-            shape[1])
-    else:
-        softmax(fwd[1],
-            shape[1])
+cdef void dense_affine(weight_t* out,
+        const weight_t* x, const weight_t* w, const weight_t* bias,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    MatVec.batch_dot(out,
+        w, x, nr_out, nr_in, nr_batch)
+    MatVec.add_i(out,
+        bias, 1.0, nr_batch, nr_out)
 
 
-cdef void dot_plus(float* out,
-        const float* bias, len_t nr_out,
-        const float* x, len_t nr_in,
-        const float* W) nogil:
-    MatVec.dot(out,
-        W, x, nr_out, nr_in)
-    cdef float one = 1.0
-    if bias is not NULL:
-        VecVec.add_i(out,
-            bias, one, nr_out)
-
-
-cdef void ELU(float* out, len_t nr_out) nogil:
-    cdef idx_t i
+cdef void sparse_affine(weight_t* out,
+        const weight_t* in_, const SparseArrayC* const* W, const weight_t* bias,
+        int nr_out, int nr_in, int nr_batch) nogil:
     for i in range(nr_out):
-        if out[i] < 0:
-            out[i] = ALPHA * (expf(out[i]) - 1)
+        syn = W[i]
+        while syn.key >= 0:
+            out[i] += in_[syn.key] * syn.val
+            syn += 1
+       
 
-
-cdef void ReLu(float* out, len_t nr_out) nogil:
+cdef void ELU(weight_t* out, len_t nr_out, len_t nr_batch) nogil:
     cdef idx_t i
-    for i in range(nr_out):
+    for i in range(nr_out * nr_batch):
+        if out[i] <= 0:
+            out[i] = ALPHA * (exp(out[i]) - 1)
+
+
+cdef void ReLu(weight_t* out, len_t nr_out, len_t nr_batch) nogil:
+    cdef idx_t i
+    for i in range(nr_out * nr_batch):
         if out[i] < 0:
             out[i] = 0
 
 
-cdef void softmax(float* out, len_t nr_out) nogil:
+cdef void softmax(weight_t* out, len_t nr_out, len_t nr_batch) nogil:
     #w = exp(w - max(w))
     Vec.add_i(out,
         -Vec.max(out, nr_out), nr_out)
@@ -132,27 +100,11 @@ cdef void softmax(float* out, len_t nr_out) nogil:
             norm, nr_out)
 
 
-cdef void normalize(float* x_norm, float* Ex, float* Vx,
-        const float* x, len_t nr_x, float alpha, float time) nogil:
-    # Upd EMA estimate of mean and variance
-    # See eq at the end of this:
-    # http://nfs-uxsup.csx.cam.ac.uk/~fanf2/hermes/doc/antiforgery/stats.pdf
-    cdef idx_t i
-    cdef float diff
-    cdef float incr
-    cdef float one = 1.0
-    for i in range(nr_x):
-        diff = x[i] - Ex[i]
-        incr = alpha * diff
-        Vx[i] = (one - alpha) * (Vx[i] + diff * incr)
-        Ex[i] += incr
-    # Normalize
-    if time < 100:
-        for i in range(nr_x):
-            x_norm[i] = x[i]
-    else:
-        for i in range(nr_x):
-            if (x[i] - Ex[i]) == 0:
-                x_norm[i] = 0
-            else:
-                x_norm[i] = (x[i] - Ex[i]) / sqrtf(Vx[i] + EPS)
+cdef const weight_t* dropout(weight_t* x,
+        const weight_t* random_state, weight_t drop_prob, int nr) nogil:
+    for i in range(nr):
+        if random_state[i] < drop_prob:
+            x[i] = 0
+        else:
+            x[i] /= 1-drop_prob
+    return &random_state[nr]

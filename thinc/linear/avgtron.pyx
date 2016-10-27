@@ -24,7 +24,7 @@ from .serialize cimport Writer
 from .serialize cimport Reader
 
 
-cdef class AveragedPerceptron:
+cdef class AveragedPerceptron(Model):
     '''A linear model for online supervised classification.
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
@@ -54,22 +54,15 @@ cdef class AveragedPerceptron:
                     PyMem_Free(feat.times)
 
     def __call__(self, Example eg):
-        self.set_scoresC(eg.c.scores,
-            eg.c.features, eg.c.nr_feat)
+        assert eg.c.is_sparse
+        self.set_scoresC(eg.c.scores, <const FeatureC*>eg.c.features, eg.c.nr_feat, True)
         PyErr_CheckSignals()
-        return eg.guess
-
-    def train_example(self, Example eg):
-        self(eg)
-        self.update(eg)
-        return eg
-
-    def predict_example(self, Example eg):
-        self(eg)
         return eg
 
     def update(self, Example eg):
-        self.updateC(&eg.c)
+        self(eg)
+        self.updateC(eg.c)
+        return eg.loss
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc, self.weights.length)
@@ -108,11 +101,13 @@ cdef class AveragedPerceptron:
                     feat.curr[i].val = feat.avgs[i].val / self.time
                     i += 1
 
-    property nr_feat:
-        def __get__(self):
-            return self.extracter.nr_templ
+    @property
+    def nr_feat(self):
+        return self.extracter.nr_templ
 
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
+    cdef void set_scoresC(self, weight_t* scores,
+            const void* _feats, int nr_feat, int is_sparse) nogil:
+        feats = <const FeatureC*>_feats
         # This is the main bottle-neck of spaCy --- where we spend all our time.
         # Typical sizes for the dependency parser model:
         # * weights_table: ~9 million entries
@@ -121,24 +116,25 @@ cdef class AveragedPerceptron:
         # 
         # I think the bottle-neck is actually reading the weights from main memory.
         cdef const MapStruct* weights_table = self.weights.c_map
-        cdef int i, j
+        cdef int i
         cdef FeatureC feat
-        for i in range(nr_feat):
-            feat = feats[i]
+        for feat in feats[:nr_feat]:
             class_weights = <const SparseArrayC*>map_get(weights_table, feat.key)
             if class_weights != NULL:
-                j = 0
-                while class_weights[j].key >= 0:
-                    scores[class_weights[j].key] += class_weights[j].val * feat.value
-                    j += 1
+                i = 0
+                while class_weights[i].key >= 0:
+                    scores[class_weights[i].key] += class_weights[i].val * feat.value
+                    i += 1
 
     @cython.cdivision(True)
     cdef int updateC(self, const ExampleC* eg) except -1:
         self.time += 1
         guess = VecVec.arg_max_if_true(eg.scores, eg.is_valid, eg.nr_class)
+        assert eg.is_sparse
+        features = <const FeatureC*>eg.features
         if eg.costs[guess] > 0:
             best = VecVec.arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
-            for feat in eg.features[:eg.nr_feat]:
+            for feat in features[:eg.nr_feat]:
                 self.update_weight(feat.key, best,   feat.value * eg.costs[guess])
                 self.update_weight(feat.key, guess, -feat.value * eg.costs[guess])
 

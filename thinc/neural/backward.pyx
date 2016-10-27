@@ -2,93 +2,55 @@
 # cython: cdivision=True
 # cython: infer_types=True
 cimport cython
+from libc.string cimport memset, memcpy
+from libc.stdlib cimport calloc, free
+from libc.stdint cimport uint64_t
+from cpython.exc cimport PyErr_CheckSignals
+from murmurhash.mrmr cimport hash64
 
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrtf, expf
+from ..structs cimport LayerC
+from ..structs cimport SparseArrayC
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt, exp
+from .weights cimport parse_weights, parse_batch_norm_weights
+#from .forward cimport skip_layer
+from .forward cimport affine, ReLu
+#normalize, layer_normalize
 
 
-DEF EPS = 0.00000001 
+cdef weight_t EPS = 1e-5
 DEF ALPHA = 1.0
 
+cdef void ReLu_backward(LayerC* gradients, weight_t** bwd, 
+        const LayerC* weights, const weight_t* const* fwd, const weight_t* randoms,
+        const len_t* widths, int nr_layer, int nr_batch, const ConstantsC* hp) nogil:
+    '''Backward pass'''
 
-cdef void d_ELU__dot(float* gradient, float** bwd, float* averages,
-        const float* W, const float* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    d_ELU(bwd[1],
-        fwd[1], shape[1])
-    # Set the gradient for F(W * fwd[0]) 
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    VecVec.add_i(gradient + shape[1] * shape[0],
-        bwd[1], 1.0, shape[1])
-    # Set the partial derivative for bwd[0], so next step can set its gradient
-    MatVec.T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0])
-
-
-cdef void d_ReLu__dot(float* gradient, float** bwd, float* averages,
-        const float* W, const float* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    d_ReLu(bwd[1],
-        fwd[1], shape[1])
-    # Set the gradient for F(W * fwd[0]) 
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    VecVec.add_i(gradient + shape[1] * shape[0],
-        bwd[1], 1.0, shape[1])
-    # Set the partial derivative for bwd[0], so next step can set its gradient
-    MatVec.T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0])
-
-
-cdef void d_ELU__dot__normalize__dot(float* gradient, float** bwd, float* averages,
-        const float* W, const float* const* fwd, const len_t* shape,
-        int nr_above, int nr_below, const ConstantsC* hp) nogil:
-    # D{ELU(BN(Lin(x)))} = ELU'(BN(Lin(x))) * BN'(Lin(x)) * Lin'(x)
-    d_ELU(bwd[1],
-        fwd[1], shape[1])
-    # At this point we have what the paper refers to as dE/dY. Set the gradient
-    # for the bias and gamma params now.
-    bias = W + (shape[1] * shape[0])
-    gamma = bias + shape[1]
-    x_norm = fwd[1] + shape[1]
-    gamma_grad = gradient + (shape[1] * shape[0]) + shape[1]
-    for i in range(shape[1]):
-        gamma_grad[i] += bwd[1][i] * x_norm[i]
-    VecVec.add_i(gradient + (shape[1] * shape[0]),
-        bwd[1], 1.0, shape[1])
-    # Now continue computing BN'. We transform dE/dY into dE/dX'.
-    # We have to transform it into dE/dX, so that we can calculate the gradient
-    # for our weights.
-    VecVec.mul_i(bwd[1],
-        gamma, shape[1])
-    # Read the E(x), Var(x), E_dXh, E_dXh_dot_Xh estimates from 'averages'
-    cdef const float* Ex = averages
-    cdef const float* Vx = averages + shape[1]
-    cdef float* E_dXh = averages + shape[1] * 2
-    cdef float* E_dXh_Xh = averages + shape[1] * 3
-    d_normalize(bwd[1], E_dXh, E_dXh_Xh,
-        x_norm, Vx, shape[1], hp.a, hp.t)
-    # Finally we have dE/dX. Now we can calculate the gradient of W
-    MatMat.add_outer_i(gradient,
-        bwd[1], fwd[0], shape[1], shape[0])
-    # And calculate the error w.r.t the previous layer
-    MatVec.T_dot(bwd[0],
-        W, bwd[1], shape[1], shape[0])
-
-
-cdef void d_dot(float* btm_diff,
-        int nr_btm,
-        const float* top_diff, int nr_top,
-        const float* W) nogil:
-    # And calculate the error w.r.t the previous layer
-    MatVec.T_dot(btm_diff,
-        W, top_diff, nr_top, nr_btm)
+    for i in range(nr_layer-1, 0, -1):
+        gradient = gradients[i]
+        layer = weights[i]
+        if i != nr_layer-1:
+            d_ReLu(bwd[i],
+                fwd[i], widths[i] * nr_batch)
+        if gradient.sparse:
+            d_affine_sparse(bwd[i-1], gradient.sparse, gradient.bias,
+                bwd[i], fwd[i-1], layer.sparse, widths[i],
+                widths[i-1], nr_batch)
+        else:
+            d_affine_dense(bwd[i-1], gradient.dense, gradient.bias,
+                bwd[i], fwd[i-1], layer.dense, widths[i],
+                widths[i-1], nr_batch)
+        # d_dropout
+        for j in range(widths[i-1] * nr_batch):
+            if fwd[i-1][j] == 0:
+                bwd[i-1][j] = 0
+        #l2_regularize(gradient.dense,
+        #    weights.dense, hp.r, widths[i] * widths[i-1])
  
 
-cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
+cdef inline void d_ELU(weight_t* delta, const weight_t* signal_out, int n) nogil:
     # Backprop the ELU transformation
     # Note that this is over the function _output_, not the function
     # _input_!
@@ -97,9 +59,8 @@ cdef void d_ELU(float* delta, const float* signal_out, int n) nogil:
             delta[i] *= signal_out[i] + ALPHA
 
 
-
-cdef void d_ReLu(float* delta, const float* signal_out, int n) nogil:
-    # Backprop the ELU transformation
+cdef void d_ReLu(weight_t* delta, const weight_t* signal_out, int n) nogil:
+    # Backprop the ReLu transformation
     # Note that this is over the function _output_, not the function
     # _input_!
     for i in range(n):
@@ -107,37 +68,110 @@ cdef void d_ReLu(float* delta, const float* signal_out, int n) nogil:
             delta[i] = 0
 
 
-cdef void d_log_loss(
-    float* loss,
-        const float* costs,
-        const float* scores,
-            len_t nr_out
+cdef void d_softmax(weight_t* loss,
+    const weight_t* costs, const weight_t* scores, len_t nr_out
 ) nogil:
-    # This assumes only one true class
+    # If there's more than one gold class, appoint the top scoring one the best
     cdef idx_t i
+    cdef idx_t best = 0
+    cdef weight_t score = 0.0
     for i in range(nr_out):
-        loss[i] = scores[i] - (costs[i] == 0)
+        loss[i] = scores[i]
+        if scores[i] >= score and costs[i] == 0:
+            score = scores[i]
+            best = i
+    loss[best] -= 1
 
 
-cdef void d_normalize(float* bwd, float* E_dEdXh, float* E_dEdXh_dot_Xh,
-        const float* Xh, const float* Vx, len_t n, float alpha, float time) nogil:
-    # Update EMA estimate of mean(dL/dX_hat)
-    Vec.mul_i(E_dEdXh,
-        alpha, n)
-    VecVec.add_i(E_dEdXh,
-        bwd, 1-alpha, n)
-    # Update EMA estimate of mean(dE/dX_hat \cdot X_hat)
-    Vec.mul_i(E_dEdXh_dot_Xh,
-        alpha, n)
-    for i in range(n):
-        E_dEdXh_dot_Xh[i] += (1-alpha) * bwd[i] * Xh[i]
-    # Simplification taken from Caffe, I think by cdoersch
-    # if X' = (X-mean(X))/sqrt(var(X)+eps), then
-    # dE/dX =
-    #   (dE/dXh - mean(dE/dXh) - mean(dE/dXh * Xh) * Xh)
-    #     ./ sqrt(var(X) + eps)
-    # bwd is dE/dXh to start with. We change it to dE/dX in-place.
-    if time >= 100:
-        for i in range(n):
-            bwd[i] -= E_dEdXh[i] - E_dEdXh_dot_Xh[i] * Xh[i]
-            bwd[i] /= sqrtf(Vx[i] + EPS)
+cdef void d_hinge_loss(weight_t* loss,
+        const weight_t* costs, const weight_t* scores, len_t nr_out) nogil:
+    cdef int best = -1
+    cdef int guess = -1
+    for i in range(nr_out):
+        loss[i] = 0.0
+        if costs[i] == 0:
+            if best == -1 or scores[i] >= scores[best]:
+                best = i
+        elif costs[i] > 0:
+            if guess == -1 or scores[i] >= scores[guess]:
+                guess = i
+    margin = (scores[guess] - scores[best]) + 1
+    if margin > 0:
+        loss[best] = -margin
+        loss[guess] = margin
+
+
+cdef void d_affine(weight_t* d_x, weights_ft d_w, weight_t* d_b,
+        const weight_t* d_out, const weight_t* x, weights_ft w,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    # Compute gradient for (sparse) weights matrix
+    # Compute loss for next layer
+    if weights_ft is dense_weights_t:
+        d_affine_dense(d_x, d_w, d_b, d_out, x, w, nr_out, nr_in, nr_batch)
+    else:
+        d_affine_sparse(d_x, d_w, d_b, d_out, x, w, nr_out, nr_in, nr_batch)
+
+
+
+cdef void d_affine_dense(weight_t* d_x, weight_t* d_w, weight_t* d_b,
+        const weight_t* d_out, const weight_t* x, const weight_t* w,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    # Set the gradient for W
+    MatMat.batch_add_outer_i(d_w,
+        d_out, x, nr_out, nr_in, nr_batch)
+    # Set the gradient for bias
+    VecVec.batch_add_i(d_b,
+        d_out, 1.0, nr_out, nr_batch)
+    # Set the gradient of fwd[i]
+    MatVec.batch_T_dot(d_x,
+        w, d_out, nr_out, nr_in, nr_batch)
+
+
+cdef void d_affine_sparse(weight_t* d_x, SparseArrayC** d_w, weight_t* d_b,
+        const weight_t* d_out, const weight_t* X, const SparseArrayC* const* w,
+        int nr_out, int nr_in, int nr_batch) nogil:
+    for i in range(nr_out):
+        for j in range(nr_batch):
+            weight_grads = d_w[i]
+            weights = w[i]
+            x = &X[j*nr_in]
+            neuron_loss = d_out[j*nr_out+i]
+            while weight_grads.key >= 0:
+                weight_grads.val += x[weight_grads.key] * neuron_loss
+                d_x[weights.key] += weights.val * neuron_loss
+                weights += 1
+                weight_grads += 1
+    # Compute gradient for (dense) bias
+    VecVec.batch_add_i(d_b,
+        d_out, 1.0, nr_out, nr_batch)
+
+
+@cython.cdivision(True)
+cdef void l2_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L2-loss to the gradient
+    if strength != 0:
+        VecVec.add_i(gradient,
+            weights, strength, nr_weight)
+
+
+@cython.cdivision(True)
+cdef void l1_regularize(weight_t* gradient,
+        const weight_t* weights, weight_t cross,
+        weight_t strength, int nr_weight) nogil:
+    # Add the derivative of the L1-loss to the gradient
+    if strength != 0:
+        for i in range(nr_weight):
+            if weights[i] > cross:
+                gradient[i] += strength
+            elif weights[i] < cross:
+                gradient[i] -= strength
+
+
+cdef const weight_t* d_dropout(weight_t* diff, 
+        const weight_t* random_state, weight_t drop_prob, int nr) nogil:
+    for i in range(nr):
+        random_state -= 1
+        if random_state[0] < drop_prob:
+            diff[i] = 0
+    return random_state

@@ -29,17 +29,22 @@ MOD_NAMES = [
     'thinc.linalg',
     'thinc.structs',
     'thinc.typedefs',
+    'thinc.base',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
     'thinc.linear.sparse',
     'thinc.extra.eg',
+    'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
+    'thinc.neural.weights',
     'thinc.neural.nn',
     'thinc.neural.solve',
     'thinc.neural.forward',
     'thinc.neural.backward',
+    'thinc.neural.embed',
+    'thinc.neural.initializers',
     'thinc.neural.tests._funcs_shim',
     'thinc.neural.tests._backprop_shim',
 ]
@@ -48,7 +53,9 @@ MOD_NAMES = [
 # By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
+                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
+                               '-msse3'
+                               ]}
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
@@ -153,7 +160,8 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs))
+                    language='c++', include_dirs=include_dirs
+                ))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
