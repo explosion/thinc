@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import os
-import shutil
 import subprocess
 import sys
 import contextlib
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
+from distutils import ccompiler, msvccompiler
 
 try:
     from setuptools import Extension, setup
@@ -51,8 +51,6 @@ MOD_NAMES = [
 ]
 
 
-# By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
-# http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
                                '-msse3'
@@ -60,6 +58,8 @@ compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
+# By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
+# http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_options:
     def build_options(self):
         for e in self.extensions:
@@ -83,37 +83,6 @@ def generate_cython(root, source):
                          source])
     if p != 0:
         raise RuntimeError('Running cythonize failed')
-
-
-def import_include(module_name):
-    try:
-        return __import__(module_name, globals(), locals(), [], 0)
-    except ImportError:
-        raise ImportError('Unable to import %s. Create a virtual environment '
-                          'and install all dependencies from requirements.txt, '
-                          'e.g., run "pip install -r requirements.txt".' % module_name)
-
-
-def copy_include(src, dst, path):
-    assert os.path.isdir(src)
-    assert os.path.isdir(dst)
-    if os.path.exists(os.path.join(dst, path)):
-        shutil.rmtree(os.path.join(dst, path))
-    shutil.copytree(
-        os.path.join(src, path),
-        os.path.join(dst, path))
-
-
-def prepare_includes(path):
-    include_dir = os.path.join(path, 'include')
-    if not os.path.exists(include_dir):
-        os.mkdir(include_dir)
-
-    numpy = import_include('numpy')
-    copy_include(numpy.get_include(), include_dir, 'numpy')
-
-    murmurhash = import_include('murmurhash')
-    copy_include(murmurhash.get_include(), include_dir, 'murmurhash')
 
 
 def is_source_release(path):
@@ -148,13 +117,20 @@ def setup_package():
         return clean(root)
 
     with chdir(root):
-        about = {}
         with open(os.path.join(root, 'thinc', 'about.py')) as f:
+            about = {}
             exec(f.read(), about)
+
+        with open(os.path.join(root, 'README.rst')) as f:
+            readme = f.read()
 
         include_dirs = [
             get_python_inc(plat_specific=True),
             os.path.join(root, 'include')]
+
+        if (ccompiler.new_compiler().compiler_type == 'msvc'
+            and msvccompiler.get_build_version() == 9):
+            include_dirs.append(os.path.join(root, 'include', 'msvc9'))
 
         ext_modules = []
         for mod_name in MOD_NAMES:
@@ -166,20 +142,41 @@ def setup_package():
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
-            prepare_includes(root)
 
         setup(
-            name=about['__name__'],
+            name=about['__title__'],
+            zip_safe=False,
             packages=PACKAGES,
             package_data={'': ['*.pyx', '*.pxd', '*.pxi']},
             description=about['__summary__'],
+            long_description=readme,
             author=about['__author__'],
             author_email=about['__email__'],
             version=about['__version__'],
             url=about['__uri__'],
             license=about['__license__'],
             ext_modules=ext_modules,
-            install_requires=['numpy', 'murmurhash>=0.26,<0.27', 'cymem>=1.30,<1.32', 'preshed>=0.46,<0.47'],
+            install_requires=[
+                'numpy>=1.7',
+                'murmurhash>=0.26,<0.27',
+                'cymem>=1.30,<1.32',
+                'preshed>=0.46,<0.47'],
+            classifiers=[
+                'Development Status :: 5 - Production/Stable',
+                'Environment :: Console',
+                'Intended Audience :: Developers',
+                'Intended Audience :: Science/Research',
+                'License :: OSI Approved :: MIT License',
+                'Operating System :: POSIX :: Linux',
+                'Operating System :: MacOS :: MacOS X',
+                'Operating System :: Microsoft :: Windows',
+                'Programming Language :: Cython',
+                'Programming Language :: Python :: 2.6',
+                'Programming Language :: Python :: 2.7',
+                'Programming Language :: Python :: 3.3',
+                'Programming Language :: Python :: 3.4',
+                'Programming Language :: Python :: 3.5',
+                'Topic :: Scientific/Engineering'],
             cmdclass = {
                 'build_ext': build_ext_subclass},
         )

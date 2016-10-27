@@ -1,22 +1,15 @@
-from cpython.mem cimport PyMem_Free, PyMem_Malloc
-from cpython.exc cimport PyErr_CheckSignals, PyErr_SetFromErrno
+from cpython.mem cimport PyMem_Malloc
+from cpython.exc cimport PyErr_SetFromErrno
 
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
-from libc.errno cimport errno
-from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
-from libc.errno cimport errno
-from libc.string cimport memcpy
-from libc.string cimport memset
 
 from libc.stdlib cimport qsort
 from libc.stdint cimport int32_t
 
-from preshed.maps cimport PreshMap, MapStruct, map_get
 from .sparse cimport SparseArray
 
-from ..extra.eg cimport Example
 from ..structs cimport SparseArrayC
-from ..typedefs cimport class_t, count_t, feat_t
+from ..typedefs cimport feat_t
 
 from os import path
 
@@ -107,7 +100,7 @@ cdef class Reader:
 
         status = fread(feat, sizeof(SparseArrayC), header.length, self._fp)
         if status != <size_t> header.length:
-             raise IOError("error reading input file")
+            raise IOError("error reading input file")
 
         # Trust We allocated correctly above
         feat[header.length].key = -2 # Indicates end of memory region
