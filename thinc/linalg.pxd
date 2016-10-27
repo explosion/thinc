@@ -7,7 +7,8 @@ from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
 from blis cimport blis
 
-ctypedef float weight_t
+from .typedefs cimport weight_t
+
 
 include "compile_time_constants.pxi"
 
@@ -53,7 +54,30 @@ cdef int arg_max_if_true(const weight_t* scores, const int* is_valid, const int 
 cdef int arg_max_if_zero(
         const weight_t* scores, const weight_t* costs, const int n_classes) nogil
 
+
+cdef void mm_add(weights_ft x,
+        const_weights_ft y, int32_t nr_row, int32_t nr_col) nogil
  
+
+cdef void mm_mul(weights_ft x,
+        const_weights_ft y, int32_t nr_row, int32_t nr_col) nogil
+ 
+
+cdef void mm_add_outer(weights_ft mat,
+                             const_weights_ft x,
+                             const_weights_ft y,
+                             int32_t nr_row,
+                             int32_t nr_col) nogil
+ 
+
+cdef void mm_batch_add_outer(weights_ft* output,
+                             const_weights_ft x,
+                             const_weights_ft y,
+                             int32_t nr_row,
+                             int32_t nr_col,
+                             int32_t nr_batch) nogil
+ 
+
 cdef class Vec:
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
@@ -188,9 +212,9 @@ cdef class VecVec:
         VecVec.add_i(output, y, scale, nr)
    
     @staticmethod
-    cdef inline void add_i(float* x, 
-                           const float* y,
-                           float scale,
+    cdef inline void add_i(weight_t* x, 
+                           const weight_t* y,
+                           weight_t scale,
                            int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
