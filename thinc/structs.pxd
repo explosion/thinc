@@ -31,14 +31,8 @@ cdef fused const_weights_ft:
 
 
 ctypedef void (*do_update_t)(
-<<<<<<< HEAD
-    float* weights,
-    float* momentum,
-    float* gradient,
-=======
     weights_ft weights,
     weights_ft gradient,
->>>>>>> parser_nn_2016
         len_t nr,
         const ConstantsC* hp
 ) nogil
@@ -56,15 +50,9 @@ ctypedef void (*do_activate_t)(weight_t* x, len_t nr_out, len_t nr_batch) nogil
 
 
 ctypedef void (*do_feed_fwd_t)(
-<<<<<<< HEAD
-    float** fwd,
-    float* averages,
-        const float* W,
-=======
     weight_t** fwd,
         const LayerC* W,
         const weight_t* randoms,
->>>>>>> parser_nn_2016
         const len_t* shape,
         int nr_layer,
         int nr_batch,
@@ -73,19 +61,11 @@ ctypedef void (*do_feed_fwd_t)(
  
 
 ctypedef void (*do_feed_bwd_t)(
-<<<<<<< HEAD
-    float* G,
-    float** bwd,
-    float* averages,
-        const float* W,
-        const float* const* fwd,
-=======
     LayerC* G,
     weight_t** bwd,
         const LayerC* W,
         const weight_t* const* fwd,
         const weight_t* randoms,
->>>>>>> parser_nn_2016
         const len_t* shape,
         int nr_layer,
         int nr_batch,
@@ -98,30 +78,30 @@ ctypedef MapStruct MapC
 
 
 cdef struct ConstantsC:
-    float a
-    float b
-    float c
-    float d
-    float e
-    float g
-    float h
-    float i
-    float j
-    float k
-    float l
-    float m
-    float n
-    float o
-    float p
-    float q
-    float r
-    float s
-    float t
-    float u
-    float w
-    float x
-    float y
-    float z
+    weight_t a
+    weight_t b
+    weight_t c
+    weight_t d
+    weight_t e
+    weight_t g
+    weight_t h
+    weight_t i
+    weight_t j
+    weight_t k
+    weight_t l
+    weight_t m
+    weight_t n
+    weight_t o
+    weight_t p
+    weight_t q
+    weight_t r
+    weight_t s
+    weight_t t
+    weight_t u
+    weight_t w
+    weight_t x
+    weight_t y
+    weight_t z
 
 
 cdef struct EmbedC:
@@ -149,22 +129,12 @@ cdef struct NeuralNetC:
     int update
 
     len_t* widths
-<<<<<<< HEAD
-    float* weights
-    float* gradient
-    float* momentum
-
-    float** averages
-    
-    EmbedC embed
-=======
     weight_t* weights
     weight_t* gradient
     LayerC* layers
     LayerC* d_layers
 
     EmbedC* embed
->>>>>>> parser_nn_2016
 
     len_t nr_layer
     len_t nr_weight
@@ -180,23 +150,11 @@ cdef extern from "stdlib.h":
 
 cdef struct ExampleC:
     int* is_valid
-<<<<<<< HEAD
-    float* costs
-    uint64_t* atoms
-    FeatureC* features
-    float* scores
-
-    float** fwd_state
-    float** bwd_state
-    int* widths
-
-=======
     weight_t* costs
     atom_t* atoms
     void* features
     weight_t* scores
 
->>>>>>> parser_nn_2016
     int nr_class
     int nr_atom
     int nr_feat
@@ -360,16 +318,15 @@ cdef cppclass MinibatchC:
         return best
  
 
-
 cdef packed struct SparseArrayC:
     int32_t key
-    float val
+    weight_t val
 
 
 cdef struct FeatureC:
     int i
     uint64_t key
-    float value
+    weight_t value
 
 
 cdef fused input_ft:
