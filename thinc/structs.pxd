@@ -5,12 +5,8 @@ from libc.stdlib cimport malloc, calloc, free, realloc
 from libc.string cimport memcpy, memset
 from murmurhash.mrmr cimport real_hash64 as hash64
 
-<<<<<<< HEAD
-from .typedefs cimport len_t, idx_t, atom_t
-=======
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
 from . cimport prng
->>>>>>> parser_nn_2016
 
 
 include "compile_time_constants.pxi"
