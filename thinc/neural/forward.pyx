@@ -9,6 +9,7 @@ import numpy as np
 from libc.stdint cimport uint64_t
 from murmurhash.mrmr cimport hash64
 
+from ..typedefs cimport weight_t
 from ..typedefs cimport len_t
 from ..typedefs cimport idx_t
 from ..structs cimport LayerC
@@ -94,7 +95,7 @@ cdef void softmax(weight_t* out, len_t nr_out, len_t nr_batch) nogil:
     Vec.exp_i(out,
         nr_out)
     #w = w / sum(w)
-    cdef float norm = Vec.sum(out, nr_out)
+    cdef weight_t norm = Vec.sum(out, nr_out)
     if norm != 0:
         Vec.div_i(out,
             norm, nr_out)
