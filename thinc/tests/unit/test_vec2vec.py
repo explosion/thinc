@@ -1,7 +1,8 @@
-from ...x2y.vec2vec import Affine
-
 import numpy
 import pytest
+
+from ...vec2vec import Affine
+from ...exceptions import ShapeError
 
 
 class MockOps(object):
@@ -19,6 +20,12 @@ class MockOps(object):
             return None
         else:
             return numpy.ones(shape) * (1-drop)
+    
+    def batch_dot(self, x, y):
+        return numpy.tensordot(x, y, axes=[[1], [1]])
+
+    def batch_outer(self, x, y):
+        return numpy.tensordot(x, y, axes=[[0], [0]])
 
 
 @pytest.fixture
@@ -55,25 +62,36 @@ def test_begin_update(model):
     assert all(val == 1. for val in output.flatten())
 
 
+def test_finish_update(model):
+    def sgd(data, gradient):
+        assert data.shape == gradient.shape
+
+    input_ = model.ops.allocate((5, 6))
+    output, finish_update = model.begin_update(input_)
+    gradient = model.ops.allocate(output.shape)
+    d_input = finish_update(gradient, sgd)
+    assert d_input.shape == input_.shape
+
+
 def test_predict_batch_not_batch(model):
     input_ = model.ops.allocate((6,))
-    with pytest.raises(ValueError):
+    with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_predict_update_dim_mismatch(model):
     input_ = model.ops.allocate((10, 5))
-    with pytest.raises(ValueError):
+    with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_begin_update_not_batch(model):
     input_ = model.ops.allocate((6,))
-    with pytest.raises(ValueError):
+    with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_begin_update_dim_mismatch(model):
     input_ = model.ops.allocate((10, 5))
-    with pytest.raises(ValueError):
+    with pytest.raises(ShapeError):
         model.begin_update(input_)
