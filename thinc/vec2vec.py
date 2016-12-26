@@ -50,6 +50,9 @@ class Affine(Model):
             outer = self.ops.batch_outer(d_acts_BO, acts_BI)
             d_W += outer
             d_acts_BI = self.ops.batch_dot(d_acts_BO, self.W.T)
+            
+            sgd(self.W, d_W, **kwargs)
+            sgd(self.b, d_b, **kwargs)
             return d_acts_BI
         return finish_update
 
