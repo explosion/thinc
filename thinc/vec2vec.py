@@ -1,13 +1,14 @@
 from .base import Model
+from .exceptions import ShapeError
 
 
 class Affine(Model):
     name = 'affine'
 
-    def setup(self, components, **kwargs):
+    def setup(self, *components, **kwargs):
         if isinstance(components[0], int):
             self.W = self.ops.allocate(components, name=(self.name, 'W'))
-            self.b = self.ops.allocate((components[0],), name=(self.name, 'b'))
+            self.b = self.ops.allocate(components[:1], name=(self.name, 'b'))
         else:
             self.W, self.b = components
 
@@ -24,9 +25,15 @@ class Affine(Model):
         return self.shape[1]
 
     def predict_batch(self, input_BI):
+        if len(input_BI.shape) != 2:
+            raise ShapeError.expected_batch(locals(), globals())
         return self.ops.affine(input_BI, self.W, self.b)
 
     def begin_update(self, input_BI, drop=0.0):
+        if len(input_BI.shape) != 2:
+            raise ShapeError.expected_batch(locals(), globals())
+        if input_BI.shape[1] != self.nr_in:
+            raise ShapeError.dim_mismatch(locals(), globals())
         output_BO = self.ops.affine(input_BI, self.W, self.b)
         mask = self.ops.get_dropout(output_BO.shape, drop)
         if mask is not None:
@@ -35,10 +42,13 @@ class Affine(Model):
     
     def _get_finish_update(self, acts_BI, mask):
         def finish_update(d_acts_BO, sgd, **kwargs):
-            d_acts_BO *= mask
-            self.d_b += d_acts_BO.sum(axis=0)
+            d_b = self.ops.allocate(self.b.shape)
+            d_W = self.ops.allocate(self.W.shape)
+            if mask is not None:
+                d_acts_BO *= mask
+            d_b += d_acts_BO.sum(axis=0)
             outer = self.ops.batch_outer(d_acts_BO, acts_BI)
-            self.d_W += outer
+            d_W += outer
             d_acts_BI = self.ops.batch_dot(d_acts_BO, self.W.T)
             return d_acts_BI
         return finish_update
