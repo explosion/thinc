@@ -1,5 +1,6 @@
 import numpy
 import pytest
+from numpy.testing import assert_allclose
 
 from ...vec2vec import Affine
 from ...exceptions import ShapeError
@@ -53,6 +54,7 @@ def test_predict_batch(model):
     output = model.predict_batch(input_)
     assert output.shape == (5, 10)
     assert all(val == 1. for val in output.flatten())
+
 
 
 def test_begin_update(model):
