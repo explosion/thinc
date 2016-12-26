@@ -27,14 +27,14 @@ class Affine(Model):
     def predict_batch(self, input_BI):
         if len(input_BI.shape) != 2:
             raise ShapeError.expected_batch(locals(), globals())
-        return self.ops.affine(input_BI, self.W, self.b)
+        return self.ops.affine(self.W, self.b, input_BI)
 
     def begin_update(self, input_BI, drop=0.0):
         if len(input_BI.shape) != 2:
             raise ShapeError.expected_batch(locals(), globals())
         if input_BI.shape[1] != self.nr_in:
             raise ShapeError.dim_mismatch(locals(), globals())
-        output_BO = self.ops.affine(input_BI, self.W, self.b)
+        output_BO = self.ops.affine(self.W, self.b, input_BI)
         mask = self.ops.get_dropout(output_BO.shape, drop)
         if mask is not None:
             output_BO *= mask
@@ -57,19 +57,27 @@ class Affine(Model):
 class ReLu(Affine):
     name = 'affine'
     def predict_batch(self, input_BI):
-        output_BO = self.ops.affine(input_BI, self.W, self.b)
-        return self.ops.clip_low(output_BO, 0, inplace=True)
+        dotted = self.ops.xp.tensordot(input_BI, self.W, axes=[[1], [1]])
+        dotted += self.b
+        return self.ops.clip_low(dotted, 0, inplace=True)
 
     def begin_update(self, input_BI, drop=0.0):
-        output_BO = self.ops.affine(input_BI, self.W, self.b)
+        output_BO = self.ops.affine(self.W, self.b, input_BI)
         mask = self.ops.get_dropout(output_BO.shape, drop)
         mask *= output_BO > 0
         output_BO *= mask
         return output_BO, self._get_finish_update(input_BI, mask)
 
 
+class Softmax(Affine):
+    name = 'softmax'
+    def predict_batch(self, input_bi):
+        output_bo = self.ops.affine(self.W, self.b, input_bi)
+        return self.ops.softmax(output_bo, axis=-1, inplace=True)
+
+
 class Maxout(Affine):
-    name = 'maxout'    
+    name = 'maxout'
     def predict_batch(self, input_bi):
         take_which = self.ops.take_which
         argmax = self.ops.argmax
@@ -79,7 +87,7 @@ class Maxout(Affine):
     def begin_update(self, input_BI, drop=0.0):
         W_OCI = self.W
         b_OC = self.b
-        output_BOC = self.ops.affine(input_BI, W_OCI, b_OC)
+        output_BOC = self.ops.affine(W_OCI, b_OC, input_BI)
         which_BO = self.ops.argmax(output_BOC, axis=-1)
         best_BO = self.ops.take_which(output_BOC, which_BO)
         mask_BO = self.ops.get_dropout(best_BO.shape, drop)

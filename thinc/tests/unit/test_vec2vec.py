@@ -12,7 +12,7 @@ class MockOps(object):
     def allocate(self, shape, name=None):
         return numpy.zeros(shape)
 
-    def affine(self, input_bi, W_oi, b_o):
+    def affine(self, W_oi, b_o, input_bi):
         return numpy.ones((input_bi.shape[0], W_oi.shape[0]))
 
     def get_dropout(self, shape, drop):
