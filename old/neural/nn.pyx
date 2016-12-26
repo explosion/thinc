@@ -61,6 +61,66 @@ import cPickle
 prng.normal_setup()
 
 
+cdef NeuralNetC init_network(Pool mem, widths, *args, **kwargs) except *:
+    cdef NeuralNetC nn
+    nn.hp.e = kwargs.get('learn_rate', 0.001)
+    nn.hp.r = kwargs.get('l2', 1e-6)
+    nn.hp.m = kwargs.get('momentum', 0.9)
+
+    set_update_func(&nn, kwargs)
+    nr_support = set_activation_func(&nn, kwargs)
+
+    nn.nr_layer = len(widths)
+    nn.widths = <len_t*>mem.alloc(nn.nr_layer, sizeof(widths[0]))
+    for i, width in enumerate(widths):
+        nn.widths[i] = width
+    nn.nr_weight = 0
+    nn.nr_node = 0
+    for i in range(nn.nr_layer-1):
+        nn.nr_weight += get_nr_weight(nn.widths[i+1], nn.widths[i])
+        nn.nr_node += nn.widths[i]
+    nn.weights = <weight_t*>mem.alloc(nr_weight * nr_support,
+                                      sizeof(nn.weights[0]))
+    nn.gradient = <weight_t*>mem.alloc(nn.nr_weight, sizeof(nn.weights[0]))
+    
+    W = nn.weights
+    for i in range(nn.nr_layer-2):
+        he_normal_initializer(W,
+            nn.widths[i+1], nn.widths[i+1] * nn.widths[i])
+        nr_W = nn.widths[i+1] * nn.widths[i]
+        nr_bias = nn.widths[i+1]
+        W += get_nr_weight(nn.widths[i+1], nn.widths[i])
+
+
+cdef int set_update_func(NeuralNetC* nn, kwargs) except -1:
+    if kwargs.get('update_step') == 'sgd':
+        nn.update = vanilla_sgd
+        return 1
+    elif kwargs.get('update_step') == 'asgd':
+        nn.update = asgd
+        return 2
+    elif kwargs.get('update_step') == 'sgd_cm':
+        nn.update = sgd_cm
+        return 3
+    elif kwargs.get('update_step') == 'adam':
+        nn.update = adam
+        return 4
+    else:
+        nn.update = noisy_update
+        return 1
+
+
+cdef int set_activation_func(NeuralNetC* nn, kwargs) except -1:
+    self.c.embed.nr_support = nr_support
+    use_batch_norm = kwargs.get('batch_norm', False)
+    if use_batch_norm:
+        nn.feed_fwd = ELU_batch_norm_residual_forward
+        nn.feed_bwd = ELU_batch_norm_residual_backward
+    else:
+        nn.feed_fwd = ELU_forward
+        nn.feed_bwd = ELU_backward
+
+
 cdef int get_nr_weight(int nr_out, int nr_in, int batch_norm) nogil:
     if batch_norm:
         return nr_out * nr_in + nr_out * 5
@@ -70,90 +130,18 @@ cdef int get_nr_weight(int nr_out, int nr_in, int batch_norm) nogil:
 
 cdef class NeuralNet(Model):
     def __init__(self, widths, *args, **kwargs):
-        self.mem = kwargs.get('mem') or Pool()
-        self.c.embed = <EmbedC*>self.mem.alloc(sizeof(EmbedC), 1)
-
-        # Learning rate
-        self.c.hp.e = kwargs.get('eta', 0.01)
-        # Regularization
-        self.c.hp.r = kwargs.get('rho', 0.00)
-        # Momentum
-        self.c.hp.m = kwargs.get('mu', 0.9)
-        # Gradient noise
-        self.c.hp.w = kwargs.get('noise', 0.0)
-        if kwargs.get('update_step') == 'sgd':
-            self.c.update = vanilla_sgd
-            nr_support = 2
-        elif kwargs.get('update_step', 'sgd_cm') == 'sgd_cm':
-            self.c.update = sgd_cm
-            nr_support = 3
-        elif kwargs.get('update_step') == 'nag':
-            self.c.update = nag
-            nr_support = 3
-        elif kwargs.get('update_step') == 'adagrad':
-            self.c.update = adagrad
-            nr_support = 3
-        elif kwargs.get('update_step') == 'adadelta':
-            self.c.update = adadelta
-            nr_support = 4
-        elif kwargs.get('update_step') == 'adam':
-            self.c.update = adam
-            nr_support = 4
-        else:
-            raise ValueError(kwargs.get('update_step'))
-        self.c.embed.nr_support = nr_support
-        use_batch_norm = kwargs.get('batch_norm', False)
-        if use_batch_norm:
-            self.c.feed_fwd = ELU_batch_norm_residual_forward
-            self.c.feed_bwd = ELU_batch_norm_residual_backward
-        else:
-            self.c.feed_fwd = ELU_forward
-            self.c.feed_bwd = ELU_backward
-
-        self.c.nr_layer = len(widths)
-        self.c.widths = <len_t*>self.mem.alloc(self.c.nr_layer, sizeof(widths[0]))
-        cdef int i
-        for i, width in enumerate(widths):
-            self.c.widths[i] = width
-        self.c.nr_weight = 0
-        self.c.nr_node = 0
-        for i in range(self.c.nr_layer-1):
-            self.c.nr_weight += get_nr_weight(self.c.widths[i+1], self.c.widths[i],
-                                              use_batch_norm)
-            self.c.nr_node += self.c.widths[i]
-        self.c.weights = <weight_t*>self.mem.alloc(self.c.nr_weight * nr_support,
-                                                   sizeof(self.c.weights[0]))
-        self.c.gradient = <weight_t*>self.mem.alloc(self.c.nr_weight, sizeof(self.c.weights[0]))
-
-        if kwargs.get('embed') is not None:
-            vector_widths, features = kwargs['embed']
-            Embedding.init(self.c.embed, self.mem, vector_widths, features)
-
-        W = self.c.weights
-        for i in range(self.c.nr_layer-2):
-            he_normal_initializer(W,
-                self.c.widths[i+1], self.c.widths[i+1] * self.c.widths[i])
-            nr_W = self.c.widths[i+1] * self.c.widths[i]
-            nr_bias = self.c.widths[i+1]
-            if use_batch_norm:
-                # Initialise gamma terms
-                constant_initializer(W + nr_W + nr_bias,
-                    1.0, self.c.widths[i + 1])
-                constant_initializer(W + nr_W + self.c.widths[i+1] * 4,
-                    1.0, self.c.widths[i+1])
-            W += get_nr_weight(self.c.widths[i+1], self.c.widths[i], use_batch_norm)
-        self._mb = Minibatch.take_ownership(new MinibatchC(self.c.widths, self.c.nr_layer, 1000))
+        self.mem = Pool()
+        self.c = init_network(self.mem, widths, *args, **kwargs)
+        self._mb = Minibatch(self.widths, kwargs.get('batch_size', 100))
 
     def __call__(self, eg_or_mb):
         cdef Example eg
         cdef Minibatch mb
         if isinstance(eg_or_mb, Example):
             eg = eg_or_mb
-            self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
+            self.set_scoresC(eg.c.scores, eg.c.atoms, eg.c.nr_atom)
         elif isinstance(eg_or_mb, Minibatch):
             mb = eg_or_mb
-            for i in range(mb.c.i):
-                self._extractC(mb.c.fwd(0, i), mb.c.features(i), mb.c.nr_feat(i))
             self.c.feed_fwd(mb.c._fwd,
                 self.c.weights, self.c.widths, self.c.nr_layer, mb.c.i, &self.c.hp)
             for i in range(mb.c.i):
@@ -170,94 +158,20 @@ cdef class NeuralNet(Model):
                 yield from self._mb
 
     def update(self, Example eg, force_update=False):
-        return self.updateC(eg.c.features, eg.c.nr_feat,
+        return self.updateC(eg.c.atoms, eg.c.nr_atom,
                             eg.c.costs, eg.c.is_valid, force_update, 0)
     
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
-        pass
-
-    def has_embedding(self, int i, key_t key):
-        emb = <weight_t*>Map_get(self.c.embed.weights[i], key)
-        return True if emb is not NULL else False
-
-    def default_embedding(self, int i):
-        return [self.c.embed.defaults[i][j] for j in range(self.c.embed.lengths[i])]
-
-    def set_embedding(self, int i, key_t key, values):
-        '''Insert an embedding for a given key.'''
-        if len(values) != self.c.embed.lengths[i]:
-            msg_vals = (i, self.c.embed.lengths[i], len(values))
-            raise ValueError(
-                "set_embedding %d expected embedding of length %d. Got length %d." % msg_vals)
-        emb = <weight_t*>Map_get(self.c.embed.weights[i], key)
-        grad = <weight_t*>Map_get(self.c.embed.gradients[i], key)
-        if emb is NULL or grad is NULL:
-            # If one is null both should be. But free just in case, to avoid mem
-            # leak.
-            if emb is not NULL:
-                self.mem.free(emb)
-            if grad is not NULL:
-                self.mem.free(grad)
-            emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i] * self.c.embed.nr_support,
-                    sizeof(emb[0]))
-            grad = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
-            Map_set(self.mem, self.c.embed.weights[i],
-                key, emb)
-            Map_set(self.mem, self.c.embed.gradients[i],
-                key, grad)
- 
-        for j, value in enumerate(values):
-            emb[j] = value
-            emb[len(values) + j] = value # For average
-
-    def sparsify_embeddings(self, weight_t threshold, int use_infinity_norm=True):
-        '''Prune all embeddings where:
-        
-        | embed - default |_infinity < threshold
-
-        That is, if max(abs(embed - default)) < threshold, allow the embedding to
-        be represented by the default.
-        '''
-        cdef key_t key
-        cdef void* value
-        cdef int i, j
-        cdef weight_t infinity_norm
-        cdef weight_t nr_trimmed = 0
-        cdef weight_t total = 0.0
-        for i in range(self.c.embed.nr):
-            j = 0
-            length = self.c.embed.lengths[i]
-            default = self.c.embed.defaults[i]
-            while Map_iter(self.c.embed.weights[i], &j, &key, &value):
-                if value == NULL:
-                    continue # Shouldn't happen! Raise...
-                emb = <weight_t*>value
-                if use_infinity_norm:
-                    for i in range(length):
-                        if abs(emb[i]-default[i]) >= threshold:
-                            break
-                    else:
-                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
-                        nr_trimmed += 1
-                else:
-                    norm = 0
-                    for i in range(length):
-                        norm += abs(emb[i]-default[i])
-                    if norm < threshold:
-                        # TODO: Remove hard-coded nr_support here...
-                        memcpy(emb, default, sizeof(emb[0]) * length * self.c.embed.nr_support)
-                        nr_trimmed += 1
-                total += 1
-        return nr_trimmed / total
+        raise NotImplementedError
 
     def dump(self, loc):
-        data = (list(self.embeddings), self.weights, dict(self.c.hp)) 
+        data = (self.weights, dict(self.c.hp)) 
         with open(loc, 'wb') as file_:
             cPickle.dump(data, file_, cPickle.HIGHEST_PROTOCOL)
 
     def load(self, loc):
         with open(loc, 'rb') as file_:
-            embeddings, weights, hp = cPickle.load(file_)
+            weights, hp = cPickle.load(file_)
         self.embeddings = embeddings
         self.weights = weights
         self.c.hp = hp
@@ -272,46 +186,37 @@ cdef class NeuralNet(Model):
     def nr_feat(self):
         return self.c.widths[0]
    
-    cdef void set_scoresC(self, weight_t* scores, const FeatureC* feats, int nr_feat) nogil:
-        fwd_state = <weight_t**>calloc(self.c.nr_layer, sizeof(void*))
-        for i in range(self.c.nr_layer):
-            fwd_state[i] = <weight_t*>calloc(self.c.widths[i], sizeof(weight_t))
-
-        self._extractC(fwd_state[0], feats, nr_feat)
-        self.c.feed_fwd(fwd_state,
-            self.c.weights, self.c.widths, self.c.nr_layer, 1, &self.c.hp)
-        self._softmaxC(fwd_state[self.c.nr_layer-1])
+    cdef void set_scoresC(self, weight_t* scores, weight_t* dense_input,
+            const void* sparse_input, int nr_sparse, const NeuralNetC* nn) nogil:
+        if nn.prev != NULL:
+            self.set_scoresC(dense_input, dense_input,
+                sparse_input, nr_sparse, nn.prev)
+        nn.feed_fwd(scores,
+            nn.weights, nn.widths, nn.nr_layer, 1,
+            dense_input, sparse_input, &nr_sparse, &nn.hp)
  
-        memcpy(scores,
-            fwd_state[self.c.nr_layer-1], sizeof(scores[0]) * self.c.widths[self.c.nr_layer-1])
-        for i in range(self.c.nr_layer):
-            free(fwd_state[i])
-        free(fwd_state)
- 
-    cdef weight_t updateC(self, const FeatureC* feats, int nr_feat,
-                          const weight_t* costs, const int* is_valid,
-                          int force_update, uint64_t key) nogil:
-        is_full = self._mb.c.push_back(feats, nr_feat, costs, is_valid, key)
-        cdef weight_t loss = 0.0
-        cdef int i
+    cdef weight_t updateC(self, weight_t* d_dense_input, void* d_sparse_input,
+            const weight_t* dense_input, const void* sparse_input, int nr_sparse,
+            const weight_t* gradient, const int* is_valid, int force_update) nogil:
+        is_full = self._mb.push_back(dense_input, sparse_input, nr_sparse, gradient, is_valid)
         if is_full or force_update:
-            self._updateC(self._mb.c)
-            for i in range(self._mb.c.i):
-                loss += 1.0 - self._mb.c.scores(i)[self._mb.c.best(i)]
-        return loss
-
+            self._updateC(self.c, d_dense_input, d_sparse_input,
+                self._mb.c.d_loss(), self._mb.c.dense_inputs(),
+                self._mb.c.sparse_inputs(), self._mb.c.nr_sparses(),
+                self._mb.c.i)
+            return self._mb.loss()
+        else:
+            return 0.0
+ 
     cdef void _updateC(self, MinibatchC* mb) nogil:
-        for i in range(mb.i):
-            self.dropoutC(mb.features(i), 7. / 8., mb.nr_feat(i))
-            self._extractC(mb.fwd(0, i), mb.features(i), mb.nr_feat(i))
-        
         self.c.feed_fwd(mb._fwd,
             self.c.weights, self.c.widths, self.c.nr_layer, mb.i, &self.c.hp)
 
         for i in range(mb.i):
-            self._softmaxC(mb.fwd(self.c.nr_layer-1, i))
+            self.outputC(mb.fwd(self.c.nr_layer-1, i),
+                mb.fwd(self.c.nr_layer-1, i))
         for i in range(mb.i):
-            self._set_delta_lossC(mb.losses(i),
+            self.set_d_lossC(mb.losses(i),
                 mb.costs(i), mb.fwd(mb.nr_layer-1, i))
         
         self.c.feed_bwd(self.c.gradient, mb._bwd,
@@ -321,41 +226,17 @@ cdef class NeuralNet(Model):
         self.c.hp.t += 1
         self.c.update(self.c.weights, self.c.gradient,
             self.c.nr_weight, &self.c.hp)
-        for i in range(mb.i):
-            self._backprop_extracterC(mb.bwd(0, i), mb.features(i), mb.nr_feat(i))
-        for i in range(mb.i):
-            self._update_extracterC(mb.features(i), mb.nr_feat(i), mb.i)
-        with gil:
-            for i in range(mb.i):
-                Embedding.insert_missing(self.mem, self.c.embed, mb.features(i), mb.nr_feat(i))
 
-
-    cdef void _extractC(self, weight_t* input_, const FeatureC* feats, int nr_feat) nogil:
-        Embedding.set_input(input_,
-            <const FeatureC*>feats, nr_feat, self.c.embed)
+    cdef void extractC(self, weight_t* input_, const FeatureC* feats, int nr_feat) nogil:
+        pass
     
-    cdef void _softmaxC(self, weight_t* output) nogil:
+    cdef void outputC(self, weight_t* output, const weight_t* last_layer) nogil:
         softmax(output, self.c.widths[self.c.nr_layer-1])
 
-    cdef void _set_delta_lossC(self, weight_t* delta_loss,
+    cdef void set_d_lossC(self, weight_t* delta_loss,
             const weight_t* costs, const weight_t* scores) nogil:
         d_log_loss(delta_loss,
             costs, scores, self.c.widths[self.c.nr_layer-1])
-
-    cdef void _backprop_extracterC(self, const weight_t* deltas, const FeatureC* feats,
-            int nr_feat) nogil:
-        if nr_feat < 1:
-            return
-        Embedding.fine_tune(self.c.embed,
-            deltas, self.c.widths[0], feats, nr_feat)
-
-    cdef void _update_extracterC(self, const FeatureC* feats,
-            int nr_feat, int batch_size) nogil:
-        if nr_feat < 1:
-            return
-        for feat in feats[:nr_feat]:
-            Embedding.update(self.c.embed,
-                feat.i, feat.key, batch_size, &self.c.hp, self.c.update)
 
     @property
     def weights(self):
@@ -368,89 +249,27 @@ cdef class NeuralNet(Model):
         for i, weight in enumerate(weights):
             self.c.weights[i] = weight
 
-    property layers:
-        # TODO: Apparent Cython bug: @property syntax fails on generators?
-        def __get__(self):
-            weights = list(self.weights)
-            start = 0
-            for i in range(self.c.nr_layer-1):
-                nr_w = self.widths[i] * self.widths[i+1]
-                nr_bias = self.widths[i+1]
-                W = weights[start:start+nr_w]
-                bias = weights[start+nr_w:start+nr_w+nr_bias]
-                yield W, bias
-                start += get_nr_weight(self.widths[i+1], self.widths[i],
-                                       False) # TODO
-
-    @property
-    def time(self):
-        return self.c.hp.t
-
     @property
     def widths(self):
         return tuple(self.c.widths[i] for i in range(self.c.nr_layer))
 
-    property layer_l1s:
-        # TODO: Apparent Cython bug: @property syntax fails on generators?
-        def __get__(self):
-            for W, bias in self.layers:
-                w_l1 = sum(abs(w) for w in W) / len(W)
-                bias_l1 = sum(abs(w) for w in W) / len(bias)
-                yield w_l1, bias_l1
+    @property
+    def momentum(self):
+        return ptr2np(&self.c.weights[self.c.nr_weight*2], self.c.nr_weight)
+    @weights.setter
+    def weights(self, weights):
+        return np2ptr(&self.c.weights[self.c.nr_weight*2], self.c.nr_weight, weights)
+
+    @property
+    def widths(self):
+        return ptr2np(self.c.widths, self.c.nr_layer)
 
     @property
     def gradient(self):
-        return [self.c.gradient[i] for i in range(self.c.nr_weight)]
-
-    @property
-    def l1_gradient(self):
-        cdef int i
-        cdef weight_t total = 0.0
+        cdef np.ndarray out = np.zeros(shape=(self.c.nr_weight,), dtype='float64')
         for i in range(self.c.nr_weight):
-            if self.c.gradient[i] < 0:
-                total -= self.c.gradient[i]
-            else:
-                total += self.c.gradient[i]
-        return total / self.c.nr_weight
-
-    @property
-    def embeddings(self):
-        cdef int i = 0
-        cdef int j = 0
-        cdef int k = 0
-        cdef key_t key
-        cdef void* value
-        embeddings = []
-        seen_tables = {}
-        for i in range(self.c.embed.nr):
-            addr = <uintptr_t>self.c.weights[i]
-            if addr in seen_tables:
-                table = seen_tables[addr]
-            else:
-                j = 0
-                table = []
-                length = self.c.embed.lengths[i]
-                while Map_iter(self.c.embed.weights[i], &j, &key, &value):
-                    emb = <weight_t*>value
-                    table.append((key, [val for val in emb[:length]]))
-                seen_tables[addr] = table
-            embeddings.append(table)
-        return embeddings
-
-    @embeddings.setter
-    def embeddings(self, embeddings):
-        cdef weight_t val
-        uniq_tables = {}
-        for i, table in enumerate(embeddings):
-            if id(table) in uniq_tables:
-                self.c.weights[i] = self.c.weights[uniq_tables[id(table)]]
-                continue
-            uniq_tables[id(table)] = i
-            for key, value in table:
-                emb = <weight_t*>self.mem.alloc(self.c.embed.lengths[i], sizeof(emb[0]))
-                for j, val in enumerate(value):
-                    emb[j] = val
-                Map_set(self.mem, self.c.embed.weights[i], <key_t>key, emb)
+            out[i] = self.c.gradient[i]
+        return out
 
     @property
     def nr_layer(self):
@@ -468,17 +287,25 @@ cdef class NeuralNet(Model):
     def nr_in(self):
         return self.c.widths[0]
 
-    property eta:
-        def __get__(self):
-            return self.c.hp.e
-        def __set__(self, eta):
+    @property
+    def nr_update(self):
+        return self.c.hp.t
+    @tau.setter
+    def nr_update(self, tau):
+        self.c.hp.t = tau
+
+    @property
+    def learn_rate(self):
+        return self.c.hp.e
+    @eta.setter
+    def learn_rate(self, eta):
             self.c.hp.e = eta
 
     @property
-    def rho(self):
+    def l2(self):
         return self.c.hp.r
     @rho.setter
-    def rho(self, rho):
+    def l2(self, rho):
         self.c.hp.r = rho
     
     @property
@@ -487,10 +314,3 @@ cdef class NeuralNet(Model):
     @eps.setter
     def eps(self, eps):
         self.c.hp.p = eps
-
-    @property
-    def tau(self):
-        return self.c.hp.t
-    @tau.setter
-    def tau(self, tau):
-        self.c.hp.t = tau
