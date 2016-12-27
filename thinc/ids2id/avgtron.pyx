@@ -26,7 +26,7 @@ from .serialize cimport Writer
 from .serialize cimport Reader
 
 
-cdef class AveragedPerceptron(Model):
+cdef class AveragedPerceptron:
     '''A linear model for online supervised classification.
     Expected use is via Cython --- the Python API is impoverished and inefficient.
 
