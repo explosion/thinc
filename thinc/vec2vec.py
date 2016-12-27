@@ -4,25 +4,23 @@ from .exceptions import ShapeError
 
 class Affine(Model):
     name = 'affine'
+    W = None
+    b = None
+    params_data = None
 
-    def setup(self, *components, **kwargs):
-        if isinstance(components[0], int):
-            self.W = self.ops.allocate(components, name=(self.name, 'W'))
-            self.b = self.ops.allocate(components[:1], name=(self.name, 'b'))
-        else:
-            self.W, self.b = components
-
-    @property
-    def shape(self):
-        return self.W.shape
-
-    @property
-    def nr_out(self):
-        return self.shape[0]
-
-    @property
-    def nr_in(self):
-        return self.shape[1]
+    def initialize_weights(self, x, data=None):
+        if data is None:
+            if self.params_data is None:
+                self.params_data = self.ops.allocate_pool(self.nr_weight,
+                                        name=(self.name, 'pool'))
+            data = self.params_data
+        if self.W is None:
+            self.W = self.ops.allocate_param(data, (self.nr_out, self.nr_in),
+                        name=(self.name, 'W'))
+            self.ops.xavier_uniform_init(self.W, inplace=True)
+        if self.b is None:
+            self.b = self.ops.allocate_param(data, (self.nr_out,),
+                        name=(self.name, 'b'))
 
     def predict_batch(self, input_BI):
         if len(input_BI.shape) != 2:
@@ -30,10 +28,6 @@ class Affine(Model):
         return self.ops.affine(self.W, self.b, input_BI)
 
     def begin_update(self, input_BI, drop=0.0):
-        if len(input_BI.shape) != 2:
-            raise ShapeError.expected_batch(locals(), globals())
-        if input_BI.shape[1] != self.nr_in:
-            raise ShapeError.dim_mismatch(locals(), globals())
         output_BO = self.ops.affine(self.W, self.b, input_BI)
         mask = self.ops.get_dropout(output_BO.shape, drop)
         if mask is not None:

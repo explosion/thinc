@@ -1,37 +1,75 @@
 import numpy
 
 from . import util
+from .train import Trainer
 
 
 class Model(object):
     '''Model base class.'''
     name = 'model'
-    def __init__(self, ops, *args, **kwargs):
-        self.name = kwargs.get('name', self.name)
-        self.ops = util.get_ops(ops)
-        self.setup(*args, **kwargs)
+    device = 'cpu'
+    Trainer = Trainer
+    ops = None
+    output_shape = None
+    input_shape = None
     
-    @property
-    def shape(self):
-        raise NotImplementedError
+    def __init__(self, *args, **kwargs):
+        self.layers = []
+        kwargs = self.update_defaults(*args, **kwargs)
+        if self.ops is None:
+            self.ops = util.get_ops(self.device)
+        self.setup(*args, **kwargs)
 
-    @property
-    def nr_out(self):
-        raise NotImplementedError
+    def update_defaults(self, *args, **kwargs):
+        new_kwargs = {}
+        for key, value in kwargs.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
+            else:
+                new_kwargs[key] = value
+        return new_kwargs
+    
+    def setup(self, *args, **kwargs):
+        pass
 
-    @property
-    def nr_in(self):
-        raise NotImplementedError
+    def _initialize_weights(self, x):
+        pass
 
-    def setup(self, components, **kwargs):
-        raise NotImplementedError
+    def check_shape(self, x, is_batch):
+        if is_batch:
+            if len(x.shape) != 2:
+                raise ShapeError.expected_batch(locals(), globals())
+            if input_BI.shape[1] != self.nr_in:
+                raise ShapeError.dim_mismatch(locals(), globals())
+        else:
+            if input_BI.shape[1] != self.nr_in:
+                raise ShapeError.dim_mismatch(locals(), globals())
 
     def __call__(self, x):
         '''Predict a single x.'''
-        if self.is_batch(x):
+        is_batch = self.is_batch(x)
+        self._initialize_weights(x, is_batch)
+        self.check_shape(x, is_batch)
+        if is_batch:
             return self.predict_batch(x)
         else:
             return self.predict_one(x)
+
+    def is_batch(self, X):
+        if hasattr(X, 'shape') and len(X.shape) >= 2:
+            return True
+        else:
+            return False
+    
+    def predict_one(self, x):
+        X = self.ops.expand_dims(x, axis=0)
+        return self.predict_batch(X)[0]
+
+    def predict_batch(self, X):
+        raise NotImplementedError
+    
+    def begin_training(self, train_data):
+        return self.Trainer(self, train_data)
 
     def pipe(self, stream, batch_size=1000):
         for batch in util.minibatch(stream, batch_size):
@@ -44,66 +82,38 @@ class Model(object):
             output, finish_update = self.begin_update(X)
             gradient = finish_update(y)
             yield gradient
-
-    def is_batch(self, X):
-        if hasattr(X, 'shape') and len(X.shape) >= 2:
-            return True
-        else:
-            return False
-
-    def predict_batch(self, X):
-        raise NotImplementedError
     
-    def predict_one(self, x):
-        X = self.ops.expand_dims(x, axis=0)
-        return self.predict_batch(X)[0]
+    def average_params(self, optimizer):
+        pass
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X, dropout=0.0):
         raise NotImplementedError
 
 
 class Network(Model):
     '''A model that chains together other Models.'''
     name = 'mlp'
-    FirstLayers = []
-    MiddleLayers = Model
-    LastLayers = []
 
     @property
-    def nr_in(self):
-        return self.layers[0].nr_in
+    def input_shape(self):
+        return self.layers[0].input_shape
 
     @property
-    def nr_out(self):
-        return self.layers[-1].nr_out
+    def output_shape(self):
+        return self.layers[-1].output_shape
 
-    def setup(self, *args, **kwargs):
-        self.ops.reserve(self.get_nr_weight(args, **kwargs))
-        self.layers = [self.make_component(i, args, **kwargs)
-                       for i in range(len(args))]
-
-    def get_nr_weight(self, components, **kwargs):
-        nr_weight = 0
-        for component in components:
-            if hasattr(component, 'nr_weight'):
-                nr_weight += component.nr_weight
-            elif isinstance(component, int):
-                nr_weight += component
-            elif hasattr(component, '__getitem__'):
-                nr_weight += numpy.prod(component)
-        return nr_weight
-
-    def make_component(self, i, args, **kwargs):
-        if isinstance(args[i], Model):
-            return args[i]
-        else:
-            if i < len(self.FirstLayers):
-                Layer = self.FirstLayers[i]
-            elif (len(args) - i) < len(self.LastLayers):
-                Layer = self.LastLayers[len(args) - i]
+    def setup(self, *layers, **kwargs):
+        for i, layer in enumerate(layers):
+            if isinstance(layer, Model):
+                self.layers.append(layer)
             else:
-                Layer = self.MiddleLayers
-            return Layer(self.ops, *args[i], **kwargs)
+                self.layers.append(layer(**kwargs))
+    
+    def initialize_weights(self, x):
+        self.params_data = self.ops.allocate_pool(self.nr_weight,
+                             name=(self.name, 'pool'))
+        for layer in self.layers:
+            x = layer.initialize_weights(x, data=self.params_data)
 
     def predict_batch(self, X):
         for layer in self.layers:

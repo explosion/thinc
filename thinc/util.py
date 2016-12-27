@@ -1,10 +1,23 @@
+from .ops import NumpyOps, CupyOps
+
+
 def get_ops(ops):
-    if ops == 'numpy':
+    if ops in ('numpy', 'cpu'):
         return NumpyOps()
-    elif ops == 'cupy':
+    elif ops == ('cupy', 'gpu'):
         return CupyOps()
     else:
         return ops
+
+
+def score_model(model, x_y):
+    correct = 0
+    total = 0
+    scores = model.predict_batch([x for x, y in x_y])
+    for i, (_, gold) in enumerate(x_y):
+        correct += scores[i].argmax() == gold
+        total += 1
+    return float(correct) / total
 
 
 def partition(examples, split_size):

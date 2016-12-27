@@ -65,6 +65,14 @@ class Ops(object):
     def take_which(self, x, which):
         raise NotImplementedError
 
+    def xavier_uniform_init(self, W, inplace=True):
+        scale = self.xp.sqrt(2. / (W.shape[0] + W.shape[1]))
+        if inplace:
+            W[:] = self.xp.random.uniform(-scale, scale, W.shape)
+            return W
+        else:
+            return self.xp.random.uniform(-scale, scale, W.shape)
+
 
 class NumpyOps(Ops):
     xp = numpy
