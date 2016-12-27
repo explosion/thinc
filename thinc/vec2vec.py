@@ -21,6 +21,7 @@ class Affine(Model):
         self.b = self.data.allocate_shape((self.nr_out,))
         if initialize:
             self.ops.xavier_uniform_init(self.W, inplace=True)
+            assert self.W.flatten().sum() != 0.0
 
     def set_gradient(self, data=None, initialize=False):
         if data is None:
@@ -36,14 +37,14 @@ class Affine(Model):
 
     def begin_update(self, input_BI, dropout=0.0):
         self.check_shape(input_BI, True)
-        output_BO = self.ops.affine(self.W, self.b, input_BI)
+        output_BO = self.predict_batch(input_BI)
         output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
         return output_BO, bp_dropout(self._get_finish_update(input_BI))
    
     def _get_finish_update(self, acts_BI):
         def finish_update(d_acts_BO, optimizer=None, **kwargs):
             self.d_b += d_acts_BO.sum(axis=0)
-            self.d_W = self.ops.batch_outer(d_acts_BO, acts_BI)
+            self.d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
             
             if optimizer is not None:
                 optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
@@ -55,21 +56,30 @@ class Affine(Model):
 class ReLu(Affine):
     name = 'relu'
     def predict_batch(self, input_BI):
-        dotted = self.ops.xp.tensordot(input_BI, self.W, axes=[[1], [1]])
-        dotted += self.b
-        return self.ops.clip_low(dotted, 0, inplace=True)
+        output_BO = Affine.predict_batch(self, input_BI)
+        return output_BO * (output_BO > 0)
 
     def begin_update(self, input_BI, dropout=0.0):
-        output_BO = self.predict_batch(input_BI)
-        output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
-        return output_BO, self._get_finish_update(input_BI)
+        output_BO, finish_affine = Affine.begin_update(self, input_BI,
+                                                       dropout=dropout)
+        mask = output_BO > 0
+        def finish_update(gradient, *args, **kwargs):
+            return finish_affine(gradient * mask, *args, **kwargs)
+        return output_BO * mask, finish_update
 
 
 class Softmax(Affine):
     name = 'softmax'
+
+    def set_weights(self, data=None, initialize=True):
+        Affine.set_weights(self, data=data, initialize=False)
+
     def predict_batch(self, input_bi):
-        output_bo = self.ops.affine(self.W, self.b, input_bi)
-        return self.ops.softmax(output_bo, axis=-1, inplace=True)
+        output_bo = Affine.predict_batch(self, input_bi)
+        return self.ops.softmax(output_bo, axis=-1)
+
+    def begin_update(self, input_BI, dropout=0.0):
+        return Affine.begin_update(self, input_BI, dropout=0.0)
 
 
 class Maxout(Affine):

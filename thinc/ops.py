@@ -54,7 +54,7 @@ class Ops(object):
         return self.xp.zeros(shape, dtype='f')
 
     def allocate_pool(self, nr_weight, name=None):
-        return DataPool(self.xp.zeros((nr_weight,)))
+        return DataPool(self.xp.zeros((nr_weight,), dtype='f'))
 
     def asarray(self, data):
         return self.xp.asarray(data, dtype='f')
@@ -79,7 +79,7 @@ class Ops(object):
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
-        new_x = self.xp.zeros(shape=shape)
+        new_x = self.xp.zeros(shape=shape, dtype='f')
         for i in range(shape[0]):
             new_x[i] = self.xp.exp(x[i] - self.xp.max(x[i]))
             new_x[i] /= new_x[i].sum()

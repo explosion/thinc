@@ -124,7 +124,7 @@ class Network(Model):
         else:
             self.data = data
         for layer in self.layers:
-            layer.set_weights(data=self.data)
+            layer.set_weights(data=self.data, initialize=True)
 
     def set_gradient(self, data=None):
         if data is None:
@@ -143,7 +143,7 @@ class Network(Model):
     def begin_update(self, X, dropout=0.0):
         callbacks = []
         for layer in self.layers:
-            X, finish_update = layer.begin_update(X)
+            X, finish_update = layer.begin_update(X, dropout=dropout)
             callbacks.append(finish_update)
         return X, self._get_finish_update(callbacks)
 
