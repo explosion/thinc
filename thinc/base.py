@@ -116,12 +116,24 @@ class Network(Model):
                 self.layers.append(layer)
             else:
                 self.layers.append(layer(**kwargs))
-    
-    def initialize_weights(self, x):
-        self.params_data = self.ops.allocate_pool(self.nr_weight,
-                             name=(self.name, 'pool'))
+
+    def set_weights(self, data=None):
+        if data is None:
+            self.data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'pool'))
+        else:
+            self.data = data
         for layer in self.layers:
-            x = layer.initialize_weights(x, data=self.params_data)
+            layer.set_weights(data=self.data)
+
+    def set_gradient(self, data=None):
+        if data is None:
+            self.d_data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'd_pool'))
+        else:
+            self.d_data = data
+        for layer in self.layers:
+            layer.set_gradient(data=self.d_data)
 
     def predict_batch(self, X):
         for layer in self.layers:
