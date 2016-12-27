@@ -19,6 +19,8 @@ class ReLuMLP(Network):
             self.layers.append(self.Hidden(nr_out=self.width, nr_in=nr_in))
             nr_in = self.width
         self.layers.append(self.Output(nr_out=nr_out, nr_in=nr_in))
+        self.set_weights()
+        self.set_gradient()
 
 def get_gradient(scores, labels):
     target = np.zeros(scores.shape)
