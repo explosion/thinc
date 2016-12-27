@@ -91,6 +91,10 @@ class Model(object):
 
     def begin_update(self, X, dropout=0.0):
         raise NotImplementedError
+    
+    @property
+    def is_initialized(self):
+        return True
 
 
 class Network(Model):

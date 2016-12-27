@@ -42,6 +42,7 @@ class DataPool(object):
         self.i = 0
 
     def allocate(self, nr_weight):
+        assert self.i + nr_weight <= self.data.size
         data = self.data[self.i : self.i + nr_weight]
         self.i += nr_weight
         return data
@@ -58,14 +59,11 @@ def ops():
 @pytest.fixture
 def model(ops):
     model = Affine(ops=ops, nr_out=10, nr_in=6)
-    model.set_weights()
-    model.set_gradient()
     return model
 
 
 def test_init(ops):
     model = Affine(ops=ops, nr_out=10, nr_in=6)
-    model.set_weights()
     assert model.nr_out == 10
     assert model.nr_in == 6
     assert model.W is not None
@@ -79,7 +77,6 @@ def test_nr_weight(model):
 
 def test_initialize_weights_no_pool(model):
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights(input_)
     assert model.W.shape == (model.nr_out, model.nr_in)
     assert model.b.shape == (model.nr_out,)
 
@@ -87,14 +84,12 @@ def test_initialize_weights_no_pool(model):
 def test_initialize_weights_pool(model):
     pool = DataPool(model.nr_weight)
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights(input_, data=pool)
     assert model.W.shape == (model.nr_out, model.nr_in)
     assert model.b.shape == (model.nr_out,)
 
 
 def test_predict_batch_bias(model):
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights(input_)
     model.b.fill(1)
     output = model.predict_batch(input_)
     assert output.shape == (5, 10)
@@ -102,7 +97,6 @@ def test_predict_batch_bias(model):
 
 def test_predict_batch_weights(model):
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights(input_)
     output = model.predict_batch(input_)
     assert output.shape == (5, 10)
     assert all([val == 1. for val in output.flatten()]), output
@@ -110,7 +104,6 @@ def test_predict_batch_weights(model):
 
 def test_begin_update(model):
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights()
     output, finish_update = model.begin_update(input_)
     assert output.shape == (5, 10)
     assert all([val == 1. for val in output.flatten()]), output
@@ -124,7 +117,6 @@ def test_finish_update(model):
 
     model.name = 'model_name'
     input_ = model.ops.allocate((5, 6))
-    model.initialize_weights(input_)
     output, finish_update = model.begin_update(input_)
     gradient = model.ops.allocate(output.shape)
     d_input = finish_update(gradient, sgd)
