@@ -5,11 +5,14 @@ cimport cython
 from libc.stdint cimport int32_t
 from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
-from blis cimport blis
+
 
 from .typedefs cimport weight_t
 
 include "compile_time_constants.pxi"
+
+IF USE_BLAS:
+    from blis cimport blis
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
