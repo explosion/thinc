@@ -72,6 +72,7 @@ class Model(object):
         raise NotImplementedError
     
     def begin_training(self, train_data):
+        self.initialize_weights(train_data)
         return self.Trainer(self, train_data)
 
     def pipe(self, stream, batch_size=1000):
@@ -105,6 +106,10 @@ class Network(Model):
     def output_shape(self):
         return self.layers[-1].output_shape
 
+    @property
+    def nr_weight(self):
+        return sum(layer.nr_weight for layer in self.layers)
+
     def setup(self, *layers, **kwargs):
         for i, layer in enumerate(layers):
             if isinstance(layer, Model):
@@ -128,11 +133,11 @@ class Network(Model):
         for layer in self.layers:
             X, finish_update = layer.begin_update(X)
             callbacks.append(finish_update)
-        return X, self._get_finish_update(backprop_callbacks)
+        return X, self._get_finish_update(callbacks)
 
     def _get_finish_update(self, callbacks):
-        def finish_update(gradient, drop=0.0):
+        def finish_update(gradient, optimizer, **_):
             for callback in reversed(callbacks):
-                gradient = callback(gradient, drop=drop)
+                gradient = callback(gradient, optimizer, **_)
             return gradient
         return finish_update
