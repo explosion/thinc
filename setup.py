@@ -16,38 +16,25 @@ except ImportError:
 
 PACKAGES = [
     'thinc',
-    'thinc.linear',
+    'thinc.ids2id',
     'thinc.extra',
-    'thinc.neural',
-    'thinc.linear.tests',
+    'thinc.ids2id.tests',
     'thinc.extra.tests',
-    'thinc.neural.tests'
 ]
 
 
 MOD_NAMES = [
     'thinc.linalg',
-    'thinc.prng',
     'thinc.structs',
     'thinc.typedefs',
-    'thinc.base',
-    'thinc.linear.avgtron',
-    'thinc.linear.features',
-    'thinc.linear.serialize',
-    'thinc.linear.sparse',
+    'thinc.ids2id.avgtron',
+    'thinc.ids2id.features',
+    'thinc.ids2id.serialize',
+    'thinc.ids2id.sparse',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
-    'thinc.neural.weights',
-    'thinc.neural.nn',
-    'thinc.neural.solve',
-    'thinc.neural.forward',
-    'thinc.neural.backward',
-    'thinc.neural.embed',
-    'thinc.neural.initializers',
-    'thinc.neural.tests._funcs_shim',
-    'thinc.neural.tests._backprop_shim',
 ]
 
 
