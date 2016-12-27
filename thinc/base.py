@@ -70,7 +70,8 @@ class Model(object):
         raise NotImplementedError
     
     def begin_training(self, train_data):
-        self.initialize_weights(train_data)
+        self.set_weights(initialize=True)
+        self.set_gradient()
         return self.Trainer(self, train_data)
 
     def pipe(self, stream, batch_size=1000):
@@ -117,14 +118,15 @@ class Network(Model):
         self.set_weights(initialize=True)
         self.set_gradient()
 
-    def set_weights(self, data=None, initialize=True):
+    def set_weights(self, example=None, data=None, initialize=True):
         if data is None:
             self.data = self.ops.allocate_pool(self.nr_weight,
                             name=(self.name, 'pool'))
         else:
             self.data = data
         for layer in self.layers:
-            layer.set_weights(data=self.data, initialize=initialize)
+            layer.set_weights(data=self.data, example=example,
+                initialize=initialize)
 
     def set_gradient(self, data=None):
         if data is None:

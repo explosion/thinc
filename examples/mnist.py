@@ -22,8 +22,6 @@ class ReLuMLP(Network):
                 name='hidden-%d' % i))
             nr_in = self.width
         self.layers.append(self.Output(nr_out=nr_out, nr_in=nr_in))
-        self.set_weights()
-        self.set_gradient()
 
 
 def get_gradient(scores, labels):
@@ -35,11 +33,9 @@ def get_gradient(scores, labels):
 
 def main(batch_size=128, nb_epoch=10, nb_classes=10):
     model = ReLuMLP(10, 784)
-    print([(layer.nr_out, layer.nr_in) for layer in model.layers])
     train_data, check_data, test_data = datasets.keras_mnist()
     
     with model.begin_training(train_data) as (trainer, optimizer):
-        print(len(train_data))
         for examples, truth in trainer.iterate(model, train_data, check_data,
                                                nb_epoch=nb_epoch):
             assert hasattr(examples, 'shape'), type(examples)
@@ -47,8 +43,7 @@ def main(batch_size=128, nb_epoch=10, nb_classes=10):
             gradient, loss = trainer.get_gradient(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
-        #print(loss / len(truth))
-    print('Test score:', score_model(model, test_data))
+    print('Test: %.3f' % score_model(model, test_data))
 
 
 if __name__ == '__main__':

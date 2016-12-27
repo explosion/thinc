@@ -95,8 +95,8 @@ class ReLu(Affine):
 class Softmax(Affine):
     name = 'softmax'
 
-    def set_weights(self, data=None, initialize=True):
-        Affine.set_weights(self, data=data, initialize=False)
+    def set_weights(self, example=None, data=None, initialize=True):
+        Affine.set_weights(self, example=example, data=data, initialize=False)
 
     def predict_batch(self, input_bi):
         output_bo = Affine.predict_batch(self, input_bi)
