@@ -53,15 +53,16 @@ class Affine(Model):
             outer = self.ops.batch_outer(d_acts_BO, acts_BI)
             d_W += outer
             d_acts_BI = self.ops.batch_dot(d_acts_BO, self.W.T)
+            assert d_acts_BI.shape == acts_BI.shape
             
-            sgd(self.W, d_W, **kwargs)
-            sgd(self.b, d_b, **kwargs)
+            #sgd(self.W, d_W, key=('W', self.name), **kwargs)
+            #sgd(self.b, d_b, key=('b', self.name), **kwargs)
             return d_acts_BI
         return finish_update
 
 
 class ReLu(Affine):
-    name = 'affine'
+    name = 'relu'
     def predict_batch(self, input_BI):
         dotted = self.ops.xp.tensordot(input_BI, self.W, axes=[[1], [1]])
         dotted += self.b
@@ -70,8 +71,9 @@ class ReLu(Affine):
     def begin_update(self, input_BI, dropout=0.0):
         output_BO = self.ops.affine(self.W, self.b, input_BI)
         mask = self.ops.get_dropout(output_BO.shape, dropout)
-        mask *= output_BO > 0
-        output_BO *= mask
+        if mask is not None:
+            mask *= output_BO > 0
+            output_BO *= mask
         return output_BO, self._get_finish_update(input_BI, mask)
 
 
@@ -98,7 +100,8 @@ class Maxout(Affine):
         best_BO = self.ops.take_which(output_BOC, which_BO)
         mask_BO = self.ops.get_dropout(best_BO.shape, dropout)
         finish_update = self._get_finish_update(input_BI, which_BO, mask_BO)
-        best_BO *= mask_BO
+        if mask_BO is not None:
+            best_BO *= mask_BO
         return best_BO, finish_update
 
     def _get_finish_update(self, acts_BI, which_BO, mask_BO):
