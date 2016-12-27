@@ -38,7 +38,6 @@ def main(batch_size=128, nb_epoch=10, nb_classes=10):
     with model.begin_training(train_data) as (trainer, optimizer):
         for examples, truth in trainer.iterate(model, train_data, check_data,
                                                nb_epoch=nb_epoch):
-            assert hasattr(examples, 'shape'), type(examples)
             guess, finish_update = model.begin_update(examples, dropout=0.3)
             gradient, loss = trainer.get_gradient(guess, truth)
             optimizer.set_loss(loss)
