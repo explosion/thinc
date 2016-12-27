@@ -13,8 +13,8 @@ from thinc.optimizers import linear_decay
 class ReLuMLP(Network):
     Hidden = ReLu
     Output = Softmax
-    width = 512
-    depth = 2
+    width = 128
+    depth = 3
 
     def setup(self, nr_out, nr_in, **kwargs):
         for i in range(self.depth):
@@ -33,7 +33,7 @@ def get_gradient(scores, labels):
     return scores - target
 
 
-def main(batch_size=128, nb_epoch=8, nb_classes=10):
+def main(batch_size=128, nb_epoch=10, nb_classes=10):
     model = ReLuMLP(10, 784)
     print([(layer.nr_out, layer.nr_in) for layer in model.layers])
     train_data, check_data, test_data = datasets.keras_mnist()
@@ -41,7 +41,7 @@ def main(batch_size=128, nb_epoch=8, nb_classes=10):
     with model.begin_training(train_data) as (trainer, optimizer):
         print(len(train_data))
         for examples, truth in trainer.iterate(model, train_data, check_data,
-                                               nb_epoch=10):
+                                               nb_epoch=nb_epoch):
             assert hasattr(examples, 'shape'), type(examples)
             guess, finish_update = model.begin_update(examples, dropout=0.3)
             gradient, loss = trainer.get_gradient(guess, truth)
@@ -57,6 +57,6 @@ if __name__ == '__main__':
     else:
         import cProfile
         import pstats
-        cProfile.runctx("main()", globals(), locals(), "Profile.prof")
+        cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
         s.strip_dirs().sort_stats("time").print_stats()
