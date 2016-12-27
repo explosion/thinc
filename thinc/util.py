@@ -13,7 +13,7 @@ def get_ops(ops):
 def score_model(model, x_y):
     correct = 0
     total = 0
-    scores = model.predict_batch([x for x, y in x_y])
+    scores = model.predict_batch(model.ops.asarray([x for x, y in x_y]))
     for i, (_, gold) in enumerate(x_y):
         correct += scores[i].argmax() == gold
         total += 1
