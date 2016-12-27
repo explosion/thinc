@@ -35,10 +35,10 @@ class Affine(Model):
         self.check_shape(input_BI, True)
         return self.ops.affine(self.W, self.b, input_BI)
 
-    def begin_update(self, input_BI, drop=0.0):
+    def begin_update(self, input_BI, dropout=0.0):
         self.check_shape(input_BI, True)
         output_BO = self.ops.affine(self.W, self.b, input_BI)
-        mask = self.ops.get_dropout(output_BO.shape, drop)
+        mask = self.ops.get_dropout(output_BO.shape, dropout)
         if mask is not None:
             output_BO *= mask
         return output_BO, self._get_finish_update(input_BI, mask)
@@ -67,9 +67,9 @@ class ReLu(Affine):
         dotted += self.b
         return self.ops.clip_low(dotted, 0, inplace=True)
 
-    def begin_update(self, input_BI, drop=0.0):
+    def begin_update(self, input_BI, dropout=0.0):
         output_BO = self.ops.affine(self.W, self.b, input_BI)
-        mask = self.ops.get_dropout(output_BO.shape, drop)
+        mask = self.ops.get_dropout(output_BO.shape, dropout)
         mask *= output_BO > 0
         output_BO *= mask
         return output_BO, self._get_finish_update(input_BI, mask)
@@ -90,13 +90,13 @@ class Maxout(Affine):
         affine = self.ops.affine
         return take_which(argmax(affine(input_bi, self.W, self.b)))
 
-    def begin_update(self, input_BI, drop=0.0):
+    def begin_update(self, input_BI, dropout=0.0):
         W_OCI = self.W
         b_OC = self.b
         output_BOC = self.ops.affine(W_OCI, b_OC, input_BI)
         which_BO = self.ops.argmax(output_BOC, axis=-1)
         best_BO = self.ops.take_which(output_BOC, which_BO)
-        mask_BO = self.ops.get_dropout(best_BO.shape, drop)
+        mask_BO = self.ops.get_dropout(best_BO.shape, dropout)
         finish_update = self._get_finish_update(input_BI, which_BO, mask_BO)
         best_BO *= mask_BO
         return best_BO, finish_update

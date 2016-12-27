@@ -8,7 +8,7 @@ class MeanPooling(Model):
             means.append(self.ops.mean(x, axis=0))
         return self.ops.asarray(means)
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X, dropout=0.0):
         mask = self.ops.get_dropout(X.shape, drop)
         X *= mask
 
@@ -40,7 +40,7 @@ class MaxPooling(Model):
                 maxes.append(x.max(axis=0))
         return self.ops.asarray(maxes)
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X, dropout=0.0):
         mask = dropout(X, drop)
         def finish_update(gradient):
             mask = dropout(X, drop, inplace=True)
@@ -65,7 +65,7 @@ class MinPooling(Model):
                 maxes.append(x.min(axis=0))
         return self.ops.asarray(maxes)
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X, dropout=0.0):
         mask = dropout(X, drop, inplace=True)
         def finish_update(gradient, optimizer, L2=0.0):
             batch_grads = []
@@ -83,12 +83,12 @@ class MultiPooling(NeuralNet):
     def predict_batch(self, X):
         return self.ops.concatenate([in_.predict_batch(X) for in_ in self.inputs], axis=1)
  
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X, dropout=0.0):
         output = []
         backward = []
         start = 0
         for input_ in self.inputs:
-            out, finish = input_.begin_update(X, drop=drop)
+            out, finish = input_.begin_update(X, dropout=drop)
             output.append(out)
             end = start + input_.nr_out
             backward.append((finish, start, end))

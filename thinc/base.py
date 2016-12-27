@@ -33,6 +33,9 @@ class Model(object):
     def setup(self, *args, **kwargs):
         pass
 
+    def initialize_weights(self, x=None, data=None, is_batch=False):
+        pass
+
     def check_shape(self, x, is_batch):
         if is_batch:
             if len(x.shape) != 2:
@@ -118,7 +121,7 @@ class Network(Model):
             X = layer.predict_batch(X)
         return X
 
-    def begin_update(self, X):
+    def begin_update(self, X, dropout=0.0):
         callbacks = []
         for layer in self.layers:
             X, finish_update = layer.begin_update(X)

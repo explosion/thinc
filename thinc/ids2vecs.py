@@ -11,7 +11,7 @@ class WindowEncode(Model):
         out, _ = self._forward(X)
         return out
 
-    def begin_update(self, ids, drop=0.0):
+    def begin_update(self, ids, dropout=0.0):
         batch_outputs, whiches = self._forward(X)
         mask = dropout(batch_outputs, drop, inplace=True)
         finish_update = self._get_finish_output(ids, batch_outputs, whiches, mask)

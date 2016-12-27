@@ -28,19 +28,22 @@ class Subclass(Model):
     def predict_one(self, x):
         return 'label'
 
+    def check_shape(self, x, is_batch):
+        pass
+
     def is_batch(self, x):
         return True if isinstance(x, list) else False
 
 
 def test_specify_shape():
-    sub = Subclass(MockOps(), 2, 2)
+    sub = Subclass(2, 2, ops=MockOps())
     assert sub.shape == (2,2)
     assert sub.nr_out == 2
     assert sub.nr_in == 2
 
 
 def test_predict():
-    sub = Subclass(MockOps(), 2, 2)
+    sub = Subclass(2, 2, ops=MockOps())
     assert sub('question') == 'label'
     assert sub(['q1', 'w2']) == ['label', 'label']
 
@@ -49,6 +52,6 @@ def test_predict():
 
 
 def test_begin_update():
-    sub = Subclass(MockOps(), 2,2)
+    sub = Subclass(2, 2, ops=MockOps())
     with pytest.raises(NotImplementedError):
-        sub.begin_update('question', drop=0.0)
+        sub.begin_update('question', dropout=0.0)

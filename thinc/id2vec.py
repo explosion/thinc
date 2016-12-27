@@ -31,7 +31,7 @@ class Embed(Model):
                 output[j] = result[i]
         return output
 
-    def begin_update(self, ids):
+    def begin_update(self, ids, dropout=0.0):
         return self.predict_batch(ids), self._get_finish_update(ids)
 
     def _get_finish_update(self, ids):
