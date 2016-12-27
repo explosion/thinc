@@ -6,6 +6,17 @@ except ImportError:
     cupy = None
 
 
+class DataPool(object):
+    def __init__(self, data):
+        self.data = data
+        self.i = 0
+
+    def allocate(self, nr_weight):
+        data = self.data[self.i : self.i + nr_weight]
+        self.i += nr_weight
+        return data
+
+
 class Ops(object):
     xp = None
 
@@ -34,6 +45,12 @@ class Ops(object):
             self._i += nr_weight
             return chunk
         return self.xp.zeros(shape, dtype='f')
+
+    def allocate_param(self, pool, shape, name=None):
+        return pool.allocate(numpy.prod(shape)).reshape(shape)
+
+    def allocate_pool(self, nr_weight, name=None):
+        return DataPool(self.xp.zeros((nr_weight,)))
 
     def asarray(self, data):
         return self.xp.asarray(data, dtype='f')

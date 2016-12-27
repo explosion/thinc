@@ -2,6 +2,7 @@ import numpy
 
 from . import util
 from .train import Trainer
+from .exceptions import ShapeError
 
 
 class Model(object):
@@ -32,23 +33,20 @@ class Model(object):
     def setup(self, *args, **kwargs):
         pass
 
-    def _initialize_weights(self, x):
-        pass
-
     def check_shape(self, x, is_batch):
         if is_batch:
             if len(x.shape) != 2:
                 raise ShapeError.expected_batch(locals(), globals())
-            if input_BI.shape[1] != self.nr_in:
+            if x.shape[1] != self.nr_in:
                 raise ShapeError.dim_mismatch(locals(), globals())
         else:
-            if input_BI.shape[1] != self.nr_in:
+            if x.shape[1] != self.nr_in:
                 raise ShapeError.dim_mismatch(locals(), globals())
 
     def __call__(self, x):
         '''Predict a single x.'''
         is_batch = self.is_batch(x)
-        self._initialize_weights(x, is_batch)
+        self.initialize_weights(x=x, is_batch=is_batch)
         self.check_shape(x, is_batch)
         if is_batch:
             return self.predict_batch(x)

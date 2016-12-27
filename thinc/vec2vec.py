@@ -6,9 +6,18 @@ class Affine(Model):
     name = 'affine'
     W = None
     b = None
+    nr_out = None
+    nr_in = None
     params_data = None
 
-    def initialize_weights(self, x, data=None):
+    @property
+    def nr_weight(self):
+        if self.W is not None:
+            return self.W.size + (0 if self.b is None else self.b.size)
+        else:
+            return (self.nr_out * self.nr_in) + self.nr_out
+
+    def initialize_weights(self, x=None, data=None):
         if data is None:
             if self.params_data is None:
                 self.params_data = self.ops.allocate_pool(self.nr_weight,
@@ -23,11 +32,11 @@ class Affine(Model):
                         name=(self.name, 'b'))
 
     def predict_batch(self, input_BI):
-        if len(input_BI.shape) != 2:
-            raise ShapeError.expected_batch(locals(), globals())
+        self.check_shape(input_BI, True)
         return self.ops.affine(self.W, self.b, input_BI)
 
     def begin_update(self, input_BI, drop=0.0):
+        self.check_shape(input_BI, True)
         output_BO = self.ops.affine(self.W, self.b, input_BI)
         mask = self.ops.get_dropout(output_BO.shape, drop)
         if mask is not None:
