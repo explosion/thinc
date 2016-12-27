@@ -33,9 +33,6 @@ class Model(object):
     def setup(self, *args, **kwargs):
         pass
 
-    def initialize_weights(self, x=None, data=None, is_batch=False):
-        pass
-
     def check_shape(self, x, is_batch):
         if is_batch:
             if len(x.shape) != 2:
@@ -50,8 +47,9 @@ class Model(object):
 
     def __call__(self, x):
         '''Predict a single x.'''
+        if not self.is_initialized:
+            self.set_weights(initialize=True, example=x)
         is_batch = self.is_batch(x)
-        self.initialize_weights(x=x, is_batch=is_batch)
         self.check_shape(x, is_batch)
         if is_batch:
             return self.predict_batch(x)
@@ -116,15 +114,17 @@ class Network(Model):
                 self.layers.append(layer)
             else:
                 self.layers.append(layer(**kwargs))
+        self.set_weights(initialize=True)
+        self.set_gradient()
 
-    def set_weights(self, data=None):
+    def set_weights(self, data=None, initialize=True):
         if data is None:
             self.data = self.ops.allocate_pool(self.nr_weight,
                             name=(self.name, 'pool'))
         else:
             self.data = data
         for layer in self.layers:
-            layer.set_weights(data=self.data, initialize=True)
+            layer.set_weights(data=self.data, initialize=initialize)
 
     def set_gradient(self, data=None):
         if data is None:

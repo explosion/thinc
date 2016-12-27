@@ -19,7 +19,6 @@ random.seed(0)
 @pytest.fixture
 def model():
     model = vec2vec.Affine(nr_out=2, nr_in=2)
-    model.initialize_weights()
     return model
 
 
@@ -78,8 +77,8 @@ def test_update():
     W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
     bias = np.asarray([0.,0.])
 
-    model = vec2vec.Affine(W=W, b=bias, nr_out=W.shape[0], nr_in=W.shape[1])
-    sgd = SGD(1.0)
+    model = vec2vec.Affine(W=W, b=bias)
+    sgd = SGD(model.ops, 1.0)
     
     ff = np.asarray([[0,0]])
     tf = np.asarray([[1,0]])

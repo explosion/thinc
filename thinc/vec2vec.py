@@ -6,22 +6,49 @@ class Affine(Model):
     name = 'affine'
     nr_out = None
     nr_in = None
+    data = None
+
+    @property
+    def is_initialized(self):
+        return self.W is not None
+
+    @property
+    def input_shape(self):
+        return (self.nr_in,)
+
+    @property
+    def output_shape(self):
+        return (self.nr_out,)
 
     @property
     def nr_weight(self):
         return (self.nr_out * self.nr_in) + self.nr_out
 
-    def set_weights(self, data=None, initialize=True):
+    def setup(self, *args, **kwargs):
+        self.W = None
+        if 'W' in kwargs:
+            self.nr_out = kwargs.get('W').shape[0]
+            self.nr_in = kwargs.get('W').shape[1]
+        if self.nr_out is not None and self.nr_in is not None:
+            self.set_weights(initialize=True)
+            self.set_gradient()
+        if 'W' in kwargs:
+            self.W[:] = kwargs.get('W')
+        if 'b' in kwargs:
+            self.b[:] = kwargs.get('b')
+
+    def set_weights(self, data=None, initialize=True, example=None):
+        if example is not None:
+            self.nr_in = example.shape[-1]
         if data is None:
-            self.data = self.ops.allocate_pool(self.nr_weight,
-                            name=(self.name, 'pool'))
-        else:
-            self.data = data
-        self.W = self.data.allocate_shape((self.nr_out, self.nr_in))
-        self.b = self.data.allocate_shape((self.nr_out,))
+            if self.data is None:
+                self.data = self.ops.allocate_pool(self.nr_weight,
+                                name=(self.name, 'pool'))
+            data = self.data
+        self.W = data.allocate_shape((self.nr_out, self.nr_in))
+        self.b = data.allocate_shape((self.nr_out,))
         if initialize:
             self.ops.xavier_uniform_init(self.W, inplace=True)
-            assert self.W.flatten().sum() != 0.0
 
     def set_gradient(self, data=None, initialize=False):
         if data is None:
@@ -45,7 +72,7 @@ class Affine(Model):
         def finish_update(d_acts_BO, optimizer=None, **kwargs):
             self.d_b += d_acts_BO.sum(axis=0)
             self.d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
-            if optimizer is not None:
+            if optimizer is not None and self.data is not None:
                 optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
                 optimizer(self.b, self.d_b, key=('b', self.name), **kwargs)
             return self.ops.batch_dot(d_acts_BO, self.W.T)
