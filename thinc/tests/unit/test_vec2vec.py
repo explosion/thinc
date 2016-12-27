@@ -46,6 +46,9 @@ class DataPool(object):
         self.i += nr_weight
         return data
 
+    def allocate_shape(self, shape):
+        return self.allocate(numpy.prod(shape)).reshape(shape)
+
 
 @pytest.fixture
 def ops():
@@ -54,15 +57,19 @@ def ops():
 
 @pytest.fixture
 def model(ops):
-    return Affine(ops=ops, nr_out=10, nr_in=6)
+    model = Affine(ops=ops, nr_out=10, nr_in=6)
+    model.set_weights()
+    model.set_gradient()
+    return model
 
 
 def test_init(ops):
     model = Affine(ops=ops, nr_out=10, nr_in=6)
+    model.set_weights()
     assert model.nr_out == 10
     assert model.nr_in == 6
-    assert model.W is None
-    assert model.b is None
+    assert model.W is not None
+    assert model.b is not None
     assert isinstance(model.ops, MockOps)
 
 
@@ -110,40 +117,41 @@ def test_begin_update(model):
 
 
 def test_finish_update(model):
-    def sgd(data, gradient):
+    seen_keys = set()
+    def sgd(data, gradient, key=None, **kwargs):
+        seen_keys.add(key)
         assert data.shape == gradient.shape
 
+    model.name = 'model_name'
     input_ = model.ops.allocate((5, 6))
     model.initialize_weights(input_)
     output, finish_update = model.begin_update(input_)
     gradient = model.ops.allocate(output.shape)
     d_input = finish_update(gradient, sgd)
     assert d_input.shape == input_.shape
+    assert ('W', 'model_name') in seen_keys
+    assert ('b', 'model_name') in seen_keys
 
 
 def test_predict_batch_not_batch(model):
-    model.initialize_weights()
     input_ = model.ops.allocate((6,))
     with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_predict_update_dim_mismatch(model):
-    model.initialize_weights()
     input_ = model.ops.allocate((10, 5))
     with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_begin_update_not_batch(model):
-    model.initialize_weights()
     input_ = model.ops.allocate((6,))
     with pytest.raises(ShapeError):
         model.begin_update(input_)
 
 
 def test_begin_update_dim_mismatch(model):
-    model.initialize_weights()
     input_ = model.ops.allocate((10, 5))
     with pytest.raises(ShapeError):
         model.begin_update(input_)
