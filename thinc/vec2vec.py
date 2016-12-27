@@ -60,12 +60,9 @@ class ReLu(Affine):
         return self.ops.clip_low(dotted, 0, inplace=True)
 
     def begin_update(self, input_BI, dropout=0.0):
-        output_BO = self.ops.affine(self.W, self.b, input_BI)
-        mask = self.ops.get_dropout(output_BO.shape, dropout)
-        if mask is not None:
-            mask *= output_BO > 0
-            output_BO *= mask
-        return output_BO, self._get_finish_update(input_BI, mask)
+        output_BO = self.predict_batch(input_BI)
+        output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
+        return output_BO, self._get_finish_update(input_BI)
 
 
 class Softmax(Affine):
