@@ -4,5 +4,5 @@ class ShapeError(ValueError):
         return cls("Expected batch")
     
     @classmethod
-    def dim_mismatch(cls, locals_, globals_):
-        return cls("Dimension mismatch")
+    def dim_mismatch(cls, dims, locals_, globals_):
+        return cls("Dimension mismatch: %s vs %s" % dims)

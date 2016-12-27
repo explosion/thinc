@@ -17,7 +17,7 @@ class Affine(Model):
         else:
             return (self.nr_out * self.nr_in) + self.nr_out
 
-    def initialize_weights(self, x=None, data=None):
+    def initialize_weights(self, x=None, data=None, is_batch=True):
         if data is None:
             if self.params_data is None:
                 self.params_data = self.ops.allocate_pool(self.nr_weight,

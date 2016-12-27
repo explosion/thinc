@@ -41,10 +41,12 @@ class Model(object):
             if len(x.shape) != 2:
                 raise ShapeError.expected_batch(locals(), globals())
             if x.shape[1] != self.nr_in:
-                raise ShapeError.dim_mismatch(locals(), globals())
+                dims = (x.shape[1], self.nr_in)
+                raise ShapeError.dim_mismatch(dims, locals(), globals())
         else:
-            if x.shape[1] != self.nr_in:
-                raise ShapeError.dim_mismatch(locals(), globals())
+            if x.shape[0] != self.nr_in:
+                dims = (x.shape[0], self.nr_in)
+                raise ShapeError.dim_mismatch(dims, locals(), globals())
 
     def __call__(self, x):
         '''Predict a single x.'''
