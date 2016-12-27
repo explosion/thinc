@@ -51,14 +51,7 @@ class Ops(object):
         if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
-        if (self._i + nr_weight) < self.data.size:
-            chunk = self.data[self._i : self._i + nr_weight].reshape(shape)
-            self._i += nr_weight
-            return chunk
         return self.xp.zeros(shape, dtype='f')
-
-    def allocate_param(self, pool, shape, name=None):
-        return pool.allocate(numpy.prod(shape)).reshape(shape)
 
     def allocate_pool(self, nr_weight, name=None):
         return DataPool(self.xp.zeros((nr_weight,)))
