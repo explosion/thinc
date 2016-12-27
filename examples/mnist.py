@@ -1,6 +1,7 @@
 from __future__ import print_function
 import plac
 
+import numpy as np
 from thinc import datasets
 from thinc.base import Network
 from thinc.vec2vec import ReLu, Softmax
@@ -15,9 +16,15 @@ class ReLuMLP(Network):
 
     def setup(self, nr_out, nr_in, **kwargs):
         for i in range(self.depth):
-            self.layers.append(self.Hidden(self.width, nr_in))
+            self.layers.append(self.Hidden(nr_out=self.width, nr_in=nr_in))
             nr_in = self.width
-        self.layers.append(self.Output(nr_out, nr_in))
+        self.layers.append(self.Output(nr_out=nr_out, nr_in=nr_in))
+
+def get_gradient(scores, labels):
+    target = np.zeros(scores.shape)
+    for i, label in enumerate(labels):
+        target[i, int(label)] = 1.0
+    return scores - target
 
 
 def main(batch_size=128, nb_epoch=8, nb_classes=10):
@@ -26,12 +33,10 @@ def main(batch_size=128, nb_epoch=8, nb_classes=10):
     
     with model.begin_training(train_data) as (trainer, optimizer):
         for examples, truth in trainer.iterate(model, train_data, check_data):
-            guess, update = model.begin_update(examples)
+            assert hasattr(examples, 'shape'), type(examples)
+            guess, finish_update = model.begin_update(examples)
 
-            gradient, loss = model.get_gradient(guess, truth)
-            optimizer.set_loss(loss)
-
-            finish_update(gradient, optimizer, L2=trainer.L2)
+            finish_update(get_gradient(guess, truth), optimizer)
 
     print('Test score:', score_model(model, test_data))
 
