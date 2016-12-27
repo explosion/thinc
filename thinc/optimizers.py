@@ -23,7 +23,8 @@ def clip_gradient(gradient, threshold):
 
 
 class SGD(object):
-    def __init__(self, lr, momentum=0.0, decay=0.0, **settings):
+    def __init__(self, ops, lr, momentum=0.0, decay=0.0, **settings):
+        self.ops = ops
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
@@ -53,7 +54,8 @@ class SGD(object):
 
 
 class Adam(object):
-    def __init__(self, lr, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
+    def __init__(self, ops, lr, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
+        self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
         self.averages = {}
@@ -82,9 +84,9 @@ class Adam(object):
     def __call__(self, weights, gradient, key=None):
         assert key is not None
         if key not in self.mom1:
-            self.mom1[key] = numpy.zeros(weights.shape)
+            self.mom1[key] = self.ops.allocate(weights.shape)
         if key not in self.mom2:
-            self.mom2[key] = numpy.zeros(weights.shape)
+            self.mom2[key] = self.ops.allocate(weights.shape)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
 
