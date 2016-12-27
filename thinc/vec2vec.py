@@ -4,60 +4,51 @@ from .exceptions import ShapeError
 
 class Affine(Model):
     name = 'affine'
-    W = None
-    b = None
     nr_out = None
     nr_in = None
-    params_data = None
 
     @property
     def nr_weight(self):
-        if self.W is not None:
-            return self.W.size + (0 if self.b is None else self.b.size)
-        else:
-            return (self.nr_out * self.nr_in) + self.nr_out
+        return (self.nr_out * self.nr_in) + self.nr_out
 
-    def initialize_weights(self, x=None, data=None, is_batch=True):
+    def set_weights(self, data=None, initialize=True):
         if data is None:
-            if self.params_data is None:
-                self.params_data = self.ops.allocate_pool(self.nr_weight,
-                                        name=(self.name, 'pool'))
-            data = self.params_data
-        if self.W is None:
-            self.W = self.ops.allocate_param(data, (self.nr_out, self.nr_in),
-                        name=(self.name, 'W'))
+            self.data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'pool'))
+        else:
+            self.data = data
+        self.W = self.data.allocate_shape((self.nr_out, self.nr_in))
+        self.b = self.data.allocate_shape((self.nr_out,))
+        if initialize:
             self.ops.xavier_uniform_init(self.W, inplace=True)
-        if self.b is None:
-            self.b = self.ops.allocate_param(data, (self.nr_out,),
-                        name=(self.name, 'b'))
+
+    def set_gradient(self, data=None, initialize=False):
+        if data is None:
+            self.d_data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'pool'))
+        else:
+            self.d_data = data
+        self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_in))
+        self.d_b = self.d_data.allocate_shape((self.nr_out,))
 
     def predict_batch(self, input_BI):
-        self.check_shape(input_BI, True)
         return self.ops.affine(self.W, self.b, input_BI)
 
     def begin_update(self, input_BI, dropout=0.0):
         self.check_shape(input_BI, True)
         output_BO = self.ops.affine(self.W, self.b, input_BI)
-        mask = self.ops.get_dropout(output_BO.shape, dropout)
-        if mask is not None:
-            output_BO *= mask
-        return output_BO, self._get_finish_update(input_BI, mask)
-    
-    def _get_finish_update(self, acts_BI, mask):
-        def finish_update(d_acts_BO, sgd, **kwargs):
-            d_b = self.ops.allocate(self.b.shape)
-            d_W = self.ops.allocate(self.W.shape)
-            if mask is not None:
-                d_acts_BO *= mask
-            d_b += d_acts_BO.sum(axis=0)
-            outer = self.ops.batch_outer(d_acts_BO, acts_BI)
-            d_W += outer
-            d_acts_BI = self.ops.batch_dot(d_acts_BO, self.W.T)
-            assert d_acts_BI.shape == acts_BI.shape
+        output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
+        return output_BO, bp_dropout(self._get_finish_update(input_BI))
+   
+    def _get_finish_update(self, acts_BI):
+        def finish_update(d_acts_BO, optimizer=None, **kwargs):
+            self.d_b += d_acts_BO.sum(axis=0)
+            self.d_W = self.ops.batch_outer(d_acts_BO, acts_BI)
             
-            #sgd(self.W, d_W, key=('W', self.name), **kwargs)
-            #sgd(self.b, d_b, key=('b', self.name), **kwargs)
-            return d_acts_BI
+            if optimizer is not None:
+                optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
+                optimizer(self.b, self.d_b, key=('b', self.name), **kwargs)
+            return self.ops.batch_dot(d_acts_BO, self.W.T)
         return finish_update
 
 
