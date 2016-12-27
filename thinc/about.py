@@ -5,9 +5,10 @@
 
 __name__ = 'thinc'
 __version__ = '6.0.0'
-__summary__ = 'Solve sparse structured learning problems'
+__summary__ = "spaCy's Machine Learning library for NLP in Python"
 __uri__ = 'https://github.com/spacy-io/thinc'
 __author__ = 'Matthew Honnibal'
 __email__ = 'honnibal@gmail.com'
 __license__ = 'MIT'
+__title__ = "spaCy's Machine Learning library for NLP in Python"
 __release__ = False
