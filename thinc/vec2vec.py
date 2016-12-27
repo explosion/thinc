@@ -45,7 +45,6 @@ class Affine(Model):
         def finish_update(d_acts_BO, optimizer=None, **kwargs):
             self.d_b += d_acts_BO.sum(axis=0)
             self.d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
-            
             if optimizer is not None:
                 optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
                 optimizer(self.b, self.d_b, key=('b', self.name), **kwargs)
@@ -57,15 +56,13 @@ class ReLu(Affine):
     name = 'relu'
     def predict_batch(self, input_BI):
         output_BO = Affine.predict_batch(self, input_BI)
-        return output_BO * (output_BO > 0)
+        return self.ops.xp.maximum(output_BO, 0., out=output_BO)
 
     def begin_update(self, input_BI, dropout=0.0):
-        output_BO, finish_affine = Affine.begin_update(self, input_BI,
-                                                       dropout=dropout)
-        mask = output_BO > 0
+        output_BO, finish_affine = Affine.begin_update(self, input_BI)
         def finish_update(gradient, *args, **kwargs):
-            return finish_affine(gradient * mask, *args, **kwargs)
-        return output_BO * mask, finish_update
+            return finish_affine(gradient * (output_BO > 0), *args, **kwargs)
+        return output_BO, finish_update
 
 
 class Softmax(Affine):
