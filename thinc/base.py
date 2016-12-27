@@ -148,8 +148,10 @@ class Network(Model):
         return X, self._get_finish_update(callbacks)
 
     def _get_finish_update(self, callbacks):
-        def finish_update(gradient, optimizer, **_):
+        def finish_update(gradient, optimizer, **kwargs):
             for callback in reversed(callbacks):
-                gradient = callback(gradient, optimizer, **_)
+                gradient = callback(gradient, optimizer=None, **kwargs)
+            optimizer(self.data.data, self.d_data.data,
+                key=('data', self.name), **kwargs)
             return gradient
         return finish_update
