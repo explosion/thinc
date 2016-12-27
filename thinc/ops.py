@@ -70,6 +70,21 @@ class Ops(object):
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
 
+    def softmax(self, x, inplace=False, axis=1):
+        if x.ndim >= 3:
+            raise NotImplementedError(
+                "Softmax currently only supports 2d. ndim=%d" % x.ndim)
+        shape = x.shape
+        new_x = self.xp.zeros(shape=shape)
+        for i in range(shape[0]):
+            new_x[i] = self.xp.exp(x[i] - self.xp.max(x[i]))
+            new_x[i] /= new_x[i].sum()
+        if inplace:
+            x[:] = new_x
+            return x
+        else:
+            return new_x
+
     def expand_dims(self, a, axis=-1):
         return self.xp.expand_dims(a, axis=axis)
 
