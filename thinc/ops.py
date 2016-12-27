@@ -16,21 +16,32 @@ class DataPool(object):
         self.i += nr_weight
         return data
 
+    def allocate_shape(self, shape):
+        return self.allocate(numpy.prod(shape)).reshape(shape)
+
 
 class Ops(object):
     xp = None
 
-    def __init__(self, xp=None, reserve=0):
+    def __init__(self, xp=None):
         if xp is not None:
             self.xp = xp
-        self.data = self.xp.zeros((reserve,), dtype='f')
-        self._i = 0
 
-    def reserve(self, n):
-        assert self._i == 0, "TODO Error"
-        self.data = self.xp.zeros((n,), dtype='f')
-
-    def get_dropout(self, shape, drop):
+    def dropout(self, x, dropout, inplace=False):
+        if dropout <= 0.0:
+            return x, lambda func: func
+        mask = self.get_dropout_mask(x.shape, dropout)
+        def wrap_backprop(backprop):
+            def finish_update(gradient, *args, **kwargs):
+                return backprop(gradient * mask, *args, **kwargs)
+            return finish_update
+        if inplace:
+            x *= mask
+            return x, wrap_backprop
+        else:
+            return x * mask, wrap_backprop
+ 
+    def get_dropout_mask(self, shape, drop):
         if drop <= 0.0:
             return None
         coinflips = self.xp.random.uniform(0., 1., shape)
