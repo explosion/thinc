@@ -147,7 +147,9 @@ def setup_package():
                 'numpy>=1.7',
                 'murmurhash>=0.26,<0.27',
                 'cymem>=1.30,<1.32',
-                'preshed>=0.46,<0.47'],
+                'preshed>=0.46,<0.47',
+                'tqdm>=4.10.0,<5.0.0',
+                ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
