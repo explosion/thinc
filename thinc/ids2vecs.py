@@ -19,7 +19,7 @@ class WindowEncode(Model):
     def setup(self, *args, **kwargs):
         self.data = None
         self.W = None
-        if 'W' in kwargs:
+        if kwargs.get('W') is not None:
             self.nr_out = kwargs.get('W').shape[0]
             self.nr_piece = kwargs.get('W').shape[1]
             self.nr_in = kwargs.get('W').shape[2]
@@ -27,14 +27,12 @@ class WindowEncode(Model):
         and self.nr_piece is not None:
             self.set_weights(initialize=True)
             self.set_gradient()
-        if 'W' in kwargs:
+        if kwargs.get('W') is not None:
             self.W[:] = kwargs.get('W')
-        if 'b' in kwargs:
+        if kwargs.get('b') is not None:
             self.b[:] = kwargs.get('b')
 
     def set_weights(self, data=None, initialize=True, example=None):
-        if example is not None:
-            self.nr_in = example.shape[-1]
         if data is None:
             if self.data is None:
                 self.data = self.ops.allocate_pool(self.nr_weight,
@@ -57,14 +55,16 @@ class WindowEncode(Model):
 
     def predict_batch(self, X):
         out, _ = self._forward(X)
+        out = self.ops.flatten(out)
         return out
 
     def begin_update(self, ids, dropout=0.0):
         outputs, whiches = self._forward(ids)
-        outputs, bp_dropout = self.ops.dropout(outputs, dropout,
+        flat_out = self.ops.flatten(outputs)
+        flat_out, bp_dropout = self.ops.dropout(flat_out, dropout,
                                                inplace=True)
-        finish_update = self._get_finish_update(ids, outputs, whiches)
-        return outputs, bp_dropout(finish_update)
+        finish_update = self._get_finish_update(ids, flat_out, whiches)
+        return flat_out, bp_dropout(finish_update)
 
     def add_vector(self, id_, shape, add_gradient=True):
         if not hasattr(self, 'vectors') or self.vectors is None:
@@ -107,8 +107,12 @@ class WindowEncode(Model):
                 self.add_param(id_, (self.nr_in,))
         return ids
 
-    def _get_finish_update(self, ids, batch_outputs, whiches):
-        def finish_update(batch_gradients, optimizer=None, **kwargs):
+    def _get_finish_update(self, ids, flat_out, whiches):
+        def finish_update(flat_gradients, optimizer=None, **kwargs):
+            lengths = [len(w) for w in whiches]
+            batch_gradients = self.ops.unflatten(flat_gradients, lengths)
+            batch_outputs = self.ops.unflatten(flat_out, lengths)
+            
             all_inputs = self._get_all_inputs(ids)
             all_gradients = self._get_all_gradients(batch_outputs, batch_gradients,
                                                     whiches)
@@ -118,8 +122,10 @@ class WindowEncode(Model):
             # Bop,Bfi->opfi
             self.d_W += self.ops.batch_outer(all_gradients, all_inputs)
             tuned_ids = self._fine_tune(self.W, ids, all_gradients)
-            for id_ in tuned_ids:
-                optimizer(self.vectors.get(id_), self.get_gradient(id_), key=id_)
+            if optimizer is not None:
+                for id_ in tuned_ids:
+                    optimizer(self.vectors.get(id_), self.get_gradient(id_),
+                              key=id_)
             return None
         return finish_update
 
@@ -150,6 +156,8 @@ class WindowEncode(Model):
         return out
 
     def _fine_tune(self, W, X, all_gradients):
+        if self.static:
+            return set()
         # Bop,opfi->Bfi
         tuning = self.ops.xp.tensordot(all_gradients, W, axes=[[1,2], [0, 1]])
         tuned_ids = set()

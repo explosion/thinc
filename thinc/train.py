@@ -43,5 +43,5 @@ class Trainer(object):
             for batch in tqdm.tqdm(minibatch(train_data,
                                    batch_size=self.batch_size)):
                 X, y = zip(*batch)
-                yield model.ops.asarray(X), model.ops.asarray(y)
+                yield X, y
             print('\b\bDev.: %.3f' % score_model(model, check_data))

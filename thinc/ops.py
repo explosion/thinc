@@ -1,9 +1,16 @@
 import numpy
+from cytoolz import concat
+
 
 try:
     import cupy
 except ImportError:
     cupy = None
+
+try:
+    import cytoolz as toolz
+except ImportError:
+    import toolz
 
 
 class DataPool(object):
@@ -40,7 +47,19 @@ class Ops(object):
             return x, wrap_backprop
         else:
             return x * mask, wrap_backprop
+
+    def flatten(self, X):
+        return self.asarray(list(concat(X)))
  
+    def unflatten(self, X, lengths):
+        unflat = []
+        for length in lengths:
+            unflat.append(X[:length])
+            X = X[length:]
+        assert len(X) == 0
+        assert len(unflat) == len(lengths)
+        return unflat
+
     def get_dropout_mask(self, shape, drop):
         if drop <= 0.0:
             return None
@@ -56,8 +75,8 @@ class Ops(object):
     def allocate_pool(self, nr_weight, name=None):
         return DataPool(self.xp.zeros((nr_weight,), dtype='f'))
 
-    def asarray(self, data):
-        return self.xp.asarray(data, dtype='f')
+    def asarray(self, data, dtype='f'):
+        return self.xp.asarray(data, dtype=dtype)
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])

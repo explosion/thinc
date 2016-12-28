@@ -10,11 +10,13 @@ def get_ops(ops):
         return ops
 
 
-def score_model(model, x_y):
+def score_model(model, X_y):
     correct = 0
     total = 0
-    scores = model.predict_batch(model.ops.asarray([x for x, y in x_y]))
-    for i, (_, gold) in enumerate(x_y):
+    X, y = zip(*X_y)
+    y = model.ops.flatten(y)
+    scores = model.predict_batch(X)
+    for i, gold in enumerate(y):
         correct += scores[i].argmax() == gold
         total += 1
     return float(correct) / total

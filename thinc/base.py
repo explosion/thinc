@@ -70,7 +70,7 @@ class Model(object):
         raise NotImplementedError
     
     def begin_training(self, train_data):
-        self.set_weights(initialize=True)
+        self.set_weights(example=train_data, initialize=True)
         self.set_gradient()
         return self.Trainer(self, train_data)
 
@@ -156,7 +156,7 @@ class Network(Model):
     def _get_finish_update(self, callbacks):
         def finish_update(gradient, optimizer, **kwargs):
             for callback in reversed(callbacks):
-                gradient = callback(gradient, optimizer=None, **kwargs)
+                gradient = callback(gradient, optimizer=optimizer, **kwargs)
             optimizer(self.data.data, self.d_data.data,
                 key=('data', self.name), **kwargs)
             return gradient
