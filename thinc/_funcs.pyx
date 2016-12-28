@@ -3,12 +3,15 @@
 # cython: infer_types=True
 cimport cython
 from libc.string cimport memcpy, memset
+from libc.math cimport exp, sqrt
+from libc.stdlib cimport calloc, malloc, free
 
 from .typedefs cimport len_t
 from .typedefs cimport idx_t
 from .typedefs cimport weight_t
+from .structs cimport ConstantsC
 
-from .linalg cimport MatMat, MatVec, VecVec, Vec, sqrt
+from .linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 
 
 DEF EPS = 0.00000001 
