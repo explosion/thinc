@@ -1,21 +1,68 @@
+from collections import defaultdict
+
 from .base import Model
 
 
 class WindowEncode(Model):
-    def __init__(self, vectors=None, W=None, b=None, ops=None):
-        self.ops = ops
-        self.vectors = vectors
-        self.W = W
+    nr_piece = 3
+    vectors = None
+    nr_out = None
+    nr_in = None
 
-    def predict_batch(self, batch):
+    @property
+    def nr_weight(self):
+        return self.nr_piece * ((self.nr_out * self.nr_in) + self.nr_out)
+
+    def setup(self, *args, **kwargs):
+        self.data = None
+        self.W = None
+        if 'W' in kwargs:
+            self.nr_out = kwargs.get('W').shape[0]
+            self.nr_piece = kwargs.get('W').shape[1]
+            self.nr_in = kwargs.get('W').shape[2]
+        if self.nr_out is not None and self.nr_in is not None \
+        and self.nr_piece is not None:
+            self.set_weights(initialize=True)
+            self.set_gradient()
+        if 'W' in kwargs:
+            self.W[:] = kwargs.get('W')
+        if 'b' in kwargs:
+            self.b[:] = kwargs.get('b')
+
+    def predict_batch(self, X):
         out, _ = self._forward(X)
         return out
 
     def begin_update(self, ids, dropout=0.0):
-        batch_outputs, whiches = self._forward(X)
-        mask = dropout(batch_outputs, drop, inplace=True)
-        finish_update = self._get_finish_output(ids, batch_outputs, whiches, mask)
-        return batch_outputs
+        outputs, whiches = self._forward(ids)
+        outputs, bp_dropout = self.ops.dropout(outputs, dropout,
+                                               inplace=True)
+        finish_update = self._get_finish_output(ids, outputs, whiches)
+        return batch_outputs, bp_dropout(finish_update)
+
+    def set_weights(self, data=None, initialize=True, example=None):
+        if example is not None:
+            self.nr_in = example.shape[-1]
+        if data is None:
+            if self.data is None:
+                self.data = self.ops.allocate_pool(self.nr_weight,
+                                name=(self.name, 'pool'))
+            data = self.data
+        self.W = data.allocate_shape((self.nr_out, self.nr_piece, self.nr_in))
+        self.b = data.allocate_shape((self.nr_out, self.nr_piece))
+        if initialize:
+            self.ops.xavier_uniform_init(self.W, inplace=True)
+
+    def set_gradient(self, data=None, initialize=False):
+        if data is None:
+            self.d_data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'pool'))
+        else:
+            self.d_data = data
+        self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_in))
+        self.d_b = self.d_data.allocate_shape((self.nr_out,))
+
+
 
     def _forward(self, batch):
         positions = self._get_positions(batch)
@@ -34,13 +81,13 @@ class WindowEncode(Model):
             for j, id_ in enumerate(seq):
                 ids[id_].append((i, j))
         for id_ in ids:
-            vector = self.get_param(id_)
+            vector = self.vectors.get(id_)
             if vector is None:
                 self.add_param(id_, (self.nr_in,))
         return ids
 
     def _get_finish_update(self, batch_outputs, whiches):
-        def finish_update(batch_gradients):
+        def finish_update(batch_gradients, optimizer=None, **kwargs):
             if drop:
                 for grad, mask in zip(batch_gradients, drop_mask):
                     grad *= mask
@@ -54,18 +101,19 @@ class WindowEncode(Model):
             self.d_W += self.ops.batch_outer(all_gradients, all_inputs)
             tuned_ids = self._fine_tune(self.W, X, all_gradients)
             for id_ in tuned_ids:
-                optimizer(self.get_param(id_), self.get_gradient(id_), key=id_)
+                optimizer(self.vectors.get(id_), self.get_gradient(id_), key=id_)
             return None
         return finish_update
 
     def _dot_ids(self, ids, lengths):
-        out = [self.allocate((length, self.nr_out, self.nr_piece)) for length in lengths]
+        out = [self.ops.allocate((length, self.nr_out, self.nr_piece))
+                             for length in lengths]
         for id_, egs in ids.items():
-            vector = self.get_param(id_)
+            vector = self.vectors.get(id_)
             if vector is None:
                 continue
             # opFi,i->Fop
-            hidden = numpy.tensordot(self.W, vector, axes=[[3], [0]])
+            hidden = self.ops.tensordot(self.W, vector, axes=[[3], [0]])
             hidden = hidden.transpose((2, 0, 1))
             for i, j in egs:
                 out_i = out[i]
@@ -85,7 +133,7 @@ class WindowEncode(Model):
 
     def _fine_tune(self, W, X, all_gradients):
         # opfi,Bop->Bfi
-        tuning = numpy.tensordot(all_gradients, W, axes=[[1,2], [0, 1]])
+        tuning = self.ops.tensordot(all_gradients, W, axes=[[1,2], [0, 1]])
         tuned_ids = set()
         i = 0
         for ids in X:
@@ -111,7 +159,7 @@ class WindowEncode(Model):
         all_inputs = self.ops.allocate((total_length, 5, self.nr_in))
         i = 0
         for ids in X:
-            vectors = [self.get_param(id_) for id_ in ids]
+            vectors = [self.vectors.get(id_) for id_ in ids]
             for vector in vectors:
                 if i >= 2:
                     all_inputs[i-2, 0] = vector
@@ -128,7 +176,8 @@ class WindowEncode(Model):
     def _get_all_gradients(self, batch_outputs, batch_gradients, whiches):
         assert len(batch_outputs) == len(batch_gradients)
         total_length = sum(len(x) for x in batch_outputs)
-        all_gradients = self.allocate((total_length, self.nr_out, self.nr_piece))
+        all_gradients = self.ops.allocate((total_length, self.nr_out,
+                                           self.nr_piece))
         i = 0
         for output, gradients, which in zip(batch_outputs, batch_gradients, whiches):
             assert output.shape == gradients.shape, (output.shape, gradients.shape)
