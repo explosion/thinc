@@ -7,61 +7,54 @@ import numpy as np
 import code
 
 
-class LSTMModel(object):
+class LSTM(Model):
     '''
-    Code by Andrej Karpathy, here: https://gist.github.com/karpathy/587454dc0146a6ae21fc
+    Code by Andrej Karpathy, here:
+    https://gist.github.com/karpathy/587454dc0146a6ae21fc
     '''
-    def __init__(self, input_size, hidden_size, fancy_forget_bias_init = 3):
+    fancy_forget_bias_init = 3.
+    nr_in = None
+    nr_out = None
+    
+    def setup(self, **kwargs): 
         """ 
         Initialize parameters of the LSTM (both weights and biases in one matrix) 
-        One might way to have a positive fancy_forget_bias_init number (e.g. maybe even up to 5, in some papers)
+        One might way to have a positive fancy_forget_bias_init number
+        (e.g. maybe even up to 5, in some papers)
         """
+        pass
+
+    def set_weights(self, data=None, initialize=True):
         # +1 for the biases, which will be the first row of WLSTM
-        self.weights = np.random.randn(input_size + hidden_size + 1, 4 * hidden_size)
-        self.weights /= np.sqrt(input_size + hidden_size)
-        self.weights[0,:] = 0 # initialize biases to zero
-        if fancy_forget_bias_init != 0:
-            # forget gates get little bit negative bias initially to encourage them to be turned off
-            # remember that due to Xavier initialization above, the raw output activations from gates before
+        if initialize:
+            self.ops.xavier_init(self.W)
+        #self.weights = np.random.randn(input_size + hidden_size + 1,
+        #                               4 * hidden_size)
+        #self.weights /= np.sqrt(input_size + hidden_size)
+        #self.weights[0,:] = 0 # initialize biases to zero
+        if self.fancy_forget_bias_init != 0:
+            # forget gates get little bit negative bias initially to encourage
+            # them to be turned off remember that due to Xavier initialization
+            # above, the raw output activations from gates before
             # nonlinearity are zero mean and on order of standard deviation ~1
-            self.weights[0,hidden_size:2*hidden_size] = fancy_forget_bias_init
+            self.W[0,hidden_size:2*hidden_size] = self.fancy_forget_bias_init
+
+    def predict_batch(self, sequences):
+        X, is_not_end = pack_sequences(sequences)
+        do_lstm = begin_lstm_forward(self.W, X.shape[1], X.shape[2])
+        out = np.zeros((X.shape[0], X.shape[1], self.nr_out))
+        for t in range(X.shape[0]):
+            out[t] = do_lstm(X[t], is_not_end[t])
+        return unpack_sequences(out, is_not_end)
   
     def get_fwd_cache(self, X, c0 = None, h0 = None):
         """
-        X should be of shape (n,b,input_size), where n = length of sequence, b = batch size
+        X should be of shape (n,b,input_size), where n = length of sequence,
+        b = batch size
         """
         n, b, input_size = X.shape
         d = self.weights.shape[1]/4 # hidden size
-        if c0 is None:
-            c0 = np.zeros((b,d))
-        if h0 is None:
-            h0 = np.zeros((b,d))
-    
-        # Perform the LSTM forward pass with X as the input
-        xphpb = self.weights.shape[0] # x plus h plus bias, lol
-        Hin = np.zeros((n, b, xphpb)) # input [1, xt, ht-1] to each tick of the LSTM
-        Hout = np.zeros((n, b, d)) # hidden representation of the LSTM (gated cell content)
-        IFOG = np.zeros((n, b, d * 4)) # input, forget, output, gate (IFOG)
-        IFOGf = np.zeros((n, b, d * 4)) # after nonlinearity
-        C = np.zeros((n, b, d)) # cell content
-        Ct = np.zeros((n, b, d)) # tanh of cell content
-        for t in xrange(n):
-            # concat [x,h] as input to the LSTM
-            prevh = Hout[t-1] if t > 0 else h0
-            Hin[t,:,0] = 1 # bias
-            Hin[t,:,1:input_size+1] = X[t]
-            Hin[t,:,input_size+1:] = prevh
-            # compute all gate activations. dots: (most work is this line)
-            IFOG[t] = Hin[t].dot(self.weights)
-            # non-linearities
-            IFOGf[t,:,:3*d] = 1.0/(1.0+np.exp(-IFOG[t,:,:3*d])) # sigmoids; these are the gates
-            IFOGf[t,:,3*d:] = np.tanh(IFOG[t,:,3*d:]) # tanh
-            # compute the cell activation
-            prevc = C[t-1] if t > 0 else c0
-            C[t] = IFOGf[t,:,:d] * IFOGf[t,:,3*d:] + IFOGf[t,:,d:2*d] * prevc
-            Ct[t] = np.tanh(C[t])
-            Hout[t] = IFOGf[t,:,2*d:3*d] * Ct[t]
-
+        for t in range(n):
         cache = {}
         cache['Hout'] = Hout
         cache['IFOGf'] = IFOGf
@@ -73,106 +66,137 @@ class LSTMModel(object):
         cache['h0'] = h0
         # return C[t], as well so we can continue LSTM with prev state init if needed
         return Hout, C[t], Hout[t], cache
-      
-    def forward(self, X, c0 = None, h0 = None):
-        """
-        X should be of shape (n,b,input_size), where n = length of sequence, b = batch size
-        """
-        n, b, input_size = X.shape
-        d = self.weights.shape[1]/4 # hidden size
-        if c0 is None:
-            c0 = np.zeros((b,d))
-        if h0 is None:
-            h0 = np.zeros((b,d))
-    
+
+    def begin_update(self, sequences):
+        X, is_not_end = pack_sequences(sequences)
+        do_lstm = begin_lstm_backward(self.W, X.shape[1], X.shape[2])
+        out = np.zeros((X.shape[0], X.shape[1], self.nr_out))
+        callbacks = [None for _ in range(X.shape[0])]
+        for t in range(X.shape[0]):
+            out[t], callbacks[t] = do_lstm(X[t], is_not_end[t])
+        callbacks.reverse()
+        def finish_update(gradient, optimizer=None, **kwargs):
+            for callback in callbacks:
+                gradient = callback(gradient)
+            return gradient
+        return out, finish_update
+
+def begin_LSTM_forward(weights, batch_size, input_size):
+    d = weights.shape[1]/4 # hidden size
+    prevc = np.zeros((batch_size, hidden_size))
+    prevh = np.zeros((batch_size, hidden_size))
+    # input, forget, output, gate (IFOG)
+    IFOG = np.zeros((batch_size, hidden_size * 4)) 
+    C = np.zeros((b, d)) # cell content
+    def fwd_lstm_step(X_t, is_not_end):
         # Perform the LSTM forward pass with X as the input
-        xphpb = self.weights.shape[0] # x plus h plus bias, lol
-        Hout = np.zeros((n, b, d)) # hidden representation of the LSTM (gated cell content)
-        IFOG = np.zeros((b, d * 4)) # input, forget, output, gate (IFOG)
-        C = np.zeros((n, b, d)) # cell content
-        prevh = h0
-        prevc = c0
-        for t in xrange(n):
-            # concat [x,h] as input to the LSTM
-            # (with 1 prepended for bias)
-            Hin = np.hstack((np.ones((b, 1)), X[t], prevh))
-            # compute all gate activations. dots: (most work is this line)
-            np.dot(Hin, self.weights, out=IFOG)
-            # non-linearities, computed in-place
-            IFO = IFOG[:,:3*d]
-            G = IFOG[:,3*d:]
-            IFO *= -1
-            np.exp(IFO, out=IFO)
-            IFO += 1
-            IFO **= -1
-            np.tanh(G, out=G) # tanh
-            I = IFO[:,:d]
-            F = IFO[:,d:2*d]
-            O = IFO[:,2*d:3*d]
-            # compute the cell activation
-            C[t] = I * G + F * prevc
-            Hout[t] = O * np.tanh(C[t])
-            prevc = C[t]
-            prevh = Hout[t]
-        # return C[t], as well so we can continue LSTM with prev state init if needed
-        return Hout, C[t], Hout[t], {}
- 
-    def backward(self, dHout_in, cache, dcn = None, dhn = None): 
-        Hout = cache['Hout']
-        IFOGf = cache['IFOGf']
-        IFOG = cache['IFOG']
-        C = cache['C']
-        Ct = cache['Ct']
-        Hin = cache['Hin']
-        c0 = cache['c0']
-        h0 = cache['h0']
-        n,b,d = Hout.shape
-        input_size = self.weights.shape[0] - d - 1 # -1 due to bias
- 
-        # backprop the LSTM
-        dIFOG = np.zeros(IFOG.shape)
-        dIFOGf = np.zeros(IFOGf.shape)
-        dWLSTM = np.zeros(self.weights.shape)
-        dHin = np.zeros(Hin.shape)
-        dC = np.zeros(C.shape)
-        dX = np.zeros((n,b,input_size))
-        dh0 = np.zeros((b, d))
-        dc0 = np.zeros((b, d))
-        dHout = dHout_in.copy() # make a copy so we don't have any funny side effects
-        if dcn is not None:
-            dC[n-1] += dcn.copy() # carry over gradients from later
-        if dhn is not None:
-            dHout[n-1] += dhn.copy()
-        for t in reversed(xrange(n)):
-            tanhCt = Ct[t]
-            dIFOGf[t,:,2*d:3*d] = tanhCt * dHout[t]
-            # backprop tanh non-linearity first then continue backprop
-            dC[t] += (1-tanhCt**2) * (IFOGf[t,:,2*d:3*d] * dHout[t])
-            if t > 0:
-                dIFOGf[t,:,d:2*d] = C[t-1] * dC[t]
-                dC[t-1] += IFOGf[t,:,d:2*d] * dC[t]
-            else:
-                dIFOGf[t,:,d:2*d] = c0 * dC[t]
-                dc0 = IFOGf[t,:,d:2*d] * dC[t]
-            dIFOGf[t,:,:d] = IFOGf[t,:,3*d:] * dC[t]
-            dIFOGf[t,:,3*d:] = IFOGf[t,:,:d] * dC[t]
+        # hidden representation of the LSTM (gated cell content)
+        # concat [x,h] as input to the LSTM
+        # (with 1 prepended for bias)
+        Hin = np.hstack((np.ones((batch_size, 1)), X_t, prevh))
+        # compute all gate activations. dots: (most work is this line)
+        np.dot(Hin, self.weights, out=IFOG)
+        # non-linearities, computed in-place
+        IFO = IFOG[:,:3*d]
+        G = IFOG[:,3*d:]
+        IFO *= -1
+        np.exp(IFO, out=IFO)
+        IFO += 1
+        IFO **= -1
+        np.tanh(G, out=G) # tanh
+        I = IFO[:,:d]
+        F = IFO[:,d:2*d]
+        O = IFO[:,2*d:3*d]
+        # compute the cell activation
+        C *= F
+        C += I * G
+        Hout = O * np.tanh(C)
+        prevh[:] = Hout
+        # Reset states at boundaries.
+        prevh *= is_not_end
+        IFOG *= is_not_end
+        C *= is_not_end
+        return Hout
+    return fwd_lstm_step
+
+
+def begin_lstm_backward(weights, d_weights, batch_size, input_size):
+    C = np.zeros((b,d))
+    H = np.zeros((b,d))
+    
+    # Perform the LSTM forward pass with X as the input
+    xphpb = weights.shape[0] # x plus h plus bias, lol
+    Hin = np.zeros((n, b, xphpb)) # input [1, xt, ht-1] to each tick of the LSTM
+    Hout = np.zeros((n, b, d)) # hidden representation of the LSTM (gated cell content)
+    IFOG = np.zeros((n, b, d * 4)) # input, forget, output, gate (IFOG)
+    IFOGf = np.zeros((n, b, d * 4)) # after nonlinearity
+    C = np.zeros((n, b, d)) # cell content
+    Ct = np.zeros((n, b, d)) # tanh of cell content
+
+    # backprop the LSTM
+    dIFOG = np.zeros(IFOG.shape)
+    dIFOGf = np.zeros(IFOGf.shape)
+    dWLSTM = np.zeros(self.weights.shape)
+    dHin = np.zeros(Hin.shape)
+    dC = np.zeros(C.shape)
+    dX = np.zeros((n,b,input_size))
+    dh0 = np.zeros((b, d))
+    dc0 = np.zeros((b, d))
+    dHout = dHout_in.copy() # make a copy so we don't have any funny side effects
+    if dcn is not None:
+        dC[n-1] += dcn.copy() # carry over gradients from later
+    if dhn is not None:
+        dHout[n-1] += dhn.copy()
+
+    def bwd_lstm_step(X):
+        # concat [x,h] as input to the LSTM
+        prevh = Hout[t-1] if t > 0 else h0
+        Hin[t,:,0] = 1 # bias
+        Hin[t,:,1:input_size+1] = X[t]
+        Hin[t,:,input_size+1:] = prevh
+        # compute all gate activations. dots: (most work is this line)
+        IFOG[t] = Hin[t].dot(self.weights)
+        # non-linearities
+        IFOGf[t,:,:3*d] = 1.0/(1.0+np.exp(-IFOG[t,:,:3*d])) # sigmoids; these are the gates
+        IFOGf[t,:,3*d:] = np.tanh(IFOG[t,:,3*d:]) # tanh
+        # compute the cell activation
+        prevc = C[t-1] if t > 0 else c0
+        C[t] = IFOGf[t,:,:d] * IFOGf[t,:,3*d:] + IFOGf[t,:,d:2*d] * prevc
+        Ct[t] = np.tanh(C[t])
+        Hout[t] = IFOGf[t,:,2*d:3*d] * Ct[t]
+
+        return Hout[t], finish_update
+    return lstm_step
+    
+
+def _get_finish_backward(dC, dprevC, dHout, dprevHout, dIFOGf, dWLSTM, dHin,
+        weights, tanhCt, prevc, d):
+    def finish_update(gradient, optimizer=None, **kwargs):
+        dIFOGf[:,2*d:3*d] = tanhCt * dHout
+        # backprop tanh non-linearity first then continue backprop
+        dC += (1-tanhCt**2) * (IFOGf[:,2*d:3*d] * dHout)
+        if t > 0:
+            dIFOGf[:,:,d:2*d] = prevc * dC
+            dprevc += IFOGf[:,d:2*d] * dC
+        else:
+            dIFOGf[:,d:2*d] = c0 * dC
+            dc0 = IFOGf[:,d:2*d] * dC
+        dIFOGf[:,:d] = IFOGf[:,3*d:] * dC
+        dIFOGf[:,3*d:] = IFOGf[:,:d] * dC
             
-            # backprop activation functions
-            dIFOG[t,:,3*d:] = (1 - IFOGf[t,:,3*d:] ** 2) * dIFOGf[t,:,3*d:]
-            y = IFOGf[t,:,:3*d]
-            dIFOG[t,:,:3*d] = (y*(1.0-y)) * dIFOGf[t,:,:3*d]
+        # backprop activation functions
+        dIFOG[:,3*d:] = (1 - IFOGf[:,3*d:] ** 2) * dIFOGf[:,3*d:]
+        y = IFOGf[:,:3*d]
+        dIFOG[:,:3*d] = (y*(1.0-y)) * dIFOGf[:,:3*d]
  
-            # backprop matrix multiply
-            dWLSTM += np.dot(Hin[t].transpose(), dIFOG[t])
-            dHin[t] = dIFOG[t].dot(self.weights.transpose())
+        # backprop matrix multiply
+        dWLSTM += np.dot(Hin.transpose(), dIFOG)
+        dHin = dIFOG.dot(weights.transpose())
  
-            # backprop the identity transforms into Hin
-            dX[t] = dHin[t,:,1:input_size+1]
-            if t > 0:
-                dHout[t-1,:] += dHin[t,:,input_size+1:]
-            else:
-                dh0 += dHin[t,:,input_size+1:]
-        return dX, dWLSTM, dc0, dh0
+        # backprop the identity transforms into Hin
+        dX = dHin[:,1:input_size+1]
+        dprevHout += dHin[:,input_size+1:]
+        # TODO
 
 
 # -------------------
