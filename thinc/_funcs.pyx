@@ -4,11 +4,11 @@
 cimport cython
 from libc.string cimport memcpy, memset
 
-from ..typedefs cimport len_t
-from ..typedefs cimport idx_t
-from ..typedefs cimport weight_t
+from .typedefs cimport len_t
+from .typedefs cimport idx_t
+from .typedefs cimport weight_t
 
-from ..linalg cimport MatMat, MatVec, VecVec, Vec, sqrt
+from .linalg cimport MatMat, MatVec, VecVec, Vec, sqrt
 
 
 DEF EPS = 0.00000001 
