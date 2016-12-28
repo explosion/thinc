@@ -98,8 +98,11 @@ class Ops(object):
         else:
             return self.xp.maximum(x, value)
 
-    def take_which(self, x, which):
-        raise NotImplementedError
+    def take_which(self, x, which, axis=-1):
+        output = self.allocate(which.shape)
+        for i in range(x.shape[axis]):
+            output += x[:,:,i] * (which == i)
+        return output
 
     def xavier_uniform_init(self, W, inplace=True):
         scale = self.xp.sqrt(2. / (W.shape[0] + W.shape[1]))
