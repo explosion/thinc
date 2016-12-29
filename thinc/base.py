@@ -138,6 +138,7 @@ class Network(Model):
             self.d_data = data
         for layer in self.layers:
             layer.set_gradient(data=self.d_data)
+            layer.d_data = None
 
     def predict_batch(self, X):
         for layer in self.layers:
@@ -150,6 +151,12 @@ class Network(Model):
             X, finish_update = layer.begin_update(X, dropout=dropout)
             callbacks.append(finish_update)
         return X, self._get_finish_update(callbacks)
+
+    def average_params(self, optimizer):
+        for layer in self.layers:
+            layer.average_params(optimizer)
+        if self.data is not None and ('data', self.name) in optimizer.averages:
+            self.data.data[:] = optimizer.averages[('data', self.name)]
 
     def _get_finish_update(self, callbacks):
         def finish_update(gradient, optimizer, **kwargs):
