@@ -111,12 +111,11 @@ class WindowEncode(Model):
     def _get_finish_update(self, ids, flat_out, whiches):
         def finish_update(flat_gradients, optimizer=None, **kwargs):
             lengths = [len(w) for w in whiches]
-            batch_gradients = self.ops.unflatten(flat_gradients, lengths)
-            batch_outputs = self.ops.unflatten(flat_out, lengths)
             
             all_inputs = self._get_all_inputs(ids)
-            all_gradients = self._get_all_gradients(batch_outputs, batch_gradients,
-                                                    whiches)
+            flat_whiches = self.ops.flatten(whiches)
+            all_gradients = self._get_all_gradients(flat_gradients,
+                                                    flat_whiches)
             if all_inputs.shape[0] == 0 or all_gradients.shape[0] == 0:
                 return None
             self.d_b += all_gradients.sum(axis=0)
@@ -202,16 +201,9 @@ class WindowEncode(Model):
                 i += 1
         return all_inputs
 
-    def _get_all_gradients(self, batch_outputs, batch_gradients, whiches):
-        assert len(batch_outputs) == len(batch_gradients)
-        total_length = sum(len(x) for x in batch_outputs)
-        all_gradients = self.ops.allocate((total_length, self.nr_out,
+    def _get_all_gradients(self, gradients, flat_whiches):
+        all_gradients = self.ops.allocate((len(gradients), self.nr_out,
                                            self.nr_piece))
-        i = 0
-        for output, gradients, which in zip(batch_outputs, batch_gradients, whiches):
-            assert output.shape == gradients.shape, (output.shape, gradients.shape)
-            for grad, wh in zip(gradients, which):
-                for j in range(self.nr_piece):
-                    all_gradients[i, :, j] += grad * (wh == j)
-                i += 1
+        for i in range(self.nr_piece):
+            all_gradients[:, :, i] += gradients * (flat_whiches == i)
         return all_gradients
