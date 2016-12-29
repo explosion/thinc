@@ -15,7 +15,7 @@ class ExtractWindow(Model):
 
     def predict_batch(self, X):
         nr_feat = self.n * 2 + 1
-        shape = (X.shape[0], nr_feat, X.shape[1:])
+        shape = (X.shape[0], nr_feat) + X.shape[1:]
         output = self.ops.allocate(shape)
         # Let L(w[i]) LL(w[i]), R(w[i]), RR(w[i])
         # denote the words one and two to the left and right of word i.
@@ -30,7 +30,7 @@ class ExtractWindow(Model):
         # Now R(w[i]), RR(w[i]) etc
         for i in range(1, self.n+1):
             output[:-i, self.n + i] = X[:-i]
-        return output
+        return output.reshape(shape[0], self.ops.xp.prod(shape[1:]))
 
     def begin_update(self, X, dropout=0.0):
         output = self.predict_batch(X)
