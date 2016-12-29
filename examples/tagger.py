@@ -63,18 +63,18 @@ def main():
                 model.width, add_gradient=True)
 
     with model.begin_training(train_data) as (trainer, optimizer):
-        trainer.nb_epoch = 2
+        trainer.nb_epoch = 10
         for examples, truth in trainer.iterate(model, train_data, check_data,
                                                nb_epoch=trainer.nb_epoch):
             truth = model.ops.flatten(truth)
-            guess, finish_update = model.begin_update(examples, dropout=0.0)
+            guess, finish_update = model.begin_update(examples, dropout=0.2)
             gradient, loss = trainer.get_gradient(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
 
 
 if __name__ == '__main__':
-    if 0:
+    if 1:
         plac.call(main)
     else:
         import cProfile
@@ -82,4 +82,3 @@ if __name__ == '__main__':
         cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
         s.strip_dirs().sort_stats("time").print_stats()
-    #plac.call(main)
