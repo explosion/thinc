@@ -16,9 +16,9 @@ except ImportError:
 
 PACKAGES = [
     'thinc',
-    'thinc.ids2id',
+    'thinc.linear',
     'thinc.extra',
-    'thinc.ids2id.tests',
+    'thinc.linear.tests',
     'thinc.extra.tests',
 ]
 
@@ -27,10 +27,10 @@ MOD_NAMES = [
     'thinc.linalg',
     'thinc.structs',
     'thinc.typedefs',
-    'thinc.ids2id.avgtron',
-    'thinc.ids2id.features',
-    'thinc.ids2id.serialize',
-    'thinc.ids2id.sparse',
+    'thinc.linear.avgtron',
+    'thinc.linear.features',
+    'thinc.linear.serialize',
+    'thinc.linear.sparse',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
