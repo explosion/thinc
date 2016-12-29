@@ -83,6 +83,9 @@ class Adam(object):
 
     def __call__(self, weights, gradient, key=None):
         assert key is not None
+        assert len(gradient) >= 1
+        assert not self.ops.xp.isnan(weights).any()
+        assert not self.ops.xp.isnan(gradient).any()
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.shape)
         if key not in self.mom2:
@@ -90,7 +93,7 @@ class Adam(object):
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
 
-        clip_gradient(gradient, len(gradient) / 100)
+        clip_gradient(gradient, len(gradient) / 100.)
         mom1 = self.mom1[key]
         mom1 *= self.b1
         mom1 += (gradient * (1-self.b1))
