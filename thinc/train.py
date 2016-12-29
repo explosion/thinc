@@ -17,7 +17,7 @@ class Trainer(object):
         self.i = 0
         self.L2 = 0.0
         self.dropout = 0.9
-        self.dropout_decay = 1e-3
+        self.dropout_decay = 1e-4
         self._loss = 0.
 
     def __enter__(self):
