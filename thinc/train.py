@@ -12,7 +12,7 @@ class Trainer(object):
         self.ops = model.ops
         self.model = model
         self.optimizer = Eve(model.ops, 0.001)
-        self.batch_size = 32
+        self.batch_size = 64
         self.nb_epoch = 1
         self.i = 0
         self.L2 = 0.0
