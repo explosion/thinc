@@ -10,5 +10,5 @@ __uri__ = 'https://github.com/spacy-io/thinc'
 __author__ = 'Matthew Honnibal'
 __email__ = 'honnibal@gmail.com'
 __license__ = 'MIT'
-__title__ = "spaCy's Machine Learning library for NLP in Python"
+__title__ = "thinc"
 __release__ = False
