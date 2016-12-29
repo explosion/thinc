@@ -64,8 +64,6 @@ class Embed(Model):
     def get_gradient(self, id_):
         return self.gradients.get(id_)
 
-
-
     def predict_batch(self, ids):
         if len(ids) < 1000:
             vectors = self.ops.allocate((len(ids), self.W.shape[1]))
@@ -94,6 +92,8 @@ class Embed(Model):
 
     def _get_finish_update(self, ids):
         def finish_update(gradients, optimizer=None, **kwargs):
+            # TODO: This is broken! Need to backprop through self.W
+            raise NotImplementedError
             tuned = set()
             for id_, delta_in in zip(ids, gradients):
                 embed_grad = self.gradients.get(id_)
@@ -104,6 +104,6 @@ class Embed(Model):
                 for id_ in tuned:
                     vector = self.get_vector(id_)
                     grad = self.gradients.get(id_)
-                    optimizer(vector, grad)
+                    optimizer(vector, grad, key=(self.name, id_))
             return None
         return finish_update

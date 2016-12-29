@@ -9,6 +9,7 @@ class WindowEncode(Model):
     vectors = None
     nr_out = None
     nr_in = None
+    static = True
 
     @property
     def nr_weight(self):
@@ -125,7 +126,7 @@ class WindowEncode(Model):
             if optimizer is not None:
                 for id_ in tuned_ids:
                     optimizer(self.vectors.get(id_), self.get_gradient(id_),
-                              key=id_)
+                              key=(self.name, id_))
             return None
         return finish_update
 
@@ -166,6 +167,7 @@ class WindowEncode(Model):
             for id_ in ids:
                 d_vector = self.get_gradient(id_)
                 if d_vector is None:
+                    i += 1
                     continue
                 if i >= 2:
                     d_vector += tuning[i-2, 0]
@@ -178,6 +180,7 @@ class WindowEncode(Model):
                     d_vector += tuning[i+2, 4]
                 i += 1
                 tuned_ids.add(id_)
+                assert not self.ops.xp.isnan(d_vector).any()
         return tuned_ids
 
     def _get_all_inputs(self, X):

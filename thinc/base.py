@@ -70,8 +70,6 @@ class Model(object):
         raise NotImplementedError
     
     def begin_training(self, train_data):
-        self.set_weights(example=train_data, initialize=True)
-        self.set_gradient()
         return self.Trainer(self, train_data)
 
     def pipe(self, stream, batch_size=1000):
@@ -129,8 +127,7 @@ class Network(Model):
         else:
             self.data = data
         for layer in self.layers:
-            layer.set_weights(data=self.data, example=example,
-                initialize=initialize)
+            layer.set_weights(data=self.data, initialize=initialize)
 
     def set_gradient(self, data=None):
         if data is None:
@@ -157,7 +154,8 @@ class Network(Model):
         def finish_update(gradient, optimizer, **kwargs):
             for callback in reversed(callbacks):
                 gradient = callback(gradient, optimizer=optimizer, **kwargs)
-            optimizer(self.data.data, self.d_data.data,
-                key=('data', self.name), **kwargs)
+            if optimizer is not None and self.data is not None:
+                optimizer(self.data.data, self.d_data.data,
+                    key=('data', self.name), **kwargs)
             return gradient
         return finish_update
