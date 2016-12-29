@@ -72,9 +72,9 @@ class Affine(Model):
         def finish_update(d_acts_BO, optimizer=None, **kwargs):
             self.d_b += d_acts_BO.sum(axis=0)
             self.d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
-            #if optimizer is not None and self.data is not None:
-            #    optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
-            #    optimizer(self.b, self.d_b, key=('b', self.name), **kwargs)
+            if optimizer is not None and self.data is not None:
+                optimizer(self.W, self.d_W, key=('W', self.name), **kwargs)
+                optimizer(self.b, self.d_b, key=('b', self.name), **kwargs)
             return self.ops.batch_dot(d_acts_BO, self.W.T)
         return finish_update
 

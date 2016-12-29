@@ -128,6 +128,7 @@ class Network(Model):
             self.data = data
         for layer in self.layers:
             layer.set_weights(data=self.data, initialize=initialize)
+            layer.data = None
 
     def set_gradient(self, data=None):
         if data is None:
