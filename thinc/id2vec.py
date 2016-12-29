@@ -46,6 +46,7 @@ class Embed(Model):
         else:
             self.d_data = data
         self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_in))
+        self.gradients = {}
 
     def add_vector(self, id_, shape, add_gradient=True):
         if not hasattr(self, 'vectors') or self.vectors is None:
@@ -66,9 +67,7 @@ class Embed(Model):
 
     def predict_batch(self, ids):
         if len(ids) < 1000:
-            vectors = self.ops.allocate((len(ids), self.W.shape[1]))
-            for i, id_ in enumerate(ids):
-                vectors[i] = self.vectors[id_]
+            vectors = self._embed(ids)
             return self.ops.batch_dot(vectors, self.W)
         id_map = {}
         for i, id_ in enumerate(ids):
@@ -77,9 +76,7 @@ class Embed(Model):
             else:
                 id_map[id_].append(i)
         mapped = sorted(id_map.items())
-        vectors = self.ops.allocate((len(mapped), self.W.shape[1]))
-        for i, (id_, _) in enumerate(mapped):
-            vectors[i] = self.vectors[id_]
+        vectors = self._embed([id_ for id_, _ in mapped])
         result = self.ops.batch_dot(vectors, self.W)
         output = self.ops.allocate((len(ids), self.W.shape[0]))
         for i, (_, occurs) in enumerate(mapped):
@@ -88,12 +85,24 @@ class Embed(Model):
         return output
 
     def begin_update(self, ids, dropout=0.0):
+        for id_ in ids:
+            vector = self.get_vector(id_)
+            if vector is None:
+                self.add_vector(id_, self.input_shape, add_gradient=True)
         return self.predict_batch(ids), self._get_finish_update(ids)
+
+    def _embed(self, ids):
+        vectors = self.ops.allocate((len(ids), self.W.shape[1]))
+        for i, id_ in enumerate(ids):
+            vector = self.get_vector(id_)
+            if vector is not None:
+                vectors[i] = vector
+        return vectors
 
     def _get_finish_update(self, ids):
         def finish_update(gradients, optimizer=None, **kwargs):
-            # TODO: This is broken! Need to backprop through self.W
-            raise NotImplementedError
+            self.d_W  += self.ops.batch_outer(gradients, self._embed(ids))
+            gradients = self.ops.batch_dot(gradients, self.W.T)
             tuned = set()
             for id_, delta_in in zip(ids, gradients):
                 embed_grad = self.gradients.get(id_)
