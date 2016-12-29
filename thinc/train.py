@@ -1,6 +1,6 @@
 from __future__ import unicode_literals, print_function
 
-from .optimizers import Eve, Adam
+from .optimizers import Eve, Adam, linear_decay
 from .util import minibatch, score_model
 
 import random
@@ -12,11 +12,12 @@ class Trainer(object):
         self.ops = model.ops
         self.model = model
         self.optimizer = Eve(model.ops, 0.001)
-        self.batch_size = 64
+        self.batch_size = 32
         self.nb_epoch = 1
         self.i = 0
         self.L2 = 0.0
-        self.dropout = 0.3
+        self.dropout = 0.9
+        self.dropout_decay = 1e-3
         self._loss = 0.
 
     def __enter__(self):
@@ -40,12 +41,15 @@ class Trainer(object):
     def iterate(self, model, train_data, check_data, nb_epoch=None):
         if nb_epoch is None:
             nb_epoch = self.nb_epoch
+        orig_dropout = self.dropout
         for i in range(nb_epoch):
             random.shuffle(train_data)
             for batch in tqdm.tqdm(minibatch(train_data,
                                    batch_size=self.batch_size)):
                 X, y = zip(*batch)
                 yield X, y
+                self.dropout = linear_decay(orig_dropout, self.dropout_decay,
+                                            self.optimizer.nr_iter)
             accs = (score_model(model, check_data), self._loss)
-            print('\b\bDev.: %.3f, %.3f loss' % accs, self._loss)
+            print('Dev.: %.3f, %.3f loss' % accs, self._loss)
             self._loss = 0.
