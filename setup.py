@@ -17,6 +17,7 @@ except ImportError:
 PACKAGES = [
     'thinc',
     'thinc.linear',
+    'thinc.neural',
     'thinc.extra',
     'thinc.linear.tests',
     'thinc.extra.tests',
