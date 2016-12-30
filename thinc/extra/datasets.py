@@ -7,18 +7,28 @@ from ._vendorized.keras_data_utils import get_file
 
 
 GITHUB = 'https://github.com/UniversalDependencies/'
-ANCORA_1_4_TGZ = '{github}/{ancora}/archive/r1.4.zip'.format(
+ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
     github=GITHUB, ancora='UD_Spanish-AnCora')
+EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
+    github=GITHUB, ewtb='UD_English')
+
 
 def ancora_pos_tags():
-    data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_TGZ,
+    data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
     return ud_pos_tags(train_loc, dev_loc)
 
 
-def ud_pos_tags(train_loc, dev_loc):
+def ewtb_pos_tags():
+    data_dir = get_file('UD_English-r1.4', EWTB_1_4_ZIP, unzip=True)
+    train_loc = os.path.join(data_dir, 'en-ud-train.conllu')
+    dev_loc = os.path.join(data_dir, 'en-ud-dev.conllu')
+    return ud_pos_tags(train_loc, dev_loc, encode_tags=False, encode_words=False)
+
+
+def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True):
     train_sents = list(read_conll(train_loc))
     dev_sents = list(read_conll(dev_loc))
     tagmap = {}
@@ -35,8 +45,14 @@ def ud_pos_tags(train_loc, dev_loc):
         X = []
         y = []
         for words, tags  in sents:
-            X.append([vocab.get(word, len(vocab)) for word in words])
-            y.append([tagmap[tag] for tag in tags])
+            if encode_words:
+                X.append([vocab.get(word, len(vocab)) for word in words])
+            else:
+                X.append(words)
+            if encode_tags:
+                y.append([tagmap[tag] for tag in tags])
+            else:
+                y.append(tags)
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)

@@ -1,5 +1,5 @@
 from __future__ import print_function, unicode_literals, division
-from thinc.datasets import conll_pos_tags
+from thinc.datasets import ewtb_pos_tags
 from thinc.base import Network
 from thinc.id2vec import Embed
 from thinc.vec2vec import ReLu, Maxout
@@ -149,8 +149,7 @@ def get_word_shape(string):
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(train_loc, dev_loc, checkpoints, nr_epoch=10, nr_sent=0):
-    checkpoints = pathlib.Path(checkpoints)
+def main(nr_epoch=10, nr_sent=0):
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     # Set shape feature
     for word in nlp.vocab:
@@ -163,7 +162,6 @@ def main(train_loc, dev_loc, checkpoints, nr_epoch=10, nr_sent=0):
     
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        i = 0
         for examples, truth in trainer.iterate(model, train_data, check_data,
                                                nb_epoch=trainer.nb_epoch):
             truth = model.ops.flatten(truth)
@@ -171,10 +169,6 @@ def main(train_loc, dev_loc, checkpoints, nr_epoch=10, nr_sent=0):
             gradient, loss = trainer.get_gradient(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
-            i += 1
-            if not i % 1000:
-                with (checkpoints / ('%d.pickle'%i)).open('wb') as file_:
-                    pickle.dump(model, file_, -1)
     print("End", score_model(model, check_data))
 
 

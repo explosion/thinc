@@ -1,14 +1,14 @@
-from thinc.base import Network
-from thinc.id2vec import Embed
-from thinc.vec2vec import ReLu
-from thinc.vec2vec import Softmax
-from thinc.convolution import ExtractWindow
-from thinc.ids2vecs import WindowEncode
+from thinc.neural.base import Network
+from thinc.neural.id2vec import Embed
+from thinc.neural.vec2vec import ReLu
+from thinc.neural.vec2vec import Softmax
+from thinc.neural.convolution import ExtractWindow
+from thinc.neural.ids2vecs import WindowEncode
 
-from thinc.util import score_model
-from thinc.optimizers import linear_decay
+from thinc.neural.util import score_model
+from thinc.neural.optimizers import linear_decay
 
-from thinc.datasets import ancora_pos_tags
+from thinc.extra.datasets import ancora_pos_tags
 
 import plac
 
