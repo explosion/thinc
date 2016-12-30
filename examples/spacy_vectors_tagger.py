@@ -45,12 +45,14 @@ class SumTokens(Network):
  
     def predict_batch(self, X):
         encoded = self.encode.predict_batch(X)
-        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
+                                      for w in doc] for doc in X)
         return encoded + self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
 
     def begin_update(self, X, dropout=0.0):
         encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
-        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
+                                      for w in doc] for doc in X)
         features = self.ops.asarray(features, dtype='i')
         embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
         def finish_update(gradients, optimizer=None, **kwargs):
@@ -67,12 +69,16 @@ class ConcatTokens(SumTokens):
 
     def predict_batch(self, X):
         encoded = self.encode.predict_batch(X)
-        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
+                                      for w in doc] for doc in X)
         embeded = self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
         return self.ops.xp.hstack((embeded, encoded))
 
     def begin_update(self, X, dropout=0.0):
-        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
+                                      for w in doc] for doc in X)
         features = self.ops.asarray(features, dtype='i')
         embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
         encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
@@ -97,12 +103,12 @@ class EncodeTagger(Network):
                     vectors={}, W=None, nr_out=self.width,
                     nr_in=self.nr_in, nr_piece=self.maxout_pieces),
                 Embed(
-                    vectors={}, W=None, nr_out=self.width // 2, nr_in=self.width // 8))
+                    vectors={}, W=None, nr_out=self.width // 2, nr_in=self.width // 4))
         )
         self.layers.append(
-            Maxout(nr_out=self.width, nr_in=self.layers[-1].nr_out, nr_piece=3))
+            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
         self.layers.append(
-            Maxout(nr_out=self.width, nr_in=self.layers[-1].nr_out, nr_piece=3))
+            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
         self.layers.append(
             Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
         self.set_weights(initialize=True)
@@ -141,8 +147,9 @@ def get_word_shape(string):
 
 @plac.annotations(
     nr_sent=("Limit number of training examples", "option", "n", int),
+    nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(train_loc, dev_loc, checkpoints, nr_sent=0):
+def main(train_loc, dev_loc, checkpoints, nr_epoch=10, nr_sent=0):
     checkpoints = pathlib.Path(checkpoints)
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     # Set shape feature
@@ -155,7 +162,7 @@ def main(train_loc, dev_loc, checkpoints, nr_sent=0):
         train_data = train_data[:nr_sent]
     
     with model.begin_training(train_data) as (trainer, optimizer):
-        trainer.nb_epoch = 20
+        trainer.nb_epoch = nr_epoch
         i = 0
         for examples, truth in trainer.iterate(model, train_data, check_data,
                                                nb_epoch=trainer.nb_epoch):
