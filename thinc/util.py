@@ -14,7 +14,6 @@ def score_model(model, X_y):
     correct = 0
     total = 0
     X, y = zip(*X_y)
-    y = model.ops.flatten(y)
     scores = model.predict_batch(X)
     for i, gold in enumerate(y):
         correct += scores[i].argmax() == gold
