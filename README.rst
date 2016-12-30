@@ -41,7 +41,6 @@ You can then run the examples as follows:
 
    fab eg.mnist
    fab eg.basic_tagger
-   fab eg.spacy_tagger
 
 Otherwise, you can build and test explicitly with:
 
