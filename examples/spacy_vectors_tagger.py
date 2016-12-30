@@ -2,7 +2,7 @@ from __future__ import print_function, unicode_literals, division
 from thinc.datasets import conll_pos_tags
 from thinc.base import Network
 from thinc.id2vec import Embed
-from thinc.vec2vec import ReLu
+from thinc.vec2vec import ReLu, Maxout
 from thinc.vec2vec import Softmax
 from thinc.convolution import ExtractWindow
 from thinc.doc2vecs import SpacyWindowEncode
@@ -60,6 +60,31 @@ class SumTokens(Network):
         return encoded + embeded, finish_update
 
 
+class ConcatTokens(SumTokens):
+    @property
+    def nr_out(self):
+        return self.embed.nr_out + self.encode.nr_out
+
+    def predict_batch(self, X):
+        encoded = self.encode.predict_batch(X)
+        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        embeded = self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
+        return self.ops.xp.hstack((embeded, encoded))
+
+    def begin_update(self, X, dropout=0.0):
+        features = self.ops.flatten([w.shape for w in doc] for doc in X)
+        features = self.ops.asarray(features, dtype='i')
+        embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
+        encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
+        def finish_update(gradients, optimizer=None, **kwargs):
+            embed_grad = gradients[:, :self.embed.nr_out]
+            encode_grad = gradients[:, self.embed.nr_out:]
+            finish_encode(encode_grad, optimizer=optimizer, **kwargs)
+            finish_embed(embed_grad, optimizer=optimizer, **kwargs)
+            return gradients
+        return self.ops.xp.hstack((embeded, encoded)), finish_update
+
+
 class EncodeTagger(Network):
     width = 128
     maxout_pieces = 3
@@ -67,17 +92,17 @@ class EncodeTagger(Network):
     
     def setup(self, nr_class, *args, **kwargs):
         self.layers.append(
-            SumTokens(
+            ConcatTokens(
                 SpacyWindowEncode(
                     vectors={}, W=None, nr_out=self.width,
                     nr_in=self.nr_in, nr_piece=self.maxout_pieces),
                 Embed(
-                    vectors={}, W=None, nr_out=self.width, nr_in=8))
+                    vectors={}, W=None, nr_out=self.width // 2, nr_in=self.width // 8))
         )
         self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
+            Maxout(nr_out=self.width, nr_in=self.layers[-1].nr_out, nr_piece=3))
         self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
+            Maxout(nr_out=self.width, nr_in=self.layers[-1].nr_out, nr_piece=3))
         self.layers.append(
             Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
         self.set_weights(initialize=True)
@@ -113,7 +138,11 @@ def get_word_shape(string):
         shape += string[-3:]
     return shape
 
-def main(train_loc, dev_loc, checkpoints):
+
+@plac.annotations(
+    nr_sent=("Limit number of training examples", "option", "n", int),
+)
+def main(train_loc, dev_loc, checkpoints, nr_sent=0):
     checkpoints = pathlib.Path(checkpoints)
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     # Set shape feature
@@ -122,6 +151,8 @@ def main(train_loc, dev_loc, checkpoints):
     nlp.vocab.lex_attr_getters[SHAPE] = get_word_shape
     train_data, check_data, nr_class = spacy_conll_pos_tags(nlp, train_loc, dev_loc)
     model = EncodeTagger(nr_class, nr_in=nlp.vocab.vectors_length)
+    if nr_sent >= 1:
+        train_data = train_data[:nr_sent]
     
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.nb_epoch = 20
@@ -135,9 +166,8 @@ def main(train_loc, dev_loc, checkpoints):
             finish_update(gradient, optimizer)
             i += 1
             if not i % 1000:
-                with (checkpoints / ('%d.npy'%i)).open('wb') as file_:
-                    model.ops.xp.save(file_, model.data.data)
-                    pickle.dump((model, optimizer), file_, -1)
+                with (checkpoints / ('%d.pickle'%i)).open('wb') as file_:
+                    pickle.dump(model, file_, -1)
     print("End", score_model(model, check_data))
 
 
