@@ -108,30 +108,70 @@ class Softmax(Affine):
 
 class Maxout(Affine):
     name = 'maxout'
+    nr_piece = 3
+
+    @property
+    def nr_weight(self):
+        return self.nr_piece * ((self.nr_out * self.nr_in) + self.nr_out)
+
+    def set_weights(self, data=None, initialize=True, example=None):
+        if example is not None:
+            self.nr_in = example.shape[-1]
+        if data is None:
+            if self.data is None:
+                self.data = self.ops.allocate_pool(self.nr_weight,
+                                name=(self.name, 'pool'))
+            data = self.data
+        self.W = data.allocate_shape((self.nr_out, self.nr_piece, self.nr_in))
+        self.b = data.allocate_shape((self.nr_out, self.nr_piece))
+        if initialize:
+            for i in range(self.nr_piece):
+                self.ops.xavier_uniform_init(self.W[:, i], inplace=True)
+
+    def set_gradient(self, data=None, initialize=False):
+        if data is None:
+            self.d_data = self.ops.allocate_pool(self.nr_weight,
+                            name=(self.name, 'pool'))
+        else:
+            self.d_data = data
+        self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_piece, self.nr_in))
+        self.d_b = self.d_data.allocate_shape((self.nr_out, self.nr_piece))
+
+
     def predict_batch(self, input_bi):
-        take_which = self.ops.take_which
-        argmax = self.ops.argmax
-        affine = self.ops.affine
-        return take_which(argmax(affine(input_bi, self.W, self.b)))
+        acts_bop = self.ops.xp.tensordot(input_bi, self.W, axes=[[1], [-1]])
+        acts_bop += self.b
+        which_bo = self.ops.argmax(acts_bop, axis=-1)
+        return _take_which(self.ops, acts_bop, which_bo)
 
     def begin_update(self, input_BI, dropout=0.0):
         W_OCI = self.W
         b_OC = self.b
-        output_BOC = self.ops.affine(W_OCI, b_OC, input_BI)
+        output_BOC = self.ops.xp.tensordot(input_BI, W_OCI, axes=[[1], [-1]])
+        output_BOC += b_OC
         which_BO = self.ops.argmax(output_BOC, axis=-1)
-        best_BO = self.ops.take_which(output_BOC, which_BO)
-        mask_BO = self.ops.get_dropout(best_BO.shape, dropout)
-        finish_update = self._get_finish_update(input_BI, which_BO, mask_BO)
-        if mask_BO is not None:
-            best_BO *= mask_BO
-        return best_BO, finish_update
+        best_BO = _take_which(self.ops, output_BOC, which_BO)
+        best_BO, bp_dropout = self.ops.dropout(best_BO, dropout, inplace=True)
+        finish_update = self._get_finish_update(input_BI, which_BO)
+        return best_BO, bp_dropout(finish_update)
 
-    def _get_finish_update(self, acts_BI, which_BO, mask_BO):
-        def finish_update(d_acts_BO):
-            raise NotImplementedError
-            #d_acts_BO *= mask_BO
-            ## TODO
-            #self.d_b += d_acts_BO.sum(axis=0)
-            #self.d_W += d_W_OCI
-            #return d_acts_BI
-        return backward
+    def _get_finish_update(self, acts_BI, which_BO):
+        def finish_update(d_acts_BO, optimizer=None, **kwargs):
+            d_acts_BOP = self.ops.allocate((d_acts_BO.shape[0], self.nr_out,
+                                           self.nr_piece))
+            for i in range(self.nr_piece):
+                d_acts_BOP[:, :, i] += d_acts_BO * (which_BO == i)
+            self.d_b += d_acts_BOP.sum(axis=0)
+            self.d_W += self.ops.xp.tensordot(d_acts_BOP, acts_BI, axes=[[0], [0]])
+            # Bop,opi->Bi
+            d_acts_BI = self.ops.xp.tensordot(d_acts_BOP, self.W, axes=[[1,2], [0, 1]])
+            return d_acts_BI
+        return finish_update
+
+
+def _take_which(ops, x, which, axis=-1):
+    output = ops.allocate(which.shape)
+    for i in range(x.shape[axis]):
+        output += x[:, :, i] * (which == i)
+    return output
+ 
