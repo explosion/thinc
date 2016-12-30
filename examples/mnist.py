@@ -4,7 +4,7 @@ import plac
 import tqdm
 import numpy as np
 from thinc.extra import datasets
-from thinc.base import Network
+from thinc.neural.base import Network
 from thinc.neural.vec2vec import Affine, ReLu, Softmax
 from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
