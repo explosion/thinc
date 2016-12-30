@@ -1,18 +1,29 @@
 import random
 import io
 from collections import Counter
+import os.path
+
+from ._vendorized.keras_data_utils import get_file
 
 
-ANCORA_TRAIN_LOC = 'data/es_ancora-ud-train.conllu.txt'
-ANCORA_DEV_LOC = 'data/es_ancora-ud-dev.conllu.txt'
+GITHUB = 'https://github.com/UniversalDependencies/'
+ANCORA_1_4_TGZ = '{github}/{ancora}/archive/r1.4.zip'.format(
+    github=GITHUB, ancora='UD_Spanish-AnCora')
+
+def ancora_pos_tags():
+    data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_TGZ,
+                        unzip=True)
+    train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
+    dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
+    return ud_pos_tags(train_loc, dev_loc)
 
 
-def conll_pos_tags(train_loc=ANCORA_TRAIN_LOC, dev_loc=ANCORA_DEV_LOC):
+def ud_pos_tags(train_loc, dev_loc):
     train_sents = list(read_conll(train_loc))
     dev_sents = list(read_conll(dev_loc))
     tagmap = {}
     freqs = Counter()
-    for words, tags, heads, labels in train_sents:
+    for words, tags in train_sents:
         for tag in tags:
             tagmap.setdefault(tag, len(tagmap))
         for word in words:
@@ -23,7 +34,7 @@ def conll_pos_tags(train_loc=ANCORA_TRAIN_LOC, dev_loc=ANCORA_DEV_LOC):
     def _encode(sents):
         X = []
         y = []
-        for words, tags, heads, labels in sents:
+        for words, tags  in sents:
             X.append([vocab.get(word, len(vocab)) for word in words])
             y.append([tagmap[tag] for tag in tags])
         return zip(X, y)
@@ -40,8 +51,6 @@ def read_conll(loc):
                  if not line.startswith('#')]
         words = []
         tags = []
-        heads = [None]
-        labels = [None]
         for i, pieces in enumerate(lines):
             if len(pieces) == 4:
                 word, pos, head, label = pieces
@@ -49,17 +58,14 @@ def read_conll(loc):
                 idx, word, lemma, pos1, pos, morph, head, label, _, _2 = pieces
             words.append(word)
             tags.append(pos)
-            heads.append(int(head) if head != '0' else len(lines) + 1)
-            labels.append(label)
-        yield words, tags, heads, labels
+        yield words, tags
 
 
-def keras_mnist():
-    from keras.datasets import mnist
-    from keras.utils import np_utils
+def mnist():
+    from ._vendorized.keras_datasets import load_mnist
 
     # the data, shuffled and split between tran and test sets
-    (X_train, y_train), (X_test, y_test) = mnist.load_data()
+    (X_train, y_train), (X_test, y_test) = load_mnist()
 
     X_train = X_train.reshape(60000, 784)
     X_test = X_test.reshape(10000, 784)

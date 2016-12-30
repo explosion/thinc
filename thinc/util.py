@@ -15,6 +15,8 @@ def score_model(model, X_y):
     total = 0
     X, y = zip(*X_y)
     scores = model.predict_batch(X)
+    if isinstance(y, tuple):
+        y = model.ops.asarray(model.ops.flatten(y), dtype='i')
     for i, gold in enumerate(y):
         correct += scores[i].argmax() == gold
         total += 1

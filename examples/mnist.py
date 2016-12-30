@@ -35,7 +35,7 @@ def get_gradient(scores, labels):
 
 def main(batch_size=128, nb_epoch=10, nb_classes=10):
     model = ReLuMLP(10, 784)
-    train_data, check_data, test_data = datasets.keras_mnist()
+    train_data, check_data, test_data = datasets.mnist()
     
     with model.begin_training(train_data) as (trainer, optimizer):
         for examples, truth in trainer.iterate(model, train_data, check_data,
