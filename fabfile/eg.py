@@ -21,6 +21,4 @@ def basic_tagger():
     with virtualenv(VENV_DIR):
         with lcd(PWD):
             local('pip install -e .')
-            local('mkdir data')
-            install_ancora()
             local('python examples/basic_tagger.py')
