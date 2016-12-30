@@ -48,8 +48,10 @@ Otherwise, you can build and test explicitly with:
 
    git clone https://github.com/explosion/thinc
    cd thinc
+   
    virtualenv .env
    source .env/bin/activate
+   
    pip install -r requirements.txt
    python setup.py build_ext --inplace
    py.test thinc/
