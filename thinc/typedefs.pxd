@@ -4,7 +4,7 @@ from libc.stdint cimport uint16_t
 from libc.stdint cimport int32_t
 
 
-ctypedef double weight_t
+ctypedef float weight_t
 ctypedef uint64_t atom_t
 ctypedef uint64_t feat_t
 ctypedef uint64_t hash_t
