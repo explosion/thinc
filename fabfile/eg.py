@@ -1,4 +1,4 @@
-from fabric.api import task, local, run, lcd, cd, env
+from fabric.api import task, local, run, lcd, cd, env, shell_env
 from os.path import exists as file_exists
 from fabtools.python import virtualenv
 from os import path
@@ -10,15 +10,11 @@ VENV_DIR = path.join(PWD, '.env')
 
 @task
 def mnist():
-    with virtualenv(VENV_DIR):
-        with lcd(PWD):
-            local('pip install -e .')
-            local('python examples/mnist.py')
+    with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
+        local('python examples/mnist.py')
 
 
 @task
 def basic_tagger():
-    with virtualenv(VENV_DIR):
-        with lcd(PWD):
-            local('pip install -e .')
-            local('python examples/basic_tagger.py')
+    with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
+        local('python examples/basic_tagger.py')
