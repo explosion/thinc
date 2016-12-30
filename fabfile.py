@@ -53,7 +53,7 @@ def install():
 def make():
     with virtualenv(VENV_DIR):
         with lcd(path.dirname(__file__)):
-            local('python setup.py build')
+            local('python setup.py build_ext --inplace')
 
 
 def clean():
