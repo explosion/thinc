@@ -6,6 +6,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 
 import tarfile
+import zipfile
 import os
 import sys
 import shutil
@@ -42,7 +43,7 @@ else:
     from six.moves.urllib.request import urlretrieve
 
 
-def get_file(fname, origin, untar=False,
+def get_file(fname, origin, untar=False, unzip=False,
              md5_hash=None, cache_subdir='datasets'):
     '''Downloads a file from a URL if it not already in the cache.
 
@@ -65,9 +66,12 @@ def get_file(fname, origin, untar=False,
     if not os.path.exists(datadir):
         os.makedirs(datadir)
 
-    if untar:
+    if untar or unzip:
         untar_fpath = os.path.join(datadir, fname)
-        fpath = untar_fpath + '.tar.gz'
+        if unzip:
+            fpath = untar_fpath + '.zip'
+        else:
+            fpath = untar_fpath + '.tar.gz'
     else:
         fpath = os.path.join(datadir, fname)
 
@@ -122,6 +126,20 @@ def get_file(fname, origin, untar=False,
                         shutil.rmtree(untar_fpath)
                 raise
             tfile.close()
+        return untar_fpath
+    elif unzip:
+        if not os.path.exists(untar_fpath):
+            print('Unzipping file...')
+            with zipfile.ZipFile(fpath) as file_:
+                try:
+                    file_.extractall(path=datadir)
+                except (Exception, KeyboardInterrupt) as e:
+                    if os.path.exists(untar_fpath):
+                        if os.path.isfile(untar_fpath):
+                            os.remove(untar_fpath)
+                        else:
+                            shutil.rmtree(untar_fpath)
+                    raise
         return untar_fpath
 
     return fpath
