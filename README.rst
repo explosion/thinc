@@ -47,6 +47,7 @@ Otherwise, you can build and test explicitly with:
 .. code:: bash
 
    git clone https://github.com/explosion/thinc
+   cd thinc
    virtualenv .env
    source .env/bin/activate
    pip install -r requirements.txt
