@@ -7,7 +7,7 @@ from .keras_data_utils import get_file
 import sys
 
 
-def load_data(path='mnist.pkl.gz'):
+def load_mnist(path='mnist.pkl.gz'):
     from six.moves import cPickle
     path = get_file(path,
         origin='https://s3.amazonaws.com/img-datasets/mnist.pkl.gz')

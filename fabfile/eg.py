@@ -13,9 +13,7 @@ def mnist():
     with virtualenv(VENV_DIR):
         with lcd(PWD):
             local('pip install -e .')
-            local('pip install keras')
-            print("Using Keras to get MNIST data")
-            local('KERAS_BACKEND="theano" python examples/mnist.py')
+            local('python examples/mnist.py')
 
 
 @task
