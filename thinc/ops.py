@@ -84,6 +84,9 @@ class Ops(object):
     def batch_outer(self, x, y):
         return self.xp.tensordot(x, y, axes=[[0], [0]])
 
+    def norm(self, x):
+        return self.xp.sqrt((x * x).sum())
+
     def dot(self, x, y):
         return self.xp.dot(x, y)
     
