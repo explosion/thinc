@@ -1,4 +1,3 @@
-from thinc.datasets import conll_pos_tags
 from thinc.base import Network
 from thinc.id2vec import Embed
 from thinc.vec2vec import ReLu
@@ -8,6 +7,8 @@ from thinc.ids2vecs import WindowEncode
 
 from thinc.util import score_model
 from thinc.optimizers import linear_decay
+
+from thinc.datasets import ancora_pos_tags
 
 import plac
 
@@ -55,7 +56,7 @@ def _flatten(ops, data):
 
 
 def main():
-    train_data, check_data, nr_class = conll_pos_tags()
+    train_data, check_data, nr_class = ancora_pos_tags()
     model = EncodeTagger(nr_class)
     for X, y in train_data:
         for x in X:
