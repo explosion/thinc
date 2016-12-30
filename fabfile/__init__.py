@@ -3,6 +3,8 @@ from os.path import exists as file_exists
 from fabtools.python import virtualenv
 from os import path
 
+from . import eg
+
 
 PWD = path.join(path.dirname(__file__), '..')
 VENV_DIR = path.join(PWD, '.env')
