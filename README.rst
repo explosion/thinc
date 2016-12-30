@@ -59,8 +59,6 @@ And then run the examples as follows:
 
    python examples/mnist.py
    python examples/basic_tagger.py
-   python examples/spacy_tagger.py
-
 
 Design
 ======
