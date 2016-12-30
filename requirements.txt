@@ -7,3 +7,4 @@ pytest
 hypothesis>=2,<3
 tqdm>=4.10.0,<5.0.0
 cytoolz
+plac
