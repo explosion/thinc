@@ -54,9 +54,8 @@ def read_conll(loc):
         yield words, tags, heads, labels
 
 
-def keras_mnist():
-    from keras.datasets import mnist
-    from keras.utils import np_utils
+def mnist():
+    from ._vendorized.keras_datasets import mnist
 
     # the data, shuffled and split between tran and test sets
     (X_train, y_train), (X_test, y_test) = mnist.load_data()
