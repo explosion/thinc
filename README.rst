@@ -32,6 +32,7 @@ If you have `Fabric <http://www.fabfile.org>`_ installed, you can use the shortc
 .. code:: bash
 
    git clone https://github.com/explosion/thinc
+   cd thinc
    fab clean env make test
 
 You can then run the examples as follows:
