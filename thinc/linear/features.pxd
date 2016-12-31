@@ -15,3 +15,8 @@ cdef class ConjunctionExtracter:
     
     cdef TemplateC* templates
     cdef object _py_templates
+
+
+
+cdef class BagOfWords(ConjunctionExtracter):
+    pass
