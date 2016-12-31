@@ -25,6 +25,10 @@ structured input and variable-length sequences.
 .. image:: https://img.shields.io/pypi/v/thinc.svg   
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
+   
+.. image:: https://badges.gitter.im/explosion.png
+    :target: https://gitter.im/explosion/spaCy
+    :alt: spaCy / thinc on Gitter
 
 Quickstart
 ==========
