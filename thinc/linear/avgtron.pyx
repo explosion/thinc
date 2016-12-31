@@ -294,13 +294,12 @@ class LinearTrainer(object):
         self.model.end_training()
 
     def get_gradient(self, scores, labels):
-        target = numpy.zeros(scores.shape, dtype=scores.dtype)
         loss = 0.0
+        grad = []
         for i, label in enumerate(labels):
-            target[i, int(label)] = 1.0
             loss += (1.0-scores[i, int(label)])**2
         self._loss += loss / len(labels)
-        return scores - target, loss
+        return labels, loss
 
     def iterate(self, model, train_data, check_data, nb_epoch=None):
         if nb_epoch is None:
