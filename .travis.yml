@@ -15,6 +15,6 @@ script:
   - python -m pytest thinc
 
 notifications:
-  slack:
-    secure: F8GvqnweSdzImuLL64TpfG0i5rYl89liyr9tmFVsHl4c0DNiDuGhZivUz0M1broS8svE3OPOllLfQbACG/4KxD890qfF9MoHzvRDlp7U+RtwMV/YAkYn8MGWjPIbRbX0HpGdY7O2Rc9Qy4Kk0T8ZgiqXYIqAz2Eva9/9BlSmsJQ=
   email: false
+  slack:
+    secure: VSqtxg7u4NTZRfoZqjxPRPVS92KTy/mp62egfDZ9ujTP4VPxNe15QZuTB6r/ICPgEYqBtdhLc/aetuBcemt0bHfentV0F7bz7iDY/AFQC1h1i4G0D0wKMufuqOJFw9MOp2tSpuvCVzhCxR+Ymx/F9SaeYBAiwBawce4wu+qu3lA=
