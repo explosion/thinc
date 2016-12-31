@@ -1,5 +1,6 @@
 from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
 from libc.stdint cimport int32_t
+from libc.string cimport memcpy
 from ..typedefs cimport weight_t
 from ..structs cimport SparseArrayC
 
@@ -14,6 +15,16 @@ cdef class SparseArray:
         array[1] = SparseArrayC(key=-1, val=0) # -1 marks end of values
         array[2] = SparseArrayC(key=-2, val=0) # -2 marks end of memory
         return array
+
+    @staticmethod
+    cdef inline SparseArrayC* clone(const SparseArrayC* src) except NULL:
+        # Find length
+        cdef int i = 0
+        while src[i].key != -2:
+            i += 1
+        dest = <SparseArrayC*>PyMem_Malloc(i * sizeof(SparseArrayC))
+        memcpy(dest, src, i * sizeof(SparseArrayC))
+        return dest
 
     @staticmethod
     cdef inline int find_key(const SparseArrayC* array, int key) except -2:
