@@ -341,6 +341,7 @@ cdef class UpdateHandler:
             for feat in feat_row[:nr_feat]:
                 if labels[i] != self.predicts[i]:
                     self.model.update_weight(feat.key, labels[i], feat.value)
+                    self.model.update_weight(feat.key, self.predicts[i], -feat.value)
 
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
