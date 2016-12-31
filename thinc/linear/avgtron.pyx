@@ -11,8 +11,12 @@ from libc.math cimport sqrt
 
 from libc.stdlib cimport qsort
 from libc.stdint cimport int32_t
+from libc.limits cimport ULLONG_MAX
 
+import tqdm
 import numpy
+import numpy.random
+from ..neural.util import minibatch
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap, MapStruct, map_get
 
@@ -34,14 +38,20 @@ cdef class AveragedPerceptron:
     Emphasis is on efficiency for multi-class classification, where the number
     of classes is in the dozens or low hundreds.
     '''
-    def __init__(self, templates, *args, **kwargs):
+    def __init__(self, templates=None, extracter=None, *args, **kwargs):
         self.time = 0
         self.nr_out = kwargs.get('nr_out', 0)
         self.weights = PreshMap()
         self.averages = PreshMap()
         self.lasso_ledger = PreshMap()
         self.mem = Pool()
-        self.extracter = ConjunctionExtracter(templates)
+        if templates is not None:
+            self.extracter = ConjunctionExtracter(templates)
+        elif extracter is not None:
+            self.extracter = extracter
+        else:
+            raise ValueError(
+                "AveragedPerceptron requires one of templates or extracter")
         self.learn_rate = kwargs.get('learn_rate', 0.001)
         self.l1_penalty = kwargs.get('l1_penalty', 1e-8)
         self.momentum = kwargs.get('momentum', 0.9)
@@ -64,10 +74,12 @@ cdef class AveragedPerceptron:
     def __call__(self, atom_t[:] atoms):
         cdef Example eg = Example(
                             nr_class=self.nr_out,
-                            nr_atom=len(atoms),
-                            nr_feat=self.nr_feat)
+                            nr_atom=len(atoms) + 2,
+                            nr_feat=len(atoms) + 10)
+        atoms = numpy.sort(atoms)
         memcpy(eg.c.atoms,
             &atoms[0], eg.c.nr_atom * sizeof(eg.c.atoms[0]))
+        eg.c.atoms[len(atoms)] = 0
         eg.nr_feat = self.extracter.set_features(eg.c.features, eg.c.atoms)
         self.set_scoresC(eg.c.scores,
             eg.c.features, eg.c.nr_feat)
@@ -81,32 +93,34 @@ cdef class AveragedPerceptron:
         self.updateC(eg.c)
         return eg.loss
 
-    def begin_update(self, atom_t[:] atoms):
-        cdef Example eg = Example(
-                            nr_class=self.nr_out,
-                            nr_atom=len(atoms),
-                            nr_feat=self.nr_feat)
-        memcpy(eg.c.atoms,
-            &atoms[0], eg.c.nr_atom * sizeof(eg.c.atoms[0]))
-        eg.nr_feat = self.extracter.set_features(eg.c.features, eg.c.atoms)
-        self.set_scoresC(eg.c.scores,
-            eg.c.features, eg.c.nr_feat)
-        def finish_update(weight_t[:] gradient_, optimizer=None, **kwargs):
-            # Help out the compiler by not accessing the outer scope in the loop.
-            # Instead, we set up our variables here.
-            cdef const FeatureC* features = eg.c.features
-            cdef int nr_feat = eg.c.nr_feat
-            cdef const weight_t* gradient = &gradient_[0]
-            cdef AveragedPerceptron model = self
-            cdef int nr_class = model.nr_out
-            for feat in features[:nr_feat]:
-                for clas in range(nr_class):
-                    grad = gradient[clas]
-                    model.update_weight(feat.key, clas, feat.value * grad)
-        scores = numpy.zeros((self.nr_out,), dtype='f')
-        for i in range(self.nr_out):
-            scores[i] = eg.c.scores[i]
-        return scores, finish_update
+    def begin_update(self, X, weight_t dropout=0.0):
+        cdef Pool mem = Pool()
+        cdef int batch_size = len(X)
+
+        cdef UpdateHandler finish_update = UpdateHandler(self, X)
+        
+        atoms = <atom_t**>mem.alloc(batch_size, sizeof(atom_t*))
+        scores = <weight_t*>mem.alloc(batch_size * self.nr_out, sizeof(weight_t))
+        for i in range(batch_size):
+            atoms[i] = <atom_t*>mem.alloc(len(X[i]) + 1, sizeof(atom_t))
+            for j, val in enumerate(sorted(X[i])):
+                atoms[i][j] = val
+            atoms[i][j+1] = 0
+            finish_update.nr_feats[i] = self.extracter.set_features(
+                finish_update.features[i], atoms[i])
+            self.set_scoresC(&scores[i * self.nr_out],
+                finish_update.features[i], finish_update.nr_feats[i])
+            finish_update.predicts[i] = Vec.arg_max(
+                    scores + (i*self.nr_out), self.nr_out)
+        scores_ = numpy.zeros((batch_size, self.nr_out), dtype='f')
+        for i in range(batch_size):
+            for j in range(self.nr_out):
+                scores_[i, j] = scores[i * self.nr_out + j]
+        assert not numpy.isnan(scores_.sum())
+        return scores_, finish_update
+
+    def begin_training(self, train_data):
+        return LinearTrainer(self, train_data)
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc, self.weights.length)
@@ -235,64 +249,99 @@ cdef class AveragedPerceptron:
                 self.update_weight(feat.key, best,   feat.value * eg.costs[guess])
                 self.update_weight(feat.key, guess, -feat.value * eg.costs[guess])
 
-    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t grad) except -1:
-        if grad == 0:
+    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
+        if upd == 0:
             return 0
         feat = <SparseAverageC*>self.averages.get(feat_id)
         if feat == NULL:
             feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
             if feat is NULL:
-                msg = (feat_id, clas, grad)
+                msg = (feat_id, clas, upd)
                 raise MemoryError("Error allocating memory for feature: %s" % msg)
-            feat.curr  = SparseArray.init(clas, 0)
-            feat.mom1  = SparseArray.init(clas, 0)
-            feat.mom2  = SparseArray.init(clas, 0)
+            feat.curr  = SparseArray.init(clas, upd)
             feat.avgs  = SparseArray.init(clas, 0)
-            feat.times = SparseArray.init(clas, 0)
+            feat.times = SparseArray.init(clas, <weight_t>self.time)
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
-            i = 0
         else:  
             i = SparseArray.find_key(feat.curr, clas)
             if i < 0:
                 feat.curr = SparseArray.resize(feat.curr)
-                feat.mom1 = SparseArray.resize(feat.mom1)
-                feat.mom2 = SparseArray.resize(feat.mom2)
                 feat.avgs = SparseArray.resize(feat.avgs)
                 feat.times = SparseArray.resize(feat.times)
                 self.weights.set(feat_id, feat.curr)
                 i = SparseArray.find_key(feat.curr, clas)
             feat.curr[i].key = clas
-            feat.mom1[i].key = clas
-            feat.mom2[i].key = clas
             feat.avgs[i].key = clas
-            feat.times[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
-            update_averages(feat, self.time)
-        adam_update(&feat.curr[i].val, &feat.mom1[i].val, &feat.mom2[i].val,
-            self.time, feat.times[i].val, grad, self.learn_rate, self.momentum) 
-        feat.times[i].val = self.time
-        # Apply cumulative L1 penalty, from here:
-        # http://www.aclweb.org/anthology/P09-1054 
-        l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
-        l1_total = self.time * self.learn_rate * self.l1_penalty
-        l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
-        self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
+            feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
+            feat.curr[i].val += upd
+            feat.times[i].val = self.time
 
 
-#cdef class UpdateHandler:
-#    cdef Example eg
-#    cdef AveragedPerceptron model
-#    def __init__(self, Example eg, AveragedPerceptron model):
-#        self.eg = eg
-#        self.model = model
-#
-#    def __call__(self, weight_t[:] gradient, optimizer=None, **kwargs):
-#        # TODO optimization
-#        for feature in eg.c.features[:eg.c.nr_feat]:
-#            for clas, grad in enumerate(gradient):
-#                self.model.update_weight(feat.key, clas, feat.value * grad)
-#
+class LinearTrainer(object):
+    def __init__(self, model, data):
+        self.model = model
+        self.optimizer = None
+        self.nb_epoch = 1
+        self.i = 0
+        self._loss = 0.
+
+    def __enter__(self):
+        return self, self.optimizer
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.model.end_training()
+
+    def get_gradient(self, scores, labels):
+        target = numpy.zeros(scores.shape, dtype=scores.dtype)
+        loss = 0.0
+        for i, label in enumerate(labels):
+            target[i, int(label)] = 1.0
+            loss += (1.0-scores[i, int(label)])**2
+        self._loss += loss / len(labels)
+        return scores - target, loss
+
+    def iterate(self, model, train_data, check_data, nb_epoch=None):
+        if nb_epoch is None:
+            nb_epoch = self.nb_epoch
+        X, y = train_data
+        for i in range(nb_epoch):
+            indices = list(range(len(X)))
+            numpy.random.shuffle(indices)
+            for j in indices:
+                yield X[j:j+1], y[j:j+1]
+
+
+cdef class UpdateHandler:
+    cdef Pool mem
+    cdef int batch_size
+    cdef int nr_class
+    cdef AveragedPerceptron model
+    cdef FeatureC** features
+    cdef int* nr_feats
+    cdef int* predicts
+    def __init__(self, AveragedPerceptron model, X):
+        self.mem = Pool()
+        self.model = model
+        self.batch_size = len(X)
+        self.features = <FeatureC**>self.mem.alloc(self.batch_size, sizeof(void*))
+        self.nr_feats = <int*>self.mem.alloc(self.batch_size, sizeof(int))
+        self.predicts = <int*>self.mem.alloc(self.batch_size, sizeof(int))
+        self.nr_class = model.nr_out
+        for i, x in enumerate(X):
+            self.features[i] = <FeatureC*>self.mem.alloc(
+                                    len(x) + 2, sizeof(FeatureC))
+
+    def __call__(self, labels, optimizer=None, **kwargs):
+        self.model.time += 1
+        for i in range(self.batch_size):
+            feat_row = self.features[i]
+            nr_feat = self.nr_feats[i]
+            for feat in feat_row[:nr_feat]:
+                if labels[i] != self.predicts[i]:
+                    self.model.update_weight(feat.key, labels[i], feat.value)
+
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
         weight_t t, weight_t last_upd, weight_t grad, weight_t learn_rate, weight_t _) nogil:
