@@ -144,6 +144,23 @@ cdef class AveragedPerceptron:
             if i % 1000 == 0:
                 PyErr_CheckSignals()
             i += 1
+
+    def resume_training(self):
+        cdef feat_t feat_id
+        cdef size_t feat_addr
+        for i, (feat_id, feat_addr) in enumerate(self.weights.items()):
+            train_feat = <SparseAverageC*>self.averages.get(feat_id)
+            if train_feat == NULL:
+                train_feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
+                if train_feat is NULL:
+                    msg = (feat_id)
+                    raise MemoryError(
+                        "Error allocating memory for feature: %s" % msg)
+                weights = <const SparseArrayC*>feat_addr
+                train_feat.curr  = SparseArray.clone(weights)
+                train_feat.avgs = SparseArray.clone(weights)
+                train_feat.times = SparseArray.clone(weights)
+                self.averages.set(feat_id, train_feat)
     
     def apply_owed_L1(self):
         cdef size_t feat_addr
@@ -252,6 +269,8 @@ cdef class AveragedPerceptron:
     cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t upd) except -1:
         if upd == 0:
             return 0
+        if len(self.averages) < len(self.weights):
+            self.resume_training()
         feat = <SparseAverageC*>self.averages.get(feat_id)
         if feat == NULL:
             feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
@@ -262,7 +281,6 @@ cdef class AveragedPerceptron:
             feat.avgs  = SparseArray.init(clas, 0)
             feat.times = SparseArray.init(clas, <weight_t>self.time)
             self.averages.set(feat_id, feat)
-            self.weights.set(feat_id, feat.curr)
         else:  
             i = SparseArray.find_key(feat.curr, clas)
             if i < 0:
