@@ -7,7 +7,6 @@ from ..extra.eg cimport Example
 
 include "../compile_time_constants.pxi"
 
-
 cdef class ConjunctionExtracter:
     """Extract composite features from a sequence of atomic values, according to
     the schema specified by a list of templates.
@@ -69,3 +68,36 @@ cdef class ConjunctionExtracter:
 
     def __reduce__(self):
         return (self.__class__, (self.nr_atom, self._py_templates))
+
+
+cdef class BagOfWords(ConjunctionExtracter):
+    def __init__(self):
+        self.mem = Pool()
+        self.nr_atom = 0 
+
+    cdef int set_features(self, FeatureC* feats,
+            const atom_t* atoms) nogil:
+        '''Assumes atoms are sorted'''
+        cdef int i = 0
+        # Bias
+        feats[i].key = 1
+        feats[i].value = 1.
+        i += 1
+        current = atoms[0]
+        feats[i].key = current 
+        feats[i].value = 1.
+        while True:
+            atoms += 1
+            if atoms[0] == current:
+                feats[i].value += 1.
+            elif atoms[0] > current:
+                i += 1
+                current = atoms[0]
+                feats[i].key = current
+                feats[i].value = 1.
+            else:
+                i += 1
+                break
+        return i
+
+
