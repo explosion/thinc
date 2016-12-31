@@ -1,23 +1,22 @@
 from collections import defaultdict
-import numpy
 
 
 def linear_decay(rate, decay, nr_upd):
     return rate * 1./(1. + decay * nr_upd)
 
 
-def update_averages(averages, key, weights, nr_upd, max_decay=0.9999):
+def update_averages(ops, averages, key, weights, nr_upd, max_decay=0.9999):
     decay = (1. + nr_upd) / (10. + nr_upd)
     decay = min(decay, max_decay)
 
     if key not in averages:
-        averages[key] = numpy.zeros(weights.shape)
+        averages[key] = ops.allocate(weights.shape)
     avg = averages[key]
     avg -= (1-decay) * (avg - weights)
 
 
-def clip_gradient(gradient, threshold):
-    grad_norm = numpy.linalg.norm(gradient)
+def clip_gradient(ops, gradient, threshold):
+    grad_norm = ops.norm(gradient)
     if grad_norm >= threshold:
         gradient *= threshold / grad_norm
 
@@ -41,13 +40,13 @@ class SGD(object):
             gradient.fill(0)
         else:
             if key not in self.momentums:
-                self.momentums[key] = numpy.zeros(weights.shape)
+                self.momentums[key] = self.ops.allocate(weights.shape)
             momentum = self.momentums[key]
             momentum *= self.mu
             momentum += gradient * lr
             weights -= momentum
             gradient.fill(0)
-        update_averages(self.averages, key, weights, nr_upd)
+        update_averages(self.ops, self.averages, key, weights, nr_upd)
 
     def lr(self, nr_upd):
         return linear_decay(self.alpha, self.decay, nr_upd)
@@ -73,7 +72,7 @@ class Adam(object):
         alpha = linear_decay(self.alpha, self.decay, nr_upd)
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
-        return alpha * numpy.sqrt(fix2) / fix1
+        return alpha * self.ops.xp.sqrt(fix2) / fix1
 
     @property
     def nr_iter(self):
@@ -93,7 +92,7 @@ class Adam(object):
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
 
-        clip_gradient(gradient, len(gradient) / 100.)
+        clip_gradient(self.ops, gradient, len(gradient) / 100.)
         mom1 = self.mom1[key]
         mom1 *= self.b1
         mom1 += (gradient * (1-self.b1))
@@ -103,9 +102,9 @@ class Adam(object):
         mom2 += (1-self.b2) * gradient ** 2
         
         lr = self.lr(nr_upd)
-        weights -= lr * mom1 / (self.d * numpy.sqrt(mom2) + self.eps)
+        weights -= lr * mom1 / (self.d * self.ops.xp.sqrt(mom2) + self.eps)
         gradient.fill(0)
-        update_averages(self.averages, key, weights, nr_upd)
+        update_averages(self.ops, self.averages, key, weights, nr_upd)
 
     def set_loss(self, loss):
         pass
