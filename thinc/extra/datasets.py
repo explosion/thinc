@@ -97,3 +97,23 @@ def mnist():
     train_data = train_data[len(heldout_data):]
     test_data = zip(X_test, y_test)
     return train_data, heldout_data, test_data
+
+
+def reuters():
+    from ._vendorized.keras_datasets import load_reuters
+    (X_train, y_train), (X_test, y_test) = load_reuters()
+    return (X_train, y_train), (X_test, y_test)
+
+
+def get_word_index(path='reuters_word_index.pkl'):
+    path = get_file(path, origin='https://s3.amazonaws.com/text-datasets/reuters_word_index.pkl')
+    f = open(path, 'rb')
+
+    if sys.version_info < (3,):
+        data = cPickle.load(f)
+    else:
+        data = cPickle.load(f, encoding='latin1')
+
+    f.close()
+    return data
+
