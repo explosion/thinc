@@ -27,7 +27,7 @@ class Trainer(object):
         self.model.average_params(self.optimizer)
 
     def __call__(self, data, gradient):
-        return self.sgd(data, gradient, L2=self.L2)
+        return self.optimizer(data, gradient, L2=self.L2)
 
     def get_gradient(self, scores, labels):
         target = self.ops.allocate(scores.shape)
