@@ -5,10 +5,10 @@
 
 __name__ = 'thinc'
 __version__ = '6.0.0'
-__summary__ = "spaCy's Machine Learning library for NLP in Python"
-__uri__ = 'https://github.com/spacy-io/thinc'
+__summary__ = "Practical Machine Learning for NLP"
+__uri__ = 'https://github.com/explosion/thinc'
 __author__ = 'Matthew Honnibal'
-__email__ = 'honnibal@gmail.com'
+__email__ = 'matt@explosion.ai'
 __license__ = 'MIT'
 __title__ = "thinc"
-__release__ = False
+__release__ = True
