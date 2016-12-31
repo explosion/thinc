@@ -20,7 +20,11 @@ PACKAGES = [
     'thinc.neural',
     'thinc.extra',
     'thinc.linear.tests',
+    'thinc.neural.tests',
+    'thinc.neural.tests.unit',
+    'thinc.neural.tests.integration',
     'thinc.extra.tests',
+    'thinc.extra._vendorized'
 ]
 
 
@@ -150,7 +154,10 @@ def setup_package():
                 'cymem>=1.30,<1.32',
                 'preshed>=0.46,<0.47',
                 'tqdm>=4.10.0,<5.0.0',
-                ],
+                'cytoolz>=0.8,<0.9',
+                'plac>=0.9.6,<1.0.0',
+                'six>=1.10.0,<2.0.0'
+            ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
