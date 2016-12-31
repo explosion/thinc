@@ -51,14 +51,16 @@ def test_predict_batch(model, atoms):
     
 
 def test_update_scores_match_call(model, atoms):
+    atoms = numpy.expand_dims(atoms, 0)
     scores_via_update, finish_update = model.begin_update(atoms)
-    scores_via_call = model(atoms)
-    assert_allclose(scores_via_update, scores_via_call)
+    scores_via_call = model(atoms[0])
+    assert_allclose(scores_via_update[0], scores_via_call)
 
 
 def test_finish_update_executes(model, atoms):
+    atoms = numpy.expand_dims(atoms, 0)
     scores, finish_update = model.begin_update(atoms)
-    gradient = numpy.zeros(scores.shape, dtype=scores.dtype)
-    gradient[0] = 1
-    gradient[1] = -2
-    finish_update(gradient)
+    assert scores.shape == (1, model.nr_out)
+    labels = numpy.zeros(scores.shape[:1], dtype='uint64')
+    labels[0] = model.nr_out-1
+    finish_update(labels)
