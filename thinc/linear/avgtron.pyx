@@ -12,6 +12,7 @@ from libc.math cimport sqrt
 from libc.stdlib cimport qsort
 from libc.stdint cimport int32_t
 
+import numpy
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap, MapStruct, map_get
 
@@ -20,7 +21,7 @@ from .sparse cimport SparseArray
 from ..extra.eg cimport Example
 from ..extra.mb cimport Minibatch
 from ..structs cimport SparseArrayC, SparseAverageC
-from ..typedefs cimport class_t, count_t, time_t, feat_t
+from ..typedefs cimport atom_t, class_t, count_t, time_t, feat_t
 from ..linalg cimport Vec, VecVec
 from .serialize cimport Writer
 from .serialize cimport Reader
@@ -35,6 +36,7 @@ cdef class AveragedPerceptron:
     '''
     def __init__(self, templates, *args, **kwargs):
         self.time = 0
+        self.nr_out = kwargs.get('nr_out', 0)
         self.weights = PreshMap()
         self.averages = PreshMap()
         self.lasso_ledger = PreshMap()
@@ -59,23 +61,52 @@ cdef class AveragedPerceptron:
                     PyMem_Free(feat.avgs)
                     PyMem_Free(feat.times)
 
-    def __call__(self, eg_or_mb):
-        cdef Example eg
-        cdef Minibatch mb
-        if isinstance(eg_or_mb, Example):
-            eg = eg_or_mb
-            self.set_scoresC(eg.c.scores, eg.c.features, eg.c.nr_feat)
-        else:
-            mb = eg_or_mb
-            for i in range(mb.c.i):
-                self.set_scoresC(mb.c.scores(i), mb.c.features(i), mb.c.nr_feat(i))
-        PyErr_CheckSignals()
-        return eg_or_mb
+    def __call__(self, atom_t[:] atoms):
+        cdef Example eg = Example(
+                            nr_class=self.nr_out,
+                            nr_atom=len(atoms),
+                            nr_feat=self.nr_feat)
+        memcpy(eg.c.atoms,
+            &atoms[0], eg.c.nr_atom * sizeof(eg.c.atoms[0]))
+        eg.nr_feat = self.extracter.set_features(eg.c.features, eg.c.atoms)
+        self.set_scoresC(eg.c.scores,
+            eg.c.features, eg.c.nr_feat)
+        scores = numpy.zeros((self.nr_out,), dtype='f')
+        for i in range(self.nr_out):
+            scores[i] = eg.c.scores[i]
+        return scores
 
     def update(self, Example eg):
         self(eg)
         self.updateC(eg.c)
         return eg.loss
+
+    def begin_update(self, atom_t[:] atoms):
+        cdef Example eg = Example(
+                            nr_class=self.nr_out,
+                            nr_atom=len(atoms),
+                            nr_feat=self.nr_feat)
+        memcpy(eg.c.atoms,
+            &atoms[0], eg.c.nr_atom * sizeof(eg.c.atoms[0]))
+        eg.nr_feat = self.extracter.set_features(eg.c.features, eg.c.atoms)
+        self.set_scoresC(eg.c.scores,
+            eg.c.features, eg.c.nr_feat)
+        def finish_update(weight_t[:] gradient_, optimizer=None, **kwargs):
+            # Help out the compiler by not accessing the outer scope in the loop.
+            # Instead, we set up our variables here.
+            cdef const FeatureC* features = eg.c.features
+            cdef int nr_feat = eg.c.nr_feat
+            cdef const weight_t* gradient = &gradient_[0]
+            cdef AveragedPerceptron model = self
+            cdef int nr_class = model.nr_out
+            for feat in features[:nr_feat]:
+                for clas in range(nr_class):
+                    grad = gradient[clas]
+                    model.update_weight(feat.key, clas, feat.value * grad)
+        scores = numpy.zeros((self.nr_out,), dtype='f')
+        for i in range(self.nr_out):
+            scores[i] = eg.c.scores[i]
+        return scores, finish_update
 
     def dump(self, loc):
         cdef Writer writer = Writer(loc, self.weights.length)
@@ -248,6 +279,20 @@ cdef class AveragedPerceptron:
         l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
         self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
 
+
+#cdef class UpdateHandler:
+#    cdef Example eg
+#    cdef AveragedPerceptron model
+#    def __init__(self, Example eg, AveragedPerceptron model):
+#        self.eg = eg
+#        self.model = model
+#
+#    def __call__(self, weight_t[:] gradient, optimizer=None, **kwargs):
+#        # TODO optimization
+#        for feature in eg.c.features[:eg.c.nr_feat]:
+#            for clas, grad in enumerate(gradient):
+#                self.model.update_weight(feat.key, clas, feat.value * grad)
+#
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
         weight_t t, weight_t last_upd, weight_t grad, weight_t learn_rate, weight_t _) nogil:
