@@ -33,7 +33,6 @@ def main(nb_epoch=10):
                                                nb_epoch=nb_epoch):
             guess, finish_update = model.begin_update(examples)
             gradient, loss = trainer.get_gradient(guess, truth)
-            #optimizer.set_loss(loss)
             finish_update(truth)
     print('Dev: %.3f' % score_model(model, X_test, y_test))
 
