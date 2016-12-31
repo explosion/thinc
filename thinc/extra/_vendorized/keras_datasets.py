@@ -28,7 +28,7 @@ def load_mnist(path='mnist.pkl.gz'):
     return data  # (X_train, y_train), (X_test, y_test)
 
 
-def load_reuters(path='reuters.pkl', nb_words=None, skip_top=50,
+def load_reuters(path='reuters.pkl', nb_words=None, skip_top=0,
               maxlen=None, test_split=0.2, seed=113,
               start_char=1, oov_char=2, index_from=3):
     '''Loads the Reuters newswire classification dataset.
