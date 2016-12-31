@@ -12,6 +12,8 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically 
 structured input and variable-length sequences.
 
+🔮 **Version 6.0 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+
 .. image:: https://travis-ci.org/explosion/thinc.svg?branch=master
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
