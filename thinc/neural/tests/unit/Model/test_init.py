@@ -1,3 +1,5 @@
+# encoding: utf8
+from __future__ import unicode_literals
 import pytest
 from flexmock import flexmock
 from hypothesis import given, strategies
@@ -9,9 +11,6 @@ from .... import base
 @pytest.fixture
 def model_with_no_args():
     flexmock(base.Model)
-    base.Model.should_receive('_args2kwargs').and_return({})
-    base.Model.should_receive('_update_defaults').and_return({})
-    base.Model.should_receive('setup').and_return(None)
     flexmock(base.util)
     base.util.should_receive('get_ops').with_args('cpu').and_return('cpu-ops')
     model = base.Model()
@@ -49,15 +48,49 @@ def test_Model_defaults_to_0_size(model_with_no_args):
 def test_Model_defaults_to_no_params(model_with_no_args):
     assert model_with_no_args.params is None
 
+@pytest.mark.parametrize('new_name', ['mymodel', 'layer', 'basic', '', '漢字'])
+def test_name_override(new_name):
+    control = base.Model()
+    assert control.name == 'model'
+    model = base.Model(name=new_name)
+    assert model.name == new_name
+    assert model.name != 'model'
+    control = base.Model()
+    assert control.name == 'model'
 
-@given(strategies.integers(min_value=0))
-def test_model_with_unk_input_shape_scalar_output_shape(scalar_output_shape):
-    '''This jointly tests init, _update_defaults, and _args2kwargs.'''
-    flexmock(base.Model)
-    base.Model.should_receive('setup').with_args().and_return(None)
-    flexmock(base.util)
-    base.util.should_receive('get_ops').with_args('cpu').and_return('cpu-ops')
-    model = base.Model(scalar_output_shape)
 
-    assert model.output_shape == scalar_output_shape
-    assert model.input_shape is None
+@pytest.mark.parametrize('new_device', ['gpu', 'gpu1', 'foreign'])
+def test_device_override(new_device):
+    control = base.Model()
+    assert control.device == 'cpu'
+    model = base.Model(device=new_device)
+    assert model.device == new_device
+    assert model.device != 'cpu'
+    control = base.Model()
+    assert control.device == 'cpu'
+
+
+def test_add_child_layer_instances():
+    control = base.Model()
+    assert len(control.layers) == 0
+    model = base.Model(
+                base.Model(name='child1'),
+                base.Model(name='child2'))
+    assert len(model.layers) == 2
+    assert model.layers[0].name == 'child1'
+    assert model.layers[1].name == 'child2'
+    assert model.name == 'model'
+    assert len(model.layers[0].layers) == 0
+   
+
+#
+#@given(strategies.integers(min_value=0))
+#def test_model_with_unk_input_shape_scalar_output_shape(scalar_output_shape):
+#    '''This jointly tests init, _update_defaults, and _args2kwargs.'''
+#    flexmock(base.Model)
+#    flexmock(base.util)
+#    base.util.should_receive('get_ops').with_args('cpu').and_return('cpu-ops')
+#    model = base.Model(scalar_output_shape)
+#
+#    assert model.output_shape == scalar_output_shape
+#    assert model.input_shape is None
