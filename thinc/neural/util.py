@@ -42,3 +42,15 @@ def minibatch(stream, batch_size=1000):
             batch = []
     if len(batch) != 0:
         yield batch
+
+
+class Unassigned(object):
+    def __init__(self, expected_type):
+        self.expected_type = expected_type
+
+    def __get__(self, obj, objtype):
+        return None
+
+    def __set__(self, obj, value):
+        if not isinstance(obj, self.expected_type):
+            raise TypeError("TODO Error")
