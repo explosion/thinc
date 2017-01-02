@@ -127,7 +127,7 @@ class Ops(object):
         return output
 
     def xavier_uniform_init(self, W, inplace=True):
-        scale = self.xp.sqrt(2. / (W.shape[0] + W.shape[1]))
+        scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
         if inplace:
             W[:] = self.xp.random.uniform(-scale, scale, W.shape)
             return W
