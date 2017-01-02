@@ -14,10 +14,20 @@ class Affine(Model):
     def shape(self):
         return (self.nr_out, self.nr_in)
 
-    def setup(self, nr_out=None, nr_in=None, **kwargs):
+    @property
+    def output_shape(self):
+        return (self.nr_out,)
+
+    @property
+    def input_shape(self):
+        return (self.nr_in,)
+
+    def __init__(self, nr_out, nr_in, *args, **kwargs):
+        # This sets attributes from kwargs.
+        # args is passed for potential subclasses.
+        Model.__init__(self, *args, **kwargs)
         self.nr_out = nr_out
         self.nr_in = nr_in
-        self.params = Params(self.ops)
         self.ops.xavier_uniform_init(self.params.W, inplace=True)
 
     def predict_batch(self, input_BI):
