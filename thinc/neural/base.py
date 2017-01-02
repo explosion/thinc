@@ -1,35 +1,52 @@
-import numpy
+from numpy import prod
 
 from . import util
 from .util import Unassigned
 from .train import Trainer
 from .exceptions import ShapeError
+from .ops import Ops
+from .params import Params
 
 
 class Model(object):
     '''Model base class.'''
     name = 'model'
+    device = 'cpu'
     Trainer = Trainer
-    ops = Unassigned(Ops)
-    output_shape = Unassigned(tuple)
-    input_shape = Unassigned(tuple)
-    layers = Unassigned(list)
-    params = Unassigned(Params)
+    ops = None
+    output_shape = None
+    input_shape = None
+    layers = []
+    params = None
 
     @property
     def size(self):
-        raise NotImplementedError
+        if any(shape is None for name, shape, init in self.describe_params):
+            return None
+        return sum(prod(shape) for name, shape, init in self.describe_params)
 
     @property
     def describe_params(self):
-        pass
+        for desc in []: # Need to be empty generator
+            yield desc
+
+    @classmethod
+    def check_ducktype(cls, obj):
+        return hasattr(obj, '__call__') and hasattr(obj, 'begin_update')
 
     def __init__(self, *args, **kwargs):
         self.layers = []
+        # This is messy, but: Take start of args to be shapes, then Models.
+        args = list(args)
+        shape = []
+        while args and not self.check_ducktype(args[0]) and len(shape) < 2:
+            shape.insert(0, args.pop(0))
+        while len(shape) < 2:
+            shape.append(None)
         kwargs = self._args2kwargs(
-                    ('output_shape', 'input_shape'),
-                    args, **kwargs)
-        kwargs = self._update_defaults(*args, **kwargs)
+                    ['output_shape', 'input_shape'],
+                    shape, **kwargs)
+        kwargs = self._update_defaults(**kwargs)
         self.setup(*args, **kwargs)
         if self.ops is None:
             self.ops = util.get_ops(self.device)
@@ -45,7 +62,8 @@ class Model(object):
             kwargs['output_shape'] = args.pop(0)
         if len(args) >= 1:
             assert 'input_shape' not in kwargs, "TODO: Error message"
-            kwargs['input_shape'] = args.pop(1)
+            kwargs['input_shape'] = args.pop(0)
+        return kwargs
     
     def _update_defaults(self, *args, **kwargs):
         new_kwargs = {}
@@ -58,10 +76,10 @@ class Model(object):
     
     def setup(self, *layers, **kwargs):
         for i, layer in enumerate(layers):
-            if isinstance(layer, Model):
+            if Model.check_ducktype(layer):
                 self.layers.append(layer)
             else:
-                self.layers.append(layer(**kwargs))
+                raise TypeError('TODO Error')
 
     def initialize_params(self, train_data):
         shape = train_data[0].shape
@@ -143,5 +161,3 @@ class Model(object):
         self.params.update(averages)
         if ('data', self.name) in averages:
             self.params.data[:] = averages[('data', self.name)]
-
-
