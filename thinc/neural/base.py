@@ -30,41 +30,24 @@ class Model(object):
         for desc in []: # Need to be empty generator
             yield desc
 
-    @classmethod
-    def check_ducktype(cls, obj):
-        return hasattr(obj, '__call__') and hasattr(obj, 'begin_update')
+    @property
+    def shape(self):
+        if self.output_shape is not None and self.input_shape is not None:
+            return self.output_shape + self.input_shape
+        else:
+            return None
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *layers, **kwargs):
         self.layers = []
-        # This is messy, but: Take start of args to be shapes, then Models.
-        args = list(args)
-        shape = []
-        while args and not self.check_ducktype(args[0]) and len(shape) < 2:
-            shape.insert(0, args.pop(0))
-        while len(shape) < 2:
-            shape.append(None)
-        kwargs = self._args2kwargs(
-                    ['output_shape', 'input_shape'],
-                    shape, **kwargs)
         kwargs = self._update_defaults(**kwargs)
-        self.setup(*args, **kwargs)
+        for layer in layers:
+            if isinstance(layer, Model):
+                self.layers.append(layer)
+            else:
+                self.layers.append(layer(**kwargs))
         if self.ops is None:
             self.ops = util.get_ops(self.device)
 
-    def _args2kwargs(self, names, args, **kwargs):
-        # Move positional args into the keyword args, so they can be handled
-        # via the _update_defaults machinery.
-        assert len(names) == len(args), "TODO: Error message"
-        if not args:
-            return kwargs
-        if len(args) >= 1:
-            assert 'output_shape' not in kwargs, "TODO: Error message"
-            kwargs['output_shape'] = args.pop(0)
-        if len(args) >= 1:
-            assert 'input_shape' not in kwargs, "TODO: Error message"
-            kwargs['input_shape'] = args.pop(0)
-        return kwargs
-    
     def _update_defaults(self, *args, **kwargs):
         new_kwargs = {}
         for key, value in kwargs.items():
@@ -74,13 +57,6 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    def setup(self, *layers, **kwargs):
-        for i, layer in enumerate(layers):
-            if Model.check_ducktype(layer):
-                self.layers.append(layer)
-            else:
-                raise TypeError('TODO Error')
-
     def initialize_params(self, train_data):
         shape = train_data[0].shape
         for i, dim in enumerate(shape):
@@ -161,3 +137,20 @@ class Model(object):
         self.params.update(averages)
         if ('data', self.name) in averages:
             self.params.data[:] = averages[('data', self.name)]
+
+
+#
+#    def _args2kwargs(self, names, args, **kwargs):
+#        # Move positional args into the keyword args, so they can be handled
+#        # via the _update_defaults machinery.
+#        assert len(names) == len(args), "TODO: Error message"
+#        if not args:
+#            return kwargs
+#        if len(args) >= 1:
+#            assert 'output_shape' not in kwargs, "TODO: Error message"
+#            kwargs['output_shape'] = args.pop(0)
+#        if len(args) >= 1:
+#            assert 'input_shape' not in kwargs, "TODO: Error message"
+#            kwargs['input_shape'] = args.pop(0)
+#        return kwargs
+# 
