@@ -1,5 +1,7 @@
 import pytest
 from flexmock import flexmock
+from hypothesis import given, strategies
+import abc
 
 from .... import base
 
@@ -46,3 +48,16 @@ def test_Model_defaults_to_0_size(model_with_no_args):
 
 def test_Model_defaults_to_no_params(model_with_no_args):
     assert model_with_no_args.params is None
+
+
+@given(strategies.integers(min_value=0))
+def test_model_with_unk_input_shape_scalar_output_shape(scalar_output_shape):
+    '''This jointly tests init, _update_defaults, and _args2kwargs.'''
+    flexmock(base.Model)
+    base.Model.should_receive('setup').with_args().and_return(None)
+    flexmock(base.util)
+    base.util.should_receive('get_ops').with_args('cpu').and_return('cpu-ops')
+    model = base.Model(scalar_output_shape)
+
+    assert model.output_shape == scalar_output_shape
+    assert model.input_shape is None
