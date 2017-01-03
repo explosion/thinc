@@ -19,56 +19,115 @@ def test_init_rejects_negative_sizes(ops, size):
         params = Params(ops, size)
 
 def test_add_param_within_size(ops):
-    model = Params(ops, size=128)
-    model.add('W', (5, 10))
-    assert model._offsets['W'] == (0, (5, 10))
-    model.add('b', (5,))
-    assert model._offsets['b'] == (5*10, (5,))
+    params = Params(ops, size=128)
+    params.add('W', (5, 10))
+    assert params._offsets['W'] == (0, (5, 10))
+    params.add('b', (5,))
+    assert params._offsets['b'] == (5*10, (5,))
     
 
 def test_add_param_realloc(ops):
-    model = Params(ops, size=10)
-    model.add('b', (5,))
-    assert model._offsets['b'] == (0, (5,))
-    model.add('W', (5, 10))
-    assert model._offsets['W'] == (5, (5, 10))
-    assert model._offsets['b'] == (0, (5,))
+    params = Params(ops, size=10)
+    params.add('b', (5,))
+    assert params._offsets['b'] == (0, (5,))
+    params.add('W', (5, 10))
+    assert params._offsets['W'] == (5, (5, 10))
+    assert params._offsets['b'] == (0, (5,))
  
 
 def test_get_param_present(ops):
-    model = Params(ops, size=10)
-    b = model.add('b', (5,))
-    b2 = model.get('b')
+    params = Params(ops, size=10)
+    b = params.add('b', (5,))
+    b2 = params.get('b')
     b[0] = 100
     assert b[0] == b2[0]
  
 
 def test_get_param_absent(ops):
-    model = Params(ops, size=10)
-    b = model.get('b')
+    params = Params(ops, size=10)
+    b = params.get('b')
     assert b is None
  
 
 def test_get_first_gradient(ops):
-    model = Params(ops, size=10)
-    b = model.add('b', (5,))
-    b2 = model.get('d_b')
+    params = Params(ops, size=10)
+    b = params.add('b', (5,))
+    b2 = params.get('d_b')
     b[0] = 100
     assert b2[0] == 0
  
 
 def test_get_existing_gradient(ops):
-    model = Params(ops, size=10)
-    b = model.add('b', (5,))
-    b2 = model.get('d_b')
+    params = Params(ops, size=10)
+    b = params.add('b', (5,))
+    b2 = params.get('d_b')
     b[0] = 100
     assert b2[0] == 0
     b2[0] = 20.
-    b3 = model.get('d_b')
+    b3 = params.get('d_b')
     assert b3[0] == b2[0]
  
 
 def test_get_gradient_absent_parameter(ops):
-    model = Params(ops, size=10)
-    d_b = model.get('d_b')
+    params = Params(ops, size=10)
+    d_b = params.get('d_b')
     assert d_b is None
+
+
+def test_merge_empty_others(ops):
+    params = Params(ops, size=10)
+    assert params.allow_resize
+    params.merge_params([])
+    assert params.allow_resize
+
+
+def test_merge_no_resize(ops):
+    parent = Params(ops, size=5)
+    assert parent.allow_resize
+    child = Params(ops, size=2)
+    w_parent = parent.add('W', (4,))
+    w_child = child.add('W', (2,))
+    child._mem[0, 0] = 10.0
+    assert parent._i == 4
+    assert child._i == 2
+    parent.merge_params([child])
+    assert not parent.allow_resize
+    assert not child.allow_resize
+    assert parent._i == 6
+    assert child._i == 2
+
+
+def test_merge_with_resize(ops):
+    parent = Params(ops, size=5)
+    child = Params(ops, size=5)
+    w_parent = parent.add('W', (4,))
+    w_parent[0] += 2.
+    w_child = child.add('W', (3,))
+    w_child[0] += 5.
+    parent.merge_params([child])
+    w_parent = parent.get('W')
+    w_child = child.get('W')
+    assert w_child[0] == 5
+    assert w_parent[0] == 2
+
+
+def test_resize_disallowed_after_merge(ops):
+    parent = Params(ops, size=5)
+    child = Params(ops, size=5)
+    w_parent = parent.add('W', (4,))
+    w_child = child.add('W', (3,))
+    parent.merge_params([child])
+    with pytest.raises(ValueError):
+        child.add('b', (2,))
+
+def test_merge_disallowed_after_merge(ops):
+    parent = Params(ops, size=5)
+    child = Params(ops, size=5)
+    parent.add('W', (4,))
+    child.add('W', (3,))
+    parent.merge_params([child])
+    parent2 = Params(ops, size=5)
+    with pytest.raises(ValueError):
+        parent2.merge_params([parent])
+    with pytest.raises(ValueError):
+        parent.replace_mem([parent2])
