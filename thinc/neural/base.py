@@ -7,6 +7,9 @@ from .exceptions import ShapeError
 from .ops import Ops
 from .params import Params
 
+def is_batch(x):
+    return isinstance(x, list) or len(x.shape) >= 2
+
 
 class Model(object):
     '''Model base class.'''
@@ -17,13 +20,14 @@ class Model(object):
     output_shape = None
     input_shape = None
     layers = []
-    params = None
+    Params = Params
 
     @property
     def size(self):
-        if any(shape is None for name, shape, init in self.describe_params):
+        if self.shape is None:
             return None
-        return sum(prod(shape) for name, shape, init in self.describe_params)
+        else:
+            return prod(self.shape)
 
     @property
     def describe_params(self):
@@ -40,6 +44,7 @@ class Model(object):
     def __init__(self, *layers, **kwargs):
         self.layers = []
         kwargs = self._update_defaults(**kwargs)
+        self.params = self.Params(self.ops)
         for layer in layers:
             if isinstance(layer, Model):
                 self.layers.append(layer)
@@ -57,30 +62,35 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    def initialize_params(self, train_data):
-        shape = train_data[0].shape
-        for i, dim in enumerate(shape):
-            if self.shape[i] is None:
-                self.shape[i] = dim
+    def initialize_params(self, train_data=None):
+        if train_data is not None:
+            shape = list(train_data[0].shape)
+            for i, dim in enumerate(shape):
+                if shape[i] is None:
+                    shape[i] = dim
+            self.shape = shape
         for name, shape, init in self.describe_params:
-            self.params.add(name, shape)
-            init(self.params.get(name), train_data)
+            if name not in self.params:
+                self.params.add(name, shape)
+                if init is not None:
+                    init(self.params.get(name), train_data)
         for layer in self.layers:
             layer.initialize_params(train_data)
         self.params.merge_params(layer.params for layer in self.layers)
 
-    def check_input(self, x):
+    def check_input(self, x, expect_batch=False):
         if is_batch(x):
             shape = x.shape[1:]
+        else:
+            raise ShapeError.expected_batch(locals(), globals())
         if shape != self.input_shape:
-            raise ShapeError.dim_mismatch(x, self)
+            raise ShapeError.dim_mismatch(self.input_shape, shape)
         else:
             return True
 
     def __call__(self, x):
         '''Predict a single x.'''
-        is_batch = self.is_batch(x)
-        self.check_shape(x, is_batch)
+        self.check_input(x)
         if is_batch:
             return self.predict_batch(x)
         else:
@@ -112,6 +122,7 @@ class Model(object):
             yield gradient
     
     def begin_update(self, X, **kwargs):
+        self.check_input(input_BI, expect_batch=True)
         callbacks = []
         for layer in self.layers:
             X, finish_update = layer.begin_update(X, **kwargs)

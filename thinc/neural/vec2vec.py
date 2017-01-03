@@ -8,44 +8,59 @@ class Affine(Model):
     @property
     def describe_params(self):
         yield 'W', (self.nr_out, self.nr_in), self.ops.xavier_uniform_init
-        yield 'b', (self.nr_out,), self.ops.xavier_uniform_init
+        yield 'b', (self.nr_out,), None
 
     @property
     def shape(self):
-        return (self.nr_out, self.nr_in)
+        if self.output_shape is None or self.input_shape is None:
+            return None
+        else:
+            return (self.nr_out, self.nr_in)
 
     @property
     def output_shape(self):
-        return (self.nr_out,)
+        return (self.nr_out,) if self.nr_out is not None else None
 
     @property
     def input_shape(self):
-        return (self.nr_in,)
+        return (self.nr_in,) if self.nr_in is not None else None
 
-    def __init__(self, nr_out, nr_in, *args, **kwargs):
+    @property
+    def W(self):
+        return self.params.get('W')
+
+    @property
+    def b(self):
+        return self.params.get('b')
+
+    def __init__(self, nr_out=None, nr_in=None, *args, **kwargs):
         # This sets attributes from kwargs.
         # args is passed for potential subclasses.
-        Model.__init__(self, *args, **kwargs)
         self.nr_out = nr_out
         self.nr_in = nr_in
-        self.ops.xavier_uniform_init(self.params.W, inplace=True)
+        Model.__init__(self, *args, **kwargs)
+        if self.shape is not None:
+            self.initialize_params()
+            self.ops.xavier_uniform_init(self.params.W, inplace=True)
 
     def predict_batch(self, input_BI):
         return self.ops.affine(self.params.W, self.params.b, input_BI)
 
     def begin_update(self, input_BI, dropout=0.0):
-        self.check_shape(input_BI, True)
+        self.check_input(input_BI)
         output_BO = self.predict_batch(input_BI)
         output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
         return output_BO, bp_dropout(self._get_finish_update(input_BI))
 
     def _get_finish_update(self, acts_BI):
         def finish_update(d_acts_BO, optimizer=None, **kwargs):
-            self.params.d_b += d_acts_BO.sum(axis=0)
-            self.params.d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
+            d_b = self.params.get('d_b')
+            d_W = self.params.get('d_W')
+            d_b += d_acts_BO.sum(axis=0)
+            d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
             if optimizer is not None:
-                optimizer(self.params.data, self.params.gradient,
-                    key=('W', self.name), **kwargs)
+                optimizer(self.params.weights, self.params.gradient,
+                    key=('', self.name), **kwargs)
             return self.ops.batch_dot(d_acts_BO, self.W.T)
         return finish_update
 
@@ -73,6 +88,7 @@ class Maxout(Affine):
         return self.ops.take_which(acts_bop, which_bo)
 
     def begin_update(self, input_BI, dropout=0.0):
+        self.check_input(input_BI, expect_batch=True)
         W_OCI = self.params.W
         b_OC = self.params.b
         output_BOC = self.ops.xp.tensordot(input_BI, W_OCI, axes=[[1], [-1]])

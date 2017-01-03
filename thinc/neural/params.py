@@ -11,7 +11,40 @@ class Params(object):
         self._i = 0
         self.allow_resize = True
 
-    def get(self, name):
+    @property
+    def weights(self):
+        return self._mem[0, :self._i]
+
+    @property
+    def gradient(self):
+        if self._mem.shape[0] == 1:
+            self._alloc_gradients()
+        return self._mem[1, :self._i]
+
+    @property
+    def W(self):
+        W = self.get('W', require=True)
+        return W
+
+    @property
+    def b(self):
+        b = self.get('b', require=True)
+        return self.get('b')
+
+    @property
+    def d_W(self):
+        d_W = self.get('d_W', require=True)
+        return d_W
+    
+    @property
+    def d_b(self):
+        d_b = self.get('d_b', require=True)
+        return d_b
+
+    def __contains__(self, name):
+        return name in self._offsets
+
+    def get(self, name, require=False):
         if name.startswith('d_'):
             name = name[2:]
             if self._mem.shape[0] == 1:
@@ -20,11 +53,15 @@ class Params(object):
         else:
             col = 0
         if name not in self._offsets:
-            return None
+            if require:
+                raise KeyError("TODO error")
+            else:
+                return None
         offset, shape = self._offsets[name]
         return self._mem[col, offset : offset + prod(shape)].reshape(shape)
 
     def add(self, name, shape):
+        assert name not in self._offsets, "TODO error"
         self._offsets[name] = (self._i, shape)
         blob = self._get_blob(prod(shape))
         return blob.reshape(shape)
@@ -51,8 +88,8 @@ class Params(object):
         self._mem = mem
 
     def _get_blob(self, nr_req):
+        print("Alloc", nr_req)
         nr_avail = self._mem.shape[1] - (self._i+1)
-        print("Req", nr_req, "Avail", nr_avail)
         if nr_avail < nr_req:
             self._realloc(max(self._mem.shape[1], nr_req) * 2)
         blob = self._mem[:, self._i : self._i + nr_req]
