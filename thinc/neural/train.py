@@ -29,15 +29,6 @@ class Trainer(object):
     def __call__(self, data, gradient):
         return self.optimizer(data, gradient, L2=self.L2)
 
-    def get_gradient(self, scores, labels):
-        target = self.ops.allocate(scores.shape)
-        loss = 0.0
-        for i, label in enumerate(labels):
-            target[i, int(label)] = 1.0
-            loss += (1.0-scores[i, int(label)])**2
-        self._loss += loss / len(labels)
-        return scores - target, loss
-
     def iterate(self, model, train_data, check_data, nb_epoch=None):
         if nb_epoch is None:
             nb_epoch = self.nb_epoch
@@ -51,6 +42,7 @@ class Trainer(object):
                 yield X, y
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
-            accs = (score_model(model, dev_X, dev_Y), self._loss)
-            print('Dev.: %.3f, %.3f loss' % accs, self._loss)
+            acc = score_model(model, dev_X, dev_Y)
+            stats = (acc, self._loss, self.dropout)
+            print('Dev.: %.3f, loss %.3f. Drop %.2f' % stats)
             self._loss = 0.
