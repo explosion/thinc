@@ -6,13 +6,12 @@ from hypothesis import given, strategies
 import abc
 
 from .... import base
+from .... import ops
 
 
 @pytest.fixture
 def model_with_no_args():
     flexmock(base.Model)
-    flexmock(base.util)
-    base.util.should_receive('get_ops').with_args('cpu').and_return('cpu-ops')
     model = base.Model()
     return model
 
@@ -22,7 +21,7 @@ def test_Model_defaults_to_name_model(model_with_no_args):
 
 
 def test_Model_defaults_to_cpu(model_with_no_args):
-    assert model_with_no_args.ops == 'cpu-ops'
+    assert isinstance(model_with_no_args.ops, ops.NumpyOps)
 
 
 def test_Model_defaults_to_no_layers(model_with_no_args):
@@ -40,13 +39,13 @@ def test_Model_defaults_to_no_output_shape(model_with_no_args):
 def test_Model_defaults_to_no_input_shape(model_with_no_args):
     assert model_with_no_args.input_shape == None
 
-
-def test_Model_defaults_to_0_size(model_with_no_args):
-    assert model_with_no_args.size == 0
-
-
-def test_Model_defaults_to_no_params(model_with_no_args):
-    assert model_with_no_args.params is None
+#
+#def test_Model_defaults_to_0_size(model_with_no_args):
+#    assert model_with_no_args.size == 0
+#
+#
+#def test_Model_defaults_to_no_params(model_with_no_args):
+#    assert model_with_no_args.params is None
 
 @pytest.mark.parametrize('new_name', ['mymodel', 'layer', 'basic', '', '漢字'])
 def test_name_override(new_name):
@@ -63,6 +62,8 @@ def test_name_override(new_name):
 def test_device_override(new_device):
     control = base.Model()
     assert control.device == 'cpu'
+    flexmock(base.util)
+    base.util.should_receive('get_ops').and_return(ops.NumpyOps())
     model = base.Model(device=new_device)
     assert model.device == new_device
     assert model.device != 'cpu'
