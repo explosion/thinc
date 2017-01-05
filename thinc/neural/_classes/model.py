@@ -139,9 +139,4 @@ class Model(object):
         return finish_update
 
     def average_params(self, averages):
-        pass
-        #for layer in self.layers:
-        #    layer.average_params(averages)
-        #self.params.update(averages)
-        #if ('data', self.name) in averages:
-        #    self.params.data[:] = averages[('data', self.name)]
+        self.params.weights[:] = averages[('', self.name)]
