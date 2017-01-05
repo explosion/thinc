@@ -24,7 +24,7 @@ class Trainer(object):
         return self, self.optimizer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.model.average_params(self.optimizer)
+        self.model.average_params(self.optimizer.averages)
 
     def __call__(self, data, gradient):
         return self.optimizer(data, gradient, L2=self.L2)
