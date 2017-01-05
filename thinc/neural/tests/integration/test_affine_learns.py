@@ -7,7 +7,7 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from ...base import Network
+from ...base import Model
 from ...optimizers import SGD
 from ...ops import NumpyOps
 from ... import vec2vec
@@ -18,7 +18,7 @@ random.seed(0)
 
 @pytest.fixture
 def model():
-    model = vec2vec.Affine(nr_out=2, nr_in=2)
+    model = vec2vec.Affine(2, 2, ops=NumpyOps())
     return model
 
 
@@ -48,36 +48,33 @@ def test_predict_bias(model):
     assert_allclose(scores, target_scores)
 
 
-def test_predict_weights():
+@pytest.mark.parametrize(
+    'X,expected', [
+        (np.asarray([0,0]), [0., 0.]),
+        (np.asarray([1,0]), [1., 0.]),
+        (np.asarray([0,1]), [0., 1.]),
+        (np.asarray([1,1]), [1., 1.])
+    ])
+def test_predict_weights(X, expected):
     W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
     bias = np.asarray([0.,0.])
 
-    model = vec2vec.Affine(W=W, b=bias, nr_in=W.shape[1], nr_out=W.shape[0])
-    ff = np.asarray([0,0])
-    tf = np.asarray([1,0])
-    ft = np.asarray([0,1])
-    tt = np.asarray([1,1])
+    model = vec2vec.Affine(W.shape[0], W.shape[1], ops=NumpyOps())
+    model.W[:] = W
+    model.b[:] = bias
 
-    scores = model(ff)
-    assert_allclose(scores[0], scores[1])
+    scores = model.predict_one(X)
+    assert_allclose(scores, expected)
 
-    scores = model(ft)
-    assert_allclose(scores, [0., 1.])
-
-    scores = model(tf)
-    assert_allclose(scores, [1., 0.])
-    assert_allclose(sum(scores), [1.0])
-
-    scores = model(tt)
-
-    assert_allclose(scores, [1., 1.])
 
 
 def test_update():
     W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
     bias = np.asarray([0.,0.])
 
-    model = vec2vec.Affine(W=W, b=bias)
+    model = vec2vec.Affine(2, 2, ops=NumpyOps())
+    model.W[:] = W
+    model.b[:] = bias
     sgd = SGD(model.ops, 1.0)
     
     ff = np.asarray([[0,0]])
