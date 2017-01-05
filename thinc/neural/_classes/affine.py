@@ -1,5 +1,5 @@
-from .base import Model
-from .exceptions import ShapeError
+from .model import Model
+from ..exceptions import ShapeError
 
 
 class Affine(Model):
