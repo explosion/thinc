@@ -29,11 +29,10 @@ class Trainer(object):
     def __call__(self, data, gradient):
         return self.optimizer(data, gradient, L2=self.L2)
 
-    def iterate(self, model, train_data, check_data, nb_epoch=None):
+    def iterate(self, model, train_data, dev_X, dev_Y, nb_epoch=None):
         if nb_epoch is None:
             nb_epoch = self.nb_epoch
         orig_dropout = self.dropout
-        dev_X, dev_Y = zip(*check_data)
         for i in range(nb_epoch):
             random.shuffle(train_data)
             for batch in tqdm.tqdm(minibatch(train_data,
