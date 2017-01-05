@@ -1,5 +1,6 @@
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
+from thinc.neural.vecs2vecs import ExtractWindow
 
 from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
@@ -40,10 +41,15 @@ class EmbedTagger(Model):
         self.width = width
         self.vector_length = vector_length
         layers = [
-            Embed(width, vector_length, vectors=vectors, ops=NumpyOps()),
-            ReLu(width, width, ops=NumpyOps()),
-            ReLu(width, width, ops=NumpyOps()),
-            Softmax(nr_tag, width, ops=NumpyOps())
+            Embed(width, vector_length, vectors=vectors, ops=NumpyOps(),
+                name='embed'),
+            ExtractWindow(n=1, ops=NumpyOps(), name='extract'),
+            ReLu(width, width*3, ops=NumpyOps(), name='relu1'),
+            ReLu(width, width, ops=NumpyOps(), name='relu2'),
+            ExtractWindow(n=2, ops=NumpyOps(), name='extract2'),
+            ReLu(width, width*5, ops=NumpyOps(), name='relu3'),
+            ReLu(width, width, ops=NumpyOps(), name='relu4'),
+            Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
 
@@ -55,6 +61,11 @@ class EmbedTagger(Model):
 
 
 class CascadeTagger(Model):
+    '''A silly example of using the gradient more flexibly.
+
+    Here we train the EmbedTagger on the tagging objective, but use the results
+    as features, and additionally backprop it with that objective.
+    '''
     def __init__(self, nr_tag, width, vector_length, vectors=None):
         self.width = width
         self.nr_tag = nr_tag
@@ -109,7 +120,7 @@ class CascadeTagger(Model):
 
 def main():
     train_data, check_data, nr_class = ancora_pos_tags()
-    model = CascadeTagger(nr_class, 32, 8, vectors={})
+    model = EmbedTagger(nr_class, 32, 8, vectors={})
     for X, y in train_data:
         for x in X:
             model.add_vector(x)
@@ -123,12 +134,16 @@ def main():
                                                nb_epoch=trainer.nb_epoch):
             truth = model.ops.flatten(truth)
             examples = model.ops.flatten(examples)
-            guess, finish_update = model.begin_update(examples, dropout=0.2)
+            guess, finish_update = model.begin_update(examples,
+                                        dropout=0.3)
 
             gradient, loss = categorical_crossentropy(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
-
+            trainer._loss += loss / len(truth)
+    with model.use_params(optimizer.averages):
+        print('Avg dev.: %.3f' % score_model(model, dev_X, dev_Y))
+ 
 
 if __name__ == '__main__':
     if 1:
