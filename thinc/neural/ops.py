@@ -13,20 +13,6 @@ except ImportError:
     import toolz
 
 
-class DataPool(object):
-    def __init__(self, data):
-        self.data = data
-        self.i = 0
-
-    def allocate(self, nr_weight):
-        data = self.data[self.i : self.i + nr_weight]
-        self.i += nr_weight
-        return data
-
-    def allocate_shape(self, shape):
-        return self.allocate(numpy.prod(shape)).reshape(shape)
-
-
 class Ops(object):
     xp = None
 
@@ -71,9 +57,6 @@ class Ops(object):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype='f')
-
-    def allocate_pool(self, nr_weight, name=None):
-        return DataPool(self.xp.zeros((nr_weight,), dtype='f'))
 
     def asarray(self, data, dtype='f'):
         return self.xp.asarray(data, dtype=dtype)
