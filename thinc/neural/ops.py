@@ -64,7 +64,7 @@ class Ops(object):
         if drop <= 0.0:
             return None
         coinflips = self.xp.random.uniform(0., 1., shape)
-        return (drop < coinflips) / drop
+        return (drop >= coinflips) / (1.-drop)
 
     def allocate(self, shape, name=None):
         if isinstance(shape, int):
