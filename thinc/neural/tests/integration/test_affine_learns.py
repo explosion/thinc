@@ -19,6 +19,7 @@ random.seed(0)
 @pytest.fixture
 def model():
     model = vec2vec.Affine(2, 2, ops=NumpyOps())
+    model.initialize_params(add_gradient=True)
     return model
 
 
@@ -60,6 +61,7 @@ def test_predict_weights(X, expected):
     bias = np.asarray([0.,0.])
 
     model = vec2vec.Affine(W.shape[0], W.shape[1], ops=NumpyOps())
+    model.initialize_params(add_gradient=True)
     model.W[:] = W
     model.b[:] = bias
 
@@ -73,6 +75,7 @@ def test_update():
     bias = np.asarray([0.,0.])
 
     model = vec2vec.Affine(2, 2, ops=NumpyOps())
+    model.initialize_params(add_gradient=True)
     model.W[:] = W
     model.b[:] = bias
     sgd = SGD(model.ops, 1.0)
