@@ -11,7 +11,6 @@ from ....ops import NumpyOps
 
 @pytest.fixture
 def model_with_no_args():
-    flexmock(vec2vec.Affine)
     model = vec2vec.Affine(ops=NumpyOps())
     return model
 
@@ -20,9 +19,8 @@ def test_Affine_default_name(model_with_no_args):
     assert model_with_no_args.name == 'affine'
 
 
-@pytest.mark.xfail
 def test_Affine_defaults_to_cpu(model_with_no_args):
-    assert model_with_no_args.ops == 'cpu-ops'
+    assert isinstance(model_with_no_args.ops, NumpyOps)
 
 
 def test_Affine_defaults_to_no_layers(model_with_no_args):
