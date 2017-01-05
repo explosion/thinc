@@ -25,6 +25,7 @@ def main(depth=2, width=512, nb_epoch=10):
     train_data, dev_data, test_data = datasets.mnist()
     train_X, train_Y = zip(*train_data)
     dev_X, dev_Y = zip(*dev_data)
+    test_X, test_Y = zip(*test_data)
 
     with model.begin_training(train_data) as (trainer, optimizer):
         for i in range(nb_epoch):
@@ -35,7 +36,12 @@ def main(depth=2, width=512, nb_epoch=10):
                                         dropout=trainer.dropout)
                 gradient, loss = categorical_crossentropy(guess, batch_Y)
                 optimizer.set_loss(loss)
+                trainer._loss += loss / len(batch_Y)
                 finish_update(gradient, optimizer)
+    acc = score_model(model, dev_X, dev_Y)
+    print('Dev.: %.3f' % score_model(model, dev_X, dev_Y))
+    print('Test.: %.3f' % score_model(model, test_X, test_Y))
+ 
     with open('out.pickle', 'wb') as file_:
         pickle.dump(model, file_, -1)
 
