@@ -8,7 +8,8 @@ from .ops import Ops
 from .params import Params
 
 def is_batch(x):
-    return isinstance(x, list) or len(x.shape) >= 2
+    return True
+    #return isinstance(x, list) or len(x.shape) >= 2
 
 
 class Model(object):
@@ -17,8 +18,6 @@ class Model(object):
     device = 'cpu'
     Trainer = Trainer
     ops = None
-    output_shape = None
-    input_shape = None
     layers = []
     Params = Params
 
@@ -33,25 +32,30 @@ class Model(object):
     def describe_params(self):
         for desc in []: # Need to be empty generator
             yield desc
+    
+    @property
+    def input_shape(self):
+        return self.layers[0].input_shape
+ 
+    @property
+    def output_shape(self):
+        return self.layers[0].input_shape
 
     @property
     def shape(self):
-        if self.output_shape is not None and self.input_shape is not None:
-            return self.output_shape + self.input_shape
-        else:
-            return None
+        return self.layers[-1].output_shape + self.layers[0].input_shape
 
     def __init__(self, *layers, **kwargs):
         self.layers = []
         kwargs = self._update_defaults(**kwargs)
+        if self.ops is None:
+            self.ops = util.get_ops(self.device)
         self.params = self.Params(self.ops)
         for layer in layers:
             if isinstance(layer, Model):
                 self.layers.append(layer)
             else:
                 self.layers.append(layer(**kwargs))
-        if self.ops is None:
-            self.ops = util.get_ops(self.device)
 
     def _update_defaults(self, *args, **kwargs):
         new_kwargs = {}
@@ -62,21 +66,18 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    def initialize_params(self, train_data=None):
-        if train_data is not None:
-            shape = list(train_data[0].shape)
-            for i, dim in enumerate(shape):
-                if shape[i] is None:
-                    shape[i] = dim
-            self.shape = shape
+    def initialize_params(self, train_data=None, add_gradient=False):
+        if add_gradient:
+            _ = self.params.get('d_W')
         for name, shape, init in self.describe_params:
             if name not in self.params:
                 self.params.add(name, shape)
                 if init is not None:
-                    init(self.params.get(name), train_data)
+                    init(self.params.get(name), inplace=True)
         for layer in self.layers:
-            layer.initialize_params(train_data)
-        self.params.merge_params(layer.params for layer in self.layers)
+            layer.params = self.params
+            layer.initialize_params(train_data, add_gradient=add_gradient)
+        #self.params.merge_params(layer.params for layer in self.layers)
 
     def check_input(self, x, expect_batch=False):
         if is_batch(x):
@@ -106,7 +107,7 @@ class Model(object):
         return X
 
     def begin_training(self, train_data):
-        self.initialize_params(train_data)
+        self.initialize_params(train_data, add_gradient=True)
         return self.Trainer(self, train_data)
     
     def pipe(self, stream, batch_size=1000):
@@ -122,7 +123,7 @@ class Model(object):
             yield gradient
     
     def begin_update(self, X, **kwargs):
-        self.check_input(input_BI, expect_batch=True)
+        self.check_input(X, expect_batch=True)
         callbacks = []
         for layer in self.layers:
             X, finish_update = layer.begin_update(X, **kwargs)
@@ -132,36 +133,17 @@ class Model(object):
     def _get_finish_update(self, callbacks):
         def finish_update(gradient, optimizer, **kwargs):
             for callback in reversed(callbacks):
-                gradient = callback(gradient, optimizer=optimizer, **kwargs)
+                gradient = callback(gradient, optimizer=None, **kwargs)
             if optimizer is not None and self.params is not None:
-                optimizer(self.params.data, self.params.gradient,
-                    key=('data', self.name), **kwargs)
+                optimizer(self.params.weights, self.params.gradient,
+                    key=('', self.name), **kwargs)
             return gradient
         return finish_update
 
     def average_params(self, averages):
-        if not self.is_allocated:
-            raise Exception("TODO Error")
-
-        for layer in self.layers:
-            layer.average_params(averages)
-        self.params.update(averages)
-        if ('data', self.name) in averages:
-            self.params.data[:] = averages[('data', self.name)]
-
-
-#
-#    def _args2kwargs(self, names, args, **kwargs):
-#        # Move positional args into the keyword args, so they can be handled
-#        # via the _update_defaults machinery.
-#        assert len(names) == len(args), "TODO: Error message"
-#        if not args:
-#            return kwargs
-#        if len(args) >= 1:
-#            assert 'output_shape' not in kwargs, "TODO: Error message"
-#            kwargs['output_shape'] = args.pop(0)
-#        if len(args) >= 1:
-#            assert 'input_shape' not in kwargs, "TODO: Error message"
-#            kwargs['input_shape'] = args.pop(0)
-#        return kwargs
-# 
+        pass
+        #for layer in self.layers:
+        #    layer.average_params(averages)
+        #self.params.update(averages)
+        #if ('data', self.name) in averages:
+        #    self.params.data[:] = averages[('data', self.name)]
