@@ -8,10 +8,10 @@ from ....ops import NumpyOps
 from ....vec2vec import Affine
 from ....exceptions import ShapeError
 
-from .strategies import affine_params_and_input
+from ...strategies import arrays_OI_O_BI
 
 
-@given(affine_params_and_input(max_batch=8, max_out=8, max_in=8))
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_predict_batch_quickly(W_b_input):
     ops = NumpyOps()
     W, b, input_ = W_b_input
@@ -31,7 +31,7 @@ def test_predict_batch_quickly(W_b_input):
 
 
 @pytest.mark.skip
-@given(affine_params_and_input(max_batch=100, max_out=100, max_in=100))
+@given(arrays_OI_O_BI(max_batch=100, max_out=100, max_in=100))
 def test_predict_batch_extensively(W_b_input):
     ops = NumpyOps()
     W, b, input_ = W_b_input
