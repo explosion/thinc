@@ -12,7 +12,7 @@ class Trainer(object):
         self.ops = model.ops
         self.model = model
         self.optimizer = Eve(model.ops, 0.001)
-        self.batch_size = 32
+        self.batch_size = 128
         self.nb_epoch = 1
         self.i = 0
         self.L2 = 0.0
@@ -42,6 +42,7 @@ class Trainer(object):
         if nb_epoch is None:
             nb_epoch = self.nb_epoch
         orig_dropout = self.dropout
+        dev_X, dev_Y = zip(*check_data)
         for i in range(nb_epoch):
             random.shuffle(train_data)
             for batch in tqdm.tqdm(minibatch(train_data,
@@ -50,6 +51,6 @@ class Trainer(object):
                 yield X, y
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
-            accs = (score_model(model, check_data), self._loss)
+            accs = (score_model(model, dev_X, dev_Y), self._loss)
             print('Dev.: %.3f, %.3f loss' % accs, self._loss)
             self._loss = 0.

@@ -10,10 +10,9 @@ def get_ops(ops):
         return ops
 
 
-def score_model(model, X_y):
+def score_model(model, X, y):
     correct = 0
     total = 0
-    X, y = zip(*X_y)
     scores = model.predict_batch(X)
     if isinstance(y, tuple) and (isinstance(y[0], tuple) or isinstance(y[0], list)):
         y = model.ops.asarray(model.ops.flatten(y), dtype='i')
