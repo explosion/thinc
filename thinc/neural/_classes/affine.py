@@ -72,10 +72,8 @@ class Affine(Model):
             d_W = self.d_W
             d_b += d_acts_BO.sum(axis=0)
             d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
-            if optimizer is not None:
+            if optimizer is not None and not kwargs.get('is_child'):
                 optimizer(self.params.weights, self.params.gradient,
                     key=('', self.name), **kwargs)
             return self.ops.batch_dot(d_acts_BO, self.W.T)
         return finish_update
-
-
