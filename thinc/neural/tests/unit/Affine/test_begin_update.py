@@ -7,7 +7,7 @@ from ....vec2vec import Affine
 from ....exceptions import ShapeError
 
 
-from .strategies import affine_params_and_input
+from ...strategies import arrays_OI_O_BI
 
 def get_model(W_b_input):
     ops = NumpyOps()
@@ -24,7 +24,7 @@ def get_shape(W_b_input):
     return input_.shape[0], W.shape[0], W.shape[1]
     
 
-@given(affine_params_and_input(max_batch=8, max_out=8, max_in=8))
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_begin_update_matches_predict_batch(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
@@ -34,7 +34,7 @@ def test_begin_update_matches_predict_batch(W_b_input):
     assert_allclose(fwd_via_begin_update, fwd_via_predict_batch)
 
 
-@given(affine_params_and_input(max_batch=8, max_out=8, max_in=8))
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_dropout_gives_zero_activations(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
@@ -43,7 +43,7 @@ def test_dropout_gives_zero_activations(W_b_input):
     assert all(val == 0. for val in fwd_dropped.flatten())
 
 
-@given(affine_params_and_input(max_batch=8, max_out=8, max_in=8))
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_dropout_gives_zero_gradients(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
@@ -54,7 +54,7 @@ def test_dropout_gives_zero_gradients(W_b_input):
     assert all(val == 0. for val in grad_BI.flatten())
 
 
-@given(affine_params_and_input(max_batch=8, max_out=8, max_in=8))
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_finish_update_calls_optimizer_with_weights(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
