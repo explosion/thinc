@@ -6,7 +6,7 @@ class Params(object):
         if size < 0:
             raise ValueError("TODO error re negative size %d" % size)
         self.ops = ops
-        self._mem = self.ops.allocate((1, size))
+        self._mem = self.ops.allocate((2, size))
         self._offsets = {}
         self._i = 0
         self.allow_resize = True
@@ -17,8 +17,6 @@ class Params(object):
 
     @property
     def gradient(self):
-        if self._mem.shape[0] == 1:
-            self._alloc_gradients()
         return self._mem[1, :self._i]
 
     @property
@@ -47,8 +45,6 @@ class Params(object):
     def get(self, name, require=False):
         if name.startswith('d_'):
             name = name[2:]
-            if self._mem.shape[0] == 1:
-                self._alloc_gradients()
             col = 1
         else:
             col = 0
@@ -62,9 +58,10 @@ class Params(object):
 
     def add(self, name, shape):
         assert name not in self._offsets, "TODO error"
+        assert not name.startswith('d_')
         self._offsets[name] = (self._i, shape)
         blob = self._get_blob(prod(shape))
-        return blob.reshape(shape)
+        return blob[0].reshape(shape)
 
     def merge_params(self, others):
         others = list(others)
@@ -96,14 +93,10 @@ class Params(object):
         self._i += nr_req
         return blob
 
-    def _alloc_gradients(self):
-        new_mem = self.ops.allocate((2, self._mem.shape[1]))
-        new_mem[0] = self._mem[0]
-        self._mem = new_mem
-
     def _realloc(self, new_size):
         if not self.allow_resize:
             raise ValueError("TODO Error")
+        print("Realloc", self._i, new_size)
         new_mem = self.ops.allocate((self._mem.shape[0], new_size))
         new_mem[:, :self._i+1] = self._mem[:, :self._i+1]
         self._mem = new_mem
