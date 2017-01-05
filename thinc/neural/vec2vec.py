@@ -8,11 +8,11 @@ class ReLu(Affine):
         output = Affine.predict_batch(self, X)
         return self.ops.clip_low(output, 0, inplace=True)
 
-    def finish_update(self, X, *args, **kwargs):
-        output, bwd_affine = Affine.begin_update(self, X, *args, **kwargs)
+    def begin_update(self, input_BI, dropout=0.0):
+        output_BO, finish_affine = Affine.begin_update(self, input_BI)
         def finish_update(gradient, *args, **kwargs):
-            return bwd_affine(gradient * (output > 0), *args, **kwargs)
-        return output, finish_update
+            return finish_affine(gradient * (output_BO > 0), *args, **kwargs)
+        return output_BO, finish_update
 
 
 class Softmax(Affine):
@@ -27,6 +27,9 @@ class Softmax(Affine):
         output = Affine.predict_batch(self, X)
         act = self.activate(output)
         return act
+
+    def begin_update(self, X, dropout=0.0, **kwargs):
+        return Affine.begin_update(self, X, dropout=0.0)
 
     def activate(self, X):
         return self.ops.softmax(X, axis=-1)
