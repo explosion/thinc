@@ -74,7 +74,6 @@ class Model(object):
         for layer in self.layers:
             layer.params = self.params
             layer.initialize_params(train_data, add_gradient=add_gradient)
-        #self.params.merge_params(layer.params for layer in self.layers)
 
     def check_input(self, x, expect_batch=False):
         if is_batch(x):
@@ -98,10 +97,10 @@ class Model(object):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict_batch(X)[0]
 
+
     def predict_batch(self, X):
-        for layer in self.layers:
-            X = layer.predict_batch(X)
-        return X
+        y, _ = self.begin_update(X)
+        return y
 
     def begin_training(self, train_data):
         self.initialize_params(train_data, add_gradient=True)
@@ -130,12 +129,15 @@ class Model(object):
     def _get_finish_update(self, callbacks):
         def finish_update(gradient, optimizer, **kwargs):
             for callback in reversed(callbacks):
-                gradient = callback(gradient, optimizer=None, **kwargs)
-            if optimizer is not None and self.params is not None:
+                gradient = callback(gradient, optimizer=optimizer,
+                                is_child=True)
+            if optimizer is not None and self.params is not None \
+            and not kwargs.get('is_child'):
                 optimizer(self.params.weights, self.params.gradient,
                     key=('', self.name), **kwargs)
             return gradient
         return finish_update
 
     def average_params(self, averages):
-        self.params.weights[:] = averages[('', self.name)]
+        if ('', self.name) in averages:
+            self.params.weights[:] = averages[('', self.name)]
