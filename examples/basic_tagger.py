@@ -1,12 +1,10 @@
-from thinc.neural.base import Network
 from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import ReLu
-from thinc.neural.vec2vec import Softmax
-from thinc.neural.convolution import ExtractWindow
-from thinc.neural.ids2vecs import WindowEncode
+from thinc.neural.vec2vec import Model, ReLu, Softmax
 
 from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
+from thinc.neural.ops import NumpyOps
+from thinc.loss import categorical_crossentropy
 
 from thinc.extra.datasets import ancora_pos_tags
 
@@ -18,58 +16,116 @@ except ImportError:
     import toolz
 
 
-class EncodeTagger(Network):
-    Input = WindowEncode
-    width = 32
+#class EncodeTagger(Network):
+#    Input = WindowEncode
+#    width = 32
+#
+#    def setup(self, nr_class, *args, **kwargs):
+#        self.layers.append(
+#            self.Input(vectors={}, W=None, nr_out=self.width,
+#                nr_in=self.width, static=False))
+#        self.layers.append(
+#            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
+#        self.layers.append(
+#            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
+#        self.layers.append(
+#            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
+#        self.set_weights(initialize=True)
+#        self.set_gradient()
+#
 
-    def setup(self, nr_class, *args, **kwargs):
-        self.layers.append(
-            self.Input(vectors={}, W=None, nr_out=self.width,
-                nr_in=self.width, static=False))
-        self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
-        self.set_weights(initialize=True)
-        self.set_gradient()
+class EmbedTagger(Model):
+    def __init__(self, nr_tag, width, vector_length, vectors=None):
+        vectors = {} if vectors is None else vectors
+        self.width = width
+        self.vector_length = vector_length
+        layers = [
+            Embed(width, vector_length, vectors=vectors, ops=NumpyOps()),
+            ReLu(width, width, ops=NumpyOps()),
+            ReLu(width, width, ops=NumpyOps()),
+            Softmax(nr_tag, width, ops=NumpyOps())
+        ]
+        Model.__init__(self, *layers, ops=NumpyOps())
+
+    def check_input(self, X, expect_batch=False):
+        return True
+
+    def add_vector(self, id_):
+        self.layers[0].add_vector(id_, self.vector_length, add_gradient=True)
 
 
-class EmbedTagger(EncodeTagger):
-    class Input(Network):
-        nr_in = None
-        nr_out = None
-        def setup(self, *args, **kwargs):
-            self.layers = [
-                Embed(vectors={}, W=None, nr_in=self.nr_in, nr_out=self.nr_out),
-                ExtractWindow(n=1, nr_in=self.nr_in, nr_out=self.nr_out*3)
-            ]
-            self.nr_out *= 3
+class CascadeTagger(Model):
+    def __init__(self, nr_tag, width, vector_length, vectors=None):
+        self.width = width
+        self.nr_tag = nr_tag
+        self.vector_length = vector_length
+        self.vectors = vectors
+        self.first = EmbedTagger(nr_tag, width, vector_length, vectors=vectors)
+        self.embed2 = Embed(
+            width, vector_length, vectors=vectors,
+            ops=NumpyOps(), name='embed2.1')
+        self.relu2 = ReLu(width, width + nr_tag, ops=NumpyOps(), name='relu2.1')
+        self.relu3 = ReLu(width, width + nr_tag, name='relu2.2')
+        self.softmax2 = Softmax(nr_tag, width + nr_tag, name='softmax2.1')
+        layers = [self.first, self.embed2, self.relu2, self.relu3, self.softmax2]
+        Model.__init__(self, *layers, ops=NumpyOps())
 
+    def begin_update(self, X, **kwargs):
+        first_tags, upd_tag1 = self.first.begin_update(X, **kwargs)
+        X, upd_embed2 = self.embed2.begin_update(X, **kwargs)
+        X = self.ops.xp.hstack([first_tags, X])
+        X, upd_rel2 = self.relu2.begin_update(X, **kwargs)
+        X = self.ops.xp.hstack([first_tags, X])
+        X, upd_rel3 = self.relu3.begin_update(X, **kwargs)
+        X = self.ops.xp.hstack([first_tags, X])
+        X, upd_sm2 = self.softmax2.begin_update(X, **kwargs)
 
-def _flatten(ops, data):
-    X, y = zip(*data)
-    X = ops.asarray(list(toolz.concat(X)), dtype='i')
-    y = ops.asarray(list(toolz.concat(y)), dtype='i')
-    return X, y
+        def finish_update(gradient, sgd):
+            def unstack(gradient):
+                split = first_tags.shape[1]
+                return gradient[:, :split], gradient[:, split:]
+
+            upd_tag1(gradient, sgd, is_child=True)
+
+            grad1, grad2 = unstack(upd_sm2(gradient, sgd, is_child=True))
+            upd_tag1(grad1, sgd, is_child=True)
+
+            grad1, grad2 = unstack(upd_rel3(grad2, sgd, is_child=True))
+            upd_tag1(grad1, sgd, is_child=True)
+
+            grad1, grad2 = unstack(upd_rel2(grad2, sgd, is_child=True))
+            upd_tag1(grad1, sgd, is_child=True)
+ 
+            upd_embed2(grad2, sgd, is_child=True)
+
+            sgd(self.params.weights, self.params.gradient, key=('', self.name))
+            return None
+        return X, finish_update
+
+    def add_vector(self, id_):
+        self.first.add_vector(id_)
+        self.embed2.add_vector(id_, self.vector_length, add_gradient=True)
 
 
 def main():
     train_data, check_data, nr_class = ancora_pos_tags()
-    model = EncodeTagger(nr_class)
+    model = CascadeTagger(nr_class, 32, 8, vectors={})
     for X, y in train_data:
         for x in X:
-            model.layers[0].add_vector(x,
-                model.width, add_gradient=True)
+            model.add_vector(x)
 
+    dev_X, dev_Y = zip(*check_data)
+    dev_X = model.ops.flatten(dev_X)
+    dev_Y = model.ops.flatten(dev_Y)
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.nb_epoch = 10
-        for examples, truth in trainer.iterate(model, train_data, check_data,
+        for examples, truth in trainer.iterate(model, train_data, dev_X, dev_Y,
                                                nb_epoch=trainer.nb_epoch):
             truth = model.ops.flatten(truth)
+            examples = model.ops.flatten(examples)
             guess, finish_update = model.begin_update(examples, dropout=0.2)
-            gradient, loss = trainer.get_gradient(guess, truth)
+
+            gradient, loss = categorical_crossentropy(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
 
