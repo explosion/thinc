@@ -1,52 +1,45 @@
-from .base import Model
+from .model import Model
 
 
 class Embed(Model):
     name = 'embed'
-    nr_out = None
-    nr_in = None
-    data = None
+    
+    @property
+    def describe_params(self):
+        init = self.ops.xavier_uniform_init
+        yield 'W-%s' % self.name, (self.nr_out, self.vector_length), init
 
     @property
-    def is_initialized(self):
-        return self.W is not None
-
-    @property
-    def input_shape(self):
-        return (self.nr_in,)
+    def shape(self):
+        if self.output_shape is None or self.input_shape is None:
+            return None
+        else:
+            return (self.nr_out, self.vector_length)
 
     @property
     def output_shape(self):
-        return (self.nr_out,)
+        return (self.nr_out,) if self.nr_out is not None else None
 
     @property
-    def nr_weight(self):
-        return self.nr_out * self.nr_in
+    def input_shape(self):
+        return (self.vectors_length,) if self.vectors_length is not None else None
 
-    def setup(self, vectors, W, **kwargs):
-        self.vectors = vectors
-        self.W = W
+    @property
+    def W(self):
+        return self.params.get('W-%s' % self.name, require=True)
 
-    def set_weights(self, data=None, initialize=True, example=None):
-        if example is not None:
-            self.nr_in = example.shape[-1]
-        if data is None:
-            if self.data is None:
-                self.data = self.ops.allocate_pool(self.nr_weight,
-                                name=(self.name, 'pool'))
-            data = self.data
-        self.W = data.allocate_shape((self.nr_out, self.nr_in))
-        if initialize:
-            self.ops.xavier_uniform_init(self.W, inplace=True)
+    @property
+    def d_W(self):
+        return self.params.get('d_W-%s' % self.name, require=True)
 
-    def set_gradient(self, data=None, initialize=False):
-        if data is None:
-            self.d_data = self.ops.allocate_pool(self.nr_weight,
-                            name=(self.name, 'pool'))
-        else:
-            self.d_data = data
-        self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_in))
-        self.gradients = {}
+    def __init__(self, nr_out, vector_length, vectors=None, **kwargs):
+        self.nr_out = nr_out
+        self.vector_length = vector_length
+        self.vectors = vectors if vectors is not None else {}
+        Model.__init__(self, **kwargs)
+
+    def check_input(self, X):
+        return True
 
     def add_vector(self, id_, shape, add_gradient=True):
         if not hasattr(self, 'vectors') or self.vectors is None:
@@ -101,7 +94,8 @@ class Embed(Model):
 
     def _get_finish_update(self, ids):
         def finish_update(gradients, optimizer=None, **kwargs):
-            self.d_W  += self.ops.batch_outer(gradients, self._embed(ids))
+            d_W = self.d_W
+            d_W += self.ops.batch_outer(gradients, self._embed(ids))
             gradients = self.ops.batch_dot(gradients, self.W.T)
             tuned = set()
             for id_, delta_in in zip(ids, gradients):
@@ -110,9 +104,60 @@ class Embed(Model):
                     embed_grad += delta_in
                     tuned.add(id_)
             if optimizer is not None:
+                if not kwargs.get('is_child'):
+                    optimizer(self.params.weights, self.params.gradient)
                 for id_ in tuned:
                     vector = self.get_vector(id_)
                     grad = self.gradients.get(id_)
                     optimizer(vector, grad, key=(self.name, id_))
             return None
         return finish_update
+
+
+
+#    nr_out = None
+#    nr_in = None
+#    data = None
+#
+#    @property
+#    def is_initialized(self):
+#        return self.W is not None
+#
+#    @property
+#    def input_shape(self):
+#        return (self.nr_in,)
+#
+#    @property
+#    def output_shape(self):
+#        return (self.nr_out,)
+#
+#    @property
+#    def nr_weight(self):
+#        return self.nr_out * self.nr_in
+#
+#    def setup(self, vectors, W, **kwargs):
+#        self.vectors = vectors
+#        self.W = W
+#
+#    def set_weights(self, data=None, initialize=True, example=None):
+#        if example is not None:
+#            self.nr_in = example.shape[-1]
+#        if data is None:
+#            if self.data is None:
+#                self.data = self.ops.allocate_pool(self.nr_weight,
+#                                name=(self.name, 'pool'))
+#            data = self.data
+#        self.W = data.allocate_shape((self.nr_out, self.nr_in))
+#        if initialize:
+#            self.ops.xavier_uniform_init(self.W, inplace=True)
+#
+#    def set_gradient(self, data=None, initialize=False):
+#        if data is None:
+#            self.d_data = self.ops.allocate_pool(self.nr_weight,
+#                            name=(self.name, 'pool'))
+#        else:
+#            self.d_data = data
+#        self.d_W = self.d_data.allocate_shape((self.nr_out, self.nr_in))
+#        self.gradients = {}
+#
+#
