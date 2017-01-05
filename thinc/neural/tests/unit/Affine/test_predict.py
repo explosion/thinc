@@ -18,8 +18,8 @@ def test_predict_batch_quickly(W_b_input):
     nr_out, nr_in = W.shape
     model = Affine(nr_out, nr_in, ops=ops)
     model.initialize_params()
-    model.params.W[:] = W
-    model.params.b[:] = b
+    model.W[:] = W
+    model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
                             numpy.asarray(input_, dtype='float64'))
@@ -38,8 +38,8 @@ def test_predict_batch_extensively(W_b_input):
     nr_out, nr_in = W.shape
     model = Affine(nr_out, nr_in, ops=ops)
     model.initialize_params()
-    model.params.W[:] = W
-    model.params.b[:] = b
+    model.W[:] = W
+    model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
                             numpy.asarray(input_, dtype='float64'))

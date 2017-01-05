@@ -30,8 +30,8 @@ def test_Affine_defaults_to_no_layers(model_with_no_args):
 def test_Affine_defaults_to_param_descriptions(model_with_no_args):
     W_desc, b_desc = model_with_no_args.describe_params
     xavier_init = model_with_no_args.ops.xavier_uniform_init
-    assert W_desc == ('W', (None, None), xavier_init)
-    assert b_desc == ('b', (None,), None)
+    assert W_desc == ('W-affine', (None, None), xavier_init)
+    assert b_desc == ('b-affine', (None,), None)
 
 
 def test_Model_defaults_to_no_output_shape(model_with_no_args):

@@ -49,10 +49,12 @@ class Ops(object):
     def get_dropout_mask(self, shape, drop):
         if drop <= 0.0:
             return None
+        elif drop >= 1.0:
+            return self.allocate(shape)
         coinflips = self.xp.random.uniform(0., 1., shape)
         return (drop >= coinflips) / (1.-drop)
 
-    def allocate(self, shape, name=None):
+    def allocate(self, shape):
         if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)

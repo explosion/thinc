@@ -7,6 +7,7 @@ from ....ops import NumpyOps
 @pytest.fixture
 def model():
     model = Affine(5, 6, ops=NumpyOps())
+    model.initialize_params(add_gradient=True)
     return model
 
 def test_can_get_describe_params(model):

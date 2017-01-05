@@ -19,18 +19,8 @@ def test_cant_set_describe_params(model):
 def test_can_get_shape(model):
     shape = model.shape
 
-def test_can_set_shape(model):
-    model.shape = 'hi'
-
 def test_can_get_input_shape(model):
     input_shape = model.input_shape
 
-def test_can_set_input_shape(model):
-    model.input_shape = (10,)
-
-
 def test_can_get_output_shape(model):
     output_shape = model.output_shape
-
-def test_can_set_output_shape(model):
-    model.output_shape = (5,)

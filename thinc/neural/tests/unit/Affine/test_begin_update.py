@@ -14,9 +14,9 @@ def get_model(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
     model = Affine(nr_out, nr_in, ops=ops)
-    model.initialize_params()
-    model.params.W[:] = W
-    model.params.b[:] = b
+    model.initialize_params(add_gradient=True)
+    model.W[:] = W
+    model.b[:] = b
     return model
 
 def get_shape(W_b_input):
@@ -70,10 +70,9 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
         assert model.params._i == (nr_out * nr_in) + nr_out
         assert data.shape[0] == (nr_out * nr_in) + nr_out, data.shape[0]
 
-    model.name = 'model_name'
     grad_BO = numpy.ones((nr_batch, nr_out))
     grad_BI = finish_update(grad_BO, optimizer=sgd)
-    assert seen_keys == {('', 'model_name')}
+    assert seen_keys == {('', model.name)}
 
 
 def test_predict_batch_not_batch():

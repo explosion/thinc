@@ -35,15 +35,15 @@ class Model(object):
     
     @property
     def input_shape(self):
-        return self.layers[0].input_shape
+        return self.layers[0].input_shape if self.layers else None
  
     @property
     def output_shape(self):
-        return self.layers[0].input_shape
+        return self.layers[0].input_shape if self.layers else None
 
     @property
     def shape(self):
-        return self.layers[-1].output_shape + self.layers[0].input_shape
+        return self.output_shape + self.input_shape if self.layers else None
 
     def __init__(self, *layers, **kwargs):
         self.layers = []
@@ -66,9 +66,7 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    def initialize_params(self, train_data=None, add_gradient=False):
-        if add_gradient:
-            _ = self.params.get('d_W')
+    def initialize_params(self, train_data=None, add_gradient=True):
         for name, shape, init in self.describe_params:
             if name not in self.params:
                 self.params.add(name, shape)

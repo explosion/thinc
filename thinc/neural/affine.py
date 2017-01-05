@@ -33,25 +33,25 @@ class Affine(Model):
 
     @property
     def W(self):
-        return self.params.get('W-%s' % self.name)
+        return self.params.get('W-%s' % self.name, require=True)
 
     @property
     def b(self):
-        return self.params.get('b-%s' % self.name)
+        return self.params.get('b-%s' % self.name, require=True)
 
     @property
     def d_W(self):
-        return self.params.get('d_W-%s' % self.name)
+        return self.params.get('d_W-%s' % self.name, require=True)
 
     @property
     def d_b(self):
-        return self.params.get('d_b-%s' % self.name)
+        return self.params.get('d_b-%s' % self.name, require=True)
 
     def __init__(self, nr_out=None, nr_in=None, *args, **kwargs):
-        # This sets attributes from kwargs.
-        # args is passed for potential subclasses.
         self.nr_out = nr_out
         self.nr_in = nr_in
+        # This sets attributes from kwargs.
+        # args is passed for potential subclasses.
         Model.__init__(self, *args, **kwargs)
 
     def predict_batch(self, input_BI):
