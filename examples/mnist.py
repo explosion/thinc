@@ -1,12 +1,11 @@
 from __future__ import print_function
 import plac
-from thinc.neural.vec2vec import ReLu, Softmax
+from thinc.neural.vec2vec import Model, ReLu, Softmax
 
 from thinc.loss import categorical_crossentropy
 from thinc.neural.optimizers import Adam
 from thinc.extra import datasets
 from thinc.neural.util import score_model 
-from thinc.neural.base import Model
 from thinc.neural.ops import NumpyOps
 
 try:
@@ -32,7 +31,8 @@ def main(depth=2, width=512, nb_epoch=10):
             for batch_X, batch_Y in trainer.iterate(
                     model, train_data, dev_data, nb_epoch=1):
                 batch_X = model.ops.asarray(batch_X)
-                guess, finish_update = model.begin_update(batch_X, dropout=0.0)
+                guess, finish_update = model.begin_update(batch_X,
+                                        dropout=trainer.dropout)
                 gradient, loss = categorical_crossentropy(guess, batch_Y)
                 optimizer.set_loss(loss)
                 finish_update(gradient, optimizer)
