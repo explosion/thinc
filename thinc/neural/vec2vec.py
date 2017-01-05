@@ -1,68 +1,35 @@
-from .base import Model
-from .exceptions import ShapeError
+from .affine import Affine
 
 
-class Affine(Model):
-    name = 'affine'
+class ReLu(Affine):
+    name = 'relu'
+    
+    def predict_batch(self, X):
+        output = Affine.predict_batch(self, X)
+        return self.ops.clip_low(output, 0, inplace=True)
+
+    def finish_update(self, X, *args, **kwargs):
+        output, bwd_affine = Affine.begin_update(self, X, *args, **kwargs)
+        def finish_update(gradient, *args, **kwargs):
+            return bwd_affine(gradient * (output > 0), *args, **kwargs)
+        return output, finish_update
+
+
+class Softmax(Affine):
+    name = 'softmax'
     
     @property
     def describe_params(self):
-        yield 'W', (self.nr_out, self.nr_in), self.ops.xavier_uniform_init
-        yield 'b', (self.nr_out,), None
+        yield 'W-%s' % self.name, (self.nr_out, self.nr_in), None
+        yield 'b-%s' % self.name, (self.nr_out,), None
+    
+    def predict_batch(self, X):
+        output = Affine.predict_batch(self, X)
+        act = self.activate(output)
+        return act
 
-    @property
-    def shape(self):
-        if self.output_shape is None or self.input_shape is None:
-            return None
-        else:
-            return (self.nr_out, self.nr_in)
-
-    @property
-    def output_shape(self):
-        return (self.nr_out,) if self.nr_out is not None else None
-
-    @property
-    def input_shape(self):
-        return (self.nr_in,) if self.nr_in is not None else None
-
-    @property
-    def W(self):
-        return self.params.get('W')
-
-    @property
-    def b(self):
-        return self.params.get('b')
-
-    def __init__(self, nr_out=None, nr_in=None, *args, **kwargs):
-        # This sets attributes from kwargs.
-        # args is passed for potential subclasses.
-        self.nr_out = nr_out
-        self.nr_in = nr_in
-        Model.__init__(self, *args, **kwargs)
-        if self.shape is not None:
-            self.initialize_params()
-            self.ops.xavier_uniform_init(self.params.W, inplace=True)
-
-    def predict_batch(self, input_BI):
-        return self.ops.affine(self.params.W, self.params.b, input_BI)
-
-    def begin_update(self, input_BI, dropout=0.0):
-        self.check_input(input_BI)
-        output_BO = self.predict_batch(input_BI)
-        output_BO, bp_dropout = self.ops.dropout(output_BO, dropout)
-        return output_BO, bp_dropout(self._get_finish_update(input_BI))
-
-    def _get_finish_update(self, acts_BI):
-        def finish_update(d_acts_BO, optimizer=None, **kwargs):
-            d_b = self.params.get('d_b')
-            d_W = self.params.get('d_W')
-            d_b += d_acts_BO.sum(axis=0)
-            d_W += self.ops.batch_outer(d_acts_BO, acts_BI)
-            if optimizer is not None:
-                optimizer(self.params.weights, self.params.gradient,
-                    key=('', self.name), **kwargs)
-            return self.ops.batch_dot(d_acts_BO, self.W.T)
-        return finish_update
+    def activate(self, X):
+        return self.ops.softmax(X, axis=-1)
 
 
 class Maxout(Affine):
