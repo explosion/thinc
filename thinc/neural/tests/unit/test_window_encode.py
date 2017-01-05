@@ -18,19 +18,21 @@ def model():
     assert model.nr_out == 3
     return model
 
-
+@pytest.mark.skip
 def test_init():
     model = MyWindowEncode(device='cpu', nr_out=10, nr_in=2, vectors={})
     assert model.nr_out == 10
     assert model.W.shape == (10, 3, 5, 2)
 
 
+@pytest.mark.skip
 def test_get_ids(model):
     x = [[1, 10], [20, 20]]
     ids = model._get_positions(x)
     assert ids == {1: [(0, 0)], 10: [(0, 1)], 20: [(1, 0), (1, 1)]}
 
 
+@pytest.mark.skip
 def test_dot_ids(model):
     x = [[1, 10], [20, 20]]
     ids = model._get_positions(x)
