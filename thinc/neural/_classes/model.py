@@ -1,11 +1,10 @@
 from numpy import prod
 
-from . import util
-from .util import Unassigned
-from .train import Trainer
-from .exceptions import ShapeError
-from .ops import Ops
-from .params import Params
+from .. import util
+from ..train import Trainer
+from ..exceptions import ShapeError
+from ..ops import Ops
+from ..params import Params
 
 def is_batch(x):
     return True
