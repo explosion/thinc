@@ -46,7 +46,53 @@ def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):
         lambda n: ndarrays_of_shape(n, lo=min_val, hi=max_val))
 
 
-def affine_params_and_input(
+def arrays_BI(
+    min_B=1,
+    max_B=10,
+    min_I=1,
+    max_I=100
+):
+    shapes = tuples(
+        lengths(lo=min_B, hi=max_B),
+        lengths(lo=min_B, hi=max_I))
+    return shapes.flatmap(ndarrays_of_shape)
+ 
+
+def arrays_BOP(
+    min_B=1,
+    max_B=10,
+    min_O=1,
+    max_O=100,
+    min_P=1,
+    max_P=5
+):
+    shapes = tuples(
+        lengths(lo=min_B, hi=max_B),
+        lengths(lo=min_O, hi=max_O),
+        lengths(lo=min_P, hi=max_P),
+    )
+    return shapes.flatmap(ndarrays_of_shape)
+ 
+
+def arrays_BI_BO(
+    min_B=1,
+    max_B=10,
+    min_I=1,
+    max_I=100,
+    min_O=1,
+    max_O=100
+):
+    shapes = tuples(
+        lengths(lo=min_B, hi=max_B),
+        lengths(lo=min_I, hi=max_I),
+        lengths(lo=min_O, hi=max_O))
+    return shapes.flatmap(
+        lambda BIO: tuples(
+            ndarrays_of_shape((BIO[0], BIO[1])),
+            ndarrays_of_shape((BIO[0], BIO[2]))))
+ 
+
+def arrays_OI_O_BI(
     min_batch=1,
     max_batch=16,
     min_out=1,
