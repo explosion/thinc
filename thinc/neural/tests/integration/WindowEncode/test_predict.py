@@ -35,7 +35,17 @@ def positions(ids):
     return _get_positions(ids)
 
 
-def test_forward_succeeds(ids, positions, vectors, lengths):
-    model = MaxoutWindowEncode(8, nr_in=2, ops=NumpyOps())
+@pytest.fixture
+def model(vectors):
+    model = MaxoutWindowEncode(8, nr_in=len(vectors[0]), ops=NumpyOps())
     model.initialize_params()
+    return model
+
+
+def test_forward_succeeds(model, ids, positions, vectors, lengths):
     out, whiches = model._forward(positions, vectors, lengths)
+
+
+def test_predict_batch_succeeds(model, ids, vectors, lengths):
+    out = model.predict_batch((ids, vectors))
+    assert out.shape == (sum(lengths), model.nr_out)

@@ -57,7 +57,7 @@ class MaxoutWindowEncode(Model):
         positions = _get_positions(ids)
         lengths = [len(seq) for seq in ids]
         out, _ = self._forward(positions, vectors, lengths)
-        return out
+        return self.ops.flatten(out)
 
     def begin_update(self, ids_vectors, dropout=0.0):
         ids, vectors = ids_vectors
@@ -70,7 +70,7 @@ class MaxoutWindowEncode(Model):
 
     def _forward(self, positions, vectors, lengths):
         dotted = _dot_ids(self.ops, self.W, positions, vectors, lengths)
-        out = [self.ops.allocate((length, self.nr_out)) for length in lengths]
+        out = []
         whiches = []
         for i, cands in enumerate(dotted):
             cands += self.b
