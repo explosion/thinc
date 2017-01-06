@@ -1,17 +1,17 @@
-from .base import Model
+from .model import Model
 
 
 class ExtractWindow(Model):
-    n = 2
+    '''Add context to vectors in a sequence by concatenating n surrounding
+    vectors.
+    
+    If the input is (10, 32) and n=1, the output will be (10, 96), with
+    output[i] made up of (input[i-1], input[i], input[i+1]).
+    '''
+    n = 1
     @property
-    def nr_weight(self):
+    def size(self):
         return 0
-
-    def set_weights(self, *args, **kwargs):
-        pass
-
-    def set_gradient(self, *args, **kwargs):
-        pass
 
     def predict_batch(self, X):
         nr_feat = self.n * 2 + 1
@@ -40,8 +40,8 @@ class ExtractWindow(Model):
 
     def _get_finish_update(self):
         def finish_update(gradient, optimizer=None, **kwargs):
-            assert self.n == 1
-            shape = (gradient.shape[0], 3, int(gradient.shape[-1] / 3))
+            nr_feat = self.n * 2 + 1
+            shape = (gradient.shape[0], nr_feat, int(gradient.shape[-1] / nr_feat))
             gradient = gradient.reshape(shape)
             output = self.ops.allocate((gradient.shape[0], gradient.shape[-1]))
             # Word w[i+1] is the R feature of w[i]. So

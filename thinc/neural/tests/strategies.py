@@ -1,5 +1,5 @@
 from hypothesis import given, assume
-from hypothesis.strategies import tuples, lists, integers, floats
+from hypothesis.strategies import just, tuples, lists, integers, floats
 from hypothesis.extra.numpy import arrays
 
 
@@ -74,6 +74,25 @@ def arrays_BOP(
     return shapes.flatmap(ndarrays_of_shape)
  
 
+def arrays_BOP_BO(
+    min_B=1,
+    max_B=10,
+    min_O=1,
+    max_O=100,
+    min_P=1,
+    max_P=5
+):
+    shapes = tuples(
+        lengths(lo=min_B, hi=max_B),
+        lengths(lo=min_O, hi=max_O),
+        lengths(lo=min_P, hi=max_P),
+    )
+    return shapes.flatmap(lambda BOP: tuples(
+        ndarrays_of_shape(BOP),
+        ndarrays_of_shape(BOP[:-1])
+    ))
+ 
+
 def arrays_BI_BO(
     min_B=1,
     max_B=10,
@@ -113,3 +132,22 @@ def arrays_OI_O_BI(
         return tuples(W, b, input_)
 
     return shapes.flatmap(W_b_inputs)
+
+
+def arrays_OPFI_BI_lengths(max_B=5, max_P=3, max_F=5, max_I=8):
+    def seqs(n_seq):
+        return
+    shapes = tuples(
+                lengths(hi=max_B),
+                lengths(hi=max_P),
+                lengths(hi=max_F),
+                lengths(hi=max_I),
+                arrays('int32', shape=(5,),
+                    elements=integers(min_value=1, max_value=20)))
+
+    strat = shapes.flatmap(
+        lambda opfi_lengths: tuples(
+            ndarrays_of_shape(opfi_lengths[:-1]),
+            ndarrays_of_shape((sum(opfi_lengths[-1]), opfi_lengths[-2])),
+            just(opfi_lengths[-1])))
+    return strat

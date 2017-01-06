@@ -1,10 +1,12 @@
 from numpy import prod
+import contextlib
 
 from .. import util
 from ..train import Trainer
 from ..exceptions import ShapeError
 from ..ops import Ops
 from ..params import Params
+
 
 def is_batch(x):
     return True
@@ -138,6 +140,11 @@ class Model(object):
             return gradient
         return finish_update
 
-    def average_params(self, averages):
-        if ('', self.name) in averages:
-            self.params.weights[:] = averages[('', self.name)]
+    @contextlib.contextmanager
+    def use_params(self, params):
+        if ('', self.name) in params:
+            current = self.params.weights.copy()
+            current[:] = self.params.weights
+            self.params.weights[:] = params[('', self.name)]
+            yield
+            self.params.weights[:] = current

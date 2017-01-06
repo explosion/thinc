@@ -3,10 +3,18 @@ from ..exceptions import ShapeError
 
 
 class Affine(Model):
+    '''Computes the linear transform Y = (W @ X) + b.
+
+    See also: ReLu, Softmax, Maxout
+    '''
     name = 'affine'
     
     @property
     def describe_params(self):
+        '''
+        Yields (name, shape, initializer) triples describing the weights directly
+        owned by the layer.
+        '''
         yield 'W-%s' % self.name, (self.nr_out, self.nr_in), self.ops.xavier_uniform_init
         yield 'b-%s' % self.name, (self.nr_out,), None
 
@@ -48,6 +56,18 @@ class Affine(Model):
         return self.params.get('d_b-%s' % self.name, require=True)
 
     def __init__(self, nr_out=None, nr_in=None, *args, **kwargs):
+        '''Construct an Affine object.
+
+        Arguments:
+            nr_out (int): Width of output vector.
+            nr_in (int): Width of input vector.
+        Keyword arguments:
+            ops (Ops): Handler for mathematical operations. 
+            device (str):
+                Specify the device to execute the layer on,
+                e.g. 'cpu', 'gpu0', 'gpu1'.
+            Trainer (type): Class used by begin_training().
+        '''
         self.nr_out = nr_out
         self.nr_in = nr_in
         # This sets attributes from kwargs.
