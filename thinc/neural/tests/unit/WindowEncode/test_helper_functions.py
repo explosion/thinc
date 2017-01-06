@@ -56,6 +56,41 @@ def test_get_positions(ids_batch, vectors_batch):
             assert_allclose(vectors_batch[i][j], vectors_table[key])
 
 
+def test_get_full_inputs_zeros_edges():
+    B = 11
+    F = 5
+    I = 3
+    output = numpy.zeros((B, F, I))
+    vectors = numpy.ones((B, I))
+    lengths = [5, 6]
+    assert sum(lengths) == B
+    _get_full_inputs(output,
+        vectors, lengths)
+    assert_allclose(output[0, 0], 0)
+    assert_allclose(output[0, 1], 0)
+    assert_allclose(output[1, 0], 0)
+    assert_allclose(output[1, 1], 1)
+    assert_allclose(output[3, 0], 1)
+    assert_allclose(output[3, 1], 1)
+    assert_allclose(output[3, 3], 1)
+    assert_allclose(output[3, 4], 0)
+    assert_allclose(output[4, 0], 1)
+    assert_allclose(output[4, 1], 1)
+    assert_allclose(output[4, 3], 0)
+    assert_allclose(output[4, 4], 0)
+    assert_allclose(output[5, 0], 0)
+    assert_allclose(output[5, 1], 0)
+    assert_allclose(output[6, 0], 0)
+    assert_allclose(output[6, 1], 1)
+    assert_allclose(output[6, 3], 1)
+    assert_allclose(output[6, 4], 1)
+    assert_allclose(output[10, 0], 1)
+    assert_allclose(output[10, 1], 1)
+    assert_allclose(output[10, 2], 1)
+    assert_allclose(output[10, 3], 0)
+    assert_allclose(output[10, 4], 0)
+
+
 @given(arrays_BOP_BO())
 def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
     x_BOP, d_BO = x_BOP_d_BO
@@ -64,7 +99,9 @@ def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
     assert x_BOP.shape[1] == d_BO.shape[1]
     whiches_BO = numpy.argmax(x_BOP, axis=-1)
     d_BOP = numpy.zeros(x_BOP.shape)
+
     _get_full_gradients(d_BOP, d_BO, whiches_BO)
+    
     for b in range(x_BOP.shape[0]):
         for o in range(x_BOP.shape[1]):
             num_at_max = sum(x_BOP[b,o] >= x_BOP[b, o, whiches_BO[b,o]])
@@ -154,26 +191,3 @@ def test_compute_hidden_layer(arrays_OPFI_BI_lengths):
             else:
                 assert_allclose(computed[0], 0)
             b += 1
-
-
-def im2col(sequence, window):
-    assert window == 2
-    output = numpy.zeros((sequence.shape[0], window*2+1, sequence.shape[1]))
-    output[:, 2] = sequence
-    output[2:, 0] = sequence[:-2]
-    output[1:, 1] = sequence[:-1]
-    output[:-1, 3] = sequence[1:]
-    output[:-2, 4] = sequence[2:]
-    # Words 0 and 1 have no LL feature
-    assert sum(abs(output[0, 0])) == 0
-    if len(output) >= 2:
-        assert sum(abs(output[1, 0])) == 0
-        # Word 0 no L feature
-        assert sum(abs(output[1, 0])) == 0
-    # Words -1 and -2 have no RR feature
-    assert sum(abs(output[-1, 4])) == 0
-    if len(output) >= 2:
-        assert sum(abs(output[-2, 4])) == 0
-        # Word -1 has no R feature
-    assert sum(abs(output[-1, 3])) == 0
-    return output
