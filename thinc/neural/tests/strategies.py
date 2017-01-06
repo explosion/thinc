@@ -135,15 +135,13 @@ def arrays_OI_O_BI(
 
 
 def arrays_OPFI_BI_lengths(max_B=5, max_P=3, max_F=5, max_I=8):
-    def seqs(n_seq):
-        return
     shapes = tuples(
                 lengths(hi=max_B),
                 lengths(hi=max_P),
                 lengths(hi=max_F),
                 lengths(hi=max_I),
                 arrays('int32', shape=(5,),
-                    elements=integers(min_value=1, max_value=20)))
+                    elements=integers(min_value=1, max_value=2)))
 
     strat = shapes.flatmap(
         lambda opfi_lengths: tuples(
