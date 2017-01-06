@@ -33,6 +33,10 @@ class MaxoutWindowEncode(Model):
     @property
     def W(self):
         return self.params.get('W-%s' % self.name, require=True)
+    
+    @property
+    def b(self):
+        return self.params.get('b-%s' % self.name, require=True)
 
     def __init__(self, nr_out, **kwargs):
         self.nr_out = nr_out
@@ -49,26 +53,29 @@ class MaxoutWindowEncode(Model):
                     init(self.params.get(name), inplace=True)
 
     def predict_batch(self, X):
-        out, _ = self._forward(X)
+        ids, vectors = X
+        positions = _get_positions(ids)
+        lengths = [len(seq) for seq in ids]
+        out, _ = self._forward(positions, vectors, lengths)
         return out
 
     def begin_update(self, ids_vectors, dropout=0.0):
         ids, vectors = ids_vectors
-        flat_out, whiches = self._forward(ids, vectors)
+        positions = _get_positions(ids)
+        lengths = [len(seq) for seq in ids]
+        flat_out, whiches = self._forward(positions, vectors, lengths)
         flat_out, bp_dropout = self.ops.dropout(flat_out, dropout, inplace=True)
         finish_update = self._get_finish_update(ids, vectors, flat_out, whiches)
         return flat_out, bp_dropout(finish_update)
 
-    def _forward(self, ids, vectors):
-        positions, vectors = self._get_positions(ids, vectors)
-        dotted = self._dot_ids(positions, vectors, [len(seq) for seq in ids])
-        out = [self.ops.allocate((len(x), self.nr_out)) for x in ids]
+    def _forward(self, positions, vectors, lengths):
+        dotted = _dot_ids(self.ops, self.W, positions, vectors, lengths)
+        out = [self.ops.allocate((length, self.nr_out)) for length in lengths]
         whiches = []
         for i, cands in enumerate(dotted):
             cands += self.b
             which = self.ops.argmax(cands)
-            best = self.ops.take_which(cands, which)
-            out[i][:] = best
+            out.append(self.ops.take_which(cands, which))
             whiches.append(which)
         return out, whiches
 
@@ -88,42 +95,52 @@ class MaxoutWindowEncode(Model):
             # Bop,Bfi->opfi
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
-            return None
+            if self.skip_gradient:
+                return None
+            else:
+                gradients_BI = self.ops.xp.einsum(
+                                 'bop,opfi->bi', gradients_BOP, self.W)
+                return gradients_BI
         return finish_update
 
 
 def _dot_ids(ops, W, positions, vectors, lengths):
     # Shift the lengths, so that we don't have to special-case the starts and
-    # ends. We'll shift afterwards.
-    window_size = int((W.shape[1]-1) / 2)
-    out = [ops.allocate((length+(window_size*2), W.shape[0], W.shape[-1]))
+    # ends. We'll shift back afterwards.
+    window_size = int((W.shape[2]-1) / 2)
+    out = [ops.allocate((length+(window_size*2), W.shape[0], W.shape[1]))
            for length in lengths]
     H__bopf = _compute_hidden_layer(ops, W, vectors, lengths)
-    for id_, ijs in positions.items():
+    for vec_idx, ijs in positions.items():
         for i, j in ijs:
-            out[i][j : j+5] += H__bopf
+            out[i][j : j+5] += H__bopf[vec_idx]
     # Shift the output, to correct for the 'padding' shift above.
-    return [arr[window_size : -window_size] for arr in out]
+    out = [arr[window_size : -window_size] for arr in out]
+    # Zero the LL, L, R and RR features for starts and ends.
+    for i in range(len(out)):
+        out[i][0, 0] = 0
+        out[i][0, 1] = 0
+        if len(out[i]) >= 2:
+            out[i][1, 1] = 0
+        out[i][-1, 4] = 0
+        out[i][-1, 3] = 0
+        if len(out[i]) >= 2:
+            out[i][-2, 4] = 0
+    return out
 
 
 def _compute_hidden_layer(ops, W__opfi, vectors__bi, lengths):
     H__bopf = ops.xp.tensordot(vectors__bi, W__opfi, axes=[[1], [3]])
     H__bfop = H__bopf.transpose((0, 3, 1, 2))
-    # Now zero features that were past boundaries, using the lengths
-    _zero_features_past_sequence_boundaries(H__bfop, lengths)
     return H__bfop
 
 
-def _get_positions(id_seqs, vector_seqs):
-    assert len(id_seqs) == len(vector_seqs), \
-        "TODO error %d vs %d" % (len(id_seqs), len(vector_seqs))
+def _get_positions(id_seqs):
     positions = defaultdict(list)
-    vectors_table = {}
-    for i, (id_seq, vector_seq) in enumerate(zip(id_seqs, vector_seqs)):
-        for j, (key, vector) in enumerate(zip(id_seq, vector_seq)):
+    for i, id_seq in enumerate(id_seqs):
+        for j, key, in enumerate(id_seq):
             positions[key].append((i, j))
-            vectors_table[key] = vector
-    return positions, vectors_table
+    return positions
 
 
 def _get_full_gradients(flat_gradients, gradients, whiches):
