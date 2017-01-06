@@ -18,15 +18,11 @@ from ...strategies import lengths
 
 
 @pytest.mark.parametrize(
-    'ids_batch,vectors_batch', [
+    'ids_batch', [
         (
             (
                 ('the', 'cat', 'sat'),
                 ('on', 'the', 'cat')
-            ),
-            (
-                ((0.,1.),(1.,2.),(2.,3.)),
-                ((3.,4.),(0.,1.),(1.,2.))
             ),
         ),
         (
@@ -34,26 +30,19 @@ from ...strategies import lengths
                 ('the',),
                 ('the',)
             ),
-            (
-                ((3.,4.),),
-                ((3.,4.),),
-            ),
         ),
         (
             (
                 ('a', 'b', 'a', 'b', 'd', 'e', 'f'),
             ),
-            (
-                ((0.,1.), (1.,2.), (0.,1.), (1.,2.), (3.,4.), (5.,6.), (6.,7.)),
-            )
         )
     ]
 )
-def test_get_positions(ids_batch, vectors_batch):
-    positions, vectors_table = _get_positions(ids_batch, vectors_batch)
+def test_get_positions(ids_batch):
+    positions = _get_positions(ids_batch)
     for key, ijs in positions.items():
         for i, j in ijs:
-            assert_allclose(vectors_batch[i][j], vectors_table[key])
+            assert ids_batch[i][j] == key
 
 
 def test_get_full_inputs_zeros_edges():
@@ -141,6 +130,12 @@ def test_zero_features_past_sequence_boundaries(seq_lengths):
 
 
 
+# I spent ages getting this test right, but the function now works differently...
+# We compute into the hidden layer for the types, not the tokens.
+# Leaving this here in case I can salvage something from it. If it's still xfail
+# in two months time it should be deleted.
+# 06/01/2017.
+@pytest.mark.xfail
 @given(arrays_OPFI_BI_lengths(max_B=10, max_P=10, max_I=10))
 def test_compute_hidden_layer(arrays_OPFI_BI_lengths):
     W__OPFI, vectors__BI, lengths = arrays_OPFI_BI_lengths

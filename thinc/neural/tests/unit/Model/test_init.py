@@ -5,7 +5,7 @@ from flexmock import flexmock
 from hypothesis import given, strategies
 import abc
 
-from .... import base
+from ...._classes import model as base
 from .... import ops
 
 

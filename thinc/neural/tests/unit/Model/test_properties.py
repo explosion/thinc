@@ -1,6 +1,6 @@
 import pytest
 
-from ....base import Model
+from ....vec2vec import Model
 from ....ops import NumpyOps
 
 

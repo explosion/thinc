@@ -1,11 +1,11 @@
 import pytest
 import numpy
 
-from ...ids2vecs import WindowEncode
+from ..._classes.window_encode import MaxoutWindowEncode
 from ...optimizers import SGD
 
 
-class MyWindowEncode(WindowEncode):
+class MyWindowEncode(MaxoutWindowEncode):
     device = 'cpu'
 
     def add_param(self, id_, shape):

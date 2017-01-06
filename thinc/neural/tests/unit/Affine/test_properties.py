@@ -1,6 +1,6 @@
 import pytest
 
-from ....affine import Affine
+from ....vec2vec import Affine
 from ....ops import NumpyOps
 
 

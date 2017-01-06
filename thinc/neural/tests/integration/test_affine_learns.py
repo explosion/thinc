@@ -7,7 +7,7 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from ...base import Model
+from ...vec2vec import Model
 from ...optimizers import SGD
 from ...ops import NumpyOps
 from ... import vec2vec
