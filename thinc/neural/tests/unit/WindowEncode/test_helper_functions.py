@@ -104,34 +104,55 @@ def test_zero_features_past_sequence_boundaries(seq_lengths):
 
 
 
-@given(arrays_OPFI_BI_lengths())
+@given(arrays_OPFI_BI_lengths(max_B=10, max_P=10, max_I=10))
 def test_compute_hidden_layer(arrays_OPFI_BI_lengths):
     W__OPFI, vectors__BI, lengths = arrays_OPFI_BI_lengths
-    assume(W__OPFI.shape[-2] == 5)
+    # Converting to int saves us from a lot of annoying false positives from
+    # floating point arithmetic
+    W__OPFI = numpy.asarray(W__OPFI, dtype='int32')
+    vectors__BI = numpy.asarray(vectors__BI, dtype='int32')
+    O, P, F, I = W__OPFI.shape
+    B = sum(lengths)
+    assume(F == 5)
     assert sum(lengths) == vectors__BI.shape[0]
     assert vectors__BI.shape[1] == W__OPFI.shape[-1]
     ops = NumpyOps()
 
     H__BFOP = _compute_hidden_layer(ops, W__OPFI, vectors__BI, lengths)
+    assert H__BFOP.shape == (B, F, O, P)
 
     b = 0
     sequences = ops.unflatten(vectors__BI, lengths)
     for sequence in sequences:
-        inputs__bfi = im2col(sequence, 2)
-        for input__fi in inputs__bfi:
-            expected = numpy.einsum('opfi,fi->fop', W__OPFI, input__fi)
+        for i, input__i in enumerate(sequence):
+            expected__OPF = numpy.tensordot(W__OPFI, input__i, axes=[[3], [0]])
+            assert expected__OPF.shape == (O, P, F)
+            expected = expected__OPF.transpose((2, 0, 1))
             computed = H__BFOP[b]
             assert expected.shape == computed.shape
             # Check the centre column first
-            assert_allclose(expected[2], computed[2], rtol=1e-4, atol=0.001)
+            assert_allclose(expected[2], computed[2],
+                            rtol=1e-4, atol=0.001)
             # Now check the 1 column, which represents the L context.
-            assert_allclose(expected[1], computed[1], rtol=1e-4, atol=0.001)
+            if i >= 1:
+                assert_allclose(expected[1], computed[1], rtol=1e-4, atol=0.001)
+            else:
+                assert_allclose(computed[1], 0)
             # Now check the 3 column, which represents the R context.
-            assert_allclose(expected[3], computed[3], rtol=1e-4, atol=0.001)
+            if len(sequence)-i >= 2:
+                assert_allclose(expected[3], computed[3], rtol=1e-4, atol=0.001)
+            else:
+                assert_allclose(computed[3], 0)
             # Now check the 4 column, which represents the RR context.
-            assert_allclose(expected[4], computed[4], rtol=1e-4, atol=0.001)
+            if len(sequence)-i >= 3:
+                assert_allclose(expected[4], computed[4], rtol=1e-4, atol=0.001)
+            else:
+                assert_allclose(computed[4], 0)
             # Now check the 0 column, which represents the LL context.
-            assert_allclose(expected[0], computed[0], rtol=1e-4, atol=0.001)
+            if i >= 2:
+                assert_allclose(expected[0], computed[0], rtol=1e-4, atol=0.001)
+            else:
+                assert_allclose(computed[0], 0)
             b += 1
 
 
@@ -145,12 +166,14 @@ def im2col(sequence, window):
     output[:-2, 4] = sequence[2:]
     # Words 0 and 1 have no LL feature
     assert sum(abs(output[0, 0])) == 0
-    assert sum(abs(output[1, 0])) == 0
-    # Word 0 no L feature
-    assert sum(abs(output[1, 0])) == 0
+    if len(output) >= 2:
+        assert sum(abs(output[1, 0])) == 0
+        # Word 0 no L feature
+        assert sum(abs(output[1, 0])) == 0
     # Words -1 and -2 have no RR feature
     assert sum(abs(output[-1, 4])) == 0
-    assert sum(abs(output[-2, 4])) == 0
-    # Word -1 has no R feature
+    if len(output) >= 2:
+        assert sum(abs(output[-2, 4])) == 0
+        # Word -1 has no R feature
     assert sum(abs(output[-1, 3])) == 0
     return output

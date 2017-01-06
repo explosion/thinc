@@ -107,12 +107,8 @@ def _dot_ids(ops, W, positions, vectors, lengths):
 
 
 def _compute_hidden_layer(ops, W__opfi, vectors__bi, lengths):
-    assert W__opfi.shape[-1] == vectors__bi.shape[-1], \
-        (W__opfi.shape, vectors__bi.shape)
     H__bopf = ops.xp.tensordot(vectors__bi, W__opfi, axes=[[1], [3]])
-    assert H__bopf.shape[0] == vectors__bi.shape[0] == sum(lengths)
     H__bfop = H__bopf.transpose((0, 3, 1, 2))
-    assert H__bfop.shape[0] == vectors__bi.shape[0] == sum(lengths)
     # Now zero features that were past boundaries, using the lengths
     _zero_features_past_sequence_boundaries(H__bfop, lengths)
     return H__bfop
