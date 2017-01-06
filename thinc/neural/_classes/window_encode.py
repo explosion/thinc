@@ -140,19 +140,11 @@ def _get_full_inputs(inputs, vectors, lengths):
     # Col 2 has w
     inputs[:, 2] = vectors
     # Col 3 has R
-    inputs[:, 3] = vectors[1:]
+    inputs[:-1, 3] = vectors[1:]
     # Col 4 has RR
-    inputs[:, 4] = vectors[2:]
+    inputs[:-2, 4] = vectors[2:]
     # Now use the lengths to zero LL, L, R and RR features as appropriate.
-    i = 0
-    for length in lengths:
-        inputs[i + length-2, 3] = 0.
-        inputs[i + length-1, 4] = 0.
-        i += length
-        if i >= 1:
-            inputs[i-1, 1] = 0.
-            if i >= 2:
-                inputs[i-2, 2] = 0.
+    _zero_features_past_sequence_boundaries(inputs, lengths)
     return inputs
 
 
