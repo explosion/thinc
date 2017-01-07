@@ -18,3 +18,9 @@ def mnist():
 def basic_tagger():
     with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
         local('python examples/basic_tagger.py')
+
+
+@task
+def cnn_tagger():
+    with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
+        local('python examples/cnn_tagger.py')
