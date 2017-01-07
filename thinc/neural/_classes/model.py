@@ -129,7 +129,7 @@ class Model(object):
         return X, self._get_finish_update(callbacks)
     
     def _get_finish_update(self, callbacks):
-        def finish_update(gradient, optimizer, **kwargs):
+        def finish_update(gradient, optimizer=None, **kwargs):
             for callback in reversed(callbacks):
                 gradient = callback(gradient, optimizer=optimizer,
                                 is_child=True)
