@@ -41,12 +41,12 @@ class Embed(Model):
     def check_input(self, X):
         return True
 
-    def add_vector(self, id_, shape, add_gradient=True):
+    def add_vector(self, id_, vector_dim, add_gradient=True):
         if not hasattr(self, 'vectors') or self.vectors is None:
             self.vectors = {}
-        param = self.ops.allocate(shape)
-        scale = 1. / (2 * shape[0])
-        param[:] = self.ops.xp.random.uniform(-scale, scale, shape)
+        param = self.ops.allocate(vector_dim)
+        scale = 1. / (2 * vector_dim)
+        param[:] = self.ops.xp.random.uniform(-scale, scale, vector_dim)
         self.vectors[id_] = param
         if add_gradient:
             if not hasattr(self, 'gradients'):
