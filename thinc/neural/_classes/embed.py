@@ -45,8 +45,7 @@ class Embed(Model):
         if not hasattr(self, 'vectors') or self.vectors is None:
             self.vectors = {}
         param = self.ops.allocate(vector_dim)
-        scale = 1. / (2 * vector_dim)
-        param[:] = self.ops.xp.random.uniform(-scale, scale, vector_dim)
+        param[:] = self.ops.xp.random.uniform(-0.1, 0.1, vector_dim)
         self.vectors[id_] = param
         if add_gradient:
             if not hasattr(self, 'gradients'):
