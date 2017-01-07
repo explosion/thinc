@@ -1,5 +1,4 @@
 from thinc.neural.id2vec import Embed
-from thinc.neural.ids2vecs import MaxoutWindowEncode
 from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural.vecs2vecs import ExtractWindow
 
