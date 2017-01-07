@@ -1,12 +1,13 @@
 from __future__ import print_function
 import plac
-from thinc.neural.vec2vec import Model, ReLu, Softmax
+from thinc.neural.vec2vec import Model, ReLu, ELU, Softmax
 
 from thinc.loss import categorical_crossentropy
-from thinc.neural.optimizers import Adam
 from thinc.extra import datasets
 from thinc.neural.util import score_model 
 from thinc.neural.ops import NumpyOps
+from cytoolz import curry
+from thinc.api import layerize
 
 try:
     import cPickle as pickle
@@ -14,11 +15,22 @@ except ImportError:
     import pickle
 
 
+@curry
+def health_check(name, X, **kwargs):
+    print(name, X.mean(), X.var())
+    return X, lambda grad, *args, **kwargs: grad
+
+
 def main(depth=2, width=512, nb_epoch=10):
     model = Model(
-              ReLu(128, 784, name='relu1'),
-              ReLu(128, 128, name='relu2'),
-              ReLu(128, 128, name='relu3'),
+              ELU(128, 784, name='elu1'),
+              layerize(
+                  health_check('elu1')
+              ),
+              ELU(128, 128, name='elu2'),
+              #layerize(health_check('elu2')),
+              ELU(128, 128, name='elu3'),
+              #layerize(health_check('elu3')),
               Softmax(10, 128, name='softmax'),
               ops=NumpyOps())
     
