@@ -70,9 +70,8 @@ class MaxoutWindowEncode(Model):
                     init(self.params.get(name), inplace=True)
 
     def predict_batch(self, X):
-        ids, vectors = X
+        ids, vectors, lengths = X
         positions = _get_positions(ids)
-        lengths = [len(seq) for seq in ids]
         out, _ = self._forward(positions, vectors, lengths)
         return out
 
