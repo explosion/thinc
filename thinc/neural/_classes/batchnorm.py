@@ -1,9 +1,54 @@
-
-
 from .model import Model
 
 
+class ScaleShift(Model):
+    name = 'bnscale'
+    @property
+    def G(self):
+        return self.params.get('G-%s' % self.name)
+
+    @property
+    def b(self):
+        return self.params.get('b-%s' % self.name)
+
+    @property
+    def d_G(self):
+        return self.params.get('d_G-%s' % self.name, require=True)
+
+    @property
+    def d_b(self):
+        return self.params.get('d_b-%s' % self.name, require=True)
+
+    @property
+    def describe_params(self):
+        '''
+        Yields (name, shape, initializer) triples describing the weights directly
+        owned by the layer.
+        '''
+        def init(G, **kwargs):
+            G += 1
+        yield 'G-%s' % self.name, (self.nr_out,), init
+        yield 'b-%s' % self.name, (self.nr_out,), None
+
+    def begin_update(self, input_BI, dropout=0.0, **kwargs):
+        def finish_update(gradient_BI, *args, **kwargs):
+            d_b = self.d_b
+            d_b += gradient_BI.sum(axis=0)
+            d_G = self.d_G
+            for i in range(gradient_BI.shape[0]):
+                d_G += gradient_BI[i] * input_BI[i]
+            return gradient_BI * self.G
+        return input_BI * self.G + self.b, finish_update
+
+    def __init__(self, nr_out, *args, **kwargs):
+        self.nr_out = nr_out
+        Model.__init__(self, *args, **kwargs)
+ 
+
 class BatchNormalization(Model):
+    def check_input(self, X, expect_batch=True):
+        return True
+
     def predict_batch(self, X):
         N, mu, var = _get_moments(self.ops, X)
         return _forward(self.ops, X, mu, var)
