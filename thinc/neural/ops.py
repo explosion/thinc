@@ -1,5 +1,6 @@
 import numpy
 from cytoolz import concat
+from numpy import prod
 
 
 try:
@@ -119,6 +120,10 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
+
+    def he_normal_init(self, shape, fan_in):
+        scale = self.xp.sqrt(2. / fan_in)
+        return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
 
 class NumpyOps(Ops):
