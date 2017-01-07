@@ -47,9 +47,6 @@ class Tagger(Model):
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
 
-    def check_input(self, X, expect_batch=False):
-        return True
-
 
 def main():
     train_data, check_data, nr_class = ancora_pos_tags()
