@@ -17,24 +17,6 @@ except ImportError:
     import toolz
 
 
-#class EncodeTagger(Network):
-#    Input = WindowEncode
-#    width = 32
-#
-#    def setup(self, nr_class, *args, **kwargs):
-#        self.layers.append(
-#            self.Input(vectors={}, W=None, nr_out=self.width,
-#                nr_in=self.width, static=False))
-#        self.layers.append(
-#            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-#        self.layers.append(
-#            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-#        self.layers.append(
-#            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
-#        self.set_weights(initialize=True)
-#        self.set_gradient()
-#
-
 class EmbedTagger(Model):
     def __init__(self, nr_tag, width, vector_length, vectors=None):
         vectors = {} if vectors is None else vectors
