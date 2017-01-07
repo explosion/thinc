@@ -82,7 +82,7 @@ class Embed(Model):
         for id_ in ids:
             vector = self.get_vector(id_)
             if vector is None:
-                self.add_vector(id_, self.input_shape, add_gradient=True)
+                self.add_vector(id_, self.input_shape[0], add_gradient=True)
         return self.predict_batch(ids), self._get_finish_update(ids)
 
     def _embed(self, ids):
