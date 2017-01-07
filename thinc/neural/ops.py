@@ -86,10 +86,11 @@ class Ops(object):
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
-        new_x = self.xp.zeros(shape=shape, dtype='f')
-        for i in range(shape[0]):
-            new_x[i] = self.xp.exp(x[i] - self.xp.max(x[i]))
-            new_x[i] /= new_x[i].sum()
+        maxes = self.xp.max(x, axis=1)
+        maxes = maxes.reshape((x.shape[0], 1))
+        shifted = x - maxes
+        new_x = self.xp.exp(shifted)
+        new_x /= new_x.sum(axis=1).reshape((x.shape[0], 1))
         if inplace:
             x[:] = new_x
             return x
