@@ -24,7 +24,7 @@ class EmbedEncode(Model):
         return self.layers[0]
     @property
     def encode(self):
-        return self.layers[1]
+        return self.layers[1] if len(self.layers) >= 2 else None
     @property
     def nr_vector(self):
         return len(self.layers[0].vectors)
@@ -32,15 +32,20 @@ class EmbedEncode(Model):
     def predict_batch(self, ids):
         flat_ids = self.ops.flatten(ids)
         lengths = [len(seq) for seq in ids]
+
         vectors = self.embed.predict_batch(flat_ids)
-        return self.encode.predict_batch((flat_ids, vectors, lengths))
+        if self.encode:
+            return self.encode.predict_batch((flat_ids, vectors, lengths))
+        else:
+            return vectors
 
     def begin_update(self, ids, dropout=0.0):
         flat_ids = self.ops.flatten(ids)
+        self._insert_ids(flat_ids)
         lengths = [len(seq) for seq in ids]
         vectors, bp_embed = self.embed.begin_update(flat_ids)
- 
-        self._insert_ids(flat_ids)
+        if self.encode is None:
+            return vectors, bp_embed
 
         vectors, bp_embed = self.embed.begin_update(flat_ids, dropout=dropout)
 
@@ -72,16 +77,18 @@ class Tagger(Model):
         self.vector_length = vector_length
         layers = [
             EmbedEncode(
-                Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps()),
+                Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps(),
+                    name='embed'),
                 MaxoutWindowEncode(width, nr_in=vector_length, ops=NumpyOps(),
-                    name='encode')
+                    name='encode'),
+                name='embedencode'
             ),
             ExtractWindow(n=2),
             ReLu(width, width*5, ops=NumpyOps(), name='relu1'),
-            ReLu(width, width, ops=NumpyOps(), name='relu2'),
-            ExtractWindow(n=4),
-            ReLu(width, width*9, ops=NumpyOps(), name='relu3'),
-            ReLu(width, width, ops=NumpyOps(), name='relu4'),
+            #ReLu(width, width, ops=NumpyOps(), name='relu2'),
+            #ExtractWindow(n=4),
+            #ReLu(width, width*9, ops=NumpyOps(), name='relu3'),
+            #ReLu(width, width, ops=NumpyOps(), name='relu4'),
             Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
@@ -95,13 +102,13 @@ class Tagger(Model):
 
 def main():
     train_data, check_data, nr_class = ancora_pos_tags()
-    model = Tagger(nr_class, 32, 128, vectors={})
+    model = Tagger(nr_class, 32, 32, vectors={})
 
     dev_X, dev_Y = zip(*check_data)
     dev_Y = model.ops.flatten(dev_Y)
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.batch_size = 8
-        trainer.nb_epoch = 100
+        trainer.nb_epoch = 10
         trainer.dropout = 0.0
         trainer.dropout_decay = 0.
         for examples, truth in trainer.iterate(model, train_data, dev_X, dev_Y,
@@ -124,6 +131,7 @@ if __name__ == '__main__':
     else:
         import cProfile
         import pstats
-        cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
+        cProfile.run("plac.call(main)", "Profile.prof")
         s = pstats.Stats("Profile.prof")
-        s.strip_dirs().sort_stats("time").print_stats()
+        s.strip_dirs().sort_stats("time", "cumulative").print_stats(100)
+        s.strip_dirs().sort_stats('ncalls').print_callers()
