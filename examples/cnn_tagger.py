@@ -8,6 +8,8 @@ from thinc.neural.optimizers import linear_decay
 from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
 
+from thinc.api import layerize
+
 from thinc.extra.datasets import ancora_pos_tags
 
 import plac
@@ -18,52 +20,11 @@ except ImportError:
     import toolz
 
 
-class EmbedEncode(Model):
-    @property
-    def embed(self):
-        return self.layers[0]
-    @property
-    def encode(self):
-        return self.layers[1] if len(self.layers) >= 2 else None
-    @property
-    def nr_vector(self):
-        return len(self.layers[0].vectors)
-
-    def predict_batch(self, ids):
-        flat_ids = self.ops.flatten(ids)
-        lengths = [len(seq) for seq in ids]
-
-        vectors = self.embed.predict_batch(flat_ids)
-        if self.encode:
-            return self.encode.predict_batch((flat_ids, vectors, lengths))
-        else:
-            return vectors
-
-    def begin_update(self, ids, dropout=0.0):
-        flat_ids = self.ops.flatten(ids)
-        self._insert_ids(flat_ids)
-        lengths = [len(seq) for seq in ids]
-        vectors, bp_embed = self.embed.begin_update(flat_ids)
-        if self.encode is None:
-            return vectors, bp_embed
-
-        vectors, bp_embed = self.embed.begin_update(flat_ids, dropout=dropout)
-
-        output, bp_encode = self.encode.begin_update((flat_ids, vectors, lengths),
-                                dropout=dropout)
-
-        def finish_update(gradient, optimizer=None, **kwargs):
-            gradient = bp_encode(gradient, optimizer, **kwargs)
-            gradient = bp_embed(gradient, optimizer, **kwargs)
-            return gradient
-
-        return output, finish_update
-
-    def _insert_ids(self, ids):
-        for id_ in ids:
-            vector = self.embed.get_vector(id_)
-            if vector is None:
-                self.embed.add_vector(id_, self.input_shape, add_gradient=True)
+@toolz.curry
+def flatten(ops, X, dropout=0.0):
+    def finish_update(grad, *args, **kwargs):
+        return grad
+    return ops.flatten(X), finish_update
 
 
 class Tagger(Model):
@@ -76,28 +37,19 @@ class Tagger(Model):
         self.width = width
         self.vector_length = vector_length
         layers = [
-            EmbedEncode(
-                Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps(),
-                    name='embed'),
-                MaxoutWindowEncode(width, nr_in=vector_length, ops=NumpyOps(),
-                    name='encode'),
-                name='embedencode'
-            ),
+            layerize(flatten(NumpyOps())),
+            Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps(),
+                name='embed'),
             ExtractWindow(n=2),
             ReLu(width, width*5, ops=NumpyOps(), name='relu1'),
-            #ReLu(width, width, ops=NumpyOps(), name='relu2'),
-            #ExtractWindow(n=4),
-            #ReLu(width, width*9, ops=NumpyOps(), name='relu3'),
-            #ReLu(width, width, ops=NumpyOps(), name='relu4'),
+            ExtractWindow(n=3),
+            ReLu(width, width*7, ops=NumpyOps(), name='relu2'),
             Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
 
     def check_input(self, X, expect_batch=False):
         return True
-
-    def add_vector(self, id_):
-        self.layers[0].add_vector(id_, self.vector_length, add_gradient=True)
 
 
 def main():
