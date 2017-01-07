@@ -57,10 +57,11 @@ class FunctionLayer(Model):
         self.nr_out = nr_out
 
     def __call__(self, X):
-        if isinstance(X, Minibatch):
+        if self.predict_batch is not None:
             return self.predict_batch(X)
         else:
-            return self.predict_one(X)
+            X, _ = self.begin_update(X)
+            return X
 
     def check_input(self, X, expect_batch=False):
         return True
