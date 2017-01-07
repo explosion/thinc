@@ -78,6 +78,8 @@ class Model(object):
             layer.initialize_params(train_data, add_gradient=add_gradient)
 
     def check_input(self, x, expect_batch=False):
+        if self.layers:
+            return self.layers[0].check_input(x, expect_batch=expect_batch)
         if is_batch(x):
             shape = x.shape[1:]
         else:

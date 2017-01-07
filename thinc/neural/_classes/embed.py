@@ -85,6 +85,9 @@ class Embed(Model):
                 self.add_vector(id_, self.input_shape[0], add_gradient=True)
         return self.predict_batch(ids), self._get_finish_update(ids)
 
+    def check_input(self, x, expect_batch=False):
+        return True
+
     def _embed(self, ids):
         vectors = self.ops.allocate((len(ids), self.W.shape[1]))
         for i, id_ in enumerate(ids):

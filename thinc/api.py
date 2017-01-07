@@ -61,3 +61,6 @@ class FunctionLayer(Model):
             return self.predict_batch(X)
         else:
             return self.predict_one(X)
+
+    def check_input(self, X, expect_batch=False):
+        return True
