@@ -9,6 +9,7 @@ def test_init_succeeds():
 
 
 def test_init_defaults_and_overrides():
+    model = MaxoutWindowEncode(10)
     assert model.nr_piece == MaxoutWindowEncode.nr_piece
     assert model.nr_feat == MaxoutWindowEncode.nr_feat
     assert model.nr_out == 10
