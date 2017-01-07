@@ -27,10 +27,6 @@ def flatten(ops, X, dropout=0.0):
 
 
 class Tagger(Model):
-    @property
-    def nr_vector(self):
-        return self.layers[0].nr_vector
-
     def __init__(self, nr_tag, width, vector_length, vectors=None):
         vectors = {} if vectors is None else vectors
         self.width = width
