@@ -4,6 +4,7 @@ from .model import Model
 
 
 class MaxoutWindowEncode(Model):
+    name = 'encode'
     nr_piece = 3
     nr_feat = 5
     nr_out = None
@@ -73,7 +74,7 @@ class MaxoutWindowEncode(Model):
         positions = _get_positions(ids)
         lengths = [len(seq) for seq in ids]
         out, _ = self._forward(positions, vectors, lengths)
-        return self.ops.flatten(out)
+        return out
 
     def begin_update(self, ids_vectors_lengths, dropout=0.0):
         ids, vectors, lengths = ids_vectors_lengths
@@ -86,15 +87,11 @@ class MaxoutWindowEncode(Model):
     def _forward(self, positions, vectors, lengths):
         positions, vectors = _get_uniq_vectors(positions, vectors)
         vectors = self.ops.asarray(vectors)
-        dotted = _dot_ids(self.ops, self.W, positions, vectors, lengths)
-        out = []
-        whiches = []
-        for i, cands in enumerate(dotted):
-            cands += self.b
-            which = self.ops.argmax(cands)
-            out.append(self.ops.take_which(cands, which))
-            whiches.append(which)
-        return self.ops.flatten(out), whiches
+        cands = _dot_ids(self.ops, self.W, positions, vectors, lengths)
+        cands += self.b
+        which = self.ops.argmax(cands)
+        best = self.ops.take_which(cands, which)
+        return best, which
 
     def _get_finish_update(self, vectors_BI, whiches_BO, lengths_B):
         B, I = vectors_BI.shape
@@ -112,12 +109,8 @@ class MaxoutWindowEncode(Model):
             # Bop,Bfi->opfi
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
-            if kwargs.get('skip_gradient'):
-                return None
-            else:
-                gradients_BI = self.ops.xp.einsum(
-                                 'bop,opfi->bi', gradients_BOP, self.W)
-                return gradients_BI
+            # TODO: Implement fine-tuning
+            return None
         return finish_update
 
 
@@ -166,7 +159,7 @@ def _dot_ids(ops, W, positions, vectors, lengths):
         out[i][-1, 3] = 0
         if len(out[i]) >= 2:
             out[i][-2, 4] = 0
-    return out
+    return ops.flatten(out)
 
 
 def _compute_hidden_layer(ops, W__opfi, vectors__bi, lengths):
