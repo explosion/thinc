@@ -1,6 +1,7 @@
 from __future__ import print_function
 import plac
-from thinc.neural.vec2vec import Model, ReLu, ELU, Softmax
+from thinc.neural.vec2vec import Model, Affine, ReLu, ELU, Softmax
+from thinc.neural.vec2vec import ReLuResBN
 
 from thinc.loss import categorical_crossentropy
 from thinc.extra import datasets
@@ -21,16 +22,14 @@ def health_check(name, X, **kwargs):
     return X, lambda grad, *args, **kwargs: grad
 
 
-def main(depth=2, width=512, nb_epoch=10):
+def main(depth=2, width=512, nb_epoch=20):
     model = Model(
-              ELU(128, 784, name='elu1'),
-              layerize(
-                  health_check('elu1')
-              ),
-              ELU(128, 128, name='elu2'),
-              #layerize(health_check('elu2')),
-              ELU(128, 128, name='elu3'),
-              #layerize(health_check('elu3')),
+              Affine(128, 784, name='affine'),
+              ReLuResBN(128, name='res1'),
+              ReLuResBN(128, name='res2'),
+              ReLuResBN(128, name='res3'),
+              #ReLuResBN(128, name='res2'),
+              #ReLuResBN(128, name='res3'),
               Softmax(10, 128, name='softmax'),
               ops=NumpyOps())
     
@@ -44,6 +43,9 @@ def main(depth=2, width=512, nb_epoch=10):
     test_Y = model.ops.asarray(test_Y)
 
     with model.begin_training(train_data) as (trainer, optimizer):
+        trainer.dropout = 0.9
+        trainer.dropout_decay = 1e-2
+        trainer.batch_size = 1024
         for i in range(nb_epoch):
             for batch_X, batch_Y in trainer.iterate(
                     model, train_data, dev_X, dev_Y, nb_epoch=1):

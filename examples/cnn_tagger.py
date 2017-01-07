@@ -1,7 +1,7 @@
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural.vecs2vecs import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNormalization
+from thinc.neural._classes.batchnorm import BatchNormalization, ScaleShift
 
 from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
@@ -50,12 +50,16 @@ class Tagger(Model):
             ReLu(width, width*5, ops=NumpyOps(), name='relu1'),
             ExtractWindow(n=3),
             BatchNormalization(),
+            ScaleShift(width * 7, name='scaleshift1'),
             ReLu(width*3, width*7, ops=NumpyOps(), name='relu2'),
             BatchNormalization(),
+            ScaleShift(width * 3, name='scaleshift2'),
             ReLu(width*2, width*3, ops=NumpyOps(), name='relu3'),
             BatchNormalization(),
+            ScaleShift(width * 2, name='scaleshift3'),
             ReLu(width, width*2, ops=NumpyOps(), name='relu4'),
             BatchNormalization(),
+            ScaleShift(width, name='scaleshift4'),
             Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
@@ -70,7 +74,7 @@ def main():
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.batch_size = 8
         trainer.nb_epoch = 10
-        trainer.dropout = 0.0
+        trainer.dropout = 0.25
         trainer.dropout_decay = 0.
         for examples, truth in trainer.iterate(model, train_data, dev_X, dev_Y,
                                                nb_epoch=trainer.nb_epoch):
