@@ -6,6 +6,12 @@ import pytest
 import numpy
 
 
+try:
+    import cytoolz as toolz
+except ImportError:
+    import toolz
+
+
 @pytest.fixture
 def ids():
     return [[0,1,2], [3], [0,5,3,6]]
@@ -18,9 +24,9 @@ def vector_length():
 
 @pytest.fixture
 def vectors(ids, vector_length):
-    max_id = max(max(seq) for seq in ids)
-    vecs = numpy.zeros((max_id+1, 2))
-    for i in range(max_id+1):
+    ids = list(toolz.concat(ids))
+    vecs = numpy.zeros((len(ids), 2))
+    for i, id_ in enumerate(ids):
         vecs[i] += i
     return vecs
 
@@ -32,7 +38,7 @@ def lengths(ids):
 
 @pytest.fixture
 def positions(ids):
-    return _get_positions(ids)
+    return _get_positions(list(toolz.concat(ids)))
 
 
 @pytest.fixture
@@ -47,5 +53,6 @@ def test_forward_succeeds(model, ids, positions, vectors, lengths):
 
 
 def test_predict_batch_succeeds(model, ids, vectors, lengths):
-    out = model.predict_batch((ids, vectors))
+    ids = list(toolz.concat(ids))
+    out = model.predict_batch((ids, vectors, lengths))
     assert out.shape == (sum(lengths), model.nr_out)

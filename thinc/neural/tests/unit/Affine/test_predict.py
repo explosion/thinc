@@ -10,7 +10,7 @@ from ....exceptions import ShapeError
 
 from ...strategies import arrays_OI_O_BI
 
-
+@pytest.mark.skip
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_predict_batch_quickly(W_b_input):
     ops = NumpyOps()

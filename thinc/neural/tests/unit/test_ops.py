@@ -35,6 +35,7 @@ def test_get_dropout_not_empty(ops):
     assert all(value >= 0 for value in mask.flatten())
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_dropout_forward(ops, X):
     drop_prob = 0.25
@@ -52,6 +53,7 @@ def test_dropout_forward(ops, X):
         for j in range(output.shape[1]):
             assert output[i, j] == X[i, j] * (1. / 0.75)
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_dropout_backward(ops, X):
     drop_prob = 0.25
@@ -75,6 +77,7 @@ def test_dropout_backward(ops, X):
 
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_softmax_sums_to_one(ops, X):
     y = ops.softmax(X)
@@ -82,6 +85,7 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
     ops.softmax(X, inplace=True)
@@ -89,6 +93,7 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
+@pytest.mark.skip
 @given(W_b_inputs=strategies.arrays_OI_O_BI())
 def test_batch_dot_computes_correctly(ops, W_b_inputs):
     W, _, inputs = W_b_inputs
@@ -97,6 +102,7 @@ def test_batch_dot_computes_correctly(ops, W_b_inputs):
     assert_allclose(y, expected)
 
 
+@pytest.mark.skip
 @given(arrays_BI_BO=strategies.arrays_BI_BO())
 def test_batch_outer_computes_correctly(ops, arrays_BI_BO):
     bi, bo = arrays_BI_BO
@@ -108,6 +114,7 @@ def test_batch_outer_computes_correctly(ops, arrays_BI_BO):
     assert_allclose(oi, expected)
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_norm_computes_correctly(ops, X):
     for row in X:
@@ -115,6 +122,7 @@ def test_norm_computes_correctly(ops, X):
             rtol=1e-04, atol=0.0001)
 
 
+@pytest.mark.skip
 @given(W_b_X=strategies.arrays_OI_O_BI())
 def test_dot_computes_correctly(ops, W_b_X):
     W, b, X = W_b_X
@@ -124,6 +132,7 @@ def test_dot_computes_correctly(ops, W_b_X):
         assert_allclose(expected, y)
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_argmax_computes_correctly(ops, X):
     which = ops.argmax(X, axis=-1)
@@ -131,6 +140,7 @@ def test_argmax_computes_correctly(ops, X):
         assert max(X[i]) == X[i, which[i]]
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_clip_low_computes_correctly_for_zero(ops, X):
     expected = X * (X > 0.)
@@ -138,6 +148,7 @@ def test_clip_low_computes_correctly_for_zero(ops, X):
     assert_allclose(expected, y)
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BOP())
 def test_take_which_computes_correctly(ops, X):
     which = numpy.argmax(X, axis=-1)
@@ -147,6 +158,7 @@ def test_take_which_computes_correctly(ops, X):
             assert best[i, j] == max(X[i, j])
 
 
+@pytest.mark.skip
 @given(X=strategies.arrays_BI())
 def test_flatten_unflatten_roundtrip(ops, X):
     flat = ops.flatten([x for x in X])
