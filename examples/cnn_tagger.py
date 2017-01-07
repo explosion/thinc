@@ -1,6 +1,7 @@
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural.vecs2vecs import ExtractWindow
+from thinc.neural._classes.batchnorm import BatchNormalization
 
 from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
@@ -25,6 +26,15 @@ def flatten(ops, X, dropout=0.0):
         return grad
     return ops.flatten(X), finish_update
 
+_i = 0
+@toolz.curry
+def health_check(name, X, **kwargs):
+    global _i
+    if _i and _i % 500 == 0:
+        print(X.mean(axis=0).mean(), X.var(axis=0).mean())
+    _i += 1
+    return X, lambda grad, *args, **kwargs: grad
+
 
 class Tagger(Model):
     def __init__(self, nr_tag, width, vector_length, vectors=None):
@@ -35,10 +45,17 @@ class Tagger(Model):
             layerize(flatten(NumpyOps())),
             Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps(),
                 name='embed'),
+            BatchNormalization(),
             ExtractWindow(n=2),
             ReLu(width, width*5, ops=NumpyOps(), name='relu1'),
             ExtractWindow(n=3),
-            ReLu(width, width*7, ops=NumpyOps(), name='relu2'),
+            BatchNormalization(),
+            ReLu(width*3, width*7, ops=NumpyOps(), name='relu2'),
+            BatchNormalization(),
+            ReLu(width*2, width*3, ops=NumpyOps(), name='relu3'),
+            BatchNormalization(),
+            ReLu(width, width*2, ops=NumpyOps(), name='relu4'),
+            BatchNormalization(),
             Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
