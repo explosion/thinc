@@ -1,4 +1,7 @@
-def layerize(begin_update=None, **kwargs):
+from .neural.vec2vec import Model
+
+
+def layerize(begin_update=None, *args, **kwargs):
     '''Wrap a function into a layer'''
     if begin_update is not None:
         return FunctionLayer(begin_update, *args, **kwargs)
@@ -44,10 +47,9 @@ def split_backward(layers):
     return forward, backward
 
 
-class FunctionLayer(object):
+class FunctionLayer(Model):
     def __init__(self, begin_update, predict_batch=None, predict_one=None,
-            predict_batch=None, predict_one=None, nr_in=None, nr_out=None,
-            **kwargs):
+            nr_in=None, nr_out=None, *args, **kwargs):
         self.begin_update = begin_update
         self.predict_batch = predict_batch
         self.predict_one = predict_one
