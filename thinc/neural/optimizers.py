@@ -29,7 +29,7 @@ class SGD(object):
         self.mu = momentum
         self.decay = decay
         self.momentums = {}
-        self.averages = {}
+        self.averages = {} if settings.get('averages', True) else None
         self.nr_update = defaultdict(int)
 
     def __call__(self, weights, gradient, key=None):
@@ -47,7 +47,8 @@ class SGD(object):
             momentum += gradient * lr
             weights -= momentum
             gradient.fill(0)
-        update_averages(self.averages, key, weights, nr_upd)
+        if self.averages is not None:
+            update_averages(self.averages, key, weights, nr_upd)
 
     def lr(self, nr_upd):
         return linear_decay(self.alpha, self.decay, nr_upd)
@@ -105,7 +106,8 @@ class Adam(object):
         lr = self.lr(nr_upd)
         weights -= lr * mom1 / (self.d * numpy.sqrt(mom2) + self.eps)
         gradient.fill(0)
-        update_averages(self.averages, key, weights, nr_upd)
+        if self.averages is not None:
+            update_averages(self.averages, key, weights, nr_upd)
 
     def set_loss(self, loss):
         pass
