@@ -130,12 +130,16 @@ def main():
     dev_Y = model.ops.flatten(dev_Y)
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.nb_epoch = 10
+        trainer.batch_size = 8
+        trainer.nb_epoch = 10
+        trainer.dropout = 0.3
+        trainer.dropout_decay = 0.
         for examples, truth in trainer.iterate(model, train_data, dev_X, dev_Y,
                                                nb_epoch=trainer.nb_epoch):
             truth = model.ops.flatten(truth)
             examples = model.ops.flatten(examples)
             guess, finish_update = model.begin_update(examples,
-                                        dropout=0.3)
+                                        dropout=trainer.dropout)
 
             gradient, loss = categorical_crossentropy(guess, truth)
             optimizer.set_loss(loss)
