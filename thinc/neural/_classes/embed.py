@@ -22,7 +22,7 @@ class Embed(Model):
 
     @property
     def input_shape(self):
-        return (self.vectors_length,) if self.vectors_length is not None else None
+        return (self.vector_length,) if self.vector_length is not None else None
 
     @property
     def W(self):
@@ -45,7 +45,8 @@ class Embed(Model):
         if not hasattr(self, 'vectors') or self.vectors is None:
             self.vectors = {}
         param = self.ops.allocate(shape)
-        param[:] = self.ops.xp.random.uniform(-0.1, 0.1, shape)
+        scale = 1. / (2 * shape[0])
+        param[:] = self.ops.xp.random.uniform(-scale, scale, shape)
         self.vectors[id_] = param
         if add_gradient:
             if not hasattr(self, 'gradients'):
