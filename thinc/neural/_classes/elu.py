@@ -1,6 +1,7 @@
 from .relu import ReLu
 from .affine import Affine
 
+
 class ELU(Affine):
     name = 'elu'
     @property
@@ -17,14 +18,14 @@ class ELU(Affine):
  
     def predict_batch(self, X):
         output = Affine.predict_batch(self, X)
-        return fwd_elu(self.ops, output)
+        self.ops.elu(output, inplace=True)
+        return output
 
     def begin_update(self, input_BI, dropout=0.0):
         output_BO, finish_affine = Affine.begin_update(self, input_BI)
         def finish_update(gradient, *args, **kwargs):
-            bp_elu = bwd_elu(self.ops, output_BO)
-            return finish_affine(gradient * bp_elu, *args, **kwargs)
-        output_BO = fwd_elu(self.ops, output_BO)
+            self.ops.backprop_elu(gradient, output_BO, inplace=True)
+            return finish_affine(gradient, *args, **kwargs)
         return output_BO, finish_update
 
 
