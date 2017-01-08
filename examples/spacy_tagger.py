@@ -29,90 +29,38 @@ except ImportError:
     import toolz
 
 
-class SumTokens(Network):
-    @property
-    def nr_out(self):
-        return self.embed.nr_out
-
-    @property
-    def nr_in(self):
-        return self.embed.nr_in
-    
-    def setup(self, encode, embed):
-        self.encode = encode
-        self.embed = embed
-        self.layers = [self.embed, self.encode]
- 
-    def predict_batch(self, X):
-        encoded = self.encode.predict_batch(X)
-        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
-                                      for w in doc] for doc in X)
-        return encoded + self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
-
-    def begin_update(self, X, dropout=0.0):
-        encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
-        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
-                                      for w in doc] for doc in X)
-        features = self.ops.asarray(features, dtype='i')
-        embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
-        def finish_update(gradients, optimizer=None, **kwargs):
-            finish_encode(gradients, optimizer=optimizer, **kwargs)
-            finish_embed(gradients, optimizer=optimizer, **kwargs)
-            return gradients
-        return encoded + embeded, finish_update
+def get_vectors(ops, docs, dropout=0.):
+    docs = list(docs)
+    total_words = sum(len(doc) for doc in docs)
+    vectors = ops.allocate((total_words, docs[0].vocab.vector_length))
+    i = 0
+    for doc in docs:
+        for token in doc:
+            vectors[i] = token.vector
+            i += 1
+    return vectors, None
 
 
-class ConcatTokens(SumTokens):
-    @property
-    def nr_out(self):
-        return self.embed.nr_out + self.encode.nr_out
-
-    def predict_batch(self, X):
-        encoded = self.encode.predict_batch(X)
-        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
-        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
-                                      for w in doc] for doc in X)
-        embeded = self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
-        return self.ops.xp.hstack((embeded, encoded))
-
-    def begin_update(self, X, dropout=0.0):
-        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
-        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
-                                      for w in doc] for doc in X)
-        features = self.ops.asarray(features, dtype='i')
-        embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
-        encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
-        def finish_update(gradients, optimizer=None, **kwargs):
-            embed_grad = gradients[:, :self.embed.nr_out]
-            encode_grad = gradients[:, self.embed.nr_out:]
-            finish_encode(encode_grad, optimizer=optimizer, **kwargs)
-            finish_embed(embed_grad, optimizer=optimizer, **kwargs)
-            return gradients
-        return self.ops.xp.hstack((embeded, encoded)), finish_update
+@toolz.curry
+def parse_docs(nlp, texts, dropout=0.):
+    docs = list(nlp.pipe(texts))
+    return docs, None
 
 
-class EncodeTagger(Network):
+class EncodeTagger(Model):
     width = 128
-    maxout_pieces = 3
-    nr_in = None
     
-    def setup(self, nr_class, *args, **kwargs):
-        self.layers.append(
-            ConcatTokens(
-                SpacyWindowEncode(
-                    vectors={}, W=None, nr_out=self.width,
-                    nr_in=self.nr_in, nr_piece=self.maxout_pieces),
-                Embed(
-                    vectors={}, W=None, nr_out=self.width // 2, nr_in=self.width // 4))
-        )
-        self.layers.append(
-            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
-        self.set_weights(initialize=True)
-        self.set_gradient()
+    def __init__(self, nr_class, width, get_vectors, **kwargs):
+        self.nr_out = nr_class
+        self.width = width
+        Model.__init__(self, **kwargs)
+        get_vectors = toolz.curry(get_vectors)(self.ops)
+        self.layers = [
+            MaxoutWindowEncode(width, layerize(get_vectors), name='encode'),
+            ReLu(width, nr_in=width, name='relu'),
+            Softmax(nr_class, nr_in=width, name='softmax')
+        ]
+        Model.__init__(self, *layers, **kwargs)
 
 
 def spacy_conll_pos_tags(nlp, train_loc, dev_loc):
@@ -156,10 +104,11 @@ def main(nr_epoch=10, nr_sent=0):
         word.shape_ = get_word_shape(word.orth_)
     nlp.vocab.lex_attr_getters[SHAPE] = get_word_shape
     train_data, check_data, nr_class = spacy_conll_pos_tags(nlp, train_loc, dev_loc)
-    model = EncodeTagger(nr_class, nr_in=nlp.vocab.vectors_length)
+
     if nr_sent >= 1:
         train_data = train_data[:nr_sent]
     
+    model = EncodeTagger(nr_class, width, get_vectors)
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
         for examples, truth in trainer.iterate(model, train_data, check_data,
