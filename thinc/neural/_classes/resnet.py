@@ -5,6 +5,7 @@ from .affine import Affine
 
 
 class ResBlock(Model):
+    name = 'resblock'
     @property
     def input_shape(self):
         return (self.nr_out,)
@@ -19,11 +20,11 @@ class ResBlock(Model):
         layers = [
             BatchNormalization(name='%s-bn1' % self.name),
             ScaleShift(width, name='%s-scaleshift1' % self.name),
-            layerize(_relu, name='relu1'),
+            layerize(_relu, name='%s-relu1-func' % self.name),
             Affine(width, width, name='%s-weight1' % self.name),
             BatchNormalization(name='%s-bn2' % self.name),
             ScaleShift(width, name='%s-scaleshift2' % self.name),
-            layerize(_relu, name='relu2'),
+            layerize(_relu, name='%s-relu2-func' % self.name),
             Affine(width, width, name='%s-weight2' % self.name),
         ]
         Model.__init__(self, *layers, **kwargs)
@@ -48,7 +49,11 @@ class ReLuResBN(Model):
 
     def __init__(self, width, **kwargs):
         self.nr_out = width
-        layers = [ResBlock(width, **kwargs), ResBlock(width, **kwargs)]
+        subkw = dict(kwargs)
+        if 'name' in subkw:
+            subkw.pop('name')
+        layers = [ResBlock(width, name='rb1-%s' % self.name, **subkw),
+                  ResBlock(width, name='rb2-%s' % self.name, **subkw)]
         Model.__init__(self, *layers, **kwargs)
 
     def begin_update(self, X, dropout=0.0):
@@ -60,5 +65,3 @@ class ReLuResBN(Model):
             grad1 = upd1(grad2, optimizer=optimizer, **kwargs)
             return grad1 + grad2
         return output, bp_dropout(finish_update)
-
-
