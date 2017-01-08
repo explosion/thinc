@@ -54,8 +54,9 @@ class MaxoutWindowEncode(Model):
     def d_b(self):
         return self.params.get('d_b-%s' % self.name, require=True)
 
-    def __init__(self, nr_out, **kwargs):
+    def __init__(self, nr_out, embed, **kwargs):
         self.nr_out = nr_out
+        self.embed = embed
         Model.__init__(self, **kwargs)
 
     def initialize_params(self, train_data=None, add_gradient=True):
@@ -67,19 +68,22 @@ class MaxoutWindowEncode(Model):
                 self.params.add(name, shape)
                 if init is not None:
                     init(self.params.get(name), inplace=True)
+        self.embed.initialize_params(train_data, add_gradient=add_gradient)
 
     def predict_batch(self, X):
-        ids, vectors, lengths = X
+        ids, lengths = X
+        vectors = self.embed.predict_batch(ids)
         positions = _get_positions(ids)
         out, _ = self._forward(positions, vectors, lengths)
         return out
 
-    def begin_update(self, ids_vectors_lengths, dropout=0.0):
-        ids, vectors, lengths = ids_vectors_lengths
+    def begin_update(self, ids, dropout=0.0):
+        vectors, fine_tune = self.embed.begin_update(ids, dropout=dropout)
         positions = _get_positions(ids)
         flat_out, whiches = self._forward(positions, vectors, lengths)
         flat_out, bp_dropout = self.ops.dropout(flat_out, dropout, inplace=True)
-        finish_update = self._get_finish_update(vectors, whiches, lengths)
+        finish_update = self._get_finish_update(
+                            fine_tune, vectors, whiches, lengths)
         return flat_out, bp_dropout(finish_update)
 
     def _forward(self, positions, vectors, lengths):
@@ -91,7 +95,7 @@ class MaxoutWindowEncode(Model):
         best = self.ops.take_which(cands, which)
         return best, which
 
-    def _get_finish_update(self, vectors_BI, whiches_BO, lengths_B):
+    def _get_finish_update(self, fine_tune, vectors_BI, whiches_BO, lengths_B):
         B, I = vectors_BI.shape
         O = self.nr_out
         F = self.nr_feat
@@ -107,11 +111,13 @@ class MaxoutWindowEncode(Model):
             # Bop,Bfi->opfi
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
-            W_OPFI = self.W
-            gradients_BFI = self.ops.xp.einsum(
-                                'bop,opfi->bfi', gradients_BOP, W_OPFI)
-            gradients_BI = gradients_BFI.sum(axis=1)
-            return gradients_BI
+            if fine_tune is not None:
+                W_OPFI = self.W
+                gradients_BFI = self.ops.xp.einsum(
+                                    'bop,opfi->bfi', gradients_BOP, W_OPFI)
+                gradients_BI = gradients_BFI.sum(axis=1)
+                fine_tune(gradients_BI, optimizer=optimizer, **kwargs)
+            return None
         return finish_update
 
 
