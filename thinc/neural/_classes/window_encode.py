@@ -70,33 +70,29 @@ class MaxoutWindowEncode(Model):
                     init(self.params.get(name), inplace=True)
         self.embed.initialize_params(train_data, add_gradient=add_gradient)
 
-    def predict_batch(self, X):
-        ids, lengths = X
-        vectors = self.embed.predict_batch(ids)
-        positions = _get_positions(ids)
+    def predict_batch(self, seqs):
+        positions, vectors, lengths = self.embed.predict_batch(seqs)
         out, _ = self._forward(positions, vectors, lengths)
         return out
 
-    def begin_update(self, ids, dropout=0.0):
-        vectors, fine_tune = self.embed.begin_update(ids, dropout=dropout)
-        positions = _get_positions(ids)
+    def begin_update(self, seqs, dropout=0.0):
+        (positions, vectors, lengths), fine_tune = self.embed.begin_update(seqs, dropout=dropout)
         flat_out, whiches = self._forward(positions, vectors, lengths)
         flat_out, bp_dropout = self.ops.dropout(flat_out, dropout, inplace=True)
         finish_update = self._get_finish_update(
-                            fine_tune, vectors, whiches, lengths)
+                            fine_tune, positions, vectors, lengths, whiches)
         return flat_out, bp_dropout(finish_update)
 
     def _forward(self, positions, vectors, lengths):
-        positions, vectors = _get_uniq_vectors(positions, vectors)
-        vectors = self.ops.asarray(vectors)
         cands = _dot_ids(self.ops, self.W, positions, vectors, lengths)
         cands += self.b
         which = self.ops.argmax(cands)
         best = self.ops.take_which(cands, which)
         return best, which
 
-    def _get_finish_update(self, fine_tune, vectors_BI, whiches_BO, lengths_B):
-        B, I = vectors_BI.shape
+    def _get_finish_update(self, fine_tune, positions, vectors_UI, lengths, whiches_BO):
+        B = whiches_BO.shape[0]
+        I = vectors_UI.shape[1]
         O = self.nr_out
         F = self.nr_feat
         P = self.nr_piece
@@ -107,7 +103,7 @@ class MaxoutWindowEncode(Model):
             d_b += gradients_BOP.sum(axis=0)
             
             inputs_BFI = self.ops.allocate((B, F, I))
-            _get_full_inputs(inputs_BFI, vectors_BI, lengths_B)
+            _get_full_inputs(inputs_BFI, positions, vectors_UI, lengths)
             # Bop,Bfi->opfi
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
@@ -181,20 +177,22 @@ def _get_full_gradients(flat_gradients, gradients, whiches):
     return flat_gradients
 
 
-def _get_full_inputs(inputs, vectors, lengths):
-    # Col 0 has LL
-    inputs[2:, 0] = vectors[:-2]
-    # Col 1 has L
-    inputs[1:, 1] = vectors[:-1]
+def _get_full_inputs(writeto, positions, vectors, lengths):
+    for vec_idx, tok_idxs in sorted(positions.items()):
+        writeto[vec_idx, 2] = vectors[vec_idx]
     # Col 2 has w
-    inputs[:, 2] = vectors
+    vectors = writeto[:, 2]
+    # Col 0 has LL
+    writeto[2:, 0] = vectors[:-2]
+    # Col 1 has L
+    writeto[1:, 1] = vectors[:-1]
     # Col 3 has R
-    inputs[:-1, 3] = vectors[1:]
+    writeto[:-1, 3] = vectors[1:]
     # Col 4 has RR
-    inputs[:-2, 4] = vectors[2:]
+    writeto[:-2, 4] = vectors[2:]
     # Now use the lengths to zero LL, L, R and RR features as appropriate.
-    _zero_features_past_sequence_boundaries(inputs, lengths)
-    return inputs
+    _zero_features_past_sequence_boundaries(writeto, lengths)
+    return writeto
 
 
 def _zero_features_past_sequence_boundaries(flat__bfop, lengths):
