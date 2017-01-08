@@ -142,33 +142,22 @@ def _dot_ids(ops, W, positions, vectors, lengths):
     total_length = sum(lengths)
     # Shift the input, so that we don't have to special-case the starts and
     # ends. We'll shift back afterwards.
-    out = ops.allocate((total_length+(window_size*2), W.shape[0], W.shape[1]))
-    H__bopf = _compute_hidden_layer(ops, W, vectors, lengths)
+    out__bop = ops.allocate((total_length+(window_size*2), W.shape[0], W.shape[1]))
+    H__ufop = _compute_hidden_layer(ops, W, vectors, lengths)
     
     for vec_idx, tok_idxs in positions.items():
+        v__fop = H__ufop[vec_idx]
         for i in tok_idxs:
-            out[i : i+5] += H__bopf[vec_idx]
+            out__bop[i : i+5] += v__fop
     # Shift the output, to correct for the 'padding' shift above.
-    out = out[window_size : -window_size]
-    # Recover sequences
-    out = ops.unflatten(out, lengths)
-    # Zero the LL, L, R and RR features for starts and ends.
-    for i in range(len(out)):
-        out[i][0, 0] = 0
-        out[i][0, 1] = 0
-        if len(out[i]) >= 2:
-            out[i][1, 1] = 0
-        out[i][-1, 4] = 0
-        out[i][-1, 3] = 0
-        if len(out[i]) >= 2:
-            out[i][-2, 4] = 0
-    return ops.flatten(out)
+    out__bop = out__bop[window_size : -window_size]
+    return out__bop
 
 
-def _compute_hidden_layer(ops, W__opfi, vectors__bi, lengths):
-    H__bopf = ops.xp.tensordot(vectors__bi, W__opfi, axes=[[1], [3]])
-    H__bfop = H__bopf.transpose((0, 3, 1, 2))
-    return H__bfop
+def _compute_hidden_layer(ops, W__opfi, vectors__ui, lengths):
+    H__uopf = ops.xp.tensordot(vectors__ui, W__opfi, axes=[[1], [3]])
+    H__ufop = H__uopf.transpose((0, 3, 1, 2))
+    return H__ufop
 
 
 def _get_full_gradients(flat_gradients, gradients, whiches):
@@ -190,8 +179,8 @@ def _get_full_inputs(writeto, positions, vectors, lengths):
     writeto[:-1, 3] = vectors[1:]
     # Col 4 has RR
     writeto[:-2, 4] = vectors[2:]
-    # Now use the lengths to zero LL, L, R and RR features as appropriate.
-    _zero_features_past_sequence_boundaries(writeto, lengths)
+    ## Now use the lengths to zero LL, L, R and RR features as appropriate.
+    #_zero_features_past_sequence_boundaries(writeto, lengths)
     return writeto
 
 
