@@ -18,6 +18,7 @@ def model():
     assert model.nr_out == 3
     return model
 
+
 @pytest.mark.skip
 def test_init():
     model = MyWindowEncode(device='cpu', nr_out=10, nr_in=2, vectors={})
