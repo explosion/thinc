@@ -44,8 +44,8 @@ def main(depth=2, width=512, nb_epoch=20):
 
     with model.begin_training(train_data) as (trainer, optimizer):
         trainer.dropout = 0.9
-        trainer.dropout_decay = 1e-2
-        trainer.batch_size = 1024
+        trainer.dropout_decay = 1e-3
+        trainer.batch_size = 512
         for i in range(nb_epoch):
             for batch_X, batch_Y in trainer.iterate(
                     model, train_data, dev_X, dev_Y, nb_epoch=1):
