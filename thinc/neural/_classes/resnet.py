@@ -17,6 +17,7 @@ class ResBlock(Model):
     def __init__(self, width, **kwargs):
         self.nr_out = width
         self.nr_in = width
+        self.name = kwargs.get('name')
         layers = [
             BatchNormalization(name='%s-bn1' % self.name),
             ScaleShift(width, name='%s-scaleshift1' % self.name),
@@ -51,7 +52,7 @@ class ReLuResBN(Model):
         self.nr_out = width
         subkw = dict(kwargs)
         if 'name' in subkw:
-            subkw.pop('name')
+            self.name = subkw.pop('name')
         layers = [ResBlock(width, name='rb1-%s' % self.name, **subkw),
                   ResBlock(width, name='rb2-%s' % self.name, **subkw)]
         Model.__init__(self, *layers, **kwargs)
