@@ -1,6 +1,17 @@
+# cython: profile=True
+# cython: cdivision=True
+# cython: infer_types = True
+cimport cython
+from libc.string cimport memcpy, memset
+from libc.math cimport exp, sqrt
+from libc.stdlib cimport calloc, malloc, free
+
 import numpy
 from cytoolz import concat
 from numpy import prod
+from numpy cimport ndarray
+
+from ..typedefs cimport weight_t
 
 
 try:
@@ -128,6 +139,25 @@ class Ops(object):
 
 class NumpyOps(Ops):
     xp = numpy
+
+    def elu(self, ndarray X, inplace=True):
+        cdef weight_t* data = <weight_t*>X.data
+        cdef size_t size = X.size
+        for i in range(size):
+            if data[i] < 0:
+                data[i] = exp(data[i])-1.
+
+    def backprop_elu(self, ndarray delta_, ndarray signal_out_,
+            inplace=True):
+        # Backprop the ELU transformation
+        # Note that this is over the function _output_, not the function
+        # _input_!
+        cdef size_t size = delta_.size
+        cdef weight_t* delta = <weight_t*>delta_.data
+        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+        for i in range(size):
+            if signal_out[i] <= 0:
+                delta[i] *= signal_out[i] + 1.
 
 
 class CupyOps(Ops):
