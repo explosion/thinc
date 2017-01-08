@@ -1,4 +1,19 @@
+from __future__ import print_function, unicode_literals
 from .ops import NumpyOps, CupyOps
+import time                                                
+
+def timeit(method):
+
+    def timed(*args, **kw):
+        ts = time.time()
+        result = method(*args, **kw)
+        te = time.time()
+        model, X, y = args
+        n_y = len(y)
+        print('%r %d examples %2.2f sec' % (model.name, n_y, te-ts))
+        return result
+
+    return timed
 
 
 def get_ops(ops):
@@ -10,6 +25,7 @@ def get_ops(ops):
         return ops
 
 
+@timeit
 def score_model(model, X, y):
     correct = 0
     total = 0

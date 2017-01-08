@@ -24,3 +24,9 @@ def basic_tagger():
 def cnn_tagger():
     with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
         local('python examples/cnn_tagger.py')
+
+
+@task
+def spacy_tagger():
+    with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
+        local('python examples/spacy_tagger.py')
