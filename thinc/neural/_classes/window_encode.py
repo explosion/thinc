@@ -16,7 +16,6 @@ class MaxoutWindowEncode(Model):
             fan_in = W.shape[2] * W.shape[3]
             fan_out = W.shape[0]
             for i in range(W.shape[1]):
-                #scale = self.ops.xp.sqrt(6.) / self.ops.xp.sqrt(fan_in + fan_out)
                 scale = self.ops.xp.sqrt(2. / (fan_in + fan_out))
                 W[:, i] = self.ops.xp.random.uniform(-scale, scale,
                                                      W[:, i].shape)
@@ -108,8 +107,11 @@ class MaxoutWindowEncode(Model):
             # Bop,Bfi->opfi
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
-            # TODO: Implement fine-tuning
-            return None
+            W_OPFI = self.W
+            gradients_BFI = self.ops.xp.einsum(
+                                'bop,opfi->bfi', gradients_BOP, W_OPFI)
+            gradients_BI = gradients_BFI.sum(axis=1)
+            return gradients_BI
         return finish_update
 
 
