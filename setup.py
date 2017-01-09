@@ -159,7 +159,8 @@ def setup_package():
                 'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
-                'six>=1.10.0,<2.0.0'
+                'six>=1.10.0,<2.0.0',
+                'flexmock'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
