@@ -74,7 +74,7 @@ cdef class AveragedPerceptron:
 
     def update(self, Example eg):
         self(eg)
-        self.updateC(eg.c)
+        self.updateC(&eg.c)
         return eg.loss
 
     def dump(self, loc):
