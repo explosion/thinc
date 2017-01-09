@@ -51,7 +51,14 @@ class Model(object):
         kwargs = self._update_defaults(**kwargs)
         if self.ops is None:
             self.ops = util.get_ops(self.device)
+        self._root = kwargs.get('root', self)
+        self._parent = kwargs.get('parent', None)
+        if self._parent is not None:
+            self.name = self._parent.name + '-' + self.name
         self.params = self.Params(self.ops)
+
+        kwargs.setdefault('root', self)
+        kwargs['parent'] = self
         for layer in layers:
             if isinstance(layer, Model):
                 self.layers.append(layer)
