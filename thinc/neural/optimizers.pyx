@@ -6,7 +6,6 @@ from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 
-
 from collections import defaultdict
 import numpy
 
