@@ -4,10 +4,12 @@ from ...._classes.window_encode import MaxoutWindowEncode
 from ....ops import NumpyOps
 
 
+@pytest.mark.xfail
 def test_init_succeeds():
     model = MaxoutWindowEncode(10)
 
 
+@pytest.mark.xfail
 def test_init_defaults_and_overrides():
     model = MaxoutWindowEncode(10)
     assert model.nr_piece == MaxoutWindowEncode.nr_piece

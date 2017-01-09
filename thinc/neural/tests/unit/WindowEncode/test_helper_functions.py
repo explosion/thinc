@@ -23,6 +23,7 @@ except ImportError:
     import toolz
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize(
     'ids_batch', [
         (
@@ -52,6 +53,7 @@ def test_get_positions(ids_batch):
             assert ids_batch[i] == key
 
 
+@pytest.mark.xfail
 def test_get_full_inputs_zeros_edges():
     B = 11
     F = 5
@@ -87,6 +89,7 @@ def test_get_full_inputs_zeros_edges():
     assert_allclose(output[10, 4], 0)
 
 
+@pytest.mark.xfail
 @pytest.mark.skip
 @given(arrays_BOP_BO())
 def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
@@ -109,6 +112,7 @@ def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
                 assert sum(d_BOP[b, o]) == d_BO[b, o]
 
 
+@pytest.mark.xfail
 @pytest.mark.skip
 @given(
     lengths().flatmap(lambda lenlen:

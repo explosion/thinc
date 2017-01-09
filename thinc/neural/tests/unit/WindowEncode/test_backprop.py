@@ -68,6 +68,7 @@ def O(nr_out):
     return nr_out
 
 
+@pytest.mark.xfail
 def test_update_shape(B, I, O, model, ids, vectors, lengths, gradients_BO):
     assert gradients_BO.shape == (B, O)
     ids = list(concat(ids))
@@ -77,6 +78,7 @@ def test_update_shape(B, I, O, model, ids, vectors, lengths, gradients_BO):
 
 
 
+@pytest.mark.xfail
 def test_zero_gradient_makes_zero_finetune(model):
     ids = [0]
     lengths = [1]
@@ -88,6 +90,7 @@ def test_zero_gradient_makes_zero_finetune(model):
 
 
 
+@pytest.mark.xfail
 def test_negative_gradient_positive_weights_makes_negative_finetune(model):
     ids = [0]
     lengths = [1]
@@ -102,6 +105,7 @@ def test_negative_gradient_positive_weights_makes_negative_finetune(model):
         assert val < 0
 
 
+@pytest.mark.xfail
 def test_vectors_change_fine_tune(model):
     ids = [0]
     lengths = [1]
