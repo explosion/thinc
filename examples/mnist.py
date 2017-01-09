@@ -1,7 +1,7 @@
 from __future__ import print_function
 import plac
 from thinc.neural.vec2vec import Model, Affine, ReLu, ELU, Softmax
-from thinc.neural.vec2vec import ReLuResBN
+from thinc.neural.vec2vec import Residual
 
 from thinc.loss import categorical_crossentropy
 from thinc.extra import datasets
@@ -24,13 +24,11 @@ def health_check(name, X, **kwargs):
 
 def main(depth=2, width=512, nb_epoch=20):
     model = Model(
-              Affine(128, 784, name='affine'),
-              ReLuResBN(128, name='res1'),
-              ReLuResBN(128, name='res2'),
-              ReLuResBN(128, name='res3'),
-              #ReLuResBN(128, name='res2'),
-              #ReLuResBN(128, name='res3'),
-              Softmax(10, 128, name='softmax'),
+              ELU(300, 784),
+              Residual(300),
+              Residual(300),
+              Residual(300),
+              Softmax(10, 300),
               ops=NumpyOps())
     
     train_data, dev_data, test_data = datasets.mnist()
@@ -43,9 +41,9 @@ def main(depth=2, width=512, nb_epoch=20):
     test_Y = model.ops.asarray(test_Y)
 
     with model.begin_training(train_data) as (trainer, optimizer):
-        trainer.dropout = 0.9
-        trainer.dropout_decay = 1e-3
-        trainer.batch_size = 512
+        trainer.dropout = 0.0
+        trainer.dropout_decay = 0.
+        trainer.batch_size = 128
         for i in range(nb_epoch):
             for batch_X, batch_Y in trainer.iterate(
                     model, train_data, dev_X, dev_Y, nb_epoch=1):
