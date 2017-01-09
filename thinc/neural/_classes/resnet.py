@@ -3,6 +3,8 @@ from .batchnorm import BatchNormalization, ScaleShift
 from ...api import layerize
 from .affine import Affine
 
+import cytoolz as toolz
+
 
 class ResBlock(Model):
     name = 'resblock'
@@ -18,28 +20,35 @@ class ResBlock(Model):
         self.nr_out = width
         self.nr_in = width
         self.name = kwargs.get('name')
-        layers = [
+        Model.__init__(self, **kwargs)
+        self.layers = [
             BatchNormalization(name='%s-bn1' % self.name),
             ScaleShift(width, name='%s-scaleshift1' % self.name),
-            layerize(_relu, name='%s-relu1-func' % self.name),
+            layerize(_relu(self.ops)),
             Affine(width, width, name='%s-weight1' % self.name),
             BatchNormalization(name='%s-bn2' % self.name),
             ScaleShift(width, name='%s-scaleshift2' % self.name),
-            layerize(_relu, name='%s-relu2-func' % self.name),
+            layerize(_relu(self.ops)),
             Affine(width, width, name='%s-weight2' % self.name),
         ]
-        Model.__init__(self, *layers, **kwargs)
 
-
-def _relu(X, dropout=0.0):
+@toolz.curry
+def _relu(ops, X, dropout=0.0):
+    x_copy = ops.xp.ascontiguousarray(X, dtype='f')
+    ops.relu(x_copy, inplace=True)
     mask = X > 0
     def finish_update(gradient, *args, **kwargs):
-        return gradient * mask
-    return X * mask, finish_update
+        gradient = ops.xp.ascontiguousarray(gradient, dtype='f')
+        ops.backprop_relu(gradient, x_copy)
+        return gradient
+    X[:] = x_copy
+    return X, finish_update
 
 
 class ReLuResBN(Model):
     name = 'resblock'
+    Block = ResBlock
+
     @property
     def input_shape(self):
         return (self.nr_out,)
