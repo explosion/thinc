@@ -6,6 +6,7 @@ from thinc.neural.vec2vec import Softmax, ReLuResBN
 from thinc.neural._classes.batchnorm import BatchNormalization, ScaleShift
 from thinc.neural.ids2vecs import MaxoutWindowEncode
 from thinc.loss import categorical_crossentropy
+from thinc.neural.optimizers import SGD
 
 import numpy
 
@@ -76,11 +77,10 @@ class EncodeTagger(Model):
         self.layers = [
             MaxoutWindowEncode(width, get_vectors, nr_in=vector_dim, name='encode'),
             BatchNormalization(name='bn1'),
-            ScaleShift(width, name='ss1'),
             ReLu(width, width, name='relu1'),
-            BatchNormalization(name='bn1'),
-            ScaleShift(width, name='ss1'),
             ReLu(width, width, name='relu2'),
+            ReLu(width, width, name='relu3'),
+            #BatchNormalization(name='bn1'),
             Softmax(nr_class, nr_in=width, name='softmax')
         ]
 
@@ -120,7 +120,7 @@ def get_word_shape(string):
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(nr_epoch=10, nr_sent=0, width=300):
+def main(nr_epoch=20, nr_sent=0, width=128):
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
     train_sents, dev_sents, nr_class = spacy_conll_pos_tags(nlp, train_sents, dev_sents)
@@ -133,8 +133,9 @@ def main(nr_epoch=10, nr_sent=0, width=300):
     dev_Y = model.ops.flatten(dev_Y)
     with model.begin_training(train_sents) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        trainer.dropout = 0.
-        trainer.batch_size = 16
+        trainer.dropout = 0.0
+        trainer.dropout_decay = 1e-5
+        trainer.batch_size = 8
         for i in range(nr_epoch):
             for examples, truth in trainer.iterate(model, train_sents, dev_X, dev_Y,
                                                    nb_epoch=1):
@@ -146,7 +147,7 @@ def main(nr_epoch=10, nr_sent=0, width=300):
                 trainer._loss += loss / len(truth)
             with model.use_params(optimizer.averages):
                 print("Avg dev.: %.3f" % score_model(model, dev_X, dev_Y))
-    print("End", score_model(dev_X, dev_Y))
+    print("End", score_model(model, dev_X, dev_Y))
 
 
 if __name__ == '__main__':

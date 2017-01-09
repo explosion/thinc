@@ -21,7 +21,11 @@ class ReLu(Affine):
 
     def begin_update(self, input_BI, dropout=0.0):
         output_BO, finish_affine = Affine.begin_update(self, input_BI)
+        output_copy = self.ops.xp.ascontiguousarray(output_BO, dtype='f')
+        self.ops.relu(output_copy)
         def finish_update(gradient, *args, **kwargs):
-            return finish_affine(gradient * (output_BO > 0), *args, **kwargs)
-        output_BO = self.ops.clip_low(output_BO, 0, inplace=True)
+            gradient = self.ops.xp.ascontiguousarray(gradient, dtype='f')
+            self.ops.backprop_relu(gradient, output_copy)
+            return finish_affine(gradient, *args, **kwargs)
+        output_BO[:] = output_copy
         return output_BO, finish_update
