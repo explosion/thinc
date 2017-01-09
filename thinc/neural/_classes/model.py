@@ -126,6 +126,7 @@ class Model(object):
         self.check_input(X, expect_batch=True)
         callbacks = []
         for layer in self.layers:
+            X = self.ops.xp.ascontiguousarray(X, dtype='f')
             X, finish_update = layer.begin_update(X, **kwargs)
             callbacks.append(finish_update)
         return X, self._get_finish_update(callbacks)
@@ -133,6 +134,7 @@ class Model(object):
     def _get_finish_update(self, callbacks):
         def finish_update(gradient, optimizer=None, **kwargs):
             for callback in reversed(callbacks):
+                gradient = self.ops.xp.ascontiguousarray(gradient, dtype='f')
                 gradient = callback(gradient, optimizer=optimizer,
                                 is_child=True)
             if optimizer is not None and self.params is not None \
