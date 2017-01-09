@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import io
 import os
 import subprocess
 import sys
@@ -115,7 +116,7 @@ def setup_package():
             about = {}
             exec(f.read(), about)
 
-        with open(os.path.join(root, 'README.rst')) as f:
+        with io.open(os.path.join(root, 'README.rst'), encoding='utf8') as f:
             readme = f.read()
 
         include_dirs = [
