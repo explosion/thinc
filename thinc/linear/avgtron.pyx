@@ -136,6 +136,7 @@ cdef class AveragedPerceptron:
                 if train_feat is NULL:		
                     msg = (feat_id)		
                     raise MemoryError(		
+                        "Error allocating memory for feature: %s" % msg)
                 weights = <const SparseArrayC*>feat_addr		
                 train_feat.curr  = SparseArray.clone(weights)		
                 train_feat.avgs = SparseArray.clone(weights)		
