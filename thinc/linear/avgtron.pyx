@@ -126,7 +126,22 @@ cdef class AveragedPerceptron:
                         W.val = avg.val / (self.time+1)
                     W += 1
                     avg += 1
-    
+
+    def resume_training(self):		
+        cdef feat_t feat_id		
+        cdef size_t feat_addr		
+        for i, (feat_id, feat_addr) in enumerate(self.weights.items()):		
+            train_feat = <SparseAverageC*>self.averages.get(feat_id)		
+            if train_feat == NULL:		
+                if train_feat is NULL:		
+                    msg = (feat_id)		
+                    raise MemoryError(		
+                weights = <const SparseArrayC*>feat_addr		
+                train_feat.curr  = SparseArray.clone(weights)		
+                train_feat.avgs = SparseArray.clone(weights)		
+                train_feat.times = SparseArray.clone(weights)		
+                self.averages.set(feat_id, train_feat)
+   
     @property
     def L1(self):
         cdef long double l1 = 0.0
@@ -208,6 +223,8 @@ cdef class AveragedPerceptron:
             weight_t grad) except -1:
         if grad == 0:
             return 0
+        if len(self.averages) < len(self.weights):		
+            self.resume_training()
         feat = <SparseAverageC*>self.averages.get(feat_id)
         if feat == NULL:
             feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
