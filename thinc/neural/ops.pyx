@@ -159,6 +159,21 @@ class NumpyOps(Ops):
             if signal_out[i] <= 0:
                 delta[i] *= signal_out[i] + 1.
 
+    def relu(self, ndarray X, inplace=True):
+        cdef weight_t* data = <weight_t*>X.data
+        cdef size_t size = X.size
+        for i in range(size):
+            if data[i] < 0:
+                data[i] = 0.
+
+    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=True):
+        cdef size_t size = delta_.size
+        cdef weight_t* delta = <weight_t*>delta_.data
+        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+        for i in range(size):
+            if signal_out[i] <= 0:
+                delta[i] = 0.
+
 
 class CupyOps(Ops):
     xp = cupy
