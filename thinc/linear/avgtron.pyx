@@ -201,10 +201,41 @@ cdef class AveragedPerceptron:
         if eg.costs[guess] > 0:
             best = VecVec.arg_max_if_zero(eg.scores, eg.costs, eg.nr_class)
             for feat in eg.features[:eg.nr_feat]:
-                self.update_weight(feat.key, best,   feat.value * eg.costs[guess])
-                self.update_weight(feat.key, guess, -feat.value * eg.costs[guess])
+                self.update_weight(feat.key, best,  -feat.value * eg.costs[guess])
+                self.update_weight(feat.key, guess, feat.value * eg.costs[guess])
+    
+    cpdef int update_weight(self, feat_t feat_id, class_t clas,
+            weight_t grad) except -1:
+        if grad == 0:
+            return 0
+        feat = <SparseAverageC*>self.averages.get(feat_id)
+        if feat == NULL:
+            feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
+            if feat is NULL:
+                msg = (feat_id, clas, grad)
+                raise MemoryError("Error allocating memory for feature: %s" % msg)
+            feat.curr  = SparseArray.init(clas, grad)
+            feat.avgs  = SparseArray.init(clas, 0)
+            feat.times = SparseArray.init(clas, <weight_t>self.time)
+            self.averages.set(feat_id, feat)
+            self.weights.set(feat_id, feat.curr)
+        else:  
+            i = SparseArray.find_key(feat.curr, clas)
+            if i < 0:
+                feat.curr = SparseArray.resize(feat.curr)
+                feat.avgs = SparseArray.resize(feat.avgs)
+                feat.times = SparseArray.resize(feat.times)
+                self.weights.set(feat_id, feat.curr)
+                i = SparseArray.find_key(feat.curr, clas)
+            feat.curr[i].key = clas
+            feat.avgs[i].key = clas
+            # Apply the last round of updates, multiplied by the time unchanged
+            feat.avgs[i].val -= (self.time - feat.times[i].val) * feat.curr[i].val
+            feat.curr[i].val -= grad
+            feat.times[i].val = self.time
 
-    cpdef int update_weight(self, feat_t feat_id, class_t clas, weight_t grad) except -1:
+    cpdef int update_weight_ftrl(
+            self, feat_t feat_id, class_t clas, weight_t grad) except -1:
         if grad == 0:
             return 0
         feat = <SparseAverageC*>self.averages.get(feat_id)
