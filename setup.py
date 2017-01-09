@@ -20,6 +20,7 @@ PACKAGES = [
     'thinc.linear',
     'thinc.neural',
     'thinc.extra',
+    'thinc.neural._classes',
     'thinc.linear.tests',
     'thinc.neural.tests',
     'thinc.neural.tests.unit',
