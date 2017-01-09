@@ -8,6 +8,7 @@ import cytoolz as toolz
 
 class ResBlock(Model):
     name = 'resblock'
+
     @property
     def input_shape(self):
         return (self.nr_out,)
@@ -16,9 +17,9 @@ class ResBlock(Model):
     def output_shape(self):
         return (self.nr_out,)
 
-    def __init__(self, width, **kwargs):
+    def __init__(self, width, nr_in=None, **kwargs):
         self.nr_out = width
-        self.nr_in = width
+        self.nr_in = width if nr_in is None else nr_in
         self.name = kwargs.get('name')
         Model.__init__(self, **kwargs)
         self.layers = [
@@ -26,11 +27,12 @@ class ResBlock(Model):
             ScaleShift(width, name='%s-scaleshift1' % self.name),
             layerize(_relu(self.ops)),
             Affine(width, width, name='%s-weight1' % self.name),
-            BatchNormalization(name='%s-bn2' % self.name),
-            ScaleShift(width, name='%s-scaleshift2' % self.name),
-            layerize(_relu(self.ops)),
-            Affine(width, width, name='%s-weight2' % self.name),
+            #BatchNormalization(name='%s-bn2' % self.name),
+            #ScaleShift(width, name='%s-scaleshift2' % self.name),
+            #layerize(_relu(self.ops)),
+            #Affine(width, width, name='%s-weight2' % self.name),
         ]
+
 
 @toolz.curry
 def _relu(ops, X, dropout=0.0):
@@ -45,8 +47,9 @@ def _relu(ops, X, dropout=0.0):
     return X, finish_update
 
 
-class ReLuResBN(Model):
-    name = 'resblock'
+class Residual(Model):
+    name = 'residual'
+
     Block = ResBlock
 
     @property
@@ -59,12 +62,13 @@ class ReLuResBN(Model):
 
     def __init__(self, width, **kwargs):
         self.nr_out = width
-        subkw = dict(kwargs)
-        if 'name' in subkw:
-            self.name = subkw.pop('name')
-        layers = [ResBlock(width, name='rb1-%s' % self.name, **subkw),
-                  ResBlock(width, name='rb2-%s' % self.name, **subkw)]
-        Model.__init__(self, *layers, **kwargs)
+        Model.__init__(self, **kwargs)
+        if 'name' in kwargs:
+            kwargs.pop('name')
+        self.layers = [
+            self.Block(width, width, name='rb1-%s' % self.name, **kwargs),
+            self.Block(width, width, name='rb2-%s' % self.name, **kwargs)
+        ]
 
     def begin_update(self, X, dropout=0.0):
         out1, upd1 = self.layers[0].begin_update(X, dropout=0.)
