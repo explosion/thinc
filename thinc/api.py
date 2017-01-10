@@ -1,3 +1,5 @@
+import copy
+
 from .neural.vec2vec import Model
 
 
@@ -11,43 +13,97 @@ def layerize(begin_update=None, *args, **kwargs):
 
 
 def metalayerize(user_func):
-    def returned(layers):
-        forward, backward = split_backward(layers)
+    '''Wrap a function over a sequence of layers and an input into a layer.'''
+    def returned(layers, X, *args, **kwargs):
         def begin_update(X, *args, **kwargs):
-            for func in forward:
-                X = func(X)
-            def finish_update(grad, *args, **kwargs):
-                for bwd in backward:
-                    grad = bwd(grad, *args, **kwargs)
-                return grad
-            return x, finish_update
+            return user_func(layers, X, *args, **kwargs)
         return FunctionLayer(begin_update, *args, **kwargs)
     return returned
 
 
-def multiroute(output, activity, shapes, funcs):
-    for i, (slice_, func) in enumerate(zip(shapes, funcs)):
-        output[slice_] += func(output[slice_])
-    return output
+def noop(*layers):
+    '''Transform a sequences of layers into a null operation.'''
+    def begin_update(X, *a, **k):
+        return X, lambda D, *a, **k: D
+    return begin_update
 
 
-def sink_return(func, sink, splitter):
-    def wrap(*args, **kwargs):
-        output = func(*args, **kwargs)
-        keep, sink = splitter(*output)
-        sink(sink)
-        return keep
-    return wrap
+def chain(*layers):
+    '''Compose two models `f` and `g` such that they become layers of a single
+    feed-forward model that computes `g(f(x))`.
+    
+    Raises exception if their dimensions don't match.
+    '''
+    return Model(*layers)
+
+
+def clone(orig, n):
+    '''Compose two or more models `f`, `g`, etc, such that their outputs are
+    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
+    '''
+    layers = [orig]
+    for i in range(n-1):
+        layers.append(copy.deepcopy(orig))
+    return Model(*layers)
+
+
+def concatenate(*layers):
+    '''Construct `n` copies of a layer, with distinct weights.
+    
+    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
+    '''
+    if not layers:
+        return noop()
+    ops = layers[0].ops
+    def begin_update(X, *a, **k):
+        forward, backward = split_backward(X)
+        values = [fwd(X, *a, **k) for fwd in forward]
+       
+        output = ops.concat(values)
+        shapes = [val.shape for val in values]
+
+        def finish_update(gradient, *args, **kwargs):
+            layer_grads = []
+            start = 0
+            for bwd, shape in zip(backward, shapes):
+                end = start + shape[1]
+                layer_grads.append(bwd(gradient[start : end], *args, **kwargs))
+                start = end
+            return layer_grads
+        return output, finish_update
+    return FunctionLayer(begin_update)
 
 
 def split_backward(layers):
+    '''Separate a sequence of layers' `begin_update` methods into two lists of
+    functions: one that computes the forward values, and the other that completes
+    the backward pass. The backward sequence is only populated after the forward
+    functions have been applied.
+    '''
     backward = []
-    forward = [steal_callback(op.begin_update, backward.append)
+    forward = [sink_return(op.begin_update, backward.append)
                for op in layers]
     return forward, backward
 
 
+def sink_return(func, sink, splitter=None):
+    '''Transform a function `func` that returns tuples into a function that returns
+    single values. Call a function `sink` on the unused values.
+    '''
+    def wrap(*args, **kwargs):
+        output = func(*args, **kwargs)
+        if spltter is None:
+            to_keep, to_sink = output
+        else:
+            to_keep, to_sink = splitter(*output)
+        sink(to_sink)
+        return to_keep
+    return wrap
+
+
 class FunctionLayer(Model):
+    '''Wrap functions into weightless Model instances, for use as network
+    components.'''
     def __init__(self, begin_update, predict_batch=None, predict_one=None,
             nr_in=None, nr_out=None, *args, **kwargs):
         self.begin_update = begin_update
