@@ -115,48 +115,60 @@ class Model(object):
             return self.predict_one(x)
 
     def __add__(self, other):
+        '''Apply the function bound to the '+' operator.'''
         return self._operators['+'](self, other)
 
     def __sub__(self, other):
+        '''Apply the function bound to the '-' operator.'''
         return self._operators['-'](self, other)
 
     def __mul__(self, other):
+        '''Apply the function bound to the '*' operator.'''
         return self._operators['*'](self, other)
 
     def __matmul__(self, other):
+        '''Apply the function bound to the '@' operator.'''
         return self._operators['@'](self, other)
 
     def __truediv__(self, other):
+        '''Apply the function bound to the '/' operator.'''
         return self._operators['/'](self, other)
 
     def __floordiv__(self, other):
+        '''Apply the function bound to the '//' operator.'''
         return self._operators['//'](self, other)
 
     def __mod__(self, other):
+        '''Apply the function bound to the '%' operator.'''
         return self._operators['%'](self, other)
 
     def __pow__(self, other, modulo=None):
+        '''Apply the function bound to the '**' operator.'''
         return self._operators['**'](self, other)
 
     def __lshift__(self, other):
+        '''Apply the function bound to the '<<' operator.'''
         return self._operators['<<'](self, other)
 
     def _rshift__(self, other):
+        '''Apply the function bound to the '>>' operator.'''
         return self._operators['>>'](self, other)
 
     def __and__(self, other):
+        '''Apply the function bound to the '&' operator.'''
         return self._operators['&'](self, other)
 
     def __xor__(self, other):
+        '''Apply the function bound to the '^' operator.'''
         return self._operators['^'](self, other)
 
     def __or__(self, other):
+        '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict_batch(X)[0]
-
 
     def predict_batch(self, X):
         y, _ = self.begin_update(X)
