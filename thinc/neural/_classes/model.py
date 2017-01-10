@@ -21,6 +21,7 @@ class Model(object):
     ops = None
     layers = []
     Params = Params
+    _operators = {}
 
     @property
     def size(self):
@@ -96,6 +97,15 @@ class Model(object):
         else:
             return True
 
+    @classmethod
+    @contextlib.contextmanager
+    def bind_operators(cls, ops):
+        old_ops = dict(cls._operators)
+        for op, func in ops.items():
+            cls._operators[op] = func
+        yield
+        cls._operators = old_ops
+
     def __call__(self, x):
         '''Predict a single x.'''
         self.check_input(x)
@@ -103,6 +113,45 @@ class Model(object):
             return self.predict_batch(x)
         else:
             return self.predict_one(x)
+
+    def __add__(self, other):
+        return self._operators['+'](self, other)
+
+    def __sub__(self, other):
+        return self._operators['-'](self, other)
+
+    def __mul__(self, other):
+        return self._operators['*'](self, other)
+
+    def __matmul__(self, other):
+        return self._operators['@'](self, other)
+
+    def __truediv__(self, other):
+        return self._operators['/'](self, other)
+
+    def __floordiv__(self, other):
+        return self._operators['//'](self, other)
+
+    def __mod__(self, other):
+        return self._operators['%'](self, other)
+
+    def __pow__(self, other, modulo=None):
+        return self._operators['**'](self, other)
+
+    def __lshift__(self, other):
+        return self._operators['<<'](self, other)
+
+    def _rshift__(self, other):
+        return self._operators['>>'](self, other)
+
+    def __and__(self, other):
+        return self._operators['&'](self, other)
+
+    def __xor__(self, other):
+        return self._operators['^'](self, other)
+
+    def __or__(self, other):
+        return self._operators['|'](self, other)
 
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
