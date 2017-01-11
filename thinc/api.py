@@ -38,8 +38,9 @@ def chain(*layers):
 
 
 def clone(orig, n):
-    '''Compose two or more models `f`, `g`, etc, such that their outputs are
-    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
+    '''Construct `n` copies of a layer, with distinct weights.
+    
+    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
     '''
     layers = [orig]
     for i in range(n-1):
@@ -48,9 +49,8 @@ def clone(orig, n):
 
 
 def concatenate(*layers):
-    '''Construct `n` copies of a layer, with distinct weights.
-    
-    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
+    '''Compose two or more models `f`, `g`, etc, such that their outputs are
+    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
     '''
     if not layers:
         return noop()
