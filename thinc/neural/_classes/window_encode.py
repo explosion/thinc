@@ -1,29 +1,46 @@
 from collections import defaultdict
 
 from .model import Model
+from ... import describe
+from ...describe import Dimension, Synapses, Biases, Gradient
 
 
-@declare_dimensions(
-    I=("Vector dimensionality"),
-    P=("Number of pieces"),
-    F=("Number of features"),
-    O=("Size of output"),
-)
-@declare_input(shape=Tuple(WordsSchema, TagsSchema))
-@declare_output(shape=Floats("O"))
-@declare_weights(
-    W=Schema(
-        "The weights matrix",
-        shape=("O", "P", "F", "I"),
-        initialize=MaxoutWindwEncode.init_W,
-        static=False
-    ),
-    b=Schema(
-        "Bias parameter",
-        shape=("O", "P"),
-        inititialize=initializers.zeros,
-        static=False
-    )
+def _set_dimensions_if_given(model, *args, **kwargs):
+    if len(args) >= 1:
+        model.nO = args[0]
+    elif not hasattr(model, 'nO'):
+        model.nO = None
+    if len(args) >= 2:
+        model.nI = args[1]
+    elif not hasattr(model, 'nI'):
+        model.nI = None
+    if 'pieces' in kwargs:
+        model.nP = kwargs['pieces']
+    if 'window' in kwargs:
+        model.nF = kwargs['window']
+
+
+def _set_dimensions_if_needed(model, X, y=None):
+    if model.nI is None:
+        model.nI = X.shape[0]
+    if model.nO is None and y is not None:
+        model.nO = y.max()
+
+
+@describe.input(("nB", "nI"))
+@describe.output(("nB", "nO"))
+@describe.on_data(_set_dimensions_if_needed)
+@describe.on_init(_set_dimensions_if_given)
+@describe.attributes(
+    nI=Dimension("Vector dimensionality"),
+    nP=Dimension("Number of pieces"),
+    nF=Dimension("Number of features"),
+    nO=Dimension("Size of output"),
+    W=Synapses("Weights matrix", ("nO", "nP", "nF", "nI"),
+        lambda W, ops: ops.xavier_uniform_init(W)),
+    b=Biases("Bias vector", ("nO", "nP")),
+    d_W=Gradient("W"),
+    d_b=Gradient("b")
 )
 class MaxoutWindowEncode(Model):
     def __init__(self, nr_out, embed, **kwargs):
