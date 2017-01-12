@@ -4,17 +4,15 @@ from ..exceptions import ShapeError
 
 @describe.input(("B", "I"))
 @describe.output(("B", "O"))
-@describe.weights(
-    W=("Weights matrix", ("O", "I"), xavier_init),
-    b=("Bias",           ("O",),     None)
-)
-@describe.dimensions(
-    B="Batch size",
-    I="Input size",
-    O="Output size",
-    on_init=lambda args: {"I": args.get(1), "O": args.get(0)},
-    on_X=lambda X: {"B": X.shape[0], "I": X.shape[1]},
-    on_y=lambda y: {"B": y.shape[0], "O": y.max()}
+@describe.on_data(
+    lambda self, X, y: {"B": X.shape[0], "I": X.shape[1], "O": y.max()})
+@describe.on_init(lambda self, *args, **kwargs: {"I": args[1], "O": args[0]})
+@describe.attributes(
+    B=Dimension("Batch size"),
+    I=Dimension("Input size"),
+    O=Dimension("Output size"),
+    W=Synapses("Weights matrix", ("O", "I"), xavier_init),
+    B=Biases("Bias vector", ("O",))
 )
 class Affine(Model):
     '''Computes the linear transform Y = (W @ X) + b.'''
