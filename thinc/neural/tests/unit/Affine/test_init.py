@@ -1,46 +1,45 @@
 # encoding: utf8
 from __future__ import unicode_literals
 import pytest
-from flexmock import flexmock
+from mock import Mock, patch
 from hypothesis import given, strategies
 import abc
 
-from .... import vec2vec
+from ...._classes.affine import Affine
 from ....ops import NumpyOps
 
 
 @pytest.fixture
-def model_with_no_args():
-    model = vec2vec.Affine(ops=NumpyOps())
+def model():
+    orig_desc = dict(Affine.descriptions)
+    orig_on_init = list(Affine.on_init_hooks)
+    Affine.descriptions = {
+        name: Mock(desc) for (name, desc) in Affine.descriptions.items()
+    }
+    Affine.on_init_hooks = [Mock(hook) for hook in Affine.on_init_hooks]
+    model = Affine()
+    for attr in model.descriptions:
+        setattr(model, attr, None)
+    Affine.descriptions = dict(orig_desc)
+    Affine.on_init_hooks = orig_on_init
     return model
 
 
-def test_Affine_default_name(model_with_no_args):
-    assert model_with_no_args.name == 'affine'
+def test_Affine_default_name(model):
+    assert model.name == 'affine'
 
 
-def test_Affine_defaults_to_cpu(model_with_no_args):
-    assert isinstance(model_with_no_args.ops, NumpyOps)
+def test_Affine_calls_default_descriptions(model):
+    assert len(model.descriptions) == 5
+    for name, desc in model.descriptions.items():
+        desc.assert_called()
+    assert 'nB' in model.descriptions
+    assert 'nI' in model.descriptions
+    assert 'nO' in model.descriptions
+    assert 'W' in model.descriptions
+    assert 'b' in model.descriptions
 
 
-def test_Affine_defaults_to_no_layers(model_with_no_args):
-    assert model_with_no_args.layers == []
-
-
-def test_Affine_defaults_to_param_descriptions(model_with_no_args):
-    W_desc, b_desc = model_with_no_args.describe_params
-    xavier_init = model_with_no_args.ops.xavier_uniform_init
-    assert W_desc == ('W-affine', (None, None), xavier_init)
-    assert b_desc == ('b-affine', (None,), None)
-
-
-def test_Model_defaults_to_no_output_shape(model_with_no_args):
-    assert model_with_no_args.output_shape == None
- 
-
-def test_Model_defaults_to_no_input_shape(model_with_no_args):
-    assert model_with_no_args.input_shape == None
-
-
-def test_Model_defaults_to_0_size(model_with_no_args):
-    assert model_with_no_args.size == None
+def test_Affine_calls_init_hooks(model):
+    for hook in model.on_init_hooks:
+        hook.assert_called()
