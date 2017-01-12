@@ -1,7 +1,7 @@
 from numpy import prod
 
 
-class Params(object):
+class Memory(object):
     def __init__(self, ops, size=128):
         if size < 0:
             raise ValueError("TODO error re negative size %d" % size)
