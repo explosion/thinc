@@ -21,7 +21,7 @@ class Model(object):
 
     @classmethod
     @contextlib.contextmanager
-    def use_operators(cls, operators):
+    def define_operators(cls, operators):
         '''Bind operators to specified functions for the scope of the context:
 
         Example
@@ -36,7 +36,7 @@ class Model(object):
             # Raises exception --- binding limited to scope of with block.
         '''
         old_ops = dict(cls._operators)
-        for op, func in cls.do.items():
+        for op, func in operators.items():
             cls._operators[op] = func
         yield
         cls._operators = old_ops
