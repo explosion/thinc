@@ -74,8 +74,8 @@ class Residual(Model):
         out1, upd1 = self.layers[0].begin_update(X, dropout=0.)
         out2, upd2 = self.layers[1].begin_update(out1, dropout=0.)
         output, bp_dropout = self.ops.dropout(out1 + out2, dropout)
-        def finish_update(gradient, optimizer=None, **kwargs):
-            grad2 = upd2(gradient, optimizer=optimizer, **kwargs)
-            grad1 = upd1(grad2, optimizer=optimizer, **kwargs)
+        def finish_update(gradient):
+            grad2 = upd2(gradient)
+            grad1 = upd1(grad2)
             return grad1 + grad2
         return output, bp_dropout(finish_update)

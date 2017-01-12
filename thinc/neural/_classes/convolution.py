@@ -13,7 +13,7 @@ class ExtractWindow(Model):
     def size(self):
         return 0
 
-    def predict_batch(self, X):
+    def predict(self, X):
         nr_feat = self.n * 2 + 1
         shape = (X.shape[0], nr_feat) + X.shape[1:]
         output = self.ops.allocate(shape)

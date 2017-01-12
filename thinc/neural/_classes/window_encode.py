@@ -3,72 +3,33 @@ from collections import defaultdict
 from .model import Model
 
 
+@declare_dimensions(
+    I=("Vector dimensionality"),
+    P=("Number of pieces"),
+    F=("Number of features"),
+    O=("Size of output"),
+)
+@declare_input(shape=Tuple(WordsSchema, TagsSchema))
+@declare_output(shape=Floats("O"))
+@declare_weights(
+    W=Schema(
+        "The weights matrix",
+        shape=("O", "P", "F", "I"),
+        initialize=MaxoutWindwEncode.init_W,
+        static=False
+    ),
+    b=Schema(
+        "Bias parameter",
+        shape=("O", "P"),
+        inititialize=initializers.zeros,
+        static=False
+    )
+)
 class MaxoutWindowEncode(Model):
-    name = 'encode'
-    nr_piece = 3
-    nr_feat = 5
-    nr_out = None
-    nr_in = None
-
-    @property
-    def describe_params(self):
-        def _init(W, inplace=True):
-            fan_in = W.shape[2] * W.shape[3]
-            fan_out = W.shape[0]
-            for i in range(W.shape[1]):
-                scale = self.ops.xp.sqrt(2. / (fan_in + fan_out))
-                W[:, i] = self.ops.xp.random.uniform(-scale, scale,
-                                                     W[:, i].shape)
-            return W
-        yield 'W-%s' % self.name, self.shape, _init
-        yield 'b-%s' % self.name, (self.nr_out, self.nr_piece), None
-
-    @property
-    def shape(self):
-        if self.output_shape is None or self.input_shape is None:
-            return None
-        else:
-            return (self.nr_out, self.nr_piece, self.nr_feat, self.nr_in)
-
-    @property
-    def output_shape(self):
-        return (self.nr_out,) if self.nr_out is not None else None
-
-    @property
-    def input_shape(self):
-        return (self.nr_feat, self.nr_in) if self.nr_in is not None else None
-
-    @property
-    def W(self):
-        return self.params.get('W-%s' % self.name, require=True)
-    
-    @property
-    def b(self):
-        return self.params.get('b-%s' % self.name, require=True)
-
-    @property
-    def d_W(self):
-        return self.params.get('d_W-%s' % self.name, require=True)
-    
-    @property
-    def d_b(self):
-        return self.params.get('d_b-%s' % self.name, require=True)
-
     def __init__(self, nr_out, embed, **kwargs):
         self.nr_out = nr_out
         self.embed = embed
         Model.__init__(self, **kwargs)
-
-    def initialize_params(self, train_data=None, add_gradient=True):
-        if train_data is not None and self.nr_in is None:
-            self.nr_in = self._get_vector_dim_from_input(train_data)
-        assert self.shape is not None, "TODO: Error"
-        for name, shape, init in self.describe_params:
-            if name not in self.params:
-                self.params.add(name, shape)
-                if init is not None:
-                    init(self.params.get(name), inplace=True)
-        self.embed.initialize_params(train_data, add_gradient=add_gradient)
 
     def predict_batch(self, seqs):
         positions, vectors, lengths = self.embed.predict_batch(seqs)
@@ -84,18 +45,19 @@ class MaxoutWindowEncode(Model):
         return flat_out, bp_dropout(finish_update)
 
     def _forward(self, positions, vectors, lengths):
-        cands = _dot_ids(self.ops, self.W, positions, vectors, lengths)
-        cands += self.b
+        cands = _dot_ids(self.ops, self.w.W, positions, vectors, lengths)
+        cands += self.w.b
         which = self.ops.argmax(cands)
         best = self.ops.take_which(cands, which)
         return best, which
 
-    def _get_finish_update(self, fine_tune, positions, vectors_UI, lengths, whiches_BO):
+    def _get_finish_update(self, fine_tune, positions,
+            vectors_UI, lengths, whiches_BO):
         B = whiches_BO.shape[0]
-        I = vectors_UI.shape[1]
-        O = self.nr_out
-        F = self.nr_feat
-        P = self.nr_piece
+        I = self.nI
+        O = self.nO
+        F = self.nF
+        P = self.nP
         def finish_update(gradients_BO, optimizer=None, **kwargs):
             gradients_BOP = self.ops.allocate((B, O, P))
             _get_full_gradients(gradients_BOP, gradients_BO, whiches_BO)
@@ -108,7 +70,7 @@ class MaxoutWindowEncode(Model):
             d_W = self.d_W
             d_W += self.ops.batch_outer(gradients_BOP, inputs_BFI)
             if fine_tune is not None:
-                W_OPFI = self.W
+                W_OPFI = self.wW
                 gradients_BFI = self.ops.xp.einsum(
                                     'bop,opfi->bfi', gradients_BOP, W_OPFI)
                 gradients_BI = gradients_BFI.sum(axis=1)
