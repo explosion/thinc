@@ -18,8 +18,6 @@ def model():
     }
     Affine.on_init_hooks = [Mock(hook) for hook in Affine.on_init_hooks]
     model = Affine()
-    for attr in model.descriptions:
-        setattr(model, attr, None)
     Affine.descriptions = dict(orig_desc)
     Affine.on_init_hooks = orig_on_init
     return model
@@ -30,7 +28,7 @@ def test_Affine_default_name(model):
 
 
 def test_Affine_calls_default_descriptions(model):
-    assert len(model.descriptions) == 5
+    assert len(model.descriptions) == 7
     for name, desc in model.descriptions.items():
         desc.assert_called()
     assert 'nB' in model.descriptions
@@ -38,6 +36,8 @@ def test_Affine_calls_default_descriptions(model):
     assert 'nO' in model.descriptions
     assert 'W' in model.descriptions
     assert 'b' in model.descriptions
+    assert 'd_W' in model.descriptions
+    assert 'd_b' in model.descriptions
 
 
 def test_Affine_calls_init_hooks(model):
