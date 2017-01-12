@@ -7,10 +7,8 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from ...vec2vec import Model
 from ...optimizers import SGD
-from ...ops import NumpyOps
-from ... import vec2vec
+from ..._classes.affine import Affine
 
 np.random.seed(2)
 random.seed(0)
@@ -18,21 +16,20 @@ random.seed(0)
 
 @pytest.fixture
 def model():
-    model = vec2vec.Affine(2, 2, ops=NumpyOps())
-    model.initialize_params(add_gradient=True)
+    model = Affine(2, 2)
     return model
 
 
 def test_init(model):
-    assert model.nr_out == 2 
-    assert model.nr_in == 2
+    assert model.nO == 2
+    assert model.nI == 2
     assert model.W is not None
     assert model.b is not None
 
 
 def test_predict_bias(model):
-    input_ = model.ops.allocate((1, model.nr_in,))
-    target_scores = model.ops.allocate((1, model.nr_out))
+    input_ = model.ops.allocate((1, model.nI,))
+    target_scores = model.ops.allocate((1, model.nO))
     scores = model(input_)
     assert_allclose(scores[0], target_scores[0])
 
@@ -60,8 +57,7 @@ def test_predict_weights(X, expected):
     W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
     bias = np.asarray([0.,0.])
 
-    model = vec2vec.Affine(W.shape[0], W.shape[1], ops=NumpyOps())
-    model.initialize_params(add_gradient=True)
+    model = Affine(W.shape[0], W.shape[1])
     model.W[:] = W
     model.b[:] = bias
 
@@ -74,11 +70,11 @@ def test_update():
     W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
     bias = np.asarray([0.,0.])
 
-    model = vec2vec.Affine(2, 2, ops=NumpyOps())
-    model.initialize_params(add_gradient=True)
+    model = Affine(2, 2)
     model.W[:] = W
     model.b[:] = bias
     sgd = SGD(model.ops, 1.0)
+    sgd.averages = None
     
     ff = np.asarray([[0,0]])
     tf = np.asarray([[1,0]])
@@ -90,7 +86,8 @@ def test_update():
     assert_allclose(scores[0,0], scores[0,1])
     # Tell it the answer was 'f'
     gradient = np.asarray([[-1., 0.]])
-    finish_update(gradient, sgd)
+    finish_update(gradient)
+    model.apply_updates(sgd)
 
     assert model.b[0] == 1.
     assert model.b[1] == 0.
@@ -104,7 +101,8 @@ def test_update():
     scores, finish_update = model.begin_update(tf)
     # Tell it the answer was 'T'
     gradient = np.asarray([[0., -1.]])
-    finish_update(gradient, sgd)
+    finish_update(gradient)
+    model.apply_updates(sgd)
 
     assert model.b[0] == 1.
     assert model.b[1] == 1.

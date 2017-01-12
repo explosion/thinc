@@ -1,23 +1,74 @@
 class AttributeDescription(object):
-    def __init__(self, name, value=None, *args, **kwargs):
-        self.name = name
+    def __init__(self, text, value=None, *args, **kwargs):
+        self.name = None
+        self.text = text
         self.value = value
+
+    def __call__(self, attr, model):
+        self.name = attr
+
+    def __get__(self, obj, type=None):
+        return self.value
+
+    def __set__(self, obj, val):
+        self.value = val
 
 
 class Dimension(AttributeDescription):
-    def __call__(self, attr, model):
-        '''Add the dimension to the instance.'''
-        setattr(model, attr, None)
+    def __get__(self, obj, type=None):
+        return self.value
+
+    def __set__(self, obj, value):
+        self.value = value
 
 
 class Weights(AttributeDescription):
-    def __init__(self, name, shape=None, init=None):
-        self.name = name
+    def __init__(self, text, shape=None, init=None):
+        self.name = None
+        self.text = text
         self.shape = shape
         self.init = init
 
-    def __call__(self, attr, model):
-        setattr(model, attr, None)
+    def __get__(self, obj, type=None):
+        key = (obj.id, self.name)
+        if key in obj.mem:
+            return obj.mem[key]
+        else:
+            shape = tuple(getattr(obj, dim, None) for dim in self.shape)
+            if any(dim is None for dim in shape):
+                return None
+            else:
+                data = obj.mem.add(key, shape)
+                if self.init is not None:
+                    self.init(data, obj.ops)
+                return data
+
+    def __set__(self, obj, val):
+        data = obj.mem.get((obj.id, self.name))
+        data[:] = val
+
+
+class Gradient(AttributeDescription):
+    def __init__(self, param_name):
+        self.name = None
+        self.text = "Gradient of %s" % param_name
+        self.param_name = param_name
+
+    def __get__(self, obj, type=None):
+        key = (obj.id, self.name)
+        if key in obj.mem:
+            return obj.mem.get(key)
+        else:
+            param_key = (obj.id, self.param_name)
+            if param_key in obj.mem:
+                grad = obj.mem.add_gradient(key, param_key)
+                return grad
+            else:
+                return None
+    
+    def __set__(self, obj, val):
+        data = obj.mem.get((obj.id, self.name))
+        data[:] = val
 
 
 class Synapses(Weights):
@@ -34,6 +85,9 @@ def attributes(**specs):
     def wrapped(cls):
         cls.descriptions = dict(cls.descriptions)
         cls.descriptions.update(specs)
+        for attr, desc in cls.descriptions.items():
+            setattr(cls, attr, desc)
+            desc.name = attr
         return cls
     return wrapped
 

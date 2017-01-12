@@ -58,7 +58,7 @@ class Model(object):
         self.id = Model.id
         self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
-        self.mem = None
+        self.mem = Memory(self.ops)
         self._layers = []
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
