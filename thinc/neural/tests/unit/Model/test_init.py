@@ -76,5 +76,3 @@ def test_init_calls_hooks():
     assert model.hooked == ((0, 1, 2), {})
     model2 = base.Model(value='something')
     assert model2.hooked == (tuple(), {'value': 'something'})
-
-   
