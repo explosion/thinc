@@ -12,7 +12,7 @@ class Model(object):
     '''Model base class.'''
     name = 'model'
     id = 0
-    ops = NumpyOps('cpu')
+    ops = NumpyOps()
     Trainer = Trainer
     descriptions = []
     on_data_hooks = []
@@ -86,7 +86,11 @@ class Model(object):
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
-  
+
+    def predict_one(self, x):
+        X = self.ops.expand_dims(x, axis=0)
+        return self.predict(X)[0]
+ 
     def begin_update(self, X, **kwargs):
         self.check_input(X, expect_batch=True)
         callbacks = []
@@ -99,6 +103,13 @@ class Model(object):
                 gradient = callback(gradient)
             return gradient
         return X, continue_update
+
+    def apply_updates(self, optimizer):
+        optimizer(self.mem.weights, self.mem.gradient, key=self.id)
+
+    def __call__(self, x):
+        '''Predict a single x.'''
+        return self.predict(x)
 
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
@@ -152,12 +163,6 @@ class Model(object):
         '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
-#
-#    def predict_one(self, x):
-#        X = self.ops.expand_dims(x, axis=0)
-#        return self.predict_batch(X)[0]
-#
-#
 ##    
 #    def pipe(self, stream, batch_size=1000):
 #        for batch in util.minibatch(stream, batch_size):
@@ -194,17 +199,6 @@ class Model(object):
 #        raise ShapeError.dim_mismatch(self.input_shape, shape)
 #    else:
 #        return True
-#
-#def __call__(self, x):
-#    '''Predict a single x.'''
-#    self.check_input(x)
-#    if is_batch:
-#        return self.predict_batch(x)
-#    else:
-#        return self.predict_one(x)
-#
-#
-#
 #def allocate_params(model):
 #    '''Allocate all trainable parameters of a model, including for its sublayers,
 #    so that parameters can be contiguous in memory.'''
