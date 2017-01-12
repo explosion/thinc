@@ -14,9 +14,10 @@ class Model(object):
     id = 0
     ops = NumpyOps('cpu')
     Trainer = Trainer
-    descriptions = [] 
-    on_data_hooks = [] 
-    on_init_hooks = [] 
+    descriptions = []
+    on_data_hooks = []
+    on_init_hooks = []
+    _operators = {}
 
     @classmethod
     @contextlib.contextmanager
@@ -59,7 +60,6 @@ class Model(object):
         kwargs = self._update_defaults(args, kwargs)
         self._mem = None
         self._layers = []
-        self._operators = {}
         for attr, install in self.descriptions:
             install(attr, self)
         for hook in self.on_init_hooks:
