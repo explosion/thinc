@@ -5,7 +5,7 @@ from .. import util
 from ..train import Trainer
 from ..exceptions import ShapeError
 from ..ops import NumpyOps
-from ..params import Params
+from ..mem import Memory
 
 
 class Model(object):
@@ -56,11 +56,17 @@ class Model(object):
     def __init__(self, *args, **kwargs):
         Model.id += 1
         self.id = Model.id
-        self.name = Model.name
+        self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
-        self._mem = None
+        self.mem = None
         self._layers = []
-        for attr, install in self.descriptions:
+        self.descriptions = dict(self.descriptions)
+        self.on_init_hooks = list(self.on_init_hooks)
+        self.on_data_hooks = list(self.on_data_hooks)
+        self.weights = []
+        self.dims = []
+        self.grads = []
+        for attr, install in self.descriptions.items():
             install(attr, self)
         for hook in self.on_init_hooks:
             hook(self, *args, **kwargs)
