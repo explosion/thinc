@@ -23,39 +23,39 @@ def health_check(name, X, **kwargs):
 
 
 def main(depth=2, width=512, nb_epoch=20):
-    model = Model(
-              ELU(300, 784),
-              Residual(300),
-              Residual(300),
-              Residual(300),
-              Softmax(10, 300),
-              ops=NumpyOps())
-    
-    train_data, dev_data, test_data = datasets.mnist()
-    train_X, train_Y = zip(*train_data)
-    dev_X, dev_Y = zip(*dev_data)
-    test_X, test_Y = zip(*test_data)
-    dev_X = model.ops.asarray(dev_X)
-    dev_Y = model.ops.asarray(dev_Y)
-    test_X = model.ops.asarray(test_X)
-    test_Y = model.ops.asarray(test_Y)
+    def Block(width):
+        with Model.bind_operators({'>>': chain}):
+            block = batch_norm >> Rescale() >> relu >> Affine(width)
+        return block 
 
-    with model.begin_training(train_data) as (trainer, optimizer):
-        trainer.dropout = 0.0
-        trainer.dropout_decay = 0.
-        trainer.batch_size = 128
-        for i in range(nb_epoch):
-            for batch_X, batch_Y in trainer.iterate(
-                    model, train_data, dev_X, dev_Y, nb_epoch=1):
-                batch_X = model.ops.asarray(batch_X)
-                guess, finish_update = model.begin_update(batch_X,
-                                         dropout=trainer.dropout)
-                gradient, loss = categorical_crossentropy(guess, batch_Y)
-                optimizer.set_loss(loss)
-                trainer._loss += loss / len(batch_Y)
-                finish_update(gradient, optimizer)
+    with Model.bind_operators({'*': clone, '>>': chain, '//': residual}):
+        model = (
+            Affine(width, 784)
+            >> depth * (Block(width) // Block(width))
+            >> Softmax(10)
+        )
+    
+    (train_X, train_Y), (dev_X, dev_Y), (test_X, test_Y) = datasets.mnist()
+
+    with model.begin_training(train_X, train_Y) as (trainer, optimizer):
+        while trainer.next_epoch:
+            for examples, truths in trainer.iterate(train_X, train_Y):
+                with model.set_dropout(trainer.dropout):
+                    guesses, backprop = model.begin_update(X)
+
+                loss, gradient_of_loss = categorical_crossentropy(guesses, truth)
+
+                backprop(gradient_of_loss)
+                
+                for name, param, grad in model.pending_updates():
+                    optimizer(param, grad, name=name, loss=loss)
+                
+                trainer.record_train_loss(loss)
             with model.use_params(optimizer.averages):
-                print('Avg dev.: %.3f' % score_model(model, dev_X, dev_Y))
+                dev_acc_avg = model.evaluate(dev_X, dev_Y)
+                print('Avg dev.: %.3f' % dev_acc_avg)
+            trainer.record_dev_acc(dev_acc_avg)
+
     with model.use_params(optimizer.averages):
         print('Avg dev.: %.3f' % score_model(model, dev_X, dev_Y))
         print('Avg test.: %.3f' % score_model(model, test_X, test_Y))

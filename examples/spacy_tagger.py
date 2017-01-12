@@ -2,7 +2,7 @@ from __future__ import print_function, unicode_literals, division
 from thinc.extra import datasets
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Maxout
-from thinc.neural.vec2vec import Softmax, ReLuResBN
+from thinc.neural.vec2vec import Softmax, Residual
 from thinc.neural._classes.batchnorm import BatchNormalization, ScaleShift
 from thinc.neural.ids2vecs import MaxoutWindowEncode
 from thinc.loss import categorical_crossentropy
@@ -13,7 +13,7 @@ import numpy
 from thinc.api import layerize
 
 from thinc.neural.util import score_model
-from thinc.optimizers import linear_decay
+from thinc.neural.optimizers import linear_decay
 import spacy
 from spacy.attrs import SHAPE
 from spacy.tokens import Doc
@@ -75,12 +75,11 @@ class EncodeTagger(Model):
         self.width = width
         Model.__init__(self, **kwargs)
         self.layers = [
-            MaxoutWindowEncode(width, get_vectors, nr_in=vector_dim, name='encode'),
+            get_vectors,
             BatchNormalization(name='bn1'),
             ReLu(width, width, name='relu1'),
             ReLu(width, width, name='relu2'),
             ReLu(width, width, name='relu3'),
-            #BatchNormalization(name='bn1'),
             Softmax(nr_class, nr_in=width, name='softmax')
         ]
 

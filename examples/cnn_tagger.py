@@ -26,6 +26,7 @@ def flatten(ops, X, dropout=0.0):
         return grad
     return ops.flatten(X), finish_update
 
+
 _i = 0
 @toolz.curry
 def health_check(name, X, **kwargs):
@@ -43,24 +44,23 @@ class Tagger(Model):
         self.vector_length = vector_length
         layers = [
             layerize(flatten(NumpyOps())),
-            Embed(vector_length, vector_length, vectors=vectors, ops=NumpyOps(),
-                name='embed'),
+            Embed(vector_length, vector_length, vectors=vectors),
             BatchNormalization(),
             ExtractWindow(n=2),
-            ReLu(width, width*5, ops=NumpyOps(), name='relu1'),
+            ReLu(width),
             ExtractWindow(n=3),
             BatchNormalization(),
-            ScaleShift(width * 7, name='scaleshift1'),
-            ReLu(width*3, width*7, ops=NumpyOps(), name='relu2'),
+            ScaleShift(),
+            ReLu(width*3),
             BatchNormalization(),
-            ScaleShift(width * 3, name='scaleshift2'),
-            ReLu(width*2, width*3, ops=NumpyOps(), name='relu3'),
+            ScaleShift(),
+            ReLu(),
             BatchNormalization(),
-            ScaleShift(width * 2, name='scaleshift3'),
-            ReLu(width, width*2, ops=NumpyOps(), name='relu4'),
+            ScaleShift(),
+            ReLu(width),
             BatchNormalization(),
-            ScaleShift(width, name='scaleshift4'),
-            Softmax(nr_tag, width, ops=NumpyOps(), name='softmax')
+            ScaleShift(),
+            Softmax(nr_tag)
         ]
         Model.__init__(self, *layers, ops=NumpyOps())
 
