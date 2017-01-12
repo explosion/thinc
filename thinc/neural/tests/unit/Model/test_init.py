@@ -50,3 +50,31 @@ def test_models_get_different_ids(model_with_no_args):
     model1 = base.Model()
     model2 = base.Model()
     assert model1.id != model2.id
+
+def test_init_assigns_privates():
+    model = base.Model()
+    assert model._mem is None
+    assert model._layers == []
+    assert model._operators == {}
+
+
+def test_init_installs_via_descriptions():
+    def mock_install(attr, self):
+        setattr(self, attr, 'model=' + self.name)
+    base.Model.descriptions = [("myattr", mock_install)]
+    model = base.Model(name='model1')
+    assert model.myattr == 'model=%s' % 'model1'
+    model2 = base.Model(name='model2')
+    assert model2.myattr == 'model=%s' % 'model2'
+
+
+def test_init_calls_hooks():
+    def mock_init_hook(self, *args, **kwargs):
+        setattr(self, 'hooked', (args, kwargs))
+    base.Model.on_init_hooks = [mock_init_hook]
+    model = base.Model(0, 1, 2)
+    assert model.hooked == ((0, 1, 2), {})
+    model2 = base.Model(value='something')
+    assert model2.hooked == (tuple(), {'value': 'something'})
+
+   
