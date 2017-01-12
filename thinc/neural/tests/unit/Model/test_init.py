@@ -53,7 +53,7 @@ def test_models_get_different_ids(model_with_no_args):
 
 def test_init_assigns_privates():
     model = base.Model()
-    assert model._mem is None
+    model.mem
     assert model._layers == []
     assert model._operators == {}
 
