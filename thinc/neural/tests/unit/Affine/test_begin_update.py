@@ -3,7 +3,7 @@ from hypothesis import given
 import numpy
 from numpy.testing import assert_allclose
 from ....ops import NumpyOps
-from ....vec2vec import Affine
+from ...._classes.affine import Affine
 from ....exceptions import ShapeError
 
 

@@ -5,7 +5,7 @@ from hypothesis import given
 from hypothesis.strategies import integers
 
 from ....ops import NumpyOps
-from ....vec2vec import Affine
+from ...._classes.affine import Affine
 from ....exceptions import ShapeError
 
 from ...strategies import arrays_OI_O_BI
