@@ -5,10 +5,9 @@ class AttributeDescription(object):
 
 
 class Dimension(AttributeDescription):
-    def __call__(self, attr, instance):
+    def __call__(self, attr, model):
         '''Add the dimension to the instance.'''
-        setattr(instance, attr, self.value)
-        instance.dimensions.append((attr, self.name, self.value))
+        setattr(model, attr, None)
 
 
 class Weights(AttributeDescription):
@@ -17,14 +16,8 @@ class Weights(AttributeDescription):
         self.shape = shape
         self.init = init
 
-    def __call__(self, attr, instance):
-        setattr(instance, attr, self)
-
-    def __get__(self, obj, type=None):
-        if obj.mem is None:
-            return None
-        else:
-            return obj.mem.get(self.name)
+    def __call__(self, attr, model):
+        setattr(model, attr, None)
 
 
 class Synapses(Weights):

@@ -63,9 +63,7 @@ class Model(object):
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
-        self.weights = []
-        self.dims = []
-        self.grads = []
+        
         for attr, install in self.descriptions.items():
             install(attr, self)
         for hook in self.on_init_hooks:
@@ -79,7 +77,7 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
-
+    
     def begin_training(self, train_X, train_Y):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_Y)
