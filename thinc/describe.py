@@ -1,33 +1,62 @@
-class Dimensions(object):
-    def __init__(self, **spec):
-        for key, value in spec.items():
-            if key.startswith('on_'):
-                setattr(self, key, value)
-            else:
-                setattr(self, key, None)
-                self.names[dim] = name
+class AttributeDescription(object):
+    def __init__(self, name, value=None, *args, **kwargs):
+        self.name = name
+        self.value = value
 
 
-class Weights(object):
-    def __init__(self, **spec):
-        for key, values in spec.items():
-            setattr(self, key, None)
+class Dimension(AttributeDescription):
+    def __call__(self, attr, instance):
+        '''Add the dimension to the instance.'''
+        setattr(instance, attr, self.value)
+        instance.dimensions.append((attr, self.name, self.value))
 
 
-def dimensions(**spec):
-    if not spec:
-        raise ValueError("Must describe at least one dimension")
+class Weights(AttributeDescription):
+    def __init__(self, name, shape=None, init=None):
+        self.name = name
+        self.shape = shape
+        self.init = init
+
+    def __call__(self, attr, instance):
+        setattr(instance, attr, self)
+
+    def __get__(self, obj, type=None):
+        if obj.mem is None:
+            return None
+        else:
+            return obj.mem.get(self.name)
+
+
+class Synapses(Weights):
+    pass
+
+
+class Biases(Weights):
+    pass
+
+
+def attributes(**specs):
+    if not specs:
+        raise ValueError("Must describe at least one attribute")
     def wrapped(cls):
-        cls.n = Dimensions(**spec)
+        cls.descriptions = dict(cls.descriptions)
+        cls.descriptions.update(specs)
         return cls
     return wrapped
-            
 
-def weights(**spec):
-    if not spec:
-        raise ValueError("Must describe at least one weight")
+
+def on_init(*callbacks):
     def wrapped(cls):
-        cls.w = Weights(**spec)
+        cls.on_init_hooks = list(cls.on_init_hooks)
+        cls.on_init_hooks.extend(callbacks)
+        return cls
+    return wrapped
+
+
+def on_data(*callbacks):
+    def wrapped(cls):
+        cls.on_data_hooks = list(cls.on_data_hooks)
+        cls.on_data_hooks.extend(callbacks)
         return cls
     return wrapped
 
