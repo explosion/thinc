@@ -43,3 +43,16 @@ def test_Affine_calls_default_descriptions(model):
 def test_Affine_calls_init_hooks(model):
     for hook in model.on_init_hooks:
         hook.assert_called()
+
+
+def test_Affine_dimensions_on_data():
+    X = Mock()
+    X.shape = Mock()
+    X.shape.__getitem__ = Mock()
+    y = Mock()
+    y.max = Mock()
+    model = Affine()
+    with model.begin_training(X, y):
+        pass
+    X.shape.__getitem__.assert_called_with(0)
+    y.max.assert_called_with()
