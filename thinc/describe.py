@@ -23,10 +23,10 @@ class Dimension(AttributeDescription):
 
 
 class Weights(AttributeDescription):
-    def __init__(self, text, shape=None, init=None):
+    def __init__(self, text, get_shape, init=None):
         self.name = None
         self.text = text
-        self.shape = shape
+        self.get_shape = get_shape
         self.init = init
 
     def __get__(self, obj, type=None):
@@ -34,7 +34,7 @@ class Weights(AttributeDescription):
         if key in obj.mem:
             return obj.mem[key]
         else:
-            shape = tuple(getattr(obj, dim, None) for dim in self.shape)
+            shape = self.get_shape(obj)
             if any(dim is None for dim in shape):
                 return None
             else:
@@ -108,15 +108,15 @@ def on_data(*callbacks):
     return wrapped
 
 
-def input(shape, **kwargs):
+def input(getter):
     def wrapped(cls):
-        cls.input_shape = property(lambda self: map(self.n.get, shape))
+        cls.describe_input = getter
         return cls
     return wrapped
 
 
-def output(shape, **kwargs):
+def output(getter):
     def wrapped(cls):
-        cls.output_shape = property(lambda self: map(self.n.get, shape))
+        cls.describe_output = getter
         return cls
     return wrapped

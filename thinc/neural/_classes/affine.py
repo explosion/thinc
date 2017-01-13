@@ -23,20 +23,22 @@ def _set_dimensions_if_needed(model, X, y=None):
         model.nO = y.max()
 
 
-@describe.input(("nB", "nI"))
-@describe.output(("nB", "nO"))
-@describe.on_data(_set_dimensions_if_needed)
-@describe.on_init(_set_dimensions_if_given)
+@describe.input(lambda obj, **_: (obj.nB, obj.nI))
+@describe.output(lambda obj, **_: (obj.nB, obj.nO))
 @describe.attributes(
     nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
     nO=Dimension("Output size"),
-    W=Synapses("Weights matrix", ("nO", "nI"),
+    W=Synapses("Weights matrix",
+        lambda obj: (obj.nO, obj.nI),
         lambda W, ops: ops.xavier_uniform_init(W)),
-    b=Biases("Bias vector", ("nO",)),
+    b=Biases("Bias vector",
+        lambda obj: (obj.nO,)),
     d_W=Gradient("W"),
     d_b=Gradient("b")
 )
+@describe.on_init(_set_dimensions_if_given)
+@describe.on_data(_set_dimensions_if_needed)
 class Affine(Model):
     '''Computes the linear transform Y = (W @ X) + b.'''
     name = 'affine'
