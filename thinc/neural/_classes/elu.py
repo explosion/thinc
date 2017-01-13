@@ -1,22 +1,22 @@
-from .relu import ReLu
 from .affine import Affine
+from ... import describe
+from ...describe import Dimension, Synapses, Biases
 
 
-class ELU(Model):
-    def predict_batch(self, X):
-        output = self.ops.xp.ascontiguousarray(
-                    Affine.predict_batch(self, X), dtype='f')
-        self.ops.elu(output, inplace=True)
-        return output
+class ELU(Affine):
+    def predict(self, input__BI):
+        output__BO = Affine.predict(self, input__BI)
+        self.ops.elu(output__BO, inplace=True)
+        return output__BO
 
-    def begin_update(self, input_BI, dropout=0.0):
-        output_BO, finish_affine = Affine.begin_update(self, input_BI)
+    def begin_update(self, input__BI):
+        output__BO, finish_affine = Affine.begin_update(self, input__BI)
 
-        output_copy = self.ops.xp.ascontiguousarray(output_BO, dtype='f')
+        output_copy = self.ops.xp.ascontiguousarray(output__BO, dtype='f')
         self.ops.elu(output_copy, inplace=True)
-        def finish_update(gradient, *args, **kwargs):
+        def finish_update(gradient):
             gradient = self.ops.xp.ascontiguousarray(gradient, dtype='f')
             self.ops.backprop_elu(gradient, output_copy, inplace=True)
             return finish_affine(gradient, *args, **kwargs)
-        output_BO[:] = output_copy
-        return output_BO, finish_update
+        output__BO[:] = output_copy
+        return output__BO, finish_update
