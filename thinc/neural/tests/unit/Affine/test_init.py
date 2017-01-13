@@ -54,5 +54,5 @@ def test_Affine_dimensions_on_data():
     model = Affine()
     with model.begin_training(X, y):
         pass
-    X.shape.__getitem__.assert_called_with(0)
+    X.shape.__getitem__.assert_called_with(1)
     y.max.assert_called_with()

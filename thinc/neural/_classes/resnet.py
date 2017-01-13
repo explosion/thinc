@@ -6,7 +6,7 @@ from .affine import Affine
 import cytoolz as toolz
 
 
-class ResBlock(Model):
+class ResBlock(Model): # pragma: no cover
     name = 'resblock'
 
     @property
@@ -35,7 +35,7 @@ class ResBlock(Model):
 
 
 @toolz.curry
-def _relu(ops, X, dropout=0.0):
+def _relu(ops, X, dropout=0.0): # pragma: no cover
     x_copy = ops.xp.ascontiguousarray(X, dtype='f')
     ops.relu(x_copy, inplace=True)
     mask = X > 0
@@ -47,7 +47,7 @@ def _relu(ops, X, dropout=0.0):
     return X, finish_update
 
 
-class Residual(Model):
+class Residual(Model): # pragma: no cover
     name = 'residual'
 
     Block = ResBlock

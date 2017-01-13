@@ -14,7 +14,7 @@ def test_plus_chain():
         assert m.name == 'a'
 
 
-@pytest.mark.parametrize('op', '+ * @ / // % ** << >> & ^ |'.split())
+@pytest.mark.parametrize('op', '+ - * @ / // % ** << >> & ^ |'.split())
 def test_all_operators(op):
     m1 = Model(name='a')
     m2 = Model(name='b')

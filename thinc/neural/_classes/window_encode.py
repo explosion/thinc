@@ -5,7 +5,7 @@ from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 
 
-def _set_dimensions_if_given(model, *args, **kwargs):
+def _set_dimensions_if_given(model, *args, **kwargs): # pragma: no cover 
     if len(args) >= 1:
         model.nO = args[0]
     elif not hasattr(model, 'nO'):
@@ -20,7 +20,7 @@ def _set_dimensions_if_given(model, *args, **kwargs):
         model.nF = kwargs['window']
 
 
-def _set_dimensions_if_needed(model, X, y=None):
+def _set_dimensions_if_needed(model, X, y=None): # pragma: no cover
     if model.nI is None:
         model.nI = X.shape[0]
     if model.nO is None and y is not None:
@@ -42,7 +42,7 @@ def _set_dimensions_if_needed(model, X, y=None):
     d_W=Gradient("W"),
     d_b=Gradient("b")
 )
-class MaxoutWindowEncode(Model):
+class MaxoutWindowEncode(Model): # pragma: no cover
     def __init__(self, nr_out, embed, **kwargs):
         self.nr_out = nr_out
         self.embed = embed
@@ -96,7 +96,7 @@ class MaxoutWindowEncode(Model):
         return finish_update
 
 
-def _get_uniq_vectors(positions, vectors):
+def _get_uniq_vectors(positions, vectors): # pragma: no cover
     # Need to set id back into sequence
     # Or, really, need to fix API of WindowEncode tagger. Maybe insert
     # shim operation?
@@ -109,14 +109,14 @@ def _get_uniq_vectors(positions, vectors):
     return remapped_positions, uniq_vectors
 
 
-def _get_positions(ids):
+def _get_positions(ids): # pragma: no cover
     positions = defaultdict(list)
     for i, id_ in enumerate(ids):
         positions[id_].append(i)
     return positions
 
 
-def _dot_ids(ops, W, positions, vectors, lengths):
+def _dot_ids(ops, W, positions, vectors, lengths): # pragma: no cover
     window_size = int((W.shape[2]-1) / 2)
     total_length = sum(lengths)
     # Shift the input, so that we don't have to special-case the starts and
@@ -133,19 +133,19 @@ def _dot_ids(ops, W, positions, vectors, lengths):
     return out__bop
 
 
-def _compute_hidden_layer(ops, W__opfi, vectors__ui, lengths):
+def _compute_hidden_layer(ops, W__opfi, vectors__ui, lengths): # pragma: no cover
     H__uopf = ops.xp.tensordot(vectors__ui, W__opfi, axes=[[1], [3]])
     H__ufop = H__uopf.transpose((0, 3, 1, 2))
     return H__ufop
 
 
-def _get_full_gradients(flat_gradients, gradients, whiches):
+def _get_full_gradients(flat_gradients, gradients, whiches): # pragma: no cover
     for i in range(flat_gradients.shape[-1]):
         flat_gradients[:, :, i] += gradients * (whiches == i)
     return flat_gradients
 
 
-def _get_full_inputs(writeto, positions, vectors, lengths):
+def _get_full_inputs(writeto, positions, vectors, lengths): # pragma: no cover
     for vec_idx, tok_idxs in sorted(positions.items()):
         writeto[vec_idx, 2] = vectors[vec_idx]
     # Col 2 has w
@@ -163,7 +163,7 @@ def _get_full_inputs(writeto, positions, vectors, lengths):
     return writeto
 
 
-def _zero_features_past_sequence_boundaries(flat__bfop, lengths):
+def _zero_features_past_sequence_boundaries(flat__bfop, lengths): # pragma: no cover
     # Now use the lengths to zero LL, L, R and RR features as appropriate.
     assert flat__bfop.shape[0] == sum(lengths), \
         (flat__bfop.shape, sum(lengths))

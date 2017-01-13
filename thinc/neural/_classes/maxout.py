@@ -13,7 +13,7 @@ from ...describe import Dimension, Synapses, Biases
         lambda W, ops: ops.xavier_uniform_init),
     b=Biases("Bias parameter", ("nO", "nP"))
 )
-class Maxout(Model):
+class Maxout(Model): # pragma: no cover
     def predict(self, X__BI):
         X__BOP = self.ops.xp.tensordot(X__BI, self.w.W, axes=[[1], [-1]])
         X__BOP += self.b

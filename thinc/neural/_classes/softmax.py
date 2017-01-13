@@ -14,10 +14,12 @@ class Softmax(Affine):
         self.ops.softmax(output__BO, inplace=True)
         return output__BO
 
-    def begin_update(self, input__BI):
+    def begin_update(self, input__BI, drop=0.):
         output__BO = self.predict(input__BI)
-        def finish_update(grad__BO):
+        def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
+            if sgd is not None:
+                sgd(self.mem.weights, self.mem.gradient, key=self.id)
             return self.ops.batch_dot(grad__BO, self.W.T)
         return output__BO, finish_update

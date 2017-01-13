@@ -51,7 +51,7 @@ def gradient_data(nB, nO):
 
 @pytest.fixture
 def model(model1, model2):
-    return FeedForward(model1, model2)
+    return FeedForward((model1, model2))
 
 
 def get_expected_predict(input_data, Ws, bs):
@@ -83,7 +83,7 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
 
 
 def test_predict_and_begin_update_match(model, model1, model2, input_data):
-    model = FeedForward(model1, model2)
+    model = FeedForward((model1, model2))
     via_predict = model.predict(input_data)
     via_update, _ = model.begin_update(input_data)
     assert_allclose(via_predict, via_update)
@@ -117,7 +117,7 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
             return X
         agrad = layer.mem.gradient.copy()
         ngrad = get_numeric_gradient(predict, layer.mem.weights.size, truth)
-        assert_allclose(agrad, ngrad, atol=0.01, rtol=1e-1)
+        assert_allclose(agrad, ngrad, atol=0.1, rtol=1e-1)
 
 
 def get_numeric_gradient(predict, n, target):

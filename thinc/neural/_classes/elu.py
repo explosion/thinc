@@ -3,7 +3,7 @@ from ... import describe
 from ...describe import Dimension, Synapses, Biases
 
 
-class ELU(Affine):
+class ELU(Affine): # pragma: no cover
     def predict(self, input__BI):
         output__BO = Affine.predict(self, input__BI)
         self.ops.elu(output__BO, inplace=True)

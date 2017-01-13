@@ -1,7 +1,7 @@
 from .model import Model
 
 
-class ScaleShift(Model):
+class ScaleShift(Model): # pragma: no cover
     def begin_update(self, input__BI):
         def finish_update(gradient__BI):
             self.d.b += gradient__BI.sum(axis=0)
@@ -11,7 +11,7 @@ class ScaleShift(Model):
         return input__BI * self.d.G + self.w.b, finish_update
 
 
-class BatchNormalization(Model):
+class BatchNormalization(Model): # pragma: no cover
     def predict(self, X):
         N, mu, var = _get_moments(self.ops, X)
         return _forward(self.ops, X, mu, var)
@@ -29,7 +29,7 @@ class BatchNormalization(Model):
         return Xhat, finish_update
 
 
-def _get_moments(ops, X):
+def _get_moments(ops, X): # pragma: no cover
     if hasattr(X, 'shape') and len(X.shape) == 2:
         mu = X.mean(axis=0)
         var = X.var(axis=0) + 1e-8
@@ -39,7 +39,7 @@ def _get_moments(ops, X):
         return stacked.shape[0], stacked.mean(axis=0), stacked.var(axis=0)
 
 
-def _get_d_moments(ops, dy, X, mu):
+def _get_d_moments(ops, dy, X, mu): # pragma: no cover
     if hasattr(dy, 'shape'):
         dist = X-mu
         return dist, ops.xp.sum(dy, axis=0), ops.xp.sum(dy * dist, axis=0)
@@ -50,7 +50,7 @@ def _get_d_moments(ops, dy, X, mu):
         return dist, sum_dy, sum_dy_dot_dist
 
 
-def _forward(ops, X, mu, var):
+def _forward(ops, X, mu, var): # pragma: no cover
     if hasattr(X, 'shape'):
         return (X-mu) * var ** (-1./2.)
     else:
