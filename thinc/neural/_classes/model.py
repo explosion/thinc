@@ -33,7 +33,7 @@ class Model(object):
                 print(model + other)
                 # "plus"
             print(model + other)
-            # Raises exception --- binding limited to scope of with block.
+            # Raises TypeError --- binding limited to scope of with block.
         '''
         old_ops = dict(cls._operators)
         for op, func in operators.items():
@@ -127,8 +127,9 @@ class Model(object):
     def begin_update(self, X):
         raise NotImplementedError
     
-    def apply_updates(self, optimizer):
-        optimizer(self.mem.weights, self.mem.gradient, key=self.id)
+    @contextlib.contextmanager
+    def use_params(self, params):
+        pass
 
     def __call__(self, x):
         '''Predict a single x.'''
@@ -136,55 +137,103 @@ class Model(object):
 
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
-        return self._operators['+'](self, other)
+        if '+' in self._operators:
+            return self._operators['+'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __sub__(self, other):
         '''Apply the function bound to the '-' operator.'''
-        return self._operators['-'](self, other)
+        if '-' in self._operators:
+            return self._operators['-'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __mul__(self, other):
         '''Apply the function bound to the '*' operator.'''
-        return self._operators['*'](self, other)
+        if '*' in self._operators:
+            return self._operators['*'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __matmul__(self, other):
         '''Apply the function bound to the '@' operator.'''
-        return self._operators['@'](self, other)
+        if '@' in self._operators:
+            return self._operators['@'](self, other)
+        else:
+            raise TypeError('TODO msg')
+
+    def __div__(self, other):
+        '''Apply the function bound to the '/' operator.'''
+        if '/' in self._operators:
+            return self._operators['/'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __truediv__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        return self._operators['/'](self, other)
+        if '/' in self._operators:
+            return self._operators['/'](self, other)
+        else:
+            raise TypeError('TODO msg')
+
 
     def __floordiv__(self, other):
         '''Apply the function bound to the '//' operator.'''
-        return self._operators['//'](self, other)
+        if '//' in self._operators:
+            return self._operators['//'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __mod__(self, other):
         '''Apply the function bound to the '%' operator.'''
-        return self._operators['%'](self, other)
+        if '%' in self._operators:
+            return self._operators['%'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __pow__(self, other, modulo=None):
         '''Apply the function bound to the '**' operator.'''
-        return self._operators['**'](self, other)
+        if '**' in self._operators:
+            return self._operators['**'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __lshift__(self, other):
         '''Apply the function bound to the '<<' operator.'''
-        return self._operators['<<'](self, other)
+        if '<<' in self._operators:
+            return self._operators['<<'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
-    def _rshift__(self, other):
+    def __rshift__(self, other):
         '''Apply the function bound to the '>>' operator.'''
-        return self._operators['>>'](self, other)
+        if '>>' in self._operators:
+            return self._operators['>>'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __and__(self, other):
         '''Apply the function bound to the '&' operator.'''
-        return self._operators['&'](self, other)
+        if '&' in self._operators:
+            return self._operators['&'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __xor__(self, other):
         '''Apply the function bound to the '^' operator.'''
-        return self._operators['^'](self, other)
+        if '^' in self._operators:
+            return self._operators['^'](self, other)
+        else:
+            raise TypeError('TODO msg')
 
     def __or__(self, other):
         '''Apply the function bound to the '|' operator.'''
-        return self._operators['|'](self, other)
+        if '|' in self._operators:
+            return self._operators['|'](self, other)
+        else:
+            raise TypeError('TODO msg')
+
 
 ##    
 #    def pipe(self, stream, batch_size=1000):
@@ -201,16 +250,6 @@ class Model(object):
 # 
 #def list_gradients(self):
 #    pass
-#
-#@contextlib.contextmanager
-#def use_params(self, params):
-#    if ('', self.name) in params:
-#        current = self.params.weights.copy()
-#        current[:] = self.params.weights
-#        self.params.weights[:] = params[('', self.name)]
-#        yield
-#        self.params.weights[:] = current
-#
 #def check_input(self, x, expect_batch=False):
 #    if self.layers:
 #        return self.layers[0].check_input(x, expect_batch=expect_batch)
