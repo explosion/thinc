@@ -51,10 +51,10 @@ def test_models_get_different_ids(model_with_no_args):
     model2 = base.Model()
     assert model1.id != model2.id
 
-def test_init_assigns_privates():
+def test_init_assigns_attributes():
     model = base.Model()
     model.mem
-    assert model._layers == []
+    assert model.layers == []
     assert model._operators == {}
 
 
