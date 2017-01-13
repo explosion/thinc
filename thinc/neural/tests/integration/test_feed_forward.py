@@ -3,43 +3,40 @@ import numpy
 from numpy.testing import assert_allclose
 
 from ..._classes.feed_forward import FeedForward
-from ..._classes.relu import Affine
+from ..._classes.affine import Affine
+from ..._classes.relu import ReLu
+from ..._classes.softmax import Softmax
 
 
-@pytest.fixture
-def dims():
-    return [3, 4, 2]
+@pytest.fixture(params=[1, 2, 9])
+def nB(request):
+    return request.param
+
+@pytest.fixture(params=[1, 6, 20])
+def nI(request):
+    return request.param
 
 
-@pytest.fixture
-def nB():
-    return 6
-
-@pytest.fixture
-def nI(dims):
-    return dims[0]
+@pytest.fixture(params=[1, 5, 3])
+def nH(request):
+    return request.param
 
 
-@pytest.fixture
-def nH(dims):
-    return dims[1]
-
-
-@pytest.fixture
-def nO(dims):
-    return dims[2]
+@pytest.fixture(params=[1, 2, 7, 9])
+def nO(request):
+    return request.param
 
 
 @pytest.fixture
 def model1(nH, nI):
-    model = Affine(nH, nI)
-    return round_weights(model)
+    model = ReLu(nH, nI)
+    return model
 
 
 @pytest.fixture
 def model2(nO, nH):
     model = Affine(nO, nH)
-    return round_weights(model)
+    return model
 
 
 @pytest.fixture
@@ -57,17 +54,12 @@ def model(model1, model2):
     return FeedForward(model1, model2)
 
 
-def round_weights(model):
-    # Clamp weights to integers, so that we don't get annoying float stuff.
-    #model.W[:] = numpy.round(model.W)
-    #model.b[:] = numpy.round(model.b)
-    return model
-
-
 def get_expected_predict(input_data, Ws, bs):
     X = input_data
-    for (W, b) in zip(Ws, bs):
+    for i, (W, b) in enumerate(zip(Ws, bs)):
         X = numpy.ascontiguousarray(X)
+        if i > 0:
+            X *= X > 0
         X = numpy.tensordot(X, W, axes=[[1], [1]]) + b
     return X
 
@@ -98,8 +90,7 @@ def test_predict_and_begin_update_match(model, model1, model2, input_data):
     expected = get_expected_predict(input_data,
                 [model1.W, model2.W],
                 [model1.b, model2.b])
-    assert_allclose(via_update, expected)
-    assert expected.sum() != 0.
+    assert_allclose(via_update, expected, atol=1e-2, rtol=1e-4)
 
 
 class GradientSpy(object):
@@ -111,23 +102,22 @@ class GradientSpy(object):
         self.d_weights = grad
 
 
-def test_gradient(model1, input_data, nB, nH, nI, nO):
-    model = model1
-    truth = numpy.zeros((nB, nH), dtype='float64')
+def test_gradient(model, input_data, nB, nH, nI, nO):
+    truth = numpy.zeros((nB, nO), dtype='float32')
+    truth[0] = 1.0
     
     guess, backprop = model.begin_update(input_data)
     backprop(guess - truth)
-    analytic_gradient = model.mem.gradient.copy()
 
-    def predict(i, update):
-        model.mem.weights[i] += update
-        X = model.predict(input_data)
-        model.mem.weights[i] -= update
-        return X
-
-    numeric_gradient = get_numeric_gradient(predict, model.mem.weights.size, truth)
-    # Set this for all parameters.
-    assert_allclose(analytic_gradient, numeric_gradient, atol=0.01, rtol=1e-3)
+    for layer in model.layers:
+        def predict(i, update):
+            layer.mem.weights[i] += update
+            X = model.predict(input_data)
+            layer.mem.weights[i] -= update
+            return X
+        agrad = layer.mem.gradient.copy()
+        ngrad = get_numeric_gradient(predict, layer.mem.weights.size, truth)
+        assert_allclose(agrad, ngrad, atol=0.01, rtol=1e-1)
 
 
 def get_numeric_gradient(predict, n, target):
