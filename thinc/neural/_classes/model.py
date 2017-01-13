@@ -114,6 +114,9 @@ class Model(object):
     def begin_training(self, train_X, train_Y):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_Y)
+        for layer in self.layers:
+            for hook in getattr(layer, 'on_data_hooks', []):
+                hook(layer, train_X, train_Y)
         return self.Trainer(self, train_X, train_Y)
  
     def predict(self, X):
@@ -124,7 +127,7 @@ class Model(object):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
  
-    def begin_update(self, X):
+    def begin_update(self, X, drop=0.0):
         raise NotImplementedError
     
     @contextlib.contextmanager
