@@ -17,6 +17,6 @@ class ELU(Affine):
         def finish_update(gradient):
             gradient = self.ops.xp.ascontiguousarray(gradient, dtype='f')
             self.ops.backprop_elu(gradient, output_copy, inplace=True)
-            return finish_affine(gradient, *args, **kwargs)
+            return finish_affine(gradient)
         output__BO[:] = output_copy
         return output__BO, finish_update
