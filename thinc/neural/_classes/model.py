@@ -41,17 +41,17 @@ class Model(object):
         yield
         cls._operators = old_ops
 
-    @classmethod
-    @contextlib.contextmanager
-    def use_device(cls, device):
-        '''Change the device to execute on for the scope of the block.'''
-        if device == cls.ops.device:
-            yield
-        else:
-            curr_ops = cls.ops
-            self.ops = get_ops(device)
-            yield
-            cls.ops = curr_ops
+    #@classmethod
+    #@contextlib.contextmanager
+    #def use_device(cls, device):
+    #    '''Change the device to execute on for the scope of the block.'''
+    #    if device == cls.ops.device:
+    #        yield
+    #    else:
+    #        curr_ops = cls.ops
+    #        self.ops = get_ops(device)
+    #        yield
+    #        cls.ops = curr_ops
 
     @property
     def input_shape(self):
@@ -61,29 +61,29 @@ class Model(object):
     def output_shape(self):
         raise NotImplementedError
 
-    @property
-    def describe_weights(self):
-        for attr, desc in self.descriptions.items():
-            if isinstance(desc, Weights):
-                yield desc
+    #@property
+    #def describe_weights(self):
+    #    for attr, desc in self.descriptions.items():
+    #        if isinstance(desc, Weights):
+    #            yield desc
 
-    @property
-    def weights(self):
-        for attr, desc in self.descriptions.items():
-            if isinstance(desc, Weights):
-                yield getattr(self, attr)
+    #@property
+    #def weights(self):
+    #    for attr, desc in self.descriptions.items():
+    #        if isinstance(desc, Weights):
+    #            yield getattr(self, attr)
 
-    @property
-    def describe_dims(self):
-        for attr, desc in self.dimensions.items():
-            if isinstance(desc, Dimension):
-                yield desc
+    #@property
+    #def describe_dims(self):
+    #    for attr, desc in self.dimensions.items():
+    #        if isinstance(desc, Dimension):
+    #            yield desc
 
-    @property
-    def dims(self):
-        for attr, desc in self.dimensions.items():
-            if isinstance(desc, Dimension):
-                yield getattr(self, attr)
+    #@property
+    #def dims(self):
+    #    for attr, desc in self.dimensions.items():
+    #        if isinstance(desc, Dimension):
+    #            yield getattr(self, attr)
 
     def __init__(self, *args, **kwargs):
         Model.id += 1
@@ -172,9 +172,9 @@ class Model(object):
 
     def __truediv__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        if '/' in self._operators:
+        if '/' in self._operators: # pragma: no cover
             return self._operators['/'](self, other)
-        else:
+        else: # pragma: no cover
             raise TypeError('TODO msg')
 
 
