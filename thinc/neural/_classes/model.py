@@ -16,7 +16,7 @@ class Model(object):
     Trainer = Trainer
     descriptions = []
     on_data_hooks = []
-    on_init_hooks = []
+    on_init_hooks = [] # Use this to add layers
     _operators = {}
 
     @classmethod
@@ -53,13 +53,46 @@ class Model(object):
             yield
             cls.ops = curr_ops
 
+    @property
+    def input_shape(self):
+        raise NotImplementedError
+
+    @property
+    def output_shape(self):
+        raise NotImplementedError
+
+    @property
+    def describe_weights(self):
+        for attr, desc in self.descriptions.items():
+            if isinstance(desc, Weights):
+                yield desc
+
+    @property
+    def weights(self):
+        for attr, desc in self.descriptions.items():
+            if isinstance(desc, Weights):
+                yield getattr(self, attr)
+
+    @property
+    def describe_dims(self):
+        for attr, desc in self.dimensions.items():
+            if isinstance(desc, Dimension):
+                yield desc
+
+    @property
+    def dims(self):
+        for attr, desc in self.dimensions.items():
+            if isinstance(desc, Dimension):
+                yield getattr(self, attr)
+
     def __init__(self, *args, **kwargs):
         Model.id += 1
         self.id = Model.id
         self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
         self.mem = Memory(self.ops)
-        self._layers = []
+        self._dims = {}
+        self.layers = []
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
@@ -91,19 +124,9 @@ class Model(object):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
  
-    def begin_update(self, X, **kwargs):
-        self.check_input(X, expect_batch=True)
-        callbacks = []
-        for layer in self.layers:
-            X = self.ops.xp.ascontiguousarray(X, dtype='f')
-            X, inc_layer_grad = layer.begin_update(X)
-            callbacks.append(inc_layer_grad)
-        def continue_update(gradient):
-            for callback in reversed(callbacks):
-                gradient = callback(gradient)
-            return gradient
-        return X, continue_update
-
+    def begin_update(self, X):
+        raise NotImplementedError
+    
     def apply_updates(self, optimizer):
         optimizer(self.mem.weights, self.mem.gradient, key=self.id)
 
