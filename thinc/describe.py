@@ -16,10 +16,10 @@ class AttributeDescription(object):
 
 class Dimension(AttributeDescription):
     def __get__(self, obj, type=None):
-        return self.value
+        return obj._dims.get(self.name, None)
 
     def __set__(self, obj, value):
-        self.value = value
+        obj._dims[self.name] = value
 
 
 class Weights(AttributeDescription):
