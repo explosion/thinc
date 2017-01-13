@@ -23,7 +23,7 @@ def metalayerize(user_func):
 
 def noop(*layers):
     '''Transform a sequences of layers into a null operation.'''
-    def begin_update(X, *a, **k):
+    def begin_update(X):
         return X, lambda D, *a, **k: D
     return begin_update
 
@@ -34,7 +34,19 @@ def chain(*layers):
     
     Raises exception if their dimensions don't match.
     '''
-    return Model(*layers)
+    def begin_update(X):
+        callbacks = []
+        for layer in layers:
+            X = layer.ops.ascontiguousarray(X)
+            X, bwd = layer.begin_update(X)
+            callbacks.append(bwd)
+        def backprop(gradient):
+            for bwd in reversed(callbacks):
+                gradient = layer.ops.ascontiguousarray(gradient)
+                gradient = bwd(gradient)
+            return gradient
+        return X, backprop
+    return FunctionLayer(begin_update)
 
 
 def clone(orig, n):
