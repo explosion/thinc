@@ -7,7 +7,7 @@ from ..mem import Memory
 
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
-        model.nI = X.shape[0]
+        model.nI = X.shape[1]
     if model.nO is None and y is not None:
         model.nO = y.max()
 
@@ -45,11 +45,14 @@ class Affine(Model):
     def predict(self, input__BI):
         return self.ops.affine(self.W, self.b, input__BI)
 
-    def begin_update(self, input__BI):
+    def begin_update(self, input__BI, drop=0.):
+        assert input__BI.shape[1] == self.nI, (input__BI.shape, self.nI)
         output__BO = self.predict(input__BI)
-        def finish_update(grad__BO):
+        def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
+            if sgd is not None:
+                sgd(self.mem.weights, self.mem.gradient, key=self.id)
             return self.ops.batch_dot(grad__BO, self.W.T)
         return output__BO, finish_update
 
