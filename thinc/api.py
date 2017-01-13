@@ -1,6 +1,7 @@
 import copy
 
-from .neural.vec2vec import Model
+from .neural._classes.feed_forward import FeedForward
+from .neural._classes.model import Model
 
 
 def layerize(begin_update=None, *args, **kwargs):
@@ -34,19 +35,16 @@ def chain(*layers):
     
     Raises exception if their dimensions don't match.
     '''
-    def begin_update(X):
-        callbacks = []
-        for layer in layers:
-            X = layer.ops.ascontiguousarray(X)
-            X, bwd = layer.begin_update(X)
-            callbacks.append(bwd)
-        def backprop(gradient):
-            for bwd in reversed(callbacks):
-                gradient = layer.ops.ascontiguousarray(gradient)
-                gradient = bwd(gradient)
-            return gradient
-        return X, backprop
-    return FunctionLayer(begin_update)
+    if len(layers) == 0:
+        return FeedForward()
+    elif len(layers) == 1:
+        return layers[0]
+    else:
+        if isinstance(layers[0], FeedForward):
+            layers[0].layers.extend(layers[1:])
+            return layers[0]
+        else:
+            return FeedForward(layers)
 
 
 def clone(orig, n):
@@ -57,7 +55,7 @@ def clone(orig, n):
     layers = [orig]
     for i in range(n-1):
         layers.append(copy.deepcopy(orig))
-    return Model(*layers)
+    return FeedForward(layers)
 
 
 def concatenate(*layers):
