@@ -1,9 +1,9 @@
 from __future__ import unicode_literals, print_function
 
 from .optimizers import Eve, Adam, linear_decay
-from .util import minibatch, score_model
+from .util import minibatch
 
-import random
+import numpy.random
 import tqdm
 
 
@@ -26,22 +26,20 @@ class Trainer(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.model.use_params(self.optimizer.averages)
 
-    def __call__(self, data, gradient):
-        return self.optimizer(data, gradient, L2=self.L2)
+    def each_epoch(self, func):
+        pass
 
-    def iterate(self, model, train_data, dev_X, dev_Y, nb_epoch=None):
-        if nb_epoch is None:
-            nb_epoch = self.nb_epoch
+    def iterate(self, train_X, train_y):
         orig_dropout = self.dropout
-        for i in range(nb_epoch):
-            random.shuffle(train_data)
-            for batch in tqdm.tqdm(minibatch(train_data,
-                                   batch_size=self.batch_size)):
-                X, y = zip(*batch)
+        for i in range(self.nb_epoch):
+            indices = self.ops.xp.asarray(range(len(train_X)))
+            numpy.random.shuffle(indices)
+            j = 0
+            while j < len(indices):
+                slice_ = indices[j : j + self.batch_size]
+                X = train_X[slice_]
+                y = train_y[slice_]
                 yield X, y
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
-            acc = score_model(model, dev_X, dev_Y)
-            stats = (acc, self._loss, self.dropout)
-            print('Dev.: %.3f, loss %.3f. Drop %.2f' % stats)
-            self._loss = 0.
+                j += self.batch_size
