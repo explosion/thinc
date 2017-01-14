@@ -1,5 +1,5 @@
 from .model import Model
-from .batchnorm import BatchNormalization, ScaleShift
+from .batchnorm import BatchNorm
 from ...api import layerize
 from .affine import Affine
 
@@ -23,8 +23,7 @@ class ResBlock(Model): # pragma: no cover
         self.name = kwargs.get('name')
         Model.__init__(self, **kwargs)
         self.layers = [
-            BatchNormalization(name='%s-bn1' % self.name),
-            ScaleShift(width, name='%s-scaleshift1' % self.name),
+            BatchNorm(name='%s-bn1' % self.name),
             layerize(_relu(self.ops)),
             Affine(width, width, name='%s-weight1' % self.name),
             #BatchNormalization(name='%s-bn2' % self.name),
