@@ -144,7 +144,7 @@ def test_predict_small(W_b_input):
     expected_output = einsummed + b
     
     predicted_output = model.predict(input_)
-    assert_allclose(predicted_output, expected_output, rtol=1e-03, atol=0.001)
+    assert_allclose(predicted_output, expected_output, rtol=0.01, atol=0.01)
 
 @pytest.mark.skip
 @given(arrays_OI_O_BI(max_batch=100, max_out=100, max_in=100))
