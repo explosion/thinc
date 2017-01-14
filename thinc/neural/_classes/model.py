@@ -41,17 +41,17 @@ class Model(object):
         yield
         cls._operators = old_ops
 
-    #@classmethod
-    #@contextlib.contextmanager
-    #def use_device(cls, device):
-    #    '''Change the device to execute on for the scope of the block.'''
-    #    if device == cls.ops.device:
-    #        yield
-    #    else:
-    #        curr_ops = cls.ops
-    #        self.ops = get_ops(device)
-    #        yield
-    #        cls.ops = curr_ops
+    @classmethod
+    @contextlib.contextmanager
+    def use_device(cls, device):
+        '''Change the device to execute on for the scope of the block.'''
+        if device == cls.ops.device:
+            yield
+        else:
+            curr_ops = cls.ops
+            self.ops = get_ops(device)
+            yield
+            cls.ops = curr_ops
 
     @property
     def input_shape(self):
@@ -61,38 +61,14 @@ class Model(object):
     def output_shape(self):
         raise NotImplementedError
 
-    #@property
-    #def describe_weights(self):
-    #    for attr, desc in self.descriptions.items():
-    #        if isinstance(desc, Weights):
-    #            yield desc
-
-    #@property
-    #def weights(self):
-    #    for attr, desc in self.descriptions.items():
-    #        if isinstance(desc, Weights):
-    #            yield getattr(self, attr)
-
-    #@property
-    #def describe_dims(self):
-    #    for attr, desc in self.dimensions.items():
-    #        if isinstance(desc, Dimension):
-    #            yield desc
-
-    #@property
-    #def dims(self):
-    #    for attr, desc in self.dimensions.items():
-    #        if isinstance(desc, Dimension):
-    #            yield getattr(self, attr)
-
     def __init__(self, *args, **kwargs):
         Model.id += 1
         self.id = Model.id
         self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
-        self.mem = Memory(self.ops)
+        self._mem = Memory(self.ops)
         self._dims = {}
-        self.layers = []
+        self._layers = []
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
@@ -114,9 +90,6 @@ class Model(object):
     def begin_training(self, train_X, train_Y):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_Y)
-        for layer in self.layers:
-            for hook in getattr(layer, 'on_data_hooks', []):
-                hook(layer, train_X, train_Y)
         return self.Trainer(self, train_X, train_Y)
  
     def predict(self, X):
@@ -137,6 +110,15 @@ class Model(object):
     def __call__(self, x):
         '''Predict a single x.'''
         return self.predict(x)
+
+    def evaluate(self, X, y):
+        correct = 0
+        total = 0
+        scores = self(X)
+        for i, gold in enumerate(y):
+            correct += scores[i].argmax() == gold
+            total += 1
+        return float(correct) / total
 
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
