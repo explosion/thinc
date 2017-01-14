@@ -61,8 +61,8 @@ class BatchNorm(Model):
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
             self.d_b += gradient__BI.sum(axis=0)
-            for i in range(gradient__BI.shape[0]):
-                self.d_G += gradient__BI[i] * input__BI[i]
+            d_G = self.d_G
+            d_G += self.ops.xp.einsum('bi,bi->i', gradient__BI, input__BI)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return gradient__BI * self.G
