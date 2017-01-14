@@ -9,7 +9,7 @@ def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
     if model.nO is None and y is not None:
-        model.nO = int(y.max() + 1)
+        model.nO = int(y.max()) + 1
 
 
 @describe.on_data(_set_dimensions_if_needed)
