@@ -40,11 +40,7 @@ def chain(*layers):
     elif len(layers) == 1:
         return layers[0]
     else:
-        if isinstance(layers[0], FeedForward):
-            layers[0].layers.extend(layers[1:])
-            return layers[0]
-        else:
-            return FeedForward(layers)
+        return FeedForward(layers)
 
 
 def clone(orig, n):
