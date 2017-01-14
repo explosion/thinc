@@ -1,6 +1,6 @@
-from ...._classes.window_encode import MaxoutWindowEncode
-from ...._classes.window_encode import _get_positions
-from ....ops import NumpyOps
+from ....neural._classes.window_encode import MaxoutWindowEncode
+from ....neural._classes.window_encode import _get_positions
+from ....neural.ops import NumpyOps
 
 import pytest
 import numpy

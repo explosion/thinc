@@ -2,10 +2,10 @@ import pytest
 import numpy
 from numpy.testing import assert_allclose
 
-from ..._classes.feed_forward import FeedForward
-from ..._classes.affine import Affine
-from ..._classes.relu import ReLu
-from ..._classes.softmax import Softmax
+from ...neural._classes.feed_forward import FeedForward
+from ...neural._classes.affine import Affine
+from ...neural._classes.relu import ReLu
+from ...neural._classes.softmax import Softmax
 
 @pytest.fixture
 def model1(nH, nI):
@@ -89,14 +89,14 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
     guess, backprop = model.begin_update(input_data)
     backprop(guess - truth)
 
-    for layer in model.layers:
+    for layer in model._layers:
         def predict(i, update):
-            layer.mem.weights[i] += update
+            layer._mem.weights[i] += update
             X = model.predict(input_data)
-            layer.mem.weights[i] -= update
+            layer._mem.weights[i] -= update
             return X
-        agrad = layer.mem.gradient.copy()
-        ngrad = get_numeric_gradient(predict, layer.mem.weights.size, truth)
+        agrad = layer._mem.gradient.copy()
+        ngrad = get_numeric_gradient(predict, layer._mem.weights.size, truth)
         assert_allclose(agrad, ngrad, atol=0.1, rtol=0.1)
 
 
