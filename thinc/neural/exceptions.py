@@ -1,6 +1,6 @@
-class ShapeError(ValueError):
+class ShapeError(ValueError): # pragma: no cover
     @classmethod
-    def expected_batch(cls, locals_, globals_):
+    def expected_batch(cls):
         return cls("Expected batch")
     
     @classmethod

@@ -9,7 +9,6 @@ class Memory(object):
         self._mem = self.ops.allocate((2, size))
         self._offsets = {}
         self._i = 0
-        self.allow_resize = True
 
     @property
     def weights(self):
@@ -50,8 +49,6 @@ class Memory(object):
         return blob
 
     def _realloc(self, new_size):
-        if not self.allow_resize:
-            raise ValueError("TODO Error")
         new_mem = self.ops.allocate((self._mem.shape[0], new_size))
         new_mem[:, :self._i+1] = self._mem[:, :self._i+1]
         self._mem = new_mem

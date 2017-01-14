@@ -26,6 +26,7 @@ except ImportError:
 
 
 class Ops(object):
+    device = 'cpu'
     xp = None
 
     def __init__(self, xp=None):
@@ -142,6 +143,7 @@ class Ops(object):
 
 
 class NumpyOps(Ops):
+    device = 'cpu'
     xp = numpy
 
     def elu(self, ndarray X, inplace=True):
@@ -180,4 +182,5 @@ class NumpyOps(Ops):
 
 
 class CupyOps(Ops):
+    device = 'gpu'
     xp = cupy

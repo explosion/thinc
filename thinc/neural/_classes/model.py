@@ -6,6 +6,7 @@ from ..train import Trainer
 from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
+from ..util import get_ops
 
 
 class Model(object):
@@ -49,7 +50,7 @@ class Model(object):
             yield
         else:
             curr_ops = cls.ops
-            self.ops = get_ops(device)
+            cls.ops = get_ops(device)
             yield
             cls.ops = curr_ops
 

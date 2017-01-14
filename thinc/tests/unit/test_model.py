@@ -77,6 +77,15 @@ def test_init_calls_hooks():
     assert model2.hooked == (tuple(), {'value': 'something'})
 
 
+def test_use_device():
+    dev_id = id(base.Model.ops)
+    with base.Model.use_device(base.Model.ops.device):
+        assert id(base.Model.ops) == dev_id
+    with base.Model.use_device('gpu'):
+        assert id(base.Model.ops) != dev_id
+    assert id(base.Model.ops) == dev_id
+
+
 def test_bind_plus():
     with base.Model.define_operators({'+': lambda a, b: (a.name, b.name)}):
         m = base.Model(name='a') + base.Model(name='b')
