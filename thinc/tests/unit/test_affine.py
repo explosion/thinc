@@ -2,11 +2,14 @@
 from __future__ import unicode_literals
 import pytest
 from mock import Mock, patch
-from hypothesis import given, strategies
-import abc
+from hypothesis import given, settings, strategies
+import numpy
+from numpy.testing import assert_allclose
 
-from ...._classes.affine import Affine
-from ....ops import NumpyOps
+from ...neural._classes.affine import Affine
+from ...neural.ops import NumpyOps
+from ..strategies import arrays_OI_O_BI
+from ..util import get_model, get_shape
 
 
 @pytest.fixture
