@@ -27,7 +27,7 @@ class Trainer(object):
         self.model.use_params(self.optimizer.averages)
 
     def each_epoch(self, func):
-        pass
+        self._each_epoch = func
 
     def iterate(self, train_X, train_y):
         orig_dropout = self.dropout
@@ -43,3 +43,5 @@ class Trainer(object):
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
                 j += self.batch_size
+            if self._each_epoch:
+                self._each_epoch()
