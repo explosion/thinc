@@ -69,7 +69,8 @@ class Model(object):
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._dims = {}
-        self._layers = []
+        if not hasattr(self, '_layers'):
+            self._layers = []
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
@@ -106,7 +107,14 @@ class Model(object):
     
     @contextlib.contextmanager
     def use_params(self, params):
-        pass
+        backup = None
+        if self.id in params:
+            param = params[self.id]
+            backup = self.mem.weights.copy()
+            self.mem.weights[:] = param
+        yield
+        if backup is not None:
+            self.mem.weights[:] = backup
 
     def __call__(self, x):
         '''Predict a single x.'''
