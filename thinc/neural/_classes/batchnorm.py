@@ -22,13 +22,13 @@ def _run_child_hooks(model, X, y=None):
 class BatchNorm(Model):
     name = 'batchnorm'
 
-    @property
-    def input_shape(self):
-        return self.child.input_shape
+    #@property
+    #def input_shape(self):
+    #    return self.child.input_shape
 
-    @property
-    def output_shape(self):
-        return self.child.output_shape
+    #@property
+    #def output_shape(self):
+    #    return self.child.output_shape
 
     def __init__(self, child, **kwargs):
         self.child = child
@@ -70,28 +70,15 @@ class BatchNorm(Model):
 
 
 def _get_moments(ops, X):
-    if hasattr(X, 'shape') and len(X.shape) == 2:
-        mu = X.mean(axis=0)
-        var = X.var(axis=0) + 1e-8
-        return X.shape[0], mu, var
-    else:
-        stacked = numpy.vstack(X)
-        return stacked.shape[0], stacked.mean(axis=0), stacked.var(axis=0)
+    mu = X.mean(axis=0)
+    var = X.var(axis=0) + 1e-8
+    return X.shape[0], mu, var
 
 
 def _get_d_moments(ops, dy, X, mu):
-    if hasattr(dy, 'shape'):
-        dist = X-mu
-        return dist, ops.xp.sum(dy, axis=0), ops.xp.sum(dy * dist, axis=0)
-    else:
-        sum_dy = [ops.xp.sum(seq, axis=0) for seq in dy]
-        dist = [x-mu for x in X]
-        sum_dy_dot_dist = [ops.xp.sum(seq * d, axis=0) for seq, d in zip(dy, dist)]
-        return dist, sum_dy, sum_dy_dot_dist
+    dist = X-mu
+    return dist, ops.xp.sum(dy, axis=0), ops.xp.sum(dy * dist, axis=0)
 
 
 def _forward(ops, X, mu, var):
-    if hasattr(X, 'shape'):
-        return (X-mu) * var ** (-1./2.)
-    else:
-        return [_forward(x, mu, var) for x in X]
+    return (X-mu) * var ** (-1./2.)
