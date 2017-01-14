@@ -4,11 +4,8 @@ from __future__ import unicode_literals
 from fabric.api import task, local, run, lcd, cd, env, shell_env
 from os.path import exists as file_exists
 from fabtools.python import virtualenv
-from os import path
 
-
-PWD = path.join(path.dirname(__file__), '..')
-VENV_DIR = path.join(PWD, '.env')
+from _util import PWD, VENV_DIR
 
 
 @task
