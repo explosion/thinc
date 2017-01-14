@@ -1,4 +1,5 @@
 .env/
+.~env/
 .python/
 *.pyc
 *.swp
