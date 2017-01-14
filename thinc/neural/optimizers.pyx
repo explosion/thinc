@@ -69,7 +69,7 @@ class SGD(object):
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
         lr *= lr_scale
-        clip_gradient(gradient, len(gradient) / 100.)
+        clip_gradient(gradient, len(gradient) * 10.)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
             gradient.fill(0)
