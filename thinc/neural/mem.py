@@ -55,3 +55,27 @@ class Memory(object):
         new_mem = self.ops.allocate((self._mem.shape[0], new_size))
         new_mem[:, :self._i+1] = self._mem[:, :self._i+1]
         self._mem = new_mem
+
+#
+#    def merge_params(self, others):
+#        others = list(others)
+#        if not others:
+#            return None
+#        if not all(other.allow_resize for other in others):
+#            raise ValueError("TODO Error")
+#        sizes = [other._i+1 for other in others]
+#        nr_req = self._i + sum(sizes)
+#        if self._mem.shape[1] < nr_req:
+#            self._realloc(nr_req)
+#        self.allow_resize = False
+#        for other in others:
+#            other.replace_mem(self._get_blob(other._i))
+#    
+#    def replace_mem(self, mem):
+#        if not self.allow_resize:
+#            raise ValueError("TODO Error")
+#        self.allow_resize = False
+#        mem[:] = self._mem[:, :self._i]
+#        self._mem = mem
+#
+#

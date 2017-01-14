@@ -23,7 +23,7 @@ class FeedForward(Model):
 
     def begin_update(self, X, drop=0.):
         callbacks = []
-        for layer in self.layers:
+        for layer in self._layers:
             X = self.ops.xp.ascontiguousarray(X, dtype='float32')
             X, inc_layer_grad = layer.begin_update(X, drop=drop)
             callbacks.append(inc_layer_grad)
