@@ -1,18 +1,19 @@
+from __future__ import print_function
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
-from thinc.neural.vecs2vecs import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNormalization, ScaleShift
+from thinc.neural._classes.feed_forward import FeedForward
+from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.neural._classes.convolution import ExtractWindow
 
-from thinc.neural.util import score_model
-from thinc.neural.optimizers import linear_decay
 from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
-
-from thinc.api import layerize
+from thinc.api import layerize, chain, clone
+from thinc.neural.util import flatten_sequences
 
 from thinc.extra.datasets import ancora_pos_tags
 
 import plac
+
 
 try:
     import cytoolz as toolz
@@ -20,74 +21,36 @@ except ImportError:
     import toolz
 
 
-@toolz.curry
-def flatten(ops, X, dropout=0.0):
-    def finish_update(grad, *args, **kwargs):
-        return grad
-    return ops.flatten(X), finish_update
+def main(width=32, vector_length=8):
+    train_data, check_data, nr_tag = ancora_pos_tags()
 
+    with Model.define_operators({'**': clone, '>>': chain}):
+        model = FeedForward((
+            layerize(flatten_sequences),
+            Embed(width, vector_length),
+            (ExtractWindow(nW=1) >> ReLu(width)),
+            (ExtractWindow(nW=2) >> ReLu(width)),
+            Softmax(nr_tag)))
 
-_i = 0
-@toolz.curry
-def health_check(name, X, **kwargs):
-    global _i
-    if _i and _i % 500 == 0:
-        print(X.mean(axis=0).mean(), X.var(axis=0).mean())
-    _i += 1
-    return X, lambda grad, *args, **kwargs: grad
-
-
-class Tagger(Model):
-    def __init__(self, nr_tag, width, vector_length, vectors=None):
-        vectors = {} if vectors is None else vectors
-        self.width = width
-        self.vector_length = vector_length
-        layers = [
-            layerize(flatten(NumpyOps())),
-            Embed(vector_length, vector_length, vectors=vectors),
-            BatchNormalization(),
-            ExtractWindow(n=2),
-            ReLu(width),
-            ExtractWindow(n=3),
-            BatchNormalization(),
-            ScaleShift(),
-            ReLu(width*3),
-            BatchNormalization(),
-            ScaleShift(),
-            ReLu(),
-            BatchNormalization(),
-            ScaleShift(),
-            ReLu(width),
-            BatchNormalization(),
-            ScaleShift(),
-            Softmax(nr_tag)
-        ]
-        Model.__init__(self, *layers, ops=NumpyOps())
-
-
-def main():
-    train_data, check_data, nr_class = ancora_pos_tags()
-    model = Tagger(nr_class, 32, 32, vectors={})
-
-    dev_X, dev_Y = zip(*check_data)
-    dev_Y = model.ops.flatten(dev_Y)
-    with model.begin_training(train_data) as (trainer, optimizer):
+    train_X, train_y = zip(*train_data)
+    print("NR vector", max(max(seq) for seq in train_X))
+    dev_X, dev_y = zip(*check_data)
+    dev_y = model.ops.flatten(dev_y)
+    with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.batch_size = 8
         trainer.nb_epoch = 10
-        trainer.dropout = 0.25
+        trainer.dropout = 0.0
         trainer.dropout_decay = 0.
-        for examples, truth in trainer.iterate(model, train_data, dev_X, dev_Y,
-                                               nb_epoch=trainer.nb_epoch):
-            truth = model.ops.flatten(truth)
-            guess, finish_update = model.begin_update(examples,
-                                        dropout=trainer.dropout)
-
-            gradient, loss = categorical_crossentropy(guess, truth)
+        trainer.each_epoch.append(
+            lambda: print(model.evaluate(dev_X, dev_y)))
+        for X, y in trainer.iterate(train_X, train_y):
+            y = model.ops.flatten(y)
+            yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            d_loss, loss = categorical_crossentropy(yh, y)
             optimizer.set_loss(loss)
-            finish_update(gradient, optimizer)
-            trainer._loss += loss / len(truth)
+            backprop(d_loss, optimizer)
     with model.use_params(optimizer.averages):
-        print('Avg dev.: %.3f' % score_model(model, dev_X, dev_Y))
+        print(model.evaluate(dev_X, dev_y))
  
 
 if __name__ == '__main__':
@@ -96,7 +59,6 @@ if __name__ == '__main__':
     else:
         import cProfile
         import pstats
-        cProfile.run("plac.call(main)", "Profile.prof")
+        cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
-        s.strip_dirs().sort_stats("time", "cumulative").print_stats(100)
-        s.strip_dirs().sort_stats('ncalls').print_callers()
+        s.strip_dirs().sort_stats("time").print_stats()
