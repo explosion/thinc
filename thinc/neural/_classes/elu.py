@@ -19,4 +19,5 @@ class ELU(Affine): # pragma: no cover
             self.ops.backprop_elu(gradient, output_copy, inplace=True)
             return finish_affine(gradient, sgd)
         output__bo[:] = output_copy
-        return output__bo, finish_update
+        output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
+        return output__BO, bp_dropout(finish_update)
