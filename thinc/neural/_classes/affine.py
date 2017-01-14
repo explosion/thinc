@@ -52,10 +52,8 @@ class Affine(Model):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd(self._mem.weights, self._mem.gradient,
+                    key=id(self._mem))
             return self.ops.batch_dot(grad__BO, self.W.T)
-        return output__BO, finish_update
-
-    def apply_updates(self, optimizer):
-        optimizer(self.W, self.d_W, key=(self.id, 'W'))
-        optimizer(self.b, self.d_b, key=(self.id, 'b'))
+        output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
+        return output__BO, bp_dropout(finish_update)
