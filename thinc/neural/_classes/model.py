@@ -106,15 +106,17 @@ class Model(object):
         raise NotImplementedError
     
     @contextlib.contextmanager
-    def use_params(self, params):
-        backup = None
-        if self.id in params:
-            param = params[self.id]
-            backup = self.mem.weights.copy()
-            self.mem.weights[:] = param
+    def use_params(self, params): # pragma: no cover
         yield
-        if backup is not None:
-            self.mem.weights[:] = backup
+        # TODO: Fix for feed-forward...
+        #backup = None
+        #if id(self._mem) in params:
+        #    param = params[id(self._mem)]
+        #    backup = self.mem.weights.copy()
+        #    self.mem.weights[:] = param
+        #yield
+        #if backup is not None:
+        #    self.mem.weights[:] = backup
 
     def __call__(self, x):
         '''Predict a single x.'''
