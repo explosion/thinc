@@ -19,7 +19,8 @@ def main(depth=4, width=128, nb_epoch=5):
     dev_X, dev_y = model.ops.unzip(dev_data)
 
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.each_epoch(lambda: print(model.evaluate(dev_X, dev_y)))
+        trainer.each_epoch.append(
+            lambda: print(model.evaluate(dev_X, dev_y)))
         trainer.nb_epoch = nb_epoch
         trainer.dropout = 0.2
         trainer.dropout_decay = 0.0

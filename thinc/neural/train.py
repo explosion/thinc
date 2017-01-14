@@ -19,16 +19,13 @@ class Trainer(object):
         self.dropout = 0.9
         self.dropout_decay = 1e-4
         self._loss = 0.
-        self._each_epoch = []
+        self.each_epoch = []
 
     def __enter__(self):
         return self, self.optimizer
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.model.use_params(self.optimizer.averages)
-
-    def each_epoch(self, func):
-        self._each_epoch = func
 
     def iterate(self, train_X, train_y):
         orig_dropout = self.dropout
@@ -44,14 +41,11 @@ class Trainer(object):
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
                 j += self.batch_size
-            if self._each_epoch:
-                self._each_epoch()
+            for func in self.each_epoch:
+                func()
 
 
 def _take_slice(data, slice_):
-    try:
-        x = data[slice_]
-    except TypeError:
-        x = [data[i] for i in slice_]
+    x = [data[i] for i in slice_]
     return x
 

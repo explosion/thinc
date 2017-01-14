@@ -37,8 +37,8 @@ def main(width=128, vector_length=64):
         trainer.dropout = 0.3
         trainer.dropout_decay = 0.
         trainer.nb_epoch = 10
-        trainer.each_epoch(lambda: print(model._layers[1].vectors[1]))
-        trainer.each_epoch(lambda: print(model.evaluate(dev_X, dev_y)))
+        trainer.each_epoch.append(
+            lambda: print(model.evaluate(dev_X, dev_y)))
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
