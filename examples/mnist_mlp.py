@@ -25,6 +25,8 @@ def main(depth=4, width=128, nb_epoch=5):
         trainer.dropout = 0.2
         trainer.dropout_decay = 0.0
         for X, y in trainer.iterate(train_X, train_y):
+            X = model.ops.asarray(X)
+            y = model.ops.asarray(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             d_loss, loss = categorical_crossentropy(yh, y)
             optimizer.set_loss(loss)
