@@ -14,7 +14,7 @@ from ...extra import datasets
 def mnist():
     train_data, dev_data, _ = datasets.mnist()
     train_X, train_y = NumpyOps().unzip(train_data)
-    dev_X, dev_y = NumpyOps().unzip(train_data)
+    dev_X, dev_y = NumpyOps().unzip(dev_data)
     return (train_X[:1000], train_y[:1000]), (dev_X, dev_y)
 
 
