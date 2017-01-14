@@ -5,6 +5,7 @@ from ...neural.vec2vec import Model, ReLu, Softmax
 from ...neural._classes.feed_forward import FeedForward
 from ...neural._classes.batchnorm import BatchNorm
 from ...neural._classes.embed import Embed
+from ...neural._classes.convolution import ExtractWindow
 from ...neural.ops import NumpyOps
 from ...api import layerize, clone, chain
 from ...loss import categorical_crossentropy
@@ -52,6 +53,7 @@ def create_embed_relu_relu_softmax(depth, width, vector_length):
         model = (
                   layerize(flatten_sequences)
                   >> Embed(width, vector_length)
+                  >> ExtractWindow(nW=1)
                   >> ReLu(width)
                   >> ReLu(width)
                   >> Softmax(20)
