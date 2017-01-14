@@ -90,12 +90,12 @@ def mnist():
     X_train /= 255
     X_test /= 255
 
-    train_data = zip(X_train, y_train)
+    train_data = list(zip(X_train, y_train))
     nr_train = X_train.shape[0]
     random.shuffle(train_data)
     heldout_data = train_data[:int(nr_train * 0.1)] 
     train_data = train_data[len(heldout_data):]
-    test_data = zip(X_test, y_test)
+    test_data = list(zip(X_test, y_test))
     return train_data, heldout_data, test_data
 
 
