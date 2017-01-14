@@ -1,3 +1,6 @@
+# coding: utf-8
+from __future__ import unicode_literals
+
 from fabric.api import task, local, run, lcd, cd, env, shell_env
 from os.path import exists as file_exists
 from fabtools.python import virtualenv
