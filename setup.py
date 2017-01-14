@@ -17,15 +17,14 @@ except ImportError:
 
 PACKAGES = [
     'thinc',
+    'thinc.tests',
+    'thinc.tests.unit',
+    'thinc.tests.integration',
     'thinc.linear',
     'thinc.neural',
     'thinc.extra',
     'thinc.neural._classes',
     'thinc.linear.tests',
-    'thinc.neural.tests',
-    'thinc.neural.tests.unit',
-    'thinc.neural.tests.integration',
-    'thinc.extra.tests',
     'thinc.extra._vendorized'
 ]
 
