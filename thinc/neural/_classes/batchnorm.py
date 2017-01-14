@@ -5,17 +5,17 @@ from ... import describe
 def _init_to_one(W, ops):
     W[:] = 1.
 
-def _set_dimensions_if_needed(model, X, y=None):
-    if model.nI is None:
-        model.nI = X.shape[1]
+def _run_child_hooks(model, X, y=None):
+    for hook in model.child.on_data_hooks:
+        hook(model.child, X, y)
 
 
-@describe.on_data(_set_dimensions_if_needed)
+@describe.on_data(_run_child_hooks)
 @describe.attributes(
-    nB=describe.Dimension("Batch size"),
-    nI=describe.Dimension("Input size"),
-    G=describe.Weights("Scaling vector", lambda obj: (obj.nI,), _init_to_one),
-    b=describe.Biases("Bias vector", lambda obj: (obj.nI,)),
+    G=describe.Weights("Scaling vector",
+        lambda obj: (obj.child.nO,), _init_to_one),
+    b=describe.Biases("Bias vector",
+        lambda obj: (obj.child.nO,)),
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b")
 )
@@ -24,23 +24,26 @@ class BatchNorm(Model):
 
     @property
     def input_shape(self):
-        return (self.nB, self.nI)
+        return self.child.input_shape
 
     @property
     def output_shape(self):
-        return (self.nB, self.nI)
+        return self.child.output_shape
 
-    def __init__(self, nI=None, **kwargs):
+    def __init__(self, child, **kwargs):
+        self.child = child
+        self._layers = [child]
         Model.__init__(self, **kwargs)
-        self.nI = nI
 
     def predict(self, X):
+        X = self.child.predict(X)
         N, mu, var = _get_moments(self.ops, X)
         Xh = _forward(self.ops, X, mu, var)
         y = Xh * self.G + self.b
         return y
  
     def begin_update(self, X, drop=0.):
+        X, backprop_child = self.child.begin_update(X, drop=0.) # Steal dropout
         N, mu, var = _get_moments(self.ops, X)
         Xhat = _forward(self.ops, X, mu, var)
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
@@ -51,8 +54,9 @@ class BatchNorm(Model):
             d_xhat = N * dy - sum_dy - dist * var**(-1.) * sum_dy_dist
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
-            return d_xhat
-        return y, finish_update
+            return backprop_child(d_xhat, sgd)
+        y, bp_dropout = self.ops.dropout(y, drop, inplace=True)
+        return y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
