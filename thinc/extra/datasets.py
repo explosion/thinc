@@ -77,13 +77,13 @@ def read_conll(loc):
         yield words, tags
 
 
-def mnist(n=60000):
+def mnist():
     from ._vendorized.keras_datasets import load_mnist
 
     # the data, shuffled and split between tran and test sets
     (X_train, y_train), (X_test, y_test) = load_mnist()
 
-    X_train = X_train.reshape(n, 784)
+    X_train = X_train.reshape(60000, 784)
     X_test = X_test.reshape(10000, 784)
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
@@ -91,7 +91,7 @@ def mnist(n=60000):
     X_test /= 255
 
     train_data = zip(X_train, y_train)
-    nr_train = len(train_data)
+    nr_train = X_train.shape[0]
     random.shuffle(train_data)
     heldout_data = train_data[:int(nr_train * 0.1)] 
     train_data = train_data[len(heldout_data):]
