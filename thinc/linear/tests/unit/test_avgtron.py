@@ -34,7 +34,6 @@ def model(templates, nr_class):
     return AveragedPerceptron(templates, nr_out=nr_class)
 
 
-@pytest.mark.xfail
 def test_init(templates, model):
     assert model.nr_feat == len(templates) + 1
     
