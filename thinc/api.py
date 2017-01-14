@@ -62,10 +62,10 @@ def concatenate(*layers):
         return noop()
     ops = layers[0].ops
     def begin_update(X, *a, **k):
-        forward, backward = split_backward(X)
+        forward, backward = split_backward(layers)
         values = [fwd(X, *a, **k) for fwd in forward]
        
-        output = ops.concat(values)
+        output = ops.xp.hstack(values)
         shapes = [val.shape for val in values]
 
         def finish_update(gradient, *args, **kwargs):
@@ -73,11 +73,12 @@ def concatenate(*layers):
             start = 0
             for bwd, shape in zip(backward, shapes):
                 end = start + shape[1]
-                layer_grads.append(bwd(gradient[start : end], *args, **kwargs))
+                layer_grads.append(bwd(gradient[:, start : end], *args, **kwargs))
                 start = end
-            return layer_grads
+            return ops.asarray(ops.xp.sum(layer_grads, axis=0))
         return output, finish_update
-    return FunctionLayer(begin_update)
+    layer = FunctionLayer(begin_update)
+    return layer
 
 
 def split_backward(layers):
@@ -98,7 +99,7 @@ def sink_return(func, sink, splitter=None):
     '''
     def wrap(*args, **kwargs):
         output = func(*args, **kwargs)
-        if spltter is None:
+        if splitter is None:
             to_keep, to_sink = output
         else:
             to_keep, to_sink = splitter(*output)
