@@ -1,7 +1,7 @@
 # encoding: utf8
 from __future__ import unicode_literals
 import pytest
-from mock import Mock, patch
+from mock import MagicMock, Mock, patch
 from hypothesis import given, settings, strategies
 import numpy
 from numpy.testing import assert_allclose
@@ -49,11 +49,11 @@ def test_Affine_calls_init_hooks(model):
 
 
 def test_Affine_dimensions_on_data():
-    X = Mock()
-    X.shape = Mock()
-    X.shape.__getitem__ = Mock()
-    y = Mock()
-    y.max = Mock()
+    X = MagicMock()
+    X.shape = MagicMock()
+    X.shape.__getitem__ = MagicMock()
+    y = MagicMock()
+    y.max = MagicMock()
     model = Affine()
     with model.begin_training(X, y):
         pass

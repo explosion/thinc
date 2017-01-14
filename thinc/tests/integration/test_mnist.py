@@ -50,7 +50,7 @@ def create_relu_softmax(depth, width):
 
 def create_relu_batchnorm_softmax(depth, width):
     with Model.define_operators({'*': clone, '>>': chain}):
-        model = ReLu(width, 784) >> BatchNorm() >> Softmax(10, width)
+        model = BatchNorm(ReLu(width, 784)) >> Softmax(10, width)
     return model
 
 @pytest.fixture(params=[
