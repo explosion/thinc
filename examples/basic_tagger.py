@@ -2,6 +2,8 @@ from __future__ import print_function
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural._classes.feed_forward import FeedForward
+from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.neural._classes.convolution import ExtractWindow
 
 from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
@@ -18,14 +20,15 @@ except ImportError:
     import toolz
 
 
-def main(width=128, vector_length=64):
+def main(width=32, vector_length=8):
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     model = FeedForward((
               layerize(flatten_sequences),
-              Embed(width, vector_length),
-              ReLu(width),
-              ReLu(width),
+              BatchNorm(Embed(width, vector_length)),
+              ExtractWindow(nW=2),
+              BatchNorm(ReLu(width)),
+              BatchNorm(ReLu(width)),
               Softmax(nr_tag)))
 
     train_X, train_y = zip(*train_data)
@@ -34,9 +37,8 @@ def main(width=128, vector_length=64):
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.batch_size = 8
         trainer.nb_epoch = 10
-        trainer.dropout = 0.3
+        trainer.dropout = 0.2
         trainer.dropout_decay = 0.
-        trainer.nb_epoch = 10
         trainer.each_epoch.append(
             lambda: print(model.evaluate(dev_X, dev_y)))
         for X, y in trainer.iterate(train_X, train_y):
