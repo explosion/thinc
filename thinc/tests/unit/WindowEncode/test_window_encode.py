@@ -1,8 +1,8 @@
 import pytest
 import numpy
 
-from ..._classes.window_encode import MaxoutWindowEncode
-from ...optimizers import SGD
+from ....neural._classes.window_encode import MaxoutWindowEncode
+from ....neural.optimizers import SGD
 
 
 class MyWindowEncode(MaxoutWindowEncode):

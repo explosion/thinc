@@ -4,8 +4,8 @@ from numpy.testing import assert_allclose
 from cytoolz import concat
 
 
-from ...._classes.window_encode import MaxoutWindowEncode
-from ....ops import NumpyOps
+from ....neural._classes.window_encode import MaxoutWindowEncode
+from ....neural.ops import NumpyOps
 
 
 @pytest.fixture

@@ -5,12 +5,12 @@ from hypothesis import given, assume
 from hypothesis.extra.numpy import arrays
 from hypothesis.strategies import integers
 
-from ...._classes.window_encode import _get_positions
-from ...._classes.window_encode import _get_full_gradients
-from ...._classes.window_encode import _get_full_inputs
-from ...._classes.window_encode import _compute_hidden_layer
-from ...._classes.window_encode import _zero_features_past_sequence_boundaries
-from ....ops import NumpyOps
+from ....neural._classes.window_encode import _get_positions
+from ....neural._classes.window_encode import _get_full_gradients
+from ....neural._classes.window_encode import _get_full_inputs
+from ....neural._classes.window_encode import _compute_hidden_layer
+from ....neural._classes.window_encode import _zero_features_past_sequence_boundaries
+from ....neural.ops import NumpyOps
 
 from ...strategies import arrays_BOP_BO
 from ...strategies import arrays_OPFI_BI_lengths
