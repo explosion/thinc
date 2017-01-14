@@ -10,3 +10,4 @@ cytoolz
 plac
 six
 flexmock
+mock
