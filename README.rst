@@ -18,6 +18,10 @@ structured input and variable-length sequences.
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
 
+.. image:: https://coveralls.io/repos/github/explosion/thinc/badge.svg?branch=master
+    :target: https://coveralls.io/github/explosion/thinc?branch=master
+    :alt: Test Coverage
+
 .. image:: https://img.shields.io/github/release/explosion/thinc.svg
     :target: https://github.com/explosion/thinc/releases   
     :alt: Current Release Version
@@ -26,9 +30,13 @@ structured input and variable-length sequences.
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
    
-.. image:: https://badges.gitter.im/explosion.png
+.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg
     :target: https://gitter.im/explosion/spaCy
     :alt: spaCy / thinc on Gitter
+
+.. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
+    :target: https://twitter.com/explosion_ai
+    :alt: Follow us on Twitter
 
 Quickstart
 ==========
