@@ -72,6 +72,10 @@ class Ops(object):
         nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype='f')
 
+    def unzip(self, data):
+        X, y = zip(*data)
+        return self.asarray(X), self.asarray(y)
+
     def asarray(self, data, dtype='f'):
         return self.xp.asarray(data, dtype=dtype)
 
