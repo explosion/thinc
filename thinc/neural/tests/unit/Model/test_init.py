@@ -53,8 +53,8 @@ def test_models_get_different_ids(model_with_no_args):
 
 def test_init_assigns_attributes():
     model = base.Model()
-    model.mem
-    assert model.layers == []
+    model._mem
+    assert model._layers == []
     assert model._operators == {}
 
 

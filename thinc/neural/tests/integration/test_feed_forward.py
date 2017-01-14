@@ -7,26 +7,6 @@ from ..._classes.affine import Affine
 from ..._classes.relu import ReLu
 from ..._classes.softmax import Softmax
 
-
-@pytest.fixture(params=[1, 2, 9])
-def nB(request):
-    return request.param
-
-@pytest.fixture(params=[1, 6, 20])
-def nI(request):
-    return request.param
-
-
-@pytest.fixture(params=[1, 5, 3])
-def nH(request):
-    return request.param
-
-
-@pytest.fixture(params=[1, 2, 7, 9])
-def nO(request):
-    return request.param
-
-
 @pytest.fixture
 def model1(nH, nI):
     model = ReLu(nH, nI)
@@ -117,7 +97,7 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
             return X
         agrad = layer.mem.gradient.copy()
         ngrad = get_numeric_gradient(predict, layer.mem.weights.size, truth)
-        assert_allclose(agrad, ngrad, atol=0.1, rtol=1e-1)
+        assert_allclose(agrad, ngrad, atol=0.1, rtol=0.1)
 
 
 def get_numeric_gradient(predict, n, target):
