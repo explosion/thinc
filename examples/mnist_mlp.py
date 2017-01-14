@@ -10,11 +10,9 @@ from thinc.loss import categorical_crossentropy
 from thinc.extra import datasets
 
 
-def main(depth=4, width=512, nb_epoch=5):
+def main(depth=4, width=128, nb_epoch=5):
     with Model.define_operators({'**': clone, '>>': chain}):
-        model = BN(ReLu(width, 784)) \
-                >> BN(ReLu(width)) \
-                >> Softmax()
+        model = BN(ReLu(width)) ** depth >> Softmax()
    
     train_data, dev_data, _ = datasets.mnist()
     train_X, train_y = model.ops.unzip(train_data)
