@@ -68,9 +68,11 @@ def test_small_end_to_end(depth, width, nb_epoch,
     assert isinstance(model, FeedForward)
     losses = []
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.each_epoch(lambda: print(model.evaluate(dev_X, dev_y)))
+        trainer.each_epoch.append(lambda: print(model.evaluate(dev_X, dev_y)))
         trainer.nb_epoch = nb_epoch
         for X, y in trainer.iterate(train_X, train_y):
+            X = model.ops.asarray(X)
+            y = model.ops.asarray(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             d_loss, loss = categorical_crossentropy(yh, y)
             backprop(d_loss, optimizer)
