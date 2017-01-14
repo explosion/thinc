@@ -24,16 +24,19 @@ def env():
         local('pip install -r requirements.txt')
         local('pip install pytest')
 
+
 @task
 def make():
     with virtualenv(VENV_DIR):
         with lcd(PWD):
             local('python setup.py build_ext --inplace')
 
+
 @task
 def clean():
     with lcd(PWD):
         local('python setup.py clean --all')
+
 
 @task
 def test():
