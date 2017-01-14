@@ -19,6 +19,7 @@ class Trainer(object):
         self.dropout = 0.9
         self.dropout_decay = 1e-4
         self._loss = 0.
+        self._each_epoch = []
 
     def __enter__(self):
         return self, self.optimizer
@@ -37,11 +38,20 @@ class Trainer(object):
             j = 0
             while j < len(indices):
                 slice_ = indices[j : j + self.batch_size]
-                X = train_X[slice_]
-                y = train_y[slice_]
+                X = _take_slice(train_X, slice_)
+                y = _take_slice(train_y, slice_)
                 yield X, y
                 self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                             self.optimizer.nr_iter)
                 j += self.batch_size
             if self._each_epoch:
                 self._each_epoch()
+
+
+def _take_slice(data, slice_):
+    try:
+        x = data[slice_]
+    except TypeError:
+        x = [data[i] for i in slice_]
+    return x
+
