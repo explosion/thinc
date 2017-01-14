@@ -11,7 +11,7 @@ VENV_DIR = path.join(PWD, '.env')
 @task
 def mnist():
     with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
-        local('python examples/mnist.py')
+        local('python examples/mnist_mlp.py')
 
 
 @task
