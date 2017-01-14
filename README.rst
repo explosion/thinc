@@ -34,6 +34,10 @@ structured input and variable-length sequences.
     :target: https://gitter.im/explosion/spaCy
     :alt: spaCy / thinc on Gitter
 
+.. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
+    :target: https://twitter.com/explosion_ai
+    :alt: Follow us on Twitter
+
 Quickstart
 ==========
 
