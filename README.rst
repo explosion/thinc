@@ -30,7 +30,7 @@ structured input and variable-length sequences.
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
    
-.. image:: https://badges.gitter.im/explosion.png
+.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg
     :target: https://gitter.im/explosion/spaCy
     :alt: spaCy / thinc on Gitter
 
