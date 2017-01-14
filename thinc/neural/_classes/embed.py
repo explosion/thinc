@@ -6,7 +6,7 @@ from ... describe import Dimension, Weights, Synapses, Gradient
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nV is None:
         max_id = int(X.max()) + 1
-        if max_id >= 10000000:
+        if max_id >= 10000000: # pragma: no cover
             raise ValueError("TODO error --- really want us to make 1m vectors?")
         model.nV = max_id
 
@@ -36,13 +36,13 @@ def _uniform_init(lo, hi):
 class Embed(Model):
     name = 'embed'
 
-    @property
-    def input_shape(self):
-        return (self.nB,)
+    #@property
+    #def input_shape(self):
+    #    return (self.nB,)
 
-    @property
-    def output_shape(self):
-        return (self.nB, self.nO)
+    #@property
+    #def output_shape(self):
+    #    return (self.nB, self.nO)
 
     def __init__(self, nO=None, nM=None, nV=None):
         Model.__init__(self)
