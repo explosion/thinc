@@ -58,16 +58,24 @@ class SGD(object):
         self.averages = {} if settings.get('averages', True) else None
         self.nr_update = defaultdict(int)
 
-    def __call__(self, weights, gradient, key=None):
+    @property
+    def nr_iter(self):
+        if not self.nr_update:
+            return 0
+        return max(self.nr_update.values())
+
+    def __call__(self, weights, gradient, key=None, lr_scale=1.):
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
+        lr *= lr_scale
+        clip_gradient(gradient, len(gradient) / 100.)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
             gradient.fill(0)
         else:
             if key not in self.momentums:
-                self.momentums[key] = numpy.zeros(weights.shape)
+                self.momentums[key] = self.ops.allocate(weights.size)
             momentum = self.momentums[key]
             momentum *= self.mu
             momentum += gradient * lr
@@ -101,14 +109,9 @@ class Adam(object):
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
-
-    @property
-    def nr_iter(self):
-        if not self.nr_update:
-            return 0
-        return max(self.nr_update.values())
-
-    def __call__(self, weight_t[:] weights, weight_t[:] gradient, key=None):
+    
+    def __call__(self, weight_t[:] weights, weight_t[:] gradient, lr_scale=1., 
+            key=None):
         assert key is not None
         assert len(gradient) >= 1
         assert not self.ops.xp.isnan(weights).any()
@@ -124,7 +127,7 @@ class Adam(object):
 
         cdef weight_t[:] mom1 = self.mom1[key]
         cdef weight_t[:] mom2 = self.mom2[key]
-        cdef weight_t lr = self.lr(nr_upd)
+        cdef weight_t lr = self.lr(nr_upd) * lr_scale
         cdef weight_t b1 = self.b1
         cdef weight_t b2 = self.b1
         cdef weight_t eps = self.eps
@@ -157,14 +160,21 @@ cdef void _adam(
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
-class Eve(Adam):
-    def __init__(self, *args, **kwargs):
-        Adam.__init__(self, *args, **kwargs)
+class Eve(object):
+    def __init__(self, optimizer):
+        self.optimizer = optimizer
         self.b3 = 0.999
         self.lower_threshold = 0.1
         self.upper_threshold = 10
         self.d = 1.
         self.f = None
+
+    def __getattr__(self, attr):
+        return getattr(self.optimizer, attr)
+
+    def __call__(self, weights, gradient, key=None):
+        return self.optimizer(weights, gradient, key=key,
+            lr_scale=self.d)
 
     def set_loss(self, loss):
         if self.f is None:
