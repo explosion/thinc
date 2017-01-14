@@ -9,9 +9,10 @@ def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
     if model.nO is None and y is not None:
-        model.nO = y.max()
+        model.nO = int(y.max() + 1)
 
 
+@describe.on_data(_set_dimensions_if_needed)
 @describe.attributes(
     nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
@@ -24,7 +25,6 @@ def _set_dimensions_if_needed(model, X, y=None):
     d_W=Gradient("W"),
     d_b=Gradient("b")
 )
-@describe.on_data(_set_dimensions_if_needed)
 class Affine(Model):
     '''Computes the linear transform Y = (W @ X) + b.'''
     name = 'affine'
@@ -52,7 +52,7 @@ class Affine(Model):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
+                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return self.ops.batch_dot(grad__BO, self.W.T)
         return output__BO, finish_update
 
