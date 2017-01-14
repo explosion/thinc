@@ -8,9 +8,13 @@ python:
 install:
   - pip install -r requirements.txt
   - pip install -e .
+  - pip install coveralls
 
 script:
-  - python -m pytest thinc
+  - python -m pytest thinc --cov=thinc.neural
+
+after_success:
+  coveralls
 
 notifications:
   email: false
