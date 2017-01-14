@@ -11,7 +11,7 @@ class Trainer(object):
     def __init__(self, model, train_data, L2=0.0):
         self.ops = model.ops
         self.model = model
-        self.optimizer = Eve(SGD(model.ops, 0.001, momentum=0.9))
+        self.optimizer = Eve(SGD(model.ops, 0.0001, momentum=0.9))
         self.batch_size = 128
         self.nb_epoch = 1
         self.i = 0
