@@ -71,12 +71,12 @@ class Embed(Model):
 
     def begin_update(self, ids, drop=0.):
         def finish_update(gradients, sgd=None):
-            self.W += self.ops.batch_outer(gradients, self._embed(ids))
+            self.d_W += self.ops.batch_outer(gradients, self._embed(ids))
             gradients = self.ops.batch_dot(gradients, self.W.T)
             for id_, delta_in in zip(ids, gradients):
                 self.d_vectors[int(id_)] += delta_in
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient)
+                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None
         return self.predict(ids), finish_update
 
