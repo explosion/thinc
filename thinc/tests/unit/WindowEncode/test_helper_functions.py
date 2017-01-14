@@ -23,7 +23,6 @@ except ImportError:
     import toolz
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     'ids_batch', [
         (
