@@ -13,12 +13,12 @@ def get_error(title, *args, **kwargs):
 
 def get_traceback(tb):
     template = '\n\n\t\033[94m\033[1m{title}:\033[0m\n\t{tb}'
-    tb_list = [format_traceback(p, l, fn) for (p, l, fn, _ ) in tb[-5:-2]]
+    tb_list = [_format_traceback(p, l, fn) for (p, l, fn, _ ) in tb[-5:-2]]
     tb_str = '\n'.join(tb_list).strip()
     return template.format(title='Traceback', tb=tb_str)
 
 
-def format_traceback(path, line, fn):
+def _format_traceback(path, line, fn):
     template = '\t> [{l}]\t\033[1m{fn}\033[0m  in {p}'
     filename = path.rsplit('/thinc/', 1)[1] if '/thinc/' in path else path
     return template.format(l=str(line), fn=fn, p=filename)
