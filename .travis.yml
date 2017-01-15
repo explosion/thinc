@@ -12,7 +12,7 @@ install:
   - pip install coveralls
 
 script:
-  - python -m pytest thinc --cov=thinc.neural
+  - python -m pytest thinc --slow --cov=thinc.neural
 
 after_success:
   coveralls
