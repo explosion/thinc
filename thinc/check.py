@@ -55,19 +55,19 @@ def arg_has_shape(arg_id, shape):
     '''
     arg_id -= 1
     def checker(method):
-        def do_check(self, *args):
+        def do_check(self, *args, **kwargs):
             arg = args[arg_id]
             if not hasattr(arg, 'shape'):
                 raise Exception
             shape_values = []
             for dim in shape:
-                if not isinstance(dim, int) and hasattr(self, dim):
-                    dim = getattr(self, dim)
+                if not isinstance(dim, int):
+                    dim = getattr(self, dim, None)
                 shape_values.append(dim)
             for i, dim in enumerate(shape_values):
                 # Allow underspecified dimensions
                 if dim is not None and arg.shape[i] != dim:
-                    raise Exception("Shape mismatch")
+                    raise Exception("Shape mismatch", dim, arg.shape)
             return method(self, *args, **kwargs)
         return do_check
     return checker
