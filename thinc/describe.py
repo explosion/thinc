@@ -1,3 +1,6 @@
+from functools import wraps
+
+
 class AttributeDescription(object):
     def __init__(self, text, value=None, *args, **kwargs):
         self.name = None
@@ -77,6 +80,12 @@ class Synapses(Weights):
 
 class Biases(Weights):
     pass
+
+
+def argument_type(name, get_desc):
+    def wrapper(func):
+        return func
+    return wrapper
 
 
 def attributes(**specs):
