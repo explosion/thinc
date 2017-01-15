@@ -29,3 +29,19 @@ class ShapeError(ValueError):
     @classmethod
     def dim_mismatch(cls, expected, observed):
         return cls("Dimension mismatch: %s vs %s" % (expected, observed))
+
+
+class UndefinedOperatorError(TypeError):
+    def __init__(self, op, obj1, obj2, operators):
+        self.has_error = op not in operators
+        if self.has_error:
+            msg = 'Undefined operator: %s. Called by (%s, %s). Available: %s'
+            msg = msg % (op, obj1, obj2, operators)
+        TypeError.__init__(self, msg)
+        self.tb = sys.exc_info()[2]
+
+
+def check_undefined_operator(*args, **kwargs):
+    err = UndefinedOperatorError(*args, **kwargs)
+    if err.has_error:
+        raise err

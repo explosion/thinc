@@ -7,6 +7,7 @@ from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
 from ..util import get_ops
+from ...exceptions import check_undefined_operator
 
 
 class Model(object):
@@ -133,10 +134,8 @@ class Model(object):
 
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
-        if '+' in self._operators:
-            return self._operators['+'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        check_undefined_operator(self, other, '+', self._operators)
+        return self._operators['+'](self, other)
 
     def __sub__(self, other):
         '''Apply the function bound to the '-' operator.'''
