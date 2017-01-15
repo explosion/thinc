@@ -5,8 +5,8 @@ import traceback
 
 
 def get_error(title, *args, **kwargs):
-    template = '\n\n\t\033[91m\033[1m{title}\033[0m\n{info}{tb}\n'
-    info = '\n'.join(['\t' + arg for arg in args])
+    template = '\n\n\t\033[91m\033[1m{title}\033[0m{info}{tb}\n'
+    info = '\n' + '\n'.join(['\t' + arg for arg in args]) if args else ''
     tb = _get_traceback(kwargs['tb']) if 'tb' in kwargs else ''
     return template.format(title=title, info=info, tb=tb).encode('utf8')
 
@@ -41,34 +41,12 @@ class UndefinedOperatorError(TypeError):
         TypeError.__init__(self, msg)
 
 
+class ExpectedIntError(TypeError):
+    def __init__(self, no_int):
+        self.tb = traceback.extract_stack()
+        msg = get_error(
+            "Expected an integer, but got: {no_int}".format(no_int=no_int),
+            tb=self.tb
+        )
 
-
-# SHAPE_ERR_TEMPLATE = '''
-
-# In the context of {context}:\n
-
-# Shape1 != Shape2
-
-# Where:
-
-# Shape1={shape1}
-# Shape2={shape2}
-# '''
-
-# class ShapeError(ValueError):
-#     def __init__(self, shape1, shape2, context):
-#         msg = SHAPE_ERR_TEMPLATE.strip().format(
-#             shape1=shape1, shape2=shape2, context=context)
-#         ValueError.__init__(self, msg)
-#         self.tb = sys.exc_info()[2]
-
-#     @classmethod
-#     def dimensions_mismatch(cls, shape1, shape2, context):
-#         if shape1 == shape2:
-#             return None
-#         else:
-#             return cls(shape1, shape2, context)
-
-#     @classmethod
-#     def dim_mismatch(cls, expected, observed):
-#         return cls("Dimension mismatch: %s vs %s" % (expected, observed))
+        TypeError.__init__(self, msg)
