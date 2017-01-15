@@ -7,6 +7,7 @@ from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
 from ..util import get_ops
+from ... import check
 
 
 @describe.argument_type("X", lambda self, X, *args, **kwargs: self.check_X(X))
@@ -77,7 +78,7 @@ class Model(object):
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
-        
+
         for attr, install in self.descriptions.items():
             install(attr, self)
         for hook in self.on_init_hooks:
@@ -117,30 +118,10 @@ class Model(object):
         return self.Trainer(self, train_X, train_Y)
  
     @check.arg(1, check.match(lambda self, *_: self.describe('X')))
-    def predict(self, X):
-        '''
-        X
-            Must match expected type
-            Must match expected shape
-        '''
-        y, _ = self.begin_update(X)
-        return y
-
-    @check.arg(1, check.match(lambda self, *_: self.describe('x')))
-    def predict_one(self, x):
-        '''
-        x
-            Must match expected type
-            Must match expected shape
-        '''
-        X = self.ops.expand_dims(x, axis=0)
-        return self.predict(X)[0]
- 
-    @check.arg(1, check.match(lambda self, *_: self.describe('X')))
     @check.arg(2, check.float_.at_least(0.0).at_most(1.0))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
-    
+
     @contextlib.contextmanager
     def use_params(self, params): # pragma: no cover
         yield
@@ -186,100 +167,73 @@ class Model(object):
         '''Apply the function bound to the '+' operator.'''
         return self._operators['+'](self, other)
 
+    @check.operator_is_defined('-')
     def __sub__(self, other):
         '''Apply the function bound to the '-' operator.'''
-        if '-' in self._operators:
-            return self._operators['-'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['-'](self, other)
 
+    @check.operator_is_defined('*')
     def __mul__(self, other):
         '''Apply the function bound to the '*' operator.'''
-        if '*' in self._operators:
-            return self._operators['*'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['*'](self, other)
 
+    @check.operator_is_defined('@')
     def __matmul__(self, other):
         '''Apply the function bound to the '@' operator.'''
-        if '@' in self._operators:
-            return self._operators['@'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['@'](self, other)
 
+    @check.operator_is_defined('/')
     def __div__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        if '/' in self._operators:
-            return self._operators['/'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['/'](self, other)
 
+    @check.operator_is_defined('/')
     def __truediv__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        if '/' in self._operators: # pragma: no cover
-            return self._operators['/'](self, other)
-        else: # pragma: no cover
-            raise TypeError('TODO msg')
+        return self._operators['/'](self, other)
 
-
+    @check.operator_is_defined('//')
     def __floordiv__(self, other):
         '''Apply the function bound to the '//' operator.'''
-        if '//' in self._operators:
-            return self._operators['//'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['//'](self, other)
 
+    @check.operator_is_defined('%')
     def __mod__(self, other):
         '''Apply the function bound to the '%' operator.'''
-        if '%' in self._operators:
-            return self._operators['%'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['%'](self, other)
 
+    @check.operator_is_defined('**')
     def __pow__(self, other, modulo=None):
         '''Apply the function bound to the '**' operator.'''
-        if '**' in self._operators:
-            return self._operators['**'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['**'](self, other)
 
+    @check.operator_is_defined('<<')
     def __lshift__(self, other):
         '''Apply the function bound to the '<<' operator.'''
-        if '<<' in self._operators:
-            return self._operators['<<'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['<<'](self, other)
 
+    @check.operator_is_defined('>>')
     def __rshift__(self, other):
         '''Apply the function bound to the '>>' operator.'''
-        if '>>' in self._operators:
-            return self._operators['>>'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['>>'](self, other)
 
+    @check.operator_is_defined('&')
     def __and__(self, other):
         '''Apply the function bound to the '&' operator.'''
-        if '&' in self._operators:
-            return self._operators['&'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['&'](self, other)
 
+    @check.operator_is_defined('^')
     def __xor__(self, other):
         '''Apply the function bound to the '^' operator.'''
-        if '^' in self._operators:
-            return self._operators['^'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['^'](self, other)
 
+    @check.operator_is_defined('|')
     def __or__(self, other):
         '''Apply the function bound to the '|' operator.'''
-        if '|' in self._operators:
-            return self._operators['|'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['|'](self, other)
 
 
-##    
+##
 #    def pipe(self, stream, batch_size=1000):
 #        for batch in util.minibatch(stream, batch_size):
 #            ys = self.predict_batch(batch)
@@ -291,7 +245,7 @@ class Model(object):
 #            output, finish_update = self.begin_update(X)
 #            gradient = finish_update(y)
 #            yield gradient
-# 
+#
 #def list_gradients(self):
 #    pass
 #def check_input(self, x, expect_batch=False):

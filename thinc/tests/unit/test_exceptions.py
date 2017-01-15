@@ -1,13 +1,27 @@
 import pytest
 
-from .. import exceptions as e
+from ... import check
+from ...neural._classes.model import Model
 
 
-def test_shape_error():
-    raise_if(e.ShapeError.dimensions_mismatch(10, 20, 'inside test'))
+#@pytest.fixture
+#def add_model():
+#    return Model().__add__
+
+@pytest.fixture
+def model():
+    return Model()
 
 
-def raise_if(e):
-    if e is not None:
-        raise e.with_traceback(self.tb)
+@pytest.fixture
+def dummy():
+    def _dummy(*args, **kwargs):
+        return None
+    return dummy
 
+
+@pytest.mark.parametrize('operator', ['+'])
+def test_check_operator_is_defined(model, dummy, operator):
+    checker = check.operator_is_defined(operator)
+    checked = checker(dummy)
+    checked(model, None)
