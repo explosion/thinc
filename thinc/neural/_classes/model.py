@@ -98,7 +98,7 @@ class Model(object):
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
  
-    @check.arg_has_shape(1, ('nI',))
+    @check.arg_has_shape(1, ('nB', 'nI'))
     @check.arg_is_float(2, min=0., max=1.)
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
