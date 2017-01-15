@@ -13,15 +13,17 @@ def get_error(title, *args, **kwargs):
 
 def get_traceback(tb):
     template = '\n\n\t\033[94m\033[1m{title}:\033[0m\n\t{tb}'
-    tb_list = [_format_traceback(p, l, fn) for (p, l, fn, _ ) in tb[-5:-2]]
+    tb_range = tb[-5:-2]
+    tb_list = [_format_traceback(p, l, fn, i, len(tb_range)) for i, (p, l, fn, _) in enumerate(tb_range)]
     tb_str = '\n'.join(tb_list).strip()
     return template.format(title='Traceback', tb=tb_str)
 
 
-def _format_traceback(path, line, fn):
-    template = '\t> [{l}]\t\033[1m{fn}\033[0m  in {p}'
+def _format_traceback(path, line, fn, i, count):
+    template = '\t{i} \033[1m{fn}\033[0m [{l}] in \033[4m{p}\033[0m'
+    indent = ('└─' if i == count - 1 else '├─') + '──' * i
     filename = path.rsplit('/thinc/', 1)[1] if '/thinc/' in path else path
-    return template.format(l=str(line), fn=fn, p=filename)
+    return template.format(l=str(line), fn=fn, p=filename, i=indent)
 
 
 class UndefinedOperatorError(TypeError):
@@ -35,7 +37,7 @@ class UndefinedOperatorError(TypeError):
             tb=self.tb
         )
 
-        TypeError.__init__(self, msg)
+        TypeError.__init__(self, msg.encode('utf8'))
 
 
 
