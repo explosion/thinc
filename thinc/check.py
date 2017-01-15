@@ -1,4 +1,5 @@
 from collections import defaultdict
+import inspect
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
@@ -20,28 +21,32 @@ def args_equal_length(*arg_ids):
     return checker
 
 
-def arg_has_shape(arg_id, shape):
+def arg_has_shape(**shapes_by_name):
     '''Check that a particular argument is an array with a given shape. The
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
     '''
-    arg_id -= 1
     def checker(method):
-        def do_check(self, *args, **kwargs):
-            arg = args[arg_id]
-            if not hasattr(arg, 'shape'):
-                raise ExpectedTypeError(arg, ['array'])
-            shape_values = []
-            for dim in shape:
-                if not isinstance(dim, int):
-                    dim = getattr(self, dim, None)
-                shape_values.append(dim)
-            for i, dim in enumerate(shape_values):
-                # Allow underspecified dimensions
-                if dim is not None and arg.shape[i] != dim:
-                    raise ShapeMismatchError()
-                    raise Exception("Shape mismatch", dim, arg.shape)
-            return method(self, *args, **kwargs)
+        method_args, _, _2, _3 = inspect.getargspec(method)
+        assert method_args[0] == 'self'
+        name2i = {name: i for i, name in enumerate(method_args)}
+        constraints = [(name2i[n], s) for n, s in shapes_by_name.items()]
+        def do_check(*args, **kwargs):
+            self = args[0]
+            for i, shape in constraints:
+                arg = args[i]
+                if not hasattr(arg, 'shape'):
+                    raise ExpectedTypeError(arg, ['array'])
+                shape_values = []
+                for dim in shape:
+                    if not isinstance(dim, int):
+                        dim = getattr(self, dim, None)
+                    shape_values.append(dim)
+                for i, dim in enumerate(shape_values):
+                    # Allow underspecified dimensions
+                    if dim is not None and arg.shape[i] != dim:
+                        raise ShapeMismatchError(arg.shape, shape_values, shape)
+                return method(*args, **kwargs)
         return do_check
     return checker
 
