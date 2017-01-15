@@ -94,15 +94,14 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    #@check.arg(1, check.length(min=1))
-    #@check.args((1, 2), check.equal(lambda arg: len(arg)))
+    @check.args((1, 2), check.equal_lengths)
+    @check.arg(1, check.is_sequence, check.not_empty)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
  
-    #@check.arg(2, check.is_a(float))
-    #@check.arg(2, check.value(min=0.0, max=1.0))
+    @check.arg(2, check.value(min=0., max=1.))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
@@ -127,7 +126,6 @@ class Model(object):
         #if backup is not None:
         #    self.mem.weights[:] = backup
 
-    #@check.arg(1, check.match(lambda self, *_: self.describe('x')))
     def __call__(self, x):
         '''
         x
@@ -138,7 +136,7 @@ class Model(object):
 
     #@check.arg(1, check.match(lambda self, *_: self.describe('X')))
     #@check.arg(2, check.match(lambda self, *_: self.describe('y')))
-    #@check.args((1, 2), check.equal(lambda arg: len(arg)))
+    @check.args((1, 2), check.equal_lengths)
     def evaluate(self, X, y):
         '''
         x
@@ -155,6 +153,7 @@ class Model(object):
             total += 1
         return float(correct) / total
 
+    @check.operator_is_defined('+')
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
         return self._operators['+'](self, other)
