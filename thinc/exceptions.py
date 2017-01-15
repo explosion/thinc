@@ -31,22 +31,38 @@ def _format_traceback(path, line, fn, text, i, count):
 class UndefinedOperatorError(TypeError):
     def __init__(self, op, arg1, arg2, operators):
         self.tb = traceback.extract_stack()
-        msg = get_error(
+        TypeError.__init__(self, get_error(
             "Undefined operator: {op}".format(op=op),
             "Called by ({arg1}, {arg2})".format(arg1=arg1, arg2=arg2),
             "Available: {ops}".format(ops= ', '.join(operators.keys())),
             tb=self.tb
-        )
+        ))
 
-        TypeError.__init__(self, msg)
+
+class DifferentLengthError(ValueError):
+    def __init__(self, args, arg_tuple, arg_id):
+        self.tb = traceback.extract_stack()
+        vals = ['{v} [{l}]'.format(v=args[arg_id], l=len(args[arg_id])) for arg_id in arg_tuple]
+        ValueError.__init__(self, get_error(
+            "Values need to be equal length: {v}".format(v=', '.join(vals)),
+            tb=self.tb
+        ))
+
+
+class ExpectedTypeError(TypeError):
+    def __init__(self, bad_type, expected):
+        self.tb = traceback.extract_stack()
+        TypeError.__init__(self, get_error(
+            "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=bad_type, t=type(bad_type)),
+            tb=self.tb
+        ))
+
 
 
 class ExpectedIntError(TypeError):
     def __init__(self, no_int):
         self.tb = traceback.extract_stack()
-        msg = get_error(
+        TypeError.__init__(self, get_error(
             "Expected an integer, but got: {no_int}".format(no_int=no_int),
             tb=self.tb
-        )
-
-        TypeError.__init__(self, msg)
+        ))

@@ -90,7 +90,7 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
-    
+
     @check.args_equal_length((1, 2))
     @check.arg_is_sequence(0)
     def begin_training(self, train_X, train_y=None):
@@ -136,7 +136,7 @@ class Model(object):
 
     #@check.arg(1, check.match(lambda self, *_: self.describe('X')))
     #@check.arg(2, check.match(lambda self, *_: self.describe('y')))
-    @check.args((1, 2), check.equal_lengths)
+    @check.args_equal_length((1, 2))
     def evaluate(self, X, y):
         '''
         x
