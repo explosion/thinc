@@ -56,13 +56,3 @@ class ExpectedTypeError(TypeError):
             "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=bad_type, t=type(bad_type)),
             tb=self.tb
         ))
-
-
-
-class ExpectedIntError(TypeError):
-    def __init__(self, no_int):
-        self.tb = traceback.extract_stack()
-        TypeError.__init__(self, get_error(
-            "Expected an integer, but got: {no_int}".format(no_int=no_int),
-            tb=self.tb
-        ))
