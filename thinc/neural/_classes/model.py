@@ -132,9 +132,9 @@ class Model(object):
             total += 1
         return float(correct) / total
 
+    @check.operator_is_defined('+')
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
-        check_undefined_operator(self, other, '+', self._operators)
         return self._operators['+'](self, other)
 
     def __sub__(self, other):
