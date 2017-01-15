@@ -93,14 +93,14 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
-    
+
     @check.args_equal_length((1, 2))
     @check.arg_is_sequence(1)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
- 
+
     @check.arg_is_float(2, min=0., max=1.)
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
