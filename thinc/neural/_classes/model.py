@@ -11,9 +11,6 @@ from ... import check
 from ... import describe
 
 
-@describe.argument_type("X", lambda self, X, *args, **kwargs: self.check_X(X))
-@describe.argument_type("x", lambda self, x, *args, **kwargs: self.check_x(x))
-@describe.argument_type("y", lambda self, y, *args, **kwargs: self.check_y(x))
 class Model(object):
     '''Model base class.'''
     name = 'model'
@@ -95,20 +92,23 @@ class Model(object):
         return new_kwargs
     
     @check.args_equal_length((1, 2))
-    @check.arg_is_sequence(1)
+    @check.arg_is_sequence(0)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
  
+    @check.arg_has_shape(1, ('nI',))
     @check.arg_is_float(2, min=0., max=1.)
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
+    @check.arg_has_shape(1, ('nB', 'nI'))
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
 
+    @check.arg_has_shape(1, ('nB', 'nI'))
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
