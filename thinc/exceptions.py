@@ -41,7 +41,12 @@ class UndefinedOperatorError(TypeError):
         self.tb = sys.exc_info()[2]
 
 
-def check_undefined_operator(*args, **kwargs):
-    err = UndefinedOperatorError(*args, **kwargs)
-    if err.has_error:
-        raise err
+def check_undefined_operator(op):
+    def err_checker(operator_function):
+        def do_check(self, other):
+            if op not in self._operators:
+                raise UndefinedOperatorError(op, self, other, self._operators)
+            else:
+                return operator_function(self, other)
+        return do_check
+    return err_checker
