@@ -49,6 +49,15 @@ class DifferentLengthError(ValueError):
         ))
 
 
+class ShapeMismatchError(ValueError):
+    def __init__(self, shape, dim):
+        self.tb = traceback.extract_stack()
+        ValueError.__init__(self, get_error(
+            "Shape mismatch: {s} does not have the right dimension {d}.".format(s=shape, d=dim),
+            tb=self.tb
+        ))
+
+
 class ExpectedTypeError(TypeError):
     def __init__(self, bad_type, expected):
         self.tb = traceback.extract_stack()
@@ -56,3 +65,4 @@ class ExpectedTypeError(TypeError):
             "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=bad_type, t=type(bad_type)),
             tb=self.tb
         ))
+
