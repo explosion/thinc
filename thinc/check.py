@@ -1,26 +1,7 @@
 from collections import defaultdict
 
-from .exceptions import UndefinedOperatorError, DifferentLengthError, ExpectedTypeError
-
-
-def arg(arg_id, *constraints, **constraint_kwargs):
-    def arg_check_adder(func):
-        def wrapper(*args, **kwargs):
-            for check in constraints:
-                check(args[arg_id], **constraint_kwargs)
-            return func(*args, **kwargs)
-        return wrapper
-    return arg_check_adder
-
-
-def args(arg_ids, *constraints, **constraint_kwargs):
-    def arg_check_adder(func):
-        def wrapper(*args, **kwargs):
-            for check in constraints:
-                check(*[args[i] for i in arg_ids], **constraint_kwargs)
-            return func(*args, **kwargs)
-        return wrapper
-    return arg_check_adder
+from .exceptions import UndefinedOperatorError, DifferentLengthError
+from .exceptions import ExpectedTypeError
 
 
 def args_equal_length(*arg_ids):
@@ -32,6 +13,28 @@ def args_equal_length(*arg_ids):
                         raise ExpectedTypeError(args[arg], ['string', 'list', 'tuple'])
                     if len(args[arg]) != len(args[arg_tuple[0]]):
                         raise DifferentLengthError(args, arg_tuple, arg)
+            return func(*args)
+        return do_check
+    return checker
+
+
+def arg_is_sequence(*arg_ids):
+    def checker(func):
+        def do_check(*args):
+            for arg_id in arg_ids:
+                if not hasattr(args[arg_id], '__iter__') or not hasattr(args[arg_id], '__getitem__'):
+                    raise ExpectedTypeError(args[arg_id], ['string', 'list', 'tuple'])
+            return func(*args)
+        return do_check
+    return checker
+
+
+def arg_is_float(*arg_ids):
+    def checker(func):
+        def do_check(*args):
+            for arg_id in arg_ids:
+                if not isinstance(args[arg_id], float):
+                    raise ExpectedTypeError(args[arg_id], ['float'])
             return func(*args)
         return do_check
     return checker
@@ -89,3 +92,23 @@ def value(min=0, max=None):
     def constraint(arg):
         return True
     return constraint
+
+
+def arg(arg_id, *constraints, **constraint_kwargs):
+    def arg_check_adder(func):
+        def wrapper(*args, **kwargs):
+            for check in constraints:
+                check(args[arg_id], **constraint_kwargs)
+            return func(*args, **kwargs)
+        return wrapper
+    return arg_check_adder
+
+
+def args(arg_ids, *constraints, **constraint_kwargs):
+    def arg_check_adder(func):
+        def wrapper(*args, **kwargs):
+            for check in constraints:
+                check(*[args[i] for i in arg_ids], **constraint_kwargs)
+            return func(*args, **kwargs)
+        return wrapper
+    return arg_check_adder
