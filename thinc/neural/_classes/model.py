@@ -7,7 +7,7 @@ from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
 from ..util import get_ops
-from ...exceptions import check_undefined_operator
+from ... import check
 
 
 class Model(object):
@@ -137,97 +137,70 @@ class Model(object):
         '''Apply the function bound to the '+' operator.'''
         return self._operators['+'](self, other)
 
+    @check.operator_is_defined('-')
     def __sub__(self, other):
         '''Apply the function bound to the '-' operator.'''
-        if '-' in self._operators:
-            return self._operators['-'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['-'](self, other)
 
+    @check.operator_is_defined('*')
     def __mul__(self, other):
         '''Apply the function bound to the '*' operator.'''
-        if '*' in self._operators:
-            return self._operators['*'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['*'](self, other)
 
+    @check.operator_is_defined('@')
     def __matmul__(self, other):
         '''Apply the function bound to the '@' operator.'''
-        if '@' in self._operators:
-            return self._operators['@'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['@'](self, other)
 
+    @check.operator_is_defined('/')
     def __div__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        if '/' in self._operators:
-            return self._operators['/'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['/'](self, other)
 
+    @check.operator_is_defined('/')
     def __truediv__(self, other):
         '''Apply the function bound to the '/' operator.'''
-        if '/' in self._operators: # pragma: no cover
-            return self._operators['/'](self, other)
-        else: # pragma: no cover
-            raise TypeError('TODO msg')
+        return self._operators['/'](self, other)
 
-
+    @check.operator_is_defined('//')
     def __floordiv__(self, other):
         '''Apply the function bound to the '//' operator.'''
-        if '//' in self._operators:
-            return self._operators['//'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['//'](self, other)
 
+    @check.operator_is_defined('%')
     def __mod__(self, other):
         '''Apply the function bound to the '%' operator.'''
-        if '%' in self._operators:
-            return self._operators['%'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['%'](self, other)
 
+    @check.operator_is_defined('**')
     def __pow__(self, other, modulo=None):
         '''Apply the function bound to the '**' operator.'''
-        if '**' in self._operators:
-            return self._operators['**'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['**'](self, other)
 
+    @check.operator_is_defined('<<')
     def __lshift__(self, other):
         '''Apply the function bound to the '<<' operator.'''
-        if '<<' in self._operators:
-            return self._operators['<<'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['<<'](self, other)
 
+    @check.operator_is_defined('>>')
     def __rshift__(self, other):
         '''Apply the function bound to the '>>' operator.'''
-        if '>>' in self._operators:
-            return self._operators['>>'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['>>'](self, other)
 
+    @check.operator_is_defined('&')
     def __and__(self, other):
         '''Apply the function bound to the '&' operator.'''
-        if '&' in self._operators:
-            return self._operators['&'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['&'](self, other)
 
+    @check.operator_is_defined('^')
     def __xor__(self, other):
         '''Apply the function bound to the '^' operator.'''
-        if '^' in self._operators:
-            return self._operators['^'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['^'](self, other)
 
+    @check.operator_is_defined('|')
     def __or__(self, other):
         '''Apply the function bound to the '|' operator.'''
-        if '|' in self._operators:
-            return self._operators['|'](self, other)
-        else:
-            raise TypeError('TODO msg')
+        return self._operators['|'](self, other)
 
 
 ##
