@@ -75,7 +75,7 @@ class Model(object):
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
-        
+
         for attr, install in self.descriptions.items():
             install(attr, self)
         for hook in self.on_init_hooks:
@@ -89,12 +89,12 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
-    
+
     def begin_training(self, train_X, train_Y):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_Y)
         return self.Trainer(self, train_X, train_Y)
- 
+
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
@@ -102,10 +102,10 @@ class Model(object):
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
- 
+
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
-    
+
     @contextlib.contextmanager
     def use_params(self, params): # pragma: no cover
         yield
@@ -230,7 +230,7 @@ class Model(object):
             raise TypeError('TODO msg')
 
 
-##    
+##
 #    def pipe(self, stream, batch_size=1000):
 #        for batch in util.minibatch(stream, batch_size):
 #            ys = self.predict_batch(batch)
@@ -242,7 +242,7 @@ class Model(object):
 #            output, finish_update = self.begin_update(X)
 #            gradient = finish_update(y)
 #            yield gradient
-# 
+#
 #def list_gradients(self):
 #    pass
 #def check_input(self, x, expect_batch=False):

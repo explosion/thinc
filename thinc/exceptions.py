@@ -25,7 +25,7 @@ class ShapeError(ValueError):
             return None
         else:
             return cls(shape1, shape2, context)
-    
+
     @classmethod
     def dim_mismatch(cls, expected, observed):
         return cls("Dimension mismatch: %s vs %s" % (expected, observed))
