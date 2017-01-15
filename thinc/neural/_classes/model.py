@@ -7,9 +7,11 @@ from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
 from ..util import get_ops
-from ...exceptions import check_undefined_operator
 
 
+@describe.argument_type("X", lambda self, X, *args, **kwargs: self.check_X(X))
+@describe.argument_type("x", lambda self, x, *args, **kwargs: self.check_x(x))
+@describe.argument_type("y", lambda self, y, *args, **kwargs: self.check_y(x))
 class Model(object):
     '''Model base class.'''
     name = 'model'
@@ -90,19 +92,52 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    def begin_training(self, train_X, train_Y):
+    @check.arg(1, check.sequence.length.at_least(1))
+    @check.arg(1, check.all.get_match(lambda self, *_: self.describe('X')))
+    @check.arg(2, check.sequence.length.same_as_arg(0), or_=is_None)
+    @check.arg(2, check.all.match(lambda self, *_: self.describe('y')), or_=is_None)
+    def begin_training(self, train_X, train_y=None):
+        '''
+        train_X:
+            Must not be None
+            Sequence of examples.
+            Must have at least one example
+            Each example:
+                Must match expected type
+                Must match expected shape
+        train_y
+            if not None
+                Must be sequence of same length as train_X
+                Each example:
+                    Must match expected type
+                    Must match expected shape
+        '''
         for hook in self.on_data_hooks:
             hook(self, train_X, train_Y)
         return self.Trainer(self, train_X, train_Y)
  
+    @check.arg(1, check.match(lambda self, *_: self.describe('X')))
     def predict(self, X):
+        '''
+        X
+            Must match expected type
+            Must match expected shape
+        '''
         y, _ = self.begin_update(X)
         return y
 
+    @check.arg(1, check.match(lambda self, *_: self.describe('x')))
     def predict_one(self, x):
+        '''
+        x
+            Must match expected type
+            Must match expected shape
+        '''
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
  
+    @check.arg(1, check.match(lambda self, *_: self.describe('X')))
+    @check.arg(2, check.float_.at_least(0.0).at_most(1.0))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
     
@@ -119,11 +154,26 @@ class Model(object):
         #if backup is not None:
         #    self.mem.weights[:] = backup
 
+    @check.arg(1, check.match(lambda self, *_: self.describe('x')))
     def __call__(self, x):
-        '''Predict a single x.'''
+        '''
+        x
+            Must match expected type
+            Must match expected shape
+        '''
         return self.predict(x)
 
+    @check.arg(1, check.match(lambda self, *_: self.describe('X')))
+    @check.arg(2, check.match(lambda self, *_: self.describe('y')))
+    @check.args((1, 2), check.sequences.lengths.are_equal)
     def evaluate(self, X, y):
+        '''
+        x
+            Must match expected type
+            Must match expected shape
+        y
+            Must match expected type
+        '''
         correct = 0
         total = 0
         scores = self(X)
@@ -132,7 +182,6 @@ class Model(object):
             total += 1
         return float(correct) / total
 
-    @check.operator_is_defined('+')
     def __add__(self, other):
         '''Apply the function bound to the '+' operator.'''
         return self._operators['+'](self, other)
