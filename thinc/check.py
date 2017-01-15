@@ -21,35 +21,48 @@ def operator_is_defined(op):
         return do_check
     return checker
 
+def noop(func, *args, **kwargs):
+    return func
 
 def is_a(type_):
-    pass
+    def constraint(arg_id, args, kwargs):
+        return True
+    return constraint
+
 
 
 def length(min=0, max=None):
-    pass
+    def constraint(arg_id, args, kwargs):
+        return True
+    return constraint
 
 
 def value(min=0, max=None):
-    pass
+    def constraint(arg_id, args, kwargs):
+        return True
+    return constraint
 
 
 def equal(get_attr):
-    pass
+    def constraint(arg_id, args, kwargs):
+        return True
+    return constraint
 
 
 def match(get_attr):
-    pass
+    def constraint(arg_id, args, kwargs):
+        return True
+    return constraint
 
 
 class ArgCheckAdder(object):
     def __init__(self, arg_id, *constraints):
         self.arg_id = arg_id
-        self.constraints = constraints
+        self.constraints = list(constraints)
 
     def __call__(self, func):
         if hasattr(func, 'checks'):
-            func.checks[arg_id].extend(self.constraints)
+            func.checks[self.arg_id].extend(self.constraints)
             return func
         else:
             return CheckedFunction(func, {self.arg_id: self.constraints})
@@ -57,12 +70,17 @@ class ArgCheckAdder(object):
 
 class CheckedFunction(object):
     def __init__(self, func, checks):
+        for check in checks.values():
+            for c in check:
+                assert check is not None
         self.checks = defaultdict(list)
         self.checks.update(checks)
         self.func = func
 
     def __call__(self, *args, **kwargs):
-        for arg_id, check in self.checks.items():
-            check(self.get_args(arg_id, args, kwargs))
-        self.func(*args, **kwargs)
+        for arg_id, checks in self.checks.items():
+            for check in checks:
+                check(arg_id, args, kwargs)
+        return self.func(*args, **kwargs)
+
 

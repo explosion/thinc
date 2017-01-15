@@ -94,17 +94,25 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
     
-    @check.arg(1, check.length(min=1))
-    @check.args((1, 2), check.equal(lambda arg: len(arg)))
+    #@check.arg(1, check.length(min=1))
+    #@check.args((1, 2), check.equal(lambda arg: len(arg)))
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
-            hook(self, train_X, train_Y)
-        return self.Trainer(self, train_X, train_Y)
+            hook(self, train_X, train_y)
+        return self.Trainer(self, train_X, train_y)
  
-    @check.arg(2, check.is_a(float))
-    @check.arg(2, check.value(min=0.0, max=1.0))
+    #@check.arg(2, check.is_a(float))
+    #@check.arg(2, check.value(min=0.0, max=1.0))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
+
+    def predict(self, X):
+        y, _ = self.begin_update(X)
+        return y
+
+    def predict_one(self, x):
+        X = self.ops.expand_dims(x, axis=0)
+        return self.predict(X)[0]
 
     @contextlib.contextmanager
     def use_params(self, params): # pragma: no cover
@@ -119,7 +127,7 @@ class Model(object):
         #if backup is not None:
         #    self.mem.weights[:] = backup
 
-    @check.arg(1, check.match(lambda self, *_: self.describe('x')))
+    #@check.arg(1, check.match(lambda self, *_: self.describe('x')))
     def __call__(self, x):
         '''
         x
@@ -128,9 +136,9 @@ class Model(object):
         '''
         return self.predict(x)
 
-    @check.arg(1, check.match(lambda self, *_: self.describe('X')))
-    @check.arg(2, check.match(lambda self, *_: self.describe('y')))
-    @check.args((1, 2), check.equal(lambda arg: len(arg)))
+    #@check.arg(1, check.match(lambda self, *_: self.describe('X')))
+    #@check.arg(2, check.match(lambda self, *_: self.describe('y')))
+    #@check.args((1, 2), check.equal(lambda arg: len(arg)))
     def evaluate(self, X, y):
         '''
         x
