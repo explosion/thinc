@@ -53,6 +53,7 @@ def arg_has_shape(arg_id, shape):
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
     '''
+    arg_id -= 1
     def checker(method):
         def do_check(self, *args):
             arg = args[arg_id]
