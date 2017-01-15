@@ -1,7 +1,7 @@
 from collections import defaultdict
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
-from .exceptions import ExpectedTypeError
+from .exceptions import ExpectedTypeError, ShapeMismatchError
 
 
 def args_equal_length(*arg_ids):
