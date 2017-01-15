@@ -5,6 +5,8 @@ from .exceptions import ExpectedTypeError
 
 
 def args_equal_length(*arg_ids):
+    '''Check that a tuple of arguments has the same length.
+    '''
     def checker(func):
         def do_check(*args):
             for arg_tuple in arg_ids:
@@ -14,6 +16,32 @@ def args_equal_length(*arg_ids):
                     if len(args[arg]) != len(args[arg_tuple[0]]):
                         raise DifferentLengthError(args, arg_tuple, arg)
             return func(*args)
+        return do_check
+    return checker
+
+
+def arg_has_shape(arg_id, shape):
+    '''Check that a particular argument is an array with a given shape. The
+    shape may contain string attributes, which will be fetched from arg0 to
+    the function (usually self).
+    '''
+    arg_id -= 1
+    def checker(method):
+        def do_check(self, *args, **kwargs):
+            arg = args[arg_id]
+            if not hasattr(arg, 'shape'):
+                raise ExpectedTypeError(arg, ['array'])
+            shape_values = []
+            for dim in shape:
+                if not isinstance(dim, int):
+                    dim = getattr(self, dim, None)
+                shape_values.append(dim)
+            for i, dim in enumerate(shape_values):
+                # Allow underspecified dimensions
+                if dim is not None and arg.shape[i] != dim:
+                    raise ShapeMismatchError()
+                    raise Exception("Shape mismatch", dim, arg.shape)
+            return method(self, *args, **kwargs)
         return do_check
     return checker
 
@@ -47,31 +75,6 @@ def operator_is_defined(op):
                 raise UndefinedOperatorError(op, self, other, self._operators)
             else:
                 return func(self, other)
-        return do_check
-    return checker
-
-
-def arg_has_shape(arg_id, shape):
-    '''Check that a particular argument is an array with a given shape. The
-    shape may contain string attributes, which will be fetched from arg0 to
-    the function (usually self).
-    '''
-    arg_id -= 1
-    def checker(method):
-        def do_check(self, *args, **kwargs):
-            arg = args[arg_id]
-            if not hasattr(arg, 'shape'):
-                raise Exception
-            shape_values = []
-            for dim in shape:
-                if not isinstance(dim, int):
-                    dim = getattr(self, dim, None)
-                shape_values.append(dim)
-            for i, dim in enumerate(shape_values):
-                # Allow underspecified dimensions
-                if dim is not None and arg.shape[i] != dim:
-                    raise Exception("Shape mismatch", dim, arg.shape)
-            return method(self, *args, **kwargs)
         return do_check
     return checker
 
