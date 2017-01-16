@@ -2,6 +2,7 @@ import pytest
 
 from ... import check
 from ...neural._classes.model import Model
+from ...exceptions import UndefinedOperatorError
 
 
 #@pytest.fixture
@@ -24,4 +25,5 @@ def dummy():
 def test_check_operator_is_defined(model, dummy, operator):
     checker = check.operator_is_defined(operator)
     checked = checker(dummy)
-    checked(model, None)
+    with pytest.raises(UndefinedOperatorError):
+        checked(model, None)

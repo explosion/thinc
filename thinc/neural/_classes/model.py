@@ -9,6 +9,7 @@ from ..mem import Memory
 from ..util import get_ops
 from ... import check
 from ... import describe
+from ...check import equal_length, has_shape, is_sequence, is_float, is_array
 
 
 class Model(object):
@@ -91,24 +92,24 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
 
-    @check.args_equal_length((0, 1))
-    @check.is_sequence(train_X=True, train_y=True)
+    #@check.args(equal_length)
+    #@check.arg(0, is_sequence)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
 
-    @check.is_float(X=True)
-    @check.has_shape(X=('nB', 'nI'))
+    @check.arg(0, is_array, has_shape(('nB', 'nI')))
+    @check.arg(1, is_float)
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
-    @check.has_shape(X=('nB', 'nI'))
+    @check.arg(0, has_shape(('nB', 'nI')))
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
 
-    @check.has_shape(x=('nI',))
+    @check.arg(0, has_shape(('nI',)))
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
@@ -134,7 +135,7 @@ class Model(object):
         '''
         return self.predict(x)
 
-    @check.args_equal_length((1, 2))
+    @check.args(equal_length)
     def evaluate(self, X, y):
         '''
         x
