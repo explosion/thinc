@@ -25,7 +25,6 @@ def has_shape(shape, arg_id, args, kwargs):
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
     '''
-    print('has shape?', args)
     self = args[0]
     arg = args[arg_id]
     if not hasattr(arg, 'shape'):
@@ -35,6 +34,8 @@ def has_shape(shape, arg_id, args, kwargs):
         if not isinstance(dim, int):
             dim = getattr(self, dim, None)
         shape_values.append(dim)
+    if len(shape) != len(arg.shape):
+        raise ShapeMismatchError(arg.shape, tuple(shape_values), shape)
     for i, dim in enumerate(shape_values):
         # Allow underspecified dimensions
         if dim is not None and arg.shape[i] != dim:
@@ -66,10 +67,12 @@ def is_array(arg_id, args, func_kwargs, **kwargs):
 def operator_is_defined(op):
     @wrapt.decorator
     def checker(wrapped, instance, args, kwargs):
-        if args[0] is None:
+        if instance is None:
+            instance = args[0]
+        if instance is None:
             raise ExpectedTypeError(instance, ['Model'])
-        if op not in args[0]._operators:
-            raise UndefinedOperatorError(op, instance, args[0], args[0]._operators)
+        if op not in instance._operators:
+            raise UndefinedOperatorError(op, instance, args[0], instance._operators)
         else:
             return wrapped(*args, **kwargs)
     return checker
@@ -81,7 +84,7 @@ def arg(arg_id, *constraints):
         if instance is not None:
             fix_args = [instance] + list(args)
         else:
-            fix_arg = list(args)
+            fix_args = list(args)
         for check in constraints:
             check(arg_id, fix_args, kwargs)
         return wrapped(*args, **kwargs)
