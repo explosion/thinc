@@ -100,16 +100,14 @@ class Model(object):
         return self.Trainer(self, train_X, train_y)
 
     @check.arg(2, is_float)
-    #@check.arg(1, has_shape(('nB', 'nI')))
+    @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
-    @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
 
-    @check.arg(1, has_shape(('nI',)))
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
@@ -178,7 +176,7 @@ class Model(object):
         return self._operators['/'](self, other)
 
     @check.operator_is_defined('/')
-    def __truediv__(self, other):
+    def __truediv__(self, other): # pragma: no cover
         '''Apply the function bound to the '/' operator.'''
         return self._operators['/'](self, other)
 
