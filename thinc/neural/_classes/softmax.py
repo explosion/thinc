@@ -1,6 +1,8 @@
 from .affine import Affine
 from ... import describe
 from ...describe import Dimension, Synapses, Biases
+from ...check import has_shape
+from ... import check
 
 
 @describe.attributes(
@@ -10,13 +12,16 @@ from ...describe import Dimension, Synapses, Biases
 )
 class Softmax(Affine):
     name = 'softmax'
+    @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
         output__BO = self.ops.affine(self.W, self.b, input__BI)
         self.ops.softmax(output__BO, inplace=True)
         return output__BO
 
+    @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
         output__BO = self.predict(input__BI)
+        @check.arg(0, has_shape(('nB', 'nO')))
         def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
