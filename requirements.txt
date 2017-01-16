@@ -12,3 +12,4 @@ six
 flexmock
 mock
 termcolor
+wrapt
