@@ -91,14 +91,14 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
 
-    @check.args_equal_length((1, 2))
-    @check.is_sequence(train_x=True, train_y=True)
+    @check.args_equal_length((0, 1))
+    @check.is_sequence(train_X=True, train_y=True)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
 
-    @check.arg_is_float(X=True)
+    @check.is_float(X=True)
     @check.has_shape(X=('nB', 'nI'))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
@@ -134,8 +134,6 @@ class Model(object):
         '''
         return self.predict(x)
 
-    #@check.arg(1, check.match(lambda self, *_: self.describe('X')))
-    #@check.arg(2, check.match(lambda self, *_: self.describe('y')))
     @check.args_equal_length((1, 2))
     def evaluate(self, X, y):
         '''

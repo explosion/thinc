@@ -22,6 +22,7 @@ def check_int_value(min=None, max=None):
 #@check.args_equal_length((0, 1))
 #@check.arg_is_sequence(0, 1)
 @check.is_float(int1=True)
+@check.is_float(int1=True)
 #@check.is_sequence(int1=True)
 def add_stuff(int1, int2):
     return int1 + int2
