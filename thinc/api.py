@@ -15,7 +15,7 @@ def layerize(begin_update=None, *args, **kwargs):
 
 def metalayerize(user_func):
     '''Wrap a function over a sequence of layers and an input into a layer.'''
-    def returned(layers, X, *args, **kwargs):
+    def returned(layers, *args, **kwargs):
         def begin_update(X, *args, **kwargs):
             return user_func(layers, X, *args, **kwargs)
         return FunctionLayer(begin_update, *args, **kwargs)
@@ -111,13 +111,16 @@ def sink_return(func, sink, splitter=None):
 class FunctionLayer(Model):
     '''Wrap functions into weightless Model instances, for use as network
     components.'''
-    def __init__(self, begin_update, predict_batch=None, predict_one=None,
+    def __init__(self, begin_update, predict=None, predict_one=None,
             nr_in=None, nr_out=None, *args, **kwargs):
         self.begin_update = begin_update
-        self.predict = predict_batch
-        self.predict_one = predict_one
+        if predict is not None:
+            self.predict = predict
+        if predict_one is not None:
+            self.predict_one = predict_one
         self.nr_in = nr_in
         self.nr_out = nr_out
+        Model.__init__(self)
 
     def __call__(self, X):
         if self.predict is not None:
