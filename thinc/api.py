@@ -36,7 +36,7 @@ def chain(*layers):
     Raises exception if their dimensions don't match.
     '''
     if len(layers) == 0:
-        return FeedForward()
+        return FeedForward([])
     elif len(layers) == 1:
         return layers[0]
     else:
@@ -121,11 +121,3 @@ class FunctionLayer(Model):
         self.nr_in = nr_in
         self.nr_out = nr_out
         Model.__init__(self)
-
-    def __call__(self, X):
-        if self.predict is not None:
-            # TODO: How do we strip the arg checking from Model?
-            return self.predict(X)
-        else:
-            X, _ = self.begin_update(X)
-            return X
