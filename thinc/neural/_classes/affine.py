@@ -48,7 +48,7 @@ class Affine(Model):
     def predict(self, input__BI):
         return self.ops.affine(self.W, self.b, input__BI)
 
-    #@check.arg(1, has_shape(('nB', 'nI')))
+    @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
         assert input__BI.shape[1] == self.nI, (input__BI.shape, self.nI)
         output__BO = self.predict(input__BI)
