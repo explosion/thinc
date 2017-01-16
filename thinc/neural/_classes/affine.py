@@ -44,6 +44,7 @@ class Affine(Model):
         self.nO = nO
         self.nI = nI
 
+    @check.arg(0, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
         return self.ops.affine(self.W, self.b, input__BI)
 

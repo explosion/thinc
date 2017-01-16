@@ -42,7 +42,7 @@ def has_shape(shape, arg_id, args, kwargs):
 
 def is_sequence(arg_id, args, kwargs):
     arg = args[arg_id]
-    if value != isinstance(arg, Iterable):
+    if not isinstance(arg, Iterable):
         raise ExpectedTypeError(arg, ['iterable'])
 
 

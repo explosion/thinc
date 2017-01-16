@@ -99,7 +99,7 @@ class Model(object):
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
 
-    @check.arg(0, is_array, has_shape(('nB', 'nI')))
+    @check.arg(0, has_shape(('nB', 'nI')))
     @check.arg(1, is_float)
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
