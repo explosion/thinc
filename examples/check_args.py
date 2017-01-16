@@ -21,13 +21,14 @@ def check_int_value(min=None, max=None):
 #@check_arg(1, check_int_value(min=0))
 #@check.args_equal_length((0, 1))
 #@check.arg_is_sequence(0, 1)
-@check.arg_is_float(0, 1)
+@check.is_float(int1=True)
+#@check.is_sequence(int1=True)
 def add_stuff(int1, int2):
     return int1 + int2
 
 
 def main():
-    print(add_stuff(15, 12))
+    print(add_stuff([1, 2, 3], 2.0))
     #print(add_stuff((1, 2), (0, 1, 2)))
     #print(add_stuff(["abc", "bye"], [1, 2]))
     #print(add_positive_integers(0, 5))
