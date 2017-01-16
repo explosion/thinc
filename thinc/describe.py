@@ -82,12 +82,6 @@ class Biases(Weights):
     pass
 
 
-def argument_type(name, get_desc):
-    def wrapper(func):
-        return func
-    return wrapper
-
-
 def attributes(**specs):
     if not specs:
         raise ValueError("Must describe at least one attribute")
