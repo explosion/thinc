@@ -114,17 +114,15 @@ class FunctionLayer(Model):
     def __init__(self, begin_update, predict_batch=None, predict_one=None,
             nr_in=None, nr_out=None, *args, **kwargs):
         self.begin_update = begin_update
-        self.predict_batch = predict_batch
+        self.predict = predict_batch
         self.predict_one = predict_one
         self.nr_in = nr_in
         self.nr_out = nr_out
 
     def __call__(self, X):
-        if self.predict_batch is not None:
-            return self.predict_batch(X)
+        if self.predict is not None:
+            # TODO: How do we strip the arg checking from Model?
+            return self.predict(X)
         else:
             X, _ = self.begin_update(X)
             return X
-
-    def check_input(self, X, expect_batch=False):
-        return True
