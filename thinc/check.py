@@ -25,6 +25,7 @@ def has_shape(shape, arg_id, args, kwargs):
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
     '''
+    print('has shape?', args)
     self = args[0]
     arg = args[arg_id]
     if not hasattr(arg, 'shape'):
@@ -77,8 +78,12 @@ def operator_is_defined(op):
 def arg(arg_id, *constraints):
     @wrapt.decorator
     def arg_check_adder(wrapped, instance, args, kwargs):
+        if instance is not None:
+            fix_args = [instance] + list(args)
+        else:
+            fix_arg = list(args)
         for check in constraints:
-            check(arg_id, args, kwargs)
+            check(arg_id, fix_args, kwargs)
         return wrapped(*args, **kwargs)
     return arg_check_adder
 

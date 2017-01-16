@@ -1,6 +1,8 @@
 from .affine import Affine
 from ... import describe
+from ... import check
 from ...describe import Dimension, Synapses, Biases
+from ...check import has_shape
 
 
 class ReLu(Affine):
