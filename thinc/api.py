@@ -54,7 +54,7 @@ def clone(orig, n):
     return FeedForward(layers)
 
 
-def concatenate(*layers):
+def concatenate(*layers): # pragma: no cover
     '''Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
     '''
@@ -81,7 +81,7 @@ def concatenate(*layers):
     return layer
 
 
-def split_backward(layers):
+def split_backward(layers): # pragma: no cover
     '''Separate a sequence of layers' `begin_update` methods into two lists of
     functions: one that computes the forward values, and the other that completes
     the backward pass. The backward sequence is only populated after the forward
@@ -93,7 +93,7 @@ def split_backward(layers):
     return forward, backward
 
 
-def sink_return(func, sink, splitter=None):
+def sink_return(func, sink, splitter=None): # pragma: no cover
     '''Transform a function `func` that returns tuples into a function that returns
     single values. Call a function `sink` on the unused values.
     '''
