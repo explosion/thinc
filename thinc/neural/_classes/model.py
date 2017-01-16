@@ -3,7 +3,6 @@ import contextlib
 
 from .. import util
 from ..train import Trainer
-from ..exceptions import ShapeError
 from ..ops import NumpyOps
 from ..mem import Memory
 from ..util import get_ops
