@@ -16,6 +16,8 @@ def get_error(title, *args, **kwargs):
 
 def _get_traceback(tb, highlight):
     template = '\n\n\t{title}\n\t{tb}'
+    # Prune "check.py" from tb (hacky)
+    tb = [record for record in tb if not record[0].endswith('check.py')]
     tb_range = tb[-5:-2]
     tb_list = [_format_traceback(p, l, fn, t, i, len(tb_range), highlight) for i, (p, l, fn, t) in enumerate(tb_range)]
     return template.format(title=color('Traceback:', 'blue', attrs=['bold']),
@@ -72,8 +74,13 @@ class ShapeMismatchError(ValueError):
 
 
 class ExpectedTypeError(TypeError):
+    max_to_print_of_value = 200
     def __init__(self, bad_type, expected):
         self.tb = traceback.extract_stack()
+        bad_type = repr(bad_type)
+        if len(bad_type) >= self.max_to_print_of_value:
+            half = int(self.max_to_print_of_value/2)
+            bad_type = bad_type[:half] + ' ... ' + bad_type[-half:]
         TypeError.__init__(self, get_error(
             "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=bad_type, t=type(bad_type)),
             tb=self.tb,
