@@ -1,7 +1,6 @@
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
-from ..exceptions import ShapeError
 from ..mem import Memory
 from ... import check
 from ...check import has_shape

@@ -1,6 +1,5 @@
 from .model import Model
 from ... import describe
-from .. import exceptions
 
 
 def _run_child_hooks(model, X, y):
