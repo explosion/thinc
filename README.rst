@@ -18,8 +18,8 @@ structured input and variable-length sequences.
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
 
-.. image:: https://coveralls.io/repos/github/explosion/thinc/badge.svg?branch=master
-    :target: https://coveralls.io/github/explosion/thinc?branch=master
+.. image:: https://img.shields.io/coveralls/explosion/thinc.svg
+    :target: https://coveralls.io/github/explosion/thinc
     :alt: Test Coverage
 
 .. image:: https://img.shields.io/github/release/explosion/thinc.svg
