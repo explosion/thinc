@@ -92,8 +92,8 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
 
-    #@check.args(equal_length)
-    #@check.arg(0, is_sequence)
+    @check.args(equal_length)
+    @check.arg(0, is_sequence)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)

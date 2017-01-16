@@ -65,8 +65,6 @@ def is_array(arg_id, args, func_kwargs, **kwargs):
 def operator_is_defined(op):
     @wrapt.decorator
     def checker(wrapped, instance, args, kwargs):
-        print(instance)
-        print('args', args, kwargs)
         if args[0] is None:
             raise ExpectedTypeError(instance, ['Model'])
         if op not in args[0]._operators:
@@ -81,6 +79,7 @@ def arg(arg_id, *constraints):
     def arg_check_adder(wrapped, instance, args, kwargs):
         for check in constraints:
             check(arg_id, args, kwargs)
+        return wrapped(*args, **kwargs)
     return arg_check_adder
 
 
@@ -89,11 +88,5 @@ def args(*constraints):
     def arg_check_adder(wrapped, instance, args, kwargs):
         for check in constraints:
             check(args)
+        return wrapped(*args, **kwargs)
     return arg_check_adder
-
-
-def _resolve_names(args_by_name, method_args, *_, **kwargs):
-    has_self = 'self' in method_args
-    name2i = {name: i-has_self for i, name in enumerate(method_args)}
-    constraints = [(name2i[n], s) for n, s in args_by_name.items()]
-    return constraints
