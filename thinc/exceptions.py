@@ -68,7 +68,7 @@ class ShapeMismatchError(ValueError):
     def __init__(self, shape, dim, shape_names):
         self.tb = traceback.extract_stack()
         ValueError.__init__(self, get_error(
-            "Shape mismatch: {s} does not have the right dimension {d}.".format(s=shape, d=dim),
+            "Shape mismatch: input {s} not compatible with {d}.".format(s=shape, d=dim),
             tb=self.tb
         ))
 
