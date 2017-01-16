@@ -3,6 +3,7 @@ import inspect
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
+from .exceptions import ConstraintError
 
 
 def args_equal_length(*arg_ids):
@@ -21,7 +22,7 @@ def args_equal_length(*arg_ids):
     return checker
 
 
-def arg_has_shape(**shapes_by_name):
+def has_shape(**shapes_by_name):
     '''Check that a particular argument is an array with a given shape. The
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
@@ -51,24 +52,44 @@ def arg_has_shape(**shapes_by_name):
     return checker
 
 
-def arg_is_sequence(*arg_ids):
-    def checker(func):
-        def do_check(*args):
-            for arg_id in arg_ids:
-                if not hasattr(args[arg_id], '__iter__') or not hasattr(args[arg_id], '__getitem__'):
-                    raise ExpectedTypeError(args[arg_id], ['string', 'list', 'tuple'])
-            return func(*args)
+def is_sequence(**args_by_name):
+    def checker(method):
+        method_args, _, _2, _3 = inspect.getargspec(method)
+        name2i = {name: i for i, name in enumerate(method_args)}
+        constraints = [(name2i[n], s) for n, s in args_by_name.items()]
+        def do_check(*args, **kwargs):
+            for i, value in constraints:
+                arg = args[i]
+                is_sequence = hasattr(arg, '__iter__') and hasattr(arg, '__getitem__')
+                if value != is_sequence:
+                    raise ExpectedTypeError(arg, ['iterable'])
+            return method(*args, **kwargs)
         return do_check
     return checker
 
 
-def arg_is_float(*arg_ids):
-    def checker(func):
-        def do_check(*args):
-            for arg_id in arg_ids:
-                if not isinstance(args[arg_id], float):
-                    raise ExpectedTypeError(args[arg_id], ['float'])
-            return func(*args)
+def is_float(**args_by_name):
+    for cond in args_by_name.values():
+        if cond in (True, False):
+            continue
+        elif type(cond) == tuple and len(cond) == 2:
+            continue
+        else:
+            raise ConstraintError(cond, ['True', 'False', '(min, max)'])
+
+    def checker(method):
+        method_args, _, _2, _3 = inspect.getargspec(method)
+        name2i = {name: i for i, name in enumerate(method_args)}
+        constraints = [(name2i[n], s) for n, s in args_by_name.items()]
+
+        def do_check(*args, **kwargs):
+            for i, value in constraints:
+                arg = args[i]
+                if value in (True, False):
+                    is_float = isinstance(arg, float)
+                    if is_float != value:
+                        raise ExpectedTypeError(arg, ['float'])
+            return method(*args, **kwargs)
         return do_check
     return checker
 
@@ -82,10 +103,6 @@ def operator_is_defined(op):
                 return func(self, other)
         return do_check
     return checker
-
-
-def is_sequence(arg):
-    return True
 
 
 def equal_lengths(*args, **kwargs):
