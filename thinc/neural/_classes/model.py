@@ -92,23 +92,23 @@ class Model(object):
         return new_kwargs
 
     @check.args_equal_length((1, 2))
-    @check.arg_is_sequence(1)
+    @check.is_sequence(train_x=True, train_y=True)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, train_X, train_y)
- 
-    #@check.arg_is_float(2)
-    @check.arg_has_shape(X=('nB', 'nI'))
+
+    @check.arg_is_float(X=True)
+    @check.has_shape(X=('nB', 'nI'))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
-    @check.arg_has_shape(X=('nB', 'nI'))
+    @check.has_shape(X=('nB', 'nI'))
     def predict(self, X):
         y, _ = self.begin_update(X)
         return y
 
-    @check.arg_has_shape(x=('nI',))
+    @check.has_shape(x=('nI',))
     def predict_one(self, x):
         X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
