@@ -80,14 +80,26 @@ def operator_is_defined(op):
 
 def arg(arg_id, *constraints):
     @wrapt.decorator
-    def arg_check_adder(wrapped, instance, args, kwargs):
+    def checked_function(wrapped, instance, args, kwargs):
+        if not hasattr(wrapped, 'checks'):
+            return wrapped(*args, **kwargs)
         if instance is not None:
             fix_args = [instance] + list(args)
         else:
             fix_args = list(args)
-        for check in constraints:
-            check(arg_id, fix_args, kwargs)
+        for arg_id, checks in wrapped.checks.items():
+            for check in checks:
+                check(arg_id, fix_args, kwargs)
         return wrapped(*args, **kwargs)
+
+    def arg_check_adder(func):
+        if hasattr(func, 'checks'):
+            func.checks.setdefault(arg_id, []).extend(constraints)
+            return func
+        else:
+            wrapped = checked_function(func)
+            wrapped.checks = {arg_id: list(constraints)}
+            return wrapped
     return arg_check_adder
 
 
