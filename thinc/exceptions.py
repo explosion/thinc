@@ -2,38 +2,42 @@
 from __future__ import unicode_literals
 
 import traceback
+from termcolor import colored as color
 
 
 def get_error(title, *args, **kwargs):
-    template = '\n\n\t\033[91m\033[1m{title}\033[0m{info}{tb}\n'
-    info = '\n' + '\n'.join(['\t' + arg for arg in args]) if args else ''
+    template = '\n\n\t{title}{info}{tb}\n'
+    info = '\n'.join(['\t' + l for l in args]) if args else ''
     highlight = kwargs['highlight'] if 'highlight' in kwargs else False
     tb = _get_traceback(kwargs['tb'], highlight) if 'tb' in kwargs else ''
-    return template.format(title=title, info=info, tb=tb).encode('utf8')
+    return template.format(title=color(title, 'red', attrs=['bold']),
+                           info=info, tb=tb).encode('utf8')
 
 
 def _get_traceback(tb, highlight):
-    template = '\n\n\t\033[94m\033[1m{title}:\033[0m\n\t{tb}'
+    template = '\n\n\t{title}\n\t{tb}'
     tb_range = tb[-5:-2]
     tb_list = [_format_traceback(p, l, fn, t, i, len(tb_range), highlight) for i, (p, l, fn, t) in enumerate(tb_range)]
-    tb_str = '\n'.join(tb_list).strip()
-    return template.format(title='Traceback', tb=tb_str)
+    return template.format(title=color('Traceback:', 'blue', attrs=['bold']),
+                           tb='\n'.join(tb_list).strip())
 
 
 def _format_traceback(path, line, fn, text, i, count, highlight):
-    template = '\t{i} \033[1m{fn}\033[0m [{l}] in \033[4m{p}\033[0m{t}'
+    template = '\t{i} {fn} [{l}] in {p}{t}'
     indent = ('└─' if i == count-1 else '├─') + '──'*i
     filename = path.rsplit('/thinc/', 1)[1] if '/thinc/' in path else path
     text = _format_user_error(text, i, highlight) if i == count-1 else ''
-    return template.format(l=str(line), fn=fn, p=filename, i=indent, t=text)
+    return template.format(l=str(line), i=indent, t=text,
+                           fn=color(fn, attrs=['bold']),
+                           p=color(filename, attrs=['underline']))
 
 
 def _format_user_error(text, i, highlight):
-    template = '\n\t{sp} \033[91m>>>\033[0m {t}'
+    template = '\n\t  {sp} {t}'
+    spacing = '   '*i + color('>>>', 'red')
     if highlight:
-        template_h = '\033[93m{t}\033[0m'.format(t=str(highlight))
-        text = text.replace(str(highlight), template_h)
-    return template.format(sp='   '*i, t=text)
+        text = text.replace(str(highlight), color(str(highlight), 'yellow'))
+    return template.format(sp=spacing, t=text)
 
 
 class UndefinedOperatorError(TypeError):

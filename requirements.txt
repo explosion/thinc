@@ -11,3 +11,4 @@ plac
 six
 flexmock
 mock
+termcolor
