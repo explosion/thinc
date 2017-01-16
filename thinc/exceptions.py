@@ -66,3 +66,13 @@ class ExpectedTypeError(TypeError):
             tb=self.tb
         ))
 
+
+class ConstraintError(ValueError):
+    def __init__(self, bad_con, expected):
+        self.tb = traceback.extract_stack()
+        ValueError.__init__(self, get_error(
+            "Invalid argument constraint: {v} ({t})".format(v=bad_con, t=type(bad_con)),
+            "Expected {e}.".format(e=', '.join(expected)),
+            tb=self.tb,
+            highlight=bad_con
+        ))
