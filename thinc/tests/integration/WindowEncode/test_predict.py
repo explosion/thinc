@@ -48,13 +48,3 @@ def model(vectors):
     return model
 
 
-@pytest.mark.xfail
-def test_forward_succeeds(model, ids, positions, vectors, lengths):
-    out, whiches = model._forward(positions, vectors, lengths)
-
-
-@pytest.mark.xfail
-def test_predict_batch_succeeds(model, ids, vectors, lengths):
-    ids = list(toolz.concat(ids))
-    out = model.predict_batch((ids, vectors, lengths))
-    assert out.shape == (sum(lengths), model.nr_out)
