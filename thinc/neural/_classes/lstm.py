@@ -321,7 +321,7 @@ def checkBatchGradient():
                 if rel_error > rel_error_thr_error: status = '!!!!! NOTOK'
 
             # print stats
-            print('%s checking param %s index %s (val = %+8f), analytic = %+8f, numerical = %+8f, relative error = %+8f' % (status, name, `np.unravel_index(i, mat.shape)`, old_val, grad_analytic, grad_numerical, rel_error))
+            print('%s checking param %s index %s (val = %+8f), analytic = %+8f, numerical = %+8f, relative error = %+8f' % (status, name, repr(np.unravel_index(i, mat.shape)), old_val, grad_analytic, grad_numerical, rel_error))
 
 
 
