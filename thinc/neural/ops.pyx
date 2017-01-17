@@ -10,8 +10,10 @@ import numpy
 from cytoolz import concat
 from numpy import prod
 from numpy cimport ndarray
+from collections import Sized
 
 from ..typedefs cimport weight_t
+from .. import check
 
 
 try:
@@ -23,6 +25,17 @@ try:
     import cytoolz as toolz
 except ImportError:
     import toolz
+
+
+def is_valid_shape(arg_id, args, func_kwargs, **kwargs):
+    shape = args[arg_id]
+    if isinstance(shape, int):
+        return True
+    elif isinstance(shape, Sized) and all(isinstance(dim, int) for dim in shape):
+        return True
+    else:
+        raise TypeError("Expected valid shape, got:", repr(shape))
+
 
 
 class Ops(object):
@@ -67,6 +80,7 @@ class Ops(object):
         coinflips = self.xp.random.uniform(0., 1., shape)
         return (coinflips >= drop) / (1.-drop)
 
+    @check.arg(1, is_valid_shape)
     def allocate(self, shape):
         if isinstance(shape, int):
             shape = (shape,)
@@ -128,6 +142,12 @@ class Ops(object):
         for i in range(x.shape[axis]):
             output += x[:,:,i] * (which == i)
         return output
+
+    def backprop_take(self, dX__bo, which__bo, nP):
+        dX__bop = self.allocate((dX__bo.shape[0], dX__bo.shape[1], nP))
+        for i in range(nP):
+            dX__bop[:, :, i] += dX__bo * (which__bo == i)
+        return dX__bop
 
     def xavier_uniform_init(self, W, inplace=True):
         scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
