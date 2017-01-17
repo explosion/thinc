@@ -55,15 +55,15 @@ class LSTM(Model):
         n, b, input_size = X.shape
         d = self.weights.shape[1]/4 # hidden size
         for t in range(n):
-        cache = {}
-        cache['Hout'] = Hout
-        cache['IFOGf'] = IFOGf
-        cache['IFOG'] = IFOG
-        cache['C'] = C
-        cache['Ct'] = Ct
-        cache['Hin'] = Hin
-        cache['c0'] = c0
-        cache['h0'] = h0
+            cache = {}
+            cache['Hout'] = Hout
+            cache['IFOGf'] = IFOGf
+            cache['IFOG'] = IFOG
+            cache['C'] = C
+            cache['Ct'] = Ct
+            cache['Hin'] = Hin
+            cache['c0'] = c0
+            cache['h0'] = h0
         # return C[t], as well so we can continue LSTM with prev state init if needed
         return Hout, C[t], Hout[t], cache
 
