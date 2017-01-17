@@ -58,10 +58,26 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
         raise ValueError("%s > max %s" % (arg, kwargs['min']))
 
 
+def is_int(arg_id, args, func_kwargs, **kwargs):
+    arg = args[arg_id]
+    if not isinstance(arg, int):
+        raise ExpectedTypeError(arg, ['int'])
+    if 'min' in kwargs and arg < kwargs['min']:
+        raise ValueError("%s < min %s" % (arg, kwargs['min']))
+    if 'max' in kwargs and arg > kwargs['max']:
+        raise ValueError("%s > max %s" % (arg, kwargs['min']))
+
+
 def is_array(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
     if not isinstance(arg, ndarray):
         raise ExpectedTypeError(arg, ['ndarray'])
+
+
+def is_int_array(arg_id, args, func_kwargs, **kwargs):
+    arg = args[arg_id]
+    if not isinstance(arg, ndarray) and 'i' not in arg.dtype:
+        raise ExpectedTypeError(arg, ['ndarray[int]'])
 
 
 def operator_is_defined(op):
