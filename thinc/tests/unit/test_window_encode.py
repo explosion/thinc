@@ -2,10 +2,12 @@ import pytest
 import numpy
 from numpy.testing import assert_allclose
 from cytoolz import concat
+from mock import Mock
 
 
-from ....neural._classes.window_encode import MaxoutWindowEncode
-from ....neural.ops import NumpyOps
+from ...neural._classes.window_encode import MaxoutWindowEncode
+from ...neural._classes.embed import Embed
+from ...neural.ops import NumpyOps
 
 
 @pytest.fixture
@@ -19,106 +21,123 @@ def ndim():
 
 
 @pytest.fixture
+def total_length(positions):
+    return sum(len(occurs) for occurs in positions.values())
+
+
+@pytest.fixture
 def ops():
     return NumpyOps()
 
 
 @pytest.fixture
-def model(ops, nr_out, ndim):
-    model = MaxoutWindowEncode(nr_out=nr_out, nr_in=ndim, ops=ops)
-    model.initialize_params()
+def nV(positions):
+    return max(positions.keys()) + 1
+
+
+@pytest.fixture
+def model(ops, nr_out, ndim, nV):
+    model = MaxoutWindowEncode(
+                Embed(ndim, ndim, nV), nr_out, pieces=2, window=2)
     return model
 
 
 @pytest.fixture
-def ids():
-    return [[0, 1, 0, 2]]
+def B(positions):
+    return sum(len(occurs) for occurs in positions.values())
 
 
 @pytest.fixture
-def lengths(ids):
-    return [len(seq) for seq in ids]
-
-
-@pytest.fixture
-def vectors(ndim, lengths):
-    table = []
-    for i in range(sum(lengths)):
-        table.append([i+float(j) / ndim for j in range(ndim)])
-    return numpy.asarray(table, dtype='f') 
-
-
-@pytest.fixture
-def gradients_BO(model, lengths):
-    gradient = model.ops.allocate((sum(lengths), model.nr_out)) 
+def gradients_BO(model, positions, B):
+    gradient = model.ops.allocate((B, model.nO)) 
     for i in range(gradient.shape[0]):
         gradient[i] -= i
     return gradient
 
-@pytest.fixture
-def B(lengths):
-    return sum(lengths)
-
-@pytest.fixture
-def I(ndim):
-    return ndim
 
 @pytest.fixture
 def O(nr_out):
     return nr_out
 
 
-@pytest.mark.xfail
-def test_update_shape(B, I, O, model, ids, vectors, lengths, gradients_BO):
+@pytest.fixture
+def I(ndim):
+    return ndim
+
+
+def test_nI(model):
+    assert model.nI == model.embed.nO
+
+def test_shape_is_inferred_from_data(positions):
+    model = MaxoutWindowEncode(
+                Embed(ndim,ndim, nV), pieces=2, window=2)
+    y = model.ops.asarray([[0, 1]], dtype='i')
+    with model.begin_training(positions, y):
+        pass
+    assert model.nO == 2
+
+
+def test_predict_matches_update(B, I, O, model, positions):
+    x1 = model.predict(positions)
+    x2, _ = model.begin_update(positions)
+    assert_allclose(x1, x2)
+
+
+def test_update_shape(B, I, O, model, positions, gradients_BO):
     assert gradients_BO.shape == (B, O)
-    ids = list(concat(ids))
-    fwd, finish_update = model.begin_update((ids, vectors, lengths))
-    gradients_BI = finish_update(gradients_BO, optimizer=None)
-    assert gradients_BI.shape == (B, I)
+    fwd, finish_update = model.begin_update(positions)
+    null_grad = finish_update(gradients_BO, sgd=None)
+    assert null_grad is None
 
 
-
-@pytest.mark.xfail
-def test_zero_gradient_makes_zero_finetune(model):
-    ids = [0]
-    lengths = [1]
-    vectors = numpy.asarray([[0., 0., 0.]], dtype='f')
-    gradients_BO = numpy.asarray([[0., 0., 0., 0., 0.]], dtype='f')
-    fwd, finish_update = model.begin_update((ids, vectors, lengths))
-    gradients_BI = finish_update(gradients_BO, optimizer=None)
-    assert_allclose(gradients_BI, [[0., 0., 0.]])
-
-
-
-@pytest.mark.xfail
-def test_negative_gradient_positive_weights_makes_negative_finetune(model):
-    ids = [0]
-    lengths = [1]
+def test_embed_fine_tune_is_called(model):
+    positions = {10: [0]}
     W = model.W
     W.fill(1)
-    vectors = numpy.asarray([[0., 0., 0.]], dtype='f')
-    gradients_BO = numpy.asarray([[-1., -1., -1., -1., -1.]], dtype='f')
-    fwd, finish_update = model.begin_update((ids, vectors, lengths))
-    gradients_BI = finish_update(gradients_BO, optimizer=None)
+    gradients_BO = numpy.zeros((1, model.nO), dtype='f') - 1.
+    mock_fine_tune = Mock()
+    model.embed.begin_update = replace_finish_update(
+        model.embed.begin_update, mock_fine_tune)
+    fwd, finish_update = model.begin_update(positions)
+    finish_update(gradients_BO, sgd=None)
+    mock_fine_tune.assert_called_once()
 
-    for val in gradients_BI.flatten():
-        assert val < 0
 
-
-@pytest.mark.xfail
-def test_vectors_change_fine_tune(model):
-    ids = [0]
-    lengths = [1]
+def test_embed_static(model):
+    positions = {10: [0]}
     W = model.W
     W.fill(1)
-    gradients_BO = numpy.asarray([[-1., -1., -1., -1., -1.]], dtype='f')
-    vec1 = numpy.asarray([[1., 1., 1.]], dtype='f')
-    fwd, finish_update = model.begin_update((ids, vec1, lengths))
-    grad1 = finish_update(gradients_BO, optimizer=None)
+    gradients_BO = numpy.zeros((1, model.nO), dtype='f') - 1.
+    model.embed.begin_update = replace_finish_update(
+        model.embed.begin_update, None)
+    fwd, finish_update = model.begin_update(positions)
+    grad = finish_update(gradients_BO, sgd=None)
+    assert grad is None
+
+
+def replace_finish_update(begin_update, replacement):
+    def replaced(*args, **kwargs):
+        X, finish_update = begin_update(*args, **kwargs)
+        return X, replacement
+    return replaced
+
+
+def test_weights_change_fine_tune(model):
+    # Replace backward pass of Embed, so that it passes through the gradient.
+    model.embed.begin_update = replace_finish_update(
+            model.embed.begin_update, lambda gradient, sgd=None: gradient)
+ 
+    positions = {10: [0]}
+    model.W *= 0.
+    model.b *= 0.
+    gradients_BO = numpy.zeros((1, model.nO), dtype='f') - 1.
     
-    vec2 = numpy.asarray([[2., 2., 2.]], dtype='f')
-    fwd, finish_update = model.begin_update((ids, vec2, lengths))
-    grad2 = finish_update(gradients_BO, optimizer=None)
+    fwd, finish_update = model.begin_update(positions)
+    grad1 = finish_update(gradients_BO, sgd=None)
     
-    for val1, val2 in zip(vec1.flatten(), vec2.flatten()):
+    model.W += 1
+    fwd, finish_update = model.begin_update(positions)
+    grad2 = finish_update(gradients_BO, sgd=None)
+    
+    for val1, val2 in zip(grad1.flatten(), grad2.flatten()):
         assert val1 != val2
