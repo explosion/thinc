@@ -1,5 +1,7 @@
 from .model import Model
 from ... import describe
+from ... import check
+from ...check import is_int_array
 from ... describe import Dimension, Weights, Synapses, Gradient
 
 
@@ -44,12 +46,13 @@ class Embed(Model):
     #def output_shape(self):
     #    return (self.nB, self.nO)
 
-    def __init__(self, nO=None, nM=None, nV=None):
-        Model.__init__(self)
+    def __init__(self, nO, nM, nV=None, **kwargs):
+        Model.__init__(self, **kwargs)
         self.nO = nO
         self.nM = nM
         self.nV = nV
 
+    @check.arg(1, is_int_array)
     def predict(self, ids):
         if len(ids) < 1000:
             vectors = self._embed(ids)
