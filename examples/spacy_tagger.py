@@ -3,7 +3,7 @@ from thinc.extra import datasets
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Maxout
 from thinc.neural.vec2vec import Softmax, Residual
-from thinc.neural._classes.batchnorm import BatchNormalization, ScaleShift
+from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.ids2vecs import MaxoutWindowEncode
 from thinc.loss import categorical_crossentropy
 from thinc.neural.optimizers import SGD
@@ -12,7 +12,6 @@ import numpy
 
 from thinc.api import layerize
 
-from thinc.neural.util import score_model
 from thinc.neural.optimizers import linear_decay
 import spacy
 from spacy.attrs import SHAPE
@@ -32,7 +31,14 @@ try:
 except ImportError:
     import toolz
 
-
+# not sure where to get this one from, is it possible from .bin?    
+def score_model(model, X, y):
+    acc = 0.
+    for i in range(len(X)):
+        scores = model(X[i])
+        acc += scores.argmax() == y[i]
+    return acc / len(X)
+    
 @layerize
 def get_vectors(docs, dropout=0.):
     '''Given docs, return:
@@ -76,7 +82,7 @@ class EncodeTagger(Model):
         Model.__init__(self, **kwargs)
         self.layers = [
             get_vectors,
-            BatchNormalization(name='bn1'),
+            BatchNorm(name='bn1'),
             ReLu(width, width, name='relu1'),
             ReLu(width, width, name='relu2'),
             ReLu(width, width, name='relu3'),
