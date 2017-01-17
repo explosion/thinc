@@ -31,7 +31,7 @@ def is_valid_shape(arg_id, args, func_kwargs, **kwargs):
     shape = args[arg_id]
     if isinstance(shape, int):
         return True
-    elif isinstance(shape, Sized) and all(isinstance(dim, int) for dim in shape):
+    elif hasattr(shape, '__len__') and all(isinstance(dim, int) for dim in shape):
         return True
     else:
         raise TypeError("Expected valid shape, got:", repr(shape))
