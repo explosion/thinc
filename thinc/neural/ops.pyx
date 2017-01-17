@@ -13,7 +13,6 @@ from numpy cimport ndarray
 from collections import Sized
 
 from ..typedefs cimport weight_t
-from .. import check
 
 
 try:
@@ -25,17 +24,6 @@ try:
     import cytoolz as toolz
 except ImportError:
     import toolz
-
-
-def is_valid_shape(arg_id, args, func_kwargs, **kwargs):
-    shape = args[arg_id]
-    if isinstance(shape, int):
-        return True
-    elif hasattr(shape, '__len__') and all(isinstance(dim, int) for dim in shape):
-        return True
-    else:
-        raise TypeError("Expected valid shape, got:", repr(shape))
-
 
 
 class Ops(object):
@@ -80,7 +68,6 @@ class Ops(object):
         coinflips = self.xp.random.uniform(0., 1., shape)
         return (coinflips >= drop) / (1.-drop)
 
-    @check.arg(1, is_valid_shape)
     def allocate(self, shape):
         if isinstance(shape, int):
             shape = (shape,)
