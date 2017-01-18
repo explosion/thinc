@@ -77,20 +77,28 @@ class Embed(Model):
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, self._embed(ids))
             gradients = self.ops.batch_dot(gradients, self.W.T)
+            d_vectors = self.d_vectors
+            n_vector = d_vectors.shape[0]
             for id_, delta_in in zip(ids, gradients):
                 id_ = self._id_map[id_]
-                if id_ < self.d_vectors.shape[0]:
-                    self.d_vectors[id_] += delta_in
+                if id_ < n_vector:
+                    d_vectors[id_] += delta_in
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None
         return self.predict(ids), finish_update
 
     def _embed(self, ids):
-        vectors = self.ops.allocate((len(ids), self.nM))
+        n_vector = len(self._id_map)
+        for id_ in ids:
+            if id_ not in self._id_map:
+                self._id_map[id_] = n_vector
+                n_vector += 1
+        output = self.ops.allocate((len(ids), self.nM))
+        weights = self.vectors 
+        n_vector = weights.shape[0]
         for i, id_ in enumerate(ids):
-            vec_id = self._id_map.setdefault(id_, len(self._id_map)) 
             id_ = self._id_map[id_]
-            if id_ < self.vectors.shape[0]:
-                vectors[i] = self.vectors[id_]
-        return vectors
+            if id_ < n_vector:
+                output[i] = weights[id_]
+        return output
