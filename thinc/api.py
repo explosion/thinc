@@ -73,7 +73,10 @@ def concatenate(*layers): # pragma: no cover
             start = 0
             for bwd, shape in zip(backward, shapes):
                 end = start + shape[1]
-                layer_grads.append(bwd(gradient[:, start : end], *args, **kwargs))
+                if bwd is not None:
+                    d = bwd(gradient[:, start : end], *args, **kwargs)
+                    if d is not None:
+                        layer_grads.append(d)
                 start = end
             return ops.asarray(ops.xp.sum(layer_grads, axis=0))
         return output, finish_update
