@@ -51,6 +51,7 @@ class Embed(Model):
         self.nO = nO
         self.nM = nM
         self.nV = nV
+        self._id_map = {0: 0}
 
     @check.arg(1, is_int_array)
     def predict(self, ids):
@@ -77,7 +78,7 @@ class Embed(Model):
             self.d_W += self.ops.batch_outer(gradients, self._embed(ids))
             gradients = self.ops.batch_dot(gradients, self.W.T)
             for id_, delta_in in zip(ids, gradients):
-                id_ = int(id_)
+                id_ = self._id_map[id_]
                 if id_ < self.d_vectors.shape[0]:
                     self.d_vectors[id_] += delta_in
             if sgd is not None:
@@ -88,7 +89,8 @@ class Embed(Model):
     def _embed(self, ids):
         vectors = self.ops.allocate((len(ids), self.nM))
         for i, id_ in enumerate(ids):
-            id_ = int(id_)
+            vec_id = self._id_map.setdefault(id_, len(self._id_map)) 
+            id_ = self._id_map[id_]
             if id_ < self.vectors.shape[0]:
                 vectors[i] = self.vectors[id_]
         return vectors

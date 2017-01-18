@@ -125,9 +125,9 @@ def main(nr_epoch=20, nr_sent=0, width=128):
     with Model.define_operators({'>>': chain, '|': concatenate}):
         features = (
             (Orth     >> Embed(32, 32, len(nlp.vocab.strings)))
-            | (Shape  >> Embed(8, 8, len(nlp.vocab.strings)))
-            | (Prefix >> Embed(8, 8, len(nlp.vocab.strings)))
-            | (Suffix >> Embed(8, 8, len(nlp.vocab.strings)))
+            | (Shape  >> Embed(8, 8, 1000))
+            | (Prefix >> Embed(8, 8, 1000))
+            | (Suffix >> Embed(8, 8, 1000))
         )
         model = (
             features
