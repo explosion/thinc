@@ -88,7 +88,7 @@ class SGD(object):
         return linear_decay(self.alpha, self.decay, nr_upd)
 
 
-class Adam(object):
+class Adam(SGD):
     def __init__(self, ops, lr, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
         self.ops = ops
         self.mom1 = {}
