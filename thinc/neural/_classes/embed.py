@@ -46,7 +46,7 @@ class Embed(Model):
     #def output_shape(self):
     #    return (self.nB, self.nO)
 
-    def __init__(self, nO, nM, nV=None, **kwargs):
+    def __init__(self, nO, nM=None, nV=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.nM = nM
@@ -77,7 +77,9 @@ class Embed(Model):
             self.d_W += self.ops.batch_outer(gradients, self._embed(ids))
             gradients = self.ops.batch_dot(gradients, self.W.T)
             for id_, delta_in in zip(ids, gradients):
-                self.d_vectors[int(id_)] += delta_in
+                id_ = int(id_)
+                if id_ < self.d_vectors.shape[0]:
+                    self.d_vectors[id_] += delta_in
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None
@@ -86,5 +88,7 @@ class Embed(Model):
     def _embed(self, ids):
         vectors = self.ops.allocate((len(ids), self.nM))
         for i, id_ in enumerate(ids):
-            vectors[i] = self.vectors[int(id_)]
+            id_ = int(id_)
+            if id_ < self.vectors.shape[0]:
+                vectors[i] = self.vectors[id_]
         return vectors
