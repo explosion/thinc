@@ -1,5 +1,5 @@
 from __future__ import print_function, unicode_literals, division
-from cytoolz import curry
+from cytoolz import curry, concat
 from thinc.extra import datasets
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Maxout
@@ -33,10 +33,12 @@ try:
 except ImportError:
     import pickle
 
+
 try:
     import cytoolz as toolz
 except ImportError:
     import toolz
+
 
 @layerize
 def Orth(docs, drop=0.):
@@ -48,6 +50,14 @@ def Orth(docs, drop=0.):
             ids[i] = token.orth
             i += 1
     return ids, None
+
+
+@layerize
+def StaticVector(docs, drop=0.):
+    '''Get word vectors.'''
+    tokens = concat(docs)
+    vectors = [t.vector / (t.vector_norm or 1.) for t in tokens]
+    return numpy.vstack(vectors), None
 
 
 @layerize
@@ -124,18 +134,17 @@ def main(nr_epoch=20, nr_sent=0, width=128):
     print("Building the model")
     with Model.define_operators({'>>': chain, '|': concatenate}):
         features = (
-            (Orth     >> Embed(32, 32, len(nlp.vocab.strings)))
+            StaticVector
+            | (Orth   >> Embed(8, 32, 5000))
             | (Shape  >> Embed(8, 8, 1000))
             | (Prefix >> Embed(8, 8, 1000))
             | (Suffix >> Embed(8, 8, 1000))
         )
         model = (
             features
+            >> BatchNorm(Maxout(width))
             >> ExtractWindow(nW=2)
-            >> BatchNorm(ReLu(width))
-            >> BatchNorm(ReLu(width))
-            >> ExtractWindow(nW=2)
-            >> BatchNorm(ReLu(width))
+            >> BatchNorm(Maxout(width))
             >> Softmax(nr_class)
         )
 
