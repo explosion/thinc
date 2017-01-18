@@ -31,7 +31,7 @@ class FeedForward(Model):
             callbacks.append(inc_layer_grad)
         def continue_update(gradient, sgd=None):
             for callback in reversed(callbacks):
-                if gradient is None:
+                if gradient is None or callback == None:
                     break
                 gradient = callback(gradient, sgd)
             return gradient
