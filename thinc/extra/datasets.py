@@ -21,11 +21,12 @@ def ancora_pos_tags():
     return ud_pos_tags(train_loc, dev_loc)
 
 
-def ewtb_pos_tags():
+def ewtb_pos_tags(encode_tags=False, encode_words=False):
     data_dir = get_file('UD_English-r1.4', EWTB_1_4_ZIP, unzip=True)
     train_loc = os.path.join(data_dir, 'en-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'en-ud-dev.conllu')
-    return ud_pos_tags(train_loc, dev_loc, encode_tags=False, encode_words=False)
+    return ud_pos_tags(train_loc, dev_loc,
+        encode_tags=encode_tags, encode_words=encode_words)
 
 
 def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True):
