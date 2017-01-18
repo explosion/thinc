@@ -7,7 +7,7 @@ import numpy as np
 import code
 
 
-class LSTM(Model):
+class LSTM(Model): # pragma: no cover
     '''
     Code by Andrej Karpathy, here:
     https://gist.github.com/karpathy/587454dc0146a6ae21fc
@@ -81,7 +81,7 @@ class LSTM(Model):
             return gradient
         return out, finish_update
 
-def begin_LSTM_forward(weights, batch_size, input_size):
+def begin_LSTM_forward(weights, batch_size, input_size): # pragma: no cover
     d = weights.shape[1]/4 # hidden size
     prevc = np.zeros((batch_size, hidden_size))
     prevh = np.zeros((batch_size, hidden_size))
@@ -120,7 +120,7 @@ def begin_LSTM_forward(weights, batch_size, input_size):
     return fwd_lstm_step
 
 
-def begin_lstm_backward(weights, d_weights, batch_size, input_size):
+def begin_lstm_backward(weights, d_weights, batch_size, input_size): # pragma: no cover
     C = np.zeros((b,d))
     H = np.zeros((b,d))
     
@@ -170,7 +170,7 @@ def begin_lstm_backward(weights, d_weights, batch_size, input_size):
     
 
 def _get_finish_backward(dC, dprevC, dHout, dprevHout, dIFOGf, dWLSTM, dHin,
-        weights, tanhCt, prevc, d):
+        weights, tanhCt, prevc, d): # pragma: no cover
     def finish_update(gradient, optimizer=None, **kwargs):
         dIFOGf[:,2*d:3*d] = tanhCt * dHout
         # backprop tanh non-linearity first then continue backprop
@@ -204,7 +204,7 @@ def _get_finish_backward(dC, dprevC, dHout, dprevHout, dIFOGf, dWLSTM, dHin,
 # -------------------
 
 
-def checkSequentialMatchesBatch():
+def checkSequentialMatchesBatch(): # pragma: no cover
     """ check LSTM I/O forward/backward interactions """
     n,b,d = (5, 3, 4) # sequence length, batch size, hidden size
     input_size = 10
@@ -263,9 +263,8 @@ def checkSequentialMatchesBatch():
     print(np.allclose(Bdh0, dh0))
   
 
-def checkBatchGradient():
+def checkBatchGradient(): # pragma: no cover
     """ check that the batch gradient is correct """
-
     # lets gradient check this beast
     n,b,d = (5, 3, 4) # sequence length, batch size, hidden size
     input_size = 10
@@ -325,7 +324,7 @@ def checkBatchGradient():
 
 
 
-if __name__ == "__main__":
+if __name__ == "__main__": # pragma: no cover
     checkSequentialMatchesBatch()
     checkBatchGradient()
     print('every line should start with OK. Have a nice day!')
