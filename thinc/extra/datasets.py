@@ -2,6 +2,7 @@ import random
 import io
 from collections import Counter
 import os.path
+import numpy
 
 from ._vendorized.keras_data_utils import get_file
 
@@ -88,8 +89,9 @@ def mnist():
     X_test = X_test.reshape(10000, 784)
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
-    X_train /= 255
-    X_test /= 255
+    
+    X_train = (X_train - X_train.mean(axis=0)) / (numpy.sqrt(X_train.var(axis=0)) + 1e-12)
+    X_test = (X_test - X_test.mean(axis=0)) / (numpy.sqrt(X_test.var(axis=0)) + 1e-12)
 
     train_data = list(zip(X_train, y_train))
     nr_train = X_train.shape[0]
