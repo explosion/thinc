@@ -63,7 +63,7 @@ def is_shape(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, Iterable):
         raise ExpectedTypeError(arg, ['iterable'])
     for value in arg:
-        if not isinstance(value, int) or value < 0:
+        if value < 0 or not isinstance(value, int):
             raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
 
 def is_int(arg_id, args, func_kwargs, **kwargs):

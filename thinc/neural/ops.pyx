@@ -72,7 +72,7 @@ class Ops(object):
         if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
-        return self.xp.zeros(shape, dtype='f')
+        return self.xp.zeros(shape, dtype='float32')
 
     def unzip(self, data):
         X, y = zip(*data)
@@ -186,6 +186,21 @@ class NumpyOps(Ops):
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] = 0.
+
+    def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
+        cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
+        cdef ndarray contig_starts = self.xp.ascontiguousarray(_starts, dtype='int32')
+
+        cdef const float* to_add = <const weight_t*>contig_to_add.data
+        cdef float* whole_array = <weight_t*>contig_array.data
+        cdef const int* starts = <const int*>contig_starts.data
+        cdef int n_slice = len(_starts)
+        cdef int length = _to_add.size
+        cdef int stride = length / _to_add.shape[0]
+        for start in starts[:n_slice]:
+            workon = &whole_array[start * stride]
+            for i in range(length):
+                workon[i] += to_add[i]
 
 
 class CupyOps(Ops):
