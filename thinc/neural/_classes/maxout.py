@@ -2,6 +2,7 @@ import numpy
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
+from .._lsuv import LSUVinit
 
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
@@ -16,8 +17,7 @@ def xavier_uniform_init(W, ops):
         W[:,i] = numpy.random.uniform(-scale, scale, shape)
 
 
-
-@describe.on_data(_set_dimensions_if_needed)
+@describe.on_data(_set_dimensions_if_needed, LSUVinit)
 @describe.output(("nO",))
 @describe.input(("nI",))
 @describe.attributes(
@@ -31,12 +31,12 @@ def xavier_uniform_init(W, ops):
     d_b=Gradient("b")
 )
 class Maxout(Model):
+    name = 'maxout'
     def __init__(self, nO=None, nI=None, pieces=2, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.nI = nI
         self.nP = pieces
-
 
     def predict(self, X__BI):
         X__BOP = self.ops.xp.tensordot(X__BI, self.W, axes=[[1], [-1]])
