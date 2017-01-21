@@ -17,22 +17,37 @@ def svd_orthonormal(shape):
     return q
 
 
+def do_lsuv(ops, weights, predict, X):
+    weights[:] = svd_orthonormal(weights.shape)
+    acts = predict(X)
+    tol_var = 0.1
+    t_max = 10
+    t_i = 0
+    while True:
+        acts1 = predict(X)
+        var = np.var(acts1)
+        if abs(var - 1.0) < tol_var or t_i > t_max:
+            break
+        weights /= ops.xp.sqrt(var)
+        t_i += 1
+    return predict(X)
+
+
 def LSUVinit(model, X, y=None):
-    if model.name == 'softmax':
+    if model.name == 'batchnorm':
+        model = model._layers[0]
+    if model.name in 'softmax':
         return
     model.W[:] = svd_orthonormal(model.W.shape)
     acts = model(X)
-    print(model.name, 'end var', np.var(acts))
     tol_var = 0.1
     t_max = 10
     t_i = 0
     while True:
         acts1 = model(X)
         var = np.var(acts1)
-        print('var', t_i, var)
         if abs(var - 1.0) < tol_var or t_i > t_max:
             break
         model.W /= model.ops.xp.sqrt(var)
         t_i += 1
     acts = model(X)
-    print(model.name, 'end var', np.var(acts))
