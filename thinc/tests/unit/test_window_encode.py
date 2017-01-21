@@ -68,9 +68,9 @@ def I(ndim):
 def test_nI(model):
     assert model.nI == model.embed.nO
 
-def test_shape_is_inferred_from_data(positions):
+def test_shape_is_inferred_from_data(positions, ndim, nV):
     model = MaxoutWindowEncode(
-                Embed(ndim,ndim, nV), pieces=2, window=2)
+                Embed(ndim, ndim, nV), pieces=2, window=2)
     y = model.ops.asarray([[0, 1]], dtype='i')
     with model.begin_training(positions, y):
         pass
