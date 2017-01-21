@@ -4,6 +4,8 @@ import pytest
 from ...neural.vec2vec import Model, ReLu, Softmax
 from ...neural._classes.feed_forward import FeedForward
 from ...neural._classes.batchnorm import BatchNorm
+from ...neural._classes.elu import ELU
+from ...neural._classes.maxout import Maxout
 from ...neural.ops import NumpyOps
 from ...api import clone, chain
 from ...loss import categorical_crossentropy
@@ -53,8 +55,14 @@ def create_relu_batchnorm_softmax(depth, width):
         model = BatchNorm(ReLu(width, 784)) >> Softmax(10, width)
     return model
 
+def create_elu_maxout_softmax(depth, width):
+    with Model.define_operators({'>>': chain}):
+        model = ELU(width) >> Maxout(5) >> Softmax()
+    return model
+
 @pytest.fixture(params=[
     create_relu_softmax,
+    create_elu_maxout_softmax,
     create_relu_batchnorm_softmax])
 def create_model(request):
     return request.param
