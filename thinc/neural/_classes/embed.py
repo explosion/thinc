@@ -1,12 +1,14 @@
+import numpy as np
 from .model import Model
 from ... import describe
 from ... import check
-from ...check import is_int_array
+from ...check import is_int_array, is_int
 from ... describe import Dimension, Weights, Synapses, Gradient
+from .._lsuv import svd_orthonormal, do_lsuv
 
 
 def _set_dimensions_if_needed(model, X, y=None):
-    if model.nV is None:
+    if model.nV == None:
         max_id = int(X.max()) + 1
         if max_id >= 10000000: # pragma: no cover
             raise ValueError("TODO error --- really want us to make 1m vectors?")
@@ -19,7 +21,14 @@ def _uniform_init(lo, hi):
     return wrapped
 
 
-@describe.on_data(_set_dimensions_if_needed)
+def LSUVinit(model, X, y=None):
+    if model.vectors != None and model.W != None:
+        do_lsuv(model.ops, model.vectors, model, X)
+        do_lsuv(model.ops, model.W, model, X)
+    return X
+
+
+@describe.on_data(_set_dimensions_if_needed, LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
     nV=Dimension("Number of vectors"),
@@ -46,6 +55,7 @@ class Embed(Model):
     #def output_shape(self):
     #    return (self.nB, self.nO)
 
+    @check.arg(1, is_int)
     def __init__(self, nO, nM=None, nV=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
