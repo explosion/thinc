@@ -7,7 +7,7 @@ from .._lsuv import LSUVinit
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
-    if model.nO is None and y is not None:
+    if model.nO is None and y is not None: # pragma: no cover
         model.nO = int(y.max()) + 1
 
 def xavier_uniform_init(W, ops):

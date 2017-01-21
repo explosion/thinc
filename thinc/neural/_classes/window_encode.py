@@ -87,7 +87,7 @@ class MaxoutWindowEncode(Model):
                 grad_out = None
             # Bop,Bfi->opfi
             self.d_W += self.ops.xp.tensordot(gradient__bop, inputs__bfi, axes=[[0], [0]])
-            if sgd is not None:
+            if sgd is not None: # pragma: no cover
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return grad_out
         return best__bo, bp_dropout(finish_update)

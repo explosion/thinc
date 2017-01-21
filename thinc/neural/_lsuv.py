@@ -4,10 +4,10 @@ import numpy as np
 # https://github.com/ducha-aiki/LSUV-keras/blob/master/lsuv_init.py
 
 
-# Orthonorm init code is taked from Lasagne
+# Orthonorm init code is taken from Lasagne
 # https://github.com/Lasagne/Lasagne/blob/master/lasagne/init.py
 def svd_orthonormal(shape):
-    if len(shape) < 2:
+    if len(shape) < 2: # pragma: no cover
         raise RuntimeError("Only shapes of length 2 or more are supported.")
     flat_shape = (shape[0], np.prod(shape[1:]))
     a = np.random.standard_normal(flat_shape)
@@ -34,7 +34,7 @@ def do_lsuv(ops, weights, predict, X):
 
 
 def LSUVinit(model, X, y=None):
-    if model.name == 'batchnorm':
+    if model.name == 'batchnorm': # pragma: no cover
         model = model._layers[0]
     if model.name in 'softmax':
         return
