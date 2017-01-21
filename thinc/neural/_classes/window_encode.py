@@ -49,6 +49,7 @@ def LSUVinit(model, positions, y=None):
     d_b=Gradient("b")
 )
 class MaxoutWindowEncode(Model):
+    name = 'window-encode'
     @property
     def nW(self):
         return int((self.nF-1)/2)
@@ -74,19 +75,21 @@ class MaxoutWindowEncode(Model):
         def finish_update(gradient__bo, sgd=None):
             gradient__bop = self.ops.backprop_take(gradient__bo, which__bo, self.nP)
             self.d_b += gradient__bop.sum(axis=0)
-
-            inputs__bfi = self.ops.allocate((which__bo.shape[0], self.nF, self.nI))
-            _get_full_inputs(inputs__bfi, uniq_ids, positions, uniq_vectors, self.nW)
-            # Bop,Bfi->opfi
-            self.d_W += self.ops.batch_outer(gradient__bop, inputs__bfi)
+            inputs__bfi = _get_full_inputs(
+                self.ops, uniq_ids, positions, uniq_vectors, self.nW)
             if fine_tune is not None:
                 gradient__bfi = self.ops.xp.einsum(
                     'bop,opfi->bfi', gradient__bop, self.W)
                 gradient__ui = _get_vector_gradients(self.ops, uniq_ids, positions,
                                                      gradient__bfi)
-                return fine_tune(gradient__ui)
+                grad_out = fine_tune(gradient__ui)
             else:
-                return None
+                grad_out = None
+            # Bop,Bfi->opfi
+            self.d_W += self.ops.xp.tensordot(gradient__bop, inputs__bfi, axes=[[0], [0]])
+            if sgd is not None:
+                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+            return grad_out
         return best__bo, bp_dropout(finish_update)
 
     def _forward(self, uniq_ids, positions, vectors):
@@ -116,7 +119,10 @@ def _get_output(ops, uniq_ids, positions, H__ufop):
         # 2: _ _ of _ _
         # 3: _ of _ _ _
         # 4: of _ _ _ _
-        # Incrememnt each slice of the output, with the word's feature values
+        # The weights at row 0 are the ones that apply for a word two before 'of',
+        # i.e. when 'of' is in the RR position. The weights at row 4 are the ones
+        # that apply when 'of' is two *after* the focus word. We can therefore
+        # add these weights to a slice of the output.
         v__fop = H__ufop[vec_idx]
         for i in tok_idxs:
             # Let's say 'of' occurred at position 1 (i==3 given shifting)
@@ -137,6 +143,7 @@ def _compute_hidden_layer(ops, W__opfi, vectors__ui):
 
 
 def _get_vector_gradients(ops, uniq_ids, positions, tune__bfi):
+    nW = int((tune__bfi.shape[1]-1) / 2)
     gradients__ui = ops.allocate((len(uniq_ids), tune__bfi.shape[-1]))
     for u, id_ in enumerate(uniq_ids):
         d_vector = gradients__ui[u]
@@ -145,45 +152,35 @@ def _get_vector_gradients(ops, uniq_ids, positions, tune__bfi):
             # "the heart of the matter"
             # What's the gradient for the vector of "of"?
             # It was used 5 times --- as a feature for each word
-            if i >= 2:
-                # It was used as feature RR of "the"
-                d_vector += tune__bfi[i-2, 0]
-            if i >= 1:
-                # It was used as feature R of "heart"
-                d_vector += tune__bfi[i-1, 1]
-            # It was used as feature W of "of"
-            d_vector += tune__bfi[i, 2]
-            if (i+1) < tune__bfi.shape[0]:
-                # It was used as feature L of "the"
-                d_vector += tune__bfi[i+1, 3]
-            if (i+2) < tune__bfi.shape[0]:
-                # It was used as feature LL of "matter"
-                d_vector += tune__bfi[i+2, 4]
+            for f in range(nW):
+                if i-(nW-f) >= 0:
+                    d_vector += tune__bfi[i-(nW-f), f]
+            for f in range(nW+1):
+                if (i+f) < tune__bfi.shape[0]:
+                    d_vector += tune__bfi[i+f, nW+f]
     return gradients__ui
 
 
-
-def _get_full_inputs(writeto, uniq_ids, positions, vectors, nW):
+def _get_full_inputs(ops, uniq_ids, positions, vectors__ui, nW):
+    total_length = sum(len(occurs) for occurs in positions.values())
+    vectors__bi = ops.allocate((total_length, vectors__ui.shape[1]))
+    # Get the (non-unique) vectors, as a contiguous array.
     for vec_idx, id_ in enumerate(uniq_ids):
         tok_idxs = positions[id_]
-        vector = vectors[vec_idx]
+        vector = vectors__ui[vec_idx]
         for tok_idx in tok_idxs:
-            writeto[tok_idx, nW] = vector
-    vectors = writeto[:, nW]
+            vectors__bi[tok_idx] = vector
     # Let's say the input was
     # "the heart of the matter"
- 
     # If "of" is RR, we read of[0]
     # If "of" is R, we read of[1]
     # If "of" is W, we read of[2]
     # If "of" is L, we read of[3]
     # If "of" is LL, we read of[4]
-    writeto[2:, 0] = vectors[2:] # Words at the start aren't R features
-    writeto[1:, 1] = vectors[1:]
-    writeto[:, 2] = vectors
-    writeto[:-1, 3] = vectors[:-1] # Words at the end aren't L features
-    writeto[:-2, 4] = vectors[:-2]
-    # - output[4] (i.e. of-is-L): += of_weights[3]
-    # - output[5] (i.e. of-is-LL): += of_weights[4]
-    # - output[3] (i.e. of-is-W): += of_weights[2]
-    return writeto
+    X__bfi = ops.allocate((total_length, nW*2+1, vectors__ui.shape[1]))
+    for f in range(1, nW+1):
+        X__bfi[:-f, nW-f] = vectors__bi[f:] # Words at the start aren't R features
+    X__bfi[:, nW] = vectors__bi
+    for f in range(1, nW+1):
+        X__bfi[f:, nW+f] = vectors__bi[:-f] # Words at the end aren't L features
+    return X__bfi
