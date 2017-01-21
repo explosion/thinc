@@ -48,8 +48,8 @@ class Ops(object):
         else:
             return x * mask, wrap_backprop
 
-    def flatten(self, X):
-        return self.asarray(list(concat(X)))
+    def flatten(self, X, dtype=None):
+        return self.asarray(list(concat(X)), dtype=dtype)
  
     def unflatten(self, X, lengths):
         unflat = []
@@ -78,7 +78,7 @@ class Ops(object):
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
-    def asarray(self, data, dtype='f'):
+    def asarray(self, data, dtype=None):
         return self.xp.asarray(data, dtype=dtype)
 
     def batch_dot(self, x, y):
