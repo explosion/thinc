@@ -11,6 +11,7 @@ from cytoolz import concat
 from numpy import prod
 from numpy cimport ndarray
 from collections import Sized
+cimport numpy as np
 
 from ..typedefs cimport weight_t
 
@@ -186,6 +187,21 @@ class NumpyOps(Ops):
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] = 0.
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def take_which(self, ndarray cands, ndarray which):
+        cdef float[:] flat_cands = cands.flatten()
+        cdef long[:] flat_which = which.flatten()
+        cdef int out_size = len(flat_which)
+        cdef int cands_size = len(flat_cands)
+        cdef int stride = cands.shape[cands.ndim-1]
+        cdef float[:] flat_out = self.allocate(out_size)
+        for i in range(out_size):
+            flat_out[i] = flat_cands[i * stride + flat_which[i]]
+        shape = tuple([which.shape[i] for i in range(which.ndim)])
+        output = self.asarray(flat_out)
+        return output.reshape(shape)
 
     def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
         cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
