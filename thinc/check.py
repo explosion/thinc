@@ -38,7 +38,7 @@ def has_shape(shape, arg_id, args, kwargs):
         raise ShapeMismatchError(arg.shape, tuple(shape_values), shape)
     for i, dim in enumerate(shape_values):
         # Allow underspecified dimensions
-        if dim is not None and arg.shape[i] != dim:
+        if dim != None and arg.shape[i] != dim:
             raise ShapeMismatchError(arg.shape, shape_values, shape)
 
 
@@ -57,6 +57,14 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
     if 'max' in kwargs and arg > kwargs['max']:
         raise ValueError("%s > max %s" % (arg, kwargs['min']))
 
+
+def is_shape(arg_id, args, func_kwargs, **kwargs):
+    arg = args[arg_id]
+    if not isinstance(arg, Iterable):
+        raise ExpectedTypeError(arg, ['iterable'])
+    for value in arg:
+        if not isinstance(value, int) or value < 0:
+            raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
 
 def is_int(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
