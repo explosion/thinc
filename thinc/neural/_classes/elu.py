@@ -6,7 +6,7 @@ from ...describe import Dimension, Synapses, Biases
 from ...check import has_shape
 
 
-class ELU(Affine): # pragma: no cover
+class ELU(Affine):
     def predict(self, input__bi):
         output__bo = Affine.predict(self, input__bi)
         self.ops.elu(output__bo, inplace=True)
@@ -22,5 +22,5 @@ class ELU(Affine): # pragma: no cover
             self.ops.backprop_elu(gradient, output_copy, inplace=True)
             return finish_affine(gradient, sgd)
         output__bo[:] = output_copy
-        output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
-        return output__BO, bp_dropout(finish_update)
+        output__bo, bp_dropout = self.ops.dropout(output__bo, drop, inplace=True)
+        return output__bo, bp_dropout(finish_update)
