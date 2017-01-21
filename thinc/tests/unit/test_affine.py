@@ -55,6 +55,7 @@ def test_Affine_dimensions_on_data():
     y = MagicMock()
     y.max = MagicMock()
     model = Affine()
+    model.on_data_hooks = model.on_data_hooks[:1]
     with model.begin_training(X, y):
         pass
     X.shape.__getitem__.assert_called_with(1)
