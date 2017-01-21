@@ -74,6 +74,8 @@ def read_conll(loc):
                 word, pos, head, label = pieces
             else:
                 idx, word, lemma, pos1, pos, morph, head, label, _, _2 = pieces
+            if '-' in idx:
+                continue
             words.append(word)
             tags.append(pos)
         yield words, tags
