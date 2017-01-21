@@ -78,8 +78,8 @@ class MaxoutWindowEncode(Model):
             inputs__bfi = _get_full_inputs(
                 self.ops, uniq_ids, positions, uniq_vectors, self.nW)
             if fine_tune is not None:
-                gradient__bfi = self.ops.xp.einsum(
-                    'bop,opfi->bfi', gradient__bop, self.W)
+                gradient__bfi = self.ops.xp.tensordot(gradient__bop, self.W,
+                    axes=[[1,2], [0,1]])
                 gradient__ui = _get_vector_gradients(self.ops, uniq_ids, positions,
                                                      gradient__bfi)
                 grad_out = fine_tune(gradient__ui)
@@ -93,6 +93,7 @@ class MaxoutWindowEncode(Model):
         return best__bo, bp_dropout(finish_update)
 
     def _forward(self, uniq_ids, positions, vectors):
+        assert self.nP != 0
         hidden = _compute_hidden_layer(self.ops, self.W, vectors)
         cands = _get_output(self.ops, uniq_ids, positions, hidden)
         cands += self.b
@@ -124,13 +125,7 @@ def _get_output(ops, uniq_ids, positions, H__ufop):
         # that apply when 'of' is two *after* the focus word. We can therefore
         # add these weights to a slice of the output.
         v__fop = H__ufop[vec_idx]
-        for i in tok_idxs:
-            # Let's say 'of' occurred at position 1 (i==3 given shifting)
-            # - output[2] (i.e. of-is-R): += of_weights[1]
-            # - output[3] (i.e. of-is-W): += of_weights[2]
-            # - output[4] (i.e. of-is-L): += of_weights[3]
-            # - output[5] (i.e. of-is-LL): += of_weights[4]
-            out__bop[i : i+nF] += v__fop
+        ops.increment_slices(out__bop, v__fop, tok_idxs)
     # Shift the output, to correct for the 'padding' shift above.
     out__bop = out__bop[nW : -nW]
     return out__bop
