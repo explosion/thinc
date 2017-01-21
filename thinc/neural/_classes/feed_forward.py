@@ -6,7 +6,9 @@ def _run_child_hooks(model, X, y):
     for layer in model._layers:
         for hook in layer.on_data_hooks:
             hook(layer, X, y)
-        X = layer(X[:1000])
+        X = layer(X)
+        if hasattr(X, 'shape'):
+            X = model.ops.xp.ascontiguousarray(X)
 
 
 @describe.on_data(_run_child_hooks)
