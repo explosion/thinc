@@ -4,6 +4,7 @@ from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural._classes.feed_forward import FeedForward
 from thinc.neural._classes.batchnorm import BatchNorm as BN
 from thinc.neural._classes.convolution import ExtractWindow
+from thinc.neural._classes.window_encode import MaxoutWindowEncode
 
 from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
@@ -21,24 +22,33 @@ except ImportError:
     import toolz
 
 
-def main(width=32, vector_length=8):
+def get_positions(ids, drop=0.):
+    positions = {id_: [] for id_ in set(ids)}
+    for i, id_ in enumerate(ids):
+        positions[id_].append(i)
+    return positions, None
+
+
+def main(width=64, vector_length=64):
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     with Model.define_operators({'**': clone, '>>': chain}):
-        model = FeedForward((
-            layerize(flatten_sequences),
-            Embed(width, vector_length),
-            (ExtractWindow(nW=1) >> ReLu(width)),
-            (ExtractWindow(nW=2) >> ReLu(width)),
-            Softmax(nr_tag)))
+        model = (
+            layerize(flatten_sequences)
+            >> layerize(get_positions)
+            >> MaxoutWindowEncode(Embed(width, vector_length), 128,
+                  pieces=2, window=2)
+            >> ExtractWindow(nW=2)
+            >> ReLu(128)
+            >> Softmax(nr_tag))
 
     train_X, train_y = zip(*train_data)
     print("NR vector", max(max(seq) for seq in train_X))
     dev_X, dev_y = zip(*check_data)
     dev_y = model.ops.flatten(dev_y)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.batch_size = 8
-        trainer.nb_epoch = 10
+        trainer.batch_size = 16
+        trainer.nb_epoch = 20
         trainer.dropout = 0.0
         trainer.dropout_decay = 0.
         trainer.each_epoch.append(
