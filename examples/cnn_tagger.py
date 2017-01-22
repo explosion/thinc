@@ -1,4 +1,6 @@
 from __future__ import print_function
+from timeit import default_timer as timer
+
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
 from thinc.neural._classes.feed_forward import FeedForward
@@ -34,12 +36,27 @@ def main(width=64, vector_length=64):
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     with Model.define_operators({'**': clone, '>>': chain}):
+        #model = (
+        #    layerize(flatten_sequences)
+        #    >> layerize(get_positions)
+        #    >> MaxoutWindowEncode(Embed(width, vector_length), 128,
+        #          pieces=2, window=2)
+        #    >> ExtractWindow(nW=2)
+        #    >> ReLu(300)
+        #    >> Softmax(nr_tag))
+        #model = (
+        #    layerize(flatten_sequences)
+        #    >> Embed(width, vector_length)
+        #    >> ExtractWindow(nW=2)
+        #    >> ReLu(300)
+        #    >> Softmax(nr_tag))
         model = (
             layerize(flatten_sequences)
+            >> layerize(get_positions)
             >> Embed(width, vector_length)
-            >> ExtractWindow(nW=2, gap=1)
+            >> ExtractWindow(nW=2, gap=0)
             >> Maxout(128)
-            >> ExtractWindow(nW=2, gap=1)
+            >> ExtractWindow(nW=2, gap=0)
             >> Maxout(128)
             >> ExtractWindow(nW=1, gap=0)
             >> Softmax(nr_tag))
@@ -50,11 +67,18 @@ def main(width=64, vector_length=64):
     dev_y = model.ops.flatten(dev_y)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.batch_size = 16
-        trainer.nb_epoch = 20
+        trainer.nb_epoch = 3
         trainer.dropout = 0.0
         trainer.dropout_decay = 0.
-        trainer.each_epoch.append(
-            lambda: print(model.evaluate(dev_X, dev_y)))
+        epoch_times = [timer()]
+        def track_progress():
+            start = timer()
+            acc = model.evaluate(dev_X, dev_y)
+            end = timer()
+            stats = (acc, end-epoch_times[-1], float(dev_y.shape[0]) / (end-start))
+            print("%.3f acc, %d sec train, %d wps run" % stats)
+            epoch_times.append(end)
+        trainer.each_epoch.append(track_progress)
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
@@ -66,7 +90,7 @@ def main(width=64, vector_length=64):
  
 
 if __name__ == '__main__':
-    if 1:
+    if 0:
         plac.call(main)
     else:
         import cProfile
