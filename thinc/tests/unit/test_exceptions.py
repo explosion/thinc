@@ -2,7 +2,8 @@ import pytest
 
 from ... import check
 from ...neural._classes.model import Model
-from ...exceptions import UndefinedOperatorError, DifferentLengthError, ExpectedTypeError
+from ...exceptions import UndefinedOperatorError, DifferentLengthError
+from ...exceptions import ExpectedTypeError, OutsideRangeError
 
 
 @pytest.fixture
@@ -18,7 +19,7 @@ def dummy():
 
 
 @pytest.mark.parametrize('operator', ['+'])
-def test_check_operator_is_defined(model, dummy, operator):
+def test_check_operator_is_defined_undefined(model, dummy, operator):
     checker = check.operator_is_defined(operator)
     checked = checker(dummy)
     with pytest.raises(UndefinedOperatorError):
@@ -57,10 +58,10 @@ def test_check_is_float(arg):
 
 @pytest.mark.parametrize('low,high', [(1.0, 12.0), (123.456, 789.0)])
 def test_check_is_float_min_max(low, high):
-    with pytest.raises(ValueError):
+    with pytest.raises(OutsideRangeError):
         check.is_float(1, [1.0, low], None, min=high)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(OutsideRangeError):
         check.is_float(1, [1.0, high], None, max=low)
 
 
@@ -73,8 +74,8 @@ def test_check_is_int(arg):
 
 @pytest.mark.parametrize('low,high', [(1, 12), (123, 789)])
 def test_check_is_int_min_max(low, high):
-    with pytest.raises(ValueError):
+    with pytest.raises(OutsideRangeError):
         check.is_int(1, [1, low], None, min=high)
 
-    with pytest.raises(ValueError):
+    with pytest.raises(OutsideRangeError):
         check.is_int(1, [1, high], None, max=low)
