@@ -41,17 +41,17 @@ class Maxout(Model):
     def predict(self, X__BI):
         X__BOP = self.ops.xp.tensordot(X__BI, self.W, axes=[[1], [-1]])
         X__BOP += self.b
-        which__BO = self.ops.argmax(X__BOP, axis=-1)
-        return self.ops.take_which(X__BOP, which__BO)
+        best__BO, _ = self.ops.maxout(X__BOP)
+        return best__BO
 
     def begin_update(self, X__bi, drop=0.):
         output__boc = self.ops.xp.tensordot(X__bi, self.W, axes=[[1], [-1]])
         output__boc += self.b
-        which__bo = self.ops.argmax(output__boc, axis=-1)
-        best__bo = self.ops.take_which(output__boc, which__bo)
+        best__bo, which__bo = self.ops.maxout(output__boc)
         
         def finish_update(dX__bo, sgd=None):
-            dX__bop = self.ops.backprop_take(dX__bo, which__bo, self.nP)
+            dX__bo = self.ops.xp.ascontiguousarray(dX__bo, dtype='float32')
+            dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)
             self.d_W += self.ops.xp.tensordot(dX__bop, X__bi, axes=[[0], [0]])
             # Bop,opi->Bi
