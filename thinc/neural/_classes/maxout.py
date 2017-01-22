@@ -4,6 +4,7 @@ from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 from .._lsuv import LSUVinit
 
+
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
