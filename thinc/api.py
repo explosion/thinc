@@ -80,7 +80,8 @@ def concatenate(*layers): # pragma: no cover
                 start = end
             return ops.asarray(ops.xp.sum(layer_grads, axis=0))
         return output, finish_update
-    layer = FunctionLayer(begin_update)
+    nO = sum(layer.output_shape[1] for layer in layers) 
+    layer = FunctionLayer(begin_update, nO=nO)
     return layer
 
 
@@ -115,12 +116,12 @@ class FunctionLayer(Model):
     '''Wrap functions into weightless Model instances, for use as network
     components.'''
     def __init__(self, begin_update, predict=None, predict_one=None,
-            nr_in=None, nr_out=None, *args, **kwargs):
+            nI=None, nO=None, *args, **kwargs):
         self.begin_update = begin_update
         if predict is not None:
             self.predict = predict
         if predict_one is not None:
             self.predict_one = predict_one
-        self.nr_in = nr_in
-        self.nr_out = nr_out
+        self.nI = nI
+        self.nO = nO
         Model.__init__(self)
