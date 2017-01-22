@@ -1,5 +1,6 @@
 # coding: utf-8
 from __future__ import unicode_literals
+from collections import Sized
 
 import traceback
 from termcolor import colored as color
@@ -55,9 +56,9 @@ class UndefinedOperatorError(TypeError):
 
 
 class DifferentLengthError(ValueError):
-    def __init__(self, args, arg_tuple, arg_id):
+    def __init__(self, args, arg):
         self.tb = traceback.extract_stack()
-        vals = ['{v} [{l}]'.format(v=args[arg_id], l=len(args[arg_id])) for arg_id in arg_tuple]
+        vals = ['{v} [{l}]'.format(v=arg, l=len(arg) if isinstance(arg, Sized) else 'no length') for arg in args]
         ValueError.__init__(self, get_error(
             "Values need to be equal length: {v}".format(v=', '.join(vals)),
             tb=self.tb
