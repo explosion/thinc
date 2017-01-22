@@ -50,7 +50,6 @@ class Affine(Model):
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
-        assert input__BI.shape[1] == self.nI, (input__BI.shape, self.nI)
         output__BO = self.predict(input__BI)
         def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
