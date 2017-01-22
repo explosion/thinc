@@ -1,8 +1,9 @@
 from __future__ import print_function, unicode_literals, division
+from timeit import default_timer as timer
 from cytoolz import curry, concat
 from thinc.extra import datasets
 from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, ReLu, Maxout
+from thinc.neural.vec2vec import Model, ReLu, Maxout, Affine
 from thinc.neural.vec2vec import Softmax, Residual
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.ids2vecs import MaxoutWindowEncode
@@ -10,7 +11,7 @@ from thinc.neural._classes.convolution import ExtractWindow
 from thinc.loss import categorical_crossentropy
 from thinc.neural.optimizers import SGD
 
-from thinc.api import chain, concatenate
+from thinc.api import chain, concatenate, clone
 
 import numpy
 
@@ -52,14 +53,27 @@ def Orth(docs, drop=0.):
     return ids, None
 
 
-@layerize
-def StaticVector(docs, drop=0.):
-    '''Get word vectors.'''
-    tokens = concat(docs)
-    vectors = [t.vector / (t.vector_norm or 1.) for t in tokens]
-    return numpy.vstack(vectors), None
+class SpacyVectors(Embed):
+    on_data_hooks = []
+    def __init__(self, nlp):
+        Model.__init__(self)
+        self._id_map = {0: 0}
+        self.nO = nlp.vocab.vectors_length
+        self.nM = self.nO
+        self.nV = len(nlp.vocab)
+        self.W.fill(0)
+        vectors = self.vectors
+        for i, word in enumerate(nlp.vocab):
+            self._id_map[word.orth] = i+1
+            vectors[i+1] = word.vector / (word.vector_norm or 1.)
 
+    def predict(self, ids):
+        return self._embed(ids)
 
+    def begin_update(self, ids, drop=0.):
+        return self.predict(ids), None
+            
+        
 @layerize
 def Shape(docs, drop=0.):
     '''Get word shapes.'''
@@ -117,12 +131,19 @@ def spacy_preprocess(nlp, train_sents, dev_sents):
         return zip(X, y)
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
+@layerize
+def get_positions(ids, drop=0.):
+    positions = {id_: [] for id_ in set(ids)}
+    for i, id_ in enumerate(ids):
+        positions[id_].append(i)
+    return positions, None
+
 
 @plac.annotations(
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(nr_epoch=20, nr_sent=0, width=128):
+def main(nr_epoch=20, nr_sent=0, width=64):
     print("Loading spaCy and preprocessing")
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
@@ -132,39 +153,49 @@ def main(nr_epoch=20, nr_sent=0, width=128):
         train_sents = train_sents[:nr_sent]
     
     print("Building the model")
-    with Model.define_operators({'>>': chain, '|': concatenate}):
-        features = (
-            StaticVector
-            | (Orth   >> Embed(8, 32, 5000))
-            | (Shape  >> Embed(8, 8, 1000))
-            | (Prefix >> Embed(8, 8, 1000))
-            | (Suffix >> Embed(8, 8, 1000))
-        )
+    with Model.define_operators({'>>': chain, '|': concatenate, '**': clone}):
         model = (
-            features
-            >> BatchNorm(Maxout(width))
-            >> ExtractWindow(nW=2)
-            >> BatchNorm(Maxout(width))
+            Orth
+            >> SpacyVectors(nlp)
+            >> ExtractWindow(nW=1)
+            >> Maxout(width)
+            >> ExtractWindow(nW=1)
+            >> Maxout(width)
+            >> ExtractWindow(nW=1)
             >> Softmax(nr_class)
         )
 
     print("Preparing training")
-    dev_X, dev_Y = zip(*dev_sents)
-    dev_Y = model.ops.flatten(dev_Y)
+    dev_X, dev_y = zip(*dev_sents)
+    dev_y = model.ops.flatten(dev_y)
     train_X, train_y = zip(*train_sents)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
+        optimizer._averages = None
         trainer.nb_epoch = nr_epoch
-        trainer.dropout = 0.0
-        trainer.dropout_decay = 1e-5
+        trainer.dropout = 0.9
+        trainer.dropout_decay = 1e-4
         trainer.batch_size = 8
-        epoch_loss = [0] # Workaround Python 2 scoping
-        def log_progress():
-            with model.use_params(optimizer.averages):
-                progress = (model.evaluate(dev_X, dev_Y), epoch_loss[0])
-                print("Avg dev.: %.3f, loss %.3f" % progress)
-            epoch_loss[0] = 0
-
-        trainer.each_epoch.append(log_progress)
+        epoch_times = [timer()]
+        epoch_loss = [0.]
+        n_train = sum(len(y) for y in train_y)
+        def track_progress():
+            start = timer()
+            acc = model.evaluate(dev_X, dev_y)
+            end = timer()
+            stats = (
+                epoch_loss[-1],
+                acc,
+                n_train, (end-epoch_times[-1]),
+                n_train / (end-epoch_times[-1]),
+                len(dev_y), (end-start),
+                float(dev_y.shape[0]) / (end-start),
+                trainer.dropout)
+            print(
+                len(epoch_loss),
+                "%.3f loss, %.3f acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
+            epoch_times.append(end)
+            epoch_loss.append(0.)
+        trainer.each_epoch.append(track_progress)
         print("Training")
         for examples, truth in trainer.iterate(train_X, train_y):
             truth = model.ops.flatten(truth)
@@ -173,10 +204,9 @@ def main(nr_epoch=20, nr_sent=0, width=128):
             gradient, loss = categorical_crossentropy(guess, truth)
             optimizer.set_loss(loss)
             finish_update(gradient, optimizer)
-            trainer._loss += loss / len(truth)
-            epoch_loss[0] += loss
+            epoch_loss[-1] += loss / len(train_y)
     with model.use_params(optimizer.averages):
-        print("End: %.3f" % model.evaluate(dev_X, dev_Y))
+        print("End: %.3f" % model.evaluate(dev_X, dev_y))
 
 
 if __name__ == '__main__':
@@ -187,4 +217,4 @@ if __name__ == '__main__':
         import pstats
         cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
-        s.strip_dirs().sort_stats("time").print_stats()
+        s.strip_dirs().sort_stats("time").print_stats(20)
