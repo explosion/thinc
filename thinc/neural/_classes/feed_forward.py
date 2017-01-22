@@ -15,7 +15,12 @@ def _run_child_hooks(model, X, y):
 class FeedForward(Model):
     '''A feed-forward network, that chains multiple Model instances together.'''
     def __init__(self, layers, **kwargs):
-        self._layers = layers
+        self._layers = []
+        for layer in layers:
+            if isinstance(layer, FeedForward):
+                self._layers.extend(layer._layers)
+            else:
+                self._layers.append(layer)
         Model.__init__(self, **kwargs)
 
     @property
@@ -25,7 +30,7 @@ class FeedForward(Model):
     @property
     def output_shape(self):
         return self._layers[-1].output_shape
-
+    
     def begin_update(self, X, drop=0.):
         callbacks = []
         for layer in self._layers:
