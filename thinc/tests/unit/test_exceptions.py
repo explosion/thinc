@@ -5,10 +5,6 @@ from ...neural._classes.model import Model
 from ...exceptions import UndefinedOperatorError
 
 
-#@pytest.fixture
-#def add_model():
-#    return Model().__add__
-
 @pytest.fixture
 def model():
     return Model()
