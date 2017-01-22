@@ -10,7 +10,7 @@ from .exceptions import ConstraintError
 
 
 def equal_length(*args):
-    '''Check that a tuple of arguments has the same length.
+    '''Check that argument have the same length.
     '''
     for i, arg in enumerate(args):
         if not isinstance(arg, Sized):
