@@ -2,7 +2,7 @@ import numpy
 
 
 def categorical_crossentropy(scores, labels):
-    target = numpy.zeros(scores.shape)
+    target = numpy.zeros(scores.shape, dtype='float32')
     loss = 0.
     for i in range(len(labels)):
         target[i, int(labels[i])] = 1.
