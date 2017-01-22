@@ -3,7 +3,8 @@ import pytest
 from ... import check
 from ...neural._classes.model import Model
 from ...exceptions import UndefinedOperatorError, DifferentLengthError
-from ...exceptions import ExpectedTypeError, OutsideRangeError
+from ...exceptions import ExpectedTypeError, ShapeMismatchError
+from ...exceptions import ConstraintError, OutsideRangeError
 
 
 @pytest.fixture
