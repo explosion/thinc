@@ -61,8 +61,6 @@ def test_check_is_float(arg):
 def test_check_is_float_min_max(low, high):
     with pytest.raises(OutsideRangeError):
         check.is_float(1, [1.0, low], None, min=high)
-
-    with pytest.raises(OutsideRangeError):
         check.is_float(1, [1.0, high], None, max=low)
 
 
@@ -77,6 +75,4 @@ def test_check_is_int(arg):
 def test_check_is_int_min_max(low, high):
     with pytest.raises(OutsideRangeError):
         check.is_int(1, [1, low], None, min=high)
-
-    with pytest.raises(OutsideRangeError):
         check.is_int(1, [1, high], None, max=low)
