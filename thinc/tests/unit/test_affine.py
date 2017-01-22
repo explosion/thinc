@@ -49,16 +49,14 @@ def test_Affine_calls_init_hooks(model):
 
 
 def test_Affine_dimensions_on_data():
-    X = MagicMock()
-    X.shape = MagicMock()
-    X.shape.__getitem__ = MagicMock()
+    X = MagicMock(shape=(5,10))
     y = MagicMock()
     y.max = MagicMock()
     model = Affine()
     model.on_data_hooks = model.on_data_hooks[:1]
     with model.begin_training(X, y):
         pass
-    X.shape.__getitem__.assert_called_with(1)
+    assert model.nI is not None
     y.max.assert_called_with()
 
 

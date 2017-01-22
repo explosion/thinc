@@ -1,45 +1,9 @@
 # coding: utf-8
 from __future__ import unicode_literals
+from collections import Sized
 
 import traceback
 from termcolor import colored as color
-
-
-def get_error(title, *args, **kwargs):
-    template = '\n\n\t{title}{info}{tb}\n'
-    info = '\n'.join(['\t' + l for l in args]) if args else ''
-    highlight = kwargs['highlight'] if 'highlight' in kwargs else False
-    tb = _get_traceback(kwargs['tb'], highlight) if 'tb' in kwargs else ''
-    return template.format(title=color(title, 'red', attrs=['bold']),
-                           info=info, tb=tb).encode('utf8')
-
-
-def _get_traceback(tb, highlight):
-    template = '\n\n\t{title}\n\t{tb}'
-    # Prune "check.py" from tb (hacky)
-    tb = [record for record in tb if not record[0].endswith('check.py')]
-    tb_range = tb[-5:-2]
-    tb_list = [_format_traceback(p, l, fn, t, i, len(tb_range), highlight) for i, (p, l, fn, t) in enumerate(tb_range)]
-    return template.format(title=color('Traceback:', 'blue', attrs=['bold']),
-                           tb='\n'.join(tb_list).strip())
-
-
-def _format_traceback(path, line, fn, text, i, count, highlight):
-    template = '\t{i} {fn} [{l}] in {p}{t}'
-    indent = ('└─' if i == count-1 else '├─') + '──'*i
-    filename = path.rsplit('/thinc/', 1)[1] if '/thinc/' in path else path
-    text = _format_user_error(text, i, highlight) if i == count-1 else ''
-    return template.format(l=str(line), i=indent, t=text,
-                           fn=color(fn, attrs=['bold']),
-                           p=color(filename, attrs=['underline']))
-
-
-def _format_user_error(text, i, highlight):
-    template = '\n\t  {sp} {t}'
-    spacing = '   '*i + color('>>>', 'red')
-    if highlight:
-        text = text.replace(str(highlight), color(str(highlight), 'yellow'))
-    return template.format(sp=spacing, t=text)
 
 
 class UndefinedOperatorError(TypeError):
@@ -54,10 +18,19 @@ class UndefinedOperatorError(TypeError):
         ))
 
 
-class DifferentLengthError(ValueError):
-    def __init__(self, args, arg_tuple, arg_id):
+class OutsideRangeError(ValueError):
+    def __init__(self, arg, val, operator):
         self.tb = traceback.extract_stack()
-        vals = ['{v} [{l}]'.format(v=args[arg_id], l=len(args[arg_id])) for arg_id in arg_tuple]
+        ValueError.__init__(self, get_error(
+            "Outside range: {v} needs to be {o} {v2}".format(v=arg, o=operator, v2=val),
+            tb=self.tb
+        ))
+
+
+class DifferentLengthError(ValueError):
+    def __init__(self, args, arg):
+        self.tb = traceback.extract_stack()
+        vals = ['{v} [{l}]'.format(v=arg, l=len(arg) if isinstance(arg, Sized) else 'no length') for arg in args]
         ValueError.__init__(self, get_error(
             "Values need to be equal length: {v}".format(v=', '.join(vals)),
             tb=self.tb
@@ -97,3 +70,40 @@ class ConstraintError(ValueError):
             tb=self.tb,
             highlight=bad_con
         ))
+
+
+def get_error(title, *args, **kwargs):
+    template = '\n\n\t{title}{info}{tb}\n'
+    info = '\n'.join(['\t' + l for l in args]) if args else ''
+    highlight = kwargs['highlight'] if 'highlight' in kwargs else False
+    tb = _get_traceback(kwargs['tb'], highlight) if 'tb' in kwargs else ''
+    return template.format(title=color(title, 'red', attrs=['bold']),
+                           info=info, tb=tb).encode('utf8')
+
+
+def _get_traceback(tb, highlight):
+    template = '\n\n\t{title}\n\t{tb}'
+    # Prune "check.py" from tb (hacky)
+    tb = [record for record in tb if not record[0].endswith('check.py')]
+    tb_range = tb[-5:-2]
+    tb_list = [_format_traceback(p, l, fn, t, i, len(tb_range), highlight) for i, (p, l, fn, t) in enumerate(tb_range)]
+    return template.format(title=color('Traceback:', 'blue', attrs=['bold']),
+                           tb='\n'.join(tb_list).strip())
+
+
+def _format_traceback(path, line, fn, text, i, count, highlight):
+    template = '\t{i} {fn} [{l}] in {p}{t}'
+    indent = ('└─' if i == count-1 else '├─') + '──'*i
+    filename = path.rsplit('/thinc/', 1)[1] if '/thinc/' in path else path
+    text = _format_user_error(text, i, highlight) if i == count-1 else ''
+    return template.format(l=str(line), i=indent, t=text,
+                           fn=color(fn, attrs=['bold']),
+                           p=color(filename, attrs=['underline']))
+
+
+def _format_user_error(text, i, highlight):
+    template = '\n\t  {sp} {t}'
+    spacing = '  '*i + color(' >>>', 'red')
+    if highlight:
+        text = text.replace(str(highlight), color(str(highlight), 'yellow'))
+    return template.format(sp=spacing, t=text)

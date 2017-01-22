@@ -6,23 +6,24 @@ from __future__ import unicode_literals, print_function
 import numpy as np
 import code
 
-
+@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+@describe.attributes(
+    nB=Dimension("Batch size"),
+    nI=Dimension("Input size"),
+    nO=Dimension("Output size"),
+    W=Synapses("Weights matrix",
+        lambda obj: (obj.nO, obj.nI),
+        lambda W, ops: ops.xavier_uniform_init(W)),
+    b=Biases("Bias vector",
+        lambda obj: (obj.nO,)),
+    d_W=Gradient("W"),
+    d_b=Gradient("b")
+)
 class LSTM(Model): # pragma: no cover
     '''
     Code by Andrej Karpathy, here:
     https://gist.github.com/karpathy/587454dc0146a6ae21fc
     '''
-    fancy_forget_bias_init = 3.
-    nr_in = None
-    nr_out = None
-    
-    def setup(self, **kwargs): 
-        """ 
-        Initialize parameters of the LSTM (both weights and biases in one matrix) 
-        One might way to have a positive fancy_forget_bias_init number
-        (e.g. maybe even up to 5, in some papers)
-        """
-        pass
 
     def set_weights(self, data=None, initialize=True):
         # +1 for the biases, which will be the first row of WLSTM
@@ -39,7 +40,7 @@ class LSTM(Model): # pragma: no cover
             # nonlinearity are zero mean and on order of standard deviation ~1
             self.W[0,hidden_size:2*hidden_size] = self.fancy_forget_bias_init
 
-    def predict_batch(self, sequences):
+    def predict(self, sequences):
         X, is_not_end = pack_sequences(sequences)
         do_lstm = begin_lstm_forward(self.W, X.shape[1], X.shape[2])
         out = np.zeros((X.shape[0], X.shape[1], self.nr_out))
@@ -80,6 +81,7 @@ class LSTM(Model): # pragma: no cover
                 gradient = callback(gradient)
             return gradient
         return out, finish_update
+
 
 def begin_LSTM_forward(weights, batch_size, input_size): # pragma: no cover
     d = weights.shape[1]/4 # hidden size

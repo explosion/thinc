@@ -113,16 +113,19 @@ class Model(object):
 
     @contextlib.contextmanager
     def use_params(self, params): # pragma: no cover
+        backup = None
+        if id(self._mem) in params:
+            param = params[id(self._mem)]
+            backup = self.mem.weights.copy()
+            self.mem.weights[:] = param
+        if hasattr(self, '_layers'):
+            contexts = [layer.use_params(params) for layer in self._layers]
         yield
-        # TODO: Fix for feed-forward...
-        #backup = None
-        #if id(self._mem) in params:
-        #    param = params[id(self._mem)]
-        #    backup = self.mem.weights.copy()
-        #    self.mem.weights[:] = param
-        #yield
-        #if backup is not None:
-        #    self.mem.weights[:] = backup
+        if backup is not None:
+            self.mem.weights[:] = backup
+        for context in contexts:
+            for _ in context:
+                pass
 
     def __call__(self, x):
         '''

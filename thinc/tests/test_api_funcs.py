@@ -39,7 +39,7 @@ def test_chain_two(model1, model2):
 def test_chain_right_branch(model1, model2, model3):
     merge1 = chain(model1, model2)
     merge2 = chain(merge1, model3)
-    assert len(merge2._layers) == 2
+    assert len(merge2._layers) == 3
 
 
 def test_clone(model1, nI):

@@ -6,17 +6,17 @@ from numpy import ndarray
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
-from .exceptions import ConstraintError
+from .exceptions import ConstraintError, OutsideRangeError
 
 
 def equal_length(*args):
-    '''Check that a tuple of arguments has the same length.
+    '''Check that argument have the same length.
     '''
     for i, arg in enumerate(args):
         if not isinstance(arg, Sized):
             raise ExpectedTypeError(arg, ['Sized'])
         if i >= 1 and len(arg) != len(args[0]):
-            raise DifferentLengthError(args, arg_tuple, arg)
+            raise DifferentLengthError(args, arg)
 
 
 @curry
@@ -53,9 +53,9 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, float):
         raise ExpectedTypeError(arg, ['float'])
     if 'min' in kwargs and arg < kwargs['min']:
-        raise ValueError("%s < min %s" % (arg, kwargs['min']))
+        raise OutsideRangeError(arg, kwargs['min'], '>=')
     if 'max' in kwargs and arg > kwargs['max']:
-        raise ValueError("%s > max %s" % (arg, kwargs['min']))
+        raise OutsideRangeError(arg, kwargs['max'], '<=')
 
 
 def is_shape(arg_id, args, func_kwargs, **kwargs):
@@ -71,9 +71,9 @@ def is_int(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, int):
         raise ExpectedTypeError(arg, ['int'])
     if 'min' in kwargs and arg < kwargs['min']:
-        raise ValueError("%s < min %s" % (arg, kwargs['min']))
+        raise OutsideRangeError(arg, kwargs['min'], '>=')
     if 'max' in kwargs and arg > kwargs['max']:
-        raise ValueError("%s > max %s" % (arg, kwargs['min']))
+        raise OutsideRangeError(arg, kwargs['max'], '<=')
 
 
 def is_array(arg_id, args, func_kwargs, **kwargs):
