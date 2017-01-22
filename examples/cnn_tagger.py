@@ -5,6 +5,7 @@ from thinc.neural._classes.feed_forward import FeedForward
 from thinc.neural._classes.batchnorm import BatchNorm as BN
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.window_encode import MaxoutWindowEncode
+from thinc.neural._classes.maxout import Maxout
 
 from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
@@ -35,11 +36,12 @@ def main(width=64, vector_length=64):
     with Model.define_operators({'**': clone, '>>': chain}):
         model = (
             layerize(flatten_sequences)
-            >> layerize(get_positions)
-            >> MaxoutWindowEncode(Embed(width, vector_length), 128,
-                  pieces=2, window=2)
-            >> ExtractWindow(nW=2)
-            >> ReLu(128)
+            >> Embed(width, vector_length)
+            >> ExtractWindow(nW=2, gap=1)
+            >> Maxout(128)
+            >> ExtractWindow(nW=2, gap=1)
+            >> Maxout(128)
+            >> ExtractWindow(nW=1, gap=0)
             >> Softmax(nr_tag))
 
     train_X, train_y = zip(*train_data)
