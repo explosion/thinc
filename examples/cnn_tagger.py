@@ -52,7 +52,6 @@ def main(width=64, vector_length=64):
         #    >> Softmax(nr_tag))
         model = (
             layerize(flatten_sequences)
-            >> layerize(get_positions)
             >> Embed(width, vector_length)
             >> ExtractWindow(nW=2, gap=0)
             >> Maxout(128)
@@ -75,8 +74,11 @@ def main(width=64, vector_length=64):
             start = timer()
             acc = model.evaluate(dev_X, dev_y)
             end = timer()
-            stats = (acc, end-epoch_times[-1], float(dev_y.shape[0]) / (end-start))
-            print("%.3f acc, %d sec train, %d wps run" % stats)
+            stats = (
+                acc,
+                float(len(train_y)) / (end-epoch_times[-1]),
+                float(dev_y.shape[0]) / (end-start))
+            print("%.3f acc, %d wps train, %d wps run" % stats)
             epoch_times.append(end)
         trainer.each_epoch.append(track_progress)
         for X, y in trainer.iterate(train_X, train_y):
