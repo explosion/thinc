@@ -73,7 +73,7 @@ class MaxoutWindowEncode(Model):
         best__bo, bp_dropout = self.ops.dropout(best__bo, drop, inplace=True)
 
         def finish_update(gradient__bo, sgd=None):
-            gradient__bop = self.ops.backprop_take(gradient__bo, which__bo, self.nP)
+            gradient__bop = self.ops.backprop_maxout(gradient__bo, which__bo, self.nP)
             self.d_b += gradient__bop.sum(axis=0)
             inputs__bfi = _get_full_inputs(
                 self.ops, uniq_ids, positions, uniq_vectors, self.nW)
@@ -97,9 +97,7 @@ class MaxoutWindowEncode(Model):
         hidden = _compute_hidden_layer(self.ops, self.W, vectors)
         cands = _get_output(self.ops, uniq_ids, positions, hidden)
         cands += self.b
-        which = self.ops.argmax(cands)
-        best = self.ops.take_which(cands, which)
-        return best, which
+        return self.ops.maxout(cands)
 
 
 def _get_output(ops, uniq_ids, positions, H__ufop):
