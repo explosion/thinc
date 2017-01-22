@@ -5,6 +5,7 @@ cimport cython
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
+from cymem.cymem cimport Pool
 
 import numpy
 from cytoolz import concat
@@ -67,13 +68,13 @@ class Ops(object):
         elif drop >= 1.0:
             return self.allocate(shape)
         coinflips = self.xp.random.uniform(0., 1., shape)
-        return (coinflips >= drop) / (1.-drop)
+        return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
 
-    def allocate(self, shape):
+    def allocate(self, shape, dtype='float32'):
         if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
-        return self.xp.zeros(shape, dtype='float32')
+        return self.xp.zeros(shape, dtype=dtype)
 
     def unzip(self, data):
         X, y = zip(*data)
@@ -188,20 +189,33 @@ class NumpyOps(Ops):
             if signal_out[i] <= 0:
                 delta[i] = 0.
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def take_which(self, ndarray cands, ndarray which):
-        cdef float[:] flat_cands = cands.flatten()
-        cdef long[:] flat_which = which.flatten()
-        cdef int out_size = len(flat_which)
-        cdef int cands_size = len(flat_cands)
-        cdef int stride = cands.shape[cands.ndim-1]
-        cdef float[:] flat_out = self.allocate(out_size)
-        for i in range(out_size):
-            flat_out[i] = flat_cands[i * stride + flat_which[i]]
-        shape = tuple([which.shape[i] for i in range(which.ndim)])
-        output = self.asarray(flat_out)
-        return output.reshape(shape)
+    def maxout(self, float[:, :, ::1] py_cands):
+        cdef Pool mem = Pool()
+        cdef int B = py_cands.shape[0]
+        cdef int O = py_cands.shape[1]
+        cdef int P = py_cands.shape[2]
+
+        which__bo = <int*>mem.alloc(B * O, sizeof(int))
+        best__bo = <float*>mem.alloc(B * O, sizeof(float))
+        maxout(best__bo, which__bo,
+            &py_cands[0, 0, 0], B, O, P)
+        cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
+        memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
+        cdef ndarray py_which = self.xp.ascontiguousarray(self.allocate(B * O, dtype='int32'))
+        memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
+        return py_best.reshape((B, O)), py_which.reshape((B, O))
+    
+    def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
+        cdef Pool mem = Pool()
+        cdef int B = dX__bo.shape[0]
+        cdef int O = dX__bo.shape[1]
+
+        dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
+        backprop_maxout(dX__bop,
+            &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
+        cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
+        memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
+        return py_out.reshape((B, O, P))
 
     def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
         cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
@@ -222,3 +236,29 @@ class NumpyOps(Ops):
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+
+cdef void maxout(float* best__bo, int* which__bo,
+        const float* cands__bop, int B, int O, int P) nogil:
+    for b in range(B):
+        for o in range(O):
+            which__bo[0] = 0
+            best__bo[0] = cands__bop[0]
+            cands__bop += 1
+            for p in range(1, P):
+                if cands__bop[0] > best__bo[0]:
+                    which__bo[0] = p
+                    best__bo[0] = cands__bop[0]
+                cands__bop += 1
+            best__bo += 1
+            which__bo += 1
+
+
+cdef void backprop_maxout(float* dX__bop,
+        const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
+    for b in range(B):
+        for o in range(O):
+            dX__bop[which__bo[0]] = dX__bo[0]
+            dX__bop += P
+            dX__bo += 1
+            which__bo += 1

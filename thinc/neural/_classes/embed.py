@@ -22,7 +22,7 @@ def _uniform_init(lo, hi):
 
 
 def LSUVinit(model, X, y=None):
-    if model.vectors != None and model.W != None:
+    if model.vectors is not None and model.W is not None:
         do_lsuv(model.ops, model.vectors, model, X)
         do_lsuv(model.ops, model.W, model, X)
     return X
