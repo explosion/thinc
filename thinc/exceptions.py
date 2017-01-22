@@ -55,6 +55,15 @@ class UndefinedOperatorError(TypeError):
         ))
 
 
+class OutsideRangeError(ValueError):
+    def __init__(self, arg, val, operator):
+        self.tb = traceback.extract_stack()
+        ValueError.__init__(self, get_error(
+            "Outside range: {v} needs to be {o} {v2}".format(v=arg, o=operator, v2=val),
+            tb=self.tb
+        ))
+
+
 class DifferentLengthError(ValueError):
     def __init__(self, args, arg):
         self.tb = traceback.extract_stack()
