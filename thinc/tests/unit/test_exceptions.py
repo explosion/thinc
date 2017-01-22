@@ -45,16 +45,14 @@ def test_check_equal_length_type_error(args):
 
 @pytest.mark.parametrize('arg', [True, None, 14])
 def test_check_is_sequence(arg):
-    args = [(1, 2, 3), arg]
     with pytest.raises(ExpectedTypeError):
-        check.is_sequence(1, args, None)
+        check.is_sequence(1, [(1, 2, 3), arg], None)
 
 
 @pytest.mark.parametrize('arg', [True, None, (1, 2, 3), {'foo': 'bar'}])
 def test_check_is_float(arg):
-    args = [1.0, arg]
     with pytest.raises(ExpectedTypeError):
-        check.is_float(1, args, None)
+        check.is_float(1, [1.0, arg], None)
 
 
 @pytest.mark.parametrize('low,high', [(1.0, 12.0), (123.456, 789.0)])
@@ -66,9 +64,8 @@ def test_check_is_float_min_max(low, high):
 
 @pytest.mark.parametrize('arg', ['hello', None, (1, 2, 3), {'foo': 'bar'}])
 def test_check_is_int(arg):
-    args = [1, arg]
     with pytest.raises(ExpectedTypeError):
-        check.is_int(1, args, None)
+        check.is_int(1, [1, arg], None)
 
 
 @pytest.mark.parametrize('low,high', [(1, 12), (123, 789)])
