@@ -32,7 +32,7 @@ class Model(object):
 
             model = Model()
             other = Model()
-            with Model.use_operators({"+": lambda self, other: "plus"}):
+            with Model.define_operators({"+": lambda self, other: "plus"}):
                 print(model + other)
                 # "plus"
             print(model + other)
@@ -91,7 +91,7 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
 
-    @check.args(equal_length)
+    #@check.args(equal_length)
     @check.arg(1, is_sequence)
     def begin_training(self, train_X, train_y=None):
         for hook in self.on_data_hooks:

@@ -16,8 +16,8 @@ class Trainer(object):
         self.nb_epoch = 1
         self.i = 0
         self.L2 = 0.0
-        self.dropout = 0.9
-        self.dropout_decay = 1e-4
+        self.dropout = 0.0
+        self.dropout_decay = 0.0
         self._loss = 0.
         self.each_epoch = []
 

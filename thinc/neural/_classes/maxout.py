@@ -11,6 +11,7 @@ def _set_dimensions_if_needed(model, X, y=None):
     if model.nO is None and y is not None: # pragma: no cover
         model.nO = int(y.max()) + 1
 
+
 def xavier_uniform_init(W, ops):
     scale = numpy.sqrt(6. / (W.shape[0] + W.shape[2]))
     shape = (W.shape[0], W.shape[2])
