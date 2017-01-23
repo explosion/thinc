@@ -48,6 +48,13 @@ def clip_gradient(weight_t[:] gradient, threshold):
     _clip_gradient(&gradient[0], threshold, gradient.shape[0])
 
 
+def add_gradient_noise(float[::1] gradient, weight_t noise_level,
+        weight_t timestep):
+    variance = noise_level / ((1 + timestep) ** 0.55)
+    if variance >= 0.000001:
+        gradient += numpy.random.normal(scale=variance, loc=0., shape=(len(gradient),))
+
+
 class SGD(object):
     def __init__(self, ops, lr, momentum=0.0, decay=0.0, **settings):
         self.ops = ops
@@ -122,7 +129,7 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-
+        add_gradient_noise(gradient, 0.001, nr_upd)
         clip_gradient(gradient, len(gradient) / 100.)
 
         cdef weight_t[:] mom1 = self.mom1[key]
