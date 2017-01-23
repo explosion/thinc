@@ -5,6 +5,7 @@ cimport cython
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
+from libc.string cimport memcpy
 from cymem.cymem cimport Pool
 
 import numpy
@@ -15,6 +16,7 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
+from ..linalg cimport VecVec
 
 
 try:
@@ -217,25 +219,47 @@ class NumpyOps(Ops):
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
         return py_out.reshape((B, O, P))
 
-    def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
-        cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
-        cdef ndarray contig_starts = self.xp.ascontiguousarray(_starts, dtype='int32')
-
-        cdef const float* to_add = <const weight_t*>contig_to_add.data
-        cdef float* whole_array = <weight_t*>contig_array.data
-        cdef const int* starts = <const int*>contig_starts.data
-        cdef int n_slice = len(_starts)
-        cdef int length = _to_add.size
-        cdef int stride = length / _to_add.shape[0]
-        for start in starts[:n_slice]:
-            workon = &whole_array[start * stride]
-            for i in range(length):
-                workon[i] += to_add[i]
+    def seq2col(self, float[:, ::1] seq, int nW):
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cdef Pool mem = Pool()
+        cols = <float*>mem.alloc(B * I * (nW*2+1), sizeof(float))
+        seq2col(cols,
+            &seq[0,0], B, I, nW)
+        cdef ndarray py_out = self.xp.ascontiguousarray(
+            self.allocate(B*(2 * nW+1) * I, dtype='float32'))
+        memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
+        return py_out.reshape((B, I * 2*nW+1))
 
 
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+
+cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
+    nF = nW * 2 + 1
+    output += nW
+    for i in range(B-nW):
+        memcpy(output,
+            X, I * (nW+1) * sizeof(output[0]))
+        output += I * (nW+1)
+        memcpy(output,
+            X, I * nW * sizeof(output[0]))
+        output += I * nW
+        X += I
+    memcpy(output,
+        X, I * (nW+1) * sizeof(output[0]))
+
+
+cdef void backprop_seq2col(float* dX__bi,
+        const float* dY__bfi, int B, int I, int O, int nW) nogil:
+    nF = nW * 2 + 1
+    for i in range(B):
+        # dX[-nW : nW+1] += dY
+        for f in range(min(i-nW, 0), max(i+nW+1, B)):
+            VecVec.add_i(dX__bi + (f * I), dY__bfi, 1., I)
+        dX__bi += I
 
 
 cdef void maxout(float* best__bo, int* which__bo,
