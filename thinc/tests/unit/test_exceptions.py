@@ -21,7 +21,7 @@ def model():
 def dummy(*args, **kwargs):
     def _dummy(*args, **kwargs):
         return None
-    return dummy
+    return _dummy
 
 
 @pytest.mark.parametrize('operator', ['+'])
