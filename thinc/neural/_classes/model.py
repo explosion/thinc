@@ -114,18 +114,20 @@ class Model(object):
     @contextlib.contextmanager
     def use_params(self, params): # pragma: no cover
         backup = None
+        weights = self._mem.weights
         if id(self._mem) in params:
             param = params[id(self._mem)]
-            backup = self.mem.weights.copy()
-            self.mem.weights[:] = param
+            backup = weights.copy()
+            weights[:] = param
         if hasattr(self, '_layers'):
             contexts = [layer.use_params(params) for layer in self._layers]
+            for context in contexts:
+                next(context.gen)
         yield
         if backup is not None:
-            self.mem.weights[:] = backup
+            weights[:] = backup
         for context in contexts:
-            for _ in context:
-                pass
+            next(context.gen)
 
     def __call__(self, x):
         '''

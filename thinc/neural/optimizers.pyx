@@ -110,12 +110,15 @@ class Adam(SGD):
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
     
-    def __call__(self, weight_t[:] weights, weight_t[:] gradient, lr_scale=1., 
+    def __call__(self, weight_t[::1] weights, weight_t[::1] gradient, lr_scale=1., 
             key=None):
         assert key is not None
         assert len(gradient) >= 1
         assert not self.ops.xp.isnan(weights).any()
-        assert not self.ops.xp.isnan(gradient).any()
+        if self.ops.xp.isnan(gradient).any():
+            
+            memset(&gradient[0], 0, sizeof(gradient[0]) * len(gradient))
+            return None
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
