@@ -52,7 +52,9 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         weight_t timestep):
     variance = noise_level / ((1 + timestep) ** 0.55)
     if variance >= 0.000001:
-        gradient += numpy.random.normal(scale=variance, loc=0., shape=(len(gradient),))
+        gradient += numpy.asarray(
+                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
+                       dtype='float32')
 
 
 class SGD(object):
@@ -132,7 +134,7 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        add_gradient_noise(gradient, 0.001, nr_upd)
+        #add_gradient_noise(gradient, 0.001, nr_upd)
         clip_gradient(gradient, len(gradient) / 100.)
 
         cdef weight_t[:] mom1 = self.mom1[key]
@@ -161,8 +163,13 @@ cdef void _adam(
         beta1, nr_weight)
     VecVec.add_i(mom1,
         gradient, 1-beta1, nr_weight)
+
     for i in range(nr_weight):
-        mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
+        gradient[i] *= gradient[i] * (1-beta2)
+    for i in range(nr_weight):
+        mom2[i] = (beta2 * mom2[i]) + gradient[i]
+    #for i in range(nr_weight):
+    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # Here we assume this is calculated by the caller.
     #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
@@ -206,4 +213,4 @@ class Eve(object):
         else:
             delta = 1. / (self.upper_threshold + 1.)
             Delta = 1. / (self.lower_threshold + 1.)
-        return min(max(delta, loss / old_f), Delta)
+        return min(max(delta, loss / old_f), delta)
