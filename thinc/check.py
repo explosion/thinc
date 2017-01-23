@@ -84,7 +84,7 @@ def is_array(arg_id, args, func_kwargs, **kwargs):
 
 def is_int_array(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
-    if not isinstance(arg, ndarray) and 'i' not in arg.dtype:
+    if not isinstance(arg, ndarray) or 'i' not in arg.dtype:
         raise ExpectedTypeError(arg, ['ndarray[int]'])
 
 
