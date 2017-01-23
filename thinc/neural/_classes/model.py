@@ -32,7 +32,7 @@ class Model(object):
 
             model = Model()
             other = Model()
-            with Model.use_operators({"+": lambda self, other: "plus"}):
+            with Model.define_operators({"+": lambda self, other: "plus"}):
                 print(model + other)
                 # "plus"
             print(model + other)
