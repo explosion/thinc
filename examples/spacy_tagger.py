@@ -131,6 +131,7 @@ def spacy_preprocess(nlp, train_sents, dev_sents):
         return zip(X, y)
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
+
 @layerize
 def get_positions(ids, drop=0.):
     positions = {id_: [] for id_ in set(ids)}
@@ -162,6 +163,8 @@ def main(nr_epoch=20, nr_sent=0, width=64):
             >> ExtractWindow(nW=1)
             >> Maxout(width)
             >> ExtractWindow(nW=1)
+            >> Maxout(width)
+            >> ExtractWindow(nW=1)
             >> Softmax(nr_class)
         )
 
@@ -170,11 +173,10 @@ def main(nr_epoch=20, nr_sent=0, width=64):
     dev_y = model.ops.flatten(dev_y)
     train_X, train_y = zip(*train_sents)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        optimizer._averages = None
         trainer.nb_epoch = nr_epoch
         trainer.dropout = 0.9
-        trainer.dropout_decay = 1e-4
-        trainer.batch_size = 8
+        trainer.dropout_decay = 1e-3
+        trainer.batch_size = 4
         epoch_times = [timer()]
         epoch_loss = [0.]
         n_train = sum(len(y) for y in train_y)
@@ -182,9 +184,11 @@ def main(nr_epoch=20, nr_sent=0, width=64):
             start = timer()
             acc = model.evaluate(dev_X, dev_y)
             end = timer()
+            with model.use_params(optimizer.averages):
+                avg_acc = model.evaluate(dev_X, dev_y)
             stats = (
                 epoch_loss[-1],
-                acc,
+                acc, avg_acc,
                 n_train, (end-epoch_times[-1]),
                 n_train / (end-epoch_times[-1]),
                 len(dev_y), (end-start),
@@ -192,7 +196,7 @@ def main(nr_epoch=20, nr_sent=0, width=64):
                 trainer.dropout)
             print(
                 len(epoch_loss),
-                "%.3f loss, %.3f acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
+                "%.3f loss, %.3f (%.3f) acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
             epoch_times.append(end)
             epoch_loss.append(0.)
         trainer.each_epoch.append(track_progress)
@@ -202,8 +206,9 @@ def main(nr_epoch=20, nr_sent=0, width=64):
             guess, finish_update = model.begin_update(examples,
                                         drop=trainer.dropout)
             gradient, loss = categorical_crossentropy(guess, truth)
-            optimizer.set_loss(loss)
-            finish_update(gradient, optimizer)
+            if loss:
+                optimizer.set_loss(loss)
+                finish_update(gradient, optimizer)
             epoch_loss[-1] += loss / len(train_y)
     with model.use_params(optimizer.averages):
         print("End: %.3f" % model.evaluate(dev_X, dev_y))
