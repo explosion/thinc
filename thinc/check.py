@@ -42,6 +42,15 @@ def has_shape(shape, arg_id, args, kwargs):
             raise ShapeMismatchError(arg.shape, shape_values, shape)
 
 
+def is_shape(arg_id, args, func_kwargs, **kwargs):
+    arg = args[arg_id]
+    if not isinstance(arg, Iterable):
+        raise ExpectedTypeError(arg, ['iterable'])
+    for value in arg:
+        if value < 0 or not isinstance(value, int):
+            raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
+
+
 def is_sequence(arg_id, args, kwargs):
     arg = args[arg_id]
     if not isinstance(arg, Iterable):
@@ -57,14 +66,6 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
     if 'max' in kwargs and arg > kwargs['max']:
         raise OutsideRangeError(arg, kwargs['max'], '<=')
 
-
-def is_shape(arg_id, args, func_kwargs, **kwargs):
-    arg = args[arg_id]
-    if not isinstance(arg, Iterable):
-        raise ExpectedTypeError(arg, ['iterable'])
-    for value in arg:
-        if value < 0 or not isinstance(value, int):
-            raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
 
 def is_int(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
