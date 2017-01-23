@@ -4,6 +4,7 @@ from __future__ import unicode_literals
 import pytest
 from mock import MagicMock
 from numpy import ndarray
+import numpy
 
 from ... import check
 from ...neural._classes.model import Model
@@ -184,7 +185,7 @@ def test_check_is_array_fails(arg):
 
 
 def test_check_is_int_array_passes():
-    mock = MagicMock(spec=ndarray, dtype='i')
+    mock = MagicMock(spec=ndarray, dtype=numpy.dtype('int32'))
     check.is_int_array(0, [mock], None)
 
 
