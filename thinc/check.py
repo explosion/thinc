@@ -131,6 +131,6 @@ def args(*constraints):
     @wrapt.decorator
     def arg_check_adder(wrapped, instance, args, kwargs):
         for check in constraints:
-            check(args)
+            check(*args)
         return wrapped(*args, **kwargs)
     return arg_check_adder
