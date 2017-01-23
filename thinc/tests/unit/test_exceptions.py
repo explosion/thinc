@@ -16,7 +16,7 @@ def model():
 
 
 @pytest.fixture
-def dummy():
+def dummy(*args, **kwargs):
     def _dummy(*args, **kwargs):
         return None
     return dummy
