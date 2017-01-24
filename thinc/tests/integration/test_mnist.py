@@ -68,6 +68,7 @@ def create_model(request):
     return request.param
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize(('depth', 'width', 'nb_epoch'), [(2, 8, 5)])
 def test_small_end_to_end(depth, width, nb_epoch,
         create_model,
