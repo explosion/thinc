@@ -2,11 +2,11 @@
 This is a batched LSTM forward and backward pass, by Andrej Karpathy
 https://gist.github.com/karpathy/587454dc0146a6ae21fc
 """
-from __future__ import unicode_literals, print_function
-import numpy as np
-import code
+from __future__ import unicode_literals, print_function # pragma: no cover
+import numpy as np # pragma: no cover
+import code # pragma: no cover
 
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+@describe.on_data(_set_dimensions_if_needed, LSUVinit) # pragma: no cover
 @describe.attributes(
     nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
@@ -18,7 +18,7 @@ import code
         lambda obj: (obj.nO,)),
     d_W=Gradient("W"),
     d_b=Gradient("b")
-)
+) # pragma: no cover
 class LSTM(Model): # pragma: no cover
     '''
     Code by Andrej Karpathy, here:
@@ -47,7 +47,7 @@ class LSTM(Model): # pragma: no cover
         for t in range(X.shape[0]):
             out[t] = do_lstm(X[t], is_not_end[t])
         return unpack_sequences(out, is_not_end)
-  
+
     def get_fwd_cache(self, X, c0 = None, h0 = None):
         """
         X should be of shape (n,b,input_size), where n = length of sequence,
@@ -88,7 +88,7 @@ def begin_LSTM_forward(weights, batch_size, input_size): # pragma: no cover
     prevc = np.zeros((batch_size, hidden_size))
     prevh = np.zeros((batch_size, hidden_size))
     # input, forget, output, gate (IFOG)
-    IFOG = np.zeros((batch_size, hidden_size * 4)) 
+    IFOG = np.zeros((batch_size, hidden_size * 4))
     C = np.zeros((b, d)) # cell content
     def fwd_lstm_step(X_t, is_not_end):
         # Perform the LSTM forward pass with X as the input
@@ -125,7 +125,7 @@ def begin_LSTM_forward(weights, batch_size, input_size): # pragma: no cover
 def begin_lstm_backward(weights, d_weights, batch_size, input_size): # pragma: no cover
     C = np.zeros((b,d))
     H = np.zeros((b,d))
-    
+
     # Perform the LSTM forward pass with X as the input
     xphpb = weights.shape[0] # x plus h plus bias, lol
     Hin = np.zeros((n, b, xphpb)) # input [1, xt, ht-1] to each tick of the LSTM
@@ -169,7 +169,7 @@ def begin_lstm_backward(weights, d_weights, batch_size, input_size): # pragma: n
 
         return Hout[t], finish_update
     return lstm_step
-    
+
 
 def _get_finish_backward(dC, dprevC, dHout, dprevHout, dIFOGf, dWLSTM, dHin,
         weights, tanhCt, prevc, d): # pragma: no cover
@@ -185,16 +185,16 @@ def _get_finish_backward(dC, dprevC, dHout, dprevHout, dIFOGf, dWLSTM, dHin,
             dc0 = IFOGf[:,d:2*d] * dC
         dIFOGf[:,:d] = IFOGf[:,3*d:] * dC
         dIFOGf[:,3*d:] = IFOGf[:,:d] * dC
-            
+
         # backprop activation functions
         dIFOG[:,3*d:] = (1 - IFOGf[:,3*d:] ** 2) * dIFOGf[:,3*d:]
         y = IFOGf[:,:3*d]
         dIFOG[:,:3*d] = (y*(1.0-y)) * dIFOGf[:,:3*d]
- 
+
         # backprop matrix multiply
         dWLSTM += np.dot(Hin.transpose(), dIFOG)
         dHin = dIFOG.dot(weights.transpose())
- 
+
         # backprop the identity transforms into Hin
         dX = dHin[:,1:input_size+1]
         dprevHout += dHin[:,input_size+1:]
@@ -263,7 +263,7 @@ def checkSequentialMatchesBatch(): # pragma: no cover
     print(np.allclose(BdWLSTM, dWLSTM))
     print(np.allclose(Bdc0, dc0))
     print(np.allclose(Bdh0, dh0))
-  
+
 
 def checkBatchGradient(): # pragma: no cover
     """ check that the batch gradient is correct """
@@ -356,4 +356,4 @@ if __name__ == "__main__": # pragma: no cover
 #    d_f = dot(d_c, c_t1)
 #    d_c1 = dot(d_c, f_t)
 #
-#    d_zt = 
+#    d_zt =
