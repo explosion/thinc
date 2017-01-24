@@ -1,4 +1,4 @@
-from collections import defaultdict, Sequence, Sized, Iterable
+from collections import defaultdict, Sequence, Sized, Iterable, Callable
 import inspect
 import wrapt
 from cytoolz import curry
@@ -6,7 +6,7 @@ from numpy import ndarray
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
-from .exceptions import ConstraintError, OutsideRangeError
+from .exceptions import OutsideRangeError
 
 
 def equal_length(*args):
@@ -47,7 +47,7 @@ def is_shape(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, Iterable):
         raise ExpectedTypeError(arg, ['iterable'])
     for value in arg:
-        if value < 0 or not isinstance(value, int):
+        if not isinstance(value, int) or value < 0:
             raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
 
 
@@ -115,6 +115,8 @@ def arg(arg_id, *constraints):
             fix_args = list(args)
         for arg_id, checks in wrapped.checks.items():
             for check in checks:
+                if not isinstance(check, Callable):
+                    raise ExpectedTypeError(check, ['Callable'])
                 check(arg_id, fix_args, kwargs)
         return wrapped(*args, **kwargs)
 
@@ -133,6 +135,8 @@ def args(*constraints):
     @wrapt.decorator
     def arg_check_adder(wrapped, instance, args, kwargs):
         for check in constraints:
+            if not isinstance(check, Callable):
+                raise ExpectedTypeError(check, ['Callable'])
             check(*args)
         return wrapped(*args, **kwargs)
     return arg_check_adder

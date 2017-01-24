@@ -61,17 +61,6 @@ class ExpectedTypeError(TypeError):
         ))
 
 
-class ConstraintError(ValueError):
-    def __init__(self, bad_con, expected):
-        self.tb = traceback.extract_stack()
-        ValueError.__init__(self, get_error(
-            "Invalid argument constraint: {v} ({t})".format(v=bad_con, t=type(bad_con)),
-            "Expected {e}.".format(e=', '.join(expected)),
-            tb=self.tb,
-            highlight=bad_con
-        ))
-
-
 def get_error(title, *args, **kwargs):
     template = '\n\n\t{title}{info}{tb}\n'
     info = '\n'.join(['\t' + l for l in args]) if args else ''

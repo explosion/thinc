@@ -10,10 +10,10 @@ class AttributeDescription(object):
     def __call__(self, attr, model):
         self.name = attr
 
-    def __get__(self, obj, type=None):
+    def __get__(self, obj, type=None): # pragma: no cover
         return self.value
 
-    def __set__(self, obj, val):
+    def __set__(self, obj, val): # pragma: no cover
         self.value = val
 
 
