@@ -25,6 +25,12 @@ def dummy(*args, **kwargs):
     return _dummy
 
 
+@pytest.mark.parametrize('text,multiplier', [('text', 5000)])
+def test_check_exception_length_cap(text, multiplier):
+    error = ExpectedTypeError(text * multiplier, [])
+    assert len(str(error)) - len(text * multiplier) < 0
+
+
 @pytest.mark.parametrize('operator', ['+'])
 def test_check_operator_is_defined_passes(model, dummy, operator):
     checker = check.operator_is_defined(operator)
