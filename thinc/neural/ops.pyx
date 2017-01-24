@@ -294,10 +294,10 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i, 2]
 
     nF = nW * 2 + 1
-    for f in range(-nW, nW+1):
-        for i in range(B):
-            seq_row = &d_seqs[i * I]
-            col_row = &d_cols[i * I * nF]
+    for i in range(B):
+        seq_row = &d_seqs[i * I]
+        col_row = &d_cols[i * I * nF]
+        for f in range(-nW, nW+1):
             if B > (i+f) >= 0:
                 feat = col_row + (f * I)
                 VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
