@@ -106,8 +106,6 @@ def operator_is_defined(op):
 def arg(arg_id, *constraints):
     @wrapt.decorator
     def checked_function(wrapped, instance, args, kwargs):
-        if not hasattr(wrapped, 'checks'):
-            return wrapped(*args, **kwargs)
         if instance is not None:
             fix_args = [instance] + list(args)
         else:
