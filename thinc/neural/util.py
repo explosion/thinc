@@ -22,7 +22,7 @@ def mark_sentence_boundaries(sequences, drop=0.): # pragma: no cover
     return sequences, None
 
 
-def flatten_sequences(sequences, drop=0.):
+def flatten_sequences(sequences, drop=0.): # pragma: no cover
     ops = NumpyOps()
     return ops.flatten(sequences), None
 
