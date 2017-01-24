@@ -34,16 +34,3 @@ class ExtractWindow(Model):
         def finish_update(gradient, sgd=None):
             return self.ops.backprop_seq2col(gradient, self.nW)
         return finish_update
-
-
-#def backprop_concatenate(ops, dY__bo, nW, gap):
-#    nr_feat = nW * 2 + 1
-#    bfi = (dY__bo.shape[0], nr_feat, int(dY__bo.shape[-1] / nr_feat))
-#    dY__bfi = dY__bo.reshape(bfi)
-#    dX__bi = ops.allocate((dY__bo.shape[0], bfi[-1]))
-#    for f in range(1, nW+1):
-#        dX__bi[gap+f:] += dY__bfi[:-(gap+f), nW-f] # Words at start not used as rightward feats
-#    dX__bi += dY__bfi[:, nW]
-#    for f in range(1, nW+1):
-#        dX__bi[:-(gap+f)] += dY__bfi[(gap+f):, nW+f] # Words at end not used as leftward feats
-#    return dX__bi
