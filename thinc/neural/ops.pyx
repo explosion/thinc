@@ -233,7 +233,7 @@ class NumpyOps(Ops):
         cdef ndarray py_out = self.xp.ascontiguousarray(
             self.allocate(B*(2 * nW+1) * I, dtype='float32'))
         memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
-        return py_out.reshape((B, I * 2*nW+1))
+        return py_out.reshape((B, I * (2*nW+1)))
     
     def backprop_seq2col(self, float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
