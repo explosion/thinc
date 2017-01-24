@@ -1,17 +1,17 @@
-import random
-import io
-from collections import Counter
-import os.path
-import numpy
+import random # pragma: no cover
+import io # pragma: no cover
+from collections import Counter # pragma: no cover
+import os.path # pragma: no cover
+import numpy # pragma: no cover
 
-from ._vendorized.keras_data_utils import get_file
+from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
 
-GITHUB = 'https://github.com/UniversalDependencies/'
+GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
 ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
-    github=GITHUB, ancora='UD_Spanish-AnCora')
+    github=GITHUB, ancora='UD_Spanish-AnCora') # pragma: no cover
 EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
-    github=GITHUB, ewtb='UD_English')
+    github=GITHUB, ewtb='UD_English') # pragma: no cover
 
 
 def ancora_pos_tags(): # pragma: no cover
