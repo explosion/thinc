@@ -35,6 +35,26 @@ def test_get_dropout_not_empty(ops):
     assert all(value >= 0 for value in mask.flatten())
 
 
+def test_seq2col_window_one(ops):
+    seq = ops.asarray([[1.], [3.], [4.], [5]], dtype='float32')
+    cols = ops.seq2col(seq, 1)
+    assert_allclose(cols[0], [0., 1., 3.])
+    assert_allclose(cols[1], [1., 3., 4.])
+    assert_allclose(cols[2], [3., 4., 5.])
+    assert_allclose(cols[3], [4., 5., 0.])
+
+
+def test_backprop_seq2col_window_one(ops):
+    cols = ops.asarray([
+        [0., 0., 0.],
+        [-1., 0., 1.],
+        [2., 0., 0.],
+    ], dtype='float32')
+    expected = [[-1.], [2.], [1.]]
+    seq = ops.backprop_seq2col(cols, 1)
+    assert_allclose(seq, expected)
+
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_dropout_forward(ops, X):
