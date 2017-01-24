@@ -6,7 +6,7 @@ from numpy import ndarray
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
-from .exceptions import ConstraintError, OutsideRangeError
+from .exceptions import OutsideRangeError
 
 
 def equal_length(*args):

@@ -10,7 +10,7 @@ from ... import check
 from ...neural._classes.model import Model
 from ...exceptions import UndefinedOperatorError, DifferentLengthError
 from ...exceptions import ExpectedTypeError, ShapeMismatchError
-from ...exceptions import ConstraintError, OutsideRangeError
+from ...exceptions import OutsideRangeError
 
 
 @pytest.fixture
