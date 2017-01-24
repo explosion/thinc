@@ -201,13 +201,52 @@ def test_check_is_int_array_ndarray_fails():
         check.is_int_array(0, [mock], None)
 
 
-def test_check_arg_passes():
-    checker = check.arg(0, check.is_int)
+@pytest.mark.parametrize('arg,constraint', [(1, check.is_int)])
+def test_check_arg_passes(arg, constraint, dummy):
+    checker = check.arg(0, constraint)
     checked = checker(dummy)
-    checked(0, [1], True)
+    checked(0, [arg], True)
 
 
-def test_check_args_passes():
+def test_check_arg_passes_2checks(dummy):
+    mock = MagicMock(spec=ndarray, dtype=numpy.dtype('int32'))
+    checker = check.arg(0, check.is_array, check.is_int_array)
+    checked = checker(dummy)
+    checked(mock)
+
+
+def test_check_arg_passes_2decorators(dummy):
+    mock = MagicMock(spec=ndarray, dtype=numpy.dtype('int32'))
+    checker = check.arg(0, check.is_array)
+    checker2 = check.arg(0, check.is_int_array)
+    checked = checker2(checker(dummy))
+    checked(mock)
+
+
+@pytest.mark.parametrize('arg,constraint', [(1, check.is_int)])
+def test_check_arg_passes_method(arg, constraint):
+    class dummy_class(object):
+        @check.arg(1, constraint)
+        def dummy_method(self, *args, **kwargs):
+            return None
+
+    dummy_var = dummy_class()
+    dummy_var.dummy_method(arg)
+
+
+@pytest.mark.parametrize('arg,constraint', [(1, check.is_int)])
+def test_check_arg_fails_method(arg, constraint):
+    class dummy_class(object):
+        @check.arg(0, constraint)
+        def dummy_method(self, *args, **kwargs):
+            return None
+
+    dummy_var = dummy_class()
+    with pytest.raises(ExpectedTypeError):
+        dummy_var.dummy_method(arg)
+
+
+def test_check_args_passes(dummy):
     checker = check.args(check.is_int)
     checked = checker(dummy)
     checked(0, [1], None)
