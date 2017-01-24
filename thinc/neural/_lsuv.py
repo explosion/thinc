@@ -36,7 +36,7 @@ def do_lsuv(ops, weights, predict, X):
 def LSUVinit(model, X, y=None):
     if model.name == 'batchnorm': # pragma: no cover
         model = model._layers[0]
-    if model.name in 'softmax':
+    if model.name in 'softmax': # pragma: no cover
         return
     model.W[:] = svd_orthonormal(model.W.shape)
     acts = model(X)
