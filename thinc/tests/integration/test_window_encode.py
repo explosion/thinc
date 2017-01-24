@@ -84,7 +84,7 @@ def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
     d_BOP = numpy.zeros(x_BOP.shape)
 
     _get_full_gradients(d_BOP, d_BO, whiches_BO)
-    
+
     for b in range(x_BOP.shape[0]):
         for o in range(x_BOP.shape[1]):
             num_at_max = sum(x_BOP[b,o] >= x_BOP[b, o, whiches_BO[b,o]])
