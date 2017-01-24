@@ -38,13 +38,10 @@ class Weights(AttributeDescription):
             return obj._mem[key]
         else:
             shape = self.get_shape(obj)
-            if any(dim is None for dim in shape):
-                return None
-            else:
-                data = obj._mem.add(key, shape)
-                if self.init is not None:
-                    self.init(data, obj.ops)
-                return data
+            data = obj._mem.add(key, shape)
+            if self.init is not None:
+                self.init(data, obj.ops)
+            return data
 
     def __set__(self, obj, val):
         data = obj._mem.get((id(obj), self.name))
@@ -63,12 +60,9 @@ class Gradient(AttributeDescription):
             return obj._mem.get(key)
         else:
             param_key = (id(obj), self.param_name)
-            if param_key in obj._mem:
-                grad = obj._mem.add_gradient(key, param_key)
-                return grad
-            else:
-                return None
-    
+            grad = obj._mem.add_gradient(key, param_key)
+            return grad
+
     def __set__(self, obj, val):
         data = obj._mem.get((id(obj), self.name))
         data[:] = val
@@ -83,7 +77,7 @@ class Biases(Weights):
 
 
 def attributes(**specs):
-    if not specs:
+    if not specs: # pragma: no cover
         raise ValueError("Must describe at least one attribute")
     def wrapped(cls):
         cls.descriptions = dict(cls.descriptions)
