@@ -50,7 +50,8 @@ class Maxout(Model):
         output__boc = self.ops.xp.tensordot(X__bi, self.W, axes=[[1], [-1]])
         output__boc += self.b
         best__bo, which__bo = self.ops.maxout(output__boc)
-        
+        best__bo, bp_dropout = self.ops.dropout(best__bo, drop, inplace=True)
+ 
         def finish_update(dX__bo, sgd=None):
             dX__bo = self.ops.xp.ascontiguousarray(dX__bo, dtype='float32')
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
@@ -61,4 +62,4 @@ class Maxout(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return dX__bi
-        return best__bo, finish_update
+        return best__bo, bp_dropout(finish_update)
