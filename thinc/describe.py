@@ -13,7 +13,7 @@ class AttributeDescription(object):
     def __get__(self, obj, type=None): # pragma: no cover
         return self.value
 
-    def __set__(self, obj, val):
+    def __set__(self, obj, val): # pragma: no cover
         self.value = val
 
 
