@@ -252,7 +252,23 @@ def test_check_arg_fails_method(arg, constraint):
         dummy_var.dummy_method(arg)
 
 
+@pytest.mark.parametrize('arg,constraint', [(1, None)])
+def test_check_arg_fails_constraint(arg, constraint):
+    checker = check.arg(0, constraint)
+    checked = checker(dummy)
+    with pytest.raises(ExpectedTypeError):
+        checked(0, [arg], True)
+
+
 def test_check_args_passes(dummy):
     checker = check.args(check.is_int)
     checked = checker(dummy)
     checked(0, [1], None)
+
+
+@pytest.mark.parametrize('arg,constraint', [(1, None)])
+def test_check_args_fails_constraint(arg, constraint):
+    checker = check.args(constraint)
+    checked = checker(dummy)
+    with pytest.raises(ExpectedTypeError):
+        checked(0, [arg], None)
