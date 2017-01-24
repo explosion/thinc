@@ -242,6 +242,7 @@ def test_check_arg_passes_method(arg, constraint):
 
 @pytest.mark.parametrize('arg,constraint', [(1, check.is_int)])
 def test_check_arg_fails_method(arg, constraint):
+    # create dummy class to add method
     class dummy_class(object):
         @check.arg(0, constraint)
         def dummy_method(self, *args, **kwargs):
