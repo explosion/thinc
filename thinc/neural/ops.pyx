@@ -220,6 +220,10 @@ class NumpyOps(Ops):
         return py_out.reshape((B, O, P))
 
     def seq2col(self, float[:, ::1] seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cdef Pool mem = Pool()
@@ -230,6 +234,18 @@ class NumpyOps(Ops):
             self.allocate(B*(2 * nW+1) * I, dtype='float32'))
         memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
         return py_out.reshape((B, I * 2*nW+1))
+    
+    def backprop_seq2col(self, float[:, ::1] dY, int nW):
+        cdef int B = dY.shape[0]
+        cdef int nF = nW*2+1
+        cdef int I = dY.shape[1] / nF
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(B * I, sizeof(float))
+        backprop_seq2col(dX, &dY[0,0], B, I, nW)
+        cdef ndarray py_out = self.xp.ascontiguousarray(
+            self.allocate(B * I, dtype='float32'))
+        memcpy(py_out.data, dX, B * I * sizeof(dX[0]))
+        return py_out.reshape((B, I))
 
 
 class CupyOps(Ops):
@@ -239,7 +255,7 @@ class CupyOps(Ops):
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     nF = nW * 2 + 1
-    output += nW
+    output += nW * I
     for i in range(B-nW):
         memcpy(output,
             X, I * (nW+1) * sizeof(output[0]))
@@ -249,17 +265,28 @@ cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
         output += I * nW
         X += I
     memcpy(output,
-        X, I * (nW+1) * sizeof(output[0]))
+        X, I * nW * sizeof(output[0]))
 
 
-cdef void backprop_seq2col(float* dX__bi,
-        const float* dY__bfi, int B, int I, int O, int nW) nogil:
+cdef void backprop_seq2col(float* d_seqs,
+        const float* d_cols, int B, int I, int nW) nogil:
+    # Here's what we're doing, if we had 2d indexing.
+    #for i in range(B):
+    #    d_seq[i] += d_cols[i-2, 4]
+    #    d_seq[i] += d_cols[i-1, 3]
+    #    d_seq[i] += d_cols[i+2, 0]
+    #    d_seq[i] += d_cols[i+1, 1]
+    #    d_seq[i] += d_cols[i, 2]
+
     nF = nW * 2 + 1
-    for i in range(B):
-        # dX[-nW : nW+1] += dY
-        for f in range(min(i-nW, 0), max(i+nW+1, B)):
-            VecVec.add_i(dX__bi + (f * I), dY__bfi, 1., I)
-        dX__bi += I
+    for f in range(-nW, nW+1):
+        for i in range(B):
+            seq_row = &d_seqs[i * I]
+            col_row = &d_cols[i * I * nF]
+            if B > (i+f) >= 0:
+                feat = col_row + (f * I)
+                VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
+
 
 
 cdef void maxout(float* best__bo, int* which__bo,
