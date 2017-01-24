@@ -137,7 +137,6 @@ class Model(object):
         '''
         return self.predict(x)
 
-    @check.args(equal_length)
     def evaluate(self, X, y):
         '''
         x
