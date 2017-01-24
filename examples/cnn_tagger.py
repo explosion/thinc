@@ -53,11 +53,10 @@ def main(width=64, vector_length=64):
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
-            >> ExtractWindow(nW=2, gap=0)
-            >> Maxout(128)
-            >> ExtractWindow(nW=2, gap=0)
+            >> ExtractWindow(nW=1, gap=0)
             >> Maxout(128)
             >> ExtractWindow(nW=1, gap=0)
+            >> Maxout(128)
             >> Softmax(nr_tag))
 
     train_X, train_y = zip(*train_data)
@@ -65,10 +64,10 @@ def main(width=64, vector_length=64):
     dev_X, dev_y = zip(*check_data)
     dev_y = model.ops.flatten(dev_y)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.batch_size = 16
-        trainer.nb_epoch = 3
-        trainer.dropout = 0.0
-        trainer.dropout_decay = 0.
+        trainer.batch_size = 4
+        trainer.nb_epoch = 20
+        trainer.dropout = 0.9
+        trainer.dropout_decay = 1e-4
         epoch_times = [timer()]
         def track_progress():
             start = timer()
@@ -92,7 +91,7 @@ def main(width=64, vector_length=64):
  
 
 if __name__ == '__main__':
-    if 0:
+    if 1:
         plac.call(main)
     else:
         import cProfile
