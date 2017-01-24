@@ -22,14 +22,6 @@ def _run_child_hooks(model, X, y=None):
 class BatchNorm(Model):
     name = 'batchnorm'
 
-    #@property
-    #def input_shape(self):
-    #    return self.child.input_shape
-
-    #@property
-    #def output_shape(self):
-    #    return self.child.output_shape
-
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
@@ -41,7 +33,7 @@ class BatchNorm(Model):
         Xh = _forward(self.ops, X, mu, var)
         y = Xh * self.G + self.b
         return y
- 
+
     def begin_update(self, X, drop=0.):
         X, backprop_child = self.child.begin_update(X, drop=0.) # Steal dropout
         N, mu, var = _get_moments(self.ops, X)

@@ -53,11 +53,13 @@ def model(ops, nr_out, ndim, nV):
     return model
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 def test_forward_succeeds(model, ids, positions, vectors, lengths):
     out, whiches = model._forward(positions, vectors, lengths)
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 def test_predict_batch_succeeds(model, ids, vectors, lengths):
     ids = list(toolz.concat(ids))
@@ -72,6 +74,7 @@ def test_zero_gradient_makes_zero_finetune(model):
     assert_allclose(model.embed.d_vectors, 0)
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.skip
 @given(arrays_BOP_BO())
@@ -84,7 +87,7 @@ def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
     d_BOP = numpy.zeros(x_BOP.shape)
 
     _get_full_gradients(d_BOP, d_BO, whiches_BO)
-    
+
     for b in range(x_BOP.shape[0]):
         for o in range(x_BOP.shape[1]):
             num_at_max = sum(x_BOP[b,o] >= x_BOP[b, o, whiches_BO[b,o]])
@@ -95,6 +98,7 @@ def test_only_one_piece_gets_gradient_if_unique_max(x_BOP_d_BO):
                 assert sum(d_BOP[b, o]) == d_BO[b, o]
 
 
+@pytest.mark.slow
 @given(arrays_OPFI_BI_lengths(max_B=10, max_P=10, max_I=10))
 def test_compute_hidden_layer(arrays_OPFI_BI_lengths):
     W__OPFI, vectors__UI, _ = arrays_OPFI_BI_lengths
@@ -121,6 +125,7 @@ def test_compute_hidden_layer(arrays_OPFI_BI_lengths):
         assert_allclose(computed, expected__FOP)
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 @pytest.mark.skip
 @given(
@@ -151,6 +156,7 @@ def test_zero_features_past_sequence_boundaries(seq_lengths):
             assert_allclose(w_m2[4], 0)
 
 
+@pytest.mark.slow
 @pytest.mark.xfail
 def test_get_full_inputs_zeros_edges():
     B = 11

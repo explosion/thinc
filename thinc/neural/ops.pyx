@@ -4,6 +4,7 @@
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt
+from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
 from libc.string cimport memcpy
 from cymem.cymem cimport Pool
@@ -28,6 +29,7 @@ try:
     import cytoolz as toolz
 except ImportError:
     import toolz
+
 
 
 class Ops(object):
@@ -64,13 +66,24 @@ class Ops(object):
         assert len(unflat) == len(lengths)
         return unflat
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
         if drop <= 0.0:
             return None
         elif drop >= 1.0:
             return self.allocate(shape)
-        coinflips = self.xp.random.uniform(0., 1., shape)
-        return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
+        cdef int n = prod(shape)
+        cdef bytes rand_bytes = self.random_bytes(n)
+        cdef int cutoff = int(drop * 8)
+        compensated = 1. / (1. - (cutoff / 8))
+        cdef ndarray[float] output = self.allocate(n, dtype='float32')
+        for i in range(n):
+            if rand_bytes[i] < cutoff:
+                output[i] = 0
+            else:
+                output[i] = compensated
+        return output.reshape(shape)
 
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, int):
@@ -262,10 +275,30 @@ class NumpyOps(Ops):
             for i in range(length):
                 workon[i] += to_add[i]
 
+    def random_bytes(self, n):
+        cdef bytes output = b'\0' * n
+        cdef unsigned char* arr = <unsigned char*>output
+        fill_random_bytes(arr, n)
+        return output
+ 
+
 
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+def seed_srand(int value):
+    srand(value)
+
+cdef void fill_random_bytes(unsigned char* out, int n) nogil:
+    '''Fill an array `out` with `n` random bytes.'''
+    cdef int rand_bytes
+    cdef unsigned char rand_byte
+    for i from 0 <= i < n by sizeof(int):
+        rand_bytes = rand()
+        for b in range(sizeof(rand_bytes)):
+            rand_byte = (rand_bytes >> (b * 8)) & 0xFF
+            out[i] = rand_byte
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:

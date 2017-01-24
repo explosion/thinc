@@ -10,7 +10,7 @@ from ... import check
 from ...neural._classes.model import Model
 from ...exceptions import UndefinedOperatorError, DifferentLengthError
 from ...exceptions import ExpectedTypeError, ShapeMismatchError
-from ...exceptions import ConstraintError, OutsideRangeError
+from ...exceptions import OutsideRangeError
 
 
 @pytest.fixture
@@ -242,6 +242,7 @@ def test_check_arg_passes_method(arg, constraint):
 
 @pytest.mark.parametrize('arg,constraint', [(1, check.is_int)])
 def test_check_arg_fails_method(arg, constraint):
+    # create dummy class to add method
     class dummy_class(object):
         @check.arg(0, constraint)
         def dummy_method(self, *args, **kwargs):
@@ -252,7 +253,23 @@ def test_check_arg_fails_method(arg, constraint):
         dummy_var.dummy_method(arg)
 
 
+@pytest.mark.parametrize('arg,constraint', [(1, None)])
+def test_check_arg_fails_constraint(arg, constraint, dummy):
+    checker = check.arg(0, constraint)
+    checked = checker(dummy)
+    with pytest.raises(ExpectedTypeError):
+        checked(0, [arg], True)
+
+
 def test_check_args_passes(dummy):
     checker = check.args(check.is_int)
     checked = checker(dummy)
     checked(0, [1], None)
+
+
+@pytest.mark.parametrize('arg,constraint', [(1, None)])
+def test_check_args_fails_constraint(arg, constraint, dummy):
+    checker = check.args(constraint)
+    checked = checker(dummy)
+    with pytest.raises(ExpectedTypeError):
+        checked(0, [arg], None)
