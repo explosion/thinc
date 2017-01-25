@@ -134,7 +134,6 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        add_gradient_noise(gradient, 0.01, nr_upd)
         clip_gradient(gradient, len(gradient) / 100.)
 
         cdef weight_t[:] mom1 = self.mom1[key]
