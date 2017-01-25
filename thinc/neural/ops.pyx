@@ -75,9 +75,7 @@ class Ops(object):
         if cutoff <= 0:
             return None
         elif cutoff >= 255:
-            return self.allocate(shape) + 1.
-        #coinflips = self.xp.random.uniform(0., 1., shape)
-        #return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
+            return self.allocate(shape)
         
         cdef int n = prod(shape)
         cdef bytes rand_bytes = self.random_bytes(n)
