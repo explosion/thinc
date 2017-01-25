@@ -53,9 +53,11 @@ def main(width=64, vector_length=64):
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
-            >> ExtractWindow(nW=1, gap=0)
+            >> ExtractWindow(nW=1)
             >> Maxout(128)
-            >> ExtractWindow(nW=1, gap=0)
+            >> ExtractWindow(nW=1)
+            >> Maxout(128)
+            >> ExtractWindow(nW=1)
             >> Maxout(128)
             >> Softmax(nr_tag))
 
@@ -63,6 +65,7 @@ def main(width=64, vector_length=64):
     print("NR vector", max(max(seq) for seq in train_X))
     dev_X, dev_y = zip(*check_data)
     dev_y = model.ops.flatten(dev_y)
+    n_train = sum(len(x) for x in train_X)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.batch_size = 4
         trainer.nb_epoch = 20
@@ -73,11 +76,14 @@ def main(width=64, vector_length=64):
             start = timer()
             acc = model.evaluate(dev_X, dev_y)
             end = timer()
+            with model.use_params(optimizer.averages):
+                avg_acc = model.evaluate(dev_X, dev_y)
             stats = (
                 acc,
-                float(len(train_y)) / (end-epoch_times[-1]),
+                avg_acc,
+                float(n_train) / (end-epoch_times[-1]),
                 float(dev_y.shape[0]) / (end-start))
-            print("%.3f acc, %d wps train, %d wps run" % stats)
+            print("%.3f (%.3f) acc, %d wps train, %d wps run" % stats)
             epoch_times.append(end)
         trainer.each_epoch.append(track_progress)
         for X, y in trainer.iterate(train_X, train_y):

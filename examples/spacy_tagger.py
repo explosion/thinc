@@ -144,7 +144,7 @@ def get_positions(ids, drop=0.):
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(nr_epoch=20, nr_sent=0, width=64):
+def main(nr_epoch=20, nr_sent=0, width=64, depth=4):
     print("Loading spaCy and preprocessing")
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
@@ -158,12 +158,7 @@ def main(nr_epoch=20, nr_sent=0, width=64):
         model = (
             Orth
             >> SpacyVectors(nlp)
-            >> ExtractWindow(nW=1)
-            >> Maxout(width)
-            >> ExtractWindow(nW=1)
-            >> Maxout(width)
-            >> ExtractWindow(nW=1)
-            >> Maxout(width)
+            >> (ExtractWindow(nW=1) >> Maxout(width)) ** depth
             >> ExtractWindow(nW=1)
             >> Softmax(nr_class)
         )
@@ -174,9 +169,9 @@ def main(nr_epoch=20, nr_sent=0, width=64):
     train_X, train_y = zip(*train_sents)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        trainer.dropout = 0.9
-        trainer.dropout_decay = 1e-3
-        trainer.batch_size = 4
+        trainer.dropout = 0.75
+        trainer.dropout_decay = 1e-4
+        trainer.batch_size = 6
         epoch_times = [timer()]
         epoch_loss = [0.]
         n_train = sum(len(y) for y in train_y)
