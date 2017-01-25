@@ -11,4 +11,4 @@ __author__ = 'Matthew Honnibal'
 __email__ = 'matt@explosion.ai'
 __license__ = 'MIT'
 __title__ = "thinc"
-__release__ = False
+__release__ = True
