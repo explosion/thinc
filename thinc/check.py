@@ -10,7 +10,7 @@ from .exceptions import OutsideRangeError
 
 
 def equal_length(*args):
-    '''Check that argument have the same length.
+    '''Check that arguments have the same length.
     '''
     for i, arg in enumerate(args):
         if not isinstance(arg, Sized):
