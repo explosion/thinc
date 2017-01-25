@@ -32,6 +32,9 @@ class Memory(object):
     def get(self, name, default=None):
         return self[name] if name in self._offsets else default
 
+    def set(self, value):
+        self._mem[0, :self._i] = value
+
     #@check.arg(2, is_shape)
     def add(self, name, shape):
         assert name not in self._offsets, "TODO error"

@@ -7,13 +7,12 @@ def _run_child_hooks(model, X, y):
         for hook in layer.on_data_hooks:
             hook(layer, X, y)
         X = layer(X)
-        if hasattr(X, 'shape'):
-            X = model.ops.xp.ascontiguousarray(X)
 
 
 @describe.on_data(_run_child_hooks)
 class FeedForward(Model):
     '''A feed-forward network, that chains multiple Model instances together.'''
+    name = 'feed-forward'
     def __init__(self, layers, **kwargs):
         self._layers = []
         for layer in layers:

@@ -47,9 +47,7 @@ MOD_NAMES = [
 
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
-                               '-msse3'
-                               ]}
+                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
