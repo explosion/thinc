@@ -76,6 +76,7 @@ cdef void inc_gradientsC(MapC* d_vectors, float* d_default,
         d_emb = <weight_t*>Map_get(d_vectors, id_)
         # If the feature was missing, update the default
         VecVec.add_i(d_emb or d_default, delta, 1., width)
+        delta += width
 
 
 cdef void averageC(EmbedC* layer) nogil:
@@ -136,7 +137,7 @@ cdef class _SparseEmbed:
                             break
                 py_emb = ptr2ndarray(self.c.default, self.c.width)
                 py_grad = ptr2ndarray(self.c.d_default, self.c.width)
-                sgd(py_emb, py_grad, key=id_)
+                sgd(py_emb, py_grad, key=id(self.mem))
             insert_missingC(self.mem, self.c.vectors, self.c.d_vectors,
                 self.c.default, self.c.width, self.c.nr_support,
                 &ids[0], ids.shape[0])
