@@ -3,11 +3,13 @@
 # cython: infer_types = True
 cimport cython
 from libc.string cimport memcpy, memset
-from libc.math cimport exp, sqrt
+from libc.math cimport exp, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
+from libc.stdint cimport uint64_t
 from libc.string cimport memcpy
 from cymem.cymem cimport Pool
+from preshed.maps cimport PreshMap
 
 import numpy
 from cytoolz import concat
@@ -57,8 +59,11 @@ class Ops(object):
             return x * mask, wrap_backprop
 
     def flatten(self, X, dtype=None):
-        return self.asarray(list(concat(X)), dtype=dtype)
- 
+        result = self.xp.concatenate(X)
+        if dtype is not None:
+            result = self.asarray(result, dtype=dtype)
+        return result
+
     def unflatten(self, X, lengths):
         unflat = []
         for length in lengths:
@@ -71,23 +76,22 @@ class Ops(object):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
-        cdef unsigned char cutoff = drop * 255
-        if cutoff <= 0:
+        if drop <= 0 or drop >= 1.:
             return None
-        elif cutoff >= 255:
-            return self.allocate(shape) + 1.
-        #coinflips = self.xp.random.uniform(0., 1., shape)
-        #return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
-        
-        cdef int n = prod(shape)
-        cdef bytes rand_bytes = self.random_bytes(n)
-        cdef unsigned char* buff = <unsigned char*>rand_bytes
-        cdef ndarray[float] output = self.allocate(n, dtype='float32')
-        cdef float* out_buff = <float*>output.data
-        cdef float compensated = 1. / (1. - drop)
-        for i in range(n):
-            out_buff[i] = compensated if buff[i] < cutoff else 0
-        return output.reshape(shape)
+        coinflips = self.xp.random.uniform(0., 1., shape)
+        return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
+
+        #cdef int n = prod(shape)
+        #cdef bytes rand_bytes = self.random_bytes(n)
+        #cdef unsigned char* buff = <unsigned char*>rand_bytes
+        #cdef ndarray[float] output = self.allocate(n, dtype='float32')
+        #cdef float* out_buff = <float*>output.data
+        #cdef float compensated = 1. / (1. - drop)
+        #n_dropped = 0
+        #for i in range(n):
+        #    out_buff[i] = compensated if (buff[i] < cutoff) else 0
+        #    n_dropped += out_buff[i] == 0
+        #return output.reshape(shape)
 
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, int):
@@ -104,7 +108,7 @@ class Ops(object):
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
-   
+
     def batch_outer(self, x, y):
         return self.xp.tensordot(x, y, axes=[[0], [0]])
 
@@ -113,7 +117,7 @@ class Ops(object):
 
     def dot(self, x, y):
         return self.xp.dot(x, y)
-    
+
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
 
@@ -223,7 +227,7 @@ class NumpyOps(Ops):
         cdef ndarray py_which = self.xp.ascontiguousarray(self.allocate(B * O, dtype='int32'))
         memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
         return py_best.reshape((B, O)), py_which.reshape((B, O))
-    
+
     def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
         cdef Pool mem = Pool()
         cdef int B = dX__bo.shape[0]
@@ -251,7 +255,7 @@ class NumpyOps(Ops):
             self.allocate(B*(2 * nW+1) * I, dtype='float32'))
         memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
         return py_out.reshape((B, I * (2*nW+1)))
-    
+
     def backprop_seq2col(self, float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
@@ -263,6 +267,25 @@ class NumpyOps(Ops):
             self.allocate(B * I, dtype='float32'))
         memcpy(py_out.data, dX, B * I * sizeof(dX[0]))
         return py_out.reshape((B, I))
+
+    def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
+        cdef uint64_t* ids = &ids_mv[0]
+        cdef ndarray[uint64_t] output_arr = self.allocate(len(ids_mv), dtype='uint64')
+        output = <uint64_t*>output_arr.data
+        cdef uint64_t key = 0
+        for i in range(ids_mv.shape[0]):
+            if ids[i] == 0:
+                output[i] = 0
+            else:
+                mapped = <uint64_t>mapping.get(ids[i])
+                if mapped != 0:
+                    output[i] = mapped
+                else:
+                    output[i] = value
+                    if value != 0:
+                        mapping.set(ids[i], <void*>value)
+                        value += 1
+        return output_arr
 
     def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
         cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
@@ -284,7 +307,7 @@ class NumpyOps(Ops):
         cdef unsigned char* arr = <unsigned char*>output
         fill_random_bytes(arr, n)
         return output
- 
+
 
 
 class CupyOps(Ops):
@@ -293,6 +316,8 @@ class CupyOps(Ops):
 
 def seed_srand(int value):
     srand(value)
+
+seed_srand(0)
 
 cdef void fill_random_bytes(unsigned char* out, int n) nogil:
     '''Fill an array `out` with `n` random bytes.'''
@@ -340,7 +365,6 @@ cdef void backprop_seq2col(float* d_seqs,
             if B > (i+f) >= 0:
                 feat = col_row + (f * I)
                 VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
-
 
 
 cdef void maxout(float* best__bo, int* which__bo,
