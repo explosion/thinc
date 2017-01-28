@@ -49,7 +49,10 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         y = []
         for words, tags  in sents:
             if encode_words:
-                X.append([vocab.get(word, len(vocab)) for word in words])
+                X.append(
+                    numpy.asarray(
+                        [vocab.get(word, len(vocab)) for word in words],
+                        dtype='uint64'))
             else:
                 X.append(words)
             if encode_tags:
