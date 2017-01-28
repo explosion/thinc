@@ -22,17 +22,17 @@ class OutsideRangeError(ValueError):
     def __init__(self, arg, val, operator):
         self.tb = traceback.extract_stack()
         ValueError.__init__(self, get_error(
-            "Outside range: {v} needs to be {o} {v2}".format(v=arg, o=operator, v2=val),
+            "Outside range: {v} needs to be {o} {v2}".format(
+                v=_repr(arg), o=operator, v2=_repr(val)),
             tb=self.tb
         ))
 
 
 class DifferentLengthError(ValueError):
-    def __init__(self, args, arg):
+    def __init__(self, lengths, arg):
         self.tb = traceback.extract_stack()
-        vals = ['{v} [{l}]'.format(v=arg, l=len(arg) if isinstance(arg, Sized) else 'no length') for arg in args]
         ValueError.__init__(self, get_error(
-            "Values need to be equal length: {v}".format(v=', '.join(vals)),
+            "Values need to be equal length: {v}".format(v=', '.join(lengths)),
             tb=self.tb
         ))
 
@@ -40,24 +40,33 @@ class DifferentLengthError(ValueError):
 class ShapeMismatchError(ValueError):
     def __init__(self, shape, dim, shape_names):
         self.tb = traceback.extract_stack()
+        shape = _repr(shape)
+        dim = _repr(dim)
         ValueError.__init__(self, get_error(
             "Shape mismatch: input {s} not compatible with {d}.".format(s=shape, d=dim),
             tb=self.tb
         ))
 
 
+class TooFewDimensionsError(ValueError):
+    def __init__(self, shape, axis):
+        self.tb = traceback.extract_stack()
+        ValueError.__init__(self, get_error(
+            "Shape mismatch: input {s} has too short for axis {d}.".format(
+            s=_repr(shape), d=axis), tb=self.tb
+        ))
+
+
 class ExpectedTypeError(TypeError):
     max_to_print_of_value = 200
     def __init__(self, bad_type, expected):
+        if isinstance(expected, str):
+            expected = [expected]
         self.tb = traceback.extract_stack()
-        bad_type = repr(bad_type)
-        if len(bad_type) >= self.max_to_print_of_value:
-            half = int(self.max_to_print_of_value/2)
-            bad_type = bad_type[:half] + ' ... ' + bad_type[-half:]
         TypeError.__init__(self, get_error(
-            "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=bad_type, t=type(bad_type)),
+            "Expected type {e}, but got: {v} ({t})".format(e='/'.join(expected), v=_repr(bad_type), t=type(bad_type)),
             tb=self.tb,
-            highlight=bad_type
+            highlight=_repr(bad_type)
         ))
 
 
@@ -68,6 +77,14 @@ def get_error(title, *args, **kwargs):
     tb = _get_traceback(kwargs['tb'], highlight) if 'tb' in kwargs else ''
     return template.format(title=color(title, 'red', attrs=['bold']),
                            info=info, tb=tb).encode('utf8')
+
+def _repr(obj, max_len=50):
+    string = repr(obj)
+    if len(string) >= max_len:
+        half = int(max_len/2)
+        return string[:half] + ' ... ' + string[-half:]
+    else:
+        return string
 
 
 def _get_traceback(tb, highlight):
