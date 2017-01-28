@@ -19,7 +19,7 @@ def svd_orthonormal(shape):
 
 def do_lsuv(ops, weights, predict, X):
     weights[:] = svd_orthonormal(weights.shape)
-    X_copy = ops.xp.ascontiguousarray(X, dtype='float32')
+    X_copy = ops.xp.ascontiguousarray(X)
     acts = predict(X_copy)
     tol_var = 0.1
     t_max = 10
