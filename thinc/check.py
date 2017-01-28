@@ -8,6 +8,15 @@ from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
 from .exceptions import OutsideRangeError
 
+def is_docs(arg_id, args, kwargs):
+    from spacy.tokens.doc import Doc
+    docs = args[arg_id]
+    if not isinstance(docs, Sequence):
+        raise ExpectedTypeError(type(docs), ['Sequence'])
+    if not isinstance(docs[0], Doc):
+        raise ExpectedTypeError(type(docs[0]), ['spacy.tokens.doc.Doc'])
+
+
 
 def equal_length(*args):
     '''Check that argument have the same length.
@@ -17,6 +26,22 @@ def equal_length(*args):
             raise ExpectedTypeError(arg, ['Sized'])
         if i >= 1 and len(arg) != len(args[0]):
             raise DifferentLengthError(args, arg)
+
+
+def equal_axis(*args, **axis):
+    '''Check that elements have the same dimension on specified axis.
+    '''
+    axis = axis.get('axis', -1)
+    for i, arg in enumerate(args):
+        if not isinstance(arg, ndarray):
+            raise ExpectedTypeError(arg, ['ndarray'])
+        if axis >= 0 and (axis+1) < args[i].shape[axis]:
+            raise ShapeError(
+                "Shape: %s. Expected at least %d dimensions",
+                shape, axis)
+        if i >= 1 and arg.shape[axis] != args[0].shape[axis]:
+            lengths = [a.shape[axis] for a in args]
+            raise DifferentLengthError(lengths, arg)
 
 
 @curry
