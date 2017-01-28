@@ -135,18 +135,18 @@ def with_flatten(layer):
         return layer.ops.unflatten(X, lengths), finish_update
     model = layerize(begin_update)
     model._layers.append(layer)
+    model.on_data_hooks.append(_with_flatten_on_data)
+    model.name = 'flatten'
     return model
 
-
-
-def _run_child_hooks(model, X, y):
+def _with_flatten_on_data(model, X, y):
+    X = model.ops.flatten(X)
     for layer in model._layers:
         for hook in layer.on_data_hooks:
             hook(layer, X, y)
         X = layer(X)
 
 
-@describe.on_data(_run_child_hooks)
 class FunctionLayer(Model):
     '''Wrap functions into weightless Model instances, for use as network
     components.'''
