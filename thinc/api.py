@@ -2,6 +2,9 @@ import copy
 
 from .neural._classes.feed_forward import FeedForward
 from .neural._classes.model import Model
+from . import check
+from .check import equal_axis
+from . import describe
 
 
 def layerize(begin_update=None, *args, **kwargs):
@@ -32,7 +35,7 @@ def noop(*layers):
 def chain(*layers):
     '''Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
-    
+
     Raises exception if their dimensions don't match.
     '''
     if len(layers) == 0:
@@ -45,7 +48,7 @@ def chain(*layers):
 
 def clone(orig, n):
     '''Construct `n` copies of a layer, with distinct weights.
-    
+
     i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
     '''
     layers = [orig]
@@ -64,7 +67,7 @@ def concatenate(*layers): # pragma: no cover
     def begin_update(X, *a, **k):
         forward, backward = split_backward(layers)
         values = [fwd(X, *a, **k) for fwd in forward]
-       
+
         output = ops.xp.hstack(values)
         shapes = [val.shape for val in values]
 
@@ -80,8 +83,7 @@ def concatenate(*layers): # pragma: no cover
                 start = end
             return ops.asarray(ops.xp.sum(layer_grads, axis=0))
         return output, finish_update
-    nO = sum(layer.output_shape[1] for layer in layers) 
-    layer = FunctionLayer(begin_update, nO=nO)
+    layer = FunctionLayer(begin_update)
     return layer
 
 
@@ -112,6 +114,39 @@ def sink_return(func, sink, splitter=None): # pragma: no cover
     return wrap
 
 
+def Arg(i):
+    @layerize
+    def begin_update(batched_inputs, drop=0.):
+        inputs = zip(*batched_inputs)
+        return inputs[i], None
+    return begin_update
+
+
+def with_flatten(layer):
+    def begin_update(seqs_in, drop=0.):
+        lengths = [len(seq) for seq in seqs_in]
+        X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in), drop=drop)
+        if bp_layer is None:
+            return layer.ops.unflatten(X, lengths), None
+
+        def finish_update(d_seqs_out, sgd=None):
+            d_X = bp_layer(layer.ops.flatten(d_seqs_out), sgd=sgd)
+            return layer.ops.unflatten(d_X, lengths) if d_X is not None else None
+        return layer.ops.unflatten(X, lengths), finish_update
+    model = layerize(begin_update)
+    model._layers.append(layer)
+    return model
+
+
+
+def _run_child_hooks(model, X, y):
+    for layer in model._layers:
+        for hook in layer.on_data_hooks:
+            hook(layer, X, y)
+        X = layer(X)
+
+
+@describe.on_data(_run_child_hooks)
 class FunctionLayer(Model):
     '''Wrap functions into weightless Model instances, for use as network
     components.'''
