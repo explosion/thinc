@@ -49,7 +49,7 @@ def B(positions):
 
 @pytest.fixture
 def gradients_BO(model, positions, B):
-    gradient = model.ops.allocate((B, model.nO)) 
+    gradient = model.ops.allocate((B, model.nO))
     for i in range(gradient.shape[0]):
         gradient[i] -= i
     return gradient
@@ -126,18 +126,18 @@ def test_weights_change_fine_tune(model):
     # Replace backward pass of Embed, so that it passes through the gradient.
     model.embed.begin_update = replace_finish_update(
             model.embed.begin_update, lambda gradient, sgd=None: gradient)
- 
+
     positions = {10: [0]}
     model.W *= 0.
     model.b *= 0.
     gradients_BO = numpy.zeros((1, model.nO), dtype='f') - 1.
-    
+
     fwd, finish_update = model.begin_update(positions)
     grad1 = finish_update(gradients_BO, sgd=None)
-    
+
     model.W += 1
     fwd, finish_update = model.begin_update(positions)
     grad2 = finish_update(gradients_BO, sgd=None)
-    
+
     for val1, val2 in zip(grad1.flatten(), grad2.flatten()):
         assert val1 != val2
