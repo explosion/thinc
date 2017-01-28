@@ -76,8 +76,10 @@ class Ops(object):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
-        if drop <= 0 or drop >= 1.:
+        if drop <= 0:
             return None
+        elif drop >= 1.:
+            return self.allocate(shape)
         coinflips = self.xp.random.uniform(0., 1., shape)
         return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
 
