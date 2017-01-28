@@ -72,8 +72,8 @@ class SpacyVectors(Embed):
 
     def begin_update(self, ids, drop=0.):
         return self.predict(ids), None
-            
-        
+
+
 @layerize
 def Shape(docs, drop=0.):
     '''Get word shapes.'''
@@ -144,22 +144,20 @@ def get_positions(ids, drop=0.):
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(nr_epoch=20, nr_sent=0, width=64, depth=4):
+def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
     print("Loading spaCy and preprocessing")
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
-    train_sents, dev_sents, nr_class = spacy_preprocess(nlp,
-            train_sents, dev_sents)
+    train_sents, dev_sents, nr_class = spacy_preprocess(nlp, train_sents, dev_sents)
     if nr_sent >= 1:
         train_sents = train_sents[:nr_sent]
-    
+
     print("Building the model")
     with Model.define_operators({'>>': chain, '|': concatenate, '**': clone}):
         model = (
             Orth
             >> SpacyVectors(nlp)
-            >> (ExtractWindow(nW=1) >> Maxout(width)) ** depth
-            >> ExtractWindow(nW=1)
+            >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
             >> Softmax(nr_class)
         )
 
@@ -169,9 +167,9 @@ def main(nr_epoch=20, nr_sent=0, width=64, depth=4):
     train_X, train_y = zip(*train_sents)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        trainer.dropout = 0.75
+        trainer.dropout = 0.9
         trainer.dropout_decay = 1e-4
-        trainer.batch_size = 6
+        trainer.batch_size = 4
         epoch_times = [timer()]
         epoch_loss = [0.]
         n_train = sum(len(y) for y in train_y)
@@ -204,7 +202,7 @@ def main(nr_epoch=20, nr_sent=0, width=64, depth=4):
             if loss:
                 optimizer.set_loss(loss)
                 finish_update(gradient, optimizer)
-            epoch_loss[-1] += loss / len(train_y)
+            epoch_loss[-1] += loss / n_train
     with model.use_params(optimizer.averages):
         print("End: %.3f" % model.evaluate(dev_X, dev_y))
 
