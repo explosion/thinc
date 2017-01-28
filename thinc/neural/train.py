@@ -4,7 +4,7 @@ from .optimizers import Eve, Adam, SGD, linear_decay
 from .util import minibatch
 
 import numpy.random
-import tqdm
+from tqdm import tqdm
 
 
 class Trainer(object):
@@ -33,14 +33,16 @@ class Trainer(object):
             indices = self.ops.xp.asarray(range(len(train_X)))
             numpy.random.shuffle(indices)
             j = 0
-            while j < len(indices):
-                slice_ = indices[j : j + self.batch_size]
-                X = _take_slice(train_X, slice_)
-                y = _take_slice(train_y, slice_)
-                yield X, y
-                self.dropout = linear_decay(orig_dropout, self.dropout_decay,
-                                            self.optimizer.nr_iter)
-                j += self.batch_size
+            with tqdm(total=len(indices)) as pbar:
+                while j < len(indices):
+                    slice_ = indices[j : j + self.batch_size]
+                    X = _take_slice(train_X, slice_)
+                    y = _take_slice(train_y, slice_)
+                    yield X, y
+                    self.dropout = linear_decay(orig_dropout, self.dropout_decay,
+                                                self.optimizer.nr_iter)
+                    j += self.batch_size
+                    pbar.update(self.batch_size)
             for func in self.each_epoch:
                 func()
 
