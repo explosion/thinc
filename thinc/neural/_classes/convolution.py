@@ -10,7 +10,7 @@ from ...describe import Dimension, AttributeDescription
 class ExtractWindow(Model):
     '''Add context to vectors in a sequence by concatenating n surrounding
     vectors.
-    
+
     If the input is (10, 32) and n=1, the output will be (10, 96), with
     output[i] made up of (input[i-1], input[i], input[i+1]).
     '''
@@ -28,7 +28,7 @@ class ExtractWindow(Model):
         X__bo = self.ops.seq2col(X__bi, self.nW)
         finish_update = self._get_finish_update()
         return X__bo, finish_update
-    
+
     def _get_finish_update(self):
         def finish_update(gradient, sgd=None):
             return self.ops.backprop_seq2col(gradient, self.nW)
