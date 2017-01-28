@@ -19,7 +19,7 @@ def is_docs(arg_id, args, kwargs):
 
 
 def equal_length(*args):
-    '''Check that argument have the same length.
+    '''Check that arguments have the same length.
     '''
     for i, arg in enumerate(args):
         if not isinstance(arg, Sized):

@@ -61,7 +61,7 @@ def test_Affine_dimensions_on_data():
 
 
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-def test_begin_update_matches_predict_batch(W_b_input):
+def test_begin_update_matches_predict(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
     W, b, input_ = W_b_input
