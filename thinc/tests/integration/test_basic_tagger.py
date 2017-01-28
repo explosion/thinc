@@ -77,7 +77,8 @@ def test_small_end_to_end(depth, width, vector_width, nb_epoch,
         trainer.batch_size = 8
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(yh, y)
+            d_loss, loss = categorical_crossentropy(
+                model.ops.flatten(yh), model.ops.flatten(y))
             backprop(d_loss, optimizer)
             losses.append(loss)
     assert losses[-1] < losses[0]
