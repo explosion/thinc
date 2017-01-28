@@ -3,6 +3,7 @@ import io # pragma: no cover
 from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import numpy # pragma: no cover
+import csv # pragma: no cover
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
@@ -108,6 +109,21 @@ def reuters(): # pragma: no cover
     from ._vendorized.keras_datasets import load_reuters
     (X_train, y_train), (X_test, y_test) = load_reuters()
     return (X_train, y_train), (X_test, y_test)
+
+
+def read_quora_tsv_data(loc):
+    is_header = True
+    with loc.open('rb') as file_:
+        for row in csv.reader(file_, delimiter=b'\t'):
+            if is_header:
+                is_header = False
+                continue
+            id_, qid1, qid2, sent1, sent2, is_duplicate = row
+            sent1 = sent1.decode('utf8').strip()
+            sent2 = sent2.decode('utf8').strip()
+            if sent1 and sent2:
+                yield (sent1, sent2), int(is_duplicate)
+
 
 
 def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover
