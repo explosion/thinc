@@ -32,7 +32,7 @@ class DifferentLengthError(ValueError):
     def __init__(self, lengths, arg):
         self.tb = traceback.extract_stack()
         ValueError.__init__(self, get_error(
-            "Values need to be equal length: {v}".format(v=', '.join(lengths)),
+            "Values need to be equal length: {v}".format(v=_repr(lengths)),
             tb=self.tb
         ))
 
