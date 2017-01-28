@@ -63,7 +63,7 @@ def partition(examples, split_size): # pragma: no cover
 
 
 @layerize
-def Orth(docs, drop=0.):
+def get_word_ids(docs, drop=0.):
     '''Get word forms.'''
     seqs = []
     for doc in docs:
@@ -93,13 +93,11 @@ def with_flatten(layer):
 
 class StaticVectors(Embed):
     def __init__(self, nlp, nO):
-        Model.__init__(self)
-        self.is_static = True
-        self._id_map = PreshMap()
-        self._id_map[0] = 0
-        self.nM = nlp.vocab.vectors_length
-        self.nO = nO
-        self.nV = len(nlp.vocab)
+        Embed.__init__(self,
+            nO,
+            nlp.vocab.vectors_length,
+            len(nlp.vocab),
+            is_static=True)
         vectors = self.vectors
         for i, word in enumerate(nlp.vocab):
             self._id_map[word.orth] = i+1
@@ -107,80 +105,10 @@ class StaticVectors(Embed):
 
 def Arg(i):
     @layerize
-    def begin_update(inputs):
+    def begin_update(batched_inputs, drop=0.):
+        inputs = zip(*batched_inputs)
         return inputs[i], None
     return begin_update
-
-
-def cat_inputs(ops):
-    def begin_update(inputs, drop=0.):
-        lengths = [ip.shape[1] for ip in inputs]
-        def finish_update(gradient, sgd=None):
-            seq_grads = []
-            start = 0
-            for length in lengths:
-                end = start + length
-                seq_grads.append(gradient[:, start : end])
-                start = end
-            return seq_grads
-        return ops.xp.hstack(inputs), finish_update
-    return layerize(begin_update)
-
-
-def BasicEntail(sent2vec, predict):
-    ops = predict.ops
-
-    def begin_update(X, drop=0.):
-        sent1, sent2 = zip(*X)
-        feats1, bp_feats1 = sent2vec.begin_update(sent1)
-        feats2, bp_feats2 = sent2vec.begin_update(sent2)
-        scores, bp_scores = predict.begin_update((feats1, feats2))
-
-        def finish_update(d_scores, sgd=None):
-            d_feats1, d_feats2 = bp_scores(d_scores, sgd=sgd)
-            d_sent2 = bp_feats2(d_feats2, sgd=sgd)
-            d_sent1 = bp_feats1(d_feats1, sgd=sgd)
-            return (d_sent1, d_sent2)
-        return scores, finish_update
-    model = layerize(begin_update)
-    model._layers = [sent2vec, predict]
-    return model
-
-
-def HelicalAttention(embed, pool, layers, predict):
-    pool = pool.begin_update
-    predict = predict.begin_update
-    layers = [layer.begin_update for layer in layers]
-
-    @layerize
-    def begin_update(sent1_sent2, drop=0.):
-        sent1, sent2 = sent1_sent2
-        sent1, bp_embed2 = embed.begin_update(sent1, drop=drop)
-        sent2, bp_embed2 = embed.begin_update(sent2, drop=drop)
-        sum1, bp_sum1 = pool(sent1)
-        sum2, bp_sum2 = pool(sent2)
-        callbacks = []
-        for layer in layers:
-            sent1, bp_layer1 = layer((sent1, sum2))
-            sent2, bp_layer2 = layer((sent2, sum1))
-            callbacks.append((bp_layer2, bp_layer1))
-        sum1, bp_sum1 = pool(sent1)
-        sum2, bp_sum2 = pool(sent2)
-        scores, bp_predict = predict(sum1, sum2)
-
-        def finish_update(d_scores, sgd=None):
-            d_sum1, d_sum2 = bp_predict(d_scores, sgd)
-            d_sent1 = bp_sum1(d_sum1)
-            d_sent2 = bp_sum2(d_sum2)
-
-            while callbacks:
-                bp_layer2, bp_layer1, bp_sum2, bp_sum1 = callbacks.pop(0)
-                d_sent2, d_sum1 = bp_layer2(d_sent2, d_sum1)
-                d_sent1, d_sum2 = bp_layer1(d_sent1, d_sum2)
-                d_sent2 = bp_sum2(d_sum2)
-                d_sent1 = bp_sum1(d_sum1)
-            return d_sent1, d_sent2
-    return scores, finish_update
 
 
 def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
@@ -197,15 +125,20 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         n_dev_words, (end-start),
         float(n_dev_words) / (end-start)]
 
-
+@plac.annotations(
+    loc=("Location of Quora data"),
+    width=("Width of the hidden layers", "option", "w", int),
+    depth=("Depth of the hidden layers", "option", "d", int),
+)
 def main(loc, width=64, depth=2):
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         sent2vec = (
-            Orth
-            >> StaticVectors(nlp, width)
-            >> (ExtractWindow >> Maxout(width, width*3)) ** depth
+            get_word_ids
+            >> with_flatten(
+                 StaticVectors(nlp, width)
+                 >> (ExtractWindow(nW=1) >> Maxout(width, width*3)) ** depth)
             >> (MeanPooling() | MaxPooling())
         )
         model = (
