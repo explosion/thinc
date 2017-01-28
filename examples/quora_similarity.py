@@ -129,8 +129,11 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
+    batch_size=("Minibatch size during training", "option", "b", int),
+    dropout=("Dropout rate", "option", "D", float),
+    dropout_decay=("Dropout decay", "option", "C", float),
 )
-def main(loc, width=64, depth=2):
+def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5):
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
@@ -155,10 +158,10 @@ def main(loc, width=64, depth=2):
     dev_X, dev_y = create_data(nlp, dev)
     print("Train")
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.batch_size = 128
-        trainer.nb_epoch = 10
-        trainer.dropout = 0.0
-        trainer.dropout_decay = 1e-4
+        trainer.batch_size = batch_size
+        trainer.nb_epoch = nb_epoch
+        trainer.dropout = dropout
+        trainer.dropout_decay = dropout_decay
         epoch_times = [timer()]
         epoch_loss = [0.]
         n_train_words = sum(len(d0)+len(d1) for d0, d1 in train_X)
