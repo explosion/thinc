@@ -11,6 +11,7 @@ from libc.string cimport memcpy
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
+import chainer.cuda
 import numpy
 from cytoolz import concat
 from numpy import prod
@@ -24,6 +25,8 @@ from ..linalg cimport VecVec
 
 try:
     import cupy
+    from chainer.functions.math.minmax import max as cupy_max
+    from chainer.functions.math.minmax import argmax as cupy_argmax
 except ImportError:
     cupy = None
 
@@ -222,7 +225,7 @@ class NumpyOps(Ops):
 
         which__bo = <int*>mem.alloc(B * O, sizeof(int))
         best__bo = <float*>mem.alloc(B * O, sizeof(float))
-        maxout(best__bo, which__bo,
+        cpu_maxout(best__bo, which__bo,
             &py_cands[0, 0, 0], B, O, P)
         cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
         memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
@@ -236,7 +239,7 @@ class NumpyOps(Ops):
         cdef int O = dX__bo.shape[1]
 
         dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
-        backprop_maxout(dX__bop,
+        cpu_backprop_maxout(dX__bop,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
@@ -311,10 +314,28 @@ class NumpyOps(Ops):
         return output
 
 
-
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+    def maxout(self, X):
+        amax = cupy_max(X, axis=-1).data
+        argmax = cupy_argmax(X, axis=-1).data
+        return amax, cupy.asarray(argmax, dtype='int32')
+
+    def backprop_maxout(self, dX__bo, which__bo, int P):
+        dX__bop = gpu_backprop_maxout(
+            dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
+        return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
+
+    def relu(self, X, inplace=True):
+        X *= (X > 0)
+        return X
+
+    def backprop_relu(self, delta_, signal_out, inplace=True):
+        delta_ *= (signal_out > 0)
+        return delta_
+
 
 def seed_srand(int value):
     srand(value)
@@ -369,7 +390,7 @@ cdef void backprop_seq2col(float* d_seqs,
                 VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
 
 
-cdef void maxout(float* best__bo, int* which__bo,
+cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -385,7 +406,7 @@ cdef void maxout(float* best__bo, int* which__bo,
             which__bo += 1
 
 
-cdef void backprop_maxout(float* dX__bop,
+cdef void cpu_backprop_maxout(float* dX__bop,
         const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -393,3 +414,13 @@ cdef void backprop_maxout(float* dX__bop,
             dX__bop += P
             dX__bo += 1
             which__bo += 1
+
+
+# Here we broadcast over the longest dimension (dX) and compute indexes
+# for the narrower dimensions.
+gpu_backprop_maxout = cupy.ElementwiseKernel(
+    'raw float32 best, raw int32 which, raw int32 P',
+    'float32 dX',
+    'dX = (which[i/P] == i%P) ? best[i/P] : 0',
+    'bp_maxout')
+
