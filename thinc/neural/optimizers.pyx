@@ -8,6 +8,8 @@ from libc.stdlib cimport calloc, malloc, free
 
 from collections import defaultdict
 import numpy
+from cupy import get_array_module
+import cupy.linalg
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
@@ -17,35 +19,45 @@ def linear_decay(rate, decay, nr_upd):
     return rate * 1./(1. + decay * nr_upd)
 
 
-@cython.cdivision(True)
-cdef void _clip_gradient(weight_t* gradient, weight_t threshold, int nr_weight) nogil:
-    # Clip gradient
-    grad_norm = Vec.norm(gradient, nr_weight)
+def gpu_clip_gradient(gradient, threshold):
+    grad_norm = cupy.linalg.norm(gradient)
     if grad_norm >= threshold:
-        Vec.mul_i(gradient, threshold / grad_norm, nr_weight)
-
+        gradient *= threshold / grad_norm
 
 @cython.cdivision(True)
-cdef void _update_averages(weight_t* ema,
-        const weight_t* weights, int nr_weight, weight_t t) nogil:
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
     cdef weight_t decay = (1.0 + t) / (10.0 + t)
-    if decay > 0.9999:
-        decay = 0.9999
+    if decay > max_decay:
+        decay = max_decay
     for i in range(nr_weight):
         ema[i] -= (1-decay) * (ema[i] - weights[i])
 
 
-def update_averages(averages, key, weight_t[:] weights,
+def gpu_update_averages(ema, weights, t, max_decay):
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    ema -= (1-decay) * (ema - weights)
+
+
+def update_averages(averages, key, weights,
         nr_upd, max_decay=0.9999):
     if key not in averages:
-        averages[key] = numpy.zeros((weights.size,), dtype='f')
-    cdef weight_t[:] avg = averages[key]
-    _update_averages(&avg[0],
-        &weights[0], avg.shape[0], nr_upd)
+        xp = get_array_module(weights)
+        averages[key] = xp.zeros((weights.size,), dtype='float32')
+    if xp is cupy:
+        return gpu_update_averages(averages, weights, nr_upd, max_decay)
+    cdef weight_t[::1] avg = averages[key]
+    cdef weight_t[::1] W = weights
+    cpu_update_averages(&avg[0],
+        &W[0], avg.shape[0], nr_upd, max_decay)
 
 
-def clip_gradient(weight_t[:] gradient, threshold):
-    _clip_gradient(&gradient[0], threshold, gradient.shape[0])
+def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
+    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    if grad_norm >= threshold:
+        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
 
 
 def add_gradient_noise(float[::1] gradient, weight_t noise_level,
@@ -78,7 +90,7 @@ class SGD(object):
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
         lr *= lr_scale
-        clip_gradient(gradient, len(gradient) * 10.)
+        gpu_clip_gradient(gradient, 10.)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
             gradient.fill(0)
@@ -119,22 +131,19 @@ class Adam(SGD):
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
     
-    def __call__(self, weight_t[::1] weights, weight_t[::1] gradient, lr_scale=1., 
+    def __call__(self, weights, gradient, lr_scale=1., 
             key=None):
         assert key is not None
         assert len(gradient) >= 1
         assert not self.ops.xp.isnan(weights).any()
-        if self.ops.xp.isnan(gradient).any():
-            
-            memset(&gradient[0], 0, sizeof(gradient[0]) * len(gradient))
-            return None
+        assert not self.ops.xp.isnan(gradient).any()
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        clip_gradient(gradient, len(gradient) / 100.)
+        gpu_clip_gradient(gradient, 10.)
 
         cdef weight_t[:] mom1 = self.mom1[key]
         cdef weight_t[:] mom2 = self.mom2[key]
@@ -143,8 +152,11 @@ class Adam(SGD):
         cdef weight_t b2 = self.b1
         cdef weight_t eps = self.eps
         
-        _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
-            weights.shape[0], b1, b2, eps, lr)
+        gpu_adam(weights, gradient, mom1, mom2, b1, b2, eps, lr,
+            size=weights.shape[0])
+        gradient.fill(0)
+        #_adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
+        #    weights.shape[0], b1, b2, eps, lr)
         
         if self.averages is not None:
             update_averages(self.averages, key, weights, nr_upd)
@@ -166,21 +178,19 @@ class Adadelta(SGD):
         self.d = 1.
         self.f = 0.
     
-    def __call__(self, weight_t[::1] weights, weight_t[::1] gradient, lr_scale=1., 
+    def __call__(self, weights, gradient, lr_scale=1., 
             key=None):
         assert key is not None
         assert len(gradient) >= 1
         assert not self.ops.xp.isnan(weights).any()
-        if self.ops.xp.isnan(gradient).any():
-            memset(&gradient[0], 0, sizeof(gradient[0]) * len(gradient))
-            return None
+        assert not self.ops.xp.isnan(gradient).any()
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        clip_gradient(gradient, len(gradient) / 100.)
+        gpu_clip_gradient(gradient, 10.)
 
         cdef weight_t[:] mom1 = self.mom1[key]
         cdef weight_t[:] mom2 = self.mom2[key]
@@ -236,6 +246,20 @@ cdef void _adam(
         weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
+
+gpu_adam = cupy.ElementwiseKernel(
+'''
+raw float32 weights, raw float32 gradient, raw float32 mom1, raw float32 mom2, 
+raw float32 beta1, raw float32 beta2, raw float32 eps, raw float32 learn_rate''',
+'',
+'''
+mom1[i] = (beta1 * mom1[i]) + (gradient[i] * (1-beta1));
+mom2[i] = (beta2 * mom2[i]) + (gradient[i] * gradient[i] * (1-beta2));
+# Here we assume learn rate is calculated by the caller.
+#cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+weights = learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps));
+''',
+'adam')
 
 class Eve(object):
     def __init__(self, optimizer):
