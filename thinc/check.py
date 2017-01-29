@@ -43,7 +43,6 @@ def equal_axis(*args, **axis):
             lengths = [a.shape[axis] for a in args]
             raise DifferentLengthError(lengths, arg)
 
-
 @curry
 def has_shape(shape, arg_id, args, kwargs):
     '''Check that a particular argument is an array with a given shape. The
@@ -78,7 +77,7 @@ def is_shape(arg_id, args, func_kwargs, **kwargs):
 
 def is_sequence(arg_id, args, kwargs):
     arg = args[arg_id]
-    if not isinstance(arg, Iterable):
+    if not isinstance(arg, Iterable) and not hasattr(arg, '__getitem__'):
         raise ExpectedTypeError(arg, ['iterable'])
 
 
