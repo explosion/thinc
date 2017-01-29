@@ -41,13 +41,13 @@ class Memory(object):
         self._offsets[name] = (self._i, 0, shape)
         blob = self._get_blob(prod(shape))
         return blob[0].reshape(shape)
-    
+
     def add_gradient(self, grad_name, param_name):
         assert grad_name not in self._offsets, "TODO error"
         offset, _, shape = self._offsets[param_name]
         self._offsets[grad_name] = (offset, 1, shape)
         return self._mem[1, offset : offset + prod(shape)].reshape(shape)
-    
+
     def _get_blob(self, nr_req):
         nr_avail = self._mem.shape[1] - (self._i+1)
         if nr_avail < nr_req:
@@ -75,7 +75,7 @@ class Memory(object):
 #        self.allow_resize = False
 #        for other in others:
 #            other.replace_mem(self._get_blob(other._i))
-#    
+#
 #    def replace_mem(self, mem):
 #        if not self.allow_resize:
 #            raise ValueError("TODO Error")
