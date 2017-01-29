@@ -71,14 +71,17 @@ def test_small_end_to_end(depth, width, vector_width, nb_epoch,
     model = create_model(depth, width, vector_width)
     assert isinstance(model, Model)
     losses = []
-    print(type(train_X[0]))
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.nb_epoch = 10
         trainer.batch_size = 8
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(
-                model.ops.flatten(yh), model.ops.flatten(y))
+            d_loss = []
+            loss = []
+            for i in range(len(yh)):
+                dl, l = categorical_crossentropy(yh[i], y[i])
+                d_loss.append(dl)
+                loss.append(l)
             backprop(d_loss, optimizer)
-            losses.append(loss)
+            losses.append(sum(loss))
     assert losses[-1] < losses[0]
