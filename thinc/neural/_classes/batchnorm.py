@@ -54,7 +54,7 @@ class BatchNorm(Model):
         def finish_update(gradient__BI, sgd=None):
             self.d_b += gradient__BI.sum(axis=0)
             d_G = self.d_G
-            d_G += self.ops.xp.einsum('bi,bi->i', gradient__BI, input__BI)
+            d_G += (gradient__BI * input__BI).sum(axis=0)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return gradient__BI * self.G
