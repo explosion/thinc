@@ -48,7 +48,7 @@ class Trainer(object):
 
 
 def _take_slice(data, slice_):
-    return data[slice_]
-    #x = [data[int(i)] for i in slice_]
-    #return x
-
+    if isinstance(data, list) or isinstance(data, tuple):
+        return [data[int(i)] for i in slice_]
+    else:
+        return data[slice_]
