@@ -11,7 +11,7 @@ class MeanPooling(Model):
 
     def begin_update(self, X, drop=0.0):
         X, bp_dropout = self.ops.dropout(X, drop)
-        def finish_update(gradient):
+        def finish_update(gradient, sgd=None):
             batch_grads = []
             for i, x in enumerate(X):
                 grad_i = self.ops.allocate(x.shape)
@@ -72,25 +72,29 @@ class MinPooling(Model):
 
 class MultiPooling(Model): # pragma: no cover
     name = 'multi-pool'
+    def __init__(self, *inputs):
+        self.inputs = inputs
+
     def predict(self, X):
-        return self.ops.xp.hstack([in_.predict(X) for in_ in self.inputs], axis=1)
+        return self.ops.xp.hstack([in_.predict(X) for in_ in self.inputs])
  
     def begin_update(self, X, drop=0.0):
         output = []
         backward = []
         start = 0
+        length = X[0].shape[1]
         for input_ in self.inputs:
             out, finish = input_.begin_update(X, drop=drop)
             output.append(out)
-            end = start + input_.nr_out
+            end = start + length
             backward.append((finish, start, end))
             start = end
-        return self.ops.xp.hstack(output, axis=1), self._get_finish_update(backward)
+        return self.ops.xp.hstack(output), self._get_finish_update(backward)
 
     def _get_finish_update(self, backward):
         def finish_update(gradient, sgd=None):
             assert len(self.inputs) == 3 # TODO
-            seq_grads = [bwd(gradient[:, start : end], sgd)
+            seq_grads = [bwd(gradient[:, start : end], sgd=None)
                          for bwd, start, end in backward]
             summed = []
             for grads in zip(*seq_grads):

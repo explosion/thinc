@@ -29,7 +29,7 @@ class FeedForward(Model):
     @property
     def output_shape(self):
         return self._layers[-1].output_shape
-    
+
     def begin_update(self, X, drop=0.):
         callbacks = []
         for layer in self._layers:

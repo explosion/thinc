@@ -3,12 +3,15 @@
 # cython: infer_types = True
 cimport cython
 from libc.string cimport memcpy, memset
-from libc.math cimport exp, sqrt
+from libc.math cimport exp, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
+from libc.stdint cimport uint64_t
 from libc.string cimport memcpy
 from cymem.cymem cimport Pool
+from preshed.maps cimport PreshMap
 
+import chainer.cuda
 import numpy
 from cytoolz import concat
 from numpy import prod
@@ -17,11 +20,13 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
-from ..linalg cimport VecVec
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 
 
 try:
     import cupy
+    from chainer.functions.math.minmax import max as cupy_max
+    from chainer.functions.math.minmax import argmax as cupy_argmax
 except ImportError:
     cupy = None
 
@@ -57,8 +62,11 @@ class Ops(object):
             return x * mask, wrap_backprop
 
     def flatten(self, X, dtype=None):
-        return self.asarray(list(concat(X)), dtype=dtype)
- 
+        result = self.xp.concatenate(X)
+        if dtype is not None:
+            result = self.asarray(result, dtype=dtype)
+        return result
+
     def unflatten(self, X, lengths):
         unflat = []
         for length in lengths:
@@ -71,21 +79,24 @@ class Ops(object):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
-        cdef unsigned char cutoff = drop * 255
-        if cutoff <= 0:
+        if drop <= 0:
             return None
-        elif cutoff >= 255:
+        elif drop >= 1.:
             return self.allocate(shape)
-        
-        cdef int n = prod(shape)
-        cdef bytes rand_bytes = self.random_bytes(n)
-        cdef unsigned char* buff = <unsigned char*>rand_bytes
-        cdef ndarray[float] output = self.allocate(n, dtype='float32')
-        cdef float* out_buff = <float*>output.data
-        cdef float compensated = 1. / (1. - drop)
-        for i in range(n):
-            out_buff[i] = compensated if buff[i] < cutoff else 0
-        return output.reshape(shape)
+        coinflips = self.xp.random.uniform(0., 1., shape)
+        return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
+
+        #cdef int n = prod(shape)
+        #cdef bytes rand_bytes = self.random_bytes(n)
+        #cdef unsigned char* buff = <unsigned char*>rand_bytes
+        #cdef ndarray[float] output = self.allocate(n, dtype='float32')
+        #cdef float* out_buff = <float*>output.data
+        #cdef float compensated = 1. / (1. - drop)
+        #n_dropped = 0
+        #for i in range(n):
+        #    out_buff[i] = compensated if (buff[i] < cutoff) else 0
+        #    n_dropped += out_buff[i] == 0
+        #return output.reshape(shape)
 
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, int):
@@ -102,7 +113,7 @@ class Ops(object):
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
-   
+
     def batch_outer(self, x, y):
         return self.xp.tensordot(x, y, axes=[[0], [0]])
 
@@ -111,7 +122,7 @@ class Ops(object):
 
     def dot(self, x, y):
         return self.xp.dot(x, y)
-    
+
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
 
@@ -167,6 +178,27 @@ class Ops(object):
         scale = self.xp.sqrt(2. / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
+    def update_averages(self, ema, weights, t, max_decay=0.9999):
+        cdef weight_t decay = (1.0 + t) / (10.0 + t)
+        if decay > max_decay:
+            decay = max_decay
+        ema -= (1-decay) * (ema - weights)
+
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+        mom1 *= beta1
+        mom2 *= beta2
+        mom1 += gradient * (1.-beta1)
+        mom2 += gradient * gradient * (1.-beta2)
+        # Here we assume learn rate is calculated by the caller.
+        # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
+        gradient.fill(0)
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = self.xp.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
+
 
 class NumpyOps(Ops):
     device = 'cpu'
@@ -191,20 +223,26 @@ class NumpyOps(Ops):
             if signal_out[i] <= 0:
                 delta[i] *= signal_out[i] + 1.
 
-    def relu(self, ndarray X, inplace=True):
+    def relu(self, ndarray X, inplace=False):
+        if inplace == False:
+            return X * (X > 0)
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
+        return X
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=True):
+    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
+        if inplace == False:
+            return delta_ * (signal_out_ > 0.)
         cdef size_t size = delta_.size
         cdef weight_t* delta = <weight_t*>delta_.data
         cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] = 0.
+        return delta_
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
@@ -214,21 +252,21 @@ class NumpyOps(Ops):
 
         which__bo = <int*>mem.alloc(B * O, sizeof(int))
         best__bo = <float*>mem.alloc(B * O, sizeof(float))
-        maxout(best__bo, which__bo,
+        cpu_maxout(best__bo, which__bo,
             &py_cands[0, 0, 0], B, O, P)
         cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
         memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
         cdef ndarray py_which = self.xp.ascontiguousarray(self.allocate(B * O, dtype='int32'))
         memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
         return py_best.reshape((B, O)), py_which.reshape((B, O))
-    
+
     def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
         cdef Pool mem = Pool()
         cdef int B = dX__bo.shape[0]
         cdef int O = dX__bo.shape[1]
 
         dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
-        backprop_maxout(dX__bop,
+        cpu_backprop_maxout(dX__bop,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
@@ -249,7 +287,7 @@ class NumpyOps(Ops):
             self.allocate(B*(2 * nW+1) * I, dtype='float32'))
         memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
         return py_out.reshape((B, I * (2*nW+1)))
-    
+
     def backprop_seq2col(self, float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
@@ -261,6 +299,25 @@ class NumpyOps(Ops):
             self.allocate(B * I, dtype='float32'))
         memcpy(py_out.data, dX, B * I * sizeof(dX[0]))
         return py_out.reshape((B, I))
+
+    def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
+        cdef uint64_t* ids = &ids_mv[0]
+        cdef ndarray[uint64_t] output_arr = self.allocate(len(ids_mv), dtype='uint64')
+        output = <uint64_t*>output_arr.data
+        cdef uint64_t key = 0
+        for i in range(ids_mv.shape[0]):
+            if ids[i] == 0:
+                output[i] = 0
+            else:
+                mapped = <uint64_t>mapping.get(ids[i])
+                if mapped != 0:
+                    output[i] = mapped
+                else:
+                    output[i] = value
+                    if value != 0:
+                        mapping.set(ids[i], <void*>value)
+                        value += 1
+        return output_arr
 
     def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
         cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
@@ -282,15 +339,78 @@ class NumpyOps(Ops):
         cdef unsigned char* arr = <unsigned char*>output
         fill_random_bytes(arr, n)
         return output
- 
+
+
+@cython.cdivision(True)
+cdef void _adam(
+    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
+        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
+        weight_t learn_rate) nogil:
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+
+    for i in range(nr_weight):
+        gradient[i] *= gradient[i] * (1-beta2)
+    for i in range(nr_weight):
+        mom2[i] = (beta2 * mom2[i]) + gradient[i]
+    #for i in range(nr_weight):
+    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
+    # Here we assume this is calculated by the caller.
+    #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
+    for i in range(nr_weight):
+        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    for i in range(nr_weight):
+        ema[i] -= (1-decay) * (ema[i] - weights[i])
 
 
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
 
+    def maxout(self, X):
+        amax = cupy_max(X, axis=-1).data
+        argmax = cupy_argmax(X, axis=-1).data
+        return amax, cupy.asarray(argmax, dtype='int32')
+
+    def backprop_maxout(self, dX__bo, which__bo, int P):
+        dX__bop = gpu_backprop_maxout(
+            dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
+        return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
+
+    def relu(self, X, inplace=False):
+        if not inplace:
+            return X * (X > 0)
+        else:
+            X *= (X > 0)
+            return X
+
+    def backprop_relu(self, delta_, signal_out, inplace=False):
+        if not inplace:
+            return delta_ * (signal_out > 0)
+        delta_ *= (signal_out > 0)
+        return delta_
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = self.xp.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
+
+
 def seed_srand(int value):
     srand(value)
+
+seed_srand(0)
 
 cdef void fill_random_bytes(unsigned char* out, int n) nogil:
     '''Fill an array `out` with `n` random bytes.'''
@@ -340,8 +460,7 @@ cdef void backprop_seq2col(float* d_seqs,
                 VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
 
 
-
-cdef void maxout(float* best__bo, int* which__bo,
+cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -357,7 +476,7 @@ cdef void maxout(float* best__bo, int* which__bo,
             which__bo += 1
 
 
-cdef void backprop_maxout(float* dX__bop,
+cdef void cpu_backprop_maxout(float* dX__bop,
         const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -365,3 +484,26 @@ cdef void backprop_maxout(float* dX__bop,
             dX__bop += P
             dX__bo += 1
             which__bo += 1
+
+
+# Here we broadcast over the longest dimension (dX) and compute indexes
+# for the narrower dimensions.
+gpu_backprop_maxout = cupy.ElementwiseKernel(
+    'raw float32 best, raw int32 which, raw int32 P',
+    'float32 dX',
+    'dX = (which[i/P] == i%P) ? best[i/P] : 0',
+    'bp_maxout')
+
+def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
+    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    if grad_norm >= threshold:
+        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
+
+
+def add_gradient_noise(float[::1] gradient, weight_t noise_level,
+        weight_t timestep):
+    variance = noise_level / ((1 + timestep) ** 0.55)
+    if variance >= 0.000001:
+        gradient += numpy.asarray(
+                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
+                       dtype='float32')

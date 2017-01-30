@@ -3,6 +3,7 @@ import io # pragma: no cover
 from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import numpy # pragma: no cover
+import csv # pragma: no cover
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
@@ -48,7 +49,10 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         y = []
         for words, tags  in sents:
             if encode_words:
-                X.append([vocab.get(word, len(vocab)) for word in words])
+                X.append(
+                    numpy.asarray(
+                        [vocab.get(word, len(vocab)) for word in words],
+                        dtype='uint64'))
             else:
                 X.append(words)
             if encode_tags:
@@ -92,9 +96,8 @@ def mnist(): # pragma: no cover
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
 
-    X_train = (X_train - X_train.mean(axis=0)) / (numpy.sqrt(X_train.var(axis=0)) + 1e-12)
-    X_test = (X_test - X_test.mean(axis=0)) / (numpy.sqrt(X_test.var(axis=0)) + 1e-12)
-
+    X_train /= 255.
+    X_test /= 255.
     train_data = list(zip(X_train, y_train))
     nr_train = X_train.shape[0]
     random.shuffle(train_data)
@@ -108,6 +111,21 @@ def reuters(): # pragma: no cover
     from ._vendorized.keras_datasets import load_reuters
     (X_train, y_train), (X_test, y_test) = load_reuters()
     return (X_train, y_train), (X_test, y_test)
+
+
+def read_quora_tsv_data(loc):
+    is_header = True
+    with loc.open('rb') as file_:
+        for row in csv.reader(file_, delimiter=b'\t'):
+            if is_header:
+                is_header = False
+                continue
+            id_, qid1, qid2, sent1, sent2, is_duplicate = row
+            sent1 = sent1.decode('utf8').strip()
+            sent2 = sent2.decode('utf8').strip()
+            if sent1 and sent2:
+                yield (sent1, sent2), int(is_duplicate)
+
 
 
 def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover

@@ -14,6 +14,7 @@ def _set_dimensions_if_needed(model, X, y=None):
         model.nO = int(y.max()) + 1
 
 
+# TODO: Add toggle for the LSUV init. It seems not always better!
 @describe.on_data(_set_dimensions_if_needed, LSUVinit)
 @describe.attributes(
     nB=Dimension("Batch size"),
@@ -54,9 +55,10 @@ class Affine(Model):
         def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
+            grad__BI = self.ops.batch_dot(grad__BO, self.W.T)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
                     key=id(self._mem))
-            return self.ops.batch_dot(grad__BO, self.W.T)
+            return grad__BI
         output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
         return output__BO, bp_dropout(finish_update)
