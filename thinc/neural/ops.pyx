@@ -20,7 +20,7 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
-from ..linalg cimport VecVec
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 
 
 try:
@@ -178,6 +178,22 @@ class Ops(object):
         scale = self.xp.sqrt(2. / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
+    def update_averages(self, ema, weights, t, max_decay=0.9999):
+        cdef weight_t decay = (1.0 + t) / (10.0 + t)
+        if decay > max_decay:
+            decay = max_decay
+        ema -= (1-decay) * (ema - weights)
+
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+        mom1 *= beta1
+        mom2 *= beta2
+        mom1 += gradient * (1.-beta1)
+        mom2 += gradient * gradient * (1.-beta2)
+        # Here we assume learn rate is calculated by the caller.
+        # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+        weights -= learn_rate * (mom1 / (cupy.sqrt(mom2) + eps))
+        gradient.fill(0)
+
 
 class NumpyOps(Ops):
     device = 'cpu'
@@ -314,6 +330,41 @@ class NumpyOps(Ops):
         return output
 
 
+@cython.cdivision(True)
+cdef void _adam(
+    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
+        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
+        weight_t learn_rate) nogil:
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+
+    for i in range(nr_weight):
+        gradient[i] *= gradient[i] * (1-beta2)
+    for i in range(nr_weight):
+        mom2[i] = (beta2 * mom2[i]) + gradient[i]
+    #for i in range(nr_weight):
+    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
+    # Here we assume this is calculated by the caller.
+    #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
+    for i in range(nr_weight):
+        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+
+
+
+
+@cython.cdivision(True)
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    for i in range(nr_weight):
+        ema[i] -= (1-decay) * (ema[i] - weights[i])
+
+
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
@@ -335,6 +386,11 @@ class CupyOps(Ops):
     def backprop_relu(self, delta_, signal_out, inplace=True):
         delta_ *= (signal_out > 0)
         return delta_
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = cupy.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
 
 
 def seed_srand(int value):
@@ -424,3 +480,16 @@ gpu_backprop_maxout = cupy.ElementwiseKernel(
     'dX = (which[i/P] == i%P) ? best[i/P] : 0',
     'bp_maxout')
 
+def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
+    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    if grad_norm >= threshold:
+        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
+
+
+def add_gradient_noise(float[::1] gradient, weight_t noise_level,
+        weight_t timestep):
+    variance = noise_level / ((1 + timestep) ** 0.55)
+    if variance >= 0.000001:
+        gradient += numpy.asarray(
+                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
+                       dtype='float32')
