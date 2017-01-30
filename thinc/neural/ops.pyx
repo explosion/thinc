@@ -191,8 +191,13 @@ class Ops(object):
         mom2 += gradient * gradient * (1.-beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        weights -= learn_rate * (mom1 / (cupy.sqrt(mom2) + eps))
+        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = self.xp.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
 
 
 class NumpyOps(Ops):
@@ -218,20 +223,26 @@ class NumpyOps(Ops):
             if signal_out[i] <= 0:
                 delta[i] *= signal_out[i] + 1.
 
-    def relu(self, ndarray X, inplace=True):
+    def relu(self, ndarray X, inplace=False):
+        if inplace == False:
+            return X * (X > 0)
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
+        return X
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=True):
+    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
+        if inplace == False:
+            return delta_ * (signal_out_ > 0.)
         cdef size_t size = delta_.size
         cdef weight_t* delta = <weight_t*>delta_.data
         cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] = 0.
+        return delta_
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
@@ -353,8 +364,6 @@ cdef void _adam(
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
-
-
 @cython.cdivision(True)
 cdef void cpu_update_averages(weight_t* ema,
         const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
@@ -379,16 +388,21 @@ class CupyOps(Ops):
             dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
         return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
 
-    def relu(self, X, inplace=True):
-        X *= (X > 0)
-        return X
+    def relu(self, X, inplace=False):
+        if not inplace:
+            return X * (X > 0)
+        else:
+            X *= (X > 0)
+            return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=True):
+    def backprop_relu(self, delta_, signal_out, inplace=False):
+        if not inplace:
+            return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
 
     def clip_gradient(self, gradient, threshold):
-        grad_norm = cupy.linalg.norm(gradient)
+        grad_norm = self.xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
