@@ -1,55 +1,24 @@
 from __future__ import print_function
 from timeit import default_timer as timer
+import plac
 
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax
-from thinc.neural._classes.feed_forward import FeedForward
-from thinc.neural._classes.batchnorm import BatchNorm as BN
 from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.window_encode import MaxoutWindowEncode
 from thinc.neural._classes.maxout import Maxout
 
-from thinc.neural.ops import NumpyOps
 from thinc.loss import categorical_crossentropy
 from thinc.api import layerize, chain, clone
 from thinc.neural.util import flatten_sequences
 
 from thinc.extra.datasets import ancora_pos_tags
 
-import plac
-
-
-try:
-    import cytoolz as toolz
-except ImportError:
-    import toolz
-
-
-def get_positions(ids, drop=0.):
-    positions = {id_: [] for id_ in set(ids)}
-    for i, id_ in enumerate(ids):
-        positions[id_].append(i)
-    return positions, None
 
 
 def main(width=64, vector_length=64):
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     with Model.define_operators({'**': clone, '>>': chain}):
-        #model = (
-        #    layerize(flatten_sequences)
-        #    >> layerize(get_positions)
-        #    >> MaxoutWindowEncode(Embed(width, vector_length), 128,
-        #          pieces=2, window=2)
-        #    >> ExtractWindow(nW=2)
-        #    >> ReLu(300)
-        #    >> Softmax(nr_tag))
-        #model = (
-        #    layerize(flatten_sequences)
-        #    >> Embed(width, vector_length)
-        #    >> ExtractWindow(nW=2)
-        #    >> ReLu(300)
-        #    >> Softmax(nr_tag))
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
