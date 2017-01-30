@@ -24,6 +24,7 @@ class SGD(object):
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
+        self.max_grad_norm = 100.
         self.momentums = {}
         self.averages = {} if settings.get('averages', True) else None
         self.nr_update = defaultdict(int)
@@ -39,7 +40,7 @@ class SGD(object):
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
         lr *= lr_scale
-        self.ops.clip_gradient(gradient, 100.)
+        self.ops.clip_gradient(gradient, self.max_grad_norm)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
             gradient.fill(0)
@@ -71,6 +72,7 @@ class Adam(SGD):
         self.averages = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
+        self.max_grad_norm = 100.
         self.alpha = lr
         self.b1 = beta1
         self.b2 = beta2
@@ -95,7 +97,7 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        #self.ops.clip_gradient(gradient, 10.)
+        self.ops.clip_gradient(gradient, self.max_grad_norm)
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
