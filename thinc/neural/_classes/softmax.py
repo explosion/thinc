@@ -15,7 +15,7 @@ class Softmax(Affine):
     @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
         output__BO = self.ops.affine(self.W, self.b, input__BI)
-        self.ops.softmax(output__BO, inplace=True)
+        output__BO = self.ops.softmax(output__BO, inplace=False)
         return output__BO
 
     @check.arg(1, has_shape(('nB', 'nI')))
@@ -25,7 +25,8 @@ class Softmax(Affine):
         def finish_update(grad__BO, sgd=None):
             self.d_W += self.ops.batch_outer(grad__BO, input__BI)
             self.d_b += grad__BO.sum(axis=0)
+            grad__BI = self.ops.batch_dot(grad__BO, self.W.T)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
-            return self.ops.batch_dot(grad__BO, self.W.T)
+            return grad__BI
         return output__BO, finish_update
