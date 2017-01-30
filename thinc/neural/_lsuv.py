@@ -53,16 +53,4 @@ def LSUVinit(model, X, y=None):
         model = model._layers[0]
     if model.name in 'softmax': # pragma: no cover
         return
-    copyto(model.W, svd_orthonormal(model.W.shape))
-    acts = model(X)
-    tol_var = 0.1
-    t_max = 10
-    t_i = 0
-    while True:
-        acts1 = model(X)
-        var = acts1.var()
-        if model.ops.xp.abs(var - 1.0) < tol_var or t_i > t_max:
-            break
-        model.W /= model.ops.xp.sqrt(var)
-        t_i += 1
-    acts = model(X)
+    return do_lsuv(model.ops, model.W, model, X)
