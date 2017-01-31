@@ -145,13 +145,9 @@ class Model(object):
         y
             Must match expected type
         '''
-        correct = 0
-        total = 0
         scores = self(X)
-        for i, gold in enumerate(y):
-            correct += scores[i].argmax() == gold
-            total += 1
-        return float(correct) / total
+        correct = (scores.argmax(axis=1) == y).sum()
+        return float(correct) / y.shape[0]
 
     @check.operator_is_defined('+')
     def __add__(self, other):
