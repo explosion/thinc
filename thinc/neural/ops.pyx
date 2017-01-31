@@ -419,17 +419,24 @@ class CupyOps(Ops):
         '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cols = self.allocate((B, I, (nW*2+1)))
-        gpu_seq2col(cols,
-            seq, B, I, nW)
+        cols = self.allocate((B, (nW*2+1), I))
+        cols[:-1, 0] = seq[1:]
+        cols[:, 1] = seq
+        cols[1:, 2] = seq[:-1]
         return cols.reshape((B, I * (2*nW+1)))
 
     def backprop_seq2col(self, dY, int nW):
+        cdef int nF = nW*2+1
         cdef int B = dY.shape[0]
-        cdef int I = dY.shape[1] / (nW*2+1)
+        cdef int I = dY.shape[1] / nF
+        assert nF == 3, "TODO: Support variable window size" 
+        # Having trouble getting the kernel to work...
         dX = self.allocate((B, I))
-        gpu_backprop_seq2col(dX, dY, nW)
-        return dX.reshape((B, I))
+        dY = dY.reshape((B, nF, I))
+        dX[1:] += dY[:-1, 0]
+        dX += dY[:, nW]
+        dX[:-1] += dY[1:, 2]
+        return dX
 
 
 class RawKernel(object):
@@ -451,6 +458,7 @@ class RawKernel(object):
         return self.func(grid, block, args)
 
 
+# TODO: Currently broken
 gpu_seq2col = RawKernel('gpu_seq2col', '''
 extern "C" __global__
 void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
@@ -480,20 +488,28 @@ gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
 extern "C" __global__
 void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
 {
+    return;
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int nF = nW * 2 + 1;
  
-    if (i >= B) return;
-
-    float* seq_row = &d_seqs[i * I];
+    if ((i+nW) >= B) return;
+    
+    float* d_seq = &d_seqs[i * I];
+    // Here's what we're doing, if we had 2d indexing.
+    // d_seq += d_cols[i-2, 4]
+    // d_seq += d_cols[i-1, 3]
+    // d_seq += d_cols[i, 2]
+    // d_seq += d_cols[i+1, 1]
+    // d_seq += d_cols[i+2, 0]
+ 
     const float* col_row = &d_cols[i * I * nF];
-    for (int f = -nW; f < nW+1; ++f) {
-        if (B > (i+f) && (i+f) >= 0) {
-            const float* feat = col_row + (f * I);
-            for (int j = 0; j < I; ++j)
-                seq_row[j] += feat[(f+nW) * I + j];
-        }
-    }
+    //for (int f = -nW; f < (nW+1); ++f) {
+    //    if (B > (i+f) && (i+f) >= 0) {
+    //        const float* feat = col_row + (f * I) + (f+nW) * I;
+    //        for (int j = 0; j < I; ++j)
+    //            d_seq[j] += feat[j];
+    //    }
+    //}
 }
 ''')
 
