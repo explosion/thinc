@@ -27,6 +27,9 @@ try:
     import cupy
     from chainer.functions.math.minmax import max as cupy_max
     from chainer.functions.math.minmax import argmax as cupy_argmax
+    from cupy.cuda.function import Function
+    from cupy.cuda.compiler import compile_with_cache
+    from cupy.cuda.device import Device
 except ImportError:
     cupy = None
 
@@ -407,6 +410,70 @@ class CupyOps(Ops):
             gradient *= threshold / grad_norm
 
 
+class RawKernel(object):
+    def __init__(self, name, src):
+        if cupy is None:
+            return None
+        # TODO: Some setup is performed when a function is launched that I haven't
+        # identified yet. Without this setup, loading the function fails...
+        _ = cupy.ElementwiseKernel('float32 x, float32 y', 'float32 z',
+            'z = (x - y) * (x - y)', 'squared_diff')
+        with Device(0):
+            _(cupy.ones((5,), dtype='float32'), cupy.ones((5,), dtype='float32'))
+            self.func = Function(compile_with_cache(src), name)
+
+    def __call__(self, *args, **kwargs):
+        grid = kwargs.get('grid', (args[0].shape[0],))
+        block = kwargs.get('block', (1,)) 
+        return self.func(grid, block, args)
+
+
+gpu_seq2col = RawKernel('gpu_seq2col', '''
+extern "C" __global__
+void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= B)
+        return;
+    int nF = nW * 2 + 1;
+
+    output += i * I * nF;
+    X += i * I;
+    if (i == (B-nW)) {
+        for (int j = 0; j < (I*nW); ++j)
+            output[j] = X[j];
+        return;
+    }
+    for (int j = 0; j < (I*(nW+1)); ++j)
+        output[j] = X[j];
+    output += I * (nW+1);
+    for (int j = 0; j < (I*nW); ++j)
+        output[j] = X[j];
+}
+''')
+
+gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
+extern "C" __global__
+void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    int nF = nW * 2 + 1;
+ 
+    if (i >= (B * I * nF)) return;
+
+    float* seq_row = &d_seqs[i * I];
+    const float* col_row = &d_cols[i * I * nF];
+    for (int f = -nW; f < nW+1; ++f) {
+        if (B > (i+f) && (i+f) >= 0) {
+            const float* feat = col_row + (f * I);
+            for (int j = 0; j < I; ++j)
+                seq_row[j] += feat[(f+nW) * I + j];
+        }
+    }
+}
+''')
+
+
 def seed_srand(int value):
     srand(value)
 
@@ -449,7 +516,6 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i+2, 0]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i, 2]
-
     nF = nW * 2 + 1
     for i in range(B):
         seq_row = &d_seqs[i * I]
