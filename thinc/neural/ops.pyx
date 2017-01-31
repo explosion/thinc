@@ -112,7 +112,10 @@ class Ops(object):
         return self.asarray(X), self.asarray(y)
 
     def asarray(self, data, dtype=None):
-        return self.xp.asarray(data, dtype=dtype)
+        if dtype is not None:
+            return self.xp.asarray(data, dtype=dtype)
+        else:
+            return self.xp.asarray(data)
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
@@ -409,6 +412,25 @@ class CupyOps(Ops):
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
+    def seq2col(self, seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cols = self.allocate((B, I, (nW*2+1)))
+        gpu_seq2col(cols,
+            seq, B, I, nW)
+        return cols.reshape((B, I * (2*nW+1)))
+
+    def backprop_seq2col(self, dY, int nW):
+        cdef int B = dY.shape[0]
+        cdef int I = dY.shape[1] / (nW*2+1)
+        dX = self.allocate((B, I))
+        gpu_backprop_seq2col(dX, dY, nW)
+        return dX.reshape((B, I))
+
 
 class RawKernel(object):
     def __init__(self, name, src):
@@ -423,6 +445,7 @@ class RawKernel(object):
             self.func = Function(compile_with_cache(src), name)
 
     def __call__(self, *args, **kwargs):
+        # TODO: Not convinced I'm doing this right...
         grid = kwargs.get('grid', (args[0].shape[0],))
         block = kwargs.get('block', (1,)) 
         return self.func(grid, block, args)
@@ -452,6 +475,7 @@ void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
 }
 ''')
 
+# TODO: This doesn't work yet. Segfaults.
 gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
 extern "C" __global__
 void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
@@ -459,7 +483,7 @@ void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int 
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int nF = nW * 2 + 1;
  
-    if (i >= (B * I * nF)) return;
+    if (i >= B) return;
 
     float* seq_row = &d_seqs[i * I];
     const float* col_row = &d_cols[i * I * nF];
