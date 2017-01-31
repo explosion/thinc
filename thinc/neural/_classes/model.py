@@ -146,7 +146,7 @@ class Model(object):
             Must match expected type
         '''
         scores = self(X)
-        correct = (scores.argmax(axis=1) == y).sum()
+        correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
         return float(correct) / y.shape[0]
 
     @check.operator_is_defined('+')
