@@ -97,7 +97,7 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        self.ops.clip_gradient(gradient, self.max_grad_norm)
+        self.ops.clip_gradient(gradient, len(gradient) / 100.)
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]

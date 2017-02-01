@@ -3,6 +3,7 @@ import io # pragma: no cover
 from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import csv # pragma: no cover
+import numpy
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
@@ -14,12 +15,12 @@ EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
     github=GITHUB, ewtb='UD_English') # pragma: no cover
 
 
-def ancora_pos_tags(xp): # pragma: no cover
+def ancora_pos_tags(): # pragma: no cover
     data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
-    return ud_pos_tags(xp, train_loc, dev_loc)
+    return ud_pos_tags(train_loc, dev_loc)
 
 
 def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
@@ -30,7 +31,7 @@ def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
         encode_tags=encode_tags, encode_words=encode_words)
 
 
-def ud_pos_tags(xp, train_loc, dev_loc, encode_tags=True, encode_words=True): # pragma: no cover
+def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # pragma: no cover
     train_sents = list(read_conll(train_loc))
     dev_sents = list(read_conll(dev_loc))
     tagmap = {}
@@ -49,13 +50,13 @@ def ud_pos_tags(xp, train_loc, dev_loc, encode_tags=True, encode_words=True): # 
         for words, tags  in sents:
             if encode_words:
                 X.append(
-                    xp.asarray(
+                    numpy.asarray(
                         [vocab.get(word, len(vocab)) for word in words],
                         dtype='uint64'))
             else:
                 X.append(words)
             if encode_tags:
-                y.append(xp.asarray(
+                y.append(numpy.asarray(
                     [tagmap[tag] for tag in tags],
                     dtype='int32'))
             else:

@@ -13,7 +13,6 @@ import contextlib
 from thinc.extra.datasets import read_quora_tsv_data
 import thinc.check
 from thinc.neural.util import partition
-from thinc.ops import NumpyOps
 from thinc.exceptions import ExpectedTypeError
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax, Maxout

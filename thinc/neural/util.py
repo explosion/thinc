@@ -2,6 +2,7 @@ from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
 from .ops import NumpyOps, CupyOps
+from cupy import get_array_module
 
 
 def get_ops(ops):
@@ -24,9 +25,15 @@ def mark_sentence_boundaries(sequences, drop=0.): # pragma: no cover
 
 
 def remap_ids(ops):
-    id_map = PreshMap()
+    id_map = {0: 0}
     def begin_update(ids, drop=0.):
-        return ops.remap_ids(id_map, ids, len(id_map)), None
+        n_vector = len(id_map)
+        for i, id_ in enumerate(ids):
+            if id_ not in id_map:
+                id_map[id_] = n_vector
+                n_vector += 1
+            ids[i] = id_map[id_]
+        return ids, None
     return begin_update
 
 #    def _unique_ids(self, ids):
@@ -42,8 +49,8 @@ def remap_ids(ops):
 
 
 def flatten_sequences(sequences, drop=0.): # pragma: no cover
-    ops = NumpyOps()
-    return ops.flatten(sequences), None
+    xp = get_array_module(sequences[0])
+    return xp.concatenate(sequences), None
 
 
 def partition(examples, split_size): # pragma: no cover
