@@ -23,37 +23,33 @@ from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
 from thinc.neural.util import remap_ids, to_categorical
 from thinc.neural.ops import CupyOps
-
-
-@layerize
-def get_word_ids(docs, drop=0.):
-    '''Get word forms.'''
-    seqs = []
-    for doc in docs:
-        arr = numpy.zeros((len(doc)+1,), dtype='uint64')
-        for token in doc:
-            arr[token.i] = token.orth
-        arr[len(doc)] = 0
-        seqs.append(arr)
-    return seqs, None
+import cupy
 
 
 class StaticVectors(Embed):
     def __init__(self, nlp, nO):
+        self.on_init_hooks = []
         Embed.__init__(self, nO, nlp.vocab.vectors_length,
             len(nlp.vocab), is_static=True)
         vectors = self.vectors
         for i, word in enumerate(nlp.vocab):
-            vectors[i+1] = word.vector / (word.vector_norm or 1.)
+            if word.vector_norm != 0.:
+                vectors[i+1].set(word.vector)
+                vectors[i+1] /= word.vector_norm
 
 
-def create_data(nlp, rows):
+def create_data(ops, nlp, rows):
+    def get_word_ids(doc):
+        '''Get word forms.'''
+        orths = [token.orth for token in doc]
+        orths.append(0)
+        return ops.asarray(orths, dtype='uint64')
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        Xs.append((get_word_ids(nlp(text1)), get_word_ids(nlp(text2))))
         ys.append(label)
-    return Xs, ys
+    return Xs, to_categorical(ops.asarray(ys))
 
 
 def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
@@ -70,6 +66,14 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         n_dev_words, (end-start),
         float(n_dev_words) / (end-start)]
 
+def flatten_with_lengths(layer):
+    def begin_update(X, drop=0.):
+        flat = layer.ops.flatten(X)
+        lengths = [len(x) for x in X]
+        y, bp_layer = layer.begin_update(flat, drop=drop)
+        return (y, lengths), bp_layer
+    return layerize(begin_update)
+
 
 @plac.annotations(
     loc=("Location of Quora data"),
@@ -79,20 +83,17 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
 )
-def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5,
+def main(loc, width=64, depth=2, batch_size=1, dropout=0.5, dropout_decay=1e-5,
          nb_epoch=20):
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
-    print("Construct model")
     Model.ops = CupyOps()
     print("Construct model")
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
-            get_word_ids
-            >> with_flatten(
-                StaticVectors(nlp, width)
-                >> mwe_encode ** depth
+            flatten_with_lengths(
+                Embed(width, nM=width, nV=10000)
+                >> (ExtractWindow(nW=1) >> Maxout(width, width*3)) ** depth
             )
             >> (MeanPooling() | MaxPooling())
         )
@@ -106,8 +107,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Read and parse quora data")
     rows = read_quora_tsv_data(pathlib.Path(loc))
     train, dev = partition(rows, 0.9)
-    train_X, train_y = create_data(nlp, train)
-    dev_X, dev_y = create_data(nlp, dev)
+    train_X, train_y = create_data(model.ops, nlp, train)
+    dev_X, dev_y = create_data(model.ops, nlp, dev)
     print("Train")
     with model.begin_training(train_X[:20000], train_y[:20000]) as (trainer, optimizer):
         trainer.batch_size = batch_size
@@ -133,10 +134,14 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
             epoch_loss.append(0.)
 
         trainer.each_epoch.append(track_progress)
+        train_y = to_categorical(model.ops.asarray(train_y))
+        batch_size = 1.
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             backprop(yh-y, optimizer)
             #epoch_loss[-1] += loss / len(train_y)
+            trainer.batch_size = min(int(batch_size), 1024)
+            batch_size *= 1.001
 
 
 if __name__ == '__main__':
