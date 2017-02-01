@@ -25,7 +25,7 @@ def to_categorical(y, nb_classes=None):
     return categorical
 
 
-epoch_loss = 0.
+epoch_train_acc = 0.
 def track_progress(**context):
     model = context['model']
     dev_X = context['dev_X']
@@ -33,13 +33,13 @@ def track_progress(**context):
     n_train = context['n_train']
     trainer = context['trainer']
     def each_epoch():
-        global epoch_loss
+        global epoch_train_acc
         acc = model.evaluate(dev_X, dev_y)
         with model.use_params(trainer.optimizer.averages):
             avg_acc = model.evaluate(dev_X, dev_y)
-        stats = (acc, avg_acc, float(epoch_loss) / n_train, trainer.dropout)
+        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
-        epoch_loss = 0.
+        epoch_train_acc = 0.
     return each_epoch
 
 
@@ -58,9 +58,9 @@ def debug(X, drop=0.):
     _i += 1
     return X, lambda d, sgd: d
 
-def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
-        nb_epoch=20, L2=1e-5):
-    global epoch_loss
+def main(width=128, depth=4, vector_length=64, max_batch_size=32,
+    dropout=0.9, drop_decay=1e-4, nb_epoch=20, L2=1e-5):
+    global epoch_train_acc
     cfg = dict(locals())
     Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
@@ -69,12 +69,7 @@ def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
-            >> ExtractWindow(nW=1)
-            >> Maxout(300)
-            >> ExtractWindow(nW=1)
-            >> Maxout(300)
-            >> ExtractWindow(nW=1)
-            >> Maxout(300)
+            >> (ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
             >> Softmax(nr_tag))
 
     train_X, train_y = preprocess(model.ops, train_data, nr_tag)
@@ -83,14 +78,16 @@ def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
     n_train = float(sum(len(x) for x in train_X))
     with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
+        trainer.batch_size = 1
+        batch_size = 1.
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             train_acc = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
             
             backprop(yh - y, optimizer)
-            trainer.batch_size = min(int(batch_size), 32)
-            epoch_loss += train_acc
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            epoch_train_acc += train_acc
             batch_size *= 1.001
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
