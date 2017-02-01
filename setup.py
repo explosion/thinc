@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
+import io
 import os
 import subprocess
 import sys
@@ -16,14 +17,14 @@ except ImportError:
 
 PACKAGES = [
     'thinc',
+    'thinc.tests',
+    'thinc.tests.unit',
+    'thinc.tests.integration',
     'thinc.linear',
     'thinc.neural',
     'thinc.extra',
+    'thinc.neural._classes',
     'thinc.linear.tests',
-    'thinc.neural.tests',
-    'thinc.neural.tests.unit',
-    'thinc.neural.tests.integration',
-    'thinc.extra.tests',
     'thinc.extra._vendorized'
 ]
 
@@ -36,6 +37,8 @@ MOD_NAMES = [
     'thinc.linear.features',
     'thinc.linear.serialize',
     'thinc.linear.sparse',
+    'thinc.neural.optimizers',
+    'thinc.neural.ops',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
@@ -44,9 +47,7 @@ MOD_NAMES = [
 
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function',
-                               '-msse3'
-                               ]}
+                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [],
                     'other' : []}
 
@@ -113,7 +114,7 @@ def setup_package():
             about = {}
             exec(f.read(), about)
 
-        with open(os.path.join(root, 'README.rst')) as f:
+        with io.open(os.path.join(root, 'README.rst'), encoding='utf8') as f:
             readme = f.read()
 
         include_dirs = [
@@ -149,6 +150,7 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
+                'wrapt',
                 'numpy>=1.7',
                 'murmurhash>=0.26,<0.27',
                 'cymem>=1.30,<1.32',
@@ -156,7 +158,8 @@ def setup_package():
                 'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
-                'six>=1.10.0,<2.0.0'
+                'six>=1.10.0,<2.0.0',
+                'flexmock'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

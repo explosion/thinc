@@ -17,7 +17,7 @@ from os import path
 cdef class Writer:
     def __init__(self, object loc, int32_t nr_feat):
         if path.exists(loc):
-            assert not path.isdir(loc)
+            assert not path.isdir(loc), "%s is directory." % loc
         cdef bytes bytes_loc = loc.encode('utf8') if type(loc) == unicode else loc
         self._fp = fopen(<char*>bytes_loc, 'wb')
         assert self._fp != NULL

@@ -1,12 +1,14 @@
-from thinc.neural.base import Network
+from __future__ import print_function
 from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import ReLu
-from thinc.neural.vec2vec import Softmax
-from thinc.neural.convolution import ExtractWindow
-from thinc.neural.ids2vecs import WindowEncode
+from thinc.neural.vec2vec import Model, ReLu, Softmax
+from thinc.neural._classes.feed_forward import FeedForward
+from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.neural._classes.convolution import ExtractWindow
 
-from thinc.neural.util import score_model
-from thinc.neural.optimizers import linear_decay
+from thinc.neural.ops import NumpyOps
+from thinc.loss import categorical_crossentropy
+from thinc.api import layerize, chain
+from thinc.neural.util import flatten_sequences
 
 from thinc.extra.datasets import ancora_pos_tags
 
@@ -18,61 +20,36 @@ except ImportError:
     import toolz
 
 
-class EncodeTagger(Network):
-    Input = WindowEncode
-    width = 32
+def main(width=32, vector_length=8):
+    train_data, check_data, nr_tag = ancora_pos_tags()
 
-    def setup(self, nr_class, *args, **kwargs):
-        self.layers.append(
-            self.Input(vectors={}, W=None, nr_out=self.width,
-                nr_in=self.width, static=False))
-        self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            ReLu(nr_out=self.width, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
-        self.set_weights(initialize=True)
-        self.set_gradient()
+    model = FeedForward((
+              layerize(flatten_sequences),
+              BatchNorm(Embed(width, vector_length)),
+              ExtractWindow(nW=2),
+              BatchNorm(ReLu(width)),
+              BatchNorm(ReLu(width)),
+              Softmax(nr_tag)))
 
-
-class EmbedTagger(EncodeTagger):
-    class Input(Network):
-        nr_in = None
-        nr_out = None
-        def setup(self, *args, **kwargs):
-            self.layers = [
-                Embed(vectors={}, W=None, nr_in=self.nr_in, nr_out=self.nr_out),
-                ExtractWindow(n=1, nr_in=self.nr_in, nr_out=self.nr_out*3)
-            ]
-            self.nr_out *= 3
-
-
-def _flatten(ops, data):
-    X, y = zip(*data)
-    X = ops.asarray(list(toolz.concat(X)), dtype='i')
-    y = ops.asarray(list(toolz.concat(y)), dtype='i')
-    return X, y
-
-
-def main():
-    train_data, check_data, nr_class = ancora_pos_tags()
-    model = EncodeTagger(nr_class)
-    for X, y in train_data:
-        for x in X:
-            model.layers[0].add_vector(x,
-                model.width, add_gradient=True)
-
-    with model.begin_training(train_data) as (trainer, optimizer):
+    train_X, train_y = zip(*train_data)
+    dev_X, dev_y = zip(*check_data)
+    dev_y = model.ops.flatten(dev_y)
+    with model.begin_training(train_X, train_y) as (trainer, optimizer):
+        trainer.batch_size = 8
         trainer.nb_epoch = 10
-        for examples, truth in trainer.iterate(model, train_data, check_data,
-                                               nb_epoch=trainer.nb_epoch):
-            truth = model.ops.flatten(truth)
-            guess, finish_update = model.begin_update(examples, dropout=0.2)
-            gradient, loss = trainer.get_gradient(guess, truth)
+        trainer.dropout = 0.2
+        trainer.dropout_decay = 0.
+        trainer.each_epoch.append(
+            lambda: print(model.evaluate(dev_X, dev_y)))
+        for X, y in trainer.iterate(train_X, train_y):
+            y = model.ops.flatten(y)
+            yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            d_loss, loss = categorical_crossentropy(yh, y)
             optimizer.set_loss(loss)
-            finish_update(gradient, optimizer)
-
+            backprop(d_loss, optimizer)
+    with model.use_params(optimizer.averages):
+        print(model.evaluate(dev_X, dev_y))
+ 
 
 if __name__ == '__main__':
     if 1:

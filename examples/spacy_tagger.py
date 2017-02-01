@@ -1,20 +1,31 @@
 from __future__ import print_function, unicode_literals, division
-from thinc.datasets import ewtb_pos_tags
-from thinc.base import Network
-from thinc.id2vec import Embed
-from thinc.vec2vec import ReLu, Maxout
-from thinc.vec2vec import Softmax
-from thinc.convolution import ExtractWindow
-from thinc.doc2vecs import SpacyWindowEncode
+from timeit import default_timer as timer
+from cytoolz import curry, concat
+from thinc.extra import datasets
+from thinc.neural.id2vec import Embed
+from thinc.neural.vec2vec import Model, ReLu, Maxout, Affine
+from thinc.neural.vec2vec import Softmax, Residual
+from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.neural.ids2vecs import MaxoutWindowEncode
+from thinc.neural._classes.convolution import ExtractWindow
+from thinc.loss import categorical_crossentropy
+from thinc.neural.optimizers import SGD
 
-from thinc.util import score_model
-from thinc.optimizers import linear_decay
-from thinc.datasets import read_conll
+from thinc.api import chain, concatenate, clone
+
+import numpy
+
+from thinc.api import layerize
+
+from thinc.neural.optimizers import linear_decay
 import spacy
 from spacy.attrs import SHAPE
 from spacy.tokens import Doc
+from spacy.strings import StringStore
 import spacy.orth
 import pathlib
+import numpy.random
+import numpy.linalg
 
 import plac
 
@@ -23,103 +34,85 @@ try:
 except ImportError:
     import pickle
 
+
 try:
     import cytoolz as toolz
 except ImportError:
     import toolz
 
 
-class SumTokens(Network):
-    @property
-    def nr_out(self):
-        return self.embed.nr_out
-
-    @property
-    def nr_in(self):
-        return self.embed.nr_in
-    
-    def setup(self, encode, embed):
-        self.encode = encode
-        self.embed = embed
-        self.layers = [self.embed, self.encode]
- 
-    def predict_batch(self, X):
-        encoded = self.encode.predict_batch(X)
-        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
-                                      for w in doc] for doc in X)
-        return encoded + self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
-
-    def begin_update(self, X, dropout=0.0):
-        encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
-        features = self.ops.flatten([(w.orth if w.rank < 5000 else w.shape)
-                                      for w in doc] for doc in X)
-        features = self.ops.asarray(features, dtype='i')
-        embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
-        def finish_update(gradients, optimizer=None, **kwargs):
-            finish_encode(gradients, optimizer=optimizer, **kwargs)
-            finish_embed(gradients, optimizer=optimizer, **kwargs)
-            return gradients
-        return encoded + embeded, finish_update
+@layerize
+def Orth(docs, drop=0.):
+    '''Get word forms.'''
+    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype='i')
+    i = 0
+    for doc in docs:
+        for token in doc:
+            ids[i] = token.orth
+            i += 1
+    return ids, None
 
 
-class ConcatTokens(SumTokens):
-    @property
-    def nr_out(self):
-        return self.embed.nr_out + self.encode.nr_out
+class SpacyVectors(Embed):
+    on_data_hooks = []
+    def __init__(self, nlp):
+        Model.__init__(self)
+        self._id_map = {0: 0}
+        self.nO = nlp.vocab.vectors_length
+        self.nM = self.nO
+        self.nV = len(nlp.vocab)
+        self.W.fill(0)
+        vectors = self.vectors
+        for i, word in enumerate(nlp.vocab):
+            self._id_map[word.orth] = i+1
+            vectors[i+1] = word.vector / (word.vector_norm or 1.)
 
-    def predict_batch(self, X):
-        encoded = self.encode.predict_batch(X)
-        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
-        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
-                                      for w in doc] for doc in X)
-        embeded = self.embed.predict_batch(self.ops.asarray(features, dtype='i'))
-        return self.ops.xp.hstack((embeded, encoded))
+    def predict(self, ids):
+        return self._embed(ids)
 
-    def begin_update(self, X, dropout=0.0):
-        #features = self.ops.flatten([w.shape for w in doc] for doc in X)
-        features = self.ops.flatten([(w.orth if w.rank < 1000 else 0)
-                                      for w in doc] for doc in X)
-        features = self.ops.asarray(features, dtype='i')
-        embeded, finish_embed = self.embed.begin_update(features, dropout=dropout)
-        encoded, finish_encode = self.encode.begin_update(X, dropout=dropout)
-        def finish_update(gradients, optimizer=None, **kwargs):
-            embed_grad = gradients[:, :self.embed.nr_out]
-            encode_grad = gradients[:, self.embed.nr_out:]
-            finish_encode(encode_grad, optimizer=optimizer, **kwargs)
-            finish_embed(embed_grad, optimizer=optimizer, **kwargs)
-            return gradients
-        return self.ops.xp.hstack((embeded, encoded)), finish_update
+    def begin_update(self, ids, drop=0.):
+        return self.predict(ids), None
 
 
-class EncodeTagger(Network):
-    width = 128
-    maxout_pieces = 3
-    nr_in = None
-    
-    def setup(self, nr_class, *args, **kwargs):
-        self.layers.append(
-            ConcatTokens(
-                SpacyWindowEncode(
-                    vectors={}, W=None, nr_out=self.width,
-                    nr_in=self.nr_in, nr_piece=self.maxout_pieces),
-                Embed(
-                    vectors={}, W=None, nr_out=self.width // 2, nr_in=self.width // 4))
-        )
-        self.layers.append(
-            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            ReLu(nr_out=128, nr_in=self.layers[-1].nr_out))
-        self.layers.append(
-            Softmax(nr_out=nr_class, nr_in=self.layers[-1].nr_out))
-        self.set_weights(initialize=True)
-        self.set_gradient()
+@layerize
+def Shape(docs, drop=0.):
+    '''Get word shapes.'''
+    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype='i')
+    i = 0
+    for doc in docs:
+        for token in doc:
+            ids[i] = token.shape
+            i += 1
+    return ids, None
 
 
-def spacy_conll_pos_tags(nlp, train_loc, dev_loc):
-    train_sents = list(read_conll(train_loc))
-    dev_sents = list(read_conll(dev_loc))
+@layerize
+def Prefix(docs, drop=0.):
+    '''Get prefixes.'''
+    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype='i')
+    i = 0
+    for doc in docs:
+        for token in doc:
+            ids[i] = token.prefix
+            i += 1
+    return ids, None
+
+
+@layerize
+def Suffix(docs, drop=0.):
+    '''Get suffixes.'''
+    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype='i')
+    i = 0
+    for doc in docs:
+        for token in doc:
+            ids[i] = token.suffix
+            i += 1
+    return ids, None
+
+
+def spacy_preprocess(nlp, train_sents, dev_sents):
     tagmap = {}
-    for words, tags, heads, labels in train_sents:
+    for words, tags in train_sents:
         for tag in tags:
             tagmap.setdefault(tag, len(tagmap))
     def _encode(sents):
@@ -127,49 +120,91 @@ def spacy_conll_pos_tags(nlp, train_loc, dev_loc):
         y = []
         oovs = 0
         n = 0
-        for words, tags, heads, labels in sents:
+        for words, tags in sents:
+            for word in words:
+                _ = nlp.vocab[word]
             X.append(Doc(nlp.vocab, words=words))
             y.append([tagmap[tag] for tag in tags])
             oovs += sum(not w.has_vector for w in X[-1])
             n += len(X[-1])
         print(oovs, n, oovs / n)
         return zip(X, y)
-
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
 
-def get_word_shape(string):
-    shape = spacy.orth.word_shape(string)
-    if shape == 'xxxx':
-        shape += string[-3:]
-    return shape
+@layerize
+def get_positions(ids, drop=0.):
+    positions = {id_: [] for id_ in set(ids)}
+    for i, id_ in enumerate(ids):
+        positions[id_].append(i)
+    return positions, None
 
 
 @plac.annotations(
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
 )
-def main(nr_epoch=10, nr_sent=0):
+def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
+    print("Loading spaCy and preprocessing")
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
-    # Set shape feature
-    for word in nlp.vocab:
-        word.shape_ = get_word_shape(word.orth_)
-    nlp.vocab.lex_attr_getters[SHAPE] = get_word_shape
-    train_data, check_data, nr_class = spacy_conll_pos_tags(nlp, train_loc, dev_loc)
-    model = EncodeTagger(nr_class, nr_in=nlp.vocab.vectors_length)
+    train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
+    train_sents, dev_sents, nr_class = spacy_preprocess(nlp, train_sents, dev_sents)
     if nr_sent >= 1:
-        train_data = train_data[:nr_sent]
-    
-    with model.begin_training(train_data) as (trainer, optimizer):
+        train_sents = train_sents[:nr_sent]
+
+    print("Building the model")
+    with Model.define_operators({'>>': chain, '|': concatenate, '**': clone}):
+        model = (
+            Orth
+            >> SpacyVectors(nlp)
+            >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
+            >> Softmax(nr_class)
+        )
+
+    print("Preparing training")
+    dev_X, dev_y = zip(*dev_sents)
+    dev_y = model.ops.flatten(dev_y)
+    train_X, train_y = zip(*train_sents)
+    with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        for examples, truth in trainer.iterate(model, train_data, check_data,
-                                               nb_epoch=trainer.nb_epoch):
+        trainer.dropout = 0.9
+        trainer.dropout_decay = 1e-4
+        trainer.batch_size = 4
+        epoch_times = [timer()]
+        epoch_loss = [0.]
+        n_train = sum(len(y) for y in train_y)
+        def track_progress():
+            start = timer()
+            acc = model.evaluate(dev_X, dev_y)
+            end = timer()
+            with model.use_params(optimizer.averages):
+                avg_acc = model.evaluate(dev_X, dev_y)
+            stats = (
+                epoch_loss[-1],
+                acc, avg_acc,
+                n_train, (end-epoch_times[-1]),
+                n_train / (end-epoch_times[-1]),
+                len(dev_y), (end-start),
+                float(dev_y.shape[0]) / (end-start),
+                trainer.dropout)
+            print(
+                len(epoch_loss),
+                "%.3f loss, %.3f (%.3f) acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
+            epoch_times.append(end)
+            epoch_loss.append(0.)
+        trainer.each_epoch.append(track_progress)
+        print("Training")
+        for examples, truth in trainer.iterate(train_X, train_y):
             truth = model.ops.flatten(truth)
-            guess, finish_update = model.begin_update(examples, dropout=trainer.dropout)
-            gradient, loss = trainer.get_gradient(guess, truth)
-            optimizer.set_loss(loss)
-            finish_update(gradient, optimizer)
-    print("End", score_model(model, check_data))
+            guess, finish_update = model.begin_update(examples,
+                                        drop=trainer.dropout)
+            gradient, loss = categorical_crossentropy(guess, truth)
+            if loss:
+                optimizer.set_loss(loss)
+                finish_update(gradient, optimizer)
+            epoch_loss[-1] += loss / n_train
+    with model.use_params(optimizer.averages):
+        print("End: %.3f" % model.evaluate(dev_X, dev_y))
 
 
 if __name__ == '__main__':
@@ -180,4 +215,4 @@ if __name__ == '__main__':
         import pstats
         cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
-        s.strip_dirs().sort_stats("time").print_stats()
+        s.strip_dirs().sort_stats("time").print_stats(20)

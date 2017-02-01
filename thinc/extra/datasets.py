@@ -1,19 +1,21 @@
-import random
-import io
-from collections import Counter
-import os.path
+import random # pragma: no cover
+import io # pragma: no cover
+from collections import Counter # pragma: no cover
+import os.path # pragma: no cover
+import csv # pragma: no cover
+import numpy
 
-from ._vendorized.keras_data_utils import get_file
+from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
 
-GITHUB = 'https://github.com/UniversalDependencies/'
+GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
 ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
-    github=GITHUB, ancora='UD_Spanish-AnCora')
+    github=GITHUB, ancora='UD_Spanish-AnCora') # pragma: no cover
 EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
-    github=GITHUB, ewtb='UD_English')
+    github=GITHUB, ewtb='UD_English') # pragma: no cover
 
 
-def ancora_pos_tags():
+def ancora_pos_tags(): # pragma: no cover
     data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
@@ -21,14 +23,15 @@ def ancora_pos_tags():
     return ud_pos_tags(train_loc, dev_loc)
 
 
-def ewtb_pos_tags():
+def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
     data_dir = get_file('UD_English-r1.4', EWTB_1_4_ZIP, unzip=True)
     train_loc = os.path.join(data_dir, 'en-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'en-ud-dev.conllu')
-    return ud_pos_tags(train_loc, dev_loc, encode_tags=False, encode_words=False)
+    return ud_pos_tags(train_loc, dev_loc,
+        encode_tags=encode_tags, encode_words=encode_words)
 
 
-def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True):
+def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # pragma: no cover
     train_sents = list(read_conll(train_loc))
     dev_sents = list(read_conll(dev_loc))
     tagmap = {}
@@ -46,11 +49,16 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True):
         y = []
         for words, tags  in sents:
             if encode_words:
-                X.append([vocab.get(word, len(vocab)) for word in words])
+                X.append(
+                    numpy.asarray(
+                        [vocab.get(word, len(vocab)) for word in words],
+                        dtype='uint64'))
             else:
                 X.append(words)
             if encode_tags:
-                y.append([tagmap[tag] for tag in tags])
+                y.append(numpy.asarray(
+                    [tagmap[tag] for tag in tags],
+                    dtype='int32'))
             else:
                 y.append(tags)
         return zip(X, y)
@@ -58,7 +66,7 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True):
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
 
-def read_conll(loc):
+def read_conll(loc): # pragma: no cover
     n = 0
     with io.open(loc, encoding='utf8') as file_:
         sent_strs = file_.read().strip().split('\n\n')
@@ -72,12 +80,14 @@ def read_conll(loc):
                 word, pos, head, label = pieces
             else:
                 idx, word, lemma, pos1, pos, morph, head, label, _, _2 = pieces
+            if '-' in idx:
+                continue
             words.append(word)
             tags.append(pos)
         yield words, tags
 
 
-def mnist():
+def mnist(): # pragma: no cover
     from ._vendorized.keras_datasets import load_mnist
 
     # the data, shuffled and split between tran and test sets
@@ -87,13 +97,48 @@ def mnist():
     X_test = X_test.reshape(10000, 784)
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
-    X_train /= 255
-    X_test /= 255
 
-    train_data = zip(X_train, y_train)
-    nr_train = len(train_data)
+    X_train /= 255.
+    X_test /= 255.
+    train_data = list(zip(X_train, y_train))
+    nr_train = X_train.shape[0]
     random.shuffle(train_data)
-    heldout_data = train_data[:int(nr_train * 0.1)] 
+    heldout_data = train_data[:int(nr_train * 0.1)]
     train_data = train_data[len(heldout_data):]
-    test_data = zip(X_test, y_test)
+    test_data = list(zip(X_test, y_test))
     return train_data, heldout_data, test_data
+
+
+def reuters(): # pragma: no cover
+    from ._vendorized.keras_datasets import load_reuters
+    (X_train, y_train), (X_test, y_test) = load_reuters()
+    return (X_train, y_train), (X_test, y_test)
+
+
+def read_quora_tsv_data(loc):
+    is_header = True
+    with loc.open('rb') as file_:
+        for row in csv.reader(file_, delimiter=b'\t'):
+            if is_header:
+                is_header = False
+                continue
+            id_, qid1, qid2, sent1, sent2, is_duplicate = row
+            sent1 = sent1.decode('utf8').strip()
+            sent2 = sent2.decode('utf8').strip()
+            if sent1 and sent2:
+                yield (sent1, sent2), int(is_duplicate)
+
+
+
+def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover
+    path = get_file(path, origin='https://s3.amazonaws.com/text-datasets/reuters_word_index.pkl')
+    f = open(path, 'rb')
+
+    if sys.version_info < (3,):
+        data = cPickle.load(f)
+    else:
+        data = cPickle.load(f, encoding='latin1')
+
+    f.close()
+    return data
+

@@ -12,11 +12,15 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically 
 structured input and variable-length sequences.
 
-🔮 **Version 6.0 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.3 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://travis-ci.org/explosion/thinc.svg?branch=master
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
+
+.. image:: https://img.shields.io/coveralls/explosion/thinc.svg
+    :target: https://coveralls.io/github/explosion/thinc
+    :alt: Test Coverage
 
 .. image:: https://img.shields.io/github/release/explosion/thinc.svg
     :target: https://github.com/explosion/thinc/releases   
@@ -25,6 +29,14 @@ structured input and variable-length sequences.
 .. image:: https://img.shields.io/pypi/v/thinc.svg   
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
+   
+.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg
+    :target: https://gitter.im/explosion/spaCy
+    :alt: spaCy / thinc on Gitter
+
+.. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
+    :target: https://twitter.com/explosion_ai
+    :alt: Follow us on Twitter
 
 Quickstart
 ==========
@@ -43,6 +55,7 @@ You can then run the examples as follows:
 
    fab eg.mnist
    fab eg.basic_tagger
+   fab eg.cnn_tagger
 
 Otherwise, you can build and test explicitly with:
 
@@ -64,71 +77,107 @@ And then run the examples as follows:
 
    python examples/mnist.py
    python examples/basic_tagger.py
+   python examples/cnn_tagger.py
 
-Design
-======
 
-Thinc is implemented in pure Python at the moment, using `Chainer <http://chainer.org/>`_'s cupy for GPU and numpy for CPU computations. Thinc doesn't use autodifferentiation. Instead, we just use callbacks.
+Usage
+=====
 
-Let's say you have a batch of data, of shape ``(B, I)``. You want to use this to update a model. To do that, you need to compute the model's output for that input, and also the gradient with respect to that output. Like so:
+The Neural Network API is still subject to change, even within minor versions.
+You can get a feel for the current API by checking out the examples. Here are
+a few quick highlights.
 
-.. code:: python
+1. Shape inference
+------------------
 
-    x__BO, finish_update = model.begin_update(x__BI)
-    dx__BO = compute_gradient(dx__BO, y__B)
-    dx__BI = finish_update(dx__BO)
-
-To backprop through multiple layers, we simply accumulate the callbacks:
-
-.. code:: python
-
-    class Chain(list):
-        def predict(self, X):
-            for layer in self:
-                X = layer(X)
-            return X
-
-        def begin_update(self, X, dropout=0.0):
-            callbacks = []
-            for layer in self.layers:
-                X, callback = layer.begin_update(X, dropout=dropout)
-            callbacks.append(callback)
-
-            def finish_update(gradient, optimizer):
-                for backprop in reversed(callbacks):
-                    gradient = backprop(gradient, optimizer)
-                return gradient
-            return X, finish_update
-
-The differentiation rules are pretty easy to work with, so long as every layer is a good citizen.
-
-Adding layers
--------------
-
-To add layers, you usually implement a subclass of ``base.Model`` or ``base.Network``. Use ``Network`` for layers which don't own weights data directly, but instead, chain together a sequence of models.
+Models can be created with some dimensions unspecified. Missing dimensions are
+inferred when pre-trained weights are loaded or when training begins. This
+eliminates a common source of programmer error:
 
 .. code:: python
 
-    class ReLuMLP(Network):
-        Hidden = ReLu
-        Output = Softmax
-        width = 128
-        depth = 3
+    # Invalid network — shape mismatch
+    model = FeedForward(ReLu(512, 748), ReLu(512, 784), Softmax(10))
+    
+    # Leave the dimensions unspecified, and you can't be wrong.
+    model = FeedForward(ReLu(512), ReLu(512), Softmax())
 
-        def setup(self, nr_out, nr_in, **kwargs):
-            for i in range(self.depth):
-                self.layers.append(self.Hidden(nr_out=self.width, nr_in=nr_in,
-                    name='hidden-%d' % i))
-                nr_in = self.width
-            self.layers.append(self.Output(nr_out=nr_out, nr_in=nr_in))
-            self.set_weights(initialize=True)
-            self.set_gradient()
+2. Operator overloading
+-----------------------
 
+The ``Model.define_operators()`` classmethod allows you to bind arbitrary
+binary functions to Python operators, for use in any ``Model`` instance. The
+method can (and should) be used as a context-manager, so that the overloading
+is limited to the immediate block. This allows concise and expressive model
+definition:
 
+.. code:: python
 
-When you implement a layer, there are two simple rules to follow to make sure it's well-behaved:
+    with Model.define_operators({'>>': chain}):
+        model = ReLu(512) >> ReLu(512) >> Softmax()
 
-1. **Don't add side-effects to** ``begin_update``. Aside from the obvious concurrency problems, it's not nice to make the API silently produce incorrect results if the user calls the functions out of order.
+The overloading is cleaned up at the end of the block. Only a few functions are
+currently implemented. The three most useful are:
 
+* ``chain(model1, model2)``: Compose two models ``f(x)`` and ``g(x)`` into a single model computing ``g(f(x))``.
 
-2. **Keep the interfaces to** ``begin_update`` **and** ``finish_update`` **uniform**. We want to write generic functions to sum, concatenate, average, etc different layers. If your layer has a special interface, those generic functions won't work.
+* ``clone(model1, int)``: Create ``n`` copies of a model, each with distinct weights, and chain them together.
+
+* ``concatenate(model1, model2)``: Given two models with output dimensions ``(n,)`` and ``(m,)``, construct a model with output dimensions ``(m+n,)``.
+
+Putting these things together, here's the sort of tagging model that Thinc is
+designed to make easy.
+
+.. code:: python
+
+    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+        model = (
+            add_eol_markers('EOL')
+            >> flatten
+            >> memoize(
+                CharLSTM(char_width)
+                | (normalize >> str2int >> Embed(word_width)))
+            >> ExtractWindow(nW=2)
+            >> BatchNorm(ReLu(huidden_width)) ** 3
+            >> Softmax()
+        ) 
+
+Not all of these pieces are implemented yet, but hopefully this shows where
+we're going. The ``memoize`` function will be particularly important: in any
+batch of text, the common words will be very common. It's therefore important
+to evaluate models such as the ``CharLSTM`` once per word type per minibatch,
+rather than once per token.
+
+3. Callback-based backpropagation
+---------------------------------
+
+Most neural network libraries use a computational graph abstraction. This takes
+the execution away from you, so that gradients can be computed automatically.
+Thinc follows a style more like the ``autograd`` library, but with larger
+operations. Usage is as follows:
+
+.. code:: python
+
+    def explicit_sgd_update(X, y):
+        sgd = lambda weights, gradient: weights - gradient * 0.001
+        yh, finish_update = model.begin_update(X, drop=0.2)
+        finish_update(y-yh, optimizer)
+
+Separating the backpropagation into three parts like this has many advantages.
+The interface to all models is completely uniform — there is no distinction
+between the top-level model you use as a predictor and the internal models for
+the layers. We also make concurrency simple, by making the ``begin_update()``
+step a pure function, and separating the accumulation of the gradient from the
+action of the optimizer.
+
+4. Class annotations
+--------------------
+
+To keep the class hierarchy shallow, Thinc uses class decorators to reuse code
+for layer definitions. Specifically, the following decorators are available:
+
+* ``describe.attributes()``: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters. 
+
+* ``describe.on_init()``: Allows callbacks to be specified, which will be called at the end of the ``__init__.py``.
+
+* ``describe.on_data()``: Allows callbacks to be specified, which will be called on ``Model.begin_training()``.

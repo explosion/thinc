@@ -1,31 +1,79 @@
+from __future__ import print_function, unicode_literals
+import numpy
+from preshed.maps import PreshMap
 from .ops import NumpyOps, CupyOps
+
+try:
+    import cupy
+    from cupy import get_array_module
+except ImportError:
+    cupy = None
+    get_array_module = lambda _: numpy
 
 
 def get_ops(ops):
     if ops in ('numpy', 'cpu'):
         return NumpyOps()
-    elif ops == ('cupy', 'gpu'):
+    elif ops in ('cupy', 'gpu'):
         return CupyOps()
     else:
-        return ops
+        raise ValueError("TODO error %s" % ops)
 
 
-def score_model(model, X_y):
-    correct = 0
-    total = 0
-    X, y = zip(*X_y)
-    scores = model.predict_batch(X)
-    if isinstance(y, tuple) and (isinstance(y[0], tuple) or isinstance(y[0], list)):
-        y = model.ops.asarray(model.ops.flatten(y), dtype='i')
-    else:
-        y = model.ops.asarray(y, dtype='i')
-    for i, gold in enumerate(y):
-        correct += scores[i].argmax() == gold
-        total += 1
-    return float(correct) / total
+def mark_sentence_boundaries(sequences, drop=0.): # pragma: no cover
+    '''Pad sentence sequences with EOL markers.'''
+    for sequence in sequences:
+        sequence.insert(0, '-EOL-')
+        sequence.insert(0, '-EOL-')
+        sequence.append('-EOL-')
+        sequence.append('-EOL-')
+    return sequences, None
 
 
-def partition(examples, split_size):
+def remap_ids(ops):
+    id_map = {0: 0}
+    def begin_update(ids, drop=0.):
+        n_vector = len(id_map)
+        for i, id_ in enumerate(ids):
+            if id_ not in id_map:
+                id_map[id_] = n_vector
+                n_vector += 1
+            ids[i] = id_map[id_]
+        return ids, None
+    return begin_update
+
+#    def _unique_ids(self, ids):
+#        id_map = {}
+#        for i, id_ in enumerate(ids.flatten()):
+#            if id_ not in id_map:
+#                id_map[id_] = [i]
+#            else:
+#                id_map[id_].append(i)
+#        # Currently this is handled on CPU anyway, so allocate on CPU.
+#        uniques = numpy.asarray(sorted(id_map.keys()), dtype='uint64')
+#        return uniques, id_map
+
+
+def to_categorical(y, nb_classes=None):
+    # From keras
+    xp = get_array_module(y)
+    if xp is cupy:
+        y = y.get()
+    y = numpy.array(y, dtype='int').ravel()
+    if not nb_classes:
+        nb_classes = numpy.max(y) + 1
+    n = y.shape[0]
+    categorical = numpy.zeros((n, nb_classes), dtype='float32')
+    categorical[numpy.arange(n), y] = 1
+    return xp.asarray(categorical)
+
+
+def flatten_sequences(sequences, drop=0.): # pragma: no cover
+    xp = get_array_module(sequences[0])
+    return xp.concatenate(sequences), None
+
+
+def partition(examples, split_size): # pragma: no cover
     examples = list(examples)
     numpy.random.shuffle(examples)
     n_docs = len(examples)
@@ -33,7 +81,7 @@ def partition(examples, split_size):
     return examples[:split], examples[split:]
 
 
-def minibatch(stream, batch_size=1000):
+def minibatch(stream, batch_size=1000): # pragma: no cover
     batch = []
     for X in stream:
         batch.append(X)

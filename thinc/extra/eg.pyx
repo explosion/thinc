@@ -1,13 +1,13 @@
 # cython: infer_types=True
 cimport cython
 
-cdef ExampleC* init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
+cdef ExampleC init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
     if widths is None:
         widths = [nr_class]
     if nr_class == 0:
         nr_class = widths[-1]
 
-    eg = <ExampleC*>mem.alloc(1, sizeof(ExampleC))
+    cdef ExampleC eg
     eg.nr_class = nr_class
     eg.nr_atom = nr_atom
     eg.nr_feat = nr_feat
