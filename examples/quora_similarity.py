@@ -22,6 +22,8 @@ from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
+from thinc.neural.util import remap_ids, to_categorical
+from thinc.neural.ops import CupyOps
 
 
 @layerize
@@ -85,6 +87,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
          nb_epoch=20):
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+    print("Construct model")
+    Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         sent2vec = (
             get_word_ids
@@ -132,10 +136,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
         trainer.each_epoch.append(track_progress)
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(yh, y)
-            optimizer.set_loss(loss)
-            backprop(d_loss, optimizer)
-            epoch_loss[-1] += loss / len(train_y)
+            backprop(yh-y, optimizer)
+            #epoch_loss[-1] += loss / len(train_y)
 
 
 if __name__ == '__main__':
