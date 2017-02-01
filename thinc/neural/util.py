@@ -8,7 +8,7 @@ try:
     from cupy import get_array_module
 except ImportError:
     cupy = None
-    get_array_module = lambda: numpy
+    get_array_module = lambda _: numpy
 
 
 def get_ops(ops):

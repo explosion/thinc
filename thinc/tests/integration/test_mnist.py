@@ -8,7 +8,7 @@ from ...neural._classes.elu import ELU
 from ...neural._classes.maxout import Maxout
 from ...neural.ops import NumpyOps
 from ...api import clone, chain
-from ...loss import categorical_crossentropy
+from ...neural.util import to_categorical
 
 from ...extra import datasets
 
@@ -17,6 +17,8 @@ def mnist():
     train_data, dev_data, _ = datasets.mnist()
     train_X, train_y = NumpyOps().unzip(train_data)
     dev_X, dev_y = NumpyOps().unzip(dev_data)
+    dev_y = to_categorical(dev_y, nb_classes=10)
+    train_y = to_categorical(dev_y, nb_classes=10)
     return (train_X[:1000], train_y[:1000]), (dev_X, dev_y)
 
 
@@ -83,7 +85,7 @@ def test_small_end_to_end(depth, width, nb_epoch,
             X = model.ops.asarray(X)
             y = model.ops.asarray(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(yh, y)
-            backprop(d_loss, optimizer)
+            backprop(yh-y, optimizer)
+            loss = ((yh-y)**2).sum()
             losses.append(loss)
     assert losses[-1] < losses[0]
