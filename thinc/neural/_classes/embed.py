@@ -84,6 +84,7 @@ class Embed(Model):
     def begin_update(self, ids, drop=0.):
         vectors = self._embed(ids)
         dotted = self.ops.batch_dot(vectors, self.W)
+        #dotted, bp_dropout = self.ops.dropout(dotted, drop)
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if not self.is_static:

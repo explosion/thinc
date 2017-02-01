@@ -59,7 +59,7 @@ def debug(X, drop=0.):
     return X, lambda d, sgd: d
 
 def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
-        nb_epoch=20):
+        nb_epoch=20, L2=1e-5):
     global epoch_loss
     cfg = dict(locals())
     Model.ops = CupyOps()
@@ -69,7 +69,6 @@ def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
-            #>> layerize(debug)
             >> ExtractWindow(nW=1)
             >> Maxout(300)
             >> ExtractWindow(nW=1)
@@ -87,13 +86,12 @@ def main(width=64, vector_length=64, batch_size=1, dropout=0.9, drop_decay=1e-4,
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            loss = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+            train_acc = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
             
-            #optimizer.set_loss(loss)
             backprop(yh - y, optimizer)
-            trainer.batch_size = min(int(batch_size), 16)
-            epoch_loss += loss
-            batch_size *= 1.01
+            trainer.batch_size = min(int(batch_size), 32)
+            epoch_loss += train_acc
+            batch_size *= 1.001
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
  

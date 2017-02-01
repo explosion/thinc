@@ -11,7 +11,7 @@ class Trainer(object):
     def __init__(self, model, **cfg):
         self.ops = model.ops
         self.model = model
-        self.optimizer = Adam(model.ops, 0.001)
+        self.optimizer = Eve(Adam(model.ops, 0.001, L2=1e-4))
         self.batch_size = cfg.get('batch_size', 128)
         self.nb_epoch = cfg.get('nb_epoch', 20)
         self.i = 0
