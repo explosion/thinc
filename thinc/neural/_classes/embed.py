@@ -27,7 +27,6 @@ def _uniform_init(lo, hi):
 
 def LSUVinit(model, X, y=None):
     if model.vectors is not None and model.W is not None:
-        do_lsuv(model.ops, model.vectors, model, X)
         do_lsuv(model.ops, model.W, model, X)
     return X
 
@@ -90,8 +89,8 @@ class Embed(Model):
             if not self.is_static:
                 gradients = self.ops.batch_dot(gradients, self.W.T)
                 d_vectors = self.d_vectors
-                non_oov = ids * (ids < self.vectors.shape[0])
-                d_vectors[non_oov] += gradients 
+                n_vectors = d_vectors.shape[0]
+                d_vectors[ids] += gradients
             if sgd is not None:
                 if self.is_static:
                     sgd(self.W.flatten(), self.d_W.flatten(), key=id(self._mem))
@@ -117,4 +116,4 @@ class Embed(Model):
 
     def _embed(self, ids):
         vectors = self.vectors
-        return vectors[ids * (ids < vectors.shape[0])]
+        return vectors[ids]
