@@ -65,7 +65,7 @@ class SGD(object):
 
 
 class Adam(SGD):
-    def __init__(self, ops, lr, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
+    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
@@ -80,6 +80,7 @@ class Adam(SGD):
         self.decay = decay
         self.d = 1.
         self.f = 0.
+        self.L2 = L2
 
     def lr(self, nr_upd):
         alpha = linear_decay(self.alpha, self.decay, nr_upd)
@@ -97,7 +98,8 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        self.ops.clip_gradient(gradient, self.max_grad_norm)
+        gradient += self.L2 * weights
+        self.ops.clip_gradient(gradient, len(gradient) / 100.)
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]

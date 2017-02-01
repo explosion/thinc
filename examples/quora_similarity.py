@@ -13,7 +13,6 @@ import contextlib
 from thinc.extra.datasets import read_quora_tsv_data
 import thinc.check
 from thinc.neural.util import partition
-from thinc.ops import NumpyOps
 from thinc.exceptions import ExpectedTypeError
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax, Maxout
@@ -86,11 +85,13 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
             get_word_ids
             >> with_flatten(
-                 StaticVectors(nlp, width)
-                 >> (ExtractWindow(nW=1) >> Maxout(width, width*3)) ** depth)
+                StaticVectors(nlp, width)
+                >> mwe_encode ** depth
+            )
             >> (MeanPooling() | MaxPooling())
         )
         model = (

@@ -2,8 +2,8 @@ import random # pragma: no cover
 import io # pragma: no cover
 from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
-import numpy # pragma: no cover
 import csv # pragma: no cover
+import numpy
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
@@ -56,7 +56,9 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
             else:
                 X.append(words)
             if encode_tags:
-                y.append([tagmap[tag] for tag in tags])
+                y.append(numpy.asarray(
+                    [tagmap[tag] for tag in tags],
+                    dtype='int32'))
             else:
                 y.append(tags)
         return zip(X, y)

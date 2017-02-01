@@ -8,17 +8,16 @@ from tqdm import tqdm
 
 
 class Trainer(object):
-    def __init__(self, model, train_data, L2=0.0):
+    def __init__(self, model, **cfg):
         self.ops = model.ops
         self.model = model
-        self.optimizer = Eve(Adam(model.ops, 0.001))
-        self.batch_size = 128
-        self.nb_epoch = 1
+        self.optimizer = Eve(Adam(model.ops, 0.001, L2=1e-4))
+        self.batch_size = cfg.get('batch_size', 128)
+        self.nb_epoch = cfg.get('nb_epoch', 20)
         self.i = 0
-        self.L2 = 0.0
-        self.dropout = 0.0
-        self.dropout_decay = 0.0
-        self._loss = 0.
+        self.L2 = cfg.get('L2', 0.0)
+        self.dropout = cfg.get('dropout', 0.)
+        self.dropout_decay = cfg.get('drop_decay', 0.)
         self.each_epoch = []
 
     def __enter__(self):

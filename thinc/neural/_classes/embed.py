@@ -1,6 +1,8 @@
 import numpy as np
 from preshed.maps import PreshMap
 import contextlib
+import numpy
+from ..ops import NumpyOps, CupyOps
 from .model import Model
 from ... import describe
 from ... import check
@@ -25,7 +27,6 @@ def _uniform_init(lo, hi):
 
 def LSUVinit(model, X, y=None):
     if model.vectors is not None and model.W is not None:
-        do_lsuv(model.ops, model.vectors, model, X)
         do_lsuv(model.ops, model.W, model, X)
     return X
 
@@ -64,46 +65,40 @@ class Embed(Model):
         self.nO = nO
         self.nM = nM
         self.nV = nV
-        self._id_map = PreshMap()
-        self._id_map[0] = 0
 
     #@check.arg(1, is_int_array)
     def predict(self, ids):
-        ids = self._remap_ids(ids)
-        if len(ids) < 1000:
-            vectors = self._embed(ids)
-            dotted = self.ops.batch_dot(vectors, self.W)
-            return dotted
-        uniques, positions = self._unique_ids(ids)
-        vectors = self._embed(uniques)
-        dotted_uniq = self.ops.batch_dot(vectors, self.W)
-        output = self.ops.allocate((len(ids), self.nO))
-        for i, id_ in enumerate(uniques):
-            for j in positions[id_]:
-                output[j] = dotted_uniq[i]
-        return output
+        #if len(ids) < 1000 or isinstance(self.ops, CupyOps):
+        vectors = self._embed(ids)
+        dotted = self.ops.batch_dot(vectors, self.W)
+        return dotted
+        #uniques, positions = self._unique_ids(ids)
+        #vectors = self._embed(uniques)
+        #dotted_uniq = self.ops.batch_dot(vectors, self.W)
+        #output = self.ops.allocate((len(ids), self.nO))
+        #for i, id_ in enumerate(uniques):
+        #    for j in positions[id_]:
+        #        output[j] = dotted_uniq[i]
+        #return output
 
-    def begin_update(self, orig_ids, drop=0.):
+    def begin_update(self, ids, drop=0.):
+        vectors = self._embed(ids)
+        dotted = self.ops.batch_dot(vectors, self.W)
+        #dotted, bp_dropout = self.ops.dropout(dotted, drop)
         def finish_update(gradients, sgd=None):
-            ids = self._remap_ids(orig_ids)
-            vectors = self._embed(ids)
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if not self.is_static:
                 gradients = self.ops.batch_dot(gradients, self.W.T)
                 d_vectors = self.d_vectors
-                n_vector = d_vectors.shape[0]
-                for id_, delta_in in zip(ids, gradients):
-                    if id_ < 0:
-                        continue
-                    if id_ < n_vector:
-                        d_vectors[id_] += delta_in
+                n_vectors = d_vectors.shape[0]
+                d_vectors[ids] += gradients
             if sgd is not None:
                 if self.is_static:
                     sgd(self.W.flatten(), self.d_W.flatten(), key=id(self._mem))
                 else:
                     sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None
-        return self.predict(orig_ids), finish_update
+        return dotted, finish_update
 
     @contextlib.contextmanager
     def use_params(self, params):
@@ -121,17 +116,5 @@ class Embed(Model):
                 weights[:] = backup
 
     def _embed(self, ids):
-        return self.vectors[ids * (ids < self.vectors.shape[0])]
-
-    def _remap_ids(self, ids):
-        return self.ops.remap_ids(self._id_map, ids, len(self._id_map))
-
-    def _unique_ids(self, ids):
-        id_map = {}
-        for i, id_ in enumerate(ids.flatten()):
-            if id_ not in id_map:
-                id_map[id_] = [i]
-            else:
-                id_map[id_].append(i)
-        uniques = self.ops.asarray(sorted(id_map.keys()), dtype='uint64')
-        return uniques, id_map
+        vectors = self.vectors
+        return vectors[ids]

@@ -27,6 +27,9 @@ try:
     import cupy
     from chainer.functions.math.minmax import max as cupy_max
     from chainer.functions.math.minmax import argmax as cupy_argmax
+    from cupy.cuda.function import Function
+    from cupy.cuda.compiler import compile_with_cache
+    from cupy.cuda.device import Device
 except ImportError:
     cupy = None
 
@@ -109,7 +112,10 @@ class Ops(object):
         return self.asarray(X), self.asarray(y)
 
     def asarray(self, data, dtype=None):
-        return self.xp.asarray(data, dtype=dtype)
+        if dtype is not None:
+            return self.xp.asarray(data, dtype=dtype)
+        else:
+            return self.xp.asarray(data)
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
@@ -406,6 +412,107 @@ class CupyOps(Ops):
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
+    def seq2col(self, seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cols = self.allocate((B, (nW*2+1), I))
+        cols[:-1, 0] = seq[1:]
+        cols[:, 1] = seq
+        cols[1:, 2] = seq[:-1]
+        return cols.reshape((B, I * (2*nW+1)))
+
+    def backprop_seq2col(self, dY, int nW):
+        cdef int nF = nW*2+1
+        cdef int B = dY.shape[0]
+        cdef int I = dY.shape[1] / nF
+        assert nF == 3, "TODO: Support variable window size" 
+        # Having trouble getting the kernel to work...
+        dX = self.allocate((B, I))
+        dY = dY.reshape((B, nF, I))
+        dX[1:] += dY[:-1, 0]
+        dX += dY[:, nW]
+        dX[:-1] += dY[1:, 2]
+        return dX
+
+
+class RawKernel(object):
+    def __init__(self, name, src):
+        if cupy is None:
+            return None
+        # TODO: Some setup is performed when a function is launched that I haven't
+        # identified yet. Without this setup, loading the function fails...
+        _ = cupy.ElementwiseKernel('float32 x, float32 y', 'float32 z',
+            'z = (x - y) * (x - y)', 'squared_diff')
+        with Device(0):
+            _(cupy.ones((5,), dtype='float32'), cupy.ones((5,), dtype='float32'))
+            self.func = Function(compile_with_cache(src), name)
+
+    def __call__(self, *args, **kwargs):
+        # TODO: Not convinced I'm doing this right...
+        grid = kwargs.get('grid', (args[0].shape[0],))
+        block = kwargs.get('block', (1,)) 
+        return self.func(grid, block, args)
+
+
+# TODO: Currently broken
+gpu_seq2col = RawKernel('gpu_seq2col', '''
+extern "C" __global__
+void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= B)
+        return;
+    int nF = nW * 2 + 1;
+
+    output += i * I * nF;
+    X += i * I;
+    if (i == (B-nW)) {
+        for (int j = 0; j < (I*nW); ++j)
+            output[j] = X[j];
+        return;
+    }
+    for (int j = 0; j < (I*(nW+1)); ++j)
+        output[j] = X[j];
+    output += I * (nW+1);
+    for (int j = 0; j < (I*nW); ++j)
+        output[j] = X[j];
+}
+''')
+
+# TODO: This doesn't work yet. Segfaults.
+gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
+extern "C" __global__
+void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
+{
+    return;
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    int nF = nW * 2 + 1;
+ 
+    if ((i+nW) >= B) return;
+    
+    float* d_seq = &d_seqs[i * I];
+    // Here's what we're doing, if we had 2d indexing.
+    // d_seq += d_cols[i-2, 4]
+    // d_seq += d_cols[i-1, 3]
+    // d_seq += d_cols[i, 2]
+    // d_seq += d_cols[i+1, 1]
+    // d_seq += d_cols[i+2, 0]
+ 
+    const float* col_row = &d_cols[i * I * nF];
+    //for (int f = -nW; f < (nW+1); ++f) {
+    //    if (B > (i+f) && (i+f) >= 0) {
+    //        const float* feat = col_row + (f * I) + (f+nW) * I;
+    //        for (int j = 0; j < I; ++j)
+    //            d_seq[j] += feat[j];
+    //    }
+    //}
+}
+''')
+
 
 def seed_srand(int value):
     srand(value)
@@ -449,7 +556,6 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i+2, 0]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i, 2]
-
     nF = nW * 2 + 1
     for i in range(B):
         seq_row = &d_seqs[i * I]
