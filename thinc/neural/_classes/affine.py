@@ -11,7 +11,10 @@ def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
     if model.nO is None and y is not None:
-        model.nO = int(y.max()) + 1
+        if len(y.shape) == 2:
+            model.nO = y.shape[1]
+        else:
+            model.nO = int(y.max()) + 1
 
 
 # TODO: Add toggle for the LSUV init. It seems not always better!
