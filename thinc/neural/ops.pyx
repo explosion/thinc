@@ -19,11 +19,16 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
-from ..linalg cimport VecVec
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 
 
 try:
     import cupy
+    from chainer.functions.math.minmax import max as cupy_max
+    from chainer.functions.math.minmax import argmax as cupy_argmax
+    from cupy.cuda.function import Function
+    from cupy.cuda.compiler import compile_with_cache
+    from cupy.cuda.device import Device
 except ImportError:
     cupy = None
 
@@ -106,7 +111,10 @@ class Ops(object):
         return self.asarray(X), self.asarray(y)
 
     def asarray(self, data, dtype=None):
-        return self.xp.asarray(data, dtype=dtype)
+        if dtype is not None:
+            return self.xp.asarray(data, dtype=dtype)
+        else:
+            return self.xp.asarray(data)
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
@@ -175,6 +183,27 @@ class Ops(object):
         scale = self.xp.sqrt(2. / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
+    def update_averages(self, ema, weights, t, max_decay=0.9999):
+        cdef weight_t decay = (1.0 + t) / (10.0 + t)
+        if decay > max_decay:
+            decay = max_decay
+        ema -= (1-decay) * (ema - weights)
+
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+        mom1 *= beta1
+        mom2 *= beta2
+        mom1 += gradient * (1.-beta1)
+        mom2 += gradient * gradient * (1.-beta2)
+        # Here we assume learn rate is calculated by the caller.
+        # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
+        gradient.fill(0)
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = self.xp.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
+
 
 class NumpyOps(Ops):
     device = 'cpu'
@@ -199,20 +228,26 @@ class NumpyOps(Ops):
             if signal_out[i] <= 0:
                 delta[i] *= signal_out[i] + 1.
 
-    def relu(self, ndarray X, inplace=True):
+    def relu(self, ndarray X, inplace=False):
+        if inplace == False:
+            return X * (X > 0)
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
+        return X
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=True):
+    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
+        if inplace == False:
+            return delta_ * (signal_out_ > 0.)
         cdef size_t size = delta_.size
         cdef weight_t* delta = <weight_t*>delta_.data
         cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] = 0.
+        return delta_
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
@@ -222,7 +257,7 @@ class NumpyOps(Ops):
 
         which__bo = <int*>mem.alloc(B * O, sizeof(int))
         best__bo = <float*>mem.alloc(B * O, sizeof(float))
-        maxout(best__bo, which__bo,
+        cpu_maxout(best__bo, which__bo,
             &py_cands[0, 0, 0], B, O, P)
         cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
         memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
@@ -236,7 +271,7 @@ class NumpyOps(Ops):
         cdef int O = dX__bo.shape[1]
 
         dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
-        backprop_maxout(dX__bop,
+        cpu_backprop_maxout(dX__bop,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
@@ -311,10 +346,172 @@ class NumpyOps(Ops):
         return output
 
 
+@cython.cdivision(True)
+cdef void _adam(
+    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
+        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
+        weight_t learn_rate) nogil:
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, 1-beta1, nr_weight)
+
+    for i in range(nr_weight):
+        gradient[i] *= gradient[i] * (1-beta2)
+    for i in range(nr_weight):
+        mom2[i] = (beta2 * mom2[i]) + gradient[i]
+    #for i in range(nr_weight):
+    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
+    # Here we assume this is calculated by the caller.
+    #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
+    for i in range(nr_weight):
+        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+
+
+@cython.cdivision(True)
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    for i in range(nr_weight):
+        ema[i] -= (1-decay) * (ema[i] - weights[i])
+
 
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+    def maxout(self, X):
+        amax = cupy_max(X, axis=-1).data
+        argmax = cupy_argmax(X, axis=-1).data
+        return amax, cupy.asarray(argmax, dtype='int32')
+
+    def backprop_maxout(self, dX__bo, which__bo, int P):
+        dX__bop = gpu_backprop_maxout(
+            dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
+        return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
+
+    def relu(self, X, inplace=False):
+        if not inplace:
+            return X * (X > 0)
+        else:
+            X *= (X > 0)
+            return X
+
+    def backprop_relu(self, delta_, signal_out, inplace=False):
+        if not inplace:
+            return delta_ * (signal_out > 0)
+        delta_ *= (signal_out > 0)
+        return delta_
+
+    def clip_gradient(self, gradient, threshold):
+        grad_norm = self.xp.linalg.norm(gradient)
+        if grad_norm >= threshold:
+            gradient *= threshold / grad_norm
+
+    def seq2col(self, seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cols = self.allocate((B, (nW*2+1), I))
+        cols[:-1, 0] = seq[1:]
+        cols[:, 1] = seq
+        cols[1:, 2] = seq[:-1]
+        return cols.reshape((B, I * (2*nW+1)))
+
+    def backprop_seq2col(self, dY, int nW):
+        cdef int nF = nW*2+1
+        cdef int B = dY.shape[0]
+        cdef int I = dY.shape[1] / nF
+        assert nF == 3, "TODO: Support variable window size" 
+        # Having trouble getting the kernel to work...
+        dX = self.allocate((B, I))
+        dY = dY.reshape((B, nF, I))
+        dX[1:] += dY[:-1, 0]
+        dX += dY[:, nW]
+        dX[:-1] += dY[1:, 2]
+        return dX
+
+
+class RawKernel(object):
+    def __init__(self, name, src):
+        if cupy is None:
+            return None
+        # TODO: Some setup is performed when a function is launched that I haven't
+        # identified yet. Without this setup, loading the function fails...
+        _ = cupy.ElementwiseKernel('float32 x, float32 y', 'float32 z',
+            'z = (x - y) * (x - y)', 'squared_diff')
+        with Device(0):
+            _(cupy.ones((5,), dtype='float32'), cupy.ones((5,), dtype='float32'))
+            self.func = Function(compile_with_cache(src), name)
+
+    def __call__(self, *args, **kwargs):
+        # TODO: Not convinced I'm doing this right...
+        grid = kwargs.get('grid', (args[0].shape[0],))
+        block = kwargs.get('block', (1,)) 
+        return self.func(grid, block, args)
+
+
+# TODO: Currently broken
+gpu_seq2col = RawKernel('gpu_seq2col', '''
+extern "C" __global__
+void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
+{
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    if (i >= B)
+        return;
+    int nF = nW * 2 + 1;
+
+    output += i * I * nF;
+    X += i * I;
+    if (i == (B-nW)) {
+        for (int j = 0; j < (I*nW); ++j)
+            output[j] = X[j];
+        return;
+    }
+    for (int j = 0; j < (I*(nW+1)); ++j)
+        output[j] = X[j];
+    output += I * (nW+1);
+    for (int j = 0; j < (I*nW); ++j)
+        output[j] = X[j];
+}
+''')
+
+# TODO: This doesn't work yet. Segfaults.
+gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
+extern "C" __global__
+void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
+{
+    return;
+    int i = blockDim.x * blockIdx.x + threadIdx.x;
+    int nF = nW * 2 + 1;
+ 
+    if ((i+nW) >= B) return;
+    
+    float* d_seq = &d_seqs[i * I];
+    // Here's what we're doing, if we had 2d indexing.
+    // d_seq += d_cols[i-2, 4]
+    // d_seq += d_cols[i-1, 3]
+    // d_seq += d_cols[i, 2]
+    // d_seq += d_cols[i+1, 1]
+    // d_seq += d_cols[i+2, 0]
+ 
+    const float* col_row = &d_cols[i * I * nF];
+    //for (int f = -nW; f < (nW+1); ++f) {
+    //    if (B > (i+f) && (i+f) >= 0) {
+    //        const float* feat = col_row + (f * I) + (f+nW) * I;
+    //        for (int j = 0; j < I; ++j)
+    //            d_seq[j] += feat[j];
+    //    }
+    //}
+}
+''')
+
 
 def seed_srand(int value):
     srand(value)
@@ -358,7 +555,6 @@ cdef void backprop_seq2col(float* d_seqs,
     #    d_seq[i] += d_cols[i+2, 0]
     #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i, 2]
-
     nF = nW * 2 + 1
     for i in range(B):
         seq_row = &d_seqs[i * I]
@@ -369,7 +565,7 @@ cdef void backprop_seq2col(float* d_seqs,
                 VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
 
 
-cdef void maxout(float* best__bo, int* which__bo,
+cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -385,7 +581,7 @@ cdef void maxout(float* best__bo, int* which__bo,
             which__bo += 1
 
 
-cdef void backprop_maxout(float* dX__bop,
+cdef void cpu_backprop_maxout(float* dX__bop,
         const float* dX__bo, const int* which__bo, int B, int O, int P) nogil:
     for b in range(B):
         for o in range(O):
@@ -393,3 +589,28 @@ cdef void backprop_maxout(float* dX__bop,
             dX__bop += P
             dX__bo += 1
             which__bo += 1
+
+
+# Here we broadcast over the longest dimension (dX) and compute indexes
+# for the narrower dimensions.
+if cupy is not None:
+    gpu_backprop_maxout = cupy.ElementwiseKernel(
+        'raw float32 best, raw int32 which, raw int32 P',
+        'float32 dX',
+        'dX = (which[i/P] == i%P) ? best[i/P] : 0',
+        'bp_maxout')
+
+
+def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
+    grad_norm = Vec.norm(&gradient[0], gradient.shape[0])
+    if grad_norm >= threshold:
+        Vec.mul_i(&gradient[0], threshold / grad_norm, gradient.shape[0])
+
+
+def add_gradient_noise(float[::1] gradient, weight_t noise_level,
+        weight_t timestep):
+    variance = noise_level / ((1 + timestep) ** 0.55)
+    if variance >= 0.000001:
+        gradient += numpy.asarray(
+                       numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
+                       dtype='float32')

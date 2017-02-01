@@ -13,10 +13,10 @@ def _set_dimensions_if_needed(model, X, y=None):
 
 
 def xavier_uniform_init(W, ops):
-    scale = numpy.sqrt(6. / (W.shape[0] + W.shape[2]))
+    scale = ops.xp.sqrt(6. / (W.shape[0] + W.shape[2]))
     shape = (W.shape[0], W.shape[2])
     for i in range(W.shape[1]):
-        W[:,i] = numpy.random.uniform(-scale, scale, shape)
+        ops.xp.copyto(W[:,i], ops.xp.random.uniform(-scale, scale, shape))
 
 
 @describe.on_data(_set_dimensions_if_needed, LSUVinit)
@@ -53,7 +53,6 @@ class Maxout(Model):
         best__bo, bp_dropout = self.ops.dropout(best__bo, drop, inplace=True)
  
         def finish_update(dX__bo, sgd=None):
-            dX__bo = self.ops.xp.ascontiguousarray(dX__bo, dtype='float32')
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)
             self.d_W += self.ops.xp.tensordot(dX__bop, X__bi, axes=[[0], [0]])

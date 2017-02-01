@@ -1,99 +1,87 @@
-from __future__ import print_function
-from timeit import default_timer as timer
+from __future__ import print_function, division
+import plac
+import numpy
 
 from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, ReLu, Softmax
-from thinc.neural._classes.feed_forward import FeedForward
-from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.window_encode import MaxoutWindowEncode
-from thinc.neural._classes.maxout import Maxout
 
-from thinc.neural.ops import NumpyOps
-from thinc.loss import categorical_crossentropy
 from thinc.api import layerize, chain, clone
-from thinc.neural.util import flatten_sequences
+from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
+from thinc.neural.ops import NumpyOps, CupyOps
+from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
 
-import plac
+
+epoch_train_acc = 0.
+def track_progress(**context):
+    model = context['model']
+    dev_X = context['dev_X']
+    dev_y = model.ops.flatten(context['dev_y'])
+    n_train = context['n_train']
+    trainer = context['trainer']
+    def each_epoch():
+        global epoch_train_acc
+        acc = model.evaluate(dev_X, dev_y)
+        with model.use_params(trainer.optimizer.averages):
+            avg_acc = model.evaluate(dev_X, dev_y)
+        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
+        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        epoch_train_acc = 0.
+    return each_epoch
 
 
-try:
-    import cytoolz as toolz
-except ImportError:
-    import toolz
+remapping = layerize(remap_ids(NumpyOps()))
+def preprocess(ops, data, nr_tag):
+    Xs, ys = zip(*data)
+    Xs = [ops.asarray(remapping(x)) for x in Xs]
+    ys = [ops.asarray(to_categorical(y, nb_classes=nr_tag)) for y in ys]
+    return Xs, ys
+
+_i = 0
+def debug(X, drop=0.):
+    global _i
+    if _i % 1000 == 0:
+        print(X.mean(), X.var())
+    _i += 1
+    return X, lambda d, sgd: d
 
 
-def get_positions(ids, drop=0.):
-    positions = {id_: [] for id_ in set(ids)}
-    for i, id_ in enumerate(ids):
-        positions[id_].append(i)
-    return positions, None
-
-
-def main(width=64, vector_length=64):
+def main(width=128, depth=4, vector_length=64, max_batch_size=32,
+        dropout=0.9, drop_decay=1e-4, nb_epoch=20, L2=1e-5):
+    cfg = dict(locals())
+    Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
-
+    
     with Model.define_operators({'**': clone, '>>': chain}):
-        #model = (
-        #    layerize(flatten_sequences)
-        #    >> layerize(get_positions)
-        #    >> MaxoutWindowEncode(Embed(width, vector_length), 128,
-        #          pieces=2, window=2)
-        #    >> ExtractWindow(nW=2)
-        #    >> ReLu(300)
-        #    >> Softmax(nr_tag))
-        #model = (
-        #    layerize(flatten_sequences)
-        #    >> Embed(width, vector_length)
-        #    >> ExtractWindow(nW=2)
-        #    >> ReLu(300)
-        #    >> Softmax(nr_tag))
         model = (
             layerize(flatten_sequences)
             >> Embed(width, vector_length)
-            >> ExtractWindow(nW=1)
-            >> Maxout(128)
-            >> ExtractWindow(nW=1)
-            >> Maxout(128)
-            >> ExtractWindow(nW=1)
-            >> Maxout(128)
+            >> (ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
             >> Softmax(nr_tag))
 
-    train_X, train_y = zip(*train_data)
-    print("NR vector", max(max(seq) for seq in train_X))
-    dev_X, dev_y = zip(*check_data)
-    dev_y = model.ops.flatten(dev_y)
-    n_train = sum(len(x) for x in train_X)
-    with model.begin_training(train_X, train_y) as (trainer, optimizer):
-        trainer.batch_size = 4
-        trainer.nb_epoch = 20
-        trainer.dropout = 0.9
-        trainer.dropout_decay = 1e-4
-        epoch_times = [timer()]
-        def track_progress():
-            start = timer()
-            acc = model.evaluate(dev_X, dev_y)
-            end = timer()
-            with model.use_params(optimizer.averages):
-                avg_acc = model.evaluate(dev_X, dev_y)
-            stats = (
-                acc,
-                avg_acc,
-                float(n_train) / (end-epoch_times[-1]),
-                float(dev_y.shape[0]) / (end-start))
-            print("%.3f (%.3f) acc, %d wps train, %d wps run" % stats)
-            epoch_times.append(end)
-        trainer.each_epoch.append(track_progress)
+    train_X, train_y = preprocess(model.ops, train_data, nr_tag)
+    dev_X, dev_y = preprocess(model.ops, check_data, nr_tag)
+
+    n_train = float(sum(len(x) for x in train_X))
+    global epoch_train_acc
+    with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
+        trainer.each_epoch.append(track_progress(**locals()))
+        trainer.batch_size = 1
+        batch_size = 1.
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
+            
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(yh, y)
-            optimizer.set_loss(loss)
-            backprop(d_loss, optimizer)
-    with model.use_params(optimizer.averages):
-        print(model.evaluate(dev_X, dev_y))
+            backprop(yh - y, optimizer)
+            
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            batch_size *= 1.001
+            
+            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+    with model.use_params(trainer.optimizer.averages):
+        print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
  
 
 if __name__ == '__main__':

@@ -13,7 +13,6 @@ import contextlib
 from thinc.extra.datasets import read_quora_tsv_data
 import thinc.check
 from thinc.neural.util import partition
-from thinc.ops import NumpyOps
 from thinc.exceptions import ExpectedTypeError
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, ReLu, Softmax, Maxout
@@ -41,14 +40,10 @@ def get_word_ids(docs, drop=0.):
 
 class StaticVectors(Embed):
     def __init__(self, nlp, nO):
-        Embed.__init__(self,
-            nO,
-            nlp.vocab.vectors_length,
-            len(nlp.vocab),
-            is_static=True)
+        Embed.__init__(self, nO, nlp.vocab.vectors_length,
+            len(nlp.vocab), is_static=True)
         vectors = self.vectors
         for i, word in enumerate(nlp.vocab):
-            self._id_map[word.orth] = i+1
             vectors[i+1] = word.vector / (word.vector_norm or 1.)
 
 
@@ -75,6 +70,7 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         n_dev_words, (end-start),
         float(n_dev_words) / (end-start)]
 
+
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
@@ -89,12 +85,15 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     print("Construct model")
     Model.ops = CupyOps()
+    print("Construct model")
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
             get_word_ids
             >> with_flatten(
-                 StaticVectors(nlp, width)
-                 >> (ExtractWindow(nW=1) >> Maxout(width, width*3)) ** depth)
+                StaticVectors(nlp, width)
+                >> mwe_encode ** depth
+            )
             >> (MeanPooling() | MaxPooling())
         )
         model = (

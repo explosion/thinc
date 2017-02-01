@@ -2,8 +2,8 @@ import random # pragma: no cover
 import io # pragma: no cover
 from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
-import numpy # pragma: no cover
 import csv # pragma: no cover
+import numpy
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 
@@ -56,7 +56,9 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
             else:
                 X.append(words)
             if encode_tags:
-                y.append([tagmap[tag] for tag in tags])
+                y.append(numpy.asarray(
+                    [tagmap[tag] for tag in tags],
+                    dtype='int32'))
             else:
                 y.append(tags)
         return zip(X, y)
@@ -96,9 +98,8 @@ def mnist(): # pragma: no cover
     X_train = X_train.astype('float32')
     X_test = X_test.astype('float32')
 
-    X_train = (X_train - X_train.mean(axis=0)) / (numpy.sqrt(X_train.var(axis=0)) + 1e-12)
-    X_test = (X_test - X_test.mean(axis=0)) / (numpy.sqrt(X_test.var(axis=0)) + 1e-12)
-
+    X_train /= 255.
+    X_test /= 255.
     train_data = list(zip(X_train, y_train))
     nr_train = X_train.shape[0]
     random.shuffle(train_data)

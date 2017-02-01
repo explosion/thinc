@@ -93,10 +93,10 @@ class Model(object):
 
     #@check.args(equal_length)
     @check.arg(1, is_sequence)
-    def begin_training(self, train_X, train_y=None):
+    def begin_training(self, train_X, train_y=None, **trainer_cfg):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
-        return self.Trainer(self, train_X, train_y)
+        return self.Trainer(self, **trainer_cfg)
 
     @check.arg(2, is_float)
     @check.arg(1, has_shape(('nB', 'nI')))
@@ -145,13 +145,9 @@ class Model(object):
         y
             Must match expected type
         '''
-        correct = 0
-        total = 0
         scores = self(X)
-        for i, gold in enumerate(y):
-            correct += scores[i].argmax() == gold
-            total += 1
-        return float(correct) / total
+        correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
+        return float(correct) / y.shape[0]
 
     @check.operator_is_defined('+')
     def __add__(self, other):
