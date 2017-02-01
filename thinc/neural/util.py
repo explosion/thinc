@@ -1,5 +1,6 @@
 from __future__ import print_function, unicode_literals
 import numpy
+import cupy
 from preshed.maps import PreshMap
 from .ops import NumpyOps, CupyOps
 from cupy import get_array_module
@@ -50,13 +51,16 @@ def remap_ids(ops):
 
 def to_categorical(y, nb_classes=None):
     # From keras
+    xp = get_array_module(y)
+    if xp is cupy:
+        y = y.get()
     y = numpy.array(y, dtype='int').ravel()
     if not nb_classes:
         nb_classes = numpy.max(y) + 1
     n = y.shape[0]
     categorical = numpy.zeros((n, nb_classes), dtype='float32')
     categorical[numpy.arange(n), y] = 1
-    return categorical
+    return xp.asarray(categorical)
 
 
 def flatten_sequences(sequences, drop=0.): # pragma: no cover
