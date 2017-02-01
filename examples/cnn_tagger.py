@@ -7,22 +7,11 @@ from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 
 from thinc.api import layerize, chain, clone
-from thinc.neural.util import flatten_sequences, remap_ids
+from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
-
-
-def to_categorical(y, nb_classes=None):
-    # From keras
-    y = numpy.array(y, dtype='int').ravel()
-    if not nb_classes:
-        nb_classes = numpy.max(y) + 1
-    n = y.shape[0]
-    categorical = numpy.zeros((n, nb_classes), dtype='float32')
-    categorical[numpy.arange(n), y] = 1
-    return categorical
 
 
 epoch_train_acc = 0.
@@ -58,9 +47,9 @@ def debug(X, drop=0.):
     _i += 1
     return X, lambda d, sgd: d
 
+
 def main(width=128, depth=4, vector_length=64, max_batch_size=32,
-    dropout=0.9, drop_decay=1e-4, nb_epoch=20, L2=1e-5):
-    global epoch_train_acc
+        dropout=0.9, drop_decay=1e-4, nb_epoch=20, L2=1e-5):
     cfg = dict(locals())
     Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
@@ -76,19 +65,21 @@ def main(width=128, depth=4, vector_length=64, max_batch_size=32,
     dev_X, dev_y = preprocess(model.ops, check_data, nr_tag)
 
     n_train = float(sum(len(x) for x in train_X))
+    global epoch_train_acc
     with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = 1
         batch_size = 1.
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
-            yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            train_acc = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
             
+            yh, backprop = model.begin_update(X, drop=trainer.dropout)
             backprop(yh - y, optimizer)
+            
             trainer.batch_size = min(int(batch_size), max_batch_size)
-            epoch_train_acc += train_acc
             batch_size *= 1.001
+            
+            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
  

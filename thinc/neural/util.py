@@ -48,6 +48,17 @@ def remap_ids(ops):
 #        return uniques, id_map
 
 
+def to_categorical(y, nb_classes=None):
+    # From keras
+    y = numpy.array(y, dtype='int').ravel()
+    if not nb_classes:
+        nb_classes = numpy.max(y) + 1
+    n = y.shape[0]
+    categorical = numpy.zeros((n, nb_classes), dtype='float32')
+    categorical[numpy.arange(n), y] = 1
+    return categorical
+
+
 def flatten_sequences(sequences, drop=0.): # pragma: no cover
     xp = get_array_module(sequences[0])
     return xp.concatenate(sequences), None
