@@ -21,6 +21,7 @@ from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
+from thinc.neural.util import remap_ids
 
 
 @layerize
@@ -38,14 +39,10 @@ def get_word_ids(docs, drop=0.):
 
 class StaticVectors(Embed):
     def __init__(self, nlp, nO):
-        Embed.__init__(self,
-            nO,
-            nlp.vocab.vectors_length,
-            len(nlp.vocab),
-            is_static=True)
+        Embed.__init__(self, nO, nlp.vocab.vectors_length,
+            len(nlp.vocab), is_static=True)
         vectors = self.vectors
         for i, word in enumerate(nlp.vocab):
-            self._id_map[word.orth] = i+1
             vectors[i+1] = word.vector / (word.vector_norm or 1.)
 
 
@@ -72,6 +69,7 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         n_dev_words, (end-start),
         float(n_dev_words) / (end-start)]
 
+
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
@@ -83,7 +81,9 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
 def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5,
          nb_epoch=20):
     print("Load spaCy")
-    nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+    nlp = spacy.load('en', add_vectors=False, parser=False, entity=False,
+            matcher=False, tagger=False)
+    print("Construct model")
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
