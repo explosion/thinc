@@ -11,7 +11,6 @@ from libc.string cimport memcpy
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
-import chainer.cuda
 import numpy
 from cytoolz import concat
 from numpy import prod
@@ -594,11 +593,13 @@ cdef void cpu_backprop_maxout(float* dX__bop,
 
 # Here we broadcast over the longest dimension (dX) and compute indexes
 # for the narrower dimensions.
-gpu_backprop_maxout = cupy.ElementwiseKernel(
-    'raw float32 best, raw int32 which, raw int32 P',
-    'float32 dX',
-    'dX = (which[i/P] == i%P) ? best[i/P] : 0',
-    'bp_maxout')
+if cupy is not None:
+    gpu_backprop_maxout = cupy.ElementwiseKernel(
+        'raw float32 best, raw int32 which, raw int32 P',
+        'float32 dX',
+        'dX = (which[i/P] == i%P) ? best[i/P] : 0',
+        'bp_maxout')
+
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
     grad_norm = Vec.norm(&gradient[0], gradient.shape[0])

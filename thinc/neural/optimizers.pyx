@@ -8,8 +8,6 @@ from libc.stdlib cimport calloc, malloc, free
 
 from collections import defaultdict
 import numpy
-from cupy import get_array_module
-import cupy.linalg
 
 from ..typedefs cimport weight_t
 

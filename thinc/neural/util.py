@@ -1,9 +1,14 @@
 from __future__ import print_function, unicode_literals
 import numpy
-import cupy
 from preshed.maps import PreshMap
 from .ops import NumpyOps, CupyOps
-from cupy import get_array_module
+
+try:
+    import cupy
+    from cupy import get_array_module
+except ImportError:
+    cupy = None
+    get_array_module = lambda: numpy
 
 
 def get_ops(ops):
