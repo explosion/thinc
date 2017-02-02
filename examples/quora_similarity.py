@@ -47,13 +47,13 @@ class StaticVectors(Embed):
             vectors[i+1] = word.vector / (word.vector_norm or 1.)
 
 
-def create_data(nlp, rows):
+def create_data(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
         Xs.append((nlp(text1), nlp(text2)))
         ys.append(label)
-    return Xs, ys
+    return Xs, to_categorical(ops.asarray(ys))
 
 
 def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
@@ -84,14 +84,12 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     print("Construct model")
-    Model.ops = CupyOps()
-    print("Construct model")
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
             get_word_ids
             >> with_flatten(
-                StaticVectors(nlp, width)
+                Embed(width, width, nV=10000)
                 >> mwe_encode ** depth
             )
             >> (MeanPooling() | MaxPooling())
@@ -106,8 +104,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Read and parse quora data")
     rows = read_quora_tsv_data(pathlib.Path(loc))
     train, dev = partition(rows, 0.9)
-    train_X, train_y = create_data(nlp, train)
-    dev_X, dev_y = create_data(nlp, dev)
+    train_X, train_y = create_data(model.ops, nlp, train)
+    dev_X, dev_y = create_data(model.ops, nlp, dev)
     print("Train")
     with model.begin_training(train_X[:20000], train_y[:20000]) as (trainer, optimizer):
         trainer.batch_size = batch_size
