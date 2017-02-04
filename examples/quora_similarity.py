@@ -38,13 +38,44 @@ def get_word_ids(docs, drop=0.):
     return seqs, None
 
 
-class StaticVectors(Embed):
+from thinc import describe
+from thinc.describe import Dimension, Synapses, Gradient
+from thinc.neural._lsuv import LSUVinit
+@describe.on_data(LSUVinit)
+@describe.attributes(
+        nM=Dimension("Vector dimensions"),
+        nO=Dimension("Size of output"),
+        W=Synapses(
+            "A projection matrix, to change vector dimensionality",
+            lambda obj: (obj.nO, obj.nM),
+            lambda W, ops: ops.xavier_uniform_init(W)),
+        d_W=Gradient("W"),
+)
+class SpacyVectors(Model):
+    name = 'spacy-vectors'
     def __init__(self, nlp, nO):
-        Embed.__init__(self, nO, nlp.vocab.vectors_length,
-            len(nlp.vocab), is_static=True)
-        vectors = self.vectors
-        for i, word in enumerate(nlp.vocab):
-            vectors[i+1] = word.vector / (word.vector_norm or 1.)
+        Model.__init__(self)
+        self._id_map = {0: 0}
+        self.nO = nO
+        self.nM = nlp.vocab.vectors_length
+        self.nlp = nlp
+
+    @property
+    def nV(self):
+        return len(self.nlp.vocab)
+
+    def begin_update(self, ids, drop=0.):
+        uniqs, inverse = self.ops.xp.unique(ids, return_inverse=True)
+        vectors = self.ops.allocate((uniqs.shape[0], self.nM))
+        for i, orth in enumerate(uniqs):
+            vectors[i] = self.nlp.vocab[orth].vector
+        def finish_update(gradients, sgd=None):
+            self.d_W += self.ops.batch_outer(gradients, vectors[inverse, ])
+            if sgd is not None:
+                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+            return None
+        dotted = self.ops.batch_dot(vectors, self.W)
+        return dotted[inverse, ], finish_update
 
 
 def create_data(ops, nlp, rows):
@@ -89,7 +120,7 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
         sent2vec = (
             get_word_ids
             >> with_flatten(
-                Embed(width, width, nV=10000)
+                SpacyVectors(nlp, width)
                 >> mwe_encode ** depth
             )
             >> (MeanPooling() | MaxPooling())
