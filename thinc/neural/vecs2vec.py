@@ -3,23 +3,31 @@ from ._classes.model import Model
 
 class MeanPooling(Model):
     name = 'mean-pool'
-    def predict(self, X):
-        means = []
-        for x in X:
-            means.append(x.mean(axis=0))
-        return self.ops.asarray(means)
+    def predict(self, seqs):
+        X = self.ops.xp.vstack(seqs)
+        lengths = [len(seq) for seq in seqs]
+        means = self.ops.allocate((len(lengths), X.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            end = start + length
+            means[i] = X[start : end].mean(axis=0)
+            start = end
+        assert means.shape == (len(seqs), seqs[0].shape[1])
+        return means
 
-    def begin_update(self, X, drop=0.0):
-        X, bp_dropout = self.ops.dropout(X, drop)
+    def begin_update(self, seqs, drop=0.0):
+        X = self.ops.xp.vstack(seqs)
+        lengths = [len(seq) for seq in seqs]
+        #X, bp_dropout = self.ops.dropout(X, drop)
         def finish_update(gradient, sgd=None):
-            batch_grads = []
-            for i, x in enumerate(X):
-                grad_i = self.ops.allocate(x.shape)
-                if x.shape[0] != 0:
-                    grad_i += gradient[i] / x.shape[0]
-                batch_grads.append(grad_i)
-            return batch_grads
-        return self.predict(X), bp_dropout(finish_update)
+            batch_grads = self.ops.allocate(X.shape)
+            start = 0
+            for i, length in enumerate(lengths):
+                end = start + length
+                batch_grads[start : end] += gradient[i] / (end-start)
+                start = end
+            return self.ops.unflatten(batch_grads, lengths)
+        return self.predict(seqs), finish_update #bp_dropout(finish_update)
 
 
 class MaxPooling(Model):
@@ -77,7 +85,7 @@ class MultiPooling(Model): # pragma: no cover
 
     def predict(self, X):
         return self.ops.xp.hstack([in_.predict(X) for in_ in self.inputs])
- 
+
     def begin_update(self, X, drop=0.0):
         output = []
         backward = []
@@ -98,6 +106,6 @@ class MultiPooling(Model): # pragma: no cover
                          for bwd, start, end in backward]
             summed = []
             for grads in zip(*seq_grads):
-                summed.append(sum(grads)) 
+                summed.append(sum(grads))
             return summed
         return finish_update
