@@ -78,7 +78,7 @@ cdef class AveragedPerceptron:
         return eg.loss
 
     def dump(self, loc):
-        cdef Writer writer = Writer(loc, self.weights.length)
+        cdef Writer writer = Writer(loc, self.weights.capacity)
         cdef feat_t key
         cdef size_t feat_addr
         for i, (key, feat_addr) in enumerate(self.weights.items()):
