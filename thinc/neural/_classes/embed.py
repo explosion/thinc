@@ -31,6 +31,7 @@ def LSUVinit(model, X, y=None):
     return X
 
 
+
 @describe.on_data(_set_dimensions_if_needed, LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
@@ -94,7 +95,7 @@ class Embed(Model):
                 d_vectors[ids % self.nV] += gradients
             if sgd is not None:
                 if self.is_static:
-                    sgd(self.W.flatten(), self.d_W.flatten(), key=id(self._mem))
+                    sgd(self.W.ravel(), self.d_W.ravel(), key=id(self._mem))
                 else:
                     sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None

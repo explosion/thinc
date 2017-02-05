@@ -87,7 +87,31 @@ def concatenate(*layers): # pragma: no cover
                 return None
         return output, finish_update
     layer = FunctionLayer(begin_update)
+    layer._layers = layers
     return layer
+
+ 
+def add(layer1, layer2):
+    def begin_update(X, drop=0.0):
+        out1, upd1 = layer1.begin_update(X, drop=drop)
+        out2, upd2 = layer2.begin_update(X, drop=drop)
+        def finish_update(gradient, sgd=None):
+            grad1 = None
+            grad2 = None
+            if upd2 is not None:
+                grad2 = upd2(gradient)
+            if upd1 is not None:
+                grad1 = upd1(gradient)
+            if grad1 is not None and grad2 is not None:
+                return grad1 + grad2
+            elif grad1 is not None:
+                return grad1
+            else:
+                return grad2
+        return out1 + out2, finish_update
+    model = layerize(begin_update)
+    model._layers = [layer1, layer2]
+    return model
 
 
 def split_backward(layers): # pragma: no cover
