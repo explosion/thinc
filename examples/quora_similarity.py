@@ -20,7 +20,7 @@ from thinc.loss import categorical_crossentropy
 from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
-from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
+from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
 from thinc.neural.util import remap_ids, to_categorical
 from thinc.neural.ops import CupyOps
 
@@ -102,6 +102,25 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         float(n_dev_words) / (end-start)]
 
 
+@layerize
+def flatten_add_lengths(seqs, drop=0.):
+    ops = Model.ops
+    lengths = [len(seq) for seq in seqs]
+    def finish_update(d_X):
+        return ops.unflatten(d_X, lengths)
+    X = ops.xp.concatenate(seqs)
+    return (X, lengths), finish_update
+
+
+def with_getitem(idx, layer):
+    @layerize
+    def begin_update(items, drop=0.):
+        X, finish = layer.begin_update(items[idx], drop=drop)
+        return items[:idx] + (X,) + items[idx+1:], finish
+    return begin_update
+
+
+
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
@@ -119,11 +138,12 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
             get_word_ids
-            >> with_flatten(
+            >> flatten_add_lengths
+            >> with_getitem(0,
                 SpacyVectors(nlp, width)
                 >> mwe_encode ** depth
             )
-            >> (MeanPooling() | MaxPooling())
+            >> Pooling(mean_pool, max_pool)
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))

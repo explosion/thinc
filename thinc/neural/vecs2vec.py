@@ -10,12 +10,11 @@ except ImportError:
 
 def Pooling(*funcs, **kwargs):
     ops = kwargs['ops'] if 'ops' in kwargs else funcs[0].ops
-    def begin_update(seqs, drop=0.0):
-        X = ops.xp.vstack(seqs)
-        lengths = [len(seq) for seq in seqs]
+    F = len(funcs)
+    def begin_update(X_lengths, drop=0.0):
+        X, lengths = X_lengths
         X, bp_dropout = ops.dropout(X, drop)
         B, O = X.shape
-        F = len(funcs)
         pooled = ops.allocate((F, len(lengths), O))
         bp_funcs = [None] * F
         for i, func in enumerate(funcs):
@@ -26,10 +25,10 @@ def Pooling(*funcs, **kwargs):
             dX = ops.allocate(X.shape)
             for i, bp_func in enumerate(bp_funcs):
                 dX += bp_func(d_pooled[i])
-            return ops.unflatten(dX, lengths)
+            return dX
         pooled = pooled.transpose((1, 0, 2))
         pooled = pooled.reshape((len(lengths), F * O))
-        return pooled, bp_dropout(finish_update)
+        return pooled, finish_update
     return layerize(begin_update)
 
 
