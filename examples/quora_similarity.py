@@ -22,7 +22,9 @@ from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
 from thinc.neural.util import remap_ids, to_categorical
-from thinc.neural.ops import CupyOps
+from thinc.neural.ops import CupyOps, NumpyOps
+
+import cupy
 
 
 @layerize
@@ -52,6 +54,7 @@ from thinc.neural._lsuv import LSUVinit
         d_W=Gradient("W"),
 )
 class SpacyVectors(Model):
+    ops = NumpyOps()
     name = 'spacy-vectors'
     def __init__(self, nlp, nO):
         Model.__init__(self)
@@ -65,17 +68,30 @@ class SpacyVectors(Model):
         return len(self.nlp.vocab)
 
     def begin_update(self, ids, drop=0.):
-        uniqs, inverse = self.ops.xp.unique(ids, return_inverse=True)
+        if not isinstance(ids, numpy.ndarray):
+            ids = ids.get()
+            gpu_in = True
+        else:
+            gpu_in = False
+        uniqs, inverse = numpy.unique(ids, return_inverse=True)
         vectors = self.ops.allocate((uniqs.shape[0], self.nM))
         for i, orth in enumerate(uniqs):
             vectors[i] = self.nlp.vocab[orth].vector
         def finish_update(gradients, sgd=None):
+            if gpu_in:
+                gradients = gradients.get()
             self.d_W += self.ops.batch_outer(gradients, vectors[inverse, ])
             if sgd is not None:
+                ops = sgd.ops
+                sgd.ops = self.ops
                 sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd.ops = ops
             return None
         dotted = self.ops.batch_dot(vectors, self.W)
-        return dotted[inverse, ], finish_update
+        if gpu_in:
+            return cupy.asarray(dotted[inverse, ]), finish_update
+        else:
+            return dotted[inverse, ], finish_update
 
 
 def create_data(ops, nlp, rows):
@@ -108,7 +124,7 @@ def flatten_add_lengths(seqs, drop=0.):
     lengths = [len(seq) for seq in seqs]
     def finish_update(d_X):
         return ops.unflatten(d_X, lengths)
-    X = ops.xp.concatenate(seqs)
+    X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
     return (X, lengths), finish_update
 
 
@@ -134,6 +150,7 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     print("Construct model")
+    Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
