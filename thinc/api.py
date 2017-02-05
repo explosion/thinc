@@ -79,9 +79,12 @@ def concatenate(*layers): # pragma: no cover
                 if bwd is not None:
                     d = bwd(gradient[:, start : end], *args, **kwargs)
                     if d is not None:
-                        layer_grads.append(d)
+                        layer_grads[-1] += d
                 start = end
-            return ops.asarray(ops.xp.sum(layer_grads, axis=0))
+            if layer_grads:
+                return ops.asarray(layer_grads[-1])
+            else:
+                return None
         return output, finish_update
     layer = FunctionLayer(begin_update)
     return layer

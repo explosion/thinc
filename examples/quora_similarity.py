@@ -20,8 +20,11 @@ from thinc.loss import categorical_crossentropy
 from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
-from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
-from thinc.neural.util import remap_ids
+from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
+from thinc.neural.util import remap_ids, to_categorical
+from thinc.neural.ops import CupyOps, NumpyOps
+
+import cupy
 
 
 @layerize
@@ -37,22 +40,67 @@ def get_word_ids(docs, drop=0.):
     return seqs, None
 
 
-class StaticVectors(Embed):
+from thinc import describe
+from thinc.describe import Dimension, Synapses, Gradient
+from thinc.neural._lsuv import LSUVinit
+@describe.on_data(LSUVinit)
+@describe.attributes(
+        nM=Dimension("Vector dimensions"),
+        nO=Dimension("Size of output"),
+        W=Synapses(
+            "A projection matrix, to change vector dimensionality",
+            lambda obj: (obj.nO, obj.nM),
+            lambda W, ops: ops.xavier_uniform_init(W)),
+        d_W=Gradient("W"),
+)
+class SpacyVectors(Model):
+    ops = NumpyOps()
+    name = 'spacy-vectors'
     def __init__(self, nlp, nO):
-        Embed.__init__(self, nO, nlp.vocab.vectors_length,
-            len(nlp.vocab), is_static=True)
-        vectors = self.vectors
-        for i, word in enumerate(nlp.vocab):
-            vectors[i+1] = word.vector / (word.vector_norm or 1.)
+        Model.__init__(self)
+        self._id_map = {0: 0}
+        self.nO = nO
+        self.nM = nlp.vocab.vectors_length
+        self.nlp = nlp
+
+    @property
+    def nV(self):
+        return len(self.nlp.vocab)
+
+    def begin_update(self, ids, drop=0.):
+        if not isinstance(ids, numpy.ndarray):
+            ids = ids.get()
+            gpu_in = True
+        else:
+            gpu_in = False
+        uniqs, inverse = numpy.unique(ids, return_inverse=True)
+        vectors = self.ops.allocate((uniqs.shape[0], self.nM))
+        for i, orth in enumerate(uniqs):
+            vectors[i] = self.nlp.vocab[orth].vector
+        def finish_update(gradients, sgd=None):
+            if gpu_in:
+                gradients = gradients.get()
+            self.d_W += self.ops.batch_outer(gradients, vectors[inverse, ])
+            if sgd is not None:
+                ops = sgd.ops
+                sgd.ops = self.ops
+                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd.ops = ops
+            return None
+        dotted = self.ops.batch_dot(vectors, self.W)
+        if gpu_in:
+            return cupy.asarray(dotted[inverse, ]), finish_update
+        else:
+            return dotted[inverse, ], finish_update
 
 
-def create_data(nlp, rows):
+def create_data(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
         Xs.append((nlp(text1), nlp(text2)))
         ys.append(label)
-    return Xs, ys
+    return Xs, to_categorical(ops.asarray(ys))
 
 
 def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
@@ -70,6 +118,25 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
         float(n_dev_words) / (end-start)]
 
 
+@layerize
+def flatten_add_lengths(seqs, drop=0.):
+    ops = Model.ops
+    lengths = [len(seq) for seq in seqs]
+    def finish_update(d_X):
+        return ops.unflatten(d_X, lengths)
+    X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
+    return (X, lengths), finish_update
+
+
+def with_getitem(idx, layer):
+    @layerize
+    def begin_update(items, drop=0.):
+        X, finish = layer.begin_update(items[idx], drop=drop)
+        return items[:idx] + (X,) + items[idx+1:], finish
+    return begin_update
+
+
+
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
@@ -81,18 +148,19 @@ def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
 def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5,
          nb_epoch=20):
     print("Load spaCy")
-    nlp = spacy.load('en', add_vectors=False, parser=False, entity=False,
-            matcher=False, tagger=False)
+    nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     print("Construct model")
+    Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
             get_word_ids
-            >> with_flatten(
-                StaticVectors(nlp, width)
+            >> flatten_add_lengths
+            >> with_getitem(0,
+                SpacyVectors(nlp, width)
                 >> mwe_encode ** depth
             )
-            >> (MeanPooling() | MaxPooling())
+            >> Pooling(mean_pool, max_pool)
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))
@@ -104,8 +172,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
     print("Read and parse quora data")
     rows = read_quora_tsv_data(pathlib.Path(loc))
     train, dev = partition(rows, 0.9)
-    train_X, train_y = create_data(nlp, train)
-    dev_X, dev_y = create_data(nlp, dev)
+    train_X, train_y = create_data(model.ops, nlp, train)
+    dev_X, dev_y = create_data(model.ops, nlp, dev)
     print("Train")
     with model.begin_training(train_X[:20000], train_y[:20000]) as (trainer, optimizer):
         trainer.batch_size = batch_size
@@ -133,10 +201,8 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
         trainer.each_epoch.append(track_progress)
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            d_loss, loss = categorical_crossentropy(yh, y)
-            optimizer.set_loss(loss)
-            backprop(d_loss, optimizer)
-            epoch_loss[-1] += loss / len(train_y)
+            backprop(yh-y, optimizer)
+            #epoch_loss[-1] += loss / len(train_y)
 
 
 if __name__ == '__main__':
