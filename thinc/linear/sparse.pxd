@@ -22,6 +22,7 @@ cdef class SparseArray:
         cdef int i = 0
         while src[i].key != -2:
             i += 1
+        i += 1
         dest = <SparseArrayC*>PyMem_Malloc(i * sizeof(SparseArrayC))
         memcpy(dest, src, i * sizeof(SparseArrayC))
         return dest
