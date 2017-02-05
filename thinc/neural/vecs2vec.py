@@ -1,111 +1,75 @@
-from ._classes.model import Model
+from ..api import layerize
+import numpy
+
+try:
+    from cupy import  get_array_module
+except ImportError:
+    get_array_module = lambda arr: numpy
 
 
-class MeanPooling(Model):
-    name = 'mean-pool'
-    def predict(self, seqs):
-        X = self.ops.xp.vstack(seqs)
+
+def Pooling(*funcs, **kwargs):
+    ops = kwargs['ops'] if 'ops' in kwargs else funcs[0].ops
+    def begin_update(seqs, drop=0.0):
+        X = ops.xp.vstack(seqs)
         lengths = [len(seq) for seq in seqs]
-        means = self.ops.allocate((len(lengths), X.shape[1]))
+        X, bp_dropout = ops.dropout(X, drop)
+        B, O = X.shape
+        F = len(funcs)
+        pooled = ops.allocate((F, len(lengths), O))
+        bp_funcs = [None] * F
+        for i, func in enumerate(funcs):
+            pooled[i], bp_funcs[i] = func.begin_update((X, lengths))
+        def finish_update(d_pooled, sgd=None):
+            d_pooled = d_pooled.reshape((len(lengths), F, O))
+            d_pooled = d_pooled.transpose((1, 0, 2))
+            dX = ops.allocate(X.shape)
+            for i, bp_func in enumerate(bp_funcs):
+                dX += bp_func(d_pooled[i])
+            return ops.unflatten(dX, lengths)
+        pooled = pooled.transpose((1, 0, 2))
+        pooled = pooled.reshape((len(lengths), F * O))
+        return pooled, bp_dropout(finish_update)
+    return layerize(begin_update)
+
+
+@layerize
+def mean_pool(X_lengths, drop=0.):
+    X, lengths = X_lengths
+    xp = get_array_module(X)
+    output = xp.zeros((len(lengths), X.shape[1]), dtype='float32')
+    start = 0
+    for i, length in enumerate(lengths):
+        end = start + length
+        output[i] = X[start : end].mean(axis=0)
+        start = end
+    def finish_update(d_output, sgd=None):
+        d_X = xp.zeros((X.shape[0], X.shape[1]), dtype='float32')
         start = 0
         for i, length in enumerate(lengths):
             end = start + length
-            means[i] = X[start : end].mean(axis=0)
+            d_X[start : end] += d_output[i] / (end-start)
             start = end
-        assert means.shape == (len(seqs), seqs[0].shape[1])
-        return means
-
-    def begin_update(self, seqs, drop=0.0):
-        X = self.ops.xp.vstack(seqs)
-        lengths = [len(seq) for seq in seqs]
-        #X, bp_dropout = self.ops.dropout(X, drop)
-        def finish_update(gradient, sgd=None):
-            batch_grads = self.ops.allocate(X.shape)
-            start = 0
-            for i, length in enumerate(lengths):
-                end = start + length
-                batch_grads[start : end] += gradient[i] / (end-start)
-                start = end
-            return self.ops.unflatten(batch_grads, lengths)
-        return self.predict(seqs), finish_update #bp_dropout(finish_update)
+        return d_X
+    return output, finish_update
 
 
-class MaxPooling(Model):
-    name = 'max-pool'
-    def predict(self, X):
-        maxes = []
-        for x in X:
-            if x.shape[0] == 0:
-                maxes.append(self.ops.allocate(x.shape[1:]))
-            else:
-                maxes.append(x.max(axis=0))
-        return self.ops.asarray(maxes)
-
-    def begin_update(self, X, drop=0.0):
-        X, bp_dropout = self.ops.dropout(X, drop)
-        def finish_update(gradient, sgd=None):
-            batch_grads = []
-            for i, x in enumerate(X):
-                grad_i = self.ops.allocate(x.shape)
-                if x.shape[0] != 0:
-                    grad_i += gradient[i] * (x == x.max(axis=0))
-                batch_grads.append(grad_i)
-            return batch_grads
-        return self.predict(X), bp_dropout(finish_update)
-
-
-class MinPooling(Model):
-    name = 'min-pool'
-    def predict(self, X):
-        maxes = []
-        for x in X:
-            if x.shape[0] == 0:
-                maxes.append(self.ops.allocate(x.shape[1:]))
-            else:
-                maxes.append(x.min(axis=0))
-        return self.ops.asarray(maxes)
-
-    def begin_update(self, X, drop=0.0):
-        X, bp_dropout = self.ops.dropout(X, drop)
-        def finish_update(gradient, sgd=None):
-            batch_grads = []
-            for i, x in enumerate(X):
-                grad_i = self.ops.allocate(x.shape)
-                if x.shape[0] != 0:
-                    grad_i += gradient[i] * (x == x.min(axis=0))
-                batch_grads.append(grad_i)
-            return batch_grads
-        return self.predict(X), bp_dropout(finish_update)
-
-
-class MultiPooling(Model): # pragma: no cover
-    name = 'multi-pool'
-    def __init__(self, *inputs):
-        self.inputs = inputs
-
-    def predict(self, X):
-        return self.ops.xp.hstack([in_.predict(X) for in_ in self.inputs])
-
-    def begin_update(self, X, drop=0.0):
-        output = []
-        backward = []
+@layerize
+def max_pool(X_lengths, drop=0.):
+    X, lengths = X_lengths
+    xp = get_array_module(X)
+    maxes = xp.zeros((len(lengths), X.shape[1]), dtype='float32')
+    start = 0
+    for i, length in enumerate(lengths):
+        end = start + length
+        maxes[i] = X[start : end].max(axis=0)
+        start = end
+    def finish_update(d_maxes, sgd=None):
+        d_X = xp.zeros((X.shape[0], X.shape[1]), dtype='float32')
         start = 0
-        length = X[0].shape[1]
-        for input_ in self.inputs:
-            out, finish = input_.begin_update(X, drop=drop)
-            output.append(out)
+        for i, length in enumerate(lengths):
             end = start + length
-            backward.append((finish, start, end))
+            d_X[start : end] += d_maxes[i] * (d_maxes[i] == maxes[i])
             start = end
-        return self.ops.xp.hstack(output), self._get_finish_update(backward)
-
-    def _get_finish_update(self, backward):
-        def finish_update(gradient, sgd=None):
-            assert len(self.inputs) == 3 # TODO
-            seq_grads = [bwd(gradient[:, start : end], sgd=None)
-                         for bwd, start, end in backward]
-            summed = []
-            for grads in zip(*seq_grads):
-                summed.append(sum(grads))
-            return summed
-        return finish_update
+        return d_X
+    return maxes, finish_update
