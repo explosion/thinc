@@ -7,6 +7,7 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 
 from collections import defaultdict
+import numpy
 
 from ..typedefs cimport weight_t
 
@@ -43,24 +44,16 @@ class SGD(object):
             gradient.fill(0)
         else:
             if key not in self.momentums:
-<<<<<<< HEAD:thinc/neural/optimizers.py
-                self.momentums[key] = self.ops.allocate(weights.shape)
-=======
                 self.momentums[key] = self.ops.allocate(weights.size)
->>>>>>> 35d1ed554ce44e877ac0fb98e239d2deae656f43:thinc/neural/optimizers.pyx
             momentum = self.momentums[key]
             momentum *= self.mu
             momentum += gradient * lr
             weights -= momentum
             gradient.fill(0)
-<<<<<<< HEAD:thinc/neural/optimizers.py
-        update_averages(self.ops, self.averages, key, weights, nr_upd)
-=======
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
             self.ops.update_averages(self.averages[key], weights, nr_upd)
->>>>>>> 35d1ed554ce44e877ac0fb98e239d2deae656f43:thinc/neural/optimizers.pyx
 
     def lr(self, nr_upd):
         return linear_decay(self.alpha, self.decay, nr_upd)
@@ -91,22 +84,10 @@ class Adam(SGD):
         alpha = linear_decay(self.alpha, self.decay, nr_upd)
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
-<<<<<<< HEAD:thinc/neural/optimizers.py
-        return alpha * self.ops.xp.sqrt(fix2) / fix1
-
-    @property
-    def nr_iter(self):
-        if not self.nr_update:
-            return 0
-        return max(self.nr_update.values())
-
-    def __call__(self, weights, gradient, key=None):
-=======
         return alpha * numpy.sqrt(fix2) / fix1
-
-    def __call__(self, weights, gradient, lr_scale=1.,
+    
+    def __call__(self, weights, gradient, lr_scale=1., 
             key=None):
->>>>>>> 35d1ed554ce44e877ac0fb98e239d2deae656f43:thinc/neural/optimizers.pyx
         assert key is not None
         assert len(gradient) >= 1
         if key not in self.mom1:
@@ -118,21 +99,8 @@ class Adam(SGD):
         gradient += self.L2 * weights
         self.ops.clip_gradient(gradient, len(gradient) / 100.)
 
-<<<<<<< HEAD:thinc/neural/optimizers.py
-        clip_gradient(self.ops, gradient, len(gradient) / 100.)
-=======
->>>>>>> 35d1ed554ce44e877ac0fb98e239d2deae656f43:thinc/neural/optimizers.pyx
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-<<<<<<< HEAD:thinc/neural/optimizers.py
-        mom2 *= self.b2
-        mom2 += (1-self.b2) * gradient ** 2
-
-        lr = self.lr(nr_upd)
-        weights -= lr * mom1 / (self.d * self.ops.xp.sqrt(mom2) + self.eps)
-        gradient.fill(0)
-        update_averages(self.ops, self.averages, key, weights, nr_upd)
-=======
         cdef weight_t lr = self.lr(nr_upd) * lr_scale
         cdef weight_t b1 = self.b1
         cdef weight_t b2 = self.b1
@@ -146,7 +114,6 @@ class Adam(SGD):
             if key not in self.averages:
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
             self.ops.update_averages(self.averages[key], weights, nr_upd)
->>>>>>> 35d1ed554ce44e877ac0fb98e239d2deae656f43:thinc/neural/optimizers.pyx
 
     def set_loss(self, loss):
         pass
