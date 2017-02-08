@@ -18,9 +18,9 @@ cdef class SparseArray:
 
     @staticmethod
     cdef inline SparseArrayC* clone(const SparseArrayC* src) except NULL:
-        # Find length
-        cdef int i = 0
-        while src[i].key != -2:
+        # Find length (including -2 termination)
+        cdef int i = 1
+        while src[i - 1].key != -2:
             i += 1
         dest = <SparseArrayC*>PyMem_Malloc(i * sizeof(SparseArrayC))
         memcpy(dest, src, i * sizeof(SparseArrayC))
