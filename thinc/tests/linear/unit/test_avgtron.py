@@ -3,7 +3,7 @@ import numpy
 from numpy.testing import assert_allclose
 from cytoolz import concat
 
-from ...avgtron import AveragedPerceptron
+from ....linear.avgtron import AveragedPerceptron
 
 
 @pytest.fixture
