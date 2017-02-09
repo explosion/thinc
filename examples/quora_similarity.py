@@ -1,29 +1,23 @@
 from __future__ import unicode_literals, print_function
 import plac
-import pathlib
-from collections import Sequence
-import numpy
 import spacy
-from spacy.attrs import ORTH
-from spacy.tokens.doc import Doc
-from preshed.maps import PreshMap
-from timeit import default_timer as timer
-import contextlib
+
+from thinc.neural import Model, Softmax, Maxout
+from thinc.neural import ExtractWindow
+from thinc.neural import Pooling, mean_pool, max_pool
+from thinc.neural import SpacyVectors, get_word_ids
+
+from thinc.neural.util import to_categorical
+
+from thinc.api import flatten_add_lengths, with_getitem
+from thinc.api import chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
-import thinc.check
-from thinc.neural.vec2vec import Model, Softmax, Maxout
-from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNorm
-from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
-from thinc.neural.util import to_categorical
-from thinc.api import flatten_add_lengths, with_getitem
-from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
 
 
 epoch_train_acc = 0.
 def track_progress(**context):
+    '''Print training progress. Called after each epoch.'''
     model = context['model']
     train_X = context['train_X']
     dev_X = context['dev_X']
@@ -42,6 +36,7 @@ def track_progress(**context):
 
 
 def preprocess(ops, nlp, rows):
+    '''Parse the texts with spaCy. Make one-hot vectors for the labels.'''
     Xs = []
     ys = []
     for (text1, text2), label in rows:
@@ -61,25 +56,59 @@ def preprocess(ops, nlp, rows):
 def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_decay=1e-5,
          nb_epoch=20):
     cfg = dict(locals())
+
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+
     print("Construct model")
+    # Bind operators for the scope of the block:
+    # * chain (>>): Compose models in a 'feed forward' style,
+    # i.e. chain(f, g)(x) -> g(f(x))
+    # * clone (**): Create n copies of a model, and chain them, i.e.
+    # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
+    # * concatenate (|): Merge the outputs of two models into a single vector,
+    # i.e. (f|g)(x) -> hstack(f(x), g(x))
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+        # Important trick: text isn't like images, and the best way to use
+        # convolution is different. Don't use pooling-over-time. Instead,
+        # use the window to compute one vector per word, and do this N deep.
+        # In the first layer, we adjust each word vector based on the two
+        # surrounding words --- this gives us essentially trigram vectors.
+        # In the next layer, we have a trigram of trigrams --- so we're
+        # conditioning on information from a five word slice. The third layer
+        # gives us 7 words. This is like the BiLSTM insight: we're not trying
+        # to learn a vector for the whole sentence in this step. We're just
+        # trying to learn better, position-sensitive word features. This simple
+        # convolution step is much more efficient than BiLSTM, and can be
+        # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
-        sent2vec = (
-            get_word_ids
-            >> flatten_add_lengths
-            >> with_getitem(0,
-                SpacyVectors(nlp, width)
-                >> mwe_encode ** depth
-            )
-            >> Pooling(mean_pool, max_pool)
+        # Comments indicate the output type and shape at each step of the pipeline. 
+        # * B: Number of sentences in the batch
+        # * T: Total number of words in the batch
+        # (i.e. sum(len(sent) for sent in batch))
+        # * W: Width of the network (input hyper-parameter)
+        # * ids: ID for each word (integers).
+        # * lengths: Number of words in each sentence in the batch (integers)
+        # * floats: Standard dense vector.
+        # (Dimensions annotated in curly braces.)
+        sent2vec = ( # List[spacy.token.Doc]{B}
+            get_word_ids            # : List[ids]{B}
+            >> flatten_add_lengths  # : (ids{T}, lengths{B})
+            >> with_getitem(0,      # : word_ids{T}
+                # This class integrates a linear projection layer, and loads
+                # static embeddings (by default, GloVe common crawl).
+                SpacyVectors(nlp, width) # : floats{T, W}
+                >> mwe_encode ** depth   # : floats{T, W}
+            ) # : (floats{T, W}, lengths{B})
+            # Useful trick: Why choose between max pool and mean pool?
+            # We may as well have both representations.
+            >> Pooling(mean_pool, max_pool) # : floats{B, 2*W}
         )
         model = (
-            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))
-            >> Maxout(width, width*4)
-            >> Maxout(width, width) ** depth
-            >> Softmax(2, width)
+            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
+            >> Maxout(width, width*4) # : floats{B, W}
+            >> Maxout(width, width) ** depth # : floats{B, W}
+            >> Softmax(2, width) # : floats{B, 2}
         )
 
     print("Read and parse quora data")
@@ -89,18 +118,25 @@ def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_d
     assert len(dev_y.shape) == 2
     print("Initialize with data (LSUV)")
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+        # Pass a callback to print progress. Give it all the local scope,
+        # because why not?
         trainer.each_epoch.append(track_progress(**locals()))
-        global epoch_train_acc
         trainer.batch_size = 1
         batch_size = 1.
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
+        global epoch_train_acc
         for X, y in trainer.iterate(train_X, train_y):
+            # Slightly useful trick: Decay the dropout as training proceeds. 
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            # No auto-diff: Just get a callback and pass the data through.
+            # Hardly a hardship, and it means we don't have to create/maintain
+            # a computational graph. We just use closures.
             backprop(yh-y, optimizer)
 
             epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
 
+            # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
 
