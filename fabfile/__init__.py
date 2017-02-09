@@ -13,11 +13,11 @@ from _util import PWD, VENV_DIR
 def env():
     if file_exists(VENV_DIR):
         local('rm -rf {env}'.format(env=VENV_DIR))
-    local('virtualenv {env}'.format(env=VENV_DIR))
+    local('python -m virtualenv {env}'.format(env=VENV_DIR))
     with virtualenv(VENV_DIR):
-        local('pip install --upgrade setuptools')
-        local('pip install -r requirements.txt')
-        local('pip install pytest')
+        local('python -m pip install --upgrade setuptools')
+        local('python -m pip install -r requirements.txt')
+        local('python -m pip install pytest')
 
 
 @task
