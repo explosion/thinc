@@ -17,7 +17,7 @@ class Trainer(object):
         self.i = 0
         self.L2 = cfg.get('L2', 0.0)
         self.dropout = cfg.get('dropout', 0.)
-        self.dropout_decay = cfg.get('drop_decay', 0.)
+        self.dropout_decay = cfg.get('dropout_decay', 0.)
         self.each_epoch = []
 
     def __enter__(self):

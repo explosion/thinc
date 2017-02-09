@@ -10,7 +10,7 @@ from preshed.maps import PreshMap
 from timeit import default_timer as timer
 import contextlib
 
-from thinc.extra.datasets import read_quora_tsv_data
+from thinc.extra import datasets
 import thinc.check
 from thinc.neural.util import partition
 from thinc.exceptions import ExpectedTypeError
@@ -22,79 +22,31 @@ from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
 from thinc.neural.util import remap_ids, to_categorical
-from thinc.neural.ops import CupyOps, NumpyOps
-
-import cupy
-
-
-@layerize
-def get_word_ids(docs, drop=0.):
-    '''Get word forms.'''
-    seqs = []
-    for doc in docs:
-        arr = numpy.zeros((len(doc)+1,), dtype='uint64')
-        for token in doc:
-            arr[token.i] = token.orth
-        arr[len(doc)] = 0
-        seqs.append(arr)
-    return seqs, None
+from thinc.neural.ops import NumpyOps
+from thinc.api import flatten_add_lengths, with_getitem
+from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
 
 
-from thinc import describe
-from thinc.describe import Dimension, Synapses, Gradient
-from thinc.neural._lsuv import LSUVinit
-@describe.on_data(LSUVinit)
-@describe.attributes(
-        nM=Dimension("Vector dimensions"),
-        nO=Dimension("Size of output"),
-        W=Synapses(
-            "A projection matrix, to change vector dimensionality",
-            lambda obj: (obj.nO, obj.nM),
-            lambda W, ops: ops.xavier_uniform_init(W)),
-        d_W=Gradient("W"),
-)
-class SpacyVectors(Model):
-    ops = NumpyOps()
-    name = 'spacy-vectors'
-    def __init__(self, nlp, nO):
-        Model.__init__(self)
-        self._id_map = {0: 0}
-        self.nO = nO
-        self.nM = nlp.vocab.vectors_length
-        self.nlp = nlp
-
-    @property
-    def nV(self):
-        return len(self.nlp.vocab)
-
-    def begin_update(self, ids, drop=0.):
-        if not isinstance(ids, numpy.ndarray):
-            ids = ids.get()
-            gpu_in = True
-        else:
-            gpu_in = False
-        uniqs, inverse = numpy.unique(ids, return_inverse=True)
-        vectors = self.ops.allocate((uniqs.shape[0], self.nM))
-        for i, orth in enumerate(uniqs):
-            vectors[i] = self.nlp.vocab[orth].vector
-        def finish_update(gradients, sgd=None):
-            if gpu_in:
-                gradients = gradients.get()
-            self.d_W += self.ops.batch_outer(gradients, vectors[inverse, ])
-            if sgd is not None:
-                ops = sgd.ops
-                sgd.ops = self.ops
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
-                sgd.ops = ops
-            return None
-        dotted = self.ops.batch_dot(vectors, self.W)
-        if gpu_in:
-            return cupy.asarray(dotted[inverse, ]), finish_update
-        else:
-            return dotted[inverse, ], finish_update
+epoch_train_acc = 0.
+def track_progress(**context):
+    model = context['model']
+    train_X = context['train_X']
+    dev_X = context['dev_X']
+    dev_y = context['dev_y']
+    n_train = sum(len(x) for x in train_X)
+    trainer = context['trainer']
+    def each_epoch():
+        global epoch_train_acc
+        acc = model.evaluate(dev_X, dev_y)
+        with model.use_params(trainer.optimizer.averages):
+            avg_acc = model.evaluate(dev_X, dev_y)
+        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
+        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        epoch_train_acc = 0.
+    return each_epoch
 
 
-def create_data(ops, nlp, rows):
+def preprocess(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
@@ -103,54 +55,20 @@ def create_data(ops, nlp, rows):
     return Xs, to_categorical(ops.asarray(ys))
 
 
-def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
-        n_train_words, n_dev_words):
-    start = timer()
-    acc = model.evaluate(dev_X, dev_y)
-    end = timer()
-    with model.use_params(averages):
-        avg_acc = model.evaluate(dev_X, dev_y)
-    return [
-        epoch_loss, acc, avg_acc,
-        n_train_words, (end-epoch_start),
-        n_train_words / (end-epoch_start),
-        n_dev_words, (end-start),
-        float(n_dev_words) / (end-start)]
-
-
-@layerize
-def flatten_add_lengths(seqs, drop=0.):
-    ops = Model.ops
-    lengths = [len(seq) for seq in seqs]
-    def finish_update(d_X):
-        return ops.unflatten(d_X, lengths)
-    X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
-    return (X, lengths), finish_update
-
-
-def with_getitem(idx, layer):
-    @layerize
-    def begin_update(items, drop=0.):
-        X, finish = layer.begin_update(items[idx], drop=drop)
-        return items[:idx] + (X,) + items[idx+1:], finish
-    return begin_update
-
-
-
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
-    batch_size=("Minibatch size during training", "option", "b", int),
+    max_batch_size=("Maximum minibatch size during training", "option", "b", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
 )
-def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5,
+def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_decay=1e-5,
          nb_epoch=20):
+    cfg = dict(locals())
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
     print("Construct model")
-    Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         sent2vec = (
@@ -170,39 +88,26 @@ def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5
         )
 
     print("Read and parse quora data")
-    rows = read_quora_tsv_data(pathlib.Path(loc))
-    train, dev = partition(rows, 0.9)
-    train_X, train_y = create_data(model.ops, nlp, train)
-    dev_X, dev_y = create_data(model.ops, nlp, dev)
-    print("Train")
-    with model.begin_training(train_X[:20000], train_y[:20000]) as (trainer, optimizer):
-        trainer.batch_size = batch_size
-        trainer.nb_epoch = nb_epoch
-        trainer.dropout = dropout
-        trainer.dropout_decay = dropout_decay
-
-        epoch_times = [timer()]
-        epoch_loss = [0.]
-        n_train_words = sum(len(d0)+len(d1) for d0, d1 in train_X)
-        n_dev_words = sum(len(d0)+len(d1) for d0, d1 in dev_X)
-
-        def track_progress():
-            stats = get_stats(model, optimizer.averages, dev_X, dev_y,
-                              epoch_loss[-1], epoch_times[-1],
-                              n_train_words, n_dev_words)
-            stats.append(trainer.dropout)
-            stats = tuple(stats)
-            print(
-                len(epoch_loss),
-            "%.3f loss, %.3f (%.3f) acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
-            epoch_times.append(timer())
-            epoch_loss.append(0.)
-
-        trainer.each_epoch.append(track_progress)
+    train, dev = datasets.quora_questions(loc)
+    train_X, train_y = preprocess(model.ops, nlp, train)
+    dev_X, dev_y = preprocess(model.ops, nlp, dev)
+    assert len(dev_y.shape) == 2
+    print("Initialize with data (LSUV)")
+    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+        trainer.each_epoch.append(track_progress(**locals()))
+        global epoch_train_acc
+        trainer.batch_size = 1
+        batch_size = 1.
+        print("Accuracy before training", model.evaluate(dev_X, dev_y))
+        print("Train")
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             backprop(yh-y, optimizer)
-            #epoch_loss[-1] += loss / len(train_y)
+
+            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            batch_size *= 1.001
 
 
 if __name__ == '__main__':

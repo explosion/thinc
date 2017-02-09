@@ -7,6 +7,21 @@ from .check import equal_axis
 from . import describe
 
 
+class FunctionLayer(Model):
+    '''Wrap functions into weightless Model instances, for use as network
+    components.'''
+    def __init__(self, begin_update, predict=None, predict_one=None,
+            nI=None, nO=None, *args, **kwargs):
+        self.begin_update = begin_update
+        if predict is not None:
+            self.predict = predict
+        if predict_one is not None:
+            self.predict_one = predict_one
+        self.nI = nI
+        self.nO = nO
+        Model.__init__(self)
+
+
 def layerize(begin_update=None, *args, **kwargs):
     '''Wrap a function into a layer'''
     if begin_update is not None:
@@ -23,6 +38,24 @@ def metalayerize(user_func):
             return user_func(layers, X, *args, **kwargs)
         return FunctionLayer(begin_update, *args, **kwargs)
     return returned
+
+
+@layerize
+def flatten_add_lengths(seqs, drop=0.):
+    ops = Model.ops
+    lengths = [len(seq) for seq in seqs]
+    def finish_update(d_X):
+        return ops.unflatten(d_X, lengths)
+    X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
+    return (X, lengths), finish_update
+
+
+def with_getitem(idx, layer):
+    @layerize
+    def begin_update(items, drop=0.):
+        X, finish = layer.begin_update(items[idx], drop=drop)
+        return items[:idx] + (X,) + items[idx+1:], finish
+    return begin_update
 
 
 def noop(*layers):
@@ -150,16 +183,3 @@ def _with_flatten_on_data(model, X, y):
         X = layer(X)
 
 
-class FunctionLayer(Model):
-    '''Wrap functions into weightless Model instances, for use as network
-    components.'''
-    def __init__(self, begin_update, predict=None, predict_one=None,
-            nI=None, nO=None, *args, **kwargs):
-        self.begin_update = begin_update
-        if predict is not None:
-            self.predict = predict
-        if predict_one is not None:
-            self.predict_one = predict_one
-        self.nI = nI
-        self.nO = nO
-        Model.__init__(self)

@@ -4,8 +4,15 @@ from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import csv # pragma: no cover
 import numpy
+from pathlib import Path
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
+from ..neural.util import partition
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
@@ -13,6 +20,8 @@ ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
     github=GITHUB, ancora='UD_Spanish-AnCora') # pragma: no cover
 EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
     github=GITHUB, ewtb='UD_English') # pragma: no cover
+
+QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
 
 
 def ancora_pos_tags(): # pragma: no cover
@@ -115,8 +124,13 @@ def reuters(): # pragma: no cover
     return (X_train, y_train), (X_test, y_test)
 
 
-def read_quora_tsv_data(loc):
+def quora_questions(loc=None):
+    if loc is None:
+        loc = get_file('quora_similarity.tsv', QUORA_QUESTIONS_URL)
+    if isinstance(loc, basestring):
+        loc = Path(loc)
     is_header = True
+    lines = []
     with loc.open('rb') as file_:
         for row in csv.reader(file_, delimiter=b'\t'):
             if is_header:
@@ -126,7 +140,9 @@ def read_quora_tsv_data(loc):
             sent1 = sent1.decode('utf8').strip()
             sent2 = sent2.decode('utf8').strip()
             if sent1 and sent2:
-                yield (sent1, sent2), int(is_duplicate)
+                lines.append(((sent1, sent2), int(is_duplicate)))
+    train, dev = partition(lines, 0.9)
+    return train, dev
 
 
 
