@@ -72,17 +72,17 @@ def main(width=128, depth=4, vector_length=64, max_batch_size=32,
         batch_size = 1.
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
-            
+
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             backprop(yh - y, optimizer)
-            
+
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
-            
+
             epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
- 
+
 
 if __name__ == '__main__':
     if 1:
