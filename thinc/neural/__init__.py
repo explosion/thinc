@@ -10,6 +10,3 @@ from ._classes.embed import Embed
 
 from ._classes.convolution import ExtractWindow
 from ._classes.batchnorm import BatchNorm
-
-from .vecs2vec import Pooling, mean_pool, max_pool
-from ._classes.spacy_vectors import SpacyVectors, get_word_ids

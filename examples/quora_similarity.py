@@ -4,8 +4,8 @@ import spacy
 
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
-from thinc.neural import Pooling, mean_pool, max_pool
-from thinc.neural import SpacyVectors, get_word_ids
+from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
+from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
 
 from thinc.neural.util import to_categorical
 
