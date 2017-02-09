@@ -12,17 +12,12 @@ import contextlib
 
 from thinc.extra import datasets
 import thinc.check
-from thinc.neural.util import partition
-from thinc.exceptions import ExpectedTypeError
-from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, ReLu, Softmax, Maxout
-from thinc.loss import categorical_crossentropy
+from thinc.neural.vec2vec import Model, Softmax, Maxout
 from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
-from thinc.neural.util import remap_ids, to_categorical
-from thinc.neural.ops import NumpyOps
+from thinc.neural.util import to_categorical
 from thinc.api import flatten_add_lengths, with_getitem
 from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
 
