@@ -48,12 +48,22 @@ def debug(X, drop=0.):
     return X, lambda d, sgd: d
 
 
-def main(width=128, depth=4, vector_length=64, max_batch_size=32,
-        dropout=0.9, drop_decay=1e-4, nb_epoch=20, L2=1e-5):
+@plac.annotations(
+    width=("Width of the hidden layers", "option", "w", int),
+    depth=("Depth of the hidden layers", "option", "d", int),
+    min_batch_size=("Minimum minibatch size during training", "option", "b", int),
+    max_batch_size=("Maximum minibatch size during training", "option", "B", int),
+    dropout=("Dropout rate", "option", "D", float),
+    dropout_decay=("Dropout decay", "option", "C", float),
+)
+def main(width=128, depth=4, vector_length=64,
+         min_batch_size=1, max_batch_size=8,
+        dropout=0.9, dropout_decay=1e-4, nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
+    print(cfg)
     Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
-    
+
     with Model.define_operators({'**': clone, '>>': chain}):
         model = (
             layerize(flatten_sequences)
@@ -68,8 +78,8 @@ def main(width=128, depth=4, vector_length=64, max_batch_size=32,
     global epoch_train_acc
     with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
-        trainer.batch_size = 1
-        batch_size = 1.
+        trainer.batch_size = min_batch_size
+        batch_size = float(min_batch_size)
         for X, y in trainer.iterate(train_X, train_y):
             y = model.ops.flatten(y)
 
@@ -80,6 +90,8 @@ def main(width=128, depth=4, vector_length=64, max_batch_size=32,
             batch_size *= 1.001
 
             epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+            if epoch_train_acc / n_train >= 0.999:
+                break
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
 
