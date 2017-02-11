@@ -1,142 +1,150 @@
 from __future__ import unicode_literals, print_function
 import plac
-import pathlib
-from collections import Sequence
-import numpy
 import spacy
-from spacy.attrs import ORTH
-from spacy.tokens.doc import Doc
-from preshed.maps import PreshMap
-from timeit import default_timer as timer
-import contextlib
 
-from thinc.extra.datasets import read_quora_tsv_data
-import thinc.check
-from thinc.neural.util import partition
-from thinc.exceptions import ExpectedTypeError
-from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, ReLu, Softmax, Maxout
-from thinc.loss import categorical_crossentropy
-from thinc.api import layerize, chain, clone, concatenate, with_flatten, Arg
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNorm
-from thinc.neural.vecs2vec import MultiPooling, MaxPooling, MeanPooling, MinPooling
-from thinc.neural.util import remap_ids, to_categorical
+from thinc.neural import Model, Softmax, Maxout
+from thinc.neural import ExtractWindow
+from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
+from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
+
+from thinc.neural.util import to_categorical
+
+from thinc.api import flatten_add_lengths, with_getitem
+from thinc.api import chain, clone, concatenate, Arg
+
+from thinc.extra import datasets
 from thinc.neural.ops import CupyOps
 
 
-@layerize
-def get_word_ids(docs, drop=0.):
-    '''Get word forms.'''
-    seqs = []
-    for doc in docs:
-        arr = numpy.zeros((len(doc)+1,), dtype='uint64')
-        for token in doc:
-            arr[token.i] = token.orth
-        arr[len(doc)] = 0
-        seqs.append(arr)
-    return seqs, None
+epoch_train_acc = 0.
+def track_progress(**context):
+    '''Print training progress. Called after each epoch.'''
+    model = context['model']
+    train_X = context['train_X']
+    dev_X = context['dev_X']
+    dev_y = context['dev_y']
+    n_train = sum(len(x) for x in train_X)
+    trainer = context['trainer']
+    def each_epoch():
+        global epoch_train_acc
+        acc = model.evaluate(dev_X, dev_y)
+        with model.use_params(trainer.optimizer.averages):
+            avg_acc = model.evaluate(dev_X, dev_y)
+        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
+        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        epoch_train_acc = 0.
+    return each_epoch
 
 
-class StaticVectors(Embed):
-    def __init__(self, nlp, nO):
-        Embed.__init__(self, nO, nlp.vocab.vectors_length,
-            len(nlp.vocab), is_static=True)
-        vectors = self.vectors
-        for i, word in enumerate(nlp.vocab):
-            vectors[i+1] = word.vector / (word.vector_norm or 1.)
-
-
-def create_data(nlp, rows):
+def preprocess(ops, nlp, rows):
+    '''Parse the texts with spaCy. Make one-hot vectors for the labels.'''
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        Xs.append((ops.asarray([t.orth for t in nlp(text1)]),
+                   ops.asarray([t.orth for t in nlp(text2)])))
         ys.append(label)
-    return Xs, ys
-
-
-def get_stats(model, averages, dev_X, dev_y, epoch_loss, epoch_start,
-        n_train_words, n_dev_words):
-    start = timer()
-    acc = model.evaluate(dev_X, dev_y)
-    end = timer()
-    with model.use_params(averages):
-        avg_acc = model.evaluate(dev_X, dev_y)
-    return [
-        epoch_loss, acc, avg_acc,
-        n_train_words, (end-epoch_start),
-        n_train_words / (end-epoch_start),
-        n_dev_words, (end-start),
-        float(n_dev_words) / (end-start)]
+    return Xs, to_categorical(ops.asarray(ys))
 
 
 @plac.annotations(
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
-    batch_size=("Minibatch size during training", "option", "b", int),
+    max_batch_size=("Maximum minibatch size during training", "option", "b", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
+    use_gpu=("Whether to use GPU", "flag", "G", bool)
 )
-def main(loc, width=64, depth=2, batch_size=128, dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20):
+def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_decay=1e-5,
+         nb_epoch=1, use_gpu=False):
+    cfg = dict(locals())
+
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+
+    if use_gpu:
+        Model.ops = CupyOps()
+
     print("Construct model")
-    Model.ops = CupyOps()
-    print("Construct model")
+    # Bind operators for the scope of the block:
+    # * chain (>>): Compose models in a 'feed forward' style,
+    # i.e. chain(f, g)(x) -> g(f(x))
+    # * clone (**): Create n copies of a model, and chain them, i.e.
+    # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
+    # * concatenate (|): Merge the outputs of two models into a single vector,
+    # i.e. (f|g)(x) -> hstack(f(x), g(x))
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+        # Important trick: text isn't like images, and the best way to use
+        # convolution is different. Don't use pooling-over-time. Instead,
+        # use the window to compute one vector per word, and do this N deep.
+        # In the first layer, we adjust each word vector based on the two
+        # surrounding words --- this gives us essentially trigram vectors.
+        # In the next layer, we have a trigram of trigrams --- so we're
+        # conditioning on information from a five word slice. The third layer
+        # gives us 7 words. This is like the BiLSTM insight: we're not trying
+        # to learn a vector for the whole sentence in this step. We're just
+        # trying to learn better, position-sensitive word features. This simple
+        # convolution step is much more efficient than BiLSTM, and can be
+        # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
-        sent2vec = (
-            get_word_ids
-            >> with_flatten(
-                StaticVectors(nlp, width)
-                >> mwe_encode ** depth
-            )
-            >> (MeanPooling() | MaxPooling())
+        # Comments indicate the output type and shape at each step of the pipeline.
+        # * B: Number of sentences in the batch
+        # * T: Total number of words in the batch
+        # (i.e. sum(len(sent) for sent in batch))
+        # * W: Width of the network (input hyper-parameter)
+        # * ids: ID for each word (integers).
+        # * lengths: Number of words in each sentence in the batch (integers)
+        # * floats: Standard dense vector.
+        # (Dimensions annotated in curly braces.)
+        sent2vec = ( # List[spacy.token.Doc]{B}
+            #get_word_ids            # : List[ids]{B}
+            flatten_add_lengths  # : (ids{T}, lengths{B})
+            >> with_getitem(0,      # : word_ids{T}
+                # This class integrates a linear projection layer, and loads
+                # static embeddings (by default, GloVe common crawl).
+                SpacyVectors(nlp, width) # : floats{T, W}
+                >> mwe_encode ** depth   # : floats{T, W}
+            ) # : (floats{T, W}, lengths{B})
+            # Useful trick: Why choose between max pool and mean pool?
+            # We may as well have both representations.
+            >> Pooling(mean_pool, max_pool) # : floats{B, 2*W}
         )
         model = (
-            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))
-            >> Maxout(width, width*4)
-            >> Maxout(width, width) ** depth
-            >> Softmax(2, width)
+            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
+            >> Maxout(width, width*4) # : floats{B, W}
+            >> Maxout(width, width) ** depth # : floats{B, W}
+            >> Softmax(2, width) # : floats{B, 2}
         )
 
     print("Read and parse quora data")
-    rows = read_quora_tsv_data(pathlib.Path(loc))
-    train, dev = partition(rows, 0.9)
-    train_X, train_y = create_data(nlp, train)
-    dev_X, dev_y = create_data(nlp, dev)
-    print("Train")
-    with model.begin_training(train_X[:20000], train_y[:20000]) as (trainer, optimizer):
-        trainer.batch_size = batch_size
-        trainer.nb_epoch = nb_epoch
-        trainer.dropout = dropout
-        trainer.dropout_decay = dropout_decay
-
-        epoch_times = [timer()]
-        epoch_loss = [0.]
-        n_train_words = sum(len(d0)+len(d1) for d0, d1 in train_X)
-        n_dev_words = sum(len(d0)+len(d1) for d0, d1 in dev_X)
-
-        def track_progress():
-            stats = get_stats(model, optimizer.averages, dev_X, dev_y,
-                              epoch_loss[-1], epoch_times[-1],
-                              n_train_words, n_dev_words)
-            stats.append(trainer.dropout)
-            stats = tuple(stats)
-            print(
-                len(epoch_loss),
-            "%.3f loss, %.3f (%.3f) acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
-            epoch_times.append(timer())
-            epoch_loss.append(0.)
-
-        trainer.each_epoch.append(track_progress)
+    train, dev = datasets.quora_questions(loc)
+    train_X, train_y = preprocess(model.ops, nlp, train)
+    dev_X, dev_y = preprocess(model.ops, nlp, dev)
+    assert len(dev_y.shape) == 2
+    print("Initialize with data (LSUV)")
+    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+        # Pass a callback to print progress. Give it all the local scope,
+        # because why not?
+        trainer.each_epoch.append(track_progress(**locals()))
+        trainer.batch_size = 1
+        batch_size = 1.
+        print("Accuracy before training", model.evaluate(dev_X, dev_y))
+        print("Train")
+        global epoch_train_acc
         for X, y in trainer.iterate(train_X, train_y):
+            # Slightly useful trick: Decay the dropout as training proceeds. 
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            # No auto-diff: Just get a callback and pass the data through.
+            # Hardly a hardship, and it means we don't have to create/maintain
+            # a computational graph. We just use closures.
             backprop(yh-y, optimizer)
-            #epoch_loss[-1] += loss / len(train_y)
+
+            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+
+            # Slightly useful trick: start with low batch size, accelerate.
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            batch_size *= 1.001
 
 
 if __name__ == '__main__':

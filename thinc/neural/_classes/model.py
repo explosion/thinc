@@ -146,6 +146,7 @@ class Model(object):
             Must match expected type
         '''
         scores = self(X)
+        assert scores.shape == y.shape, (scores.shape, y.shape)
         correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
         return float(correct) / y.shape[0]
 

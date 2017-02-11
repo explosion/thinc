@@ -24,7 +24,6 @@ PACKAGES = [
     'thinc.neural',
     'thinc.extra',
     'thinc.neural._classes',
-    'thinc.linear.tests',
     'thinc.extra._vendorized'
 ]
 

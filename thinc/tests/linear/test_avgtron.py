@@ -5,7 +5,7 @@ import pickle
 import io
 import tempfile
 
-from ..avgtron import AveragedPerceptron
+from ...linear.avgtron import AveragedPerceptron
 from ...extra.eg import Example
 
 

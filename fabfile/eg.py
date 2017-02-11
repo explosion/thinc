@@ -26,6 +26,13 @@ def cnn_tagger():
 
 
 @task
+def quora():
+    with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
+        local('pip install spacy')
+        local('python -m spacy.en.download')
+        local('python examples/quora_similarity.py')
+
+@task
 def spacy_tagger():
     with virtualenv(VENV_DIR), lcd(PWD), shell_env(PYTHONPATH=PWD):
         local('python examples/spacy_tagger.py')

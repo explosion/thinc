@@ -78,7 +78,7 @@ cdef class AveragedPerceptron:
         return eg.loss
 
     def dump(self, loc):
-        cdef Writer writer = Writer(loc, self.weights.length)
+        cdef Writer writer = Writer(loc, self.weights.capacity)
         cdef feat_t key
         cdef size_t feat_addr
         for i, (key, feat_addr) in enumerate(self.weights.items()):
@@ -127,20 +127,21 @@ cdef class AveragedPerceptron:
                     W += 1
                     avg += 1
 
-    def resume_training(self):		
-        cdef feat_t feat_id		
-        cdef size_t feat_addr		
-        for i, (feat_id, feat_addr) in enumerate(self.weights.items()):		
-            train_feat = <SparseAverageC*>self.averages.get(feat_id)		
-            if train_feat == NULL:		
-                if train_feat is NULL:		
-                    msg = (feat_id)		
-                    raise MemoryError(		
+    def resume_training(self):
+        cdef feat_t feat_id
+        cdef size_t feat_addr
+        for i, (feat_id, feat_addr) in enumerate(self.weights.items()):
+            train_feat = <SparseAverageC*>self.averages.get(feat_id)
+            if train_feat == NULL:
+                train_feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
+                if train_feat is NULL:
+                    msg = (feat_id)
+                    raise MemoryError(
                         "Error allocating memory for feature: %s" % msg)
-                weights = <const SparseArrayC*>feat_addr		
-                train_feat.curr  = SparseArray.clone(weights)		
-                train_feat.avgs = SparseArray.clone(weights)		
-                train_feat.times = SparseArray.clone(weights)		
+                weights = <const SparseArrayC*>feat_addr
+                train_feat.curr  = SparseArray.clone(weights)
+                train_feat.avgs = SparseArray.clone(weights)
+                train_feat.times = SparseArray.clone(weights)
                 self.averages.set(feat_id, train_feat)
    
     @property
@@ -224,7 +225,7 @@ cdef class AveragedPerceptron:
             weight_t grad) except -1:
         if grad == 0:
             return 0
-        if len(self.averages) < len(self.weights):		
+        if len(self.averages) < len(self.weights):
             self.resume_training()
         feat = <SparseAverageC*>self.averages.get(feat_id)
         if feat == NULL:
