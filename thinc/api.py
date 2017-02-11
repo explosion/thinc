@@ -43,7 +43,7 @@ def metalayerize(user_func):
 @layerize
 def flatten_add_lengths(seqs, drop=0.):
     ops = Model.ops
-    lengths = [len(seq) for seq in seqs]
+    lengths = ops.xp.asarray([len(seq) for seq in seqs])
     def finish_update(d_X):
         return ops.unflatten(d_X, lengths)
     X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
