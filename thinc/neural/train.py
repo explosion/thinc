@@ -11,11 +11,11 @@ class Trainer(object):
     def __init__(self, model, **cfg):
         self.ops = model.ops
         self.model = model
-        self.optimizer = Adam(model.ops, 0.001, L2=1e-4)
+        self.L2 = cfg.get('L2', 0.0)
+        self.optimizer = Adam(model.ops, 0.001, L2=self.L2)
         self.batch_size = cfg.get('batch_size', 128)
         self.nb_epoch = cfg.get('nb_epoch', 20)
         self.i = 0
-        self.L2 = cfg.get('L2', 0.0)
         self.dropout = cfg.get('dropout', 0.)
         self.dropout_decay = cfg.get('dropout_decay', 0.)
         self.each_epoch = []
@@ -26,7 +26,7 @@ class Trainer(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.model.use_params(self.optimizer.averages)
 
-    def iterate(self, train_X, train_y):
+    def iterate(self, train_X, train_y, progress_bar=True):
         orig_dropout = self.dropout
         for i in range(self.nb_epoch):
             indices = self.ops.xp.asarray(range(len(train_X)))
@@ -41,7 +41,8 @@ class Trainer(object):
                     self.dropout = linear_decay(orig_dropout, self.dropout_decay,
                                                 self.optimizer.nr_iter)
                     j += self.batch_size
-                    pbar.update(self.batch_size)
+                    if progress_bar:
+                        pbar.update(self.batch_size)
             for func in self.each_epoch:
                 func()
 
