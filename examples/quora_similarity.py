@@ -13,6 +13,7 @@ from thinc.api import flatten_add_lengths, with_getitem
 from thinc.api import chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
+from thinc.neural.ops import CupyOps
 
 
 epoch_train_acc = 0.
@@ -22,7 +23,7 @@ def track_progress(**context):
     train_X = context['train_X']
     dev_X = context['dev_X']
     dev_y = context['dev_y']
-    n_train = sum(len(x) for x in train_X)
+    n_train = len(train_X)
     trainer = context['trainer']
     def each_epoch():
         global epoch_train_acc
@@ -40,7 +41,8 @@ def preprocess(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        Xs.append((ops.asarray([t.orth for t in nlp(text1)]),
+                   ops.asarray([t.orth for t in nlp(text2)])))
         ys.append(label)
     return Xs, to_categorical(ops.asarray(ys))
 
@@ -52,13 +54,20 @@ def preprocess(ops, nlp, rows):
     max_batch_size=("Maximum minibatch size during training", "option", "b", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
+    use_gpu=("Whether to use GPU", "flag", "G", bool),
+    nb_epoch=("Number of epochs", "option", "i", int),
+    pieces=("Number of pieces for maxout", "option", "p", int),
 )
-def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20):
+def main(loc=None, width=128, depth=2, max_batch_size=256,
+         dropout=0.5, dropout_decay=1e-5,
+         nb_epoch=20, pieces=3, use_gpu=False):
     cfg = dict(locals())
 
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+
+    if use_gpu:
+        Model.ops = CupyOps()
 
     print("Construct model")
     # Bind operators for the scope of the block:
@@ -81,8 +90,8 @@ def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_d
         # trying to learn better, position-sensitive word features. This simple
         # convolution step is much more efficient than BiLSTM, and can be
         # computed in parallel for every token in the batch.
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
-        # Comments indicate the output type and shape at each step of the pipeline. 
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
+        # Comments indicate the output type and shape at each step of the pipeline.
         # * B: Number of sentences in the batch
         # * T: Total number of words in the batch
         # (i.e. sum(len(sent) for sent in batch))
@@ -92,8 +101,8 @@ def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_d
         # * floats: Standard dense vector.
         # (Dimensions annotated in curly braces.)
         sent2vec = ( # List[spacy.token.Doc]{B}
-            get_word_ids            # : List[ids]{B}
-            >> flatten_add_lengths  # : (ids{T}, lengths{B})
+            #get_word_ids            # : List[ids]{B}
+            flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
                 # This class integrates a linear projection layer, and loads
                 # static embeddings (by default, GloVe common crawl).
@@ -106,8 +115,7 @@ def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_d
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
-            >> Maxout(width, width*4) # : floats{B, W}
-            >> Maxout(width, width) ** depth # : floats{B, W}
+            >> Maxout(width, width*4, pieces=pieces) # : floats{B, W}
             >> Softmax(2, width) # : floats{B, 2}
         )
 
@@ -127,7 +135,7 @@ def main(loc=None, width=64, depth=2, max_batch_size=512, dropout=0.5, dropout_d
         print("Train")
         global epoch_train_acc
         for X, y in trainer.iterate(train_X, train_y):
-            # Slightly useful trick: Decay the dropout as training proceeds. 
+            # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             # No auto-diff: Just get a callback and pass the data through.
             # Hardly a hardship, and it means we don't have to create/maintain

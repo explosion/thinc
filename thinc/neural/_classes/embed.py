@@ -91,10 +91,10 @@ class Embed(Model):
                 gradients = self.ops.batch_dot(gradients, self.W.T)
                 d_vectors = self.d_vectors
                 n_vectors = d_vectors.shape[0]
-                d_vectors[ids % self.nV] += gradients
+                self.ops.xp.add.at(d_vectors, ids * (ids < self.nV), gradients)
             if sgd is not None:
                 if self.is_static:
-                    sgd(self.W.flatten(), self.d_W.flatten(), key=id(self._mem))
+                    sgd(self.W.ravel(), self.d_W.ravel(), key=id(self._mem))
                 else:
                     sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
             return None
@@ -117,4 +117,4 @@ class Embed(Model):
 
     def _embed(self, ids):
         vectors = self.vectors
-        return vectors[ids % self.nV]
+        return vectors[ids * (ids < self.nV)]

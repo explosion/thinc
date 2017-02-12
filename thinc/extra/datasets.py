@@ -5,9 +5,11 @@ import os.path # pragma: no cover
 import csv # pragma: no cover
 import numpy
 from pathlib import Path
+import json
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 from ..neural.util import partition
+from ..neural.util import to_categorical
 
 try:
     basestring
@@ -21,6 +23,7 @@ ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
 EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
     github=GITHUB, ewtb='UD_English') # pragma: no cover
 
+SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
 
 
@@ -144,6 +147,31 @@ def quora_questions(loc=None):
     train, dev = partition(lines, 0.9)
     return train, dev
 
+
+LABELS = {'entailment': 0, 'contradiction': 1, 'neutral': 2}
+def snli(loc=None):
+    if loc is None:
+        loc = get_file('snli_1.0', SNLI_URL, unzip=True)
+    if isinstance(loc, basestring):
+        loc = Path(loc)
+ 
+    train = read_snli(Path(loc) / 'snli_1.0_train.jsonl')
+    dev = read_snli(Path(loc) / 'snli_1.0_dev.jsonl')
+    return train, dev
+
+
+def read_snli(loc):
+    X = []
+    y = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            label = eg['gold_label']
+            if label == '-':
+                continue
+            X.append((eg['sentence1'], eg['sentence2']))
+            y.append(LABELS[label])
+    return X, to_categorical(numpy.asarray(y, dtype='int32'))
 
 
 def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover
