@@ -345,6 +345,65 @@ class NumpyOps(Ops):
         fill_random_bytes(arr, n)
         return output
 
+    def mean_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        means = <float*>mem.alloc(B * O, sizeof(float))
+
+        cpu_mean_pool(means,
+            &X[0, 0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(means, (B, O))
+
+    def backprop_mean_pool(self, float[:, ::1] d_means, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_means.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_mean_pool(dX,
+            &d_means[0,0], &lengths[0], B, T, O)
+
+        return cpu_floats_ptr2array(dX, (T, O))
+
+    def max_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        maxes = <float*>mem.alloc(B * O, sizeof(float))
+        which = <int*>mem.alloc(B * O, sizeof(int))
+
+        cpu_max_pool(maxes, which,
+            &X[0, 0], &lengths[0], B, T, O)
+
+        cdef ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
+        cdef ndarray py_which = cpu_ints_ptr2array(which, (B, O))
+        return py_best, py_which
+
+    def backprop_max_pool(self, float[:, ::1] d_maxes,
+            int[:, ::1] which, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_maxes.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_max_pool(dX,
+            &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
+
+        return cpu_floats_ptr2array(dX, (T, O))
+
+
+
 
 @cython.cdivision(True)
 cdef void _adam(
@@ -614,3 +673,80 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         gradient += numpy.asarray(
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
                        dtype='float32')
+
+
+
+cdef cpu_floats_ptr2array(const float* ptr, shape):
+    cdef ndarray py_out = numpy.zeros(shape, dtype='float32')
+    cdef int N = numpy.prod(shape)
+    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
+    return py_out
+
+
+cdef cpu_ints_ptr2array(const int* ptr, shape):
+    cdef ndarray py_out = numpy.zeros(shape, dtype='int32')
+    cdef int N = numpy.prod(shape)
+    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
+    return py_out
+
+
+cdef void cpu_mean_pool(float* means__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute means of a batch of concatenated sequences, using the lengths.'''
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        scale = 1. / length
+        for _ in range(length):
+            VecVec.add_i(means__bo,
+                X__to, scale, O)
+            X__to += O
+        means__bo += O
+
+
+cdef void cpu_backprop_mean_pool(float* dX__to,
+        const float* d_means__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        scale = 1./ length
+        for _ in range(length):
+            VecVec.add_i(dX__to,
+                d_means__bo, scale, O)
+            dX__to += O
+        d_means__bo += O
+
+
+cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        memcpy(maxes__bo, X__to, O * sizeof(maxes__bo[0]))
+        memset(which__bo, 0, O * sizeof(which__bo[0]))
+        X__to += O
+        for i in range(1, length):
+            for j in range(O):
+                if X__to[j] > maxes__bo[j]:
+                    maxes__bo[j] = X__to[j]
+                    which__bo[j] = i
+            X__to += O
+        maxes__bo += O
+        which__bo += O
+
+
+cdef void cpu_backprop_max_pool(float* dX__to,
+        const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    cdef int length, i, j
+    for length in lengths__b[:B]:
+        for i in range(length):
+            for j in range(O):
+                if which__bo[j] == i:
+                    dX__to[j] += d_maxes__bo[j]
+            dX__to += O
+        d_maxes__bo += O
+        which__bo += O
+
+
