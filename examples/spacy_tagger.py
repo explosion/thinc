@@ -10,6 +10,8 @@ from thinc.neural.ids2vecs import MaxoutWindowEncode
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.loss import categorical_crossentropy
 from thinc.neural.optimizers import SGD
+from thinc.neural.util import to_categorical
+from thinc.neural._classes.spacy_vectors import SpacyVectors
 
 from thinc.api import chain, concatenate, clone
 
@@ -53,26 +55,26 @@ def Orth(docs, drop=0.):
     return ids, None
 
 
-class SpacyVectors(Embed):
-    on_data_hooks = []
-    def __init__(self, nlp):
-        Model.__init__(self)
-        self._id_map = {0: 0}
-        self.nO = nlp.vocab.vectors_length
-        self.nM = self.nO
-        self.nV = len(nlp.vocab)
-        self.W.fill(0)
-        vectors = self.vectors
-        for i, word in enumerate(nlp.vocab):
-            self._id_map[word.orth] = i+1
-            vectors[i+1] = word.vector / (word.vector_norm or 1.)
-
-    def predict(self, ids):
-        return self._embed(ids)
-
-    def begin_update(self, ids, drop=0.):
-        return self.predict(ids), None
-
+#class SpacyVectors(Embed):
+#    on_data_hooks = []
+#    def __init__(self, nlp):
+#        Model.__init__(self)
+#        self._id_map = {0: 0}
+#        self.nO = nlp.vocab.vectors_length
+#        self.nM = self.nO
+#        self.nV = len(nlp.vocab)
+#        self.W.fill(0)
+#        vectors = self.vectors
+#        for i, word in enumerate(nlp.vocab):
+#            self._id_map[word.orth] = i+1
+#            vectors[i+1] = word.vector / (word.vector_norm or 1.)
+#
+#    def predict(self, ids):
+#        return self._embed(ids)
+#
+#    def begin_update(self, ids, drop=0.):
+#        return self.predict(ids), None
+#
 
 @layerize
 def Shape(docs, drop=0.):
@@ -143,8 +145,9 @@ def get_positions(ids, drop=0.):
 @plac.annotations(
     nr_sent=("Limit number of training examples", "option", "n", int),
     nr_epoch=("Limit number of training epochs", "option", "i", int),
+    dropout=("Dropout", "option", "D", float),
 )
-def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
+def main(nr_epoch=20, nr_sent=0, width=128, depth=3, max_batch_size=32, dropout=0.3):
     print("Loading spaCy and preprocessing")
     nlp = spacy.load('en', parser=False, tagger=False, entity=False)
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
@@ -156,7 +159,7 @@ def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
     with Model.define_operators({'>>': chain, '|': concatenate, '**': clone}):
         model = (
             Orth
-            >> SpacyVectors(nlp)
+            >> SpacyVectors(nlp, width)
             >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
             >> Softmax(nr_class)
         )
@@ -164,12 +167,13 @@ def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
     print("Preparing training")
     dev_X, dev_y = zip(*dev_sents)
     dev_y = model.ops.flatten(dev_y)
+    dev_y = to_categorical(dev_y, nb_classes=50)
     train_X, train_y = zip(*train_sents)
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.nb_epoch = nr_epoch
-        trainer.dropout = 0.9
+        trainer.dropout = dropout
         trainer.dropout_decay = 1e-4
-        trainer.batch_size = 4
+        trainer.batch_size = 1
         epoch_times = [timer()]
         epoch_loss = [0.]
         n_train = sum(len(y) for y in train_y)
@@ -189,20 +193,21 @@ def main(nr_epoch=20, nr_sent=0, width=128, depth=3):
                 trainer.dropout)
             print(
                 len(epoch_loss),
-                "%.3f loss, %.3f (%.3f) acc, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
+                "%.3f train, %.3f (%.3f) dev, %d/%d=%d wps train, %d/%.3f=%d wps run. d.o.=%.3f" % stats)
             epoch_times.append(end)
             epoch_loss.append(0.)
         trainer.each_epoch.append(track_progress)
         print("Training")
+        batch_size = 1.
         for examples, truth in trainer.iterate(train_X, train_y):
-            truth = model.ops.flatten(truth)
+            truth = to_categorical(model.ops.flatten(truth), nb_classes=50)
             guess, finish_update = model.begin_update(examples,
                                         drop=trainer.dropout)
-            gradient, loss = categorical_crossentropy(guess, truth)
-            if loss:
-                optimizer.set_loss(loss)
-                finish_update(gradient, optimizer)
-            epoch_loss[-1] += loss / n_train
+            n_correct = (guess.argmax(axis=1) == truth.argmax(axis=1)).sum()
+            finish_update(guess-truth, optimizer)
+            epoch_loss[-1] += n_correct / n_train
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            batch_size *= 1.001
     with model.use_params(optimizer.averages):
         print("End: %.3f" % model.evaluate(dev_X, dev_y))
 
