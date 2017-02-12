@@ -1,8 +1,6 @@
 from __future__ import unicode_literals, print_function
 import plac
 import spacy
-from pathlib import Path
-import dill as pickle
 
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
@@ -15,8 +13,7 @@ from thinc.api import flatten_add_lengths, with_getitem
 from thinc.api import chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
-from thinc.extra.load_nlp import get_spacy
-
+from thinc.neural.ops import CupyOps
 
 
 epoch_train_acc = 0.
@@ -26,7 +23,7 @@ def track_progress(**context):
     train_X = context['train_X']
     dev_X = context['dev_X']
     dev_y = context['dev_y']
-    n_train = len(train_X)
+    n_train = sum(len(x) for x in train_X)
     trainer = context['trainer']
     def each_epoch():
         global epoch_train_acc
@@ -43,8 +40,10 @@ def preprocess(ops, nlp, rows):
     '''Parse the texts with spaCy. Make one-hot vectors for the labels.'''
     Xs = []
     ys = []
+    print(len(rows[0]))
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        Xs.append((ops.asarray([t.orth for t in nlp(text1)]),
+                   ops.asarray([t.orth for t in nlp(text2)])))
         ys.append(label)
     return Xs, to_categorical(ops.asarray(ys))
 
@@ -53,29 +52,18 @@ def preprocess(ops, nlp, rows):
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
-    min_batch_size=("Minimum minibatch size during training", "option", "b", int),
-    max_batch_size=("Maximum minibatch size during training", "option", "B", int),
+    max_batch_size=("Maximum minibatch size during training", "option", "b", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     use_gpu=("Whether to use GPU", "flag", "G", bool),
-    nb_epoch=("Number of epochs", "option", "i", int),
-    pieces=("Number of pieces for maxout", "option", "p", int),
-    out_loc=("File to save the model", "option", "o"),
-    quiet=("Don't print the progress bar", "flag", "q")
+    nb_epoch=("Number of training epochs", "option", "i", int)
 )
-def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
-         dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
+def main(loc=None, width=128, depth=2, max_batch_size=128, dropout=0.5, dropout_decay=1e-5,
+         nb_epoch=30, use_gpu=False):
     cfg = dict(locals())
-    if out_loc:
-        out_loc = Path(out_loc)
-        if not out_loc.parent.exists():
-            raise IOError("Can't open output location: %s" % out_loc)
-    cfg = dict(locals())
-    print(cfg)
 
     print("Load spaCy")
-    nlp = get_spacy('en')
+    nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
 
     if use_gpu:
         Model.ops = CupyOps()
@@ -101,7 +89,7 @@ def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
         # trying to learn better, position-sensitive word features. This simple
         # convolution step is much more efficient than BiLSTM, and can be
         # computed in parallel for every token in the batch.
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3)
         # Comments indicate the output type and shape at each step of the pipeline.
         # * B: Number of sentences in the batch
         # * T: Total number of words in the batch
@@ -112,12 +100,12 @@ def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
         # * floats: Standard dense vector.
         # (Dimensions annotated in curly braces.)
         sent2vec = ( # List[spacy.token.Doc]{B}
-            get_word_ids            # : List[ids]{B}
-            >> flatten_add_lengths  # : (ids{T}, lengths{B})
+            #get_word_ids            # : List[ids]{B}
+            flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
                 # This class integrates a linear projection layer, and loads
                 # static embeddings (by default, GloVe common crawl).
-                SpacyVectors('en', width) # : floats{T, W}
+                SpacyVectors(nlp, width) # : floats{T, W}
                 >> mwe_encode ** depth   # : floats{T, W}
             ) # : (floats{T, W}, lengths{B})
             # Useful trick: Why choose between max pool and mean pool?
@@ -126,28 +114,28 @@ def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
-            >> Maxout(width, width*4, pieces=pieces) # : floats{B, W}
-            >> Softmax(2, width) # : floats{B, 2}
+            >> Maxout(width, width*4) # : floats{B, W}
+            >> Maxout(width, width) ** depth # : floats{B, W}
+            >> Softmax(3, width) # : floats{B, 2}
         )
 
-
-    print("Read and parse quora data")
-    train, dev = datasets.quora_questions(loc)
+    print("Read and parse SNLI data")
+    train, dev = datasets.snli(loc)
     train_X, train_y = preprocess(model.ops, nlp, train)
     dev_X, dev_y = preprocess(model.ops, nlp, dev)
     assert len(dev_y.shape) == 2
     print("Initialize with data (LSUV)")
-    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X[:10000], train_y[:10000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
         trainer.each_epoch.append(track_progress(**locals()))
-        trainer.batch_size = min_batch_size
-        batch_size = float(min_batch_size)
+        trainer.batch_size = 1
+        batch_size = 1.
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
-        for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
-            # Slightly useful trick: Decay the dropout as training proceeds.
+        for X, y in trainer.iterate(train_X, train_y):
+            # Slightly useful trick: Decay the dropout as training proceeds. 
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             # No auto-diff: Just get a callback and pass the data through.
             # Hardly a hardship, and it means we don't have to create/maintain
@@ -159,11 +147,6 @@ def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
-        if out_loc:
-            out_loc = Path(out_loc)
-            print('Saving to', out_loc)
-            with out_loc.open('wb') as file_:
-                pickle.dump(model, file_, -1)
 
 
 if __name__ == '__main__':
