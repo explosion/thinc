@@ -63,15 +63,14 @@ def preprocess(ops, nlp, rows):
     out_loc=("File to save the model", "option", "o"),
     quiet=("Don't print the progress bar", "flag", "q")
 )
-def main(dataset='quora', width=128, depth=2, min_batch_size=1, max_batch_size=256,
-         dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
+def main(dataset='quora', width=128, depth=2, min_batch_size=128,
+        max_batch_size=128, dropout=0.2, dropout_decay=0.0,
+        nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
         out_loc = Path(out_loc)
         if not out_loc.parent.exists():
             raise IOError("Can't open output location: %s" % out_loc)
-    cfg = dict(locals())
     print(cfg)
 
     print("Load spaCy")
