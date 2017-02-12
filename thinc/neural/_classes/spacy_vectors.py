@@ -68,7 +68,7 @@ class SpacyVectors(Model):
         uniqs, inverse = numpy.unique(ids, return_inverse=True)
         vectors = self.ops.allocate((uniqs.shape[0], self.nM))
         for i, orth in enumerate(uniqs):
-            lex = self.nlp.vocab[orth]
+            lex = nlp.vocab[orth]
             if lex.vector_norm:
                 vectors[i] = lex.vector / lex.vector_norm
         def finish_update(gradients, sgd=None):
