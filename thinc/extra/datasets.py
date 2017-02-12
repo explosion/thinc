@@ -161,17 +161,15 @@ def snli(loc=None):
 
 
 def read_snli(loc):
-    X = []
-    y = []
+    rows = []
     with loc.open() as file_:
         for line in file_:
             eg = json.loads(line)
             label = eg['gold_label']
             if label == '-':
                 continue
-            X.append((eg['sentence1'], eg['sentence2']))
-            y.append(LABELS[label])
-    return X, to_categorical(numpy.asarray(y, dtype='int32'))
+            rows.append(((eg['sentence1'], eg['sentence2']), LABELS[label]))
+    return rows
 
 
 def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover
