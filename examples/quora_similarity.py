@@ -1,6 +1,8 @@
 from __future__ import unicode_literals, print_function
 import plac
 import spacy
+from pathlib import Path
+import dill as pickle
 
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
@@ -13,7 +15,8 @@ from thinc.api import flatten_add_lengths, with_getitem
 from thinc.api import chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
-from thinc.neural.ops import CupyOps
+from thinc.extra.load_nlp import get_spacy
+
 
 
 epoch_train_acc = 0.
@@ -41,8 +44,7 @@ def preprocess(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((ops.asarray([t.orth for t in nlp(text1)]),
-                   ops.asarray([t.orth for t in nlp(text2)])))
+        Xs.append((nlp(text1), nlp(text2)))
         ys.append(label)
     return Xs, to_categorical(ops.asarray(ys))
 
@@ -57,14 +59,19 @@ def preprocess(ops, nlp, rows):
     use_gpu=("Whether to use GPU", "flag", "G", bool),
     nb_epoch=("Number of epochs", "option", "i", int),
     pieces=("Number of pieces for maxout", "option", "p", int),
+    out_loc=("File to save the model", "option", "o"),
 )
 def main(loc=None, width=128, depth=2, max_batch_size=256,
          dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20, pieces=3, use_gpu=False):
+         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None):
     cfg = dict(locals())
+    if out_loc:
+        out_loc = Path(out_loc)
+        if not out_loc.parent.exists():
+            raise IOError("Can't open output location: %s" % out_loc)
 
     print("Load spaCy")
-    nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
+    nlp = get_spacy('en')
 
     if use_gpu:
         Model.ops = CupyOps()
@@ -101,12 +108,12 @@ def main(loc=None, width=128, depth=2, max_batch_size=256,
         # * floats: Standard dense vector.
         # (Dimensions annotated in curly braces.)
         sent2vec = ( # List[spacy.token.Doc]{B}
-            #get_word_ids            # : List[ids]{B}
-            flatten_add_lengths  # : (ids{T}, lengths{B})
+            get_word_ids            # : List[ids]{B}
+            >> flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
                 # This class integrates a linear projection layer, and loads
                 # static embeddings (by default, GloVe common crawl).
-                SpacyVectors(nlp, width) # : floats{T, W}
+                SpacyVectors('en', width) # : floats{T, W}
                 >> mwe_encode ** depth   # : floats{T, W}
             ) # : (floats{T, W}, lengths{B})
             # Useful trick: Why choose between max pool and mean pool?
@@ -118,6 +125,7 @@ def main(loc=None, width=128, depth=2, max_batch_size=256,
             >> Maxout(width, width*4, pieces=pieces) # : floats{B, W}
             >> Softmax(2, width) # : floats{B, 2}
         )
+
 
     print("Read and parse quora data")
     train, dev = datasets.quora_questions(loc)
@@ -147,6 +155,11 @@ def main(loc=None, width=128, depth=2, max_batch_size=256,
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
+        if out_loc:
+            out_loc = Path(out_loc)
+            print('Saving to', out_loc)
+            with out_loc.open('wb') as file_:
+                pickle.dump(model, file_, -1)
 
 
 if __name__ == '__main__':
