@@ -6,6 +6,7 @@ from .._lsuv import LSUVinit
 from ..ops import NumpyOps
 from ...api import layerize
 from .model import Model
+from ...extra.load_nlp import get_spacy
 
 try:
     import cupy
@@ -41,16 +42,21 @@ def get_word_ids(docs, drop=0.):
 class SpacyVectors(Model):
     ops = NumpyOps()
     name = 'spacy-vectors'
-    def __init__(self, nlp, nO):
+    def __init__(self, lang, nO):
         Model.__init__(self)
         self._id_map = {0: 0}
         self.nO = nO
+        # This doesn't seem the cleverest solution,
+        # but it ensures multiple models load the
+        # same copy of spaCy if they're deserialised.
+        nlp = get_spacy(lang)
+        self.lang = lang
         self.nM = nlp.vocab.vectors_length
-        self.nlp = nlp
 
     @property
     def nV(self):
-        return len(self.nlp.vocab)
+        nlp = get_spacy(self.lang)
+        return len(nlp.vocab)
 
     def begin_update(self, ids, drop=0.):
         if not isinstance(ids, numpy.ndarray):
@@ -58,10 +64,11 @@ class SpacyVectors(Model):
             gpu_in = True
         else:
             gpu_in = False
+        nlp = get_spacy(self.lang)
         uniqs, inverse = numpy.unique(ids, return_inverse=True)
         vectors = self.ops.allocate((uniqs.shape[0], self.nM))
         for i, orth in enumerate(uniqs):
-            lex = self.nlp.vocab[orth]
+            lex = nlp.vocab[orth]
             if lex.vector_norm:
                 vectors[i] = lex.vector / lex.vector_norm
         def finish_update(gradients, sgd=None):
@@ -71,7 +78,7 @@ class SpacyVectors(Model):
             if sgd is not None:
                 ops = sgd.ops
                 sgd.ops = self.ops
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
                 sgd.ops = ops
             return None
         dotted = self.ops.batch_dot(vectors, self.W)

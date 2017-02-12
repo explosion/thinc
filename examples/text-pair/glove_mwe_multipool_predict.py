@@ -50,7 +50,7 @@ def preprocess(ops, nlp, rows):
 
 
 @plac.annotations(
-    loc=("Location of Quora data"),
+    dataset=("Dataset to load"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
@@ -63,15 +63,14 @@ def preprocess(ops, nlp, rows):
     out_loc=("File to save the model", "option", "o"),
     quiet=("Don't print the progress bar", "flag", "q")
 )
-def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
-         dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
+def main(dataset='quora', width=128, depth=2, min_batch_size=128,
+        max_batch_size=128, dropout=0.2, dropout_decay=0.0,
+        nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
         out_loc = Path(out_loc)
         if not out_loc.parent.exists():
             raise IOError("Can't open output location: %s" % out_loc)
-    cfg = dict(locals())
     print(cfg)
 
     print("Load spaCy")
@@ -126,13 +125,18 @@ def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
-            >> Maxout(width, width*4, pieces=pieces) # : floats{B, W}
-            >> Softmax(2, width) # : floats{B, 2}
+            >> Maxout(width, pieces=pieces) # : floats{B, W}
+            >> Softmax() # : floats{B, 2}
         )
 
 
-    print("Read and parse quora data")
-    train, dev = datasets.quora_questions(loc)
+    print("Read and parse data: %s" % dataset)
+    if dataset == 'quora':
+        train, dev = datasets.quora_questions()
+    elif dataset == 'snli':
+        train, dev = datasets.snli()
+    else:
+        raise ValueError("Unknown dataset: %s" % dataset)
     train_X, train_y = preprocess(model.ops, nlp, train)
     dev_X, dev_y = preprocess(model.ops, nlp, dev)
     assert len(dev_y.shape) == 2

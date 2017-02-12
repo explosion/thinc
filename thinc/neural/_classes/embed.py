@@ -94,9 +94,9 @@ class Embed(Model):
                 self.ops.xp.add.at(d_vectors, ids * (ids < self.nV), gradients)
             if sgd is not None:
                 if self.is_static:
-                    sgd(self.W.ravel(), self.d_W.ravel(), key=id(self._mem))
+                    sgd(self.W.ravel(), self.d_W.ravel(), key=self.id)
                 else:
-                    sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                    sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
         return dotted, finish_update
 
@@ -107,8 +107,8 @@ class Embed(Model):
         else:
             backup = None
             weights = self._mem.weights
-            if id(self._mem) in params:
-                param = params[id(self._mem)]
+            if self.id in params:
+                param = params[self.id]
                 backup = weights.copy()
                 weights[:] = param
             yield

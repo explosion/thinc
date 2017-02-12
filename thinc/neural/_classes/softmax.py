@@ -27,6 +27,6 @@ class Softmax(Affine):
             self.d_b += grad__BO.sum(axis=0)
             grad__BI = self.ops.batch_dot(grad__BO, self.W.T)
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return grad__BI
         return output__BO, finish_update
