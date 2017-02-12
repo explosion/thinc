@@ -51,17 +51,20 @@ def preprocess(ops, nlp, rows):
     loc=("Location of Quora data"),
     width=("Width of the hidden layers", "option", "w", int),
     depth=("Depth of the hidden layers", "option", "d", int),
-    max_batch_size=("Maximum minibatch size during training", "option", "b", int),
+    min_batch_size=("Minimum minibatch size during training", "option", "b", int),
+    max_batch_size=("Maximum minibatch size during training", "option", "B", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     use_gpu=("Whether to use GPU", "flag", "G", bool),
     nb_epoch=("Number of epochs", "option", "i", int),
     pieces=("Number of pieces for maxout", "option", "p", int),
+    quiet=("Don't print the progress bar", "flag", "q")
 )
-def main(loc=None, width=128, depth=2, max_batch_size=256,
+def main(loc=None, width=128, depth=2, min_batch_size=1, max_batch_size=256,
          dropout=0.5, dropout_decay=1e-5,
-         nb_epoch=20, pieces=3, use_gpu=False):
+         nb_epoch=20, pieces=3, use_gpu=False, quiet=False):
     cfg = dict(locals())
+    print(cfg)
 
     print("Load spaCy")
     nlp = spacy.load('en', parser=False, entity=False, matcher=False, tagger=False)
@@ -129,12 +132,12 @@ def main(loc=None, width=128, depth=2, max_batch_size=256,
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
         trainer.each_epoch.append(track_progress(**locals()))
-        trainer.batch_size = 1
-        batch_size = 1.
+        trainer.batch_size = min_batch_size
+        batch_size = float(min_batch_size)
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
-        for X, y in trainer.iterate(train_X, train_y):
+        for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             # No auto-diff: Just get a callback and pass the data through.
