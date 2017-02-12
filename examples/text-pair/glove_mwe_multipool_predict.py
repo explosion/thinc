@@ -125,8 +125,8 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
-            >> Maxout(width, width*4, pieces=pieces) # : floats{B, W}
-            >> Softmax(2, width) # : floats{B, 2}
+            >> Maxout(width, pieces=pieces) # : floats{B, W}
+            >> Softmax() # : floats{B, 2}
         )
 
 
