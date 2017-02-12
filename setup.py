@@ -158,7 +158,8 @@ def setup_package():
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
-                'flexmock'
+                'flexmock',
+                'pathlib>=1.0.0,<2.0.0'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
