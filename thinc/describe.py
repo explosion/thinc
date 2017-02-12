@@ -33,7 +33,7 @@ class Weights(AttributeDescription):
         self.init = init
 
     def __get__(self, obj, type=None):
-        key = (id(obj), self.name)
+        key = (obj.id, self.name)
         if key in obj._mem:
             return obj._mem[key]
         else:
@@ -44,7 +44,7 @@ class Weights(AttributeDescription):
             return data
 
     def __set__(self, obj, val):
-        data = obj._mem.get((id(obj), self.name))
+        data = obj._mem.get((obj.id, self.name))
         data[:] = val
 
 
@@ -55,16 +55,16 @@ class Gradient(AttributeDescription):
         self.param_name = param_name
 
     def __get__(self, obj, type=None):
-        key = (id(obj), self.name)
+        key = (obj.id, self.name)
         if key in obj._mem:
             return obj._mem.get(key)
         else:
-            param_key = (id(obj), self.param_name)
+            param_key = (obj.id, self.param_name)
             grad = obj._mem.add_gradient(key, param_key)
             return grad
 
     def __set__(self, obj, val):
-        data = obj._mem.get((id(obj), self.name))
+        data = obj._mem.get((obj.id, self.name))
         data[:] = val
 
 
