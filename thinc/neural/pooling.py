@@ -28,7 +28,7 @@ def Pooling(*funcs, **kwargs):
             for i, bp_func in enumerate(bp_funcs):
                 dX += bp_func(d_pooled[:, i*O : i*O+O])
             return dX
-        return pooled, finish_update
+        return pooled, bp_dropout(finish_update)
     return layerize(begin_update)
 
 
