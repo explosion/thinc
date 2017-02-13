@@ -15,7 +15,6 @@ def Pooling(*funcs, **kwargs):
     F = len(funcs)
     def begin_update(X_lengths, drop=0.0):
         X, lengths = X_lengths
-        X, bp_dropout = ops.dropout(X, drop)
         T, O = X.shape
         pooled = ops.allocate((len(lengths), F*O))
         bp_funcs = [None] * F
@@ -23,6 +22,7 @@ def Pooling(*funcs, **kwargs):
             res, bp_res = func.begin_update((X, lengths))
             pooled[:, i*O:i*O+O] = res
             bp_funcs[i] = bp_res
+        pooled, bp_dropout = ops.dropout(pooled, drop)
         def finish_update(d_pooled, sgd=None):
             dX = ops.allocate(X.shape)
             for i, bp_func in enumerate(bp_funcs):
