@@ -658,6 +658,17 @@ if cupy is not None:
         'float32 dX',
         'dX = (which[i/P] == i%P) ? best[i/P] : 0',
         'bp_maxout')
+    # 't2b' is a mapping from the T dimension (i.e. lengths.sum()) to
+    # the B dimension. It tells you which sequence the index is in.
+    gpu_backprop_max_pool = cupy.ElementwiseKernel(
+        ('raw float32 d_best, raw int32 which,'
+         'raw int32 lengths, raw int32 t2b, raw int32 O'),
+        'float32 dX',
+        '''
+        dX = (which[t2b[i/O]] == i % O) ? d_best[t2b[i/O]] : 0',
+        ''',
+        'bp_maxpool'
+    )
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
