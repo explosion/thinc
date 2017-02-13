@@ -60,7 +60,7 @@ def with_getitem(idx, layer):
 
 def noop(*layers):
     '''Transform a sequences of layers into a null operation.'''
-    def begin_update(X):
+    def begin_update(X, drop=0.):
         return X, lambda D, *a, **k: D
     return begin_update
 
