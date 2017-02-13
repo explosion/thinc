@@ -84,6 +84,8 @@ def clone(orig, n):
 
     i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
     '''
+    if n == 0:
+        return layerize(noop())
     layers = [orig]
     for i in range(n-1):
         layers.append(copy.deepcopy(orig))
