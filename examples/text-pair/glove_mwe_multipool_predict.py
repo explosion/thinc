@@ -61,10 +61,11 @@ def preprocess(ops, nlp, rows):
     nb_epoch=("Number of epochs", "option", "i", int),
     pieces=("Number of pieces for maxout", "option", "p", int),
     out_loc=("File to save the model", "option", "o"),
-    quiet=("Don't print the progress bar", "flag", "q")
+    quiet=("Don't print the progress bar", "flag", "q"),
+    pooling=("Which pooling to use", "option", "P", str)
 )
 def main(dataset='quora', width=128, depth=2, min_batch_size=128,
-        max_batch_size=128, dropout=0.2, dropout_decay=0.0,
+        max_batch_size=128, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
@@ -72,6 +73,15 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         if not out_loc.parent.exists():
             raise IOError("Can't open output location: %s" % out_loc)
     print(cfg)
+    if pooling == 'mean+max':
+        pool_layer = Pooling(mean_pool, max_pool)
+    elif pooling == "mean":
+        pool_layer = mean_pool
+    elif pooling == "max":
+        pool_layer = max_pool
+    else:
+        raise ValueError("Unrecognised pooling", pooling)
+
 
     print("Load spaCy")
     nlp = get_spacy('en')
@@ -121,7 +131,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             ) # : (floats{T, W}, lengths{B})
             # Useful trick: Why choose between max pool and mean pool?
             # We may as well have both representations.
-            >> Pooling(mean_pool, max_pool) # : floats{B, 2*W}
+            >> pool_layer # : floats{B, 2*W}
         )
         model = (
             ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
