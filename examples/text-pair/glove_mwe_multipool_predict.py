@@ -53,16 +53,17 @@ def diff(layer):
     ops = layer.ops
     def forward(inputs, drop=0.):
         inputs1, inputs2 = zip(*inputs)
-        X1, bp_X1 = layer.begin_update(inputs1, drop=0.)
-        X2, bp_X2 = layer.begin_update(inputs2, drop=0.)
+        X1, bp_X1 = layer.begin_update(inputs1, drop=drop)
+        X2, bp_X2 = layer.begin_update(inputs2, drop=drop)
         piece1 = X1 - X2
         piece2 = X1 * X2
         output = ops.xp.hstack((piece1, piece2))
+        output = piece2
 
         def backward(d_output, sgd=None):
             assert d_output.shape == output.shape
             d_piece1 = d_output[:, :X1.shape[1]]
-            d_piece2 = d_output[:, X2.shape[1]: ]
+            d_piece2 = d_output[:, X2.shape[1]:]
             d_X1 = (d_piece2 * X2) + d_piece1
             d_X2 = (d_piece2 * X1) - d_piece1
             d_input1 = bp_X1(d_X1, sgd)
