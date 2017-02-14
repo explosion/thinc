@@ -11,7 +11,7 @@ from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
 
 from thinc.neural.util import to_categorical
 
-from thinc.api import flatten_add_lengths, with_getitem
+from thinc.api import layerize, flatten_add_lengths, with_getitem
 from thinc.api import chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
@@ -47,6 +47,34 @@ def preprocess(ops, nlp, rows):
         Xs.append((nlp(text1), nlp(text2)))
         ys.append(label)
     return Xs, to_categorical(ops.asarray(ys))
+
+
+def diff(layer):
+    ops = layer.ops
+    def forward(inputs, drop=0.):
+        inputs1, inputs2 = zip(*inputs)
+        X1, bp_X1 = layer.begin_update(inputs1, drop=0.)
+        X2, bp_X2 = layer.begin_update(inputs2, drop=0.)
+        piece1 = X1 - X2
+        piece2 = X1 * X2
+        output = ops.xp.hstack((piece1, piece2))
+
+        def backward(d_output, sgd=None):
+            assert d_output.shape == output.shape
+            d_piece1 = d_output[:, :X1.shape[1]]
+            d_piece2 = d_output[:, X2.shape[1]: ]
+            d_X1 = (d_piece2 * X2) + d_piece1
+            d_X2 = (d_piece2 * X1) - d_piece1
+            d_input1 = bp_X1(d_X1, sgd)
+            d_input2 = bp_X2(d_X2, sgd)
+            if d_input1 and d_input2:
+                return zip(d_input1, d_input2)
+            else:
+                return None
+        return output, backward
+    model = layerize(forward)
+    model._layers.append(layer)
+    return model
 
 
 @plac.annotations(
@@ -97,7 +125,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
     # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
-    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate, '&': diff}):
         # Important trick: text isn't like images, and the best way to use
         # convolution is different. Don't use pooling-over-time. Instead,
         # use the window to compute one vector per word, and do this N deep.
@@ -134,7 +162,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             >> pool_layer # : floats{B, 2*W}
         )
         model = (
-            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec)) # : floats{B, 4*W}
+            diff(sent2vec) # : floats{B, 8*W}
             >> Maxout(width, pieces=pieces) # : floats{B, W}
             >> Softmax() # : floats{B, 2}
         )
