@@ -1,7 +1,6 @@
 # encoding: utf8
 from __future__ import unicode_literals
 import pytest
-from flexmock import flexmock
 from hypothesis import given, strategies
 
 from ...neural._classes import model as base
