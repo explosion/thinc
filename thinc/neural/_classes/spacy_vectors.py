@@ -22,7 +22,7 @@ def get_word_ids(docs, drop=0.):
     for doc in docs:
         arr = numpy.zeros((len(doc)+1,), dtype='uint64')
         for token in doc:
-            arr[token.i] = token.lex_id
+            arr[token.i] = token.lex_id or token.orth
         arr[len(doc)] = 0
         seqs.append(ops.asarray(arr))
     return seqs, None
@@ -50,12 +50,15 @@ class SpacyVectors(Model):
         vectors = get_vectors(self.ops, lang)
         self.lang = lang
         self.nM = vectors.shape[1]
+        if self.nM == 0:
+            raise ValueError(
+                "Cannot create vectors table with dimension 0.\n"
+                "If you're using pre-trained vectors, are the vectors loaded?")
         self.nV = vectors.shape[0]
 
     def begin_update(self, ids, drop=0.):
         vector_table = get_vectors(self.ops, self.lang)
-        ids *= ids < vector_table.shape[0]
-        vectors = vector_table[ids]
+        vectors = vector_table[ids % vector_table.shape[0]]
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if sgd is not None:
