@@ -53,7 +53,7 @@ class StaticVectors(Model):
         # but it ensures multiple models load the
         # same copy of spaCy if they're deserialised.
         self.lang = lang
-        vectors = self.get_vectors(self.ops, lang)
+        vectors = self.get_vectors()
         self.nM = vectors.shape[1]
         if self.nM == 0:
             raise ValueError(
@@ -61,8 +61,8 @@ class StaticVectors(Model):
                 "If you're using pre-trained vectors, are the vectors loaded?")
         self.nV = vectors.shape[0]
 
-    def get_vectors(self)
-        return get_vectors(self.ops, lang)
+    def get_vectors(self):
+        return get_vectors(self.ops, self.lang)
 
     def begin_update(self, ids, drop=0.):
         vector_table = self.get_vectors()
