@@ -21,8 +21,8 @@ def get_word_ids(docs, drop=0.):
     ops = Model.ops
     for doc in docs:
         arr = numpy.zeros((len(doc)+1,), dtype='uint64')
-        for token in doc:
-            arr[token.i] = token.lex_id or token.orth
+        for i, token in enumerate(doc):
+            arr[i] = token.lex_id or token.orth
         arr[len(doc)] = 0
         seqs.append(ops.asarray(arr))
     return seqs, None
