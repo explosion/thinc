@@ -1,3 +1,4 @@
+from __future__ import division
 from thinc.api import layerize
 from thinc.neural import Model
 
@@ -26,6 +27,11 @@ def Siamese(layer, similarity):
 
     model._layers.append(layer)
     model._layers.append(similarity)
+    def on_data(self, X, y):
+        input1, input2 = zip(*X)
+        for hook in layer.on_data_hooks:
+            hook(layer, input1, y)
+    model.on_data_hooks.append(on_data)
     return model
 
 
@@ -33,29 +39,24 @@ def Siamese(layer, similarity):
 def CauchySimilarity(ops, length):
     weights = ops.allocate(length)
     weights += 1.
-    id_ = Model.id
     Model.id += 1
+    id_ = Model.id
     def begin_update(vec1_vec2, drop=0.):
         vec1, vec2 = vec1_vec2
         diff = vec1-vec2
-        dropout_mask = ops.get_dropout_mask(diff.shape, drop)
         square_diff = diff ** 2
-        if dropout_mask is not None:
-            square_diff *= dropout_mask
         total = (weights * square_diff).sum(axis=1)
         sim, bp_sim = inverse(total)
         total = total.reshape((vec1.shape[0], 1))
         def finish_update(d_sim, sgd=None):
-            d_total = bp_sim(d_sim)
+            d_total = ops.asarray(bp_sim(d_sim), dtype='float32')
             d_total = d_total.reshape(total.shape)
             d_weights = (d_total * square_diff).sum(axis=0)
             d_square_diff = weights * d_total
-            if dropout_mask is not None:
-                d_square_diff *= dropout_mask
             d_diff = 2 * d_square_diff * diff
             d_vec1 = d_diff
             d_vec2 = -d_diff
-            sgd(weights.ravel(), d_weights.ravel(), key=id_)
+            sgd(weights.ravel(), d_weights.ravel(), key=-id_)
             return (d_vec1, d_vec2)
         return sim, finish_update
     return layerize(begin_update)
