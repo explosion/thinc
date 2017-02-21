@@ -22,7 +22,7 @@ def get_word_ids(docs, drop=0.):
     for doc in docs:
         arr = numpy.zeros((len(doc)+1,), dtype='uint64')
         for token in doc:
-            arr[token.i] = token.lex_id
+            arr[token.i] = token.lex_id or token.orth
         arr[len(doc)] = 0
         seqs.append(ops.asarray(arr))
     return seqs, None
@@ -39,23 +39,34 @@ def get_word_ids(docs, drop=0.):
             lambda W, ops: ops.xavier_uniform_init(W)),
         d_W=Gradient("W"),
 )
-class SpacyVectors(Model):
-    name = 'spacy-vectors'
+class StaticVectors(Model):
+    '''Load a static embedding table, and learn a linear projection from it.
+    
+    Out-of-vocabulary items are modded into the table, receiving an arbitrary
+    vector (but the same word will always receive the same vector).
+    '''
+    name = 'static-vectors'
     def __init__(self, lang, nO):
         Model.__init__(self)
         self.nO = nO
         # This doesn't seem the cleverest solution,
         # but it ensures multiple models load the
         # same copy of spaCy if they're deserialised.
-        vectors = get_vectors(self.ops, lang)
         self.lang = lang
+        vectors = self.get_vectors()
         self.nM = vectors.shape[1]
+        if self.nM == 0:
+            raise ValueError(
+                "Cannot create vectors table with dimension 0.\n"
+                "If you're using pre-trained vectors, are the vectors loaded?")
         self.nV = vectors.shape[0]
 
+    def get_vectors(self):
+        return get_vectors(self.ops, self.lang)
+
     def begin_update(self, ids, drop=0.):
-        vector_table = get_vectors(self.ops, self.lang)
-        ids *= ids < vector_table.shape[0]
-        vectors = vector_table[ids]
+        vector_table = self.get_vectors()
+        vectors = vector_table[ids % vector_table.shape[0]]
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if sgd is not None:

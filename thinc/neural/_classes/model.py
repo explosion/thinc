@@ -1,3 +1,4 @@
+from __future__ import division
 from numpy import prod
 import contextlib
 
@@ -147,8 +148,11 @@ class Model(object):
         '''
         scores = self(X)
         assert scores.shape == y.shape, (scores.shape, y.shape)
-        correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
-        return float(correct) / y.shape[0]
+        if len(scores.shape) == 1:
+            correct = ((scores >= 0.5) == (y >= 0.5)).sum()
+        else:
+            correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
+        return correct / y.shape[0]
 
     @check.operator_is_defined('+')
     def __add__(self, other):

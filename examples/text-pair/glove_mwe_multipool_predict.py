@@ -7,7 +7,7 @@ import dill as pickle
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
 from thinc.neural.pooling import Pooling, mean_pool, max_pool
-from thinc.neural._classes.spacy_vectors import SpacyVectors, get_word_ids
+from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
 
 from thinc.neural.util import to_categorical
 
@@ -58,11 +58,12 @@ def diff(layer):
         piece1 = X1 - X2
         piece2 = X1 * X2
         output = ops.xp.hstack((piece1, piece2))
+        output = piece2
 
         def backward(d_output, sgd=None):
             assert d_output.shape == output.shape
             d_piece1 = d_output[:, :X1.shape[1]]
-            d_piece2 = d_output[:, X2.shape[1]: ]
+            d_piece2 = d_output[:, X2.shape[1]:]
             d_X1 = (d_piece2 * X2) + d_piece1
             d_X2 = (d_piece2 * X1) - d_piece1
             d_input1 = bp_X1(d_X1, sgd)
@@ -75,43 +76,6 @@ def diff(layer):
     model = layerize(forward)
     model._layers.append(layer)
     return model
-
-
-def multiply(layer1, layer2):
-    def forward(X, drop=0.):
-        out1, bp_out1 = layer1.begin_update(X, drop=drop)
-        out2, bp_out2 = layer2.begin_update(X, drop=drop)
-        output = out1 * out2
-        def backward(d_output, sgd=None):
-            d_out1 = d_output * out2
-            d_out2 = d_output * out1
-            dX1 = bp_out1(d_out1, sgd) if bp_out1 else None
-            dX2 = bp_out2(d_out2, sgd) if bp_out2 else None
-            return (dX1 + dX2) if (dX1 and dX2) else None
-        return output, backward
-    model = layerize(forward)
-    model._layers.append(layer1)
-    model._layers.append(layer2)
-    return model
-
-
-def TokenWeights(ops, nlp):
-    id_ = Model.id
-    Model.id += 1
-    vectors = get_vectors(ops, nlp.lang)
-    weights = ops.allocate((vectors.shape[0], 1)) + 1.
-    d_weights = ops.allocate(weights.shape)
-    def forward(ids, drop=0.):
-        ids = ids * (ids < weights.shape[0])
-        weighted = weights[ids]
-        def backward(d_weighted, sgd=None):
-            if sgd is not None:
-                d_weighted = d_weighted.sum(axis=1).reshape((d_weighted.shape[0], 1))
-                ops.xp.add.at(d_weights, ids, d_weighted)
-                sgd(weights.ravel(), d_weights.ravel(), key=id_)
-            return None
-        return weighted, backward
-    return layerize(forward)
 
 
 @plac.annotations(
@@ -162,7 +126,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
     # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
-    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate, '*': multiply}):
+    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         # Important trick: text isn't like images, and the best way to use
         # convolution is different. Don't use pooling-over-time. Instead,
         # use the window to compute one vector per word, and do this N deep.
@@ -189,9 +153,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             get_word_ids
             >> flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
-                (TokenWeights(Model.ops, nlp)
-                 *
-                 SpacyVectors('en', width) >> mwe_encode ** depth)
+                 StaticVectors('en', width) >> mwe_encode ** depth
             ) # : (floats{T, W}, lengths{B})
             # Useful trick: Why choose between max pool and mean pool?
             # We may as well have both representations.
