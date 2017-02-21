@@ -8,11 +8,11 @@ from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
 from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
-
-from thinc.neural.util import to_categorical
+from thinc.neural._classes.embed import Embed
+from thinc.neural._classes.difference import Siamese, CauchySimilarity
 
 from thinc.api import layerize, flatten_add_lengths, with_getitem
-from thinc.api import chain, clone, concatenate, Arg
+from thinc.api import add, chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy, get_vectors
@@ -46,7 +46,7 @@ def preprocess(ops, nlp, rows):
     for (text1, text2), label in rows:
         Xs.append((nlp(text1), nlp(text2)))
         ys.append(label)
-    return Xs, to_categorical(ops.asarray(ys))
+    return Xs, ops.asarray(ys)
 
 
 def diff(layer):
@@ -126,7 +126,8 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
     # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
-    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
+    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
+                                 '+': add}):
         # Important trick: text isn't like images, and the best way to use
         # convolution is different. Don't use pooling-over-time. Instead,
         # use the window to compute one vector per word, and do this N deep.
@@ -140,6 +141,8 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         # convolution step is much more efficient than BiLSTM, and can be
         # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
+
+        embed = StaticVectors('en', width) + Embed(width, width, 5000)
         # Comments indicate the output type and shape at each step of the pipeline.
         # * B: Number of sentences in the batch
         # * T: Total number of words in the batch
@@ -153,17 +156,14 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             get_word_ids
             >> flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
-                 StaticVectors('en', width) >> mwe_encode ** depth
+                 embed
+                 >> mwe_encode ** depth
             ) # : (floats{T, W}, lengths{B})
             # Useful trick: Why choose between max pool and mean pool?
             # We may as well have both representations.
             >> pool_layer # : floats{B, 2*W}
         )
-        model = (
-            diff(sent2vec) # : floats{B, 8*W}
-            >> Maxout(width, pieces=pieces) # : floats{B, W}
-            >> Softmax() # : floats{B, 2}
-        )
+        model = Siamese(sent2vec, CauchySimilarity(Model.ops, 2*width))
 
 
     print("Read and parse data: %s" % dataset)
@@ -175,7 +175,6 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         raise ValueError("Unknown dataset: %s" % dataset)
     train_X, train_y = preprocess(model.ops, nlp, train)
     dev_X, dev_y = preprocess(model.ops, nlp, dev)
-    assert len(dev_y.shape) == 2
     print("Initialize with data (LSUV)")
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
@@ -192,9 +191,11 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             # No auto-diff: Just get a callback and pass the data through.
             # Hardly a hardship, and it means we don't have to create/maintain
             # a computational graph. We just use closures.
-            backprop(yh-y, optimizer)
 
-            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+            train_acc = ((yh>=0.5) == (y>=0.5)).sum()
+            epoch_train_acc += train_acc
+
+            backprop(yh-y, optimizer)
 
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)

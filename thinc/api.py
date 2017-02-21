@@ -44,18 +44,23 @@ def metalayerize(user_func):
 def flatten_add_lengths(seqs, drop=0.):
     ops = Model.ops
     lengths = ops.asarray([len(seq) for seq in seqs], dtype='i')
-    def finish_update(d_X):
+    def finish_update(d_X, sgd=None):
         return ops.unflatten(d_X, lengths)
     X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
     return (X, lengths), finish_update
 
 
 def with_getitem(idx, layer):
-    @layerize
     def begin_update(items, drop=0.):
         X, finish = layer.begin_update(items[idx], drop=drop)
         return items[:idx] + (X,) + items[idx+1:], finish
-    return begin_update
+    model = layerize(begin_update)
+    model._layers.append(layer)
+    def on_data(self, items, y):
+        for hook in layer.on_data_hooks:
+            hook(layer, items[idx], y)
+    model.on_data_hooks.append(on_data)
+    return model
 
 
 def noop(*layers):
@@ -123,6 +128,34 @@ def concatenate(*layers): # pragma: no cover
         return output, finish_update
     layer = FunctionLayer(begin_update)
     return layer
+
+
+def add(layer1, layer2):
+    def forward(X, drop=0.):
+        out1, bp_out1 = layer1.begin_update(X, drop=drop)
+        out2, bp_out2 = layer2.begin_update(X, drop=drop)
+        output = out1 + out2
+        def backward(d_output, sgd=None):
+            if bp_out1 is not None:
+                d_out1 = bp_out1(d_output, sgd)
+            else:
+                d_out1 = 0.
+            if bp_out2 is not None:
+                d_out2 = bp_out2(d_output, sgd)
+            else:
+                d_out2 = 0.
+            return (d_out1 + d_out2) if d_out1 and d_out2 else None
+        return output, backward
+    model = layerize(forward)
+    model._layers = [layer1, layer2]
+    def on_data(self, X, y):
+        for hook in layer1.on_data_hooks:
+            hook(layer1, X, y)
+        for hook in layer2.on_data_hooks:
+            hook(layer2, X, y)
+    model.on_data_hooks.append(on_data)
+    return model
+
 
 
 def split_backward(layers): # pragma: no cover
