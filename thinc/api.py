@@ -44,18 +44,23 @@ def metalayerize(user_func):
 def flatten_add_lengths(seqs, drop=0.):
     ops = Model.ops
     lengths = ops.asarray([len(seq) for seq in seqs], dtype='i')
-    def finish_update(d_X):
+    def finish_update(d_X, sgd=None):
         return ops.unflatten(d_X, lengths)
     X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
     return (X, lengths), finish_update
 
 
 def with_getitem(idx, layer):
-    @layerize
     def begin_update(items, drop=0.):
         X, finish = layer.begin_update(items[idx], drop=drop)
         return items[:idx] + (X,) + items[idx+1:], finish
-    return begin_update
+    model = layerize(begin_update)
+    model._layers.append(layer)
+    def on_data(self, items, y):
+        for hook in layer.on_data_hooks:
+            hook(layer, items[idx], y)
+    model.on_data_hooks.append(on_data)
+    return model
 
 
 def noop(*layers):
