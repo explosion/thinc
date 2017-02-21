@@ -116,8 +116,8 @@ class Model(object):
     def use_params(self, params): # pragma: no cover
         backup = None
         weights = self._mem.weights
-        if id(self._mem) in params:
-            param = params[id(self._mem)]
+        if self.id in params:
+            param = params[self.id]
             backup = weights.copy()
             weights[:] = param
         if hasattr(self, '_layers'):
@@ -146,7 +146,7 @@ class Model(object):
         y
             Must match expected type
         '''
-        scores = self(X)
+        scores = self.predict(X)
         assert scores.shape == y.shape, (scores.shape, y.shape)
         if len(scores.shape) == 1:
             correct = ((scores >= 0.5) == (y >= 0.5)).sum()
@@ -224,13 +224,11 @@ class Model(object):
         '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
-
-##
-#    def pipe(self, stream, batch_size=1000):
-#        for batch in util.minibatch(stream, batch_size):
-#            ys = self.predict_batch(batch)
-#            for y in ys:
-#                yield y
+    def pipe(self, stream, batch_size=1000):
+        for batch in util.minibatch(stream, batch_size):
+            ys = self.predict(batch)
+            for y in ys:
+                yield y
 #
 #    def update(self, stream, batch_size=1000):
 #        for X, y in util.minibatch(stream, batch_size=batch_size):
