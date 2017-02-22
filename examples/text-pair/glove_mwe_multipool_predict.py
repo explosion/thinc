@@ -142,7 +142,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
 
-        embed = StaticVectors('en', width) + Embed(width, width, 5000)
+        embed = StaticVectors('en', width) #+ Embed(width, width, 5000)
         # Comments indicate the output type and shape at each step of the pipeline.
         # * B: Number of sentences in the batch
         # * T: Total number of words in the batch

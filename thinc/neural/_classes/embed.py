@@ -26,12 +26,12 @@ def _uniform_init(lo, hi):
 
 
 def LSUVinit(model, X, y=None):
-    if model.vectors is not None and model.W is not None:
+    if model.vectors != None and model.W != None:
         do_lsuv(model.ops, model.W, model, X)
     return X
 
 
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+@describe.on_data(LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
     nV=Dimension("Number of vectors"),
@@ -68,18 +68,15 @@ class Embed(Model):
 
     #@check.arg(1, is_int_array)
     def predict(self, ids):
-        #if len(ids) < 1000 or isinstance(self.ops, CupyOps):
-        vectors = self._embed(ids)
-        dotted = self.ops.batch_dot(vectors, self.W)
-        return dotted
-        #uniques, positions = self._unique_ids(ids)
-        #vectors = self._embed(uniques)
-        #dotted_uniq = self.ops.batch_dot(vectors, self.W)
-        #output = self.ops.allocate((len(ids), self.nO))
-        #for i, id_ in enumerate(uniques):
-        #    for j in positions[id_]:
-        #        output[j] = dotted_uniq[i]
-        #return output
+        if len(ids) < 1000 or isinstance(self.ops, CupyOps):
+            vectors = self._embed(ids)
+            dotted = self.ops.batch_dot(vectors, self.W)
+            return dotted
+        uniques, positions = self.ops.xp.unique(ids, return_inverse=True)
+        vectors = self._embed(uniques)
+        dotted_uniq = self.ops.batch_dot(vectors, self.W)
+        output = dotted_uniq[positions]
+        return output
 
     def begin_update(self, ids, drop=0.):
         vectors = self._embed(ids)
@@ -91,7 +88,10 @@ class Embed(Model):
                 gradients = self.ops.batch_dot(gradients, self.W.T)
                 d_vectors = self.d_vectors
                 n_vectors = d_vectors.shape[0]
-                self.ops.xp.add.at(d_vectors, ids % self.nV, gradients)
+                if hasattr(self.ops.xp, 'scatter_add'):
+                    self.ops.xp.scatter_add(d_vectors, ids % self.nV, gradients)
+                else:
+                    self.ops.xp.add.at(d_vectors, ids % self.nV, gradients)
             if sgd is not None:
                 if self.is_static:
                     sgd(self.W.ravel(), self.d_W.ravel(), key=self.id)

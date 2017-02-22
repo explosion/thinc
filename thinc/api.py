@@ -59,7 +59,6 @@ def with_getitem(idx, layer):
     def on_data(self, items, y):
         for hook in layer.on_data_hooks:
             hook(layer, items[idx], y)
-    model.on_data_hooks.append(on_data)
     return model
 
 
@@ -153,7 +152,6 @@ def add(layer1, layer2):
             hook(layer1, X, y)
         for hook in layer2.on_data_hooks:
             hook(layer2, X, y)
-    model.on_data_hooks.append(on_data)
     return model
 
 
