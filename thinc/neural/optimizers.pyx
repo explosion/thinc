@@ -101,12 +101,12 @@ class Adam(SGD):
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-        cdef weight_t lr = self.lr(nr_upd) * lr_scale
+        cdef weight_t lr = self.lr(nr_upd)
         cdef weight_t b1 = self.b1
         cdef weight_t b2 = self.b1
         cdef weight_t eps = self.eps
         self.ops.adam(
-            weights, gradient, mom1, mom2, b1, b2, eps, lr)
+            weights, gradient, mom1, mom2, b1, b2, eps, lr, lr_scale)
         gradient.fill(0)
         #_adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
         #    weights.shape[0], b1, b2, eps, lr)
@@ -131,6 +131,8 @@ class Eve(object):
         return getattr(self.optimizer, attr)
 
     def __call__(self, weights, gradient, key=None):
+        assert self.d > 0.
+        assert self.d < 100
         return self.optimizer(weights, gradient, key=key,
             lr_scale=self.d)
 
@@ -141,17 +143,17 @@ class Eve(object):
         old_f = self.f
         d = self.d
         c = self._get_c(loss, old_f)
-        new_f = c * loss
+        new_f = c * old_f
         r = abs(new_f - old_f) / min(new_f, old_f)
-        new_d = d + (1 - self.b3) * (r - d)
+        new_d = (self.b3 * d) + (1-self.b3) * r
         self.d = new_d
         self.f = new_f
 
     def _get_c(self, loss, old_f):
-        if loss < old_f:
+        if loss >= old_f:
             delta = self.lower_threshold + 1.
             Delta = self.upper_threshold + 1.
         else:
             delta = 1. / (self.upper_threshold + 1.)
             Delta = 1. / (self.lower_threshold + 1.)
-        return min(max(delta, loss / old_f), delta)
+        return min(max(delta, loss / old_f), Delta)
