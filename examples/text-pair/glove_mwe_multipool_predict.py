@@ -92,9 +92,9 @@ def diff(layer):
     quiet=("Don't print the progress bar", "flag", "q"),
     pooling=("Which pooling to use", "option", "P", str)
 )
-def main(dataset='quora', width=128, depth=2, min_batch_size=128,
+def main(dataset='quora', width=64, depth=1, min_batch_size=128,
         max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
-        nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
+        nb_epoch=20, pieces=2, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
         out_loc = Path(out_loc)
@@ -129,7 +129,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
                                  '+': add}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
 
-        embed = StaticVectors('en', width) + Embed(width, width, 5000)
+        embed = StaticVectors('en', width) #+ Embed(width, width, 5000)
         sent2mat = (
             get_word_ids(Model.ops)
             >> with_flatten(embed >> mwe_encode ** depth)
@@ -157,7 +157,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
-        for X, y in trainer.iterate(train_X[:500], train_y[:500], progress_bar=not quiet):
+        for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             # No auto-diff: Just get a callback and pass the data through.
