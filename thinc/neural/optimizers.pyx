@@ -122,10 +122,11 @@ class Eve(object):
     def __init__(self, optimizer):
         self.optimizer = optimizer
         self.b3 = 0.999
-        self.lower_threshold = 0.1
-        self.upper_threshold = 10
+        self.thl = 0.1
+        self.thu = 10
         self.d = 1.
-        self.f = None
+        self.loss_hat = None
+        self.loss = None
 
     def __getattr__(self, attr):
         return getattr(self.optimizer, attr)
@@ -137,23 +138,25 @@ class Eve(object):
             lr_scale=self.d)
 
     def set_loss(self, loss):
-        if self.f is None:
-            self.f = loss
+        if self.loss_hat is None:
+            self.loss_hat = loss
+            self.loss = loss
             return
-        old_f = self.f
-        d = self.d
-        c = self._get_c(loss, old_f)
-        new_f = c * old_f
-        r = abs(new_f - old_f) / min(new_f, old_f)
-        new_d = (self.b3 * d) + (1-self.b3) * r
-        self.d = new_d
-        self.f = new_f
 
-    def _get_c(self, loss, old_f):
-        if loss >= old_f:
-            delta = self.lower_threshold + 1.
-            Delta = self.upper_threshold + 1.
-        else:
-            delta = 1. / (self.upper_threshold + 1.)
-            Delta = 1. / (self.lower_threshold + 1.)
-        return min(max(delta, loss / old_f), Delta)
+        prev_loss = self.loss
+        prev_loss_hat = self.loss_hat
+        loss_ch_fact = self._get_loss_ch_fact(loss, prev_loss)
+
+        loss_hat = loss_ch_fact * prev_loss_hat
+
+        r = abs(loss_hat - prev_loss_hat) / min(loss_hat, prev_loss_hat)
+        self.d = (self.b3 * self.d) + (1-self.b3) * r
+        self.loss_hat = loss_hat
+        self.loss = loss
+
+    def _get_loss_ch_fact(self, loss, loss_prev):
+        lbound = 1+self.thl if loss > loss_prev else 1/(1+self.thu)
+        ubound = 1+self.thu if loss > loss_prev else 1/(1+self.thl)
+        return min(ubound, max(lbound, loss / loss_prev))
+
+
