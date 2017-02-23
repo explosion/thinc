@@ -34,7 +34,6 @@ def get_word_ids(ops, pad=1, token_drop=0.):
     return layerize(get_word_ids)
 
 
-
 @describe.on_data(LSUVinit)
 @describe.attributes(
         nM=Dimension("Vector dimensions"),
@@ -47,7 +46,7 @@ def get_word_ids(ops, pad=1, token_drop=0.):
 )
 class StaticVectors(Model):
     '''Load a static embedding table, and learn a linear projection from it.
-    
+
     Out-of-vocabulary items are modded into the table, receiving an arbitrary
     vector (but the same word will always receive the same vector).
     '''
