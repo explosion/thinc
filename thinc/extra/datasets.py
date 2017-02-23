@@ -134,14 +134,14 @@ def quora_questions(loc=None):
         loc = Path(loc)
     is_header = True
     lines = []
-    with loc.open('rb') as file_:
-        for row in csv.reader(file_, delimiter=b'\t'):
+    with loc.open('r') as file_:
+        for row in csv.reader(file_, delimiter='\t'):
             if is_header:
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.decode('utf8').strip()
-            sent2 = sent2.decode('utf8').strip()
+            sent1 = sent1.strip()
+            sent2 = sent2.strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
     train, dev = partition(lines, 0.9)

@@ -76,7 +76,7 @@ def get_error(title, *args, **kwargs):
     highlight = kwargs['highlight'] if 'highlight' in kwargs else False
     tb = _get_traceback(kwargs['tb'], highlight) if 'tb' in kwargs else ''
     return template.format(title=color(title, 'red', attrs=['bold']),
-                           info=info, tb=tb).encode('utf8')
+                           info=info, tb=tb)
 
 def _repr(obj, max_len=50):
     string = repr(obj)
