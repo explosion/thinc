@@ -9,14 +9,13 @@ from thinc.neural import ExtractWindow
 from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
 from thinc.neural._classes.embed import Embed
-from thinc.neural._classes.difference import Siamese, CauchySimilarity
+from thinc.neural._classes.difference import Siamese, WordMoversSimilarity, CauchySimilarity
 
-from thinc.api import layerize, flatten_add_lengths, with_getitem
+from thinc.api import layerize, with_flatten
 from thinc.api import add, chain, clone, concatenate, Arg
 
 from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy, get_vectors
-
 
 
 epoch_train_acc = 0.
@@ -94,7 +93,7 @@ def diff(layer):
     pooling=("Which pooling to use", "option", "P", str)
 )
 def main(dataset='quora', width=128, depth=2, min_batch_size=128,
-        max_batch_size=128, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
+        max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
@@ -128,42 +127,15 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        # Important trick: text isn't like images, and the best way to use
-        # convolution is different. Don't use pooling-over-time. Instead,
-        # use the window to compute one vector per word, and do this N deep.
-        # In the first layer, we adjust each word vector based on the two
-        # surrounding words --- this gives us essentially trigram vectors.
-        # In the next layer, we have a trigram of trigrams --- so we're
-        # conditioning on information from a five word slice. The third layer
-        # gives us 7 words. This is like the BiLSTM insight: we're not trying
-        # to learn a vector for the whole sentence in this step. We're just
-        # trying to learn better, position-sensitive word features. This simple
-        # convolution step is much more efficient than BiLSTM, and can be
-        # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
 
         embed = StaticVectors('en', width) + Embed(width, width, 5000)
-        # Comments indicate the output type and shape at each step of the pipeline.
-        # * B: Number of sentences in the batch
-        # * T: Total number of words in the batch
-        # (i.e. sum(len(sent) for sent in batch))
-        # * W: Width of the network (input hyper-parameter)
-        # * ids: ID for each word (integers).
-        # * lengths: Number of words in each sentence in the batch (integers)
-        # * floats: Standard dense vector.
-        # (Dimensions annotated in curly braces.)
-        sent2vec = ( # List[spacy.token.Doc]{B}
-            get_word_ids
-            >> flatten_add_lengths  # : (ids{T}, lengths{B})
-            >> with_getitem(0,      # : word_ids{T}
-                 embed
-                 >> mwe_encode ** depth
-            ) # : (floats{T, W}, lengths{B})
-            # Useful trick: Why choose between max pool and mean pool?
-            # We may as well have both representations.
-            >> pool_layer # : floats{B, 2*W}
+        sent2mat = (
+            get_word_ids(Model.ops)
+            >> with_flatten(embed >> mwe_encode ** depth)
         )
-        model = Siamese(sent2vec, CauchySimilarity(Model.ops, 2*width))
+        model = Siamese(sent2mat,
+                    WordMoversSimilarity(Model.ops))
 
 
     print("Read and parse data: %s" % dataset)
@@ -185,7 +157,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
-        for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
+        for X, y in trainer.iterate(train_X[:500], train_y[:500], progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             # No auto-diff: Just get a callback and pass the data through.
