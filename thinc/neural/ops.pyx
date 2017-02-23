@@ -189,14 +189,15 @@ class Ops(object):
             decay = max_decay
         ema -= (1-decay) * (ema - weights)
 
-    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
+            learn_rate, mod_rate=1.):
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.-beta1)
         mom2 += gradient * gradient * (1.-beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
+        weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
     def clip_gradient(self, gradient, threshold):
@@ -409,7 +410,7 @@ class NumpyOps(Ops):
 cdef void _adam(
     weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate) nogil:
+        weight_t learn_rate, weight_t mod_rate) nogil:
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
@@ -424,7 +425,7 @@ cdef void _adam(
     # Here we assume this is calculated by the caller.
     #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+        weights[i] -= learn_rate * (mom1[i] / (mod_rate * sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
