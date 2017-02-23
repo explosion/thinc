@@ -41,20 +41,34 @@ def WordMoversSimilarity(ops):
         bp_sims = []
         sims = []
         for mat1, mat2 in input_pairs:
-            sim, bp_sim = word_movers_similarity(mat1, mat2)
+            if mat1.shape[0] * mat2.shape[0] >= 300:
+                sim, bp_sim = mean_pool_similarity(mat1, mat2)
+            else:
+                sim, bp_sim = word_movers_similarity(mat1, mat2)
             sims.append(sim)
             bp_sims.append(bp_sim)
 
         def backward(d_sim, sgd=None):
+            assert len(d_sim) == len(sims)
             d_input_pairs = []
-            for bp_sim in bp_sims:
-                d_mat1, d_mat2 = bp_sim(d_sim, sgd)
+            for i, bp_sim in enumerate(bp_sims):
+                d_mat1, d_mat2 = bp_sim(d_sim[i], sgd)
                 d_input_pairs.append((d_mat1, d_mat2))
             return d_input_pairs
         return ops.asarray(sims), backward
     model = layerize(forward)
     return model
 
+def mean_pool_similarity(mat1, mat2):
+    N1 = mat1.shape[0]
+    N2 = mat2.shape[0]
+    def backward(d_sim, sgd=None):
+        d_mat1 = mat1 * 0
+        d_mat1 += (mat2.mean(axis=0) * d_sim) / N1
+        d_mat2 = mat2 * 0
+        d_mat2 += (mat1.mean(axis=0) * d_sim) / N2
+        return d_mat1, d_mat2
+    return mat1.mean(axis=0).dot(mat2.mean(axis=0)), backward
 
 def word_movers_similarity(mat1, mat2):
     N1 = mat1.shape[0]
@@ -64,12 +78,8 @@ def word_movers_similarity(mat1, mat2):
     flows2 = similarities.argmax(axis=0)
     def backward(d_sim, sgd=None):
         d_sim /= (N1+N2)
-        d_mat1 = np.asarray(d_sim * mat2[flows1], dtype='f')
-        d_mat2 = np.asarray(d_sim * mat1[flows2], dtype='f')
-        #for i in range(N1):
-        #    d_mat1[i] = d_sim * mat2[flows1[i]]
-        #for i in range(N2):
-        #    d_mat2[i] = d_sim * mat1[flows2[i]]
+        d_mat1 = d_sim * mat2[flows1]
+        d_mat2 = d_sim * mat1[flows2]
         return d_mat1, d_mat2
     sim = (similarities.max(axis=0).sum() + similarities.max(axis=1).sum()) / (N1+N2)
     return sim, backward
