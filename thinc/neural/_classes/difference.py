@@ -3,6 +3,11 @@ import numpy as np
 from thinc.api import layerize
 from thinc.neural import Model
 
+try:
+    from cupy import get_array_module
+except ImportError:
+    get_array_module = lambda arr: np
+
 
 def inverse(total):
     inverse = 1. / (1+total)
@@ -37,15 +42,13 @@ def Siamese(layer, similarity):
 
 
 def WordMoversSimilarity(ops):
+    metric = CauchySimilarity(ops, 64)
     def forward(input_pairs, drop=0.):
         bp_sims = []
-        sims = []
-        for mat1, mat2 in input_pairs:
-            if mat1.shape[0] * mat2.shape[0] >= 300:
-                sim, bp_sim = mean_pool_similarity(mat1, mat2)
-            else:
-                sim, bp_sim = word_movers_similarity(mat1, mat2)
-            sims.append(sim)
+        input_pairs = list(input_pairs)
+        sims = ops.allocate(len(input_pairs))
+        for i, (mat1, mat2) in enumerate(input_pairs):
+            sims[i], bp_sim = metric([(mat1.sum(axis=0), mat2.sum(axis=0))])
             bp_sims.append(bp_sim)
 
         def backward(d_sim, sgd=None):
@@ -55,7 +58,7 @@ def WordMoversSimilarity(ops):
                 d_mat1, d_mat2 = bp_sim(d_sim[i], sgd)
                 d_input_pairs.append((d_mat1, d_mat2))
             return d_input_pairs
-        return ops.asarray(sims), backward
+        return sims, backward
     model = layerize(forward)
     return model
 
@@ -68,12 +71,14 @@ def mean_pool_similarity(mat1, mat2):
         d_mat2 = mat2 * 0
         d_mat2 += (mat1.mean(axis=0) * d_sim) / N2
         return d_mat1, d_mat2
-    return mat1.mean(axis=0).dot(mat2.mean(axis=0)), backward
+    xp = get_array_module(mat1)
+    return xp.dot(mat1.mean(axis=0), mat2.mean(axis=0)), backward
 
 def word_movers_similarity(mat1, mat2):
     N1 = mat1.shape[0]
     N2 = mat2.shape[0]
-    similarities = np.tensordot(mat1, mat2, axes=[[1], [1]])
+    xp = get_array_module(mat1)
+    similarities = xp.tensordot(mat1, mat2, axes=[[1], [1]])
     flows1 = similarities.argmax(axis=1)
     flows2 = similarities.argmax(axis=0)
     def backward(d_sim, sgd=None):

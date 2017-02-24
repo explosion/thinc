@@ -10,6 +10,7 @@ from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
 from thinc.neural._classes.embed import Embed
 from thinc.neural._classes.difference import Siamese, WordMoversSimilarity, CauchySimilarity
+from thinc.neural.ops import CupyOps
 
 from thinc.api import layerize, with_flatten
 from thinc.api import add, chain, clone, concatenate, Arg
@@ -38,14 +39,14 @@ def track_progress(**context):
     return each_epoch
 
 
-def preprocess(ops, nlp, rows):
+def preprocess(ops, nlp, rows, get_ids):
     '''Parse the texts with spaCy. Make one-hot vectors for the labels.'''
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        Xs.append((get_ids([nlp(text1)])[0], get_ids([nlp(text2)])[0]))
         ys.append(label)
-    return Xs, ops.asarray(ys)
+    return Xs, ops.asarray(ys, dtype='f')
 
 
 def diff(layer):
@@ -114,8 +115,8 @@ def main(dataset='quora', width=64, depth=1, min_batch_size=128,
     print("Load spaCy")
     nlp = get_spacy('en')
 
-    if use_gpu:
-        Model.ops = CupyOps()
+    #if use_gpu:
+    #    Model.ops = CupyOps()
 
     print("Construct model")
     # Bind operators for the scope of the block:
@@ -131,8 +132,7 @@ def main(dataset='quora', width=64, depth=1, min_batch_size=128,
 
         embed = StaticVectors('en', width) #+ Embed(width, width, 5000)
         sent2mat = (
-            get_word_ids(Model.ops)
-            >> with_flatten(embed >> mwe_encode ** depth)
+            with_flatten(embed >> mwe_encode ** depth)
         )
         model = Siamese(sent2mat,
                     WordMoversSimilarity(Model.ops))
@@ -145,8 +145,10 @@ def main(dataset='quora', width=64, depth=1, min_batch_size=128,
         train, dev = datasets.snli()
     else:
         raise ValueError("Unknown dataset: %s" % dataset)
-    train_X, train_y = preprocess(model.ops, nlp, train)
-    dev_X, dev_y = preprocess(model.ops, nlp, dev)
+    get_ids = get_word_ids(Model.ops)
+    train_X, train_y = preprocess(model.ops, nlp, train, get_ids)
+    dev_X, dev_y = preprocess(model.ops, nlp, dev, get_ids)
+
     print("Initialize with data (LSUV)")
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
