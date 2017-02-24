@@ -93,8 +93,8 @@ def clone(orig, n):
     layers = [orig]
     for i in range(n-1):
         layers.append(copy.deepcopy(orig))
-        layers[-1].id = Model.id
         Model.id += 1
+        layers[-1].id = Model.id
     return FeedForward(layers)
 
 
