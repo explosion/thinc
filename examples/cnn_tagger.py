@@ -79,7 +79,7 @@ def main(width=128, depth=4, vector_length=64,
     with Model.define_operators({'**': clone, '>>': chain}):
         model = (
             layerize(flatten_sequences)
-            >> Embed(width, vector_length)
+            >> Embed(width, vector_length, 5000)
             >> (ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
             >> Softmax(nr_tag))
 
