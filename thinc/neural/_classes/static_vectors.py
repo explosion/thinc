@@ -23,7 +23,7 @@ def get_word_ids(ops, pad=1, token_drop=0.):
             arr = ops.allocate((len(doc)+pad,), dtype='uint64')
             mask = ops.get_dropout_mask(arr.shape, token_drop)
             for i, token in enumerate(doc):
-                if mask:
+                if mask is None or mask[i]:
                     arr[i] = token.lex_id or token.orth
                 else:
                     arr[i] = token.tag
