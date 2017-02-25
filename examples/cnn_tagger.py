@@ -15,6 +15,11 @@ from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
 
+try:
+    import cupy
+except ImportError:
+    cupy = None
+
 
 epoch_train_acc = 0.
 def track_progress(**context):
@@ -73,7 +78,9 @@ def main(width=128, depth=4, vector_length=64,
         dropout=0.9, dropout_decay=1e-4, nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
     print(cfg)
-    Model.ops = CupyOps()
+    if cupy is not None:
+        print("Using GPU")
+        Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     with Model.define_operators({'**': clone, '>>': chain}):
