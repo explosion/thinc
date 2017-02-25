@@ -85,11 +85,13 @@ class Adam(SGD):
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
-    
-    def __call__(self, weights, gradient, lr_scale=1., 
+
+    def __call__(self, weights, gradient, lr_scale=1.,
             key=None):
         assert key is not None
         assert len(gradient) >= 1
+        total = gradient.sum()
+        assert total < 0 or total >= 0, total
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
