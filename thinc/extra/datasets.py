@@ -149,7 +149,7 @@ def quora_questions(loc=None):
 
 
 THREE_LABELS = {'entailment': 2, 'contradiction': 1, 'neutral': 0}
-TWO_LABELS = {'entailment': 2, 'contradiction': 0, 'neutral': 0}
+TWO_LABELS = {'entailment': 1, 'contradiction': 0, 'neutral': 0}
 def snli(loc=None, ternary=False):
     label_scheme = THREE_LABELS if ternary else TWO_LABELS
     if loc is None:
