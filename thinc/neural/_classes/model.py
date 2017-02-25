@@ -66,8 +66,6 @@ class Model(object):
         raise NotImplementedError
 
     def __init__(self, *args, **kwargs):
-        Model.id += 1
-        self.id = Model.id
         self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
@@ -82,6 +80,7 @@ class Model(object):
             install(attr, self)
         for hook in self.on_init_hooks:
             hook(self, *args, **kwargs)
+        self.set_id()
 
     def _update_defaults(self, args, kwargs):
         new_kwargs = {}
@@ -91,6 +90,12 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
+
+    def set_id(self):
+        Model.id += 1
+        self.id = Model.id
+        for child in self._layers:
+            child.set_id()
 
     #@check.args(equal_length)
     @check.arg(1, is_sequence)

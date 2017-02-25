@@ -59,6 +59,7 @@ def with_getitem(idx, layer):
     def on_data(self, items, y):
         for hook in layer.on_data_hooks:
             hook(layer, items[idx], y)
+    model.on_data_hooks.append(on_data)
     return model
 
 
@@ -93,8 +94,7 @@ def clone(orig, n):
     layers = [orig]
     for i in range(n-1):
         layers.append(copy.deepcopy(orig))
-        Model.id += 1
-        layers[-1].id = Model.id
+        layers[-1].set_id()
     return FeedForward(layers)
 
 
