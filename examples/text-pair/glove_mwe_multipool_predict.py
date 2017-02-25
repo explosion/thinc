@@ -142,7 +142,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         # computed in parallel for every token in the batch.
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
 
-        embed = StaticVectors('en', width) + Embed(width, width, 5000)
+        embed = StaticVectors('en', width)# + Embed(width, width*2, 5000)
         # Comments indicate the output type and shape at each step of the pipeline.
         # * B: Number of sentences in the batch
         # * T: Total number of words in the batch
@@ -153,7 +153,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         # * floats: Standard dense vector.
         # (Dimensions annotated in curly braces.)
         sent2vec = ( # List[spacy.token.Doc]{B}
-            get_word_ids
+            get_word_ids(Model.ops)
             >> flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
                  embed
@@ -171,6 +171,11 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         train, dev = datasets.quora_questions()
     elif dataset == 'snli':
         train, dev = datasets.snli()
+    elif dataset in ('quora+snli', 'snli+quora'):
+        train, dev = datasets.quora_questions()
+        train2, dev2 = datasets.snli()
+        train.extend(train2)
+        dev.extend(dev2)
     else:
         raise ValueError("Unknown dataset: %s" % dataset)
     train_X, train_y = preprocess(model.ops, nlp, train)
