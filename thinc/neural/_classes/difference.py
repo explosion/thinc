@@ -106,8 +106,6 @@ def CauchySimilarity(ops, length):
             d_vec1 = d_diff
             d_vec2 = -d_diff
             sgd(weights.ravel(), d_weights.ravel(), key=id_)
-            assert len(d_vec1.shape) == 2
-            assert len(d_vec2.shape) == 2
             return (d_vec1, d_vec2)
         return sim, finish_update
     return layerize(begin_update)

@@ -1,6 +1,8 @@
 from __future__ import print_function, division
 import plac
 import numpy
+import time
+from timeit import default_timer as timer
 
 from thinc.neural.id2vec import Embed
 from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
@@ -21,14 +23,24 @@ def track_progress(**context):
     dev_y = model.ops.flatten(context['dev_y'])
     n_train = context['n_train']
     trainer = context['trainer']
+    n_dev = len(dev_y)
+    epoch_times = [timer()]
     def each_epoch():
         global epoch_train_acc
+        epoch_start = epoch_times[-1]
+        epoch_end = timer()
+        wps_train = n_train / (epoch_end-epoch_start)
+        dev_start = timer()
         acc = model.evaluate(dev_X, dev_y)
+        dev_end = timer()
+        wps_run = n_dev / (dev_end-dev_start)
         with model.use_params(trainer.optimizer.averages):
             avg_acc = model.evaluate(dev_X, dev_y)
-        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
-        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout,
+                 wps_train, wps_run)
+        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats)
         epoch_train_acc = 0.
+        epoch_times.append(timer())
     return each_epoch
 
 
