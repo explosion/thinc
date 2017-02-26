@@ -27,12 +27,12 @@ SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
 
 
-def ancora_pos_tags(): # pragma: no cover
+def ancora_pos_tags(encode_words=False): # pragma: no cover
     data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
-    return ud_pos_tags(train_loc, dev_loc)
+    return ud_pos_tags(train_loc, dev_loc, encode_words=encode_words)
 
 
 def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
