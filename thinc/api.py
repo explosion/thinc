@@ -128,6 +128,11 @@ def concatenate(*layers): # pragma: no cover
                 return None
         return output, finish_update
     layer = FunctionLayer(begin_update)
+    layer._layers = list(layers)
+    def on_data(self, X, y=None):
+        for layer in self._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
     return layer
 
 
