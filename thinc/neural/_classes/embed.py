@@ -26,7 +26,7 @@ def _uniform_init(lo, hi):
 
 
 def LSUVinit(model, X, y=None):
-    if model.vectors != None and model.W != None:
+    if model.vectors is not None and model.W is not None:
         do_lsuv(model.ops, model.W, model, X)
     return X
 
@@ -62,12 +62,15 @@ class Embed(Model):
     def __init__(self, nO, nM=None, nV=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.is_static = kwargs.get('is_static', False)
+        self.column = kwargs.get('column', 0)
         self.nO = nO
         self.nM = nM
         self.nV = nV
 
     #@check.arg(1, is_int_array)
     def predict(self, ids):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
         if len(ids) < 1000 or isinstance(self.ops, CupyOps):
             vectors = self._embed(ids)
             dotted = self.ops.batch_dot(vectors, self.W)
@@ -79,9 +82,13 @@ class Embed(Model):
         return output
 
     def begin_update(self, ids, drop=0.):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
+        mask = self.ops.get_dropout_mask(ids.shape[0], drop)
+        if mask is not None:
+            ids = ids * (mask > 0)
         vectors = self._embed(ids)
         dotted = self.ops.batch_dot(vectors, self.W)
-        #dotted, bp_dropout = self.ops.dropout(dotted, drop)
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if not self.is_static:
