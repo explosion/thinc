@@ -136,7 +136,7 @@ def concatenate(*layers): # pragma: no cover
     layer.on_data_hooks.append(on_data)
     return layer
 
-
+ 
 def add(layer1, layer2):
     def forward(X, drop=0.):
         out1, bp_out1 = layer1.begin_update(X, drop=drop)

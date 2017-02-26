@@ -7,7 +7,6 @@ except ImportError:
     get_array_module = lambda arr: numpy
 
 
-
 def Pooling(*funcs, **kwargs):
     ops = kwargs['ops'] if 'ops' in kwargs else funcs[0].ops
     F = len(funcs)

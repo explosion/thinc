@@ -54,7 +54,7 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         for word in words:
             freqs[word] += 1
     vocab = {word: i for i, (word, freq) in enumerate(freqs.most_common())
-             if (freq >= 10)}
+             if (freq >= 5)}
 
     def _encode(sents):
         X = []

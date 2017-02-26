@@ -9,7 +9,8 @@ from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
 from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
+from thinc.neural._classes.hash_embed import HashEmbed
+from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm
 
@@ -105,7 +106,6 @@ def debug(X, drop=0.):
         print(X.mean(), X.var())
     _i += 1
     return X, lambda d, sgd: d
-
 
 @plac.annotations(
     width=("Width of the hidden layers", "option", "w", int),

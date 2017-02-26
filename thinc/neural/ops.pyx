@@ -20,6 +20,7 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from murmurhash.mrmr cimport hash64
 
 
 try:
@@ -46,6 +47,31 @@ class Ops(object):
     def __init__(self, xp=None):
         if xp is not None:
             self.xp = xp
+
+    def dropout_sequences(self, X, dropout, inplace=False):
+        if dropout <= 0.0:
+            return X, lambda func: func
+        masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
+        def wrap_backprop(backprop):
+            def finish_update(gradient, *args, **kwargs):
+                masked = []
+                for i, mask in enumerate(masks):
+                    if inplace:
+                        gradient *= mask
+                        masked.append(gradient)
+                    else:
+                        masked.append(gradient * mask)
+                return backprop(masked, *args, **kwargs)
+            return finish_update
+        if inplace:
+            for i, mask in enumerate(masks):
+                X[i] *= mask
+            return X, wrap_backprop
+        else:
+            masked = []
+            for i, mask in enumerate(masks):
+                masked.append(X[i] * mask)
+            return masked, wrap_backprop
 
     def dropout(self, x, dropout, inplace=False):
         if dropout <= 0.0:
@@ -346,6 +372,15 @@ class NumpyOps(Ops):
         fill_random_bytes(arr, n)
         return output
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def hash(self, uint64_t[::1] ids, uint64_t seed):
+        cdef ndarray[uint64_t, ndim=1] keys = self.allocate(ids.size, dtype='uint64')
+        cdef int i
+        for i in range(ids.size):
+            keys[i] = hash64(&ids[i], sizeof(uint64_t), seed)
+        return keys
+
     def mean_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
@@ -402,8 +437,6 @@ class NumpyOps(Ops):
             &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
-
-
 
 
 @cython.cdivision(True)

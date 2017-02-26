@@ -30,7 +30,6 @@ def LSUVinit(model, X, y=None):
         do_lsuv(model.ops, model.W, model, X)
     return X
 
-
 @describe.on_data(LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
