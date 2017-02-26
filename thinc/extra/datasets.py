@@ -4,8 +4,17 @@ from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import csv # pragma: no cover
 import numpy
+from pathlib import Path
+import json
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
+from ..neural.util import partition
+from ..neural.util import to_categorical
+
+try:
+    basestring
+except NameError:
+    basestring = str
 
 
 GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
@@ -13,6 +22,9 @@ ANCORA_1_4_ZIP = '{github}/{ancora}/archive/r1.4.zip'.format(
     github=GITHUB, ancora='UD_Spanish-AnCora') # pragma: no cover
 EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
     github=GITHUB, ewtb='UD_English') # pragma: no cover
+
+SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
+QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
 
 
 def ancora_pos_tags(): # pragma: no cover
@@ -115,19 +127,51 @@ def reuters(): # pragma: no cover
     return (X_train, y_train), (X_test, y_test)
 
 
-def read_quora_tsv_data(loc):
+def quora_questions(loc=None):
+    if loc is None:
+        loc = get_file('quora_similarity.tsv', QUORA_QUESTIONS_URL)
+    if isinstance(loc, basestring):
+        loc = Path(loc)
     is_header = True
-    with loc.open('rb') as file_:
-        for row in csv.reader(file_, delimiter=b'\t'):
+    lines = []
+    with loc.open('r') as file_:
+        for row in csv.reader(file_, delimiter='\t'):
             if is_header:
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.decode('utf8').strip()
-            sent2 = sent2.decode('utf8').strip()
+            sent1 = sent1.strip()
+            sent2 = sent2.strip()
             if sent1 and sent2:
-                yield (sent1, sent2), int(is_duplicate)
+                lines.append(((sent1, sent2), int(is_duplicate)))
+    train, dev = partition(lines, 0.9)
+    return train, dev
 
+
+THREE_LABELS = {'entailment': 2, 'contradiction': 1, 'neutral': 0}
+TWO_LABELS = {'entailment': 2, 'contradiction': 0, 'neutral': 0}
+def snli(loc=None, ternary=False):
+    label_scheme = THREE_LABELS if ternary else TWO_LABELS
+    if loc is None:
+        loc = get_file('snli_1.0', SNLI_URL, unzip=True)
+    if isinstance(loc, basestring):
+        loc = Path(loc)
+
+    train = read_snli(Path(loc) / 'snli_1.0_train.jsonl', label_scheme)
+    dev = read_snli(Path(loc) / 'snli_1.0_dev.jsonl', label_scheme)
+    return train, dev
+
+
+def read_snli(loc, label_scheme):
+    rows = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            label = eg['gold_label']
+            if label == '-':
+                continue
+            rows.append(((eg['sentence1'], eg['sentence2']), label_scheme[label]))
+    return rows
 
 
 def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover

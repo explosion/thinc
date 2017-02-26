@@ -56,7 +56,7 @@ class BatchNorm(Model):
             d_G = self.d_G
             d_G += (gradient__BI * input__BI).sum(axis=0)
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return gradient__BI * self.G
         return input__BI * self.G + self.b, finish_update
 

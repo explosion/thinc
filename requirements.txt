@@ -9,7 +9,8 @@ tqdm>=4.10.0,<5.0.0
 cytoolz
 plac
 six
-flexmock
 mock
 termcolor
 wrapt
+dill
+pathlib>=1.0.0,<2.0.0

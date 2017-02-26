@@ -67,7 +67,7 @@ def process_pyx(fromfile, tofile):
 
     try:
         try:
-            r = subprocess.call(['cython'] + flags + ["-o", tofile, fromfile])
+            r = subprocess.call(['cython'] + flags + ["-o", tofile, fromfile], env=os.environ)
             if r != 0:
                 raise Exception('Cython failed')
         except OSError:
@@ -76,7 +76,7 @@ def process_pyx(fromfile, tofile):
             r = subprocess.call([sys.executable, '-c',
                                  'import sys; from Cython.Compiler.Main import '
                                  'setuptools_main as main; sys.exit(main())'] + flags +
-                                 ["-o", tofile, fromfile])
+                                 ["-o", tofile, fromfile], env=os.environ)
             if r != 0:
                 raise Exception('Cython failed')
     except OSError:

@@ -215,14 +215,15 @@ class Ops(object):
             decay = max_decay
         ema -= (1-decay) * (ema - weights)
 
-    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
+            learn_rate, mod_rate=1.):
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.-beta1)
         mom2 += gradient * gradient * (1.-beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
+        weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
     def clip_gradient(self, gradient, threshold):
@@ -380,12 +381,69 @@ class NumpyOps(Ops):
             keys[i] = hash64(&ids[i], sizeof(uint64_t), seed)
         return keys
 
+    def mean_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        means = <float*>mem.alloc(B * O, sizeof(float))
+
+        cpu_mean_pool(means,
+            &X[0, 0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(means, (B, O))
+
+    def backprop_mean_pool(self, float[:, ::1] d_means, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_means.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_mean_pool(dX,
+            &d_means[0,0], &lengths[0], B, T, O)
+
+        return cpu_floats_ptr2array(dX, (T, O))
+
+    def max_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        maxes = <float*>mem.alloc(B * O, sizeof(float))
+        which = <int*>mem.alloc(B * O, sizeof(int))
+
+        cpu_max_pool(maxes, which,
+            &X[0, 0], &lengths[0], B, T, O)
+
+        cdef ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
+        cdef ndarray py_which = cpu_ints_ptr2array(which, (B, O))
+        return py_best, py_which
+
+    def backprop_max_pool(self, float[:, ::1] d_maxes,
+            int[:, ::1] which, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_maxes.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_max_pool(dX,
+            &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
+
+        return cpu_floats_ptr2array(dX, (T, O))
+
 
 @cython.cdivision(True)
 cdef void _adam(
     weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate) nogil:
+        weight_t learn_rate, weight_t mod_rate) nogil:
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
@@ -400,7 +458,7 @@ cdef void _adam(
     # Here we assume this is calculated by the caller.
     #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+        weights[i] -= learn_rate * (mom1[i] / (mod_rate * sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
@@ -634,6 +692,17 @@ if cupy is not None:
         'float32 dX',
         'dX = (which[i/P] == i%P) ? best[i/P] : 0',
         'bp_maxout')
+    # 't2b' is a mapping from the T dimension (i.e. lengths.sum()) to
+    # the B dimension. It tells you which sequence the index is in.
+    gpu_backprop_max_pool = cupy.ElementwiseKernel(
+        ('raw float32 d_best, raw int32 which,'
+         'raw int32 lengths, raw int32 t2b, raw int32 O'),
+        'float32 dX',
+        '''
+        dX = (which[t2b[i/O]] == i % O) ? d_best[t2b[i/O]] : 0',
+        ''',
+        'bp_maxpool'
+    )
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
@@ -649,3 +718,80 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         gradient += numpy.asarray(
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
                        dtype='float32')
+
+
+
+cdef cpu_floats_ptr2array(const float* ptr, shape):
+    cdef ndarray py_out = numpy.zeros(shape, dtype='float32')
+    cdef int N = numpy.prod(shape)
+    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
+    return py_out
+
+
+cdef cpu_ints_ptr2array(const int* ptr, shape):
+    cdef ndarray py_out = numpy.zeros(shape, dtype='int32')
+    cdef int N = numpy.prod(shape)
+    memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
+    return py_out
+
+
+cdef void cpu_mean_pool(float* means__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute means of a batch of concatenated sequences, using the lengths.'''
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        scale = 1. / length
+        for _ in range(length):
+            VecVec.add_i(means__bo,
+                X__to, scale, O)
+            X__to += O
+        means__bo += O
+
+
+cdef void cpu_backprop_mean_pool(float* dX__to,
+        const float* d_means__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        scale = 1./ length
+        for _ in range(length):
+            VecVec.add_i(dX__to,
+                d_means__bo, scale, O)
+            dX__to += O
+        d_means__bo += O
+
+
+cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
+    cdef float scale = 0.
+    for length in lengths__b[:B]:
+        memcpy(maxes__bo, X__to, O * sizeof(maxes__bo[0]))
+        memset(which__bo, 0, O * sizeof(which__bo[0]))
+        X__to += O
+        for i in range(1, length):
+            for j in range(O):
+                if X__to[j] > maxes__bo[j]:
+                    maxes__bo[j] = X__to[j]
+                    which__bo[j] = i
+            X__to += O
+        maxes__bo += O
+        which__bo += O
+
+
+cdef void cpu_backprop_max_pool(float* dX__to,
+        const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    cdef int length, i, j
+    for length in lengths__b[:B]:
+        for i in range(length):
+            for j in range(O):
+                if which__bo[j] == i:
+                    dX__to[j] += d_maxes__bo[j]
+            dX__to += O
+        d_maxes__bo += O
+        which__bo += O
+
+

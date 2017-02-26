@@ -24,7 +24,6 @@ PACKAGES = [
     'thinc.neural',
     'thinc.extra',
     'thinc.neural._classes',
-    'thinc.linear.tests',
     'thinc.extra._vendorized'
 ]
 
@@ -73,7 +72,7 @@ def generate_cython(root, source):
     print('Cythonizing sources')
     p = subprocess.call([sys.executable,
                          os.path.join(root, 'bin', 'cythonize.py'),
-                         source])
+                         source], env=os.environ)
     if p != 0:
         raise RuntimeError('Running cythonize failed')
 
@@ -159,7 +158,8 @@ def setup_package():
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
-                'flexmock'
+                'dill',
+                'pathlib>=1.0.0,<2.0.0'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

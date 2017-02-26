@@ -1,3 +1,8 @@
+# cython: infer_types=True
+from cpython.mem cimport PyMem_Malloc, PyMem_Free, PyMem_Realloc
+from ..structs cimport SparseArrayC
+
+
 cdef class SparseArray:
     def __init__(self, int clas, weight_t value):
         self.c = SparseArray.init(clas, value)
@@ -24,3 +29,7 @@ cdef class SparseArray:
         while self.c[i].key >= 0:
             yield (self.c[i].key, self.c[i].val)
             i += 1
+
+    def __lshift__(SparseArray self, SparseArray other):
+        PyMem_Free(self.c)
+        self.c = SparseArray.clone(other.c)

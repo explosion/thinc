@@ -61,7 +61,7 @@ class Affine(Model):
             grad__BI = self.ops.batch_dot(grad__BO, self.W.T)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
-                    key=id(self._mem))
+                    key=self.id)
             return grad__BI
         output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
         return output__BO, bp_dropout(finish_update)

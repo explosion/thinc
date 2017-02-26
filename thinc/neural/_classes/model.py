@@ -1,3 +1,4 @@
+from __future__ import division
 from numpy import prod
 import contextlib
 
@@ -65,8 +66,6 @@ class Model(object):
         raise NotImplementedError
 
     def __init__(self, *args, **kwargs):
-        Model.id += 1
-        self.id = Model.id
         self.name = self.__class__.name
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
@@ -81,6 +80,7 @@ class Model(object):
             install(attr, self)
         for hook in self.on_init_hooks:
             hook(self, *args, **kwargs)
+        self.set_id()
 
     def _update_defaults(self, args, kwargs):
         new_kwargs = {}
@@ -90,6 +90,12 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
+
+    def set_id(self):
+        Model.id += 1
+        self.id = Model.id
+        for child in self._layers:
+            child.set_id()
 
     #@check.args(equal_length)
     @check.arg(1, is_sequence)
@@ -115,8 +121,8 @@ class Model(object):
     def use_params(self, params): # pragma: no cover
         backup = None
         weights = self._mem.weights
-        if id(self._mem) in params:
-            param = params[id(self._mem)]
+        if self.id in params:
+            param = params[self.id]
             backup = weights.copy()
             weights[:] = param
         if hasattr(self, '_layers'):
@@ -137,6 +143,18 @@ class Model(object):
         '''
         return self.predict(x)
 
+    def pipe(self, stream, batch_size=1000):
+        for batch in util.minibatch(stream, batch_size):
+            ys = self.predict(batch)
+            for y in ys:
+                yield y
+
+    def update(self, stream, batch_size=1000):
+        for X, y in util.minibatch(stream, batch_size=batch_size):
+            output, finish_update = self.begin_update(X)
+            gradient = finish_update(y)
+            yield gradient
+
     def evaluate(self, X, y):
         '''
         x
@@ -145,9 +163,13 @@ class Model(object):
         y
             Must match expected type
         '''
-        scores = self(X)
-        correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
-        return float(correct) / y.shape[0]
+        scores = self.ops.xp.vstack(self.pipe(X))
+        scores = scores.reshape(y.shape)
+        if len(scores.shape) == 1:
+            correct = ((scores >= 0.5) == (y >= 0.5)).sum()
+        else:
+            correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
+        return correct / y.shape[0]
 
     @check.operator_is_defined('+')
     def __add__(self, other):
@@ -219,20 +241,6 @@ class Model(object):
         '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
-
-##
-#    def pipe(self, stream, batch_size=1000):
-#        for batch in util.minibatch(stream, batch_size):
-#            ys = self.predict_batch(batch)
-#            for y in ys:
-#                yield y
-#
-#    def update(self, stream, batch_size=1000):
-#        for X, y in util.minibatch(stream, batch_size=batch_size):
-#            output, finish_update = self.begin_update(X)
-#            gradient = finish_update(y)
-#            yield gradient
-#
 #def list_gradients(self):
 #    pass
 #def check_input(self, x, expect_batch=False):

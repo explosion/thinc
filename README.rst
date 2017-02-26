@@ -31,8 +31,8 @@ structured input and variable-length sequences.
     :alt: pypi Version
    
 .. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg
-    :target: https://gitter.im/explosion/spaCy
-    :alt: spaCy / thinc on Gitter
+    :target: https://gitter.im/explosion/thinc
+    :alt: Thinc on Gitter
 
 .. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
     :target: https://twitter.com/explosion_ai

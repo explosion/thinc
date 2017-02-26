@@ -1,4 +1,4 @@
-from ..sparse import SparseArray
+from ...linear.sparse import SparseArray
 
 
 def test_init():
@@ -24,3 +24,14 @@ def test_setitem():
     assert sp[1] == 0.0
     assert sp[10] == 40.0
     assert sp[52] == 6.0
+
+def test_clone():
+    sp1 = SparseArray(10, 40.0)
+    sp2 = SparseArray(200, 2.)
+    sp1 << sp2
+    assert sp1[200] == 2.0
+    assert sp2[200] == 2.
+    sp1[2] = 2.
+    assert sp1[2] == 2.
+    assert 2 not in sp2
+ 

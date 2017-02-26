@@ -59,6 +59,6 @@ class Maxout(Model):
             # Bop,opi->Bi
             dX__bi = self.ops.xp.tensordot(dX__bop, self.W, axes=[[1,2], [0, 1]])
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=id(self._mem))
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dX__bi
         return best__bo, bp_dropout(finish_update)
