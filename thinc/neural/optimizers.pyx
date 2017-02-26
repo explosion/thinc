@@ -155,8 +155,8 @@ class Eve(object):
         self.loss = loss
 
     def _get_loss_ch_fact(self, loss, loss_prev):
-        lbound = 1+self.thl if loss > loss_prev else 1/(1+self.thu)
-        ubound = 1+self.thu if loss > loss_prev else 1/(1+self.thl)
+        lbound = (1+self.thl) if loss > loss_prev else (1/(1+self.thu))
+        ubound = (1+self.thu) if loss > loss_prev else (1/(1+self.thl))
         return min(ubound, max(lbound, loss / loss_prev))
 
 
