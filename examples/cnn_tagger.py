@@ -45,6 +45,24 @@ def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True)
     return layerize(forward)
 
 
+def Residual(layer):
+    def forward(X, drop=0.):
+        y, bp_y = layer.begin_update(X, drop=drop)
+        output = X+y
+        def backward(d_output, sgd=None):
+            return d_output + bp_y(d_output, sgd)
+        return output, backward
+    model = layerize(forward)
+    model._layers.append(layer)
+    print("Residual", model.id, layer.id)
+    def on_data(self, X, y=None):
+        for layer in self._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
+    model.on_data_hooks.append(on_data)
+    return model
+
+
 epoch_train_acc = 0.
 def track_progress(**context):
     model = context['model']
@@ -113,15 +131,14 @@ def main(width=64, depth=2, vector_length=64,
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
                                  '|': concatenate}):
-        lower_case = Embed(width, vector_length, 10000, column=0)
-        prefix     = Embed(width, 16, 5000, column=2)
-        suffix     = Embed(width, 16, 5000, column=3)
+        lower_case = Embed(width, vector_length, 5000, column=0)
+        prefix     = Embed(width, vector_length, 5000, column=2)
+        suffix     = Embed(width, vector_length, 5000, column=3)
 
         model = (
             layerize(flatten_sequences)
-            #>> (lower_case + ((prefix | suffix) >> Maxout(width, pieces=3)))
             >> (lower_case + prefix + suffix)
-            >> (ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
+            >> Residual(ExtractWindow(nW=1) >> Maxout(width)) ** depth
             >> Softmax(nr_tag))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
