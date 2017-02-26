@@ -142,15 +142,19 @@ class Eve(object):
             self.loss_hat = loss
             self.loss = loss
             return
+        loss += 1e-4
 
         prev_loss = self.loss
         prev_loss_hat = self.loss_hat
         loss_ch_fact = self._get_loss_ch_fact(loss, prev_loss)
 
-        loss_hat = loss_ch_fact * prev_loss_hat
+        loss_hat = (loss_ch_fact * prev_loss_hat) + 1e-4
 
         r = abs(loss_hat - prev_loss_hat) / min(loss_hat, prev_loss_hat)
         self.d = (self.b3 * self.d) + (1-self.b3) * r
+        if self.d >= 100:
+            print(self.d, locals())
+            raise ValueError("Learning-rate adjustment exploded")
         self.loss_hat = loss_hat
         self.loss = loss
 
