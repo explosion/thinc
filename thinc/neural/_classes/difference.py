@@ -58,7 +58,7 @@ def CauchySimilarity(ops, length):
             d_diff = 2 * d_square_diff * diff
             d_vec1 = d_diff
             d_vec2 = -d_diff
-            sgd(weights.ravel(), d_weights.ravel(), key=-id_)
+            sgd(weights.ravel(), d_weights.ravel(), key=id_)
             return (d_vec1, d_vec2)
         return sim, finish_update
     return layerize(begin_update)
