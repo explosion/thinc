@@ -18,7 +18,6 @@ from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy, get_vectors
 
 
-
 epoch_train_acc = 0.
 def track_progress(**context):
     '''Print training progress. Called after each epoch.'''
@@ -44,7 +43,15 @@ def preprocess(ops, nlp, rows):
     Xs = []
     ys = []
     for (text1, text2), label in rows:
-        Xs.append((nlp(text1), nlp(text2)))
+        doc1 = nlp(text1.lower())
+        doc2 = nlp(text2.lower())
+        #tokens1 = [token for token in doc1
+        #           if not token.is_punct
+        #           and not token.is_space]
+        #tokens2 = [token for token in doc2
+        #           if not token.is_punct
+        #           and not token.is_space]
+        Xs.append((doc1, doc2))
         ys.append(label)
     return Xs, ops.asarray(ys)
 
@@ -93,8 +100,8 @@ def diff(layer):
     quiet=("Don't print the progress bar", "flag", "q"),
     pooling=("Which pooling to use", "option", "P", str)
 )
-def main(dataset='quora', width=128, depth=2, min_batch_size=128,
-        max_batch_size=128, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
+def main(dataset='quora', width=64, depth=2, min_batch_size=1,
+        max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
     cfg = dict(locals())
     if out_loc:
@@ -163,7 +170,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             # We may as well have both representations.
             >> pool_layer # : floats{B, 2*W}
         )
-        model = Siamese(sent2vec, CauchySimilarity(Model.ops, 2*width))
+        model = Siamese(sent2vec, CauchySimilarity(Model.ops, width*2))
 
 
     print("Read and parse data: %s" % dataset)
@@ -171,6 +178,8 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
         train, dev = datasets.quora_questions()
     elif dataset == 'snli':
         train, dev = datasets.snli()
+    elif dataset == 'stackxc':
+        train, dev = datasets.stack_exchange()
     elif dataset in ('quora+snli', 'snli+quora'):
         train, dev = datasets.quora_questions()
         train2, dev2 = datasets.snli()
@@ -197,6 +206,7 @@ def main(dataset='quora', width=128, depth=2, min_batch_size=128,
             # Hardly a hardship, and it means we don't have to create/maintain
             # a computational graph. We just use closures.
 
+            assert (yh >= 0.).all()
             train_acc = ((yh>=0.5) == (y>=0.5)).sum()
             epoch_train_acc += train_acc
 
