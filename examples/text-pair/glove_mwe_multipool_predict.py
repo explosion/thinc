@@ -10,6 +10,7 @@ from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
 from thinc.neural._classes.embed import Embed
 from thinc.neural._classes.difference import Siamese, CauchySimilarity
+from thinc.neural.util import to_categorical
 
 from thinc.api import layerize, flatten_add_lengths, with_getitem
 from thinc.api import add, chain, clone, concatenate, Arg
@@ -53,36 +54,7 @@ def preprocess(ops, nlp, rows):
         #           and not token.is_space]
         Xs.append((doc1, doc2))
         ys.append(label)
-    return Xs, ops.asarray(ys)
-
-
-def diff(layer):
-    ops = layer.ops
-    def forward(inputs, drop=0.):
-        inputs1, inputs2 = zip(*inputs)
-        X1, bp_X1 = layer.begin_update(inputs1, drop=drop)
-        X2, bp_X2 = layer.begin_update(inputs2, drop=drop)
-        piece1 = X1 - X2
-        piece2 = X1 * X2
-        output = ops.xp.hstack((piece1, piece2))
-        output = piece2
-
-        def backward(d_output, sgd=None):
-            assert d_output.shape == output.shape
-            d_piece1 = d_output[:, :X1.shape[1]]
-            d_piece2 = d_output[:, X2.shape[1]:]
-            d_X1 = (d_piece2 * X2) + d_piece1
-            d_X2 = (d_piece2 * X1) - d_piece1
-            d_input1 = bp_X1(d_X1, sgd)
-            d_input2 = bp_X2(d_X2, sgd)
-            if d_input1 and d_input2:
-                return zip(d_input1, d_input2)
-            else:
-                return None
-        return output, backward
-    model = layerize(forward)
-    model._layers.append(layer)
-    return model
+    return Xs, to_categorical(ops.asarray(ys, dtype='float32'))
 
 
 @plac.annotations(
@@ -170,8 +142,11 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
             # We may as well have both representations.
             >> pool_layer # : floats{B, 2*W}
         )
-        model = Siamese(sent2vec, CauchySimilarity(Model.ops, width*2))
-
+        model = (
+            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))
+            >> Maxout(width, piees=pieces)
+            >> Softmax(2)
+        )
 
     print("Read and parse data: %s" % dataset)
     if dataset == 'quora':
@@ -190,6 +165,7 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
     train_X, train_y = preprocess(model.ops, nlp, train)
     dev_X, dev_y = preprocess(model.ops, nlp, dev)
     print("Initialize with data (LSUV)")
+    print(dev_y.shape)
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
@@ -202,12 +178,13 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
         for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            assert yh.shape == y.shape, (yh.shape, y.shape)
             # No auto-diff: Just get a callback and pass the data through.
             # Hardly a hardship, and it means we don't have to create/maintain
             # a computational graph. We just use closures.
 
             assert (yh >= 0.).all()
-            train_acc = ((yh>=0.5) == (y>=0.5)).sum()
+            train_acc = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
             epoch_train_acc += train_acc
 
             backprop(yh-y, optimizer)
