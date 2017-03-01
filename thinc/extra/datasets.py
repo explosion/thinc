@@ -162,6 +162,18 @@ def snli(loc=None, ternary=False):
     return train, dev
 
 
+def stack_exchange(loc=None):
+    if loc is None:
+        raise ValueError("No default path for Stack Exchange yet")
+    rows = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            rows.append(((eg['text1'], eg['text2']), int(eg['label'])))
+    train, dev = partition(rows, 0.7)
+    return train, dev
+
+
 def read_snli(loc, label_scheme):
     rows = []
     with loc.open() as file_:
