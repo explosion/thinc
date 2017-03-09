@@ -83,7 +83,15 @@ cdef class AveragedPerceptron:
         cdef size_t feat_addr
         for i, (key, feat_addr) in enumerate(self.weights.items()):
             if feat_addr != 0:
-                writer.write(key, <SparseArrayC*>feat_addr)
+                W = <SparseArrayC*>feat_addr
+                seen_non_zero = False
+                while W.key >= 0:
+                    if W.val != 0:
+                        seen_non_zero = True
+                        break
+                    W += 1
+                if seen_non_zero:
+                    writer.write(key, <SparseArrayC*>feat_addr)
             if i % 1000 == 0:
                 PyErr_CheckSignals()
         writer.close()
@@ -99,11 +107,13 @@ cdef class AveragedPerceptron:
             if i % 1000 == 0:
                 PyErr_CheckSignals()
             i += 1
-    
+
     def apply_owed_L1(self):
         cdef size_t feat_addr
         cdef feat_t feat_id
         u = self.time * self.learn_rate * self.l1_penalty
+        if u == 0:
+            return
         for feat_id, feat_addr in self.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
@@ -111,7 +121,7 @@ cdef class AveragedPerceptron:
                 l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
                 l1_paid += group_lasso(feat.curr, l1_paid, u)
                 self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
- 
+
     def end_training(self):
         cdef size_t feat_addr
         self.apply_owed_L1()
@@ -122,6 +132,7 @@ cdef class AveragedPerceptron:
                 W = feat.curr
                 avg = feat.avgs
                 while W.key >= 0:
+                    avg_i = SparseArray.find_key(avg, W.key)
                     if W.val != 0:
                         W.val = avg.val / (self.time+1)
                     W += 1
@@ -131,6 +142,8 @@ cdef class AveragedPerceptron:
         cdef feat_t feat_id
         cdef size_t feat_addr
         for i, (feat_id, feat_addr) in enumerate(self.weights.items()):
+            if feat_addr == 0:
+                continue
             train_feat = <SparseAverageC*>self.averages.get(feat_id)
             if train_feat == NULL:
                 train_feat = <SparseAverageC*>PyMem_Malloc(sizeof(SparseAverageC))
@@ -143,7 +156,7 @@ cdef class AveragedPerceptron:
                 train_feat.avgs = SparseArray.clone(weights)
                 train_feat.times = SparseArray.clone(weights)
                 self.averages.set(feat_id, train_feat)
-   
+
     @property
     def L1(self):
         cdef long double l1 = 0.0
@@ -172,7 +185,7 @@ cdef class AveragedPerceptron:
                     break
                 feat += 1
         return n
- 
+
     @property
     def nr_weight(self):
         n = 0
@@ -186,7 +199,7 @@ cdef class AveragedPerceptron:
                     n += 1
                 feat += 1
         return n
-    
+
     @property
     def nr_feat(self):
         return self.extracter.nr_templ
@@ -198,7 +211,7 @@ cdef class AveragedPerceptron:
         # * weights_table: ~9 million entries
         # * n_feats: ~200
         # * scores: ~80 classes
-        # 
+        #
         # I think the bottle-neck is actually reading the weights from main memory.
         cdef const MapStruct* weights_table = self.weights.c_map
         cdef int i
@@ -220,12 +233,12 @@ cdef class AveragedPerceptron:
             for feat in eg.features[:eg.nr_feat]:
                 self.update_weight(feat.key, best,  -feat.value * eg.costs[guess])
                 self.update_weight(feat.key, guess, feat.value * eg.costs[guess])
-    
+
     cpdef int update_weight(self, feat_t feat_id, class_t clas,
             weight_t grad) except -1:
         if grad == 0:
             return 0
-        if len(self.averages) < len(self.weights):
+        if len(self.averages) == 0 and len(self.weights) != 0:
             self.resume_training()
         feat = <SparseAverageC*>self.averages.get(feat_id)
         if feat == NULL:
@@ -238,7 +251,7 @@ cdef class AveragedPerceptron:
             feat.times = SparseArray.init(clas, <weight_t>self.time)
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
-        else:  
+        else:
             i = SparseArray.find_key(feat.curr, clas)
             if i < 0:
                 feat.curr = SparseArray.resize(feat.curr)
@@ -248,8 +261,9 @@ cdef class AveragedPerceptron:
                 i = SparseArray.find_key(feat.curr, clas)
             feat.curr[i].key = clas
             feat.avgs[i].key = clas
+            feat.times[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
-            feat.avgs[i].val -= (self.time - feat.times[i].val) * feat.curr[i].val
+            feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
             feat.curr[i].val -= grad
             feat.times[i].val = self.time
 
@@ -271,7 +285,7 @@ cdef class AveragedPerceptron:
             self.averages.set(feat_id, feat)
             self.weights.set(feat_id, feat.curr)
             i = 0
-        else:  
+        else:
             i = SparseArray.find_key(feat.curr, clas)
             if i < 0:
                 feat.curr = SparseArray.resize(feat.curr)
@@ -289,10 +303,10 @@ cdef class AveragedPerceptron:
             # Apply the last round of updates, multiplied by the time unchanged
             update_averages(feat, self.time)
         adam_update(&feat.curr[i].val, &feat.mom1[i].val, &feat.mom2[i].val,
-            self.time, feat.times[i].val, grad, self.learn_rate, self.momentum) 
+            self.time, feat.times[i].val, grad, self.learn_rate, self.momentum)
         feat.times[i].val = self.time
         # Apply cumulative L1 penalty, from here:
-        # http://www.aclweb.org/anthology/P09-1054 
+        # http://www.aclweb.org/anthology/P09-1054
         l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
         l1_total = self.time * self.learn_rate * self.l1_penalty
         l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
@@ -311,10 +325,10 @@ cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
 
      # Estimate the number of updates, using time from last update
      nr_update = (t * (last_upd / t)) + 1
-     
+
      m1t = m1[0] / (1-beta1**nr_update)
      m2t = m2[0] / (1-beta2**nr_update)
-    
+
      w[0] -= learn_rate * m1t / (sqrt(m2t) + eps)
 
 
@@ -323,9 +337,10 @@ cdef void update_averages(SparseAverageC* feat, weight_t time) nogil:
     avg = feat.avgs
     times = feat.times
     while W.key >= 0:
-        unchanged = time - times.val
-        avg.val += unchanged * W.val
-        times.val = time
+        if W.key == avg.key == times.key:
+            unchanged = time - times.val
+            avg.val += unchanged * W.val
+            times.val = time
         W += 1
         times += 1
         avg += 1
