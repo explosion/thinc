@@ -27,12 +27,12 @@ SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
 
 
-def ancora_pos_tags(): # pragma: no cover
+def ancora_pos_tags(encode_words=False): # pragma: no cover
     data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
-    return ud_pos_tags(train_loc, dev_loc)
+    return ud_pos_tags(train_loc, dev_loc, encode_words=encode_words)
 
 
 def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
@@ -54,7 +54,7 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         for word in words:
             freqs[word] += 1
     vocab = {word: i for i, (word, freq) in enumerate(freqs.most_common())
-             if (freq >= 10)}
+             if (freq >= 5)}
 
     def _encode(sents):
         X = []
@@ -134,14 +134,14 @@ def quora_questions(loc=None):
         loc = Path(loc)
     is_header = True
     lines = []
-    with loc.open('rb') as file_:
-        for row in csv.reader(file_, delimiter=b'\t'):
+    with loc.open('r') as file_:
+        for row in csv.reader(file_, delimiter='\t'):
             if is_header:
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.decode('utf8').strip()
-            sent2 = sent2.decode('utf8').strip()
+            sent1 = sent1.strip()
+            sent2 = sent2.strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
     train, dev = partition(lines, 0.9)

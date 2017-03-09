@@ -97,7 +97,7 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
             return X
         agrad = layer._mem.gradient.copy()
         ngrad = get_numeric_gradient(predict, layer._mem.weights.size, truth)
-        assert_allclose(agrad, ngrad, atol=0.1, rtol=0.1)
+        assert_allclose(agrad, ngrad, atol=0.2, rtol=0.2)
 
 
 def get_numeric_gradient(predict, n, target):

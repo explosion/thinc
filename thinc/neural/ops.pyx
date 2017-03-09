@@ -20,6 +20,7 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from murmurhash.mrmr cimport hash64
 
 
 try:
@@ -46,6 +47,31 @@ class Ops(object):
     def __init__(self, xp=None):
         if xp is not None:
             self.xp = xp
+
+    def dropout_sequences(self, X, dropout, inplace=False):
+        if dropout <= 0.0:
+            return X, lambda func: func
+        masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
+        def wrap_backprop(backprop):
+            def finish_update(gradient, *args, **kwargs):
+                masked = []
+                for i, mask in enumerate(masks):
+                    if inplace:
+                        gradient *= mask
+                        masked.append(gradient)
+                    else:
+                        masked.append(gradient * mask)
+                return backprop(masked, *args, **kwargs)
+            return finish_update
+        if inplace:
+            for i, mask in enumerate(masks):
+                X[i] *= mask
+            return X, wrap_backprop
+        else:
+            masked = []
+            for i, mask in enumerate(masks):
+                masked.append(X[i] * mask)
+            return masked, wrap_backprop
 
     def dropout(self, x, dropout, inplace=False):
         if dropout <= 0.0:
@@ -189,14 +215,15 @@ class Ops(object):
             decay = max_decay
         ema -= (1-decay) * (ema - weights)
 
-    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate):
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
+            learn_rate, mod_rate=1.):
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.-beta1)
         mom2 += gradient * gradient * (1.-beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        weights -= learn_rate * (mom1 / (self.xp.sqrt(mom2) + eps))
+        weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
     def clip_gradient(self, gradient, threshold):
@@ -345,6 +372,15 @@ class NumpyOps(Ops):
         fill_random_bytes(arr, n)
         return output
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def hash(self, uint64_t[::1] ids, uint64_t seed):
+        cdef ndarray[uint64_t, ndim=1] keys = self.allocate(ids.size, dtype='uint64')
+        cdef int i
+        for i in range(ids.size):
+            keys[i] = hash64(&ids[i], sizeof(uint64_t), seed)
+        return keys
+
     def mean_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
@@ -403,13 +439,11 @@ class NumpyOps(Ops):
         return cpu_floats_ptr2array(dX, (T, O))
 
 
-
-
 @cython.cdivision(True)
 cdef void _adam(
     weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate) nogil:
+        weight_t learn_rate, weight_t mod_rate) nogil:
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
@@ -424,7 +458,7 @@ cdef void _adam(
     # Here we assume this is calculated by the caller.
     #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+        weights[i] -= learn_rate * (mom1[i] / (mod_rate * sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 

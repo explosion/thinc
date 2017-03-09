@@ -14,19 +14,26 @@ except ImportError:
     cupy = None
 
 
-@layerize
-def get_word_ids(docs, drop=0.):
-    '''Get word forms.'''
-    seqs = []
-    ops = Model.ops
-    for doc in docs:
-        arr = numpy.zeros((len(doc)+1,), dtype='uint64')
-        for token in doc:
-            arr[token.i] = token.lex_id or token.orth
-        arr[len(doc)] = 0
-        seqs.append(ops.asarray(arr))
-    return seqs, None
-
+def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
+    def get_word_ids(docs, drop=0.):
+        '''Get word forms.'''
+        seqs = []
+        ops = Model.ops
+        for doc in docs:
+            if ignore is not None:
+                doc = [token for token in doc if not ignore(token)]
+            arr = ops.allocate((len(doc)+pad,), dtype='uint64')
+            mask = ops.get_dropout_mask(arr.shape, token_drop)
+            for i, token in enumerate(doc):
+                if mask is None or mask[i]:
+                    arr[i] = token.lex_id or token.orth
+                else:
+                    arr[i] = token.tag
+            for i in range(len(doc), len(doc)+pad):
+                arr[i] = 0
+            seqs.append(ops.asarray(arr))
+        return seqs, None
+    return layerize(get_word_ids)
 
 
 @describe.on_data(LSUVinit)
@@ -41,7 +48,7 @@ def get_word_ids(docs, drop=0.):
 )
 class StaticVectors(Model):
     '''Load a static embedding table, and learn a linear projection from it.
-    
+
     Out-of-vocabulary items are modded into the table, receiving an arbitrary
     vector (but the same word will always receive the same vector).
     '''

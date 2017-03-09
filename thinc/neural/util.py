@@ -82,11 +82,17 @@ def partition(examples, split_size): # pragma: no cover
 
 
 def minibatch(stream, batch_size=1000): # pragma: no cover
-    batch = []
-    for X in stream:
-        batch.append(X)
-        if len(batch) >= batch_size:
+    if hasattr(stream, '__len__') and hasattr(stream, '__getitem__'):
+        i = 0
+        while i < len(stream):
+            yield stream[i : i + batch_size]
+            i += batch_size
+    else:
+        batch = []
+        for X in stream:
+            batch.append(X)
+            if len(batch) >= batch_size:
+                yield batch
+                batch = []
+        if len(batch) != 0:
             yield batch
-            batch = []
-    if len(batch) != 0:
-        yield batch

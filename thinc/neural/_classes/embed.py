@@ -30,8 +30,7 @@ def LSUVinit(model, X, y=None):
         do_lsuv(model.ops, model.W, model, X)
     return X
 
-
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+@describe.on_data(LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
     nV=Dimension("Number of vectors"),
@@ -62,36 +61,43 @@ class Embed(Model):
     def __init__(self, nO, nM=None, nV=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.is_static = kwargs.get('is_static', False)
+        self.column = kwargs.get('column', 0)
         self.nO = nO
         self.nM = nM
         self.nV = nV
 
     #@check.arg(1, is_int_array)
     def predict(self, ids):
-        #if len(ids) < 1000 or isinstance(self.ops, CupyOps):
-        vectors = self._embed(ids)
-        dotted = self.ops.batch_dot(vectors, self.W)
-        return dotted
-        #uniques, positions = self._unique_ids(ids)
-        #vectors = self._embed(uniques)
-        #dotted_uniq = self.ops.batch_dot(vectors, self.W)
-        #output = self.ops.allocate((len(ids), self.nO))
-        #for i, id_ in enumerate(uniques):
-        #    for j in positions[id_]:
-        #        output[j] = dotted_uniq[i]
-        #return output
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
+        if len(ids) < 1000 or isinstance(self.ops, CupyOps):
+            vectors = self._embed(ids)
+            dotted = self.ops.batch_dot(vectors, self.W)
+            return dotted
+        uniques, positions = self.ops.xp.unique(ids, return_inverse=True)
+        vectors = self._embed(uniques)
+        dotted_uniq = self.ops.batch_dot(vectors, self.W)
+        output = dotted_uniq[positions]
+        return output
 
     def begin_update(self, ids, drop=0.):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
+        mask = self.ops.get_dropout_mask(ids.shape[0], drop)
+        if mask is not None:
+            ids = ids * (mask > 0)
         vectors = self._embed(ids)
         dotted = self.ops.batch_dot(vectors, self.W)
-        #dotted, bp_dropout = self.ops.dropout(dotted, drop)
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if not self.is_static:
                 gradients = self.ops.batch_dot(gradients, self.W.T)
                 d_vectors = self.d_vectors
                 n_vectors = d_vectors.shape[0]
-                self.ops.xp.add.at(d_vectors, ids * (ids < self.nV), gradients)
+                if hasattr(self.ops.xp, 'scatter_add'):
+                    self.ops.xp.scatter_add(d_vectors, ids % self.nV, gradients)
+                else:
+                    self.ops.xp.add.at(d_vectors, ids % self.nV, gradients)
             if sgd is not None:
                 if self.is_static:
                     sgd(self.W.ravel(), self.d_W.ravel(), key=self.id)
@@ -117,4 +123,4 @@ class Embed(Model):
 
     def _embed(self, ids):
         vectors = self.vectors
-        return vectors[ids * (ids < self.nV)]
+        return vectors[ids % self.nV]
