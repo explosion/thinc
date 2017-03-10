@@ -117,10 +117,12 @@ cdef class AveragedPerceptron:
         for feat_id, feat_addr in self.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
-                update_averages(feat, self.time)
-                l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
-                l1_paid += group_lasso(feat.curr, l1_paid, u)
-                self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
+                apply_L1(feat.curr, feat.penalties,
+                    self.time * self.learn_rate * self.l1_penalty)
+                #update_averages(feat, self.time)
+                #l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
+                #l1_paid += group_lasso(feat.curr, l1_paid, u)
+                #self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
 
     def end_training(self):
         cdef size_t feat_addr
@@ -280,6 +282,7 @@ cdef class AveragedPerceptron:
             feat.curr  = SparseArray.init(clas, 0)
             feat.mom1  = SparseArray.init(clas, 0)
             feat.mom2  = SparseArray.init(clas, 0)
+            feat.penalties  = SparseArray.init(clas, 0)
             feat.avgs  = SparseArray.init(clas, 0)
             feat.times = SparseArray.init(clas, 0)
             self.averages.set(feat_id, feat)
@@ -292,6 +295,7 @@ cdef class AveragedPerceptron:
                 feat.mom1 = SparseArray.resize(feat.mom1)
                 feat.mom2 = SparseArray.resize(feat.mom2)
                 feat.avgs = SparseArray.resize(feat.avgs)
+                feat.penalties = SparseArray.resize(feat.penalties)
                 feat.times = SparseArray.resize(feat.times)
                 self.weights.set(feat_id, feat.curr)
                 i = SparseArray.find_key(feat.curr, clas)
@@ -299,6 +303,7 @@ cdef class AveragedPerceptron:
             feat.mom1[i].key = clas
             feat.mom2[i].key = clas
             feat.avgs[i].key = clas
+            feat.penalties[i].key = clas
             feat.times[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
             update_averages(feat, self.time)
@@ -307,10 +312,13 @@ cdef class AveragedPerceptron:
         feat.times[i].val = self.time
         # Apply cumulative L1 penalty, from here:
         # http://www.aclweb.org/anthology/P09-1054
-        l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
-        l1_total = self.time * self.learn_rate * self.l1_penalty
-        l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
-        self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
+        apply_L1(feat.curr, feat.penalties,
+            self.time * self.learn_rate * self.l1_penalty)
+        # Group lasso
+        #l1_paid = <weight_t><size_t>self.lasso_ledger.get(feat_id)
+        #l1_total = self.time * self.learn_rate * self.l1_penalty
+        #l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
+        #self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
 
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
@@ -344,6 +352,20 @@ cdef void update_averages(SparseAverageC* feat, weight_t time) nogil:
         W += 1
         times += 1
         avg += 1
+
+
+cdef int apply_L1(SparseArrayC* W, SparseArrayC* ledger, weight_t total_penalty) nogil:
+    while W.key >= 0:
+        u = total_penalty
+        z = W.val
+        q = ledger.val
+        if z > 0:
+            W.val = max(0, z-(u+q))
+        elif z < 0:
+            W.val = min(0, z+(u-q))
+        ledger.val += W.val - z
+        W += 1
+        ledger += 1
 
 
 cdef weight_t group_lasso(SparseArrayC* weights, weight_t penalty_paid,
