@@ -252,6 +252,9 @@ cdef class AveragedPerceptron:
             feat.avgs  = SparseArray.init(clas, 0)
             feat.times = SparseArray.init(clas, <weight_t>self.time)
             self.averages.set(feat_id, feat)
+            feat.mom1 = NULL
+            feat.mom2 = NULL
+            feat.penalties = NULL
             self.weights.set(feat_id, feat.curr)
         else:
             i = SparseArray.find_key(feat.curr, clas)
@@ -306,7 +309,7 @@ cdef class AveragedPerceptron:
             feat.penalties[i].key = clas
             feat.times[i].key = clas
             # Apply the last round of updates, multiplied by the time unchanged
-            update_averages(feat, self.time)
+            feat.avgs[i].val += (self.time - feat.times[i].val) * feat.curr[i].val
         adam_update(&feat.curr[i].val, &feat.mom1[i].val, &feat.mom2[i].val,
             self.time, feat.times[i].val, grad, self.learn_rate, self.momentum)
         feat.times[i].val = self.time
@@ -355,6 +358,8 @@ cdef void update_averages(SparseAverageC* feat, weight_t time) nogil:
 
 
 cdef int apply_L1(SparseArrayC* W, SparseArrayC* ledger, weight_t total_penalty) nogil:
+    if ledger is NULL:
+        return 0
     while W.key >= 0:
         u = total_penalty
         z = W.val

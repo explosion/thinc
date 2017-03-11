@@ -40,9 +40,9 @@ cdef class Writer:
         cdef int i = 0
         cdef int32_t n_non_zero = 0
         while feat[i].key >= 0:
-            i += 1
             if feat[i].val != 0:
                 n_non_zero += 1
+            i += 1
         cdef int32_t length = i
 
         _write(&feat_id, sizeof(feat_id), 1, self._fp)
