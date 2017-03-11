@@ -94,8 +94,8 @@ class Model(object):
     def set_id(self):
         Model.id += 1
         self.id = Model.id
-        for child in self._layers:
-            child.set_id()
+        for layer in self._layers:
+            layer.set_id()
 
     #@check.args(equal_length)
     @check.arg(1, is_sequence)

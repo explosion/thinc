@@ -195,7 +195,7 @@ def sink_return(func, sink, splitter=None): # pragma: no cover
 def Arg(i):
     @layerize
     def begin_update(batched_inputs, drop=0.):
-        inputs = zip(*batched_inputs)
+        inputs = list(zip(*batched_inputs))
         return inputs[i], None
     return begin_update
 

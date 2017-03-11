@@ -149,7 +149,7 @@ def quora_questions(loc=None):
 
 
 THREE_LABELS = {'entailment': 2, 'contradiction': 1, 'neutral': 0}
-TWO_LABELS = {'entailment': 2, 'contradiction': 0, 'neutral': 0}
+TWO_LABELS = {'entailment': 1, 'contradiction': 0, 'neutral': 0}
 def snli(loc=None, ternary=False):
     label_scheme = THREE_LABELS if ternary else TWO_LABELS
     if loc is None:
@@ -159,6 +159,18 @@ def snli(loc=None, ternary=False):
 
     train = read_snli(Path(loc) / 'snli_1.0_train.jsonl', label_scheme)
     dev = read_snli(Path(loc) / 'snli_1.0_dev.jsonl', label_scheme)
+    return train, dev
+
+
+def stack_exchange(loc=None):
+    if loc is None:
+        raise ValueError("No default path for Stack Exchange yet")
+    rows = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            rows.append(((eg['text1'], eg['text2']), int(eg['label'])))
+    train, dev = partition(rows, 0.7)
     return train, dev
 
 
