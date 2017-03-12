@@ -16,8 +16,6 @@ def preprocess(ops, keys):
 
 def main():
     train, dev = datasets.imdb()
-    train = train[:5000]
-    dev = dev[:5000]
     train_X, train_y = zip(*train)
     dev_X, dev_y = zip(*dev)
     model = LinearModel(2)
@@ -29,16 +27,20 @@ def main():
                for doc in nlp.pipe(train_X)]
     dev_X = [model.ops.asarray([tok.orth for tok in doc], dtype='uint64')
                for doc in nlp.pipe(dev_X)]
-    with model.begin_training(train_X, train_y) as (trainer, optimizer):
+    dev_X = preprocess(model.ops, dev_X)
+    with model.begin_training(train_X, train_y, L2=1e-6) as (trainer, optimizer):
         trainer.dropout = 0.0
-        trainer.batch_size = 1
-        trainer.each_epoch.append(lambda:
-            print(
-                model.evaluate(preprocess(model.ops, dev_X), dev_y)))
+        trainer.batch_size = 512
+        trainer.nb_epoch = 3
+        trainer.each_epoch.append(lambda: print(model.evaluate(dev_X, dev_y)))
         for X, y in trainer.iterate(train_X, train_y):
             keys_vals_lens = preprocess(model.ops, X)
-            scores, backprop = model.begin_update(keys_vals_lens)
+            scores, backprop = model.begin_update(keys_vals_lens,
+                    drop=trainer.dropout)
             backprop(scores-y, optimizer)
+    with model.use_params(optimizer.averages):
+        print(model.evaluate(dev_X, dev_y))
+ 
 
 
 if __name__ == '__main__':
