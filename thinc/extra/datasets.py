@@ -25,6 +25,7 @@ EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
 
 SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
+IMDB_URL = 'http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz'
 
 
 def ancora_pos_tags(encode_words=False): # pragma: no cover
@@ -76,6 +77,29 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
+
+
+def imdb(loc=None):
+    if loc is None:
+        loc = get_file('aclImdb', IMDB_URL, untar=True, unzip=True)
+    train_loc = Path(loc) / 'train'
+    test_loc = Path(loc) / 'test'
+    return read_imdb(train_loc), read_imdb(test_loc)
+
+
+def read_imdb(data_dir, limit=0):
+    examples = []
+    for subdir, label in (('pos', 1), ('neg', 0)):
+        for filename in (data_dir / subdir).iterdir():
+            with filename.open() as file_:
+                text = file_.read()
+            if text.strip():
+                examples.append((text, label))
+    random.shuffle(examples)
+    if limit >= 1:
+        examples = examples[:limit]
+    return examples
+
 
 
 def read_conll(loc): # pragma: no cover
