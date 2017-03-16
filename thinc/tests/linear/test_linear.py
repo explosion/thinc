@@ -25,7 +25,7 @@ def instances():
 def sgd():
     return SGD(NumpyOps(), 0.001)
 
-
+@pytest.mark.xfail
 def test_basic(instances, sgd):
     X, y = instances
     nr_class = 3
