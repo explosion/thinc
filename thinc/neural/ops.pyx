@@ -21,6 +21,7 @@ cimport numpy as np
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 from murmurhash.mrmr cimport hash64
+from six import integer_types
 
 
 try:
@@ -115,7 +116,7 @@ class Ops(object):
         return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
 
     def allocate(self, shape, dtype='float32'):
-        if isinstance(shape, int):
+        if isinstance(shape, integer_types):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype=dtype)
