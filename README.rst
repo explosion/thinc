@@ -138,7 +138,7 @@ designed to make easy.
                 CharLSTM(char_width)
                 | (normalize >> str2int >> Embed(word_width)))
             >> ExtractWindow(nW=2)
-            >> BatchNorm(ReLu(huidden_width)) ** 3
+            >> BatchNorm(ReLu(hidden_width)) ** 3
             >> Softmax()
         ) 
 
