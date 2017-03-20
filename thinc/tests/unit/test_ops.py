@@ -55,12 +55,6 @@ def test_backprop_seq2col_window_one(ops):
     assert_allclose(seq, expected)
 
 
-def test_random_bytes(ops):
-    byte_str = ops.random_bytes(10)
-    assert len(byte_str) == 10
-    assert not all(b == byte_str[0] for b in byte_str)
-
-
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_dropout_forward(ops, X):
