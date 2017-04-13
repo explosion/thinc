@@ -36,6 +36,7 @@ MOD_NAMES = [
     'thinc.linear.features',
     'thinc.linear.serialize',
     'thinc.linear.sparse',
+    'thinc.linear.linear',
     'thinc.neural.optimizers',
     'thinc.neural.ops',
     'thinc.extra.eg',
@@ -153,12 +154,13 @@ def setup_package():
                 'numpy>=1.7',
                 'murmurhash>=0.26,<0.27',
                 'cymem>=1.30,<1.32',
-                'preshed>=0.46,<0.47',
+                'preshed>=1.0.0,<2.0.0',
                 'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
+                'termcolor',
                 'pathlib>=1.0.0,<2.0.0'
             ],
             classifiers=[

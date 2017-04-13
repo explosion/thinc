@@ -56,7 +56,7 @@ cdef class Beam:
     property probs:
         def __get__(self):
             return _softmax([self._states[i].score for i in range(self.size)])
- 
+
     cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
                      const weight_t* costs) except -1:
         cdef int j
@@ -71,7 +71,7 @@ cdef class Beam:
             memcpy(self.scores[i], scores[i], sizeof(weight_t) * self.nr_class)
             memcpy(self.is_valid[i], is_valid[i], sizeof(bint) * self.nr_class)
             memcpy(self.costs[i], costs[i], sizeof(int) * self.nr_class)
-    
+
     cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1:
         for i in range(self.width):
             self._states[i].content = init_func(self.mem, n, extra_args)
@@ -137,8 +137,8 @@ cdef class Beam:
         assert self.size >= 1
         for i in range(self.width):
             memset(self.scores[i], 0, sizeof(weight_t) * self.nr_class)
-            memset(self.is_valid[i], 0, sizeof(int) * self.nr_class)
             memset(self.costs[i], 0, sizeof(weight_t) * self.nr_class)
+            memset(self.is_valid[i], 0, sizeof(int) * self.nr_class)
         self.t += 1
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
@@ -245,7 +245,7 @@ cdef class MaxViolation:
             p_probs = all_probs[:len(p_scores)]
             g_probs_all = all_probs[len(p_scores):]
             g_probs = _softmax(g_scores)
-            
+
             self.cost = pred.loss
             self.delta = d
             self.p_hist = p_hist

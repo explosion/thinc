@@ -20,6 +20,8 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from murmurhash.mrmr cimport hash64
+from six import integer_types
 
 
 try:
@@ -46,6 +48,31 @@ class Ops(object):
     def __init__(self, xp=None):
         if xp is not None:
             self.xp = xp
+
+    def dropout_sequences(self, X, dropout, inplace=False):
+        if dropout <= 0.0:
+            return X, lambda func: func
+        masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
+        def wrap_backprop(backprop):
+            def finish_update(gradient, *args, **kwargs):
+                masked = []
+                for i, mask in enumerate(masks):
+                    if inplace:
+                        gradient *= mask
+                        masked.append(gradient)
+                    else:
+                        masked.append(gradient * mask)
+                return backprop(masked, *args, **kwargs)
+            return finish_update
+        if inplace:
+            for i, mask in enumerate(masks):
+                X[i] *= mask
+            return X, wrap_backprop
+        else:
+            masked = []
+            for i, mask in enumerate(masks):
+                masked.append(X[i] * mask)
+            return masked, wrap_backprop
 
     def dropout(self, x, dropout, inplace=False):
         if dropout <= 0.0:
@@ -88,20 +115,8 @@ class Ops(object):
         coinflips = self.xp.random.uniform(0., 1., shape)
         return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
 
-        #cdef int n = prod(shape)
-        #cdef bytes rand_bytes = self.random_bytes(n)
-        #cdef unsigned char* buff = <unsigned char*>rand_bytes
-        #cdef ndarray[float] output = self.allocate(n, dtype='float32')
-        #cdef float* out_buff = <float*>output.data
-        #cdef float compensated = 1. / (1. - drop)
-        #n_dropped = 0
-        #for i in range(n):
-        #    out_buff[i] = compensated if (buff[i] < cutoff) else 0
-        #    n_dropped += out_buff[i] == 0
-        #return output.reshape(shape)
-
     def allocate(self, shape, dtype='float32'):
-        if isinstance(shape, int):
+        if isinstance(shape, integer_types):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype=dtype)
@@ -340,11 +355,14 @@ class NumpyOps(Ops):
             for i in range(length):
                 workon[i] += to_add[i]
 
-    def random_bytes(self, n):
-        cdef bytes output = b'\0' * n
-        cdef unsigned char* arr = <unsigned char*>output
-        fill_random_bytes(arr, n)
-        return output
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def hash(self, uint64_t[::1] ids, uint64_t seed):
+        cdef ndarray[uint64_t, ndim=1] keys = self.allocate(ids.size, dtype='uint64')
+        cdef int i
+        for i in range(ids.size):
+            keys[i] = hash64(&ids[i], sizeof(uint64_t), seed)
+        return keys
 
     def mean_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
@@ -403,7 +421,11 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-
+    #def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
+    #        float[::1] mom2, float beta1, float beta2, float eps,
+    #        float learn_rate, float mod_rate=1.):
+    #    _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
+    #        weights.shape[0], beta1, beta2, eps, learn_rate, mod_rate)
 
 
 @cython.cdivision(True)
@@ -418,8 +440,9 @@ cdef void _adam(
 
     for i in range(nr_weight):
         gradient[i] *= gradient[i] * (1-beta2)
-    for i in range(nr_weight):
-        mom2[i] = (beta2 * mom2[i]) + gradient[i]
+    Vec.mul_i(mom2,
+        beta2, nr_weight)
+    VecVec.add_i(mom2, gradient, 1.0, nr_weight)
     #for i in range(nr_weight):
     #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
     # Here we assume this is calculated by the caller.
@@ -571,24 +594,6 @@ void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int 
     //}
 }
 ''')
-
-
-def seed_srand(int value):
-    srand(value)
-
-seed_srand(0)
-
-cdef void fill_random_bytes(unsigned char* out, int n) nogil:
-    '''Fill an array `out` with `n` random bytes.'''
-    cdef int rand_bytes
-    cdef unsigned char rand_byte
-    cdef int i = 0
-    cdef int step = sizeof(int)
-    for i from 0 <= i < n by step:
-        rand_bytes = rand()
-        for b in range(sizeof(rand_bytes)):
-            rand_byte = (rand_bytes >> (b * 8)) & 0xFF
-            out[i] = rand_byte
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:

@@ -1,6 +1,9 @@
 # cython: infer_types=True
 cimport cython
 
+from six import integer_types
+
+
 cdef ExampleC init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
     if widths is None:
         widths = [nr_class]
@@ -68,7 +71,7 @@ cdef class Example:
                 feats_dict = features
                 features = []
                 for key, value in feats_dict.items():
-                    if isinstance(key, int):
+                    if isinstance(key, integer_types):
                         slot = 0
                     else:
                         slot, key = key

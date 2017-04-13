@@ -59,6 +59,7 @@ def with_getitem(idx, layer):
     def on_data(self, items, y):
         for hook in layer.on_data_hooks:
             hook(layer, items[idx], y)
+    model.on_data_hooks.append(on_data)
     return model
 
 
@@ -93,8 +94,7 @@ def clone(orig, n):
     layers = [orig]
     for i in range(n-1):
         layers.append(copy.deepcopy(orig))
-        Model.id += 1
-        layers[-1].id = Model.id
+        layers[-1].set_id()
     return FeedForward(layers)
 
 
@@ -118,7 +118,8 @@ def concatenate(*layers): # pragma: no cover
             for bwd, shape in zip(backward, shapes):
                 end = start + shape[1]
                 if bwd is not None:
-                    d = bwd(gradient[:, start : end], *args, **kwargs)
+                    d = bwd(ops.xp.ascontiguousarray(gradient[:, start : end]),
+                            *args, **kwargs)
                     if d is not None:
                         layer_grads[-1] += d
                 start = end
@@ -128,6 +129,12 @@ def concatenate(*layers): # pragma: no cover
                 return None
         return output, finish_update
     layer = FunctionLayer(begin_update)
+    layer._layers = list(layers)
+    def on_data(self, X, y=None):
+        for layer in self._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
+    layer.on_data_hooks.append(on_data)
     return layer
 
 
@@ -154,6 +161,7 @@ def add(layer1, layer2):
             hook(layer1, X, y)
         for hook in layer2.on_data_hooks:
             hook(layer2, X, y)
+    model.on_data_hooks.append(on_data)
     return model
 
 
@@ -188,7 +196,7 @@ def sink_return(func, sink, splitter=None): # pragma: no cover
 def Arg(i):
     @layerize
     def begin_update(batched_inputs, drop=0.):
-        inputs = zip(*batched_inputs)
+        inputs = list(zip(*batched_inputs))
         return inputs[i], None
     return begin_update
 

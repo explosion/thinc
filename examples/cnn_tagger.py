@@ -4,16 +4,64 @@ import numpy
 import time
 from timeit import default_timer as timer
 
-from thinc.neural.id2vec import Embed
-from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
-from thinc.neural._classes.convolution import ExtractWindow
+import spacy
+from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
+from spacy.tokens.doc import Doc
 
-from thinc.api import layerize, chain, clone
+from thinc.neural.id2vec import Embed
+from thinc.neural._classes.hash_embed import HashEmbed
+from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
+from thinc.neural._classes.convolution import ExtractWindow
+from thinc.neural._classes.batchnorm import BatchNorm
+
+from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
+
+try:
+    import cupy
+except ImportError:
+    print("Could not import cupy")
+    cupy = None
+
+
+def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True):
+    nlp = spacy.load(lang, parser=False, tagger=False,
+                           entity=False, matcher=False)
+    print(len(nlp.vocab))
+    nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
+    nlp.vocab.lex_attr_getters[SUFFIX] = lambda string: string[-3:]
+    def forward(texts, drop=0.):
+        if tokenized:
+            docs = [Doc(nlp.vocab, words) for words in texts]
+        else:
+            docs = [nlp(text) for text in texts]
+        features = [doc.to_array(attrs) for doc in docs]
+        def backward(d_features, sgd=None):
+            return d_features
+        return features, backward
+    return layerize(forward)
+
+
+def Residual(layer):
+    def forward(X, drop=0.):
+        y, bp_y = layer.begin_update(X, drop=drop)
+        output = X+y
+        def backward(d_output, sgd=None):
+            return d_output + bp_y(d_output, sgd)
+        return output, backward
+    model = layerize(forward)
+    model._layers.append(layer)
+    print("Residual", model.id, layer.id)
+    def on_data(self, X, y=None):
+        for layer in self._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
+    model.on_data_hooks.append(on_data)
+    return model
 
 
 epoch_train_acc = 0.
@@ -44,12 +92,12 @@ def track_progress(**context):
     return each_epoch
 
 
-remapping = layerize(remap_ids(NumpyOps()))
-def preprocess(ops, data, nr_tag):
+def preprocess(ops, get_feats, data, nr_tag):
     Xs, ys = zip(*data)
-    Xs = [ops.asarray(remapping(x)) for x in Xs]
+    Xs = [ops.asarray(x) for x in get_feats(Xs)]
     ys = [ops.asarray(to_categorical(y, nb_classes=nr_tag)) for y in ys]
     return Xs, ys
+
 
 _i = 0
 def debug(X, drop=0.):
@@ -59,32 +107,42 @@ def debug(X, drop=0.):
     _i += 1
     return X, lambda d, sgd: d
 
-
 @plac.annotations(
     width=("Width of the hidden layers", "option", "w", int),
+    vector_length=("Width of the word vectors", "option", "V", int),
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
+    nb_epoch=("Maximum passes over the training data", "option", "i", int),
+    L2=("L2 regularization penalty", "option", "L", float)
 )
-def main(width=128, depth=4, vector_length=64,
-         min_batch_size=1, max_batch_size=8,
-        dropout=0.9, dropout_decay=1e-4, nb_epoch=20, L2=1e-6):
+def main(width=64, depth=2, vector_length=64,
+         min_batch_size=1, max_batch_size=32,
+        dropout=0.9, dropout_decay=1e-3, nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
     print(cfg)
-    Model.ops = CupyOps()
+    if cupy is not None:
+        print("Using GPU")
+        Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
 
-    with Model.define_operators({'**': clone, '>>': chain}):
+    extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
+    with Model.define_operators({'**': clone, '>>': chain, '+': add,
+                                 '|': concatenate}):
+        lower_case = Embed(width, vector_length, 5000, column=0)
+        prefix     = Embed(width, vector_length, 5000, column=2)
+        suffix     = Embed(width, vector_length, 5000, column=3)
+
         model = (
             layerize(flatten_sequences)
-            >> Embed(width, vector_length)
-            >> (ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
+            >> (lower_case + prefix + suffix)
+            >> Residual(ExtractWindow(nW=1) >> Maxout(width)) ** depth
             >> Softmax(nr_tag))
 
-    train_X, train_y = preprocess(model.ops, train_data, nr_tag)
-    dev_X, dev_y = preprocess(model.ops, check_data, nr_tag)
+    train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
+    dev_X, dev_y = preprocess(model.ops, extracter, check_data, nr_tag)
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
@@ -96,6 +154,10 @@ def main(width=128, depth=4, vector_length=64,
             y = model.ops.flatten(y)
 
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
+            loss = ((yh-y)**2).sum() / y.shape[0]
+            if loss > 0.:
+                optimizer.set_loss(loss)
+
             backprop(yh - y, optimizer)
 
             trainer.batch_size = min(int(batch_size), max_batch_size)

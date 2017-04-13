@@ -85,11 +85,13 @@ class Adam(SGD):
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
-    
-    def __call__(self, weights, gradient, lr_scale=1., 
+
+    def __call__(self, weights, gradient, lr_scale=1.,
             key=None):
         assert key is not None
         assert len(gradient) >= 1
+        total = gradient.sum()
+        assert total < 0 or total >= 0, total
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
@@ -142,21 +144,25 @@ class Eve(object):
             self.loss_hat = loss
             self.loss = loss
             return
+        loss += 1e-4
 
         prev_loss = self.loss
         prev_loss_hat = self.loss_hat
         loss_ch_fact = self._get_loss_ch_fact(loss, prev_loss)
 
-        loss_hat = loss_ch_fact * prev_loss_hat
+        loss_hat = (loss_ch_fact * prev_loss_hat) + 1e-4
 
         r = abs(loss_hat - prev_loss_hat) / min(loss_hat, prev_loss_hat)
         self.d = (self.b3 * self.d) + (1-self.b3) * r
+        if self.d >= 100:
+            print(self.d, locals())
+            raise ValueError("Learning-rate adjustment exploded")
         self.loss_hat = loss_hat
         self.loss = loss
 
     def _get_loss_ch_fact(self, loss, loss_prev):
-        lbound = 1+self.thl if loss > loss_prev else 1/(1+self.thu)
-        ubound = 1+self.thu if loss > loss_prev else 1/(1+self.thl)
+        lbound = (1+self.thl) if loss > loss_prev else (1/(1+self.thu))
+        ubound = (1+self.thu) if loss > loss_prev else (1/(1+self.thl))
         return min(ubound, max(lbound, loss / loss_prev))
 
 

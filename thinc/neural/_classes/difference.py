@@ -100,12 +100,14 @@ def CauchySimilarity(ops, length):
         vec1, vec2 = vec1_vec2
         diff = vec1-vec2
         square_diff = diff ** 2
-        total = ops.batch_dot(weights, square_diff)
+        total = (weights * square_diff).sum(axis=1)
+        total *= total > 0
         sim, bp_sim = inverse(total)
         def finish_update(d_sim, sgd=None):
             d_total = ops.asarray(bp_sim(d_sim), dtype='float32')
             d_total = d_total.reshape(total.shape)
-            d_weights = d_total * square_diff
+            d_total *= total > 0
+            d_weights = (d_total * square_diff).sum(axis=0)
             d_square_diff = weights * d_total
             d_diff = 2 * d_square_diff * diff
             d_vec1 = d_diff

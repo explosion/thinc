@@ -28,7 +28,7 @@ def dummy(*args, **kwargs):
 @pytest.mark.parametrize('text,multiplier', [('text', 5000)])
 def test_check_exception_length_cap(text, multiplier):
     error = ExpectedTypeError(text * multiplier, [])
-    assert len(str(error)) - len(text * multiplier) < 0
+    assert len(repr(error)) - len(text * multiplier) < 0
 
 
 @pytest.mark.parametrize('operator', ['+'])

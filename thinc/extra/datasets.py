@@ -25,14 +25,15 @@ EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
 
 SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
+IMDB_URL = 'http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz'
 
 
-def ancora_pos_tags(): # pragma: no cover
+def ancora_pos_tags(encode_words=False): # pragma: no cover
     data_dir = get_file('UD_Spanish-AnCora-r1.4', ANCORA_1_4_ZIP,
                         unzip=True)
     train_loc = os.path.join(data_dir, 'es_ancora-ud-train.conllu')
     dev_loc = os.path.join(data_dir, 'es_ancora-ud-dev.conllu')
-    return ud_pos_tags(train_loc, dev_loc)
+    return ud_pos_tags(train_loc, dev_loc, encode_words=encode_words)
 
 
 def ewtb_pos_tags(encode_tags=False, encode_words=False): # pragma: no cover
@@ -54,7 +55,7 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         for word in words:
             freqs[word] += 1
     vocab = {word: i for i, (word, freq) in enumerate(freqs.most_common())
-             if (freq >= 10)}
+             if (freq >= 5)}
 
     def _encode(sents):
         X = []
@@ -76,6 +77,29 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
+
+
+def imdb(loc=None):
+    if loc is None:
+        loc = get_file('aclImdb', IMDB_URL, untar=True, unzip=True)
+    train_loc = Path(loc) / 'train'
+    test_loc = Path(loc) / 'test'
+    return read_imdb(train_loc), read_imdb(test_loc)
+
+
+def read_imdb(data_dir, limit=0):
+    examples = []
+    for subdir, label in (('pos', 1), ('neg', 0)):
+        for filename in (data_dir / subdir).iterdir():
+            with filename.open() as file_:
+                text = file_.read()
+            if text.strip():
+                examples.append((text, label))
+    random.shuffle(examples)
+    if limit >= 1:
+        examples = examples[:limit]
+    return examples
+
 
 
 def read_conll(loc): # pragma: no cover
@@ -149,7 +173,7 @@ def quora_questions(loc=None):
 
 
 THREE_LABELS = {'entailment': 2, 'contradiction': 1, 'neutral': 0}
-TWO_LABELS = {'entailment': 2, 'contradiction': 0, 'neutral': 0}
+TWO_LABELS = {'entailment': 1, 'contradiction': 0, 'neutral': 0}
 def snli(loc=None, ternary=False):
     label_scheme = THREE_LABELS if ternary else TWO_LABELS
     if loc is None:
@@ -159,6 +183,18 @@ def snli(loc=None, ternary=False):
 
     train = read_snli(Path(loc) / 'snli_1.0_train.jsonl', label_scheme)
     dev = read_snli(Path(loc) / 'snli_1.0_dev.jsonl', label_scheme)
+    return train, dev
+
+
+def stack_exchange(loc=None):
+    if loc is None:
+        raise ValueError("No default path for Stack Exchange yet")
+    rows = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            rows.append(((eg['text1'], eg['text2']), int(eg['label'])))
+    train, dev = partition(rows, 0.7)
     return train, dev
 
 

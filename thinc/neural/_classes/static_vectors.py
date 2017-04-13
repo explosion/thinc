@@ -14,19 +14,21 @@ except ImportError:
     cupy = None
 
 
-def get_word_ids(ops, pad=1, token_drop=0.):
+def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
     def get_word_ids(docs, drop=0.):
         '''Get word forms.'''
         seqs = []
         ops = Model.ops
         for doc in docs:
+            if ignore is not None:
+                doc = [token for token in doc if not ignore(token)]
             arr = ops.allocate((len(doc)+pad,), dtype='uint64')
             mask = ops.get_dropout_mask(arr.shape, token_drop)
             for i, token in enumerate(doc):
-                if mask:
-                    arr[i] = token.lex_id or token.orth
-                else:
+                if mask is not None and not mask[i]:
                     arr[i] = token.tag
+                else:
+                    arr[i] = token.lex_id or token.orth
             for i in range(len(doc), len(doc)+pad):
                 arr[i] = 0
             seqs.append(ops.asarray(arr))

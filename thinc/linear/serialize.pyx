@@ -35,18 +35,21 @@ cdef class Writer:
     cdef int write(self, feat_t feat_id, SparseArrayC* feat) except -1:
         if feat == NULL:
             return 0
-        
-        _write(&feat_id, sizeof(feat_id), 1, self._fp)
-        
+
+
         cdef int i = 0
+        cdef int32_t n_non_zero = 0
         while feat[i].key >= 0:
+            if feat[i].val != 0:
+                n_non_zero += 1
             i += 1
         cdef int32_t length = i
-        
+
+        _write(&feat_id, sizeof(feat_id), 1, self._fp)
         _write(&length, sizeof(length), 1, self._fp)
-        
+
         qsort(feat, length, sizeof(SparseArrayC), SparseArray.cmp)
-        
+
         for i in range(length):
             _write(&feat[i].key, sizeof(feat[i].key), 1, self._fp)
             _write(&feat[i].val, sizeof(feat[i].val), 1, self._fp)
