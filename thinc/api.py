@@ -118,7 +118,8 @@ def concatenate(*layers): # pragma: no cover
             for bwd, shape in zip(backward, shapes):
                 end = start + shape[1]
                 if bwd is not None:
-                    d = bwd(gradient[:, start : end], *args, **kwargs)
+                    d = bwd(ops.xp.ascontiguousarray(gradient[:, start : end]),
+                            *args, **kwargs)
                     if d is not None:
                         layer_grads[-1] += d
                 start = end
@@ -136,7 +137,7 @@ def concatenate(*layers): # pragma: no cover
     layer.on_data_hooks.append(on_data)
     return layer
 
- 
+
 def add(layer1, layer2):
     def forward(X, drop=0.):
         out1, bp_out1 = layer1.begin_update(X, drop=drop)
