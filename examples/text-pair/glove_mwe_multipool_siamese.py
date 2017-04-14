@@ -12,6 +12,8 @@ from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural._classes.embed import Embed
 from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.neural.util import to_categorical
+from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.neural._classes.resnet import Residual
 
 from thinc.api import layerize, with_flatten, with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, Arg
@@ -54,6 +56,8 @@ CTX = None
 
 CHANNELS = {}
 def track_stat(name, i, value):
+    if CTX is None:
+        return
     if name not in CHANNELS:
         CHANNELS[name] = CTX.job.create_channel(name, neptune.ChannelType.NUMERIC)
     channel = CHANNELS[name]
@@ -131,19 +135,21 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
                                  '+': add}):
         mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
 
-        embed = StaticVectors('en', width) + HashEmbed(width, 1000) + HashEmbed(width, 1000)
+        embed = BN(
+                    StaticVectors('en', width)
+                    + HashEmbed(width, 1000)
+                    + HashEmbed(width, 1000), nO=width)
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
                  embed
-                 >> mwe_encode ** depth
+                 >> Residual(mwe_encode ** depth)
             ) # : (floats{T, W}, lengths{B})
             >> pool_layer
-            >> Maxout(width, pieces=pieces)
-            >> Maxout(width, pieces=pieces)
-            >> ReLu(width)
+            >> BN(Maxout(width*2, pieces=pieces))
+            >> BN(Maxout(width*2, pieces=pieces))
         )
-        model = Siamese(sent2vec, CauchySimilarity(width))
+        model = Siamese(sent2vec, CauchySimilarity(width*2))
 
     print("Read and parse data: %s" % dataset)
     if dataset == 'quora':
@@ -182,7 +188,7 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
             # Hardly a hardship, and it means we don't have to create/maintain
             # a computational graph. We just use closures.
 
-            assert (yh >= 0.).all()
+            assert (yh >= 0.).all(), yh
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
             epoch_train_acc += train_acc
 
