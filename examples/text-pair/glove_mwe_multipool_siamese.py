@@ -42,6 +42,7 @@ def track_progress(**context):
         track_stat('dev', epoch, avg_acc)
         track_stat('dev_raw', epoch, acc)
         track_stat('train', epoch, epoch_train_acc / n_train)
+        track_stat('batch_size', epoch, trainer.batch_size)
         epoch_train_acc = 0.
         epoch += 1
     return each_epoch
@@ -80,6 +81,7 @@ def preprocess(ops, nlp, rows, get_ids):
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
+    L2=("L2 penalty", "option", "L", int),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     use_gpu=("Whether to use GPU", "flag", "G", bool),
@@ -94,12 +96,15 @@ def preprocess(ops, nlp, rows, get_ids):
 )
 def main(dataset='quora', width=50, depth=2, min_batch_size=1,
         max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
-        nb_epoch=30, pieces=3, use_gpu=False, out_loc=None, quiet=False,
-         job_id=None, ws_api_url=None, rest_api_url=None):
+        nb_epoch=30, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
+        job_id=None, ws_api_url=None, rest_api_url=None):
     global CTX
     if job_id is not None:
         CTX = neptune.Context()
         width = CTX.params.width
+        L2 = CTX.params.L2
+        nb_epoch = CTX.params.nb_epoch
+        max_batch_size = CTX.params.max_batch_size
     cfg = dict(locals())
 
     if out_loc:
@@ -137,8 +142,8 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
 
         embed = BN(
                     StaticVectors('en', width)
-                    + HashEmbed(width, 1000)
-                    + HashEmbed(width, 1000), nO=width)
+                    + HashEmbed(width, 5000)
+                    + HashEmbed(width, 5000), nO=width)
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
@@ -146,8 +151,8 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
                  >> Residual(mwe_encode ** depth)
             ) # : (floats{T, W}, lengths{B})
             >> pool_layer
-            >> BN(Maxout(width*2, pieces=pieces))
-            >> BN(Maxout(width*2, pieces=pieces))
+            >> Maxout(width*2, pieces=pieces)
+            >> Maxout(width*2, pieces=pieces)
         )
         model = Siamese(sent2vec, CauchySimilarity(width*2))
 
@@ -180,6 +185,7 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
         print("Accuracy before training", model.evaluate(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
+        n_iter = 0
         for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
@@ -190,6 +196,9 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
 
             assert (yh >= 0.).all(), yh
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
+            loss = ((yh-y)**2).sum() / y.shape[0]
+            track_stat('loss', n_iter, loss)
+            n_iter += 1
             epoch_train_acc += train_acc
 
             backprop(yh-y, optimizer)
