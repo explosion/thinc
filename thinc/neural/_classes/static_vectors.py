@@ -53,8 +53,9 @@ class StaticVectors(Model):
     vector (but the same word will always receive the same vector).
     '''
     name = 'static-vectors'
-    def __init__(self, lang, nO):
+    def __init__(self, lang, nO, column=0):
         Model.__init__(self)
+        self.column = column
         self.nO = nO
         # This doesn't seem the cleverest solution,
         # but it ensures multiple models load the
@@ -72,8 +73,10 @@ class StaticVectors(Model):
         return get_vectors(self.ops, self.lang)
 
     def begin_update(self, ids, drop=0.):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
         vector_table = self.get_vectors()
-        vectors = vector_table[ids % vector_table.shape[0]]
+        vectors = vector_table[ids * (ids < vector_table.shape[0])]
         def finish_update(gradients, sgd=None):
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if sgd is not None:
