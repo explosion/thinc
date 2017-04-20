@@ -81,7 +81,7 @@ def preprocess(ops, nlp, rows, get_ids):
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
-    L2=("L2 penalty", "option", "L", int),
+    L2=("L2 penalty", "option", "L", float),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     use_gpu=("Whether to use GPU", "flag", "G", bool),
@@ -94,7 +94,7 @@ def preprocess(ops, nlp, rows, get_ids):
     rest_api_url=("REST API URL", "option", "R"),
     ws_api_url=("WS API URL", "option", "W")
 )
-def main(dataset='quora', width=50, depth=2, min_batch_size=1,
+def main(dataset='quora', width=50, depth=2, min_batch_size=128,
         max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=30, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
         job_id=None, ws_api_url=None, rest_api_url=None):
@@ -104,6 +104,7 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
         width = CTX.params.width
         L2 = CTX.params.L2
         nb_epoch = CTX.params.nb_epoch
+        depth = CTX.params.depth
         max_batch_size = CTX.params.max_batch_size
     cfg = dict(locals())
 
@@ -136,23 +137,22 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
     # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
+    Model.lsuv = True
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, pieces=pieces)
 
-        embed = BN(
-                    StaticVectors('en', width)
-                    + HashEmbed(width, 5000)
-                    + HashEmbed(width, 5000), nO=width)
+        embed = (StaticVectors('en', width)
+                  + HashEmbed(width, 3000)
+                  + HashEmbed(width, 3000))
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,      # : word_ids{T}
-                 embed
-                 >> Residual(mwe_encode ** depth)
+                 BN(embed, nO=width)
+                 >> Residual(mwe_encode ** 2)
             ) # : (floats{T, W}, lengths{B})
             >> pool_layer
-            >> Maxout(width*2, pieces=pieces)
-            >> Maxout(width*2, pieces=pieces)
+            >> Residual(Maxout(width*2, pieces=pieces)**2)
         )
         model = Siamese(sent2vec, CauchySimilarity(width*2))
 
@@ -174,8 +174,6 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
     train_X, train_y = preprocess(model.ops, nlp, train, get_ids)
     dev_X, dev_y = preprocess(model.ops, nlp, dev, get_ids)
 
-    print("Initialize with data (LSUV)")
-    print(dev_y.shape)
     with model.begin_training(train_X[:10000], train_y[:10000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
@@ -198,14 +196,14 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
             loss = ((yh-y)**2).sum() / y.shape[0]
             track_stat('loss', n_iter, loss)
-            n_iter += 1
             epoch_train_acc += train_acc
-
             backprop(yh-y, optimizer)
+            n_iter += 1
 
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
+            track_stat('Batch size', n_iter, trainer.batch_size)
         if out_loc:
             out_loc = Path(out_loc)
             print('Saving to', out_loc)
