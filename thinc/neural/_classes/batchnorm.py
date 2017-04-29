@@ -25,6 +25,8 @@ class BatchNorm(Model):
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
+        if 'nO' in kwargs and getattr(child, 'nO') is None:
+            child.nO = kwargs['nO']
         Model.__init__(self, **kwargs)
 
     def predict(self, X):

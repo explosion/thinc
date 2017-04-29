@@ -58,11 +58,15 @@ class CauchySimilarity(Model):
         if dropout_mask is not None:
             square_diff *= dropout_mask
         total = (weights * square_diff).sum(axis=1)
+        # Clip to positives -- otherwise similarity
+        # function doesnt work
+        total *= total >= 0.
         sim, bp_sim = inverse(total)
         total = total.reshape((vec1.shape[0], 1))
         def finish_update(d_sim, sgd=None):
             d_total = bp_sim(d_sim)
             d_total = d_total.reshape(total.shape)
+            d_total *= total >= 0
             self.d_W += (d_total * square_diff).sum(axis=0)
             d_square_diff = weights * d_total
             if dropout_mask is not None:
