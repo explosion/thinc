@@ -17,11 +17,12 @@ def linear_decay(rate, decay, nr_upd):
 
 
 class SGD(object):
-    def __init__(self, ops, lr, momentum=0.0, decay=0.0, **settings):
+    def __init__(self, ops, lr, momentum=0.0, nesterov=False, decay=0.0, **settings):
         self.ops = ops
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
+        self.nesterov = nesterov
         self.max_grad_norm = 100.
         self.momentums = {}
         self.averages = {} if settings.get('averages', True) else None
@@ -46,9 +47,24 @@ class SGD(object):
             if key not in self.momentums:
                 self.momentums[key] = self.ops.allocate(weights.size)
             momentum = self.momentums[key]
-            momentum *= self.mu
-            momentum += gradient * lr
-            weights -= momentum
+            if not self.nesterov:
+                momentum *= self.mu
+                momentum += gradient * lr
+                weights -= momentum
+            else:
+                # http://cs231n.github.io/neural-networks-3/
+                # v_prev = v # back this up
+                # v = mu * v - lr * gradient # velocity update stays the same
+                # x += -mu * v_prev + (1 + mu) * v # position update changes form
+                # Implement this as
+                # x += -mu * v
+                # v *= mu
+                # v -= lr * gradient
+                # x += (1+mu) * v
+                weights += -self.mu * momentum
+                momentum *= self.mu
+                momentum -= lr * gradient
+                weights += (1+self.mu) * momentum
             gradient.fill(0)
         if self.averages is not None:
             if key not in self.averages:
