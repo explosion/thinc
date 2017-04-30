@@ -16,6 +16,7 @@ class Model(object):
     '''Model base class.'''
     name = 'model'
     id = 0
+    lsuv = False
     ops = NumpyOps()
     Trainer = Trainer
     descriptions = []
@@ -131,9 +132,14 @@ class Model(object):
                 next(context.gen)
         yield
         if backup is not None:
-            weights[:] = backup
-        for context in contexts:
-            next(context.gen)
+            self._mem.weights[:] = backup
+        for i, context in enumerate(contexts):
+            # This is ridiculous, but apparently it's what you
+            # have to do to make this work across Python 2/3?
+            try:
+                next(context.gen)
+            except StopIteration:
+                pass
 
     def __call__(self, x):
         '''
