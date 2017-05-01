@@ -42,6 +42,16 @@ def remap_ids(ops):
         return ids, None
     return begin_update
 
+def copy_array(dst, src, casting='same_kind', where=None):
+    if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
+        dst[:] = src
+    elif isinstance(dst, cupy.ndarray):
+        src = cupy.array(src, copy=False)
+        cupy.copyto(dst, src)
+    else:
+        np.copyto(dst, src)
+
+
 #    def _unique_ids(self, ids):
 #        id_map = {}
 #        for i, id_ in enumerate(ids.flatten()):
