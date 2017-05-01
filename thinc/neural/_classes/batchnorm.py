@@ -37,7 +37,7 @@ class BatchNorm(Model):
         return y
 
     def begin_update(self, X, drop=0.):
-        X, backprop_child = self.child.begin_update(X, drop=drop)
+        X, backprop_child = self.child.begin_update(X, drop=0.)
         N, mu, var = _get_moments(self.ops, X)
         Xhat = _forward(self.ops, X, mu, var)
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
@@ -49,7 +49,9 @@ class BatchNorm(Model):
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        return y, finish_update
+        drop *= getattr(self.child, 'drop_factor', 1.0)
+        y, bp_dropout = self.ops.dropout(y, drop)
+        return y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
