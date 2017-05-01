@@ -1,11 +1,10 @@
 from .model import Model
 from .embed import _uniform_init
+from .._lsuv import do_lsuv
 from ... import describe
 from ...describe import Weights, Dimension, Gradient
-from .._lsuv import do_lsuv
 import random
 import numpy
-
 
 def LSUVinit(model, X, y=None):
     if model.vectors is not None:
@@ -32,14 +31,14 @@ class HashEmbed(Model):
         self.seed = self.id
 
     def predict(self, ids):
-        if ids.ndim == 2:
-            ids = ids[:, self.column]
+        if ids.ndim >= 2:
+            ids = self.ops.xp.ascontiguousarray(ids[:, self.column], dtype='uint64')
         vectors = self.vectors[self.ops.hash(ids, self.seed) % self.nV]
         return vectors
 
     def begin_update(self, ids, drop=0.):
-        if ids.ndim == 2:
-            ids = ids[:, self.column]
+        if ids.ndim >= 2:
+            ids = self.ops.xp.ascontiguousarray(ids[:, self.column], dtype='uint64')
         vectors = self.predict(ids)
         mask = self.ops.get_dropout_mask((vectors.shape[1],), drop)
         if mask is not None:
