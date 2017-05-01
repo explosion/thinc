@@ -110,8 +110,6 @@ class Adam(SGD):
             key=None):
         assert key is not None
         assert len(gradient) >= 1
-        total = gradient.sum()
-        assert total < 0 or total >= 0, total
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
