@@ -6,7 +6,7 @@ from .. import util
 from ..train import Trainer
 from ..ops import NumpyOps
 from ..mem import Memory
-from ..util import get_ops
+from ..util import get_ops, copy_array
 from ... import check
 from ... import describe
 from ...check import equal_length, has_shape, is_sequence, is_float, is_array
@@ -125,14 +125,14 @@ class Model(object):
         if self.id in params:
             param = params[self.id]
             backup = weights.copy()
-            weights[:] = param
+            copy_array(weights, param)
         if hasattr(self, '_layers'):
             contexts = [layer.use_params(params) for layer in self._layers]
             for context in contexts:
                 next(context.gen)
         yield
         if backup is not None:
-            self._mem.weights[:] = backup
+            copy_array(self._mem.weights, backup)
         for i, context in enumerate(contexts):
             # This is ridiculous, but apparently it's what you
             # have to do to make this work across Python 2/3?
@@ -176,6 +176,13 @@ class Model(object):
         else:
             correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
         return correct / y.shape[0]
+
+    def evaluate_logloss(self, X, y):
+        yh = self.ops.xp.vstack(self.pipe(X))
+        yh = yh.reshape(y.shape)
+        assert len(yh.shape) == 1
+        losses = -y * self.ops.xp.log(yh + 1e-8) - (1-y) * self.ops.xp.log((1-yh)+1e-8)
+        return losses.mean()
 
     @check.operator_is_defined('+')
     def __add__(self, other):
