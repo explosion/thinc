@@ -120,8 +120,11 @@ def concatenate(*layers): # pragma: no cover
                 if bwd is not None:
                     d = bwd(ops.xp.ascontiguousarray(gradient[:, start : end]),
                             *args, **kwargs)
-                    if d is not None:
-                        layer_grads[-1] += d
+                    if d is not None and hasattr(X, 'shape'):
+                        if not layer_grads:
+                            layer_grads.append(d)
+                        else:
+                            layer_grads[-1] += d
                 start = end
             if layer_grads:
                 return ops.asarray(layer_grads[-1])
