@@ -11,15 +11,21 @@ def inverse(total):
         return result
     return inverse, backward
 
-
+ITER = 0
 def Siamese(layer, similarity):
     def begin_update(inputs, drop=0.):
+        global ITER
+        ITER += 1
         input1, input2 = zip(*inputs)
+        layer.ops.xp.random.seed(ITER)
         vec1, bp_vec1 = layer.begin_update(input1, drop=drop)
+        layer.ops.xp.random.seed(ITER)
         vec2, bp_vec2 = layer.begin_update(input2, drop=drop)
         output, bp_output = similarity.begin_update((vec1, vec2), drop=drop)
         def finish_update(d_output, sgd=None):
             d_vec1, d_vec2 = bp_output(d_output, sgd)
+            # Remember that this is the same layer --
+            # Is this bad? Are we making bp_vec2 stale?
             d_input1 = bp_vec1(d_vec1, sgd)
             d_input2 = bp_vec2(d_vec2, sgd)
             return (d_input1, d_input2)
@@ -53,10 +59,7 @@ class CauchySimilarity(Model):
         weights = self.W
         vec1, vec2 = vec1_vec2
         diff = vec1-vec2
-        dropout_mask = self.ops.get_dropout_mask(diff.shape, drop)
         square_diff = diff ** 2
-        if dropout_mask is not None:
-            square_diff *= dropout_mask
         total = (weights * square_diff).sum(axis=1)
         # Clip to positives -- otherwise similarity
         # function doesnt work
@@ -69,8 +72,6 @@ class CauchySimilarity(Model):
             d_total *= total >= 0
             self.d_W += (d_total * square_diff).sum(axis=0)
             d_square_diff = weights * d_total
-            if dropout_mask is not None:
-                d_square_diff *= dropout_mask
             d_diff = 2 * d_square_diff * diff
             d_vec1 = d_diff
             d_vec2 = -d_diff
