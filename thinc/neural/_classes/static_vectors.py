@@ -22,17 +22,11 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
         for doc in docs:
             if ignore is not None:
                 doc = [token for token in doc if not ignore(token)]
-            arr = ops.allocate((len(doc)+pad,), dtype='uint64')
-            mask = ops.get_dropout_mask(arr.shape, token_drop)
-            for i, token in enumerate(doc):
-                if mask is not None and not mask[i]:
-                    arr[i] = token.tag
-                else:
-                    arr[i] = token.lex_id or token.orth
-            for i in range(len(doc), len(doc)+pad):
-                arr[i] = 0
-            seqs.append(ops.asarray(arr))
-        return seqs, None
+            seq = [0] * pad
+            seq += [token.lex_id or token.orth for token in doc]
+            seq += [0] * pad
+            seqs.append(seq)
+        return ops.asarray(seqs, dtype='uint64'), None
     return layerize(get_word_ids)
 
 
@@ -53,7 +47,7 @@ class StaticVectors(Model):
     vector (but the same word will always receive the same vector).
     '''
     name = 'static-vectors'
-    def __init__(self, lang, nO):
+    def __init__(self, lang, nO, drop_factor=0.0):
         Model.__init__(self)
         self.nO = nO
         # This doesn't seem the cleverest solution,
@@ -62,6 +56,7 @@ class StaticVectors(Model):
         self.lang = lang
         vectors = self.get_vectors()
         self.nM = vectors.shape[1]
+        self.drop_factor = drop_factor
         if self.nM == 0:
             raise ValueError(
                 "Cannot create vectors table with dimension 0.\n"
@@ -73,11 +68,16 @@ class StaticVectors(Model):
 
     def begin_update(self, ids, drop=0.):
         vector_table = self.get_vectors()
-        vectors = vector_table[ids % vector_table.shape[0]]
+        vectors = vector_table[ids * (ids < vector_table.shape[0])]
         def finish_update(gradients, sgd=None):
+            if mask is not None:
+                gradients *= mask
             self.d_W += self.ops.batch_outer(gradients, vectors)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
         dotted = self.ops.batch_dot(vectors, self.W)
+        mask = self.ops.get_dropout_mask((dotted.shape[1],), drop)
+        if mask is not None:
+            dotted *= mask
         return dotted, finish_update
