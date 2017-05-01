@@ -25,7 +25,7 @@ class BatchNorm(Model):
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
-        if 'nO' in kwargs and getattr(child, 'nO') is None:
+        if 'nO' in kwargs and getattr(child, 'nO', None) is None:
             child.nO = kwargs['nO']
         Model.__init__(self, **kwargs)
 
@@ -37,7 +37,7 @@ class BatchNorm(Model):
         return y
 
     def begin_update(self, X, drop=0.):
-        X, backprop_child = self.child.begin_update(X, drop=0.) # Steal dropout
+        X, backprop_child = self.child.begin_update(X, drop=drop)
         N, mu, var = _get_moments(self.ops, X)
         Xhat = _forward(self.ops, X, mu, var)
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
@@ -49,8 +49,7 @@ class BatchNorm(Model):
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        y, bp_dropout = self.ops.dropout(y, drop, inplace=True)
-        return y, bp_dropout(finish_update)
+        return y, finish_update
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
