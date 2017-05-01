@@ -1,21 +1,13 @@
 #include <stdio.h>
 
 
+// Replace this with the saxpy from cuBlas or whatever?
+// I doubt it matters, but it's definitely weird to have this
 void __device__
 saxpy(float* X, const float* Y, float scale, int n)
 {
-    for (int i=0; i < n; ++i) // Iterate over cols
+    for (int i=0; i < n; ++i) 
         X[i] += Y[i] * scale;
-}
-
-
-void __global__ kernel_add_one(int* a, int length) {
-    int gid = threadIdx.x + blockDim.x*blockIdx.x;
-
-    while(gid < length) {
-    	a[gid] += 1;
-        gid += blockDim.x*gridDim.x;
-    }
 }
 
 
@@ -43,12 +35,58 @@ mean_pool(float* means__bo,
     }
 }
 
+
+void __global__
+max_pool(float* maxes__bo, int* which__bo,
+    const float* X__to, const int* lengths__b, int B, int T, int O)
+{
+    // Compute means of a batch of concatenated sequences, using the lengths.'''
+    int b = blockIdx.x; // Batch-item we're averaging
+    if (b >= B) return;
+
+    // Go to the regions we're working on
+    for (int i=0; i < b; ++i) {
+        maxes__bo += O;
+	which__bo += O;
+	X__to += lengths__b[i] * O;
+    }
+
+    // Each invocation of the kernel maxes one batch.
+    // Start by assuming maxes are at i=0
+    for (int j=0; j < O; ++j) {
+        maxes__bo[j] = X__to[j];
+	which__bo[j] = 0;
+    }
+    X__to += O;
+    
+    int length = lengths__b[b];
+    for (int i=1; i < length; ++i) // Iterate over rows
+    {
+        for (int j=0; j < O; ++j)
+	{
+            if (X__to[j] > maxes__bo[j])
+            {
+                maxes__bo[j] = X__to[j];
+                which__bo[j] = i;
+	    }
+	}
+	X__to += O;
+    }
+}
+
+
 void __global__
 backprop_mean_pool(float* dX__to, const float* d_means__bo, const int* lengths__b,
     int B, int T, int O)
 {
     int b = blockIdx.x; // Batch-item we're averaging
     if (b >= B) return;
+    
+    // Go to the regions we're working on
+    for (int i=0; i < b; ++i) {
+        d_means__bo += O;
+	dX__to += lengths__b[i] * O;
+    }
 
     int length = lengths__b[b];
     float scale = 1./ length;
@@ -57,8 +95,33 @@ backprop_mean_pool(float* dX__to, const float* d_means__bo, const int* lengths__
     {
         saxpy(dX__to, d_means__bo, scale, O);
         dX__to += O;
-        d_means__bo += O;
     }
 }
 
 
+void __global__
+backprop_max_pool(float* dX__to,
+    const float* d_maxes__bo, const int* which__bo, const int* lengths__b, int B, int T, int O)
+{
+    int b = blockIdx.x; // Batch-item we're averaging
+    if (b >= B) return;
+    
+    // Go to the regions we're working on
+    for (int i=0; i < b; ++i) {
+        d_maxes__bo += O;
+	which__bo += O;
+	dX__to += lengths__b[i] * O;
+    }
+
+    int length = lengths__b[b];
+ 
+    for (int i=0; i < length; ++i)
+    {
+       for (int j=0; j < O; ++j)
+       {
+         if (which__bo[j] == i)
+           dX__to[j] += d_maxes__bo[j];
+       }
+       dX__to += O;
+    }
+}
