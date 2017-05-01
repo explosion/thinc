@@ -12,7 +12,7 @@ from thinc.neural.id2vec import Embed
 from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.neural._classes.batchnorm import BatchNorm as BN
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
@@ -129,16 +129,19 @@ def main(width=64, depth=2, vector_length=64,
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
+    Model.lsuv = True
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
                                  '|': concatenate}):
-        lower_case = Embed(width, vector_length, 5000, column=0)
-        prefix     = Embed(width, vector_length, 5000, column=2)
-        suffix     = Embed(width, vector_length, 5000, column=3)
+        lower_case = (HashEmbed(width, 5000, column=0) + HashEmbed(width, 1000, column=0))
+        shape = HashEmbed(width//2, 2000, column=1)
+        prefix     = HashEmbed(width//2, 1000, column=2)
+        suffix     = HashEmbed(width//2, 1000, column=3)
 
         model = (
             layerize(flatten_sequences)
-            >> (lower_case + prefix + suffix)
-            >> Residual(ExtractWindow(nW=1) >> Maxout(width)) ** depth
+            >> (lower_case | shape | prefix | suffix)
+            >> BN(Maxout(width, pieces=3), nO=width)
+            >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
             >> Softmax(nr_tag))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
@@ -154,9 +157,6 @@ def main(width=64, depth=2, vector_length=64,
             y = model.ops.flatten(y)
 
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            loss = ((yh-y)**2).sum() / y.shape[0]
-            if loss > 0.:
-                optimizer.set_loss(loss)
 
             backprop(yh - y, optimizer)
 
@@ -164,8 +164,8 @@ def main(width=64, depth=2, vector_length=64,
             batch_size *= 1.001
 
             epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
-            if epoch_train_acc / n_train >= 0.999:
-                break
+            #if epoch_train_acc / n_train >= 0.999:
+            #    break
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
 
