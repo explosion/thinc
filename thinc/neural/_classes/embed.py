@@ -78,7 +78,7 @@ class Embed(Model):
         vectors = self._embed(uniques)
         dotted_uniq = self.ops.batch_dot(vectors, self.W)
         output = dotted_uniq[positions]
-        return output
+        return self.ops.xp.ascontiguousarray(output)
 
     def begin_update(self, ids, drop=0.):
         if ids.ndim == 2:
