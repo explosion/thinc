@@ -3,6 +3,7 @@ import plac
 import spacy
 from pathlib import Path
 import dill as pickle
+import numpy
 
 from thinc.neural import Model, ReLu, Softmax, Maxout
 from thinc.neural import ExtractWindow
@@ -14,6 +15,7 @@ from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.neural.util import to_categorical
 from thinc.neural._classes.batchnorm import BatchNorm as BN
 from thinc.neural._classes.resnet import Residual
+from thinc.neural.ops import CupyOps
 
 from thinc.api import layerize, with_flatten, with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, Arg
@@ -34,9 +36,9 @@ def track_progress(**context):
     trainer = context['trainer']
     def each_epoch():
         global epoch_train_acc, epoch
-        acc = model.evaluate(dev_X, dev_y)
         with model.use_params(trainer.optimizer.averages):
-            avg_acc = model.evaluate(dev_X, dev_y)
+            avg_acc = model.evaluate_logloss(dev_X, dev_y)
+        acc = model.evaluate_logloss(dev_X, dev_y)
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
         track_stat('dev', epoch, avg_acc)
@@ -94,9 +96,9 @@ def preprocess(ops, nlp, rows, get_ids):
     rest_api_url=("REST API URL", "option", "R"),
     ws_api_url=("WS API URL", "option", "W")
 )
-def main(dataset='quora', width=50, depth=2, min_batch_size=128,
-        max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
-        nb_epoch=30, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
+def main(dataset='quora', width=50, depth=2, min_batch_size=1,
+        max_batch_size=512, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
+        nb_epoch=5, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
         job_id=None, ws_api_url=None, rest_api_url=None):
     global CTX
     if job_id is not None:
@@ -138,21 +140,20 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=128,
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
     Model.lsuv = True
+    Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, pieces=pieces)
+        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, drop_factor=0.0, pieces=pieces)
 
-        embed = (StaticVectors('en', width)
-                  + HashEmbed(width, 3000)
-                  + HashEmbed(width, 3000))
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
-            >> with_getitem(0,      # : word_ids{T}
-                 BN(embed, nO=width)
-                 >> Residual(mwe_encode ** 2)
-            ) # : (floats{T, W}, lengths{B})
-            >> pool_layer
-            >> Residual(Maxout(width*2, pieces=pieces)**2)
+            >> with_getitem(0,
+                BN(StaticVectors('en', width) + HashEmbed(width, 1000), nO=width)
+                >> Residual(mwe_encode ** 2)) # : word_ids{T}
+            >> Pooling(max_pool, mean_pool)
+            >> Residual(Maxout(width*2, pieces=pieces))
+            >> Residual(Maxout(width*2, pieces=pieces))
+            >> Maxout(width*2, pieces=pieces, drop_factor=0.0)
         )
         model = Siamese(sent2vec, CauchySimilarity(width*2))
 
@@ -180,30 +181,31 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=128,
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
-        print("Accuracy before training", model.evaluate(dev_X, dev_y))
+        print("Accuracy before training", model.evaluate_logloss(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
         n_iter = 0
+
         for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             assert yh.shape == y.shape, (yh.shape, y.shape)
-            # No auto-diff: Just get a callback and pass the data through.
-            # Hardly a hardship, and it means we don't have to create/maintain
-            # a computational graph. We just use closures.
 
             assert (yh >= 0.).all(), yh
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
-            loss = ((yh-y)**2).sum() / y.shape[0]
+            loss = model.ops.xp.abs(yh-y).mean()
             track_stat('loss', n_iter, loss)
+            track_stat('train acc', n_iter, train_acc)
+            track_stat('LR', n_iter, optimizer.lr(n_iter+1))
             epoch_train_acc += train_acc
             backprop(yh-y, optimizer)
+            optimizer.set_loss(loss)
             n_iter += 1
 
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
-            track_stat('Batch size', n_iter, trainer.batch_size)
+            track_stat('Batch size', n_iter, y.shape[0])
         if out_loc:
             out_loc = Path(out_loc)
             print('Saving to', out_loc)
