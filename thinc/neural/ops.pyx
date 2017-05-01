@@ -20,6 +20,8 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from . import gpu_ops
+
 from murmurhash.mrmr cimport hash64
 from six import integer_types
 
@@ -219,6 +221,11 @@ class Ops(object):
         grad_norm = self.xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+
+    def logloss(self, y_true, y_pred):
+        log_yp = self.xp.log(y_pred + 1e-8)
+        loss = (y_true * log_yp) + (1-y_true) * self.xp.log((1-y_pred)+1e-8)
+        return -loss
 
 
 class NumpyOps(Ops):
@@ -430,9 +437,9 @@ class NumpyOps(Ops):
 
 @cython.cdivision(True)
 cdef void _adam(
-    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2, 
+    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate, weight_t mod_rate) nogil:
+        weight_t learn_rate) nogil:
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
@@ -448,7 +455,7 @@ cdef void _adam(
     # Here we assume this is calculated by the caller.
     #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
     for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (mod_rate * sqrt(mom2[i]) + eps))
+        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
@@ -511,7 +518,7 @@ class CupyOps(Ops):
         cdef int nF = nW*2+1
         cdef int B = dY.shape[0]
         cdef int I = dY.shape[1] / nF
-        assert nF == 3, "TODO: Support variable window size" 
+        assert nF == 3, "TODO: Support variable window size"
         # Having trouble getting the kernel to work...
         dX = self.allocate((B, I))
         dY = dY.reshape((B, nF, I))
@@ -519,6 +526,24 @@ class CupyOps(Ops):
         dX += dY[:, nW]
         dX[:-1] += dY[1:, 2]
         return dX
+
+    def mean_pool(self, X, lengths):
+        return gpu_ops.mean_pool(self, X, lengths)
+
+    def backprop_mean_pool(self, d_means, lengths):
+        return gpu_ops.backprop_mean_pool(self, d_means, lengths)
+
+    def max_pool(self, X, lengths):
+        return gpu_ops.max_pool(self, X, lengths)
+
+    def backprop_max_pool(self, d_maxes, which, lengths):
+        return gpu_ops.backprop_max_pool(self, d_maxes, which, lengths)
+
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def hash(self, ids, uint64_t seed):
+        # TODO
+        return gpu_ops.hash(self, ids, seed)
 
 
 class RawKernel(object):
@@ -536,7 +561,7 @@ class RawKernel(object):
     def __call__(self, *args, **kwargs):
         # TODO: Not convinced I'm doing this right...
         grid = kwargs.get('grid', (args[0].shape[0],))
-        block = kwargs.get('block', (1,)) 
+        block = kwargs.get('block', (1,))
         return self.func(grid, block, args)
 
 
@@ -573,9 +598,9 @@ void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int 
     return;
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     int nF = nW * 2 + 1;
- 
+
     if ((i+nW) >= B) return;
-    
+
     float* d_seq = &d_seqs[i * I];
     // Here's what we're doing, if we had 2d indexing.
     // d_seq += d_cols[i-2, 4]
@@ -583,7 +608,7 @@ void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int 
     // d_seq += d_cols[i, 2]
     // d_seq += d_cols[i+1, 1]
     // d_seq += d_cols[i+2, 0]
- 
+
     const float* col_row = &d_cols[i * I * nF];
     //for (int f = -nW; f < (nW+1); ++f) {
     //    if (B > (i+f) && (i+f) >= 0) {
