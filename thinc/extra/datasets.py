@@ -164,8 +164,8 @@ def quora_questions(loc=None):
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.strip()
-            sent2 = sent2.strip()
+            sent1 = sent1.decode('utf8').strip()
+            sent2 = sent2.decode('utf8').strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
     train, dev = partition(lines, 0.9)

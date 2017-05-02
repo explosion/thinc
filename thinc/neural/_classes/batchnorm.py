@@ -13,9 +13,9 @@ def _run_child_hooks(model, X, y=None):
 @describe.on_data(_run_child_hooks)
 @describe.attributes(
     G=describe.Weights("Scaling vector",
-        lambda obj: (obj.child.nO,), _init_to_one),
+        lambda obj: (obj.nO,), _init_to_one),
     b=describe.Biases("Bias vector",
-        lambda obj: (obj.child.nO,)),
+        lambda obj: (obj.nO,)),
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b")
 )
@@ -25,8 +25,10 @@ class BatchNorm(Model):
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
-        if 'nO' in kwargs and getattr(child, 'nO', None) is None:
-            child.nO = kwargs['nO']
+        if 'nO' in kwargs:
+            self.nO = kwargs['nO']
+        elif getattr(child, 'nO', None):
+            self.nO = child.nO
         Model.__init__(self, **kwargs)
 
     def predict(self, X):
@@ -49,9 +51,9 @@ class BatchNorm(Model):
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        drop *= getattr(self.child, 'drop_factor', 1.0)
-        y, bp_dropout = self.ops.dropout(y, drop)
-        return y, bp_dropout(finish_update)
+        #drop *= getattr(self.child, 'drop_factor', 1.0)
+        #y, bp_dropout = self.ops.dropout(y, drop)
+        return y, finish_update
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
