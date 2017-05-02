@@ -1,7 +1,6 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
-from .ops import NumpyOps, CupyOps
 
 try:
     import cupy
@@ -12,6 +11,7 @@ except ImportError:
 
 
 def get_ops(ops):
+    from .ops import NumpyOps, CupyOps
     if ops in ('numpy', 'cpu'):
         return NumpyOps()
     elif ops in ('cupy', 'gpu'):

@@ -21,6 +21,7 @@ cimport numpy as np
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 from . import gpu_ops
+from .util import copy_array
 
 from murmurhash.mrmr cimport hash64
 from six import integer_types
@@ -162,7 +163,7 @@ class Ops(object):
         new_x = self.xp.exp(shifted)
         new_x /= new_x.sum(axis=1).reshape((x.shape[0], 1))
         if inplace:
-            x[:] = new_x
+            copy_array(x, new_x)
             return x
         else:
             return new_x
@@ -191,7 +192,7 @@ class Ops(object):
     def xavier_uniform_init(self, W, inplace=True):
         scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
         if inplace:
-            W[:] = self.xp.random.uniform(-scale, scale, W.shape)
+            copy_array(W, self.xp.random.uniform(-scale, scale, W.shape))
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
