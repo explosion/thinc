@@ -1,6 +1,6 @@
 from .model import Model
 from ... import describe
-
+from numpy import ascontiguousarray
 
 def _run_child_hooks(model, X, y):
     for layer in model._layers:
@@ -39,6 +39,6 @@ class FeedForward(Model):
             for callback in reversed(callbacks):
                 if gradient is None or callback == None:
                     break
-                gradient = callback(gradient, sgd)
+                gradient = callback(ascontiguousarray(gradient), sgd)
             return gradient
         return X, continue_update
