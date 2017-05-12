@@ -4,6 +4,8 @@ from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 from .._lsuv import LSUVinit
 
+from cupy import get_array_module
+
 
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
@@ -13,10 +15,11 @@ def _set_dimensions_if_needed(model, X, y=None):
 
 
 def xavier_uniform_init(W, ops):
-    scale = ops.xp.sqrt(6. / (W.shape[0] + W.shape[2]))
+    xp = get_array_module(W)
+    scale = xp.sqrt(6. / (W.shape[0] + W.shape[2]))
     shape = (W.shape[0], W.shape[2])
     for i in range(W.shape[1]):
-        ops.xp.copyto(W[:,i], ops.xp.random.uniform(-scale, scale, shape))
+        xp.copyto(W[:,i], xp.random.uniform(-scale, scale, shape))
 
 
 @describe.on_data(_set_dimensions_if_needed, LSUVinit)
