@@ -36,9 +36,9 @@ def track_progress(**context):
     trainer = context['trainer']
     def each_epoch():
         global epoch_train_acc, epoch
+        acc = model.evaluate(dev_X, dev_y)
         with model.use_params(trainer.optimizer.averages):
             avg_acc = model.evaluate_logloss(dev_X, dev_y)
-        acc = model.evaluate_logloss(dev_X, dev_y)
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
         track_stat('dev', epoch, avg_acc)
@@ -75,6 +75,15 @@ def preprocess(ops, nlp, rows, get_ids):
         Xs.append((get_ids([nlp(text1)])[0], get_ids([nlp(text2)])[0]))
         ys.append(label)
     return Xs, ops.asarray(ys, dtype='float32')
+
+
+@layerize
+def logistic(X, drop=0.):
+    ops = Model.ops
+    y = 1. / (1. + ops.xp.exp(-X))
+    def backward(dy, sgd=None):
+        return dy * y * (1-y)
+    return y, backward
 
 
 @plac.annotations(
@@ -128,8 +137,8 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
     print("Load spaCy")
     nlp = get_spacy('en')
 
-    #if use_gpu:
-    #    Model.ops = CupyOps()
+    if use_gpu:
+        Model.ops = CupyOps()
 
     print("Construct model")
     # Bind operators for the scope of the block:
@@ -140,20 +149,23 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
     Model.lsuv = True
-    Model.ops = CupyOps()
+    #Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, drop_factor=0.0, pieces=pieces)
+        mwe_encode = ExtractWindow(nW=1) >> BN(Maxout(width, drop_factor=0.0, pieces=pieces))
 
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,
-                BN(StaticVectors('en', width) + HashEmbed(width, 1000), nO=width)
-                >> Residual(mwe_encode ** 2)) # : word_ids{T}
-            >> Pooling(max_pool, mean_pool)
-            >> Residual(Maxout(width*2, pieces=pieces))
-            >> Residual(Maxout(width*2, pieces=pieces))
+                (StaticVectors('en', width)
+                   + HashEmbed(width, 3000)
+                   + HashEmbed(width, 3000))
+                #>> Residual(mwe_encode ** 2)
+                ) # : word_ids{T}
+            >> Pooling(mean_pool, max_pool)
+            #>> Residual(BN(Maxout(width*2, pieces=pieces), nO=width*2)**2)
             >> Maxout(width*2, pieces=pieces, drop_factor=0.0)
+            >> logistic
         )
         model = Siamese(sent2vec, CauchySimilarity(width*2))
 

@@ -22,15 +22,15 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
         for doc in docs:
             if ignore is not None:
                 doc = [token for token in doc if not ignore(token)]
-            seq = [0] * pad
-            seq += [token.lex_id or token.orth for token in doc]
-            seq += [0] * pad
-            seqs.append(seq)
-        return ops.asarray(seqs, dtype='uint64'), None
+            #seq = [0] * pad
+            seq = [(token.lex_id or token.orth) for token in doc]
+            #seq += [0] * pad
+            seqs.append(ops.asarray(seq, dtype='uint64'))
+        return seqs, None
     return layerize(get_word_ids)
 
 
-@describe.on_data(LSUVinit)
+#@describe.on_data(LSUVinit)
 @describe.attributes(
         nM=Dimension("Vector dimensions"),
         nO=Dimension("Size of output"),
@@ -47,7 +47,7 @@ class StaticVectors(Model):
     vector (but the same word will always receive the same vector).
     '''
     name = 'static-vectors'
-    def __init__(self, lang, nO, drop_factor=0.0):
+    def __init__(self, lang, nO, drop_factor=0.0, column=0):
         Model.__init__(self)
         self.nO = nO
         # This doesn't seem the cleverest solution,
@@ -57,6 +57,7 @@ class StaticVectors(Model):
         vectors = self.get_vectors()
         self.nM = vectors.shape[1]
         self.drop_factor = drop_factor
+        self.column = column
         if self.nM == 0:
             raise ValueError(
                 "Cannot create vectors table with dimension 0.\n"
@@ -67,8 +68,11 @@ class StaticVectors(Model):
         return get_vectors(self.ops, self.lang)
 
     def begin_update(self, ids, drop=0.):
+        if ids.ndim >= 2:
+            ids = self.ops.xp.ascontiguousarray(ids[:, self.column])
         vector_table = self.get_vectors()
         vectors = vector_table[ids * (ids < vector_table.shape[0])]
+        assert vectors.shape[0] == ids.shape[0]
         def finish_update(gradients, sgd=None):
             if mask is not None:
                 gradients *= mask

@@ -73,7 +73,6 @@ def customize_compiler_for_nvcc(self):
     # object but distutils doesn't have the ability to change compilers
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-        print(extra_postargs, pp_opts)
         if os.path.splitext(src)[1] == '.cu':
             # use the cuda for .cu files
             self.set_executable('compiler_so', CUDA['nvcc'])
@@ -147,8 +146,9 @@ def locate_cuda():
         # otherwise, search the PATH for NVCC
         nvcc = find_in_path('nvcc', os.environ['PATH'])
         if nvcc is None:
-            raise EnvironmentError('The nvcc binary could not be '
-                'located in your $PATH. Either add it to your path, or set $CUDAHOME')
+            print('The nvcc binary could not be located in your $PATH. '
+                  'Either add it to your path, or set $CUDAHOME')
+            return None
         home = os.path.dirname(os.path.dirname(nvcc))
 
     cudaconfig = {'home':home, 'nvcc':nvcc,
@@ -156,8 +156,8 @@ def locate_cuda():
                   'lib64': os.path.join(home, 'lib64')}
     for k, v in cudaconfig.iteritems():
         if not os.path.exists(v):
-            raise EnvironmentError('The CUDA %s path could not be located in %s' % (k, v))
-
+            print('The CUDA %s path could not be located in %s' % (k, v))
+            return None
     return cudaconfig
 
 CUDA = locate_cuda()
@@ -219,18 +219,25 @@ def setup_package():
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs
                 ))
-        ext_modules.append(
-            Extension("thinc.neural.gpu_ops",
-                sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
-                library_dirs=[CUDA['lib64']],
-                libraries=['cudart'],
-                language='c++',
-                runtime_library_dirs=[CUDA['lib64']],
-                # this syntax is specific to this build system
-                # we're only going to use certain compiler args with nvcc and not with gcc
-                # the implementation of this trick is in customize_compiler() below
-                extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"],
-                include_dirs = include_dirs + [CUDA['include']]))
+        if CUDA is None:
+            ext_modules.append(
+                Extension("thinc.neural.gpu_ops",
+                    sources=["thinc/neural/gpu_ops.cpp"],
+                    language='c++',
+                    include_dirs=include_dirs))
+        else:
+            ext_modules.append(
+                Extension("thinc.neural.gpu_ops",
+                    sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
+                    library_dirs=[CUDA['lib64']],
+                    libraries=['cudart'],
+                    language='c++',
+                    runtime_library_dirs=[CUDA['lib64']],
+                    # this syntax is specific to this build system
+                    # we're only going to use certain compiler args with nvcc and not with gcc
+                    # the implementation of this trick is in customize_compiler() below
+                    extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"],
+                    include_dirs = include_dirs + [CUDA['include']]))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')

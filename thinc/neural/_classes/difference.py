@@ -1,3 +1,4 @@
+import numpy
 from thinc.api import layerize
 from thinc.neural import Model
 from ... import describe
@@ -11,22 +12,34 @@ def inverse(total):
         return result
     return inverse, backward
 
-ITER = 0
+def _get_mask(ops, shape, drop):
+    return ops.xp.random.uniform(0., 1., shape) > drop
+
+
 def Siamese(layer, similarity):
     def begin_update(inputs, drop=0.):
-        global ITER
-        ITER += 1
+        ops = layer.ops
+        if drop != 0.:
+            dropped = []
+            for in1, in2 in inputs:
+                if in1.size > in2.size:
+                    mask = _get_mask(ops, in1.shape, drop)
+                else:
+                    mask = _get_mask(ops, in2.shape, drop)
+                in1 = in1 * mask[:in1.shape[0]]
+                in2 = in2 * mask[:in2.shape[0]]
+                dropped.append((in1, in2))
+            inputs = dropped
+
         input1, input2 = zip(*inputs)
-        layer.ops.xp.random.seed(ITER)
-        vec1, bp_vec1 = layer.begin_update(input1, drop=drop)
-        layer.ops.xp.random.seed(ITER)
-        vec2, bp_vec2 = layer.begin_update(input2, drop=drop)
-        output, bp_output = similarity.begin_update((vec1, vec2), drop=drop)
+        vec1, bp_vec1 = layer.begin_update(input1, drop=0.)
+        vec2, bp_vec2 = layer.begin_update(input2, drop=0.)
+        output, bp_output = similarity.begin_update((vec1, vec2), drop=0.)
         def finish_update(d_output, sgd=None):
             d_vec1, d_vec2 = bp_output(d_output, sgd)
             # Remember that this is the same layer --
             # Is this bad? Are we making bp_vec2 stale?
-            d_input1 = bp_vec1(d_vec1, sgd)
+            d_input1 = bp_vec1(d_vec1, lambda *args, **kwargs: None)
             d_input2 = bp_vec2(d_vec2, sgd)
             return (d_input1, d_input2)
         return output, finish_update
@@ -61,15 +74,11 @@ class CauchySimilarity(Model):
         diff = vec1-vec2
         square_diff = diff ** 2
         total = (weights * square_diff).sum(axis=1)
-        # Clip to positives -- otherwise similarity
-        # function doesnt work
-        total *= total >= 0.
         sim, bp_sim = inverse(total)
         total = total.reshape((vec1.shape[0], 1))
         def finish_update(d_sim, sgd=None):
             d_total = bp_sim(d_sim)
             d_total = d_total.reshape(total.shape)
-            d_total *= total >= 0
             self.d_W += (d_total * square_diff).sum(axis=0)
             d_square_diff = weights * d_total
             d_diff = 2 * d_square_diff * diff

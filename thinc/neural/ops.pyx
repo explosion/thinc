@@ -21,6 +21,7 @@ cimport numpy as np
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 from . import gpu_ops
+from .util import copy_array
 
 from murmurhash.mrmr cimport hash64
 from six import integer_types
@@ -165,7 +166,7 @@ class Ops(object):
         new_x = self.xp.exp(shifted)
         new_x /= new_x.sum(axis=1).reshape((x.shape[0], 1))
         if inplace:
-            x[:] = new_x
+            copy_array(x, new_x)
             return x
         else:
             return new_x
@@ -194,7 +195,7 @@ class Ops(object):
     def xavier_uniform_init(self, W, inplace=True):
         scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
         if inplace:
-            W[:] = self.xp.random.uniform(-scale, scale, W.shape)
+            copy_array(W, self.xp.random.uniform(-scale, scale, W.shape))
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
@@ -285,9 +286,9 @@ class NumpyOps(Ops):
         best__bo = <float*>mem.alloc(B * O, sizeof(float))
         cpu_maxout(best__bo, which__bo,
             &py_cands[0, 0, 0], B, O, P)
-        cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
+        cdef ndarray py_best = self.allocate(B * O, dtype='float32')
         memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
-        cdef ndarray py_which = self.xp.ascontiguousarray(self.allocate(B * O, dtype='int32'))
+        cdef ndarray py_which = self.allocate(B * O, dtype='int32')
         memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
         return py_best.reshape((B, O)), py_which.reshape((B, O))
 
