@@ -146,8 +146,8 @@ def locate_cuda():
         # otherwise, search the PATH for NVCC
         nvcc = find_in_path('nvcc', os.environ['PATH'])
         if nvcc is None:
-            print('The nvcc binary could not be located in your $PATH. '
-                  'Either add it to your path, or set $CUDAHOME')
+            print('Warning: The nvcc binary could not be located in your $PATH. '
+                  'For GPU capability, either add it to your path, or set $CUDAHOME')
             return None
         home = os.path.dirname(os.path.dirname(nvcc))
 
@@ -156,7 +156,7 @@ def locate_cuda():
                   'lib64': os.path.join(home, 'lib64')}
     for k, v in cudaconfig.iteritems():
         if not os.path.exists(v):
-            print('The CUDA %s path could not be located in %s' % (k, v))
+            print('Warning: The CUDA %s path could not be located in %s' % (k, v))
             return None
     return cudaconfig
 
@@ -284,6 +284,7 @@ def setup_package():
                 'Programming Language :: Python :: 3.3',
                 'Programming Language :: Python :: 3.4',
                 'Programming Language :: Python :: 3.5',
+                'Programming Language :: Python :: 3.6',
                 'Topic :: Scientific/Engineering'],
             cmdclass = {
                 'build_ext': build_ext_subclass},
