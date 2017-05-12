@@ -13,7 +13,6 @@ class Trainer(object):
         self.model = model
         self.L2 = cfg.get('L2', 0.0)
         self.optimizer = Adam(model.ops, 0.001, decay=0.0, eps=1e-8, L2=self.L2)
-        #self.optimizer = SGD(model.ops, 0.001, momentum=0.9, L2=self.L2)
         self.batch_size = cfg.get('batch_size', 128)
         self.nb_epoch = cfg.get('nb_epoch', 20)
         self.i = 0
