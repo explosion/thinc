@@ -3,8 +3,8 @@ from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 from .._lsuv import LSUVinit
+from ..util import get_array_module
 
-from cupy import get_array_module
 
 
 def _set_dimensions_if_needed(model, X, y=None):
