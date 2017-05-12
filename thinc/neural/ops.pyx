@@ -283,9 +283,9 @@ class NumpyOps(Ops):
         best__bo = <float*>mem.alloc(B * O, sizeof(float))
         cpu_maxout(best__bo, which__bo,
             &py_cands[0, 0, 0], B, O, P)
-        cdef ndarray py_best = self.xp.ascontiguousarray(self.allocate(B * O, dtype='float32'))
+        cdef ndarray py_best = self.allocate(B * O, dtype='float32')
         memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
-        cdef ndarray py_which = self.xp.ascontiguousarray(self.allocate(B * O, dtype='int32'))
+        cdef ndarray py_which = self.allocate(B * O, dtype='int32')
         memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
         return py_best.reshape((B, O)), py_which.reshape((B, O))
 
