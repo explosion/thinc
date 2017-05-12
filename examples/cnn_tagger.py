@@ -3,6 +3,7 @@ import plac
 import numpy
 import time
 from timeit import default_timer as timer
+import dill as pickle
 
 import spacy
 from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
@@ -13,6 +14,7 @@ from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
@@ -20,6 +22,7 @@ from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
+from thinc.extra.neptune import track_stat
 
 try:
     import cupy
@@ -55,7 +58,6 @@ def Residual(layer):
         return output, backward
     model = layerize(forward)
     model._layers.append(layer)
-    print("Residual", model.id, layer.id)
     def on_data(self, X, y=None):
         for layer in self._layers:
             for hook in layer.on_data_hooks:
@@ -87,12 +89,14 @@ def track_progress(**context):
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout,
                  wps_train, wps_run)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats)
+        track_stat("dev", len(epoch_times), avg_acc), 
+        track_stat("Dev (raw)", len(epoch_times), acc), 
         epoch_train_acc = 0.
         epoch_times.append(timer())
     return each_epoch
 
 
-def preprocess(ops, get_feats, data, nr_tag):
+def preprocess(ops, get_feats, data, nr_tag, npad=4):
     Xs, ys = zip(*data)
     Xs = [ops.asarray(x) for x in get_feats(Xs)]
     ys = [ops.asarray(to_categorical(y, nb_classes=nr_tag)) for y in ys]
@@ -113,14 +117,30 @@ def debug(X, drop=0.):
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
+    learn_rate=("Learning rate", "option", "e", float),
+    momentum=("Momentum", "option", "m", float),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     nb_epoch=("Maximum passes over the training data", "option", "i", int),
-    L2=("L2 regularization penalty", "option", "L", float)
+    L2=("L2 regularization penalty", "option", "L", float),
+    job_id=("Job ID for Neptune", "option", "J"),
+    rest_api_url=("REST API URL", "option", "R"),
+    ws_api_url=("WS API URL", "option", "W")
 )
-def main(width=64, depth=2, vector_length=64,
-         min_batch_size=1, max_batch_size=32,
-        dropout=0.9, dropout_decay=1e-3, nb_epoch=20, L2=1e-6):
+def main(width=100, depth=4, vector_length=64,
+         min_batch_size=1, max_batch_size=32, learn_rate=0.001,
+         momentum=0.9,
+        dropout=0.5, dropout_decay=1e-4, nb_epoch=20, L2=1e-6,
+        job_id=None, ws_api_url=None, rest_api_url=None):
+    global CTX
+    if job_id is not None:
+        from deepsense import neptune
+        CTX = neptune.Context()
+        learn_rate = CTX.params.learn_rate
+        momentum = CTX.params.momentum
+        width = CTX.params.width
+        depth = CTX.params.depth
+
     cfg = dict(locals())
     print(cfg)
     if cupy is not None:
@@ -132,42 +152,45 @@ def main(width=64, depth=2, vector_length=64,
     Model.lsuv = True
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
                                  '|': concatenate}):
-        lower_case = (HashEmbed(width, 5000, column=0) + HashEmbed(width, 1000, column=0))
-        shape = HashEmbed(width//2, 2000, column=1)
-        prefix     = HashEmbed(width//2, 1000, column=2)
-        suffix     = HashEmbed(width//2, 1000, column=3)
+        lower_case = (HashEmbed(width, 100, column=0) + HashEmbed(width, 100, column=0))
+        shape = HashEmbed(width//2, 200, column=1)
+        prefix     = HashEmbed(width//2, 100, column=2)
+        suffix     = HashEmbed(width//2, 100, column=3)
 
         model = (
-            layerize(flatten_sequences)
-            >> (lower_case | shape | prefix | suffix)
-            >> BN(Maxout(width, pieces=3), nO=width)
-            >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
-            >> Softmax(nr_tag))
+            with_flatten(
+                (lower_case | shape | prefix | suffix)
+                >> Maxout(width, pieces=3)
+                >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
+                >> Softmax(nr_tag), pad=depth))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
     dev_X, dev_y = preprocess(model.ops, extracter, check_data, nr_tag)
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
-    with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
+        n_iter = 0
         for X, y in trainer.iterate(train_X, train_y):
-            y = model.ops.flatten(y)
-
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
 
-            backprop(yh - y, optimizer)
+            gradient = [yh[i]-y[i] for i in range(len(yh))]
+
+            backprop(gradient, optimizer)
 
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
 
-            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+            n_iter += 1
             #if epoch_train_acc / n_train >= 0.999:
             #    break
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
+        with open('/tmp/model.pickle', 'wb') as file_:
+            pickle.dump(model, file_)
 
 
 if __name__ == '__main__':
