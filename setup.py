@@ -9,10 +9,7 @@ from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 
-try:
-    from setuptools import Extension, setup
-except ImportError:
-    from distutils.core import Extension, setup
+from setuptools import Extension, setup
 
 
 PACKAGES = [
@@ -36,8 +33,10 @@ MOD_NAMES = [
     'thinc.linear.features',
     'thinc.linear.serialize',
     'thinc.linear.sparse',
+    'thinc.linear.linear',
     'thinc.neural.optimizers',
     'thinc.neural.ops',
+    'thinc.neural.gpu_ops',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
@@ -45,10 +44,51 @@ MOD_NAMES = [
 ]
 
 
-compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
+compile_options =  {'msvc'  : {'gcc': ['/Ox', '/EHsc'], 'nvcc': []},
+                    'other' : {
+                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [],
                     'other' : []}
+
+
+def customize_compiler_for_nvcc(self):
+    """inject deep into distutils to customize how the dispatch
+    to gcc/nvcc works.
+
+    If you subclass UnixCCompiler, it's not trivial to get your subclass
+    injected in, and still have the right customizations (i.e.
+    distutils.sysconfig.customize_compiler) run on it. So instead of going
+    the OO route, I have this. Note, it's kindof like a wierd functional
+    subclassing going on."""
+
+    # tell the compiler it can processes .cu
+    self.src_extensions.append('.cu')
+
+    # save references to the default compiler_so and _comple methods
+    default_compiler_so = self.compiler_so
+    super = self._compile
+
+    # now redefine the _compile method. This gets executed for each
+    # object but distutils doesn't have the ability to change compilers
+    # based on source extension: we add it.
+    def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
+        if os.path.splitext(src)[1] == '.cu':
+            # use the cuda for .cu files
+            self.set_executable('compiler_so', CUDA['nvcc'])
+            # use only a subset of the extra_postargs, which are 1-1 translated
+            # from the extra_compile_args in the Extension class
+            postargs = extra_postargs['nvcc']
+        else:
+            postargs = extra_postargs['gcc']
+
+        super(obj, src, ext, cc_args, postargs, pp_opts)
+        # reset the default compiler_so, which we might have changed for cuda
+        self.compiler_so = default_compiler_so
+
+    # inject our redefined _compile method into the class
+    self._compile = _compile
+
 
 # By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
@@ -65,6 +105,7 @@ class build_ext_options:
 class build_ext_subclass(build_ext, build_ext_options):
     def build_extensions(self):
         build_ext_options.build_options(self)
+        customize_compiler_for_nvcc(self.compiler)
         build_ext.build_extensions(self)
 
 
@@ -75,6 +116,51 @@ def generate_cython(root, source):
                          source], env=os.environ)
     if p != 0:
         raise RuntimeError('Running cythonize failed')
+
+
+def find_in_path(name, path):
+    "Find a file in a search path"
+    #adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
+    for dir in path.split(os.pathsep):
+        binpath = os.path.join(dir, name)
+        if os.path.exists(binpath):
+            return os.path.abspath(binpath)
+    return None
+
+
+def locate_cuda():
+    """Locate the CUDA environment on the system
+
+    Returns a dict with keys 'home', 'nvcc', 'include', and 'lib64'
+    and values giving the absolute path to each directory.
+
+    Starts by looking for the CUDAHOME env variable. If not found, everything
+    is based on finding 'nvcc' in the PATH.
+    """
+
+    # first check if the CUDAHOME env variable is in use
+    if 'CUDAHOME' in os.environ:
+        home = os.environ['CUDAHOME']
+        nvcc = os.path.join(home, 'bin', 'nvcc')
+    else:
+        # otherwise, search the PATH for NVCC
+        nvcc = find_in_path('nvcc', os.environ['PATH'])
+        if nvcc is None:
+            print('Warning: The nvcc binary could not be located in your $PATH. '
+                  'For GPU capability, either add it to your path, or set $CUDAHOME')
+            return None
+        home = os.path.dirname(os.path.dirname(nvcc))
+
+    cudaconfig = {'home':home, 'nvcc':nvcc,
+                  'include': os.path.join(home, 'include'),
+                  'lib64': os.path.join(home, 'lib64')}
+    for k, v in cudaconfig.iteritems():
+        if not os.path.exists(v):
+            print('Warning: The CUDA %s path could not be located in %s' % (k, v))
+            return None
+    return cudaconfig
+
+CUDA = locate_cuda()
 
 
 def is_source_release(path):
@@ -126,11 +212,32 @@ def setup_package():
 
         ext_modules = []
         for mod_name in MOD_NAMES:
+            if mod_name.endswith('gpu_ops'):
+                continue
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs
                 ))
+        if CUDA is None:
+            ext_modules.append(
+                Extension("thinc.neural.gpu_ops",
+                    sources=["thinc/neural/gpu_ops.cpp"],
+                    language='c++',
+                    include_dirs=include_dirs))
+        else:
+            ext_modules.append(
+                Extension("thinc.neural.gpu_ops",
+                    sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
+                    library_dirs=[CUDA['lib64']],
+                    libraries=['cudart'],
+                    language='c++',
+                    runtime_library_dirs=[CUDA['lib64']],
+                    # this syntax is specific to this build system
+                    # we're only going to use certain compiler args with nvcc and not with gcc
+                    # the implementation of this trick is in customize_compiler() below
+                    extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"],
+                    include_dirs = include_dirs + [CUDA['include']]))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
@@ -153,12 +260,13 @@ def setup_package():
                 'numpy>=1.7',
                 'murmurhash>=0.26,<0.27',
                 'cymem>=1.30,<1.32',
-                'preshed>=0.46,<0.47',
+                'preshed>=1.0.0,<2.0.0',
                 'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
+                'termcolor',
                 'pathlib>=1.0.0,<2.0.0'
             ],
             classifiers=[
@@ -176,6 +284,7 @@ def setup_package():
                 'Programming Language :: Python :: 3.3',
                 'Programming Language :: Python :: 3.4',
                 'Programming Language :: Python :: 3.5',
+                'Programming Language :: Python :: 3.6',
                 'Topic :: Scientific/Engineering'],
             cmdclass = {
                 'build_ext': build_ext_subclass},

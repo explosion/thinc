@@ -12,7 +12,7 @@ class Trainer(object):
         self.ops = model.ops
         self.model = model
         self.L2 = cfg.get('L2', 0.0)
-        self.optimizer = Eve(Adam(model.ops, 0.001, L2=self.L2))
+        self.optimizer = Adam(model.ops, 0.001, decay=0.0, eps=1e-8, L2=self.L2)
         self.batch_size = cfg.get('batch_size', 128)
         self.nb_epoch = cfg.get('nb_epoch', 20)
         self.i = 0
@@ -29,11 +29,12 @@ class Trainer(object):
     def iterate(self, train_X, train_y, progress_bar=True):
         orig_dropout = self.dropout
         for i in range(self.nb_epoch):
-            indices = self.ops.xp.asarray(range(len(train_X)))
+            indices = numpy.arange(len(train_X))
             numpy.random.shuffle(indices)
+            indices = self.ops.asarray(indices)
             j = 0
-            with tqdm(total=len(indices)) as pbar:
-                while j < len(indices):
+            with tqdm(total=indices.shape[0]) as pbar:
+                while j < indices.shape[0]:
                     slice_ = indices[j : j + self.batch_size]
                     X = _take_slice(train_X, slice_)
                     y = _take_slice(train_y, slice_)

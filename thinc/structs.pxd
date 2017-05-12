@@ -30,7 +30,7 @@ ctypedef void (*do_feed_fwd_t)(
         int nr_batch,
         const ConstantsC* hp
 ) nogil
- 
+
 
 ctypedef void (*do_feed_bwd_t)(
     weight_t* G,
@@ -124,10 +124,10 @@ cdef struct ExampleC:
 cdef cppclass MinibatchC:
     weight_t** _fwd
     weight_t** _bwd
-    
+
     FeatureC** _feats
     len_t* _nr_feat
-    
+
     weight_t* _costs
     int* _is_valid
     uint64_t* signatures
@@ -205,7 +205,7 @@ cdef cppclass MinibatchC:
         if this.i >= this.batch_size:
             this.reset()
             this.i = 0 # This is done in reset() --- but make it obvious
- 
+
         this.signatures[this.i] = key
         this._nr_feat[this.i] = nr_feat
         this._feats[this.i] = <FeatureC*>calloc(nr_feat, sizeof(FeatureC))
@@ -231,16 +231,16 @@ cdef cppclass MinibatchC:
 
     weight_t* fwd(int i, int j) nogil:
         return this._fwd[i] + (j * this.widths[i])
- 
+
     weight_t* bwd(int i, int j) nogil:
         return this._bwd[i] + (j * this.widths[i])
-  
+
     weight_t* scores(int i) nogil:
         return this.fwd(this.nr_layer-1, i)
 
     weight_t* losses(int i) nogil:
         return this.bwd(this.nr_layer-1, i)
- 
+
     weight_t* costs(int i) nogil:
         return this._costs + (i * this.nr_out())
 
@@ -249,7 +249,7 @@ cdef cppclass MinibatchC:
 
     int guess(int i) nogil:
         return VecVec.arg_max_if_true(this.scores(i), this.is_valid(i), this.nr_out())
-    
+
     int best(int i) nogil:
         return VecVec.arg_max_if_zero(this.scores(i), this.costs(i), this.nr_out())
 
@@ -272,6 +272,7 @@ cdef struct SparseAverageC:
     SparseArrayC* mom2
     SparseArrayC* avgs
     SparseArrayC* times
+    SparseArrayC* penalties
     weight_t penalty
 
 

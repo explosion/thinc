@@ -4,16 +4,16 @@ from ..neural.ops import NumpyOps, CupyOps
 
 
 def test_get_ops():
-    ops = get_ops('numpy')
-    assert isinstance(ops, NumpyOps)
-    ops = get_ops('cpu')
-    assert isinstance(ops, NumpyOps)
-    ops = get_ops('cupy')
-    assert isinstance(ops, CupyOps)
-    ops = get_ops('gpu')
-    assert isinstance(ops, CupyOps)
+    Ops = get_ops('numpy')
+    Ops is NumpyOps
+    Ops = get_ops('cpu')
+    assert Ops is NumpyOps
+    Ops = get_ops('cupy')
+    assert Ops is CupyOps
+    Ops = get_ops('gpu')
+    assert Ops is CupyOps
     with pytest.raises(ValueError):
-        ops = get_ops('blah')
+        Ops = get_ops('blah')
 
 
 @pytest.mark.xfail

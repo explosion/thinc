@@ -10,6 +10,7 @@ from collections import defaultdict
 import numpy
 
 from ..typedefs cimport weight_t
+from .ops import add_gradient_noise
 
 
 def linear_decay(rate, decay, nr_upd):
@@ -17,11 +18,12 @@ def linear_decay(rate, decay, nr_upd):
 
 
 class SGD(object):
-    def __init__(self, ops, lr, momentum=0.0, decay=0.0, **settings):
+    def __init__(self, ops, lr, momentum=0.0, nesterov=False, decay=0.0, **settings):
         self.ops = ops
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
+        self.nesterov = nesterov
         self.max_grad_norm = 100.
         self.momentums = {}
         self.averages = {} if settings.get('averages', True) else None
@@ -46,9 +48,24 @@ class SGD(object):
             if key not in self.momentums:
                 self.momentums[key] = self.ops.allocate(weights.size)
             momentum = self.momentums[key]
-            momentum *= self.mu
-            momentum += gradient * lr
-            weights -= momentum
+            if not self.nesterov:
+                momentum *= self.mu
+                momentum += gradient * lr
+                weights -= momentum
+            else:
+                # http://cs231n.github.io/neural-networks-3/
+                # v_prev = v # back this up
+                # v = mu * v - lr * gradient # velocity update stays the same
+                # x += -mu * v_prev + (1 + mu) * v # position update changes form
+                # Implement this as
+                # x += -mu * v
+                # v *= mu
+                # v -= lr * gradient
+                # x += (1+mu) * v
+                weights += -self.mu * momentum
+                momentum *= self.mu
+                momentum -= lr * gradient
+                weights += (1+self.mu) * momentum
             gradient.fill(0)
         if self.averages is not None:
             if key not in self.averages:
@@ -63,7 +80,8 @@ class SGD(object):
 
 
 class Adam(SGD):
-    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0):
+    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
+                 b1_decay=0.0, b2_decay=0.0):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
@@ -74,6 +92,8 @@ class Adam(SGD):
         self.alpha = lr
         self.b1 = beta1
         self.b2 = beta2
+        self.b1_decay = b1_decay
+        self.b2_decay = b1_decay
         self.eps = eps
         self.decay = decay
         self.d = 1.
@@ -85,8 +105,8 @@ class Adam(SGD):
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
-    
-    def __call__(self, weights, gradient, lr_scale=1., 
+
+    def __call__(self, weights, gradient, lr_scale=1.,
             key=None):
         assert key is not None
         assert len(gradient) >= 1
@@ -97,19 +117,17 @@ class Adam(SGD):
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         gradient += self.L2 * weights
-        self.ops.clip_gradient(gradient, len(gradient) / 100.)
+        self.ops.clip_gradient(gradient, self.max_grad_norm)
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
         cdef weight_t lr = self.lr(nr_upd)
-        cdef weight_t b1 = self.b1
-        cdef weight_t b2 = self.b1
+        cdef weight_t b1 = linear_decay(self.b1, self.b1_decay, nr_upd)
+        cdef weight_t b2 = linear_decay(self.b2, self.b2_decay, nr_upd)
         cdef weight_t eps = self.eps
         self.ops.adam(
-            weights, gradient, mom1, mom2, b1, b2, eps, lr, lr_scale)
+            weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
         gradient.fill(0)
-        #_adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
-        #    weights.shape[0], b1, b2, eps, lr)
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
@@ -121,7 +139,7 @@ class Adam(SGD):
 class Eve(object):
     def __init__(self, optimizer):
         self.optimizer = optimizer
-        self.b3 = 0.999
+        self.b3 = 0.9
         self.thl = 0.1
         self.thu = 10
         self.d = 1.
@@ -135,20 +153,18 @@ class Eve(object):
         assert self.d > 0.
         assert self.d < 100
         return self.optimizer(weights, gradient, key=key,
-            lr_scale=self.d)
+            lr_scale=1./self.d)
 
     def set_loss(self, loss):
         if self.loss_hat is None:
             self.loss_hat = loss
             self.loss = loss
             return
-        loss += 1e-4
-
         prev_loss = self.loss
         prev_loss_hat = self.loss_hat
-        loss_ch_fact = self._get_loss_ch_fact(loss, prev_loss)
+        loss_ch_fact = self._get_loss_ch_fact(loss, prev_loss_hat)
 
-        loss_hat = (loss_ch_fact * prev_loss_hat) + 1e-4
+        loss_hat = (loss_ch_fact * prev_loss_hat)
 
         r = abs(loss_hat - prev_loss_hat) / min(loss_hat, prev_loss_hat)
         self.d = (self.b3 * self.d) + (1-self.b3) * r

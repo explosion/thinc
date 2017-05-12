@@ -6,7 +6,7 @@ from .. import util
 from ..train import Trainer
 from ..ops import NumpyOps
 from ..mem import Memory
-from ..util import get_ops
+from ..util import get_ops, copy_array
 from ... import check
 from ... import describe
 from ...check import equal_length, has_shape, is_sequence, is_float, is_array
@@ -16,7 +16,9 @@ class Model(object):
     '''Model base class.'''
     name = 'model'
     id = 0
+    lsuv = False
     ops = NumpyOps()
+    Ops = NumpyOps
     Trainer = Trainer
     descriptions = []
     on_data_hooks = []
@@ -52,9 +54,11 @@ class Model(object):
         if device == cls.ops.device:
             yield
         else:
-            curr_ops = cls.ops
-            cls.ops = get_ops(device)
+            curr_Ops, curr_ops = (cls.Ops, cls.ops)
+            cls.Ops = get_ops(device)
+            cls.ops = cls.Ops()
             yield
+            cls.Ops = curr_Ops
             cls.ops = curr_ops
 
     @property
@@ -67,6 +71,7 @@ class Model(object):
 
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
+        self.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._dims = {}
@@ -94,8 +99,8 @@ class Model(object):
     def set_id(self):
         Model.id += 1
         self.id = Model.id
-        for child in self._layers:
-            child.set_id()
+        for layer in self._layers:
+            layer.set_id()
 
     #@check.args(equal_length)
     @check.arg(1, is_sequence)
@@ -124,16 +129,21 @@ class Model(object):
         if self.id in params:
             param = params[self.id]
             backup = weights.copy()
-            weights[:] = param
+            copy_array(weights, param)
         if hasattr(self, '_layers'):
             contexts = [layer.use_params(params) for layer in self._layers]
             for context in contexts:
                 next(context.gen)
         yield
         if backup is not None:
-            weights[:] = backup
-        for context in contexts:
-            next(context.gen)
+            copy_array(self._mem.weights, backup)
+        for i, context in enumerate(contexts):
+            # This is ridiculous, but apparently it's what you
+            # have to do to make this work across Python 2/3?
+            try:
+                next(context.gen)
+            except StopIteration:
+                pass
 
     def __call__(self, x):
         '''
@@ -170,6 +180,17 @@ class Model(object):
         else:
             correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
         return correct / y.shape[0]
+
+    def evaluate_logloss(self, X, y, minimum=None, maximum=None):
+        yh = self.ops.xp.vstack(self.pipe(X))
+        yh = yh.reshape(y.shape)
+        if minimum is not None:
+            yh = self.ops.xp.maximum(yh, minimum)
+        if maximum is not None:
+            yh = self.ops.xp.minimum(yh, maximum)
+        assert len(yh.shape) == 1
+        losses = -y * self.ops.xp.log(yh + 1e-8) - (1-y) * self.ops.xp.log((1-yh)+1e-8)
+        return losses.mean()
 
     @check.operator_is_defined('+')
     def __add__(self, other):

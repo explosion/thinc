@@ -40,7 +40,7 @@ cdef class SparseArray:
                 i += 1
         else:
             return -1
-    
+
     @staticmethod
     cdef inline SparseArrayC* resize(SparseArrayC* array) except NULL:
         cdef int length = 0
@@ -59,12 +59,12 @@ cdef class SparseArray:
         # Three-way comparison (I always forget):
         # 0 if equal
         # -1 if a before b
-        # 1 if b before a 
+        # 1 if b before a
         cdef int key_a = (<SparseArrayC*>a).key
         cdef int key_b = (<SparseArrayC*>b).key
         if key_a == key_b:
             return 0
         elif key_a < 0 or key_b < 0:
-            return -1 if a > b else 1 # Sort negatives to the end 
+            return -1 if a > b else 1 # Sort negatives to the end
         else:
             return -1 if a < b else 1

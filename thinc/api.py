@@ -118,9 +118,13 @@ def concatenate(*layers): # pragma: no cover
             for bwd, shape in zip(backward, shapes):
                 end = start + shape[1]
                 if bwd is not None:
-                    d = bwd(gradient[:, start : end], *args, **kwargs)
-                    if d is not None:
-                        layer_grads[-1] += d
+                    d = bwd(ops.xp.ascontiguousarray(gradient[:, start : end]),
+                            *args, **kwargs)
+                    if d is not None and hasattr(X, 'shape'):
+                        if not layer_grads:
+                            layer_grads.append(d)
+                        else:
+                            layer_grads[-1] += d
                 start = end
             if layer_grads:
                 return ops.asarray(layer_grads[-1])
@@ -136,33 +140,36 @@ def concatenate(*layers): # pragma: no cover
     layer.on_data_hooks.append(on_data)
     return layer
 
- 
-def add(layer1, layer2):
+
+def add(*layers):
+    if not layers:
+        return noop()
+    ops = layers[0].ops
     def forward(X, drop=0.):
-        out1, bp_out1 = layer1.begin_update(X, drop=drop)
-        out2, bp_out2 = layer2.begin_update(X, drop=drop)
-        output = out1 + out2
-        def backward(d_output, sgd=None):
-            if bp_out1 is not None:
-                d_out1 = bp_out1(d_output, sgd)
+        outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in layers])
+        out = outs[0]
+        for o in outs:
+            out += o
+
+        def backward(d_out, sgd=None):
+            grads = [bp(d_out, sgd=sgd) for bp in callbacks if bp is not None]
+            grads = [g for g in grads if g is not None]
+            if grads:
+                total = grads[0]
+                for g in grads:
+                    total += g
+                return total
             else:
-                d_out1 = 0.
-            if bp_out2 is not None:
-                d_out2 = bp_out2(d_output, sgd)
-            else:
-                d_out2 = 0.
-            return (d_out1 + d_out2) if d_out1 and d_out2 else None
-        return output, backward
+                return None
+        return out, backward
     model = layerize(forward)
-    model._layers = [layer1, layer2]
+    model._layers = list(layers)
     def on_data(self, X, y):
-        for hook in layer1.on_data_hooks:
-            hook(layer1, X, y)
-        for hook in layer2.on_data_hooks:
-            hook(layer2, X, y)
+        for layer in layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
     model.on_data_hooks.append(on_data)
     return model
-
 
 
 def split_backward(layers): # pragma: no cover
@@ -195,22 +202,30 @@ def sink_return(func, sink, splitter=None): # pragma: no cover
 def Arg(i):
     @layerize
     def begin_update(batched_inputs, drop=0.):
-        inputs = zip(*batched_inputs)
+        inputs = list(zip(*batched_inputs))
         return inputs[i], None
     return begin_update
 
 
-def with_flatten(layer):
+def with_flatten(layer, pad=0, ndim=4):
+    if pad:
+        pad_var = layer.ops.allocate((pad, ndim), dtype='uint64')
     def begin_update(seqs_in, drop=0.):
+        if pad:
+            seqs_in = [layer.ops.xp.vstack((pad_var, seq, pad_var))
+                       for seq in seqs_in]
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
         X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in), drop=drop)
         if bp_layer is None:
-            return layer.ops.unflatten(X, lengths), None
-
+            return layer.ops.unflatten(X, lengths, pad=pad), None
+        d_pad_var = layer.ops.allocate((pad, X.shape[1]), dtype=X.dtype)
         def finish_update(d_seqs_out, sgd=None):
+            if pad:
+                d_seqs_out = [layer.ops.xp.vstack((d_pad_var, seq, d_pad_var))
+                              for seq in d_seqs_out]
             d_X = bp_layer(layer.ops.flatten(d_seqs_out), sgd=sgd)
-            return layer.ops.unflatten(d_X, lengths) if d_X is not None else None
-        return layer.ops.unflatten(X, lengths), finish_update
+            return layer.ops.unflatten(d_X, lengths, pad=pad) if d_X is not None else None
+        return layer.ops.unflatten(X, lengths, pad=pad), finish_update
     model = layerize(begin_update)
     model._layers.append(layer)
     model.on_data_hooks.append(_with_flatten_on_data)
@@ -223,5 +238,14 @@ def _with_flatten_on_data(model, X, y):
         for hook in layer.on_data_hooks:
             hook(layer, X, y)
         X = layer(X)
+
+
+def FeatureExtracter(attrs):
+    def forward(docs, drop=0.):
+        features = [doc.to_array(attrs) for doc in docs]
+        def backward(d_features, sgd=None):
+            return d_features
+        return features, backward
+    return layerize(forward)
 
 

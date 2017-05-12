@@ -3,14 +3,19 @@ import plac
 import spacy
 from pathlib import Path
 import dill as pickle
+import numpy
 
-from thinc.neural import Model, Softmax, Maxout
+from thinc.neural import Model, ReLu, Softmax, Maxout
 from thinc.neural import ExtractWindow
 from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
+from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural._classes.embed import Embed
 from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.neural.util import to_categorical
+from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.neural._classes.resnet import Residual
+from thinc.neural.ops import CupyOps
 
 from thinc.api import layerize, with_flatten, with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, Arg
@@ -20,6 +25,7 @@ from thinc.extra.load_nlp import get_spacy, get_vectors
 
 
 epoch_train_acc = 0.
+epoch = 0
 def track_progress(**context):
     '''Print training progress. Called after each epoch.'''
     model = context['model']
@@ -29,14 +35,36 @@ def track_progress(**context):
     n_train = len(train_X)
     trainer = context['trainer']
     def each_epoch():
-        global epoch_train_acc
+        global epoch_train_acc, epoch
         acc = model.evaluate(dev_X, dev_y)
         with model.use_params(trainer.optimizer.averages):
-            avg_acc = model.evaluate(dev_X, dev_y)
+            avg_acc = model.evaluate_logloss(dev_X, dev_y)
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        track_stat('dev', epoch, avg_acc)
+        track_stat('dev_raw', epoch, acc)
+        track_stat('train', epoch, epoch_train_acc / n_train)
+        track_stat('batch_size', epoch, trainer.batch_size)
         epoch_train_acc = 0.
+        epoch += 1
     return each_epoch
+
+
+try:
+    from deepsense import neptune
+except ImportError:
+    neptune = None
+
+CTX = None
+
+CHANNELS = {}
+def track_stat(name, i, value):
+    if CTX is None:
+        return
+    if name not in CHANNELS:
+        CHANNELS[name] = CTX.job.create_channel(name, neptune.ChannelType.NUMERIC)
+    channel = CHANNELS[name]
+    channel.send(x=i, y=value)
 
 
 def preprocess(ops, nlp, rows, get_ids):
@@ -46,7 +74,16 @@ def preprocess(ops, nlp, rows, get_ids):
     for (text1, text2), label in rows:
         Xs.append((get_ids([nlp(text1)])[0], get_ids([nlp(text2)])[0]))
         ys.append(label)
-    return Xs, to_categorical(ys, nb_classes=2)
+    return Xs, ops.asarray(ys, dtype='float32')
+
+
+@layerize
+def logistic(X, drop=0.):
+    ops = Model.ops
+    y = 1. / (1. + ops.xp.exp(-X))
+    def backward(dy, sgd=None):
+        return dy * y * (1-y)
+    return y, backward
 
 
 @plac.annotations(
@@ -55,6 +92,7 @@ def preprocess(ops, nlp, rows, get_ids):
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
+    L2=("L2 penalty", "option", "L", float),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     use_gpu=("Whether to use GPU", "flag", "G", bool),
@@ -62,12 +100,25 @@ def preprocess(ops, nlp, rows, get_ids):
     pieces=("Number of pieces for maxout", "option", "p", int),
     out_loc=("File to save the model", "option", "o"),
     quiet=("Don't print the progress bar", "flag", "q"),
-    pooling=("Which pooling to use", "option", "P", str)
+    pooling=("Which pooling to use", "option", "P", str),
+    job_id=("Job ID for Neptune", "option", "J"),
+    rest_api_url=("REST API URL", "option", "R"),
+    ws_api_url=("WS API URL", "option", "W")
 )
-def main(dataset='quora', width=64, depth=2, min_batch_size=1,
-        max_batch_size=128, dropout=0.0, dropout_decay=0.0, pooling="mean+max",
-        nb_epoch=20, pieces=3, use_gpu=False, out_loc=None, quiet=False):
+def main(dataset='quora', width=50, depth=2, min_batch_size=1,
+        max_batch_size=512, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
+        nb_epoch=5, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
+        job_id=None, ws_api_url=None, rest_api_url=None):
+    global CTX
+    if job_id is not None:
+        CTX = neptune.Context()
+        width = CTX.params.width
+        L2 = CTX.params.L2
+        nb_epoch = CTX.params.nb_epoch
+        depth = CTX.params.depth
+        max_batch_size = CTX.params.max_batch_size
     cfg = dict(locals())
+
     if out_loc:
         out_loc = Path(out_loc)
         if not out_loc.parent.exists():
@@ -86,8 +137,8 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
     print("Load spaCy")
     nlp = get_spacy('en')
 
-    #if use_gpu:
-    #    Model.ops = CupyOps()
+    if use_gpu:
+        Model.ops = CupyOps()
 
     print("Construct model")
     # Bind operators for the scope of the block:
@@ -97,36 +148,26 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
     # (f ** 3)(x) -> f''(f'(f(x))), where f, f' and f'' have distinct weights.
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
+    Model.lsuv = True
+    #Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        mwe_encode = ExtractWindow(nW=1) >> Maxout(width, width*3, pieces=pieces)
+        mwe_encode = ExtractWindow(nW=1) >> BN(Maxout(width, drop_factor=0.0, pieces=pieces))
 
-        embed = StaticVectors('en', width)# + Embed(width, width*2, 5000)
-        # Comments indicate the output type and shape at each step of the pipeline.
-        # * B: Number of sentences in the batch
-        # * T: Total number of words in the batch
-        # (i.e. sum(len(sent) for sent in batch))
-        # * W: Width of the network (input hyper-parameter)
-        # * ids: ID for each word (integers).
-        # * lengths: Number of words in each sentence in the batch (integers)
-        # * floats: Standard dense vector.
-        # (Dimensions annotated in curly braces.)
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
-            >> with_getitem(0,      # : word_ids{T}
-                 embed
-                 >> mwe_encode ** depth
-            ) # : (floats{T, W}, lengths{B})
-            >> pool_layer
-            >> Maxout(width, pieces=pieces)
-            >> Maxout(width, pieces=pieces)
+            >> with_getitem(0,
+                (StaticVectors('en', width)
+                   + HashEmbed(width, 3000)
+                   + HashEmbed(width, 3000))
+                #>> Residual(mwe_encode ** 2)
+                ) # : word_ids{T}
+            >> Pooling(mean_pool, max_pool)
+            #>> Residual(BN(Maxout(width*2, pieces=pieces), nO=width*2)**2)
+            >> Maxout(width*2, pieces=pieces, drop_factor=0.0)
+            >> logistic
         )
-        model = (
-            ((Arg(0) >> sent2vec) | (Arg(1) >> sent2vec))
-            >> Maxout(width, pieces=pieces)
-            >> Maxout(width, pieces=pieces)
-            >> Softmax(2)
-        )
+        model = Siamese(sent2vec, CauchySimilarity(width*2))
 
     print("Read and parse data: %s" % dataset)
     if dataset == 'quora':
@@ -146,34 +187,37 @@ def main(dataset='quora', width=64, depth=2, min_batch_size=1,
     train_X, train_y = preprocess(model.ops, nlp, train, get_ids)
     dev_X, dev_y = preprocess(model.ops, nlp, dev, get_ids)
 
-    print("Initialize with data (LSUV)")
-    print(dev_y.shape)
-    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X[:10000], train_y[:10000], **cfg) as (trainer, optimizer):
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
-        print("Accuracy before training", model.evaluate(dev_X, dev_y))
+        print("Accuracy before training", model.evaluate_logloss(dev_X, dev_y))
         print("Train")
         global epoch_train_acc
+        n_iter = 0
+
         for X, y in trainer.iterate(train_X, train_y, progress_bar=not quiet):
             # Slightly useful trick: Decay the dropout as training proceeds.
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             assert yh.shape == y.shape, (yh.shape, y.shape)
-            # No auto-diff: Just get a callback and pass the data through.
-            # Hardly a hardship, and it means we don't have to create/maintain
-            # a computational graph. We just use closures.
 
-            assert (yh >= 0.).all()
-            train_acc = (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
+            assert (yh >= 0.).all(), yh
+            train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
+            loss = model.ops.xp.abs(yh-y).mean()
+            track_stat('loss', n_iter, loss)
+            track_stat('train acc', n_iter, train_acc)
+            track_stat('LR', n_iter, optimizer.lr(n_iter+1))
             epoch_train_acc += train_acc
-
             backprop(yh-y, optimizer)
+            optimizer.set_loss(loss)
+            n_iter += 1
 
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
+            track_stat('Batch size', n_iter, y.shape[0])
         if out_loc:
             out_loc = Path(out_loc)
             print('Saving to', out_loc)

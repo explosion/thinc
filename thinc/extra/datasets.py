@@ -25,6 +25,7 @@ EWTB_1_4_ZIP = '{github}/{ewtb}/archive/r1.4.zip'.format(
 
 SNLI_URL = 'http://nlp.stanford.edu/projects/snli/snli_1.0.zip'
 QUORA_QUESTIONS_URL = 'http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv'
+IMDB_URL = 'http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz'
 
 
 def ancora_pos_tags(encode_words=False): # pragma: no cover
@@ -76,6 +77,44 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
+
+
+def imdb(loc=None):
+    if loc is None:
+        loc = get_file('aclImdb', IMDB_URL, untar=True, unzip=True)
+    train_loc = Path(loc) / 'train'
+    test_loc = Path(loc) / 'test'
+    return read_imdb(train_loc), read_imdb(test_loc)
+
+
+def read_wikiner(file_, tagmap=None):
+    Xs = []
+    ys = []
+    for line in file_:
+        if not line.strip():
+            continue
+        tokens = [t.rsplit('|', 2) for t in line.split()]
+        words, _, tags = zip(*tokens)
+        if tagmap is not None:
+            tags = [tagmap.setdefault(tag, len(tagmap)) for tag in tags]
+        Xs.append(words)
+        ys.append(tags)
+    return zip(Xs, ys)
+
+
+def read_imdb(data_dir, limit=0):
+    examples = []
+    for subdir, label in (('pos', 1), ('neg', 0)):
+        for filename in (data_dir / subdir).iterdir():
+            with filename.open() as file_:
+                text = file_.read()
+            if text.strip():
+                examples.append((text, label))
+    random.shuffle(examples)
+    if limit >= 1:
+        examples = examples[:limit]
+    return examples
+
 
 
 def read_conll(loc): # pragma: no cover
@@ -140,8 +179,8 @@ def quora_questions(loc=None):
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.strip()
-            sent2 = sent2.strip()
+            sent1 = sent1.decode('utf8').strip()
+            sent2 = sent2.decode('utf8').strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
     train, dev = partition(lines, 0.9)
@@ -149,7 +188,7 @@ def quora_questions(loc=None):
 
 
 THREE_LABELS = {'entailment': 2, 'contradiction': 1, 'neutral': 0}
-TWO_LABELS = {'entailment': 2, 'contradiction': 0, 'neutral': 0}
+TWO_LABELS = {'entailment': 1, 'contradiction': 0, 'neutral': 0}
 def snli(loc=None, ternary=False):
     label_scheme = THREE_LABELS if ternary else TWO_LABELS
     if loc is None:
@@ -159,6 +198,18 @@ def snli(loc=None, ternary=False):
 
     train = read_snli(Path(loc) / 'snli_1.0_train.jsonl', label_scheme)
     dev = read_snli(Path(loc) / 'snli_1.0_dev.jsonl', label_scheme)
+    return train, dev
+
+
+def stack_exchange(loc=None):
+    if loc is None:
+        raise ValueError("No default path for Stack Exchange yet")
+    rows = []
+    with loc.open() as file_:
+        for line in file_:
+            eg = json.loads(line)
+            rows.append(((eg['text1'], eg['text2']), int(eg['label'])))
+    train, dev = partition(rows, 0.7)
     return train, dev
 
 

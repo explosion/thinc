@@ -1,28 +1,28 @@
 from __future__ import print_function, division
+import sys
 import plac
 import numpy
 import time
 from timeit import default_timer as timer
-import dill as pickle
+from pathlib import Path
 
 import spacy
-from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
+from spacy.attrs import ORTH, TAG, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
+from thinc.extra.load_nlp import get_spacy
 
 from thinc.neural.id2vec import Embed
 from thinc.neural._classes.hash_embed import HashEmbed
+from thinc.neural._classes.static_vectors import StaticVectors
 from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm as BN
-from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
 
-from thinc.extra.datasets import ancora_pos_tags
-from thinc.extra.neptune import track_stat
 
 try:
     import cupy
@@ -31,10 +31,50 @@ except ImportError:
     cupy = None
 
 
+def twitter_ner():
+    loc = Path('/home/rd/repos/twitter_nlp/data/annotated/wnut16/data/')
+    tagmap = {}
+    train_X, train_y = _read_conll_ner((loc / 'train').open(), tagmap)
+    dev_X, dev_y = _read_conll_ner((loc / 'dev').open(), tagmap)
+    print(tagmap)
+    return zip(train_X, train_y), zip(dev_X, dev_y), tagmap
+
+
+def print_dev_sentences(model, orig_words, gold_tags, coded_words, tag_map):
+    reverse_tag_map = {id_: tag for tag, id_ in tag_map.items()}
+    scores = model(coded_words)
+    i = 0
+    for sent_words, sent_gold in zip(orig_words, gold_tags):
+        for word, gold in zip(sent_words, sent_gold):
+            tag = scores[i].argmax()
+            print('%s\t%s\t%s' % (word, reverse_tag_map[int(gold)],
+                                  reverse_tag_map[int(tag)]))
+            i += 1
+        print()
+
+
+def _read_conll_ner(file_, tagmap):
+    Xs = [[]]
+    ys = [[]]
+    for line in file_:
+        if not line.strip():
+            if Xs[-1] and ys[-1]:
+                Xs.append([])
+                ys.append([])
+        else:
+            word, tag = line.strip().split()
+            Xs[-1].append(word)
+            ys[-1].append(tagmap.setdefault(tag, len(tagmap)))
+    if not Xs[-1]:
+        Xs.pop()
+        ys.pop()
+    ys = [numpy.asarray(y, dtype='int32') for y in ys]
+    return Xs, ys
+
+
 def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True):
-    nlp = spacy.load(lang, parser=False, tagger=False,
-                           entity=False, matcher=False)
-    print(len(nlp.vocab))
+    nlp = get_spacy(lang, parser=False, tagger=False,
+                           entity=False)
     nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
     nlp.vocab.lex_attr_getters[SUFFIX] = lambda string: string[-3:]
     def forward(texts, drop=0.):
@@ -88,15 +128,14 @@ def track_progress(**context):
             avg_acc = model.evaluate(dev_X, dev_y)
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout,
                  wps_train, wps_run)
-        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats)
-        track_stat("dev", len(epoch_times), avg_acc), 
-        track_stat("Dev (raw)", len(epoch_times), acc), 
+        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats,
+              file=sys.stderr)
         epoch_train_acc = 0.
         epoch_times.append(timer())
     return each_epoch
 
 
-def preprocess(ops, get_feats, data, nr_tag, npad=4):
+def preprocess(ops, get_feats, data, nr_tag):
     Xs, ys = zip(*data)
     Xs = [ops.asarray(x) for x in get_feats(Xs)]
     ys = [ops.asarray(to_categorical(y, nb_classes=nr_tag)) for y in ys]
@@ -117,80 +156,68 @@ def debug(X, drop=0.):
     depth=("Depth of the hidden layers", "option", "d", int),
     min_batch_size=("Minimum minibatch size during training", "option", "b", int),
     max_batch_size=("Maximum minibatch size during training", "option", "B", int),
-    learn_rate=("Learning rate", "option", "e", float),
-    momentum=("Momentum", "option", "m", float),
     dropout=("Dropout rate", "option", "D", float),
     dropout_decay=("Dropout decay", "option", "C", float),
     nb_epoch=("Maximum passes over the training data", "option", "i", int),
     L2=("L2 regularization penalty", "option", "L", float),
-    job_id=("Job ID for Neptune", "option", "J"),
-    rest_api_url=("REST API URL", "option", "R"),
-    ws_api_url=("WS API URL", "option", "W")
+    device=("Device", "option", "G", str)
 )
-def main(width=100, depth=4, vector_length=64,
-         min_batch_size=1, max_batch_size=32, learn_rate=0.001,
-         momentum=0.9,
-        dropout=0.5, dropout_decay=1e-4, nb_epoch=20, L2=1e-6,
-        job_id=None, ws_api_url=None, rest_api_url=None):
-    global CTX
-    if job_id is not None:
-        from deepsense import neptune
-        CTX = neptune.Context()
-        learn_rate = CTX.params.learn_rate
-        momentum = CTX.params.momentum
-        width = CTX.params.width
-        depth = CTX.params.depth
-
+def main(width=300, depth=4, vector_length=64,
+         min_batch_size=1, max_batch_size=32,
+        dropout=0.9, dropout_decay=1e-3, nb_epoch=20, L2=1e-6,
+         device="cpu"):
     cfg = dict(locals())
-    print(cfg)
-    if cupy is not None:
-        print("Using GPU")
+    print(cfg, file=sys.stderr)
+    if cupy is not None and device != 'cpu':
+        print("Using GPU", file=sys.stderr)
         Model.ops = CupyOps()
-    train_data, check_data, nr_tag = ancora_pos_tags()
+        Model.ops.device = device
+    train_data, check_data, tag_map = twitter_ner()
+    dev_words, dev_tags = zip(*check_data)
+    nr_tag = len(tag_map)
 
-    extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
+    extracter = FeatureExtracter('en', attrs=[ORTH, LOWER, SHAPE, PREFIX, SUFFIX])
     Model.lsuv = True
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
                                  '|': concatenate}):
-        lower_case = (HashEmbed(width, 100, column=0) + HashEmbed(width, 100, column=0))
-        shape = HashEmbed(width//2, 200, column=1)
-        prefix     = HashEmbed(width//2, 100, column=2)
-        suffix     = HashEmbed(width//2, 100, column=3)
+        glove = StaticVectors('en', width//2, column=0)
+        lower_case = (HashEmbed(width, 500, column=1) + HashEmbed(width, 100, column=1))
+        shape = HashEmbed(width//2, 200, column=2)
+        prefix     = HashEmbed(width//2, 100, column=3)
+        suffix     = HashEmbed(width//2, 100, column=4)
 
         model = (
-            with_flatten(
-                (lower_case | shape | prefix | suffix)
-                >> Maxout(width, pieces=3)
-                >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
-                >> Softmax(nr_tag), pad=depth))
+            layerize(flatten_sequences)
+            >> (lower_case | shape | prefix | suffix)
+            >> BN(Maxout(width, pieces=3), nO=width)
+            >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
+            >> Softmax(nr_tag))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
     dev_X, dev_y = preprocess(model.ops, extracter, check_data, nr_tag)
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
-    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X, train_y, **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
-        n_iter = 0
         for X, y in trainer.iterate(train_X, train_y):
+            y = model.ops.flatten(y)
+
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
 
-            gradient = [yh[i]-y[i] for i in range(len(yh))]
-
-            backprop(gradient, optimizer)
+            backprop(yh - y, optimizer)
 
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
 
-            n_iter += 1
+            epoch_train_acc += (yh.argmax(axis=1) == y.argmax(axis=1)).sum()
             #if epoch_train_acc / n_train >= 0.999:
             #    break
     with model.use_params(trainer.optimizer.averages):
-        print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
-        with open('/tmp/model.pickle', 'wb') as file_:
-            pickle.dump(model, file_)
+        print(model.evaluate(dev_X, model.ops.flatten(dev_y)), file=sys.stderr)
+        print_dev_sentences(model, dev_words, dev_tags, dev_X, tag_map)
 
 
 if __name__ == '__main__':

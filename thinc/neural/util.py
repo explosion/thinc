@@ -1,7 +1,6 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
-from .ops import NumpyOps, CupyOps
 
 try:
     import cupy
@@ -12,10 +11,11 @@ except ImportError:
 
 
 def get_ops(ops):
+    from .ops import NumpyOps, CupyOps
     if ops in ('numpy', 'cpu'):
-        return NumpyOps()
+        return NumpyOps
     elif ops in ('cupy', 'gpu'):
-        return CupyOps()
+        return CupyOps
     else:
         raise ValueError("TODO error %s" % ops)
 
@@ -41,6 +41,16 @@ def remap_ids(ops):
             ids[i] = id_map[id_]
         return ids, None
     return begin_update
+
+def copy_array(dst, src, casting='same_kind', where=None):
+    if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
+        dst[:] = src
+    elif isinstance(dst, cupy.ndarray):
+        src = cupy.array(src, copy=False)
+        cupy.copyto(dst, src)
+    else:
+        numpy.copyto(dst, src)
+
 
 #    def _unique_ids(self, ids):
 #        id_map = {}

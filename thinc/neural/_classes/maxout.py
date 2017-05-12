@@ -3,6 +3,8 @@ from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 from .._lsuv import LSUVinit
+from ..util import get_array_module
+
 
 
 def _set_dimensions_if_needed(model, X, y=None):
@@ -13,10 +15,11 @@ def _set_dimensions_if_needed(model, X, y=None):
 
 
 def xavier_uniform_init(W, ops):
-    scale = ops.xp.sqrt(6. / (W.shape[0] + W.shape[2]))
+    xp = get_array_module(W)
+    scale = xp.sqrt(6. / (W.shape[0] + W.shape[2]))
     shape = (W.shape[0], W.shape[2])
     for i in range(W.shape[1]):
-        ops.xp.copyto(W[:,i], ops.xp.random.uniform(-scale, scale, shape))
+        xp.copyto(W[:,i], xp.random.uniform(-scale, scale, shape))
 
 
 @describe.on_data(_set_dimensions_if_needed, LSUVinit)
@@ -39,6 +42,7 @@ class Maxout(Model):
         self.nO = nO
         self.nI = nI
         self.nP = pieces
+        self.drop_factor = kwargs.get('drop_factor', 1.0)
 
     def predict(self, X__BI):
         X__BOP = self.ops.xp.tensordot(X__BI, self.W, axes=[[1], [-1]])
@@ -47,11 +51,12 @@ class Maxout(Model):
         return best__BO
 
     def begin_update(self, X__bi, drop=0.):
+        drop *= self.drop_factor
         output__boc = self.ops.xp.tensordot(X__bi, self.W, axes=[[1], [-1]])
         output__boc += self.b
         best__bo, which__bo = self.ops.maxout(output__boc)
-        best__bo, bp_dropout = self.ops.dropout(best__bo, drop, inplace=True)
- 
+        best__bo, bp_dropout = self.ops.dropout(best__bo, drop)
+
         def finish_update(dX__bo, sgd=None):
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)

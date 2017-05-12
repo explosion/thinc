@@ -3,6 +3,7 @@ import inspect
 import wrapt
 from cytoolz import curry
 from numpy import ndarray
+from six import integer_types
 
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
@@ -55,7 +56,7 @@ def has_shape(shape, arg_id, args, kwargs):
         raise ExpectedTypeError(arg, ['array'])
     shape_values = []
     for dim in shape:
-        if not isinstance(dim, int):
+        if not isinstance(dim, integer_types):
             dim = getattr(self, dim, None)
         shape_values.append(dim)
     if len(shape) != len(arg.shape):
@@ -71,7 +72,7 @@ def is_shape(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, Iterable):
         raise ExpectedTypeError(arg, ['iterable'])
     for value in arg:
-        if not isinstance(value, int) or value < 0:
+        if not isinstance(value, integer_types) or value < 0:
             raise ExpectedTypeError(arg, ['valid shape (positive ints)'])
 
 
@@ -93,7 +94,7 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
 
 def is_int(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
-    if not isinstance(arg, int):
+    if not isinstance(arg, integer_types):
         raise ExpectedTypeError(arg, ['int'])
     if 'min' in kwargs and arg < kwargs['min']:
         raise OutsideRangeError(arg, kwargs['min'], '>=')

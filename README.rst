@@ -12,25 +12,25 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically 
 structured input and variable-length sequences.
 
-🔮 **Version 6.3 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.5 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
-.. image:: https://travis-ci.org/explosion/thinc.svg?branch=master
+.. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
 
-.. image:: https://img.shields.io/coveralls/explosion/thinc.svg
+.. image:: https://img.shields.io/coveralls/explosion/thinc.svg?style=flat-square
     :target: https://coveralls.io/github/explosion/thinc
     :alt: Test Coverage
 
-.. image:: https://img.shields.io/github/release/explosion/thinc.svg
+.. image:: https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square
     :target: https://github.com/explosion/thinc/releases   
     :alt: Current Release Version
 
-.. image:: https://img.shields.io/pypi/v/thinc.svg   
+.. image:: https://img.shields.io/pypi/v/thinc.svg?style=flat-square
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
    
-.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg
+.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg?style=flat-square
     :target: https://gitter.im/explosion/thinc
     :alt: Thinc on Gitter
 
@@ -138,7 +138,7 @@ designed to make easy.
                 CharLSTM(char_width)
                 | (normalize >> str2int >> Embed(word_width)))
             >> ExtractWindow(nW=2)
-            >> BatchNorm(ReLu(huidden_width)) ** 3
+            >> BatchNorm(ReLu(hidden_width)) ** 3
             >> Softmax()
         ) 
 

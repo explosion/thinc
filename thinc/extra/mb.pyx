@@ -5,7 +5,11 @@ from ..typedefs cimport len_t
 from .eg cimport Example
 
 cdef class Minibatch:
-    def __cinit__(self, widths=None, batch_size=0):
+    def __cinit__(self, nr_class=None, widths=None, batch_size=0):
+        if widths is None and nr_class is None:
+            nr_class = 1
+        if widths is None:
+            widths = [nr_class]
         self.c = NULL
         if widths != None:
             c_widths = <len_t*>calloc(len(widths), sizeof(len_t))
@@ -13,6 +17,8 @@ cdef class Minibatch:
                 c_widths[i] = width
             self.c = new MinibatchC(c_widths, len(widths), batch_size)
             free(c_widths)
+        else:
+            self.c = new MinibatchC(NULL, 0, batch_size)
 
     def __dealloc__(self):
         if self.c != NULL:
