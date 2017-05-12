@@ -98,10 +98,13 @@ class Ops(object):
             result = self.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X, lengths):
+    def unflatten(self, X, lengths, pad=0):
         unflat = []
         for length in lengths:
-            unflat.append(X[:length])
+            if pad:
+                unflat.append(X[pad:length-pad])
+            else:
+                unflat.append(X[:length])
             X = X[length:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
