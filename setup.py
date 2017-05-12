@@ -219,7 +219,13 @@ def setup_package():
                 Extension(mod_name, [mod_path],
                     language='c++', include_dirs=include_dirs
                 ))
-        if CUDA is not None:
+        if CUDA is None:
+            ext_modules.append(
+                Extension("thinc.neural.gpu_ops",
+                    sources=["thinc/neural/gpu_ops.cpp"],
+                    language='c++',
+                    include_dirs=include_dirs))
+        else:
             ext_modules.append(
                 Extension("thinc.neural.gpu_ops",
                     sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
