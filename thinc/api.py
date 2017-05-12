@@ -207,17 +207,25 @@ def Arg(i):
     return begin_update
 
 
-def with_flatten(layer):
+def with_flatten(layer, pad=0, ndim=4):
+    if pad:
+        pad_var = layer.ops.allocate((pad, ndim), dtype='uint64')
     def begin_update(seqs_in, drop=0.):
+        if pad:
+            seqs_in = [layer.ops.xp.vstack((pad_var, seq, pad_var))
+                       for seq in seqs_in]
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
         X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in), drop=drop)
         if bp_layer is None:
-            return layer.ops.unflatten(X, lengths), None
-
+            return layer.ops.unflatten(X, lengths, pad=pad), None
+        d_pad_var = layer.ops.allocate((pad, X.shape[1]), dtype=X.dtype)
         def finish_update(d_seqs_out, sgd=None):
+            if pad:
+                d_seqs_out = [layer.ops.xp.vstack((d_pad_var, seq, d_pad_var))
+                              for seq in d_seqs_out]
             d_X = bp_layer(layer.ops.flatten(d_seqs_out), sgd=sgd)
-            return layer.ops.unflatten(d_X, lengths) if d_X is not None else None
-        return layer.ops.unflatten(X, lengths), finish_update
+            return layer.ops.unflatten(d_X, lengths, pad=pad) if d_X is not None else None
+        return layer.ops.unflatten(X, lengths, pad=pad), finish_update
     model = layerize(begin_update)
     model._layers.append(layer)
     model.on_data_hooks.append(_with_flatten_on_data)
