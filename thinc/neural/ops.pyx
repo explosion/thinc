@@ -20,7 +20,6 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
-from . import gpu_ops
 from .util import copy_array
 
 from murmurhash.mrmr cimport hash64
@@ -41,6 +40,11 @@ try:
     import cytoolz as toolz
 except ImportError:
     import toolz
+
+try:
+    from . import gpu_ops
+except ImportError:
+    pass
 
 
 
