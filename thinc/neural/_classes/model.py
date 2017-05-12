@@ -18,6 +18,7 @@ class Model(object):
     id = 0
     lsuv = False
     ops = NumpyOps()
+    Ops = NumpyOps
     Trainer = Trainer
     descriptions = []
     on_data_hooks = []
@@ -53,9 +54,11 @@ class Model(object):
         if device == cls.ops.device:
             yield
         else:
-            curr_ops = cls.ops
-            cls.ops = get_ops(device)
+            curr_Ops, curr_ops = (cls.Ops, cls.ops)
+            cls.Ops = get_ops(device)
+            cls.ops = cls.Ops()
             yield
+            cls.Ops = curr_Ops
             cls.ops = curr_ops
 
     @property
@@ -68,6 +71,7 @@ class Model(object):
 
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
+        self.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._dims = {}
