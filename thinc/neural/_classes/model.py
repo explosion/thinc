@@ -181,9 +181,13 @@ class Model(object):
             correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
         return correct / y.shape[0]
 
-    def evaluate_logloss(self, X, y):
+    def evaluate_logloss(self, X, y, minimum=None, maximum=None):
         yh = self.ops.xp.vstack(self.pipe(X))
         yh = yh.reshape(y.shape)
+        if minimum is not None:
+            yh = self.ops.xp.maximum(yh, minimum)
+        if maximum is not None:
+            yh = self.ops.xp.minimum(yh, maximum)
         assert len(yh.shape) == 1
         losses = -y * self.ops.xp.log(yh + 1e-8) - (1-y) * self.ops.xp.log((1-yh)+1e-8)
         return losses.mean()
