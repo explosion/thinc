@@ -141,32 +141,35 @@ def concatenate(*layers): # pragma: no cover
     return layer
 
 
-def add(layer1, layer2):
+def add(*layers):
+    if not layers:
+        return noop()
+    ops = layers[0].ops
     def forward(X, drop=0.):
-        out1, bp_out1 = layer1.begin_update(X, drop=drop)
-        out2, bp_out2 = layer2.begin_update(X, drop=drop)
-        output = out1 + out2
-        def backward(d_output, sgd=None):
-            if bp_out1 is not None:
-                d_out1 = bp_out1(d_output, sgd)
+        outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in layers])
+        out = outs[0]
+        for o in outs:
+            out += o
+
+        def backward(d_out, sgd=None):
+            grads = [bp(d_out, sgd=sgd) for bp in callbacks if bp is not None]
+            grads = [g for g in grads if g is not None]
+            if grads:
+                total = grads[0]
+                for g in grads:
+                    total += g
+                return total
             else:
-                d_out1 = 0.
-            if bp_out2 is not None:
-                d_out2 = bp_out2(d_output, sgd)
-            else:
-                d_out2 = 0.
-            return (d_out1 + d_out2) if d_out1 and d_out2 else None
-        return output, backward
+                return None
+        return out, backward
     model = layerize(forward)
-    model._layers = [layer1, layer2]
+    model._layers = list(layers)
     def on_data(self, X, y):
-        for hook in layer1.on_data_hooks:
-            hook(layer1, X, y)
-        for hook in layer2.on_data_hooks:
-            hook(layer2, X, y)
+        for layer in layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X, y)
     model.on_data_hooks.append(on_data)
     return model
-
 
 
 def split_backward(layers): # pragma: no cover
@@ -227,5 +230,14 @@ def _with_flatten_on_data(model, X, y):
         for hook in layer.on_data_hooks:
             hook(layer, X, y)
         X = layer(X)
+
+
+def FeatureExtracter(attrs):
+    def forward(docs, drop=0.):
+        features = [doc.to_array(attrs) for doc in docs]
+        def backward(d_features, sgd=None):
+            return d_features
+        return features, backward
+    return layerize(forward)
 
 
