@@ -1,8 +1,12 @@
-import spacy
 import numpy
+try:
+    import spacy
+except ImportError:
+    spacy = None
 
 SPACY_MODELS = {}
 VECTORS = {}
+
 
 def get_spacy(lang, **kwargs):
     global SPACY_MODELS
