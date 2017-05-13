@@ -3,7 +3,7 @@ from ... import describe
 
 
 def _init_to_one(W, ops):
-    W[:] = 1.
+    W.fill(1.)
 
 def _run_child_hooks(model, X, y=None):
     for hook in model.child.on_data_hooks:
