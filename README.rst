@@ -22,7 +22,7 @@ hashing trick, dynamic batch sizes, a concatenation-based approach to
 variable-length sequences, and support for model averaging for the
 Adam solver (which performs very well).
 
-🔮 **Version 6.5 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.6 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
@@ -39,7 +39,12 @@ Adam solver (which performs very well).
 .. image:: https://img.shields.io/pypi/v/thinc.svg?style=flat-square
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
-   
+
+
+.. image:: https://anaconda.org/conda-forge/thinc/badges/version.svg
+    :target: https://anaconda.org/conda-forge/thinc
+    :alt: conda Version
+
 .. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg?style=flat-square
     :target: https://gitter.im/explosion/thinc
     :alt: Thinc on Gitter
@@ -48,7 +53,7 @@ Adam solver (which performs very well).
     :target: https://twitter.com/explosion_ai
     :alt: Follow us on Twitter
 
-No computational graph --- just higher order functions
+No computational graph — just higher order functions
 ======================================================
 
 The central problem for a neural network implementation is this: during the
@@ -63,9 +68,13 @@ because we put the state from the forward pass into callbacks.
 
 All nodes in the network have a simple signature:
 
+.. code:: python
+
     f(inputs) -> {outputs, f(d_outputs)->d_inputs}
 
 To make this less abstract, here's a ReLu activation, following this signature:
+
+.. code:: python
 
     def relu(inputs):
         mask = inputs > 0
@@ -73,15 +82,17 @@ To make this less abstract, here's a ReLu activation, following this signature:
             return d_outputs * mask
         return inputs * mask, backward
 
-When you call the relu functin, you get back an output variable, and a
+When you call the ``relu`` function, you get back an output variable, and a
 callback. This lets you calculate a gradient using the output, and then pass it
 into the callback to perform the backward pass.
 
 This signature makes it easy to build a complex network out of smaller pieces,
 using arbitrary higher-order functions you can write yourself. To make this
 clearer, we need a function for a weights layer. Usually this will be
-implemented as a class -- but let's continue using closures, to keep things
+implemented as a class — but let's continue using closures, to keep things
 concise, and to keep the simplicity of the interface explicit:
+
+.. code:: python
 
     import numpy
 
@@ -103,15 +114,17 @@ concise, and to keep the simplicity of the interface explicit:
             return Y, backward
         return forward
 
-If we call `Wb = create_linear_layer(5, 4)`, the variable `Wb` will be the
-`forward()` function, implemented inside the body of `create_linear_layer()`.
-The `Wb` instance will have access to the `W` and `b` variable defined in its
-outer scope. If we invoke `create_linear_layer()` again, get a new instance,
+If we call ``Wb = create_linear_layer(5, 4)``, the variable ``Wb`` will be the
+``forward()`` function, implemented inside the body of ``create_linear_layer()``.
+The `Wb` instance will have access to the ``W`` and ``b`` variable defined in its
+outer scope. If we invoke ``create_linear_layer()`` again, get a new instance,
 with its own internal state.
 
-The `Wb` instance and the `relu` function have exactly the same signature. This
+The ``Wb`` instance and the ``relu`` function have exactly the same signature. This
 makes it easy to write higher order functions to compose them. The most obvious
 thing to do is chain them together:
+
+.. code:: python
 
     def chain(*layers):
         def forward(X):
@@ -127,8 +140,10 @@ thing to do is chain them together:
             return Y, backward
         return forward
 
-We could now chain our linear layer together with the relu activation, to
+We could now chain our linear layer together with the ``relu`` activation, to
 create a simple feed-forward network:
+
+.. code:: python
 
     Wb1 = create_linear_layer(10, 5)
     Wb2 = create_linear_layer(3, 5)
@@ -144,23 +159,27 @@ create a simple feed-forward network:
 
 This conceptual model makes Thinc very flexible. The trade-off is that Thinc is
 less convenient and efficient at workloads that fit exactly into what
-Tensorflow etc are designed for. If your graph really is static, and your
-inputs are homogenous in size and shape, Keras will likely be faster and
-simpler. But if you want to pass normal Python objects through your network,
-or handle sequences and recursions of arbitrary length or complexity, you might
-find Thinc's design a better fit for your problem.
+`Tensorflow <https://www.tensorflow.org/>`_ etc. are designed for. If your graph
+really is static, and your inputs are homogenous in size and shape, 
+`Keras <https://keras.io/>`_ will likely be faster and simpler. But if you want 
+to pass normal Python objects through your network, or handle sequences and recursions 
+of arbitrary length or complexity, you might find Thinc's design a better fit for 
+your problem.
 
 Quickstart
 ==========
 
-`Thinc` should install cleanly with both `pip` and `conda`, for Pythons 2.7+
-and 3.5+, on Linux, MacOS and Windows. Its only system dependency is a compiler
-tool-chain (e.g. `build-essential`) and the Python development headers (e.g.
-`python-dev`).
+Thinc should install cleanly with both `pip <http://pypi.python.org/pypi/thinc>`_ and 
+`conda <https://anaconda.org/conda-forge/thinc>`_, for **Pythons 2.7+ and 3.5+**, on 
+**Linux**, **macOS / OSX** and **Windows**.  Its only system dependency is a compiler 
+tool-chain (e.g. ``build-essential``) and the  Python development headers (e.g. 
+``python-dev``).
+
+.. code:: bash
 
     pip install thinc
 
-The rest of this section describes how to build `Thinc` from source. If you have
+The rest of this section describes how to build Thinc from source. If you have
 `Fabric <http://www.fabfile.org>`_ installed, you can use the shortcut:
 
 .. code:: bash
