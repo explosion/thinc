@@ -12,16 +12,6 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically 
 structured input and variable-length sequences.
 
-Thinc's deep learning functionality is still under active development: APIs are
-unstable, and we're not yet ready to provide usage support. However, if you're
-already quite familiar with neural networks, there's a lot here you might find
-interesting. Thinc's conceptual model is quite different from TensorFlow's.
-Thinc also implements some novel features, such as a small DSL for concisely
-wiring up models, embedding tables that support pre-computation and the
-hashing trick, dynamic batch sizes, a concatenation-based approach to
-variable-length sequences, and support for model averaging for the
-Adam solver (which performs very well).
-
 🔮 **Version 6.6 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
@@ -53,7 +43,20 @@ Adam solver (which performs very well).
     :target: https://twitter.com/explosion_ai
     :alt: Follow us on Twitter
 
-No computational graph — just higher order functions
+Development status
+==================
+
+Thinc's deep learning functionality is still under active development: APIs are
+unstable, and we're not yet ready to provide usage support. However, if you're
+already quite familiar with neural networks, there's a lot here you might find
+interesting. Thinc's conceptual model is quite different from TensorFlow's.
+Thinc also implements some novel features, such as a small DSL for concisely
+wiring up models, embedding tables that support pre-computation and the
+hashing trick, dynamic batch sizes, a concatenation-based approach to
+variable-length sequences, and support for model averaging for the
+Adam solver (which performs very well).
+
+No computational graph – just higher order functions
 ======================================================
 
 The central problem for a neural network implementation is this: during the
@@ -68,7 +71,7 @@ because we put the state from the forward pass into callbacks.
 
 All nodes in the network have a simple signature:
 
-.. code:: python
+.. code::
 
     f(inputs) -> {outputs, f(d_outputs)->d_inputs}
 
