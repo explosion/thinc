@@ -4,7 +4,6 @@ from ...import describe
 from ...describe import Dimension, Synapses, Gradient
 from .._lsuv import LSUVinit
 from ..ops import NumpyOps
-from ...api import layerize
 from .model import Model
 from ...extra.load_nlp import get_vectors
 
@@ -12,22 +11,6 @@ try:
     import cupy
 except ImportError:
     cupy = None
-
-
-def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
-    def get_word_ids(docs, drop=0.):
-        '''Get word forms.'''
-        seqs = []
-        ops = Model.ops
-        for doc in docs:
-            if ignore is not None:
-                doc = [token for token in doc if not ignore(token)]
-            #seq = [0] * pad
-            seq = [(token.lex_id or token.orth) for token in doc]
-            #seq += [0] * pad
-            seqs.append(ops.asarray(seq, dtype='uint64'))
-        return seqs, None
-    return layerize(get_word_ids)
 
 
 #@describe.on_data(LSUVinit)

@@ -240,6 +240,24 @@ def _with_flatten_on_data(model, X, y):
         X = layer(X)
 
 
+def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
+    # TODO: Is this made obsolete by the FeatureExtractor?
+    def forward(docs, drop=0.):
+        '''Get word forms.'''
+        seqs = []
+        ops = Model.ops
+        for doc in docs:
+            if ignore is not None:
+                doc = [token for token in doc if not ignore(token)]
+            #seq = [0] * pad
+            seq = [(token.lex_id or token.orth) for token in doc]
+            #seq += [0] * pad
+            seqs.append(ops.asarray(seq, dtype='uint64'))
+        return seqs, None
+    return layerize(forward)
+
+
+
 def FeatureExtracter(attrs):
     def forward(docs, drop=0.):
         features = [doc.to_array(attrs) for doc in docs]
