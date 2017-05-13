@@ -323,3 +323,32 @@ for layer definitions. Specifically, the following decorators are available:
 * ``describe.on_init()``: Allows callbacks to be specified, which will be called at the end of the ``__init__.py``.
 
 * ``describe.on_data()``: Allows callbacks to be specified, which will be called on ``Model.begin_training()``.
+
+🛠 Changelog
+============
+
+=========== ============== ===========
+Version     Date           Description
+=========== ============== ===========
+`v6.6.0`_   ``2017-05-14`` Improved GPU usage and examples
+ v6.5.2     ``2017-03-20`` *n/a*
+`v6.5.1`_   ``2017-03-20`` Improved linear class and Windows fix 
+`v6.5.0`_   ``2017-03-11`` Supervised similarity, fancier embedding and improvements to linear model
+ v6.4.0     ``2017-02-15`` *n/a*
+`v6.3.0`_   ``2017-01-25`` Efficiency improvements, argument checking and error messaging
+`v6.2.0`_   ``2017-01-15`` Improve API and introduce overloaded operators
+`v6.1.3`_   ``2017-01-10`` More neural network functions and training continuation
+ v6.1.3     ``2017-01-09`` *n/a*
+ v6.1.2     ``2017-01-09`` *n/a*
+ v6.1.1     ``2017-01-09`` *n/a*
+ v6.1.0     ``2017-01-09`` *n/a*
+`v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
+=========== ============== ===========
+
+.. _v6.6.0: https://github.com/explosion/thinc/releases/tag/v6.6.0
+.. _v6.5.1: https://github.com/explosion/thinc/releases/tag/v6.5.1
+.. _v6.5.0: https://github.com/explosion/thinc/releases/tag/v6.5.0
+.. _v6.3.0: https://github.com/explosion/thinc/releases/tag/v6.3.0
+.. _v6.2.0: https://github.com/explosion/thinc/releases/tag/v6.2.0
+.. _v6.1.3: https://github.com/explosion/thinc/releases/tag/v6.1.3
+.. _v6.0.0: https://github.com/explosion/thinc/releases/tag/v6.0.0
