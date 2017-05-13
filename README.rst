@@ -12,6 +12,16 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically 
 structured input and variable-length sequences.
 
+Thinc's deep learning functionality is still under active development: APIs are
+unstable, and we're not yet ready to provide usage support. However, if you're
+already quite familiar with neural networks, there's a lot here you might find
+interesting. Thinc's conceptual model is quite different from TensorFlow's.
+Thinc also implements some novel features, such as a small DSL for concisely
+wiring up models, embedding tables that support pre-computation and the
+hashing trick, dynamic batch sizes, a concatenation-based approach to
+variable-length sequences, and support for model averaging for the
+Adam solver (which performs very well).
+
 🔮 **Version 6.5 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
@@ -38,10 +48,120 @@ structured input and variable-length sequences.
     :target: https://twitter.com/explosion_ai
     :alt: Follow us on Twitter
 
+No computational graph --- just higher order functions
+======================================================
+
+The central problem for a neural network implementation is this: during the
+forward pass, you compute results that will later be useful during the backward
+pass. How do you keep track of this arbitrary state, while making sure that
+layers can be cleanly composed?
+
+Most libraries solve this problem by having you declare the forward
+computations, which are then compiled into a graph somewhere behind the scenes.
+Thinc doesn't have a "computational graph". Instead, we just use the stack,
+because we put the state from the forward pass into callbacks.
+
+All nodes in the network have a simple signature:
+
+    f(inputs) -> {outputs, f(d_outputs)->d_inputs}
+
+To make this less abstract, here's a ReLu activation, following this signature:
+
+    def relu(inputs):
+        mask = inputs > 0
+        def backprop_relu(d_outputs):
+            return d_outputs * mask
+        return inputs * mask, backward
+
+When you call the relu functin, you get back an output variable, and a
+callback. This lets you calculate a gradient using the output, and then pass it
+into the callback to perform the backward pass.
+
+This signature makes it easy to build a complex network out of smaller pieces,
+using arbitrary higher-order functions you can write yourself. To make this
+clearer, we need a function for a weights layer. Usually this will be
+implemented as a class -- but let's continue using closures, to keep things
+concise, and to keep the simplicity of the interface explicit:
+
+    import numpy
+
+    def create_linear_layer(n_out, n_in):
+        W = numpy.zeros((n_out, n_in))
+        b = numpy.zeros((n_out,))
+
+        def forward(X):
+            Y = W @ X + b
+            def backward(dY, optimizer):
+                dX = dY @ W.T
+                dW = outer(dY, X)
+                db = dY.sum(axis=0)
+
+                optimizer(W, dW)
+                optimizer(b, db)
+
+                return dY
+            return Y, backward
+        return forward
+
+If we call `Wb = create_linear_layer(5, 4)`, the variable `Wb` will be the
+`forward()` function, implemented inside the body of `create_linear_layer()`.
+The `Wb` instance will have access to the `W` and `b` variable defined in its
+outer scope. If we invoke `create_linear_layer()` again, get a new instance,
+with its own internal state.
+
+The `Wb` instance and the `relu` function have exactly the same signature. This
+makes it easy to write higher order functions to compose them. The most obvious
+thing to do is chain them together:
+
+    def chain(*layers):
+        def forward(X):
+            backprops = []
+            Y = X
+            for layer in layers:
+                Y, backprop = layer(Y)
+                backprops.append(backprop)
+            def backward(dY, optimizer):
+                for backprop in reversed(backprops):
+                    dY = backprop(dY, optimizer)
+                return dY
+            return Y, backward
+        return forward
+
+We could now chain our linear layer together with the relu activation, to
+create a simple feed-forward network:
+
+    Wb1 = create_linear_layer(10, 5)
+    Wb2 = create_linear_layer(3, 5)
+
+    model = chain(Wb1, relu, Wb2)
+
+    X = numpy.random.uniform((4, 5))
+
+    y, bp_y = model(X)
+
+    dY = y - truth
+    dX = bp_y(dY)
+
+This conceptual model makes Thinc very flexible. The trade-off is that Thinc is
+less convenient and efficient at workloads that fit exactly into what
+Tensorflow etc are designed for. If your graph really is static, and your
+inputs are homogenous in size and shape, Keras will likely be faster and
+simpler. But if you want to pass normal Python objects through your network,
+or handle sequences and recursions of arbitrary length or complexity, you might
+find Thinc's design a better fit for your problem.
+
 Quickstart
 ==========
 
-If you have `Fabric <http://www.fabfile.org>`_ installed, you can use the shortcut:
+`Thinc` should install cleanly with both `pip` and `conda`, for Pythons 2.7+
+and 3.5+, on Linux, MacOS and Windows. Its only system dependency is a compiler
+tool-chain (e.g. `build-essential`) and the Python development headers (e.g.
+`python-dev`).
+
+    pip install thinc
+
+The rest of this section describes how to build `Thinc` from source. If you have
+`Fabric <http://www.fabfile.org>`_ installed, you can use the shortcut:
 
 .. code:: bash
 
