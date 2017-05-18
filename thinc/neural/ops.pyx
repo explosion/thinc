@@ -6,7 +6,7 @@ from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
@@ -20,7 +20,7 @@ cimport numpy as np
 
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
-from .util import copy_array
+from .util import copy_array, get_array_module
 
 from murmurhash.mrmr cimport hash64
 from six import integer_types
@@ -45,7 +45,6 @@ try:
     from . import gpu_ops
 except ImportError:
     pass
-
 
 
 class Ops(object):
@@ -136,10 +135,15 @@ class Ops(object):
         return self.asarray(X), self.asarray(y)
 
     def asarray(self, data, dtype=None):
-        if dtype is not None:
-            return self.xp.asarray(data, dtype=dtype)
+        if isinstance(data, self.xp.ndarray):
+            if dtype is not None:
+                return self.xp.asarray(data, dtype=dtype)
+            else:
+                return self.xp.asarray(data)
+        elif dtype is not None:
+            return self.xp.array(data, dtype=dtype)
         else:
-            return self.xp.asarray(data)
+            return self.xp.array(data)
 
     def batch_dot(self, x, y):
         return self.xp.tensordot(x, y, axes=[[1], [1]])
@@ -226,7 +230,8 @@ class Ops(object):
         gradient.fill(0)
 
     def clip_gradient(self, gradient, threshold):
-        grad_norm = self.xp.linalg.norm(gradient)
+        xp = get_array_module(gradient)
+        grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
@@ -373,10 +378,18 @@ class NumpyOps(Ops):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, uint64_t[::1] ids, uint64_t seed):
-        cdef ndarray[uint64_t, ndim=1] keys = self.allocate(ids.size, dtype='uint64')
+        '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
+        cdef ndarray[uint32_t, ndim=2] keys = self.allocate((ids.shape[0], 4), dtype='uint32')
         cdef int i
+        cdef uint64_t[2] entropy
         for i in range(ids.size):
-            keys[i] = hash64(&ids[i], sizeof(uint64_t), seed)
+            entropy[0] = hash64(&ids[i], sizeof(uint64_t), seed)
+            entropy[1] = hash64(&ids[i], sizeof(uint64_t), row[0])
+            row = <uint32_t*><void*>entropy
+            keys[i,0] = row[0]
+            keys[i,1] = row[1]
+            keys[i,2] = row[2]
+            keys[i,3] = row[3]
         return keys
 
     def mean_pool(self, float[:, ::1] X, int[::1] lengths):
@@ -481,6 +494,12 @@ class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
 
+    def asarray(self, X, dtype=None):
+        if isinstance(X, cupy.ndarray):
+            return self.xp.asarray(X, dtype=dtype)
+        else:
+            return self.xp.array(X, dtype=dtype)
+
     def maxout(self, X):
         amax = cupy_max(X, axis=-1).data
         argmax = cupy_argmax(X, axis=-1).data
@@ -505,7 +524,8 @@ class CupyOps(Ops):
         return delta_
 
     def clip_gradient(self, gradient, threshold):
-        grad_norm = self.xp.linalg.norm(gradient)
+        xp = get_array_module(gradient)
+        grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
@@ -550,7 +570,6 @@ class CupyOps(Ops):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
-        # TODO
         return gpu_ops.hash(self, ids, seed)
 
 
