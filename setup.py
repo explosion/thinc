@@ -17,6 +17,7 @@ PACKAGES = [
     'thinc.tests',
     'thinc.tests.unit',
     'thinc.tests.integration',
+    'thinc.tests.linear',
     'thinc.linear',
     'thinc.neural',
     'thinc.extra',
@@ -226,18 +227,21 @@ def setup_package():
                     language='c++',
                     include_dirs=include_dirs))
         else:
-            ext_modules.append(
-                Extension("thinc.neural.gpu_ops",
-                    sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
-                    library_dirs=[CUDA['lib64']],
-                    libraries=['cudart'],
-                    language='c++',
-                    runtime_library_dirs=[CUDA['lib64']],
-                    # this syntax is specific to this build system
-                    # we're only going to use certain compiler args with nvcc and not with gcc
-                    # the implementation of this trick is in customize_compiler() below
-                    extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"],
-                    include_dirs = include_dirs + [CUDA['include']]))
+
+            with chdir(root):
+                ext_modules.append(
+                    Extension("thinc.neural.gpu_ops",
+                        sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
+                        library_dirs=[CUDA['lib64']],
+                        libraries=['cudart'],
+                        language='c++',
+                        runtime_library_dirs=[CUDA['lib64']],
+                        # this syntax is specific to this build system
+                        # we're only going to use certain compiler args with nvcc and not with gcc
+                        # the implementation of this trick is in customize_compiler() below
+                        extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c',
+                                            '--compiler-options', "'-fPIC'"],
+                        include_dirs = include_dirs + [CUDA['include']]))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
