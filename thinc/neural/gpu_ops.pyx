@@ -75,10 +75,10 @@ def backprop_max_pool(ops, d_maxes, which, lengths):
 
 
 def hash(ops, ids, seed):
-    keys = ops.allocate((ids.shape[0],), dtype='uint64')
+    keys = ops.allocate((ids.shape[0], 4), dtype='uint32')
     cdef size_t keys_ptr = keys.data.ptr
     cdef size_t ids_ptr = ids.data.ptr
 
     gpu_hash_data(<char*>keys_ptr,
-        <const char*>ids_ptr, sizeof(uint64_t), sizeof(uint64_t), ids.shape[0], seed)
+        <const char*>ids_ptr, sizeof(uint32_t)*4, sizeof(uint64_t), ids.shape[0], seed)
     return keys
