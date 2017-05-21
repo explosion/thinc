@@ -208,10 +208,9 @@ def Arg(i):
 
 
 def with_flatten(layer, pad=0, ndim=4):
-    if pad:
-        pad_var = layer.ops.allocate((pad, ndim), dtype='uint64')
     def begin_update(seqs_in, drop=0.):
         if pad:
+            pad_var = layer.ops.allocate((pad, ndim), dtype='uint64')
             seqs_in = [layer.ops.xp.vstack((pad_var, seq, pad_var))
                        for seq in seqs_in]
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
