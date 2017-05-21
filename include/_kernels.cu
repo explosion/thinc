@@ -12,6 +12,33 @@ saxpy(float* X, const float* Y, float scale, int n)
 
 
 void __global__
+maxout(float* best__bo, int* which__bo,
+        const float* cands__bop, int B, int O, int P)
+{
+    int b = blockIdx.x * blockDim.x + threadIdx.x; 
+    if (b >= B) return;
+
+    for (int o=0; o < O; ++o)
+    {
+        which__bo[0] = 0;
+        best__bo[0] = cands__bop[0];
+        cands__bop += 1;
+        for (int p=1; p < P; ++p)
+	{
+            if (cands__bop[0] > best__bo[0])
+	    {
+                which__bo[0] = p;
+                best__bo[0] = cands__bop[0];
+	    }
+            cands__bop += 1;
+	}
+        best__bo += 1;
+        which__bo += 1;
+    }
+}
+
+
+void __global__
 mean_pool(float* means__bo,
     const float* X__to, const int* lengths__b, int B, int T, int O)
 {

@@ -9,6 +9,8 @@ assert sizeof(int) == sizeof(np.int32_t)
 
 
 cdef extern from "_cuda_shim.h":
+    void gpu_maxout(float* best__bo, int* which__bo,
+        const float* cands__bop, int B, int O, int P)
     void gpu_mean_pool(float* means,
         const float* X, const int* lengths, int B, int T, int O) nogil
     void gpu_max_pool(float* maxes, int* which,
@@ -20,6 +22,9 @@ cdef extern from "_cuda_shim.h":
     void gpu_hash_data(char* dest,
         const char* src, size_t out_size, size_t in_size, size_t n_items, uint32_t seed) nogil
 
+
+def maxout(*args, **kwargs):
+    pass
 
 def mean_pool(ops, x, lengths):
     means = ops.allocate((lengths.shape[0], x.shape[1]))

@@ -1,3 +1,7 @@
+
+void gpu_maxout(float* best__bo, int* which__bo,
+        const float* cands__bop, int B, int O, int P);
+
 void gpu_mean_pool(float* means,
         const float* X, const int* lengths, int B, int T, int O);
 
