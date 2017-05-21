@@ -160,6 +160,9 @@ class Ops(object):
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
 
+    def add_sum(self, out, to_sum):
+        out += to_sum.sum(axis=0)
+
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
 
@@ -291,15 +294,11 @@ class NumpyOps(Ops):
         cdef int O = py_cands.shape[1]
         cdef int P = py_cands.shape[2]
 
-        which__bo = <int*>mem.alloc(B * O, sizeof(int))
-        best__bo = <float*>mem.alloc(B * O, sizeof(float))
-        cpu_maxout(best__bo, which__bo,
+        cdef ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
+        cdef ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
+        cpu_maxout(<float*>best.data, <int*>which.data,
             &py_cands[0, 0, 0], B, O, P)
-        cdef ndarray py_best = self.allocate(B * O, dtype='float32')
-        memcpy(py_best.data, best__bo, B * O * sizeof(best__bo[0]))
-        cdef ndarray py_which = self.allocate(B * O, dtype='int32')
-        memcpy(py_which.data, which__bo, B * O * sizeof(which__bo[0]))
-        return py_best.reshape((B, O)), py_which.reshape((B, O))
+        return best, which
 
     def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
         cdef Pool mem = Pool()
@@ -449,6 +448,10 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
+    def add_sum(self, np.ndarray out, np.ndarray to_sum):
+        VecVec.batch_add_i(<float*>out.data,
+            <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
+
     #def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
     #        float[::1] mom2, float beta1, float beta2, float eps,
     #        float learn_rate, float mod_rate=1.):
@@ -571,81 +574,6 @@ class CupyOps(Ops):
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
         return gpu_ops.hash(self, ids, seed)
-
-
-class RawKernel(object):
-    def __init__(self, name, src):
-        if cupy is None:
-            return None
-        # TODO: Some setup is performed when a function is launched that I haven't
-        # identified yet. Without this setup, loading the function fails...
-        _ = cupy.ElementwiseKernel('float32 x, float32 y', 'float32 z',
-            'z = (x - y) * (x - y)', 'squared_diff')
-        with Device(0):
-            _(cupy.ones((5,), dtype='float32'), cupy.ones((5,), dtype='float32'))
-            self.func = Function(compile_with_cache(src), name)
-
-    def __call__(self, *args, **kwargs):
-        # TODO: Not convinced I'm doing this right...
-        grid = kwargs.get('grid', (args[0].shape[0],))
-        block = kwargs.get('block', (1,))
-        return self.func(grid, block, args)
-
-
-# TODO: Currently broken
-gpu_seq2col = RawKernel('gpu_seq2col', '''
-extern "C" __global__
-void gpu_seq2col(float* output, const float* X, int B, int I, int nW)
-{
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    if (i >= B)
-        return;
-    int nF = nW * 2 + 1;
-
-    output += i * I * nF;
-    X += i * I;
-    if (i == (B-nW)) {
-        for (int j = 0; j < (I*nW); ++j)
-            output[j] = X[j];
-        return;
-    }
-    for (int j = 0; j < (I*(nW+1)); ++j)
-        output[j] = X[j];
-    output += I * (nW+1);
-    for (int j = 0; j < (I*nW); ++j)
-        output[j] = X[j];
-}
-''')
-
-# TODO: This doesn't work yet. Segfaults.
-gpu_backprop_seq2col = RawKernel('gpu_backprop_seq2col', '''
-extern "C" __global__
-void gpu_backprop_seq2col(float* d_seqs, const float* d_cols, int B, int I, int nW)
-{
-    return;
-    int i = blockDim.x * blockIdx.x + threadIdx.x;
-    int nF = nW * 2 + 1;
-
-    if ((i+nW) >= B) return;
-
-    float* d_seq = &d_seqs[i * I];
-    // Here's what we're doing, if we had 2d indexing.
-    // d_seq += d_cols[i-2, 4]
-    // d_seq += d_cols[i-1, 3]
-    // d_seq += d_cols[i, 2]
-    // d_seq += d_cols[i+1, 1]
-    // d_seq += d_cols[i+2, 0]
-
-    const float* col_row = &d_cols[i * I * nF];
-    //for (int f = -nW; f < (nW+1); ++f) {
-    //    if (B > (i+f) && (i+f) >= 0) {
-    //        const float* feat = col_row + (f * I) + (f+nW) * I;
-    //        for (int j = 0; j < I; ++j)
-    //            d_seq[j] += feat[j];
-    //    }
-    //}
-}
-''')
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
