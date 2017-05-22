@@ -96,20 +96,33 @@ class Ops(object):
         else:
             return x * mask, wrap_backprop
 
-    def flatten(self, X, dtype=None):
-        result = self.xp.concatenate(X)
+    def flatten(self, X, dtype=None, pad=0):
+        if not X:
+            return self.allocate((0,), dtype=dtype or 'f')
+        xp = get_array_module(X[0])
+        if pad:
+            padded = []
+            for x in X:
+                padded.append(
+                    xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
+                padded.append(x)
+            padded.append(
+                xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
+            X = padded
+        result = xp.concatenate(X)
         if dtype is not None:
-            result = self.asarray(result, dtype=dtype)
+            result = xp.asarray(result, dtype=dtype)
         return result
 
     def unflatten(self, X, lengths, pad=0):
         unflat = []
         for length in lengths:
             if pad:
-                unflat.append(X[pad:length-pad])
-            else:
-                unflat.append(X[:length])
+                X = X[pad:]
+            unflat.append(X[:length])
             X = X[length:]
+        if pad:
+            X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
         return unflat

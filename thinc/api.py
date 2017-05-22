@@ -41,12 +41,12 @@ def metalayerize(user_func):
 
 
 @layerize
-def flatten_add_lengths(seqs, drop=0.):
+def flatten_add_lengths(seqs, pad=0, drop=0.):
     ops = Model.ops
     lengths = ops.asarray([len(seq) for seq in seqs], dtype='i')
     def finish_update(d_X, sgd=None):
-        return ops.unflatten(d_X, lengths)
-    X = ops.xp.concatenate([ops.asarray(seq) for seq in seqs])
+        return ops.unflatten(d_X, lengths, pad=pad)
+    X = self.ops.flatten(seqs, pad=pad)
     return (X, lengths), finish_update
 
 
@@ -209,21 +209,17 @@ def Arg(i):
 
 def with_flatten(layer, pad=0, ndim=4):
     def begin_update(seqs_in, drop=0.):
-        if pad:
-            pad_var = layer.ops.allocate((pad, ndim), dtype='uint64')
-            seqs_in = [layer.ops.xp.vstack((pad_var, seq, pad_var))
-                       for seq in seqs_in]
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
-        X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in), drop=drop)
+        X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad),
+                                         drop=drop)
         if bp_layer is None:
             return layer.ops.unflatten(X, lengths, pad=pad), None
-        d_pad_var = layer.ops.allocate((pad, X.shape[1]), dtype=X.dtype)
         def finish_update(d_seqs_out, sgd=None):
-            if pad:
-                d_seqs_out = [layer.ops.xp.vstack((d_pad_var, seq, d_pad_var))
-                              for seq in d_seqs_out]
-            d_X = bp_layer(layer.ops.flatten(d_seqs_out), sgd=sgd)
-            return layer.ops.unflatten(d_X, lengths, pad=pad) if d_X is not None else None
+            d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad), sgd=sgd)
+            if d_X is None:
+                return None
+            else:
+                return layer.ops.unflatten(d_X, lengths, pad=pad)
         return layer.ops.unflatten(X, lengths, pad=pad), finish_update
     model = layerize(begin_update)
     model._layers.append(layer)
