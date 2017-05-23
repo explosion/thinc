@@ -120,7 +120,7 @@ concise, and to keep the simplicity of the interface explicit:
 If we call ``Wb = create_linear_layer(5, 4)``, the variable ``Wb`` will be the
 ``forward()`` function, implemented inside the body of ``create_linear_layer()``.
 The `Wb` instance will have access to the ``W`` and ``b`` variable defined in its
-outer scope. If we invoke ``create_linear_layer()`` again, get a new instance,
+outer scope. If we invoke ``create_linear_layer()`` again, we get a new instance,
 with its own internal state.
 
 The ``Wb`` instance and the ``relu`` function have exactly the same signature. This
@@ -181,6 +181,17 @@ tool-chain (e.g. ``build-essential``) and the  Python development headers (e.g.
 .. code:: bash
 
     pip install thinc
+    
+For GPU support, we're grateful to use the work of Chainer's cupy module, which provides a numpy-compatible interface for GPU arrays. However, installing Chainer when no GPU is available currently causes an error. We therefore do not list Chainer as an explicit dependency --- so building ``Thinc`` for GPU requires some extra steps:
+
+.. code:: bash
+
+    export CUDA_HOME=/usr/local/cuda-8.0 # Or wherever your CUDA is
+    export PATH=$PATH:$CUDA_HOME/bin
+    pip install chainer
+    python -c "import cupy; assert cupy" # Check it installed
+    pip install thinc
+    python -c "import thinc.neural.gpu_ops" # Check the GPU ops were built
 
 The rest of this section describes how to build Thinc from source. If you have
 `Fabric <http://www.fabfile.org>`_ installed, you can use the shortcut:
@@ -239,10 +250,10 @@ eliminates a common source of programmer error:
 .. code:: python
 
     # Invalid network — shape mismatch
-    model = FeedForward(ReLu(512, 748), ReLu(512, 784), Softmax(10))
+    model = chain(ReLu(512, 748), ReLu(512, 784), Softmax(10))
     
     # Leave the dimensions unspecified, and you can't be wrong.
-    model = FeedForward(ReLu(512), ReLu(512), Softmax())
+    model = chain(ReLu(512), ReLu(512), Softmax())
 
 2. Operator overloading
 -----------------------
@@ -258,14 +269,18 @@ definition:
     with Model.define_operators({'>>': chain}):
         model = ReLu(512) >> ReLu(512) >> Softmax()
 
-The overloading is cleaned up at the end of the block. Only a few functions are
-currently implemented. The three most useful are:
+The overloading is cleaned up at the end of the block. A fairly arbitrary zoo
+of functions are currently implemented. Some of the most useful:
 
 * ``chain(model1, model2)``: Compose two models ``f(x)`` and ``g(x)`` into a single model computing ``g(f(x))``.
 
 * ``clone(model1, int)``: Create ``n`` copies of a model, each with distinct weights, and chain them together.
 
 * ``concatenate(model1, model2)``: Given two models with output dimensions ``(n,)`` and ``(m,)``, construct a model with output dimensions ``(m+n,)``.
+
+* ``add(model1, model2)``: ``add(f(x), g(x)) = f(x)+g(x)``
+
+* ``make_tuple(model1, model2)``: Construct tuples of the outputs of two models, at the batch level. The backward pass expects to receive a tuple of gradients, which are routed through the appropriate model, and summed.
 
 Putting these things together, here's the sort of tagging model that Thinc is
 designed to make easy.
