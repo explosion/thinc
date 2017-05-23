@@ -10,7 +10,8 @@ from collections import defaultdict
 import numpy
 
 from ..typedefs cimport weight_t
-from .ops import add_gradient_noise
+from .ops import NumpyOps, CupyOps, add_gradient_noise
+from .util import get_array_module
 
 
 def linear_decay(rate, decay, nr_upd):
@@ -108,6 +109,12 @@ class Adam(SGD):
 
     def __call__(self, weights, gradient, lr_scale=1.,
             key=None):
+        xp = get_array_module(weights)
+        if xp is not self.ops.xp:
+            if xp is numpy:
+                self.ops = NumpyOps()
+            else:
+                self.ops = CupyOps()
         assert key is not None
         assert len(gradient) >= 1
         if key not in self.mom1:
