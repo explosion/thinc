@@ -67,7 +67,11 @@ def customize_compiler_for_nvcc(self):
     self.src_extensions.append('.cu')
 
     # save references to the default compiler_so and _comple methods
-    default_compiler_so = self.compiler_so
+    if hasattr(self, 'compiler_so'):
+        default_compiler_so = self.compiler_so
+    else:
+        # This was put in for Windows, but I'm running blind here...
+        default_compiler_so = None
     super = self._compile
 
     # now redefine the _compile method. This gets executed for each
@@ -76,7 +80,9 @@ def customize_compiler_for_nvcc(self):
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
         if os.path.splitext(src)[1] == '.cu':
             # use the cuda for .cu files
-            self.set_executable('compiler_so', CUDA['nvcc'])
+            if hasattr(self, 'set_executable'):
+                # This was put in for Windows, but I'm running blind here...
+                self.set_executable('compiler_so', CUDA['nvcc'])
             # use only a subset of the extra_postargs, which are 1-1 translated
             # from the extra_compile_args in the Extension class
             postargs = extra_postargs['nvcc']
