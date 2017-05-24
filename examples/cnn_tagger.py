@@ -93,6 +93,7 @@ def debug(X, drop=0.):
     _i += 1
     return X, lambda d, sgd: d
 
+
 @plac.annotations(
     width=("Width of the hidden layers", "option", "w", int),
     vector_length=("Width of the word vectors", "option", "V", int),
@@ -130,7 +131,7 @@ def main(width=100, depth=4, vector_length=64,
             with_flatten(
                 (lower_case | shape | prefix | suffix)
                 >> Maxout(width, pieces=3)
-                >> Residual(ExtractWindow(nW=1) >> BN(Maxout(width, pieces=3), nO=width)) ** depth
+                >> Residual(ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
                 >> Softmax(nr_tag), pad=depth))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
