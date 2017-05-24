@@ -1,5 +1,4 @@
 from .model import Model
-from .batchnorm import BatchNorm
 from ...api import layerize
 from .affine import Affine
 
@@ -19,5 +18,7 @@ def Residual(layer):
 		for layer in self._layers:
 			for hook in layer.on_data_hooks:
 				hook(layer, X, y)
+            if hasattr(layer, 'W'):
+                layer.W.fill(0)
 	model.on_data_hooks.append(on_data)
 	return model
