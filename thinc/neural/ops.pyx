@@ -217,6 +217,8 @@ class Ops(object):
         return dX__bop
 
     def xavier_uniform_init(self, W, inplace=True):
+        if (W**2).sum() != 0.:
+            return W
         scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
         if inplace:
             copy_array(W, self.xp.random.uniform(-scale, scale, W.shape))
