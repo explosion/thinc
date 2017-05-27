@@ -1,8 +1,8 @@
 from .model import Model
-from .embed import _uniform_init
 from .._lsuv import do_lsuv
 from ... import describe
 from ...describe import Weights, Dimension, Gradient
+from ..util import copy_array
 import random
 import numpy
 
@@ -10,6 +10,13 @@ def LSUVinit(model, X, y=None):
     if model.vectors is not None:
         do_lsuv(model.ops, model.vectors, model, X)
     return X
+
+def _uniform_init(lo, hi):
+    def wrapped(W, ops):
+        if (W**2).sum() == 0.:
+            copy_array(W, ops.xp.random.uniform(lo, hi, W.shape))
+    return wrapped
+
 
 #@describe.on_data(LSUVinit)
 @describe.attributes(

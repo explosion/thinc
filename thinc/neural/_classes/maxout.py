@@ -15,6 +15,8 @@ def _set_dimensions_if_needed(model, X, y=None):
 
 
 def xavier_uniform_init(W, ops):
+    if (W**2).sum() != 0:
+        return
     xp = get_array_module(W)
     scale = xp.sqrt(6. / (W.shape[0] + W.shape[2]))
     shape = (W.shape[0], W.shape[2])
