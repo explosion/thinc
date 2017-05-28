@@ -28,8 +28,6 @@ from six import integer_types
 
 try:
     import cupy
-    from chainer.functions.math.minmax import max as cupy_max
-    from chainer.functions.math.minmax import argmax as cupy_argmax
     from cupy.cuda.function import Function
     from cupy.cuda.compiler import compile_with_cache
     from cupy.cuda.device import Device
@@ -519,9 +517,8 @@ class CupyOps(Ops):
             return self.xp.array(X, dtype=dtype)
 
     def maxout(self, X):
-        amax = cupy_max(X, axis=-1).data
-        argmax = cupy_argmax(X, axis=-1).data
-        return amax, cupy.asarray(argmax, dtype='int32')
+        amax = self.xp.amax(X, axis=-1)
+        argmax = self.xp.argmax(X, axis=-1).astype(numpy.int32)
 
     def backprop_maxout(self, dX__bo, which__bo, int P):
         dX__bop = gpu_backprop_maxout(
