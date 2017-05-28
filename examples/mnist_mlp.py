@@ -13,6 +13,7 @@ from thinc.neural.ops import CupyOps
 def main(depth=2, width=512, nb_epoch=30):
     if CupyOps.xp != None:
         Model.ops = CupyOps()
+        Model.Ops = CupyOps
     # Configuration here isn't especially good. But, for demo..
     with Model.define_operators({'**': clone, '>>': chain}):
         model = ReLu(width) >> ReLu(width) >> Softmax()
