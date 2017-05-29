@@ -11,7 +11,7 @@ def Residual(layer):
         output = X+y
         def residual_bwd(d_output, sgd=None):
             return d_output + bp_y(d_output, sgd)
-        return output, backward
+        return output, residual_bwd
     model = layerize(residual_fwd)
     model._layers.append(layer)
     def on_data(self, X, y=None):

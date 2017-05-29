@@ -20,6 +20,7 @@ class Model(object):
     ops = NumpyOps()
     Ops = NumpyOps
     Trainer = Trainer
+    drop_factor = 1.0
     descriptions = []
     on_data_hooks = []
     on_init_hooks = [] # Use this to add layers
