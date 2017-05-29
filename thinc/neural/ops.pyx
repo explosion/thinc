@@ -517,8 +517,9 @@ class CupyOps(Ops):
             return self.xp.array(X, dtype=dtype)
 
     def maxout(self, X):
-        amax = self.xp.amax(X, axis=-1)
-        argmax = self.xp.argmax(X, axis=-1).astype(numpy.int32)
+        amax = X.max(axis=-1)
+        argmax = self.asarray(X.argmax(axis=-1), dtype='i')
+        return amax, argmax
 
     def backprop_maxout(self, dX__bo, which__bo, int P):
         dX__bop = gpu_backprop_maxout(
