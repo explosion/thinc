@@ -61,12 +61,7 @@ class HashEmbed(Model):
             keys = self.ops.hash(ids, self.seed) % self.nV
             keys = keys.T
             d_vectors = self.d_vectors
-            if hasattr(self.ops.xp, 'scatter_add'):
-                for i in range(keys.shape[0]):
-                    self.ops.xp.scatter_add(d_vectors, keys[i], delta)
-            else:
-                for i in range(keys.shape[0]):
-                    self.ops.xp.add.at(d_vectors, keys[i], delta)
+            self.ops.scatter_add(d_vectors, keys, delta)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None

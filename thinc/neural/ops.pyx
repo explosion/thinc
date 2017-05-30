@@ -465,6 +465,9 @@ class NumpyOps(Ops):
         VecVec.batch_add_i(<float*>out.data,
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
+    def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
+        return self.xp.add.at(out, ids, inputs)
+
     #def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
     #        float[::1] mom2, float beta1, float beta2, float eps,
     #        float learn_rate, float mod_rate=1.):
@@ -587,6 +590,9 @@ class CupyOps(Ops):
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
         return gpu_ops.hash(self, ids, seed)
+
+    def scatter_add(self, out, ids, inputs):
+        self.xp.scatter_add(out, ids, inputs)
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
