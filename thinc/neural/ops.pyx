@@ -28,9 +28,15 @@ from six import integer_types
 
 try:
     import cupy
+    import cupy.cuda
     from cupy.cuda.function import Function
     from cupy.cuda.compiler import compile_with_cache
-    from cupy.cuda.device import Device
+    # This is important -- without setting these global pools, we're
+    # *very* slow -- 5x slower on mnist.
+    memory_pool = cupy.cuda.MemoryPool()
+    cupy.cuda.set_allocator(memory_pool.malloc)
+    pinned_memory_pool = cupy.cuda.PinnedMemoryPool()
+    cupy.cuda.set_pinned_memory_allocator(pinned_memory_pool.malloc)
 except ImportError:
     cupy = None
 
