@@ -44,6 +44,6 @@ void
 gpu_hash_data(char* dest,
     const char* src, size_t out_size, size_t in_size, size_t n_items, uint32_t seed)
 {
-    hash_data<<<n_items/16,16>>>(dest, src, out_size, in_size, n_items, seed);
+    hash_data<<<n_items,1>>>(dest, src, out_size, in_size, n_items, seed);
 }
 
