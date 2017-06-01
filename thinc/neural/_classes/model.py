@@ -308,7 +308,7 @@ class Model(object):
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, b'_mem'):
+            if hasattr(layer, '_mem'):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
                 for dim, value in weights[i][b'dims'].items():
