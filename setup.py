@@ -268,7 +268,7 @@ def setup_package():
             install_requires=[
                 'wrapt',
                 'numpy>=1.7',
-                'murmurhash>=0.26,<0.27',
+                'murmurhash>=0.28,<0.29',
                 'cymem>=1.30,<1.32',
                 'preshed>=1.0.0,<2.0.0',
                 'cupy==1.0.0b1',
