@@ -278,7 +278,9 @@ def setup_package():
                 'six>=1.10.0,<2.0.0',
                 'dill',
                 'termcolor',
-                'pathlib>=1.0.0,<2.0.0'
+                'pathlib>=1.0.0,<2.0.0',
+                'msgpack-python',
+                'msgpack-numpy'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
