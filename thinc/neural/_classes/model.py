@@ -278,10 +278,10 @@ class Model(object):
         for layer in queue:
             if hasattr(layer, '_mem'):
                 weights.append({
-                    'dims': normalize_string_keys(getattr(layer, '_dims', {})),
-                    'params': []})
+                    b'dims': normalize_string_keys(getattr(layer, '_dims', {})),
+                    b'params': []})
                 if hasattr(layer, 'seed'):
-                    weights[-1]['seed'] = layer.seed
+                    weights[-1][b'seed'] = layer.seed
 
                 for (id_, name), (start, row, shape) in layer._mem._offsets.items():
                     if row == 1:
@@ -289,33 +289,36 @@ class Model(object):
                     param = layer._mem.get((id_, name))
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
-                    weights[-1]['params'].append(
+                    weights[-1][b'params'].append(
                         {
-                            'name': name,
-                            'offset': start,
-                            'shape': shape,
-                            'value': param,
+                            b'name': name,
+                            b'offset': start,
+                            b'shape': shape,
+                            b'value': param,
                         }
                     )
                 i += 1
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
-        return msgpack.dumps({'weights': weights})
+        return msgpack.dumps({b'weights': weights})
 
     def from_bytes(self, bytes_data):
         data = msgpack.loads(bytes_data)
-        weights = data['weights']
+        weights = data[b'weights']
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, '_mem'):
-                if 'seed' in weights[i]:
-                    layer.seed = weights[i]['seed']
-                for dim, value in weights[i]['dims'].items():
+            if hasattr(layer, b'_mem'):
+                if b'seed' in weights[i]:
+                    layer.seed = weights[i][b'seed']
+                for dim, value in weights[i][b'dims'].items():
                     setattr(layer, dim, value)
-                for param in weights[i]['params']:
-                    dest = getattr(layer, param['name'])
-                    copy_array(dest, param['value'])
+                for param in weights[i][b'params']:
+                    name = param[b'name']
+                    if isinstance(name, bytes):
+                        name = name.decode('utf8')
+                    dest = getattr(layer, name)
+                    copy_array(dest, param[b'value'])
                 i += 1
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
