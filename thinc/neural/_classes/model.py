@@ -1,6 +1,10 @@
 from __future__ import division
 from numpy import prod
 import contextlib
+import msgpack
+import msgpack_numpy
+
+msgpack_numpy.patch()
 
 from .. import util
 from ..train import Trainer
@@ -263,3 +267,54 @@ class Model(object):
         '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
+    # This stuff really belongs in thinc -- but I expect
+    # to refactor how all this works in thinc anyway.
+    # What a mess!
+    def to_bytes(self):
+        weights = []
+        queue = [self]
+        i = 0
+        for layer in queue:
+            if hasattr(layer, '_mem'):
+                weights.append({
+                    'dims': normalize_string_keys(getattr(layer, '_dims', {})),
+                    'params': []})
+                if hasattr(layer, 'seed'):
+                    weights[-1]['seed'] = layer.seed
+
+                for (id_, name), (start, row, shape) in layer._mem._offsets.items():
+                    if row == 1:
+                        continue
+                    param = layer._mem.get((id_, name))
+                    if not isinstance(layer._mem.weights, numpy.ndarray):
+                        param = param.get()
+                    weights[-1]['params'].append(
+                        {
+                            'name': name,
+                            'offset': start,
+                            'shape': shape,
+                            'value': param,
+                        }
+                    )
+                i += 1
+            if hasattr(layer, '_layers'):
+                queue.extend(layer._layers)
+        return msgpack.dumps({'weights': weights})
+
+    def from_bytes(self, bytes_data):
+        data = msgpack.loads(bytes_data)
+        weights = data['weights']
+        queue = [self]
+        i = 0
+        for layer in queue:
+            if hasattr(layer, '_mem'):
+                if 'seed' in weights[i]:
+                    layer.seed = weights[i]['seed']
+                for dim, value in weights[i]['dims'].items():
+                    setattr(layer, dim, value)
+                for param in weights[i]['params']:
+                    dest = getattr(layer, param['name'])
+                    copy_array(dest, param['value'])
+                i += 1
+            if hasattr(layer, '_layers'):
+                queue.extend(layer._layers)
