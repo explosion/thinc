@@ -1,15 +1,15 @@
 Thinc: Practical Machine Learning for NLP in Python
 ***************************************************
 
-**Thinc** is the machine learning library powering `spaCy <https://spacy.io>`_. 
-It features a battle-tested linear model designed for large sparse learning 
+**Thinc** is the machine learning library powering `spaCy <https://spacy.io>`_.
+It features a battle-tested linear model designed for large sparse learning
 problems, and a flexible neural network model under development for
 `spaCy v2.0 <https://github.com/explosion/spaCy/projects/3>`_.
 
-Thinc is a practical toolkit for implementing models that follow the  
-`"Embed, encode, attend, predict" <https://explosion.ai/blog/deep-learning-formula-nlp>`_ 
+Thinc is a practical toolkit for implementing models that follow the
+`"Embed, encode, attend, predict" <https://explosion.ai/blog/deep-learning-formula-nlp>`_
 architecture. It's designed to be easy to install, efficient for CPU usage and
-optimised for NLP and deep learning with text – in particular, hierarchically 
+optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
 🔮 **Version 6.6 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
@@ -23,7 +23,7 @@ structured input and variable-length sequences.
     :alt: Test Coverage
 
 .. image:: https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square
-    :target: https://github.com/explosion/thinc/releases   
+    :target: https://github.com/explosion/thinc/releases
     :alt: Current Release Version
 
 .. image:: https://img.shields.io/pypi/v/thinc.svg?style=flat-square
@@ -163,25 +163,25 @@ create a simple feed-forward network:
 This conceptual model makes Thinc very flexible. The trade-off is that Thinc is
 less convenient and efficient at workloads that fit exactly into what
 `Tensorflow <https://www.tensorflow.org/>`_ etc. are designed for. If your graph
-really is static, and your inputs are homogenous in size and shape, 
-`Keras <https://keras.io/>`_ will likely be faster and simpler. But if you want 
-to pass normal Python objects through your network, or handle sequences and recursions 
-of arbitrary length or complexity, you might find Thinc's design a better fit for 
+really is static, and your inputs are homogenous in size and shape,
+`Keras <https://keras.io/>`_ will likely be faster and simpler. But if you want
+to pass normal Python objects through your network, or handle sequences and recursions
+of arbitrary length or complexity, you might find Thinc's design a better fit for
 your problem.
 
 Quickstart
 ==========
 
-Thinc should install cleanly with both `pip <http://pypi.python.org/pypi/thinc>`_ and 
-`conda <https://anaconda.org/conda-forge/thinc>`_, for **Pythons 2.7+ and 3.5+**, on 
-**Linux**, **macOS / OSX** and **Windows**.  Its only system dependency is a compiler 
-tool-chain (e.g. ``build-essential``) and the  Python development headers (e.g. 
+Thinc should install cleanly with both `pip <http://pypi.python.org/pypi/thinc>`_ and
+`conda <https://anaconda.org/conda-forge/thinc>`_, for **Pythons 2.7+ and 3.5+**, on
+**Linux**, **macOS / OSX** and **Windows**.  Its only system dependency is a compiler
+tool-chain (e.g. ``build-essential``) and the  Python development headers (e.g.
 ``python-dev``).
 
 .. code:: bash
 
     pip install thinc
-    
+
 For GPU support, we're grateful to use the work of Chainer's cupy module, which provides a numpy-compatible interface for GPU arrays. However, installing Chainer when no GPU is available currently causes an error. We therefore do not list Chainer as an explicit dependency --- so building ``Thinc`` for GPU requires some extra steps:
 
 .. code:: bash
@@ -216,10 +216,10 @@ Otherwise, you can build and test explicitly with:
 
    git clone https://github.com/explosion/thinc
    cd thinc
-   
+
    virtualenv .env
    source .env/bin/activate
-   
+
    pip install -r requirements.txt
    python setup.py build_ext --inplace
    py.test thinc/
@@ -251,7 +251,7 @@ eliminates a common source of programmer error:
 
     # Invalid network — shape mismatch
     model = chain(ReLu(512, 748), ReLu(512, 784), Softmax(10))
-    
+
     # Leave the dimensions unspecified, and you can't be wrong.
     model = chain(ReLu(512), ReLu(512), Softmax())
 
@@ -297,7 +297,7 @@ designed to make easy.
             >> ExtractWindow(nW=2)
             >> BatchNorm(ReLu(hidden_width)) ** 3
             >> Softmax()
-        ) 
+        )
 
 Not all of these pieces are implemented yet, but hopefully this shows where
 we're going. The ``memoize`` function will be particularly important: in any
@@ -333,7 +333,7 @@ action of the optimizer.
 To keep the class hierarchy shallow, Thinc uses class decorators to reuse code
 for layer definitions. Specifically, the following decorators are available:
 
-* ``describe.attributes()``: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters. 
+* ``describe.attributes()``: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters.
 
 * ``describe.on_init()``: Allows callbacks to be specified, which will be called at the end of the ``__init__.py``.
 
@@ -345,9 +345,10 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.7.0`_   ``2017-06-01`` Fixes to serialization, hash embeddings and flatten ops
 `v6.6.0`_   ``2017-05-14`` Improved GPU usage and examples
  v6.5.2     ``2017-03-20`` *n/a*
-`v6.5.1`_   ``2017-03-20`` Improved linear class and Windows fix 
+`v6.5.1`_   ``2017-03-20`` Improved linear class and Windows fix
 `v6.5.0`_   ``2017-03-11`` Supervised similarity, fancier embedding and improvements to linear model
  v6.4.0     ``2017-02-15`` *n/a*
 `v6.3.0`_   ``2017-01-25`` Efficiency improvements, argument checking and error messaging
@@ -360,6 +361,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.7.0: https://github.com/explosion/thinc/releases/tag/v6.7.0
 .. _v6.6.0: https://github.com/explosion/thinc/releases/tag/v6.6.0
 .. _v6.5.1: https://github.com/explosion/thinc/releases/tag/v6.5.1
 .. _v6.5.0: https://github.com/explosion/thinc/releases/tag/v6.5.0
