@@ -1,5 +1,6 @@
-from __future__ import division
+from __future__ import division, unicode_literals
 from numpy import prod
+import numpy
 import contextlib
 import msgpack
 import msgpack_numpy
@@ -10,7 +11,7 @@ from .. import util
 from ..train import Trainer
 from ..ops import NumpyOps
 from ..mem import Memory
-from ..util import get_ops, copy_array
+from ..util import get_ops, copy_array, normalize_string_keys
 from ... import check
 from ... import describe
 from ...check import equal_length, has_shape, is_sequence, is_float, is_array
