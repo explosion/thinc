@@ -13,6 +13,17 @@ def ops():
     return NumpyOps()
 
 
+def test_hash_gives_distinct_keys(ops):
+    shape = (5,)
+    ids = ops.allocate(shape, dtype='uint64')
+    keys = ops.hash(ids, 0)
+    assert keys.shape == (5, 4)
+    assert keys.dtype == 'uint32'
+    for i in range(len(ids)):
+        for j in range(keys.shape[1]):
+            assert keys[i, j] != 0
+
+
 def test_get_dropout_empty(ops):
     shape = (2,2)
     drop = 0.0
