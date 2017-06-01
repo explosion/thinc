@@ -52,6 +52,17 @@ def copy_array(dst, src, casting='same_kind', where=None):
         numpy.copyto(dst, src)
 
 
+def normalize_string_keys(old):
+    '''Given a dictionary, make sure keys are unicode strings, not bytes.'''
+    new = {}
+    for key, value in old:
+        if isinstance(key, bytes):
+            new[key.decode('utf8')] = value
+        else:
+            new[key] = value
+    return new
+
+
 #    def _unique_ids(self, ids):
 #        id_map = {}
 #        for i, id_ in enumerate(ids.flatten()):
