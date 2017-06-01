@@ -22,7 +22,7 @@ from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
 from .util import copy_array, get_array_module
 
-from murmurhash.mrmr cimport hash64
+from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
 
@@ -395,19 +395,22 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def hash(self, uint64_t[::1] ids, uint64_t seed):
+    def hash(self, uint64_t[::1] ids, uint32_t seed):
         '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
+        # Written to mirror the GPU implementation
         cdef ndarray[uint32_t, ndim=2] keys = self.allocate((ids.shape[0], 4), dtype='uint32')
-        cdef int i
-        cdef uint64_t[2] entropy
-        for i in range(ids.size):
-            entropy[0] = hash64(&ids[i], sizeof(uint64_t), seed)
-            entropy[1] = hash64(&ids[i], sizeof(uint64_t), row[0])
-            row = <uint32_t*><void*>entropy
-            keys[i,0] = row[0]
-            keys[i,1] = row[1]
-            keys[i,2] = row[2]
-            keys[i,3] = row[3]
+        cdef int i, j
+        cdef unsigned char entropy[16] # 128/8=16
+        cdef size_t n_items = len(ids)
+        cdef size_t in_size = sizeof(uint64_t)
+        src = <unsigned char*>&ids[0]
+        dest = <unsigned char*>keys.data
+        for i in range(n_items):
+            hash128_x64(<void*>src, in_size, seed, entropy)
+            for j in range(16):
+                dest[j] = entropy[j]
+            src += in_size
+            dest += 16
         return keys
 
     def mean_pool(self, float[:, ::1] X, int[::1] lengths):
