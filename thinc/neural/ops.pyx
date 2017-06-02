@@ -31,12 +31,15 @@ try:
     import cupy.cuda
     from cupy.cuda.function import Function
     from cupy.cuda.compiler import compile_with_cache
+    from chainer.cuda import elementwise
+    # TODO; Seems there's more to do this. Getting errors if using
+    # cupy directly, without chainer.
     # This is important -- without setting these global pools, we're
     # *very* slow -- 5x slower on mnist.
-    memory_pool = cupy.cuda.MemoryPool()
-    cupy.cuda.set_allocator(memory_pool.malloc)
-    pinned_memory_pool = cupy.cuda.PinnedMemoryPool()
-    cupy.cuda.set_pinned_memory_allocator(pinned_memory_pool.malloc)
+    #memory_pool = cupy.cuda.MemoryPool()
+    #cupy.cuda.set_allocator(memory_pool.malloc)
+    #pinned_memory_pool = cupy.cuda.PinnedMemoryPool()
+    #cupy.cuda.set_pinned_memory_allocator(pinned_memory_pool.malloc)
 except ImportError:
     cupy = None
 
@@ -477,11 +480,11 @@ class NumpyOps(Ops):
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
         return self.xp.add.at(out, ids, inputs)
 
-    #def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
-    #        float[::1] mom2, float beta1, float beta2, float eps,
-    #        float learn_rate, float mod_rate=1.):
-    #    _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
-    #        weights.shape[0], beta1, beta2, eps, learn_rate, mod_rate)
+    def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
+            float[::1] mom2, float beta1, float beta2, float eps,
+            float learn_rate, float mod_rate=1.):
+        _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
+            weights.shape[0], beta1, beta2, eps, learn_rate)
 
 
 @cython.cdivision(True)
@@ -602,6 +605,19 @@ class CupyOps(Ops):
 
     def scatter_add(self, out, ids, inputs):
         self.xp.scatter_add(out, ids, inputs)
+
+    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
+                   learn_rate, mod_rate=1.):
+        elementwise(
+            'T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps',
+            'T param, T m, T v',
+            '''m += one_minus_beta1 * (grad - m);
+               v += one_minus_beta2 * (grad * grad - v);
+               param -= lr * m / (sqrt(v) + eps);''',
+            'adam')(gradient, learn_rate, 1 - beta1, 1 - beta2,
+                    eps, weights, mom1, mom2)
+        gradient.fill(0)
+
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
