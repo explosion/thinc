@@ -4,6 +4,7 @@ import numpy
 import contextlib
 import msgpack
 import msgpack_numpy
+from collections import OrderedDict
 
 msgpack_numpy.patch()
 
