@@ -82,7 +82,7 @@ To make this less abstract, here's a ReLu activation, following this signature:
         mask = inputs > 0
         def backprop_relu(d_outputs):
             return d_outputs * mask
-        return inputs * mask, backward
+        return inputs * mask, backprop_relu
 
 When you call the ``relu`` function, you get back an output variable, and a
 callback. This lets you calculate a gradient using the output, and then pass it
