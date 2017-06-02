@@ -11,7 +11,7 @@ from .. import util
 from ..train import Trainer
 from ..ops import NumpyOps
 from ..mem import Memory
-from ..util import get_ops, copy_array, normalize_string_keys
+from ..util import get_ops, copy_array, ensure_path
 from ... import check
 from ... import describe
 from ...check import equal_length, has_shape, is_sequence, is_float, is_array
@@ -322,3 +322,14 @@ class Model(object):
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
         return self
+
+    def to_disk(self, path):
+        path = util.ensure_path(path)
+        with path.open('wb') as file_:
+            file_.write(self.to_bytes())
+
+    def from_disk(self, path):
+        path = util.ensure_path(path)
+        with path.open('rb') as file_:
+            bytes_data = file_.read()
+        return self.from_bytes(bytes_data)
