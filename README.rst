@@ -30,7 +30,6 @@ structured input and variable-length sequences.
     :target: https://pypi.python.org/pypi/thinc
     :alt: pypi Version
 
-
 .. image:: https://anaconda.org/conda-forge/thinc/badges/version.svg
     :target: https://anaconda.org/conda-forge/thinc
     :alt: conda Version
@@ -345,6 +344,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.7.1`_   ``2017-06-02`` Improve serialization
 `v6.7.0`_   ``2017-06-01`` Fixes to serialization, hash embeddings and flatten ops
 `v6.6.0`_   ``2017-05-14`` Improved GPU usage and examples
  v6.5.2     ``2017-03-20`` *n/a*
@@ -361,6 +361,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.7.1: https://github.com/explosion/thinc/releases/tag/v6.7.1
 .. _v6.7.0: https://github.com/explosion/thinc/releases/tag/v6.7.0
 .. _v6.6.0: https://github.com/explosion/thinc/releases/tag/v6.6.0
 .. _v6.5.1: https://github.com/explosion/thinc/releases/tag/v6.5.1
