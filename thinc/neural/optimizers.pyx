@@ -82,14 +82,14 @@ class SGD(object):
 
 class Adam(SGD):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
-                 b1_decay=0.0, b2_decay=0.0):
+                 b1_decay=0.0, b2_decay=0.0, max_grad_norm=100.):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
         self.averages = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
-        self.max_grad_norm = 100.
+        self.max_grad_norm = max_grad_norm
         self.alpha = lr
         self.b1 = beta1
         self.b2 = beta2
@@ -123,8 +123,10 @@ class Adam(SGD):
             self.mom2[key] = self.ops.allocate(weights.size)
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        gradient += self.L2 * weights
-        self.ops.clip_gradient(gradient, self.max_grad_norm)
+        if self.L2 != 0:
+            gradient += self.L2 * weights
+        if self.max_grad_norm:
+            self.ops.clip_gradient(gradient, self.max_grad_norm)
 
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
