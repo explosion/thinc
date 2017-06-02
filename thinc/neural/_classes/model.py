@@ -274,25 +274,26 @@ class Model(object):
         i = 0
         for layer in queue:
             if hasattr(layer, '_mem'):
-                weights.append({
-                    b'dims': layer._dims,
-                    b'params': []})
+                weights.append(OrderedDict((
+                    (b'dims', OrderedDict(sorted(layer._dims.items()))),
+                    (b'params', []))))
                 if hasattr(layer, 'seed'):
                     weights[-1][b'seed'] = layer.seed
 
-                for (id_, name), (start, row, shape) in layer._mem._offsets.items():
+                offsets = sorted(layer._mem._offsets.items())
+                for (id_, name), (start, row, shape) in offsets:
                     if row == 1:
                         continue
                     param = layer._mem.get((id_, name))
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
                     weights[-1][b'params'].append(
-                        {
-                            b'name': name,
-                            b'offset': start,
-                            b'shape': shape,
-                            b'value': param,
-                        }
+                        OrderedDict((
+                            (b'name', name),
+                            (b'offset', start),
+                            (b'shape', shape),
+                            (b'value', param),
+                        ))
                     )
                 i += 1
             if hasattr(layer, '_layers'):
