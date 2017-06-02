@@ -309,7 +309,6 @@ class Model(object):
             if hasattr(layer, '_mem'):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
-                print(weights[i][b'dims'])
                 for dim, value in weights[i][b'dims'].items():
                     setattr(layer, dim, value)
                 for param in weights[i][b'params']:
