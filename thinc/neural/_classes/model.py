@@ -268,9 +268,6 @@ class Model(object):
         '''Apply the function bound to the '|' operator.'''
         return self._operators['|'](self, other)
 
-    # This stuff really belongs in thinc -- but I expect
-    # to refactor how all this works in thinc anyway.
-    # What a mess!
     def to_bytes(self):
         weights = []
         queue = [self]
@@ -278,7 +275,7 @@ class Model(object):
         for layer in queue:
             if hasattr(layer, '_mem'):
                 weights.append({
-                    b'dims': normalize_string_keys(getattr(layer, '_dims', {})),
+                    b'dims': layer._dims,
                     b'params': []})
                 if hasattr(layer, 'seed'):
                     weights[-1][b'seed'] = layer.seed
@@ -300,10 +297,11 @@ class Model(object):
                 i += 1
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
-        return msgpack.dumps({b'weights': weights})
+        return msgpack.dumps({b'weights': weights}, use_bin_type=True,
+                             encoding='utf8')
 
     def from_bytes(self, bytes_data):
-        data = msgpack.loads(bytes_data)
+        data = msgpack.loads(bytes_data, encoding='utf8')
         weights = data[b'weights']
         queue = [self]
         i = 0
@@ -311,6 +309,7 @@ class Model(object):
             if hasattr(layer, '_mem'):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
+                print(weights[i][b'dims'])
                 for dim, value in weights[i][b'dims'].items():
                     setattr(layer, dim, value)
                 for param in weights[i][b'params']:
@@ -322,3 +321,4 @@ class Model(object):
                 i += 1
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
+        return self
