@@ -1,6 +1,7 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
+from pathlib import Path
 
 try:
     import cupy
@@ -52,27 +53,11 @@ def copy_array(dst, src, casting='same_kind', where=None):
         numpy.copyto(dst, src)
 
 
-def normalize_string_keys(old):
-    '''Given a dictionary, make sure keys are unicode strings, not bytes.'''
-    new = {}
-    for key, value in old:
-        if isinstance(key, bytes):
-            new[key.decode('utf8')] = value
-        else:
-            new[key] = value
-    return new
-
-
-#    def _unique_ids(self, ids):
-#        id_map = {}
-#        for i, id_ in enumerate(ids.flatten()):
-#            if id_ not in id_map:
-#                id_map[id_] = [i]
-#            else:
-#                id_map[id_].append(i)
-#        # Currently this is handled on CPU anyway, so allocate on CPU.
-#        uniques = numpy.asarray(sorted(id_map.keys()), dtype='uint64')
-#        return uniques, id_map
+def ensure_path(path):
+    if isinstance(path, basestring) or isinstance(path, str):
+        return Path(path)
+    else:
+        return path
 
 
 def to_categorical(y, nb_classes=None):
