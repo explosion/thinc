@@ -14,6 +14,6 @@ termcolor
 wrapt
 dill
 pathlib>=1.0.0,<2.0.0
-cupy==1.0.0b1
+chainer==1.24.0
 msgpack-python
 msgpack-numpy
