@@ -278,10 +278,10 @@ class Model(object):
         for layer in queue:
             if hasattr(layer, '_mem'):
                 weights.append({
-                    u'dims': normalize_string_keys(getattr(layer, '_dims', {})),
-                    u'params': []})
+                    b'dims': normalize_string_keys(getattr(layer, '_dims', {})),
+                    b'params': []})
                 if hasattr(layer, 'seed'):
-                    weights[-1][u'seed'] = layer.seed
+                    weights[-1][b'seed'] = layer.seed
 
                 for (id_, name), (start, row, shape) in layer._mem._offsets.items():
                     if row == 1:
@@ -289,33 +289,32 @@ class Model(object):
                     param = layer._mem.get((id_, name))
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
-                    weights[-1][u'params'].append(
+                    weights[-1][b'params'].append(
                         {
-                            u'name': name,
-                            u'offset': start,
-                            u'shape': shape,
-                            u'value': param,
+                            b'name': name,
+                            b'offset': start,
+                            b'shape': shape,
+                            b'value': param,
                         }
                     )
                 i += 1
             if hasattr(layer, '_layers'):
                 queue.extend(layer._layers)
-        return msgpack.dumps({u'weights': weights},
-                use_bin_type=True, encoding='utf8')
+        return msgpack.dumps({b'weights': weights})
 
     def from_bytes(self, bytes_data):
-        data = msgpack.loads(bytes_data, encoding='utf8')
-        weights = data[u'weights']
+        data = msgpack.loads(bytes_data)
+        weights = data[b'weights']
         queue = [self]
         i = 0
         for layer in queue:
             if hasattr(layer, '_mem'):
-                if u'seed' in weights[i]:
-                    layer.seed = weights[i][u'seed']
-                for dim, value in weights[i][u'dims'].items():
+                if b'seed' in weights[i]:
+                    layer.seed = weights[i][b'seed']
+                for dim, value in weights[i][b'dims'].items():
                     setattr(layer, dim, value)
-                for param in weights[i][u'params']:
-                    name = param[u'name']
+                for param in weights[i][b'params']:
+                    name = param[b'name']
                     if isinstance(name, bytes):
                         name = name.decode('utf8')
                     dest = getattr(layer, name)
