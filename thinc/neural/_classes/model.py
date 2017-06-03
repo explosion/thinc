@@ -274,11 +274,11 @@ class Model(object):
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, '_mem'):
+            if hasattr(layer, u'_mem'):
                 weights.append(OrderedDict((
                     (b'dims', OrderedDict(sorted(layer._dims.items()))),
                     (b'params', []))))
-                if hasattr(layer, 'seed'):
+                if hasattr(layer, u'seed'):
                     weights[-1][b'seed'] = layer.seed
 
                 offsets = sorted(layer._mem._offsets.items())
@@ -297,7 +297,7 @@ class Model(object):
                         ))
                     )
                 i += 1
-            if hasattr(layer, '_layers'):
+            if hasattr(layer, u'_layers'):
                 queue.extend(layer._layers)
         return msgpack.dumps({b'weights': weights}, use_bin_type=True,
                              encoding='utf8')
@@ -312,6 +312,8 @@ class Model(object):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
                 for dim, value in weights[i][b'dims'].items():
+                    if isinstance(dim, bytes):
+                        dim = dim.decode('utf8')
                     setattr(layer, dim, value)
                 for param in weights[i][b'params']:
                     name = param[b'name']
