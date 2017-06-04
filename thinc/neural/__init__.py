@@ -11,6 +11,6 @@ from ._classes.static_vectors import StaticVectors
 #from ._classes.embed import HashEmbed
 
 #from .pooling import Pooling, mean_pool, max_pool
-#from ._classes.convolution import ExtractWindow
+from ._classes.convolution import ExtractWindow
 #from ._classes.batchnorm import BatchNorm
 #from ._classes.difference import Siamese
