@@ -568,9 +568,9 @@ class CupyOps(Ops):
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cols = self.allocate((B, (nW*2+1), I))
-        cols[:-1, 0] = seq[1:]
+        cols[1:, 0] = seq[:-1]
         cols[:, 1] = seq
-        cols[1:, 2] = seq[:-1]
+        cols[:-1, 2] = seq[1:]
         return cols.reshape((B, I * (2*nW+1)))
 
     def backprop_seq2col(self, dY, int nW):
@@ -581,9 +581,9 @@ class CupyOps(Ops):
         # Having trouble getting the kernel to work...
         dX = self.allocate((B, I))
         dY = dY.reshape((B, nF, I))
-        dX[1:] += dY[:-1, 0]
+        dX[:-1] += dY[1:, 0]
         dX += dY[:, nW]
-        dX[:-1] += dY[1:, 2]
+        dX[1:] += dY[:-1, 2]
         return dX
 
     def mean_pool(self, X, lengths):

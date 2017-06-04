@@ -4,13 +4,17 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 
 from .. import strategies
-from ...neural.ops import NumpyOps
+from ...neural.ops import NumpyOps, CupyOps
 
 MAX_EXAMPLES = 10
 
-@pytest.fixture
-def ops():
-    return NumpyOps()
+OPS_CLASSES = [NumpyOps]
+if CupyOps.xp is not None:
+    OPS_CLASSES.append(Cupyops)
+
+@pytest.fixture(params=OPS_CLASSES)
+def ops(request):
+    return request.param()
 
 
 def test_hash_gives_distinct_keys(ops):
