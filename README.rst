@@ -80,7 +80,7 @@ To make this less abstract, here's a ReLu activation, following this signature:
 
     def relu(inputs):
         mask = inputs > 0
-        def backprop_relu(d_outputs):
+        def backprop_relu(d_outputs, optimizer):
             return d_outputs * mask
         return inputs * mask, backprop_relu
 
@@ -100,19 +100,19 @@ concise, and to keep the simplicity of the interface explicit:
 
     def create_linear_layer(n_out, n_in):
         W = numpy.zeros((n_out, n_in))
-        b = numpy.zeros((n_out,))
+        b = numpy.zeros((n_out, 1))
 
         def forward(X):
             Y = W @ X + b
             def backward(dY, optimizer):
-                dX = dY @ W.T
-                dW = outer(dY, X)
+                dX = W.T @ dY
+                dW = numpy.einsum('ik,jk->ij', dY, X)
                 db = dY.sum(axis=0)
 
                 optimizer(W, dW)
                 optimizer(b, db)
 
-                return dY
+                return dX
             return Y, backward
         return forward
 
@@ -148,16 +148,16 @@ create a simple feed-forward network:
 .. code:: python
 
     Wb1 = create_linear_layer(10, 5)
-    Wb2 = create_linear_layer(3, 5)
+    Wb2 = create_linear_layer(3, 10)
 
     model = chain(Wb1, relu, Wb2)
 
-    X = numpy.random.uniform((4, 5))
+    X = numpy.random.uniform(size=(5, 4))
 
     y, bp_y = model(X)
 
     dY = y - truth
-    dX = bp_y(dY)
+    dX = bp_y(dY, optimizer)
 
 This conceptual model makes Thinc very flexible. The trade-off is that Thinc is
 less convenient and efficient at workloads that fit exactly into what
@@ -317,7 +317,7 @@ operations. Usage is as follows:
     def explicit_sgd_update(X, y):
         sgd = lambda weights, gradient: weights - gradient * 0.001
         yh, finish_update = model.begin_update(X, drop=0.2)
-        finish_update(y-yh, optimizer)
+        finish_update(y-yh, sgd)
 
 Separating the backpropagation into three parts like this has many advantages.
 The interface to all models is completely uniform — there is no distinction
