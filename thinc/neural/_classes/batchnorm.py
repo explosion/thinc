@@ -51,9 +51,8 @@ class BatchNorm(Model):
         N, mu, var = _get_moments(self.ops, X)
 
         self.nr_upd += 1
-        #alpha = (1. + self.nr_upd) / (10. + self.nr_upd)
-        #alpha = min(0.9, alpha)
-        alpha = 0.01
+        alpha = (1. + self.nr_upd) / (10000. + self.nr_upd)
+        alpha = min(0.9, alpha)
         
         # I'm not sure this is the best thing to do -- 
         # Here we make a running estimate of the mean and variance,
