@@ -603,6 +603,19 @@ class CupyOps(Ops):
     def hash(self, ids, uint64_t seed):
         return gpu_ops.hash(self, ids, seed)
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
+    def get_dropout_mask(self, shape, drop):
+        if drop <= 0:
+            return None
+        elif drop >= 1.:
+            return self.allocate(shape)
+        drop = self.asarray([drop], dtype='float32')
+        coinflips = self.xp.random.uniform(0., 1., shape, dtype='float32')
+        mask = (coinflips >= drop) / (1.-drop)
+        assert mask.dtype == 'float32', mask.dtype
+        return mask
+    
     def scatter_add(self, out, ids, inputs):
         self.xp.scatter_add(out, ids, inputs)
 
