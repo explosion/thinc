@@ -38,11 +38,7 @@ class BatchNorm(Model):
 
     def predict(self, X):
         X = self.child.predict(X)
-        if self.nr_upd < 10:
-            N, mu, var = _get_moments(self.ops, X)
-            Xh = _forward(self.ops, X, mu, var)
-        else:
-            Xh = _forward(self.ops, X, self.m, self.v+1e-08)
+        Xh = _forward(self.ops, X, self.m, self.v+1e-08)
         y = Xh * self.G + self.b
         return y
 
@@ -51,7 +47,7 @@ class BatchNorm(Model):
         N, mu, var = _get_moments(self.ops, X)
 
         self.nr_upd += 1
-        alpha = (1. + self.nr_upd) / (10000. + self.nr_upd)
+        alpha = (1. + self.nr_upd) / (100. + self.nr_upd)
         alpha = min(0.9, alpha)
         
         # I'm not sure this is the best thing to do -- 
