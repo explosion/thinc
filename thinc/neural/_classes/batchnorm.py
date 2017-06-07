@@ -47,7 +47,7 @@ class BatchNorm(Model):
         N, mu, var = _get_moments(self.ops, X)
 
         self.nr_upd += 1
-        alpha = 0.01
+        alpha = self.ops.xp.asarray([0.01], dtype='float32')
         
         # I'm not sure this is the best thing to do -- 
         # Here we make a running estimate of the mean and variance,
@@ -76,7 +76,8 @@ class BatchNorm(Model):
             return backprop_child(d_xhat, sgd)
         drop *= getattr(self.child, 'drop_factor', 1.0)
         y, bp_dropout = self.ops.dropout(y, drop)
-        return y, finish_update
+        assert y.dtype == 'float32'
+        return y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
