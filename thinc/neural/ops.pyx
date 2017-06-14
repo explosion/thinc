@@ -288,6 +288,30 @@ class NumpyOps(Ops):
         for i in range(size):
             if signal_out[i] <= 0:
                 delta[i] *= signal_out[i] + 1.
+    
+    def selu(self, ndarray X, inplace=True):
+        cdef weight_t* data = <weight_t*>X.data
+        cdef size_t size = X.size
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        for i in range(size):
+            if data[i] < 0:
+                data[i] = alpha * (exp(data[i])-1.)
+            data[i] *= scale
+    
+    def backprop_selu(self, ndarray delta_, ndarray signal_in_,
+            inplace=True):
+        # Backprop the SELU transformation
+        cdef size_t size = delta_.size
+        cdef weight_t* delta = <weight_t*>delta_.data
+        cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+ 
+        for i in range(size):
+            delta[i] *= scale
+            if signal_in[i] <= 0:
+                delta[i] *= alpha * exp(signal_in[i])
 
     def relu(self, ndarray X, inplace=False):
         if inplace == False:
@@ -553,6 +577,25 @@ class CupyOps(Ops):
             return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
+    
+    def selu(self, X, inplace=True):
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        out = scale * self.xp.where(X>=0., X, alpha * self.xp.exp(X)-1.)
+        if inplace:
+            X[:] = out
+        return out
+    
+    def backprop_selu(self, delta, signal_in,
+            inplace=True):
+        # Backprop the SELU transformation
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        out = delta * self.xp.where(signal_in >= 0, scale,
+                scale * alpha * self.xp.exp(signal_in))
+        if inplace:
+            delta[:] = out
+        return out
 
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)
