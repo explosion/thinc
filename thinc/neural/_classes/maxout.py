@@ -2,8 +2,8 @@ import numpy
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
-from .._lsuv import LSUVinit
 from ..util import get_array_module
+from ..util import copy_array
 
 
 
@@ -24,7 +24,13 @@ def xavier_uniform_init(W, ops):
         xp.copyto(W[:,i], xp.random.uniform(-scale, scale, shape))
 
 
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+def normal_init(W, ops):
+    if (W**2).sum() != 0:
+        return
+    copy_array(W, ops.normal_init(W.shape, W.shape[-1]))
+
+
+@describe.on_data(_set_dimensions_if_needed)
 @describe.output(("nO",))
 @describe.input(("nI",))
 @describe.attributes(
@@ -32,7 +38,7 @@ def xavier_uniform_init(W, ops):
     nP=Dimension("Number of pieces"),
     nO=Dimension("Size of output"),
     W=Synapses("The weights matrix", lambda obj: (obj.nO, obj.nP, obj.nI),
-        xavier_uniform_init),
+        normal_init),
     b=Biases("Bias parameter", lambda obj: (obj.nO, obj.nP)),
     d_W=Gradient("W"),
     d_b=Gradient("b")
