@@ -236,6 +236,10 @@ class Ops(object):
     def he_normal_init(self, shape, fan_in):
         scale = self.xp.sqrt(2. / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
+    
+    def normal_init(self, shape, fan_in):
+        scale = self.xp.sqrt(1. / fan_in)
+        return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
         cdef weight_t decay = (1.0 + t) / (10.0 + t)
@@ -581,9 +585,9 @@ class CupyOps(Ops):
     def selu(self, X, inplace=True):
         cdef float scale = 1.0507009873554805
         cdef float alpha = 1.6732632423543772
-        out = scale * self.xp.where(X>=0., X, alpha * self.xp.exp(X)-1.)
+        out = scale * self.xp.where(X>=0., X, alpha * (self.xp.exp(X)-1.))
         if inplace:
-            X[:] = out
+            copy_array(X, out)
         return out
     
     def backprop_selu(self, delta, signal_in,
@@ -594,7 +598,7 @@ class CupyOps(Ops):
         out = delta * self.xp.where(signal_in >= 0, scale,
                 scale * alpha * self.xp.exp(signal_in))
         if inplace:
-            delta[:] = out
+            copy_array(delta, out)
         return out
 
     def clip_gradient(self, gradient, threshold):
@@ -673,6 +677,11 @@ class CupyOps(Ops):
             'adam')(gradient, learn_rate, 1 - beta1, 1 - beta2,
                     eps, weights, mom1, mom2)
         gradient.fill(0)
+    
+    def normal_init(self, shape, fan_in):
+        scale = self.xp.sqrt(1. / fan_in)
+        return self.xp.random.normal(scale=scale, size=prod(shape),
+                                     dtype='f').reshape(shape)
 
 
 
