@@ -5,12 +5,13 @@ import contextlib
 import msgpack
 import msgpack_numpy
 from collections import OrderedDict
+import cupy.cuda.device
 
 msgpack_numpy.patch()
 
 from .. import util
 from ..train import Trainer
-from ..ops import NumpyOps
+from ..ops import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array, ensure_path
 from ... import check
@@ -172,6 +173,32 @@ class Model(object):
             gradient = finish_update(y)
             yield gradient
 
+    def to_gpu(self, device_num):
+        device = cupy.cuda.device.Device(device_num) 
+        device.use()
+        queue = [self]
+        for layer in queue:
+            layer.ops = CupyOps()
+            layer.Ops = CupyOps
+            if hasattr(layer, u'_mem'):
+                layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
+                layer._mem.ops = layer.ops
+            if hasattr(layer, u'_layers'):
+                queue.extend(layer._layers)
+        return device
+    
+    def to_cpu(self):
+        queue = [self]
+        for layer in queue:
+            layer.ops = NumpyOps()
+            layer.Ops = NumpyOps
+            if hasattr(layer, u'_mem'):
+                if hasattr(layer._mem._mem, 'get'):
+                    layer._mem._mem = layer._mem._mem.get()
+                layer._mem.ops = layer.ops
+            if hasattr(layer, u'_layers'):
+                queue.extend(layer._layers)
+
     def evaluate(self, X, y):
         '''
         x
@@ -180,7 +207,9 @@ class Model(object):
         y
             Must match expected type
         '''
-        scores = self.ops.xp.vstack(self.pipe(X))
+        scores = self.ops.flatten(list(self.pipe(X)))
+        if not hasattr(y, 'shape'):
+            y = self.ops.flatten(y)
         scores = scores.reshape(y.shape)
         if len(scores.shape) == 1:
             correct = ((scores >= 0.5) == (y >= 0.5)).sum()
