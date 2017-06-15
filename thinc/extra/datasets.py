@@ -79,12 +79,12 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
 
-def imdb(loc=None):
+def imdb(loc=None, limit=0):
     if loc is None:
         loc = get_file('aclImdb', IMDB_URL, untar=True, unzip=True)
     train_loc = Path(loc) / 'train'
     test_loc = Path(loc) / 'test'
-    return read_imdb(train_loc), read_imdb(test_loc)
+    return read_imdb(train_loc, limit=limit), read_imdb(test_loc, limit=limit)
 
 
 def read_wikiner(file_, tagmap=None):

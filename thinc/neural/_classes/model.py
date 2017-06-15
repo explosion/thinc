@@ -161,7 +161,7 @@ class Model(object):
         '''
         return self.predict(x)
 
-    def pipe(self, stream, batch_size=1000):
+    def pipe(self, stream, batch_size=128):
         for batch in util.minibatch(stream, batch_size):
             ys = self.predict(batch)
             for y in ys:
