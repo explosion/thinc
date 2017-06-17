@@ -4,6 +4,10 @@ from cytoolz import partition_all
 from ..ops import NumpyOps
 
 
+def _get_array_module(array):
+    return numpy
+
+
 def numpy_params():
     params = []
     def allocate(shape, gradient=False):
@@ -17,128 +21,74 @@ def numpy_params():
     return allocate, params
 
 
-def _get_array_module(array):
-    return numpy
-
-
-def _flatten(Xs, pad=None):
-    assert len(Xs) != 0
-    assert isinstance(Xs, list)
-    assert len(Xs[0].shape) == 2
-    xp = _get_array_module(Xs[0])
-    if pad is None:
-        padded = Xs
-    else:
-        if isinstance(pad, int):
-            pad = xp.zeros((pad, Xs[0].shape[1]))
-        padded = []
-        for X in Xs:
-            padded.append(X)
-            padded.append(pad)
-    return xp.vstack(padded), xp.asarray([len(X) for X in Xs], dtype='i')
-
-
-def _unflatten(X, lengths, pad=None):
-    xp = _get_array_module(X)
-    Xs = []
-    start = 0
-    for length in lengths:
-        Xs.append(X[start : start + length])
-        start += length
-        if pad is None:
-            pass
-        elif isinstance(pad, int):
-            start += pad
-        else:
-            pad += X[start:start+pad.shape[0]]
-            start += pad.shape[0]
-    return Xs
-
-
-
 def RNN(alloc, nO, nI, begin_nonlin):
-    Wx, dWx = alloc((nO, nI), gradient=True)
-    Wh, dWh = alloc((nO, nO), gradient=True)
-    b, db = alloc((nO,), gradient=True)
-    pad, d_pad = alloc((1, nI), gradient=True)
+    Wx, dWx    = alloc((nO, nI), gradient=True)
+    Wh, dWh    = alloc((nO, nO), gradient=True)
+    b, db      = alloc((nO,),    gradient=True)
+    pad, d_pad = alloc((nO,),  gradient=True)
     xp = _get_array_module(Wx)
+
     def rnn_fwd(Xs):
-        X, lengths = _flatten(Xs, pad=pad)
-        Y = xp.tensordot(X, Wx, axes=[[1], [1]])
-        Y += b
-        Yf = Y.copy()
-        nonlin_fwd, bp_nonlin = begin_nonlin(Y, Yf)
-        for t in range(1, Yf.shape[0]):
-            Yf[t] += Wh.dot(Yf[t-1])
-            nonlin_fwd(t)
+        Zs = []
+        backprops = []
+        for X in Xs:
+            Y = xp.tensordot(X, Wx, axes=[[1], [1]])
+            Y += b
+            Z, nonlin_fwd, bp_nonlin = begin_nonlin(Y)
+            state = pad
+            for t in range(Y.shape[0]):
+                Y[t] += Wh.dot(state)
+                state = nonlin_fwd(t)
+            backprops.append(bp_nonlin)
+            Zs.append(Z)
 
-        def rnn_bwd(dYf_seqs):
-            nonlocal Y, X, Wx, dWx, Wh, dWh, d_pad
-            dYf, lengths = _flatten(dYf_seqs, pad=1)
-            dY = bp_nonlin(dYf)
-            dX = xp.tensordot(dY, Wx, axes=[[1], [0]])
-            start = 0
-            for length in lengths:
-                for t in range(start+length, start, -1):
-                    dX[t] += dX[t+1].dot(Wh.T)
-                start += length
-            dWx += xp.tensordot(dY, X, axes=[[0], [0]])
-            dWh += xp.tensordot(dY[1:], X[:-1], axes=[[0], [0]])
-            db += dY.sum(axis=0)
-            return _unflatten(dX, lengths, pad=d_pad)
-        return _unflatten(Yf, lengths, pad=1), rnn_bwd
+        def rnn_bwd(dZs):
+            nonlocal d_pad, dWx, dWh, db
+            dXs = []
+            for dZ, bp_Z in zip(dZs, backprops):
+                dY       = bp_Z(dZ)
+                dX       = xp.tensordot(dY,     Wx,     axes=[[1], [0]])
+                dX[:-1] += xp.tensordot(dY[1:], Wh,     axes=[[1], [0]])
+                d_pad   += dY[0].dot(Wh)
+                dWx     += xp.tensordot(dY,     X,      axes=[[0], [0]])
+                dWh     += xp.tensordot(dY[1:], Y[:-1], axes=[[0], [0]])
+                db      += dY.sum(axis=0)
+                dXs.append(dX)
+            return dXs
+        return Zs, rnn_bwd
     return rnn_fwd
 
 
-def LSTM(alloc, nO, nI):
-    Wx, dWx = alloc((nO*4, nI), gradient=True)
-    Wh, dWh = alloc((nO*4, nO), gradient=True)
-    b, db = alloc((nO*4,), gradient=True)
-    pad, d_pad = alloc((1, nI), gradient=True)
-    xp = _get_array_module(Wx)
-    def lstm_fwd(Xs):
-        X, lengths = _flatten(Xs, pad=pad)
-        N = X.shape[0]
-
-        gates = xp.tensordot(X, Wx, axes=[[1], [1]])
-        gates += b
-        gates = gates.reshape((N,  nO, 4))
-        
-        cells = xp.zeros((N, nO))
-        Y = xp.zeros((N, nO))
-
-        for t in range(N):
-            ops.lstm(Y[t], cells[t], gates[t], cells[t-1])
-
-        def lstm_bwd(dY_seqs):
-            nonlocal Y, X, Wx, dWx, Wh, dWh, d_pad
-            dY, lengths = _flatten(dY_seqs, pad=1)
-            dX = xp.tensordot(dY, Wx, axes=[[1], [0]])
-
-            d_gates = xp.zeros((N, nO, 4), dtype='f')
-            start = 0
-            for length in lengths:
-                for t in range(start+length, start, -1):
-                    d_cells[t] = d_cells[t+1]
-                    ops.backprop_lstm(d_cells[t], d_gates[t],
-                        dY[t], gates[t], cells[t], cells[t-1])
-                start += length
-            dX += d_gates.sum(axis=-1)
-            d_gates = d_gates.reshape((N, nO*4))
-            dWx += xp.tensordot(d_gates, X, axes=[[0], [0]])
-            dWh += xp.tensordot(d_gates[1:], X[:-1], axes=[[0], [0]])
-            db += dY.sum(axis=0)
-            return _unflatten(dX, lengths, pad=d_pad)
-        return _unflatten(Yf, lengths, pad=1), lstm_bwd
-    return rnn_fwd
-
-
-def begin_stepwise_relu(X, Y):
+def begin_stepwise_relu(X):
+    Y = numpy.zeros(X.shape, dtype='f')
     def relu_fwd(t):
         Y[t] *= X[t]>0
+        return Y[t]
     def relu_bwd(dY):
         return dY * (X>0)
-    return relu_fwd, relu_bwd
+    return Y, relu_fwd, relu_bwd
+
+
+def begin_stepwise_LSTM(gates):
+    ops = NumpyOps()
+    Hout = numpy.zeros((gates.shape[0], gates.shape[1]), dtype='f')
+    cells = numpy.zeros((gates.shape[0], gates.shape[1]), dtype='f')
+    d_cells = numpy.zeros(cells.shape, dtype='f')
+    d_gates = numpy.zeros(gates.shape, dtype='f')
+    def lstm_nonlin_fwd(t):
+        ops.lstm(Hout[t], cells[t],
+            gates[t], cells[t-1])
+        return Hout[t]
+
+    def lstm_nonlin_bwd(dHout):
+        for t in range(dHout.shape[0], -1, -1):
+            ops.backprop_lstm(d_cells[t], d_gates[t], d_output[t], gates[t],
+                cells[t], cells[t-1])
+            if t != 0:
+                d_cells[t-1] += d_cells[t]
+        return d_gates[t]
+
+    return Hout, lstm_nonlin_fwd, lstm_nonlin_bwd
 
 
 def test_RNN_allocates_params():
@@ -203,7 +153,7 @@ def test_RNN_fwd_speed():
             ]
         batches.append(batch)
     alloc, params = numpy_params()
-    model = LSTM(alloc, nO, nI)
+    model = RNN(alloc, nO, nI, begin_stepwise_relu)
     start = timeit.default_timer()
     for Xs in batches:
         ys, bp_ys = model(list(Xs))
