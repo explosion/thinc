@@ -1,9 +1,9 @@
 # cython: profile=True
 # cython: cdivision=True
-# cython: infer_types = True
+# cython: infer_types=True
 cimport cython
 from libc.string cimport memcpy, memset
-from libc.math cimport exp, sqrt, isnan
+from libc.math cimport exp, tanh, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
 from libc.stdint cimport uint32_t, uint64_t
@@ -191,7 +191,7 @@ class Ops(object):
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
-        maxes = self.xp.amax(x, axis=1)
+        maxes = self.xp.max(x, axis=1)
         maxes = maxes.reshape((x.shape[0], 1))
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -232,6 +232,16 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
+    
+    def normal_init(self, W, inplace=True):
+        scale = self.xp.sqrt(1. / W.shape[-1])
+        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
 
     def he_normal_init(self, shape, fan_in):
         scale = self.xp.sqrt(2. / fan_in)
@@ -276,18 +286,6 @@ class NumpyOps(Ops):
         for i in range(size):
             if data[i] < 0:
                 data[i] = exp(data[i])-1.
-
-    def backprop_elu(self, ndarray delta_, ndarray signal_out_,
-            inplace=True):
-        # Backprop the ELU transformation
-        # Note that this is over the function _output_, not the function
-        # _input_!
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
-        for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] *= signal_out[i] + 1.
     
     def selu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
@@ -312,6 +310,18 @@ class NumpyOps(Ops):
             delta[i] *= scale
             if signal_in[i] <= 0:
                 delta[i] *= alpha * exp(signal_in[i])
+
+    def backprop_elu(self, ndarray delta_, ndarray signal_out_,
+            inplace=True):
+        # Backprop the ELU transformation
+        # Note that this is over the function _output_, not the function
+        # _input_!
+        cdef size_t size = delta_.size
+        cdef weight_t* delta = <weight_t*>delta_.data
+        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+        for i in range(size):
+            if signal_out[i] <= 0:
+                delta[i] *= signal_out[i] + 1.
 
     def relu(self, ndarray X, inplace=False):
         if inplace == False:
@@ -357,6 +367,20 @@ class NumpyOps(Ops):
         cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
         return py_out.reshape((B, O, P))
+
+    def lstm(self, np.ndarray output, np.ndarray cells,
+             np.ndarray gates, np.ndarray prev):
+        cpu_lstm_gates_fwd(<float*>output.data, <float*>cells.data,
+            <const float*>gates.data, <const float*>prev.data,
+            cells.shape[0])
+        return output
+
+    def backprop_lstm(self, np.ndarray d_cells, np.ndarray d_prev, np.ndarray d_gates,
+             np.ndarray d_output, np.ndarray gates, np.ndarray cells,
+             np.ndarray prev):
+        cpu_lstm_gates_bwd(<float*>d_cells.data, <float*>d_prev.data, <float*>d_gates.data,
+            <const float*>d_output.data, <const float*>gates.data,
+            <const float*>cells.data, <const float*>prev.data, gates.shape[0])
 
     def seq2col(self, float[:, ::1] seq, int nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
@@ -577,25 +601,6 @@ class CupyOps(Ops):
             return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
-    
-    def selu(self, X, inplace=True):
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = scale * self.xp.where(X>=0., X, alpha * self.xp.exp(X)-1.)
-        if inplace:
-            X[:] = out
-        return out
-    
-    def backprop_selu(self, delta, signal_in,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = delta * self.xp.where(signal_in >= 0, scale,
-                scale * alpha * self.xp.exp(signal_in))
-        if inplace:
-            delta[:] = out
-        return out
 
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)
@@ -646,19 +651,6 @@ class CupyOps(Ops):
     def hash(self, ids, uint64_t seed):
         return gpu_ops.hash(self, ids, seed)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def get_dropout_mask(self, shape, drop):
-        if drop <= 0:
-            return None
-        elif drop >= 1.:
-            return self.allocate(shape)
-        drop = self.asarray([drop], dtype='float32')
-        coinflips = self.xp.random.uniform(0., 1., shape, dtype='float32')
-        mask = (coinflips >= drop) / (1.-drop)
-        assert mask.dtype == 'float32', mask.dtype
-        return mask
-    
     def scatter_add(self, out, ids, inputs):
         self.xp.scatter_add(out, ids, inputs)
 
@@ -847,3 +839,55 @@ cdef void cpu_backprop_max_pool(float* dX__to,
         which__bo += O
 
 
+cdef inline float sigmoid(float X) nogil:
+    return 1./(1. + exp(-X))
+
+
+cdef inline float dsigmoid(float X) nogil:
+    y = sigmoid(X)
+    return y*(1-y)
+
+
+cdef inline float dtanh(float X) nogil:
+    return 1-tanh(X)**2
+
+
+cdef void cpu_lstm_gates_fwd(float* output, float* cells,
+        const float* gates, const float* prev, int N) nogil:
+    for i in range(N):
+        hf = gates[i*4+0]
+        hi = gates[i*4+1]
+        ho = gates[i*4+2]
+        hc = gates[i*4+3]
+        cells[i] = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        output[i] = tanh(cells[i]) * sigmoid(ho)
+
+
+cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
+        const float* d_output, const float* gates, const float* cells,
+        const float* prev, int N) nogil:
+    for i in range(N):
+        hf = gates[i*4+0]
+        hi = gates[i*4+1]
+        ho = gates[i*4+2]
+        hc = gates[i*4+3]
+        c = cells[i]
+        dh = d_output[i]
+        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+        dho = tanh(c)     * dh * dsigmoid(ho)
+        dc  = sigmoid(ho) * dh * dtanh(c)
+        dc += d_cells[i]  # Carry gradient from previous step
+
+        # Gradient for hf, hi, hc, prev[i]
+        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        dhf   = dsigmoid(hf) * dc * prev[i]
+        dhi   = dsigmoid(hi) * dc * tanh(hc)
+        dhc   = dtanh(hc)    * dc * sigmoid(hi)
+        dprev =                dc * sigmoid(hf)
+
+        d_gates[i*4+0] = dhf
+        d_gates[i*4+1] = dhi
+        d_gates[i*4+2] = dho
+        d_gates[i*4+3] = dhc
+        d_cells[i] = dc
+        d_prev[i] = dprev
