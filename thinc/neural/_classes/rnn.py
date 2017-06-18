@@ -51,7 +51,7 @@ def RNN(alloc, nO, nI, nonlinearity=begin_stepwise_tanh, nG=1):
     # Initialize forget gates' bias
     if nG == 4:
         b = b.reshape((nO, nG))
-        b[:, 0] = 1.
+        b[:, 0] = 3.
         b = b.reshape((nO * nG,))
 
     def rnn_fwd(Xs):
