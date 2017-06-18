@@ -39,7 +39,8 @@ def begin_stepwise_relu(X, nG):
     return Y, relu_fwd, relu_bwd
 
 
-def RNN(alloc, nO, nI, begin_nonlin=begin_stepwise_tanh, nG=1):
+def RNN(alloc, nO, nI, nonlinearity=begin_stepwise_tanh, nG=1):
+    begin_nonlin = nonlinearity
     Wx, dWx    = alloc((nO*nG, nI), gradient=True)
     Wh, dWh    = alloc((nO*nG, nO), gradient=True)
     b, db      = alloc((nO*nG,),    gradient=True)
