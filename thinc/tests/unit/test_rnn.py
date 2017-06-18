@@ -1,6 +1,7 @@
 import numpy
 from cytoolz import partition_all
 import timeit
+import pytest
 
 from ...neural._classes.rnn import RNN
 from ...neural._classes.rnn import LSTM
@@ -13,13 +14,13 @@ def test_RNN_allocates_params():
     nO = 1
     nI = 2
     alloc, params = numpy_params()
-    model = RNN(alloc, nO, 1, nI, begin_stepwise_relu)
+    model = RNN(alloc, nO, nI, nonlinearity=begin_stepwise_relu, nG=1)
     for weight, grad in params:
         assert weight.shape == grad.shape
     assert params[0][0].shape == (nO, nI)
     assert params[1][0].shape == (nO, nO)
     assert params[2][0].shape == (nO,)
-    assert params[3][0].shape == (1, nO)
+    assert params[3][0].shape == (nO,)
 
 
 def test_RNN_fwd_bwd_shapes():
@@ -108,6 +109,7 @@ def test_LSTM_fwd():
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
  
 
+@pytest.mark.skip
 def test_benchmark_RNN_fwd():
     nO = 128
     nI = 128
