@@ -368,11 +368,10 @@ class NumpyOps(Ops):
         memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
         return py_out.reshape((B, O, P))
 
-    def lstm(self, np.ndarray output, np.ndarray cells,
-             np.ndarray gates, np.ndarray prev):
-        cpu_lstm_gates_fwd(<float*>output.data, <float*>cells.data,
-            <const float*>gates.data, <const float*>prev.data,
-            cells.shape[0])
+    def lstm(self, float[::1] output, float[::1] cells,
+            float[:, ::1] gates, float[::1] prev):
+        cpu_lstm_gates_fwd(&output[0], &cells[0],
+            &gates[0, 0], &prev[0], cells.shape[0])
         return output
 
     def backprop_lstm(self, np.ndarray d_cells, np.ndarray d_prev, np.ndarray d_gates,
@@ -885,9 +884,9 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         dhc   = dtanh(hc)    * dc * sigmoid(hi)
         dprev =                dc * sigmoid(hf)
 
-        d_gates[i*4+0] = dhf
-        d_gates[i*4+1] = dhi
-        d_gates[i*4+2] = dho
-        d_gates[i*4+3] = dhc
+        d_gates[i*4+0] += dhf
+        d_gates[i*4+1] += dhi
+        d_gates[i*4+2] += dho
+        d_gates[i*4+3] += dhc
         d_cells[i] = dc
         d_prev[i] = dprev
