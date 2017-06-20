@@ -252,7 +252,6 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
     return layerize(forward)
 
 
-
 def FeatureExtracter(attrs):
     def forward(docs, drop=0.):
         features = [doc.to_array(attrs) for doc in docs]
@@ -260,5 +259,71 @@ def FeatureExtracter(attrs):
             return d_features
         return features, backward
     return layerize(forward)
+
+
+def wrap(func, *child_layers):
+    model = layerize(func)
+    model._layers.extend(child_layers)
+    def on_data(self, X, y):
+        for child in self._layers:
+            for hook in child.on_data_hooks:
+                hook(child, X, y)
+    model.on_data_hooks.append(on_data)
+    return model
+
+
+def uniqued(layer, column=0):
+    '''Group inputs to a layer, so that the layer only has to compute
+    for the unique values. The data is transformed back before output, and the same
+    transformation is applied for the gradient. Effectively, this is a cache
+    local to each minibatch.
+    
+    The uniqued wrapper is useful for word inputs, because common words are
+    seen often, but we may want to compute complicated features for the words,
+    using e.g. character LSTM.
+    '''
+    def uniqued_fwd(X, drop=0.):
+        keys = X[:, column]
+        uniq_keys, ind, inv, counts = layer.ops.xp.unique(keys, return_index=True,
+                                                          return_inverse=True,
+                                                          return_counts=True)
+        Y_uniq, bp_Y_uniq = layer.begin_update(X[ind], drop=drop)
+        Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
+        def uniqued_bwd(dY, sgd=None):
+            dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype='f')
+            layer.ops.scatter_add(dY_uniq, inv, dY)
+            d_uniques = bp_Y_uniq(dY_uniq, sgd=sgd)
+            if d_uniques is not None:
+                dX = (d_uniques / counts)[inv]
+                return dX
+            else:
+                return None
+        return Y, uniqued_bwd
+    model = wrap(uniqued_fwd, layer)
+    return model
+
+
+def foreach_sentence(layer):
+    '''Map a layer across sentences (assumes spaCy-esque .sents interface)'''
+    def sentence_fwd(docs, drop=0.):
+        sents = []
+        lengths = []
+        for doc in docs:
+            s = [sent for sent in doc.sents if len(sent)]
+            if s:
+                sents.extend(s)
+                lengths.append(len(s))
+        flat, bp_flat = layer.begin_update(sents, drop=drop)
+        output = layer.ops.unflatten(flat, lengths)
+        def sentence_bwd(d_output, sgd=None):
+            d_flat = layer.ops.flatten(d_output)
+            d_sents = bp_flat(d_flat, sgd=sgd)
+            if d_sents is None:
+                return d_sents
+            else:
+                return layer.ops.unflatten(d_sents, lengths)
+        return output, sentence_bwd
+    model = wrap(sentence_fwd, layer)
+    return model
 
 
