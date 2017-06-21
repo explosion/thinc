@@ -24,7 +24,18 @@ def xavier_uniform_init(W, ops):
         xp.copyto(W[:,i], xp.random.uniform(-scale, scale, shape))
 
 
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+def normal_init(W, ops):
+    if (W**2).sum() != 0:
+        return
+    xp = get_array_module(W)
+    scale = xp.sqrt(1. / W.shape[-1])
+    shape = (W.shape[0], W.shape[-1])
+    size = xp.prod(shape)
+    for i in range(W.shape[1]):
+        xp.copyto(W[:,i], xp.random.normal(loc=0, scale=scale, size=size).reshape(shape))
+
+
+@describe.on_data(_set_dimensions_if_needed)
 @describe.output(("nO",))
 @describe.input(("nI",))
 @describe.attributes(
@@ -32,7 +43,7 @@ def xavier_uniform_init(W, ops):
     nP=Dimension("Number of pieces"),
     nO=Dimension("Size of output"),
     W=Synapses("The weights matrix", lambda obj: (obj.nO, obj.nP, obj.nI),
-        xavier_uniform_init),
+        normal_init),
     b=Biases("Bias parameter", lambda obj: (obj.nO, obj.nP)),
     d_W=Gradient("W"),
     d_b=Gradient("b")
