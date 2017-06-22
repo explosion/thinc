@@ -46,7 +46,7 @@ def flatten_add_lengths(seqs, pad=0, drop=0.):
     lengths = ops.asarray([len(seq) for seq in seqs], dtype='i')
     def finish_update(d_X, sgd=None):
         return ops.unflatten(d_X, lengths, pad=pad)
-    X = self.ops.flatten(seqs, pad=pad)
+    X = ops.flatten(seqs, pad=pad)
     return (X, lengths), finish_update
 
 
