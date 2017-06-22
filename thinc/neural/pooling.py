@@ -13,7 +13,9 @@ except ImportError:
 def Pooling(*funcs, **kwargs):
     ops = kwargs['ops'] if 'ops' in kwargs else funcs[0].ops
     F = len(funcs)
+    drop_factor = kwargs.get('drop_factor', 1.0)
     def begin_update(X_lengths, drop=0.0):
+        drop *= drop_factor
         X, lengths = X_lengths
         T, O = X.shape
         pooled = ops.allocate((len(lengths), F*O))
@@ -41,6 +43,18 @@ def mean_pool(X_lengths, drop=0.):
     def finish_update(d_output, sgd=None):
         d_output = ops.xp.ascontiguousarray(d_output)
         return ops.backprop_mean_pool(d_output, lengths)
+    return output, finish_update
+
+
+@layerize
+def sum_pool(X_lengths, drop=0.):
+    X, lengths = X_lengths
+    ops = Model.ops
+
+    output = ops.sum_pool(X, lengths)
+    def finish_update(d_output, sgd=None):
+        d_output = ops.xp.ascontiguousarray(d_output)
+        return ops.backprop_sum_pool(d_output, lengths)
     return output, finish_update
 
 
