@@ -473,6 +473,18 @@ class NumpyOps(Ops):
         cpu_mean_pool(means,
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(means, (B, O))
+    
+    def sum_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        sums = <float*>mem.alloc(B * O, sizeof(float))
+
+        cpu_sum_pool(sums,
+            &X[0, 0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(sums, (B, O))
 
     def backprop_mean_pool(self, float[:, ::1] d_means, int[::1] lengths):
         cdef int B = lengths.shape[0]
@@ -487,6 +499,20 @@ class NumpyOps(Ops):
             &d_means[0,0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
+    
+    def backprop_sum_pool(self, float[:, ::1] d_sums, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_sums.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_sum_pool(dX,
+            &d_sums[0,0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(dX, (T, O))
+
 
     def max_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
@@ -802,6 +828,29 @@ cdef void cpu_backprop_mean_pool(float* dX__to,
                 d_means__bo, scale, O)
             dX__to += O
         d_means__bo += O
+
+
+cdef void cpu_sum_pool(float* sums__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute sums of a batch of concatenated sequences, using the lengths.'''
+    for length in lengths__b[:B]:
+        for _ in range(length):
+            VecVec.add_i(sums__bo,
+                X__to, 1.0, O)
+            X__to += O
+        sums__bo += O
+
+
+cdef void cpu_backprop_sum_pool(float* dX__to,
+        const float* d_sums__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    for length in lengths__b[:B]:
+        for _ in range(length):
+            VecVec.add_i(dX__to,
+                d_sums__bo, 1.0, O)
+            dX__to += O
+        d_sums__bo += O
 
 
 cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
