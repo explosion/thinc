@@ -1,4 +1,5 @@
 import copy
+import numpy
 
 from .neural._classes.feed_forward import FeedForward
 from .neural._classes.model import Model
@@ -254,7 +255,14 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
 
 def FeatureExtracter(attrs):
     def forward(docs, drop=0.):
-        features = [doc.to_array(attrs) for doc in docs]
+        # Handle spans
+        def get_feats(doc):
+            if hasattr(doc, 'to_array'):
+                return doc.to_array(attrs)
+            else:
+                return doc.doc.to_array(attrs)[doc.start:doc.end]
+        features = [numpy.asarray(get_feats(doc), dtype='uint64')
+                    for doc in docs]
         def backward(d_features, sgd=None):
             return d_features
         return features, backward
@@ -303,17 +311,21 @@ def uniqued(layer, column=0):
     return model
 
 
-def foreach_sentence(layer):
+def foreach_sentence(layer, drop_factor=1.0):
     '''Map a layer across sentences (assumes spaCy-esque .sents interface)'''
     def sentence_fwd(docs, drop=0.):
         sents = []
         lengths = []
         for doc in docs:
-            s = [sent for sent in doc.sents if len(sent)]
+            s = [sent for sent in doc.sents
+                 if len(sent) and numpy.random.random() >= drop * drop_factor]
             if s:
                 sents.extend(s)
                 lengths.append(len(s))
-        flat, bp_flat = layer.begin_update(sents, drop=drop)
+            else:
+                sents.append(doc)
+                lengths.append(1)
+        flat, bp_flat = layer.begin_update(sents, drop=0.)
         output = layer.ops.unflatten(flat, lengths)
         def sentence_bwd(d_output, sgd=None):
             d_flat = layer.ops.flatten(d_output)
