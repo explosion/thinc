@@ -308,22 +308,48 @@ def lstm_fwd(Xs_lengths, W, b):
         Cp = pad
         Hp = pad
         dHp = xp.zeros((nB, nO), dtype='f')
+        dXs = xp.zeros(Xs.shape, dtype='f')
         for t, (Xt, Gt, Ct) in reversed(enumerate(timesteps)):
             dHt = dHp + _make_timestep(Hs, lengths, t)
-            dGt = dGp
-            dCt = dCp
-            dCp = None
-            dGp = None
+            dGt.fill(0)
+            dCt.fill(0)
             ops.backprop_lstm(dCt, dCp, dGt,
                 dHt, Gt, Ct, Cp)
             dHp = dG.dot(W.T)
             dW += xp.tensordot(dGn, dHt, axes=[[0], [0]])
             db += dGt.sum(axis=0)
-            _write_timestep(Xs, lengths, t, dHt)
-            dXs.append(dX)
+            _write_timestep(dXs, lengths, t, dHt)
+            dCt, dCp = dCp, dCt
         return dXs
-    return batch_Houts, lstm_bwd
+    return Hs, lstm_bwd
 
+
+def _make_timestep(Xs, lengths, t):
+    xp = _get_array_module(Xs)
+    n = 0
+    for i, length in enumerate(lengths):
+        n += length < t
+    output = xp.zeros((n,) + Xs.shape[1:], dtype=Xs.dtype)
+    start = 0
+    i = 0
+    for length in lengths:
+        if t < length:
+            output[i] = Xs[start + t]
+            i += 1
+        start += length
+    return output
+
+
+def _write_timestep(Xs, lengths, t, timestep):
+    xp = _get_array_module(Xs)
+    start = 0
+    i = 0
+    for length in lengths:
+        if t < length:
+            Xs[start + t] = timestep[i]
+            i += 1
+        start += length
+ 
 
 #
 #def begin_stepwise_LSTM(gates, nG):
