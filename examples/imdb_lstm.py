@@ -26,7 +26,7 @@ def build_model(nr_class, width):
             | HashEmbed(width, 750, column=2)
             | HashEmbed(width, 750, column=3)
             | HashEmbed(width, 5000, column=4))
-            >> Maxout(width)
+            >> Maxout(width, pieces=3)
         )
 
         sent2vec = (
@@ -34,19 +34,19 @@ def build_model(nr_class, width):
             >> flatten_add_lengths
             >> with_getitem(0,
                 uniqued(embed, column=0)
-                >> Residual(ExtractWindow(nW=1) >> Maxout(width)) ** 2
+                >> Residual(ExtractWindow(nW=1) >> SELU(width)) ** 4
             )
             >> ParametricAttention(width)
-            >> Pooling(max_pool)
-            >> Residual(Maxout(width)) ** 2
+            >> Pooling(sum_pool)
+            >> Residual(SELU(width)) ** 2
         )
 
         model = (
             foreach_sentence(sent2vec, drop_factor=4.0)
             >> flatten_add_lengths
             >> ParametricAttention(width)
-            >> Pooling(sum_pool)
-            >> Residual(Maxout(width)) ** 2
+            >> Pooling(sum_pool, max_pool)
+            >> Residual(SELU(width*2)) ** 2
             >> Softmax(nr_class)
         )
     model.lsuv = False
