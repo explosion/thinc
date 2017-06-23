@@ -186,16 +186,15 @@ class Ops(object):
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
 
-    def softmax(self, x, inplace=False, axis=1):
+    def softmax(self, x, inplace=False, axis=-1):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
-        maxes = self.xp.max(x, axis=1)
-        maxes = maxes.reshape((x.shape[0], 1))
+        maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
-        new_x /= new_x.sum(axis=1).reshape((x.shape[0], 1))
+        new_x /= new_x.sum(axis=axis, keepdims=True)
         if inplace:
             copy_array(x, new_x)
             return x
