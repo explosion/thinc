@@ -27,8 +27,12 @@ def xavier_uniform_init(W, ops):
 def normal_init(W, ops):
     if (W**2).sum() != 0:
         return
-    copy_array(W, ops.normal_init(W.shape, W.shape[-1]))
-
+    xp = get_array_module(W)
+    scale = xp.sqrt(1. / W.shape[-1])
+    shape = (W.shape[0], W.shape[-1])
+    size = xp.prod(shape)
+    for i in range(W.shape[1]):
+        xp.copyto(W[:,i], xp.random.normal(loc=0, scale=scale, size=size).reshape(shape))
 
 @describe.on_data(_set_dimensions_if_needed)
 @describe.output(("nO",))
