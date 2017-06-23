@@ -6,8 +6,8 @@ from .model import Model
 @describe.attributes(
     nO=Dimension("Output size"),
     Q=Synapses("Learned 'query' vector",
-        lambda obj: (1, obj.nO),
-        lambda Q, ops: Q.fill(1)),
+        lambda obj: (obj.nO,),
+        lambda Q, ops: ops.normal_init(Q)),
     dQ=Gradient("Q"),
 )
 class ParametricAttention(Model):
@@ -17,6 +17,7 @@ class ParametricAttention(Model):
     def __init__(self, nO=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
+        self.softmax = True
         self.drop_factor = kwargs.get('drop_factor', 1.0)
 
     def begin_update(self, Xs_lengths, drop=0.):
@@ -35,23 +36,26 @@ class ParametricAttention(Model):
         return (output, lengths), attention_bwd
 
     def _get_attention(self, Q, Xs, lengths):
-        attention = Xs * Q
+        attention = Xs.dot(Q)
         start = 0
         for i, length in enumerate(lengths):
             self.ops.softmax(attention[start : start+length], inplace=True)
             start += length
         def get_attention_bwd(d_attention):
             d_attention = backprop_softmax(d_attention, attention, lengths)
-            dQ = (Xs * d_attention).sum(axis=0, keepdims=True)
-            dXs = d_attention * Q
+            dQ = self.ops.xp.tensordot(d_attention, Xs, axes=[[0], [0]])
+            dXs = self.ops.xp.outer(d_attention, Q)
             return dQ, dXs
         return attention, get_attention_bwd
 
     def _apply_attention(self, attention, Xs, lengths):
+        attention = attention.reshape(attention.shape + (1,))
         output = Xs * attention
         def apply_attention_bwd(d_output):
-            d_attention = d_output * Xs
-            dXs        = d_output * attention
+            d_attention = (Xs * d_output).sum(axis=1)
+            dXs         = d_output * attention
+            assert d_attention.size == attention.size
+            assert dXs.shape == Xs.shape
             return dXs, d_attention
         return output, apply_attention_bwd
  
@@ -60,7 +64,7 @@ def backprop_softmax(dy, y, lengths):
     dx = y * dy
     start = 0
     for i, length in enumerate(lengths):
-        sumdx = dx[start : start+length].sum(axis=1, keepdims=True)
+        sumdx = dx[start : start+length].sum()
         dx[start:start+length] -= y[start : start+length] * sumdx
         start += length
     return dx
