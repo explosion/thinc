@@ -32,6 +32,7 @@ class BestFirstFinder(object):
         self.i = 0
         self.j = 0
         self.best_model = None
+        self.temperature = 0.0
 
     @property
     def configs(self):
@@ -47,20 +48,22 @@ class BestFirstFinder(object):
             self.best_acc = check_acc
             self.best_i = self.i
             self.best_model = model
+            self.temperature = 0.0
+        else:
+            self.temperature += 0.01
         self.j = 0
         self.queue.sort(reverse=True)
         self.queue = self.queue[:self.limit]
-        print([(fom, n_try) for (fom, i, n_try, model) in self.queue]) 
 
     def __iter__(self):
         self.queue.sort(reverse=True)
         self.queue = self.queue[:self.limit]
         while self.j < len(self.queue):
-            self.i += 1
-            self.queue[self.j][0] -= 0.001
-            self.queue[self.j][2] += 1
+            self.queue[self.j][0] -= 0.005
             self.queue[self.j][-1][2]['parent'] = self.queue[self.j][2]
             yield self.queue[self.j][-1]
+            self.queue[self.j][2] += 1
+            self.i += 1
             self.j += 1
 
     @property
@@ -68,55 +71,57 @@ class BestFirstFinder(object):
         return self.best_model
 
 
-def resample_hyper_params(hparams):
+def resample_hyper_params(hparams, temperature):
     hparams = dict(hparams)
-    hparams['learn_rate'] = resample(hparams['learn_rate'], 1e-6, 0.1)
-    hparams['beta1'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0)
-    hparams['beta2'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0)
-    hparams['L2'] = resample(hparams['L2'], 0.0, 1e-3)
-    hparams['batch_size'] = int(resample(hparams['batch_size'], 1, 256))
     hparams['epochs'] = hparams.get('epochs', 0) + 1
-    hparams['dropout'] = resample(hparams['dropout'], 0.05, 0.7)
+    hparams['learn_rate'] = resample(hparams['learn_rate'], 1e-6, 0.1, temperature)
+    hparams['beta1'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0, temperature)
+    hparams['beta2'] = resample(hparams.get('beta2', 0.9), 0.8, 1.0, temperature)
+    hparams['L2'] = resample(hparams['L2'], 0.0, 1e-3, temperature)
+    hparams['batch_size'] = int(resample(hparams['batch_size'], 1, 256, temperature))
+    hparams['dropout'] = resample(hparams['dropout'], 0.05, 0.7, temperature)
     return hparams
 
 
-def resample(curr, min_, max_):
-    scale = (max_ - min_) / 100
+def resample(curr, min_, max_, temperature):
+    if temperature == 0.0:
+        return curr
+    scale = (max_ - min_) * temperature
     next_ = numpy.random.normal(loc=curr, scale=scale)
     return min(max_, max(min_, next_))
 
 
-def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-1):
+def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-1,
+                temperature=0.0):
     model, sgd, hparams = copy.deepcopy((model, sgd, hparams))
     if device_id >= 0:
         device = model.to_gpu(device_id)
         sgd.ops = model.ops
         sgd.to_gpu()
-        train_X = model.ops.xp.asarray(train_X)
+        train_X = model.kops.xp.asarray(train_X)
         train_y = model.ops.xp.asarray(train_y)
         dev_X = model.ops.xp.asarray(dev_X)
         dev_y = model.ops.xp.asarray(dev_y)
-    hparams = resample_hyper_params(hparams)
+    hparams = resample_hyper_params(hparams, temperature)
     sgd.learn_rate = hparams['learn_rate']
     sgd.beta1 = hparams['beta1']
     sgd.beta2 = hparams['beta2']
     sgd.L2 = hparams['L2']
     train_acc = 0.
     train_n = 0
-    for _ in range(1):
-        for X, y in minibatch(train_X, train_y, size=hparams['batch_size']):
-            yh, finish_update = model.begin_update(X, drop=hparams['dropout'])
-            if hasattr(y, 'shape'):
-                dy = (yh-y) / y.shape[0]
-                train_acc += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
-                train_n += y.shape[0]
-            else:
-                n_y = sum(len(y_i) for y_i in y)
-                dy = [(yh[i]-y[i])/n_y for i in range(len(yh))]
-                for i in range(len(y)):
-                    train_acc += (y[i].argmax(axis=1) == yh[i].argmax(axis=1)).sum()
-                train_n += n_y
-            finish_update(dy, sgd=sgd)
+    for X, y in minibatch(train_X, train_y, size=hparams['batch_size']):
+        yh, finish_update = model.begin_update(X, drop=hparams['dropout'])
+        if hasattr(y, 'shape'):
+            dy = (yh-y) / y.shape[0]
+            train_acc += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
+            train_n += y.shape[0]
+        else:
+            n_y = sum(len(y_i) for y_i in y)
+            dy = [(yh[i]-y[i])/n_y for i in range(len(yh))]
+            for i in range(len(y)):
+                train_acc += (y[i].argmax(axis=1) == yh[i].argmax(axis=1)).sum()
+            train_n += n_y
+        finish_update(dy, sgd=sgd)
     train_acc /= train_n
     with model.use_params(sgd.averages):
         dev_acc = model.evaluate(dev_X, dev_y)
