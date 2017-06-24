@@ -7,17 +7,17 @@ from .model import Model
     nO=Dimension("Output size"),
     Q=Synapses("Learned 'query' vector",
         lambda obj: (obj.nO,),
-        lambda Q, ops: ops.normal_init(Q)),
+        lambda Q, ops: ops.normal_init(Q, Q.shape[0])),
     dQ=Gradient("Q"),
 )
 class ParametricAttention(Model):
     """Weight inputs by similarity to a learned vector"""
     name = 'para-attn'
 
-    def __init__(self, nO=None, **kwargs):
+    def __init__(self, nO=None, hard=False, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
-        self.softmax = True
+        self.hard = hard
         self.drop_factor = kwargs.get('drop_factor', 1.0)
 
     def begin_update(self, Xs_lengths, drop=0.):
@@ -39,10 +39,18 @@ class ParametricAttention(Model):
         attention = Xs.dot(Q)
         start = 0
         for i, length in enumerate(lengths):
-            self.ops.softmax(attention[start : start+length], inplace=True)
+            if self.hard:
+                argmax = attention[start:start+length].argmax()
+                attention[start:start+length] = 0
+                attention[start+argmax] = 1.
+            else:
+                self.ops.softmax(attention[start : start+length], inplace=True)
             start += length
         def get_attention_bwd(d_attention):
-            d_attention = backprop_softmax(d_attention, attention, lengths)
+            if self.hard:
+                d_attention *= attention
+            else:
+                d_attention = backprop_softmax(d_attention, attention, lengths)
             dQ = self.ops.xp.tensordot(d_attention, Xs, axes=[[0], [0]])
             dXs = self.ops.xp.outer(d_attention, Q)
             return dQ, dXs
