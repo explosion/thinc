@@ -18,15 +18,17 @@ from thinc.api import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX
 
+from thinc.extra.hpbff import BestFirstFinder, train_epoch
 
-def build_model(nr_class, width):
+
+def build_model(nr_class, width, depth, conv_depth, **kwargs):
     with Model.define_operators({'|': concatenate, '>>': chain, '**': clone}):
         embed = (
             (HashEmbed(width, 5000, column=1)
-            | HashEmbed(width, 750, column=2)
-            | HashEmbed(width, 750, column=3)
-            | HashEmbed(width, 5000, column=4))
-            >> Maxout(width, pieces=3)
+            | HashEmbed(width//2, 750, column=2)
+            | HashEmbed(width//2, 750, column=3)
+            | HashEmbed(width//2, 750, column=4))
+            >> Maxout(width)
         )
 
         sent2vec = (
@@ -34,30 +36,43 @@ def build_model(nr_class, width):
             >> flatten_add_lengths
             >> with_getitem(0,
                 uniqued(embed, column=0)
-                >> Residual(ExtractWindow(nW=1) >> SELU(width)) ** 4
+                >> Residual(ExtractWindow(nW=1) >> SELU(width)) ** conv_depth
             )
             >> ParametricAttention(width)
             >> Pooling(sum_pool)
-            >> Residual(SELU(width)) ** 2
+            >> Residual(SELU(width)) ** depth
         )
 
         model = (
-            foreach_sentence(sent2vec, drop_factor=4.0)
+            foreach_sentence(sent2vec, drop_factor=2.0)
             >> flatten_add_lengths
-            >> ParametricAttention(width)
-            >> Pooling(sum_pool, max_pool)
-            >> Residual(SELU(width*2)) ** 2
+            >> ParametricAttention(width, hard=False)
+            >> Pooling(sum_pool)
+            >> Residual(SELU(width)) ** depth
             >> Softmax(nr_class)
         )
     model.lsuv = False
     return model
 
 
+def simple_train(nlp, model_data, train_X, train_y, dev_X, dev_y):
+    model, sgd, hp = model_data
+    for i in range(10):
+        _, ((model, sgd, hp), train_acc, dev_acc) = train_epoch(model, sgd, hp,
+                                                        train_X, train_y,
+                                                        dev_X, dev_y,
+                                                        device_id=-1)
+        print(train_acc, dev_acc)
+    with model.use_params(optimizer.averages):
+        dev_acc = model.evaluate(dev_X, dev_y)
+    return (model, optimizer, hp), train_acc, dev_acc
+
+
 def main():
     train, dev = datasets.imdb()
+    print("Load data")
     train_X, train_y = zip(*train)
     dev_X, dev_y = zip(*dev)
-    model = build_model(2, 128)
     train_y = to_categorical(train_y, nb_classes=2)
     dev_y = to_categorical(dev_y, nb_classes=2)
 
@@ -65,31 +80,65 @@ def main():
     nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
     for word in nlp.vocab:
         word.prefix_ = word.orth_[:3]
-
-    print("Create data")
-    #train_X = train_X[:1000]
-    #train_y = train_y[:1000]
+    
+    dev_X = train_X[-1000:]
+    dev_y = train_y[-1000:]
+    train_X = train_X[:-1000]
+    train_y = train_y[:-1000]
+    print("Parse data")
     train_X = list(nlp.pipe(train_X))
     dev_X = list(nlp.pipe(dev_X))
-    dev_X = dev_X[:1000]
-    dev_y = dev_y[:1000]
+    n_sent = sum([len(list(doc.sents)) for doc in train_X])
+    print("%d sentences" % n_sent)
+
+    hpsearch = BestFirstFinder(
+                 nonlin=[SELU],
+                 width=[64, 128],
+                 depth=[2],
+                 conv_depth=[2, 4],
+                 batch_size=[128],
+                 learn_rate=[0.001],
+                 L2=[1e-6],
+                 beta1=[0.9],
+                 beta2=[0.999],
+                 dropout=[0.2])
+    
+    for hp in hpsearch.configs:
+        model = build_model(2, train_X=train_X, train_y=train_y, **hp)
+        with model.begin_training(train_X[:100], train_y[:100]) as (_, sgd):
+            pass
+        for _ in range(3):
+            _, ((model, sgd, hp), train_acc, dev_acc) = train_epoch(model, sgd, hp,
+                                                            train_X, train_y,
+                                                            dev_X, dev_y)
+            print('0', dev_acc*100, train_acc*100, hp)
+            hpsearch.enqueue(model, train_acc, dev_acc)
     print("Train")
-    with model.begin_training(train_X[:100], train_y[:100], L2=1e-6) as (trainer, optimizer):
-        trainer.dropout = 0.2
-        trainer.batch_size = 128
-        trainer.nb_epoch = 30
-        def report_progress():
-            with model.use_params(optimizer.averages):
-                print(loss, model.evaluate(dev_X, dev_y))
-        trainer.each_epoch.append(report_progress)
-        loss = 0.
-        for Xs, ys in trainer.iterate(train_X, train_y):
-            yhs, backprop = model.begin_update(Xs, drop=trainer.dropout)
-            backprop((yhs-ys)/ys.shape[0], optimizer)
-            loss += ((yhs-ys)**2).sum()
-    with model.use_params(optimizer.averages):
-        print(model.evaluate(dev_X, dev_y))
- 
+    total = 0
+    temperature = 0.0
+    for i, (model, sgd, hp) in enumerate(hpsearch):
+        _, (new_model, train_acc, dev_acc)  = train_epoch(model, sgd, hp,
+                                                train_X, train_y, dev_X, dev_y,
+                                                device_id=-1,
+                                                temperature=hpsearch.temperature)
+        hpsearch.enqueue(new_model, train_acc, dev_acc)
+        hp = new_model[-1]
+        print('%d,%d,%d:\t%.2f\t%.2f\t%.2f\t%d\t%.2f\t%.3f\t%d\t%d\t%.3f' % (
+            total,
+            hp['epochs'],
+            hp['parent'],
+            hpsearch.best_acc * 100,
+            dev_acc * 100,
+            train_acc * 100,
+            int(hp['batch_size']),
+            hp['dropout'],
+            hp['learn_rate'],
+            hp['width'],
+            hp['depth'],
+            hpsearch.temperature
+        ))
+        total += 1
+
 
 if __name__ == '__main__':
     main()
