@@ -116,7 +116,6 @@ def read_imdb(data_dir, limit=0):
     return examples
 
 
-
 def read_conll(loc): # pragma: no cover
     n = 0
     with io.open(loc, encoding='utf8') as file_:
@@ -136,6 +135,14 @@ def read_conll(loc): # pragma: no cover
             words.append(word)
             tags.append(pos)
         yield words, tags
+
+
+def read_csv(csv_loc, label_col=0, text_col=-1):
+    with csv_loc.open() as file_:
+        for row in csv.reader(file_):
+            label_str = row[label_col]
+            text = row[text_col]
+            yield text, label_str
 
 
 def mnist(): # pragma: no cover

@@ -4,7 +4,6 @@ from ...describe import Dimension, Synapses, Biases, Gradient
 from ..mem import Memory
 from ... import check
 from ...check import has_shape
-from .._lsuv import LSUVinit
 
 
 def _set_dimensions_if_needed(model, X, y=None):
@@ -17,8 +16,7 @@ def _set_dimensions_if_needed(model, X, y=None):
             model.nO = int(y.max()) + 1
 
 
-# TODO: Add toggle for the LSUV init. It seems not always better!
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+@describe.on_data(_set_dimensions_if_needed)
 @describe.attributes(
     nB=Dimension("Batch size"),
     nI=Dimension("Input size"),

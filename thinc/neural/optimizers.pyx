@@ -101,6 +101,19 @@ class Adam(SGD):
         self.f = 0.
         self.L2 = L2
 
+    def to_gpu(self):
+        self.ops = CupyOps()
+        for params in (self.mom1, self.mom2, self.averages):
+            for key, value in params.items():
+                params[key] = self.ops.xp.asarray(value, dtype=value.dtype)
+    
+    def to_cpu(self):
+        self.ops = NumpyOps()
+        for params in (self.mom1, self.mom2, self.averages):
+            for key, value in params.items():
+                if hasattr(value, 'get'):
+                    params[key] = value.get()
+
     def lr(self, nr_upd):
         alpha = linear_decay(self.alpha, self.decay, nr_upd)
         fix1 = 1.- (self.b1 ** nr_upd)
