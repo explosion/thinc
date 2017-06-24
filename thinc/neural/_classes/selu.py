@@ -32,7 +32,7 @@ def _set_dimensions_if_needed(model, X, y=None):
     nO=Dimension("Output size"),
     W=Synapses("Weights matrix",
         lambda obj: (obj.nO, obj.nI),
-        lambda W, ops: copy_array(W, ops.normal_init(W.shape, W.shape[-1]))),
+        lambda W, ops: ops.normal_init(W, W.shape[-1])),
     b=Biases("Bias vector",
         lambda obj: (obj.nO,)),
     d_W=Gradient("W"),
