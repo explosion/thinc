@@ -232,8 +232,10 @@ class Ops(object):
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
     
-    def normal_init(self, W, inplace=True):
-        scale = self.xp.sqrt(1. / W.shape[-1])
+    def normal_init(self, W, fan_in, inplace=True):
+        if (W**2).sum() != 0.:
+            return W
+        scale = self.xp.sqrt(1. / fan_in)
         inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
         inits = inits.reshape(W.shape)
         if inplace:
@@ -244,10 +246,6 @@ class Ops(object):
 
     def he_normal_init(self, shape, fan_in):
         scale = self.xp.sqrt(2. / fan_in)
-        return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
-    
-    def normal_init(self, shape, fan_in):
-        scale = self.xp.sqrt(1. / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
