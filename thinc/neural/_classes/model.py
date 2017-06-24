@@ -5,7 +5,6 @@ import contextlib
 import msgpack
 import msgpack_numpy
 from collections import OrderedDict
-import cupy.cuda.device
 
 msgpack_numpy.patch()
 
