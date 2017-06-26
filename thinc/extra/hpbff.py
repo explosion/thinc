@@ -1,6 +1,7 @@
 import numpy.random
 import copy
 import itertools
+import dill
 
 
 def minibatch(train_X, train_y, size=16):
@@ -25,7 +26,7 @@ def _take_slice(data, slice_):
 class BestFirstFinder(object):
     def __init__(self, **param_values):
         self.queue = []
-        self.limit = 8
+        self.limit = 16
         self.params = param_values
         self.best_acc = 0.0
         self.best_i = 0
@@ -36,7 +37,7 @@ class BestFirstFinder(object):
 
     @property
     def configs(self):
-        keys, value_groups = zip(*self.params.items()) 
+        keys, value_groups = zip(*self.params.items())
         for values in itertools.product(*value_groups):
             config = dict(zip(keys, values))
             yield config
@@ -58,13 +59,11 @@ class BestFirstFinder(object):
     def __iter__(self):
         self.queue.sort(reverse=True)
         self.queue = self.queue[:self.limit]
-        while self.j < len(self.queue):
-            self.queue[self.j][0] -= 0.005
-            self.queue[self.j][-1][2]['parent'] = self.queue[self.j][2]
-            yield self.queue[self.j][-1]
-            self.queue[self.j][2] += 1
-            self.i += 1
-            self.j += 1
+        for i in range(len(self.queue)):
+            self.queue[i][0] = self.queue[i][0] - 0.01
+            self.queue[i][-1][2]['parent'] = self.queue[i][2]
+            self.queue[i][2] += 1
+            yield self.queue[i][-1]
 
     @property
     def best(self):
@@ -78,7 +77,7 @@ def resample_hyper_params(hparams, temperature):
     hparams['beta1'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0, temperature)
     hparams['beta2'] = resample(hparams.get('beta2', 0.9), 0.8, 1.0, temperature)
     hparams['L2'] = resample(hparams['L2'], 0.0, 1e-3, temperature)
-    hparams['batch_size'] = int(resample(hparams['batch_size'], 1, 256, temperature))
+    hparams['batch_size'] = int(resample(hparams['batch_size'], 10, 256, temperature))
     hparams['dropout'] = resample(hparams['dropout'], 0.05, 0.7, temperature)
     return hparams
 
@@ -93,7 +92,7 @@ def resample(curr, min_, max_, temperature):
 
 def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-1,
                 temperature=0.0):
-    model, sgd, hparams = copy.deepcopy((model, sgd, hparams))
+    model, sgd, hparams = dill.loads(dill.dumps((model, sgd, hparams)))
     if device_id >= 0:
         device = model.to_gpu(device_id)
         sgd.ops = model.ops
@@ -134,7 +133,7 @@ class DevicePool(object):
     """Synchronize GPU usage"""
     def __init__(self, n):
         self.devices = {i: None for i in range(n)}
-    
+
     def acquire(self):
         for i, device in self.devices.items():
             if device is None:
@@ -163,7 +162,7 @@ class DevicePool(object):
 #        ratio = min(check_acc / train_acc, 1.0)
 #        print((model[-1], train_acc, check_acc))
 #        queue.append([check_acc * ratio, i, model])
-# 
+#
 #    train_acc = 0
 #    limit = 8
 #    i = 0
@@ -179,10 +178,10 @@ class DevicePool(object):
 #        train_acc, new_model = get_new_model(model, train_X, train_y)
 #        check_acc = get_score(new_model, dev_X, dev_y)
 #        ratio = min(check_acc / train_acc, 1.0)
-#            
+#
 #        i += 1
 #        queue.append([check_acc * ratio, i, new_model])
-#   
+#
 #        if check_acc >= best_acc:
 #            best_acc = check_acc
 #            best_i = i
