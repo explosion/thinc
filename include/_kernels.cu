@@ -64,6 +64,30 @@ mean_pool(float* means__bo,
 
 
 void __global__
+sum_pool(float* sums__bo,
+    const float* X__to, const int* lengths__b, int B, int T, int O)
+{
+    // Compute sums of a batch of concatenated sequences, using the lengths.'''
+    int b = blockIdx.x; // Batch-item we're summing
+    if (b >= B) return;
+
+    // Go to the regions we're working on
+    for (int i=0; i < b; ++i) {
+        sums__bo += O;
+	X__to += lengths__b[i] * O;
+    }
+
+    int length = lengths__b[b];
+    // Each invocation of the kernel sums one batch.
+    for (int _=0; _ < length; ++_) // Iterate over rows
+    {
+        saxpy(sums__bo, X__to, 1.0, O);
+        X__to += O;
+    }
+}
+
+
+void __global__
 max_pool(float* maxes__bo, int* which__bo,
     const float* X__to, const int* lengths__b, int B, int T, int O)
 {
@@ -121,6 +145,29 @@ backprop_mean_pool(float* dX__to, const float* d_means__bo, const int* lengths__
     for (int _=0; _ < length; _++)
     {
         saxpy(dX__to, d_means__bo, scale, O);
+        dX__to += O;
+    }
+}
+
+
+void __global__
+backprop_sum_pool(float* dX__to, const float* d_sum__bo, const int* lengths__b,
+    int B, int T, int O)
+{
+    int b = blockIdx.x; // Batch-item we're averaging
+    if (b >= B) return;
+    
+    // Go to the regions we're working on
+    for (int i=0; i < b; ++i) {
+        d_sum__bo += O;
+	dX__to += lengths__b[i] * O;
+    }
+
+    int length = lengths__b[b];
+    
+    for (int _=0; _ < length; _++)
+    {
+        saxpy(dX__to, d_sum__bo, 1.0, O);
         dX__to += O;
     }
 }
