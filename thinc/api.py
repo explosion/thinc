@@ -253,7 +253,9 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
     return layerize(forward)
 
 
-def FeatureExtracter(attrs):
+def FeatureExtracter(attrs, ops=None):
+    if ops is None:
+        ops = Model.ops
     def forward(docs, drop=0.):
         # Handle spans
         def get_feats(doc):
@@ -261,8 +263,7 @@ def FeatureExtracter(attrs):
                 return doc.to_array(attrs)
             else:
                 return doc.doc.to_array(attrs)[doc.start:doc.end]
-        features = [numpy.asarray(get_feats(doc), dtype='uint64')
-                    for doc in docs]
+        features = [ops.asarray(get_feats(doc), dtype='uint64') for doc in docs]
         def backward(d_features, sgd=None):
             return d_features
         return features, backward
@@ -285,16 +286,18 @@ def uniqued(layer, column=0):
     for the unique values. The data is transformed back before output, and the same
     transformation is applied for the gradient. Effectively, this is a cache
     local to each minibatch.
-    
+
     The uniqued wrapper is useful for word inputs, because common words are
     seen often, but we may want to compute complicated features for the words,
     using e.g. character LSTM.
     '''
     def uniqued_fwd(X, drop=0.):
         keys = X[:, column]
-        uniq_keys, ind, inv, counts = layer.ops.xp.unique(keys, return_index=True,
-                                                          return_inverse=True,
-                                                          return_counts=True)
+        if not isinstance(keys, numpy.ndarray):
+            keys = keys.get()
+        uniq_keys, ind, inv, counts = numpy.unique(keys, return_index=True,
+                                                    return_inverse=True,
+                                                    return_counts=True)
         Y_uniq, bp_Y_uniq = layer.begin_update(X[ind], drop=drop)
         Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
         def uniqued_bwd(dY, sgd=None):
@@ -317,13 +320,14 @@ def foreach_sentence(layer, drop_factor=1.0):
         sents = []
         lengths = []
         for doc in docs:
-            s = [sent for sent in doc.sents
-                 if len(sent) and numpy.random.random() >= drop * drop_factor]
-            if s:
-                sents.extend(s)
-                lengths.append(len(s))
+            doc_sents = [sent for sent in doc.sents if len(sent)]
+            subset = [s for s in doc_sents if numpy.random.random() >= drop * drop_factor]
+            if subset:
+                sents.extend(subset)
+                lengths.append(len(subset))
             else:
-                sents.append(doc)
+                numpy.random.shuffle(doc_sents)
+                sents.append(doc_sents[0])
                 lengths.append(1)
         flat, bp_flat = layer.begin_update(sents, drop=0.)
         output = layer.ops.unflatten(flat, lengths)
