@@ -4,16 +4,20 @@ import itertools
 import dill
 
 
-def minibatch(train_X, train_y, size=16):
-    indices = numpy.arange(len(train_X))
-    numpy.random.shuffle(indices)
-    j = 0
-    while j < indices.shape[0]:
-        slice_ = indices[j : j + size]
-        X = _take_slice(train_X, slice_)
-        y = _take_slice(train_y, slice_)
-        yield X, y
-        j += size
+def minibatch(train_X, train_y, size=16, nr_update=1000):
+    while nr_update >= 0:
+        indices = numpy.arange(len(train_X))
+        numpy.random.shuffle(indices)
+        j = 0
+        while j < indices.shape[0]:
+            slice_ = indices[j : j + size]
+            X = _take_slice(train_X, slice_)
+            y = _take_slice(train_y, slice_)
+            yield X, y
+            j += size
+            nr_update -= 1
+            if nr_update <= 0:
+                break
 
 
 def _take_slice(data, slice_):
@@ -74,11 +78,11 @@ def resample_hyper_params(hparams, temperature):
     hparams = dict(hparams)
     hparams['epochs'] = hparams.get('epochs', 0) + 1
     hparams['learn_rate'] = resample(hparams['learn_rate'], 1e-6, 0.1, temperature)
-    hparams['beta1'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0, temperature)
-    hparams['beta2'] = resample(hparams.get('beta2', 0.9), 0.8, 1.0, temperature)
-    hparams['L2'] = resample(hparams['L2'], 0.0, 1e-3, temperature)
-    hparams['batch_size'] = int(resample(hparams['batch_size'], 10, 256, temperature))
-    hparams['dropout'] = resample(hparams['dropout'], 0.05, 0.7, temperature)
+    #hparams['beta1'] = resample(hparams.get('beta1', 0.9), 0.8, 1.0, temperature)
+    #hparams['beta2'] = resample(hparams.get('beta2', 0.9), 0.8, 1.0, temperature)
+    #hparams['L2'] = resample(hparams['L2'], 0.0, 1e-3, temperature)
+    #hparams['batch_size'] = int(resample(hparams['batch_size'], 10, 256, temperature))
+    #hparams['dropout'] = resample(hparams['dropout'], 0.05, 0.7, temperature)
     return hparams
 
 
@@ -97,10 +101,9 @@ def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-
         device = model.to_gpu(device_id)
         sgd.ops = model.ops
         sgd.to_gpu()
-        train_X = model.kops.xp.asarray(train_X)
-        train_y = model.ops.xp.asarray(train_y)
-        dev_X = model.ops.xp.asarray(dev_X)
-        dev_y = model.ops.xp.asarray(dev_y)
+        if isinstance(train_y, numpy.ndarray):
+            train_y = model.ops.asarray(train_y)
+            dev_y = model.ops.asarray(dev_y)
     hparams = resample_hyper_params(hparams, temperature)
     sgd.learn_rate = hparams['learn_rate']
     sgd.beta1 = hparams['beta1']
@@ -108,7 +111,7 @@ def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-
     sgd.L2 = hparams['L2']
     train_acc = 0.
     train_n = 0
-    for X, y in minibatch(train_X, train_y, size=hparams['batch_size']):
+    for X, y in minibatch(train_X, train_y, size=hparams['batch_size'], nr_update=hparams['nr_update']):
         yh, finish_update = model.begin_update(X, drop=hparams['dropout'])
         if hasattr(y, 'shape'):
             dy = (yh-y) / y.shape[0]

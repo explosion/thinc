@@ -4,7 +4,6 @@ cimport numpy as np
 import numpy as np
 
 
-
 assert sizeof(int) == sizeof(np.int32_t)
 
 
@@ -13,10 +12,14 @@ cdef extern from "_cuda_shim.h":
         const float* cands__bop, int B, int O, int P)
     void gpu_mean_pool(float* means,
         const float* X, const int* lengths, int B, int T, int O) nogil
+    void gpu_sum_pool(float* sums,
+        const float* X, const int* lengths, int B, int T, int O) nogil
     void gpu_max_pool(float* maxes, int* which,
         const float* X, const int* lengths, int B, int T, int O) nogil
     void gpu_backprop_mean_pool(float* dX,
         const float* d_means, const int* lengths, int B, int T, int O) nogil
+    void gpu_backprop_sum_pool(float* dX,
+        const float* d_sums, const int* lengths, int B, int T, int O) nogil
     void gpu_backprop_max_pool(float* dX,
         const float* d_maxes, const int* which, const int* lengths, int B, int T, int O) nogil
     void gpu_hash_data(char* dest,
@@ -48,6 +51,16 @@ def max_pool(ops, x, lengths):
     return maxes, which
 
 
+def sum_pool(ops, x, lengths):
+    sums = ops.allocate((lengths.shape[0], x.shape[1]))
+    cdef size_t sums_ptr = sums.data.ptr
+    cdef size_t x_ptr = x.data.ptr
+    cdef size_t lengths_ptr = lengths.data.ptr
+    gpu_sum_pool(<float*>sums_ptr,
+        <const float*>x_ptr, <const int*>lengths_ptr, lengths.shape[0], x.shape[0], x.shape[1])
+    return sums
+
+
 def backprop_mean_pool(ops, d_means, lengths):
     dX = ops.allocate((lengths.sum().get(), d_means.shape[1]))
     cdef size_t d_means_ptr = d_means.data.ptr
@@ -62,6 +75,20 @@ def backprop_mean_pool(ops, d_means, lengths):
         B, T, O)
     return dX
 
+
+def backprop_sum_pool(ops, d_sums, lengths):
+    dX = ops.allocate((lengths.sum().get(), d_sums.shape[1]))
+    cdef size_t d_sums_ptr = d_sums.data.ptr
+    cdef size_t dX_ptr = dX.data.ptr
+    cdef size_t lengths_ptr = lengths.data.ptr
+    cdef int B = lengths.shape[0]
+    cdef int T = dX.shape[0]
+    cdef int O = dX.shape[1]
+
+    gpu_backprop_sum_pool(<float*>dX_ptr,
+        <const float*>d_sums_ptr, <const int*>lengths_ptr,
+        B, T, O)
+    return dX
 
 def backprop_max_pool(ops, d_maxes, which, lengths):
     dX = ops.allocate((lengths.sum().get(), d_maxes.shape[1]))

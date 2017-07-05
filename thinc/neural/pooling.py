@@ -1,6 +1,8 @@
 from ..api import layerize
 import numpy
 
+from .ops import NumpyOps, CupyOps
+
 from ._classes.model import Model
 
 
@@ -37,8 +39,10 @@ def Pooling(*funcs, **kwargs):
 @layerize
 def mean_pool(X_lengths, drop=0.):
     X, lengths = X_lengths
-    ops = Model.ops
-
+    if isinstance(X, numpy.ndarray):
+        ops = NumpyOps()
+    else:
+        ops = CupyOps()
     output = ops.mean_pool(X, lengths)
     def finish_update(d_output, sgd=None):
         d_output = ops.xp.ascontiguousarray(d_output)

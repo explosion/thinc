@@ -24,7 +24,7 @@ class ParametricAttention(Model):
         Xs, lengths = Xs_lengths
         attention, bp_attention = self._get_attention(self.Q, Xs, lengths)
         output, bp_output = self._apply_attention(attention, Xs, lengths)
-        
+
         def attention_bwd(d_output, sgd=None):
             dXs, d_attention = bp_output(d_output)
             dQ, dXs2 = bp_attention(d_attention)
@@ -50,7 +50,7 @@ class ParametricAttention(Model):
             if self.hard:
                 d_attention *= attention
             else:
-                d_attention = backprop_softmax(d_attention, attention, lengths)
+                d_attention = backprop_softmax(self.ops, d_attention, attention, lengths)
             dQ = self.ops.xp.tensordot(d_attention, Xs, axes=[[0], [0]])
             dXs = self.ops.xp.outer(d_attention, Q)
             return dQ, dXs
@@ -62,19 +62,15 @@ class ParametricAttention(Model):
         def apply_attention_bwd(d_output):
             d_attention = (Xs * d_output).sum(axis=1)
             dXs         = d_output * attention
-            assert d_attention.size == attention.size
-            assert dXs.shape == Xs.shape
             return dXs, d_attention
         return output, apply_attention_bwd
- 
 
-def backprop_softmax(dy, y, lengths):
+
+def backprop_softmax(ops, dy, y, lengths):
     dx = y * dy
+    sumdx = ops.sum_pool(dx.reshape((dx.shape[0], 1)), lengths)
     start = 0
     for i, length in enumerate(lengths):
-        sumdx = dx[start : start+length].sum()
-        dx[start:start+length] -= y[start : start+length] * sumdx
+        dx[start:start+length] -= y[start : start+length] * sumdx[i]
         start += length
     return dx
-
-

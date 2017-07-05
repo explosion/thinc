@@ -231,7 +231,7 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
-    
+
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -287,7 +287,7 @@ class NumpyOps(Ops):
         for i in range(size):
             if data[i] < 0:
                 data[i] = exp(data[i])-1.
-    
+
     def selu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
@@ -297,7 +297,7 @@ class NumpyOps(Ops):
             if data[i] < 0:
                 data[i] = alpha * (exp(data[i])-1.)
             data[i] *= scale
-    
+
     def backprop_selu(self, ndarray delta_, ndarray signal_in_,
             inplace=True):
         # Backprop the SELU transformation
@@ -306,7 +306,7 @@ class NumpyOps(Ops):
         cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
         cdef float scale = 1.0507009873554805
         cdef float alpha = 1.6732632423543772
- 
+
         for i in range(size):
             delta[i] *= scale
             if signal_in[i] <= 0:
@@ -474,7 +474,7 @@ class NumpyOps(Ops):
         cpu_mean_pool(means,
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(means, (B, O))
-    
+
     def sum_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
@@ -500,7 +500,7 @@ class NumpyOps(Ops):
             &d_means[0,0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
-    
+
     def backprop_sum_pool(self, float[:, ::1] d_sums, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_sums.shape[1]
@@ -626,7 +626,7 @@ class CupyOps(Ops):
             return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
-    
+
     def selu(self, X, inplace=True):
         cdef float scale = 1.0507009873554805
         cdef float alpha = 1.6732632423543772
@@ -634,7 +634,7 @@ class CupyOps(Ops):
         if inplace:
             copy_array(X, out)
         return out
-    
+
     def backprop_selu(self, delta, signal_in,
             inplace=True):
         # Backprop the SELU transformation
@@ -690,6 +690,12 @@ class CupyOps(Ops):
     def backprop_max_pool(self, d_maxes, which, lengths):
         return gpu_ops.backprop_max_pool(self, d_maxes, which, lengths)
 
+    def sum_pool(self, X, lengths):
+        return gpu_ops.sum_pool(self, X, lengths)
+
+    def backprop_sum_pool(self, d_sums, lengths):
+        return gpu_ops.backprop_sum_pool(self, d_sums, lengths)
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
@@ -709,12 +715,16 @@ class CupyOps(Ops):
             'adam')(gradient, learn_rate, 1 - beta1, 1 - beta2,
                     eps, weights, mom1, mom2)
         gradient.fill(0)
-    
-    def normal_init(self, shape, fan_in):
-        scale = self.xp.sqrt(1. / fan_in)
-        return self.xp.random.normal(scale=scale, size=prod(shape),
-                                     dtype='f').reshape(shape)
 
+    def normal_init(self, W, fan_in, inplace=True):
+        scale = self.xp.sqrt(1. / fan_in)
+        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:

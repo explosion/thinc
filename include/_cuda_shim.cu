@@ -27,9 +27,24 @@ gpu_max_pool(float* maxes, int* which,
 
 
 void
+gpu_sum_pool(float* sums, 
+    const float* X, const int* lengths, int B, int T, int O)
+{
+  sum_pool<<<B, 1>>>(sums, X, lengths, B, T, O);
+}
+
+
+void
 gpu_backprop_mean_pool(float* dX, const float* d_means, const int* lengths, int B, int T, int O)
 {
   backprop_mean_pool<<<B, 1>>>(dX, d_means, lengths, B, T, O);
+}
+
+
+void
+gpu_backprop_sum_pool(float* dX, const float* d_sums, const int* lengths, int B, int T, int O)
+{
+  backprop_sum_pool<<<B, 1>>>(dX, d_sums, lengths, B, T, O);
 }
 
 
