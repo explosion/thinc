@@ -33,7 +33,7 @@ class Trainer(object):
             numpy.random.shuffle(indices)
             indices = self.ops.asarray(indices)
             j = 0
-            with tqdm(total=indices.shape[0]) as pbar:
+            with tqdm(total=indices.shape[0], leave=False) as pbar:
                 while j < indices.shape[0]:
                     slice_ = indices[j : j + self.batch_size]
                     X = _take_slice(train_X, slice_)
