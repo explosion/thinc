@@ -48,8 +48,8 @@ class BatchNorm(Model):
 
         self.nr_upd += 1
         alpha = self.ops.xp.asarray([0.01], dtype='float32')
-        
-        # I'm not sure this is the best thing to do -- 
+
+        # I'm not sure this is the best thing to do --
         # Here we make a running estimate of the mean and variance,
         # Should we consider a sample be the instance, or the batch?
         diff = X - self.m
@@ -59,11 +59,11 @@ class BatchNorm(Model):
         self.v *= alpha
 
         Xhat = _forward(self.ops, X, mu, var)
-        
+
         # Batch "renormalization"
-        if self.nr_upd >= 7500:
-            Xhat *= var / (self.v+1e-08)
-            Xhat += (mu - self.m) / (self.v+1e-08)
+        #if self.nr_upd >= 7500:
+        #    Xhat *= var / (self.v+1e-08)
+        #    Xhat += (mu - self.m) / (self.v+1e-08)
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
