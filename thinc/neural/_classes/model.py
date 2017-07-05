@@ -173,7 +173,8 @@ class Model(object):
             yield gradient
 
     def to_gpu(self, device_num):
-        device = cupy.cuda.device.Device(device_num) 
+        import cupy.cuda.device
+        device = cupy.cuda.device.Device(device_num)
         device.use()
         queue = [self]
         for layer in queue:
@@ -185,7 +186,7 @@ class Model(object):
             if hasattr(layer, u'_layers'):
                 queue.extend(layer._layers)
         return device
-    
+
     def to_cpu(self):
         queue = [self]
         for layer in queue:
