@@ -42,7 +42,7 @@ def normal_init(W, ops):
     nP=Dimension("Number of pieces"),
     nO=Dimension("Size of output"),
     W=Synapses("The weights matrix", lambda obj: (obj.nO, obj.nP, obj.nI),
-        normal_init),
+        xavier_uniform_init),
     b=Biases("Bias parameter", lambda obj: (obj.nO, obj.nP)),
     d_W=Gradient("W"),
     d_b=Gradient("b")
