@@ -256,7 +256,7 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
 def FeatureExtracter(attrs, ops=None):
     if ops is None:
         ops = Model.ops
-    def forward(docs, drop=0.):
+    def feature_extracter_fwd(docs, drop=0.):
         # Handle spans
         def get_feats(doc):
             if hasattr(doc, 'to_array'):
@@ -264,10 +264,10 @@ def FeatureExtracter(attrs, ops=None):
             else:
                 return doc.doc.to_array(attrs)[doc.start:doc.end]
         features = [ops.asarray(get_feats(doc), dtype='uint64') for doc in docs]
-        def backward(d_features, sgd=None):
+        def feature_extracter_bwd(d_features, sgd=None):
             return d_features
-        return features, backward
-    return layerize(forward)
+        return features, feature_extracter_bwd
+    return layerize(feature_extracter_fwd)
 
 
 def wrap(func, *child_layers):
