@@ -16,10 +16,6 @@ def _run_child_hooks(model, X, y=None):
         lambda obj: (obj.nO,), _init_to_one),
     b=describe.Biases("Bias vector",
         lambda obj: (obj.nO,)),
-    m=describe.Moment("EMA of mean",
-        lambda obj: (1, obj.nO)),
-    v=describe.Moment("EMA of variance",
-        lambda obj: (1, obj.nO)),
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b")
 )
@@ -35,6 +31,8 @@ class BatchNorm(Model):
             self.nO = child.nO
         self.nr_upd = 0
         Model.__init__(self, **kwargs)
+        self.m = self.ops.allocate((1, self.nO))
+        self.v = self.ops.allocate((1, self.nO))
 
     def predict(self, X):
         X = self.child.predict(X)
@@ -43,6 +41,7 @@ class BatchNorm(Model):
         return y
 
     def begin_update(self, X, drop=0.):
+        assert X.dtype == 'float32'
         X, backprop_child = self.child.begin_update(X, drop=0.)
         N, mu, var = _get_moments(self.ops, X)
 
@@ -70,7 +69,7 @@ class BatchNorm(Model):
         def finish_update(dy, sgd=None):
             dy = backprop_rescale(dy, sgd)
             dist, sum_dy, sum_dy_dist = _get_d_moments(self.ops, dy, X, mu)
-            d_xhat = N * dy - sum_dy - dist * var**(-1.) * sum_dy_dist
+            d_xhat = N * dy - sum_dy - dist * (1./var) * sum_dy_dist
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
@@ -93,7 +92,7 @@ class BatchNorm(Model):
 def _get_moments(ops, X):
     mu = X.mean(axis=0)
     var = X.var(axis=0) + 1e-08
-    return X.shape[0], mu, var
+    return ops.asarray([X.shape[0]], dtype='float32'), mu, var
 
 
 def _get_d_moments(ops, dy, X, mu):
