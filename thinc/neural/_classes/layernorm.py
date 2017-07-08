@@ -8,7 +8,7 @@ def _init_to_one(W, ops):
 def _run_child_hooks(model, X, y=None):
     for hook in model.child.on_data_hooks:
         hook(model.child, X, y)
-    model.nO = model.child.nO
+    #model.nO = model.child.nO
 
 
 @describe.on_data(_run_child_hooks)
@@ -26,12 +26,12 @@ class LayerNorm(Model):
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
+        Model.__init__(self, **kwargs)
         if 'nO' in kwargs:
             self.nO = kwargs['nO']
         elif getattr(child, 'nO', None):
             self.nO = child.nO
         self.nr_upd = 0
-        Model.__init__(self, **kwargs)
 
     def predict(self, X):
         X = self.child.predict(X)
@@ -55,7 +55,7 @@ class LayerNorm(Model):
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        drop *= getattr(self.child, 'drop_factor', 1.0)
+        drop *= getattr(self.child, 'drop_factor', self.ops.asarray([1.0], dtype='f'))
         y, bp_dropout = self.ops.dropout(y, drop)
         assert y.dtype == 'float32'
         return y, bp_dropout(finish_update)
@@ -74,7 +74,7 @@ class LayerNorm(Model):
 def _get_moments(ops, X):
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
-    return X.shape[0], mu, var
+    return ops.asarray([X.shape[0]], dtype='f'), mu, var
 
 
 def _get_d_moments(ops, dy, X, mu):
