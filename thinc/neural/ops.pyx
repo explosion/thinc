@@ -236,7 +236,7 @@ class Ops(object):
         if (W**2).sum() != 0.:
             return W
         scale = self.xp.sqrt(1. / fan_in)
-        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
         inits = inits.reshape(W.shape)
         if inplace:
             copy_array(W, inits)
@@ -718,7 +718,7 @@ class CupyOps(Ops):
 
     def normal_init(self, W, fan_in, inplace=True):
         scale = self.xp.sqrt(1. / fan_in)
-        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
         inits = inits.reshape(W.shape)
         if inplace:
             copy_array(W, inits)
