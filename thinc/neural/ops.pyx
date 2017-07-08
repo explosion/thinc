@@ -558,6 +558,14 @@ class NumpyOps(Ops):
             float learn_rate, float mod_rate=1.):
         _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
+    
+    def ngrams(self, int n, uint64_t[::1] keys_):
+        keys = <uint64_t*>&keys_[0]
+        cdef np.ndarray output_ = self.allocate((keys_.shape[0]-n,), dtype='uint64')
+        output = <uint64_t*>output_.data
+        for i in range(keys_.shape[0]-n):
+            output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
+        return output_
 
 
 @cython.cdivision(True)
