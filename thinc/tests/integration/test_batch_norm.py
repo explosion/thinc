@@ -54,19 +54,6 @@ def test_batch_norm_predict_maintains_shape(layer, shape):
 
 
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-def test_begin_update_matches_predict(W_b_input):
-    model = get_model(W_b_input)
-    nr_batch, nr_out, nr_in = get_shape(W_b_input)
-    W, b, input_ = W_b_input
- 
-    model = BatchNorm(model)
-    
-    fwd_via_begin_update, finish_update = model.begin_update(input_)
-    fwd_via_predict_batch = model.predict(input_)
-    assert_allclose(fwd_via_begin_update, fwd_via_predict_batch)
-
-
-@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_finish_update_calls_optimizer_with_weights(W_b_input):
     model = get_model(W_b_input)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
