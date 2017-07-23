@@ -51,6 +51,26 @@ def flatten_add_lengths(seqs, pad=0, drop=0.):
     return (X, lengths), finish_update
 
 
+def remap_ids(ops=None, column=0):
+    id_map = {0: 0}
+    def remap_ids_fwd(ids, drop=0.):
+        ids = ids[:, column]
+        if not isinstance(ids, numpy.ndarray):
+            ids = ids.get()
+        n_vector = len(id_map)
+        for i, id_ in enumerate(ids):
+            id_ = int(id_)
+            if id_ not in id_map:
+                id_map[id_] = n_vector
+                n_vector += 1
+            ids[i] = id_map[id_]
+        return ops.asarray(ids), None
+    model = layerize(remap_ids_fwd)
+    if ops is None:
+        ops = model.ops
+    return model
+
+
 def with_getitem(idx, layer):
     def begin_update(items, drop=0.):
         X, finish = layer.begin_update(items[idx], drop=drop)

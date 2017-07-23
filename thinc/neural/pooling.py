@@ -13,7 +13,7 @@ except ImportError:
 
 
 def Pooling(*funcs, **kwargs):
-    ops = kwargs['ops'] if 'ops' in kwargs else funcs[0].ops
+    ops = kwargs['ops'] if 'ops' in kwargs else Model.ops
     F = len(funcs)
     drop_factor = kwargs.get('drop_factor', 1.0)
     def begin_update(X_lengths, drop=0.0):
@@ -53,7 +53,10 @@ def mean_pool(X_lengths, drop=0.):
 @layerize
 def sum_pool(X_lengths, drop=0.):
     X, lengths = X_lengths
-    ops = Model.ops
+    if isinstance(X, numpy.ndarray):
+        ops = NumpyOps()
+    else:
+        ops = CupyOps()
 
     output = ops.sum_pool(X, lengths)
     def finish_update(d_output, sgd=None):
