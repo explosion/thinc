@@ -16,7 +16,11 @@ from ..describe import Dimension, Synapses, Biases, Gradient
         lambda obj: (obj.nO * obj.length,),
         lambda W, ops: W.fill(0.)
     ),
+    b=Biases("Biases",
+        lambda obj: (obj.nO,),
+    ),
     d_W=Gradient("W"),
+    d_b=Gradient("b"),
 )
 class LinearModel(Model):
     name = 'linear'
@@ -36,7 +40,7 @@ class LinearModel(Model):
             values = values_ * mask
         else:
             values = values_
-        cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO))
+        cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO)) + self.b
         cdef float[::1] weights = self.W
         set_scoresC(&scores[0, 0],
             &keys[0], &values[0], &lengths[0],
@@ -44,11 +48,16 @@ class LinearModel(Model):
             &weights[0], self.length)
         def finish_update(float[:, ::1] d_scores, sgd=None):
             cdef float[::1] d_weights = self.d_W
+            cdef float[::1] d_bias = self.d_b
             set_gradientC(&d_weights[0],
                 &keys[0], &values[0], &lengths[0],
                 lengths.shape[0], self.nO,
                 &d_scores[0,0], self.length)
-            sgd(self.W, self.d_W, key=self.id)
+            cdef int i, j
+            for i in range(d_scores.shape[0]):
+                for j in range(d_scores.shape[1]):
+                    d_bias[j] += d_scores[i, j]
+            sgd(self._mem.weights, self._mem.gradient, key=self.id)
         return scores, finish_update
 
 
