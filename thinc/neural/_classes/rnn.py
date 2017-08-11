@@ -187,8 +187,11 @@ def _RNN(alloc, nO, nI, nonlinearity=begin_stepwise_tanh, nG=1,
         b[:, 0] = 3.
         b = b.reshape((nO * nG,))
 
+    nonlocals = [[], d_pad, dWx, dWh, db]
+
     def rnn_fwd(Xs):
-        Zs = []
+        nonlocals[0] = []
+        Zs = nonlocals[0]
         Ys = []
         backprops = []
         for X in Xs:
@@ -210,7 +213,7 @@ def _RNN(alloc, nO, nI, nonlinearity=begin_stepwise_tanh, nG=1,
             Zs.append(Z)
 
         def rnn_bwd(dZs):
-            nonlocal Zs, d_pad, dWx, dWh, db
+            Zs, d_pad, dWx, dWh, db = nonlocals
             dXs = []
             for X, Z, dZ, bp_Z in zip(Xs, Zs, dZs, backprops):
                 dY = bp_Z(dZ, Wh)
@@ -242,6 +245,8 @@ def _ResidualLSTM(alloc, nI):
     b[:, 0] = 3.
     b = b.reshape((nO * nG,))
 
+    nonlocals = [dW, db]
+
     def lstm_fwd(Xs):
         batch_gates = []
         batch_cells = []
@@ -263,7 +268,7 @@ def _ResidualLSTM(alloc, nI):
             batch_Houts.append(Hout)
 
         def lstm_bwd(d_Houts):
-            nonlocal dW, db
+            dW, db = nonlocals
             dXs = []
             for X, gates, cells, dH in zip(Xs, batch_gates, batch_cells, d_Houts):
                 nN = X.shape[0]
