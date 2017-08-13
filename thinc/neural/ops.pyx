@@ -551,14 +551,17 @@ class NumpyOps(Ops):
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
-        return self.xp.add.at(out, ids, inputs)
+        uniq_ids, indices, counts = self.xp.unique(ids, return_index=True,
+                                        return_counts=True)
+        uniq_inputs = inputs[indices] * counts.reshape((counts.shape[0], 1))
+        return self.xp.add.at(out, uniq_ids, uniq_inputs)
 
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
             float[::1] mom2, float beta1, float beta2, float eps,
             float learn_rate, float mod_rate=1.):
         _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
-    
+
     def ngrams(self, int n, uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
         cdef np.ndarray output_ = self.allocate((keys_.shape[0]-n,), dtype='uint64')

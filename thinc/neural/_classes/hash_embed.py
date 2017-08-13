@@ -40,13 +40,10 @@ class HashEmbed(Model):
     def predict(self, ids):
         if ids.ndim >= 2:
             ids = self.ops.xp.ascontiguousarray(ids[:, self.column], dtype='uint64')
-
         keys = self.ops.hash(ids, self.seed) % self.nV
-        keys = keys.T
-        vectors = self.vectors[keys[0]]
-        for i in range(1, keys.shape[0]):
-            vectors += self.vectors[keys[i]]
-        return vectors
+        vectors = self.vectors[keys]
+        summed = vectors.sum(axis=1)
+        return summed
 
     def begin_update(self, ids, drop=0.):
         if ids.ndim >= 2:
@@ -59,9 +56,10 @@ class HashEmbed(Model):
             if mask is not None:
                 delta *= mask
             keys = self.ops.hash(ids, self.seed) % self.nV
-            keys = keys.T
             d_vectors = self.d_vectors
-            self.ops.scatter_add(d_vectors, keys, delta)
+            keys = self.ops.xp.ascontiguousarray(keys.T)
+            for i in range(keys.shape[0]):
+                self.ops.scatter_add(d_vectors, keys[i], delta)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
