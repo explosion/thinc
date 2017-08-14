@@ -48,7 +48,8 @@ class HashEmbed(Model):
     def begin_update(self, ids, drop=0.):
         if ids.ndim >= 2:
             ids = self.ops.xp.ascontiguousarray(ids[:, self.column], dtype='uint64')
-        vectors = self.predict(ids)
+        keys = self.ops.hash(ids, self.seed) % self.nV
+        vectors = self.vectors[keys].sum(axis=1)
         mask = self.ops.get_dropout_mask((vectors.shape[1],), drop)
         if mask is not None:
             vectors *= mask
