@@ -1,7 +1,6 @@
-# cython: profile=True
-# cython: cdivision=True
-# cython: infer_types=True
+# cython: profile=True, cdivision=True, infer_types=True
 cimport cython
+cimport cython.parallel
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, tanh, sqrt, isnan
 from libc.stdlib cimport srand, rand
@@ -551,10 +550,7 @@ class NumpyOps(Ops):
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
-        uniq_ids, indices, counts = self.xp.unique(ids, return_index=True,
-                                        return_counts=True)
-        uniq_inputs = inputs[indices] * counts.reshape((counts.shape[0], 1))
-        return self.xp.add.at(out, uniq_ids, uniq_inputs)
+        return self.xp.add.at(out, ids, inputs)
 
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
             float[::1] mom2, float beta1, float beta2, float eps,
@@ -946,7 +942,9 @@ cdef inline float dtanh(float y) nogil:
 
 cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
         const float* prev, int N) nogil:
-    for i in range(N):
+    cdef float hf, hi, ho, hc
+    cdef int i
+    for i in cython.parallel.prange(N):
         hf = sigmoid(gates[i*4+0])
         hi = sigmoid(gates[i*4+1])
         ho = sigmoid(gates[i*4+2])
@@ -962,6 +960,8 @@ cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
 cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         const float* d_output, const float* gates, const float* cells,
         const float* prev, int N) nogil:
+    cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
+    cdef int i
     for i in range(N):
         hf = gates[i*4+0]
         hi = gates[i*4+1]
