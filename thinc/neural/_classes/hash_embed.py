@@ -59,8 +59,7 @@ class HashEmbed(Model):
             keys = self.ops.hash(ids, self.seed) % self.nV
             d_vectors = self.d_vectors
             keys = self.ops.xp.ascontiguousarray(keys.T)
-            for i in range(keys.shape[0]):
-                self.ops.scatter_add(d_vectors, keys[i], delta)
+            self.ops.scatter_add(d_vectors, keys, delta)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
