@@ -9,10 +9,12 @@ import pytest
 from ...neural._classes.rnn import _RNN
 from ...neural._classes.rnn import _ResidualLSTM
 from ...neural._classes.rnn import _BiLSTM
-from ...neural._classes.rnn import numpy_params
+from ...neural._classes.rnn import xp_params
 from ...neural._classes.rnn import begin_stepwise_relu
 from ...neural._classes.rnn import begin_stepwise_LSTM
 
+def numpy_params():
+    return xp_params(numpy)
 
 def test_RNN_allocates_params():
     nO = 1

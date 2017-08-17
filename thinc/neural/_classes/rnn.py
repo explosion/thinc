@@ -175,7 +175,7 @@ def _RNN(alloc, nO, nI, nonlinearity=begin_stepwise_tanh, nG=1,
     Wh, dWh    = alloc((nO*nG, nO), gradient=True)
     b, db      = alloc((nO*nG,),    gradient=True)
     pad, d_pad = alloc((nO,),       gradient=True)
-    xp = _get_array_module(Wh)
+    xp = get_array_module(Wh)
     if not residual:
         Wx += xp.random.normal(scale=xp.sqrt(1./nI), size=Wx.size).reshape(Wx.shape)
     Wh += xp.random.normal(scale=xp.sqrt(1./nI), size=Wh.size).reshape(Wh.shape)
@@ -328,7 +328,7 @@ def lstm_fwd(Xs_lengths, W, b):
 
 
 def _make_timestep(Xs, lengths, t):
-    xp = _get_array_module(Xs)
+    xp = get_array_module(Xs)
     n = 0
     for i, length in enumerate(lengths):
         n += length < t
@@ -344,7 +344,7 @@ def _make_timestep(Xs, lengths, t):
 
 
 def _write_timestep(Xs, lengths, t, timestep):
-    xp = _get_array_module(Xs)
+    xp = get_array_module(Xs)
     start = 0
     i = 0
     for length in lengths:
