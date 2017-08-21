@@ -165,7 +165,7 @@ class Ops(object):
             return self.xp.array(data)
 
     def batch_dot(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[1], [1]])
+        return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y):
         return self.xp.tensordot(x, y, axes=[[0], [0]])

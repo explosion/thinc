@@ -23,10 +23,10 @@ class FunctionLayer(Model):
         Model.__init__(self)
 
 
-def layerize(begin_update=None, *args, **kwargs):
+def layerize(begin_update=None, predict=None, *args, **kwargs):
     '''Wrap a function into a layer'''
     if begin_update is not None:
-        return FunctionLayer(begin_update, *args, **kwargs)
+        return FunctionLayer(begin_update, predict=predict, *args, **kwargs)
     def wrapper(begin_update):
         return FunctionLayer(begin_update, *args, **kwargs)
     return wrapper
@@ -242,7 +242,13 @@ def with_flatten(layer, pad=0, ndim=4):
             else:
                 return layer.ops.unflatten(d_X, lengths, pad=pad)
         return layer.ops.unflatten(X, lengths, pad=pad), finish_update
-    model = layerize(begin_update)
+
+    def predict(seqs_in):
+        lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
+        X = layer(layer.ops.flatten(seqs_in, pad=pad))
+        return layer.ops.unflatten(X, lengths, pad=pad)
+
+    model = layerize(begin_update, predict=predict)
     model._layers.append(layer)
     model.on_data_hooks.append(_with_flatten_on_data)
     model.name = 'flatten'
@@ -361,5 +367,3 @@ def foreach_sentence(layer, drop_factor=1.0):
         return output, sentence_bwd
     model = wrap(sentence_fwd, layer)
     return model
-
-
