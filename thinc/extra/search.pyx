@@ -56,6 +56,10 @@ cdef class Beam:
     property probs:
         def __get__(self):
             return _softmax([self._states[i].score for i in range(self.size)])
+    
+    property scores:
+        def __get__(self):
+            return [self._states[i].score for i in range(self.size)]
 
     cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
                      const weight_t* costs) except -1:
@@ -222,6 +226,7 @@ cdef class MaxViolation:
 
     cpdef int check_crf(self, Beam pred, Beam gold) except -1:
         d = pred.score - gold.score
+        seen_golds = set([tuple(gold.histories[i]) for i in range(gold.size)])
         if pred.loss > 0 and (self.cost == 0 or d > self.delta):
             p_hist = []
             p_scores = []
@@ -233,7 +238,8 @@ cdef class MaxViolation:
                     p_hist.append(list(pred.histories[i]))
                 # This can happen from non-monotonic actions
                 # If we find a better gold analysis this way, be sure to keep it.
-                elif pred._states[i].loss == 0 and pred._states[i].score > gold.score:
+                elif pred._states[i].loss <= 0 \
+                and tuple(pred.histories[i]) not in seen_golds:
                     g_scores.append(pred._states[i].score)
                     g_hist.append(list(pred.histories[i]))
             for i in range(gold.size):
