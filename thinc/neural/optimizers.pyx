@@ -37,10 +37,19 @@ class SGD(object):
         return max(self.nr_update.values())
 
     def __call__(self, weights, gradient, key=None, lr_scale=1.):
+        xp = get_array_module(weights)
+        if xp is not self.ops.xp:
+            if xp is numpy:
+                self.ops = NumpyOps()
+            else:
+                self.ops = CupyOps()
+ 
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
         lr *= lr_scale
+        if self.L2 != 0:
+            gradient += self.L2 * weights
         self.ops.clip_gradient(gradient, self.max_grad_norm)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
