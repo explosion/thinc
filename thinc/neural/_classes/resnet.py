@@ -15,7 +15,7 @@ class Residual(Model):
         return X + self._layers[0](X)
 
     def begin_update(self, X, drop=0.):
-        y, bp_y = self._layer[0].begin_update(X, drop=drop)
+        y, bp_y = self._layers[0].begin_update(X, drop=drop)
         output = X+y
         def residual_bwd(d_output, sgd=None):
             return d_output + bp_y(d_output, sgd)
