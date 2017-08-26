@@ -24,6 +24,7 @@ class SGD(object):
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
+        self.L2 = settings.get('L2', 0.0)
         self.nesterov = nesterov
         self.max_grad_norm = 100.
         self.momentums = {}
