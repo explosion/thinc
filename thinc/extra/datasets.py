@@ -108,6 +108,7 @@ def read_imdb(data_dir, limit=0):
         for filename in (data_dir / subdir).iterdir():
             with filename.open() as file_:
                 text = file_.read()
+            text = text.replace('<br />', '\n\n')
             if text.strip():
                 examples.append((text, label))
     random.shuffle(examples)
