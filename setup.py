@@ -45,7 +45,7 @@ MOD_NAMES = [
 ]
 
 
-compile_options =  {'msvc'  : ['/Ox', '/EHsc']},
+compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
                         'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
                         'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
