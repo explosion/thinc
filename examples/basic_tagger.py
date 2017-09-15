@@ -21,6 +21,8 @@ def main(width=32, nr_vector=1000):
     model = with_flatten(
                  chain(
                     HashEmbed(width, 1000),
+                    ReLu(width, width),
+                    ReLu(width, width),
                     Softmax(nr_tag, width)))
 
     train_X, train_y = zip(*train_data)
