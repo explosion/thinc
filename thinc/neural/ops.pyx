@@ -710,7 +710,7 @@ class CupyOps(Ops):
 
     def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
                    learn_rate, mod_rate=1.):
-        elementwise(
+        cupy.ElementwiseKernel(
             'T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps',
             'T param, T m, T v',
             '''m += one_minus_beta1 * (grad - m);
