@@ -15,19 +15,18 @@ except ImportError:
     import toolz
 
 
-def main(width=32, vector_length=8):
+def main(width=32, nr_vector=1000):
     train_data, check_data, nr_tag = ancora_pos_tags(encode_words=True)
 
     model = with_flatten(
                  chain(
-                    HashEmbed(width, vector_length),
+                    HashEmbed(width, 1000),
                     Softmax(nr_tag, width)))
 
     train_X, train_y = zip(*train_data)
     dev_X, dev_y = zip(*check_data)
-    nb_class = max(max(y) for y in train_y)+1
-    train_y = [to_categorical(y, nb_classes=nb_class) for y in train_y]
-    dev_y = [to_categorical(y, nb_classes=nb_class) for y in dev_y]
+    train_y = [to_categorical(y, nb_classes=nr_tag) for y in train_y]
+    dev_y = [to_categorical(y, nb_classes=nr_tag) for y in dev_y]
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.each_epoch.append(
             lambda: print(model.evaluate(dev_X, dev_y)))
