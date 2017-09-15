@@ -1,4 +1,4 @@
-cython<0.24
+cython>=0.25
 numpy>=1.7
 murmurhash>=0.28,<0.29
 cymem>=1.30,<1.32.0
@@ -14,6 +14,5 @@ termcolor
 wrapt
 dill
 pathlib>=1.0.0,<2.0.0
-chainer==1.24.0
 msgpack-python
 msgpack-numpy
