@@ -340,6 +340,29 @@ def uniqued(layer, column=0):
     return model
 
 
+def foreach(layer, drop_factor=1.0):
+    '''Map a layer across elements in a list'''
+    def foreach_fwd(Xs, drop=0.):
+        drop *= drop_factor
+        ys = []
+        backprops = []
+        for X in Xs:
+            y, bp_y = layer.begin_update(X, drop=drop)
+            ys.append(y)
+            backprops.append(bp_y)
+        def foreach_bwd(d_ys, sgd=None):
+            d_Xs = []
+            for d_y, bp_y in zip(d_ys, backprops):
+                if bp_y is not None and bp_y is not None:
+                    d_Xs.append(d_y, sgd=sgd)
+                else:
+                    d_Xs.append(None)
+            return d_Xs
+        return ys, foreach_bwd
+    model = wrap(foreach_fwd, layer)
+    return model
+
+
 def foreach_sentence(layer, drop_factor=1.0):
     '''Map a layer across sentences (assumes spaCy-esque .sents interface)'''
     def sentence_fwd(docs, drop=0.):
