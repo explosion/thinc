@@ -17,6 +17,10 @@ structured input and variable-length sequences.
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
+    
+.. image:: https://img.shields.io/appveyor/ci/explosion/thinc/master.svg?style=flat-square
+    :target: https://ci.appveyor.com/project/explosion/thinc
+    :alt: Appveyor Build Status
 
 .. image:: https://img.shields.io/coveralls/explosion/thinc.svg?style=flat-square
     :target: https://coveralls.io/github/explosion/thinc
