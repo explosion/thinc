@@ -17,6 +17,10 @@ structured input and variable-length sequences.
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
+    
+.. image:: https://img.shields.io/appveyor/ci/explosion/thinc/master.svg?style=flat-square
+    :target: https://ci.appveyor.com/project/explosion/thinc
+    :alt: Appveyor Build Status
 
 .. image:: https://img.shields.io/coveralls/explosion/thinc.svg?style=flat-square
     :target: https://coveralls.io/github/explosion/thinc
@@ -344,6 +348,8 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.8.1`_   ``2017-08-23`` Efficiency tweaks
+`v6.8.0`_   ``2017-07-25`` SELU layer, attention, improved GPU/CPU compatibility
 `v6.7.3`_   ``2017-06-05`` Fix convolution on GPU
 `v6.7.2`_   ``2017-06-02`` Bug fixes to serialization
 `v6.7.1`_   ``2017-06-02`` Improve serialization
@@ -363,6 +369,8 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.8.1: https://github.com/explosion/thinc/releases/tag/v6.8.1
+.. _v6.8.0: https://github.com/explosion/thinc/releases/tag/v6.8.0
 .. _v6.7.3: https://github.com/explosion/thinc/releases/tag/v6.7.3
 .. _v6.7.2: https://github.com/explosion/thinc/releases/tag/v6.7.2
 .. _v6.7.1: https://github.com/explosion/thinc/releases/tag/v6.7.1
