@@ -78,7 +78,7 @@ def customize_compiler_for_nvcc(self):
     # object but distutils doesn't have the ability to change compilers
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-        if os.path.splitext(src)[1] == '.cu':
+        if os.path.splitext(src)[1] == '.cu' and CUDA is not None:
             # use the cuda for .cu files
             if hasattr(self, 'set_executable'):
                 # This was put in for Windows, but I'm running blind here...
@@ -227,13 +227,13 @@ def setup_package():
                     language='c++', include_dirs=include_dirs
                 ))
         if CUDA is None:
-            ext_modules.append(
-                Extension("thinc.neural.gpu_ops",
-                    sources=["thinc/neural/gpu_ops.cpp"],
-                    language='c++',
-                    include_dirs=include_dirs))
+            pass
+            #ext_modules.append(
+            #    Extension("thinc.neural.gpu_ops",
+            #        sources=["thinc/neural/gpu_ops.cpp"],
+            #        language='c++',
+            #        include_dirs=include_dirs))
         else:
-
             with chdir(root):
                 ext_modules.append(
                     Extension("thinc.neural.gpu_ops",
