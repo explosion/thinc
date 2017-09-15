@@ -348,7 +348,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
-`v6.8.1`_   ``2017-08-23`` Efficiency tweaks
+`v6.8.1`_   ``2017-08-23`` Fix Windows support
 `v6.8.0`_   ``2017-07-25`` SELU layer, attention, improved GPU/CPU compatibility
 `v6.7.3`_   ``2017-06-05`` Fix convolution on GPU
 `v6.7.2`_   ``2017-06-02`` Bug fixes to serialization
