@@ -256,7 +256,7 @@ def setup_package():
             name=about['__title__'],
             zip_safe=False,
             packages=PACKAGES,
-            package_data={'': ['*.pyx', '*.pxd', '*.pxi']},
+            package_data={'': ['*.pyx', '*.pxd', '*.pxi', '*.cpp']},
             description=about['__summary__'],
             long_description=readme,
             author=about['__author__'],
