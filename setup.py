@@ -46,7 +46,7 @@ MOD_NAMES = [
 ]
 
 
-compile_options =  {'msvc'  : {'gcc': ['/Ox', '/EHsc'], 'nvcc': []},
+compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
                         'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
                         'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
@@ -79,7 +79,7 @@ def customize_compiler_for_nvcc(self):
     # object but distutils doesn't have the ability to change compilers
     # based on source extension: we add it.
     def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-        if os.path.splitext(src)[1] == '.cu':
+        if os.path.splitext(src)[1] == '.cu' and CUDA is not None:
             # use the cuda for .cu files
             if hasattr(self, 'set_executable'):
                 # This was put in for Windows, but I'm running blind here...
@@ -228,13 +228,13 @@ def setup_package():
                     language='c++', include_dirs=include_dirs
                 ))
         if CUDA is None:
-            ext_modules.append(
-                Extension("thinc.neural.gpu_ops",
-                    sources=["thinc/neural/gpu_ops.cpp"],
-                    language='c++',
-                    include_dirs=include_dirs))
+            pass
+            #ext_modules.append(
+            #    Extension("thinc.neural.gpu_ops",
+            #        sources=["thinc/neural/gpu_ops.cpp"],
+            #        language='c++',
+            #        include_dirs=include_dirs))
         else:
-
             with chdir(root):
                 ext_modules.append(
                     Extension("thinc.neural.gpu_ops",
@@ -257,7 +257,7 @@ def setup_package():
             name=about['__title__'],
             zip_safe=False,
             packages=PACKAGES,
-            package_data={'': ['*.pyx', '*.pxd', '*.pxi']},
+            package_data={'': ['*.pyx', '*.pxd', '*.pxi', '*.cpp']},
             description=about['__summary__'],
             long_description=readme,
             author=about['__author__'],
@@ -272,7 +272,6 @@ def setup_package():
                 'murmurhash>=0.28,<0.29',
                 'cymem>=1.30,<1.32',
                 'preshed>=1.0.0,<2.0.0',
-                'chainer==1.24.0',
                 'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.8,<0.9',
                 'plac>=0.9.6,<1.0.0',

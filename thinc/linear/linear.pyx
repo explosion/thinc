@@ -6,39 +6,58 @@ from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
 from ..neural._classes.model import Model
+from .. import describe
+from ..describe import Dimension, Synapses, Biases, Gradient
 
-
+@describe.attributes(
+    nO=Dimension("Output size"),
+    length=Dimension("Weights length"),
+    W=Synapses("Weights matrix",
+        lambda obj: (obj.nO * obj.length,),
+        lambda W, ops: W.fill(0.)
+    ),
+    b=Biases("Biases",
+        lambda obj: (obj.nO,),
+    ),
+    d_W=Gradient("W"),
+    d_b=Gradient("b"),
+)
 class LinearModel(Model):
-    def __init__(self, nr_class, size=2**18):
-        Model.__init__(self)
-        self.size = size
-        self.nr_out = nr_class
-        self.weights = self._mem.add('W', (size+self.nr_out,))
-        self.d_weights = self._mem.add_gradient('d_W', 'W')
+    name = 'linear'
+    def __init__(self, nO, length=2**18, **kwargs):
+        Model.__init__(self, **kwargs)
+        self.nO = nO
+        self.length = length
 
     def begin_update(self, keys_values_lengths, drop=0.):
         cdef uint64_t[::1] keys
         cdef long[::1] lengths
         cdef float[::1] values
         keys, values_, lengths = keys_values_lengths
+        drop *= self.drop_factor
         mask = self.ops.get_dropout_mask(values_.shape, drop)
         if mask is not None:
             values = values_ * mask
         else:
             values = values_
-        cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nr_out))
-        cdef float[::1] weights = self.weights
+        cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO)) + self.b
+        cdef float[::1] weights = self.W
         set_scoresC(&scores[0, 0],
             &keys[0], &values[0], &lengths[0],
-            lengths.shape[0], self.nr_out,
-            &weights[0], self.size)
+            lengths.shape[0], self.nO,
+            &weights[0], self.length)
         def finish_update(float[:, ::1] d_scores, sgd=None):
-            cdef float[::1] d_weights = self.d_weights
+            cdef float[::1] d_weights = self.d_W
+            cdef float[::1] d_bias = self.d_b
             set_gradientC(&d_weights[0],
                 &keys[0], &values[0], &lengths[0],
-                lengths.shape[0], self.nr_out,
-                &d_scores[0,0], self.size)
-            sgd(self.weights, self.d_weights, key=self.id)
+                lengths.shape[0], self.nO,
+                &d_scores[0,0], self.length)
+            cdef int i, j
+            for i in range(d_scores.shape[0]):
+                for j in range(d_scores.shape[1]):
+                    d_bias[j] += d_scores[i, j]
+            sgd(self._mem.weights, self._mem.gradient, key=self.id)
         return scores, finish_update
 
 

@@ -63,7 +63,7 @@ cdef class Beam:
         self.scores[i][j] = score
         self.is_valid[i][j] = is_valid
         self.costs[i][j] = cost
-        
+
     cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
                      const weight_t* costs) except -1
     cdef int set_table(self, weight_t** scores, int** is_valid, weight_t** costs) except -1
@@ -75,8 +75,8 @@ cdef class MaxViolation:
     cdef weight_t delta
     cdef readonly weight_t p_score
     cdef readonly weight_t g_score
-    cdef readonly long double Z
-    cdef readonly long double gZ
+    cdef readonly double Z
+    cdef readonly double gZ
     cdef class_t n
     cdef readonly list p_hist
     cdef readonly list g_hist

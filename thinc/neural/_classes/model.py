@@ -10,7 +10,7 @@ msgpack_numpy.patch()
 
 from .. import util
 from ..train import Trainer
-from ..ops import NumpyOps
+from ..ops import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array, ensure_path
 from ... import check
@@ -160,7 +160,7 @@ class Model(object):
         '''
         return self.predict(x)
 
-    def pipe(self, stream, batch_size=1000):
+    def pipe(self, stream, batch_size=128):
         for batch in util.minibatch(stream, batch_size):
             ys = self.predict(batch)
             for y in ys:
@@ -172,6 +172,33 @@ class Model(object):
             gradient = finish_update(y)
             yield gradient
 
+    def to_gpu(self, device_num):
+        import cupy.cuda.device
+        device = cupy.cuda.device.Device(device_num)
+        device.use()
+        queue = [self]
+        for layer in queue:
+            layer.ops = CupyOps()
+            layer.Ops = CupyOps
+            if hasattr(layer, u'_mem'):
+                layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
+                layer._mem.ops = layer.ops
+            if hasattr(layer, u'_layers'):
+                queue.extend(layer._layers)
+        return device
+
+    def to_cpu(self):
+        queue = [self]
+        for layer in queue:
+            layer.ops = NumpyOps()
+            layer.Ops = NumpyOps
+            if hasattr(layer, u'_mem'):
+                if hasattr(layer._mem._mem, 'get'):
+                    layer._mem._mem = layer._mem._mem.get()
+                layer._mem.ops = layer.ops
+            if hasattr(layer, u'_layers'):
+                queue.extend(layer._layers)
+
     def evaluate(self, X, y):
         '''
         x
@@ -180,7 +207,9 @@ class Model(object):
         y
             Must match expected type
         '''
-        scores = self.ops.xp.vstack(self.pipe(X))
+        scores = self.ops.flatten(list(self.pipe(X)))
+        if not hasattr(y, 'shape'):
+            y = self.ops.flatten(y)
         scores = scores.reshape(y.shape)
         if len(scores.shape) == 1:
             correct = ((scores >= 0.5) == (y >= 0.5)).sum()
@@ -274,11 +303,11 @@ class Model(object):
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, '_mem'):
+            if hasattr(layer, u'_mem'):
                 weights.append(OrderedDict((
                     (b'dims', OrderedDict(sorted(layer._dims.items()))),
                     (b'params', []))))
-                if hasattr(layer, 'seed'):
+                if hasattr(layer, u'seed'):
                     weights[-1][b'seed'] = layer.seed
 
                 offsets = sorted(layer._mem._offsets.items())
@@ -297,7 +326,7 @@ class Model(object):
                         ))
                     )
                 i += 1
-            if hasattr(layer, '_layers'):
+            if hasattr(layer, u'_layers'):
                 queue.extend(layer._layers)
         return msgpack.dumps({b'weights': weights}, use_bin_type=True,
                              encoding='utf8')
@@ -312,6 +341,8 @@ class Model(object):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
                 for dim, value in weights[i][b'dims'].items():
+                    if isinstance(dim, bytes):
+                        dim = dim.decode('utf8')
                     setattr(layer, dim, value)
                 for param in weights[i][b'params']:
                     name = param[b'name']

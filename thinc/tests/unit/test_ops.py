@@ -10,12 +10,16 @@ MAX_EXAMPLES = 10
 
 OPS_CLASSES = [NumpyOps]
 if CupyOps.xp is not None:
-    OPS_CLASSES.append(Cupyops)
+    OPS_CLASSES.append(CupyOps)
+
 
 @pytest.fixture(params=OPS_CLASSES)
 def ops(request):
     return request.param()
 
+@pytest.fixture
+def cpu_ops():
+    return NumpyOps()
 
 def test_hash_gives_distinct_keys(ops):
     shape = (5,)
@@ -53,6 +57,8 @@ def test_get_dropout_not_empty(ops):
 def test_seq2col_window_one(ops):
     seq = ops.asarray([[1.], [3.], [4.], [5]], dtype='float32')
     cols = ops.seq2col(seq, 1)
+    if not isinstance(cols, numpy.ndarray):
+        cols = cols.get()
     assert_allclose(cols[0], [0., 1., 3.])
     assert_allclose(cols[1], [1., 3., 4.])
     assert_allclose(cols[2], [3., 4., 5.])
@@ -67,6 +73,8 @@ def test_backprop_seq2col_window_one(ops):
     ], dtype='float32')
     expected = [[-1.], [2.], [1.]]
     seq = ops.backprop_seq2col(cols, 1)
+    if not isinstance(seq, numpy.ndarray):
+        seq = seq.get()
     assert_allclose(seq, expected)
 
 
@@ -129,36 +137,36 @@ def test_softmax_works_inplace(ops, X):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(W_b_inputs=strategies.arrays_OI_O_BI())
-def test_batch_dot_computes_correctly(ops, W_b_inputs):
+def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
     W, _, inputs = W_b_inputs
-    y = ops.batch_dot(inputs, W)
+    y = cpu_ops.batch_dot(inputs, W)
     expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
     assert_allclose(y, expected)
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(arrays_BI_BO=strategies.arrays_BI_BO())
-def test_batch_outer_computes_correctly(ops, arrays_BI_BO):
+def test_batch_outer_computes_correctly(cpu_ops, arrays_BI_BO):
     bi, bo = arrays_BI_BO
     assert bi.shape[0] == bo.shape[0]
     assert len(bi.shape) == len(bo.shape) == 2
     expected = numpy.tensordot(bo, bi, axes=[[0], [0]])
     assert expected.shape == (bo.shape[1], bi.shape[1])
-    oi = ops.batch_outer(bo, bi)
+    oi = cpu_ops.batch_outer(bo, bi)
     assert_allclose(oi, expected)
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_norm_computes_correctly(ops, X):
+def test_norm_computes_correctly(cpu_ops, X):
     for row in X:
-        assert_allclose([numpy.linalg.norm(row)], [ops.norm(row)],
+        assert_allclose([numpy.linalg.norm(row)], [cpu_ops.norm(row)],
             rtol=1e-04, atol=0.0001)
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(W_b_X=strategies.arrays_OI_O_BI())
-def test_dot_computes_correctly(ops, W_b_X):
+def test_dot_computes_correctly(cpu_ops, W_b_X):
     W, b, X = W_b_X
     for x in X:
         expected = numpy.dot(W, x)
@@ -168,25 +176,25 @@ def test_dot_computes_correctly(ops, W_b_X):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_argmax_computes_correctly(ops, X):
-    which = ops.argmax(X, axis=-1)
+def test_argmax_computes_correctly(cpu_ops, X):
+    which = cpu_ops.argmax(X, axis=-1)
     for i in range(X.shape[0]):
         assert max(X[i]) == X[i, which[i]]
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_clip_low_computes_correctly_for_zero(ops, X):
+def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
     expected = X * (X > 0.)
-    y = ops.clip_low(X, 0.)
+    y = cpu_ops.clip_low(X, 0.)
     assert_allclose(expected, y)
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BOP())
-def test_take_which_computes_correctly(ops, X):
+def test_take_which_computes_correctly(cpu_ops, X):
     which = numpy.argmax(X, axis=-1)
-    best = ops.take_which(X, which)
+    best = cpu_ops.take_which(X, which)
     for i in range(best.shape[0]):
         for j in range(best.shape[1]):
             assert best[i, j] == max(X[i, j])
@@ -194,8 +202,8 @@ def test_take_which_computes_correctly(ops, X):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_flatten_unflatten_roundtrip(ops, X):
-    flat = ops.flatten([x for x in X])
+def test_flatten_unflatten_roundtrip(cpu_ops, X):
+    flat = cpu_ops.flatten([x for x in X])
     assert flat.ndim == 1
-    unflat = ops.unflatten(flat, [len(x) for x in X])
+    unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)

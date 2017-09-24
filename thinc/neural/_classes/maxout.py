@@ -2,8 +2,8 @@ import numpy
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
-from .._lsuv import LSUVinit
 from ..util import get_array_module
+from ..util import copy_array
 
 
 
@@ -24,7 +24,17 @@ def xavier_uniform_init(W, ops):
         xp.copyto(W[:,i], xp.random.uniform(-scale, scale, shape))
 
 
-@describe.on_data(_set_dimensions_if_needed, LSUVinit)
+def normal_init(W, ops):
+    if (W**2).sum() != 0:
+        return
+    xp = get_array_module(W)
+    scale = xp.sqrt(1. / W.shape[-1])
+    shape = (W.shape[0], W.shape[-1])
+    size = xp.prod(shape)
+    for i in range(W.shape[1]):
+        xp.copyto(W[:,i], xp.random.normal(loc=0, scale=scale, size=size).reshape(shape))
+
+@describe.on_data(_set_dimensions_if_needed)
 @describe.output(("nO",))
 @describe.input(("nI",))
 @describe.attributes(
@@ -47,15 +57,19 @@ class Maxout(Model):
         self.drop_factor = kwargs.get('drop_factor', 1.0)
 
     def predict(self, X__BI):
-        X__BOP = self.ops.xp.tensordot(X__BI, self.W, axes=[[1], [-1]])
-        X__BOP += self.b
+        W = self.W.reshape((self.nO * self.nP, self.nI))
+        X__BOP = self.ops.xp.dot(X__BI, W.T)
+        X__BOP += self.b.reshape((self.nO*self.nP,))
+        X__BOP = X__BOP.reshape((X__BOP.shape[0], self.nO, self.nP))
         best__BO, _ = self.ops.maxout(X__BOP)
         return best__BO
 
     def begin_update(self, X__bi, drop=0.):
+        W = self.W.reshape((self.nO * self.nP, self.nI))
         drop *= self.drop_factor
-        output__boc = self.ops.xp.tensordot(X__bi, self.W, axes=[[1], [-1]])
-        output__boc += self.b
+        output__boc = self.ops.xp.dot(X__bi, W.T)
+        output__boc += self.b.reshape((self.nO*self.nP,))
+        output__boc = output__boc.reshape((output__boc.shape[0], self.nO, self.nP))
         best__bo, which__bo = self.ops.maxout(output__boc)
         best__bo, bp_dropout = self.ops.dropout(best__bo, drop)
 

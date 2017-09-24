@@ -79,12 +79,12 @@ def ud_pos_tags(train_loc, dev_loc, encode_tags=True, encode_words=True): # prag
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
 
 
-def imdb(loc=None):
+def imdb(loc=None, limit=0):
     if loc is None:
         loc = get_file('aclImdb', IMDB_URL, untar=True, unzip=True)
     train_loc = Path(loc) / 'train'
     test_loc = Path(loc) / 'test'
-    return read_imdb(train_loc), read_imdb(test_loc)
+    return read_imdb(train_loc, limit=limit), read_imdb(test_loc, limit=limit)
 
 
 def read_wikiner(file_, tagmap=None):
@@ -108,13 +108,13 @@ def read_imdb(data_dir, limit=0):
         for filename in (data_dir / subdir).iterdir():
             with filename.open() as file_:
                 text = file_.read()
+            text = text.replace('<br />', '\n\n')
             if text.strip():
                 examples.append((text, label))
     random.shuffle(examples)
     if limit >= 1:
         examples = examples[:limit]
     return examples
-
 
 
 def read_conll(loc): # pragma: no cover
@@ -136,6 +136,14 @@ def read_conll(loc): # pragma: no cover
             words.append(word)
             tags.append(pos)
         yield words, tags
+
+
+def read_csv(csv_loc, label_col=0, text_col=-1):
+    with csv_loc.open() as file_:
+        for row in csv.reader(file_):
+            label_str = row[label_col]
+            text = row[text_col]
+            yield text, label_str
 
 
 def mnist(): # pragma: no cover

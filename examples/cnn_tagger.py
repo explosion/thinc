@@ -33,9 +33,7 @@ except ImportError:
 
 
 def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True):
-    nlp = spacy.load(lang, parser=False, tagger=False,
-                           entity=False, matcher=False)
-    print(len(nlp.vocab))
+    nlp = spacy.blank(lang)
     nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
     nlp.vocab.lex_attr_getters[SUFFIX] = lambda string: string[-3:]
     def forward(texts, drop=0.):

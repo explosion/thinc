@@ -1,7 +1,6 @@
-# cython: profile=True
-# cython: cdivision=True
-# cython: infer_types=True
+# cython: profile=True, cdivision=True, infer_types=True
 cimport cython
+cimport cython.parallel
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, tanh, sqrt, isnan
 from libc.stdlib cimport srand, rand
@@ -31,15 +30,12 @@ try:
     import cupy.cuda
     from cupy.cuda.function import Function
     from cupy.cuda.compiler import compile_with_cache
-    from chainer.cuda import elementwise
-    # TODO; Seems there's more to do this. Getting errors if using
-    # cupy directly, without chainer.
     # This is important -- without setting these global pools, we're
     # *very* slow -- 5x slower on mnist.
-    #memory_pool = cupy.cuda.MemoryPool()
-    #cupy.cuda.set_allocator(memory_pool.malloc)
-    #pinned_memory_pool = cupy.cuda.PinnedMemoryPool()
-    #cupy.cuda.set_pinned_memory_allocator(pinned_memory_pool.malloc)
+    memory_pool = cupy.cuda.MemoryPool()
+    cupy.cuda.set_allocator(memory_pool.malloc)
+    pinned_memory_pool = cupy.cuda.PinnedMemoryPool()
+    cupy.cuda.set_pinned_memory_allocator(pinned_memory_pool.malloc)
 except ImportError:
     cupy = None
 
@@ -166,7 +162,7 @@ class Ops(object):
             return self.xp.array(data)
 
     def batch_dot(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[1], [1]])
+        return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y):
         return self.xp.tensordot(x, y, axes=[[0], [0]])
@@ -186,16 +182,15 @@ class Ops(object):
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
 
-    def softmax(self, x, inplace=False, axis=1):
+    def softmax(self, x, inplace=False, axis=-1):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
-        maxes = self.xp.max(x, axis=1)
-        maxes = maxes.reshape((x.shape[0], 1))
+        maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
-        new_x /= new_x.sum(axis=1).reshape((x.shape[0], 1))
+        new_x /= new_x.sum(axis=axis, keepdims=True)
         if inplace:
             copy_array(x, new_x)
             return x
@@ -236,6 +231,18 @@ class Ops(object):
     def normal_init(self, W, inplace=True):
         scale = self.xp.sqrt(1. / W.shape[-1])
         inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
+
+    def normal_init(self, W, fan_in, inplace=True):
+        if (W**2).sum() != 0.:
+            return W
+        scale = self.xp.sqrt(1. / fan_in)
+        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
         inits = inits.reshape(W.shape)
         if inplace:
             copy_array(W, inits)
@@ -311,6 +318,30 @@ class NumpyOps(Ops):
             if signal_in[i] <= 0:
                 delta[i] *= alpha * exp(signal_in[i])
 
+    def selu(self, ndarray X, inplace=True):
+        cdef weight_t* data = <weight_t*>X.data
+        cdef size_t size = X.size
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        for i in range(size):
+            if data[i] < 0:
+                data[i] = alpha * (exp(data[i])-1.)
+            data[i] *= scale
+
+    def backprop_selu(self, ndarray delta_, ndarray signal_in_,
+            inplace=True):
+        # Backprop the SELU transformation
+        cdef size_t size = delta_.size
+        cdef weight_t* delta = <weight_t*>delta_.data
+        cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+
+        for i in range(size):
+            delta[i] *= scale
+            if signal_in[i] <= 0:
+                delta[i] *= alpha * exp(signal_in[i])
+
     def backprop_elu(self, ndarray delta_, ndarray signal_out_,
             inplace=True):
         # Backprop the ELU transformation
@@ -369,17 +400,16 @@ class NumpyOps(Ops):
         return py_out.reshape((B, O, P))
 
     def lstm(self, float[::1] output, float[::1] cells,
-            float[:, ::1] gates, float[::1] prev):
+            float[::1] gates, float[::1] prev):
         cpu_lstm_gates_fwd(&output[0], &cells[0],
-            &gates[0, 0], &prev[0], cells.shape[0])
+            &gates[0], &prev[0], cells.shape[0])
         return output
 
-    def backprop_lstm(self, np.ndarray d_cells, np.ndarray d_prev, np.ndarray d_gates,
-             np.ndarray d_output, np.ndarray gates, np.ndarray cells,
-             np.ndarray prev):
-        cpu_lstm_gates_bwd(<float*>d_cells.data, <float*>d_prev.data, <float*>d_gates.data,
-            <const float*>d_output.data, <const float*>gates.data,
-            <const float*>cells.data, <const float*>prev.data, gates.shape[0])
+    def backprop_lstm(self, float[::1] d_cells, float[::1] d_prev, float[::1] d_gates,
+            float[::1] d_output, float[::1] gates, float[::1] cells,
+            float[::1] prev):
+        cpu_lstm_gates_bwd(&d_cells[0], &d_prev[0], &d_gates[0],
+            &d_output[0], &gates[0], &cells[0], &prev[0], cells.shape[0])
 
     def seq2col(self, float[:, ::1] seq, int nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
@@ -475,6 +505,18 @@ class NumpyOps(Ops):
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(means, (B, O))
 
+    def sum_pool(self, float[:, ::1] X, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = X.shape[1]
+        cdef int T = X.shape[0]
+
+        cdef Pool mem = Pool()
+        sums = <float*>mem.alloc(B * O, sizeof(float))
+
+        cpu_sum_pool(sums,
+            &X[0, 0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(sums, (B, O))
+
     def backprop_mean_pool(self, float[:, ::1] d_means, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_means.shape[1]
@@ -488,6 +530,20 @@ class NumpyOps(Ops):
             &d_means[0,0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
+
+    def backprop_sum_pool(self, float[:, ::1] d_sums, int[::1] lengths):
+        cdef int B = lengths.shape[0]
+        cdef int O = d_sums.shape[1]
+        cdef int T = 0
+        for length in lengths[:B]:
+            T += length
+        cdef Pool mem = Pool()
+        dX = <float*>mem.alloc(T * O, sizeof(float))
+
+        cpu_backprop_sum_pool(dX,
+            &d_sums[0,0], &lengths[0], B, T, O)
+        return cpu_floats_ptr2array(dX, (T, O))
+
 
     def max_pool(self, float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
@@ -532,6 +588,14 @@ class NumpyOps(Ops):
             float learn_rate, float mod_rate=1.):
         _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
+
+    def ngrams(self, int n, uint64_t[::1] keys_):
+        keys = <uint64_t*>&keys_[0]
+        cdef np.ndarray output_ = self.allocate((keys_.shape[0]-n,), dtype='uint64')
+        output = <uint64_t*>output_.data
+        for i in range(keys_.shape[0]-n):
+            output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
+        return output_
 
 
 @cython.cdivision(True)
@@ -601,6 +665,25 @@ class CupyOps(Ops):
         delta_ *= (signal_out > 0)
         return delta_
 
+    def selu(self, X, inplace=True):
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        out = scale * self.xp.where(X>=0., X, alpha * (self.xp.exp(X)-1.))
+        if inplace:
+            copy_array(X, out)
+        return out
+
+    def backprop_selu(self, delta, signal_in,
+            inplace=True):
+        # Backprop the SELU transformation
+        cdef float scale = 1.0507009873554805
+        cdef float alpha = 1.6732632423543772
+        out = delta * self.xp.where(signal_in >= 0, scale,
+                scale * alpha * self.xp.exp(signal_in))
+        if inplace:
+            copy_array(delta, out)
+        return out
+
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
@@ -645,6 +728,12 @@ class CupyOps(Ops):
     def backprop_max_pool(self, d_maxes, which, lengths):
         return gpu_ops.backprop_max_pool(self, d_maxes, which, lengths)
 
+    def sum_pool(self, X, lengths):
+        return gpu_ops.sum_pool(self, X, lengths)
+
+    def backprop_sum_pool(self, d_sums, lengths):
+        return gpu_ops.backprop_sum_pool(self, d_sums, lengths)
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
@@ -655,7 +744,7 @@ class CupyOps(Ops):
 
     def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
                    learn_rate, mod_rate=1.):
-        elementwise(
+        cupy.ElementwiseKernel(
             'T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps',
             'T param, T m, T v',
             '''m += one_minus_beta1 * (grad - m);
@@ -665,6 +754,15 @@ class CupyOps(Ops):
                     eps, weights, mom1, mom2)
         gradient.fill(0)
 
+    def normal_init(self, W, fan_in, inplace=True):
+        scale = self.xp.sqrt(1. / fan_in)
+        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
@@ -805,6 +903,29 @@ cdef void cpu_backprop_mean_pool(float* dX__to,
         d_means__bo += O
 
 
+cdef void cpu_sum_pool(float* sums__bo,
+        const float* X__to, const int* lengths__b,
+        int B, int T, int O) nogil:
+    '''Compute sums of a batch of concatenated sequences, using the lengths.'''
+    for length in lengths__b[:B]:
+        for _ in range(length):
+            VecVec.add_i(sums__bo,
+                X__to, 1.0, O)
+            X__to += O
+        sums__bo += O
+
+
+cdef void cpu_backprop_sum_pool(float* dX__to,
+        const float* d_sums__bo, const int* lengths__b,
+        int B, int T, int O) nogil:
+    for length in lengths__b[:B]:
+        for _ in range(length):
+            VecVec.add_i(dX__to,
+                d_sums__bo, 1.0, O)
+            dX__to += O
+        d_sums__bo += O
+
+
 cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil:
@@ -842,51 +963,59 @@ cdef inline float sigmoid(float X) nogil:
     return 1./(1. + exp(-X))
 
 
-cdef inline float dsigmoid(float X) nogil:
-    y = sigmoid(X)
+cdef inline float dsigmoid(float y) nogil:
     return y*(1-y)
 
 
-cdef inline float dtanh(float X) nogil:
-    return 1-tanh(X)**2
+cdef inline float dtanh(float y) nogil:
+    return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* output, float* cells,
-        const float* gates, const float* prev, int N) nogil:
-    for i in range(N):
-        hf = gates[i*4+0]
-        hi = gates[i*4+1]
-        ho = gates[i*4+2]
-        hc = gates[i*4+3]
-        cells[i] = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        output[i] = tanh(cells[i]) * sigmoid(ho)
+cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
+        const float* prev, int N) nogil:
+    cdef float hf, hi, ho, hc
+    cdef int i
+    for i in cython.parallel.prange(N):
+        hf = sigmoid(gates[i*4+0])
+        hi = sigmoid(gates[i*4+1])
+        ho = sigmoid(gates[i*4+2])
+        hc = tanh(gates[i*4+3])
+        cells[i] = hf * prev[i] + hi * hc
+        output[i] = tanh(cells[i]) * ho
+        gates[i*4+0] = hf
+        gates[i*4+1] = hi
+        gates[i*4+2] = ho
+        gates[i*4+3] = hc
 
 
 cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         const float* d_output, const float* gates, const float* cells,
         const float* prev, int N) nogil:
+    cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
+    cdef int i
     for i in range(N):
         hf = gates[i*4+0]
         hi = gates[i*4+1]
         ho = gates[i*4+2]
         hc = gates[i*4+3]
-        c = cells[i]
+        c  = cells[i]
+        ct = tanh(cells[i])
         dh = d_output[i]
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        dho = tanh(c)     * dh * dsigmoid(ho)
-        dc  = sigmoid(ho) * dh * dtanh(c)
+        dho = ct     * dh * dsigmoid(ho)
+        dc  = ho     * dh * dtanh(ct)
         dc += d_cells[i]  # Carry gradient from previous step
 
         # Gradient for hf, hi, hc, prev[i]
         # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
         dhf   = dsigmoid(hf) * dc * prev[i]
-        dhi   = dsigmoid(hi) * dc * tanh(hc)
-        dhc   = dtanh(hc)    * dc * sigmoid(hi)
-        dprev =                dc * sigmoid(hf)
+        dhi   = dsigmoid(hi) * dc * hc
+        dhc   = dtanh(hc)    * dc * hi
+        dprev =                dc * hf
 
-        d_gates[i*4+0] += dhf
-        d_gates[i*4+1] += dhi
-        d_gates[i*4+2] += dho
-        d_gates[i*4+3] += dhc
+        d_gates[i*4+0] = dhf
+        d_gates[i*4+1] = dhi
+        d_gates[i*4+2] = dho
+        d_gates[i*4+3] = dhc
         d_cells[i] = dc
         d_prev[i] = dprev

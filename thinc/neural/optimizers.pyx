@@ -24,6 +24,7 @@ class SGD(object):
         self.alpha = lr
         self.mu = momentum
         self.decay = decay
+        self.L2 = settings.get('L2', 0.0)
         self.nesterov = nesterov
         self.max_grad_norm = 100.
         self.momentums = {}
@@ -37,10 +38,19 @@ class SGD(object):
         return max(self.nr_update.values())
 
     def __call__(self, weights, gradient, key=None, lr_scale=1.):
+        xp = get_array_module(weights)
+        if xp is not self.ops.xp:
+            if xp is numpy:
+                self.ops = NumpyOps()
+            else:
+                self.ops = CupyOps()
+ 
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         lr = self.lr(nr_upd)
         lr *= lr_scale
+        if self.L2 != 0:
+            gradient += self.L2 * weights
         self.ops.clip_gradient(gradient, self.max_grad_norm)
         if key is None or self.mu == 0.0:
             weights -= lr * gradient
@@ -100,6 +110,19 @@ class Adam(SGD):
         self.d = 1.
         self.f = 0.
         self.L2 = L2
+
+    def to_gpu(self):
+        self.ops = CupyOps()
+        for params in (self.mom1, self.mom2, self.averages):
+            for key, value in params.items():
+                params[key] = self.ops.xp.asarray(value, dtype=value.dtype)
+    
+    def to_cpu(self):
+        self.ops = NumpyOps()
+        for params in (self.mom1, self.mom2, self.averages):
+            for key, value in params.items():
+                if hasattr(value, 'get'):
+                    params[key] = value.get()
 
     def lr(self, nr_upd):
         alpha = linear_decay(self.alpha, self.decay, nr_upd)

@@ -1,5 +1,5 @@
-from .model import Model
 from ... import describe
+from .model import Model
 
 
 def _init_to_one(W, ops):
@@ -8,6 +8,7 @@ def _init_to_one(W, ops):
 def _run_child_hooks(model, X, y=None):
     for hook in model.child.on_data_hooks:
         hook(model.child, X, y)
+    #model.nO = model.child.nO
 
 
 @describe.on_data(_run_child_hooks)
@@ -19,61 +20,42 @@ def _run_child_hooks(model, X, y=None):
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b")
 )
-class BatchNorm(Model):
-    name = 'batchnorm'
+class LayerNorm(Model):
+    name = 'layernorm'
 
     def __init__(self, child, **kwargs):
         self.child = child
         self._layers = [child]
+        Model.__init__(self, **kwargs)
         if 'nO' in kwargs:
             self.nO = kwargs['nO']
         elif getattr(child, 'nO', None):
             self.nO = child.nO
         self.nr_upd = 0
-        Model.__init__(self, **kwargs)
-        self.m = self.ops.allocate((1, self.nO))
-        self.v = self.ops.allocate((1, self.nO))
 
     def predict(self, X):
         X = self.child.predict(X)
-        Xh = _forward(self.ops, X, self.m, self.v+1e-08)
+        N, mu, var = _get_moments(self.ops, X)
+        Xh = _forward(self.ops, X, mu, var)
         y = Xh * self.G + self.b
         return y
 
     def begin_update(self, X, drop=0.):
-        assert X.dtype == 'float32'
         X, backprop_child = self.child.begin_update(X, drop=0.)
         N, mu, var = _get_moments(self.ops, X)
 
-        self.nr_upd += 1
-        alpha = self.ops.xp.asarray([0.01], dtype='float32')
-
-        # I'm not sure this is the best thing to do --
-        # Here we make a running estimate of the mean and variance,
-        # Should we consider a sample be the instance, or the batch?
-        diff = X - self.m
-        incr = (1-alpha) * diff
-        self.m += incr.mean(axis=0)
-        self.v += (diff * incr).mean(axis=0)
-        self.v *= alpha
-
         Xhat = _forward(self.ops, X, mu, var)
-
-        # Batch "renormalization"
-        #if self.nr_upd >= 7500:
-        #    Xhat *= var / (self.v+1e-08)
-        #    Xhat += (mu - self.m) / (self.v+1e-08)
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
         def finish_update(dy, sgd=None):
             dy = backprop_rescale(dy, sgd)
             dist, sum_dy, sum_dy_dist = _get_d_moments(self.ops, dy, X, mu)
-            d_xhat = N * dy - sum_dy - dist * (1./var) * sum_dy_dist
+            d_xhat = N * dy - sum_dy - dist * var**(-1.) * sum_dy_dist
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        drop *= getattr(self.child, 'drop_factor', 1.0)
+        drop *= getattr(self.child, 'drop_factor', self.ops.asarray([1.0], dtype='f'))
         y, bp_dropout = self.ops.dropout(y, drop)
         assert y.dtype == 'float32'
         return y, bp_dropout(finish_update)
@@ -90,14 +72,14 @@ class BatchNorm(Model):
 
 
 def _get_moments(ops, X):
-    mu = X.mean(axis=0)
-    var = X.var(axis=0) + 1e-08
-    return ops.asarray([X.shape[0]], dtype='float32'), mu, var
+    mu = X.mean(axis=1, keepdims=True)
+    var = X.var(axis=1, keepdims=True) + 1e-08
+    return ops.asarray([X.shape[0]], dtype='f'), mu, var
 
 
 def _get_d_moments(ops, dy, X, mu):
     dist = X-mu
-    return dist, ops.xp.sum(dy, axis=0), ops.xp.sum(dy * dist, axis=0)
+    return dist, ops.xp.sum(dy, axis=1, keepdims=True), ops.xp.sum(dy * dist, axis=1, keepdims=True)
 
 
 def _forward(ops, X, mu, var):
