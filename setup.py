@@ -30,6 +30,7 @@ MOD_NAMES = [
     'thinc.linalg',
     'thinc.structs',
     'thinc.typedefs',
+    'thinc.neural._fast_maxout_cnn',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
