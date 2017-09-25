@@ -48,7 +48,8 @@ MOD_NAMES = [
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'gcc': ['-O2', '-Wno-strict-prototypes', 
+                            '-Wno-unused-function', '-march=native'],
                         'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [],
                     'other' : []}
@@ -225,7 +226,7 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs
+                    language='c++', include_dirs=include_dirs,
                 ))
         if CUDA is None:
             pass
