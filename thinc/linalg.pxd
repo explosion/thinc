@@ -134,6 +134,24 @@ cdef class Vec:
         for i in range(nr):
             vec[i] = 1.0 / vec[i]
 
+    @staticmethod
+    cdef inline weight_t mean(const weight_t* X, int32_t nr_dim) nogil:
+        cdef weight_t mean = 0.
+        for x in X[:nr_dim]:
+            mean += x
+        return mean / nr_dim
+
+    @staticmethod
+    cdef inline weight_t variance(const weight_t* X, int32_t nr_dim) nogil:
+        # See https://www.johndcook.com/blog/standard_deviation/
+        cdef double m = X[0]
+        cdef double v = 0.
+        for i in range(1, nr_dim):
+            diff = X[i]-m
+            m += diff / (i+1)
+            v += diff * (X[i] - m)
+        return v / nr_dim
+
 
 cdef class VecVec:
     @staticmethod
