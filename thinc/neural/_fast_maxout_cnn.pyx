@@ -273,7 +273,11 @@ cdef void bwd_maxpool(float* dXa,
 cdef void layer_norm(real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
     for i in range(nr_row):
         mu = Vec.mean(X, nr_dim)
-        sqrt_var = Vec.variance(X, nr_dim) ** -0.5
+        v = Vec.variance(X, nr_dim)
+        if mu == 0. and v == 0:
+            X += nr_dim
+            continue
+        sqrt_var = v ** -0.5
         for j in range(nr_dim):
             X[j] = (X[j] - mu) * sqrt_var
         X += nr_dim
