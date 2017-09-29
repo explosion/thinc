@@ -24,7 +24,7 @@ cdef extern from "stdlib.h":
     void* aligned_alloc(size_t alignment, size_t size) nogil
 
 
-def MaxoutWindowEncode(nr_unit, nr_iter):
+def MaxoutWindowEncoder(nr_unit, nr_iter):
     maxout = Maxout(nr_unit, nr_unit*3, pieces=3)
     normalize = LayerNorm(maxout)
     ops = maxout.ops
@@ -180,6 +180,9 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
             cdef np.ndarray d_inputs = ops.allocate((nN, nO))
             memcpy(<float*>d_inputs.data,
                 dXa, nN*nO*sizeof(float))
+            if sgd is not None:
+                sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
+                sgd(normalize._mem.weights, normalize._mem.gradient, key=maxout.id)
             return ops.unflatten(d_inputs, lengths)
         return ops.unflatten(outputs, lengths), mwe_bwd
     model = wrap(mwe_fwd, normalize)

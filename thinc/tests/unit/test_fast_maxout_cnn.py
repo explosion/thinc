@@ -2,16 +2,16 @@ import time
 from numpy.testing import assert_allclose
 import numpy.random
 from ...neural._classes.maxout import Maxout
-from ...neural._fast_maxout_cnn import MaxoutWindowEncode
+from ...neural._fast_maxout_cnn import MaxoutWindowEncoder
 
 numpy.random.seed(0)
 
 def test_create():
-    mwe = MaxoutWindowEncode(16, 4)
+    mwe = MaxoutWindowEncoder(16, 4)
 
 
 def test_fwd_runs():
-    mwe = MaxoutWindowEncode(32, 4)
+    mwe = MaxoutWindowEncoder(32, 4)
     X = mwe.ops.allocate((5, 32), dtype='f')
     y = mwe([X])[0]
     assert y.shape == X.shape
@@ -22,7 +22,7 @@ def test_fwd_runs():
 
 
 def test_bwd_runs():
-    mwe = MaxoutWindowEncode(32, 4)
+    mwe = MaxoutWindowEncoder(32, 4)
     X = mwe.ops.allocate((5, 32), dtype='f')
     dy = mwe.ops.allocate((5, 32), dtype='f')
     y, bp_y = mwe.begin_update([X])
@@ -47,7 +47,7 @@ def baseline_mwe(nO, nP, depth):
 
 def test_fwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
     base = baseline_mwe(nr_dim, 3, 4)
-    fast = MaxoutWindowEncode(nr_dim, 4)
+    fast = MaxoutWindowEncoder(nr_dim, 4)
     fast.maxout.W[:] = base.maxout.W
     fast.normalize.G[:] = base.normalize.G
     Xs = [fast.ops.normal_init(fast.ops.allocate((nr_row, nr_dim)), nr_dim)
@@ -59,7 +59,7 @@ def test_fwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
 
 def test_bwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
     base = baseline_mwe(nr_dim, 3, 4)
-    fast = MaxoutWindowEncode(nr_dim, 4)
+    fast = MaxoutWindowEncoder(nr_dim, 4)
     fast.maxout.W[:] = base.maxout.W
     fast.normalize.G[:] = base.normalize.G
     Xs = [fast.ops.normal_init(fast.ops.allocate((nr_row, nr_dim)), nr_dim)
@@ -69,11 +69,11 @@ def test_bwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
     dXs_new = bp_Ys_new(Xs)
     dXs_old = bp_Ys_old(Xs)
     for dX1, dX2 in zip(dXs_new, dXs_old):
-        assert_allclose(dX1, dX2, rtol=1e-4, atol=1e-4)
+        assert_allclose(dX1, dX2, rtol=1e-3, atol=1e-3)
 
 
 def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
-    mwe = MaxoutWindowEncode(nr_dim, 4)
+    mwe = MaxoutWindowEncoder(nr_dim, 4)
     Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
     start = time.clock()
     ys = mwe(Xs)
@@ -86,7 +86,7 @@ def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     print('Fwd Slow?', end, start, end-start)
 
 def test_bwd_speed(nr_row=10, nr_dim=128, nr_piece=3):
-    mwe = MaxoutWindowEncode(nr_dim, 4)
+    mwe = MaxoutWindowEncoder(nr_dim, 4)
     Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
     start = time.clock()
     ys, bp_ys = mwe.begin_update(Xs)
