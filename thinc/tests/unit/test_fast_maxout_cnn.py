@@ -38,7 +38,7 @@ def baseline_mwe(nO, nP, depth):
     maxout = Maxout(nO, nO*3, pieces=nP)
     normalize = LayerNorm(maxout)
     with Model.define_operators({'>>': chain, '**': clone}):
-        model = Residual(ExtractWindow(nW=1) >> normalize)
+        model = ExtractWindow(nW=1) >> maxout #normalize)
         model = with_flatten(chain(*([model]*depth)))
     model.maxout = maxout
     model.normalize = normalize
@@ -46,7 +46,6 @@ def baseline_mwe(nO, nP, depth):
 
 
 def test_fwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
-
     base = baseline_mwe(nr_dim, 3, 4)
     fast = MaxoutWindowEncode(nr_dim, 4)
     fast.maxout.W[:] = base.maxout.W
@@ -57,6 +56,21 @@ def test_fwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
     Ys_old = base(Xs)
     for Y1, Y2 in zip(Ys_new, Ys_old):
         assert_allclose(Y1, Y2, rtol=1e-4, atol=1e-4)
+
+def test_bwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
+    base = baseline_mwe(nr_dim, 3, 4)
+    fast = MaxoutWindowEncode(nr_dim, 4)
+    fast.maxout.W[:] = base.maxout.W
+    fast.normalize.G[:] = base.normalize.G
+    Xs = [fast.ops.normal_init(fast.ops.allocate((nr_row, nr_dim)), nr_dim)
+          for _ in range(10)]
+    Ys_new, bp_Ys_new = fast.begin_update(Xs)
+    Ys_old, bp_Ys_old = base.begin_update(Xs)
+    dXs_new = bp_Ys_new(Xs)
+    dXs_old = bp_Ys_old(Xs)
+    for dX1, dX2 in zip(dXs_new, dXs_old):
+        assert_allclose(dX1, dX2, rtol=1e-4, atol=1e-4)
+
 
 def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     mwe = MaxoutWindowEncode(nr_dim, 4)
@@ -71,19 +85,18 @@ def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     end = time.clock()
     print('Fwd Slow?', end, start, end-start)
 
-#def test_bwd_speed(nr_row=10, nr_dim=128, nr_piece=3):
-#    mwe = MaxoutWindowEncode(nr_dim, 4)
-#    Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
-#    start = time.clock()
-#    ys, bp_ys = mwe.begin_update(Xs)
-#    dx = bp_ys(Xs)
-#    end = time.clock()
-#    print('Fast?', end, start, '%.4f' % (end-start))
-#    mwe = baseline_mwe(nr_dim, nr_piece, 4)
-#    flat_X = mwe.ops.flatten(Xs)
-#    start = time.clock()
-#    ys, bp_ys = mwe.begin_update(flat_X)
-#    dx = bp_ys(flat_X)
-#    end = time.clock()
-#    print('Slow?', end, start, '%.4f' % (end-start))
-#
+def test_bwd_speed(nr_row=10, nr_dim=128, nr_piece=3):
+    mwe = MaxoutWindowEncode(nr_dim, 4)
+    Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
+    start = time.clock()
+    ys, bp_ys = mwe.begin_update(Xs)
+    dx = bp_ys(Xs)
+    end = time.clock()
+    print('Fast?', end, start, '%.4f' % (end-start))
+    mwe = baseline_mwe(nr_dim, nr_piece, 4)
+    start = time.clock()
+    ys, bp_ys = mwe.begin_update(Xs)
+    dx = bp_ys(Xs)
+    end = time.clock()
+    print('Slow?', end, start, '%.4f' % (end-start))
+
