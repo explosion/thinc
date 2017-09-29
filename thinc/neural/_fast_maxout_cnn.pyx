@@ -169,63 +169,6 @@ def MaxoutWindowEncode(maxout, normalize, nr_iter):
     return wrap(mwe_fwd, maxout)
 
 
-cdef void maxout_window_encode(real_t* Xe, real_t* Xd, real_t* Xc, real_t* Xb, int* which,
-        const real_t* Xa, const real_t* Ww, const real_t* Wb,
-        dim_t nO, dim_t nP, dim_t nN) nogil:
-    cnn_maxout(Xd, which, Xc, Xb,
-        Xa, Ww, Wb, nO, nO, nP, nN)
-    memcpy(Xe,
-        Xd, nO*nN*sizeof(Xe[0]))
-    layer_norm(Xe,
-        nO, nN)
-    VecVec.add_i(Xe,
-        Xa, 1., nO*nN)
-
-
-cdef void bwd_maxout_window_encode(real_t* dX, real_t* dW, real_t* db,
-        const int* which, const real_t* X, const real_t* Xh,
-        dim_t N, dim_t nO, dim_t nP, dim_t nr_iter) nogil:
-    '''
-    The function in the inner loop is:
-
-    Given x1:
-      x2, bp_x2 = window(x1)
-      x3, bp_x3 = affine(x2)
-      x4, bp_x4 = maxpool(x3)
-      x5, bp_x5 = layernorm(x4)
-      x6, bp_x6 = rescale(x5)
-      x7 = x1 + x5
-    return x7, lambda dx7: dx7 + bp_x2(bp_x3(bp_x4(bp_x5(bp_x6(dx7)))))
-
-    In the backward pass we must compute:
-
-    Given dx7:
-      dx7 = dx6
-      dx5 = backprop_rescale(dx6)
-      dx4 = backprop_layernorm(dx5)
-      dx3 = backprop_maxpool(dx4)
-      dx2 = backprop_affine(dx3)
-      dx1 = backprop_window(dx2)
-    Return dx7+dx1
-
-    The functions (window, affine, maxpool) are grouped, for optimization.
-    '''
-    cdef float *x1, *x2, *x3, *x4, *x5, *x6
-    cdef float *dx7, *dx6, *dx5, *dx4, *dx3, *dx2, *dx1
-    cdef float *w_rescale_G, *w_rescale_b, *w_maxout_W, *w_maxout_b
-    cdef float *dw_rescale_G, *dw_rescale_b, *dw_maxout_W, *dw_maxout_b
-    cdef int* maxout_mask
-    for i in range(nr_iter-1, -1, -1):
-        bwd_rescale(dx5, dw_rescale_G, dw_rescale_b,
-            dx6, x6, w_rescale_G, nO, N)
-        bwd_layer_norm(dx4,
-            dx5, x4, nO, N)
-        bwd_cnn_maxout(dx1, dw_maxout_W, dw_maxout_b,
-            dx4, x1, maxout_mask, w_maxout_W, nO, nP, N)
-        VecVec.add_i(dx1,
-            dx7, 1., N * nO)
-
-
 cdef void extract_window(float* Xb,
         const float* Xa, dim_t nW, dim_t nO, dim_t nN) nogil:
     for w in range(nN):
