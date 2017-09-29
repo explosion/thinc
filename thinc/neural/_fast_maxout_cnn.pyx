@@ -237,23 +237,12 @@ cdef void bwd_affine(float* d_inputs, float* dW, float* db,
         weights, d_outputs, nO, nI, nB)
 
 
-cdef int argmax(const float* X, int n) nogil:
-    cdef int m = 0
-    cdef float best = X[0]
-    for i in range(1, n):
-        x = X[i]
-        if x > best:
-            m = i
-            best = x
-    return m
-
-
 cdef void maxpool(float* Xb, int* which,
         const float* Xa, dim_t nO, dim_t nP, dim_t nN) nogil:
     cdef int j
     for w in range(nN):
         for i in range(nO):
-            j = argmax(&Xa[w*nO*nP+i*nP], nP)
+            j = Vec.arg_max(&Xa[w*nO*nP+i*nP], nP)
             Xb[w*nO+i] = Xa[w*nO*nP+i*nP+j]
             if which is not NULL:
                 which[w*nO+i] = j
