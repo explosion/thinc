@@ -95,9 +95,8 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
             memcpy(Xf, Xe, nO*nN*sizeof(float))
             rescale(Xf,
                 Wg, Wbeta, nO, nN)
-            #VecVec.add_i(Xa,
-            #    Xd, 1., nO*nN)
-            memcpy(Xa, Xf, nO*nN*sizeof(Xa[0]))
+            VecVec.add_i(Xa,
+                Xf, 1., nO*nN)
             Xb += nO*3*nN
             Xc += nO*nP*nN
             Xd += nO*nN
