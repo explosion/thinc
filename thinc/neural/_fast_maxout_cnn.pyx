@@ -5,6 +5,7 @@ from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy, memset
 from libc.math cimport sqrt
 cimport cython.parallel
+from cymem.cymem cimport Pool
 
 from ._classes.maxout import Maxout
 from ..linalg cimport Vec, Mat, VecVec, MatVec, MatMat
@@ -13,8 +14,6 @@ from .ops cimport backprop_seq2col as bwd_seq2col
 
 cimport numpy as np
 
-from tokyo.tokyo cimport sgemm_, saxpy_
-from tokyo.tokyo cimport *
 from blis import blis
 
 from ..api import wrap
@@ -26,77 +25,161 @@ cdef extern from "stdlib.h":
     void* aligned_alloc(size_t alignment, size_t size) nogil
 
 
-def MaxoutWindowEncode(maxout, n_iter):
+def MaxoutWindowEncode(maxout, normalize, nr_iter):
     ops = maxout.ops
     def mwe_fwd(Xs, drop=0.):
-        cdef:
-            dim_t i, nO, nI, nP, N
-            np.ndarray weights, bias, inputs, outputs
-        weights = maxout.W
-        bias = maxout.b
-        nO = maxout.nO
-        nI = maxout.nI
-        nP = maxout.nP
+        cdef np.ndarray weights = maxout.W
+        cdef np.ndarray bias = maxout.b
+        cdef np.ndarray scale_weights = normalize.G
+        cdef np.ndarray shift_weights = normalize.b
+ 
+        cdef np.ndarray inputs = ops.flatten(Xs)
+        cdef dim_t nO = maxout.nO
+        cdef dim_t nI = maxout.nI
+        cdef dim_t nP = maxout.nP
+        cdef dim_t nN = inputs.shape[0]
 
-        inputs = ops.flatten(Xs)
-        N = inputs.shape[0]
-        outputs = ops.allocate((N, nO))
+        Ww = <float*>weights.data
+        Wb = <float*>bias.data
+        Wg = <float*>scale_weights.data
+        Wbeta = <float*>shift_weights.data
 
-        # Buffers and return state
-        state_for_bwd = NULL
-        
+        cdef Pool mem = Pool()
+        # Allocate buffers
+        # Total e.g. nO=128, nP=3, nN=1000
+        #   128*3*1000
+        # + 128*3*1000
+        # + 128*1000
+        # + 128*1000
+        # + 128*1000
+        # = 384000 * 3 * 4 iterations
+        # = approx 2mb
+        cdef float* Xa = <float*>inputs.data
+        cdef float* Xb = <float*>mem.alloc(nO*3*nN*nr_iter, sizeof(float))  # ExtractWindow
+        cdef float* Xc = <float*>mem.alloc(nO*nP*nN*nr_iter, sizeof(float)) # Affine
+        cdef float* Xd = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))    # MaxPool
+        cdef int* which = <int*>mem.alloc(nO*nP*nN*nr_iter, sizeof(int))  # Maxpool
+        cdef float* Xe = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))    # LayerNorm
+        cdef float* Xf = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))    # Rescale, residual
+        nonlocals = {
+            'mem': mem,
+            'Xa': <size_t>Xa,
+            'Xb': <size_t>Xb,
+            'Xc': <size_t>Xc,
+            'Xe': <size_t>Xe,
+            'Xf': <size_t>Xf,
+            'Ww': <size_t>Ww,
+            'Wb': <size_t>Wb,
+            'Wg': <size_t>Wg,
+            'Wbeta': <size_t>Wbeta,
+            'which': <size_t>which
+        }
         # Now do the actual work
-        maxout_window_encode(<real_t*>outputs.data,
-            <real_t*>inputs.data, <real_t*>weights.data, <real_t*>bias.data,
-            N, nO, nP, n_iter, <unsigned char*>state_for_bwd)
-        
-        lengths = [len(X) for X in Xs]
+        for i in range(nr_iter):
+            extract_window(Xb,
+                Xa, 1, nO, nN)
+            affine(Xc,
+                Xb, Ww, Wb, nO*nP, nO, nN) 
+            maxpool(Xd, which,
+                Xc, nO, nP, nN)
+            memcpy(Xe,
+                Xd, nO*nN*sizeof(Xe[0]))
+            layer_norm(Xe,
+                nO, nN)
+            memcpy(Xf, Xe, nO*nN*sizeof(float))
+            rescale(Xf,
+                Wg, Wbeta, nO, nN)
+            VecVec.add_i(Xf,
+                Xa, 1., nO*nN)
+            Xa += nO*nN
+            Xb += nO*3*nN
+            Xc += nO*nP*nN
+            Xd += nO*nN
+            Xe += nO*nN
+            Xf += nO*nN
+        Xf -= nO*nN
+        cdef np.ndarray outputs = ops.allocate((nN, nO))
+        memcpy(<float*>outputs.data,
+            Xf, nO*nN*sizeof(float))
 
-        Ys = ops.unflatten(outputs, lengths)
-        def mwe_bwd(dYs, sgd=None):
-            dY = ops.flatten(dYs)
-            #bwd_maxout_window_encode(dX, dW, db,
-            #    which, X, Xh, W, N, nO, nP, n_iter)
-        return Ys, mwe_bwd
+        def mwe_bwd(np.ndarray d_outputs, sgd=None):
+            '''
+            The function in the inner loop is:
+
+            Given a:
+              b, bp_b = window(a)
+              c, bp_c = affine(b)
+              d, bp_d = maxpool(c)
+              e, bp_e = layernorm(d)
+              f, bp_f = rescale(e)
+              g = a + f
+            return g, lambda dg: dg+bp_f(bp_e(bp_d(bp_c(bp_b(dg)))))
+
+            In the backward pass we must compute:
+
+            Given dg:
+              df = dg 
+              de = backprop_rescale(de)
+              dd = backprop_layernorm(de)
+              dc = backprop_maxpool(dd)
+              db = backprop_affine(dc)
+              da = backprop_window(db)
+            Return dg+da
+            '''
+            dWw = <float*>(<np.ndarray>maxout.dW).data
+            dWb = <float*>(<np.ndarray>maxout.d_b).data
+            dWg = <float*>(<np.ndarray>normalize.dG).data
+            dWbeta = <float*>(<np.ndarray>normalize.d_b).data
+            dXf = <float*>d_outputs.data
+            Xa = <float*><size_t>nonlocals['Xa']
+            Xb = <float*><size_t>nonlocals['Xb']
+            Xc = <float*><size_t>nonlocals['Xc']
+            Xd = <float*><size_t>nonlocals['Xd']
+            Xe = <float*><size_t>nonlocals['Xe']
+            Xf = <float*><size_t>nonlocals['Xf']
+            Ww = <float*><size_t>nonlocals['Ww']
+            Wb = <float*><size_t>nonlocals['Wb']
+            Wg = <float*><size_t>nonlocals['Wg']
+            Wbeta = <float*><size_t>nonlocals['Wbeta']
+            which = <int*><size_t>nonlocals['which']
+            cdef Pool mem = Pool()
+            dXa = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))  # ExtractWindow
+            dXb = <float*>mem.alloc(nO*3*nN*nr_iter, sizeof(float))  # ExtractWindow
+            dXc = <float*>mem.alloc(nO*nP*nN*nr_iter, sizeof(float)) # Affine
+            dXd = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))    # MaxPool
+            dXe = <float*>mem.alloc(nO*nN*nr_iter, sizeof(float))    # LayerNorm
+            for i in range(nr_iter-1, -1, -1):
+                bwd_rescale(dXe, dWg, dWbeta,
+                    dXf, Xe, Wg, nO, nN)
+                bwd_layer_norm(dXd,
+                    dXe, Xd, nO, nN)
+                bwd_maxpool(dXc,
+                    dXd, which, nO, nP, nN)
+                bwd_affine(dXb, dWw, dWb,
+                    dXc, Xb, Ww, nO*nP, nO, nN) 
+                bwd_window(dXa, 
+                    dXb, nO, 1, nN) 
+                VecVec.add_i(dXa,
+                    dXf, 1., nN * nO)
+            cdef np.ndarray d_inputs = ops.allocate((nN, nO))
+            memcpy(<float*>d_inputs.data,
+                dXa, nN*nO*sizeof(float))
+            return d_inputs
+        return outputs, mwe_bwd
     return wrap(mwe_fwd, maxout)
 
 
-cdef void maxout_window_encode(real_t* outputs, 
-        const real_t* inputs, const real_t* weights, const real_t* bias,
-        dim_t nr_row, dim_t nr_dim, dim_t nr_piece, int nr_iter,
-        unsigned char* state_for_bwd) nogil:
-    cdef int* which
-    N = nr_dim * nr_row
-    prev = <float*>calloc((nr_row+2)*nr_dim, sizeof(float))
-    # If memory provided, use it (and keep the values in it)
-    # Otherwise, allocate from heap.
-    if state_for_bwd is NULL:
-        which = NULL
-        X = <float*>calloc(N*3, sizeof(float))
-        Xh = <float*>calloc(N*nr_piece, sizeof(float))
-    else:
-        pass
-        #which = state_for_bwd
-        #state_for_bwd += N
-        #X = <float*>state_for_bwd
-        #state_for_bwd += N * 3 * sizeof(float)
-        #Xh = <float*>state_for_bwd
-        #state_for_bwd += N * nr_piece * sizeof(float)
-    memcpy(&prev[nr_dim], inputs, sizeof(prev[0]) * N)
-    for i in range(nr_iter):
-        cnn_maxout(outputs, which, X, Xh,
-            prev, weights, bias, nr_row, nr_dim, nr_dim, nr_piece)
-        layer_norm(outputs, nr_row, nr_dim)
-        residual(outputs, prev, N)
-        memcpy(&prev[nr_dim], outputs, sizeof(prev[0]) * N)
-        #if state_for_bwd is not NULL:
-        #    X = <float*>state_for_bwd
-        #    state_for_bwd += N * 3 * sizeof(float)
-        #    Xh = <float*>state_for_bwd
-        #    state_for_bwd += N * nr_piece * sizeof(float)
-    if state_for_bwd is NULL:
-        free(X)
-        free(Xh)
+cdef void maxout_window_encode(real_t* Xe, real_t* Xd, real_t* Xc, real_t* Xb, int* which,
+        const real_t* Xa, const real_t* Ww, const real_t* Wb,
+        dim_t nO, dim_t nP, dim_t nN) nogil:
+    cnn_maxout(Xd, which, Xc, Xb,
+        Xa, Ww, Wb, nO, nO, nP, nN)
+    memcpy(Xe,
+        Xd, nO*nN*sizeof(Xe[0]))
+    layer_norm(Xe,
+        nO, nN)
+    VecVec.add_i(Xe,
+        Xa, 1., nO*nN)
 
 
 cdef void bwd_maxout_window_encode(real_t* dX, real_t* dW, real_t* db,
@@ -143,37 +226,18 @@ cdef void bwd_maxout_window_encode(real_t* dX, real_t* dW, real_t* db,
             dx7, 1., N * nO)
 
 
-cdef void cnn_maxout(float* best, int* which, float* X, float* Xh,
-        const float* words, const float* weights, const float* bias,
-        dim_t nW, dim_t nI, dim_t nO, dim_t nP) nogil:
-    for w in range(nW):
+cdef void extract_window(float* Xb,
+        const float* Xa, dim_t nW, dim_t nO, dim_t nN) nogil:
+    for w in range(nN):
         # Assume correct padding on words. This means words should
         # start with an eol row, pushing them off-alignment with
         # the outputs (best and which). Words also needs to end with
         # an eol row
-        memcpy(&X[w*nI*3], &words[w*nI], 3*nI*sizeof(float))
-    memset(Xh, 0, nW*nO*nP*sizeof(float))
-    affine(Xh,
-        X, weights, bias, nW, nO*nP, nI*3)
-    cdef int j
-    for w in range(nW):
-        for i in range(nO):
-            j = argmax(&Xh[w*nO*nP+i*nP], nP)
-            best[w*nO+i] = Xh[w*nO*nP+i*nP+j]
-            if which is not NULL:
-                which[w*nO+i] = j
+        memcpy(&Xb[w*nO*3], &Xa[w*nO], 3*nO*sizeof(float))
 
-
-cdef void bwd_cnn_maxout(real_t* dX, real_t* dW, real_t* db,
-        const real_t* dXh, const real_t* X, const int* which, const real_t* W,
-        dim_t nO, dim_t nP, dim_t N) nogil:
-    bwd_maxout(dX,
-        dXh, which, N, nO, nP)
-    bwd_affine(dX, dW, db,
-        dXh, X, W, nO*nP, nO, N)
-    bwd_seq2col(dX,
-        dX, N, nO, 1)
-
+cdef void bwd_window(float* dXa,
+        const float* dXb, dim_t nO, dim_t nW, dim_t nN) nogil:
+    pass
 
 cdef void affine(float* outputs,
         const float* inputs, const float* weights, const float* bias,
@@ -209,10 +273,25 @@ cdef int argmax(const float* X, int n) nogil:
     return m
 
 
-cdef void residual(real_t* output, const real_t* prev, int N) nogil:
-    for i in range(N):
-        output[i] += prev[i]
+cdef void maxpool(float* Xb, int* which,
+        const float* Xa, dim_t nO, dim_t nP, dim_t nN) nogil:
+    cdef int j
+    for w in range(nN):
+        for i in range(nO):
+            j = argmax(&Xa[w*nO*nP+i*nP], nP)
+            Xb[w*nO+i] = Xa[w*nO*nP+i*nP+j]
+            if which is not NULL:
+                which[w*nO+i] = j
 
+
+cdef void bwd_maxpool(float* dXa,
+        const float* dXb, const int* which, dim_t nO, dim_t nP, dim_t nN) nogil:
+    for b in range(nN):
+        for o in range(nO):
+            dXa[which[0]] = dXb[0]
+            dXb += nP
+            dXa += 1
+            which += 1
 
 cdef void layer_norm(real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
     for i in range(nr_row):
