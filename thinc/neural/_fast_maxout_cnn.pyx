@@ -65,7 +65,7 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
         cdef float* Xd = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # MaxPool
         cdef int* which = <int*>calloc(nO*nN*nr_iter, sizeof(int))  # Maxpool
         cdef float* Xe = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # LayerNorm
-        cdef float* Xf = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # Rescale, residual
+        cdef float* Xf = <float*>calloc(nO*nN, sizeof(float))    # Rescale, residual
         # Now do the actual work
         for i in range(nr_iter):
             seq2col(Xb,
@@ -74,14 +74,14 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
                 Xb, Ww, Wb, nO*nP, nO*3, nN) 
             maxpool(Xd, which,
                 Xc, nO, nP, nN)
-            #memcpy(Xe,
-            #    Xd, nO*nN*sizeof(Xe[0]))
-            #layer_norm(Xe,
-            #    nO, nN)
-            #memcpy(Xf, Xe, nO*nN*sizeof(float))
-            #rescale(Xf,
-            #    Wg, Wbeta, nO, nN)
-            memcpy(Xa, Xd, nO*nN*sizeof(float))
+            memcpy(Xe,
+                Xd, nO*nN*sizeof(Xe[0]))
+            layer_norm(Xe,
+                nO, nN)
+            memcpy(Xf, Xe, nO*nN*sizeof(float))
+            rescale(Xf,
+                Wg, Wbeta, nO, nN)
+            memcpy(Xa, Xf, nO*nN*sizeof(float))
             #VecVec.add_i(Xa,
             #    Xd, 1., nO*nN)
             Xb += nO*3*nN
@@ -91,12 +91,9 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
             which += nO*nN
         nonlocals.update({
             'inputs': inputs,
-            'Xa': <size_t>inputs.data,
             'Xb': <size_t>Xb,
-            'Xc': <size_t>Xc,
             'Xd': <size_t>Xd,
             'Xe': <size_t>Xe,
-            'Xf': <size_t>Xf,
             'Ww': <size_t>Ww,
             'Wb': <size_t>Wb,
             'Wg': <size_t>Wg,
@@ -106,7 +103,7 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
 
         cdef np.ndarray outputs = ops.allocate((nN, nO))
         memcpy(<float*>outputs.data,
-            Xd-(nO*nN), nO*nN*sizeof(float))
+            Xf, nO*nN*sizeof(float))
 
         def mwe_bwd(d_output_seqs, sgd=None):
             '''
@@ -137,45 +134,49 @@ def MaxoutWindowEncode(nr_unit, nr_iter):
             dWb = <float*>(<np.ndarray>maxout.d_b).data
             dWg = <float*>(<np.ndarray>normalize.d_G).data
             dWbeta = <float*>(<np.ndarray>normalize.d_b).data
-            dXf = <float*>d_outputs.data
-            Xa = <float*><size_t>nonlocals['Xa']
             Xb = <float*><size_t>nonlocals['Xb']
-            Xc = <float*><size_t>nonlocals['Xc']
             Xd = <float*><size_t>nonlocals['Xd']
             Xe = <float*><size_t>nonlocals['Xe']
-            Xf = <float*><size_t>nonlocals['Xf']
             Ww = <float*><size_t>nonlocals['Ww']
             Wb = <float*><size_t>nonlocals['Wb']
             Wg = <float*><size_t>nonlocals['Wg']
             Wbeta = <float*><size_t>nonlocals['Wbeta']
             which = <int*><size_t>nonlocals['which']
-            dXa = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # d_inputs
-            dXb = <float*>calloc(nO*3*nN*nr_iter, sizeof(float))  # ExtractWindow
-            dXc = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float)) # Affine
-            dXd = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # MaxPool
-            dXe = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # LayerNorm
-            memcpy(dXe, dXf, nO*nN*sizeof(float))
+            dXa = <float*>calloc(nO*nN, sizeof(float))    # d_inputs
+            dXb = <float*>calloc(nO*3*nN, sizeof(float))  # ExtractWindow
+            dXc = <float*>calloc(nO*nP*nN, sizeof(float)) # Affine
+            dXd = <float*>calloc(nO*nN, sizeof(float))    # MaxPool
+            dXe = <float*>calloc(nO*nN, sizeof(float))    # LayerNorm
+            dXf = <float*>calloc(nO*nN, sizeof(float))    # LayerNorm
+            memcpy(dXf, <float*>d_outputs.data, nO*nN*sizeof(float))
             cdef dim_t i
             for i in range(nr_iter-1, -1, -1):
                 which -= nO*nN
                 Xb -= nO*3*nN
-                memset(dXa, 0, nO*nN*sizeof(float))
-                #bwd_rescale(dXe, dWg, dWbeta,
-                #    dXf, Xe, Wg, nO, nN)
-                #bwd_layer_norm(dXd,
-                #    dXe, Xd, nO, nN)
+                Xd -= nO*nN
+                Xe -= nO*nN
+                memset(dXe, 0, nO*nN*sizeof(float))
+                bwd_rescale(dXe, dWg, dWbeta,
+                    dXf, Xe, Wg, nO, nN)
+                memset(dXd, 0, nO*nN*sizeof(float))
+                bwd_layer_norm(dXd,
+                    dXe, Xd, nO, nN)
+
+                memset(dXc, 0, nO*nP*nN*sizeof(float))
                 bwd_maxpool(dXc,
-                    dXe, which, nO, nP, nN)
+                    dXd, which, nO, nP, nN)
+
+                memset(dXb, 0, nO*3*nN*sizeof(float))
                 bwd_affine(dXb, dWw, dWb,
                     dXc, Xb, Ww, nO*nP, nO*3, nN) 
+
+                memset(dXa, 0, nO*nN*sizeof(float))
                 bwd_seq2col(dXa, 
                     dXb, 1, nO, nN) 
-                memcpy(dXe, dXa, nO*nN*sizeof(float))
+
+                memcpy(dXf, dXa, nN*nO*sizeof(float))
                 #VecVec.add_i(dXa,
                 #    dXf, 1., nN * nO)
-                memset(dXb, 0, nO*3*nN*sizeof(float))
-                memset(dXc, 0, nO*nP*nN*sizeof(float))
-                memset(dXd, 0, nO*nN*sizeof(float))
             cdef np.ndarray d_inputs = ops.allocate((nN, nO))
             memcpy(<float*>d_inputs.data,
                 dXa, nN*nO*sizeof(float))
@@ -280,26 +281,28 @@ cdef void layer_norm(real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
         X += nr_dim
 
 
-cdef void bwd_layer_norm(real_t* dX,
-        const real_t* dXh, const real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
+cdef void bwd_layer_norm(real_t* dXa,
+        const real_t* dXb, const real_t* Xa, dim_t nr_dim, dim_t nr_row) nogil:
     for i in range(nr_row):
-        mu = Vec.mean(X, nr_dim)
-        v = Vec.variance(X, nr_dim)
-        sqrt_var = sqrt(v)
+        mu = Vec.mean(Xa, nr_dim)
+        v = Vec.variance(Xa, nr_dim)
+        inv_sqrt_var = v ** (-1./2)
         inv_var = 1. / v
-        sum_dXh = Vec.sum(dX, nr_dim)
-        sum_dXh_dist = 0.
+        sum_dXb = Vec.sum(dXb, nr_dim)
+        sum_dXb_dist = 0.
         for j in range(nr_dim):
-            sum_dXh_dist += dXh[j] * (X[j]-mu)
+            sum_dXb_dist += dXb[j] * (Xa[j]-mu)
         for j in range(nr_dim):
-            dX[j] = nr_dim * dXh[j]
-            dX[j] -= sum_dXh
-            dX[j] -= (X[j]-mu) * inv_var * sum_dXh_dist
-            dX[j] *= -sqrt_var
-            dX[j] /= nr_dim
-        X += nr_dim
-        dX += nr_dim
-        dXh += nr_dim
+            dXa[j] = (
+                nr_dim * dXb[j]
+                - sum_dXb
+                - (Xa[j]-mu) * inv_var * sum_dXb_dist
+            )
+            dXa[j] *= inv_sqrt_var
+            dXa[j] /= nr_dim
+        Xa += nr_dim
+        dXa += nr_dim
+        dXb += nr_dim
  
 
 cdef void rescale(float* X,

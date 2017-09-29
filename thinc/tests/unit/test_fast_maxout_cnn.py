@@ -38,7 +38,7 @@ def baseline_mwe(nO, nP, depth):
     maxout = Maxout(nO, nO*3, pieces=nP)
     normalize = LayerNorm(maxout)
     with Model.define_operators({'>>': chain, '**': clone}):
-        model = ExtractWindow(nW=1) >> maxout #normalize)
+        model = ExtractWindow(nW=1) >> normalize
         model = with_flatten(chain(*([model]*depth)))
     model.maxout = maxout
     model.normalize = normalize
