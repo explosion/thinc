@@ -81,9 +81,8 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
             memcpy(Xf, Xe, nO*nN*sizeof(float))
             rescale(Xf,
                 Wg, Wbeta, nO, nN)
-            memcpy(Xa, Xf, nO*nN*sizeof(float))
-            #VecVec.add_i(Xa,
-            #    Xd, 1., nO*nN)
+            VecVec.add_i(Xa,
+                Xf, 1., nO*nN)
             Xb += nO*3*nN
             Xc += nO*nP*nN
             Xd += nO*nN
@@ -103,7 +102,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
 
         cdef np.ndarray outputs = ops.allocate((nN, nO))
         memcpy(<float*>outputs.data,
-            Xf, nO*nN*sizeof(float))
+            Xa, nO*nN*sizeof(float))
 
         def mwe_bwd(d_output_seqs, sgd=None):
             '''
@@ -173,10 +172,9 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
                 memset(dXa, 0, nO*nN*sizeof(float))
                 bwd_seq2col(dXa, 
                     dXb, 1, nO, nN) 
-
-                memcpy(dXf, dXa, nN*nO*sizeof(float))
-                #VecVec.add_i(dXa,
-                #    dXf, 1., nN * nO)
+                VecVec.add_i(dXa,
+                    dXf, 1., nN * nO)
+                memcpy(dXf, dXa, nO*nN*sizeof(float))
             cdef np.ndarray d_inputs = ops.allocate((nN, nO))
             memcpy(<float*>d_inputs.data,
                 dXa, nN*nO*sizeof(float))
