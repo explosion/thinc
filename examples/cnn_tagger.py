@@ -14,6 +14,7 @@ from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.neural._classes.layernorm import LayerNorm
 from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
@@ -125,11 +126,12 @@ def main(width=100, depth=4, vector_length=64,
         prefix     = HashEmbed(width//2, 100, column=2)
         suffix     = HashEmbed(width//2, 100, column=3)
 
+        cnn = Residual(ExtractWindow(nW=1) >> LayerNorm(Maxout(width, pieces=3)))
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, pieces=3)
-                >> Residual(ExtractWindow(nW=1) >> Maxout(width, pieces=3)) ** depth
+                >> LayerNorm(Maxout(width, pieces=3))
+                >> chain(*[cnn]*depth)
                 >> Softmax(nr_tag), pad=depth))
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
