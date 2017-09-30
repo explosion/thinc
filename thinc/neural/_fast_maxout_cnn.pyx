@@ -89,10 +89,9 @@ cdef class _Weights:
 def MaxoutWindowEncoder(nr_unit, nr_iter):
     maxout = Maxout(nr_unit, nr_unit*3, pieces=3)
     normalize = LayerNorm(maxout)
-    ops = maxout.ops
 
     def mwe_fwd(Xs, drop=0.):
-        return _mwe_fwd(nr_iter, ops, maxout, normalize, Xs, drop=drop)
+        return _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=drop)
 
     model = wrap(mwe_fwd, normalize)
     model.maxout = maxout
@@ -100,7 +99,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
     return model
 
 
-def _mwe_fwd(nr_iter, ops, maxout, normalize, Xs, drop=0.):
+def _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=0.):
     '''
     The function in the inner loop is:
 
@@ -124,6 +123,7 @@ def _mwe_fwd(nr_iter, ops, maxout, normalize, Xs, drop=0.):
     da = backprop_window(db)
     Return dg+da
     '''
+    ops = maxout.ops
     cdef np.ndarray inputs = ops.flatten(Xs)
     lengths = ops.asarray([len(x) for x in Xs], dtype='i')
     cdef dim_t nO = maxout.nO
