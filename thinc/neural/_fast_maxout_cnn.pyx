@@ -163,53 +163,53 @@ def _mwe_fwd(nr_iter, ops, maxout, normalize, Xs, drop=0.):
     memcpy(<float*>outputs.data,
         X.a, nO*nN*sizeof(float))
 
-    #nonlocals = {}
-    #nonlocals['W'] = W
-    #nonlocals['X'] = X
+    nonlocals = {}
+    nonlocals['X'] = X
 
-    #def mwe_bwd(d_output_seqs, sgd=None):
-    #    cdef np.ndarray d_outputs = ops.flatten(d_output_seqs)
-    #    cdef _Activations X = nonlocals['X']
-    #    cdef _Weights W = nonlocals['W']
-    #    # Gradients
-    #    cdef _Activations dX = _Activations(nO, nP, nN, nr_iter)
-    #    cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
-    #                                normalize.d_G, normalize.d_b)
-    #    memcpy(dX.f, <float*>d_outputs.data, nO*nN*sizeof(float))
-    #    cdef dim_t i
-    #    for i in range(nr_iter-1, -1, -1):
-    #        X.which -= nO*nN
-    #        X.b -= nO*3*nN
-    #        X.d -= nO*nN
-    #        X.e -= nO*nN
-    #        memset(dX.e, 0, nO*nN*sizeof(float))
-    #        bwd_rescale(dX.e, dW.scale, dW.shift,
-    #            dX.f, X.e, W.scale, nO, nN)
-    #        memset(dX.d, 0, nO*nN*sizeof(float))
-    #        bwd_layer_norm(dX.d,
-    #            dX.e, X.d, nO, nN)
+    def mwe_bwd(d_output_seqs, sgd=None):
+        cdef np.ndarray d_outputs = ops.flatten(d_output_seqs)
+        cdef _Weights W = _Weights(maxout.W, maxout.b,
+                                   normalize.G, normalize.b)
+        cdef _Activations X = nonlocals['X']
+        # Gradients
+        cdef _Activations dX = _Activations(nO, nP, nN, nr_iter)
+        cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
+                                    normalize.d_G, normalize.d_b)
+        memcpy(dX.f, <float*>d_outputs.data, nO*nN*sizeof(float))
+        cdef dim_t i
+        for i in range(nr_iter-1, -1, -1):
+            X.which -= nO*nN
+            X.b -= nO*3*nN
+            X.d -= nO*nN
+            X.e -= nO*nN
+            memset(dX.e, 0, nO*nN*sizeof(float))
+            bwd_rescale(dX.e, dW.scale, dW.shift,
+                dX.f, X.e, W.scale, nO, nN)
+            memset(dX.d, 0, nO*nN*sizeof(float))
+            bwd_layer_norm(dX.d,
+                dX.e, X.d, nO, nN)
 
-    #        memset(dX.c, 0, nO*nP*nN*sizeof(float))
-    #        bwd_maxpool(dX.c,
-    #            dX.d, X.which, nO, nP, nN)
+            memset(dX.c, 0, nO*nP*nN*sizeof(float))
+            bwd_maxpool(dX.c,
+                dX.d, X.which, nO, nP, nN)
 
-    #        memset(dX.b, 0, nO*3*nN*sizeof(float))
-    #        bwd_affine(dX.b, dW.syn, dW.bias,
-    #            dX.c, X.b, W.syn, nO*nP, nO*3, nN) 
+            memset(dX.b, 0, nO*3*nN*sizeof(float))
+            bwd_affine(dX.b, dW.syn, dW.bias,
+                dX.c, X.b, W.syn, nO*nP, nO*3, nN) 
 
-    #        memset(dX.a, 0, nO*nN*sizeof(float))
-    #        bwd_seq2col(dX.a, 
-    #            dX.b, 1, nO, nN) 
-    #        VecVec.add_i(dX.a,
-    #            dX.f, 1., nN * nO)
-    #        memcpy(dX.f, dX.a, nO*nN*sizeof(float))
-    #    cdef np.ndarray d_inputs = ops.allocate((nN, nO))
-    #    memcpy(<float*>d_inputs.data,
-    #        dX.a, nN*nO*sizeof(float))
-    #    if sgd is not None:
-    #        sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
-    #        sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
-    #    return ops.unflatten(d_inputs, lengths)
+            memset(dX.a, 0, nO*nN*sizeof(float))
+            bwd_seq2col(dX.a, 
+                dX.b, 1, nO, nN) 
+            VecVec.add_i(dX.a,
+                dX.f, 1., nN * nO)
+            memcpy(dX.f, dX.a, nO*nN*sizeof(float))
+        cdef np.ndarray d_inputs = ops.allocate((nN, nO))
+        memcpy(<float*>d_inputs.data,
+            dX.a, nN*nO*sizeof(float))
+        if sgd is not None:
+            sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
+            sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
+        return ops.unflatten(d_inputs, lengths)
     return ops.unflatten(outputs, lengths), None #mwe_bwd
 
 cdef void seq2col(float* Xb,
