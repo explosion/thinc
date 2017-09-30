@@ -6,6 +6,7 @@ from libc.string cimport memcpy, memset
 from libc.math cimport sqrt
 cimport cython.parallel
 from cymem.cymem cimport Pool
+from libcpp.vector cimport vector
 
 from ._classes.maxout import Maxout
 from ._classes.layernorm import LayerNorm
@@ -26,18 +27,18 @@ cdef extern from "stdlib.h":
 
 
 cdef class _Activations:
-    cdef float* a
-    cdef float* b
-    cdef float* c
-    cdef float* d
-    cdef float* e
-    cdef float* f
-    cdef int* which
-    cdef void** pointers
-    cdef int nr_pointer
-    
+    cdef float** a
+    cdef float** b
+    cdef float** c
+    cdef float** d
+    cdef float** e
+    cdef float** f
+    cdef int** which
+    cdef int* lengths
+    cdef vector[void*] pointers
+    cdef int allocated
 
-    def __init__(self, dim_t nO, dim_t nP, dim_t nN, dim_t nr_iter):
+    def __init__(self, Xs, dim_t nP, dim_t nr_iter):
         # Allocate buffers
         # Total e.g. nO=128, nP=3, nN=1000
         #   128*3*1000
@@ -47,38 +48,51 @@ cdef class _Activations:
         # + 128*1000
         # = 384000 * 3 * 4 iterations
         # = approx 2mb
-        self.a = <float*>calloc(nO*nN, sizeof(float))
-        self.b = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float))
-        self.c = <float*>calloc(nO*3*nN, sizeof(float))
-        self.d = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-        self.e = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-        self.f = <float*>calloc(nO*nN, sizeof(float))
-        self.which = <int*>calloc(nO*nN*nr_iter, sizeof(int))
-        self.nr_pointer = 7
-        self.pointers = <void**>calloc(self.nr_pointer, sizeof(void*))
-        self.pointers[0] = self.a
-        self.pointers[1] = self.b
-        self.pointers[2] = self.c
-        self.pointers[3] = self.d
-        self.pointers[4] = self.e
-        self.pointers[5] = self.f
-        self.pointers[6] = self.which
+        nX = len(Xs)
+        self.a = <float**>calloc(nX, sizeof(float*))
+        self.b = <float**>calloc(nX, sizeof(float*))
+        self.c = <float**>calloc(nX, sizeof(float*))
+        self.d = <float**>calloc(nX, sizeof(float*))
+        self.e = <float**>calloc(nX, sizeof(float*))
+        self.f = <float**>calloc(nX, sizeof(float*))
+        self.which = <int**>calloc(nX, sizeof(int*))
+        self.lengths = <int*>calloc(nX, sizeof(int))
+        cdef np.ndarray X
+        cdef dim_t nN
+        cdef dim_t nO = Xs[0].shape[1]
+        for i, X in enumerate(Xs):
+            nN = X.shape[0]
+            self.a[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+            self.b[i] = <float*>calloc(nO*3*nN*nr_iter, sizeof(float))
+            self.c[i] = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float))
+            self.d[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+            self.e[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+            self.f[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+            self.which[i] = <int*>calloc(nO*nN*nr_iter, sizeof(int))
+            self.lengths[i] = nN
+            self.pointers.push_back(self.a[i])
+            self.pointers.push_back(self.b[i])
+            self.pointers.push_back(self.c[i])
+            self.pointers.push_back(self.d[i])
+            self.pointers.push_back(self.e[i])
+            self.pointers.push_back(self.f[i])
+            self.pointers.push_back(self.which[i])
+        self.pointers.push_back(self.a)
+        self.pointers.push_back(self.b)
+        self.pointers.push_back(self.c)
+        self.pointers.push_back(self.d)
+        self.pointers.push_back(self.e)
+        self.pointers.push_back(self.f)
+        self.pointers.push_back(self.which)
+        self.pointers.push_back(self.lengths)
+        self.allocated = True
 
     def __dealloc__(self):
-        if self.nr_pointer != 0:
-            # Ensure we don't double-free, if __dealloc__ is called twice.
-            for i in range(self.nr_pointer):
-                free(self.pointers[i])
-            free(self.pointers)
-            self.nr_pointer = 0
+        if self.allocated:
+            for ptr in self.pointers:
+                free(ptr)
+            self.allocated = False
  
-    cpdef next_forward(self, dim_t nO, dim_t nP, dim_t nN):
-        self.b += nO*nP*nN
-        memset(self.c, 0, nO*3*nN*sizeof(float))
-        self.d += nO*nN
-        self.e += nO*nN
-        self.which += nO*nN
-
 
 cdef class _Weights:
     cdef float* syn
@@ -106,7 +120,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
     return model
 
 
-def _mwe_fwd(dim_t nr_iter, maxout, normalize, Xs, drop=0.):
+def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
     '''
     The function in the inner loop is:
 
@@ -130,91 +144,98 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, Xs, drop=0.):
     da = backprop_window(db)
     Return dg+da
     '''
-    ops = maxout.ops
-    cdef np.ndarray inputs = ops.flatten(Xs)
-    lengths = ops.asarray([len(x) for x in Xs], dtype='i')
-    cdef dim_t nO = maxout.nO
-    cdef dim_t nI = maxout.nI
-    cdef dim_t nP = maxout.nP
-    cdef dim_t nN = inputs.shape[0]
-
-    cdef _Activations X = _Activations(nO, nP, nN, nr_iter)
     cdef _Weights W = _Weights(maxout.W, maxout.b,
                                normalize.G, normalize.b)
-    memcpy(X.a, <float*>inputs.data, nO*nN*sizeof(float))
+    cdef _Activations X = _Activations(inputs, maxout.nO, maxout.nP, nr_iter)
 
-    # Now do the actual work
-    for i in range(nr_iter):
-        seq2col(X.b,
-            X.a, 1, nO, nN)
-        affine(X.c,
-            X.b, W.syn, W.bias, nO*nP, nO*3, nN) 
-        maxpool(X.d, X.which,
-            X.c, nO, nP, nN)
-        memcpy(X.e,
-            X.d, nO*nN*sizeof(X.e[0]))
-        layer_norm(X.e,
-            nO, nN)
-        memcpy(X.f,
-            X.e, nO*nN*sizeof(float))
-        rescale(X.f,
-            W.scale, W.shift, nO, nN)
-        VecVec.add_i(X.a,
-            X.f, 1., nO*nN)
-        X.next_forward(nO, nP, nN)
+    for i in range(len(inputs)):
+        mwe_forward(X.a[i], X.b[i], X.c[i], X.d[i], X.e[i], X.f[i], X.which[i],
+            W.syn, W.bias, W.scale, W.shift, W.nO, W.nP, X.lengths[i], nr_iter)
 
-    cdef np.ndarray outputs = ops.allocate((nN, nO))
-    memcpy(<float*>outputs.data,
-        X.a, nO*nN*sizeof(float))
+    outputs = []
+    cdef np.ndarray Y
+    for i in enumerate(len(inputs)):
+        Y = maxout.ops.allocate((inputs[i].shape[0], inputs[i].shape[1]))
+        memcpy(<float*>Y.data,
+            X.a[i], W.nO*X.lengths[i]*sizeof(float))
 
     nonlocals = {}
     nonlocals['X'] = X
 
-    def mwe_bwd(d_output_seqs, sgd=None):
-        cdef np.ndarray d_outputs = ops.flatten(d_output_seqs)
-        cdef _Weights W = _Weights(maxout.W, maxout.b,
-                                   normalize.G, normalize.b)
-        cdef _Activations X = nonlocals['X']
-        # Gradients
-        cdef _Activations dX = _Activations(nO, nP, nN, 1)
-        cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
-                                    normalize.d_G, normalize.d_b)
-        memcpy(dX.f, <float*>d_outputs.data, nO*nN*sizeof(float))
-        cdef dim_t i
-        for i in range(nr_iter-1, -1, -1):
-            X.which -= nO*nN
-            X.b -= nO*3*nN
-            X.d -= nO*nN
-            X.e -= nO*nN
-            memset(dX.e, 0, nO*nN*sizeof(float))
-            bwd_rescale(dX.e, dW.scale, dW.shift,
-                dX.f, X.e, W.scale, nO, nN)
-            memset(dX.d, 0, nO*nN*sizeof(float))
-            bwd_layer_norm(dX.d,
-                dX.e, X.d, nO, nN)
+    #def mwe_bwd(d_output_seqs, sgd=None):
+    #    ops = maxout.ops
+    #    cdef np.ndarray d_outputs = ops.flatten(d_output_seqs)
+    #    cdef _Weights W = _Weights(maxout.W, maxout.b,
+    #                               normalize.G, normalize.b)
+    #    cdef _Activations X = nonlocals['X']
+    #    # Gradients
+    #    cdef _Activations dX = _Activations(nO, nP, nN, 1)
+    #    cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
+    #                                normalize.d_G, normalize.d_b)
+    #    memcpy(dX.f, <float*>d_outputs.data, nO*nN*sizeof(float))
+    #    cdef dim_t i
+    #    for i in range(nr_iter-1, -1, -1):
+    #        X.which -= nO*nN
+    #        X.b -= nO*3*nN
+    #        X.d -= nO*nN
+    #        X.e -= nO*nN
+    #        memset(dX.e, 0, nO*nN*sizeof(float))
+    #        bwd_rescale(dX.e, dW.scale, dW.shift,
+    #            dX.f, X.e, W.scale, nO, nN)
+    #        memset(dX.d, 0, nO*nN*sizeof(float))
+    #        bwd_layer_norm(dX.d,
+    #            dX.e, X.d, nO, nN)
 
-            memset(dX.c, 0, nO*nP*nN*sizeof(float))
-            bwd_maxpool(dX.c,
-                dX.d, X.which, nO, nP, nN)
+    #        memset(dX.c, 0, nO*nP*nN*sizeof(float))
+    #        bwd_maxpool(dX.c,
+    #            dX.d, X.which, nO, nP, nN)
 
-            memset(dX.b, 0, nO*3*nN*sizeof(float))
-            bwd_affine(dX.b, dW.syn, dW.bias,
-                dX.c, X.b, W.syn, nO*nP, nO*3, nN) 
+    #        memset(dX.b, 0, nO*3*nN*sizeof(float))
+    #        bwd_affine(dX.b, dW.syn, dW.bias,
+    #            dX.c, X.b, W.syn, nO*nP, nO*3, nN) 
 
-            memset(dX.a, 0, nO*nN*sizeof(float))
-            bwd_seq2col(dX.a, 
-                dX.b, 1, nO, nN) 
-            VecVec.add_i(dX.a,
-                dX.f, 1., nN * nO)
-            memcpy(dX.f, dX.a, nO*nN*sizeof(float))
-        cdef np.ndarray d_inputs = ops.allocate((nN, nO))
-        memcpy(<float*>d_inputs.data,
-            dX.a, nN*nO*sizeof(float))
-        if sgd is not None:
-            sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
-            sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
-        return ops.unflatten(d_inputs, lengths)
-    return ops.unflatten(outputs, lengths), mwe_bwd
+    #        memset(dX.a, 0, nO*nN*sizeof(float))
+    #        bwd_seq2col(dX.a, 
+    #            dX.b, 1, nO, nN) 
+    #        VecVec.add_i(dX.a,
+    #            dX.f, 1., nN * nO)
+    #        memcpy(dX.f, dX.a, nO*nN*sizeof(float))
+    #    cdef np.ndarray d_inputs = ops.allocate((nN, nO))
+    #    memcpy(<float*>d_inputs.data,
+    #        dX.a, nN*nO*sizeof(float))
+    #    if sgd is not None:
+    #        sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
+    #        sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
+    #    return ops.unflatten(d_inputs, lengths)
+    return outputs, None #mwe_bwd
+
+cdef void mwe_forward(float* Xa, float* Xb, float* Xc, float* Xd, float* Xe, float* Xf, int* which,
+        const float* syn, const float* bias, const float* scale, const float* shift,
+        dim_t nO, dim_t nP, dim_t nN, dim_t nr_iter):
+    # Now do the actual work
+    for i in range(nr_iter):
+        seq2col(Xb,
+            Xa, 1, nO, nN)
+        affine(Xc,
+            Xb, syn, bias, nO*nP, nO*3, nN) 
+        maxpool(Xd, which,
+            Xc, nO, nP, nN)
+        memcpy(Xe,
+            Xd, nO*nN*sizeof(Xe[0]))
+        layer_norm(Xe,
+            nO, nN)
+        memcpy(Xf,
+            Xe, nO*nN*sizeof(float))
+        rescale(Xf,
+            scale, shift, nO, nN)
+        VecVec.add_i(Xa,
+            Xf, 1., nO*nN)
+        Xb += nO*nP*nN
+        memset(Xc, 0, nO*3*nN*sizeof(float))
+        Xd += nO*nN
+        Xe += nO*nN
+        which += nO*nN
+
 
 cdef void seq2col(float* Xb,
         const float* Xa, dim_t nW, dim_t nI, dim_t nN) nogil:
