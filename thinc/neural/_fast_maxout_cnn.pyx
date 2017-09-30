@@ -155,7 +155,7 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
 
     cdef dim_t nX = len(inputs)
     cdef dim_t i
-    for i in cython.parallel.prange(nX, nogil=True):
+    for i in cython.parallel.prange(nX, nogil=True, num_threads=4):
         mwe_forward(X.a[i], X.b[i], X.c[i], X.d[i], X.e[i], X.f[i], X.which[i],
             W.syn, W.bias, W.scale, W.shift, nO, nP, X.lengths[i], nr_iter)
 
