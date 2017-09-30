@@ -48,11 +48,11 @@ MOD_NAMES = [
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O2', '-Wno-strict-prototypes', 
+                        'gcc': ['-O2', '-Wno-strict-prototypes', '-fopenmp',
                             '-Wno-unused-function', '-march=native'],
                         'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [],
-                    'other' : []}
+                    'other' : ['-fopenmp']}
 
 
 def customize_compiler_for_nvcc(self):
