@@ -85,7 +85,7 @@ def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     end = time.clock()
     print('Fwd Slow?', end, start, end-start)
 
-def test_bwd_speed(nr_row=10, nr_dim=128, nr_piece=3):
+def test_bwd_speed(nr_row=100, nr_dim=128, nr_piece=3):
     mwe = MaxoutWindowEncoder(nr_dim, 4)
     Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
     start = time.clock()
