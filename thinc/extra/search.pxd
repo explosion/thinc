@@ -75,8 +75,8 @@ cdef class MaxViolation:
     cdef weight_t delta
     cdef readonly weight_t p_score
     cdef readonly weight_t g_score
-    cdef readonly double Z
-    cdef readonly double gZ
+    cdef readonly long double Z
+    cdef readonly long double gZ
     cdef class_t n
     cdef readonly list p_hist
     cdef readonly list g_hist
