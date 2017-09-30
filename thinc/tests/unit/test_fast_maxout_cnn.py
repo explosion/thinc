@@ -1,6 +1,7 @@
 import time
 from numpy.testing import assert_allclose
 import numpy.random
+from timeit import default_timer as timer
 from ...neural._classes.maxout import Maxout
 from ...neural._fast_maxout_cnn import MaxoutWindowEncoder
 
@@ -75,28 +76,29 @@ def test_bwd_correctness(nr_row=10, nr_dim=4, nr_piece=3):
 def test_fwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     mwe = MaxoutWindowEncoder(nr_dim, 4)
     Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
-    start = time.clock()
+    start = timer()
     ys = mwe(Xs)
-    end = time.clock()
+    end = timer()
     print('Fwd Fast?', end, start, end-start)
     mwe = baseline_mwe(nr_dim, nr_piece, 4)
-    start = time.clock()
+    start = timer()
     y = mwe(Xs)
-    end = time.clock()
+    end = timer()
     print('Fwd Slow?', end, start, end-start)
 
-def test_bwd_speed(nr_row=100, nr_dim=128, nr_piece=3):
+def test_bwd_speed(nr_row=1000, nr_dim=128, nr_piece=3):
     mwe = MaxoutWindowEncoder(nr_dim, 4)
+    base = baseline_mwe(nr_dim, nr_piece, 4)
     Xs = [mwe.ops.allocate((nr_row, nr_dim)) for _ in range(10)]
-    start = time.clock()
-    ys, bp_ys = mwe.begin_update(Xs)
+    start = timer()
+    ys, bp_ys = base.begin_update(Xs)
     dx = bp_ys(Xs)
-    end = time.clock()
-    print('Fast?', end, start, '%.4f' % (end-start))
-    mwe = baseline_mwe(nr_dim, nr_piece, 4)
-    start = time.clock()
-    ys, bp_ys = mwe.begin_update(Xs)
-    dx = bp_ys(Xs)
-    end = time.clock()
+    end = timer()
     print('Slow?', end, start, '%.4f' % (end-start))
+
+    start = timer()
+    ys, bp_ys = mwe.begin_update(Xs)
+    dx = bp_ys(Xs)
+    end = timer()
+    print('Fast?', end, start, '%.4f' % (end-start))
 
