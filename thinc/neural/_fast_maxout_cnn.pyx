@@ -47,13 +47,13 @@ cdef class _Activations:
         # + 128*1000
         # = 384000 * 3 * 4 iterations
         # = approx 2mb
-        self.a = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # MaxPool
-        self.b = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float)) # Affine
-        self.c = <float*>calloc(nO*3*nN*nr_iter, sizeof(float))  # ExtractWindow
-        self.d = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # Maxpool
-        self.e = <float*>calloc(nO*nN*nr_iter, sizeof(float))    # LayerNorm
-        self.f = <float*>calloc(nO*nN, sizeof(float))  # Rescale, residual
-        self.which = <int*>calloc(nO*nN*nr_iter, sizeof(int))     # Maxpool
+        self.a = <float*>calloc(nO*nN, sizeof(float))
+        self.b = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float))
+        self.c = <float*>calloc(nO*3*nN, sizeof(float))
+        self.d = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+        self.e = <float*>calloc(nO*nN*nr_iter, sizeof(float))
+        self.f = <float*>calloc(nO*nN, sizeof(float))
+        self.which = <int*>calloc(nO*nN*nr_iter, sizeof(int))
         self.nr_pointer = 7
         self.pointers = <void**>calloc(self.nr_pointer, sizeof(void*))
         self.pointers[0] = self.a
@@ -72,6 +72,13 @@ cdef class _Activations:
             free(self.pointers)
             self.nr_pointer = 0
  
+    cpdef next_forward(self, dim_t nO, dim_t nP, dim_t nN):
+        self.b += nO*nP*nN
+        memset(self.c, 0, nO*3*nN*sizeof(float))
+        self.d += nO*nN
+        self.e += nO*nN
+        self.which += nO*nN
+
 
 cdef class _Weights:
     cdef float* syn
@@ -99,7 +106,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
     return model
 
 
-def _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=0.):
+def _mwe_fwd(dim_t nr_iter, maxout, normalize, Xs, drop=0.):
     '''
     The function in the inner loop is:
 
@@ -148,16 +155,13 @@ def _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=0.):
             X.d, nO*nN*sizeof(X.e[0]))
         layer_norm(X.e,
             nO, nN)
-        memcpy(X.f, X.e, nO*nN*sizeof(float))
+        memcpy(X.f,
+            X.e, nO*nN*sizeof(float))
         rescale(X.f,
             W.scale, W.shift, nO, nN)
         VecVec.add_i(X.a,
             X.f, 1., nO*nN)
-        X.b += nO*3*nN
-        X.c += nO*nP*nN
-        X.d += nO*nN
-        X.e += nO*nN
-        X.which += nO*nN
+        X.next_forward(nO, nP, nN)
 
     cdef np.ndarray outputs = ops.allocate((nN, nO))
     memcpy(<float*>outputs.data,
@@ -172,7 +176,7 @@ def _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=0.):
                                    normalize.G, normalize.b)
         cdef _Activations X = nonlocals['X']
         # Gradients
-        cdef _Activations dX = _Activations(nO, nP, nN, nr_iter)
+        cdef _Activations dX = _Activations(nO, nP, nN, 1)
         cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
                                     normalize.d_G, normalize.d_b)
         memcpy(dX.f, <float*>d_outputs.data, nO*nN*sizeof(float))
