@@ -180,7 +180,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
                 dXa, nN*nO*sizeof(float))
             if sgd is not None:
                 sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
-                sgd(normalize._mem.weights, normalize._mem.gradient, key=maxout.id)
+                sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
             return ops.unflatten(d_inputs, lengths)
         return ops.unflatten(outputs, lengths), mwe_bwd
     model = wrap(mwe_fwd, normalize)
