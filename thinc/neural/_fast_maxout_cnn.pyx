@@ -70,6 +70,9 @@ cdef class _Activations:
             self.f[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
             self.which[i] = <int*>calloc(nO*nN*nr_iter, sizeof(int))
             self.lengths[i] = nN
+
+            memcpy(self.a[i], <float*>X.data, nO*nN*sizeof(float))
+
             self.pointers.push_back(self.a[i])
             self.pointers.push_back(self.b[i])
             self.pointers.push_back(self.c[i])
@@ -89,8 +92,8 @@ cdef class _Activations:
 
     def __dealloc__(self):
         if self.allocated:
-            for ptr in self.pointers:
-                free(ptr)
+            for i in range(self.pointers.size()):
+                free(self.pointers[i])
             self.allocated = False
  
 
@@ -144,20 +147,25 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
     da = backprop_window(db)
     Return dg+da
     '''
+    cdef dim_t nO = maxout.nO
+    cdef dim_t nP = maxout.nP
     cdef _Weights W = _Weights(maxout.W, maxout.b,
                                normalize.G, normalize.b)
-    cdef _Activations X = _Activations(inputs, maxout.nO, maxout.nP, nr_iter)
+    cdef _Activations X = _Activations(inputs, nP, nr_iter)
 
-    for i in range(len(inputs)):
+    cdef dim_t nX = len(inputs)
+    cdef dim_t i
+    for i in cython.parallel.prange(nX, nogil=True):
         mwe_forward(X.a[i], X.b[i], X.c[i], X.d[i], X.e[i], X.f[i], X.which[i],
-            W.syn, W.bias, W.scale, W.shift, W.nO, W.nP, X.lengths[i], nr_iter)
+            W.syn, W.bias, W.scale, W.shift, nO, nP, X.lengths[i], nr_iter)
 
     outputs = []
     cdef np.ndarray Y
-    for i in enumerate(len(inputs)):
-        Y = maxout.ops.allocate((inputs[i].shape[0], inputs[i].shape[1]))
+    for i in range(nX):
+        Y = maxout.ops.allocate((X.lengths[i], nO))
         memcpy(<float*>Y.data,
-            X.a[i], W.nO*X.lengths[i]*sizeof(float))
+            X.a[i], nO*X.lengths[i]*sizeof(float))
+        outputs.append(Y)
 
     nonlocals = {}
     nonlocals['X'] = X
@@ -211,7 +219,7 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
 
 cdef void mwe_forward(float* Xa, float* Xb, float* Xc, float* Xd, float* Xe, float* Xf, int* which,
         const float* syn, const float* bias, const float* scale, const float* shift,
-        dim_t nO, dim_t nP, dim_t nN, dim_t nr_iter):
+        dim_t nO, dim_t nP, dim_t nN, dim_t nr_iter) nogil:
     # Now do the actual work
     for i in range(nr_iter):
         seq2col(Xb,
