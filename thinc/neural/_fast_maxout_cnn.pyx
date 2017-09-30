@@ -210,7 +210,7 @@ def _mwe_fwd(nr_iter, ops, maxout, normalize, Xs, drop=0.):
             sgd(maxout._mem.weights, maxout._mem.gradient, key=maxout.id)
             sgd(normalize._mem.weights, normalize._mem.gradient, key=normalize.id)
         return ops.unflatten(d_inputs, lengths)
-    return ops.unflatten(outputs, lengths), None #mwe_bwd
+    return ops.unflatten(outputs, lengths), mwe_bwd
 
 cdef void seq2col(float* Xb,
         const float* Xa, dim_t nW, dim_t nI, dim_t nN) nogil:
