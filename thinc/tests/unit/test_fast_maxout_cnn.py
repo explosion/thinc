@@ -54,6 +54,7 @@ def test_fwd_correctness(nr_row=20, nr_dim=5, nr_piece=3):
     Xs = [fast.ops.normal_init(fast.ops.allocate((nr_row, nr_dim)), nr_dim)
           for _ in range(10)]
     Ys_new = fast(Xs)
+    # Because of the flattening, this isn't correct if just base(Xs)
     Ys_old = [base([X])[0] for X in Xs]
     for Y1, Y2 in zip(Ys_new, Ys_old):
         assert_allclose(Y1, Y2, rtol=0.0001, atol=0.0001)
@@ -66,16 +67,12 @@ def test_bwd_correctness(nr_row=2, nr_dim=2, nr_piece=3):
     fast.normalize.G[:] = base.normalize.G
     Xs = [fast.ops.normal_init(fast.ops.allocate((nr_row, nr_dim)), nr_dim)
           for _ in range(3)]
-    dXs_new = []
-    for X in Xs:
-        Y, bp_y = fast.begin_update([X])
-        dXs_new.append(bp_Y([X]))
-    #Ys_new, bp_Ys_new = fast.begin_update(Xs)
-    dXs_new = bp_Ys_new(Xs)
+    Ys, bp_Ys = fast.begin_update(Xs)
+    dXs_new = bp_Ys(Xs)
     dXs_old = []
     for X in Xs:
-        Y, bp_y = base.begin_update([X])
-        dXs_old.append(bp_Y([X]))
+        Y, bp_Y = base.begin_update([X])
+        dXs_old.append(bp_Y([X])[0])
     for dX1, dX2 in zip(dXs_new, dXs_old):
         assert_allclose(dX1, dX2, rtol=1e-2, atol=1e-2)
 
