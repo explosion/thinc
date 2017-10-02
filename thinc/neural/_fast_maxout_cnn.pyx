@@ -190,7 +190,8 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
     X.set_inputs(inputs)
 
     cdef dim_t i
-    for i in cython.parallel.prange(nX, nogil=True, num_threads=4):
+    for i in cython.parallel.prange(nX, nogil=True, num_threads=2,
+            schedule='static'):
         mwe_forward(X.a[i], X.b[i], X.c[i], X.d[i], X.e[i], X.f[i], X.which[i],
             W.syn, W.bias, W.scale, W.shift, nO, nP, X.lengths[i], nr_iter)
 
@@ -209,7 +210,8 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
         cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
                                     normalize.d_G, normalize.d_b)
         cdef dim_t i
-        for i in range(nX): # nogil=True, num_threads=4):
+        for i in cython.parallel.prange(nX, nogil=True, num_threads=2,
+                schedule='static'):
             mwe_backward(
                 dX.a[i], dX.b[i], dX.c[i], dX.d[i], dX.e[i], dX.f[i],
                 dW.syn, dW.bias, dW.scale, dW.shift,
