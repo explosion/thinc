@@ -249,26 +249,20 @@ cdef void mwe_backward(
         Xb -= nO*3*nN
         Xd -= nO*nN
         Xe -= nO*nN
-        memset(dXe, 0, nO*nN*sizeof(float))
+
         bwd_rescale(dXe, dW_scale, dW_shift,
             dXf, Xe, W_scale, nO, nN)
-        memset(dXd, 0, nO*nN*sizeof(float))
         bwd_layer_norm(dXd,
             dXe, Xd, nO, nN)
-
-        memset(dXc, 0, nO*nP*nN*sizeof(float))
         bwd_maxpool(dXc,
             dXd, which, nO, nP, nN)
-
-        memset(dXb, 0, nO*3*nN*sizeof(float))
         bwd_affine(dXb, dW_syn, dW_bias,
             dXc, Xb, W_syn, nO*nP, nO*3, nN) 
-
-        memset(dXa, 0, nO*nN*sizeof(float))
         bwd_seq2col(dXa, 
             dXb, 1, nO, nN) 
         VecVec.add_i(dXa,
             dXf, 1., nN * nO)
+
         memcpy(dXf, dXa, nO*nN*sizeof(float))
 
 
@@ -291,6 +285,7 @@ cdef void seq2col(float* Xb,
 
 cdef void bwd_seq2col(float* dXa,
         const float* dXb, dim_t nW, dim_t nI, dim_t nN) nogil:
+    memset(dXa, 0, nI*nN*sizeof(float))
     # Here's what we're doing, if we had 2d indexing.
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
