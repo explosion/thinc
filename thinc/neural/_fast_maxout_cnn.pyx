@@ -35,14 +35,14 @@ cdef class _Activations:
     cdef float** f
     cdef int** which
     cdef int* lengths
-    cdef vector[void*] pointers
-    cdef int allocated
+    cdef Pool mem
     cdef dim_t nX
     cdef dim_t nO
     cdef dim_t nP
     cdef dim_t nr_iter
 
     def __init__(self, lengths, dim_t nO, dim_t nP, dim_t nr_iter, gradient=False):
+        self.mem = Pool()
         # Allocate buffers
         # Total e.g. nO=128, nP=3, nN=1000
         #   128*3*1000
@@ -57,53 +57,31 @@ cdef class _Activations:
         self.nO = nO
         self.nP = nP
         self.nr_iter = nr_iter
-        self.a = <float**>calloc(nX, sizeof(float*))
-        self.b = <float**>calloc(nX, sizeof(float*))
-        self.c = <float**>calloc(nX, sizeof(float*))
-        self.d = <float**>calloc(nX, sizeof(float*))
-        self.e = <float**>calloc(nX, sizeof(float*))
-        self.f = <float**>calloc(nX, sizeof(float*))
-        self.which = <int**>calloc(nX, sizeof(int*))
-        self.lengths = <int*>calloc(nX, sizeof(int))
+        self.a = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.b = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.c = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.d = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.e = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.f = <float**>self.mem.alloc(nX, sizeof(float*))
+        self.which = <int**>self.mem.alloc(nX, sizeof(int*))
+        self.lengths = <int*>self.mem.alloc(nX, sizeof(int))
         cdef np.ndarray X
         cdef dim_t nN
         for i, nN in enumerate(lengths):
-            self.a[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-            self.b[i] = <float*>calloc(nO*3*nN*nr_iter, sizeof(float))
-            self.c[i] = <float*>calloc(nO*nP*nN*nr_iter, sizeof(float))
-            self.d[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-            self.e[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-            self.f[i] = <float*>calloc(nO*nN*nr_iter, sizeof(float))
-            self.which[i] = <int*>calloc(nO*nN*nr_iter, sizeof(int))
+            self.a[i] = <float*>self.mem.alloc(nO*nN*nr_iter, sizeof(float))
+            self.b[i] = <float*>self.mem.alloc(nO*3*nN*nr_iter, sizeof(float))
+            self.c[i] = <float*>self.mem.alloc(nO*nP*nN*nr_iter, sizeof(float))
+            self.d[i] = <float*>self.mem.alloc(nO*nN*nr_iter, sizeof(float))
+            self.e[i] = <float*>self.mem.alloc(nO*nN*nr_iter, sizeof(float))
+            self.f[i] = <float*>self.mem.alloc(nO*nN*nr_iter, sizeof(float))
+            self.which[i] = <int*>self.mem.alloc(nO*nN*nr_iter, sizeof(int))
             self.lengths[i] = nN
-            self.pointers.push_back(self.a[i])
-            self.pointers.push_back(self.b[i])
-            self.pointers.push_back(self.c[i])
-            self.pointers.push_back(self.d[i])
-            self.pointers.push_back(self.e[i])
-            self.pointers.push_back(self.f[i])
-            self.pointers.push_back(self.which[i])
-        self.pointers.push_back(self.a)
-        self.pointers.push_back(self.b)
-        self.pointers.push_back(self.c)
-        self.pointers.push_back(self.d)
-        self.pointers.push_back(self.e)
-        self.pointers.push_back(self.f)
-        self.pointers.push_back(self.which)
-        self.pointers.push_back(self.lengths)
-        self.allocated = True
-
-    def __dealloc__(self):
-        if self.allocated:
-            for i in range(self.pointers.size()):
-                free(self.pointers[i])
-            self.allocated = False
 
     def set_inputs(self, Xs):
         cdef np.ndarray X
         for i, X in enumerate(Xs):
             memcpy(self.a[i], <float*>X.data, X.shape[0]*X.shape[1]*sizeof(float))
-    
+
     def get_d_inputs(self):
         d_inputs = []
         cdef np.ndarray Y
