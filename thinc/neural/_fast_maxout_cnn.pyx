@@ -148,6 +148,8 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
     normalize = LayerNorm(maxout)
 
     def mwe_fwd(Xs, drop=0.):
+        if drop > 0:
+            raise ValueError("MaxoutWindow encoder doesn't support dropout yet")
         return _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=drop)
 
     model = wrap(mwe_fwd, normalize)
@@ -204,7 +206,7 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
                                    normalize.G, normalize.b)
         cdef _Activations X = nonlocals['X']
         cdef np.ndarray lengths = nonlocals['lengths']
-        cdef _Activations dX = _Activations(lengths, nO, nP, 4)
+        cdef _Activations dX = _Activations(lengths, nO, nP, 1)
         dX.set_d_outputs(d_outputs) 
 
         cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
