@@ -74,10 +74,7 @@ class LayerNorm(Model):
 def _get_moments(ops, X):
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
-    # TODO: This is wrong! We should be normalizing by shape[1], not shape[0]!
-    # However fixing this will invalidate the pre-trained models, so we'd better
-    # wait until the next major version.
-    return ops.asarray([X.shape[0]], dtype='f'), mu, var
+    return ops.asarray([X.shape[1]], dtype='f'), mu, var
 
 
 def _get_d_moments(ops, dy, X, mu):
