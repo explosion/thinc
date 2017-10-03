@@ -46,18 +46,20 @@ structured input and variable-length sequences.
     :target: https://twitter.com/explosion_ai
     :alt: Follow us on Twitter
 
-What's where (as of 1.9)
+What's where (as of v6.9.0)
 ========================
 
-* `thinc.v2v.Model`: Base class.
-* `thinc.v2v`: Layers transforming vectors to vectors.
-* `thinc.i2v`: Layers embedding IDs to vectors.
-* `thinc.t2v`: Layers pooling tensors to vectors.
-* `thinc.t2t`: Layers transforming tensors to tensors (e.g. CNN, LSTM).
-* `thinc.api`: Higher-order functions, for building networks. Will be renamed.
-* `thinc.extra`: Datasets and utilities.
-* `thinc.neural.ops`: Container classes for mathematical operations. Will be reorganized.
-* `thinc.linear.avgtron`: Legacy efficient Averaged Perceptron implementation.
+======================== ===
+``thinc.v2v.Model``      Base class.
+``thinc.v2v``            Layers transforming vectors to vectors.
+``thinc.i2v``            Layers embedding IDs to vectors.
+``thinc.t2v``            Layers pooling tensors to vectors.
+``thinc.t2t``            Layers transforming tensors to tensors (e.g. CNN, LSTM).
+``thinc.api``            Higher-order functions, for building networks. Will be renamed.
+``thinc.extra``          Datasets and utilities.
+``thinc.neural.ops``     Container classes for mathematical operations. Will be reorganized.
+``thinc.linear.avgtron`` Legacy efficient Averaged Perceptron implementation.
+======================== ===
 
 Development status
 ==================
