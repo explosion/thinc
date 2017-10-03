@@ -1,6 +1,6 @@
 from __future__ import print_function
-from thinc.neural._classes.hash_embed import HashEmbed
-from thinc.neural.vec2vec import Model, ReLu, Softmax
+from thinc.i2v.hash_embed import HashEmbed
+from thinc.v2v import Model, ReLu, Softmax
 
 from thinc.api import layerize, chain, with_flatten
 
