@@ -47,7 +47,7 @@ structured input and variable-length sequences.
     :alt: Follow us on Twitter
 
 What's where (as of v6.9.0)
-========================
+===========================
 
 ======================== ===
 ``thinc.v2v.Model``      Base class.
@@ -89,7 +89,7 @@ because we put the state from the forward pass into callbacks.
 
 All nodes in the network have a simple signature:
 
-.. code::
+.. code:: none
 
     f(inputs) -> {outputs, f(d_outputs)->d_inputs}
 
