@@ -1,8 +1,4 @@
 import numpy
-try:
-    import spacy
-except ImportError:
-    spacy = None
 
 SPACY_MODELS = {}
 VECTORS = {}
@@ -10,8 +6,7 @@ VECTORS = {}
 
 def get_spacy(lang, **kwargs):
     global SPACY_MODELS
-    if spacy is None:
-        raise ImportError("Could not import spacy. Is it installed?")
+    import spacy
     if lang not in SPACY_MODELS:
         SPACY_MODELS[lang] = spacy.load(lang, **kwargs)
     return SPACY_MODELS[lang]
