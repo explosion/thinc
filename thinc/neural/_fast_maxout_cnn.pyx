@@ -1,11 +1,13 @@
 # cython: infer_types=True
 # cython: cdivision=True
-from libc.stdlib cimport calloc, free
+from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy, memset
 from libc.math cimport sqrt
 cimport cython.parallel
 from cymem.cymem cimport Pool
 from libcpp.vector cimport vector
+from cymem.cymem cimport PyMalloc, PyFree
+from cymem.cymem cimport WrapMalloc, WrapFree
 
 from ._classes.maxout import Maxout
 from ._classes.layernorm import LayerNorm
@@ -42,7 +44,7 @@ cdef class _Activations:
     cdef dim_t nr_iter
 
     def __init__(self, lengths, dim_t nO, dim_t nP, dim_t nr_iter, gradient=False):
-        self.mem = Pool()
+        self.mem = Pool(pymalloc=WrapMalloc(malloc), pyfree=WrapFree(free))
         # Allocate buffers
         # Total e.g. nO=128, nP=3, nN=1000
         #   128*3*1000
