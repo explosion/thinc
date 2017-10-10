@@ -1,4 +1,4 @@
-from ...neural import Maxout
+from ...neural._classes.maxout import Maxout
 from ...api import chain
 
 

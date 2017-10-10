@@ -9,19 +9,17 @@ import spacy
 from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
-from thinc.neural.id2vec import Embed
-from thinc.neural._classes.hash_embed import HashEmbed
-from thinc.neural.vec2vec import Model, Maxout, ReLu, Affine, Softmax
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural._classes.batchnorm import BatchNorm as BN
-from thinc.neural._classes.layernorm import LayerNorm
+from thinc.i2v import Embed, HashEmbed
+from thinc.v2v import Model, Maxout, ReLu, Affine, Softmax
+from thinc.t2t import ExtractWindow
+from thinc.misc import BatchNorm as BN
+from thinc.misc import Residual
 from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
-from thinc.neural._classes.resnet import Residual
 
 from thinc.extra.datasets import ancora_pos_tags
 #from thinc.api import FeatureExtracter

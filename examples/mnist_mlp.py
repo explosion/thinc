@@ -2,7 +2,7 @@ from __future__ import print_function
 import plac
 import dill as pickle
 from tqdm import tqdm
-from thinc.neural.vec2vec import Model, Maxout, ReLu, Softmax
+from thinc.v2v import Model, Maxout, ReLu, Softmax
 from thinc.api import clone, chain
 from thinc.neural.util import to_categorical
 
