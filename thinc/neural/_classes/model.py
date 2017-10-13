@@ -309,7 +309,7 @@ class Model(object):
                     weights[-1][b'seed'] = layer.seed
 
                 offsets = sorted(layer._mem._offsets.items())
-                for (id_, name), (start, row, shape) in offsets:
+                for (id_, name), (start, row, shape, size) in offsets:
                     if row == 1:
                         continue
                     param = layer._mem.get((id_, name))
