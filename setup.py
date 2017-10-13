@@ -282,7 +282,7 @@ def setup_package():
                 'pathlib>=1.0.0,<2.0.0',
                 'msgpack-python',
                 'msgpack-numpy',
-                'blis==0.0.8'
+                'blis==0.0.13'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
