@@ -161,11 +161,15 @@ class Ops(object):
         else:
             return self.xp.array(data)
 
-    def batch_dot(self, x, y):
-        return self.xp.dot(x, y.T)
+    def batch_dot(self, x, y, transpose=False):
+        # TODO: Fix this confusing inversion =/
+        if not transpose:
+            return self.xp.dot(x, y.T)
+        else:
+            return self.xp.dot(x, y)
 
-    def batch_outer(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[0], [0]])
+    def add_batch_outer(self, output, x, y):
+        output += self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
@@ -174,7 +178,7 @@ class Ops(object):
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
-        return self.batch_dot(signal, weights) + bias
+        return self.batch_dot(signal, weights, transpose=False) + bias
 
     def add_sum(self, out, to_sum):
         out += to_sum.sum(axis=0)
@@ -287,6 +291,26 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
+    def batch_dot(self, float[:, ::1] vec, float[:, ::1] mat,
+            np.ndarray out=None, transpose=False):
+        out_dims = mat.shape[1] if transpose else mat.shape[0]
+        if out is None:
+            out = self.allocate((vec.shape[0], out_dims), dtype='f')
+        if transpose:
+            MatVec.batch_T_dot(<float*>out.data,
+                &mat[0,0], &vec[0,0], mat.shape[0], mat.shape[1], vec.shape[0])
+        else:
+            MatVec.batch_dot(<float*>out.data,
+                &mat[0,0], &vec[0,0], mat.shape[0], mat.shape[1], vec.shape[0])
+        return out
+    
+    def batch_outer(self, float[:, ::1] x, float[:, ::1] y, np.ndarray out=None):
+        if out is None:
+            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
+        MatMat.batch_add_outer_i(<float*>out.data,
+            &x[0,0], &y[0,0], out.shape[0], out.shape[1], x.shape[0])
+        return out
+
     def elu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
@@ -355,25 +379,23 @@ class NumpyOps(Ops):
                 delta[i] *= signal_out[i] + 1.
 
     def relu(self, ndarray X, inplace=False):
-        if inplace == False:
-            return X * (X > 0)
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
+        cdef np.ndarray out = X if inplace else X.copy()
+        cdef weight_t* data = <weight_t*>out.data
+        cdef size_t size = out.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
-        return X
+        return out
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
-        if inplace == False:
-            return delta_ * (signal_out_ > 0.)
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+    def backprop_relu(self, ndarray dY, ndarray Y, inplace=False):
+        cdef np.ndarray dX = dY if inplace else dY.copy()
+        cdef size_t size = dX.size
+        cdef weight_t* dX_ptr = <weight_t*>dX.data
+        cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] = 0.
-        return delta_
+            if Y_ptr[i] <= 0:
+                dX_ptr[i] = 0.
+        return dX
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
