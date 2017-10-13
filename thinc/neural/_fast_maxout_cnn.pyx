@@ -348,7 +348,7 @@ cdef void bwd_maxpool(float* dXa,
 
 
 cdef void layer_norm(real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
-    cdef real_t sqrt_var
+    cdef double sqrt_var
     for i in range(nr_row):
         mu = Vec.mean(X, nr_dim)
         v = Vec.variance(X, nr_dim)
@@ -363,7 +363,7 @@ cdef void layer_norm(real_t* X, dim_t nr_dim, dim_t nr_row) nogil:
 
 cdef void bwd_layer_norm(real_t* dXa,
         const real_t* dXb, const real_t* Xa, dim_t nr_dim, dim_t nr_row) nogil:
-    cdef real_t inv_var, inv_sqrt_var, sum_dXb_dist
+    cdef double inv_var, inv_sqrt_var, sum_dXb_dist
     for i in range(nr_row):
         mu = Vec.mean(Xa, nr_dim)
         v = Vec.variance(Xa, nr_dim)
