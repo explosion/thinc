@@ -48,14 +48,14 @@ def test_predict_bias(model):
 
 @pytest.mark.parametrize(
     'X,expected', [
-        (np.asarray([0,0]), [0., 0.]),
-        (np.asarray([1,0]), [1., 0.]),
-        (np.asarray([0,1]), [0., 1.]),
-        (np.asarray([1,1]), [1., 1.])
+        (np.asarray([0,0], dtype='f'), [0., 0.]),
+        (np.asarray([1,0], dtype='f'), [1., 0.]),
+        (np.asarray([0,1], dtype='f'), [0., 1.]),
+        (np.asarray([1,1], dtype='f'), [1., 1.])
     ])
 def test_predict_weights(X, expected):
-    W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
-    bias = np.asarray([0.,0.])
+    W = np.asarray([1.,0.,0.,1.], dtype='f').reshape((2, 2))
+    bias = np.asarray([0.,0.], dtype='f')
 
     model = Affine(W.shape[0], W.shape[1])
     model.W[:] = W
@@ -67,8 +67,8 @@ def test_predict_weights(X, expected):
 
 
 def test_update():
-    W = np.asarray([1.,0.,0.,1.]).reshape((2, 2))
-    bias = np.asarray([0.,0.])
+    W = np.asarray([1.,0.,0.,1.], dtype='f').reshape((2, 2))
+    bias = np.asarray([0.,0.], dtype='f')
 
     model = Affine(2, 2)
     model.W[:] = W
@@ -76,16 +76,16 @@ def test_update():
     sgd = SGD(model.ops, 1.0)
     sgd.averages = None
     
-    ff = np.asarray([[0,0]])
-    tf = np.asarray([[1,0]])
-    ft = np.asarray([[0,1]])
-    tt = np.asarray([[1,1]])
+    ff = np.asarray([[0,0]], dtype='f')
+    tf = np.asarray([[1,0]], dtype='f')
+    ft = np.asarray([[0,1]], dtype='f')
+    tt = np.asarray([[1,1]], dtype='f')
 
     # ff, i.e. 0, 0
     scores, finish_update = model.begin_update(ff)
     assert_allclose(scores[0,0], scores[0,1])
     # Tell it the answer was 'f'
-    gradient = np.asarray([[-1., 0.]])
+    gradient = np.asarray([[-1., 0.]], dtype='f')
     finish_update(gradient, sgd)
 
     assert model.b[0] == 1.
@@ -99,7 +99,7 @@ def test_update():
     # tf, i.e. 1, 0
     scores, finish_update = model.begin_update(tf)
     # Tell it the answer was 'T'
-    gradient = np.asarray([[0., -1.]])
+    gradient = np.asarray([[0., -1.]], dtype='f')
     finish_update(gradient, sgd)
 
     assert model.b[0] == 1.

@@ -139,9 +139,9 @@ def test_softmax_works_inplace(ops, X):
 @given(W_b_inputs=strategies.arrays_OI_O_BI())
 def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
     W, _, inputs = W_b_inputs
-    y = cpu_ops.batch_dot(inputs, W)
+    y = cpu_ops.batch_dot(inputs, W, transpose=False)
     expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
-    assert_allclose(y, expected)
+    assert_allclose(y, expected, rtol=1e-04, atol=0.0001)
 
 
 @settings(max_examples=MAX_EXAMPLES)
@@ -153,7 +153,7 @@ def test_batch_outer_computes_correctly(cpu_ops, arrays_BI_BO):
     expected = numpy.tensordot(bo, bi, axes=[[0], [0]])
     assert expected.shape == (bo.shape[1], bi.shape[1])
     oi = cpu_ops.batch_outer(bo, bi)
-    assert_allclose(oi, expected)
+    assert_allclose(oi, expected, rtol=1e-04, atol=0.0001)
 
 
 @settings(max_examples=MAX_EXAMPLES)

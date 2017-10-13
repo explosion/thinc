@@ -45,7 +45,7 @@ def test_batch_norm_runs_child_hooks(layer):
 
 
 def test_batch_norm_predict_maintains_shape(layer, shape):
-    input_ = numpy.ones(shape)
+    input_ = numpy.ones(shape, dtype='f')
     input1 = layer.predict(input_)
     assert_allclose(input1, input_)
     layer = BatchNorm(layer)
@@ -70,7 +70,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
         assert data.ndim == 1
         assert gradient.ndim == 1
 
-    grad_BO = numpy.ones((nr_batch, nr_out))
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype='f')
     grad_BI = finish_update(grad_BO, sgd)
     assert seen_keys == {model.id, model.child.id}
 
