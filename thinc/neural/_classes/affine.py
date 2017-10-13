@@ -47,17 +47,15 @@ class Affine(Model):
         self.nI = nI
         self.drop_factor = kwargs.get('drop_factor', 1.0)
 
-    @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
         return self.ops.affine(self.W, self.b, input__BI)
 
-    @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
         output__BO = self.predict(input__BI)
         def finish_update(grad__BO, sgd=None):
-            self.d_W += self.ops.batch_outer(grad__BO, input__BI)
+            self.ops.batch_outer(grad__BO, input__BI, out=self.d_W)
             self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.batch_dot(grad__BO, self.W.T)
+            grad__BI = self.ops.batch_dot(grad__BO, self.W, transpose=True)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
                     key=self.id)
