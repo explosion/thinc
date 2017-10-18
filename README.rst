@@ -12,7 +12,7 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
-🔮 **Version 6.8 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.9 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
@@ -47,7 +47,7 @@ structured input and variable-length sequences.
     :alt: Follow us on Twitter
 
 What's where (as of v6.9.0)
-========================
+===========================
 
 ======================== ===
 ``thinc.v2v.Model``      Base class.
@@ -89,7 +89,7 @@ because we put the state from the forward pass into callbacks.
 
 All nodes in the network have a simple signature:
 
-.. code::
+.. code:: none
 
     f(inputs) -> {outputs, f(d_outputs)->d_inputs}
 
@@ -363,7 +363,9 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
-`v6.8.1`_   ``2017-08-23`` Fix Windows support
+`v6.9.0`_   ``2017-10-03`` Reorganize layers, bug fix to Layer Normalization
+`v6.8.2`_   ``2017-09-26`` Fix packaging of `gpu_ops`
+`v6.8.1`_   ``2017-08-23`` Fix Windows support
 `v6.8.0`_   ``2017-07-25`` SELU layer, attention, improved GPU/CPU compatibility
 `v6.7.3`_   ``2017-06-05`` Fix convolution on GPU
 `v6.7.2`_   ``2017-06-02`` Bug fixes to serialization
@@ -384,6 +386,8 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.9.0: https://github.com/explosion/thinc/releases/tag/v6.9.0
+.. _v6.8.2: https://github.com/explosion/thinc/releases/tag/v6.8.2
 .. _v6.8.1: https://github.com/explosion/thinc/releases/tag/v6.8.1
 .. _v6.8.0: https://github.com/explosion/thinc/releases/tag/v6.8.0
 .. _v6.7.3: https://github.com/explosion/thinc/releases/tag/v6.7.3
