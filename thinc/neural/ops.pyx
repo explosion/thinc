@@ -569,22 +569,17 @@ cdef void _adam(
     weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
-    Vec.mul_i(mom1,
-        beta1, nr_weight)
-    VecVec.add_i(mom1,
-        gradient, 1-beta1, nr_weight)
-
-    for i in range(nr_weight):
-        gradient[i] *= gradient[i] * (1-beta2)
-    Vec.mul_i(mom2,
-        beta2, nr_weight)
-    VecVec.add_i(mom2, gradient, 1.0, nr_weight)
-    #for i in range(nr_weight):
-    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
-    # Here we assume this is calculated by the caller.
-    #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
-    for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
+    # Calculate Adam on CPU, fused.
+    # Assumes the learning rate adustment is calculated by the caller;
+    # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
+    cdef weight_t one_minus_beta1 = 1-beta1
+    cdef weight_t one_minus_beta2 = 1-beta2
+    cdef weight_t m1, m2, g
+    cdef int i
+    for i in cython.parallel.prange(nr_weight, num_threads=8, schedule="static"):
+        m1 = (mom1[i] * beta1) + (one_minus_beta1 * gradient[i])
+        m2 = (mom2[i] * beta2) + (gradient[i] * gradient[i] * one_minus_beta2)
+        weights[i] -= learn_rate * (m1/ (sqrt(m2 + eps)))
     memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
 
 
@@ -594,8 +589,10 @@ cdef void cpu_update_averages(weight_t* ema,
     cdef weight_t decay = (1.0 + t) / (10.0 + t)
     if decay > max_decay:
         decay = max_decay
-    for i in range(nr_weight):
-        ema[i] -= (1-decay) * (ema[i] - weights[i])
+    cdef weight_t one_minus_decay = 1-decay
+    cdef int i
+    for i in cython.parallel.prange(nr_weight, num_threads=4, schedule='static'):
+        ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
 class CupyOps(Ops):
