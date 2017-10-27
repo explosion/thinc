@@ -23,7 +23,6 @@ from .util import copy_array, get_array_module
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
-import blis.py
 
 
 cdef extern from "math.h":
@@ -285,13 +284,14 @@ class NumpyOps(Ops):
     xp = numpy
     
     def batch_dot(self, x, y):
-        return blis.py.gemm(x, y, trans2=True)
+        # TODO: Remove this once calling code is fixed
+        return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y):
-        return blis.py.einsum('ab,ac->bc', x, y)
+        return self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def dot(self, x, y):
-        return blis.py.gemm(x, y)
+        return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
