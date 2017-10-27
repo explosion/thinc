@@ -1,12 +1,12 @@
-# cython: profile=True, cdivision=True, infer_types=True
+# cython: cdivision=True, infer_types=True
 cimport cython
 cimport cython.parallel
 from libc.string cimport memcpy, memset
-from libc.math cimport exp, tanh, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
 from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
+from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
@@ -289,7 +289,7 @@ class NumpyOps(Ops):
         cdef size_t size = X.size
         for i in range(size):
             if data[i] < 0:
-                data[i] = exp(data[i])-1.
+                data[i] = expf(data[i])-1.
 
     def selu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
@@ -298,7 +298,7 @@ class NumpyOps(Ops):
         cdef float alpha = 1.6732632423543772
         for i in range(size):
             if data[i] < 0:
-                data[i] = alpha * (exp(data[i])-1.)
+                data[i] = alpha * (expf(data[i])-1.)
             data[i] *= scale
 
     def backprop_selu(self, ndarray delta_, ndarray signal_in_,
@@ -313,7 +313,7 @@ class NumpyOps(Ops):
         for i in range(size):
             delta[i] *= scale
             if signal_in[i] <= 0:
-                delta[i] *= alpha * exp(signal_in[i])
+                delta[i] *= alpha * expf(signal_in[i])
 
     def backprop_elu(self, ndarray delta_, ndarray signal_out_,
             inplace=True):
@@ -954,7 +954,7 @@ cdef void cpu_backprop_max_pool(float* dX__to,
 
 
 cdef inline float sigmoid(float X) nogil:
-    return 1./(1. + exp(-X))
+    return 1./(1. + expf(-X))
 
 
 cdef inline float dsigmoid(float y) nogil:
@@ -969,13 +969,13 @@ cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
         const float* prev, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i
-    for i in cython.parallel.prange(N):
+    for i in range(N):
         hf = sigmoid(gates[i*4+0])
         hi = sigmoid(gates[i*4+1])
         ho = sigmoid(gates[i*4+2])
-        hc = tanh(gates[i*4+3])
+        hc = tanhf(gates[i*4+3])
         cells[i] = hf * prev[i] + hi * hc
-        output[i] = tanh(cells[i]) * ho
+        output[i] = tanhf(cells[i]) * ho
         gates[i*4+0] = hf
         gates[i*4+1] = hi
         gates[i*4+2] = ho
@@ -993,7 +993,7 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         ho = gates[i*4+2]
         hc = gates[i*4+3]
         c  = cells[i]
-        ct = tanh(cells[i])
+        ct = tanhf(cells[i])
         dh = d_output[i]
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
         dho = ct     * dh * dsigmoid(ho)
