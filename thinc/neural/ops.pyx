@@ -283,6 +283,18 @@ class Ops(object):
 class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
+    
+    def batch_dot(self, x, y):
+        return blis.py.gemm(x, y, trans2=True)
+
+    def batch_outer(self, x, y):
+        return blis.py.einsum('ab,ac->bc', x, y)
+
+    def dot(self, x, y):
+        return blis.py.gemm(x, y)
+
+    def affine(self, weights, bias, signal):
+        return self.batch_dot(signal, weights) + bias
 
     def elu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
