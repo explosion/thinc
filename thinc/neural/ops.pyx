@@ -546,8 +546,21 @@ class NumpyOps(Ops):
         VecVec.batch_add_i(<float*>out.data,
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
-    def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
-        return self.xp.add.at(out, ids, inputs)
+    def scatter_add(self, out, ids, inputs):
+        assert inputs.shape[0] == ids.shape[0]
+        assert inputs.shape[1] == out.shape[1]
+        self.ops.xp.add.at(out, ids, inputs)
+ #       cpu_scatter_add(&out[0,0],
+ #           &ids[0], &inputs[0,0],
+ #           ids.shape[0], out.shape[1])
+ #       cdef void cpu_scatter_add(float* dest,
+ #       	const int* indices, const float* src,
+ #       	int nr_id, int nr_col) nogil:
+ #           for id_ in indices[:nr_id]:
+ #       	if id_ >= 0:
+ #       	    VecVec.add_i(&dest[id_*nr_col],
+ #       		&src[nr_col], 1., nr_col)
+ #
 
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
             float[::1] mom2, float beta1, float beta2, float eps,
