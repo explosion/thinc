@@ -562,12 +562,23 @@ class NumpyOps(Ops):
         VecVec.batch_add_i(<float*>out.data,
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
-    def scatter_add(self, float[:, ::1] out, int[::1] ids, float[:, ::1] inputs):
-        assert inputs.shape[0] == ids.shape[0]
-        assert inputs.shape[1] == out.shape[1]
-        cpu_scatter_add(&out[0,0],
-            &ids[0], &inputs[0,0],
-            ids.shape[0], out.shape[1])
+    def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
+        if out.dtype == 'float32' \
+        and ids.dtype == 'int32' \
+        and inputs.dtype == 'float32' \
+        and out.flags.C_CONTIGUOUS \
+        and ids.flags.C_CONTIGUOUS \
+        and inputs.flags.C_CONTIGUOUS \
+        and ids.ndim == 1 \
+        and out.ndim == 2 \
+        and inputs.ndim == 2 \
+        and inputs.shape[0] == ids.shape[0] \
+        and inputs.shape[1] == out.shape[1]:
+            cpu_scatter_add(<float*>out.data,
+                <int*>ids.data, <float*>inputs.data,
+                ids.shape[0], out.shape[1])
+        else:
+            self.xp.add.at(out, ids, inputs)
  
     @cython.boundscheck(False)
     @cython.wraparound(False)
