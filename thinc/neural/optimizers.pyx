@@ -23,8 +23,8 @@ def Adam(*args, **kwargs):
 
 
 def SGD(*args, **kwargs):
-    kwargs.setdefault('b1', 0.)
-    kwargs.setdefault('b2', 0.)
+    kwargs.setdefault('beta1', 0.)
+    kwargs.setdefault('beta2', 0.)
     return Optimizer(*args, **kwargs)
 
 
