@@ -18,11 +18,18 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
-from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
+import blis.py
+
+
+cdef extern from "math.h":
+    float sqrtf(float x) nogil
+    float expf(float x) nogil
+    float tanhf(float x) nogil
 
 
 try:
