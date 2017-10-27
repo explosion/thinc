@@ -361,16 +361,13 @@ class NumpyOps(Ops):
         return best, which
 
     def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
-        cdef Pool mem = Pool()
         cdef int B = dX__bo.shape[0]
         cdef int O = dX__bo.shape[1]
 
-        dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
-        cpu_backprop_maxout(dX__bop,
+        cdef np.ndarray dX__bop = numpy.zeros((B, O, P), dtype='float32')
+        cpu_backprop_maxout(<float*>dX__bop.data,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
-        cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
-        memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
-        return py_out.reshape((B, O, P))
+        return dX__bop
 
     def lstm(self, float[::1] output, float[::1] cells,
             float[::1] gates, float[::1] prev):
