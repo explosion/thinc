@@ -550,22 +550,13 @@ class NumpyOps(Ops):
         VecVec.batch_add_i(<float*>out.data,
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
-    def scatter_add(self, out, ids, inputs):
+    def scatter_add(self, float[:, ::1] out, int[::1] ids, float[:, ::1] inputs):
         assert inputs.shape[0] == ids.shape[0]
         assert inputs.shape[1] == out.shape[1]
-        self.ops.xp.add.at(out, ids, inputs)
- #       cpu_scatter_add(&out[0,0],
- #           &ids[0], &inputs[0,0],
- #           ids.shape[0], out.shape[1])
- #       cdef void cpu_scatter_add(float* dest,
- #       	const int* indices, const float* src,
- #       	int nr_id, int nr_col) nogil:
- #           for id_ in indices[:nr_id]:
- #       	if id_ >= 0:
- #       	    VecVec.add_i(&dest[id_*nr_col],
- #       		&src[nr_col], 1., nr_col)
- #
-
+        cpu_scatter_add(&out[0,0],
+            &ids[0], &inputs[0,0],
+            ids.shape[0], out.shape[1])
+ 
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
@@ -586,6 +577,16 @@ class NumpyOps(Ops):
         return output_
 
 
+cdef void cpu_scatter_add(float* dest,
+        const int* indices, const float* src,
+        int nr_id, int nr_col) nogil:
+    cdef int i
+    for i in range(nr_id):
+        id_ = indices[i]
+        if id_ >= 0:
+            VecVec.add_i(&dest[id_*nr_col],
+        	&src[i*nr_col], 1., nr_col)
+ 
 
 @cython.cdivision(True)
 cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
