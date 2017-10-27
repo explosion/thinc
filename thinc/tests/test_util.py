@@ -16,33 +16,4 @@ def test_get_ops():
         Ops = get_ops('blah')
 
 
-@pytest.mark.xfail
-@pytest.mark.parametrize(
-    'ids_batch', [
-        (
-            (
-                ('the', 'cat', 'sat'),
-                ('on', 'the', 'cat')
-            ),
-        ),
-        (
-            (
-                ('the',),
-                ('the',)
-            ),
-        ),
-        (
-            (
-                ('a', 'b', 'a', 'b', 'd', 'e', 'f'),
-            ),
-        )
-    ]
-)
-def test_get_positions(ids_batch):
-    ids_batch = list(toolz.concat(ids_batch))
-    positions = _get_positions(ids_batch)
-    for key, idxs in positions.items():
-        for i in idxs:
-            assert ids_batch[i] == key
-
 
