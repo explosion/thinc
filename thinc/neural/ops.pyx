@@ -562,11 +562,16 @@ class NumpyOps(Ops):
  #       		&src[nr_col], 1., nr_col)
  #
 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
             float[::1] mom2, float beta1, float beta2, float eps,
             float learn_rate, float mod_rate=1.):
-        _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
+        _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
+        VecVec.add_i(&weights[0],
+            &gradient[0], -learn_rate, weights.shape[0])
+        memset(&gradient[0], 0, gradient.size * sizeof(float))
 
     def ngrams(self, int n, uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
@@ -577,9 +582,9 @@ class NumpyOps(Ops):
         return output_
 
 
+
 @cython.cdivision(True)
-cdef void _adam(
-    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2,
+cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
     # Calculate Adam on CPU, fused.
@@ -589,11 +594,17 @@ cdef void _adam(
     cdef weight_t one_minus_beta2 = 1-beta2
     cdef weight_t m1, m2, g
     cdef int i
-    for i in cython.parallel.prange(nr_weight, num_threads=8, schedule="static"):
-        m1 = (mom1[i] * beta1) + (one_minus_beta1 * gradient[i])
-        m2 = (mom2[i] * beta2) + (gradient[i] * gradient[i] * one_minus_beta2)
-        weights[i] -= learn_rate * (m1/ (sqrt(m2 + eps)))
-    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+    Vec.mul_i(mom1,
+        beta1, nr_weight)
+    VecVec.add_i(mom1,
+        gradient, one_minus_beta1, nr_weight)
+    Vec.mul_i(mom2, beta2, nr_weight)
+    Vec.pow_i(gradient, 2, nr_weight)
+    VecVec.add_i(mom2, gradient, one_minus_beta2, nr_weight)
+    for i in range(nr_weight):
+        gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
+
+
 
 
 @cython.cdivision(True)
@@ -604,7 +615,7 @@ cdef void cpu_update_averages(weight_t* ema,
         decay = max_decay
     cdef weight_t one_minus_decay = 1-decay
     cdef int i
-    for i in cython.parallel.prange(nr_weight, num_threads=4, schedule='static'):
+    for i in range(nr_weight): # num_threads=4, schedule='static'):
         ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
