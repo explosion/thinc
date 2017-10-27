@@ -1,6 +1,6 @@
 from __future__ import unicode_literals, print_function
 
-from .optimizers import Eve, Adam, SGD, linear_decay
+from .optimizers import Adam, SGD, linear_decay
 from .util import minibatch
 
 import numpy.random
