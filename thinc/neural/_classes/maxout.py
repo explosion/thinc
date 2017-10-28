@@ -6,7 +6,6 @@ from ..util import get_array_module
 from ..util import copy_array
 
 
-
 def _set_dimensions_if_needed(model, X, y=None):
     if model.nI is None:
         model.nI = X.shape[1]
@@ -58,7 +57,7 @@ class Maxout(Model):
 
     def predict(self, X__BI):
         W = self.W.reshape((self.nO * self.nP, self.nI))
-        X__BOP = self.ops.xp.dot(X__BI, W.T)
+        X__BOP = self.ops.batch_dot(X__BI, W)
         X__BOP += self.b.reshape((self.nO*self.nP,))
         X__BOP = X__BOP.reshape((X__BOP.shape[0], self.nO, self.nP))
         best__BO, _ = self.ops.maxout(X__BOP)
@@ -67,7 +66,7 @@ class Maxout(Model):
     def begin_update(self, X__bi, drop=0.):
         W = self.W.reshape((self.nO * self.nP, self.nI))
         drop *= self.drop_factor
-        output__boc = self.ops.xp.dot(X__bi, W.T)
+        output__boc = self.ops.batch_dot(X__bi, W)
         output__boc += self.b.reshape((self.nO*self.nP,))
         output__boc = output__boc.reshape((output__boc.shape[0], self.nO, self.nP))
         best__bo, which__bo = self.ops.maxout(output__boc)
@@ -76,9 +75,11 @@ class Maxout(Model):
         def finish_update(dX__bo, sgd=None):
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)
-            self.d_W += self.ops.xp.tensordot(dX__bop, X__bi, axes=[[0], [0]])
+            dX__bop = dX__bop.reshape((dX__bop.shape[0], self.nO*self.nP))
+            d_W = self.ops.batch_outer(dX__bop, X__bi)
+            self.d_W += d_W.reshape((self.nO, self.nP, self.nI))
             # Bop,opi->Bi
-            dX__bi = self.ops.xp.tensordot(dX__bop, self.W, axes=[[1,2], [0, 1]])
+            dX__bi = self.ops.dot(dX__bop, self.W.reshape((self.nO*self.nP, self.nI)))
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dX__bi

@@ -73,7 +73,7 @@ def test_update():
     model = Affine(2, 2)
     model.W[:] = W
     model.b[:] = bias
-    sgd = SGD(model.ops, 1.0)
+    sgd = SGD(model.ops, 1.0, L2=0.0)
     sgd.averages = None
     
     ff = np.asarray([[0,0]])
