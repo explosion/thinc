@@ -54,7 +54,7 @@ link_options    =  {'msvc'  : [],
 
 # TODO: Detect this instead of relying on an environment variable.
 if os.environ.get('CUDA9', '0').lower() in ('1', 'true'):
-    compile_options['nvcc'].remove('-arch=sm_0')
+    compile_options['other']['nvcc'].remove('-arch=sm_20')
 
 
 def customize_compiler_for_nvcc(self):
