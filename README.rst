@@ -4,7 +4,7 @@ Thinc: Practical Machine Learning for NLP in Python
 **Thinc** is the machine learning library powering `spaCy <https://spacy.io>`_.
 It features a battle-tested linear model designed for large sparse learning
 problems, and a flexible neural network model under development for
-`spaCy v2.0 <https://github.com/explosion/spaCy/projects/3>`_.
+`spaCy v2.0 <https://alpha.spacy.io/usage/v2>`_.
 
 Thinc is a practical toolkit for implementing models that follow the
 `"Embed, encode, attend, predict" <https://explosion.ai/blog/deep-learning-formula-nlp>`_
@@ -12,7 +12,7 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
-🔮 **Version 6.9 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.10 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
@@ -363,6 +363,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.10.0`_  ``2017-10-28`` CPU efficiency improvements, refactoring
 `v6.9.0`_   ``2017-10-03`` Reorganize layers, bug fix to Layer Normalization
 `v6.8.2`_   ``2017-09-26`` Fix packaging of `gpu_ops`
 `v6.8.1`_   ``2017-08-23`` Fix Windows support
@@ -386,6 +387,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.10.0: https://github.com/explosion/thinc/releases/tag/v6.10.0
 .. _v6.9.0: https://github.com/explosion/thinc/releases/tag/v6.9.0
 .. _v6.8.2: https://github.com/explosion/thinc/releases/tag/v6.8.2
 .. _v6.8.1: https://github.com/explosion/thinc/releases/tag/v6.8.1
