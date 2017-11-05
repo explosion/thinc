@@ -20,7 +20,7 @@ class PytorchWrapper(Model):
                                         requires_grad=True)
         # Make prediction
         y_var = self._model(x_var)
-        def backward(dy_data, sgd=None):
+        def backward_pytorch(dy_data, sgd=None):
             dy_var = torch.autograd.Variable(torch.Tensor(dy_data))
             torch.autograd.backward((y_var,), grad_variables=(dy_var,))
             dX = self.ops.asarray(x_var.grad.data)
