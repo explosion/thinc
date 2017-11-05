@@ -162,6 +162,9 @@ class Ops(object):
                 return self.xp.asarray(data, dtype=dtype)
             else:
                 return self.xp.asarray(data)
+        elif hasattr(data, 'numpy'):
+            # Handles PyTorch Tensor
+            return data.numpy()
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
@@ -282,7 +285,7 @@ class Ops(object):
 class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
-    
+
     def batch_dot(self, x, y):
         # TODO: Remove this once calling code is fixed
         return self.xp.dot(x, y.T)
@@ -654,6 +657,12 @@ class CupyOps(Ops):
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
+        elif hasattr(X, 'data_ptr'):
+            # Handles PyTorch Tensors
+            pointer = cupy.cuda.MemoryPointer(X.data_ptr())
+            shape = X.stride()
+            array = self.xp.ndarray(shape, memptr=pointer, dtype=dtype)
+            return array
         else:
             return self.xp.array(X, dtype=dtype)
 
