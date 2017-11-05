@@ -24,6 +24,11 @@ from .util import copy_array, get_array_module
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
+include "../compile_time_constants.pxi"
+
+if USE_BLAS:
+    import blis.py
+
 
 cdef extern from "math.h":
     float sqrtf(float x) nogil
@@ -287,14 +292,23 @@ class NumpyOps(Ops):
     xp = numpy
 
     def batch_dot(self, x, y):
-        # TODO: Remove this once calling code is fixed
-        return self.xp.dot(x, y.T)
+        # TODO: Remove this method once calling code is fixed
+        IF USE_BLAS:
+            return blis.py.gemm(x, y, trans2=True)
+        ELSE:
+            return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[0], [0]])
+        IF USE_BLAS:
+            return blis.py.gemm(x, y, trans1=True)
+        ELSE:
+            return self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def dot(self, x, y):
-        return self.xp.dot(x, y)
+        IF USE_BLAS:
+            return blis.py.gemm(x, y)
+        ELSE:
+            return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
@@ -569,9 +583,9 @@ class NumpyOps(Ops):
         if out.dtype == 'float32' \
         and ids.dtype == 'int32' \
         and inputs.dtype == 'float32' \
-        and out.flags.C_CONTIGUOUS \
-        and ids.flags.C_CONTIGUOUS \
-        and inputs.flags.C_CONTIGUOUS \
+        and out.flags.c_contiguous \
+        and ids.flags.c_contiguous \
+        and inputs.flags.c_contiguous \
         and ids.ndim == 1 \
         and out.ndim == 2 \
         and inputs.ndim == 2 \
