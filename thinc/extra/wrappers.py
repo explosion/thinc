@@ -24,4 +24,7 @@ class PytorchWrapper(Model):
             dy_var = torch.autograd.Variable(torch.Tensor(dy_data))
             torch.autograd.backward((y_var,), grad_variables=(dy_var,))
             dX = self.ops.asarray(x_var.grad.data)
+            if sgd is not None:
+                optimizer.step()
+            return dX
         return self.ops.asarray(y_var.data), backward
