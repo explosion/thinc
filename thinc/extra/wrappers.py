@@ -1,7 +1,9 @@
+from ..compat import BytesIO
 from ..neural._classes.model import Model
 
 try:
     import torch.autograd
+    import torch
 except ImportError:
     pass
 
@@ -16,6 +18,9 @@ class PytorchWrapper(Model):
         self._model = model
 
     def begin_update(self, x_data, drop=0.):
+        '''Return the output of the wrapped PyTorch model for the given input,
+        along with a callback to handle the backward pass.
+        '''
         x_var = torch.autograd.Variable(torch.Tensor(x_data),
                                         requires_grad=True)
         # Make prediction
@@ -28,3 +33,44 @@ class PytorchWrapper(Model):
                 optimizer.step()
             return dX
         return self.ops.asarray(y_var.data), backward
+
+    def to_disk(self, path):
+        # TODO: Untested
+        torch.save(self._model.state_dict(), str(path))
+
+    def from_disk(self, path):
+        # TODO: Untested
+        self._model.load_state_dict(torch.load(path))
+
+    def to_bytes(self):
+        # TODO: Untested
+        filelike = BytesIO()
+        torch.save(self._model.state_dict(), filelike)
+        return filelike.read()
+
+    def from_bytes(self, data):
+        # TODO: Untested
+        filelike = BytesIO(data)
+        self._model.load_state_dict(torch.load(filelike))
+
+    def to_gpu(self, device_num):
+        # TODO: Implement
+        raise NotImplementedError
+
+    def to_cpu(self):
+        # TODO: Implement
+        raise NotImplementedError
+
+    def resize_output(self):
+        # TODO: Required for spaCy add label
+        raise NotImplementedError
+
+    def resize_input(self):
+        # TODO: Not required yet, but should be useful
+        raise NotImplementedError
+
+    @contextlib.contextmanager
+    def use_params(self, params): # pragma: no cover
+        # TODO: Implement
+        raise NotImplementedError
+
