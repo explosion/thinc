@@ -40,7 +40,7 @@ class Trainer(object):
                     y = _take_slice(train_y, slice_)
                     yield X, y
                     self.dropout = linear_decay(orig_dropout, self.dropout_decay,
-                                                self.optimizer.nr_iter)
+                                                j)
                     j += self.batch_size
                     if progress_bar:
                         pbar.update(self.batch_size)
