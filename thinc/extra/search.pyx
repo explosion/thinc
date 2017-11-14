@@ -117,7 +117,8 @@ cdef class Beam:
             # Indicates terminal state reached; i.e. state is done
             if parent.is_done:
                 # Now parent will not be changed, so we don't have to copy.
-                self._states[i] = parent[0]
+                # Once finished, should also be unbranching.
+                self._states[i], parent[0] = self._states[i], parent[0]
                 self._states[i].score = score
                 self.histories[i] = list(self._parent_histories[p_i])
                 i += 1
