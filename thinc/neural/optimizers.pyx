@@ -40,7 +40,8 @@ class Optimizer(object):
     * b1=0.999, b2=0.9: Adam
     '''
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
-                 b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., nesterov=True):
+                 b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., gradient_noise=0.0,
+                 nesterov=True):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
@@ -53,6 +54,7 @@ class Optimizer(object):
         self.b2 = beta2
         self.b1_decay = b1_decay
         self.b2_decay = b1_decay
+        self.gradient_noise = gradient_noise
         self.eps = eps
         self.decay = decay
         self.L2 = L2
@@ -94,7 +96,8 @@ class Optimizer(object):
             gradient += self.L2 * weights
         if self.max_grad_norm:
             self.ops.clip_gradient(gradient, self.max_grad_norm)
-
+        if self.gradient_noise:
+            add_gradient_noise(gradient, self.gradient_noise, nr_upd)
         if self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and not self.nesterov:
