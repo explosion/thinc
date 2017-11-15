@@ -892,7 +892,7 @@ def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
 
 def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         weight_t timestep):
-    variance = noise_level / ((1 + timestep) ** 0.55)
+    cdef weight_t variance = noise_level / ((1 + timestep) ** 0.55)
     if variance >= 0.000001:
         gradient += numpy.asarray(
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
