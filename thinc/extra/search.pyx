@@ -118,7 +118,10 @@ cdef class Beam:
             if parent.is_done:
                 # Now parent will not be changed, so we don't have to copy.
                 # Once finished, should also be unbranching.
-                self._states[i], parent[0] = self._states[i], parent[0]
+                self._states[i], parent[0] = parent[0], self._states[i]
+                parent.i = self._states[i].i
+                parent.t = self._states[i].t
+                parent.is_done = self._states[i].t
                 self._states[i].score = score
                 self.histories[i] = list(self._parent_histories[p_i])
                 i += 1
