@@ -151,12 +151,15 @@ cdef class Beam:
 
     cdef int check_done(self, finish_func_t finish_func, void* extra_args) except -1:
         cdef int i
-        self.is_done = True
         for i in range(self.size):
             if not self._states[i].is_done:
                 self._states[i].is_done = finish_func(self._states[i].content, extra_args)
-                if not self._states[i].is_done:
-                    self.is_done = False
+        for i in range(self.size):
+            if not self._states[i].is_done:
+                self.is_done = False
+                break
+        else:
+            self.is_done = True
 
     @cython.cdivision(True)
     cdef int _fill(self, Queue* q, weight_t** scores, int** is_valid) except -1:
