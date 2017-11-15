@@ -1,15 +1,14 @@
 from __future__ import print_function
 import pickle
 
-from thinc.neural._classes.resnet import Residual
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural import Model, ReLu, Maxout, Softmax, Affine
-from thinc.neural._classes.selu import SELU
-from thinc.neural._classes.batchnorm import BatchNorm as BN
+from thinc.misc import Residual
+from thinc.t2t import ExtractWindow
+from thinc.v2v import Model, ReLu, Maxout, Softmax, Affine, SELU
+from thinc.misc import BatchNorm as BN
 
-from thinc.neural._classes.attention import ParametricAttention
+from thinc.t2t import ParametricAttention
 
-from thinc.neural.pooling import Pooling, sum_pool, max_pool, mean_pool
+from thinc.t2v import Pooling, sum_pool, max_pool, mean_pool
 from thinc.extra import datasets
 from thinc.neural.util import to_categorical
 from thinc.neural._classes.hash_embed import HashEmbed
