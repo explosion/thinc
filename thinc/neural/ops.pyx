@@ -840,8 +840,8 @@ cdef void backprop_seq2col(float* d_seqs,
 cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
     for i in range(B*O):
-        which__bo[i] = Vec.arg_max(&cands__bop[i], P)
-        best__bo[i] = cands__bop[which__bo[i]]
+        which__bo[i] = Vec.arg_max(&cands__bop[i*P], P)
+        best__bo[i] = cands__bop[i*P + which__bo[i]]
 
 
 cdef void cpu_backprop_maxout(float* dX__bop,
