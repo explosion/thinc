@@ -662,8 +662,6 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
 
 
-
-
 @cython.cdivision(True)
 cdef void cpu_update_averages(weight_t* ema,
         const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
