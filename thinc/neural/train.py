@@ -1,6 +1,6 @@
 from __future__ import unicode_literals, print_function
 
-from .optimizers import Eve, Adam, SGD, linear_decay
+from .optimizers import Adam, SGD, linear_decay
 from .util import minibatch
 
 import numpy.random
@@ -40,7 +40,7 @@ class Trainer(object):
                     y = _take_slice(train_y, slice_)
                     yield X, y
                     self.dropout = linear_decay(orig_dropout, self.dropout_decay,
-                                                self.optimizer.nr_iter)
+                                                j)
                     j += self.batch_size
                     if progress_bar:
                         pbar.update(self.batch_size)

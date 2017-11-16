@@ -1,12 +1,12 @@
-# cython: profile=True, cdivision=True, infer_types=True
+# cython: cdivision=True, infer_types=True, profile=True
 cimport cython
 cimport cython.parallel
 from libc.string cimport memcpy, memset
-from libc.math cimport exp, tanh, sqrt, isnan
 from libc.stdlib cimport srand, rand
 from libc.stdlib cimport calloc, malloc, free
 from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
+from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
@@ -18,11 +18,22 @@ from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t
-from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec, sqrt
+from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
+
+include "../compile_time_constants.pxi"
+
+if USE_BLAS:
+    import blis.py
+
+
+cdef extern from "math.h":
+    float sqrtf(float x) nogil
+    float expf(float x) nogil
+    float tanhf(float x) nogil
 
 
 try:
@@ -156,6 +167,9 @@ class Ops(object):
                 return self.xp.asarray(data, dtype=dtype)
             else:
                 return self.xp.asarray(data)
+        elif hasattr(data, 'numpy'):
+            # Handles PyTorch Tensor
+            return data.numpy()
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
@@ -291,56 +305,34 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
-    def batch_dot(self, float[:, ::1] vec, float[:, ::1] mat,
-            np.ndarray out=None, transpose=False):
-        out_dims = mat.shape[1] if transpose else mat.shape[0]
-        if out is None:
-            out = self.allocate((vec.shape[0], out_dims), dtype='f')
-        if transpose:
-            MatVec.batch_T_dot(<float*>out.data,
-                &mat[0,0], &vec[0,0], mat.shape[0], mat.shape[1], vec.shape[0])
-        else:
-            MatVec.batch_dot(<float*>out.data,
-                &mat[0,0], &vec[0,0], mat.shape[0], mat.shape[1], vec.shape[0])
-        return out
-    
-    def batch_outer(self, float[:, ::1] x, float[:, ::1] y, np.ndarray out=None):
-        if out is None:
-            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
-        MatMat.batch_add_outer_i(<float*>out.data,
-            &x[0,0], &y[0,0], out.shape[0], out.shape[1], x.shape[0])
-        return out
+    def batch_dot(self, x, y):
+        # TODO: Remove this method once calling code is fixed
+        IF USE_BLAS:
+            return blis.py.gemm(x, y, trans2=True)
+        ELSE:
+            return self.xp.dot(x, y.T)
+
+    def batch_outer(self, x, y):
+        IF USE_BLAS:
+            return blis.py.gemm(x, y, trans1=True)
+        ELSE:
+            return self.xp.tensordot(x, y, axes=[[0], [0]])
+
+    def dot(self, x, y):
+        IF USE_BLAS:
+            return blis.py.gemm(x, y)
+        ELSE:
+            return self.xp.dot(x, y)
+
+    def affine(self, weights, bias, signal):
+        return self.batch_dot(signal, weights) + bias
 
     def elu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
         cdef size_t size = X.size
         for i in range(size):
             if data[i] < 0:
-                data[i] = exp(data[i])-1.
-    
-    def selu(self, ndarray X, inplace=True):
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = alpha * (exp(data[i])-1.)
-            data[i] *= scale
-    
-    def backprop_selu(self, ndarray delta_, ndarray signal_in_,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
- 
-        for i in range(size):
-            delta[i] *= scale
-            if signal_in[i] <= 0:
-                delta[i] *= alpha * exp(signal_in[i])
+                data[i] = expf(data[i])-1.
 
     def selu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
@@ -349,7 +341,7 @@ class NumpyOps(Ops):
         cdef float alpha = 1.6732632423543772
         for i in range(size):
             if data[i] < 0:
-                data[i] = alpha * (exp(data[i])-1.)
+                data[i] = alpha * (expf(data[i])-1.)
             data[i] *= scale
 
     def backprop_selu(self, ndarray delta_, ndarray signal_in_,
@@ -364,7 +356,7 @@ class NumpyOps(Ops):
         for i in range(size):
             delta[i] *= scale
             if signal_in[i] <= 0:
-                delta[i] *= alpha * exp(signal_in[i])
+                delta[i] *= alpha * expf(signal_in[i])
 
     def backprop_elu(self, ndarray delta_, ndarray signal_out_,
             inplace=True):
@@ -410,16 +402,13 @@ class NumpyOps(Ops):
         return best, which
 
     def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
-        cdef Pool mem = Pool()
         cdef int B = dX__bo.shape[0]
         cdef int O = dX__bo.shape[1]
 
-        dX__bop = <float*>mem.alloc(B * O * P, sizeof(float))
-        cpu_backprop_maxout(dX__bop,
+        cdef np.ndarray dX__bop = numpy.zeros((B, O, P), dtype='float32')
+        cpu_backprop_maxout(<float*>dX__bop.data,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
-        cdef ndarray py_out = self.xp.ascontiguousarray(self.allocate(B*O*P, dtype='float32'))
-        memcpy(py_out.data, dX__bop, B * O * P * sizeof(dX__bop[0]))
-        return py_out.reshape((B, O, P))
+        return dX__bop
 
     def lstm(self, float[::1] output, float[::1] cells,
             float[::1] gates, float[::1] prev):
@@ -603,13 +592,33 @@ class NumpyOps(Ops):
             <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
-        return self.xp.add.at(out, ids, inputs)
-
+        if out.dtype == 'float32' \
+        and ids.dtype == 'int32' \
+        and inputs.dtype == 'float32' \
+        and out.flags.c_contiguous \
+        and ids.flags.c_contiguous \
+        and inputs.flags.c_contiguous \
+        and ids.ndim == 1 \
+        and out.ndim == 2 \
+        and inputs.ndim == 2 \
+        and inputs.shape[0] == ids.shape[0] \
+        and inputs.shape[1] == out.shape[1]:
+            cpu_scatter_add(<float*>out.data,
+                <int*>ids.data, <float*>inputs.data,
+                ids.shape[0], out.shape[1])
+        else:
+            self.xp.add.at(out, ids, inputs)
+ 
+    @cython.boundscheck(False)
+    @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
             float[::1] mom2, float beta1, float beta2, float eps,
             float learn_rate, float mod_rate=1.):
-        _adam(&weights[0], &gradient[0], &mom1[0], &mom2[0],
+        _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
+        VecVec.add_i(&weights[0],
+            &gradient[0], -learn_rate, weights.shape[0])
+        memset(&gradient[0], 0, gradient.size * sizeof(float))
 
     def ngrams(self, int n, uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
@@ -620,28 +629,39 @@ class NumpyOps(Ops):
         return output_
 
 
+cdef void cpu_scatter_add(float* dest,
+        const int* indices, const float* src,
+        int nr_id, int nr_col) nogil:
+    cdef int i
+    for i in range(nr_id):
+        id_ = indices[i]
+        if id_ >= 0:
+            VecVec.add_i(&dest[id_*nr_col],
+        	&src[i*nr_col], 1., nr_col)
+ 
+
 @cython.cdivision(True)
-cdef void _adam(
-    weight_t* weights, weight_t* gradient, weight_t* mom1, weight_t* mom2,
+cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
         weight_t learn_rate) nogil:
+    # Calculate Adam on CPU, fused.
+    # Assumes the learning rate adustment is calculated by the caller;
+    # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
+    cdef weight_t one_minus_beta1 = 1-beta1
+    cdef weight_t one_minus_beta2 = 1-beta2
+    cdef weight_t m1, m2, g
+    cdef int i
     Vec.mul_i(mom1,
         beta1, nr_weight)
     VecVec.add_i(mom1,
-        gradient, 1-beta1, nr_weight)
+        gradient, one_minus_beta1, nr_weight)
+    Vec.mul_i(mom2, beta2, nr_weight)
+    Vec.pow_i(gradient, 2, nr_weight)
+    VecVec.add_i(mom2, gradient, one_minus_beta2, nr_weight)
+    for i in range(nr_weight):
+        gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
 
-    for i in range(nr_weight):
-        gradient[i] *= gradient[i] * (1-beta2)
-    Vec.mul_i(mom2,
-        beta2, nr_weight)
-    VecVec.add_i(mom2, gradient, 1.0, nr_weight)
-    #for i in range(nr_weight):
-    #    mom2[i] = (beta2 * mom2[i]) + ((1-beta2) * gradient[i] * gradient[i])
-    # Here we assume this is calculated by the caller.
-    #cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t)
-    for i in range(nr_weight):
-        weights[i] -= learn_rate * (mom1[i] / (sqrt(mom2[i]) + eps))
-    memset(gradient, 0, sizeof(gradient[0]) * nr_weight)
+
 
 
 @cython.cdivision(True)
@@ -650,8 +670,10 @@ cdef void cpu_update_averages(weight_t* ema,
     cdef weight_t decay = (1.0 + t) / (10.0 + t)
     if decay > max_decay:
         decay = max_decay
-    for i in range(nr_weight):
-        ema[i] -= (1-decay) * (ema[i] - weights[i])
+    cdef weight_t one_minus_decay = 1-decay
+    cdef int i
+    for i in range(nr_weight): # num_threads=4, schedule='static'):
+        ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
 class CupyOps(Ops):
@@ -661,6 +683,12 @@ class CupyOps(Ops):
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
+        elif hasattr(X, 'data_ptr'):
+            # Handles PyTorch Tensors
+            pointer = cupy.cuda.MemoryPointer(X.data_ptr())
+            shape = X.stride()
+            array = self.xp.ndarray(shape, memptr=pointer, dtype=dtype)
+            return array
         else:
             return self.xp.array(X, dtype=dtype)
 
@@ -823,18 +851,9 @@ cdef void backprop_seq2col(float* d_seqs,
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
-    for b in range(B):
-        for o in range(O):
-            which__bo[0] = 0
-            best__bo[0] = cands__bop[0]
-            cands__bop += 1
-            for p in range(1, P):
-                if cands__bop[0] > best__bo[0]:
-                    which__bo[0] = p
-                    best__bo[0] = cands__bop[0]
-                cands__bop += 1
-            best__bo += 1
-            which__bo += 1
+    for i in range(B*O):
+        which__bo[i] = Vec.arg_max(&cands__bop[i*P], P)
+        best__bo[i] = cands__bop[i*P + which__bo[i]]
 
 
 cdef void cpu_backprop_maxout(float* dX__bop,
@@ -876,7 +895,7 @@ def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
 
 def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         weight_t timestep):
-    variance = noise_level / ((1 + timestep) ** 0.55)
+    cdef weight_t variance = noise_level / ((1 + timestep) ** 0.55)
     if variance >= 0.000001:
         gradient += numpy.asarray(
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
@@ -982,7 +1001,7 @@ cdef void cpu_backprop_max_pool(float* dX__to,
 
 
 cdef inline float sigmoid(float X) nogil:
-    return 1./(1. + exp(-X))
+    return 1./(1. + expf(-X))
 
 
 cdef inline float dsigmoid(float y) nogil:
@@ -997,13 +1016,13 @@ cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
         const float* prev, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i
-    for i in cython.parallel.prange(N):
+    for i in range(N):
         hf = sigmoid(gates[i*4+0])
         hi = sigmoid(gates[i*4+1])
         ho = sigmoid(gates[i*4+2])
-        hc = tanh(gates[i*4+3])
+        hc = tanhf(gates[i*4+3])
         cells[i] = hf * prev[i] + hi * hc
-        output[i] = tanh(cells[i]) * ho
+        output[i] = tanhf(cells[i]) * ho
         gates[i*4+0] = hf
         gates[i*4+1] = hi
         gates[i*4+2] = ho
@@ -1021,7 +1040,7 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         ho = gates[i*4+2]
         hc = gates[i*4+3]
         c  = cells[i]
-        ct = tanh(cells[i])
+        ct = tanhf(cells[i])
         dh = d_output[i]
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
         dho = ct     * dh * dsigmoid(ho)

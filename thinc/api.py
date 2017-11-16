@@ -364,16 +364,18 @@ def uniqued(layer, column=0):
     '''
     def uniqued_fwd(X, drop=0.):
         keys = X[:, column]
+        keys = layer.ops.xp.ascontiguousarray(keys)
         if not isinstance(keys, numpy.ndarray):
             keys = keys.get()
         uniq_keys, ind, inv, counts = numpy.unique(keys, return_index=True,
                                                     return_inverse=True,
                                                     return_counts=True)
-        Y_uniq, bp_Y_uniq = layer.begin_update(X[ind], drop=drop)
+        X_uniq = layer.ops.xp.ascontiguousarray(X[ind])
+        Y_uniq, bp_Y_uniq = layer.begin_update(X_uniq, drop=drop)
         Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
         def uniqued_bwd(dY, sgd=None):
             dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype='f')
-            layer.ops.scatter_add(dY_uniq, inv, dY)
+            layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype='i'), dY)
             d_uniques = bp_Y_uniq(dY_uniq, sgd=sgd)
             if d_uniques is not None:
                 dX = (d_uniques / counts)[inv]

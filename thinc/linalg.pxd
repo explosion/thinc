@@ -12,7 +12,7 @@ from .typedefs cimport weight_t
 include "compile_time_constants.pxi"
 
 IF USE_BLAS:
-    from blis cimport blis
+    from blis cimport cy as blis
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
@@ -29,6 +29,8 @@ cdef class Matrix:
 cdef class Vec:
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
+        if n_classes == 2:
+            return 0 if scores[0] > scores[1] else 1
         cdef int i
         cdef int best = 0
         cdef weight_t mode = scores[0]

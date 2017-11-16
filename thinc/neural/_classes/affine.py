@@ -55,7 +55,7 @@ class Affine(Model):
         def finish_update(grad__BO, sgd=None):
             self.ops.batch_outer(grad__BO, input__BI, out=self.d_W)
             self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.batch_dot(grad__BO, self.W, transpose=True)
+            grad__BI = self.ops.dot(grad__BO, self.W)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
                     key=self.id)

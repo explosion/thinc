@@ -48,11 +48,10 @@ MOD_NAMES = [
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O2', '-Wno-strict-prototypes', '-fopenmp',
-                            '-Wno-unused-function', '-march=native'],
-                        'nvcc': ['-arch=sm_20', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
+                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [],
-                    'other' : ['-fopenmp']}
+                    'other' : []}
 
 
 def customize_compiler_for_nvcc(self):
@@ -247,7 +246,7 @@ def setup_package():
                         # this syntax is specific to this build system
                         # we're only going to use certain compiler args with nvcc and not with gcc
                         # the implementation of this trick is in customize_compiler() below
-                        extra_compile_args=['-arch=sm_20', '--ptxas-options=-v', '-c',
+                        extra_compile_args=['-arch=sm_30', '--ptxas-options=-v', '-c',
                                             '--compiler-options', "'-fPIC'"],
                         include_dirs = include_dirs + [CUDA['include']]))
 

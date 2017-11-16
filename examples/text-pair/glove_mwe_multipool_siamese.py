@@ -5,20 +5,18 @@ from pathlib import Path
 import dill as pickle
 import numpy
 
-from thinc.neural import Model, ReLu, Softmax, Maxout
-from thinc.neural import ExtractWindow
-from thinc.neural.pooling import Pooling, mean_pool, max_pool
-from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
-from thinc.neural._classes.hash_embed import HashEmbed
-from thinc.neural._classes.embed import Embed
+from thinc.v2v import Model, ReLu, Softmax, Maxout
+from thinc.t2v import Pooling, mean_pool, max_pool
+from thinc.i2v import HashEmbed, StaticVectors
+from thinc.t2t import ExtractWindow
 from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.neural.util import to_categorical
-from thinc.neural._classes.batchnorm import BatchNorm as BN
-from thinc.neural._classes.resnet import Residual
+from thinc.misc import BatchNorm as BN
+from thinc.misc import Residual
 from thinc.neural.ops import CupyOps
 
 from thinc.api import layerize, with_flatten, with_getitem, flatten_add_lengths
-from thinc.api import add, chain, clone, concatenate, Arg
+from thinc.api import add, chain, clone, concatenate, Arg, get_word_ids
 
 from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy, get_vectors
@@ -41,30 +39,9 @@ def track_progress(**context):
             avg_acc = model.evaluate_logloss(dev_X, dev_y)
         stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
-        track_stat('dev', epoch, avg_acc)
-        track_stat('dev_raw', epoch, acc)
-        track_stat('train', epoch, epoch_train_acc / n_train)
-        track_stat('batch_size', epoch, trainer.batch_size)
         epoch_train_acc = 0.
         epoch += 1
     return each_epoch
-
-
-try:
-    from deepsense import neptune
-except ImportError:
-    neptune = None
-
-CTX = None
-
-CHANNELS = {}
-def track_stat(name, i, value):
-    if CTX is None:
-        return
-    if name not in CHANNELS:
-        CHANNELS[name] = CTX.job.create_channel(name, neptune.ChannelType.NUMERIC)
-    channel = CHANNELS[name]
-    channel.send(x=i, y=value)
 
 
 def preprocess(ops, nlp, rows, get_ids):
@@ -157,9 +134,9 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
         sent2vec = ( # List[spacy.token.Doc]{B}
             flatten_add_lengths  # : (ids{T}, lengths{B})
             >> with_getitem(0,
-                (StaticVectors('en', width)
-                   + HashEmbed(width, 3000)
-                   + HashEmbed(width, 3000))
+                #(StaticVectors('en', width)
+                HashEmbed(width, 3000)
+                #+ HashEmbed(width, 3000))
                 #>> Residual(mwe_encode ** 2)
                 ) # : word_ids{T}
             >> Pooling(mean_pool, max_pool)
@@ -206,18 +183,13 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
             assert (yh >= 0.).all(), yh
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
             loss = model.ops.xp.abs(yh-y).mean()
-            track_stat('loss', n_iter, loss)
-            track_stat('train acc', n_iter, train_acc)
-            track_stat('LR', n_iter, optimizer.lr(n_iter+1))
             epoch_train_acc += train_acc
             backprop(yh-y, optimizer)
-            optimizer.set_loss(loss)
             n_iter += 1
 
             # Slightly useful trick: start with low batch size, accelerate.
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
-            track_stat('Batch size', n_iter, y.shape[0])
         if out_loc:
             out_loc = Path(out_loc)
             print('Saving to', out_loc)

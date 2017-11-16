@@ -106,7 +106,7 @@ def read_imdb(data_dir, limit=0):
     examples = []
     for subdir, label in (('pos', 1), ('neg', 0)):
         for filename in (data_dir / subdir).iterdir():
-            with filename.open() as file_:
+            with filename.open('r', encoding='utf8') as file_:
                 text = file_.read()
             text = text.replace('<br />', '\n\n')
             if text.strip():
@@ -181,7 +181,7 @@ def quora_questions(loc=None):
         loc = Path(loc)
     is_header = True
     lines = []
-    with loc.open('r') as file_:
+    with loc.open('r', encoding='utf8') as file_:
         for row in csv.reader(file_, delimiter='\t'):
             if is_header:
                 is_header = False
@@ -213,7 +213,7 @@ def stack_exchange(loc=None):
     if loc is None:
         raise ValueError("No default path for Stack Exchange yet")
     rows = []
-    with loc.open() as file_:
+    with loc.open('r', encoding='utf8') as file_:
         for line in file_:
             eg = json.loads(line)
             rows.append(((eg['text1'], eg['text2']), int(eg['label'])))
@@ -223,7 +223,7 @@ def stack_exchange(loc=None):
 
 def read_snli(loc, label_scheme):
     rows = []
-    with loc.open() as file_:
+    with loc.open('r', encoding='utf8') as file_:
         for line in file_:
             eg = json.loads(line)
             label = eg['gold_label']
