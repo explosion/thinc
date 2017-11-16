@@ -29,6 +29,8 @@ cdef class Matrix:
 cdef class Vec:
     @staticmethod    
     cdef inline int arg_max(const weight_t* scores, const int n_classes) nogil:
+        if n_classes == 2:
+            return 0 if scores[0] > scores[1] else 1
         cdef int i
         cdef int best = 0
         cdef weight_t mode = scores[0]

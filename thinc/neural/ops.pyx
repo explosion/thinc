@@ -1,4 +1,4 @@
-# cython: cdivision=True, infer_types=True
+# cython: cdivision=True, infer_types=True, profile=True
 cimport cython
 cimport cython.parallel
 from libc.string cimport memcpy, memset
@@ -839,18 +839,9 @@ cdef void backprop_seq2col(float* d_seqs,
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
         const float* cands__bop, int B, int O, int P) nogil:
-    for b in range(B):
-        for o in range(O):
-            which__bo[0] = 0
-            best__bo[0] = cands__bop[0]
-            cands__bop += 1
-            for p in range(1, P):
-                if cands__bop[0] > best__bo[0]:
-                    which__bo[0] = p
-                    best__bo[0] = cands__bop[0]
-                cands__bop += 1
-            best__bo += 1
-            which__bo += 1
+    for i in range(B*O):
+        which__bo[i] = Vec.arg_max(&cands__bop[i], P)
+        best__bo[i] = cands__bop[which__bo[i]]
 
 
 cdef void cpu_backprop_maxout(float* dX__bop,
