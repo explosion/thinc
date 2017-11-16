@@ -14,8 +14,6 @@ from ..linalg cimport Vec, Mat, VecVec, MatVec, MatMat
 import numpy
 cimport numpy as np
 
-from blis import blis
-
 from ..api import wrap
 
 ctypedef float real_t
