@@ -12,8 +12,6 @@ from .typedefs cimport weight_t
 include "compile_time_constants.pxi"
 
 IF USE_BLAS:
-    import blis.py
-    from blis cimport cy as blis
     from . cimport openblas
 
 cdef extern from "math.h" nogil:
@@ -91,7 +89,6 @@ cdef class Vec:
         cdef int i
         IF USE_BLAS:
             openblas.scale(vec, nr, scal)
-            #blis.scalv(blis.NO_CONJUGATE, nr, scal, vec, 1)
         ELSE:
             for i in range(nr):
                 vec[i] *= scal
@@ -177,7 +174,6 @@ cdef class VecVec:
         IF USE_BLAS:
             openblas.simple_axpy(x, nr,
                 y, scale)
-            #blis.axpyv(blis.NO_CONJUGATE, nr, scale, <weight_t*>y, 1, x, 1)
         ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
@@ -319,17 +315,6 @@ cdef class MatVec:
                 nr_batch, nr_row,
                 vec, nr_batch, nr_col,
                 mat, nr_row, nr_col)
-            #blis.gemv(
-            #    blis.NO_TRANSPOSE,
-            #    blis.NO_CONJUGATE,
-            #    nr_row,
-            #    nr_col,
-            #    1.0,
-            #    <weight_t*>mat, nr_col, 1,
-            #    <weight_t*>vec, 1,
-            #    1.0,
-            #    output, 1
-            #)
         ELSE:
             for i in range(nr_row):
                 row = i * nr_col
@@ -358,22 +343,6 @@ cdef class MatVec:
                 nr_batch, nr_row,
                 vec, nr_batch, nr_col,
                 mat, nr_row, nr_col)
-            #blis.NO_TRANSPOSE,
-            #blis.TRANSPOSE,
-            #nr_batch,
-            #nr_row,
-            #nr_col,
-            #1.0,
-            #<weight_t*>vec,
-            #nr_col,
-            #1,
-            #<weight_t*>mat,
-            #nr_col,
-            #1,
-            #1.0,
-            #output,
-            #nr_row,
-            #1)
         ELSE:
             for b in range(nr_batch):
                 MatVec.dot(output,
@@ -396,17 +365,6 @@ cdef class MatVec:
                 nr_batch, nr_row,
                 vec, nr_batch, nr_col,
                 mat, nr_row, nr_col)
- 
-            #blis.gemv(
-            #    blis.TRANSPOSE,
-            #    blis.NO_CONJUGATE,
-            #    nr_row, nr_col,
-            #    1.0,
-            #    <weight_t*>mat, nr_col, 1,
-            #    <weight_t*>vec, 1,
-            #    1.0,
-            #    output, 1,
-            #)
         ELSE:
             for row in range(nr_row):
                 for col in range(nr_col):
@@ -495,14 +453,6 @@ cdef class MatMat:
         IF USE_BLAS:
             openblas.simple_ger(mat, nr_row, nr_col,
                 x, nr_row, y, nr_col)
-            #blis.ger(
-            #    blis.NO_CONJUGATE, blis.NO_CONJUGATE,
-            #    nr_row, nr_col,
-            #    1.0,
-            #    <weight_t*>x, 1,
-            #    <weight_t*>y, 1,
-            #    mat, nr_col, 1
-            #)
         ELSE:
             for i in range(nr_row):
                 row = i * nr_col
@@ -534,24 +484,6 @@ cdef class MatMat:
                 nr_row, nr_col,
                 x, nr_batch, nr_row,
                 y, nr_row, nr_col)
- 
-            #blis.gemm(
-            #    blis.TRANSPOSE,
-            #    blis.NO_TRANSPOSE,
-            #    nr_row,
-            #    nr_col,
-            #    nr_batch,
-            #    1.0,
-            #    <weight_t*>x,
-            #    nr_row,
-            #    1,
-            #    <weight_t*>y,
-            #    nr_col,
-            #    1,
-            #    1.0,
-            #    output,
-            #    nr_col,
-            #    1)
         ELSE:
             for _ in range(nr_batch):
                 for i in range(nr_row):

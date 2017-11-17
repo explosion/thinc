@@ -17,9 +17,9 @@ from numpy cimport ndarray
 from collections import Sized
 cimport numpy as np
 
+from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
-from .. cimport openblas
 from .util import copy_array, get_array_module
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
@@ -28,7 +28,7 @@ from six import integer_types
 include "../compile_time_constants.pxi"
 
 if USE_BLAS:
-    import blis.py
+    from .. cimport openblas
 
 
 cdef extern from "math.h":
@@ -306,21 +306,33 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
+    def allocate(self, shape, dtype='float32'):
+        if isinstance(shape, integer_types):
+            shape = (shape,)
+        return zeros_aligned(shape, dtype=dtype)
+
     def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
         VecVec.add_i(<float*>x.data,
             <float*>y.data, scale, x.shape[0])
 
     def gemm(self, np.ndarray x, np.ndarray y, trans1=False, trans2=False,
              np.ndarray out=None):
-        cdef int m = x.shape[0] if not trans1 else x.shape[1]
-        cdef int n = y.shape[1] if not trans2 else y.shape[0]
+        cdef int m = x.shape[1] if trans1 else x.shape[0]
+        cdef int n = y.shape[0] if trans2 else y.shape[1]
         if out is None:
             out = self.allocate((m, n))
         assert out.shape[0] == m
         assert out.shape[1] == n
-        openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-            <float*>x.data, x.shape[0], x.shape[1],
-            <float*>y.data, y.shape[0], y.shape[1])
+        IF USE_BLAS:
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1])
+        ELSE:
+            if trans1:
+                x = x.T
+            if trans2:
+                y = y.T
+            self.xp.dot(x, y, out=out)
         return out
 
     def batch_dot(self, np.ndarray x, np.ndarray y):
@@ -333,20 +345,13 @@ class NumpyOps(Ops):
                 <float*>y.data, <float*>x.data,
                 y.shape[0], y.shape[1], x.shape[0])
             return output
-            #return blis.py.gemm(x, y, trans2=True)
         ELSE:
             return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y, out=None):
-        #IF USE_BLAS:
-        #return blis.py.gemm(x, y, trans1=True)
-        #ELSE:
         return self.xp.dot(x.T, y, out=out)
 
     def dot(self, x, y):
-        #IF USE_BLAS:
-        #    return blis.py.gemm(x, y)
-        #ELSE:
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
