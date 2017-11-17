@@ -12,6 +12,7 @@ from .typedefs cimport weight_t
 include "compile_time_constants.pxi"
 
 IF USE_BLAS:
+    import blis.py
     from blis cimport cy as blis
 
 cdef extern from "math.h" nogil:

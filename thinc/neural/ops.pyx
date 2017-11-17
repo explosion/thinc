@@ -307,22 +307,22 @@ class NumpyOps(Ops):
 
     def batch_dot(self, x, y):
         # TODO: Remove this method once calling code is fixed
-        IF USE_BLAS:
-            return blis.py.gemm(x, y, trans2=True)
-        ELSE:
-            return self.xp.dot(x, y.T)
+        #IF USE_BLAS:
+        #return blis.py.gemm(x, y, trans2=True)
+        #ELSE:
+        return self.xp.dot(x, y.T)
 
     def batch_outer(self, x, y, out=None):
-        IF USE_BLAS:
-            return blis.py.gemm(x, y, trans1=True)
-        ELSE:
-            return self.xp.dot(x.T, y, out=out)
+        #IF USE_BLAS:
+        #return blis.py.gemm(x, y, trans1=True)
+        #ELSE:
+        return self.xp.dot(x.T, y, out=out)
 
     def dot(self, x, y):
-        IF USE_BLAS:
-            return blis.py.gemm(x, y)
-        ELSE:
-            return self.xp.dot(x, y)
+        #IF USE_BLAS:
+        #    return blis.py.gemm(x, y)
+        #ELSE:
+        return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
