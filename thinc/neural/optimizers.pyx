@@ -107,7 +107,7 @@ class Optimizer(object):
         elif self.b2 > 0.:
             raise NotImplementedError
         else:
-            self.ops.inplace_add(weights, gradient, scale=lr_scale * self.alpha)
+            self.ops.inplace_add(weights, gradient, scale=-(lr_scale * self.alpha))
             #weights -= lr_scale * self.alpha * gradient
         gradient.fill(0.)
         if self.averages is not None:
