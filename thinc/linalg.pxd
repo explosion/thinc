@@ -14,6 +14,7 @@ include "compile_time_constants.pxi"
 IF USE_BLAS:
     import blis.py
     from blis cimport cy as blis
+    from . cimport openblas
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
@@ -345,23 +346,26 @@ cdef class MatVec:
         cdef int i, row, col
         cdef double one = 1.0
         IF USE_BLAS:
-            blis.gemm(
-                blis.NO_TRANSPOSE,
-                blis.TRANSPOSE,
-                nr_batch,
-                nr_row,
-                nr_col,
-                1.0,
-                <weight_t*>vec,
-                nr_col,
-                1,
-                <weight_t*>mat,
-                nr_col,
-                1,
-                1.0,
-                output,
-                nr_row,
-                1)
+            openblas.simple_gemm(output,
+                nr_batch, nr_row,
+                vec, nr_batch, nr_col,
+                mat, nr_row, nr_col)
+            #blis.NO_TRANSPOSE,
+            #blis.TRANSPOSE,
+            #nr_batch,
+            #nr_row,
+            #nr_col,
+            #1.0,
+            #<weight_t*>vec,
+            #nr_col,
+            #1,
+            #<weight_t*>mat,
+            #nr_col,
+            #1,
+            #1.0,
+            #output,
+            #nr_row,
+            #1)
         ELSE:
             for b in range(nr_batch):
                 MatVec.dot(output,
@@ -378,17 +382,23 @@ cdef class MatVec:
         cdef int i, row, col
         cdef double zero = 0.0
         cdef double one = 1.0
+        cdef int nr_batch = 1
         IF USE_BLAS:
-            blis.gemv(
-                blis.TRANSPOSE,
-                blis.NO_CONJUGATE,
-                nr_row, nr_col,
-                1.0,
-                <weight_t*>mat, nr_col, 1,
-                <weight_t*>vec, 1,
-                1.0,
-                output, 1,
-            )
+            openblas.simple_gemm(output,
+                nr_batch, nr_row,
+                vec, nr_batch, nr_col,
+                mat, nr_row, nr_col)
+ 
+            #blis.gemv(
+            #    blis.TRANSPOSE,
+            #    blis.NO_CONJUGATE,
+            #    nr_row, nr_col,
+            #    1.0,
+            #    <weight_t*>mat, nr_col, 1,
+            #    <weight_t*>vec, 1,
+            #    1.0,
+            #    output, 1,
+            #)
         ELSE:
             for row in range(nr_row):
                 for col in range(nr_col):
@@ -416,23 +426,28 @@ cdef class MatVec:
             # vec:  M * K
             # mat:  K * N
             # out:  M * N
-            blis.gemm(
-                blis.NO_TRANSPOSE,
-                blis.NO_TRANSPOSE,
-                nr_batch,
-                nr_col,
-                nr_row,
-                1.0,
-                <weight_t*>vec,
-                nr_row,
-                1,
-                <weight_t*>mat,
-                nr_col,
-                1,
-                1.0,
-                output,
-                nr_col,
-                1)
+            openblas.simple_gemm(output,
+                nr_batch, nr_col,
+                vec, nr_batch, nr_row,
+                mat, nr_row, nr_col)
+ 
+            #blis.gemm(
+            #    blis.NO_TRANSPOSE,
+            #    blis.NO_TRANSPOSE,
+            #    nr_batch,
+            #    nr_col,
+            #    nr_row,
+            #    1.0,
+            #    <weight_t*>vec,
+            #    nr_row,
+            #    1,
+            #    <weight_t*>mat,
+            #    nr_col,
+            #    1,
+            #    1.0,
+            #    output,
+            #    nr_col,
+            #    1)
         ELSE:
             for _ in range(nr_batch):
                 MatVec.T_dot(output,
@@ -522,23 +537,28 @@ cdef class MatMat:
         # out:  M * N
         cdef double one = 1.0
         IF USE_BLAS:
-            blis.gemm(
-                blis.TRANSPOSE,
-                blis.NO_TRANSPOSE,
-                nr_row,
-                nr_col,
-                nr_batch,
-                1.0,
-                <weight_t*>x,
-                nr_row,
-                1,
-                <weight_t*>y,
-                nr_col,
-                1,
-                1.0,
-                output,
-                nr_col,
-                1)
+            openblas.simple_gemm(output,
+                nr_row, nr_col,
+                x, nr_batch, nr_row,
+                y, nr_row, nr_col)
+ 
+            #blis.gemm(
+            #    blis.TRANSPOSE,
+            #    blis.NO_TRANSPOSE,
+            #    nr_row,
+            #    nr_col,
+            #    nr_batch,
+            #    1.0,
+            #    <weight_t*>x,
+            #    nr_row,
+            #    1,
+            #    <weight_t*>y,
+            #    nr_col,
+            #    1,
+            #    1.0,
+            #    output,
+            #    nr_col,
+            #    1)
         ELSE:
             for _ in range(nr_batch):
                 for i in range(nr_row):
