@@ -135,13 +135,13 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@settings(max_examples=MAX_EXAMPLES)
-@given(W_b_inputs=strategies.arrays_OI_O_BI())
-def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
-    W, _, inputs = W_b_inputs
-    y = cpu_ops.batch_dot(inputs, W)
-    expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
-    assert_allclose(y, expected, rtol=1e-04, atol=0.0001)
+#@settings(max_examples=MAX_EXAMPLES)
+#@given(W_b_inputs=strategies.arrays_OI_O_BI())
+#def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
+#    W, _, inputs = W_b_inputs
+#    y = cpu_ops.batch_dot(inputs, W)
+#    expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
+#    assert_allclose(y, expected, rtol=1e-04, atol=0.0001)
 
 
 @settings(max_examples=MAX_EXAMPLES)
