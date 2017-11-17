@@ -312,11 +312,11 @@ class NumpyOps(Ops):
         ELSE:
             return self.xp.dot(x, y.T)
 
-    def batch_outer(self, x, y):
+    def batch_outer(self, x, y, out=None):
         IF USE_BLAS:
             return blis.py.gemm(x, y, trans1=True)
         ELSE:
-            return self.xp.tensordot(x, y, axes=[[0], [0]])
+            return self.xp.dot(x.T, y, out=out)
 
     def dot(self, x, y):
         IF USE_BLAS:
