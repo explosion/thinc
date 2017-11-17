@@ -65,22 +65,22 @@ cdef void simple_gemm(float* output, int o0, int o1,
     cdef float beta = 1.0
     if o0 == a0 and o1 == b1:
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
-                    o0, b1, b0,
+                    o0, o1, b0,
                     alpha, A, a1, B, b1,
                     beta, output, o1)
     elif o0 == a0 and o1 == b0:
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
-                    o0, b0, b1,
+                    o0, o1, b1,
                     alpha, A, a1, B, b1,
                     beta, output, o1)
     elif o0 == a1 and o1 == b0:
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans,
-                    o0, a0, b1,
+                    o0, o1, b1,
                     alpha, A, a1, B, b1,
                     beta, output, o1)
     elif o0 == a1 and o1 == b1:
         cblas_sgemm(CblasRowMajor, CblasTrans, CblasTrans,
-                    o0, a0, b0,
+                    o0, o1, b0,
                     alpha, A, a1, B, b1,
                     beta, output, o1)
     else:
