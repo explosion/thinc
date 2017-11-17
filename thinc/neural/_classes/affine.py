@@ -48,7 +48,9 @@ class Affine(Model):
         self.drop_factor = kwargs.get('drop_factor', 1.0)
 
     def predict(self, input__BI):
-        return self.ops.affine(self.W, self.b, input__BI)
+        output__BO = self.ops.gemm(input__BI, self.W, trans2=True)
+        output__BO += self.b
+        return output__BO
 
     def begin_update(self, input__BI, drop=0.):
         output__BO = self.predict(input__BI)

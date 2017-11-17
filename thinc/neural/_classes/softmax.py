@@ -13,7 +13,8 @@ from ... import check
 class Softmax(Affine):
     name = 'softmax'
     def predict(self, input__BI):
-        output__BO = self.ops.affine(self.W, self.b, input__BI)
+        output__BO = self.ops.gemm(input__BI, self.W, trans2=True)
+        output__BO += self.b
         output__BO = self.ops.softmax(output__BO, inplace=False)
         return output__BO
 
