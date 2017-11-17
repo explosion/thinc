@@ -88,3 +88,19 @@ cdef void simple_gemm(float* output, int o0, int o1,
             dims = '(%d, %d) = (%d, %d) @ (%d, %d)' % (o0, o1, a0, a1, b0, b1)
             raise ValueError("Invalid dimensions for GEMM: %s" % dims)
  
+
+cdef void simple_ger(float* output, int o0, int o1,
+                     const float* A, int a0,
+                     const float* B, int b0) nogil:
+    cdef float alpha = 1.
+    cblas_sger(CblasRowMajor, o0, o1, alpha, A, 1, B, 1,
+        output, o1)
+
+
+cdef void scale(float* output, int o0, float scale) nogil:
+    cblas_sscal(o0, scale, output, 1)
+
+
+cdef void simple_axpy(float* output, int o0,
+        const float* A, float scale) nogil:
+    cblas_saxpy(o0, scale, <float*>A, 1, output, 1)
