@@ -42,7 +42,7 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
         sent2vec = (
             flatten_add_lengths
             >> with_getitem(0,
-                uniqued(embed, column=0)
+                embed
                 >> Residual(ExtractWindow(nW=1) >> SELU(width)) ** conv_depth
             )
             >> ParametricAttention(width)
@@ -112,7 +112,7 @@ def main(use_gpu=True):
                  width=[64],
                  depth=[2],
                  conv_depth=[2],
-                 batch_size=[128],
+                 batch_size=[512],
                  learn_rate=[0.001],
                  L2=[1e-6],
                  beta1=[0.9],
