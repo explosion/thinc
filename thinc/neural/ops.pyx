@@ -111,10 +111,10 @@ class Ops(object):
             return x * mask, wrap_backprop
 
     def flatten(self, X, dtype=None, pad=0):
-        if not X:
+        if not len(X):
             return self.allocate((0,), dtype=dtype or 'f')
         xp = get_array_module(X[0])
-        if pad:
+        if int(pad) == 0:
             padded = []
             for x in X:
                 padded.append(
@@ -135,7 +135,7 @@ class Ops(object):
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if pad:
+        if int(pad) == 0:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
@@ -210,6 +210,27 @@ class Ops(object):
             return x
         else:
             return new_x
+    
+    def softmax_sequences(self, Xs, lengths, inplace=False, axis=-1):
+        if Xs.ndim >= 3:
+            raise NotImplementedError(
+                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim)
+        maxes, which = self.max_pool(Xs, lengths)
+        max_Xs = self.backprop_max_pool(maxes, which, lengths)
+        new_x = self.xp.exp(Xs - max_Xs)
+        summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
+        new_x /= summed
+        if inplace:
+            copy_array(Xs, new_x)
+            return Xs
+        else:
+            return new_x
+
+    def backprop_softmax_sequences(self, dy, y, lengths):
+        dx = y * dy
+        sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
+        dx -= y * sumdx
+        return dx
 
     def expand_dims(self, a, axis=-1):
         return self.xp.expand_dims(a, axis=axis)
