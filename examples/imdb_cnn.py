@@ -40,8 +40,7 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
         )
 
         sent2vec = (
-            FeatureExtracter([ORTH, LOWER, PREFIX, SUFFIX, SHAPE])
-            >> flatten_add_lengths
+            flatten_add_lengths
             >> with_getitem(0,
                 uniqued(embed, column=0)
                 >> Residual(ExtractWindow(nW=1) >> SELU(width)) ** conv_depth
@@ -52,8 +51,7 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
         )
 
         model = (
-            get_sents
-            >> foreach(sent2vec, drop_factor=2.0)
+            foreach(sent2vec, drop_factor=2.0)
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
             >> Pooling(sum_pool)
@@ -70,14 +68,14 @@ def simple_train(nlp, model_data, train_X, train_y, dev_X, dev_y):
         _, ((model, sgd, hp), train_acc, dev_acc) = train_epoch(model, sgd, hp,
                                                         train_X, train_y,
                                                         dev_X, dev_y,
-                                                        device_id=-1)
+                                                        device_id=0)
         print(train_acc, dev_acc)
     with model.use_params(optimizer.averages):
         dev_acc = model.evaluate(dev_X, dev_y)
     return (model, optimizer, hp), train_acc, dev_acc
 
 
-def main(use_gpu=False):
+def main(use_gpu=True):
     if use_gpu:
         Model.ops = CupyOps()
         Model.Ops = CupyOps
@@ -85,8 +83,11 @@ def main(use_gpu=False):
     print("Load data")
     train_X, train_y = zip(*train)
     test_X, test_y = zip(*test)
-    train_y = to_categorical(train_y, nb_classes=2)
-    test_y = to_categorical(test_y, nb_classes=2)
+    train_y = Model.ops.asarray(to_categorical(train_y, nb_classes=2))
+    test_y = Model.ops.asarray(to_categorical(test_y, nb_classes=2))
+    
+    #train_X = train_X[:2000]
+    #test_X = test_X[:2000]
 
     nlp = spacy.load('en_vectors_web_lg')
     nlp.add_pipe(nlp.create_pipe('sentencizer'), first=True)
@@ -94,16 +95,16 @@ def main(use_gpu=False):
     for word in nlp.vocab:
         word.prefix_ = word.orth_[:3]
 
+    preprocessor = FeatureExtracter([ORTH, LOWER, PREFIX, SUFFIX, SHAPE])
+    train_X = [preprocessor(list(doc.sents)) for doc in tqdm.tqdm(nlp.pipe(train_X))]
+    test_X = [preprocessor(list(doc.sents)) for doc in tqdm.tqdm(nlp.pipe(test_X))]
+
     dev_X = train_X[-1000:]
     dev_y = train_y[-1000:]
     train_X = train_X[:-1000]
     train_y = train_y[:-1000]
-    #train_X = train_X[:1000]
-    #train_y = train_y[:1000]
     print("Parse data")
-    train_X = list(tqdm.tqdm(nlp.pipe(train_X)))
-    dev_X = list(tqdm.tqdm(nlp.pipe(dev_X)))
-    n_sent = sum([len(list(doc.sents)) for doc in train_X])
+    n_sent = sum([len(list(sents)) for sents in train_X])
     print("%d sentences" % n_sent)
 
     hpsearch = BestFirstFinder(
