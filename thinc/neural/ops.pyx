@@ -7,6 +7,10 @@ from libc.stdlib cimport calloc, malloc, free
 from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
 from libc.math cimport isnan
+from libcpp.queue cimport priority_queue
+from libcpp.vector cimport vector
+from libcpp cimport algorithm
+from libcpp.pair cimport pair
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
@@ -200,6 +204,8 @@ class Ops(object):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
+        # This loses almost no fidelity, and helps the numerical stability.
+        x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -215,9 +221,11 @@ class Ops(object):
         if Xs.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % Xs.ndim)
-        maxes, which = self.max_pool(Xs, lengths)
-        max_Xs = self.backprop_max_pool(maxes, which, lengths)
-        new_x = self.xp.exp(Xs - max_Xs)
+        # This loses almost no fidelity, and helps the numerical stability.
+        Xs = self.xp.clip(Xs, -20., 20.)
+        #maxes, which = self.max_pool(Xs, lengths)
+        #max_Xs = self.backprop_sum_pool(maxes, lengths)
+        new_x = self.xp.exp(Xs)
         summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
         new_x /= summed
         if inplace:
@@ -301,6 +309,13 @@ class Ops(object):
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+
+    def sparsify(self, gradient, int topk):
+        indices = self.xp.argpartition(-self.xp.abs(gradient), topk)[:topk]
+        values = gradient[indices]
+        gradient.fill(0.)
+        gradient[indices] = values
+        return gradient
 
     def logloss(self, y_true, y_pred):
         log_yp = self.xp.log(y_pred + 1e-8)
