@@ -385,26 +385,37 @@ def uniqued(layer, column=0):
     return model
 
 
-def foreach(layer, drop_factor=1.0):
+def foreach(layer, drop_factor=1.0, array_out=True):
     '''Map a layer across elements in a list'''
     def foreach_fwd(Xs, drop=0.):
+        # Input: [ [ x1.1, .., x1.len1 ], .., [ x.N.1, .., x.N.lenN ]
+        # Layer input: [ x1.1, .., x.N.lenN ]
+        # Layer output: y1.1, .., yN.lenN
+        # Output: [ [ y1.1, .., y1.len1 ], .., [ yN.1, ..., yN.lenN ]
         drop *= drop_factor
-        ys = []
-        backprops = []
+        flat_Xs = []
         for X in Xs:
-            y, bp_y = layer.begin_update(X, drop=drop)
-            ys.append(y)
-            backprops.append(bp_y)
+            flat_Xs.extend(X)
+        flat_ys, bp_ys = layer.begin_update(flat_Xs, drop=drop)
+        ys = []
+        i = 0
+        for X in Xs:
+            ys.append(flat_ys[i : i+len(X)])
+            i += len(X)
         def foreach_bwd(d_ys, sgd=None):
+            flat_dys = layer.ops.flatten(d_ys)
+            flat_dX = bp_ys(flat_dys, sgd=sgd)
+            if flat_dX is None:
+                return None
             d_Xs = []
-            for d_y, bp_y in zip(d_ys, backprops):
-                if bp_y is not None and bp_y is not None:
-                    d_Xs.append(d_y, sgd=sgd)
-                else:
-                    d_Xs.append(None)
+            i = 0
+            for dy in d_ys:
+                d_Xs.append(flat_dX[i : i+len(dy)])
+                i += len(dy)
             return d_Xs
         return ys, foreach_bwd
     model = wrap(foreach_fwd, layer)
+    model.on_data_hooks = []
     return model
 
 
