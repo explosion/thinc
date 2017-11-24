@@ -1,18 +1,19 @@
 from __future__ import print_function
-from thinc.neural._classes.resnet import Residual
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.neural import Model, ReLu, Maxout, Softmax, Affine
-from thinc.neural._classes.selu import SELU
-from thinc.neural._classes.batchnorm import BatchNorm as BN
+import tqdm
 
-from thinc.neural._classes.attention import ParametricAttention
+from thinc.v2v import Model, SELU, ReLu, Maxout, Softmax, Affine
+from thinc.t2t import ExtractWindow
+from thinc.misc import BatchNorm as BN
+from thinc.misc import Residual
+
+from thinc.t2t import ParametricAttention
 
 from thinc.neural.pooling import Pooling, sum_pool, max_pool, mean_pool
 from thinc.extra import datasets
 from thinc.neural.util import to_categorical
 from thinc.neural._classes.hash_embed import HashEmbed
-from thinc.api import chain, concatenate, clone
-from thinc.api import foreach_sentence, uniqued
+from thinc.api import layerize, chain, concatenate, clone
+from thinc.api import foreach, foreach_sentence, uniqued
 from thinc.api import layerize, with_flatten, flatten_add_lengths, with_getitem
 from thinc.api import FeatureExtracter
 import spacy
@@ -20,6 +21,12 @@ from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX
 
 from thinc.extra.hpbff import BestFirstFinder, train_epoch
 from thinc.neural.ops import CupyOps
+
+
+@layerize
+def get_sents(docs, drop=0.):
+    sents = [list(doc.sents) for doc in docs]
+    return sents, None
 
 
 def build_model(nr_class, width, depth, conv_depth, **kwargs):
@@ -45,7 +52,8 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
         )
 
         model = (
-            foreach_sentence(sent2vec, drop_factor=2.0)
+            get_sents
+            >> foreach(sent2vec, drop_factor=2.0)
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
             >> Pooling(sum_pool)
@@ -80,7 +88,8 @@ def main(use_gpu=False):
     train_y = to_categorical(train_y, nb_classes=2)
     test_y = to_categorical(test_y, nb_classes=2)
 
-    nlp = spacy.load('en')
+    nlp = spacy.load('en_vectors_web_lg')
+    nlp.add_pipe(nlp.create_pipe('sentencizer'), first=True)
     nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
     for word in nlp.vocab:
         word.prefix_ = word.orth_[:3]
@@ -92,8 +101,8 @@ def main(use_gpu=False):
     #train_X = train_X[:1000]
     #train_y = train_y[:1000]
     print("Parse data")
-    train_X = list(nlp.pipe(train_X))
-    dev_X = list(nlp.pipe(dev_X))
+    train_X = list(tqdm.tqdm(nlp.pipe(train_X)))
+    dev_X = list(tqdm.tqdm(nlp.pipe(dev_X)))
     n_sent = sum([len(list(doc.sents)) for doc in train_X])
     print("%d sentences" % n_sent)
 
@@ -107,7 +116,8 @@ def main(use_gpu=False):
                  L2=[1e-6],
                  beta1=[0.9],
                  beta2=[0.999],
-                 dropout=[0.2])
+                 dropout=[0.2],
+                 nr_update=[len(train_X)//128])
 
     for hp in hpsearch.configs:
         for _ in range(3):
