@@ -385,37 +385,39 @@ def uniqued(layer, column=0):
     return model
 
 
-def foreach(layer, drop_factor=1.0, array_out=True):
-    '''Map a layer across elements in a list'''
-    def foreach_fwd(Xs, drop=0.):
-        # Input: [ [ x1.1, .., x1.len1 ], .., [ x.N.1, .., x.N.lenN ]
-        # Layer input: [ x1.1, .., x.N.lenN ]
-        # Layer output: y1.1, .., yN.lenN
-        # Output: [ [ y1.1, .., y1.len1 ], .., [ yN.1, ..., yN.lenN ]
-        drop *= drop_factor
-        flat_Xs = []
-        for X in Xs:
-            flat_Xs.extend(X)
-        flat_ys, bp_ys = layer.begin_update(flat_Xs, drop=drop)
-        ys = []
-        i = 0
-        for X in Xs:
-            ys.append(flat_ys[i : i+len(X)])
-            i += len(X)
-        def foreach_bwd(d_ys, sgd=None):
-            flat_dys = layer.ops.flatten(d_ys)
-            flat_dX = bp_ys(flat_dys, sgd=sgd)
-            if flat_dX is None:
-                return None
-            d_Xs = []
-            i = 0
-            for dy in d_ys:
-                d_Xs.append(flat_dX[i : i+len(dy)])
-                i += len(dy)
-            return d_Xs
-        return ys, foreach_bwd
+def foreach(layer, drop_factor=1.0):
+    '''Map a layer across list items'''
+    def foreach_fwd(docs, drop=0.):
+        sents = []
+        lengths = []
+        for doc in docs:
+            doc_sents = [sent for sent in doc if len(sent)]
+            subset = [s for s in doc_sents if numpy.random.random() >= drop * drop_factor]
+            if subset:
+                sents.extend(subset)
+                lengths.append(len(subset))
+            else:
+                numpy.random.shuffle(doc_sents)
+                sents.append(doc_sents[0])
+                lengths.append(1)
+        flat, bp_flat = layer.begin_update(sents, drop=0.)
+        output = layer.ops.unflatten(flat, lengths)
+        def foreach_bwd(d_output, sgd=None):
+            d_flat = layer.ops.flatten(d_output)
+            d_sents = bp_flat(d_flat, sgd=sgd)
+            if d_sents is None:
+                return d_sents
+            else:
+                return layer.ops.unflatten(d_sents, lengths)
+        return output, foreach_bwd
     model = wrap(foreach_fwd, layer)
-    model.on_data_hooks = []
+
+    def _run_foreach_child_hooks(model, X, y):
+        for layer in model._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X[0], y[0])
+    model.on_data_hooks = [_run_foreach_child_hooks]
+
     return model
 
 
