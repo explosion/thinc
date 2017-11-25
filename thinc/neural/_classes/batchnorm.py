@@ -17,7 +17,9 @@ def _run_child_hooks(model, X, y=None):
     b=describe.Biases("Bias vector",
         lambda obj: (obj.nO,)),
     d_G=describe.Gradient("G"),
-    d_b=describe.Gradient("b")
+    d_b=describe.Gradient("b"),
+    m=describe.Weights("Means", lambda obj: (obj.nO,), _init_to_one),
+    v=describe.Weights("Variance", lambda obj: (obj.nO,), _init_to_one),
 )
 class BatchNorm(Model):
     name = 'batchnorm'
@@ -31,8 +33,6 @@ class BatchNorm(Model):
             self.nO = child.nO
         self.nr_upd = 0
         Model.__init__(self, **kwargs)
-        self.m = self.ops.allocate((1, self.nO))
-        self.v = self.ops.allocate((1, self.nO))
 
     def predict(self, X):
         X = self.child.predict(X)
@@ -60,9 +60,9 @@ class BatchNorm(Model):
         Xhat = _forward(self.ops, X, mu, var)
 
         # Batch "renormalization"
-        #if self.nr_upd >= 7500:
-        #    Xhat *= var / (self.v+1e-08)
-        #    Xhat += (mu - self.m) / (self.v+1e-08)
+        if self.nr_upd >= 7500:
+            Xhat *= var / (self.v+1e-08)
+            Xhat += (mu - self.m) / (self.v+1e-08)
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
