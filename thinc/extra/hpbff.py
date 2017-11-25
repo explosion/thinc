@@ -1,23 +1,27 @@
+import numpy
 import numpy.random
 import copy
 import itertools
 import dill
+import tqdm
 
 
 def minibatch(train_X, train_y, size=16, nr_update=1000):
-    while nr_update >= 0:
-        indices = numpy.arange(len(train_X))
-        numpy.random.shuffle(indices)
-        j = 0
-        while j < indices.shape[0]:
-            slice_ = indices[j : j + size]
-            X = _take_slice(train_X, slice_)
-            y = _take_slice(train_y, slice_)
-            yield X, y
-            j += size
-            nr_update -= 1
-            if nr_update <= 0:
-                break
+    with tqdm.tqdm(total=nr_update * size, leave=False) as pbar:
+        while nr_update >= 0:
+            indices = numpy.arange(len(train_X))
+            numpy.random.shuffle(indices)
+            j = 0
+            while j < indices.shape[0]:
+                slice_ = indices[j : j + size]
+                X = _take_slice(train_X, slice_)
+                y = _take_slice(train_y, slice_)
+                yield X, y
+                j += size
+                nr_update -= 1
+                if nr_update <= 0:
+                    break
+                pbar.update(size)
 
 
 def _take_slice(data, slice_):
