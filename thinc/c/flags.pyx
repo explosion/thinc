@@ -21,55 +21,61 @@ cdef extern from "unistd.h":
     cdef void usleep(unsigned int microseconds) nogil
 
 
-cdef int tasks_remaining(const flag_t* status, int layer_id, int N) nogil:
+cdef int count_tasks_remaining(int* fwd, int* bwd, const flag_t* status, int layer_id, int N) nogil:
     '''Count how many instances haven't been processed by the layer.'''
-    cdef int count = 0
+    cdef int n_todo_f = 0
+    cdef int n_todo_b = 0
     for flag in status[:N]:
         if 0 <= flag < layer_id:
-            count += 1
-    return count
+            n_todo_f += 1
+            n_todo_b += 1
+        elif flag < -layer_id:
+            n_todo_b += 1
+    fwd[0] = n_todo_f
+    bwd[0] = n_todo_b
 
 
-cdef void await_input(int* index, int* size, flag_t* status,
+cdef void get_input(int* index, int* size, flag_t* status,
         int layer_id, int max_batch, int N) nogil:
-    size[0] = 0
-    index[0] = 0
-    target = layer_id-1
-    # Try to get the gradient, sleeping for 100 microseconds at first, and
-    # then longer -- until giving up after 1 second.
-    cdef int sleep_factor, i, j
-    for sleep_factor in range(2, 6):
-        for i in range(N):
-            if status[i] == target:
-                status[i] = layer_id
-                index[0] = i
-                size[0] = 1
-                for j in range(j, min(i+max_batch, N)):
-                    if status[j] == target:
-                        size[0] += 1
-                        status[j] = layer_id
-                    else:
-                        break
-                break
-        else:
-            continue
-        break
+    '''Find a sequence of examples to work on for the forward pass.
+    The examples need to be contiguous, and they all need to be ready.
+    The status of the examples is updated, marking them as 'in progress'.'''
+    _get_examples(index, size, status,
+        layer_id-1, layer_id, max_batch, N)
 
 
-cdef void await_gradient(flag_t* status, int size, int layer_id) nogil:
-    target = -(layer_id+1)
-    # Try to get the gradient, sleeping for 100 microseconds at first, and
-    # then longer -- until giving up after 1 second.
-    for sleep_factor in range(2, 6):
-        for i in range(size):
-            if status[i] < target:
-                #usleep(10**sleep_factor)
-                break
-        else:
-            for i in range(size):
-                status[i] = -layer_id
-            return
+cdef void get_gradient(int* index, int* size, flag_t* status,
+        int layer_id, int max_batch, int N) nogil:
+    '''Find a sequence of examples to work on for the forward pass.
+    The examples need to be contiguous, and they all need to be ready.
+    The status of the examples is updated, marking them as 'in progress'.'''
+    _get_examples(index, size, status,
+        -(layer_id+1), -layer_id, max_batch, N)
+
+
+cdef inline void _get_examples(int* index, int* size, flag_t* status,
+        int target_status, int new_status, int max_batch, int N) nogil:
+    '''Find a sequence of examples to work on.
+    The examples need to be contiguous, and they all need to be ready.
+    The status of the examples is updated, marking them as 'in progress'.'''
+    cdef int i, start, end
+    for i in range(N):
+        if status[i] == target_status:
+            start = i
+            break
+    else:
+        index[0] = 0
+        size[0] = 0
         return
+    for i in range(start+1, min(start+max_batch, N)):
+        if status[i] != target_status:
+            end = i
+    for i in range(start, end):
+        status[i] = new_status
+    index[0] = start
+    size[0] = end-start
+
+
 
 
 cdef void yield_output(flag_t* status, int size, int layer_id) nogil:
