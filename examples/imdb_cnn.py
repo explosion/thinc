@@ -64,7 +64,7 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
     return model
 
 
-def main(use_gpu=True, nb_epoch=20):
+def main(use_gpu=True, nb_epoch=100):
     if use_gpu:
         Model.ops = CupyOps()
         Model.Ops = CupyOps
@@ -72,16 +72,11 @@ def main(use_gpu=True, nb_epoch=20):
     print("Load data")
     train_X, train_y = zip(*train)
     test_X, test_y = zip(*test)
-    #train_X = train_X[:2000]
-    #test_X = test_X[:2000]
     train_y = Model.ops.asarray(to_categorical(train_y, nb_classes=2))
     test_y = Model.ops.asarray(to_categorical(test_y, nb_classes=2))
     
     nlp = spacy.load('en_vectors_web_lg')
     nlp.add_pipe(nlp.create_pipe('sentencizer'), first=True)
-    nlp.vocab.lex_attr_getters[PREFIX] = lambda string: string[:3]
-    for word in nlp.vocab:
-        word.prefix_ = word.orth_[:3]
 
     preprocessor = FeatureExtracter([ORTH, LOWER, PREFIX, SUFFIX, SHAPE, ID])
     train_X = [preprocessor(list(doc.sents)) for doc in tqdm.tqdm(nlp.pipe(train_X))]
@@ -108,6 +103,7 @@ def main(use_gpu=True, nb_epoch=20):
         trainer.dropout = 0.3
         trainer.batch_size = next(batch_sizes)
         trainer.dropout_decay = 0.0
+        trainer.nb_epoch = nb_epoch
         optimizer.learn_rate = 0.001
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
