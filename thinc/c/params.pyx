@@ -3,17 +3,6 @@ from libc.stdlib cimport malloc, calloc, free
 from libc.string cimport memcpy, memset
 
 
-cdef struct params_s:
-    float* weights
-    float* gradient
-    params_s* prev
-    params_s* next
-    int nr_grad_upd
-    int nr_weight_upd
-    int ref_count
-    int N
-
-
 cdef params_s init_params(int N) nogil:
     cdef params_s params
     params.weights = <float*>calloc(N, sizeof(float))
@@ -54,5 +43,3 @@ cdef params_s* refresh_params(params_s* params) nogil:
                 ptr = ptr.next
                 free_params(ptr.prev)
     return params
-
-

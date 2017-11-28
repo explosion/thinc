@@ -1,3 +1,8 @@
+cimport libc.stdint
+# TODO: Mark this volatile
+ctypedef libc.stdint.int32_t flag_t
+
+
 cdef int count_tasks_remaining(int* fwd, int* bwd, const flag_t* status,
         int layer_id, int N) nogil
 

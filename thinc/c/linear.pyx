@@ -2,9 +2,15 @@
 from libc.stdlib cimport calloc, free, realloc
 from libc.string cimport memcpy, memset
 
+from .flags cimport flag_t, count_tasks_remaining
+from .flags cimport get_input, get_gradient, yield_output, yield_gradient
+from .params cimport params_s, refresh_params
+
 include "openblas.pyx"
-include "flags.pyx"
-include "params.pyx"
+
+
+cdef extern from "unistd.h":
+    cdef void usleep(unsigned int microseconds) nogil
 
 
 cdef struct task_s:

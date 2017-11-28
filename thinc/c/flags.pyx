@@ -13,12 +13,6 @@ Flag status
 *-1: d_op 1 complete
 '''
 # cython: infer_types=True
-cimport libc.stdint
-# TODO: Mark this volatile
-ctypedef libc.stdint.int32_t flag_t
-
-cdef extern from "unistd.h":
-    cdef void usleep(unsigned int microseconds) nogil
 
 
 cdef int count_tasks_remaining(int* fwd, int* bwd, const flag_t* status, int layer_id, int N) nogil:
@@ -33,6 +27,16 @@ cdef int count_tasks_remaining(int* fwd, int* bwd, const flag_t* status, int lay
             n_todo_b += 1
     fwd[0] = n_todo_f
     bwd[0] = n_todo_b
+
+
+cdef void yield_output(flag_t* status, int size, int layer_id) nogil:
+    for i in range(size):
+        status[i] = layer_id+1
+
+
+cdef void yield_gradient(flag_t* status, int size, int layer_id) nogil:
+    for i in range(size):
+        status[i] = -layer_id
 
 
 cdef void get_input(int* index, int* size, flag_t* status,
@@ -76,13 +80,3 @@ cdef inline void _get_examples(int* index, int* size, flag_t* status,
     size[0] = end-start
 
 
-
-
-cdef void yield_output(flag_t* status, int size, int layer_id) nogil:
-    for i in range(size):
-        status[i] = layer_id+1
-
-
-cdef void yield_gradient(flag_t* status, int size, int layer_id) nogil:
-    for i in range(size):
-        status[i] = -layer_id
