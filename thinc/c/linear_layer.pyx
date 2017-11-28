@@ -1,12 +1,13 @@
 # cython: infer_types=True
 from libc.stdlib cimport calloc, free, realloc
-from libc.string cimport memcpy
+from libc.string cimport memcpy, memset
 
 include "openblas.pyx"
-include "flow.pyx"
+include "flags.pyx"
 
 cdef struct linear_args_s:
     flag_t* status
+    int layer_id
     void* params
     const float* X
     float* Y
@@ -50,7 +51,7 @@ cdef void update_linear(linear_args_s* args) nogil:
                 backprop_inputs(&dX[i], 
                     &dY[i], W, nr_out, nr_in, size)
             if dW != NULL:
-                backprop_params(dW, db, state,
+                backprop_params(dW, db,
                     &dY[i], X, nr_out, nr_in, size)
             yield_gradient(&status[i], size, layer_id)
 
@@ -69,14 +70,6 @@ cdef void get_params(void* _params, float** W, float** b, float** dW, float** db
     db[0] = &dWb[nr_in*nr_out]
 
 
-cdef void resize_state(void** buff, int* curr_size,
-        int nr_out, int nr_in, int batch_size) nogil:
-    cdef int req = nr_out * nr_in + batch_size * nr_in * sizeof(float)
-    if curr_size[0] < req:
-        curr_size[0] = req
-        buff[0] = realloc(buff[0], curr_size[0])
-
-
 cdef void forward(float* Y,
         const float* X, const float* W, const float* b,
         int nr_in, int nr_out, int N) nogil:
@@ -85,24 +78,17 @@ cdef void forward(float* Y,
         X, N, nr_in, W, nr_in, nr_out)
     for i in range(N):
         simple_axpy(&Y[i*nr_out], nr_out, b, 1.)
-    pack_state(state, X, W, nr_in, nr_out, N)
 
 
-cdef void backprop_inputs(float* dX, void* state,
-        const float* dY, int nr_out, int nr_in, int N) nogil:
-    cdef float* W
-    cdef float* X
-    unpack_state(&W, &X, state, nr_out, nr_in, N)
+cdef void backprop_inputs(float* dX,
+        const float* dY, const float* W, int nr_out, int nr_in, int N) nogil:
     memset(dX, 0, N*nr_in*sizeof(float))
     simple_gemm(dX, N, nr_in,
         dY, N, nr_out, W, nr_in, nr_out)
 
 
-cdef void backprop_params(float* dW, float* db, void* state,
-        const float* dY, int nr_out, int nr_in, int N) nogil:
-    cdef float* W
-    cdef float* X
-    unpack_state(&W, &X, state, nr_out, nr_in, N)
+cdef void backprop_params(float* dW, float* db, 
+        const float* dY, const float* X, int nr_out, int nr_in, int N) nogil:
     simple_gemm(dW, nr_in, nr_out,
         X, N, nr_in, dY, N, nr_out)
     for i in range(N):

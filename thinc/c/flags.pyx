@@ -70,3 +70,13 @@ cdef void await_gradient(flag_t* status, int size, int layer_id) nogil:
                 status[i] = -layer_id
             return
         return
+
+
+cdef void yield_output(flag_t* status, int size, int layer_id) nogil:
+    for i in range(size):
+        status[i] = layer_id+1
+
+
+cdef void yield_gradient(flag_t* status, int size, int layer_id) nogil:
+    for i in range(size):
+        status[i] = -layer_id
