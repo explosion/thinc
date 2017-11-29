@@ -2,11 +2,11 @@
 from libc.stdlib cimport calloc, free, realloc
 from libc.string cimport memcpy, memset
 
-from .flags cimport count_tasks_remaining, usleep, run_task_f
-from .flags cimport get_input, get_gradient, yield_output, yield_gradient
-from .params cimport params_s, refresh_params
+from flags cimport count_tasks_remaining, usleep, run_task_f
+from flags cimport get_input, get_gradient, yield_output, yield_gradient
+from params cimport params_s, refresh_params
 
-include "openblas.pyx"
+from openblas cimport *
 
 
 cdef task_s make_task(flag_t* status, int layer_id, params_s* params,
@@ -63,14 +63,16 @@ cdef void* run_task(args_s* args) nogil:
         bwd_todo = 0
     cdef int i, fwd_size, bwd_size
     while fwd_todo or bwd_todo:
-        get_input(&i, &fwd_size, status, max_batch, N, layer_id)
+        fwd_size = 0
+        bwd_size = 0
+        get_input(&i, &fwd_size, status, layer_id, N, N)
         forward(&Y[i], &X[i],
             params.weights, nr_out, nr_in, fwd_size)
         yield_output(&status[i], fwd_size, layer_id)
         fwd_todo -= fwd_size
         
         if fwd_todo < bwd_todo:
-            get_gradient(&i, &bwd_size, status, max_batch, N, layer_id)
+            get_gradient(&i, &bwd_size, status, layer_id, max_batch, N)
             bwd_todo -= bwd_size
             if dX != NULL:
                 backprop_inputs(&dX[i], &dY[i],
@@ -86,7 +88,8 @@ cdef void* run_task(args_s* args) nogil:
                 if bwd_todo == fwd_todo and params.next != NULL:
                     params = refresh_params(params)
         if fwd_size == 0 and bwd_size == 0:
-            usleep(100000) # Sleep for 0.1 seconds if no tasks were ready.
+            break
+            #usleep(100000) # Sleep for 0.1 seconds if no tasks were ready.
 
 
 cdef void forward(float* Y,

@@ -62,7 +62,9 @@ cdef inline void _get_examples(int* index, int* size, flag_t* status,
     '''Find a sequence of examples to work on.
     The examples need to be contiguous, and they all need to be ready.
     The status of the examples is updated, marking them as 'in progress'.'''
-    cdef int i, start, end
+    cdef int i
+    cdef int start = 0
+    cdef int end = 0
     for i in range(N):
         if status[i] == target_status:
             start = i
@@ -74,6 +76,9 @@ cdef inline void _get_examples(int* index, int* size, flag_t* status,
     for i in range(start+1, min(start+max_batch, N)):
         if status[i] != target_status:
             end = i
+            break
+    else:
+        end = i+1
     for i in range(start, end):
         status[i] = new_status
     index[0] = start

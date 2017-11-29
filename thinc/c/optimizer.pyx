@@ -2,7 +2,7 @@
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy, memset
 
-from .flags cimport run_task_f
+from flags cimport run_task_f
 
 
 cdef struct args_s:

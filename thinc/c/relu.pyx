@@ -1,9 +1,9 @@
 # cython: infer_types=True
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy
-from .flags cimport flag_t, task_s, run_task_f, count_tasks_remaining
-from .flags cimport get_input, get_gradient, yield_output, yield_gradient
-from .flags cimport usleep
+from flags cimport flag_t, task_s, run_task_f, count_tasks_remaining
+from flags cimport get_input, get_gradient, yield_output, yield_gradient
+from flags cimport usleep
 
 
 cdef struct args_s:
@@ -47,18 +47,20 @@ cdef void* run_task(args_s* args) nogil:
     dY = args.dY
     nr_dim = args.nr_dim
     cdef int fwd_todo, bwd_todo
-    count_tasks_remaining(&fwd_todo, &bwd_todo, status, N, layer_id)
+    count_tasks_remaining(&fwd_todo, &bwd_todo, status, layer_id, N)
     if dY == NULL:
         bwd_todo = 0
     cdef int i, fwd_size, bwd_size
     while fwd_todo or bwd_todo:
-        get_input(&i, &fwd_size, status, max_batch, N, layer_id)
+        fwd_size = 0
+        bwd_size = 0
+        get_input(&i, &fwd_size, status, layer_id, N, N)
         for j in range(i, i+(nr_dim * fwd_size)):
             if X[j] < 0:
                 Y[j] = 0
         yield_output(&status[i], fwd_size, layer_id)
         if fwd_todo < bwd_todo:
-            get_gradient(&i, &bwd_size, status, max_batch, N, layer_id)
+            get_gradient(&i, &bwd_size, status, layer_id, N, N)
             bwd_todo -= bwd_size
             memcpy(&dX[i], &dY[i], bwd_size * nr_dim * sizeof(float))
             for j in range(i, i+(nr_dim * bwd_size)):
@@ -66,4 +68,5 @@ cdef void* run_task(args_s* args) nogil:
                     dX[j] = 0
             yield_gradient(&status[i], bwd_size, layer_id)
         if fwd_size == 0 and bwd_size == 0:
-            usleep(100000) # Sleep for 0.1 seconds if no tasks were ready.
+            break
+            #usleep(100000) # Sleep for 0.1 seconds if no tasks were ready.

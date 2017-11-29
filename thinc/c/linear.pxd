@@ -1,5 +1,5 @@
-from .flags cimport flag_t, task_s
-from .params cimport params_s
+from flags cimport flag_t, task_s
+from params cimport params_s
 
 
 cdef task_s make_task(flag_t* status, int layer_id, params_s* params,
