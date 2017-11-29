@@ -2,25 +2,16 @@
 from libc.stdlib cimport calloc, free, realloc
 from libc.string cimport memcpy, memset
 
-from .flags cimport flag_t, count_tasks_remaining
+from .flags cimport count_tasks_remaining, usleep, run_task_f
 from .flags cimport get_input, get_gradient, yield_output, yield_gradient
 from .params cimport params_s, refresh_params
 
 include "openblas.pyx"
 
 
-cdef extern from "unistd.h":
-    cdef void usleep(unsigned int microseconds) nogil
-
-
-cdef struct task_s:
-    void* run(void*) nogil
-    void* args
-
-
 cdef task_s make_task(flag_t* status, int layer_id, params_s* params,
         float* inputs, float* outputs, float* d_inputs, float* d_outputs,
-        int nr_out, int nr_in, int batch_size, int N):
+        int nr_out, int nr_in, int batch_size, int N) nogil:
     args = <args_s*>calloc(1, sizeof(args_s))
     args.status = status
     args.layer_id= layer_id
@@ -34,7 +25,10 @@ cdef task_s make_task(flag_t* status, int layer_id, params_s* params,
     args.max_batch = batch_size
     args.N = N
     args.params = params 
-    return task_s(args=args, run=<void*(void*)>run_task)
+    cdef task_s task
+    task.run = <run_task_f>run_task
+    task.args = args
+    return task
 
 
 cdef struct args_s:

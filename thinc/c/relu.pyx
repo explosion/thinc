@@ -1,17 +1,25 @@
 # cython: infer_types=True
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy
+from .flags cimport flag_t, task_s, run_task_f, count_tasks_remaining
+from .flags cimport get_input, get_gradient, yield_output, yield_gradient
+from .flags cimport usleep
 
-include "flags.pyx"
 
-
-cdef struct task_s:
-    void* run(void*) nogil
-    void* args
+cdef struct args_s:
+    flag_t* status
+    int layer_id
+    int N
+    float* X
+    float* Y
+    float* dY
+    float* dX
+    int nr_dim
+    int max_batch
 
 
 cdef task_s make_task(flag_t* status, int layer_id,
-        float* X, float* dX, int nr_dim, int batch_size, int N):
+        float* X, float* dX, int nr_dim, int batch_size, int N) nogil:
     args = <args_s*>calloc(1, sizeof(args_s))
     args.status = status
     args.layer_id = layer_id
@@ -22,19 +30,10 @@ cdef task_s make_task(flag_t* status, int layer_id,
     args.dX = dX
     args.nr_dim = nr_dim
     args.max_batch = batch_size
-    return task_s(run=<void*(void*)>relu_layer, args=args)
-
-
-cdef struct args_s:
-    flag_t* status
-    int layer_id
-    int N
-    const float* X
-    float* Y
-    const float* dY
-    float* dX
-    int nr_dim
-    int max_batch
+    cdef task_s task
+    task.run = <run_task_f>run_task
+    task.args = args
+    return task
 
 
 cdef void* run_task(args_s* args) nogil:
