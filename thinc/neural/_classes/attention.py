@@ -6,7 +6,7 @@ from .model import Model
 @describe.attributes(
     nO=Dimension("Output size"),
     Q=Synapses("Learned 'query' vector",
-        lambda obj: (obj.nO,),
+        lambda obj: (obj.nO, 1),
         lambda Q, ops: ops.normal_init(Q, Q.shape[0])),
     dQ=Gradient("Q"),
 )
@@ -37,40 +37,33 @@ class ParametricAttention(Model):
 
     def _get_attention(self, Q, Xs, lengths):
         attention = Xs.dot(Q)
-        start = 0
-        for i, length in enumerate(lengths):
-            if self.hard:
+        if self.hard:
+            start = 0
+            for i, length in enumerate(lengths):
                 argmax = attention[start:start+length].argmax()
                 attention[start:start+length] = 0
                 attention[start+argmax] = 1.
-            else:
-                self.ops.softmax(attention[start : start+length], inplace=True)
-            start += length
+                start += length
+        else:
+            attention = self.ops.softmax_sequences(attention, lengths)
         def get_attention_bwd(d_attention):
             if self.hard:
                 d_attention *= attention
             else:
-                d_attention = backprop_softmax(self.ops, d_attention, attention, lengths)
-            dQ = self.ops.xp.tensordot(d_attention, Xs, axes=[[0], [0]])
+                d_attention = self.ops.backprop_softmax_sequences(d_attention,
+                                                                 attention,
+                                                                 lengths)
+            dQ = self.ops.xp.tensordot(Xs, d_attention, axes=[[0], [0]])
             dXs = self.ops.xp.outer(d_attention, Q)
             return dQ, dXs
         return attention, get_attention_bwd
 
     def _apply_attention(self, attention, Xs, lengths):
-        attention = attention.reshape(attention.shape + (1,))
         output = Xs * attention
         def apply_attention_bwd(d_output):
-            d_attention = (Xs * d_output).sum(axis=1)
+            d_attention = (Xs * d_output).sum(axis=1, keepdims=True)
             dXs         = d_output * attention
             return dXs, d_attention
         return output, apply_attention_bwd
 
 
-def backprop_softmax(ops, dy, y, lengths):
-    dx = y * dy
-    sumdx = ops.sum_pool(dx.reshape((dx.shape[0], 1)), lengths)
-    start = 0
-    for i, length in enumerate(lengths):
-        dx[start:start+length] -= y[start : start+length] * sumdx[i]
-        start += length
-    return dx

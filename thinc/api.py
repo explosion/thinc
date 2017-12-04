@@ -388,25 +388,38 @@ def uniqued(layer, column=0):
 
 
 def foreach(layer, drop_factor=1.0):
-    '''Map a layer across elements in a list'''
-    def foreach_fwd(Xs, drop=0.):
-        drop *= drop_factor
-        ys = []
-        backprops = []
-        for X in Xs:
-            y, bp_y = layer.begin_update(X, drop=drop)
-            ys.append(y)
-            backprops.append(bp_y)
-        def foreach_bwd(d_ys, sgd=None):
-            d_Xs = []
-            for d_y, bp_y in zip(d_ys, backprops):
-                if bp_y is not None and bp_y is not None:
-                    d_Xs.append(d_y, sgd=sgd)
-                else:
-                    d_Xs.append(None)
-            return d_Xs
-        return ys, foreach_bwd
+    '''Map a layer across list items'''
+    def foreach_fwd(docs, drop=0.):
+        sents = []
+        lengths = []
+        for doc in docs:
+            doc_sents = [sent for sent in doc if len(sent)]
+            subset = [s for s in doc_sents if numpy.random.random() >= drop * drop_factor]
+            if subset:
+                sents.extend(subset)
+                lengths.append(len(subset))
+            else:
+                numpy.random.shuffle(doc_sents)
+                sents.append(doc_sents[0])
+                lengths.append(1)
+        flat, bp_flat = layer.begin_update(sents, drop=0.)
+        output = layer.ops.unflatten(flat, lengths)
+        def foreach_bwd(d_output, sgd=None):
+            d_flat = layer.ops.flatten(d_output)
+            d_sents = bp_flat(d_flat, sgd=sgd)
+            if d_sents is None:
+                return d_sents
+            else:
+                return layer.ops.unflatten(d_sents, lengths)
+        return output, foreach_bwd
     model = wrap(foreach_fwd, layer)
+
+    def _run_foreach_child_hooks(model, X, y):
+        for layer in model._layers:
+            for hook in layer.on_data_hooks:
+                hook(layer, X[0], y[0])
+    model.on_data_hooks = [_run_foreach_child_hooks]
+
     return model
 
 
