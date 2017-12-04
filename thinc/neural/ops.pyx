@@ -205,7 +205,10 @@ class Ops(object):
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         # This loses almost no fidelity, and helps the numerical stability.
-        x = self.xp.clip(x, -20., 20.)
+        if inplace:
+            self.xp.clip(x, -20., 20., out=x)
+        else:
+            x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
