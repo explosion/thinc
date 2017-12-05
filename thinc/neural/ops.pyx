@@ -118,7 +118,7 @@ class Ops(object):
         if not len(X):
             return self.allocate((0,), dtype=dtype or 'f')
         xp = get_array_module(X[0])
-        if int(pad) == 0:
+        if int(pad) >= 1:
             padded = []
             for x in X:
                 padded.append(
@@ -139,7 +139,7 @@ class Ops(object):
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if int(pad) == 0:
+        if int(pad) >= 1:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
