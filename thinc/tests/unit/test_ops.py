@@ -78,6 +78,31 @@ def test_backprop_seq2col_window_one(ops):
     assert_allclose(seq, expected)
 
 
+@pytest.mark.xfail
+def test_seq2col_window_two(ops):
+    seq = ops.asarray([[1.], [2.], [3.], [4]], dtype='float32')
+    cols = ops.seq2col(seq, 2)
+    if not isinstance(cols, numpy.ndarray):
+        cols = cols.get()
+    assert_allclose(cols[0], [0., 0., 1., 2., 3.])
+    assert_allclose(cols[1], [0., 1., 2., 3., 4.])
+    assert_allclose(cols[2], [1., 2., 3., 4., 0.])
+    assert_allclose(cols[3], [2., 3., 4., 0., 0.])
+
+
+#def test_backprop_seq2col_window_two(ops):
+#    cols = ops.asarray([
+#        [0., 0., 0.],
+#        [-1., 0., 1.],
+#        [2., 0., 0.],
+#    ], dtype='float32')
+#    expected = [[-1.], [2.], [1.]]
+#    seq = ops.backprop_seq2col(cols, 1)
+#    if not isinstance(seq, numpy.ndarray):
+#        seq = seq.get()
+#    assert_allclose(seq, expected)
+#
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_dropout_forward(ops, X):
