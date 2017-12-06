@@ -454,6 +454,8 @@ class NumpyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
+        if nW != 1:
+            raise NotImplementedError("GPU seq2col currently only supports nW=1")
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cdef Pool mem = Pool()
@@ -772,6 +774,8 @@ class CupyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
+        if nW != 1:
+            raise NotImplementedError("GPU seq2col currently only supports nW=1")
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cols = self.allocate((B, (nW*2+1), I))
