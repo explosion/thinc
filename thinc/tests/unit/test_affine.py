@@ -138,7 +138,8 @@ def test_predict_small(W_b_input):
     model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
-                            numpy.asarray(input_, dtype='float64'))
+                            numpy.asarray(input_, dtype='float64'),
+                            optimize=False)
     
     expected_output = einsummed + b
     
@@ -155,7 +156,8 @@ def test_predict_extensive(W_b_input):
     model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
-                            numpy.asarray(input_, dtype='float64'))
+                            numpy.asarray(input_, dtype='float64'),
+                            optimize=False)
     
     expected_output = einsummed + b
     
