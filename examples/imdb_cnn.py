@@ -55,6 +55,12 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
         model = (
             foreach(sent2vec, drop_factor=2.0)
             >> flatten_add_lengths
+            # This block would allow the model to learn some cross-sentence
+            # features. It's not useful on this problem. It might make more
+            # sense to use a BiLSTM here, following Liang et al (2016).
+            #>> with_getitem(0,
+            #    Residual(ExtractWindow(nW=1) >> LN(Maxout(width))) ** conv_depth
+            #)
             >> ParametricAttention(width, hard=False)
             >> Pooling(sum_pool)
             >> Residual(LN(Maxout(width))) ** depth
