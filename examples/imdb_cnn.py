@@ -64,11 +64,11 @@ def build_model(nr_class, width, depth, conv_depth, **kwargs):
     return model
 
 
-def main(use_gpu=True, nb_epoch=100):
+def main(use_gpu=False, nb_epoch=100):
     if use_gpu:
         Model.ops = CupyOps()
         Model.Ops = CupyOps
-    train, test = datasets.imdb()
+    train, test = datasets.imdb(limit=2000)
     print("Load data")
     train_X, train_y = zip(*train)
     test_X, test_y = zip(*test)
@@ -96,21 +96,28 @@ def main(use_gpu=True, nb_epoch=100):
         epoch_loss = [0.]
         def report_progress():
             with model.use_params(optimizer.averages):
-                print(epoch_loss[-1], model.evaluate(dev_X, dev_y), trainer.dropout)
+                print(epoch_loss[-1], epoch_var[-1], model.evaluate(dev_X, dev_y), trainer.dropout)
             epoch_loss.append(0.)
+            epoch_var.append(0.)
         trainer.each_epoch.append(report_progress)
-        batch_sizes = compounding(4, 1024, 1.001)
+        batch_sizes = compounding(64, 64, 1.01)
         trainer.dropout = 0.3
-        trainer.batch_size = next(batch_sizes)
+        trainer.batch_size = int(next(batch_sizes))
         trainer.dropout_decay = 0.0
         trainer.nb_epoch = nb_epoch
-        optimizer.learn_rate = 0.001
+        #optimizer.alpha = 0.1
+        #optimizer.max_grad_norm = 10.0
+        #optimizer.b1 = 0.0
+        #optimizer.b2 = 0.0
+        epoch_var = [0.]
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
-            loss = ((yh-y)**2.).sum() / y.shape[0]
+            losses = ((yh-y)**2.).sum(axis=1) / y.shape[0]
+            epoch_var[-1] += losses.var()
+            loss = losses.mean()
             backprop((yh-y)/yh.shape[0], optimizer)
             epoch_loss[-1] += loss
-            trainer.batch_size = next(batch_sizes)
+            trainer.batch_size = int(next(batch_sizes))
         with model.use_params(optimizer.averages):
             print('Avg dev.: %.3f' % model.evaluate(dev_X, dev_y))
 
