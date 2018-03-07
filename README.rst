@@ -111,7 +111,12 @@ This signature makes it easy to build a complex network out of smaller pieces,
 using arbitrary higher-order functions you can write yourself. To make this
 clearer, we need a function for a weights layer. Usually this will be
 implemented as a class — but let's continue using closures, to keep things
-concise, and to keep the simplicity of the interface explicit:
+concise, and to keep the simplicity of the interface explicit.
+
+The main complication for the weights layer is that we now have a side-effect
+to manage: we would like to update the weights. There are a few ways to handle
+this. In Thinc we currently pass a callable into the backward pass. (I'm not
+convinced this is best.)
 
 .. code:: python
 
