@@ -28,6 +28,7 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
+    'thinc.openblas',
     'thinc.structs',
     'thinc.typedefs',
     'thinc.linear.avgtron',
@@ -38,6 +39,7 @@ MOD_NAMES = [
     'thinc.neural.optimizers',
     'thinc.neural.ops',
     'thinc.neural.gpu_ops',
+    'thinc.neural._aligned_alloc',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
@@ -47,10 +49,10 @@ MOD_NAMES = [
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function', '-L/opt/OpenBLAS/lib/libopenblas.so', '-lopenblas'],
                         'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [],
-                    'other' : []}
+                    'other' : ['-L/opt/OpenBLAS/lib/libopenblas.so', '-lopenblas']}
 
 
 def customize_compiler_for_nvcc(self):

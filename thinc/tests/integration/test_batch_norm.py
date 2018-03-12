@@ -70,7 +70,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
         assert data.ndim == 1
         assert gradient.ndim == 1
 
-    grad_BO = numpy.ones((nr_batch, nr_out))
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype='f')
     grad_BI = finish_update(grad_BO, sgd)
     assert seen_keys == {model.id, model.child.id}
 

@@ -151,17 +151,18 @@ def test_softmax_sums_to_one(ops, X):
     for row in y:
         assert 0.99999 <= row.sum() <= 1.00001
 
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_softmax_sequence_sums_to_two(ops, X):
-    half = X.shape[0] // 2
-    if half >= 1:
-        X = ops.asarray(X)
-        lengths = ops.asarray([half, X.shape[0]-half], dtype='i')
-        y = ops.softmax_sequences(X, lengths)
-        for col in y.sum(axis=0):
-            assert 0.99999 <= col <= 2.00001
 
+#@settings(max_examples=MAX_EXAMPLES)
+#@given(X=strategies.arrays_BI())
+#def test_softmax_sequence_sums_to_two(ops, X):
+#    half = X.shape[0] // 2
+#    if half >= 1:
+#        X = ops.asarray(X)
+#        lengths = ops.asarray([half, X.shape[0]-half], dtype='i')
+#        y = ops.softmax_sequences(X, lengths)
+#        for col in y.sum(axis=0):
+#            assert 0.99999 <= col <= 2.00001
+#
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
@@ -171,13 +172,13 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@settings(max_examples=MAX_EXAMPLES)
-@given(W_b_inputs=strategies.arrays_OI_O_BI())
-def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
-    W, _, inputs = W_b_inputs
-    y = cpu_ops.batch_dot(inputs, W)
-    expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
-    assert_allclose(y, expected)
+#@settings(max_examples=MAX_EXAMPLES)
+#@given(W_b_inputs=strategies.arrays_OI_O_BI())
+#def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
+#    W, _, inputs = W_b_inputs
+#    y = cpu_ops.batch_dot(inputs, W)
+#    expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
+#    assert_allclose(y, expected)
 
 
 @settings(max_examples=MAX_EXAMPLES)
