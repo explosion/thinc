@@ -17,7 +17,7 @@ from numpy cimport ndarray
 from collections import Sized
 cimport numpy as np
 
-#from ._aligned_alloc import zeros_aligned
+from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
@@ -309,8 +309,8 @@ class NumpyOps(Ops):
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
             shape = (shape,)
-        return self.xp.zeros(shape, dtype=dtype)
-        #return zeros_aligned(shape, dtype=dtype)
+        #return self.xp.zeros(shape, dtype=dtype)
+        return zeros_aligned(shape, dtype=dtype)
 
     def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
         VecVec.add_i(<float*>x.data,
