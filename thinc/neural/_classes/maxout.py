@@ -57,7 +57,7 @@ class Maxout(Model):
 
     def predict(self, X__BI):
         W = self.W.reshape((self.nO * self.nP, self.nI))
-        X__BOP = self.ops.batch_dot(X__BI, W)
+        X__BOP = self.ops.gemm(X__BI, W, trans2=True)
         X__BOP += self.b.reshape((self.nO*self.nP,))
         X__BOP = X__BOP.reshape((X__BOP.shape[0], self.nO, self.nP))
         best__BO, _ = self.ops.maxout(X__BOP)
@@ -66,7 +66,7 @@ class Maxout(Model):
     def begin_update(self, X__bi, drop=0.):
         W = self.W.reshape((self.nO * self.nP, self.nI))
         drop *= self.drop_factor
-        output__boc = self.ops.batch_dot(X__bi, W)
+        output__boc = self.ops.gemm(X__bi, W, trans2=True)
         output__boc += self.b.reshape((self.nO*self.nP,))
         output__boc = output__boc.reshape((output__boc.shape[0], self.nO, self.nP))
         best__bo, which__bo = self.ops.maxout(output__boc)
