@@ -30,6 +30,7 @@ MOD_NAMES = [
     'thinc.linalg',
     'thinc.structs',
     'thinc.typedefs',
+    'thinc.neural._aligned_alloc',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
@@ -224,7 +225,7 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             ext_modules.append(
                 Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs
+                    language='c++', include_dirs=include_dirs,
                 ))
         if CUDA is None:
             pass
@@ -279,7 +280,7 @@ def setup_package():
                 'termcolor',
                 'pathlib>=1.0.0,<2.0.0',
                 'msgpack-python',
-                'msgpack-numpy'
+                'msgpack-numpy',
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

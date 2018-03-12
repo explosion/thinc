@@ -21,18 +21,18 @@ def test_init_rejects_negative_sizes(ops, size):
 def test_add_param_within_size(ops):
     params = Memory(ops, size=128)
     params.add('W', (5, 10))
-    assert params._offsets['W'] == (0, 0, (5, 10))
+    assert params._offsets['W'] == (0, 0, (5, 10), 50)
     params.add('b', (5,))
-    assert params._offsets['b'] == (5*10, 0, (5,))
+    assert params._offsets['b'] == (5*10, 0, (5,), 5)
     
 
 def test_add_param_realloc(ops):
     params = Memory(ops, size=10)
     params.add('b', (5,))
-    assert params._offsets['b'] == (0, 0, (5,))
+    assert params._offsets['b'] == (0, 0, (5,), 5)
     params.add('W', (5, 10))
-    assert params._offsets['W'] == (5, 0, (5, 10))
-    assert params._offsets['b'] == (0, 0, (5,))
+    assert params._offsets['W'] == (5, 0, (5, 10), 50)
+    assert params._offsets['b'] == (0, 0, (5,), 5)
  
 
 def test_get_param_present(ops):

@@ -107,7 +107,8 @@ class Optimizer(object):
         elif self.b2 > 0.:
             raise NotImplementedError
         else:
-            weights -= lr_scale * self.alpha * gradient
+            self.ops.inplace_add(weights, gradient, scale=-(lr_scale * self.alpha))
+            #weights -= lr_scale * self.alpha * gradient
         gradient.fill(0.)
         if self.averages is not None:
             if key not in self.averages:

@@ -109,15 +109,13 @@ class Model(object):
         for layer in self._layers:
             layer.set_id()
 
-    #@check.args(equal_length)
+    @check.args(equal_length)
     @check.arg(1, is_sequence)
     def begin_training(self, train_X, train_y=None, **trainer_cfg):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, **trainer_cfg)
 
-    @check.arg(2, is_float)
-    @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
@@ -311,7 +309,7 @@ class Model(object):
                     weights[-1][b'seed'] = layer.seed
 
                 offsets = sorted(layer._mem._offsets.items())
-                for (id_, name), (start, row, shape) in offsets:
+                for (id_, name), (start, row, shape, size) in offsets:
                     if row == 1:
                         continue
                     param = layer._mem.get((id_, name))

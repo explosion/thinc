@@ -21,6 +21,7 @@ from numpy cimport ndarray
 from collections import Sized
 cimport numpy as np
 
+from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
@@ -31,7 +32,7 @@ from six import integer_types
 include "../compile_time_constants.pxi"
 
 if USE_BLAS:
-    import blis.py
+    from .. cimport openblas
 
 
 cdef extern from "math.h":
@@ -179,11 +180,15 @@ class Ops(object):
         else:
             return self.xp.array(data)
 
-    def batch_dot(self, x, y):
-        return self.xp.dot(x, y.T)
+    def batch_dot(self, x, y, transpose=False):
+        # TODO: Fix this confusing inversion =/
+        if not transpose:
+            return self.xp.dot(x, y.T)
+        else:
+            return self.xp.dot(x, y)
 
-    def batch_outer(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[0], [0]])
+    def add_batch_outer(self, output, x, y):
+        output += self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
@@ -192,7 +197,7 @@ class Ops(object):
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
-        return self.batch_dot(signal, weights) + bias
+        return self.batch_dot(signal, weights, transpose=False) + bias
 
     def add_sum(self, out, to_sum):
         out += to_sum.sum(axis=0)
@@ -273,6 +278,16 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
+    
+    def normal_init(self, W, inplace=True):
+        scale = self.xp.sqrt(1. / W.shape[-1])
+        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
 
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
@@ -330,24 +345,53 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
-    def batch_dot(self, x, y):
-        # TODO: Remove this method once calling code is fixed
+    def allocate(self, shape, dtype='float32'):
+        if isinstance(shape, integer_types):
+            shape = (shape,)
+        return zeros_aligned(shape, dtype=dtype)
+
+    def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
+        VecVec.add_i(<float*>x.data,
+            <float*>y.data, scale, x.shape[0])
+
+    def gemm(self, np.ndarray x, np.ndarray y, trans1=False, trans2=False,
+             np.ndarray out=None):
+        cdef int m = x.shape[1] if trans1 else x.shape[0]
+        cdef int n = y.shape[0] if trans2 else y.shape[1]
+        if out is None:
+            out = self.allocate((m, n))
+        assert out.shape[0] == m
+        assert out.shape[1] == n
         IF USE_BLAS:
-            return blis.py.gemm(x, y, trans2=True)
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1])
+        ELSE:
+            if trans1:
+                x = x.T
+            if trans2:
+                y = y.T
+            self.xp.dot(x, y, out=out)
+        return out
+
+    def batch_dot(self, np.ndarray x, np.ndarray y):
+        raise NotImplementedError
+        # TODO: Remove this method once calling code is fixed
+        cdef np.ndarray output
+        IF USE_BLAS:
+            output = self.allocate((x.shape[0], y.shape[0]))
+            MatVec.batch_dot(<float*>output.data,
+                <float*>y.data, <float*>x.data,
+                y.shape[0], y.shape[1], x.shape[0])
+            return output
         ELSE:
             return self.xp.dot(x, y.T)
 
-    def batch_outer(self, x, y):
-        IF USE_BLAS:
-            return blis.py.gemm(x, y, trans1=True)
-        ELSE:
-            return self.xp.tensordot(x, y, axes=[[0], [0]])
+    def batch_outer(self, x, y, out=None):
+        return self.xp.dot(x.T, y, out=out)
 
     def dot(self, x, y):
-        IF USE_BLAS:
-            return blis.py.gemm(x, y)
-        ELSE:
-            return self.xp.dot(x, y)
+        return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
         return self.batch_dot(signal, weights) + bias
@@ -396,25 +440,23 @@ class NumpyOps(Ops):
                 delta[i] *= signal_out[i] + 1.
 
     def relu(self, ndarray X, inplace=False):
-        if inplace == False:
-            return X * (X > 0)
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
+        cdef np.ndarray out = X if inplace else X.copy()
+        cdef weight_t* data = <weight_t*>out.data
+        cdef size_t size = out.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
-        return X
+        return out
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
-        if inplace == False:
-            return delta_ * (signal_out_ > 0.)
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+    def backprop_relu(self, ndarray dY, ndarray Y, inplace=False):
+        cdef np.ndarray dX = dY if inplace else dY.copy()
+        cdef size_t size = dX.size
+        cdef weight_t* dX_ptr = <weight_t*>dX.data
+        cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] = 0.
-        return delta_
+            if Y_ptr[i] <= 0:
+                dX_ptr[i] = 0.
+        return dX
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
@@ -689,8 +731,6 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
     VecVec.add_i(mom2, gradient, one_minus_beta2, nr_weight)
     for i in range(nr_weight):
         gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
-
-
 
 
 @cython.cdivision(True)

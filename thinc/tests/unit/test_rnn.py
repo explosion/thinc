@@ -1,6 +1,5 @@
 # The RNN module currently has some Python 3-specific code. Comment this
 # out until we deal with it.
-
 import numpy
 from cytoolz import partition_all
 import timeit
