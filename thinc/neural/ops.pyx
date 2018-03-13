@@ -346,20 +346,16 @@ class NumpyOps(Ops):
         return out
 
     def batch_dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
-        raise NotImplementedError
-        ## TODO: Remove this method once calling code is fixed
-        #IF USE_BLAS:
-        #    output = self.allocate((x.shape[0], y.shape[0]))
-        #    openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-        #        <float*>x.data, x.shape[0], x.shape[1],
-        #        <float*>y.data, y.shape[0], y.shape[1])
- 
-        #    MatVec.batch_dot(<float*>output.data,
-        #        <float*>y.data, <float*>x.data,
-        #        y.shape[0], y.shape[1], x.shape[0])
-        #    return output
-        #ELSE:
-        #    return self.xp.dot(x, y.T)
+        # TODO: Remove this method once calling code is fixed
+        if out is None:
+            out = self.allocate((x.shape[0], y.shape[0]))
+        IF USE_BLAS:
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1], 0, 1)
+            return out
+        ELSE:
+            return self.xp.dot(x, y.T, out=out)
 
     def batch_outer(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
         if out is None:
