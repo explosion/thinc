@@ -66,9 +66,8 @@ def link_static_openblas(root):
         link_options['other'].append('-l:%s' % lib_name)
         pxi = pxi.replace('DEF USE_BLAS = False', 'DEF USE_BLAS = True')
     else:
+        print('Not compiling BLAS')
         pxi = pxi.replace('DEF USE_BLAS = True', 'DEF USE_BLAS = False')
-    print(pxi_loc)
-    print(pxi)
     with open(pxi_loc, 'w') as file_:
         file_.write(pxi)
 
