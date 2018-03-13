@@ -23,9 +23,9 @@ class Softmax(Affine):
         output__BO = self.predict(input__BI)
         @check.arg(0, has_shape(('nB', 'nO')))
         def finish_update(grad__BO, sgd=None):
-            self.d_W += self.ops.batch_outer(grad__BO, input__BI)
+            self.d_W += self.ops.gemm(grad__BO, input__BI, trans1=True)
             self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.dot(grad__BO, self.W)
+            grad__BI = self.ops.gemm(grad__BO, self.W)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return grad__BI
