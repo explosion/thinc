@@ -11,7 +11,6 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 import numpy
-from cytoolz import concat
 from numpy import prod
 from numpy cimport ndarray
 from collections import Sized
@@ -51,10 +50,6 @@ try:
 except ImportError:
     cupy = None
 
-try:
-    import cytoolz as toolz
-except ImportError:
-    import toolz
 
 try:
     from . import gpu_ops
