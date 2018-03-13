@@ -77,13 +77,13 @@ def test_check_equal_length_type_fails(args):
 
 def test_check_has_shape_passes():
     mock = MagicMock(spec=ndarray)
-    check.has_shape(0, [mock], None)
+    check.has_shape([])(0, [mock], None)
 
 
 @pytest.mark.parametrize('arg', [True, None, 14])
 def test_check_has_shape_fails(arg):
     with pytest.raises(ExpectedTypeError):
-        check.has_shape(None, 0, [arg], None)
+        check.has_shape([])(0, [arg], None)
 
 
 @pytest.mark.parametrize('shape', [[1, 2], [3], [4, 'hello']])
@@ -96,7 +96,7 @@ def test_check_has_shape_mismatch_fails(arg, shape):
     mock_arg = MagicMock(spec=ndarray, shape=[10, 20])
     mock_arg.__iter__.return_value = arg
     with pytest.raises(ShapeMismatchError):
-        check.has_shape(mock_shape, 0, [mock_arg], None)
+        check.has_shape(mock_shape)(0, [mock_arg], None)
 
 
 @pytest.mark.parametrize('arg', [(1, 2, 3)])

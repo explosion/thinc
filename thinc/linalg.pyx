@@ -1,2 +1,4 @@
-# This executes the code in the module, initialising blis
-#import blis.blis
+try:
+    import blis.py
+except ImportError:
+    pass
