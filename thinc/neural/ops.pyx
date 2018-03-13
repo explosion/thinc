@@ -7,20 +7,16 @@ from libc.stdlib cimport calloc, malloc, free
 from libc.stdint cimport uint32_t, uint64_t
 from libc.string cimport memcpy
 from libc.math cimport isnan
-from libcpp.queue cimport priority_queue
-from libcpp.vector cimport vector
-from libcpp cimport algorithm
-from libcpp.pair cimport pair
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 
 import numpy
-from cytoolz import concat
 from numpy import prod
 from numpy cimport ndarray
 from collections import Sized
 cimport numpy as np
 
+from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
@@ -31,7 +27,7 @@ from six import integer_types
 include "../compile_time_constants.pxi"
 
 if USE_BLAS:
-    import blis.py
+    from .. cimport openblas
 
 
 cdef extern from "math.h":
@@ -54,10 +50,6 @@ try:
 except ImportError:
     cupy = None
 
-try:
-    import cytoolz as toolz
-except ImportError:
-    import toolz
 
 try:
     from . import gpu_ops
@@ -115,10 +107,10 @@ class Ops(object):
             return x * mask, wrap_backprop
 
     def flatten(self, X, dtype=None, pad=0):
-        if not len(X):
+        if not X:
             return self.allocate((0,), dtype=dtype or 'f')
         xp = get_array_module(X[0])
-        if int(pad) >= 1:
+        if pad:
             padded = []
             for x in X:
                 padded.append(
@@ -139,7 +131,7 @@ class Ops(object):
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if int(pad) >= 1:
+        if pad:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
@@ -179,11 +171,15 @@ class Ops(object):
         else:
             return self.xp.array(data)
 
-    def batch_dot(self, x, y):
-        return self.xp.dot(x, y.T)
+    def batch_dot(self, x, y, transpose=False):
+        # TODO: Fix this confusing inversion =/
+        if not transpose:
+            return self.xp.dot(x, y.T)
+        else:
+            return self.xp.dot(x, y)
 
-    def batch_outer(self, x, y):
-        return self.xp.tensordot(x, y, axes=[[0], [0]])
+    def add_batch_outer(self, output, x, y):
+        output += self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
@@ -192,7 +188,7 @@ class Ops(object):
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
-        return self.batch_dot(signal, weights) + bias
+        return self.batch_dot(signal, weights, transpose=False) + bias
 
     def add_sum(self, out, to_sum):
         out += to_sum.sum(axis=0)
@@ -204,11 +200,6 @@ class Ops(object):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
-        # This loses almost no fidelity, and helps the numerical stability.
-        if inplace:
-            self.xp.clip(x, -20., 20., out=x)
-        else:
-            x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -219,29 +210,6 @@ class Ops(object):
             return x
         else:
             return new_x
-    
-    def softmax_sequences(self, Xs, lengths, inplace=False, axis=-1):
-        if Xs.ndim >= 3:
-            raise NotImplementedError(
-                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim)
-        # This loses almost no fidelity, and helps the numerical stability.
-        Xs = self.xp.clip(Xs, -20., 20.)
-        #maxes, which = self.max_pool(Xs, lengths)
-        #max_Xs = self.backprop_sum_pool(maxes, lengths)
-        new_x = self.xp.exp(Xs)
-        summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
-        new_x /= summed
-        if inplace:
-            copy_array(Xs, new_x)
-            return Xs
-        else:
-            return new_x
-
-    def backprop_softmax_sequences(self, dy, y, lengths):
-        dx = y * dy
-        sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
-        dx -= y * sumdx
-        return dx
 
     def expand_dims(self, a, axis=-1):
         return self.xp.expand_dims(a, axis=axis)
@@ -273,6 +241,16 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
+    
+    def normal_init(self, W, inplace=True):
+        scale = self.xp.sqrt(1. / W.shape[-1])
+        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
+        inits = inits.reshape(W.shape)
+        if inplace:
+            copy_array(W, inits)
+            return W
+        else:
+            return inits
 
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
@@ -313,13 +291,6 @@ class Ops(object):
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
-    def sparsify(self, gradient, int topk):
-        indices = self.xp.argpartition(-self.xp.abs(gradient), topk)[:topk]
-        values = gradient[indices]
-        gradient.fill(0.)
-        gradient[indices] = values
-        return gradient
-
     def logloss(self, y_true, y_pred):
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1-y_true) * self.xp.log((1-y_pred)+1e-8)
@@ -330,27 +301,86 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
-    def batch_dot(self, x, y):
+    def allocate(self, shape, dtype='float32'):
+        if isinstance(shape, integer_types):
+            shape = (shape,)
+        #return self.xp.zeros(shape, dtype=dtype)
+        return zeros_aligned(shape, dtype=dtype)
+
+    def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
+        VecVec.add_i(<float*>x.data,
+            <float*>y.data, scale, x.shape[0])
+
+    def gemm(self, np.ndarray x, np.ndarray y, trans1=False, trans2=False,
+             np.ndarray out=None):
+        cdef int m
+        if trans1:
+            m = x.shape[1]
+        else:
+            m = x.shape[0]
+        cdef int n
+        if trans2: 
+            n = y.shape[0]
+        else:
+            n = y.shape[1]
+        if out is None:
+            out = self.allocate((m, n))
+        assert out.shape[0] == m
+        assert out.shape[1] == n
+        IF USE_BLAS:
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1],
+                trans1, trans2)
+        ELSE:
+            if trans1:
+                x = x.T
+            if trans2:
+                y = y.T
+            self.xp.dot(x, y, out=out)
+        return out
+
+    def batch_dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
         # TODO: Remove this method once calling code is fixed
+        if out is None:
+            out = self.allocate((x.shape[0], y.shape[0]))
         IF USE_BLAS:
-            return blis.py.gemm(x, y, trans2=True)
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1], 0, 1)
+            return out
         ELSE:
-            return self.xp.dot(x, y.T)
+            return self.xp.dot(x, y.T, out=out)
 
-    def batch_outer(self, x, y):
+    def batch_outer(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
+        # TODO: Remove this method once calling code is fixed
+        if out is None:
+            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
         IF USE_BLAS:
-            return blis.py.gemm(x, y, trans1=True)
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1],
+                1, 0)
         ELSE:
-            return self.xp.tensordot(x, y, axes=[[0], [0]])
+            self.xp.dot(x.T, y, out=out)
+        return out
 
-    def dot(self, x, y):
+    def dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
+        # TODO: Remove this method once calling code is fixed
+        if out is None:
+            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
         IF USE_BLAS:
-            return blis.py.gemm(x, y)
+            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
+                <float*>x.data, x.shape[0], x.shape[1],
+                <float*>y.data, y.shape[0], y.shape[1],
+                1, 0)
         ELSE:
-            return self.xp.dot(x, y)
+            self.xp.dot(x.T, y, out=out)
+        return out
 
     def affine(self, weights, bias, signal):
-        return self.batch_dot(signal, weights) + bias
+        dotted = self.gemm(signal, weights, trans2=True) #+ bias
+        return dotted + bias
 
     def elu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
@@ -396,25 +426,23 @@ class NumpyOps(Ops):
                 delta[i] *= signal_out[i] + 1.
 
     def relu(self, ndarray X, inplace=False):
-        if inplace == False:
-            return X * (X > 0)
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
+        cdef np.ndarray out = X if inplace else X.copy()
+        cdef weight_t* data = <weight_t*>out.data
+        cdef size_t size = out.size
         for i in range(size):
             if data[i] < 0:
                 data[i] = 0.
-        return X
+        return out
 
-    def backprop_relu(self, ndarray delta_, ndarray signal_out_, inplace=False):
-        if inplace == False:
-            return delta_ * (signal_out_ > 0.)
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
+    def backprop_relu(self, ndarray dY, ndarray Y, inplace=False):
+        cdef np.ndarray dX = dY if inplace else dY.copy()
+        cdef size_t size = dX.size
+        cdef weight_t* dX_ptr = <weight_t*>dX.data
+        cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] = 0.
-        return delta_
+            if Y_ptr[i] <= 0:
+                dX_ptr[i] = 0.
+        return dX
 
     def maxout(self, float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
@@ -454,8 +482,6 @@ class NumpyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
-        if nW != 1:
-            raise NotImplementedError("GPU seq2col currently only supports nW=1")
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cdef Pool mem = Pool()
@@ -691,8 +717,6 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
         gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
 
 
-
-
 @cython.cdivision(True)
 cdef void cpu_update_averages(weight_t* ema,
         const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
@@ -708,6 +732,27 @@ cdef void cpu_update_averages(weight_t* ema,
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+    def gemm(self, x, y, out=None, trans1=False, trans2=False):
+        if trans1:
+            m = x.shape[1]
+        else:
+            m = x.shape[0]
+        cdef int n
+        if trans2: 
+            n = y.shape[0]
+        else:
+            n = y.shape[1]
+        if out is None:
+            out = self.allocate((m, n))
+        assert out.shape[0] == m
+        assert out.shape[1] == n
+        if trans1:
+            x = x.T
+        if trans2:
+            y = y.T
+        self.xp.dot(x, y, out=out)
+        return out
 
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
@@ -774,8 +819,6 @@ class CupyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
-        if nW != 1:
-            raise NotImplementedError("GPU seq2col currently only supports nW=1")
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
         cols = self.allocate((B, (nW*2+1), I))
@@ -848,17 +891,20 @@ class CupyOps(Ops):
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     nF = nW * 2 + 1
-    output += nW * I
+    cdef int oI = nW * I
+    cdef int xI = 0
+    cdef int stride = I*nW
+    cdef int stride1 = I*(nW+1)
     for i in range(B-nW):
-        memcpy(output,
-            X, I * (nW+1) * sizeof(output[0]))
-        output += I * (nW+1)
-        memcpy(output,
-            X, I * nW * sizeof(output[0]))
-        output += I * nW
-        X += I
-    memcpy(output,
-        X, I * nW * sizeof(output[0]))
+        memcpy(&output[oI],
+            &X[xI], stride1 * sizeof(output[0]))
+        oI += stride1
+        memcpy(&output[oI],
+            &X[xI], stride * sizeof(output[0]))
+        oI += stride
+        xI += I
+    memcpy(&output[oI],
+        &X[xI], I * nW * sizeof(output[0]))
 
 
 cdef void backprop_seq2col(float* d_seqs,

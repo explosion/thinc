@@ -28,6 +28,7 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
+    'thinc.openblas',
     'thinc.structs',
     'thinc.typedefs',
     'thinc.linear.avgtron',
@@ -38,19 +39,37 @@ MOD_NAMES = [
     'thinc.neural.optimizers',
     'thinc.neural.ops',
     'thinc.neural.gpu_ops',
+    'thinc.neural._aligned_alloc',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
 ]
 
-
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'gcc': ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function'],
                         'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
-link_options    =  {'msvc'  : [],
-                    'other' : []}
+link_options    =  {'msvc'  : [], 'other' : []}
+
+def link_static_openblas(root):
+    pxi_loc = os.path.join(root, 'thinc', 'compile_time_constants.pxi')
+    with open(pxi_loc, 'r') as file_:
+        pxi = file_.read()
+    if 'THINC_CBLAS' in os.environ:
+        lib_loc = os.environ['THINC_CBLAS']
+        lib_path, lib_name = os.path.split(lib_loc)
+        print('Using BLAS:', lib_path, lib_name)
+        compile_options['other']['gcc'].append('-L%s' % lib_path)
+        compile_options['other']['gcc'].append('-l:%s' % lib_name)
+        link_options['other'].append('-L%s' % lib_path)
+        link_options['other'].append('-l:%s' % lib_name)
+        pxi = pxi.replace('DEF USE_BLAS = False', 'DEF USE_BLAS = True')
+    else:
+        print('Not compiling BLAS')
+        pxi = pxi.replace('DEF USE_BLAS = True', 'DEF USE_BLAS = False')
+    with open(pxi_loc, 'w') as file_:
+        file_.write(pxi)
 
 
 def customize_compiler_for_nvcc(self):
@@ -200,6 +219,8 @@ def setup_package():
 
     if len(sys.argv) > 1 and sys.argv[1] == 'clean':
         return clean(root)
+
+    link_static_openblas(root)
 
     with chdir(root):
         with open(os.path.join(root, 'thinc', 'about.py')) as f:

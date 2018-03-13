@@ -53,11 +53,13 @@ class Affine(Model):
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
+        input__BI = self.ops.xp.ascontiguousarray(input__BI)
         output__BO = self.predict(input__BI)
         def finish_update(grad__BO, sgd=None):
-            self.d_W += self.ops.batch_outer(grad__BO, input__BI)
+            grad__BO = self.ops.xp.ascontiguousarray(grad__BO)
+            self.d_W += self.ops.gemm(grad__BO, input__BI, trans1=True)
             self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.dot(grad__BO, self.W)
+            grad__BI = self.ops.gemm(grad__BO, self.W)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
                     key=self.id)
