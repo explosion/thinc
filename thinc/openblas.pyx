@@ -2,8 +2,8 @@
 # cython: cdivision=True
 from .typedefs cimport weight_t
 
-# Copied from Shane Legg's Tokyo
-cdef extern from "/opt/OpenBLAS/include/cblas.h":
+
+cdef extern from "cblas.h":
     enum CBLAS_ORDER:     CblasRowMajor, CblasColMajor
     enum CBLAS_TRANSPOSE: CblasNoTrans, CblasTrans, CblasConjTrans
     enum CBLAS_UPLO:      CblasUpper, CblasLower
@@ -64,7 +64,6 @@ cdef void simple_gemm(float* output, int o0, int o1,
                      int trans1, int trans2) nogil:
     cdef float alpha = 1.0
     cdef float beta = 1.0
-    # this doesn't work! What if we have same dimensions??
     if not trans1 and not trans2:
         cblas_sgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
                     o0, o1, b0,
