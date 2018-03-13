@@ -59,7 +59,7 @@ class Affine(Model):
             grad__BO = self.ops.xp.ascontiguousarray(grad__BO)
             self.d_W += self.ops.gemm(grad__BO, input__BI, trans1=True)
             self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.dot(grad__BO, self.W)
+            grad__BI = self.ops.gemm(grad__BO, self.W)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient,
                     key=self.id)
