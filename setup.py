@@ -249,11 +249,6 @@ def setup_package():
                 ))
         if CUDA is None:
             pass
-            #ext_modules.append(
-            #    Extension("thinc.neural.gpu_ops",
-            #        sources=["thinc/neural/gpu_ops.cpp"],
-            #        language='c++',
-            #        include_dirs=include_dirs))
         else:
             with chdir(root):
                 ext_modules.append(
@@ -287,20 +282,19 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'wrapt',
                 'numpy>=1.7',
                 'murmurhash>=0.28,<0.29',
-                'cymem>=1.30,<1.32',
+                'cymem>=1.30,<1.32.0',
                 'preshed>=1.0.0,<2.0.0',
+                'hypothesis>=2,<3',
                 'tqdm>=4.10.0,<5.0.0',
-                'cytoolz>=0.8,<0.9',
-                'plac>=0.9.6,<1.0.0',
-                'six>=1.10.0,<2.0.0',
-                'dill',
-                'termcolor',
+                'plac>=0.9,<1.0',
+                'termcolor>=1.1.0,<1.2.0',
+                'wrapt>=1.10.0,<1.11.0',
+                'dill>=0.2.7,<0.3',
                 'pathlib>=1.0.0,<2.0.0',
-                'msgpack-python',
-                'msgpack-numpy'
+                'msgpack-python==0.5.4',
+                'msgpack-numpy==0.4.1',
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
