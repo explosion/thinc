@@ -76,7 +76,7 @@ class Maxout(Model):
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)
             dX__bop = dX__bop.reshape((dX__bop.shape[0], self.nO*self.nP))
-            d_W = self.ops.gemm(dX__bop, X__bi, trans1=True, trans2=True)
+            d_W = self.ops.gemm(dX__bop, X__bi, trans1=True)
             self.d_W += d_W.reshape((self.nO, self.nP, self.nI))
             # Bop,opi->Bi
             dX__bi = self.ops.gemm(dX__bop, self.W.reshape((self.nO*self.nP, self.nI)))
