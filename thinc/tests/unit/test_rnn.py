@@ -2,7 +2,6 @@
 # out until we deal with it.
 
 import numpy
-from cytoolz import partition_all
 import timeit
 import pytest
 
