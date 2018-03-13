@@ -738,6 +738,27 @@ class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
 
+    def gemm(self, x, y, out=None, trans1=False, trans2=False):
+        if trans1:
+            m = x.shape[1]
+        else:
+            m = x.shape[0]
+        cdef int n
+        if trans2: 
+            n = y.shape[0]
+        else:
+            n = y.shape[1]
+        if out is None:
+            out = self.allocate((m, n))
+        assert out.shape[0] == m
+        assert out.shape[1] == n
+        if trans1:
+            x = x.T
+        if trans2:
+            y = y.T
+        self.xp.dot(x, y, out=out)
+        return out
+
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
