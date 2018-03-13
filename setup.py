@@ -59,11 +59,20 @@ def link_static_openblas(root):
     if 'THINC_CBLAS' in os.environ:
         lib_loc = os.environ['THINC_CBLAS']
         lib_path, lib_name = os.path.split(lib_loc)
+        if lib_name.endswith('.so'):
+            is_shared = True
+            lib_name = lib_name[3:-3]
+        else:
+            is_shared = False
         print('Using BLAS:', lib_path, lib_name)
         compile_options['other']['gcc'].append('-L%s' % lib_path)
-        compile_options['other']['gcc'].append('-l:%s' % lib_name)
         link_options['other'].append('-L%s' % lib_path)
-        link_options['other'].append('-l:%s' % lib_name)
+        if is_shared:
+            compile_options['other']['gcc'].append('-l%s' % lib_name)
+            link_options['other'].append('-l%s' % lib_name)
+        else:
+            compile_options['other']['gcc'].append('-l:%s' % lib_name)
+            link_options['other'].append('-l:%s' % lib_name)
         pxi = pxi.replace('DEF USE_BLAS = False', 'DEF USE_BLAS = True')
     else:
         print('Not compiling BLAS')
