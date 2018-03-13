@@ -358,6 +358,7 @@ class NumpyOps(Ops):
             return self.xp.dot(x, y.T, out=out)
 
     def batch_outer(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
+        # TODO: Remove this method once calling code is fixed
         if out is None:
             out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
         IF USE_BLAS:
@@ -370,13 +371,14 @@ class NumpyOps(Ops):
         return out
 
     def dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
+        # TODO: Remove this method once calling code is fixed
         if out is None:
-            out = self.allocate((x.shape[0], y.shape[1]), dtype='f')
+            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
         IF USE_BLAS:
             openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
                 <float*>x.data, x.shape[0], x.shape[1],
                 <float*>y.data, y.shape[0], y.shape[1],
-                0, 0)
+                1, 0)
         ELSE:
             self.xp.dot(x.T, y, out=out)
         return out
@@ -873,7 +875,6 @@ class CupyOps(Ops):
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     nF = nW * 2 + 1
-    output += nW * I
     cdef int oI = nW * I
     cdef int xI = 0
     cdef int stride = I*nW
