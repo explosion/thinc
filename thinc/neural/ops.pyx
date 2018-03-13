@@ -373,9 +373,9 @@ class NumpyOps(Ops):
             openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
                 <float*>x.data, x.shape[0], x.shape[1],
                 <float*>y.data, y.shape[0], y.shape[1],
-                1, 0)
+                0, 0)
         ELSE:
-            self.xp.dot(x.T, y, out=out)
+            self.xp.dot(x, y, out=out)
         return out
 
     def affine(self, weights, bias, signal):
