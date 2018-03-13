@@ -324,21 +324,24 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
     return layerize(forward)
 
 
-def FeatureExtracter(attrs, ops=None):
-    if ops is None:
-        ops = Model.ops
-    def feature_extracter_fwd(docs, drop=0.):
+class FeatureExtracter(Model):
+    def __init__(self, attrs):
+        Model.__init__(self)
+        self.attrs = attrs
+    
+    def begin_update(docs, drop=0.):
         # Handle spans
-        def get_feats(doc):
-            if hasattr(doc, 'to_array'):
-                return doc.to_array(attrs)
-            else:
-                return doc.doc.to_array(attrs)[doc.start:doc.end]
-        features = [ops.asarray(get_feats(doc), dtype='uint64') for doc in docs]
+        features = [self._get_feats(doc) for doc in docs]
         def feature_extracter_bwd(d_features, sgd=None):
             return d_features
         return features, feature_extracter_bwd
-    return layerize(feature_extracter_fwd)
+
+    def _get_feats(self, doc):
+        if hasattr(doc, 'to_array'):
+            arr = doc.to_array(self.attrs)
+        else:
+            arr = doc.doc.to_array(self.attrs)[doc.start:doc.end]
+        return self.ops.asarray(arr, dtype='f')
 
 
 def wrap(func, *child_layers):
