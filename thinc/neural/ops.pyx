@@ -386,8 +386,6 @@ class NumpyOps(Ops):
         return out
 
     def affine(self, weights, bias, signal):
-        weights = self.xp.ascontiguousarray(weights)
-        signal = self.xp.ascontiguousarray(signal)
         dotted = self.gemm(signal, weights, trans2=True) #+ bias
         return dotted + bias
 
@@ -880,16 +878,20 @@ class CupyOps(Ops):
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     nF = nW * 2 + 1
     output += nW * I
+    cdef int oI = nW * I
+    cdef int xI = 0
+    cdef int stride = I*nW
+    cdef int stride1 = I*(nW+1)
     for i in range(B-nW):
-        memcpy(output,
-            X, I * (nW+1) * sizeof(output[0]))
-        output += I * (nW+1)
-        memcpy(output,
-            X, I * nW * sizeof(output[0]))
-        output += I * nW
-        X += I
-    memcpy(output,
-        X, I * nW * sizeof(output[0]))
+        memcpy(&output[oI],
+            &X[xI], stride1 * sizeof(output[0]))
+        oI += stride1
+        memcpy(&output[oI],
+            &X[xI], stride * sizeof(output[0]))
+        oI += stride
+        xI += I
+    memcpy(&output[oI],
+        &X[xI], I * nW * sizeof(output[0]))
 
 
 cdef void backprop_seq2col(float* d_seqs,
