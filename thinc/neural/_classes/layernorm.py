@@ -62,7 +62,8 @@ class LayerNorm(Model):
             d_xhat *= var ** (-1. / 2)
             d_xhat /= N
             return backprop_child(d_xhat, sgd)
-        drop *= getattr(self.child, 'drop_factor', self.ops.asarray([1.0], dtype='f'))
+        if drop is not None:
+            drop *= getattr(self.child, 'drop_factor', self.ops.asarray([1.0], dtype='f'))
         y, bp_dropout = self.ops.dropout(y, drop)
         assert y.dtype == 'float32'
         return y, bp_dropout(finish_update)
