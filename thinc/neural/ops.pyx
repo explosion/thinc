@@ -706,15 +706,31 @@ cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
     cdef weight_t one_minus_beta2 = 1-beta2
     cdef weight_t m1, m2, g
     cdef int i
-    Vec.mul_i(mom1,
-        beta1, nr_weight)
-    VecVec.add_i(mom1,
-        gradient, one_minus_beta1, nr_weight)
-    Vec.mul_i(mom2, beta2, nr_weight)
-    Vec.pow_i(gradient, 2, nr_weight)
-    VecVec.add_i(mom2, gradient, one_minus_beta2, nr_weight)
-    for i in range(nr_weight):
-        gradient[i] = mom1[i] / (sqrtf(mom2[i]) + eps)
+    # Blockwise implementation is a bit faster. Adam is slooow :(
+    cdef weight_t[64] buff
+    cdef int steps = nr_weight // 64
+    if steps * 64 < nr_weight:
+        steps += 1
+    idx = 0
+    for i in range(steps):
+        step_size = min(64, nr_weight-idx)
+        Vec.mul_i(mom1, beta1, step_size)
+        VecVec.add_i(mom1, gradient, one_minus_beta1, step_size)
+        Vec.mul_i(mom2, beta2, step_size)
+        for j in range(step_size):
+            mom2[j] += one_minus_beta2 * gradient[j] ** 2
+        for j in range(step_size):
+            buff[j] = sqrtf(mom2[j])
+        for j in range(step_size):
+            buff[j] += eps
+        for j in range(step_size):
+            buff[j] = mom1[j] / buff[j]
+        for j in range(step_size):
+            gradient[j] = buff[j]
+        mom1 += step_size
+        mom2 += step_size
+        gradient += step_size
+        idx += step_size
 
 
 @cython.cdivision(True)
