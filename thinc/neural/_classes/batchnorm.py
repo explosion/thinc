@@ -18,7 +18,7 @@ def _run_child_hooks(model, X, y=None):
         lambda obj: (obj.nO,)),
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b"),
-    m=describe.Weights("Means", lambda obj: (obj.nO,), _init_to_one),
+    m=describe.Weights("Means", lambda obj: (obj.nO,)),
     v=describe.Weights("Variance", lambda obj: (obj.nO,), _init_to_one),
 )
 class BatchNorm(Model):
@@ -32,37 +32,44 @@ class BatchNorm(Model):
         elif getattr(child, 'nO', None):
             self.nO = child.nO
         self.nr_upd = 0
+        self.eps = kwargs.get('eps', 1e-5)
+        self.alpha = self.ops.xp.asarray([0.1], dtype='float32')
+        self.rmax = kwargs.get('rmax', 3.0)
+        self.dmax = kwargs.get('dmax', 5.0)
         Model.__init__(self, **kwargs)
 
     def predict(self, X):
         X = self.child.predict(X)
-        Xh = _forward(self.ops, X, self.m, self.v+1e-08)
+        Xh = _forward(self.ops, X, self.m, self.v+self.eps)
         y = Xh * self.G + self.b
         return y
 
     def begin_update(self, X, drop=0.):
+        if drop is None:
+            return self.predict(X), None
         assert X.dtype == 'float32'
         X, backprop_child = self.child.begin_update(X, drop=0.)
         N, mu, var = _get_moments(self.ops, X)
-
+        var += self.eps
+        self.r = min(self.rmax, max(1. / self.rmax, var / self.v))
+        self.d = min(self.dmax, max(-self.dmax, (mu-self.m) / self.v))
         self.nr_upd += 1
-        alpha = self.ops.xp.asarray([0.01], dtype='float32')
 
         # I'm not sure this is the best thing to do --
-        # Here we make a running estimate of the mean and variance,
         # Should we consider a sample be the instance, or the batch?
+        # If we want the variance of the inputs it should be like:
+        '''
         diff = X - self.m
         incr = (1-alpha) * diff
         self.m += incr.mean(axis=0)
         self.v += (diff * incr).mean(axis=0)
         self.v *= alpha
-
+        '''
+        self.m += self.alpha * (mu - self.m)
+        self.v += self.alpha * (var - self.v)
         Xhat = _forward(self.ops, X, mu, var)
-
-        # Batch "renormalization"
-        if self.nr_upd >= 7500:
-            Xhat *= var / (self.v+1e-08)
-            Xhat += (mu - self.m) / (self.v+1e-08)
+        Xhat *= self.r
+        Xhat += self.d
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
