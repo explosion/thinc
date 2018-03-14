@@ -329,7 +329,7 @@ class FeatureExtracter(Model):
         Model.__init__(self)
         self.attrs = attrs
     
-    def begin_update(docs, drop=0.):
+    def begin_update(self, docs, drop=0.):
         # Handle spans
         features = [self._get_feats(doc) for doc in docs]
         def feature_extracter_bwd(d_features, sgd=None):
