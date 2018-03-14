@@ -122,7 +122,7 @@ class Model(object):
         raise NotImplementedError
 
     def predict(self, X):
-        y, _ = self.begin_update(X)
+        y, _ = self.begin_update(X, drop=None)
         return y
 
     def predict_one(self, x):
