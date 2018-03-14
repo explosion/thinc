@@ -66,7 +66,7 @@ class Ops(object):
             self.xp = xp
 
     def dropout_sequences(self, X, dropout, inplace=False):
-        if dropout <= 0.0:
+        if dropout is None or dropout <= 0.0:
             return X, lambda func: func
         masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
         def wrap_backprop(backprop):
@@ -91,7 +91,7 @@ class Ops(object):
             return masked, wrap_backprop
 
     def dropout(self, x, dropout, inplace=False):
-        if dropout <= 0.0:
+        if dropout is None or dropout <= 0.0:
             return x, lambda func: func
         mask = self.get_dropout_mask(x.shape, dropout)
         if mask is None:
@@ -140,7 +140,7 @@ class Ops(object):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
-        if drop <= 0:
+        if drop is None or drop <= 0:
             return None
         elif drop >= 1.:
             return self.allocate(shape)
