@@ -51,8 +51,8 @@ class BatchNorm(Model):
         X, backprop_child = self.child.begin_update(X, drop=0.)
         N, mu, var = _get_moments(self.ops, X)
         var += self.eps
-        self.r = min(self.rmax, max(1. / self.rmax, var / self.v))
-        self.d = min(self.dmax, max(-self.dmax, (mu-self.m) / self.v))
+        r = self.ops.xp.clip(var / self.v, 1./self.rmax, self.rmax)
+        d = self.ops.xp.clip((mu-self.m)/self.v, -self.dmax, self.dmax)
         self.nr_upd += 1
 
         # I'm not sure this is the best thing to do --
@@ -68,8 +68,8 @@ class BatchNorm(Model):
         self.m += self.alpha * (mu - self.m)
         self.v += self.alpha * (var - self.v)
         Xhat = _forward(self.ops, X, mu, var)
-        Xhat *= self.r
-        Xhat += self.d
+        Xhat *= r
+        Xhat += d
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
