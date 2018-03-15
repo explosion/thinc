@@ -65,7 +65,8 @@ class Maxout(Model):
 
     def begin_update(self, X__bi, drop=0.):
         W = self.W.reshape((self.nO * self.nP, self.nI))
-        drop *= self.drop_factor
+        if drop is not None:
+            drop *= self.drop_factor
         output__boc = self.ops.gemm(X__bi, W, trans2=True)
         output__boc += self.b.reshape((self.nO*self.nP,))
         output__boc = output__boc.reshape((output__boc.shape[0], self.nO, self.nP))
