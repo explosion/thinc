@@ -152,17 +152,17 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-#@settings(max_examples=MAX_EXAMPLES)
-#@given(X=strategies.arrays_BI())
-#def test_softmax_sequence_sums_to_two(ops, X):
-#    half = X.shape[0] // 2
-#    if half >= 1:
-#        X = ops.asarray(X)
-#        lengths = ops.asarray([half, X.shape[0]-half], dtype='i')
-#        y = ops.softmax_sequences(X, lengths)
-#        for col in y.sum(axis=0):
-#            assert 0.99999 <= col <= 2.00001
-#
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_softmax_sequence_sums_to_two(ops, X):
+    half = X.shape[0] // 2
+    if half >= 1:
+        X = ops.asarray(X)
+        lengths = ops.asarray([half, X.shape[0]-half], dtype='i')
+        y = ops.softmax_sequences(X, lengths)
+        for col in y.sum(axis=0):
+            assert 0.99999 <= col <= 2.00001
+
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
