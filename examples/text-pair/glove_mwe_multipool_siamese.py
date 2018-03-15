@@ -1,4 +1,16 @@
 from __future__ import unicode_literals, print_function
+import sys
+
+try:
+    import spacy
+    spacy.load('en')
+except (ImportError, OSError):
+    print("Missing dependency: spacy. Try:")
+    print("pip install spacy")
+    print("python -m spacy download en_vectors_web_lg")
+    print("python -m spacy link en_vectors_web_lg en")
+    sys.exit(1)
+
 import plac
 import spacy
 from pathlib import Path
@@ -34,11 +46,10 @@ def track_progress(**context):
     trainer = context['trainer']
     def each_epoch():
         global epoch_train_acc, epoch
-        acc = model.evaluate(dev_X, dev_y)
         with model.use_params(trainer.optimizer.averages):
             avg_acc = model.evaluate_logloss(dev_X, dev_y)
-        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
-        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop" % stats)
+        stats = (avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
+        print("%.3f dev acc, %.3f train acc, %.4f drop" % stats)
         epoch_train_acc = 0.
         epoch += 1
     return each_epoch
@@ -86,14 +97,6 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
         max_batch_size=512, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=5, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
         job_id=None, ws_api_url=None, rest_api_url=None):
-    global CTX
-    if job_id is not None:
-        CTX = neptune.Context()
-        width = CTX.params.width
-        L2 = CTX.params.L2
-        nb_epoch = CTX.params.nb_epoch
-        depth = CTX.params.depth
-        max_batch_size = CTX.params.max_batch_size
     cfg = dict(locals())
 
     if out_loc:
