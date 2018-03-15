@@ -19,7 +19,7 @@ def _get_mask(ops, shape, drop):
 def Siamese(layer, similarity):
     def begin_update(inputs, drop=0.):
         ops = layer.ops
-        if drop != 0.:
+        if drop not in (None, 0.):
             dropped = []
             for in1, in2 in inputs:
                 if in1.size > in2.size:
