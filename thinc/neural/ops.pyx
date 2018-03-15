@@ -109,6 +109,7 @@ class Ops(object):
     def flatten(self, X, dtype=None, pad=0):
         if not X:
             return self.allocate((0,), dtype=dtype or 'f')
+        X = [x for x in X if x.size != 0]
         xp = get_array_module(X[0])
         if int(pad) >= 1:
             padded = []
@@ -127,11 +128,11 @@ class Ops(object):
     def unflatten(self, X, lengths, pad=0):
         unflat = []
         for length in lengths:
-            if int(pad) >= 1:
+            if int(pad) >= 1 and length != 0:
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if int(pad) >= 1:
+        if int(pad) >= 1 and length != 0:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
