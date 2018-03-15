@@ -17,7 +17,8 @@ def Pooling(*funcs, **kwargs):
     F = len(funcs)
     drop_factor = kwargs.get('drop_factor', 1.0)
     def begin_update(X_lengths, drop=0.0):
-        drop *= drop_factor
+        if drop is not None:
+            drop *= drop_factor
         X, lengths = X_lengths
         T, O = X.shape
         pooled = ops.allocate((len(lengths), F*O))
