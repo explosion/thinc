@@ -110,7 +110,7 @@ class Ops(object):
         if not X:
             return self.allocate((0,), dtype=dtype or 'f')
         xp = get_array_module(X[0])
-        if pad:
+        if int(pad) >= 1:
             padded = []
             for x in X:
                 padded.append(
@@ -127,11 +127,11 @@ class Ops(object):
     def unflatten(self, X, lengths, pad=0):
         unflat = []
         for length in lengths:
-            if pad:
+            if int(pad) >= 1:
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if pad:
+        if int(pad) >= 1:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
@@ -200,6 +200,10 @@ class Ops(object):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
+        if inplace:
+            self.xp.clip(x, -20., 20., out=x)
+        else:
+            x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -210,6 +214,27 @@ class Ops(object):
             return x
         else:
             return new_x
+
+    def softmax_sequences(self, Xs, lengths, inplace=False, axis=-1):
+        if Xs.ndim >= 3:
+            raise NotImplementedError(
+                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim)
+        # This loses almost no fidelity, and helps the numerical stability.
+        Xs = self.xp.clip(Xs, -20., 20.)
+        new_x = self.xp.exp(Xs)
+        summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
+        new_x /= summed
+        if inplace:
+            copy_array(Xs, new_x)
+            return Xs
+        else:
+            return new_x
+
+    def backprop_softmax_sequences(self, dy, y, lengths):
+        dx = y * dy
+        sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
+        dx -= y * sumdx
+        return dx
 
     def expand_dims(self, a, axis=-1):
         return self.xp.expand_dims(a, axis=axis)
