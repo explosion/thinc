@@ -1,4 +1,18 @@
 from __future__ import unicode_literals, print_function
+
+import sys
+
+try:
+    import spacy
+    spacy.load('en')
+except (ImportError, OSError):
+    print("Missing dependency: spacy. Try:")
+    print("pip install spacy")
+    print("python -m spacy download en_vectors_web_lg")
+    print("python -m spacy link en_vectors_web_lg en")
+    sys.exit(1)
+
+
 import plac
 import spacy
 from pathlib import Path
