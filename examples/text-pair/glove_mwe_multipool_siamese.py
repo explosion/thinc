@@ -1,6 +1,8 @@
 from __future__ import unicode_literals, print_function
 import sys
 
+print("Warning: The code here might be broken --- the results don't seem right")
+
 try:
     import spacy
     spacy.load('en')
@@ -24,6 +26,7 @@ from thinc.t2t import ExtractWindow
 from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.neural.util import to_categorical
 from thinc.misc import BatchNorm as BN
+from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 from thinc.neural.ops import CupyOps
 
@@ -93,7 +96,7 @@ def logistic(X, drop=0.):
     rest_api_url=("REST API URL", "option", "R"),
     ws_api_url=("WS API URL", "option", "W")
 )
-def main(dataset='quora', width=50, depth=2, min_batch_size=1,
+def main(dataset='quora', width=200, depth=2, min_batch_size=1,
         max_batch_size=512, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
         nb_epoch=5, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
         job_id=None, ws_api_url=None, rest_api_url=None):
@@ -132,19 +135,20 @@ def main(dataset='quora', width=50, depth=2, min_batch_size=1,
     #Model.ops = CupyOps()
     with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
                                  '+': add}):
-        mwe_encode = ExtractWindow(nW=1) >> BN(Maxout(width, drop_factor=0.0, pieces=pieces))
+        mwe_encode = (
+            ExtractWindow(nW=1)
+            >> LN(Maxout(width, drop_factor=0.0, pieces=pieces))
+        )
 
-        sent2vec = ( # List[spacy.token.Doc]{B}
-            flatten_add_lengths  # : (ids{T}, lengths{B})
+        sent2vec = (
+            flatten_add_lengths
             >> with_getitem(0,
-                #(StaticVectors('en', width)
-                HashEmbed(width, 3000)
-                #+ HashEmbed(width, 3000))
-                #>> Residual(mwe_encode ** 2)
-                ) # : word_ids{T}
+                (HashEmbed(width, 3000) | StaticVectors('en', width))
+                >> LN(Maxout(width, width*2))
+                >> Residual(mwe_encode) ** depth
+            ) # : word_ids{T}
             >> Pooling(mean_pool, max_pool)
-            #>> Residual(BN(Maxout(width*2, pieces=pieces), nO=width*2)**2)
-            >> Maxout(width*2, pieces=pieces, drop_factor=0.0)
+            >> Residual(LN(Maxout(width*2, pieces=pieces), nO=width*2)) **2
             >> logistic
         )
         model = Siamese(sent2vec, CauchySimilarity(width*2))
