@@ -16,12 +16,5 @@ def get_vectors(ops, lang):
     global VECTORS
     key = (ops.device, lang)
     if key not in VECTORS:
-        nlp = get_spacy(lang)
-        nV = max(lex.rank for lex in nlp.vocab)+1
-        nM = nlp.vocab.vectors_length
-        vectors = numpy.zeros((nV, nM), dtype='float32')
-        for lex in nlp.vocab:
-            if lex.has_vector:
-                vectors[lex.rank] = lex.vector / (lex.vector_norm+1e-8)
-        VECTORS[key] = ops.asarray(vectors)
+        VECTORS[key] = nlp.vocab.vectors.data
     return VECTORS[key]
