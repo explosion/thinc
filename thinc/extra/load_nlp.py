@@ -22,6 +22,6 @@ def get_vectors(ops, lang):
         vectors = numpy.zeros((nV, nM), dtype='float32')
         for lex in nlp.vocab:
             if lex.has_vector:
-                vectors[lex.rank] = lex.vector / lex.vector_norm
+                vectors[lex.rank] = lex.vector / (lex.vector_norm+1e-8)
         VECTORS[key] = ops.asarray(vectors)
     return VECTORS[key]
