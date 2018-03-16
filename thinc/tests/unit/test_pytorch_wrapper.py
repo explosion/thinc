@@ -1,8 +1,11 @@
-import torch.nn
-from thinc.extra.wrappers import PyTorchWrapper
 from thinc.v2v import Affine
 from thinc.neural.optimizers import SGD
 import numpy
+try:
+    import torch.nn
+    from thinc.extra.wrappers import PyTorchWrapper
+except ImportError:
+    PyTorchWrapper = None
 
 def check_learns_zero_output(model, sgd, X, Y):
     '''Check we can learn to output a zero vector'''
@@ -19,6 +22,8 @@ def check_learns_zero_output(model, sgd, X, Y):
 
 
 def test_unwrapped(nN=2, nI=3, nO=4):
+    if PyTorchWrapper is None:
+        return
     model = Affine(nO, nI)
     X = numpy.zeros((nN, nI), dtype='f')
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
@@ -27,6 +32,8 @@ def test_unwrapped(nN=2, nI=3, nO=4):
     check_learns_zero_output(model, sgd, X, Y)
 
 def test_wrapper(nN=2, nI=3, nO=4):
+    if PyTorchWrapper is None:
+        return
     model = PyTorchWrapper(torch.nn.Linear(nI, nO))
     sgd = SGD(model.ops, 0.001)
     X = numpy.zeros((nN, nI), dtype='f')
