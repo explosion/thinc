@@ -16,5 +16,6 @@ def get_vectors(ops, lang):
     global VECTORS
     key = (ops.device, lang)
     if key not in VECTORS:
+        nlp = get_spacy(lang)
         VECTORS[key] = nlp.vocab.vectors.data
     return VECTORS[key]
