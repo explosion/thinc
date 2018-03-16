@@ -304,6 +304,7 @@ def setup_package():
                 'pathlib>=1.0.0,<2.0.0',
                 'msgpack-python==0.5.4',
                 'msgpack-numpy==0.4.1',
+                'six'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
