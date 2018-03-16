@@ -64,6 +64,7 @@ class Affine(Model):
                 sgd(self._mem.weights, self._mem.gradient,
                     key=self.id)
             return grad__BI
-        drop *= self.drop_factor
+        if drop is not None:
+            drop *= self.drop_factor
         output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
         return output__BO, bp_dropout(finish_update)

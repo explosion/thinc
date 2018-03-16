@@ -73,7 +73,8 @@ class SELU(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return grad__BI
-        drop *= self.drop_factor
+        if drop is not None:
+            drop *= self.drop_factor
         return self.dropout(output__bo, finish_update, drop)
 
     def dropout(self, X, finish_update, drop):
