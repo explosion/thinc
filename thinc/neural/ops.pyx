@@ -838,6 +838,61 @@ class CupyOps(Ops):
         else:
             return inits
 
+    def sigmoid(self, X):
+        return 1./(1. + self.xp.exp(-X))
+
+    def dsigmoid(self, y):
+        return y*(1-y)
+
+    def dtanh(self, y):
+        return 1-y**2
+
+    def lstm(self, output, cells, gates, prev):
+        gates = gates.reshape((gates.shape[0]//4, 4))
+        gates[:, 3] = self.xp.tanh(gates[:, 3])
+        gates[:, :3] = self.sigmoid(gates[:, :3])
+        hf = gates[:, 0]
+        hi = gates[:, 1]
+        ho = gates[:, 2]
+        hc = gates[:, 3]
+
+        cells[:] = hf * prev + hi * hc
+        output[:] = self.xp.tanh(cells) * ho
+
+    def backprop_lstm(self, d_cells, d_prev, d_gates,
+            d_output, gates, cells, prev):
+        gates = gates.reshape((gates.shape[0]//4, 4))
+        d_gates = d_gates.reshape((d_gates.shape[0]//4, 4))
+        hf = gates[:, 0]
+        hi = gates[:, 1]
+        ho = gates[:, 2]
+        hc = gates[:, 3]
+
+        dhf = d_gates[:, 0]
+        dhi = d_gates[:, 1]
+        dho = d_gates[:, 2]
+        dhc = d_gates[:, 3]
+        ct = self.xp.tanh(cells)
+
+        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+        dho = ct * d_output * self.dsigmoid(ho)
+        dc = ho * d_output * self.dtanh(ct)
+        dc += d_cells # Carry gradient from previous step
+
+        # Gradient for hf, hi, hc, prev[i]
+        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        dhf   = self.dsigmoid(hf) * dc * prev
+        dhi   = self.dsigmoid(hi) * dc * hc
+        dhc   = self.dtanh(hc)    * dc * hi
+
+        copy_array(d_prev, dc * hf)
+
+        copy_array(d_gates[:, 0], dhf)
+        copy_array(d_gates[:, 1], dhi)
+        copy_array(d_gates[:, 2], dho)
+        copy_array(d_gates[:, 3], dhc)
+        copy_array(d_cells, dc)
+
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     nF = nW * 2 + 1
