@@ -28,6 +28,7 @@ PACKAGES = [
 
 MOD_NAMES = [
     'thinc.linalg',
+    'thinc.openblas',
     'thinc.structs',
     'thinc.typedefs',
     'thinc.linear.avgtron',
@@ -38,19 +39,46 @@ MOD_NAMES = [
     'thinc.neural.optimizers',
     'thinc.neural.ops',
     'thinc.neural.gpu_ops',
+    'thinc.neural._aligned_alloc',
     'thinc.extra.eg',
     'thinc.extra.mb',
     'thinc.extra.search',
     'thinc.extra.cache',
 ]
 
-
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
-                        'gcc': ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function'],
+                        'gcc': ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function'],
                         'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
-link_options    =  {'msvc'  : [],
-                    'other' : []}
+link_options    =  {'msvc'  : [], 'other' : []}
+
+def link_static_openblas(root):
+    pxi_loc = os.path.join(root, 'thinc', 'compile_time_constants.pxi')
+    with open(pxi_loc, 'r') as file_:
+        pxi = file_.read()
+    if 'THINC_CBLAS' in os.environ:
+        lib_loc = os.environ['THINC_CBLAS']
+        lib_path, lib_name = os.path.split(lib_loc)
+        if lib_name.endswith('.so'):
+            is_shared = True
+            lib_name = lib_name[3:-3]
+        else:
+            is_shared = False
+        print('Using BLAS:', lib_path, lib_name)
+        compile_options['other']['gcc'].append('-L%s' % lib_path)
+        link_options['other'].append('-L%s' % lib_path)
+        if is_shared:
+            compile_options['other']['gcc'].append('-l%s' % lib_name)
+            link_options['other'].append('-l%s' % lib_name)
+        else:
+            compile_options['other']['gcc'].append('-l:%s' % lib_name)
+            link_options['other'].append('-l:%s' % lib_name)
+        pxi = pxi.replace('DEF USE_BLAS = False', 'DEF USE_BLAS = True')
+    else:
+        print('Not compiling BLAS')
+        pxi = pxi.replace('DEF USE_BLAS = True', 'DEF USE_BLAS = False')
+    with open(pxi_loc, 'w') as file_:
+        file_.write(pxi)
 
 
 def customize_compiler_for_nvcc(self):
@@ -201,6 +229,8 @@ def setup_package():
     if len(sys.argv) > 1 and sys.argv[1] == 'clean':
         return clean(root)
 
+    link_static_openblas(root)
+
     with chdir(root):
         with open(os.path.join(root, 'thinc', 'about.py')) as f:
             about = {}
@@ -228,11 +258,6 @@ def setup_package():
                 ))
         if CUDA is None:
             pass
-            #ext_modules.append(
-            #    Extension("thinc.neural.gpu_ops",
-            #        sources=["thinc/neural/gpu_ops.cpp"],
-            #        language='c++',
-            #        include_dirs=include_dirs))
         else:
             with chdir(root):
                 ext_modules.append(
@@ -266,20 +291,20 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'wrapt',
                 'numpy>=1.7',
                 'murmurhash>=0.28,<0.29',
-                'cymem>=1.30,<1.32',
+                'cymem>=1.30,<1.32.0',
                 'preshed>=1.0.0,<2.0.0',
+                'hypothesis>=2,<3',
                 'tqdm>=4.10.0,<5.0.0',
-                'cytoolz>=0.8,<0.9',
-                'plac>=0.9.6,<1.0.0',
-                'six>=1.10.0,<2.0.0',
-                'dill',
-                'termcolor',
+                'plac>=0.9,<1.0',
+                'termcolor>=1.1.0,<1.2.0',
+                'wrapt>=1.10.0,<1.11.0',
+                'dill>=0.2.7,<0.3',
                 'pathlib>=1.0.0,<2.0.0',
-                'msgpack-python',
-                'msgpack-numpy'
+                'msgpack-python==0.5.4',
+                'msgpack-numpy==0.4.1',
+                'six'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

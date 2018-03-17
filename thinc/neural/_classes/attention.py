@@ -53,7 +53,7 @@ class ParametricAttention(Model):
                 d_attention = self.ops.backprop_softmax_sequences(d_attention,
                                                                  attention,
                                                                  lengths)
-            dQ = self.ops.xp.tensordot(Xs, d_attention, axes=[[0], [0]])
+            dQ = self.ops.gemm(Xs, d_attention, trans1=True)
             dXs = self.ops.xp.outer(d_attention, Q)
             return dQ, dXs
         return attention, get_attention_bwd

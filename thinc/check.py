@@ -1,7 +1,6 @@
 from collections import defaultdict, Sequence, Sized, Iterable, Callable
 import inspect
 import wrapt
-from cytoolz import curry
 from numpy import ndarray
 from six import integer_types
 
@@ -44,27 +43,28 @@ def equal_axis(*args, **axis):
             lengths = [a.shape[axis] for a in args]
             raise DifferentLengthError(lengths, arg)
 
-@curry
-def has_shape(shape, arg_id, args, kwargs):
+def has_shape(shape):
     '''Check that a particular argument is an array with a given shape. The
     shape may contain string attributes, which will be fetched from arg0 to
     the function (usually self).
     '''
-    self = args[0]
-    arg = args[arg_id]
-    if not hasattr(arg, 'shape'):
-        raise ExpectedTypeError(arg, ['array'])
-    shape_values = []
-    for dim in shape:
-        if not isinstance(dim, integer_types):
-            dim = getattr(self, dim, None)
-        shape_values.append(dim)
-    if len(shape) != len(arg.shape):
-        raise ShapeMismatchError(arg.shape, tuple(shape_values), shape)
-    for i, dim in enumerate(shape_values):
-        # Allow underspecified dimensions
-        if dim != None and arg.shape[i] != dim:
-            raise ShapeMismatchError(arg.shape, shape_values, shape)
+    def has_shape_inner(arg_id, args, kwargs):
+        self = args[0]
+        arg = args[arg_id]
+        if not hasattr(arg, 'shape'):
+            raise ExpectedTypeError(arg, ['array'])
+        shape_values = []
+        for dim in shape:
+            if not isinstance(dim, integer_types):
+                dim = getattr(self, dim, None)
+            shape_values.append(dim)
+        if len(shape) != len(arg.shape):
+            raise ShapeMismatchError(arg.shape, tuple(shape_values), shape)
+        for i, dim in enumerate(shape_values):
+            # Allow underspecified dimensions
+            if dim != None and arg.shape[i] != dim:
+                raise ShapeMismatchError(arg.shape, shape_values, shape)
+    return has_shape_inner
 
 
 def is_shape(arg_id, args, func_kwargs, **kwargs):

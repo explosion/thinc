@@ -111,7 +111,12 @@ This signature makes it easy to build a complex network out of smaller pieces,
 using arbitrary higher-order functions you can write yourself. To make this
 clearer, we need a function for a weights layer. Usually this will be
 implemented as a class — but let's continue using closures, to keep things
-concise, and to keep the simplicity of the interface explicit:
+concise, and to keep the simplicity of the interface explicit.
+
+The main complication for the weights layer is that we now have a side-effect
+to manage: we would like to update the weights. There are a few ways to handle
+this. In Thinc we currently pass a callable into the backward pass. (I'm not
+convinced this is best.)
 
 .. code:: python
 
@@ -363,6 +368,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.10.2`_  ``2017-12-06`` Efficiency improvements and bug fixes
 `v6.10.1`_  ``2017-11-15`` Fix GPU install and minor memory leak
 `v6.10.0`_  ``2017-10-28`` CPU efficiency improvements, refactoring
 `v6.9.0`_   ``2017-10-03`` Reorganize layers, bug fix to Layer Normalization
@@ -388,6 +394,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.10.2: https://github.com/explosion/thinc/releases/tag/v6.10.2
 .. _v6.10.1: https://github.com/explosion/thinc/releases/tag/v6.10.1
 .. _v6.10.0: https://github.com/explosion/thinc/releases/tag/v6.10.0
 .. _v6.9.0: https://github.com/explosion/thinc/releases/tag/v6.9.0
