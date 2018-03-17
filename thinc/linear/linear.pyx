@@ -34,7 +34,8 @@ class LinearModel(Model):
         cdef long[::1] lengths
         cdef float[::1] values
         keys, values_, lengths = keys_values_lengths
-        drop *= self.drop_factor
+        if drop is not None:
+            drop *= self.drop_factor
         mask = self.ops.get_dropout_mask(values_.shape, drop)
         if mask is not None:
             values = values_ * mask

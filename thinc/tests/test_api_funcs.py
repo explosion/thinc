@@ -43,7 +43,7 @@ def test_chain_right_branch(model1, model2, model3):
 
 
 def test_clone(model1, nI):
-    ones = numpy.ones((10, nI))
+    ones = numpy.ones((10, nI), dtype='f')
     model1.nI = None
     model = clone(model1, 10)
     model.begin_training(ones)

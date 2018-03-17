@@ -2,8 +2,6 @@ from .model import Model
 from ...api import layerize
 from .affine import Affine
 
-import cytoolz as toolz
-
 
 class Residual(Model):
     def __init__(self, layer):

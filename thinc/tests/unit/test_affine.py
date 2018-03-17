@@ -86,7 +86,7 @@ def test_dropout_gives_zero_gradients(W_b_input):
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
     W, b, input_ = W_b_input
     fwd_dropped, finish_update = model.begin_update(input_, drop=1.0)
-    grad_BO = numpy.ones((nr_batch, nr_out))
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype='f')
     grad_BI = finish_update(grad_BO)
     assert all(val == 0. for val in grad_BI.flatten())
 
@@ -107,7 +107,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
         assert model._mem._i == (nr_out * nr_in) + nr_out
         assert data.shape[0] == (nr_out * nr_in) + nr_out, data.shape[0]
 
-    grad_BO = numpy.ones((nr_batch, nr_out))
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype='f')
     grad_BI = finish_update(grad_BO, sgd)
     assert seen_keys == {model.id}
 
@@ -138,7 +138,8 @@ def test_predict_small(W_b_input):
     model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
-                            numpy.asarray(input_, dtype='float64'))
+                            numpy.asarray(input_, dtype='float64'),
+                            optimize=False)
     
     expected_output = einsummed + b
     
@@ -155,7 +156,8 @@ def test_predict_extensive(W_b_input):
     model.b[:] = b
 
     einsummed = numpy.einsum('oi,bi->bo', numpy.asarray(W, dtype='float64'),
-                            numpy.asarray(input_, dtype='float64'))
+                            numpy.asarray(input_, dtype='float64'),
+                            optimize=False)
     
     expected_output = einsummed + b
     

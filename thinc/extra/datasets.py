@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 import random # pragma: no cover
 import io # pragma: no cover
 from collections import Counter # pragma: no cover
@@ -15,6 +16,11 @@ try:
     basestring
 except NameError:
     basestring = str
+
+try:
+    unicode
+except NameError:
+    unicode = str
 
 
 GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
@@ -187,8 +193,10 @@ def quora_questions(loc=None):
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            sent1 = sent1.decode('utf8').strip()
-            sent2 = sent2.decode('utf8').strip()
+            if not isinstance(sent1, unicode):
+                sent1 = sent1.decode('utf8').strip()
+            if not isinstance(sent2, unicode):
+                sent2 = sent2.decode('utf8').strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
     train, dev = partition(lines, 0.9)
