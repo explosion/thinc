@@ -341,7 +341,7 @@ class FeatureExtracter(Model):
             arr = doc.to_array(self.attrs)
         else:
             arr = doc.doc.to_array(self.attrs)[doc.start:doc.end]
-        return self.ops.asarray(arr, dtype='f')
+        return self.ops.asarray(arr, dtype='uint64')
 
 
 def wrap(func, *child_layers):
