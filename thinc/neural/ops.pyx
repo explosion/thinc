@@ -189,7 +189,7 @@ class Ops(object):
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
-        return self.batch_dot(signal, weights, transpose=False) + bias
+        return self.gemm(signal, weights, trans2=True) + bias
 
     def add_sum(self, out, to_sum):
         out += to_sum.sum(axis=0)
