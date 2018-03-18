@@ -337,8 +337,8 @@ class NumpyOps(Ops):
         VecVec.add_i(<float*>x.data,
             <float*>y.data, scale, x.shape[0])
 
-    def gemm(self, np.ndarray x, np.ndarray y, trans1=False, trans2=False,
-             np.ndarray out=None):
+    def gemm(self, float[:, ::1] x, float[:, ::1] y, trans1=False, trans2=False,
+             out=None):
         cdef int m
         if trans1:
             m = x.shape[1]
@@ -349,22 +349,30 @@ class NumpyOps(Ops):
             n = y.shape[0]
         else:
             n = y.shape[1]
+        cdef float[:, ::1] out_array
         if out is None:
-            out = self.allocate((m, n))
-        assert out.shape[0] == m
-        assert out.shape[1] == n
+            out_array = self.allocate((m, n))
+        else:
+            out_array = out
+        assert out_array.shape[0] == m
+        assert out_array.shape[1] == n
+        cdef np.ndarray x_
+        cdef np.ndarray y_
         IF USE_BLAS:
-            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-                <float*>x.data, x.shape[0], x.shape[1],
-                <float*>y.data, y.shape[0], y.shape[1],
+            openblas.simple_gemm(&out_array[0, 0], out_array.shape[0], out_array.shape[1],
+                &x[0,0], x.shape[0], x.shape[1],
+                &y[0,0], y.shape[0], y.shape[1],
                 trans1, trans2)
+            return self.xp.asarray(out_array)
         ELSE:
+            x_ = self.xp.asarray(x)
+            y_ = self.xp.asarray(y)
             if trans1:
-                x = x.T
+                x_ = x_.T
             if trans2:
-                y = y.T
-            self.xp.dot(x, y, out=out)
-        return out
+                y_ = y_.T
+            self.xp.dot(x_, y_, out=self.xp.asarray(out_array))
+            return self.xp.asarray(out_array)
 
     def batch_dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
         # TODO: Remove this method once calling code is fixed
@@ -777,24 +785,14 @@ class CupyOps(Ops):
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
-            m = x.shape[1]
-        else:
-            m = x.shape[0]
-        cdef int n
-        if trans2: 
-            n = y.shape[0]
-        else:
-            n = y.shape[1]
-        if out is None:
-            out = self.allocate((m, n))
-        assert out.shape[0] == m
-        assert out.shape[1] == n
-        if trans1:
             x = x.T
         if trans2:
             y = y.T
-        self.xp.dot(x, y, out=out)
-        return out
+        if out is None:
+            return self.xp.dot(x, y)
+        else:
+            self.xp.dot(x, y, out=out)
+            return out
 
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
