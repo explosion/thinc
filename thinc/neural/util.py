@@ -13,9 +13,9 @@ except ImportError:
 
 def get_ops(ops):
     from .ops import NumpyOps, CupyOps
-    if ops in ('numpy', 'cpu'):
+    if ops in ('numpy', 'cpu') or ops < 0:
         return NumpyOps
-    elif ops in ('cupy', 'gpu'):
+    elif ops in ('cupy', 'gpu') or ops >= 0:
         return CupyOps
     else:
         raise ValueError("TODO error %s" % ops)
