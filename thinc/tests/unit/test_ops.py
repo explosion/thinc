@@ -172,7 +172,6 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@pytest.mark.xfail
 @settings(max_examples=MAX_EXAMPLES)
 @given(W_b_inputs=strategies.arrays_OI_O_BI())
 def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
@@ -182,17 +181,16 @@ def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
     assert_allclose(y, expected)
 
 
-@pytest.mark.xfail
-@settings(max_examples=MAX_EXAMPLES)
-@given(arrays_BI_BO=strategies.arrays_BI_BO())
-def test_batch_outer_computes_correctly(cpu_ops, arrays_BI_BO):
-    bi, bo = arrays_BI_BO
-    assert bi.shape[0] == bo.shape[0]
-    assert len(bi.shape) == len(bo.shape) == 2
-    expected = numpy.tensordot(bo, bi, axes=[[0], [0]])
-    assert expected.shape == (bo.shape[1], bi.shape[1])
-    oi = cpu_ops.batch_outer(bo, bi)
-    assert_allclose(oi, expected)
+#@settings(max_examples=MAX_EXAMPLES)
+#@given(arrays_BI_BO=strategies.arrays_BI_BO())
+#def test_batch_outer_computes_correctly(cpu_ops, arrays_BI_BO):
+#    bi, bo = arrays_BI_BO
+#    assert bi.shape[0] == bo.shape[0]
+#    assert len(bi.shape) == len(bo.shape) == 2
+#    expected = numpy.tensordot(bo, bi, axes=[[0], [0]])
+#    assert expected.shape == (bo.shape[1], bi.shape[1])
+#    oi = cpu_ops.batch_outer(bo, bi)
+#    assert_allclose(oi, expected)
 
 
 @settings(max_examples=MAX_EXAMPLES)
@@ -203,7 +201,6 @@ def test_norm_computes_correctly(cpu_ops, X):
             rtol=1e-04, atol=0.0001)
 
 
-@pytest.mark.xfail
 @settings(max_examples=MAX_EXAMPLES)
 @given(W_b_X=strategies.arrays_OI_O_BI())
 def test_dot_computes_correctly(cpu_ops, W_b_X):
