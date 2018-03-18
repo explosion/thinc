@@ -932,6 +932,21 @@ class CupyOps(Ops):
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
+    '''
+    Let's say nW is 1 (it usually is). Then we want to take:
+
+    1a 1b 1c
+    2a 2b 2c
+    3a 3b 3c
+
+    And make
+
+    __ __ __ 1a 1b 1c 2a 2b 2c
+    1a 1b 1c 2a 2b 2c 3a 3b 3c
+    2a 2b 2c 3a 3b 3c __ __ __
+
+    Where __ is padding.
+    '''
     nF = nW * 2 + 1
     cdef int oI = nW * I
     cdef int xI = 0
@@ -946,7 +961,7 @@ cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
         oI += stride
         xI += I
     memcpy(&output[oI],
-        &X[xI], I * nW * sizeof(output[0]))
+        &X[xI], stride * sizeof(output[0]))
 
 
 cdef void backprop_seq2col(float* d_seqs,
