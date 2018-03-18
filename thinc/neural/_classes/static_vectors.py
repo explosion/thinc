@@ -56,11 +56,12 @@ class StaticVectors(Model):
             ids = self.ops.xp.ascontiguousarray(ids[:, self.column])
         vector_table = self.get_vectors()
         vectors = vector_table[ids * (ids < vector_table.shape[0])]
+        vectors = self.ops.xp.ascontiguousarray(vectors)
         assert vectors.shape[0] == ids.shape[0]
         def finish_update(gradients, sgd=None):
             if mask is not None:
                 gradients *= mask
-            self.d_W += self.ops.batch_outer(gradients, vectors)
+            self.d_W += self.ops.gemm(gradients, vectors, trans1=True)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
