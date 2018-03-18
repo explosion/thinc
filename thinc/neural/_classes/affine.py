@@ -49,7 +49,7 @@ class Affine(Model):
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
-        return self.ops.affine(self.W, self.b, input__BI)
+        return self.ops.gemm(input__BI, self.W, trans2=True) + self.b
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):

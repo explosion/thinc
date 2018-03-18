@@ -191,8 +191,7 @@ class Ops(object):
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
-        # TODO: Deprecate this
-        return self.batch_dot(signal, weights, transpose=False) + bias
+        return self.gemm(signal, weights, trans2=True) + bias
 
     def add_sum(self, out, to_sum):
         out += to_sum.sum(axis=0)
@@ -330,8 +329,8 @@ class NumpyOps(Ops):
         VecVec.add_i(<float*>x.data,
             <float*>y.data, scale, x.shape[0])
 
-    def gemm(self, np.ndarray x, np.ndarray y, trans1=False, trans2=False,
-             np.ndarray out=None):
+    def gemm(self, float[:, ::1] x, float[:, ::1] y, trans1=False, trans2=False,
+             out=None):
         cdef int m
         if trans1:
             m = x.shape[1]
@@ -342,22 +341,30 @@ class NumpyOps(Ops):
             n = y.shape[0]
         else:
             n = y.shape[1]
+        cdef float[:, ::1] out_array
         if out is None:
-            out = self.allocate((m, n))
-        assert out.shape[0] == m
-        assert out.shape[1] == n
+            out_array = self.allocate((m, n))
+        else:
+            out_array = out
+        assert out_array.shape[0] == m
+        assert out_array.shape[1] == n
+        cdef np.ndarray x_
+        cdef np.ndarray y_
         IF USE_BLAS:
-            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-                <float*>x.data, x.shape[0], x.shape[1],
-                <float*>y.data, y.shape[0], y.shape[1],
+            openblas.simple_gemm(&out_array[0, 0], out_array.shape[0], out_array.shape[1],
+                &x[0,0], x.shape[0], x.shape[1],
+                &y[0,0], y.shape[0], y.shape[1],
                 trans1, trans2)
+            return self.xp.asarray(out_array)
         ELSE:
+            x_ = self.xp.asarray(x)
+            y_ = self.xp.asarray(y)
             if trans1:
-                x = x.T
+                x_ = x_.T
             if trans2:
-                y = y.T
-            self.xp.dot(x, y, out=out)
-        return out
+                y_ = y_.T
+            self.xp.dot(x_, y_, out=self.xp.asarray(out_array))
+            return self.xp.asarray(out_array)
 
     def affine(self, weights, bias, signal):
         dotted = self.gemm(signal, weights, trans2=True)
@@ -732,24 +739,14 @@ class CupyOps(Ops):
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
-            m = x.shape[1]
-        else:
-            m = x.shape[0]
-        cdef int n
-        if trans2: 
-            n = y.shape[0]
-        else:
-            n = y.shape[1]
-        if out is None:
-            out = self.allocate((m, n))
-        assert out.shape[0] == m
-        assert out.shape[1] == n
-        if trans1:
             x = x.T
         if trans2:
             y = y.T
-        self.xp.dot(x, y, out=out)
-        return out
+        if out is None:
+            return self.xp.dot(x, y)
+        else:
+            self.xp.dot(x, y, out=out)
+            return out
 
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
@@ -884,6 +881,61 @@ class CupyOps(Ops):
             return W
         else:
             return inits
+
+    def sigmoid(self, X):
+        return 1./(1. + self.xp.exp(-X))
+
+    def dsigmoid(self, y):
+        return y*(1-y)
+
+    def dtanh(self, y):
+        return 1-y**2
+
+    def lstm(self, output, cells, gates, prev):
+        gates = gates.reshape((gates.shape[0]//4, 4))
+        gates[:, 3] = self.xp.tanh(gates[:, 3])
+        gates[:, :3] = self.sigmoid(gates[:, :3])
+        hf = gates[:, 0]
+        hi = gates[:, 1]
+        ho = gates[:, 2]
+        hc = gates[:, 3]
+
+        cells[:] = hf * prev + hi * hc
+        output[:] = self.xp.tanh(cells) * ho
+
+    def backprop_lstm(self, d_cells, d_prev, d_gates,
+            d_output, gates, cells, prev):
+        gates = gates.reshape((gates.shape[0]//4, 4))
+        d_gates = d_gates.reshape((d_gates.shape[0]//4, 4))
+        hf = gates[:, 0]
+        hi = gates[:, 1]
+        ho = gates[:, 2]
+        hc = gates[:, 3]
+
+        dhf = d_gates[:, 0]
+        dhi = d_gates[:, 1]
+        dho = d_gates[:, 2]
+        dhc = d_gates[:, 3]
+        ct = self.xp.tanh(cells)
+
+        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+        dho = ct * d_output * self.dsigmoid(ho)
+        dc = ho * d_output * self.dtanh(ct)
+        dc += d_cells # Carry gradient from previous step
+
+        # Gradient for hf, hi, hc, prev[i]
+        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        dhf   = self.dsigmoid(hf) * dc * prev
+        dhi   = self.dsigmoid(hi) * dc * hc
+        dhc   = self.dtanh(hc)    * dc * hi
+
+        copy_array(d_prev, dc * hf)
+
+        copy_array(d_gates[:, 0], dhf)
+        copy_array(d_gates[:, 1], dhi)
+        copy_array(d_gates[:, 2], dho)
+        copy_array(d_gates[:, 3], dhc)
+        copy_array(d_cells, dc)
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
