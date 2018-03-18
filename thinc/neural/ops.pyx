@@ -180,15 +180,18 @@ class Ops(object):
             return self.xp.dot(x, y)
 
     def add_batch_outer(self, output, x, y):
+        # TODO: Deprecate this
         output += self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
 
     def dot(self, x, y):
+        # TODO: Deprecate this
         return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
+        # TODO: Deprecate this
         return self.batch_dot(signal, weights, transpose=False) + bias
 
     def add_sum(self, out, to_sum):
@@ -268,16 +271,6 @@ class Ops(object):
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
     
-    def normal_init(self, W, inplace=True):
-        scale = self.xp.sqrt(1. / W.shape[-1])
-        inits = self.xp.random.normal(scale=scale, size=prod(W.shape))
-        inits = inits.reshape(W.shape)
-        if inplace:
-            copy_array(W, inits)
-            return W
-        else:
-            return inits
-
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -366,46 +359,8 @@ class NumpyOps(Ops):
             self.xp.dot(x, y, out=out)
         return out
 
-    def batch_dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
-        # TODO: Remove this method once calling code is fixed
-        if out is None:
-            out = self.allocate((x.shape[0], y.shape[0]))
-        IF USE_BLAS:
-            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-                <float*>x.data, x.shape[0], x.shape[1],
-                <float*>y.data, y.shape[0], y.shape[1], 0, 1)
-            return out
-        ELSE:
-            return self.xp.dot(x, y.T, out=out)
-
-    def batch_outer(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
-        # TODO: Remove this method once calling code is fixed
-        if out is None:
-            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
-        IF USE_BLAS:
-            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-                <float*>x.data, x.shape[0], x.shape[1],
-                <float*>y.data, y.shape[0], y.shape[1],
-                1, 0)
-        ELSE:
-            self.xp.dot(x.T, y, out=out)
-        return out
-
-    def dot(self, np.ndarray x, np.ndarray y, np.ndarray out=None):
-        # TODO: Remove this method once calling code is fixed
-        if out is None:
-            out = self.allocate((x.shape[1], y.shape[1]), dtype='f')
-        IF USE_BLAS:
-            openblas.simple_gemm(<float*>out.data, out.shape[0], out.shape[1],
-                <float*>x.data, x.shape[0], x.shape[1],
-                <float*>y.data, y.shape[0], y.shape[1],
-                0, 0)
-        ELSE:
-            self.xp.dot(x, y, out=out)
-        return out
-
     def affine(self, weights, bias, signal):
-        dotted = self.gemm(signal, weights, trans2=True) #+ bias
+        dotted = self.gemm(signal, weights, trans2=True)
         return dotted + bias
 
     def elu(self, ndarray X, inplace=True):
