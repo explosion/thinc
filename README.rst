@@ -368,6 +368,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.11.0`_  ``2018-03-16`` Support direct linkage to BLAS libraries
 `v6.10.2`_  ``2017-12-06`` Efficiency improvements and bug fixes
 `v6.10.1`_  ``2017-11-15`` Fix GPU install and minor memory leak
 `v6.10.0`_  ``2017-10-28`` CPU efficiency improvements, refactoring
@@ -394,6 +395,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.11.0: https://github.com/explosion/thinc/releases/tag/v6.11.0
 .. _v6.10.2: https://github.com/explosion/thinc/releases/tag/v6.10.2
 .. _v6.10.1: https://github.com/explosion/thinc/releases/tag/v6.10.1
 .. _v6.10.0: https://github.com/explosion/thinc/releases/tag/v6.10.0
