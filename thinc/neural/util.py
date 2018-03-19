@@ -13,9 +13,9 @@ except ImportError:
 
 def get_ops(ops):
     from .ops import NumpyOps, CupyOps
-    if ops in ('numpy', 'cpu') or isinstance(ops, int) and ops < 0:
+    if ops in ('numpy', 'cpu') or (isinstance(ops, int) and ops < 0):
         return NumpyOps
-    elif ops in ('cupy', 'gpu') or isinstance(ops, int) and ops >= 0:
+    elif ops in ('cupy', 'gpu') or (isinstance(ops, int) and ops >= 0):
         return CupyOps
     else:
         raise ValueError("Invalid ops (or device) description: %s" % ops)
