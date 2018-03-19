@@ -203,10 +203,6 @@ class Ops(object):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
-        if inplace:
-            self.xp.clip(x, -20., 20., out=x)
-        else:
-            x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -341,11 +337,11 @@ class NumpyOps(Ops):
             n = y.shape[0]
         else:
             n = y.shape[1]
-        cdef float[:, ::1] out_array
+        cdef np.ndarray out_array
         if out is None:
             out_array = self.allocate((m, n))
         else:
-            out_array = out
+            out_array = self.xp.asarray(out)
         assert out_array.shape[0] == m
         assert out_array.shape[1] == n
         cdef np.ndarray x_
@@ -363,8 +359,8 @@ class NumpyOps(Ops):
                 x_ = x_.T
             if trans2:
                 y_ = y_.T
-            self.xp.dot(x_, y_, out=self.xp.asarray(out_array))
-            return self.xp.asarray(out_array)
+            self.xp.dot(x_, y_, out=out_array)
+            return out_array
 
     def affine(self, weights, bias, signal):
         dotted = self.gemm(signal, weights, trans2=True)
