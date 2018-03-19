@@ -4,7 +4,7 @@ Thinc: Practical Machine Learning for NLP in Python
 **Thinc** is the machine learning library powering `spaCy <https://spacy.io>`_.
 It features a battle-tested linear model designed for large sparse learning
 problems, and a flexible neural network model under development for
-`spaCy v2.0 <https://alpha.spacy.io/usage/v2>`_.
+`spaCy v2.0 <https://spacy.io/usage/v2>`_.
 
 Thinc is a practical toolkit for implementing models that follow the
 `"Embed, encode, attend, predict" <https://explosion.ai/blog/deep-learning-formula-nlp>`_
