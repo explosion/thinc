@@ -134,7 +134,7 @@ class Progbar(object):
             eta = time_per_unit * (self.target - current)
             info = ''
             if current < self.target:
-                info += ' - ETA: %ds' % eta
+                info += ' - ETA: %ds ' % eta
             else:
                 info += ' - %ds' % (now - self.start)
             for k in self.unique_values:
