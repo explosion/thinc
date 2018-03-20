@@ -24,10 +24,8 @@ from .util import copy_array, get_array_module
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
-include "../compile_time_constants.pxi"
 
-if USE_BLAS:
-    from .. cimport openblas
+from .. cimport openblas
 
 
 cdef extern from "math.h":
@@ -346,21 +344,11 @@ class NumpyOps(Ops):
         assert out_array.shape[1] == n
         cdef np.ndarray x_
         cdef np.ndarray y_
-        IF USE_BLAS:
-            openblas.simple_gemm(&out_array[0, 0], out_array.shape[0], out_array.shape[1],
-                &x[0,0], x.shape[0], x.shape[1],
-                &y[0,0], y.shape[0], y.shape[1],
-                trans1, trans2)
-            return self.xp.asarray(out_array)
-        ELSE:
-            x_ = self.xp.asarray(x)
-            y_ = self.xp.asarray(y)
-            if trans1:
-                x_ = x_.T
-            if trans2:
-                y_ = y_.T
-            self.xp.dot(x_, y_, out=out_array)
-            return out_array
+        openblas.simple_gemm(<float*>out_array.data, out_array.shape[0], out_array.shape[1],
+            &x[0,0], x.shape[0], x.shape[1],
+            &y[0,0], y.shape[0], y.shape[1],
+            trans1, trans2)
+        return out_array
 
     def affine(self, weights, bias, signal):
         dotted = self.gemm(signal, weights, trans2=True)
