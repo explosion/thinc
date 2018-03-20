@@ -68,7 +68,6 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
-        compiler = compiler.compiler[0]
         objects = []
         for iface in ['gemm']:
             objects.append(self.compile_interface(
@@ -245,9 +244,13 @@ def customize_compiler_for_nvcc(self):
 class build_ext_options:
     def build_options(self):
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
+        if hasattr(self.compiler, 'cc'):
+            compiler = self.compiler.cc
+        else:
+            compiler = self.compiler.compiler
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects(self.compiler, src_dir)
+                e.build_objects(compiler, src_dir)
                 print(e.extra_objects)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
