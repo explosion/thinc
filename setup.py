@@ -2,6 +2,7 @@
 from __future__ import print_function
 import io
 import os
+import os.path
 import subprocess
 import sys
 import contextlib
@@ -10,6 +11,18 @@ from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 
 from setuptools import Extension, setup
+
+
+def local(cmd, **kwargs):
+    params = {}
+    for name, value in kwargs.items():
+        if isinstance(value, list) or isinstance(value, tuple):
+            value = ' '.join(value)
+        params[name] = value
+    cmd = cmd.format(**params)
+    print(cmd)
+    subprocess.call(cmd.split())
+
 
 
 PACKAGES = [
@@ -52,33 +65,134 @@ compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                         'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [], 'other' : []}
 
-def link_static_openblas(root):
-    pxi_loc = os.path.join(root, 'thinc', 'compile_time_constants.pxi')
-    with open(pxi_loc, 'r') as file_:
-        pxi = file_.read()
-    if 'THINC_CBLAS' in os.environ:
-        lib_loc = os.environ['THINC_CBLAS']
-        lib_path, lib_name = os.path.split(lib_loc)
-        if lib_name.endswith('.so'):
-            is_shared = True
-            lib_name = lib_name[3:-3]
-        else:
-            is_shared = False
-        print('Using BLAS:', lib_path, lib_name)
-        compile_options['other']['gcc'].append('-L%s' % lib_path)
-        link_options['other'].append('-L%s' % lib_path)
-        if is_shared:
-            compile_options['other']['gcc'].append('-l%s' % lib_name)
-            link_options['other'].append('-l%s' % lib_name)
-        else:
-            compile_options['other']['gcc'].append('-l:%s' % lib_name)
-            link_options['other'].append('-l:%s' % lib_name)
-        pxi = pxi.replace('DEF USE_BLAS = False', 'DEF USE_BLAS = True')
-    else:
-        print('Not compiling BLAS')
-        pxi = pxi.replace('DEF USE_BLAS = True', 'DEF USE_BLAS = False')
-    with open(pxi_loc, 'w') as file_:
-        file_.write(pxi)
+
+class Openblas(Extension):
+    def build_objects(self, compiler, src_dir):
+        compiler = compiler.compiler[0]
+        objects = []
+        for iface in ['gemm']:
+            objects.append(self.compile_interface(
+                compiler, src_dir, 'cblas_s%s' % iface, iface))
+        objects.extend(self.build_gemm(compiler, src_dir))
+        for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
+            objects.append(self.compile_driver(compiler,
+                os.path.join(src_dir, 'driver', 'others'), src_dir,
+                other, '%s.c' % other, []))
+        self.extra_objects.extend(objects)
+        self.extra_link_args.append('-Wl,--no-undefined')
+        return objects
+ 
+    def build_gemm(self, compiler, src_dir):
+        objects = []
+        for flavor in ['nn', 'nt', 'tn', 'tt']:
+            name = 'sgemm_%s' % flavor
+            objects.append(
+                self.compile_driver(
+                    compiler, os.path.join(src_dir, 'driver', 'level3'),
+                    src_dir,
+                    name, 'gemm.c', ['-D' + flavor.upper()]))
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                'sgemm_itcopy', 'gemm_tcopy_16.c', []))
+ 
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                'sgemm_incopy', 'gemm_ncopy_16.c', []))
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                'sgemm_oncopy', 'gemm_ncopy_4.c', []))
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                'sgemm_otcopy', 'gemm_tcopy_4.c', []))
+        objects.append(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                'sgemm_beta', 'gemm_beta.S', []))
+ 
+        return objects
+
+    def build_axpy(self, compiler, src_dir):
+        objects = []
+        objects.append(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+            'saxpy_k', 'saxpy', []))
+        return objects
+
+    def build_gemv(self, compiler, src_dir):
+        objects = []
+        for flavor in ['n', 't']:
+            name = 'sgemv_%s' % flavor
+            objects.append(
+                self.compile_driver(
+                    compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
+                    src_dir,
+                    name, 'gemv', ['-D' + flavor.upper()]))
+            name = 'sgemv_thread_%s' % flavor
+            objects.append(
+                self.compile_driver(
+                    compiler, os.path.join(src_dir, 'driver', 'level2'),
+                    src_dir,
+                    name, 'gemv_thread', ['-D' + flavor.upper()]))
+        return objects
+
+    def build_ger(self, compiler, src_dir):
+        objects = []
+        return objects
+    
+    @staticmethod
+    def compile_driver(compiler, src_dir, include_dir, name, src_name, args):
+        args.extend(('-c', '-O2', '-Wall', '-m64', '-fPIC'))
+        # Stuff we're not building
+        args.append('-DF_INTERFACE_GFORT')
+        args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
+        args.extend(('-UDOUBLE', '-UCOMPLEX'))
+        # Settings that maybe matter for optimization?
+        args.append('-DMAX_STACK_ALLOC=2048')
+        args.append('-DNO_WARMUP')
+        args.append('-DMAX_CPU_NUMBER=4')
+        # Fill in the template
+        args.append('-DASMNAME=%s' % name)
+        args.append('-DASMFNAME=%s_' % name)
+        args.append('-DNAME=%s_' % name)
+        args.append('-DCNAME=%s' % name)
+        args.append('-DCHAR_NAME="%s_"' % name)
+        args.append('-DCHAR_CNAME="%s_"' % name)
+        args.append('-I%s' % include_dir)
+        src = '{}/{}'.format(src_dir, src_name),
+        output = '{}/{}.o'.format(src_dir, name)
+        local('{compiler} {args} {src} -o {output}',
+            compiler=compiler, args=args, src=src, output=output)
+        return output
+
+    @staticmethod
+    def compile_interface(compiler, src_dir, name, src_name):
+        args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
+        args.extend(('-DMAX_STACK_ALLOC=2048', '-DF_INTERFACE_GFORT'))
+        args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
+        args.extend(('-UDOUBLE', '-UCOMPLEX'))
+        args.append('-DNO_WARMUP')
+        args.append('-DMAX_CPU_NUMBER=4')
+        args.append('-DASMNAME=%s' % name)
+        args.append('-DASMFNAME=%s_' % name)
+        args.append('-DNAME=%s_' % name)
+        args.append('-DCNAME=%s' % name)
+        args.append('-DCHAR_NAME="%s_"' % name)
+        args.append('-DCHAR_CNAME="%s"' % name)
+        args.append('-DCBLAS')
+        args.append('-I%s' % src_dir)
+        src = '{}/interface/{}.c'.format(src_dir, src_name)
+        output = '{}/interface/{name}.o'.format(src_dir, name=name)
+        local('{compiler} {args} {src} -o {output}',
+            compiler=compiler, args=args, src=src, output=output)
+        return output
 
 
 def customize_compiler_for_nvcc(self):
@@ -125,14 +239,18 @@ def customize_compiler_for_nvcc(self):
     self._compile = _compile
 
 
-# By subclassing build_extensions we have the actual compiler that will be used which is really known only after finalize_options
+# By subclassing build_extensions we have the actual compiler that will be used
+# which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_options:
     def build_options(self):
+        src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         for e in self.extensions:
+            if isinstance(e, Openblas):
+                e.build_objects(self.compiler, src_dir)
+                print(e.extra_objects)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
-        for e in self.extensions:
             e.extra_link_args = link_options.get(
                 self.compiler.compiler_type, link_options['other'])
 
@@ -210,7 +328,6 @@ def clean(path):
             if os.path.exists(file_path):
                 os.unlink(file_path)
 
-
 @contextlib.contextmanager
 def chdir(new_dir):
     old_dir = os.getcwd()
@@ -228,8 +345,6 @@ def setup_package():
 
     if len(sys.argv) > 1 and sys.argv[1] == 'clean':
         return clean(root)
-
-    link_static_openblas(root)
 
     with chdir(root):
         with open(os.path.join(root, 'thinc', 'about.py')) as f:
@@ -249,13 +364,15 @@ def setup_package():
 
         ext_modules = []
         for mod_name in MOD_NAMES:
+            mod_path = mod_name.replace('.', '/') + '.cpp'
             if mod_name.endswith('gpu_ops'):
                 continue
-            mod_path = mod_name.replace('.', '/') + '.cpp'
-            ext_modules.append(
-                Extension(mod_name, [mod_path],
-                    language='c++', include_dirs=include_dirs
-                ))
+            elif mod_name.endswith('openblas'):
+                ext = Openblas(mod_name, [mod_path], include_dirs=include_dirs)
+            else:
+                ext = Extension(mod_name, [mod_path],
+                        language='c++', include_dirs=include_dirs)
+            ext_modules.append(ext)
         if CUDA is None:
             pass
         else:
