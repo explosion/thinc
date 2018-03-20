@@ -67,7 +67,7 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 
 class Openblas(Extension):
-    def build_objects(OS, self, compiler, src_dir, suffix):
+    def build_objects(self, OS, compiler, src_dir, suffix):
         objects = []
         for iface in ['gemm']:
             objects.append(self.compile_interface(
@@ -249,14 +249,16 @@ class build_ext_options:
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         if hasattr(self.compiler, 'compiler'):
             compiler = self.compiler.compiler
+            OS = 'linux'
             suffix = '.o'
         else:
             #compiler = self.compiler.find_exe("c1.exe")
             compiler = r"C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC\Bin\cl.exe"
+            OS = 'windows'
             suffix = '.obj'
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects('windows', compiler, src_dir, suffix)
+                e.build_objects(OS, compiler, src_dir, suffix)
                 print(e.extra_objects)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
