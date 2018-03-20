@@ -247,7 +247,8 @@ class build_ext_options:
             compiler = self.compiler.compiler
             suffix = '.o'
         else:
-            compiler = self.compiler.find_exe("c1.exe")
+            #compiler = self.compiler.find_exe("c1.exe")
+            compiler = "C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC\Bin\cl.exe"
             suffix = '.obj'
         for e in self.extensions:
             if isinstance(e, Openblas):
