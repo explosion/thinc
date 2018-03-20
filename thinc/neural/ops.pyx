@@ -24,10 +24,8 @@ from .util import copy_array, get_array_module
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
-include "../compile_time_constants.pxi"
 
-if USE_BLAS:
-    from .. cimport openblas
+from .. cimport openblas
 
 
 cdef extern from "math.h":
@@ -203,10 +201,6 @@ class Ops(object):
         if x.ndim >= 3:
             raise NotImplementedError(
                 "Softmax currently only supports 2d. ndim=%d" % x.ndim)
-        if inplace:
-            self.xp.clip(x, -20., 20., out=x)
-        else:
-            x = self.xp.clip(x, -20., 20.)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -341,30 +335,20 @@ class NumpyOps(Ops):
             n = y.shape[0]
         else:
             n = y.shape[1]
-        cdef float[:, ::1] out_array
+        cdef np.ndarray out_array
         if out is None:
             out_array = self.allocate((m, n))
         else:
-            out_array = out
+            out_array = self.xp.asarray(out)
         assert out_array.shape[0] == m
         assert out_array.shape[1] == n
         cdef np.ndarray x_
         cdef np.ndarray y_
-        IF USE_BLAS:
-            openblas.simple_gemm(&out_array[0, 0], out_array.shape[0], out_array.shape[1],
-                &x[0,0], x.shape[0], x.shape[1],
-                &y[0,0], y.shape[0], y.shape[1],
-                trans1, trans2)
-            return self.xp.asarray(out_array)
-        ELSE:
-            x_ = self.xp.asarray(x)
-            y_ = self.xp.asarray(y)
-            if trans1:
-                x_ = x_.T
-            if trans2:
-                y_ = y_.T
-            self.xp.dot(x_, y_, out=self.xp.asarray(out_array))
-            return self.xp.asarray(out_array)
+        openblas.simple_gemm(<float*>out_array.data, out_array.shape[0], out_array.shape[1],
+            &x[0,0], x.shape[0], x.shape[1],
+            &y[0,0], y.shape[0], y.shape[1],
+            trans1, trans2)
+        return out_array
 
     def affine(self, weights, bias, signal):
         dotted = self.gemm(signal, weights, trans2=True)
