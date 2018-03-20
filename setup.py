@@ -244,10 +244,10 @@ def customize_compiler_for_nvcc(self):
 class build_ext_options:
     def build_options(self):
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
-        if hasattr(self.compiler, 'cc'):
-            compiler = self.compiler.cc
-        else:
+        if hasattr(self.compiler, 'compiler'):
             compiler = self.compiler.compiler
+        else:
+            compiler = self.compiler.cc
         for e in self.extensions:
             if isinstance(e, Openblas):
                 e.build_objects(compiler, src_dir)
