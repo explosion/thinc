@@ -67,16 +67,16 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 
 class Openblas(Extension):
-    def build_objects(self, compiler, src_dir):
+    def build_objects(self, compiler, src_dir, suffix):
         objects = []
         for iface in ['gemm']:
             objects.append(self.compile_interface(
-                compiler, src_dir, 'cblas_s%s' % iface, iface))
+                compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
         objects.extend(self.build_gemm(compiler, src_dir))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.append(self.compile_driver(compiler,
                 os.path.join(src_dir, 'driver', 'others'), src_dir,
-                other, '%s.c' % other, []))
+                other, '%s.c' % other, [], suffix))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
         return objects
@@ -245,11 +245,13 @@ class build_ext_options:
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         if hasattr(self.compiler, 'compiler'):
             compiler = self.compiler.compiler
+            suffix = '.o'
         else:
             compiler = self.compiler.find_exe("c1.exe")
+            suffix = '.obj'
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects(compiler, src_dir)
+                e.build_objects(compiler, src_dir, suffix)
                 print(e.extra_objects)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
