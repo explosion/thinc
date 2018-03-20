@@ -72,7 +72,7 @@ class Openblas(Extension):
         for iface in ['gemm']:
             objects.append(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
-        objects.extend(self.build_gemm(compiler, src_dir))
+        objects.extend(self.build_gemm(compiler, src_dir, suffix))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.append(self.compile_driver(compiler,
                 os.path.join(src_dir, 'driver', 'others'), src_dir,
