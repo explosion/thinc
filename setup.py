@@ -247,7 +247,7 @@ class build_ext_options:
         if hasattr(self.compiler, 'compiler'):
             compiler = self.compiler.compiler
         else:
-            compiler = self.compiler.cc
+            compiler = self.compiler.find_exe("c1.exe")
         for e in self.extensions:
             if isinstance(e, Openblas):
                 e.build_objects(compiler, src_dir)
