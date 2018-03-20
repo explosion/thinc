@@ -1,6 +1,7 @@
-recursive-include include *.h
+global-include *.h *.S *.c
 recursive-include include *.cu
 recursive-include include *.cpp
 include buildbot.json
 include LICENSE
 include README.rst
+prune tmp/
