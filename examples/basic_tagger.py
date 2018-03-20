@@ -1,5 +1,5 @@
 from __future__ import print_function
-from thinc.i2v.hash_embed import HashEmbed
+from thinc.i2v import HashEmbed
 from thinc.v2v import Model, ReLu, Softmax
 
 from thinc.api import layerize, chain, with_flatten
@@ -9,18 +9,13 @@ from thinc.neural.util import to_categorical
 
 import plac
 
-try:
-    import cytoolz as toolz
-except ImportError:
-    import toolz
-
 
 def main(width=32, nr_vector=1000):
     train_data, check_data, nr_tag = ancora_pos_tags(encode_words=True)
 
     model = with_flatten(
                  chain(
-                    HashEmbed(width, 1000),
+                    HashEmbed(width, nr_vector),
                     ReLu(width, width),
                     ReLu(width, width),
                     Softmax(nr_tag, width)))
@@ -37,7 +32,7 @@ def main(width=32, nr_vector=1000):
             backprop([yh[i]-y[i] for i in range(len(yh))], optimizer)
     with model.use_params(optimizer.averages):
         print(model.evaluate(dev_X, dev_y))
- 
+
 
 if __name__ == '__main__':
     if 1:
