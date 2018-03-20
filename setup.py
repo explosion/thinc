@@ -67,53 +67,53 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 
 class Openblas(Extension):
-    def build_objects(self, compiler, src_dir, suffix):
+    def build_objects(OS, self, compiler, src_dir, suffix):
         objects = []
         for iface in ['gemm']:
             objects.append(self.compile_interface(
-                compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
-        objects.extend(self.build_gemm(compiler, src_dir, suffix))
+                OS, compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
+        objects.extend(self.build_gemm(OS, compiler, src_dir, suffix))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
-            objects.append(self.compile_driver(compiler,
+            objects.append(self.compile_driver(OS, compiler,
                 os.path.join(src_dir, 'driver', 'others'), src_dir,
                 other, '%s.c' % other, [], suffix))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
         return objects
  
-    def build_gemm(self, compiler, src_dir, suffix):
+    def build_gemm(self, OS, compiler, src_dir, suffix):
         objects = []
         for flavor in ['nn', 'nt', 'tn', 'tt']:
             name = 'sgemm_%s' % flavor
             objects.append(
                 self.compile_driver(
-                    compiler, os.path.join(src_dir, 'driver', 'level3'),
+                    OS, compiler, os.path.join(src_dir, 'driver', 'level3'),
                     src_dir,
                     name, 'gemm.c', ['-D' + flavor.upper()], suffix))
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
                 'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', [], suffix))
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
                 'sgemm_itcopy', 'gemm_tcopy_16.c', [], suffix))
  
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
                 'sgemm_incopy', 'gemm_ncopy_16.c', [], suffix))
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
                 'sgemm_oncopy', 'gemm_ncopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
                 'sgemm_otcopy', 'gemm_tcopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
                 'sgemm_beta', 'gemm_beta.S', [], suffix))
         return objects
 
@@ -146,8 +146,10 @@ class Openblas(Extension):
         return objects
     
     @staticmethod
-    def compile_driver(compiler, src_dir, include_dir, name, src_name, args, suffix):
+    def compile_driver(OS, compiler, src_dir, include_dir, name, src_name, args, suffix):
         args.extend(('-c', '-O2', '-Wall', '-m64', '-fPIC'))
+        if OS == 'windows':
+            args.append('-DOS_WINDOWS')
         # Stuff we're not building
         args.append('-DF_INTERFACE_GFORT')
         args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
@@ -171,8 +173,10 @@ class Openblas(Extension):
         return output
 
     @staticmethod
-    def compile_interface(compiler, src_dir, name, src_name, suffix):
+    def compile_interface(OS, compiler, src_dir, name, src_name, suffix):
         args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
+        if OS == 'windows':
+            args.append('-DOS_WINDOWS')
         args.extend(('-DMAX_STACK_ALLOC=2048', '-DF_INTERFACE_GFORT'))
         args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
         args.extend(('-UDOUBLE', '-UCOMPLEX'))
@@ -252,7 +256,7 @@ class build_ext_options:
             suffix = '.obj'
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects(compiler, src_dir, suffix)
+                e.build_objects('windows', compiler, src_dir, suffix)
                 print(e.extra_objects)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
