@@ -69,10 +69,11 @@ link_options    =  {'msvc'  : [], 'other' : []}
 class Openblas(Extension):
     def build_objects(self, OS, compiler, src_dir, suffix):
         objects = []
-        for iface in ['gemm']:
+        for iface in ['gemm', 'axpy']:
             objects.append(self.compile_interface(
                 OS, compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
         objects.extend(self.build_gemm(OS, compiler, src_dir, suffix))
+        objects.extend(self.build_axpy(OS, compiler, src_dir, suffix))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.append(self.compile_driver(OS, compiler,
                 os.path.join(src_dir, 'driver', 'others'), src_dir,
@@ -117,11 +118,11 @@ class Openblas(Extension):
                 'sgemm_beta', 'gemm_beta.S', [], suffix))
         return objects
 
-    def build_axpy(self, compiler, src_dir):
+    def build_axpy(self, OS, compiler, src_dir, suffix):
         objects = []
-        objects.append(self.compile_driver(compiler, 
+        objects.append(self.compile_driver(OS, compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-            'saxpy_k', 'saxpy', []))
+            'saxpy_k', 'saxpy.c', [], suffix))
         return objects
 
     def build_gemv(self, compiler, src_dir):
