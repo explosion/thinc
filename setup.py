@@ -259,7 +259,7 @@ class build_ext_options:
             OS = 'linux'
             suffix = '.o'
         else:
-            compiler = self.compiler.find_exe("c1.exe")
+            compiler = "c1.exe"
             OS = 'windows'
             suffix = '.obj'
         for e in self.extensions:
