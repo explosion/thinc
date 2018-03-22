@@ -66,142 +66,126 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 
 class Openblas(Extension):
-    def build_objects(self, OS, compiler, src_dir, suffix):
+    def build_objects(self, compiler, src_dir):
+        compiler.src_extensions.append('.S')
+        self.include_dirs.append(src_dir)
         objects = []
         for include_dir in self.include_dirs:
             print(include_dir, os.path.exists(include_dir))
         for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
-            objects.append(self.compile_interface(
-                OS, compiler, src_dir, self.include_dirs, 'cblas_s%s' % iface,
-                iface, suffix))
-        objects.extend(self.build_gemm(OS, compiler, src_dir,
-                                       self.include_dirs, suffix))
-        objects.extend(self.build_level1(OS, compiler, src_dir, suffix))
+            objects.extend(self.compile_interface(
+                compiler, src_dir, 'cblas_s%s' % iface, iface))
+        objects.extend(self.build_gemm(compiler, src_dir))
+        objects.extend(self.build_level1(compiler, src_dir))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
-            objects.append(self.compile_driver(OS, compiler,
+            objects.extend(self.compile_driver(compiler,
                 os.path.join(src_dir, 'driver', 'others'),
-                self.include_dirs, other, '%s.c' % other, [], suffix))
+                other, '%s.c' % other, []))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
         return objects
  
-    def build_gemm(self, OS, compiler, src_dir, include_dirs, suffix):
+    def build_gemm(self, compiler, src_dir):
         objects = []
-        include_dirs = include_dirs + [src_dir]
         for flavor in ['nn', 'nt', 'tn', 'tt']:
             name = 'sgemm_%s' % flavor
-            objects.append(
+            objects.extend(
                 self.compile_driver(
-                    OS, compiler, os.path.join(src_dir, 'driver', 'level3'),
-                    include_dirs,
-                    name, 'gemm.c', ['-D' + flavor.upper()], suffix))
-        objects.append(
+                    compiler, os.path.join(src_dir, 'driver', 'level3'),
+                    name, 'gemm.c', [(flavor.upper(), None)]))
+        objects.extend(
+            self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
+                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+        objects.extend(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
-                include_dirs, 'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', [], suffix))
-        objects.append(
-            self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), 
-                include_dirs, 'sgemm_itcopy', 'gemm_tcopy_16.c', [], suffix))
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), 
+                'sgemm_itcopy', 'gemm_tcopy_16.c', []))
  
-        objects.append(
+        objects.extend(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), 
-                include_dirs, 
-                'sgemm_incopy', 'gemm_ncopy_16.c', [], suffix))
-        objects.append(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'), 
+                'sgemm_incopy', 'gemm_ncopy_16.c', []))
+        objects.extend(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'),
-                include_dirs,
-                'sgemm_oncopy', 'gemm_ncopy_4.c', [], suffix))
-        objects.append(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'),
+                'sgemm_oncopy', 'gemm_ncopy_4.c', []))
+        objects.extend(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'),
-                include_dirs, 'sgemm_otcopy', 'gemm_tcopy_4.c', [], suffix))
-        objects.append(
+                compiler, os.path.join(src_dir, 'kernel', 'generic'),
+                'sgemm_otcopy', 'gemm_tcopy_4.c', []))
+        objects.extend(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
-                include_dirs, 'sgemm_beta', 'gemm_beta.S', [], suffix))
+                compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
+                'sgemm_beta', 'gemm_beta.S', []))
         return objects
 
-    def build_level1(self, OS, compiler, src_dir, suffix):
+    def build_level1(self, compiler, src_dir):
         objects = []
-        include_dirs = self.include_dirs + [src_dir]
-        objects.append(self.compile_driver(OS, compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), include_dirs,
-            'saxpy_k', 'saxpy.c', [], suffix))
-        objects.append(self.compile_driver(OS, compiler, 
+        objects.extend(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'),
+            'saxpy_k', 'saxpy.c', []))
+        objects.extend(self.compile_driver(compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'), 
-            include_dirs, 'sscal_k', 'scal.S', [], suffix))
-        objects.append(self.compile_driver(OS, compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), include_dirs,
-            'snrm2_k', 'nrm2.S', [], suffix))
+            'sscal_k', 'scal.S', []))
+        objects.extend(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'),
+            'snrm2_k', 'nrm2.S', []))
         return objects
 
-    @staticmethod
-    def compile_driver(OS, compiler, src_dir, include_dirs, name, src_name, args, suffix):
-        args.extend(('-c', '-O2', '-Wall', '-m64', '-fPIC'))
-        if OS == 'windows':
-            args.append('-DOS_WINDOWS')
-            args.append('-IC:\Python27-x64\include')
+    def compile_driver(self, compiler, src_dir, name, src_name, macros):
+        args = [('-c', '-O2', '-Wall', '-m64', '-fPIC')]
         # Stuff we're not building
-        args.append('-DF_INTERFACE_GFORT')
-        args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
-        args.extend(('-UDOUBLE', '-UCOMPLEX'))
+        macros.append(('F_INTERFACE_GFORT', None))
+        macros.append(('NO_LAPACK', None))
+        macros.append(('NO_LAPACKE', None))
+        macros.append(('DOUBLE',))
+        macros.append(('COMPLEX',))
         # Settings that maybe matter for optimization?
-        args.append('-DMAX_STACK_ALLOC=2048')
-        args.append('-DNO_WARMUP')
-        args.append('-DMAX_CPU_NUMBER=4')
+        macros.append(('MAX_STACK_ALLOC', '2048'))
+        macros.append(('NO_WARMUP', None))
+        macros.append(('MAX_CPU_NUMBER', '4'))
         # Fill in the template
-        args.append('-DASMNAME=%s' % name)
-        args.append('-DASMFNAME=%s_' % name)
-        args.append('-DNAME=%s_' % name)
-        args.append('-DCNAME=%s' % name)
-        args.append('-DCHAR_NAME="%s_"' % name)
-        args.append('-DCHAR_CNAME="%s_"' % name)
-        args.extend(['-I%s' % include_dir for include_dir in include_dirs])
+        macros.append(('ASMNAME', name))
+        macros.append(('ASMFNAME', '%s_' % name))
+        macros.append(('NAME', '%s_' % name))
+        macros.append(('CNAME', name))
+        macros.append(('CHAR_NAME', "%s_" % name))
+        macros.append(('CHAR_CNAME', "%s_" % name))
         src = os.path.join(src_dir, src_name)
-        output = os.path.join(src_dir, name + suffix)
-        if compiler.endswith('.exe'):
-            local('{compiler} {args} {src} /Fo {output}',
-                compiler=compiler, args=args, src=src, output=output)
-        else:
-            local('{compiler} {args} {src} -o {output}',
-                compiler=compiler, args=args, src=src, output=output)
-        return output
+        obj = compiler.compile([src], output_dir=src_dir,
+                    macros=macros, include_dirs=self.include_dirs)
+        output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
+        if os.path.exists(output):
+            os.unlink(output)
+        compiler.move_file(obj[0], output)
+        return [output]
 
-    @staticmethod
-    def compile_interface(OS, compiler, src_dir, include_dirs, name, src_name, suffix):
-
-        if OS == 'windows':
-            args = ['/c', '/nologo', '/Ox', '/MD', '/W3', '/GS-', '/DNDEBUG',
-                    '-EHsc']
-            args.append('-DOS_WINDOWS')
-        else:
-            args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
-        args.extend(('-DMAX_STACK_ALLOC=2048', '-DF_INTERFACE_GFORT'))
-        args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
-        args.extend(('-UDOUBLE', '-UCOMPLEX'))
-        args.append('-DNO_WARMUP')
-        args.append('-DMAX_CPU_NUMBER=4')
-        args.append('-DASMNAME=%s' % name)
-        args.append('-DASMFNAME=%s_' % name)
-        args.append('-DNAME=%s_' % name)
-        args.append('-DCNAME=%s' % name)
-        args.append('-DCHAR_NAME="%s_"' % name)
-        args.append('-DCHAR_CNAME="%s"' % name)
-        args.append('-DCBLAS')
-        args.append('-I%s' % src_dir)
-        args.extend(['-I%s' % include_dir for include_dir in include_dirs])
+    def compile_interface(self, compiler, src_dir, name, src_name):
+        macros = []
+        macros.append(('MAX_STACK_ALLOC', '2048'))
+        macros.append(('F_INTERFACE_GFORT', None))
+        macros.append(('NO_LAPACK', None))
+        macros.append(('NO_LAPACKE', None))
+        # Undefine. Fucking attrocious api..
+        macros.append(('DOUBLE',))
+        macros.append(('COMPLEX',))
+        macros.append(('NO_WARMUP', None))
+        macros.append(('MAX_CPU_NUMBER', '4'))
+        macros.append(('ASMNAME', name))
+        macros.append(('ASMFNAME', '%s_' % name))
+        macros.append(('NAME', '%s_' % name))
+        macros.append(('CNAME', name))
+        macros.append(('CHAR_NAME', "%s_" % name))
+        macros.append(('CHAR_CNAME', name))
+        macros.append(('CBLAS', None))
         src = os.path.join(src_dir, 'interface', src_name+'.c')
-        output = os.path.join(src_dir, 'interface', name+suffix)
-        if compiler.endswith('.exe'):
-            local('{compiler} {args} {src} /Fo {output}',
-                compiler=compiler, args=args, src=src, output=output)
-        else:
-            local('{compiler} {args} {src} -o {output}',
-                compiler=compiler, args=args, src=src, output=output)
-        return output
+        obj = compiler.compile([src], output_dir=src_dir,
+                    macros=macros, include_dirs=self.include_dirs)
+        output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
+        if os.path.exists(output):
+            os.unlink(output)
+        compiler.move_file(obj[0], output)
+        return [output]
 
 
 def customize_compiler_for_nvcc(self):
@@ -254,24 +238,13 @@ def customize_compiler_for_nvcc(self):
 class build_ext_options:
     def build_options(self):
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
-        if hasattr(self.compiler, 'compiler'):
-            compiler = self.compiler.compiler
-            OS = 'linux'
-            suffix = '.o'
-        else:
-            compiler = "c1.exe"
-            OS = 'windows'
-            suffix = '.obj'
-        print(repr(self.compiler))
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects(OS, compiler, src_dir, suffix)
-                print(e.extra_objects)
+                e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
                 self.compiler.compiler_type, link_options['other'])
-
 
 class build_ext_subclass(build_ext, build_ext_options):
     def build_extensions(self):
