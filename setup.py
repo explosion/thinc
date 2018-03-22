@@ -136,6 +136,7 @@ class Openblas(Extension):
         args = [('-c', '-O2', '-Wall', '-m64', '-fPIC')]
         if compiler.compiler_type == 'msvc':
             macros.append(('OS_WINDOWS', None))
+            macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
         # Stuff we're not building
@@ -168,6 +169,7 @@ class Openblas(Extension):
         macros = []
         if compiler.compiler_type == 'msvc':
             macros.append(('OS_WINDOWS', None))
+            macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
         macros.append(('MAX_STACK_ALLOC', '2048'))
