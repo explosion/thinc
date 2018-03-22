@@ -262,6 +262,7 @@ class build_ext_options:
             compiler = "c1.exe"
             OS = 'windows'
             suffix = '.obj'
+        print(repr(self.compiler))
         for e in self.extensions:
             if isinstance(e, Openblas):
                 e.build_objects(OS, compiler, src_dir, suffix)
