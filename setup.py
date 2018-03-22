@@ -71,9 +71,12 @@ class Openblas(Extension):
         objects = []
         for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
             objects.append(self.compile_interface(
-                OS, compiler, src_dir, 'cblas_s%s' % iface, iface, suffix))
-        objects.extend(self.build_gemm(OS, compiler, src_dir, suffix))
-        objects.extend(self.build_level1(OS, compiler, src_dir, suffix))
+                OS, compiler, src_dir, self.include_dirs, 'cblas_s%s' % iface,
+                iface, suffix))
+        objects.extend(self.build_gemm(OS, compiler, src_dir,
+                                       self.include_dirs, suffix))
+        objects.extend(self.build_level1(OS, compiler, src_dir,
+                                         self.include_dirs, suffix))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.append(self.compile_driver(OS, compiler,
                 os.path.join(src_dir, 'driver', 'others'), src_dir,
@@ -82,40 +85,42 @@ class Openblas(Extension):
         self.extra_link_args.append('-Wl,--no-undefined')
         return objects
  
-    def build_gemm(self, OS, compiler, src_dir, suffix):
+    def build_gemm(self, OS, compiler, src_dir, include_dirs, suffix):
         objects = []
         for flavor in ['nn', 'nt', 'tn', 'tt']:
             name = 'sgemm_%s' % flavor
             objects.append(
                 self.compile_driver(
                     OS, compiler, os.path.join(src_dir, 'driver', 'level3'),
-                    src_dir,
+                    src_dir, include_dirs,
                     name, 'gemm.c', ['-D' + flavor.upper()], suffix))
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', [], suffix))
+                include_dirs, 'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', [], suffix))
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
-                'sgemm_itcopy', 'gemm_tcopy_16.c', [], suffix))
+                include_dirs, 'sgemm_itcopy', 'gemm_tcopy_16.c', [], suffix))
  
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                include_dirs, 
                 'sgemm_incopy', 'gemm_ncopy_16.c', [], suffix))
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                include_dirs,
                 'sgemm_oncopy', 'gemm_ncopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
-                'sgemm_otcopy', 'gemm_tcopy_4.c', [], suffix))
+                include_dirs, 'sgemm_otcopy', 'gemm_tcopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
                 OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-                'sgemm_beta', 'gemm_beta.S', [], suffix))
+                include_dirs, 'sgemm_beta', 'gemm_beta.S', [], suffix))
         return objects
 
     def build_level1(self, OS, compiler, src_dir, suffix):
@@ -125,10 +130,10 @@ class Openblas(Extension):
             'saxpy_k', 'saxpy.c', [], suffix))
         objects.append(self.compile_driver(OS, compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-            'sscal_k', 'scal.S', [], suffix))
+            include_dirs, 'sscal_k', 'scal.S', [], suffix))
         objects.append(self.compile_driver(OS, compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-            'snrm2_k', 'nrm2.S', [], suffix))
+            include_dirs, 'snrm2_k', 'nrm2.S', [], suffix))
         return objects
 
     def build_gemv(self, compiler, src_dir):
@@ -153,10 +158,11 @@ class Openblas(Extension):
         return objects
     
     @staticmethod
-    def compile_driver(OS, compiler, src_dir, include_dir, name, src_name, args, suffix):
+    def compile_driver(OS, compiler, src_dir, include_dirs, name, src_name, args, suffix):
         args.extend(('-c', '-O2', '-Wall', '-m64', '-fPIC'))
         if OS == 'windows':
             args.append('-DOS_WINDOWS')
+            args.append('-IC:\Python27-x64\include')
         # Stuff we're not building
         args.append('-DF_INTERFACE_GFORT')
         args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
@@ -172,7 +178,7 @@ class Openblas(Extension):
         args.append('-DCNAME=%s' % name)
         args.append('-DCHAR_NAME="%s_"' % name)
         args.append('-DCHAR_CNAME="%s_"' % name)
-        args.append('-I%s' % include_dir)
+        args.extend(['-I%s' % include_dir for include_dir in include_dirs])
         src = os.path.join(src_dir, src_name)
         output = os.path.join(src_dir, name + suffix)
         local('{compiler} {args} {src} -o {output}',
@@ -180,7 +186,7 @@ class Openblas(Extension):
         return output
 
     @staticmethod
-    def compile_interface(OS, compiler, src_dir, name, src_name, suffix):
+    def compile_interface(OS, compiler, src_dir, include_dirs, name, src_name, suffix):
         args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
         if OS == 'windows':
             args.append('-DOS_WINDOWS')
@@ -197,6 +203,7 @@ class Openblas(Extension):
         args.append('-DCHAR_CNAME="%s"' % name)
         args.append('-DCBLAS')
         args.append('-I%s' % src_dir)
+        args.extend(['-I%s' % include_dir for include_dir in include_dirs])
         src = os.path.join(src_dir, 'interface', src_name+'.c')
         output = os.path.join(src_dir, 'interface', name+suffix)
         local('{compiler} {args} {src} -o {output}',
@@ -260,7 +267,7 @@ class build_ext_options:
             suffix = '.o'
         else:
             #compiler = self.compiler.find_exe("c1.exe")
-            compiler = r"C:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\BIN\x86_amd64\cl.exe"
+            compiler = r"C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC\Bin\amd64\c1.exe"
             OS = 'windows'
             suffix = '.obj'
         for e in self.extensions:
@@ -348,7 +355,7 @@ def clean(path):
 
 @contextlib.contextmanager
 def chdir(new_dir):
-    old_dir = os.getcwd()
+    old_dir = os.getwd()
     try:
         os.chdir(new_dir)
         sys.path.insert(0, new_dir)
