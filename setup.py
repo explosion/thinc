@@ -255,8 +255,7 @@ class build_ext_options:
             OS = 'linux'
             suffix = '.o'
         else:
-            #compiler = self.compiler.find_exe("c1.exe")
-            compiler = r"C:\Users\appveyor\AppData\Local\Programs\Common\Microsoft\Visual C++ for Python\9.0\VC\Bin\amd64\c1.exe"
+            compiler = self.compiler.find_exe("c1.exe")
             OS = 'windows'
             suffix = '.obj'
         for e in self.extensions:
