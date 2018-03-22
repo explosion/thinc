@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import io
-import os
 import os.path
 import subprocess
 import sys
@@ -75,88 +74,68 @@ class Openblas(Extension):
                 iface, suffix))
         objects.extend(self.build_gemm(OS, compiler, src_dir,
                                        self.include_dirs, suffix))
-        objects.extend(self.build_level1(OS, compiler, src_dir,
-                                         self.include_dirs, suffix))
+        objects.extend(self.build_level1(OS, compiler, src_dir, suffix))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.append(self.compile_driver(OS, compiler,
-                os.path.join(src_dir, 'driver', 'others'), src_dir,
-                other, '%s.c' % other, [], suffix))
+                os.path.join(src_dir, 'driver', 'others'),
+                self.include_dirs, other, '%s.c' % other, [], suffix))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
         return objects
  
     def build_gemm(self, OS, compiler, src_dir, include_dirs, suffix):
         objects = []
+        include_dirs = include_dirs + [src_dir]
         for flavor in ['nn', 'nt', 'tn', 'tt']:
             name = 'sgemm_%s' % flavor
             objects.append(
                 self.compile_driver(
                     OS, compiler, os.path.join(src_dir, 'driver', 'level3'),
-                    src_dir, include_dirs,
+                    include_dirs,
                     name, 'gemm.c', ['-D' + flavor.upper()], suffix))
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
                 include_dirs, 'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', [], suffix))
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), 
                 include_dirs, 'sgemm_itcopy', 'gemm_tcopy_16.c', [], suffix))
  
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), 
                 include_dirs, 
                 'sgemm_incopy', 'gemm_ncopy_16.c', [], suffix))
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'),
                 include_dirs,
                 'sgemm_oncopy', 'gemm_ncopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'generic'),
                 include_dirs, 'sgemm_otcopy', 'gemm_tcopy_4.c', [], suffix))
         objects.append(
             self.compile_driver(
-                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+                OS, compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
                 include_dirs, 'sgemm_beta', 'gemm_beta.S', [], suffix))
         return objects
 
     def build_level1(self, OS, compiler, src_dir, suffix):
         objects = []
+        include_dirs = self.include_dirs + [src_dir]
         objects.append(self.compile_driver(OS, compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+            os.path.join(src_dir, 'kernel', 'x86_64'), include_dirs,
             'saxpy_k', 'saxpy.c', [], suffix))
         objects.append(self.compile_driver(OS, compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
+            os.path.join(src_dir, 'kernel', 'x86_64'), 
             include_dirs, 'sscal_k', 'scal.S', [], suffix))
         objects.append(self.compile_driver(OS, compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), src_dir,
-            include_dirs, 'snrm2_k', 'nrm2.S', [], suffix))
+            os.path.join(src_dir, 'kernel', 'x86_64'), include_dirs,
+            'snrm2_k', 'nrm2.S', [], suffix))
         return objects
 
-    def build_gemv(self, compiler, src_dir):
-        objects = []
-        for flavor in ['n', 't']:
-            name = 'sgemv_%s' % flavor
-            objects.append(
-                self.compile_driver(
-                    compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
-                    src_dir,
-                    name, 'gemv', ['-D' + flavor.upper()]))
-            name = 'sgemv_thread_%s' % flavor
-            objects.append(
-                self.compile_driver(
-                    compiler, os.path.join(src_dir, 'driver', 'level2'),
-                    src_dir,
-                    name, 'gemv_thread', ['-D' + flavor.upper()]))
-        return objects
-
-    def build_ger(self, compiler, src_dir):
-        objects = []
-        return objects
-    
     @staticmethod
     def compile_driver(OS, compiler, src_dir, include_dirs, name, src_name, args, suffix):
         args.extend(('-c', '-O2', '-Wall', '-m64', '-fPIC'))
@@ -355,7 +334,7 @@ def clean(path):
 
 @contextlib.contextmanager
 def chdir(new_dir):
-    old_dir = os.getwd()
+    old_dir = os.getcwd()
     try:
         os.chdir(new_dir)
         sys.path.insert(0, new_dir)
