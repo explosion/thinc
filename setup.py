@@ -69,7 +69,7 @@ class Openblas(Extension):
     def build_objects(self, OS, compiler, src_dir, suffix):
         objects = []
         for include_dir in self.include_dirs:
-            print(inlclude_dir, os.path.exists(include_dir))
+            print(include_dir, os.path.exists(include_dir))
         for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
             objects.append(self.compile_interface(
                 OS, compiler, src_dir, self.include_dirs, 'cblas_s%s' % iface,
