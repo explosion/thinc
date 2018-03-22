@@ -162,8 +162,12 @@ class Openblas(Extension):
         args.extend(['-I%s' % include_dir for include_dir in include_dirs])
         src = os.path.join(src_dir, src_name)
         output = os.path.join(src_dir, name + suffix)
-        local('{compiler} {args} {src} -o {output}',
-            compiler=compiler, args=args, src=src, output=output)
+        if compiler.endswith('.exe'):
+            local('{compiler} {args} {src} /Fo {output}',
+                compiler=compiler, args=args, src=src, output=output)
+        else:
+            local('{compiler} {args} {src} -o {output}',
+                compiler=compiler, args=args, src=src, output=output)
         return output
 
     @staticmethod
@@ -187,8 +191,12 @@ class Openblas(Extension):
         args.extend(['-I%s' % include_dir for include_dir in include_dirs])
         src = os.path.join(src_dir, 'interface', src_name+'.c')
         output = os.path.join(src_dir, 'interface', name+suffix)
-        local('{compiler} {args} {src} -o {output}',
-            compiler=compiler, args=args, src=src, output=output)
+        if compiler.endswith('.exe'):
+            local('{compiler} {args} {src} /Fo {output}',
+                compiler=compiler, args=args, src=src, output=output)
+        else:
+            local('{compiler} {args} {src} -o {output}',
+                compiler=compiler, args=args, src=src, output=output)
         return output
 
 
