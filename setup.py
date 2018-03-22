@@ -172,9 +172,13 @@ class Openblas(Extension):
 
     @staticmethod
     def compile_interface(OS, compiler, src_dir, include_dirs, name, src_name, suffix):
-        args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
+
         if OS == 'windows':
+            args = ['/c', '/nologo', '/Ox', '/MD', '/W3', '/GS-', '/DNDEBUG',
+                    '-EHsc']
             args.append('-DOS_WINDOWS')
+        else:
+            args = ['-c', '-Wall', '-m64', '-fPIC', '-O2']
         args.extend(('-DMAX_STACK_ALLOC=2048', '-DF_INTERFACE_GFORT'))
         args.extend(('-DNO_LAPACK', '-DNO_LAPACKE'))
         args.extend(('-UDOUBLE', '-UCOMPLEX'))
