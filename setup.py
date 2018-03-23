@@ -449,7 +449,7 @@ def setup_package():
                 'msgpack-numpy==0.4.1',
                 'six'
             ],
-            setup_requires=['numpy>=1.14.0,<numpy1.15.0'],
+            setup_requires=['numpy>=1.14.0,<1.15.0'],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
