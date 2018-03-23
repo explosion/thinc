@@ -164,7 +164,8 @@ class Openblas(Extension):
             compiler.cc = exe.replace('cl.exe', 'ml64.exe')
             args.append('/Ta%s' % src)
         obj = compiler.compile([src], output_dir=src_dir,
-                    macros=macros, include_dirs=self.include_dirs)
+                    macros=macros, include_dirs=self.include_dirs,
+                    extra_postargs=args)
         compiler.cc = exe
         output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
         if os.path.exists(output):
