@@ -68,6 +68,8 @@ link_options    =  {'msvc'  : [], 'other' : []}
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
         compiler.src_extensions.append('.S')
+        if hasattr(compiler, '_c_extensions'):
+            compiler._c_extensions.append('.S')
         self.include_dirs.append(src_dir)
         objects = []
         for include_dir in self.include_dirs:
