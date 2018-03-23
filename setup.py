@@ -268,7 +268,11 @@ class build_ext_options:
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         for e in self.extensions:
             if isinstance(e, Openblas):
-                e.build_objects(self.compiler, src_dir)
+                if self.compiler.compiler_type == 'msvc':
+                    e.extra_compile_args.append('-lblas')
+                    e.extra_link_args.append('-lblas')
+                else:
+                    e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
