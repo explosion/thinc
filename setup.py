@@ -74,7 +74,7 @@ class Openblas(Extension):
         objects = []
         for include_dir in self.include_dirs:
             print(include_dir, os.path.exists(include_dir))
-        for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
+        for iface in ['gemm', 'axpy']: #, 'scal', 'nrm2']:
             objects.extend(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface))
         objects.extend(self.build_gemm(compiler, src_dir))
@@ -95,9 +95,22 @@ class Openblas(Extension):
                 self.compile_driver(
                     compiler, os.path.join(src_dir, 'driver', 'level3'),
                     name, 'gemm.c', [(flavor.upper(), None)]))
-        objects.extend(
-            self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
-                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+        if compiler.compiler_type != 'msvc':
+            objects.extend(
+                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
+                    'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+            objects.extend(
+                self.compile_driver(
+                    compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
+                    'sgemm_beta', 'gemm_beta.S', []))
+        else:
+            objects.extend(
+                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'generic'), 
+                    'sgemm_kernel', 'gemmkernel_2x2.c', []))
+            objects.extend(
+                self.compile_driver(
+                    compiler, os.path.join(src_dir, 'kernel', 'generic'),
+                    'sgemm_beta', 'gemm_beta.c', []))
         objects.extend(
             self.compile_driver(
                 compiler, os.path.join(src_dir, 'kernel', 'generic'), 
@@ -115,10 +128,6 @@ class Openblas(Extension):
             self.compile_driver(
                 compiler, os.path.join(src_dir, 'kernel', 'generic'),
                 'sgemm_otcopy', 'gemm_tcopy_4.c', []))
-        objects.extend(
-            self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
-                'sgemm_beta', 'gemm_beta.S', []))
         return objects
 
     def build_level1(self, compiler, src_dir):
@@ -126,12 +135,13 @@ class Openblas(Extension):
         objects.extend(self.compile_driver(compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'),
             'saxpy_k', 'saxpy.c', []))
-        objects.extend(self.compile_driver(compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), 
-            'sscal_k', 'scal.S', []))
-        objects.extend(self.compile_driver(compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'),
-            'snrm2_k', 'nrm2.S', []))
+        if compiler.compiler_type != 'msvc':
+            objects.extend(self.compile_driver(compiler, 
+                os.path.join(src_dir, 'kernel', 'x86_64'), 
+                'sscal_k', 'scal.S', []))
+            objects.extend(self.compile_driver(compiler, 
+                os.path.join(src_dir, 'kernel', 'x86_64'),
+                'snrm2_k', 'nrm2.S', []))
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
@@ -160,16 +170,9 @@ class Openblas(Extension):
         macros.append(('CHAR_NAME', "%s_" % name))
         macros.append(('CHAR_CNAME', "%s_" % name))
         src = os.path.join(src_dir, src_name)
-        if compiler.compiler_tuple == 'msvc':
-            exe = compiler.cc
-            if src.endswith('.S') and compiler.compiler_type == 'msvc':
-                compiler.cc = exe.replace('cl.exe', 'ml64.exe')
-                args.append('/Ta%s' % src)
         obj = compiler.compile([src], output_dir=src_dir,
                     macros=macros, include_dirs=self.include_dirs,
                     extra_postargs=args)
-        if compiler.compiler_tuple == 'msvc':
-            compiler.cc = exe
         output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
         if os.path.exists(output):
             os.unlink(output)
