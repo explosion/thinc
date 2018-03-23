@@ -74,11 +74,11 @@ class Openblas(Extension):
         objects = []
         for include_dir in self.include_dirs:
             print(include_dir, os.path.exists(include_dir))
-        for iface in ['gemm', 'axpy']: #, 'scal', 'nrm2']:
+        for iface in ['gemm']: #, 'axpy', 'scal', 'nrm2']:
             objects.extend(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface))
         objects.extend(self.build_gemm(compiler, src_dir))
-        objects.extend(self.build_level1(compiler, src_dir))
+        #objects.extend(self.build_level1(compiler, src_dir))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.extend(self.compile_driver(compiler,
                 os.path.join(src_dir, 'driver', 'others'),
@@ -132,10 +132,14 @@ class Openblas(Extension):
 
     def build_level1(self, compiler, src_dir):
         objects = []
-        objects.extend(self.compile_driver(compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'),
-            'saxpy_k', 'saxpy.c', []))
-        if compiler.compiler_type != 'msvc':
+        if compiler.compiler_type == 'msvc':
+            objects.extend(self.compile_driver(compiler, 
+                os.path.join(src_dir, 'kernel', 'generic'),
+                'saxpy_k', 'saxpy.c', []))
+        else:
+            objects.extend(self.compile_driver(compiler, 
+                os.path.join(src_dir, 'kernel', 'x86_64'),
+                'saxpy_k', 'saxpy.c', []))
             objects.extend(self.compile_driver(compiler, 
                 os.path.join(src_dir, 'kernel', 'x86_64'), 
                 'sscal_k', 'scal.S', []))

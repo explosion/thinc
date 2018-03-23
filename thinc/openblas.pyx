@@ -15,7 +15,7 @@ cdef extern from "cblas.h":
     #void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
     #void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
     #void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
-    void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
+    #void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
     #void cblas_dswap(int M, double  *x, int incX, double  *y, int incY) nogil
     #void cblas_dscal(int N, double  alpha, double *x, int incX) nogil
     #void cblas_dcopy(int N, double *x, int incX, double  *y, int incY) nogil
@@ -99,4 +99,5 @@ cdef void scale(float* output, int o0, float scale) nogil:
 
 cdef void simple_axpy(float* output, int o0,
         const float* A, float scale) nogil:
-    cblas_saxpy(o0, scale, <float*>A, 1, output, 1)
+    for i in range(o0):
+        output[i] += A[i] * scale
