@@ -1015,7 +1015,8 @@ void gotoblas_set_affinity2(int threads) {};
 
 void gotoblas_affinity_reschedule(void) {};
 
-int get_num_procs(void) { return sysconf(_SC_NPROCESSORS_CONF); }
+//int get_num_procs(void) { return sysconf(_SC_NPROCESSORS_CONF); }
+int get_num_proces(void) { return 1; }
 
 int get_num_nodes(void) { return 1; }
 
