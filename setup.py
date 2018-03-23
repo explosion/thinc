@@ -272,10 +272,8 @@ class build_ext_options:
                 if self.compiler.compiler_type == 'msvc':
                     info = numpy.__config__.openblas_info
                     dll_dir = numpy.__config__.extra_dll_dir
-                    e.extra_compile_args.append('-l%s' % info['libraries'][0])
-                    e.extra_compile_args.append('-L%s' % dll_dir)
-                    e.extra_link_args.append('-l%s' % info['libraries'][0])
-                    e.extra_link_args.append('-L%s' % dll_dir)
+                    e.libraries.extend(info['libraries'])
+                    e.library_dirs.append(dll_dir)
                 else:
                     e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
@@ -451,7 +449,7 @@ def setup_package():
                 'msgpack-numpy==0.4.1',
                 'six'
             ],
-            setup_requires=['numpy'],
+            setup_requires=['numpy>=1.14.0,<numpy1.15.0'],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
