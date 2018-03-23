@@ -135,12 +135,13 @@ class Openblas(Extension):
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
-        args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
         if compiler.compiler_type == 'msvc':
             macros.append(('OS_WINDOWS', None))
             macros.append(('C_MSVC', None))
+            args = []
         else:
             macros.append(('OS_LINUX', None))
+            args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
