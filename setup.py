@@ -67,10 +67,10 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
+        self.include_dirs.append(src_dir)
         compiler.src_extensions.append('.S')
         if hasattr(compiler, '_c_extensions'):
             compiler._c_extensions.append('.S')
-        self.include_dirs.append(src_dir)
         objects = []
         for include_dir in self.include_dirs:
             print(include_dir, os.path.exists(include_dir))
@@ -135,9 +135,10 @@ class Openblas(Extension):
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
-        args = [('-c', '-O2', '-Wall', '-m64', '-fPIC')]
+        args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
         if compiler.compiler_type == 'msvc':
             macros.append(('OS_WINDOWS', None))
+            macros.append(('WINDOWS_ABI', None))
             macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
@@ -159,7 +160,9 @@ class Openblas(Extension):
         macros.append(('CHAR_NAME', "%s_" % name))
         macros.append(('CHAR_CNAME', "%s_" % name))
         src = os.path.join(src_dir, src_name)
-        obj = compiler.compile([src], output_dir=src_dir,
+        if src_name.endswith('.S') and compiler.compiler_type == 'msvc':
+            args.append('-masm')
+        obj = compiler.compile([src], output_dir=src_dir, extra_postargs=args,
                     macros=macros, include_dirs=self.include_dirs)
         output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
         if os.path.exists(output):
@@ -169,6 +172,7 @@ class Openblas(Extension):
 
     def compile_interface(self, compiler, src_dir, name, src_name):
         macros = []
+        args = []
         if compiler.compiler_type == 'msvc':
             macros.append(('OS_WINDOWS', None))
             macros.append(('C_MSVC', None))
@@ -191,7 +195,7 @@ class Openblas(Extension):
         macros.append(('CHAR_CNAME', name))
         macros.append(('CBLAS', None))
         src = os.path.join(src_dir, 'interface', src_name+'.c')
-        obj = compiler.compile([src], output_dir=src_dir,
+        obj = compiler.compile([src], output_dir=src_dir, extra_postargs=args,
                     macros=macros, include_dirs=self.include_dirs)
         output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
         if os.path.exists(output):
