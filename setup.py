@@ -160,14 +160,16 @@ class Openblas(Extension):
         macros.append(('CHAR_NAME', "%s_" % name))
         macros.append(('CHAR_CNAME', "%s_" % name))
         src = os.path.join(src_dir, src_name)
-        exe = compiler.cc
-        if src.endswith('.S') and compiler.compiler_type == 'msvc':
-            compiler.cc = exe.replace('cl.exe', 'ml64.exe')
-            args.append('/Ta%s' % src)
+        if compiler.compiler_tuple == 'msvc':
+            exe = compiler.cc
+            if src.endswith('.S') and compiler.compiler_type == 'msvc':
+                compiler.cc = exe.replace('cl.exe', 'ml64.exe')
+                args.append('/Ta%s' % src)
         obj = compiler.compile([src], output_dir=src_dir,
                     macros=macros, include_dirs=self.include_dirs,
                     extra_postargs=args)
-        compiler.cc = exe
+        if compiler.compiler_tuple == 'msvc':
+            compiler.cc = exe
         output = os.path.join(src_dir, name+'.' + obj[0].split('.')[-1])
         if os.path.exists(output):
             os.unlink(output)
