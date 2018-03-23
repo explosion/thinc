@@ -162,6 +162,7 @@ class Openblas(Extension):
         exe = compiler.cc
         if src.endswith('.S') and compiler.compiler_type == 'msvc':
             compiler.cc = exe.replace('cl.exe', 'ml64.exe')
+            arg.append('/Ta%s' % src)
         obj = compiler.compile([src], output_dir=src_dir,
                     macros=macros, include_dirs=self.include_dirs)
         compiler.cc = exe
