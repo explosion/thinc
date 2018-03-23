@@ -272,9 +272,9 @@ class build_ext_options:
                 if self.compiler.compiler_type == 'msvc':
                     info = numpy.__config__.openblas_info
                     e.extra_compile_args.append('-l%s' % info['libraries'][0])
-                    e.extra_compile_args.append('-L%s' % info['library_dirs'][0])
+                    e.extra_compile_args.append('-L%s' % info['extra_dll_dir'])
                     e.extra_link_args.append('-l%s' % info['libraries'][0])
-                    e.extra_link_args.append('-L%s' % info['library_dirs'][0])
+                    e.extra_link_args.append('-L%s' % info['extra_dll_dir'])
                 else:
                     e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
