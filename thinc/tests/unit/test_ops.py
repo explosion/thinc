@@ -211,6 +211,18 @@ def test_dot_computes_correctly(cpu_ops, W_b_X):
         assert_allclose(expected, y)
 
 
+#@settings(max_examples=MAX_EXAMPLES)
+#@given(W_b_X=strategies.arrays_OI_O_BI())
+def test_gemm_computes_correctly(cpu_ops):
+    W = numpy.zeros((3, 2), dtype='f')
+    X = numpy.zeros((4, 2), dtype='f')
+    W += numpy.random.uniform(size=W.size).reshape(W.shape)
+    X += numpy.random.uniform(size=X.size).reshape(X.shape)
+    expected = numpy.dot(X, W.T)
+    Y = cpu_ops.gemm(X, W, trans2=True)
+    assert_allclose(expected, Y)
+
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_argmax_computes_correctly(cpu_ops, X):
