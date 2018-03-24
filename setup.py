@@ -8,7 +8,6 @@ import contextlib
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
-import numpy
 
 from setuptools import Extension, setup
 
@@ -269,13 +268,7 @@ class build_ext_options:
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         for e in self.extensions:
             if isinstance(e, Openblas):
-                if self.compiler.compiler_type == 'msvc':
-                    info = numpy.__config__.openblas_info
-                    dll_dir = numpy.__config__.extra_dll_dir
-                    e.libraries.extend(info['libraries'])
-                    e.library_dirs.append(dll_dir)
-                else:
-                    e.build_objects(self.compiler, src_dir)
+                e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
@@ -449,7 +442,6 @@ def setup_package():
                 'msgpack-numpy==0.4.1',
                 'six'
             ],
-            setup_requires=['numpy>=1.14.0,<1.15.0'],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
