@@ -95,7 +95,7 @@ class Openblas(Extension):
                 self.compile_driver(
                     compiler, os.path.join(src_dir, 'driver', 'level3'),
                     name, 'gemm.c', [(flavor.upper(), None)]))
-        if compiler.compiler_type != 'msvc':
+        if False and compiler.compiler_type != 'msvc':
             objects.extend(
                 self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
                     'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
