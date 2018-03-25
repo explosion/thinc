@@ -84,26 +84,13 @@ class Openblas(Extension):
                 self.compile_driver(
                     compiler, os.path.join(src_dir, 'driver', 'level3'),
                     name, 'gemm.c', [(flavor.upper(), None)]))
-<<<<<<< HEAD
-        if False and compiler.compiler_type != 'msvc':
-=======
-        if True or compiler.compiler_type != 'msvc':
->>>>>>> cc423b1ce619eb029dbd6e93c2d69c56accfe2cc
-            objects.extend(
-                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
-                    'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
-            objects.extend(
-                self.compile_driver(
-                    compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
-                    'sgemm_beta', 'gemm_beta.S', []))
-        else:
-            objects.extend(
-                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'generic'), 
-                    'sgemm_kernel', 'gemmkernel_2x2.c', []))
-            objects.extend(
-                self.compile_driver(
-                    compiler, os.path.join(src_dir, 'kernel', 'generic'),
-                    'sgemm_beta', 'gemm_beta.c', []))
+        objects.extend(
+            self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
+                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+        objects.extend(
+            self.compile_driver(
+                compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
+                'sgemm_beta', 'gemm_beta.S', []))
         objects.extend(
             self.compile_driver(
                 compiler, os.path.join(src_dir, 'kernel', 'generic'), 
@@ -125,20 +112,15 @@ class Openblas(Extension):
 
     def build_level1(self, compiler, src_dir):
         objects = []
-        if compiler.compiler_type == 'msvc':
-            objects.extend(self.compile_driver(compiler, 
-                os.path.join(src_dir, 'kernel', 'generic'),
-                'saxpy_k', 'saxpy.c', []))
-        else:
-            objects.extend(self.compile_driver(compiler, 
-                os.path.join(src_dir, 'kernel', 'x86_64'),
-                'saxpy_k', 'saxpy.c', []))
-            objects.extend(self.compile_driver(compiler, 
-                os.path.join(src_dir, 'kernel', 'x86_64'), 
-                'sscal_k', 'scal.S', []))
-            objects.extend(self.compile_driver(compiler, 
-                os.path.join(src_dir, 'kernel', 'x86_64'),
-                'snrm2_k', 'nrm2.S', []))
+        objects.extend(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'),
+            'saxpy_k', 'saxpy.c', []))
+        objects.extend(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'), 
+            'sscal_k', 'scal.S', []))
+        objects.extend(self.compile_driver(compiler, 
+            os.path.join(src_dir, 'kernel', 'x86_64'),
+            'snrm2_k', 'nrm2.S', []))
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
@@ -149,8 +131,7 @@ class Openblas(Extension):
             args = []
         else:
             macros.append(('OS_LINUX', None))
-            #args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
-            args = []
+            args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
