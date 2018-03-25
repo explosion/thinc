@@ -13,16 +13,16 @@ cdef extern from "cblas.h":
     # BLAS level 1 routines
 
     #void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
-    #void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
+    void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
     #void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
-    #void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
+    void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
     #void cblas_dswap(int M, double  *x, int incX, double  *y, int incY) nogil
     #void cblas_dscal(int N, double  alpha, double *x, int incX) nogil
     #void cblas_dcopy(int N, double *x, int incX, double  *y, int incY) nogil
     #void cblas_daxpy(int N, double  alpha, double *x, int incX, double *y, int incY ) nogil
 
     #float cblas_sdot(int N, float  *x, int incX, float *y, int incY ) nogil
-    #float cblas_snrm2(int N, float  *x, int incX) nogil
+    float cblas_snrm2(int N, float  *x, int incX) nogil
     #float cblas_sasum(int N, float  *x, int incX) nogil
     #int cblas_isamax(int N, float  *x, int incX) nogil
     #double cblas_ddot(int N, double  *x, int incX, double  *y, int incY ) nogil
@@ -93,11 +93,10 @@ cdef void simple_ger(float* output, int o0, int o1,
 
 
 cdef void scale(float* output, int o0, float scale) nogil:
-    pass
-    #cblas_sscal(o0, scale, output, 1)
+    cblas_sscal(o0, scale, output, 1)
 
 
 cdef void simple_axpy(float* output, int o0,
         const float* A, float scale) nogil:
-    for i in range(o0):
-        output[i] += A[i] * scale
+
+    cblas_saxpy(o0, 1., A, 1, output, 1)
