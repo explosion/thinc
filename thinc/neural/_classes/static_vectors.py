@@ -65,7 +65,7 @@ class StaticVectors(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
-        dotted = self.ops.batch_dot(vectors, self.W)
+        dotted = self.ops.gemm(vectors, self.W, trans2=True)
         mask = self.ops.get_dropout_mask((dotted.shape[1],), drop)
         if mask is not None:
             dotted *= mask
