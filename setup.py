@@ -61,7 +61,7 @@ class Openblas(Extension):
             compiler._c_extensions.append('.S')
         self.include_dirs.append(src_dir)
         objects = []
-        for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
+        for iface in ['gemm', 'axpy', 'nrm2']:
             objects.extend(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface))
         objects.extend(self.build_gemm(compiler, src_dir))
