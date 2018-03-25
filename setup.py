@@ -273,7 +273,9 @@ class build_ext_options:
                     clang.compiler_so = clang.compiler
                     clang.library_dirs.extend(self.compiler.library_dirs)
                     clang.include_dirs = self.compiler.include_dirs
-                e.build_objects(clang, src_dir)
+                    e.build_objects(clang, src_dir)
+                else:
+                    e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
