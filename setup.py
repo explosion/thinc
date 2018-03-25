@@ -8,21 +8,10 @@ import contextlib
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
+from distutils.ccompiler import new_compiler
 import numpy
 
 from setuptools import Extension, setup
-
-
-def local(cmd, **kwargs):
-    params = {}
-    for name, value in kwargs.items():
-        if isinstance(value, list) or isinstance(value, tuple):
-            value = ' '.join(value)
-        params[name] = value
-    cmd = cmd.format(**params)
-    print(cmd)
-    subprocess.call(cmd.split())
-
 
 
 PACKAGES = [
@@ -96,7 +85,7 @@ class Openblas(Extension):
                 self.compile_driver(
                     compiler, os.path.join(src_dir, 'driver', 'level3'),
                     name, 'gemm.c', [(flavor.upper(), None)]))
-        if compiler.compiler_type != 'msvc':
+        if True or compiler.compiler_type != 'msvc':
             objects.extend(
                 self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
                     'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
@@ -150,13 +139,15 @@ class Openblas(Extension):
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
-        if compiler.compiler_type == 'msvc':
+        if compiler.platform == 'nt':
             macros.append(('OS_WINDOWS', None))
             macros.append(('C_MSVC', None))
+            macros.append(('WINDOWS_ABI', None))
             args = []
         else:
             macros.append(('OS_LINUX', None))
-            args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
+            #args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
+            args = []
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
@@ -186,8 +177,9 @@ class Openblas(Extension):
 
     def compile_interface(self, compiler, src_dir, name, src_name):
         macros = []
-        if compiler.compiler_type == 'msvc':
+        if compiler.platform == 'nt':
             macros.append(('OS_WINDOWS', None))
+            macros.append(('WINDOWS_ABI', None))
             macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
@@ -267,15 +259,17 @@ def customize_compiler_for_nvcc(self):
 class build_ext_options:
     def build_options(self):
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
+        self.compiler.initialize()
         for e in self.extensions:
             if isinstance(e, Openblas):
                 if self.compiler.compiler_type == 'msvc':
-                    info = numpy.__config__.openblas_info
-                    dll_dir = numpy.__config__.extra_dll_dir
-                    e.libraries.extend(info['libraries'])
-                    e.library_dirs.append(dll_dir)
-                else:
-                    e.build_objects(self.compiler, src_dir)
+                    clang = new_compiler(plat='nt', compiler='unix')
+                    clang.platform = 'nt'
+                    clang.compiler = [locate_windows_llvm()]
+                    clang.compiler_so = clang.compiler
+                    clang.library_dirs.extend(self.compiler.library_dirs)
+                    clang.include_dirs = self.compiler.include_dirs
+                e.build_objects(clang, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
@@ -286,6 +280,7 @@ class build_ext_subclass(build_ext, build_ext_options):
         build_ext_options.build_options(self)
         customize_compiler_for_nvcc(self.compiler)
         build_ext.build_extensions(self)
+
 
 
 def generate_cython(root, source):
@@ -338,6 +333,18 @@ def locate_cuda():
             print('Warning: The CUDA %s path could not be located in %s' % (k, v))
             return None
     return cudaconfig
+
+def locate_windows_llvm():
+    # first check if the LLVM_HOME env variable is in use
+    if 'LLVM_HOME' in os.environ:
+        home = os.environ['LLVM_HOME']
+        return os.path.join(home, 'bin', 'clang.exe')
+    else:
+        # otherwise, search the PATH for NVCC
+        clang = find_in_path('clang.exe', os.environ['PATH'])
+        if clang is None:
+            clang = r"C:\Program Files\LLVM\bin\clang.exe"
+        return clang
 
 CUDA = locate_cuda()
 
