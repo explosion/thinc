@@ -256,6 +256,7 @@ class build_ext_options:
                     clang.include_dirs = self.compiler.include_dirs
                     e.build_objects(clang, src_dir)
                 else:
+                    self.compiler.platform = sys.platform[:6]
                     e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
