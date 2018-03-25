@@ -61,7 +61,7 @@ class Openblas(Extension):
             compiler._c_extensions.append('.S')
         self.include_dirs.append(src_dir)
         objects = []
-        for iface in ['gemm', 'axpy', 'nrm2']:
+        for iface in ['gemm', 'axpy']:
             objects.extend(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface))
         objects.extend(self.build_gemm(compiler, src_dir))
@@ -113,9 +113,6 @@ class Openblas(Extension):
         objects.extend(self.compile_driver(compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'),
             'saxpy_k', 'saxpy.c', []))
-        objects.extend(self.compile_driver(compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'),
-            'snrm2_k', 'nrm2.S', []))
         return objects
 
     def compile_driver(self, compiler, src_dir, name, src_name, macros):
