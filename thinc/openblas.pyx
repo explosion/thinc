@@ -13,7 +13,7 @@ cdef extern from "cblas.h":
     # BLAS level 1 routines
 
     #void cblas_sswap(int M, float  *x, int incX, float  *y, int incY) nogil
-    void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
+    #void cblas_sscal(int N, float  alpha, float  *x, int incX) nogil
     #void cblas_scopy(int N, float  *x, int incX, float  *y, int incY) nogil
     void cblas_saxpy(int N, float  alpha, float  *x, int incX, float  *y, int incY ) nogil
     #void cblas_dswap(int M, double  *x, int incX, double  *y, int incY) nogil
