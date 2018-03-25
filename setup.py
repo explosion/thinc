@@ -114,9 +114,6 @@ class Openblas(Extension):
             os.path.join(src_dir, 'kernel', 'x86_64'),
             'saxpy_k', 'saxpy.c', []))
         objects.extend(self.compile_driver(compiler, 
-            os.path.join(src_dir, 'kernel', 'x86_64'), 
-            'sscal_k', 'scal.S', []))
-        objects.extend(self.compile_driver(compiler, 
             os.path.join(src_dir, 'kernel', 'x86_64'),
             'snrm2_k', 'nrm2.S', []))
         return objects
