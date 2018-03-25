@@ -61,13 +61,11 @@ class Openblas(Extension):
             compiler._c_extensions.append('.S')
         self.include_dirs.append(src_dir)
         objects = []
-        for include_dir in self.include_dirs:
-            print(include_dir, os.path.exists(include_dir))
-        for iface in ['gemm']: #, 'axpy', 'scal', 'nrm2']:
+        for iface in ['gemm', 'axpy', 'scal', 'nrm2']:
             objects.extend(self.compile_interface(
                 compiler, src_dir, 'cblas_s%s' % iface, iface))
         objects.extend(self.build_gemm(compiler, src_dir))
-        #objects.extend(self.build_level1(compiler, src_dir))
+        objects.extend(self.build_level1(compiler, src_dir))
         for other in ['parameter', 'memory', 'init', 'openblas_env', 'xerbla']:
             objects.extend(self.compile_driver(compiler,
                 os.path.join(src_dir, 'driver', 'others'),
@@ -268,7 +266,6 @@ class build_ext_subclass(build_ext, build_ext_options):
         build_ext_options.build_options(self)
         customize_compiler_for_nvcc(self.compiler)
         build_ext.build_extensions(self)
-
 
 
 def generate_cython(root, source):
