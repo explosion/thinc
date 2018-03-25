@@ -237,9 +237,13 @@ class build_ext_options:
         src_dir = os.path.join(os.path.dirname(__file__), 'thinc', '_files')
         if hasattr(self.compiler, 'initialize'):
             self.compiler.initialize()
+        self.compiler.platform = sys.platform[:6]
         for e in self.extensions:
             if isinstance(e, Openblas):
-                if self.compiler.compiler_type == 'msvc':
+                if self.compiler.platform == 'darwin':
+                    e.exra_compile_args.append('-framework Accelerate')
+                    e.exra_link_args.append('-framework Accelerate')
+                elif self.compiler.compiler_type == 'msvc':
                     clang = new_compiler(plat='nt', compiler='unix')
                     clang.platform = 'nt'
                     clang.compiler = [locate_windows_llvm()]
@@ -248,7 +252,6 @@ class build_ext_options:
                     clang.include_dirs = self.compiler.include_dirs
                     e.build_objects(clang, src_dir)
                 else:
-                    self.compiler.platform = sys.platform[:6]
                     e.build_objects(self.compiler, src_dir)
             e.extra_compile_args = compile_options.get(
                 self.compiler.compiler_type, compile_options['other'])
