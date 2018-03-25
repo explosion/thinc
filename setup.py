@@ -241,8 +241,8 @@ class build_ext_options:
         for e in self.extensions:
             if isinstance(e, Openblas):
                 if self.compiler.platform == 'darwin':
-                    e.exra_compile_args.append('-framework Accelerate')
-                    e.exra_link_args.append('-framework Accelerate')
+                    e.extra_compile_args.append('-framework Accelerate')
+                    e.extra_link_args.append('-framework Accelerate')
                 elif self.compiler.compiler_type == 'msvc':
                     clang = new_compiler(plat='nt', compiler='unix')
                     clang.platform = 'nt'
