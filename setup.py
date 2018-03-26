@@ -56,6 +56,13 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
+        c_flags = list(compiler.compiler)
+        cso_flags = list(compiler.compiler_so)
+        pre_flags = list(compiler.preprocessor)
+        compiler.compiler = compiler.compiler[:1]
+        compiler.compiler_so = compiler.compiler_so[:1]
+        compiler.preprocessor = compiler.preprocessor[:1]
+
         compiler.src_extensions.append('.S')
         if hasattr(compiler, '_c_extensions'):
             compiler._c_extensions.append('.S')
@@ -72,6 +79,9 @@ class Openblas(Extension):
                 other, '%s.c' % other, []))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
+        compiler.compiler = c_flags
+        compiler.compiler_so = cso_flags
+        compiler.preprocessor = pre_flags
         return objects
  
     def build_gemm(self, compiler, src_dir):
@@ -124,6 +134,8 @@ class Openblas(Extension):
         else:
             macros.append(('OS_LINUX', None))
             args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
+        # don assume we have the cache to ourselves
+        macros.append(('HAVE_EXCLUSIVE_CACHE',))
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
@@ -132,7 +144,7 @@ class Openblas(Extension):
         macros.append(('COMPLEX',))
         # Settings that maybe matter for optimization?
         macros.append(('MAX_STACK_ALLOC', '2048'))
-        macros.append(('NO_WARMUP', None))
+        macros.append(('NO_WARMUP',))
         macros.append(('MAX_CPU_NUMBER', '4'))
         # Fill in the template
         macros.append(('ASMNAME', name))
@@ -159,6 +171,8 @@ class Openblas(Extension):
             macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
+        # dont assume we have the cache to ourselves
+        macros.append(('HAVE_EXCLUSIVE_CACHE',))
         macros.append(('MAX_STACK_ALLOC', '2048'))
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
@@ -166,7 +180,7 @@ class Openblas(Extension):
         # Undefine. Fucking attrocious api..
         macros.append(('DOUBLE',))
         macros.append(('COMPLEX',))
-        macros.append(('NO_WARMUP', None))
+        macros.append(('NO_WARMUP',))
         macros.append(('MAX_CPU_NUMBER', '4'))
         macros.append(('ASMNAME', name))
         macros.append(('ASMFNAME', '%s_' % name))
