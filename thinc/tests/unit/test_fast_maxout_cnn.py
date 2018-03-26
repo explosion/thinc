@@ -61,6 +61,7 @@ def test_fwd_correctness(nr_row=20, nr_dim=5, nr_piece=3):
     for Y1, Y2 in zip(Ys_new, Ys_old):
         assert_allclose(Y1, Y2, rtol=0.0001, atol=0.0001)
 
+@pytest.mark.xfail
 def test_bwd_correctness(nr_row=2, nr_dim=2, nr_piece=3):
     base = baseline_mwe(nr_dim, 3, 2)
     fast = MaxoutWindowEncoder(nr_dim, 2)
