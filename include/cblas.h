@@ -1,3 +1,6 @@
+#ifdef __APPLE__
+#include <Accelerate/Accelerate.h>
+#else
 #ifndef CBLAS_H
 #define CBLAS_H
 
@@ -46,9 +49,6 @@ int openblas_get_parallel(void);
 
 #define CBLAS_INDEX size_t
 
-#ifdef __APPLE__
-#include <Accelerate/Accelerate.h>
-#else
 typedef enum CBLAS_ORDER     {CblasRowMajor=101, CblasColMajor=102} CBLAS_ORDER;
 typedef enum CBLAS_TRANSPOSE {CblasNoTrans=111, CblasTrans=112, CblasConjTrans=113, CblasConjNoTrans=114} CBLAS_TRANSPOSE;
 typedef enum CBLAS_UPLO      {CblasUpper=121, CblasLower=122} CBLAS_UPLO;
