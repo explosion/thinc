@@ -57,13 +57,11 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
-        if compiler.compiler is not None:
+        if compiler.platform != 'nt':
             c_flags = list(compiler.compiler)
             compiler.compiler = compiler.compiler[:1] + ['-fPIC']
-        if compiler.compiler_so is not None:
             cso_flags = list(compiler.compiler_so)
             compiler.compiler_so = compiler.compiler_so[:1] + ['-fPIC']
-        if compiler.preprocessor is not None:
             pre_flags = list(compiler.preprocessor)
             compiler.preprocessor = compiler.preprocessor[:1] + ['-fPIC']
 
@@ -83,11 +81,9 @@ class Openblas(Extension):
                 other, '%s.c' % other, []))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
-        if compiler.compiler is not None:
+        if compiler.platform != 'nt':
             compiler.compiler = c_flags
-        if compiler.compiler_so is not None:
             compiler.compiler_so = cso_flags
-        if compiler.preprocessor is not None:
             compiler.preprocessor = pre_flags
         return objects
  
