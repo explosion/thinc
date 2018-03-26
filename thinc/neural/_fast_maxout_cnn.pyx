@@ -3,13 +3,13 @@
 from libc.stdlib cimport calloc, free
 from libc.string cimport memcpy, memset
 from libc.math cimport sqrt
-cimport cython.parallel
 from cymem.cymem cimport Pool
 from libcpp.vector cimport vector
 
 from ._classes.maxout import Maxout
 from ._classes.layernorm import LayerNorm
 from ..linalg cimport Vec, Mat, VecVec, MatVec, MatMat
+from .. cimport openblas
 
 import numpy
 cimport numpy as np
@@ -124,7 +124,7 @@ def MaxoutWindowEncoder(nr_unit, nr_iter):
     normalize = LayerNorm(maxout)
 
     def mwe_fwd(Xs, drop=0.):
-        if drop > 0:
+        if drop is not None and drop > 0:
             raise ValueError("MaxoutWindow encoder doesn't support dropout yet")
         return _mwe_fwd(nr_iter, maxout, normalize, Xs, drop=drop)
 
@@ -168,8 +168,7 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
     X.set_inputs(inputs)
 
     cdef dim_t i
-    for i in cython.parallel.prange(nX, nogil=True, num_threads=2,
-            schedule='static'):
+    for i in range(nX):
         mwe_forward(X.a[i], X.b[i], X.c[i], X.d[i], X.e[i], X.f[i], X.which[i],
             W.syn, W.bias, W.scale, W.shift, nO, nP, X.lengths[i], nr_iter)
 
@@ -188,8 +187,7 @@ def _mwe_fwd(dim_t nr_iter, maxout, normalize, inputs, drop=0.):
         cdef _Weights dW = _Weights(maxout.d_W, maxout.d_b,
                                     normalize.d_G, normalize.d_b)
         cdef dim_t i
-        for i in cython.parallel.prange(nX, nogil=True, num_threads=2,
-                schedule='static'):
+        for i in range(nX):
             mwe_backward(
                 dX.a[i], dX.b[i], dX.c[i], dX.d[i], dX.e[i], dX.f[i],
                 dW.syn, dW.bias, dW.scale, dW.shift,
@@ -304,24 +302,23 @@ cdef void bwd_seq2col(float* dXa,
 cdef void affine(float* outputs,
         const float* inputs, const float* weights, const float* bias,
         dim_t nO, dim_t nI, dim_t nB) nogil:
-    MatVec.batch_dot(outputs,
-        weights, inputs, nO, nI, nB)
+    openblas.simple_gemm(outputs,
+        nB, nO, inputs, nB, nI, weights, nO, nI, 0, 1)
     for i in range(nB):
-        for j in range(nO):
-            outputs[j] += bias[j]
-        outputs += nO
+        openblas.simple_axpy(&outputs[i*nO], nO,
+            bias, 1.)
 
 
 cdef void bwd_affine(float* d_inputs, float* dW, float* db,
         const float* d_outputs, const float* inputs, const float* weights,
         dim_t nO, dim_t nI, dim_t nB) nogil:
     for i in range(nB):
-        VecVec.add_i(db,
-            &d_outputs[i*nO], 1., nO)
-    MatMat.batch_add_outer_i(dW,
-        d_outputs, inputs, nO, nI, nB)
-    MatVec.batch_T_dot(d_inputs,
-        weights, d_outputs, nO, nI, nB)
+        openblas.simple_axpy(db, nO,
+            &d_outputs[i*nO], 1.)
+    openblas.simple_gemm(dW, nO, nI,
+        d_outputs, nB, nO, inputs, nB, nI, 1, 0)
+    openblas.simple_gemm(d_inputs, nB, nI,
+        d_outputs, nB, nO, weights, nO, nI, 0, 0)
 
 
 cdef void maxpool(float* Xb, int* which,
