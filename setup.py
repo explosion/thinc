@@ -254,7 +254,24 @@ class build_ext_options:
         self.compiler.platform = sys.platform[:6]
         for e in self.extensions:
             if isinstance(e, Openblas):
-                if self.compiler.platform == 'darwin':
+                if 'THINC_BLAS' in os.environ:
+                    lib_loc = os.environ['THINC_BLAS']
+                    lib_path, lib_name = os.path.split(lib_loc)
+                    if lib_name.endswith('.so'):
+                        is_shared = True
+                        lib_name = lib_name[3:-3]
+                    else:
+                        is_shared = False
+                    print('Using BLAS:', lib_path, lib_name)
+                    compile_options['other']['gcc'].append('-L%s' % lib_path)
+                    link_options['other'].append('-L%s' % lib_path)
+                    if is_shared:
+                        compile_options['other']['gcc'].append('-l%s' % lib_name)
+                        link_options['other'].append('-l%s' % lib_name)
+                    else:
+                        compile_options['other']['gcc'].append('-l:%s' % lib_name)
+                        link_options['other'].append('-l:%s' % lib_name)
+                elif self.compiler.platform == 'darwin':
                     e.exra_compile_args.append('-framework Accelerate')
                     e.exra_link_args.append('-framework Accelerate')
                 elif self.compiler.compiler_type == 'msvc':
