@@ -57,12 +57,15 @@ link_options    =  {'msvc'  : [], 'other' : []}
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
-        c_flags = list(compiler.compiler)
-        cso_flags = list(compiler.compiler_so)
-        pre_flags = list(compiler.preprocessor)
-        compiler.compiler = compiler.compiler[:1] + ['-fPIC']
-        compiler.compiler_so = compiler.compiler_so[:1] + ['-fPIC']
-        compiler.preprocessor = compiler.preprocessor[:1] + ['-fPIC']
+        if compiler.compiler is not None:
+            c_flags = list(compiler.compiler)
+            compiler.compiler = compiler.compiler[:1] + ['-fPIC']
+        if compiler.compiler_so is not None:
+            cso_flags = list(compiler.compiler_so)
+            compiler.compiler_so = compiler.compiler_so[:1] + ['-fPIC']
+        if compiler.preprocessor is not None:
+            pre_flags = list(compiler.preprocessor)
+            compiler.preprocessor = compiler.preprocessor[:1] + ['-fPIC']
 
         compiler.src_extensions.append('.S')
         if hasattr(compiler, '_c_extensions'):
@@ -80,9 +83,12 @@ class Openblas(Extension):
                 other, '%s.c' % other, []))
         self.extra_objects.extend(objects)
         self.extra_link_args.append('-Wl,--no-undefined')
-        compiler.compiler = c_flags
-        compiler.compiler_so = cso_flags
-        compiler.preprocessor = pre_flags
+        if compiler.compiler is not None:
+            compiler.compiler = c_flags
+        if compiler.compiler_so is not None:
+            compiler.compiler_so = cso_flags
+        if compiler.preprocessor is not None:
+            compiler.preprocessor = pre_flags
         return objects
  
     def build_gemm(self, compiler, src_dir):
