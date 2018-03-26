@@ -60,9 +60,9 @@ class Openblas(Extension):
         c_flags = list(compiler.compiler)
         cso_flags = list(compiler.compiler_so)
         pre_flags = list(compiler.preprocessor)
-        compiler.compiler = compiler.compiler[:1]
-        compiler.compiler_so = compiler.compiler_so[:1]
-        compiler.preprocessor = compiler.preprocessor[:1]
+        compiler.compiler = compiler.compiler[:1] + ['-fPIC']
+        compiler.compiler_so = compiler.compiler_so[:1] + ['-fPIC']
+        compiler.preprocessor = compiler.preprocessor[:1] + ['-fPIC']
 
         compiler.src_extensions.append('.S')
         if hasattr(compiler, '_c_extensions'):
