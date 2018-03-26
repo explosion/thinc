@@ -312,6 +312,7 @@ cdef void affine(float* outputs,
 cdef void bwd_affine(float* d_inputs, float* dW, float* db,
         const float* d_outputs, const float* inputs, const float* weights,
         dim_t nO, dim_t nI, dim_t nB) nogil:
+    memset(d_inputs, 0, nB*nI*sizeof(float))
     for i in range(nB):
         openblas.simple_axpy(db, nO,
             &d_outputs[i*nO], 1.)
