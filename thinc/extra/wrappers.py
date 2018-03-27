@@ -20,13 +20,14 @@ class PyTorchWrapper(Model):
         self._model = model
         self._optimizer = None
 
-    def begin_update(self, x_data, drop=0.):
+    def begin_update(self, x_data, drop=0., sgd=None):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
         x_var = torch.autograd.Variable(torch.Tensor(x_data),
                                         requires_grad=True)
         # Make prediction
+
         y_var = self._model(x_var)
         def backward_pytorch(dy_data, sgd=None):
             dy_var = torch.autograd.Variable(torch.Tensor(dy_data))
@@ -93,3 +94,48 @@ class PyTorchWrapper(Model):
         yield
         self.from_bytes(backup)
 
+class PyTorchWrapperRNN(PyTorchWrapper):
+    '''Wrap a PyTorch RNN model
+    '''
+    def begin_update(self, x_data, h_0=None, drop=0., sgd=None):
+        '''Return the output of the wrapped PyTorch model for the given input,
+        along with a callback to handle the backward pass.
+        '''
+        x_var = torch.autograd.Variable(torch.Tensor(x_data),
+                                        requires_grad=True)
+        # Make prediction
+        out, h_n = self._model(x_var, h_0)
+        # Shapes will be:
+        # out = seq_len, batch, hidden_size * num_directions
+        # h_n = num_layers * num_directions, batch, hidden_size
+
+        def backward_pytorch(dy_data, sgd=None):
+            dout = torch.autograd.Variable(torch.Tensor(dy_data))
+            torch.autograd.backward((out,), grad_variables=(dout,))
+            dX = self.ops.asarray(x_var.grad.data)
+            if sgd is not None:
+                if self._optimizer is None:
+                    self._optimizer = self._create_optimizer(sgd)
+                self._optimizer.step()
+                self._optimizer.zero_grad()
+            return dX
+        # TODO: We should return also h_n e.g. for seq2seq models
+        return self.ops.asarray(out.data), backward_pytorch
+
+    def resize_output(self, new_dim):
+        #self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
+        #self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
+        raise NotImplementedError
+
+    def resize_input(self):
+        raise NotImplementedError
+
+    @contextlib.contextmanager
+    def use_params(self, params): # pragma: no cover
+        if self.id in params:
+            backup = self.to_bytes()
+            self.from_bytes(params[self.id])
+        else:
+            backup = None
+        yield
+        self.from_bytes(backup)

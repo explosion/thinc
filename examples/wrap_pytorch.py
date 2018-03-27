@@ -5,14 +5,14 @@ from torch import autograd
 from torch import nn
 import torch.optim
 
-from thinc.extra.wrappers import PytorchWrapper
+from thinc.extra.wrappers import PyTorchWrapper
 
 
 def main(length=1000, nO=32, nI=32):
     pt_model = nn.Linear(nI, nO)
     optimizer = torch.optim.Adam(pt_model.parameters())
 
-    model = PytorchWrapper(pt_model)
+    model = PyTorchWrapper(pt_model)
 
     X = numpy.ones((length, nI), dtype='f')
     y = 1. / X
