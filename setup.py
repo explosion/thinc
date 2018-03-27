@@ -275,8 +275,8 @@ class build_ext_options:
                         compile_options['other']['gcc'].append('-l:%s' % lib_name)
                         link_options['other'].append('-l:%s' % lib_name)
                 elif self.compiler.platform == 'darwin':
-                    e.exra_compile_args.append('-framework Accelerate')
-                    e.exra_link_args.append('-framework Accelerate')
+                    e.extra_compile_args.append('-framework Accelerate')
+                    e.extra_link_args.append('-framework Accelerate')
                 elif self.compiler.compiler_type == 'msvc':
                     clang = new_compiler(plat='nt', compiler='unix')
                     clang.platform = 'nt'
