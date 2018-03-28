@@ -49,18 +49,14 @@ def check_Y_shape(model, X, Y, sequence_length, batch_size, hidden_size, num_dir
 
 def check_learns_zero_output_rnn(model, sgd, X, Y, initial_hidden=None):
     '''Check we can learn to output a zero vector'''
-    outputs, get_dX = model.begin_update(X)
+    outputs, get_dX = model.begin_update(X, initial_hidden)
     Yh, h_n = outputs
-    dYh = (Yh - Y) / len(Y)
-    tupleDy = (dYh, 0)
+    tupleDy = (Yh-Y, h_n)
     dX = get_dX(tupleDy, sgd=sgd)
     prev = numpy.abs(Yh.sum())
     print(prev)
     for i in range(1000):
-        if(i == 0 and initial_hidden is not None):
-            outputs, get_dX = model.begin_update(X, h_0=initial_hidden)
-        else:
-            outputs, get_dX = model.begin_update(X)
+        outputs, get_dX = model.begin_update(X)
         Yh, h_n = outputs
         current_sum = numpy.abs(Yh.sum())
         tupleDy = (Yh-Y, h_n)
