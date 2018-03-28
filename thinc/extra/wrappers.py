@@ -20,7 +20,7 @@ class PyTorchWrapper(Model):
         self._model = model
         self._optimizer = None
 
-    def begin_update(self, x_data, drop=0., sgd=None):
+    def begin_update(self, x_data, drop=0.):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
@@ -97,19 +97,23 @@ class PyTorchWrapper(Model):
 class PyTorchWrapperRNN(PyTorchWrapper):
     '''Wrap a PyTorch RNN model
     '''
-    def begin_update(self, x_data, h_0=None, drop=0., sgd=None):
+    def begin_update(self, x_data, h_0=None, drop=0.):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
         x_var = torch.autograd.Variable(torch.Tensor(x_data),
                                         requires_grad=True)
+        
+        
+        
         # Make prediction
         out, h_n = self._model(x_var, h_0)
         # Shapes will be:
         # out = seq_len, batch, hidden_size * num_directions
         # h_n = num_layers * num_directions, batch, hidden_size
 
-        def backward_pytorch(dy_data, sgd=None):
+        def backward_pytorch_rnn(d_data, sgd=None):
+            dy_data, _ = d_data
             dout = torch.autograd.Variable(torch.Tensor(dy_data))
             torch.autograd.backward((out,), grad_variables=(dout,))
             dX = self.ops.asarray(x_var.grad.data)
@@ -119,8 +123,7 @@ class PyTorchWrapperRNN(PyTorchWrapper):
                 self._optimizer.step()
                 self._optimizer.zero_grad()
             return dX
-        # TODO: We should return also h_n e.g. for seq2seq models
-        return self.ops.asarray(out.data), backward_pytorch
+        return (self.ops.asarray(out.data), h_n) , backward_pytorch_rnn
 
     def resize_output(self, new_dim):
         #self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
