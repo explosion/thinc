@@ -125,12 +125,14 @@ class Ops(object):
 
     def unflatten(self, X, lengths, pad=0):
         unflat = []
+        pad = int(pad)
         for length in lengths:
-            if int(pad) >= 1 and length != 0:
+            length = int(length)
+            if pad >= 1 and length != 0:
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if int(pad) >= 1 and length != 0:
+        if pad >= 1 and length != 0:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
