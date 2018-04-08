@@ -12,6 +12,7 @@ dill>=0.2.7,<0.3
 pathlib>=1.0.0,<2.0.0
 msgpack-python==0.5.4
 msgpack-numpy==0.4.1
+cytoolz
 mock
 six
 pytest
