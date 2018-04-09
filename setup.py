@@ -137,8 +137,7 @@ class Openblas(Extension):
         else:
             macros.append(('OS_LINUX', None))
             args = ['-c', '-O2', '-Wall', '-m64', '-fPIC']
-        # don assume we have the cache to ourselves
-        macros.append(('HAVE_EXCLUSIVE_CACHE',))
+        macros.append(('USE_OPENMP', 1))
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
@@ -174,8 +173,7 @@ class Openblas(Extension):
             macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
-        # dont assume we have the cache to ourselves
-        macros.append(('HAVE_EXCLUSIVE_CACHE',))
+        macros.append(('USE_OPENMP', 1))
         macros.append(('MAX_STACK_ALLOC', '2048'))
         macros.append(('F_INTERFACE_GFORT', None))
         macros.append(('NO_LAPACK', None))
@@ -275,8 +273,8 @@ class build_ext_options:
                         compile_options['other']['gcc'].append('-l:%s' % lib_name)
                         link_options['other'].append('-l:%s' % lib_name)
                 elif self.compiler.platform == 'darwin':
-                    e.exra_compile_args.append('-framework Accelerate')
-                    e.exra_link_args.append('-framework Accelerate')
+                    e.extra_compile_args.append('-framework Accelerate')
+                    e.extra_link_args.append('-framework Accelerate')
                 elif self.compiler.compiler_type == 'msvc':
                     clang = new_compiler(plat='nt', compiler='unix')
                     clang.platform = 'nt'
