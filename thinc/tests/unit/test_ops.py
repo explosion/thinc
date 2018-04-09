@@ -147,7 +147,7 @@ def test_dropout_backward(ops, X):
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_softmax_sums_to_one(ops, X):
-    y = ops.softmax(X)
+    y = ops.softmax(ops.asarray(X))
     for row in y:
         assert 0.99999 <= row.sum() <= 1.00001
 
@@ -167,6 +167,7 @@ def test_softmax_sequence_sums_to_two(ops, X):
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
+    X = ops.asarray(X)
     ops.softmax(X, inplace=True)
     for row in X:
         assert 0.99999 <= row.sum() <= 1.00001
