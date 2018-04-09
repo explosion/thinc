@@ -77,7 +77,7 @@ class Embed(Model):
             return dotted
         uniques, positions = self.ops.xp.unique(ids, return_inverse=True)
         vectors = self._embed(uniques)
-        dotted_uniq = self.ops.batch_dot(vectors, self.W)
+        dotted_uniq = self.ops.gemm(vectors, self.W, trans2=True)
         output = dotted_uniq[positions]
         return self.ops.xp.ascontiguousarray(output)
 
@@ -88,11 +88,11 @@ class Embed(Model):
         if mask is not None:
             ids = ids * (mask > 0)
         vectors = self._embed(ids)
-        dotted = self.ops.batch_dot(vectors, self.W)
+        dotted = self.ops.gemm(vectors, self.W, trans2=True)
         def finish_update(gradients, sgd=None):
-            self.d_W += self.ops.batch_outer(gradients, vectors)
+            self.d_W += self.ops.gemm(gradients, vectors, trans1=True)
             if not self.is_static:
-                gradients = self.ops.batch_dot(gradients, self.W.T)
+                gradients = self.ops.gemm(gradients, self.W)
                 d_vectors = self.d_vectors
                 n_vectors = d_vectors.shape[0]
                 if hasattr(self.ops.xp, 'scatter_add'):
