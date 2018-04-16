@@ -183,16 +183,12 @@ def test_all_operators(op):
     assert base.Model._operators == {}
 
 
-def test_model_can_save_to_disk():
-    temp_file = os.path.join(tempfile.mkdtemp(), 'serialized_thinc_model_test')
-    with base.Model.define_operators({'+': lambda a, b: a}):
-        m = base.Model()
-    m.to_disk(temp_file)
+def test_model_can_save_to_disk(model_with_no_args):
+    temp_file = os.path.join(tempfile.mkdtemp(), 'thinc_model')
+    model_with_no_args.to_disk(temp_file)
 
-def test_model_can_load_from_disk():
-    temp_file = os.path.join(tempfile.mkdtemp(), 'serialized_thinc_model_test')
-    with base.Model.define_operators({'+': lambda a, b: a}):
-        m = base.Model()
-    m.to_disk(temp_file)
-    m2 = m.from_disk(temp_file)
-    assert m.to_bytes() == m2.to_bytes()
+def test_model_can_load_from_disk(model_with_no_args):
+    temp_file = os.path.join(tempfile.mkdtemp(), 'thinc_model')
+    model_with_no_args.to_disk(temp_file)
+    m2 = model_with_no_args.from_disk(temp_file)
+    assert model_with_no_args.to_bytes() == m2.to_bytes()
