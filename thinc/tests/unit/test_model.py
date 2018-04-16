@@ -1,5 +1,10 @@
 # encoding: utf8
 from __future__ import unicode_literals
+
+import tempfile
+
+import os
+
 import pytest
 from hypothesis import given, strategies
 
@@ -176,3 +181,18 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 | m2
     assert base.Model._operators == {}
+
+
+def test_model_can_save_to_disk():
+    temp_file = os.path.join(tempfile.mkdtemp(), 'serialized_thinc_model_test')
+    with base.Model.define_operators({'+': lambda a, b: a}):
+        m = base.Model()
+    m.to_disk(temp_file)
+
+def test_model_can_load_from_disk():
+    temp_file = os.path.join(tempfile.mkdtemp(), 'serialized_thinc_model_test')
+    with base.Model.define_operators({'+': lambda a, b: a}):
+        m = base.Model()
+    m.to_disk(temp_file)
+    m2 = m.from_disk(temp_file)
+    assert m.to_bytes() == m2.to_bytes()
