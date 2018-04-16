@@ -52,12 +52,14 @@ def copy_array(dst, src, casting='same_kind', where=None):
     else:
         numpy.copyto(dst, src)
 
-
 def ensure_path(path):
-    if isinstance(path, basestring) or isinstance(path, str):
-        return Path(path)
-    else:
-        return path
+    try:
+        if isinstance(path, basestring) or isinstance(path, str):
+            return Path(path)
+    except NameError:
+        if isinstance(path, str):
+            return Path(path)
+    return path
 
 
 def to_categorical(y, nb_classes=None):
