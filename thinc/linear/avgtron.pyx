@@ -2,6 +2,7 @@
 # cython: cdivision=True
 cimport cython
 from os import path
+import contextlib
 from cpython.mem cimport PyMem_Free, PyMem_Malloc
 from cpython.exc cimport PyErr_CheckSignals
 from libc.stdio cimport FILE, fopen, fclose, fread, fwrite, feof, fseek
@@ -137,6 +138,34 @@ cdef class AveragedPerceptron:
                     avg_i = SparseArray.find_key(avg, W.key)
                     if W.val != 0:
                         W.val = avg.val / (self.time+1)
+                    W += 1
+                    avg += 1
+    
+    @contextlib.contextmanager
+    def with_averages(self):
+        cdef size_t feat_addr
+        for feat_id, feat_addr in self.averages.items():
+            if feat_addr != 0:
+                feat = <SparseAverageC*>feat_addr
+                update_averages(feat, self.time+1)
+                W = feat.curr
+                avg = feat.avgs
+                while W.key >= 0:
+                    avg_i = SparseArray.find_key(avg, W.key)
+                    if W.val != 0:
+                        avg.val, W.val = W.val, avg.val / (self.time+1)
+                    W += 1
+                    avg += 1
+        yield
+        for feat_id, feat_addr in self.averages.items():
+            if feat_addr != 0:
+                feat = <SparseAverageC*>feat_addr
+                W = feat.curr
+                avg = feat.avgs
+                while W.key >= 0:
+                    avg_i = SparseArray.find_key(avg, W.key)
+                    if W.val != 0:
+                        W.val, avg.val = avg.val, W.val * (self.time+1)
                     W += 1
                     avg += 1
 
