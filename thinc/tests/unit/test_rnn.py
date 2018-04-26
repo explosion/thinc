@@ -1,128 +1,109 @@
-# The RNN module currently has some Python 3-specific code. Comment this
-# out until we deal with it.
-
 import numpy
 import timeit
 import pytest
+from cytoolz import partition_all
 
-from ...neural._classes.rnn import _RNN
-from ...neural._classes.rnn import _ResidualLSTM
-from ...neural._classes.rnn import _BiLSTM
-from ...neural._classes.rnn import xp_params
-from ...neural._classes.rnn import begin_stepwise_relu
-from ...neural._classes.rnn import begin_stepwise_LSTM
+from ...neural._classes.rnn2 import LSTM, BiLSTM, RNN_step
+from ...neural._classes.rnn2 import Recurrent, Bidirectional
 
-def numpy_params():
-    return xp_params(numpy)
 
-def test_RNN_allocates_params():
+def test_LSTM_init():
+    model = LSTM(1, 2)
+    model = LSTM(2, 2)
+    model = LSTM(100, 200)
+    model = LSTM(9, 6)
+
+
+def test_LSTM_fwd_bwd_shapes():
     nO = 1
     nI = 2
-    alloc, params = numpy_params()
-    model = _RNN(alloc, nO, nI, nonlinearity=begin_stepwise_relu, nG=1)
-    for weight, grad in params:
-        assert weight.shape == grad.shape
-    assert params[0][0].shape == (nO, nI)
-    assert params[1][0].shape == (nO, nO)
-    assert params[2][0].shape == (nO,)
-    assert params[3][0].shape == (nO,)
-
-
-@pytest.mark.skip
-def test_RNN_fwd_bwd_shapes():
-    nO = 1
-    nI = 2
-    alloc, params = numpy_params()
-    model = _RNN(alloc, nO, nI, begin_stepwise_relu, nG=1)
+    model = LSTM(nO, nI)
     
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
-    ys, backprop_ys =  model([X])
+    ys, backprop_ys =  model.begin_update([X])
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
 
-@pytest.mark.skip
-def test_RNN_fwd_correctness():
-    nO = 1
-    nI = 2
-    alloc, params = numpy_params()
-    model = _RNN(alloc, nO, nI, begin_stepwise_relu, nG=1)
-    (Wx, dWx), (Wh, dWh), (b, db), (pad, d_pad) = params
-    
-    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
-    Wx[:] = 1.
-    b[:] = 0.25
-    Wh[:] = 1.
-    pad[:] = 0.05
-
-    # Step 1
-    # (0.1, 0.1) @ [[1., 1.]] + (1.,) @ [[0.05]]
-    # = (0.1 * 1) * 2 + 0.05
-    # = (0.25,) + 0.25 bias
-    Y = model([X])
-    Y = Y[0][0]
-    assert list(Y[0]) == [0.5]
-
-
-@pytest.mark.skip
-def test_RNN_learns():
-    nO = 2
-    nI = 2
-    alloc, params = numpy_params()
-    model = _RNN(alloc, nO, nI)
-    X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype='f')
-    Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype='f')
-    Yhs, bp_Yhs = model([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
-    loss1 = ((Yhs[0]-Y)**2).sum()
-    for param, grad in params:
-        param -= 0.001 * grad
-        grad.fill(0)
-    Yhs, bp_Yhs = model([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
-    loss2 = ((Yhs[0]-Y)**2).sum()
-    assert loss1 > loss2, (loss1, loss2)
-    
-    
-
+#def test_RNN_fwd_correctness():
+#    nO = 1
+#    nI = 2
+#    alloc, params = numpy_params()
+#    model = _RNN(alloc, nO, nI, begin_stepwise_relu, nG=1)
+#    (Wx, dWx), (Wh, dWh), (b, db), (pad, d_pad) = params
+#    
+#    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
+#    Wx[:] = 1.
+#    b[:] = 0.25
+#    Wh[:] = 1.
+#    pad[:] = 0.05
+#
+#    # Step 1
+#    # (0.1, 0.1) @ [[1., 1.]] + (1.,) @ [[0.05]]
+#    # = (0.1 * 1) * 2 + 0.05
+#    # = (0.25,) + 0.25 bias
+#    Y = model([X])
+#    Y = Y[0][0]
+#    assert list(Y[0]) == [0.5]
+#
+#
+#@pytest.mark.skip
+#def test_RNN_learns():
+#    nO = 2
+#    nI = 2
+#    alloc, params = numpy_params()
+#    model = _RNN(alloc, nO, nI)
+#    X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype='f')
+#    Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype='f')
+#    Yhs, bp_Yhs = model([X])
+#    dXs = bp_Yhs([Yhs[0] - Y])
+#    loss1 = ((Yhs[0]-Y)**2).sum()
+#    for param, grad in params:
+#        param -= 0.001 * grad
+#        grad.fill(0)
+#    Yhs, bp_Yhs = model([X])
+#    dXs = bp_Yhs([Yhs[0] - Y])
+#    loss2 = ((Yhs[0]-Y)**2).sum()
+#    assert loss1 > loss2, (loss1, loss2)
+#    
+#    
+#
 def test_LSTM_learns():
     nO = 2
     nI = 2
-    alloc, params = numpy_params()
-    model = _ResidualLSTM(alloc, nO)
+    model = LSTM(nO, nI)
+    def sgd(weights, gradient, key=None):
+        weights -= 0.001 * gradient
+        gradient.fill(0.)
     X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype='f')
     Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype='f')
-    Yhs, bp_Yhs = model([X])
+    Yhs, bp_Yhs = model.begin_update([X])
     loss1 = ((Yhs[0]-Y)**2).sum()
-    Yhs, bp_Yhs = model([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
-    for param, grad in params:
-        param -= 0.001 * grad
-        grad.fill(0)
-    Yhs, bp_Yhs = model([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
+    Yhs, bp_Yhs = model.begin_update([X])
+    dXs = bp_Yhs([Yhs[0] - Y], sgd=sgd)
+    Yhs, bp_Yhs = model.begin_update([X])
+    dXs = bp_Yhs([Yhs[0] - Y], sgd=sgd)
     loss2 = ((Yhs[0]-Y)**2).sum()
     assert loss1 > loss2, (loss1, loss2)
     
 
-def test_LSTM_fwd():
-    nO = 2
-    nI = 2
-    alloc, params = numpy_params()
-    model = _BiLSTM(alloc, nO, nI)
-    
-    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
-    ys, backprop_ys =  model([X])
-    dXs = backprop_ys(ys)
-    assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
- 
-
-@pytest.mark.skip
+#def test_LSTM_fwd():
+#    nO = 2
+#    nI = 2
+#    alloc, params = numpy_params()
+#    model = _BiLSTM(alloc, nO, nI)
+#    
+#    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
+#    ys, backprop_ys =  model([X])
+#    dXs = backprop_ys(ys)
+#    assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
+# 
+#
 def test_benchmark_RNN_fwd():
     nO = 128
     nI = 128
     n_batch = 1000
-    batch_size = 32
+    batch_size = 30
     seq_len = 30
     lengths = numpy.random.normal(scale=1, loc=30, size=n_batch*batch_size)
     lengths = numpy.maximum(lengths, 1)
@@ -142,13 +123,11 @@ def test_benchmark_RNN_fwd():
                 for seq_len in batch_lengths
             ]
         batches.append(batch)
-    alloc, params = numpy_params()
-    model = RNN(alloc, nO, nI, begin_stepwise_relu)
-    #model = LSTM(alloc, nO, nI)
+    model = LSTM(nO, nI)
     start = timeit.default_timer()
     for Xs in batches:
-        ys, bp_ys = model(list(Xs))
-        _ = bp_ys(ys)
+        ys, bp_ys = model.begin_update(list(Xs))
+        #_ = bp_ys(ys)
     end = timeit.default_timer()
     n_samples = n_batch * batch_size
     print("--- %i samples in %s seconds (%f samples/s, %.7f s/sample) ---" % (n_samples, end - start, n_samples / (end - start), (end - start) / n_samples))
