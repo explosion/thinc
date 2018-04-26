@@ -285,7 +285,7 @@ def _ResidualLSTM(alloc, nI):
     return lstm_fwd
 
 
-def lstm_fwd(Xs_lengths, W, b):
+def lstm_fwd(Xs_lengths, W, b, drop_input=None, drop_hidden=None, drop_cells=None):
     Xs, lengths = Xs_lengths
     timesteps = []
     Hp = pad
@@ -296,10 +296,17 @@ def lstm_fwd(Xs_lengths, W, b):
         Ht = xp.zeros((nB, nO), dtype='f')
         Ct = xp.zeros((nN, nO), dtype='f')
 
+        if drop_hidden is not None:
+            Hp *= drop_hidden
+        if drop_cells is not None:
+            Cp *= drop_cells
+
         Gt += b
         Gt += W.dot(Hp)
         ops.lstm(Ht, Ct, Gt,
             Cp)
+        if drop_input is not None:
+            Xt *= drop_input
         Ht += Xt
         timesteps.append((Xt, Gt, Ct))
         _write_timestep(Hs, lengths, t, Ht)
