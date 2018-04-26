@@ -105,7 +105,7 @@ class Ops(object):
             return x * mask, wrap_backprop
 
     def flatten(self, X, dtype=None, pad=0):
-        if not X:
+        if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or 'f')
         X = [x for x in X if x.size != 0]
         xp = get_array_module(X[0])
