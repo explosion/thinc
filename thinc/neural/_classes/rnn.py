@@ -46,8 +46,8 @@ def Recurrent(step_model):
         X = pad_batch(ops, seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
         if drop != 0. and drop != None:
-            hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
             cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+            hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
             out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
         else:
             hidden_drop = None
@@ -58,9 +58,9 @@ def Recurrent(step_model):
         for t in range(max(lengths)):
             state = list(state)
             if hidden_drop is not None:
-                state[0] *= hidden_drop
+                state[0] *= cell_drop
             if cell_drop is not None:
-                state[1] *= cell_drop
+                state[1] *= hidden_drop
             (state, Y[t]), backprops[t] = step_model.begin_update((state, X[t]),
                                                                   drop=0.0)
             if out_drop is not None:
@@ -108,11 +108,11 @@ def RNN_step(weights, gates):
         (cells, hiddens), bp_gates = gates.begin_update((acts, cell_tm1), drop=drop)
 
         def rnn_step_bwd(d_state_d_hiddens, sgd=None):
-            (d_hiddens, d_cells), d_hiddens = d_state_d_hiddens
+            (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
             d_acts, d_cell_tm1 = bp_gates((d_cells, d_hiddens), sgd=sgd)
             d_inputs, d_hidden_tm1 = bp_acts(d_acts, sgd=sgd)
             return (d_cell_tm1, d_hidden_tm1), d_inputs
-        return ((hiddens, cells), hiddens), rnn_step_bwd
+        return ((cells, hiddens), hiddens), rnn_step_bwd
     model = wrap(rnn_step_fwd, weights, gates)
     model.nO = weights.nO
     model.nI = weights.nI
@@ -132,7 +132,7 @@ def LSTM_gates(ops):
         state = (new_cells, new_hiddens)
 
         def lstm_gates_bwd(d_state, sgd=None):
-            d_hiddens, d_cells = d_state
+            d_cells, d_hiddens = d_state
             d_acts = ops.allocate(acts.shape)
             d_prev_cells = ops.allocate(d_cells.shape)
             for i in range(d_cells.shape[0]):
@@ -172,13 +172,13 @@ class LSTM_weights(Model):
         X = self.ops.xp.hstack([inputs, hidden])
         acts = self.ops.gemm(X, self.W, trans2=True) + self.b
         acts = acts.reshape((acts.shape[0], 4, self.nO))
-        acts[:, 3] -= self.forget_bias
+        acts[:, 0] -= self.forget_bias
         acts = acts.reshape((acts.shape[0], 4 * self.nO))
         def bwd_lstm_weights(d_acts, sgd=None):
             dX = self.ops.gemm(d_acts, self.W)
             self.d_W += self.ops.gemm(d_acts, X, trans1=True)
             self.d_b += d_acts.sum(axis=0)
-            #self.d_forget_bias += d_acts[3].sum(axis=0)
+            self.d_forget_bias += d_acts[0].sum(axis=0)
             d_input = dX[:, :self.nI]
             d_hidden = dX[:, self.nI:]
             if sgd is not None:
