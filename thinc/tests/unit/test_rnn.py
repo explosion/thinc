@@ -3,8 +3,8 @@ import timeit
 import pytest
 from cytoolz import partition_all
 
-from ...neural._classes.rnn2 import LSTM, BiLSTM, RNN_step
-from ...neural._classes.rnn2 import Recurrent, Bidirectional
+from ...neural._classes.rnn import LSTM, BiLSTM, RNN_step
+from ...neural._classes.rnn import Recurrent, Bidirectional
 
 
 def test_LSTM_init():
