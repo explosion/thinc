@@ -2,6 +2,8 @@ from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
 from ...api import wrap, layerize
+from .._lsuv import svd_orthonormal
+from ..util import copy_array
 
 
 def BiLSTM(nO, nI):
@@ -43,26 +45,47 @@ def Recurrent(step_model):
         lengths = [len(X) for X in seqs]
         X = pad_batch(ops, seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
+        if drop != 0. and drop != None:
+            hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+            cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+            out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+        else:
+            hidden_drop = None
+            cell_drop = None
+            out_drop = None
         backprops = [None] * max(lengths)
         state = step_model.weights.get_initial_state(len(seqs))
         for t in range(max(lengths)):
+            state = list(state)
+            if hidden_drop is not None:
+                state[0] *= hidden_drop
+            if cell_drop is not None:
+                state[1] *= cell_drop
             (state, Y[t]), backprops[t] = step_model.begin_update((state, X[t]),
-                                                                  drop=drop)
+                                                                  drop=0.0)
+            if out_drop is not None:
+                Y[t] *= out_drop
         outputs = unpad_batch(step_model.ops, Y, lengths)
 
         def recurrent_bwd(d_outputs, sgd=None):
             lengths = [len(d_o) for d_o in d_outputs]
             dY = pad_batch(step_model.ops, d_outputs)
-            d_state = (step_model.ops.allocate((len(lengths), step_model.nO)),
-                       step_model.ops.allocate((len(lengths), step_model.nO)))
+            d_state = [step_model.ops.allocate((len(lengths), step_model.nO)),
+                       step_model.ops.allocate((len(lengths), step_model.nO))]
             updates = {}
             def gather_updates(weights, gradient, key=None):
                 updates[key] = (weights, gradient)
 
             dX = step_model.ops.allocate((dY.shape[0], dY.shape[1], step_model.weights.nI))
             for t in range(max(lengths)-1, -1, -1):
-                d_state, dXt = backprops[t]((d_state, dY[t]), sgd=gather_updates)
-                dX[t] = dXt
+                if out_drop is not None:
+                    dY[t] *= out_drop
+                d_state, dX[t] = backprops[t]((d_state, dY[t]), sgd=gather_updates)
+                d_state = list(d_state)
+                if cell_drop is not None:
+                    d_state[0] *= cell_drop
+                if hidden_drop is not None:
+                    d_state[1] *= hidden_drop
             d_cell, d_hidden = d_state
             step_model.weights.d_initial_cells += d_cell.sum(axis=0)
             step_model.weights.d_initial_hiddens += d_hidden.sum(axis=0)
@@ -125,7 +148,7 @@ def LSTM_gates(ops):
     nI=Dimension("Input size"),
     W=Synapses("Weights matrix",
         lambda obj: (obj.nO * 4, obj.nI + obj.nO),
-        lambda W, ops: ops.xavier_uniform_init(W)),
+        lambda W, ops: copy_array(W, svd_orthonormal(W.shape))),
     b=Biases("Bias vector",
         lambda obj: (obj.nO * 4,)),
     forget_bias=Biases("Bias for forget gates",
