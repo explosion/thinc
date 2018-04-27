@@ -18,6 +18,9 @@ def linear_decay(rate, decay, nr_upd):
     return rate * 1./(1. + decay * nr_upd)
 
 
+def anneal(rate, decay, decay_steps, nr_upd):
+    return rate * decay ** (nr_upd / decay_steps)
+
 def Adam(*args, **kwargs):
     return Optimizer(*args, **kwargs)
 
@@ -40,6 +43,7 @@ class Optimizer(object):
     * b1=0.999, b2=0.9: Adam
     '''
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
+                 decay_steps=5000,
                  b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., gradient_noise=0.0,
                  nesterov=True):
         self.ops = ops
@@ -74,7 +78,7 @@ class Optimizer(object):
                     params[key] = value.get()
 
     def lr(self, nr_upd):
-        alpha = linear_decay(self.alpha, self.decay, nr_upd)
+        alpha = anneal(self.alpha, self.decay, self.decay_steps, nr_upd)
         if self.b1 == 0. or self.b2 == 0.:
             return alpha
         fix1 = 1.- (self.b1 ** nr_upd)
