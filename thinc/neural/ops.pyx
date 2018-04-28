@@ -146,7 +146,8 @@ class Ops(object):
         elif drop >= 1.:
             return self.allocate(shape)
         coinflips = self.xp.random.uniform(0., 1., shape)
-        return self.asarray((coinflips >= drop) / (1.-drop), dtype='float32')
+        mask = (coinflips >= drop) / (1.-drop)
+        return self.asarray(mask, dtype='float32')
 
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
