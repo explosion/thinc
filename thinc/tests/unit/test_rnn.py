@@ -3,8 +3,33 @@ import timeit
 import pytest
 from cytoolz import partition_all
 
+from ...neural.ops import NumpyOps
 from ...neural._classes.rnn import LSTM, BiLSTM, RNN_step
 from ...neural._classes.rnn import Recurrent, Bidirectional
+from ...neural._classes.rnn import pad_batch
+
+
+def test_pad_batch():
+    ops = NumpyOps()
+    seqs = [
+        numpy.zeros((5, 4)),
+        numpy.zeros((8, 4)),
+        numpy.zeros((2, 4))
+    ]
+    arr, size_at_t, unpad = pad_batch(ops, seqs)
+    assert arr.shape == (8, 3, 4)
+    assert size_at_t[0] == 3
+    assert size_at_t[1] == 3
+    assert size_at_t[2] == 2
+    assert size_at_t[3] == 2
+    assert size_at_t[4] == 2
+    assert size_at_t[5] == 1
+    assert size_at_t[6] == 1
+    assert size_at_t[7] == 1
+    unpadded = unpad(arr)
+    assert unpadded[0].shape == (5, 4)
+    assert unpadded[1].shape == (8, 4)
+    assert unpadded[2].shape == (2, 4)
 
 
 def test_LSTM_init():
@@ -105,7 +130,7 @@ def test_benchmark_RNN_fwd():
     n_batch = 1000
     batch_size = 30
     seq_len = 30
-    lengths = numpy.random.normal(scale=1, loc=30, size=n_batch*batch_size)
+    lengths = numpy.random.normal(scale=10, loc=30, size=n_batch*batch_size)
     lengths = numpy.maximum(lengths, 1)
     batches = []
     uniform_lengths = False
