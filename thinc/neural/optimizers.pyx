@@ -19,7 +19,10 @@ def linear_decay(rate, decay, nr_upd):
 
 
 def anneal(rate, decay, decay_steps, nr_upd):
-    return rate * decay ** (nr_upd / decay_steps)
+    if decay == 0.0:
+        return rate
+    else:
+        return rate * decay ** (nr_upd / decay_steps)
 
 def Adam(*args, **kwargs):
     return Optimizer(*args, **kwargs)
@@ -63,6 +66,7 @@ class Optimizer(object):
         self.decay = decay
         self.L2 = L2
         self.nesterov = nesterov
+        self.decay_steps = decay_steps
 
     def to_gpu(self):
         self.ops = CupyOps()
