@@ -1,4 +1,5 @@
 from __future__ import division
+from __future__ import unicode_literals
 
 import pytest
 import pickle
@@ -9,48 +10,48 @@ from ...linear.avgtron import AveragedPerceptron
 from ...extra.eg import Example
 
 
-def assert_near_eq(float1, float2):
-    assert abs(float1 - float2) < 0.001
-
-
-def test_basic():
-    nr_class = 3
-    model = AveragedPerceptron(((1,), (2,), (3,), (4,), (5,)))
-    instances = [
-        (1, {1: 1, 3: -5}),
-        (2, {2: 4, 3: 5})
-    ]
-    for clas, feats in instances:
-        eg = Example(nr_class)
-        #eg.features = feats
-        #model(eg)
-        #eg.costs = [i != clas for i in range(nr_class)]
-        #model.update(eg)
-    #eg = Example(nr_class)
-    #eg.features = {1: 2, 2: 1}
-    #model(eg)
-    #assert eg.guess == 2
-    #eg = Example(nr_class)
-    #eg.features = {0: 2, 2: 1}
-    #model(eg)
-    #assert eg.scores[1] == 0
-    #eg = Example(nr_class)
-    #eg.features = {1: 2, 2: 1}
-    #model(eg)
-    #assert eg.scores[2] > 0
-    #eg = Example(nr_class)
-    #eg.features = {1: 2, 1: 1}
-    #model(eg)
-    #assert eg.scores[1] > 0
-    #eg = Example(nr_class)
-    #eg.features = {0: 3, 3: 1}
-    #model(eg)
-    #assert eg.scores[1] < 0 
-    #eg = Example(nr_class)
-    #eg.features = {0: 3, 3: 1}
-    #model(eg)
-    #assert eg.scores[2] > 0 
-
+#def assert_near_eq(float1, float2):
+#    assert abs(float1 - float2) < 0.001
+#
+#
+#def test_basic():
+#    nr_class = 3
+#    model = AveragedPerceptron(((1,), (2,), (3,), (4,), (5,)))
+#    instances = [
+#        (1, {1: 1, 3: -5}),
+#        (2, {2: 4, 3: 5})
+#    ]
+#    for clas, feats in instances:
+#        eg = Example(nr_class)
+#        #eg.features = feats
+#        #model(eg)
+#        #eg.costs = [i != clas for i in range(nr_class)]
+#        #model.update(eg)
+#    #eg = Example(nr_class)
+#    #eg.features = {1: 2, 2: 1}
+#    #model(eg)
+#    #assert eg.guess == 2
+#    #eg = Example(nr_class)
+#    #eg.features = {0: 2, 2: 1}
+#    #model(eg)
+#    #assert eg.scores[1] == 0
+#    #eg = Example(nr_class)
+#    #eg.features = {1: 2, 2: 1}
+#    #model(eg)
+#    #assert eg.scores[2] > 0
+#    #eg = Example(nr_class)
+#    #eg.features = {1: 2, 1: 1}
+#    #model(eg)
+#    #assert eg.scores[1] > 0
+#    #eg = Example(nr_class)
+#    #eg.features = {0: 3, 3: 1}
+#    #model(eg)
+#    #assert eg.scores[1] < 0 
+#    #eg = Example(nr_class)
+#    #eg.features = {0: 3, 3: 1}
+#    #model(eg)
+#    #assert eg.scores[2] > 0 
+#
 #
 #@pytest.fixture
 #def instances():
