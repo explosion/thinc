@@ -43,35 +43,29 @@ def Recurrent(step_model):
     ops = step_model.ops
     def recurrent_fwd(seqs, drop=0.):
         lengths = [len(X) for X in seqs]
-        X = pad_batch(ops, seqs)
+        X, size_at_t, unpad = pad_batch(ops, seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
-        if drop != 0. and drop != None:
-            cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
-            hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
-            out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
-        else:
-            hidden_drop = None
-            cell_drop = None
-            out_drop = None
+        cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+        hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+        out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
         backprops = [None] * max(lengths)
         state = step_model.weights.get_initial_state(len(seqs))
         for t in range(max(lengths)):
             state = list(state)
-            if hidden_drop is not None:
-                state[0] *= cell_drop
             if cell_drop is not None:
+                state[0] *= cell_drop
+            if hidden_drop is not None:
                 state[1] *= hidden_drop
-            (state, Y[t]), backprops[t] = step_model.begin_update((state, X[t]),
-                                                                  drop=0.0)
+            inputs = (state, X[t])
+            (state, Y[t]), backprops[t] = step_model.begin_update(inputs)
             if out_drop is not None:
                 Y[t] *= out_drop
-        outputs = unpad_batch(step_model.ops, Y, lengths)
+        outputs = unpad(Y)
 
         def recurrent_bwd(d_outputs, sgd=None):
-            lengths = [len(d_o) for d_o in d_outputs]
-            dY = pad_batch(step_model.ops, d_outputs)
-            d_state = [step_model.ops.allocate((len(lengths), step_model.nO)),
-                       step_model.ops.allocate((len(lengths), step_model.nO))]
+            dY, size_at_t, unpad = pad_batch(step_model.ops, d_outputs)
+            d_state = [step_model.ops.allocate((dY.shape[1], step_model.nO)),
+                       step_model.ops.allocate((dY.shape[1], step_model.nO))]
             updates = {}
             def gather_updates(weights, gradient, key=None):
                 updates[key] = (weights, gradient)
@@ -80,7 +74,8 @@ def Recurrent(step_model):
             for t in range(max(lengths)-1, -1, -1):
                 if out_drop is not None:
                     dY[t] *= out_drop
-                d_state, dX[t] = backprops[t]((d_state, dY[t]), sgd=gather_updates)
+                d_state, dX[t] = backprops[t]((d_state, dY[t]),
+                                              sgd=gather_updates)
                 d_state = list(d_state)
                 if cell_drop is not None:
                     d_state[0] *= cell_drop
@@ -92,7 +87,7 @@ def Recurrent(step_model):
             if sgd is not None:
                 for key, (weights, gradient) in updates.items():
                     sgd(weights, gradient, key=key)
-            return unpad_batch(step_model.ops, dX, lengths)
+            return unpad(dX)
         return outputs, recurrent_bwd
     model = wrap(recurrent_fwd, step_model)
     model.nO = step_model.nO
@@ -152,7 +147,8 @@ def LSTM_gates(ops):
     b=Biases("Bias vector",
         lambda obj: (obj.nO * 4,)),
     forget_bias=Biases("Bias for forget gates",
-        lambda obj: (obj.nO,)),
+        lambda obj: (obj.nO,),
+        lambda b, ops: copy_array(b, ops.xp.ones(b.shape, dtype=b.dtype))),
     d_W=Gradient("W"),
     d_b=Gradient("b"),
     d_forget_bias=Gradient("forget_bias"),
@@ -169,6 +165,7 @@ class LSTM_weights(Model):
 
     def begin_update(self, inputs_hidden, drop=0.):
         inputs, hidden = inputs_hidden
+        assert inputs.dtype == 'float32'
         X = self.ops.xp.hstack([inputs, hidden])
         acts = self.ops.gemm(X, self.W, trans2=True) + self.b
         acts = acts.reshape((acts.shape[0], 4, self.nO))
@@ -195,18 +192,36 @@ class LSTM_weights(Model):
 
 
 def pad_batch(ops, seqs):
+    '''Sort a batch of sequence by decreasing length, pad, and transpose
+    so that the outer dimension is the timestep. Return the padded batch,
+    along with an array indicating the actual length at each step, and a callback
+    to reverse the transformation.
+    '''
+    lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
+    lengths_indices.sort(reverse=True)
+    indices = [i for length, i in lengths_indices]
+    lengths = [length for length, i in lengths_indices]
     nB = len(seqs)
     nS = max([len(seq) for seq in seqs])
     arr = ops.allocate((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
-    for i, seq in enumerate(seqs):
-        arr[i, :len(seq)] = ops.asarray(seq)
-    arr = ops.xp.ascontiguousarray(arr.transpose((1, 0) + tuple(range(2, len(arr.shape)))))
-    return arr
- 
-
-def unpad_batch(ops, arr, lengths):
-    seqs = []
-    arr = ops.xp.ascontiguousarray(arr.transpose((1, 0) + tuple(range(2, len(arr.shape)))))
-    for i in range(arr.shape[0]):
-        seqs.append(arr[i, :lengths[i]])
-    return seqs
+    for arr_i, (length, seqs_i) in enumerate(lengths_indices):
+        arr[arr_i, :length] = ops.asarray(seqs[seqs_i])
+    extra_dims = tuple(range(2, len(arr.shape)))
+    arr = ops.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
+    # Build a lookup table so we can find how big the batch is at point t.
+    batch_size_at_t = ops.allocate((nS,), dtype='i')
+    batch_size_at_t += 1
+    i = len(lengths)
+    for t in range(nS):
+        if t == lengths[i-1]:
+            i -= 1
+            if i == 0:
+                break
+        batch_size_at_t[t] = i
+    def unpad(padded):
+        unpadded = [None] * len(lengths)
+        padded = ops.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
+        for i in range(padded.shape[0]):
+            unpadded[indices[i]] = padded[i, :lengths[i]]
+        return unpadded
+    return arr, batch_size_at_t, unpad
