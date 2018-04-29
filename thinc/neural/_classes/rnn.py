@@ -45,9 +45,9 @@ def Recurrent(step_model):
         lengths = [len(X) for X in seqs]
         X, size_at_t, unpad = pad_batch(ops, seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
-        cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
-        hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
-        out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), drop)
+        cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.)
+        hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.)
+        out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.)
         backprops = [None] * max(lengths)
         state = step_model.weights.get_initial_state(len(seqs))
         for t in range(max(lengths)):
@@ -121,21 +121,25 @@ def LSTM_gates(ops):
         acts, prev_cells = acts_prev_cells
         new_cells = ops.allocate(prev_cells.shape)
         new_hiddens = ops.allocate(prev_cells.shape)
-        for i in range(new_hiddens.shape[0]):
-            ops.lstm(new_hiddens[i], new_cells[i],
-                acts[i], prev_cells[i])
+        ops.lstm(new_hiddens, new_cells,
+            acts, prev_cells)
         state = (new_cells, new_hiddens)
 
         def lstm_gates_bwd(d_state, sgd=None):
             d_cells, d_hiddens = d_state
-            d_acts = ops.allocate(acts.shape)
+            d_acts = [ops.allocate(act.shape) for act in acts]
             d_prev_cells = ops.allocate(d_cells.shape)
-            for i in range(d_cells.shape[0]):
-                ops.backprop_lstm(d_cells[i], d_prev_cells[i], d_acts[i],
-                    d_hiddens[i], acts[i], new_cells[i], prev_cells[i])
+            ops.backprop_lstm(d_cells, d_prev_cells, d_acts,
+                    d_hiddens, acts, new_cells, prev_cells)
             return d_acts, d_prev_cells
         return state, lstm_gates_bwd
     return layerize(lstm_gates_fwd)
+
+
+def _uniform_init(lo, hi):
+    def wrapped(W, ops):
+        copy_array(W, ops.xp.random.uniform(lo, hi, W.shape))
+    return wrapped
 
 
 @describe.attributes(
@@ -152,8 +156,10 @@ def LSTM_gates(ops):
     d_W=Gradient("W"),
     d_b=Gradient("b"),
     d_forget_bias=Gradient("forget_bias"),
-    initial_hiddens=Biases("Initial hiddens", lambda obj: (obj.nO,)),
-    initial_cells=Biases("Initial cells", lambda obj: (obj.nO,)),
+    initial_hiddens=Biases("Initial hiddens", lambda obj: (obj.nO,),
+        _uniform_init(-0.1, 0.1)),
+    initial_cells=Biases("Initial cells", lambda obj: (obj.nO,),
+        _uniform_init(-0.1, 0.1)),
     d_initial_hiddens=Gradient("initial_hiddens"),
     d_initial_cells=Gradient("initial_cells")
 )
@@ -168,14 +174,14 @@ class LSTM_weights(Model):
         assert inputs.dtype == 'float32'
         X = self.ops.xp.hstack([inputs, hidden])
         acts = self.ops.gemm(X, self.W, trans2=True) + self.b
-        acts = acts.reshape((acts.shape[0], 4, self.nO))
-        acts[:, 0] -= self.forget_bias
-        acts = acts.reshape((acts.shape[0], 4 * self.nO))
+        acts = self._split_activations(acts)
+        acts[0] += self.forget_bias
         def bwd_lstm_weights(d_acts, sgd=None):
+            self.d_forget_bias += d_acts[0].sum(axis=0)
+            d_acts = self._merge_activations(d_acts)
             dX = self.ops.gemm(d_acts, self.W)
             self.d_W += self.ops.gemm(d_acts, X, trans1=True)
             self.d_b += d_acts.sum(axis=0)
-            self.d_forget_bias += d_acts[0].sum(axis=0)
             d_input = dX[:, :self.nI]
             d_hidden = dX[:, self.nI:]
             if sgd is not None:
@@ -189,6 +195,14 @@ class LSTM_weights(Model):
         initial_cells += self.initial_cells
         initial_hiddens += self.initial_hiddens
         return (initial_cells, initial_hiddens)
+
+    def _split_activations(self, acts):
+        acts = acts.reshape((acts.shape[0], 4, self.nO))
+        acts = self.ops.xp.ascontiguousarray(acts.transpose((1, 0, 2)))
+        return [acts[0], acts[1], acts[2], acts[3]]
+
+    def _merge_activations(self, act_pieces):
+        return self.ops.xp.hstack(act_pieces)
 
 
 def pad_batch(ops, seqs):

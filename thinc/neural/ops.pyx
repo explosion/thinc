@@ -199,6 +199,15 @@ class Ops(object):
 
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
+    
+    def sigmoid(self, X):
+        return 1./(1. + self.xp.exp(-X))
+
+    def dsigmoid(self, y):
+        return y*(1-y)
+
+    def dtanh(self, y):
+        return 1-y**2
 
     def softmax(self, x, inplace=False, axis=-1):
         if x.ndim >= 3:
@@ -256,6 +265,37 @@ class Ops(object):
         for i in range(nP):
             dX__bop[:, :, i] += dX__bo * (which__bo == i)
         return dX__bop
+
+    def lstm(self, output, cells, act_pieces, prev):
+        hf, hi, ho, hc = act_pieces
+        hf[:] = self.sigmoid(hf)
+        hi[:] = self.sigmoid(hi)
+        ho[:] = self.sigmoid(ho)
+        hc[:] = self.xp.tanh(hc)
+
+        cells[:] = hf * prev + hi * hc
+        output[:] = self.xp.tanh(cells) * ho
+
+    def backprop_lstm(self, d_cells, d_prev, d_gate_pieces,
+            d_output, gate_pieces, cells, prev):
+        hf, hi, ho, hc = gate_pieces
+        dhf, dhi, dho, dhc = d_gate_pieces
+
+        ct = self.xp.tanh(cells)
+
+        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+        dho[:] = ct * d_output * self.dsigmoid(ho)
+        dc = ho * d_output * self.dtanh(ct)
+        dc += d_cells # Carry gradient from previous step
+
+        # Gradient for hf, hi, hc, prev[i]
+        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        dhf[:] = self.dsigmoid(hf) * dc * prev
+        dhi[:] = self.dsigmoid(hi) * dc * hc
+        dhc[:] = self.dtanh(hc)    * dc * hi
+
+        d_prev[:] = dc * hf
+        copy_array(d_cells, dc)
 
     def xavier_uniform_init(self, W, inplace=True):
         if (W**2).sum() != 0.:
@@ -440,17 +480,18 @@ class NumpyOps(Ops):
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         return dX__bop
 
-    def lstm(self, float[::1] output, float[::1] cells,
-            float[::1] gates, float[::1] prev):
-        cpu_lstm_gates_fwd(&output[0], &cells[0],
-            &gates[0], &prev[0], cells.shape[0])
-        return output
+    #def lstm(self, float[:, ::1] output, float[:, ::1] cells,
+    #        float[:, ::1] gates, float[:, ::1] prev):
+    #    cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
+    #        &gates[0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
+    #    return output
 
-    def backprop_lstm(self, float[::1] d_cells, float[::1] d_prev, float[::1] d_gates,
-            float[::1] d_output, float[::1] gates, float[::1] cells,
-            float[::1] prev):
-        cpu_lstm_gates_bwd(&d_cells[0], &d_prev[0], &d_gates[0],
-            &d_output[0], &gates[0], &cells[0], &prev[0], cells.shape[0])
+    #def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
+    #        float[:, ::1] d_gates, float[:, ::1] d_output,
+    #        float[:, ::1] gates, float[:, ::1] cells, float[:, ::1] prev):
+    #    cpu_lstm_gates_bwd(&d_cells[0, 0], &d_prev[0, 0], &d_gates[0, 0],
+    #        &d_output[0, 0], &gates[0, 0], &cells[0, 0], &prev[0, 0],
+    #        cells.shape[0], cells.shape[1])
 
     def seq2col(self, float[:, ::1] seq, int nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
@@ -869,61 +910,6 @@ class CupyOps(Ops):
         else:
             return inits
 
-    def sigmoid(self, X):
-        return 1./(1. + self.xp.exp(-X))
-
-    def dsigmoid(self, y):
-        return y*(1-y)
-
-    def dtanh(self, y):
-        return 1-y**2
-
-    def lstm(self, output, cells, gates, prev):
-        gates = gates.reshape((gates.shape[0]//4, 4))
-        gates[:, 3] = self.xp.tanh(gates[:, 3])
-        gates[:, :3] = self.sigmoid(gates[:, :3])
-        hf = gates[:, 0]
-        hi = gates[:, 1]
-        ho = gates[:, 2]
-        hc = gates[:, 3]
-
-        cells[:] = hf * prev + hi * hc
-        output[:] = self.xp.tanh(cells) * ho
-
-    def backprop_lstm(self, d_cells, d_prev, d_gates,
-            d_output, gates, cells, prev):
-        gates = gates.reshape((gates.shape[0]//4, 4))
-        d_gates = d_gates.reshape((d_gates.shape[0]//4, 4))
-        hf = gates[:, 0]
-        hi = gates[:, 1]
-        ho = gates[:, 2]
-        hc = gates[:, 3]
-
-        dhf = d_gates[:, 0]
-        dhi = d_gates[:, 1]
-        dho = d_gates[:, 2]
-        dhc = d_gates[:, 3]
-        ct = self.xp.tanh(cells)
-
-        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        dho = ct * d_output * self.dsigmoid(ho)
-        dc = ho * d_output * self.dtanh(ct)
-        dc += d_cells # Carry gradient from previous step
-
-        # Gradient for hf, hi, hc, prev[i]
-        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        dhf   = self.dsigmoid(hf) * dc * prev
-        dhi   = self.dsigmoid(hi) * dc * hc
-        dhc   = self.dtanh(hc)    * dc * hi
-
-        copy_array(d_prev, dc * hf)
-
-        copy_array(d_gates[:, 0], dhf)
-        copy_array(d_gates[:, 1], dhi)
-        copy_array(d_gates[:, 2], dho)
-        copy_array(d_gates[:, 3], dhc)
-        copy_array(d_cells, dc)
-
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     '''
@@ -1141,50 +1127,65 @@ cdef inline float dtanh(float y) nogil:
 
 
 cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
-        const float* prev, int N) nogil:
+        const float* prev, int B, int N) nogil:
     cdef float hf, hi, ho, hc
-    cdef int i
-    for i in range(N):
-        hf = sigmoid(gates[i*4+0])
-        hi = sigmoid(gates[i*4+1])
-        ho = sigmoid(gates[i*4+2])
-        hc = tanhf(gates[i*4+3])
-        cells[i] = hf * prev[i] + hi * hc
-        output[i] = tanhf(cells[i]) * ho
-        gates[i*4+0] = hf
-        gates[i*4+1] = hi
-        gates[i*4+2] = ho
-        gates[i*4+3] = hc
+    cdef int i, b
+    for b in range(B):
+        for i in range(N):
+            hf = sigmoid(gates[i*4+0])
+            hi = sigmoid(gates[i*4+1])
+            ho = sigmoid(gates[i*4+2])
+            hc = tanhf(gates[i*4+3])
+            cells[i] = hf * prev[i] + hi * hc
+            output[i] = tanhf(cells[i]) * ho
+            gates[i*4+0] = hf
+            gates[i*4+1] = hi
+            gates[i*4+2] = ho
+            gates[i*4+3] = hc
+        output += N
+        gates += N*4
+        prev += N
+        cells += N
 
 
 cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         const float* d_output, const float* gates, const float* cells,
-        const float* prev, int N) nogil:
+        const float* prev, int B, int N) nogil:
     cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
-    cdef int i
-    for i in range(N):
-        hf = gates[i*4+0]
-        hi = gates[i*4+1]
-        ho = gates[i*4+2]
-        hc = gates[i*4+3]
-        c  = cells[i]
-        ct = tanhf(cells[i])
-        dh = d_output[i]
-        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        dho = ct     * dh * dsigmoid(ho)
-        dc  = ho     * dh * dtanh(ct)
-        dc += d_cells[i]  # Carry gradient from previous step
+    cdef int i, b
+    for b in range(B):
+        for i in range(N):
+            hf = gates[i*4+0]
+            hi = gates[i*4+1]
+            ho = gates[i*4+2]
+            hc = gates[i*4+3]
+            c  = cells[i]
+            ct = tanhf(cells[i])
+            dh = d_output[i]
+            # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+            dho = ct     * dh * dsigmoid(ho)
+            dc  = ho     * dh * dtanh(ct)
+            dc += d_cells[i]  # Carry gradient from previous step
 
-        # Gradient for hf, hi, hc, prev[i]
-        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        dhf   = dsigmoid(hf) * dc * prev[i]
-        dhi   = dsigmoid(hi) * dc * hc
-        dhc   = dtanh(hc)    * dc * hi
-        dprev =                dc * hf
+            # Gradient for hf, hi, hc, prev[i]
+            # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+            dhf   = dsigmoid(hf) * dc * prev[i]
+            dhi   = dsigmoid(hi) * dc * hc
+            dhc   = dtanh(hc)    * dc * hi
+            dprev =                dc * hf
 
-        d_gates[i*4+0] = dhf
-        d_gates[i*4+1] = dhi
-        d_gates[i*4+2] = dho
-        d_gates[i*4+3] = dhc
-        d_cells[i] = dc
-        d_prev[i] = dprev
+            d_gates[i*4+0] = dhf
+            d_gates[i*4+1] = dhi
+            d_gates[i*4+2] = dho
+            d_gates[i*4+3] = dhc
+            d_cells[i] = dc
+            d_prev[i] = dprev
+        d_cells += N
+        d_prev += N
+        d_output += N
+        d_gates += N*4
+        gates += N*4
+        cells += N
+        prev += N
+
+
