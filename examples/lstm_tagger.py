@@ -129,7 +129,6 @@ def main(width=100, depth=4, vector_length=64,
             with_flatten(
                 (lower_case | shape | prefix | suffix)
                 >> LN(Maxout(width, pieces=3))
-                #>> (ExtractWindow(nW=1) >> LN(Maxout(width, width*3)))
             )
             >> BiLSTM(width, width)
             >> with_flatten(Softmax(nr_tag))
