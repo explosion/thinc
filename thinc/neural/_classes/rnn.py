@@ -52,14 +52,18 @@ def Recurrent(step_model):
         state = step_model.weights.get_initial_state(len(seqs))
         for t in range(max(lengths)):
             state = list(state)
+            size = size_at_t[t]
+            Xt = X[t, :size]
+            state[0] = state[0][:size]
+            state[1] = state[1][:size]
             if cell_drop is not None:
                 state[0] *= cell_drop
             if hidden_drop is not None:
                 state[1] *= hidden_drop
-            inputs = (state, X[t])
-            (state, Y[t]), backprops[t] = step_model.begin_update(inputs)
+            inputs = (state, Xt)
+            (state, Y[t, :size]), backprops[t] = step_model.begin_update(inputs)
             if out_drop is not None:
-                Y[t] *= out_drop
+                Y[t, :size] *= out_drop
         outputs = unpad(Y)
 
         def recurrent_bwd(d_outputs, sgd=None):
@@ -74,9 +78,11 @@ def Recurrent(step_model):
             for t in range(max(lengths)-1, -1, -1):
                 if out_drop is not None:
                     dY[t] *= out_drop
-                d_state, dX[t] = backprops[t]((d_state, dY[t]),
-                                              sgd=gather_updates)
-                d_state = list(d_state)
+                d_state_t, dXt = backprops[t]((d_state, dY[t]),
+                                            sgd=gather_updates)
+                d_state[0][:d_state_t[0].shape[0]] = d_state_t[0]
+                d_state[1][:d_state_t[1].shape[0]] = d_state_t[1]
+                dX[t, :dXt.shape[0]] = dXt
                 if cell_drop is not None:
                     d_state[0] *= cell_drop
                 if hidden_drop is not None:
@@ -101,6 +107,7 @@ def RNN_step(weights, gates):
 
         acts, bp_acts = weights.begin_update((inputs, hidden_tm1), drop=drop)
         (cells, hiddens), bp_gates = gates.begin_update((acts, cell_tm1), drop=drop)
+        size = cell_tm1.shape[0]
 
         def rnn_step_bwd(d_state_d_hiddens, sgd=None):
             (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
@@ -124,11 +131,14 @@ def LSTM_gates(ops):
         ops.lstm(new_hiddens, new_cells,
             acts, prev_cells)
         state = (new_cells, new_hiddens)
+        size = new_cells.shape[0]
 
         def lstm_gates_bwd(d_state, sgd=None):
             d_cells, d_hiddens = d_state
+            d_cells = d_cells[:size]
+            d_hiddens = d_hiddens[:size]
             d_acts = [ops.allocate(act.shape) for act in acts]
-            d_prev_cells = ops.allocate(d_cells.shape)
+            d_prev_cells = ops.allocate(prev_cells.shape)
             ops.backprop_lstm(d_cells, d_prev_cells, d_acts,
                     d_hiddens, acts, new_cells, prev_cells)
             return d_acts, d_prev_cells
