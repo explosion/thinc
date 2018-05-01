@@ -332,7 +332,8 @@ class _AverageHelper(object):
 
     def __enter__(self):
         cdef size_t feat_addr
-        for feat_id, feat_addr in self.model.averages.items():
+        cdef AveragedPerceptron model = self.model
+        for feat_id, feat_addr in model.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
                 update_averages(feat, self.time+1)
@@ -346,7 +347,9 @@ class _AverageHelper(object):
                     avg += 1
     
     def __exit__(self, *args, **kwargs):
-        for feat_id, feat_addr in self.model.averages.items():
+        cdef AveragedPerceptron model = self.model
+        cdef size_t feat_addr
+        for feat_id, feat_addr in model.averages.items():
             if feat_addr != 0:
                 feat = <SparseAverageC*>feat_addr
                 W = feat.curr
