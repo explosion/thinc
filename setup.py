@@ -97,7 +97,7 @@ class Openblas(Extension):
                     name, 'gemm.c', [(flavor.upper(), None)]))
         objects.extend(
             self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
-                'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
+                'sgemm_kernel', 'sgemm_kernel_16x4_sandy.S', []))
         objects.extend(
             self.compile_driver(
                 compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
