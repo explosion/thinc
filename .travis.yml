@@ -11,6 +11,8 @@ python:
   - "3.6"
 
 install:
+  - cat /proc/cpuinfo
+  - ls /usr/local/lib
   - pip install -r requirements.txt
   - pip install -e .
   - pip install pytest-cov
