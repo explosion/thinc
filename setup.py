@@ -9,6 +9,7 @@ from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 from distutils.ccompiler import new_compiler
+import json
 
 from setuptools import Extension, setup
 
@@ -48,12 +49,21 @@ MOD_NAMES = [
     'thinc.extra.cache',
 ]
 
+# Referred to for compiling openblas kernels
+HASWELL = 'haswell'
+SANDYBRIDGE = 'sandybridge'
+
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : {
                         'gcc': ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function'],
                         'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
 link_options    =  {'msvc'  : [], 'other' : []}
 
+
+def get_cpu_architecture():
+    import cpuinfo
+    print(json.dumps(cpuinfo.get_cpu_info(), indent=2, sort_keys=True))
+    return 'sandybridge'
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
@@ -95,9 +105,15 @@ class Openblas(Extension):
                 self.compile_driver(
                     compiler, os.path.join(src_dir, 'driver', 'level3'),
                     name, 'gemm.c', [(flavor.upper(), None)]))
+        if compiler.arch == HASWELL:
+            sgemm_kernel = 'sgemm_kernel_16x4_haswell.S'
+        elif compiler.arch == SANDYBRIDGE:
+            sgemm_kernel = 'sgemm_kernel_16x4_sandy.S'
+        else:
+            sgemm_kernel = 'gemm_kernel_8x4_penryn.S'
         objects.extend(
             self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
-                'sgemm_kernel', 'sgemm_kernel_16x4_sandy.S', []))
+                'sgemm_kernel', sgemm_kernel, []))
         objects.extend(
             self.compile_driver(
                 compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
@@ -253,6 +269,7 @@ class build_ext_options:
         if hasattr(self.compiler, 'initialize'):
             self.compiler.initialize()
         self.compiler.platform = sys.platform[:6]
+        self.compiler.arch = get_cpu_architecture()
         for e in self.extensions:
             if isinstance(e, Openblas):
                 if 'THINC_BLAS' in os.environ:
@@ -289,6 +306,7 @@ class build_ext_options:
                 self.compiler.compiler_type, compile_options['other'])
             e.extra_link_args = link_options.get(
                 self.compiler.compiler_type, link_options['other'])
+
 
 class build_ext_subclass(build_ext, build_ext_options):
     def build_extensions(self):
