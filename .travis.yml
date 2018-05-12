@@ -13,6 +13,7 @@ install:
   - cat /proc/cpuinfo
   - ls /usr/local/lib
   - pip install -r requirements.txt
+  - python setup.py build_ext --inplace
   - pip install -e .
   - pip install pytest-cov
   - pip install coveralls
