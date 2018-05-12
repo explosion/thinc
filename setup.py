@@ -63,7 +63,7 @@ link_options    =  {'msvc'  : [], 'other' : []}
 def get_cpu_architecture():
     import cpuinfo
     print(json.dumps(cpuinfo.get_cpu_info(), indent=2, sort_keys=True))
-    return 'sandybridge'
+    return 'haswell'
 
 class Openblas(Extension):
     def build_objects(self, compiler, src_dir):
