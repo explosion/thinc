@@ -15,6 +15,11 @@ try:
 except NameError:
     basestring = str
 
+try:
+    unicode
+except NameError:
+    unicode = str
+
 
 def get_ops(ops):
     from .ops import NumpyOps, CupyOps
