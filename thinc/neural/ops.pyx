@@ -394,8 +394,7 @@ class NumpyOps(Ops):
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
             shape = (shape,)
-        #return self.xp.zeros(shape, dtype=dtype)
-        return zeros_aligned(shape, dtype=dtype)
+        return self.xp.zeros(shape, dtype=dtype)
 
     def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
         VecVec.add_i(<float*>x.data,
