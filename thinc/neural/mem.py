@@ -12,6 +12,7 @@ class Memory(object):
         self.ops = ops
         self._mem = self.ops.allocate((2, size))
         self._offsets = {}
+        self._sizes = {}
         self._i = 0
 
     @property
@@ -27,7 +28,8 @@ class Memory(object):
 
     def __getitem__(self, name):
         offset, col, shape = self._offsets[name]
-        return self._mem[col, offset : offset + prod(shape)].reshape(shape)
+        size = self._sizes[name]
+        return self._mem[col, offset : offset + size].reshape(shape)
 
     def get(self, name, default=None):
         return self[name] if name in self._offsets else default
@@ -39,14 +41,18 @@ class Memory(object):
     def add(self, name, shape):
         assert name not in self._offsets, "TODO error"
         self._offsets[name] = (self._i, 0, shape)
-        blob = self._get_blob(prod(shape))
+        size = prod(shape)
+        self._sizes[name] = size
+        blob = self._get_blob(size)
         return blob[0].reshape(shape)
 
     def add_gradient(self, grad_name, param_name):
         assert grad_name not in self._offsets, "TODO error"
         offset, _, shape = self._offsets[param_name]
+        size = self._sizes[param_name]
         self._offsets[grad_name] = (offset, 1, shape)
-        return self._mem[1, offset : offset + prod(shape)].reshape(shape)
+        self._sizes[grad_name] = size
+        return self._mem[1, offset : offset + size].reshape(shape)
 
     def _get_blob(self, nr_req):
         nr_avail = self._mem.shape[1] - (self._i+1)
