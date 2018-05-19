@@ -496,7 +496,10 @@ def setup_package():
                 'cytoolz'
             ],
             extras_require={
-                'gpu': ['cupy>=2.0']
+                'cuda': ['cupy>=4.0'],
+                'cuda80': ['cupy-cuda80>=4.0'],
+                'cuda90': ['cupy-cuda90>=4.0'],
+                'cuda91': ['cupy-cuda91>=4.0'],
             },
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
