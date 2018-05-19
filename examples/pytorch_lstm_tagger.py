@@ -65,8 +65,7 @@ def track_progress(**context):
         acc = model.evaluate(dev_X, dev_y)
         dev_end = timer()
         wps_run = n_dev / (dev_end-dev_start)
-        stats = (acc, float(epoch_train_acc) / n_train, trainer.dropout,
-                 wps_train, wps_run)
+        stats = (acc, wps_train, wps_run)
         print("%.3f dev acc, %d wps train, %d wps run" % stats)
         epoch_train_acc = 0.
         epoch_times.append(timer())
