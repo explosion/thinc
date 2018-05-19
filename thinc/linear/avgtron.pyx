@@ -139,7 +139,10 @@ cdef class AveragedPerceptron:
                         W.val = avg.val / (self.time+1)
                     W += 1
                     avg += 1
-
+    
+    def with_averages(self):
+        # Cython doesn't seem to like contextmanagers in Python 2 on cdef class?
+        return _AverageHelper(self)
     def resume_training(self):
         cdef feat_t feat_id
         cdef size_t feat_addr
@@ -322,6 +325,41 @@ cdef class AveragedPerceptron:
         #l1_total = self.time * self.learn_rate * self.l1_penalty
         #l1_paid += group_lasso(feat.curr, l1_paid, l1_total)
         #self.lasso_ledger.set(feat_id, <void*><size_t>l1_paid)
+
+class _AverageHelper(object):
+    def __init__(self, model):
+        self.model = model
+
+    def __enter__(self):
+        cdef size_t feat_addr
+        cdef AveragedPerceptron model = self.model
+        for feat_id, feat_addr in model.averages.items():
+            if feat_addr != 0:
+                feat = <SparseAverageC*>feat_addr
+                update_averages(feat, self.time+1)
+                W = feat.curr
+                avg = feat.avgs
+                while W.key >= 0:
+                    avg_i = SparseArray.find_key(avg, W.key)
+                    if W.val != 0:
+                        avg.val, W.val = W.val, avg.val / (self.time+1)
+                    W += 1
+                    avg += 1
+    
+    def __exit__(self, *args, **kwargs):
+        cdef AveragedPerceptron model = self.model
+        cdef size_t feat_addr
+        for feat_id, feat_addr in model.averages.items():
+            if feat_addr != 0:
+                feat = <SparseAverageC*>feat_addr
+                W = feat.curr
+                avg = feat.avgs
+                while W.key >= 0:
+                    avg_i = SparseArray.find_key(avg, W.key)
+                    if W.val != 0:
+                        W.val, avg.val = avg.val, W.val * (self.time+1)
+                    W += 1
+                    avg += 1
 
 
 cdef void adam_update(weight_t* w, weight_t* m1, weight_t* m2,
