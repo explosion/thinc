@@ -10,6 +10,16 @@ except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
 
+try:
+    basestring
+except NameError:
+    basestring = str
+
+try:
+    unicode
+except NameError:
+    unicode = str
+
 
 def get_ops(ops):
     from .ops import NumpyOps, CupyOps
@@ -53,14 +63,10 @@ def copy_array(dst, src, casting='same_kind', where=None):
         numpy.copyto(dst, src)
 
 def ensure_path(path):
-    try:
-        if isinstance(path, basestring) or isinstance(path, str):
-            return Path(path)
-    except NameError:
-        if isinstance(path, str):
-            return Path(path)
-    return path
-
+    if isinstance(path, unicode) or isinstance(path, str):
+        return Path(path)
+    else:
+        return path
 
 def to_categorical(y, nb_classes=None):
     # From keras
