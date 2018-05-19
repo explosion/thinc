@@ -30,8 +30,8 @@ class PyTorchWrapper(Model):
 
         y_var = self._model(x_var)
         def backward_pytorch(dy_data, sgd=None):
-            dy_var = torch.autograd.Variable(torch.Tensor(dy_data))
-            torch.autograd.backward((y_var,), grad_variables=(dy_var,))
+            dy_var = torch.Tensor(dy_data)
+            torch.autograd.backward((y_var,), grad_tensors=(dy_var,))
             dX = self.ops.asarray(x_var.grad.data)
             if sgd is not None:
                 if self._optimizer is None:
@@ -94,17 +94,22 @@ class PyTorchWrapper(Model):
         yield
         self.from_bytes(backup)
 
+
 class PyTorchWrapperRNN(PyTorchWrapper):
     '''Wrap a PyTorch RNN model
     '''
+    def __call__(self, x_data, h_0=None):
+        x_var = torch.autograd.Variable(torch.Tensor(x_data), requires_grad=False)
+        # Make prediction
+        out, h_n = self._model(x_var, h_0)
+        return (self.ops.asarray(out.data), h_n)
+
     def begin_update(self, x_data, h_0=None, drop=0.):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
         x_var = torch.autograd.Variable(torch.Tensor(x_data),
                                         requires_grad=True)
-        
-        
         
         # Make prediction
         out, h_n = self._model(x_var, h_0)
@@ -114,8 +119,8 @@ class PyTorchWrapperRNN(PyTorchWrapper):
 
         def backward_pytorch_rnn(d_data, sgd=None):
             dy_data, _ = d_data
-            dout = torch.autograd.Variable(torch.Tensor(dy_data))
-            torch.autograd.backward((out,), grad_variables=(dout,))
+            dout = torch.Tensor(dy_data)
+            torch.autograd.backward((out,), grad_tensors=(dout,))
             dX = self.ops.asarray(x_var.grad.data)
             if sgd is not None:
                 if self._optimizer is None:
