@@ -7,16 +7,19 @@ from ..util import copy_array
 
 
 def BiLSTM(nO, nI):
+    '''Create a bidirectional LSTM layer. Args: number out, number in'''
     return Bidirectional(LSTM(nO//2, nI), LSTM(nO//2, nI))
 
 
 def LSTM(nO, nI):
+    '''Create an LSTM layer. Args: number out, number in'''
     weights = LSTM_weights(nO, nI)
     gates = LSTM_gates(weights.ops)
     return Recurrent(RNN_step(weights, gates))
 
 
 def Bidirectional(l2r, r2l):
+    '''Stitch two RNN models into a bidirectional layer.'''
     nO = l2r.nO
     def birnn_fwd(Xs, drop=0.):
         l2r_Zs, bp_l2r_Zs = l2r.begin_update(Xs, drop=drop) 
@@ -40,6 +43,7 @@ def Bidirectional(l2r, r2l):
 
 
 def Recurrent(step_model):
+    '''Apply a stepwise model over a sequence, maintaining state. For RNNs'''
     ops = step_model.ops
     def recurrent_fwd(seqs, drop=0.):
         lengths = [len(X) for X in seqs]
@@ -101,6 +105,7 @@ def Recurrent(step_model):
 
 
 def RNN_step(weights, gates):
+    '''Create a step model for an RNN, given weights and gates functions.'''
     def rnn_step_fwd(prevstate_inputs, drop=0.):
         prevstate, inputs = prevstate_inputs
         cell_tm1, hidden_tm1 = prevstate
