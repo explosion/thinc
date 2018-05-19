@@ -47,7 +47,7 @@ def Recurrent(step_model):
     ops = step_model.ops
     def recurrent_fwd(seqs, drop=0.):
         lengths = [len(X) for X in seqs]
-        X, size_at_t, unpad = pad_batch(ops, seqs)
+        X, size_at_t, unpad = ops.square_sequences(seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
         cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.)
         hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.)
@@ -71,7 +71,7 @@ def Recurrent(step_model):
         outputs = unpad(Y)
 
         def recurrent_bwd(d_outputs, sgd=None):
-            dY, size_at_t, unpad = pad_batch(step_model.ops, d_outputs)
+            dY, size_at_t, unpad = step_model.ops.square_sequences(d_outputs)
             d_state = [step_model.ops.allocate((dY.shape[1], step_model.nO)),
                        step_model.ops.allocate((dY.shape[1], step_model.nO))]
             updates = {}
@@ -218,39 +218,3 @@ class LSTM_weights(Model):
 
     def _merge_activations(self, act_pieces):
         return self.ops.xp.hstack(act_pieces)
-
-
-def pad_batch(ops, seqs):
-    '''Sort a batch of sequence by decreasing length, pad, and transpose
-    so that the outer dimension is the timestep. Return the padded batch,
-    along with an array indicating the actual length at each step, and a callback
-    to reverse the transformation.
-    '''
-    lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
-    lengths_indices.sort(reverse=True)
-    indices = [i for length, i in lengths_indices]
-    lengths = [length for length, i in lengths_indices]
-    nB = len(seqs)
-    nS = max([len(seq) for seq in seqs])
-    arr = ops.allocate((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
-    for arr_i, (length, seqs_i) in enumerate(lengths_indices):
-        arr[arr_i, :length] = ops.asarray(seqs[seqs_i])
-    extra_dims = tuple(range(2, len(arr.shape)))
-    arr = ops.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
-    # Build a lookup table so we can find how big the batch is at point t.
-    batch_size_at_t = ops.allocate((nS,), dtype='i')
-    batch_size_at_t += 1
-    i = len(lengths)
-    for t in range(nS):
-        if t == lengths[i-1]:
-            i -= 1
-            if i == 0:
-                break
-        batch_size_at_t[t] = i
-    def unpad(padded):
-        unpadded = [None] * len(lengths)
-        padded = ops.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
-        for i in range(padded.shape[0]):
-            unpadded[indices[i]] = padded[i, :lengths[i]]
-        return unpadded
-    return arr, batch_size_at_t, unpad

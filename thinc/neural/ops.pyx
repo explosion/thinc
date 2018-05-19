@@ -138,6 +138,41 @@ class Ops(object):
         assert len(unflat) == len(lengths)
         return unflat
 
+    def square_sequences(self, seqs):
+        '''Sort a batch of sequence by decreasing length, pad, and transpose
+        so that the outer dimension is the timestep. Return the padded batch,
+        along with an array indicating the actual length at each step, and a callback
+        to reverse the transformation.
+        '''
+        lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
+        lengths_indices.sort(reverse=True)
+        indices = [i for length, i in lengths_indices]
+        lengths = [length for length, i in lengths_indices]
+        nB = len(seqs)
+        nS = max([len(seq) for seq in seqs])
+        arr = self.allocate((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
+        for arr_i, (length, seqs_i) in enumerate(lengths_indices):
+            arr[arr_i, :length] = self.asarray(seqs[seqs_i])
+        extra_dims = tuple(range(2, len(arr.shape)))
+        arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
+        # Build a lookup table so we can find how big the batch is at point t.
+        batch_size_at_t = self.allocate((nS,), dtype='i')
+        batch_size_at_t += 1
+        i = len(lengths)
+        for t in range(nS):
+            if t == lengths[i-1]:
+                i -= 1
+                if i == 0:
+                    break
+            batch_size_at_t[t] = i
+        def unpad(padded):
+            unpadded = [None] * len(lengths)
+            padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
+            for i in range(padded.shape[0]):
+                unpadded[indices[i]] = padded[i, :lengths[i]]
+            return unpadded
+        return arr, batch_size_at_t, unpad
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):

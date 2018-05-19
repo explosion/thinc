@@ -273,6 +273,19 @@ def Arg(i):
     return begin_update
 
 
+def with_square_sequences(model):
+    def padded_forward(seqs_in, drop=0.):
+        padded_in, _, unpad = model.ops.square_sequences(seqs_in)
+        (padded_out, _), backprop_model = model.begin_update(padded_in, drop=drop)
+        seqs_out = unpad(padded_out)
+        def backprop_padding(d_seqs_out, sgd=None):
+            d_padded_out, sizes_at_t, unpad = model.ops.square_sequences(d_seqs_out)
+            d_padded_in = backprop_model((d_padded_out, None), sgd=sgd)
+            return unpad(d_padded_in)
+        return seqs_out, backprop_padding
+    return wrap(padded_forward, model)
+
+
 def with_flatten(layer, pad=0, ndim=4):
     def begin_update(seqs_in, drop=0.):
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
