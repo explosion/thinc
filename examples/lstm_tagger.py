@@ -10,26 +10,26 @@ from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
 from thinc.i2v import Embed, HashEmbed
-from thinc.v2v import Model, Maxout, ReLu, Affine, Softmax
-from thinc.t2t import ExtractWindow, BiLSTM
-from thinc.misc import BatchNorm as BN
-from thinc.misc import LayerNorm as LN
-from thinc.misc import Residual
-from thinc.api import with_flatten
+from thinc.api import with_flatten, wrap
+from thinc.t2t import BiLSTM
+from thinc.v2v import Model, Maxout, Softmax
 
 from thinc.api import layerize, chain, concatenate, clone, add
+from thinc.api import with_getitem, flatten_add_lengths, with_square_sequences
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
-from thinc.neural.ops import NumpyOps, CupyOps
 from thinc.neural.optimizers import SGD
+from thinc.neural.util import get_array_module
+
+import torch
+import torch.nn
+import torch.autograd
 
 from thinc.extra.datasets import ancora_pos_tags
-#from thinc.api import FeatureExtracter
 
-try:
-    import cupy
-except ImportError:
-    print("Could not import cupy")
-    cupy = None
+
+def PyTorchBiLSTM(nO, nI, depth):
+    model = torch.nn.LSTM(nI, nO//2, depth, bidirectional=True)
+    return with_square_sequences(PyTorchWrapperRNN(model))
 
 
 def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True):
@@ -46,7 +46,6 @@ def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True)
             return d_features
         return features, backward
     return layerize(forward)
-
 
 epoch_train_acc = 0.
 def track_progress(**context):
@@ -66,11 +65,8 @@ def track_progress(**context):
         acc = model.evaluate(dev_X, dev_y)
         dev_end = timer()
         wps_run = n_dev / (dev_end-dev_start)
-        with model.use_params(trainer.optimizer.averages):
-            avg_acc = model.evaluate(dev_X, dev_y)
-        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout,
-                 wps_train, wps_run)
-        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats)
+        stats = (acc, wps_train, wps_run)
+        print("%.3f dev acc, %d wps train, %d wps run" % stats)
         epoch_train_acc = 0.
         epoch_times.append(timer())
     return each_epoch
@@ -105,19 +101,17 @@ def debug(X, drop=0.):
     nb_epoch=("Maximum passes over the training data", "option", "i", int),
     L2=("L2 regularization penalty", "option", "L", float),
 )
-def main(width=100, depth=4, vector_length=64,
-         min_batch_size=1, max_batch_size=32, learn_rate=0.001,
+def main(width=32, depth=1, vector_length=32,
+         min_batch_size=1, max_batch_size=4, learn_rate=0.001,
          momentum=0.9, dropout=0.5, dropout_decay=1e-4,
          nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
     print(cfg)
-    if cupy is not None:
-        print("Using GPU")
-        Model.ops = CupyOps()
     train_data, check_data, nr_tag = ancora_pos_tags()
+    train_data = train_data[:100]
+    check_data = check_data[:100]
 
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
-    Model.lsuv = True
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
                                  '|': concatenate}):
         lower_case = HashEmbed(width, 100, column=0)
@@ -128,9 +122,9 @@ def main(width=100, depth=4, vector_length=64,
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> LN(Maxout(width, pieces=3))
+                >> Maxout(width, pieces=3)
             )
-            >> BiLSTM(width, width)
+            >> BiLSTM(width, width) ** depth
             >> with_flatten(Softmax(nr_tag))
         )
 
@@ -139,7 +133,7 @@ def main(width=100, depth=4, vector_length=64,
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
-    with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X[:10], train_y[:10], **cfg) as (trainer, optimizer):
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
@@ -152,10 +146,9 @@ def main(width=100, depth=4, vector_length=64,
 
             trainer.batch_size = min(int(batch_size), max_batch_size)
             batch_size *= 1.001
-    with model.use_params(trainer.optimizer.averages):
-        print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
-        with open('/tmp/model.pickle', 'wb') as file_:
-            pickle.dump(model, file_)
+    print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
+    with open('/tmp/model.pickle', 'wb') as file_:
+        pickle.dump(model, file_)
 
 
 if __name__ == '__main__':
