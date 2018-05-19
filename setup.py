@@ -153,8 +153,13 @@ class Openblas(Extension):
         # Architecture
         if self.is_haswell:
             macros.append(('HASWELL', None))
+            macros.append(('CORE_HASWELL', None))
+
+            macros.append(('CHAR_CORENAME', "HASWELL"))
         else:
             macros.append(('SANDYBRIDGE', None))
+            macros.append(('CORE_SANDYBRIDGE', None))
+            macros.append(('CHAR_CORENAME', "SANDYBRIDGE"))
         macros.append(('USE_OPENMP', 1))
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
@@ -191,6 +196,17 @@ class Openblas(Extension):
             macros.append(('C_MSVC', None))
         else:
             macros.append(('OS_LINUX', None))
+        # Architecture
+        if self.is_haswell:
+            macros.append(('HASWELL', None))
+            macros.append(('CORE_HASWELL', None))
+
+            macros.append(('CHAR_CORENAME', "HASWELL"))
+        else:
+            macros.append(('SANDYBRIDGE', None))
+            macros.append(('CORE_SANDYBRIDGE', None))
+            macros.append(('CHAR_CORENAME', "SANDYBRIDGE"))
+ 
         macros.append(('USE_OPENMP', 1))
         macros.append(('MAX_STACK_ALLOC', '2048'))
         macros.append(('F_INTERFACE_GFORT', None))
