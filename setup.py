@@ -354,7 +354,8 @@ def locate_cuda():
     if 'CUDA_HOME' in os.environ:
         home = os.environ['CUDA_HOME']
         nvcc = os.path.join(home, 'bin', 'nvcc')
-    elif os.path.exists(os.path.join('usr', 'local', 'cuda', 'bin', 'nvcc')):
+    elif os.path.exists('/usr/local/cuda/bin/nvcc'):
+        home = '/usr/local/cuda'
         nvcc = os.path.join('usr', 'local', 'cuda', 'bin', 'nvcc')
     else:
         # otherwise, search the PATH for NVCC
