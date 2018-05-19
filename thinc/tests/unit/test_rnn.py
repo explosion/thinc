@@ -6,17 +6,16 @@ from cytoolz import partition_all
 from ...neural.ops import NumpyOps
 from ...neural._classes.rnn import LSTM, BiLSTM, RNN_step
 from ...neural._classes.rnn import Recurrent, Bidirectional
-from ...neural._classes.rnn import pad_batch
 
 
-def test_pad_batch():
+def test_square_sequences():
     ops = NumpyOps()
     seqs = [
         numpy.zeros((5, 4)),
         numpy.zeros((8, 4)),
         numpy.zeros((2, 4))
     ]
-    arr, size_at_t, unpad = pad_batch(ops, seqs)
+    arr, size_at_t, unpad = ops.square_sequences(seqs)
     assert arr.shape == (8, 3, 4)
     assert size_at_t[0] == 3
     assert size_at_t[1] == 3
