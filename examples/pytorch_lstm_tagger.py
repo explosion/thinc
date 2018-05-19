@@ -12,12 +12,10 @@ from spacy.tokens.doc import Doc
 from thinc.i2v import Embed, HashEmbed
 from thinc.api import with_flatten, wrap
 from thinc.extra.wrappers import PyTorchWrapperRNN
-from thinc.neural._classes.rnn import pad_batch
-from thinc.t2t import BiLSTM as thinc_BiLSTM
 from thinc.v2v import Model, Maxout, Softmax
 
 from thinc.api import layerize, chain, concatenate, clone, add
-from thinc.api import with_getitem, flatten_add_lengths
+from thinc.api import with_getitem, flatten_add_lengths, with_square_sequences
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.optimizers import SGD
 from thinc.neural.util import get_array_module
@@ -29,22 +27,9 @@ import torch.autograd
 from thinc.extra.datasets import ancora_pos_tags
 
 
-def with_padding(model):
-    def padded_forward(seqs_in, drop=0.):
-        padded_in, _, unpad = pad_batch(model.ops, seqs_in)
-        (padded_out, _), backprop_model = model.begin_update(padded_in, drop=drop)
-        seqs_out = unpad(padded_out)
-        def backprop_padding(d_seqs_out, sgd=None):
-            d_padded_out, sizes_at_t, unpad = pad_batch(model.ops, d_seqs_out)
-            d_padded_in = backprop_model((d_padded_out, None), sgd=sgd)
-            return unpad(d_padded_in)
-        return seqs_out, backprop_padding
-    return wrap(padded_forward, model)
-
-
 def PyTorchBiLSTM(nO, nI, depth):
     model = torch.nn.LSTM(nI, nO//2, depth, bidirectional=True)
-    return with_padding(PyTorchWrapperRNN(model))
+    return with_square_sequences(PyTorchWrapperRNN(model))
 
 
 def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True):
@@ -80,11 +65,9 @@ def track_progress(**context):
         acc = model.evaluate(dev_X, dev_y)
         dev_end = timer()
         wps_run = n_dev / (dev_end-dev_start)
-        with model.use_params(trainer.optimizer.averages):
-            avg_acc = model.evaluate(dev_X, dev_y)
-        stats = (acc, avg_acc, float(epoch_train_acc) / n_train, trainer.dropout,
+        stats = (acc, float(epoch_train_acc) / n_train, trainer.dropout,
                  wps_train, wps_run)
-        print("%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run" % stats)
+        print("%.3f dev acc, %d wps train, %d wps run" % stats)
         epoch_train_acc = 0.
         epoch_times.append(timer())
     return each_epoch
