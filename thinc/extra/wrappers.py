@@ -63,11 +63,13 @@ class PyTorchWrapper(Model):
         # TODO: Untested
         filelike = BytesIO()
         torch.save(self._model.state_dict(), filelike)
-        return filelike.read()
+        filelike.seek(0)
+        return filelike.getvalue()
 
     def from_bytes(self, data):
         # TODO: Untested
         filelike = BytesIO(data)
+        filelike.seek(0)
         self._model.load_state_dict(torch.load(filelike))
 
     def to_gpu(self, device_num):
@@ -92,7 +94,8 @@ class PyTorchWrapper(Model):
         else:
             backup = None
         yield
-        self.from_bytes(backup)
+        if backup is not None:
+            self.from_bytes(backup)
 
 
 class PyTorchWrapperRNN(PyTorchWrapper):
@@ -146,4 +149,5 @@ class PyTorchWrapperRNN(PyTorchWrapper):
         else:
             backup = None
         yield
-        self.from_bytes(backup)
+        if backup is not None:
+            self.from_bytes(backup)
