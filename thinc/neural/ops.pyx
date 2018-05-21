@@ -37,6 +37,7 @@ cdef extern from "math.h":
 try:
     import cupy
     import cupy.cuda
+    import cupy.cudnn
     from cupy.cuda.function import Function
     from cupy.cuda.compiler import compile_with_cache
     # This is important -- without setting these global pools, we're
@@ -810,35 +811,39 @@ class CupyOps(Ops):
             self.xp.dot(x, y, out=out)
             return out
 
-    def cudnn_convolution(self, X, W, b, out=None, auto_tune=True, tensor_core=False):
-        if X.ndim == 2:
-            # We have a tensor of shape (words, dims)
-            # CUDNN wants (n, channels, height, width)
-            # So we tell it we're of shape
-            # (1, 1, words, dims)
-            # Then we can have a filter of shape (3, dims)
-            X = X.reshape((1, 1, X.shape[0], X.shape[1]))
-        oC = W.shape[0] // X.shape[1]
-        kH = W.shape[1] // X.shape[1]
-        kW = X.shape[1]
-        W = W.reshape((oC, X.shape[1], kH, kW))
+    def cudnn_convolution(self, X, W, b, out=None, auto_tune=True, tensor_core='auto'):
+        # We have a tensor of shape (words, dims)
+        # CUDNN wants (n, channels, height, width)
+        # So we tell it we're of shape
+        # (1, 1, words, dims)
+        # Then we can have a filter of shape (3, dims)
+        X = X.reshape((1, 1, X.shape[0], X.shape[1]))
+        oC = W.shape[0]
+        kH = 3
+        kW = X.shape[-1]
+        W = W.reshape((oC, 1, kH, kW))
         if out is None:
-            out = self.allocate((X.shape[0], W.shape[0]))
+            out = self.allocate((1, oC, X.shape[2], 1))
         pad = (0, 0)
-        stride = (1, X.shape[1])
+        stride = (1, X.shape[-1])
         dilation = (1, 1)
-        self.xp.cuda.cudnn.convolution_forward(
-            X, W, b, out, pad, stride, dilation,
+        print(X.shape, W.shape, b.shape, out.shape)
+        self.xp.cudnn.convolution_forward(
+            X, W, b, out, pad, stride, dilation, 1,
             auto_tune=auto_tune, tensor_core=tensor_core)
+        out = out.reshape((X.shape[2], W.shape[0]))
         return out
 
-    def backprop_cudnn_convolution(self, dY, X, W, dX=None, dW=None, db=None,
+    def backprop_cudnn_convolution(self, dY, X, W, b, dX=None, dW=None, db=None,
             auto_tune=True, tensor_core=False):
-        self.xp.cuda.cudnn.convolution_backward_data(
+        dilation = (1, 1)
+        pad = (0, 0)
+        stride = (1, X.shape[1])
+        self.xp.cudnn.convolution_backward_data(
             W, dY, b, dX, pad, stride, dilation, 1,
             deterministic=False, auto_tune=auto_tune, tensor_core=tensor_core)
-        self.xp.cuda.cudnn.convolution_backward_filter(
-            X, dY, dW, pad, stride, dilation, 1
+        self.xp.cudnn.convolution_backward_filter(
+            X, dY, dW, pad, stride, dilation, 1,
             deterministic=False, auto_tune=auto_tune, tensor_core=tensor_core)
         db = dY.sum(axix=(0, 2, 3))
         return dX, dW, db
