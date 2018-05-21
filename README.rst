@@ -12,7 +12,7 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
-🔮 **Version 6.10 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.11 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
@@ -255,6 +255,30 @@ And then run the examples as follows:
    python examples/basic_tagger.py
    python examples/cnn_tagger.py
 
+Customizing the matrix multiplication backend
+=============================================
+
+Prior to v6.11, Thinc relied on numpy for matrix multiplications. When numpy is installed via wheel using pip (the default), numpy will usually be linked against a suboptimal matrix multiplication kernel. This made it difficult to ensure that Thinc was well optimized for the target machine.
+
+To fix this, Thinc now provides its own matrix multiplications, by bundling the source code for OpenBLAS's sgemm kernel within the library. To change the default BLAS library, you can specify an environment variable, giving the location of the shared library you want to link against:
+
+.. code:: bash
+  
+    THINC_BLAS=/opt/openblas/lib/libopenblas.so pip install thinc --no-cache-dir --no-binary
+    export LD_LIBRARY_PATH=/opt/openblas/lib
+    # On OSX:
+    # export DYLD_LIBRARY_PATH=/opt/openblas/lib
+
+If you want to link against the Intel MKL instead of OpenBLAS, the easiest way is to install Miniconda. For instance, if you installed miniconda to `/opt/miniconda', the command to install Thinc linked against MKL would be:
+
+.. code:: bash
+    
+    THINC_BLAS=/opt/miniconda/numpy-mkl/lib/libmkl_rt.so pip install thinc --no-cache-dir --no-binary
+    export LD_LIBRARY_PATH=/opt/miniconda/numpy-mkl/lib
+    # On OSX:
+    # export DYLD_LIBRARY_PATH=/opt/miniconda/numpy-mkl/lib
+
+If the library file ends in a .a extension, it is linked statically; if it ends in .so, it's linked dynamically. Make sure you have the directory on your LD_LIBRARY_PATH at runtime if you use the dynamic linking.
 
 Usage
 =====
@@ -368,6 +392,8 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.11.1`_  ``2018-05-20`` Support direct linkage to BLAS libraries
+ v6.11.0    ``2018-03-16`` *n/a*
 `v6.10.2`_  ``2017-12-06`` Efficiency improvements and bug fixes
 `v6.10.1`_  ``2017-11-15`` Fix GPU install and minor memory leak
 `v6.10.0`_  ``2017-10-28`` CPU efficiency improvements, refactoring
@@ -394,6 +420,8 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.11.1: https://github.com/explosion/thinc/releases/tag/v6.11.1
+.. _v6.10.2: https://github.com/explosion/thinc/releases/tag/v6.10.2
 .. _v6.10.2: https://github.com/explosion/thinc/releases/tag/v6.10.2
 .. _v6.10.1: https://github.com/explosion/thinc/releases/tag/v6.10.1
 .. _v6.10.0: https://github.com/explosion/thinc/releases/tag/v6.10.0
