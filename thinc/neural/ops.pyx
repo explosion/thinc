@@ -810,6 +810,39 @@ class CupyOps(Ops):
             self.xp.dot(x, y, out=out)
             return out
 
+    def cudnn_convolution(self, X, W, b, out=None, auto_tune=True, tensor_core=False):
+        if X.ndim == 2:
+            # We have a tensor of shape (words, dims)
+            # CUDNN wants (n, channels, height, width)
+            # So we tell it we're of shape
+            # (1, 1, words, dims)
+            # Then we can have a filter of shape (3, dims)
+            X = X.reshape((1, 1, X.shape[0], X.shape[1]))
+        oC = W.shape[0] // X.shape[1]
+        kH = W.shape[1] // X.shape[1]
+        kW = X.shape[1]
+        W = W.reshape((oC, X.shape[1], kH, kW))
+        if out is None:
+            out = self.allocate((X.shape[0], W.shape[0]))
+        pad = (0, 0)
+        stride = (1, X.shape[1])
+        dilation = (1, 1)
+        self.xp.cuda.cudnn.convolution_forward(
+            X, W, b, out, pad, stride, dilation,
+            auto_tune=auto_tune, tensor_core=tensor_core)
+        return out
+
+    def backprop_cudnn_convolution(self, dY, X, W, dX=None, dW=None, db=None,
+            auto_tune=True, tensor_core=False):
+        self.xp.cuda.cudnn.convolution_backward_data(
+            W, dY, b, dX, pad, stride, dilation, 1,
+            deterministic=False, auto_tune=auto_tune, tensor_core=tensor_core)
+        self.xp.cuda.cudnn.convolution_backward_filter(
+            X, dY, dW, pad, stride, dilation, 1
+            deterministic=False, auto_tune=auto_tune, tensor_core=tensor_core)
+        db = dY.sum(axix=(0, 2, 3))
+        return dX, dW, db
+
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
