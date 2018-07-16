@@ -496,7 +496,7 @@ def setup_package():
                 'msgpack-python==0.5.4',
                 'msgpack-numpy==0.4.1',
                 'six',
-                'cytoolz'
+                'cytoolz>=0.9,<0.10.0'
             ],
             extras_require={
                 'cuda': ['cupy>=4.0'],
