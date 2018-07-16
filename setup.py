@@ -94,7 +94,7 @@ class Openblas(Extension):
             compiler.compiler_so = cso_flags
             compiler.preprocessor = pre_flags
         return objects
- 
+
     def build_gemm(self, compiler, src_dir):
         objects = []
         for flavor in ['nn', 'nt', 'tn', 'tt']:
@@ -105,11 +105,11 @@ class Openblas(Extension):
                     name, 'gemm.c', [(flavor.upper(), None)]))
         if self.is_haswell:
             objects.extend(
-                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
+                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
                     'sgemm_kernel', 'sgemm_kernel_16x4_haswell.S', []))
         else:
             objects.extend(
-                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'), 
+                self.compile_driver(compiler, os.path.join(src_dir, 'kernel', 'x86_64'),
                     'sgemm_kernel', 'sgemm_kernel_16x4_sandy.S', []))
         objects.extend(
             self.compile_driver(
@@ -117,12 +117,12 @@ class Openblas(Extension):
                 'sgemm_beta', 'gemm_beta.S', []))
         objects.extend(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), 
+                compiler, os.path.join(src_dir, 'kernel', 'generic'),
                 'sgemm_itcopy', 'gemm_tcopy_16.c', []))
- 
+
         objects.extend(
             self.compile_driver(
-                compiler, os.path.join(src_dir, 'kernel', 'generic'), 
+                compiler, os.path.join(src_dir, 'kernel', 'generic'),
                 'sgemm_incopy', 'gemm_ncopy_16.c', []))
         objects.extend(
             self.compile_driver(
@@ -136,7 +136,7 @@ class Openblas(Extension):
 
     def build_level1(self, compiler, src_dir):
         objects = []
-        objects.extend(self.compile_driver(compiler, 
+        objects.extend(self.compile_driver(compiler,
             os.path.join(src_dir, 'kernel', 'x86_64'),
             'saxpy_k', 'saxpy.c', []))
         return objects
@@ -196,7 +196,7 @@ class Openblas(Extension):
             macros.append(('HASWELL', None))
         else:
             macros.append(('SANDYBRIDGE', None))
- 
+
         macros.append(('USE_OPENMP', 1))
         macros.append(('MAX_STACK_ALLOC', '2048'))
         macros.append(('F_INTERFACE_GFORT', None))
