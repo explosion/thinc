@@ -272,7 +272,7 @@ def setup_package():
                 'cymem>=1.30,<1.32',
                 'preshed>=1.0.0,<2.0.0',
                 'tqdm>=4.10.0,<5.0.0',
-                'cytoolz>=0.8,<0.9',
+                'cytoolz>=0.9.0,<0.10',
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
@@ -297,6 +297,7 @@ def setup_package():
                 'Programming Language :: Python :: 3.4',
                 'Programming Language :: Python :: 3.5',
                 'Programming Language :: Python :: 3.6',
+                'Programming Language :: Python :: 3.7',
                 'Topic :: Scientific/Engineering'],
             cmdclass = {
                 'build_ext': build_ext_subclass},
