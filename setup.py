@@ -266,19 +266,19 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'wrapt',
-                'numpy>=1.7',
-                'murmurhash>=0.28,<0.29',
-                'cymem>=1.30,<1.32',
+                'numpy>=1.7.0',
+                'msgpack>=0.5.6,<1.0.0',
+                'msgpack-numpy>=0.4.1,<1.0.0',
+                'murmurhash>=0.28.0,<0.29.0',
+                'cymem>=1.30.0,<1.32.0',
                 'preshed>=1.0.0,<2.0.0',
-                'tqdm>=4.10.0,<5.0.0',
                 'cytoolz>=0.9.0,<0.10',
+                'wrapt>=1.10.0,<1.11.0',
                 'plac>=0.9.6,<1.0.0',
+                'tqdm>=4.10.0,<5.0.0',
                 'six>=1.10.0,<2.0.0',
-                'dill',
-                'pathlib2>=2.3.2,<2.4.0; python_version < "3.4"',
-                'msgpack',
-                'msgpack-numpy'
+                'dill>=0.2.7,<0.3.0',
+                'pathlib2>=2.3.2,<2.4.0; python_version < "3.4"'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
