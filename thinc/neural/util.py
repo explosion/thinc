@@ -1,7 +1,6 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
-from pathlib import Path
 
 try:
     import cupy
@@ -19,6 +18,9 @@ try:
     unicode
 except NameError:
     unicode = str
+
+
+from ..compat import Path
 
 
 def get_ops(ops):

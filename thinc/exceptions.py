@@ -2,8 +2,8 @@
 from __future__ import unicode_literals
 from collections import Sized
 
+import os
 import traceback
-from termcolor import colored as color
 
 
 class UndefinedOperatorError(TypeError):
@@ -113,3 +113,19 @@ def _format_user_error(text, i, highlight):
     if highlight:
         text = text.replace(str(highlight), color(str(highlight), 'yellow'))
     return template.format(sp=spacing, t=text)
+
+
+def color(text, fg=None, attrs=None):
+    """Wrap text in color / style ANSI escape sequences."""
+    if os.getenv('ANSI_COLORS_DISABLED') is not None:
+        return text
+    attrs = attrs or []
+    tpl = '\x1b[{}m'
+    styles = {'red': 31, 'blue': 34, 'yellow': 33, 'bold': 1, 'underline': 4}
+    style = ''
+    for attr in attrs:
+        if attr in styles:
+            style += tpl.format(styles[attr])
+    if fg and fg in styles:
+        style += tpl.format(styles[fg])
+    return '{}{}\x1b[0m'.format(style, text)
