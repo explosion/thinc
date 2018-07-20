@@ -1,7 +1,7 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
-from pathlib2 import Path
+from pathlib import Path
 
 try:
     import cupy
