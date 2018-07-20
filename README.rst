@@ -17,7 +17,7 @@ structured input and variable-length sequences.
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
     :alt: Build Status
-    
+
 .. image:: https://img.shields.io/appveyor/ci/explosion/thinc/master.svg?style=flat-square
     :target: https://ci.appveyor.com/project/explosion/thinc
     :alt: Appveyor Build Status
@@ -89,7 +89,7 @@ because we put the state from the forward pass into callbacks.
 
 All nodes in the network have a simple signature:
 
-.. code:: none
+.. code::
 
     f(inputs) -> {outputs, f(d_outputs)->d_inputs}
 
@@ -263,16 +263,16 @@ Prior to v6.11, Thinc relied on numpy for matrix multiplications. When numpy is 
 To fix this, Thinc now provides its own matrix multiplications, by bundling the source code for OpenBLAS's sgemm kernel within the library. To change the default BLAS library, you can specify an environment variable, giving the location of the shared library you want to link against:
 
 .. code:: bash
-  
+
     THINC_BLAS=/opt/openblas/lib/libopenblas.so pip install thinc --no-cache-dir --no-binary
     export LD_LIBRARY_PATH=/opt/openblas/lib
     # On OSX:
     # export DYLD_LIBRARY_PATH=/opt/openblas/lib
 
-If you want to link against the Intel MKL instead of OpenBLAS, the easiest way is to install Miniconda. For instance, if you installed miniconda to `/opt/miniconda', the command to install Thinc linked against MKL would be:
+If you want to link against the Intel MKL instead of OpenBLAS, the easiest way is to install Miniconda. For instance, if you installed miniconda to ``/opt/miniconda``, the command to install Thinc linked against MKL would be:
 
 .. code:: bash
-    
+
     THINC_BLAS=/opt/miniconda/numpy-mkl/lib/libmkl_rt.so pip install thinc --no-cache-dir --no-binary
     export LD_LIBRARY_PATH=/opt/miniconda/numpy-mkl/lib
     # On OSX:
@@ -399,8 +399,8 @@ Version     Date           Description
 `v6.10.1`_  ``2017-11-15`` Fix GPU install and minor memory leak
 `v6.10.0`_  ``2017-10-28`` CPU efficiency improvements, refactoring
 `v6.9.0`_   ``2017-10-03`` Reorganize layers, bug fix to Layer Normalization
-`v6.8.2`_   ``2017-09-26`` Fix packaging of `gpu_ops`
-`v6.8.1`_   ``2017-08-23`` Fix Windows support
+`v6.8.2`_   ``2017-09-26`` Fix packaging of `gpu_ops`
+`v6.8.1`_   ``2017-08-23`` Fix Windows support
 `v6.8.0`_   ``2017-07-25`` SELU layer, attention, improved GPU/CPU compatibility
 `v6.7.3`_   ``2017-06-05`` Fix convolution on GPU
 `v6.7.2`_   ``2017-06-02`` Bug fixes to serialization
