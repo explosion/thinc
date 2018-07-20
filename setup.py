@@ -489,14 +489,14 @@ def setup_package():
                 'hypothesis>=2,<3',
                 'tqdm>=4.10.0,<5.0.0',
                 'plac>=0.9,<1.0',
-                'termcolor>=1.1.0,<1.2.0',
                 'wrapt>=1.10.0,<1.11.0',
                 'dill>=0.2.7,<0.3',
                 'pathlib>=1.0.0,<2.0.0',
-                'msgpack-python==0.5.4',
-                'msgpack-numpy==0.4.1',
-                'six',
+                'msgpack>=0.5.6,<1.0.0',
+                'msgpack-numpy>=0.4.1,<1.0.0',
                 'cytoolz>=0.9.0,<0.10.0'
+                'six>=1.10.0,<2.0.0',
+                'pathlib2>=2.3.2,<2.4.0; python_version < "3.4"',
             ],
             extras_require={
                 'cuda': ['cupy>=4.0'],
