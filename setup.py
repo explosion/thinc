@@ -276,7 +276,6 @@ def setup_package():
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
-                'termcolor',
                 'pathlib>=1.0.0,<2.0.0',
                 'msgpack-python',
                 'msgpack-numpy'
