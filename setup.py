@@ -276,7 +276,7 @@ def setup_package():
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
-                'pathlib2>=2.3.2,<2.4.0',
+                'pathlib2>=2.3.2,<2.4.0; python_version < "3.4"',
                 'msgpack',
                 'msgpack-numpy'
             ],

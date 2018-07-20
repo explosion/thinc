@@ -1,7 +1,6 @@
 from __future__ import print_function, unicode_literals
 import numpy
 from preshed.maps import PreshMap
-from pathlib import Path
 
 try:
     import cupy
@@ -9,6 +8,9 @@ try:
 except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
+
+
+from ..compat import Path
 
 
 def get_ops(ops):

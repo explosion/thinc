@@ -4,17 +4,12 @@ from collections import Counter # pragma: no cover
 import os.path # pragma: no cover
 import csv # pragma: no cover
 import numpy
-from pathlib import Path
 import json
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 from ..neural.util import partition
 from ..neural.util import to_categorical
-
-try:
-    basestring
-except NameError:
-    basestring = str
+from ..compat import basestring, Path
 
 
 GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
@@ -244,4 +239,3 @@ def get_word_index(path='reuters_word_index.pkl'): # pragma: no cover
 
     f.close()
     return data
-
