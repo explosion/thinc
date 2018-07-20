@@ -276,8 +276,8 @@ def setup_package():
                 'plac>=0.9.6,<1.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill',
-                'pathlib>=1.0.0,<2.0.0',
-                'msgpack-python',
+                'pathlib>=2.3.2,<2.4.0',
+                'msgpack',
                 'msgpack-numpy'
             ],
             classifiers=[

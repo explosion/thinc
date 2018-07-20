@@ -12,6 +12,6 @@ six
 mock
 wrapt
 dill
-pathlib>=1.0.0,<2.0.0
-msgpack-python
+pathlib2>=2.3.2,<2.4.0
+msgpack
 msgpack-numpy
