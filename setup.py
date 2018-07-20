@@ -282,9 +282,9 @@ class build_ext_options:
                 if 'THINC_BLAS' in os.environ:
                     lib_loc = os.environ['THINC_BLAS']
                     lib_path, lib_name = os.path.split(lib_loc)
-                    if lib_name.endswith('.so'):
+                    if lib_name.endswith(('.so', '.dylib')):
                         is_shared = True
-                        lib_name = lib_name[3:-3]
+                        lib_name = lib_name.rsplit('.', 1)[0][3:]
                     else:
                         is_shared = False
                     print('Using BLAS:', lib_path, lib_name)
@@ -296,6 +296,7 @@ class build_ext_options:
                     else:
                         compile_options['other']['gcc'].append('-l:%s' % lib_name)
                         link_options['other'].append('-l:%s' % lib_name)
+                    link_options['msvc'].append(lib_loc)
                 elif self.compiler.platform == 'darwin':
                     e.extra_compile_args.append('-framework Accelerate')
                     e.extra_link_args.append('-framework Accelerate')
