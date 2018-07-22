@@ -8,7 +8,4 @@ try:
 except ImportError:
     from io import BytesIO
 
-try:
-    from pathlib import Path
-except ImportError:
-    from pathlib2 import Path
+from pathlib import Path

@@ -20,7 +20,7 @@ except NameError:
     unicode = str
 
 
-from ..compat import Path
+from pathlib import Path
 
 
 def get_ops(ops):
