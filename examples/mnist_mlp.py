@@ -4,16 +4,14 @@ import dill as pickle
 from tqdm import tqdm
 from thinc.v2v import Model, Maxout, ReLu, Softmax
 from thinc.api import clone, chain
-from thinc.neural.util import to_categorical
+from thinc.neural.util import to_categorical, prefer_gpu
 
 from thinc.extra import datasets
 from thinc.neural.ops import CupyOps
 
 
 def main(depth=2, width=512, nb_epoch=30):
-    if CupyOps.xp != None:
-        Model.ops = CupyOps()
-        Model.Ops = CupyOps
+    prefer_gpu()
     # Configuration here isn't especially good. But, for demo..
     with Model.define_operators({'**': clone, '>>': chain}):
         model = ReLu(width) >> ReLu(width) >> Softmax()
