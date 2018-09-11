@@ -3,11 +3,27 @@ from ..compat import BytesIO
 from ..neural._classes.model import Model
 
 try:
+    import cupy
     import torch.autograd
     import torch.optim
     import torch
+    import torch.utils.dlpack
 except ImportError:
+    torch = None
+    cupy = None
     pass
+
+def xp2torch(xp_tensor):
+    if hasattr(xp_tensor, 'toDlpack'):
+        return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
+    else:
+        return torch.Tensor(xp_tensor)
+
+def torch2xp(torch_tensor):
+    if torch_tensor.is_cuda:
+        return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
+    else:
+        return torch_tensor.detach().numpy()
 
 
 class PyTorchWrapper(Model):
@@ -24,22 +40,20 @@ class PyTorchWrapper(Model):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
-        x_var = torch.autograd.Variable(torch.Tensor(x_data),
-                                        requires_grad=True)
+        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
         # Make prediction
 
         y_var = self._model(x_var)
         def backward_pytorch(dy_data, sgd=None):
-            dy_var = torch.Tensor(dy_data)
+            dy_var = xp2torch(dy_data)
             torch.autograd.backward((y_var,), grad_tensors=(dy_var,))
-            dX = self.ops.asarray(x_var.grad.data)
             if sgd is not None:
                 if self._optimizer is None:
                     self._optimizer = self._create_optimizer(sgd)
                 self._optimizer.step()
                 self._optimizer.zero_grad()
-            return dX
-        return self.ops.asarray(y_var.data), backward_pytorch
+            return torch2xp(x_var.grad)
+        return torch2xp(y_var), backward_pytorch
 
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
@@ -102,7 +116,7 @@ class PyTorchWrapperRNN(PyTorchWrapper):
     '''Wrap a PyTorch RNN model
     '''
     def __call__(self, x_data, h_0=None):
-        x_var = torch.autograd.Variable(torch.Tensor(x_data), requires_grad=False)
+        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=False)
         # Make prediction
         out, h_n = self._model(x_var, h_0)
         return (self.ops.asarray(out.data), h_n)
@@ -111,8 +125,7 @@ class PyTorchWrapperRNN(PyTorchWrapper):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
-        x_var = torch.autograd.Variable(torch.Tensor(x_data),
-                                        requires_grad=True)
+        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
         
         # Make prediction
         out, h_n = self._model(x_var, h_0)
@@ -122,16 +135,15 @@ class PyTorchWrapperRNN(PyTorchWrapper):
 
         def backward_pytorch_rnn(d_data, sgd=None):
             dy_data, _ = d_data
-            dout = torch.Tensor(dy_data)
+            dout = xp2torch(dy_data)
             torch.autograd.backward((out,), grad_tensors=(dout,))
-            dX = self.ops.asarray(x_var.grad.data)
             if sgd is not None:
                 if self._optimizer is None:
                     self._optimizer = self._create_optimizer(sgd)
                 self._optimizer.step()
                 self._optimizer.zero_grad()
-            return dX
-        return (self.ops.asarray(out.data), h_n) , backward_pytorch_rnn
+            return torch2xp(x_var.grad)
+        return (torch2xp(out), h_n), backward_pytorch_rnn
 
     def resize_output(self, new_dim):
         #self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
