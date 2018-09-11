@@ -19,6 +19,7 @@ from thinc.api import with_getitem, flatten_add_lengths, with_square_sequences
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.optimizers import SGD
 from thinc.neural.util import get_array_module
+from thinc.neural.ops import CupyOps
 
 import torch
 import torch.nn
@@ -105,11 +106,18 @@ def main(width=32, depth=1, vector_length=32,
          min_batch_size=1, max_batch_size=4, learn_rate=0.001,
          momentum=0.9, dropout=0.5, dropout_decay=1e-4,
          nb_epoch=20, L2=1e-6):
+    if CupyOps.xp != None:
+        print("Use GPU")
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
+        Model.ops = CupyOps()
+        Model.Ops = CupyOps
     cfg = dict(locals())
     print(cfg)
     train_data, check_data, nr_tag = ancora_pos_tags()
-    train_data = train_data[:100]
-    check_data = check_data[:100]
+    train_data = list(train_data)
+    check_data = list(check_data)
+    #train_data = train_data[:100]
+    #check_data = check_data[:100]
 
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
