@@ -155,7 +155,6 @@ class Openblas(Extension):
             macros.append(('HASWELL', None))
         else:
             macros.append(('SANDYBRIDGE', None))
-        macros.append(('MAX_PARALLEL_NUMBER', 1)) 
         macros.append(('USE_OPENMP', 1))
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
