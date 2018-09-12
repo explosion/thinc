@@ -155,7 +155,6 @@ class Openblas(Extension):
             macros.append(('HASWELL', None))
         else:
             macros.append(('SANDYBRIDGE', None))
-        macros.append(('MAX_PARALLEL_NUMBER', 1)) 
         macros.append(('USE_OPENMP', 1))
         # Stuff we're not building
         macros.append(('F_INTERFACE_GFORT', None))
@@ -499,10 +498,11 @@ def setup_package():
                 'pathlib==1.0.1; python_version < "3.4"'
             ],
             extras_require={
-                'cuda': ['cupy>=4.0'],
-                'cuda80': ['cupy-cuda80>=4.0'],
-                'cuda90': ['cupy-cuda90>=4.0'],
-                'cuda91': ['cupy-cuda91>=4.0'],
+                'cuda': ['cupy>=5.0.0b4'],
+                'cuda80': ['cupy-cuda80>=5.0.0b4'],
+                'cuda90': ['cupy-cuda90>=5.0.0b4'],
+                'cuda91': ['cupy-cuda91>=5.0.0b4'],
+                'cuda92': ['cupy-cuda92>=5.0.0b4'],
             },
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

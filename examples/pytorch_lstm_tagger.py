@@ -9,6 +9,7 @@ import spacy
 from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
+from thinc import prefer_gpu
 from thinc.i2v import Embed, HashEmbed
 from thinc.api import with_flatten, wrap
 from thinc.extra.wrappers import PyTorchWrapperRNN
@@ -19,6 +20,7 @@ from thinc.api import with_getitem, flatten_add_lengths, with_square_sequences
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.optimizers import SGD
 from thinc.neural.util import get_array_module
+from thinc.neural.ops import CupyOps
 
 import torch
 import torch.nn
@@ -101,15 +103,18 @@ def debug(X, drop=0.):
     nb_epoch=("Maximum passes over the training data", "option", "i", int),
     L2=("L2 regularization penalty", "option", "L", float),
 )
-def main(width=32, depth=1, vector_length=32,
-         min_batch_size=1, max_batch_size=4, learn_rate=0.001,
+def main(width=128, depth=1, vector_length=128,
+         min_batch_size=16, max_batch_size=16, learn_rate=0.001,
          momentum=0.9, dropout=0.5, dropout_decay=1e-4,
          nb_epoch=20, L2=1e-6):
+    using_gpu = prefer_gpu()
+    if using_gpu:
+        torch.set_default_tensor_type('torch.cuda.FloatTensor')
     cfg = dict(locals())
     print(cfg)
     train_data, check_data, nr_tag = ancora_pos_tags()
-    train_data = train_data[:100]
-    check_data = check_data[:100]
+    train_data = list(train_data)
+    check_data = list(check_data)
 
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
