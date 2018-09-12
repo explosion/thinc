@@ -233,10 +233,13 @@ FLOAT CNAME(BLASLONG n, FLOAT *x, BLASLONG inc_x)
 	FLOAT asum = 0.0;
 
 #if defined(SMP)
-	if (inc_x == 0 || n <= 10000)
+	nthreads = num_cpu_avail(1);
+
+	if (inc_x == 0)
 		nthreads = 1;
-	else
-		nthreads = num_cpu_avail(1);
+
+	if (n <= 10000)
+		nthreads = 1;
 
 	if (nthreads == 1) {
 		asum = casum_compute(n, x, inc_x);

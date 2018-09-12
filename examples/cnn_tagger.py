@@ -18,7 +18,7 @@ from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
-from thinc.neural.ops import NumpyOps, CupyOps
+from thinc.neural.util import prefer_gpu
 from thinc.neural.optimizers import SGD
 
 from thinc.extra.datasets import ancora_pos_tags
@@ -110,9 +110,7 @@ def main(width=100, depth=4, vector_length=64,
          nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
     print(cfg)
-    if cupy is not None:
-        print("Using GPU")
-        Model.ops = CupyOps()
+    prefer_gpu()
     train_data, check_data, nr_tag = ancora_pos_tags()
 
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
