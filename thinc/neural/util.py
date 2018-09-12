@@ -23,6 +23,22 @@ except NameError:
 from pathlib import Path
 
 
+def is_cupy_array(arr):
+    '''Check whether an array is a cupy array'''
+    if cupy is None:
+        return False
+    elif isinstance(arr, cupy.ndarray):
+        return True
+    else:
+        return False
+    
+def is_numpy_array(arr):
+    '''Check whether an array is a numpy array'''
+    if isinstance(arr, numpy.ndarray):
+        return True
+    else:
+        return False
+
 def get_ops(ops):
     from .ops import NumpyOps, CupyOps
     if ops in ('numpy', 'cpu') or (isinstance(ops, int) and ops < 0):
