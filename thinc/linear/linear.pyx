@@ -30,17 +30,29 @@ class LinearModel(Model):
         self.length = length
 
     def begin_update(self, keys_values_lengths, drop=0.):
-        cdef uint64_t[::1] keys
-        cdef long[::1] lengths
-        cdef float[::1] values
-        keys, values_, lengths = keys_values_lengths
+        keys, values, lengths = keys_values_lengths
+        if self.ops.is_cupy_array(keys):
+            return self._begin_gpu_update(keys, values, lengths, drop=drop)
+        else:
+            return self._begin_cpu_update(keys, values, lengths, drop=drop)
+
+    def _begin_gpu_update(self, keys, values, lengths, drop):
+        # Currently we don't have a GPU-compatible implementation of this function :(
+        # It sucks, but at least we can get the correct result by copying to CPU.
+        cpu_keys = keys.get()
+        cpu_values = values.get()
+        cpu_lengths = lengths.get()
+        return self._begin_cpu_update(cpu_keys, cpu_values, cpu_lengths, drop=drop)
+
+    def _begin_cpu_update(self, uint64_t[::1] keys, float[::1] values,
+            long[::1] lengths, drop):
         if drop is not None:
             drop *= self.drop_factor
-        mask = self.ops.get_dropout_mask(values_.shape, drop)
+        mask = self.ops.get_dropout_mask(values.shape, drop)
         if mask is not None:
-            values = values_ * mask
+            values = values * mask
         else:
-            values = values_
+            values = values
         cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO)) + self.b
         cdef float[::1] weights = self.W
         set_scoresC(&scores[0, 0],
