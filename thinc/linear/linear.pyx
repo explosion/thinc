@@ -8,6 +8,7 @@ from libc.stdint cimport uint64_t, int32_t, uint32_t
 from ..neural._classes.model import Model
 from .. import describe
 from ..describe import Dimension, Synapses, Biases, Gradient
+from ..neural.util import is_cupy_array, is_numpy_array
 
 @describe.attributes(
     nO=Dimension("Output size"),
@@ -31,7 +32,7 @@ class LinearModel(Model):
 
     def begin_update(self, keys_values_lengths, drop=0.):
         keys, values, lengths = keys_values_lengths
-        if self.ops.is_cupy_array(keys):
+        if is_cupy_array(keys):
             return self._begin_gpu_update(keys, values, lengths, drop=drop)
         else:
             return self._begin_cpu_update(keys, values, lengths, drop=drop)
