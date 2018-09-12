@@ -63,20 +63,6 @@ class Ops(object):
         if xp is not None:
             self.xp = xp
 
-    def is_cupy_array(self, arr):
-        if cupy is None:
-            return False
-        elif isinstance(arr, cupy.ndarray):
-            return True
-        else:
-            return False
-    
-    def is_numpy_array(self, arr):
-        if isinstance(arr, numpy.ndarray):
-            return True
-        else:
-            return False
-
     def dropout_sequences(self, X, dropout, inplace=False):
         if dropout is None or dropout <= 0.0:
             return X, lambda func: func
