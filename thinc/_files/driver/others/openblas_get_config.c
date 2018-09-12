@@ -35,12 +35,6 @@ USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <string.h>
 
-#if defined(_WIN32) && defined(_MSC_VER)
-#if _MSC_VER < 1900
-#define snprintf _snprintf
-#endif
-#endif
-
 static char* openblas_config_str=""
 #ifdef USE64BITINT
   "USE64BITINT "
@@ -60,9 +54,6 @@ static char* openblas_config_str=""
 #ifdef NO_AFFINITY
   "NO_AFFINITY "
 #endif
-#ifdef USE_OPENMP
-  "USE_OPENMP "
-#endif
 #ifndef DYNAMIC_ARCH
   CHAR_CORENAME
 #endif
@@ -70,23 +61,18 @@ static char* openblas_config_str=""
 
 #ifdef DYNAMIC_ARCH
 char *gotoblas_corename();
+static char tmp_config_str[256];
 #endif
 
-static char tmp_config_str[256];
-int openblas_get_parallel();
 
 char* CNAME() {
-char tmpstr[20];
+#ifndef DYNAMIC_ARCH
+  return openblas_config_str;
+#else
   strcpy(tmp_config_str, openblas_config_str);
-#ifdef DYNAMIC_ARCH
   strcat(tmp_config_str, gotoblas_corename());
-#endif
-if (openblas_get_parallel() == 0)
-  sprintf(tmpstr, " SINGLE_THREADED");
-else 
-  snprintf(tmpstr,19," MAX_THREADS=%d",MAX_CPU_NUMBER);
-  strcat(tmp_config_str, tmpstr);
   return tmp_config_str;
+#endif
 }
 
 
@@ -97,4 +83,3 @@ char* openblas_get_corename() {
   return gotoblas_corename();
 #endif
 }
-

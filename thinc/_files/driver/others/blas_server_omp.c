@@ -36,7 +36,6 @@
 /* or implied, of The University of Texas at Austin.                 */
 /*********************************************************************/
 
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 //#include <sys/mman.h>
@@ -48,22 +47,13 @@
 
 #else
 
-#ifndef OMP_SCHED
-#define OMP_SCHED static
-#endif
-
 int blas_server_avail = 0;
 
-static void * blas_thread_buffer[MAX_PARALLEL_NUMBER][MAX_CPU_NUMBER];
-#if __STDC_VERSION__ >= 201112L
-static atomic_bool blas_buffer_inuse[MAX_PARALLEL_NUMBER];
-#else
-static _Bool blas_buffer_inuse[MAX_PARALLEL_NUMBER];
-#endif
+static void * blas_thread_buffer[MAX_CPU_NUMBER];
 
 void goto_set_num_threads(int num_threads) {
 
-  int i=0, j=0;
+  int i=0;
 
   if (num_threads < 1) num_threads = blas_num_threads;
 
@@ -78,17 +68,15 @@ void goto_set_num_threads(int num_threads) {
   omp_set_num_threads(blas_cpu_number);
 
   //adjust buffer for each thread
-  for(i=0; i<MAX_PARALLEL_NUMBER; i++) {
-    for(j=0; j<blas_cpu_number; j++){
-      if(blas_thread_buffer[i][j]==NULL){
-        blas_thread_buffer[i][j]=blas_memory_alloc(2);
-      }
+  for(i=0; i<blas_cpu_number; i++){
+    if(blas_thread_buffer[i]==NULL){
+      blas_thread_buffer[i]=blas_memory_alloc(2);
     }
-    for(; j<MAX_CPU_NUMBER; j++){
-      if(blas_thread_buffer[i][j]!=NULL){
-        blas_memory_free(blas_thread_buffer[i][j]);
-        blas_thread_buffer[i][j]=NULL;
-      }
+  }
+  for(; i<MAX_CPU_NUMBER; i++){
+    if(blas_thread_buffer[i]!=NULL){
+      blas_memory_free(blas_thread_buffer[i]);
+      blas_thread_buffer[i]=NULL;
     }
   }
 #if defined(ARCH_MIPS64)
@@ -104,34 +92,30 @@ void openblas_set_num_threads(int num_threads) {
 
 int blas_thread_init(void){
 
-  int i=0, j=0;
+  int i=0;
 
   blas_get_cpu_number();
 
   blas_server_avail = 1;
 
-  for(i=0; i<MAX_PARALLEL_NUMBER; i++) {
-    for(j=0; j<blas_num_threads; j++){
-      blas_thread_buffer[i][j]=blas_memory_alloc(2);
-    }
-    for(; j<MAX_CPU_NUMBER; j++){
-      blas_thread_buffer[i][j]=NULL;
-    }
+  for(i=0; i<blas_num_threads; i++){
+    blas_thread_buffer[i]=blas_memory_alloc(2);
+  }
+  for(; i<MAX_CPU_NUMBER; i++){
+      blas_thread_buffer[i]=NULL;
   }
 
   return 0;
 }
 
 int BLASFUNC(blas_thread_shutdown)(void){
-  int i=0, j=0;
+  int i=0;
   blas_server_avail = 0;
 
-  for(i=0; i<MAX_PARALLEL_NUMBER; i++) {
-    for(j=0; j<MAX_CPU_NUMBER; j++){
-      if(blas_thread_buffer[i][j]!=NULL){
-        blas_memory_free(blas_thread_buffer[i][j]);
-        blas_thread_buffer[i][j]=NULL;
-      }
+  for(i=0; i<MAX_CPU_NUMBER; i++){
+    if(blas_thread_buffer[i]!=NULL){
+      blas_memory_free(blas_thread_buffer[i]);
+      blas_thread_buffer[i]=NULL;
     }
   }
 
@@ -222,7 +206,7 @@ static void legacy_exec(void *func, int mode, blas_arg_t *args, void *sb){
       }
 }
 
-static void exec_threads(blas_queue_t *queue, int buf_index){
+static void exec_threads(blas_queue_t *queue){
 
   void *buffer, *sa, *sb;
   int pos=0, release_flag=0;
@@ -239,7 +223,7 @@ static void exec_threads(blas_queue_t *queue, int buf_index){
   if ((sa == NULL) && (sb == NULL) && ((queue -> mode & BLAS_PTHREAD) == 0)) {
 
     pos = omp_get_thread_num();
-    buffer = blas_thread_buffer[buf_index][pos];
+    buffer = blas_thread_buffer[pos];
 
     //fallback
     if(buffer==NULL) {
@@ -307,7 +291,7 @@ static void exec_threads(blas_queue_t *queue, int buf_index){
 
 int exec_blas(BLASLONG num, blas_queue_t *queue){
 
-  BLASLONG i, buf_index;
+  BLASLONG i;
 
   if ((num <= 0) || (queue == NULL)) return 0;
 
@@ -318,38 +302,15 @@ int exec_blas(BLASLONG num, blas_queue_t *queue){
   }
 #endif
 
-  while(true) {
-    for(i=0; i < MAX_PARALLEL_NUMBER; i++) {
-#if __STDC_VERSION__ >= 201112L
-      _Bool inuse = false;
-      if(atomic_compare_exchange_weak(&blas_buffer_inuse[i], &inuse, true)) {
-#else
-      if(blas_buffer_inuse[i] == false) {
-        blas_buffer_inuse[i] = true;
-#endif
-        buf_index = i;
-        break;
-      }
-    }
-    if(i != MAX_PARALLEL_NUMBER)
-      break;
-  }
-
-#pragma omp parallel for schedule(OMP_SCHED)
+#pragma omp parallel for schedule(static)
   for (i = 0; i < num; i ++) {
 
 #ifndef USE_SIMPLE_THREADED_LEVEL3
     queue[i].position = i;
 #endif
 
-    exec_threads(&queue[i], buf_index);
+    exec_threads(&queue[i]);
   }
-
-#if __STDC_VERSION__ >= 201112L
-  atomic_store(&blas_buffer_inuse[buf_index], false);
-#else
-  blas_buffer_inuse[buf_index] = false;
-#endif
 
   return 0;
 }

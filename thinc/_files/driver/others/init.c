@@ -800,179 +800,179 @@ int get_node(void) {
 
 static int initialized = 0;
 
-void gotoblas_affinity_init(void) {
-
-  int cpu, num_avail;
-#ifndef USE_OPENMP
-  cpu_set_t cpu_mask;
-#endif
-  int i;
-
-  if (initialized) return;
-
-  initialized = 1;
-
-  sched_getaffinity(0, sizeof(cpu_orig_mask), &cpu_orig_mask[0]);
-
-#ifdef USE_OPENMP
-  numprocs = 0;
-#else
-  numprocs = readenv_atoi("OPENBLAS_NUM_THREADS");
-  if (numprocs == 0) numprocs = readenv_atoi("GOTO_NUM_THREADS");
-#endif
-
-  if (numprocs == 0) numprocs = readenv_atoi("OMP_NUM_THREADS");
-
-  numnodes = 1;
-
-  if (numprocs == 1) {
-    disable_mapping = 1;
-    return;
-  }
-
-  if (create_pshmem() != 0) {
-    disable_mapping = 1;
-    return;
-  }
-  
-  if (open_shmem() != 0) {
-    disable_mapping = 1;
-    return;
-  }
-  
-  while ((common -> lock) && (common -> magic != SH_MAGIC)) {
-    if (is_dead(common -> shmid)) {
-      common -> lock = 0;
-      common -> shmid = 0;
-      common -> magic = 0;
-    } else {
-      YIELDING;
-    }
-  }
-
-  blas_lock(&common -> lock);
-
-  if ((common -> shmid) && is_dead(common -> shmid)) common -> magic = 0;
-
-  common -> shmid = pshmid;
-
-  if (common -> magic != SH_MAGIC) {
-    cpu_set_t *cpusetp;
-    int nums;
-    int ret;
-
-#ifdef DEBUG
-    fprintf(stderr, "Shared Memory Initialization.\n");
-#endif
-
-    //returns the number of processors which are currently online
-
-    nums = sysconf(_SC_NPROCESSORS_CONF);
-
-#if !defined(__GLIBC_PREREQ)
-    common->num_procs = nums;
-#else
-
-#if !__GLIBC_PREREQ(2, 3)
-    common->num_procs = nums;
-#elif __GLIBC_PREREQ(2, 7)
-    cpusetp = CPU_ALLOC(nums);
-    if (cpusetp == NULL) {
-        common->num_procs = nums;
-    } else {
-        size_t size;
-        size = CPU_ALLOC_SIZE(nums);
-        ret = sched_getaffinity(0,size,cpusetp);
-        if (ret!=0)
-            common->num_procs = nums;
-        else
-            common->num_procs = CPU_COUNT_S(size,cpusetp);
-    }
-    CPU_FREE(cpusetp);
-#else
-    ret = sched_getaffinity(0,sizeof(cpu_set_t), cpusetp);
-    if (ret!=0) {
-        common->num_procs = nums;
-    } else {
-#if !__GLIBC_PREREQ(2, 6)
-    int i;
-    int n = 0;
-    for (i=0;i<nums;i++)
-        if (CPU_ISSET(i,cpusetp)) n++;
-    common->num_procs = n;
-    }
-#else
-    common->num_procs = CPU_COUNT(sizeof(cpu_set_t),cpusetp);
-    }
-#endif
-
-#endif
-#endif
-    if(common -> num_procs > MAX_CPUS) {
-      fprintf(stderr, "\nOpenBLAS Warning : The number of CPU/Cores(%d) is beyond the limit(%d). Terminated.\n", common->num_procs, MAX_CPUS);
-      exit(1);
-    }
-
-    for (cpu = 0; cpu < common -> num_procs; cpu++) common -> cpu_info[cpu] = cpu;
-
-    numa_check();
-
-    disable_hyperthread();
-
-    if (common -> num_nodes > 1) numa_mapping();
-
-    common -> final_num_procs = 0;
-    for(i = 0; i < common -> avail_count; i++) common -> final_num_procs += rcount(common -> avail[i]) + 1;   //Make the max cpu number. 
-
-    for (cpu = 0; cpu < common -> final_num_procs; cpu ++) common -> cpu_use[cpu] =  0;
-
-    common -> magic = SH_MAGIC;
-
-  }
-
-  disable_affinity();
-
-  num_avail = 0;
-  for(i=0; i<lprocmask_count; i++) num_avail += popcount(lprocmask[i]);
-
-  if ((numprocs <= 0) || (numprocs > num_avail)) numprocs = num_avail;
-
-#ifdef DEBUG
-  fprintf(stderr, "Number of threads = %d\n", numprocs);
-#endif
-
-  local_cpu_map();
-
-  blas_unlock(&common -> lock);
-
-#ifndef USE_OPENMP
-  if (!disable_mapping) {
-
-#ifdef DEBUG
-    fprintf(stderr, "Giving Affinity[%3d] --> %3d\n", 0, cpu_mapping[0]);
-#endif
-
-    CPU_ZERO(&cpu_mask);
-    CPU_SET (cpu_mapping[0], &cpu_mask);
-
-    sched_setaffinity(0, sizeof(cpu_mask), &cpu_mask);
-
-    node_mapping[WhereAmI()] = READ_NODE(common -> cpu_info[cpu_sub_mapping[0]]);
-
-    setup_mempolicy();
-
-    if (readenv_atoi("OPENBLAS_MAIN_FREE") || readenv_atoi("GOTOBLAS_MAIN_FREE")) {
-      sched_setaffinity(0, sizeof(cpu_orig_mask), &cpu_orig_mask[0]);
-    }
-
-  }
-#endif
-
-#ifdef DEBUG
-  fprintf(stderr, "Initialization is done.\n");
-#endif
-}
-
+//void gotoblas_affinity_init(void) {
+//
+//  int cpu, num_avail;
+//#ifndef USE_OPENMP
+//  cpu_set_t cpu_mask;
+//#endif
+//  int i;
+//
+//  if (initialized) return;
+//
+//  initialized = 1;
+//
+//  sched_getaffinity(0, sizeof(cpu_orig_mask), &cpu_orig_mask[0]);
+//
+//#ifdef USE_OPENMP
+//  numprocs = 0;
+//#else
+//  numprocs = readenv_atoi("OPENBLAS_NUM_THREADS");
+//  if (numprocs == 0) numprocs = readenv_atoi("GOTO_NUM_THREADS");
+//#endif
+//
+//  if (numprocs == 0) numprocs = readenv_atoi("OMP_NUM_THREADS");
+//
+//  numnodes = 1;
+//
+//  if (numprocs == 1) {
+//    disable_mapping = 1;
+//    return;
+//  }
+//
+//  if (create_pshmem() != 0) {
+//    disable_mapping = 1;
+//    return;
+//  }
+//  
+//  if (open_shmem() != 0) {
+//    disable_mapping = 1;
+//    return;
+//  }
+//  
+//  while ((common -> lock) && (common -> magic != SH_MAGIC)) {
+//    if (is_dead(common -> shmid)) {
+//      common -> lock = 0;
+//      common -> shmid = 0;
+//      common -> magic = 0;
+//    } else {
+//      YIELDING;
+//    }
+//  }
+//
+//  blas_lock(&common -> lock);
+//
+//  if ((common -> shmid) && is_dead(common -> shmid)) common -> magic = 0;
+//
+//  common -> shmid = pshmid;
+//
+//  if (common -> magic != SH_MAGIC) {
+//    cpu_set_t *cpusetp;
+//    int nums;
+//    int ret;
+//
+//#ifdef DEBUG
+//    fprintf(stderr, "Shared Memory Initialization.\n");
+//#endif
+//
+//    //returns the number of processors which are currently online
+//
+//    nums = sysconf(_SC_NPROCESSORS_CONF);
+//
+//#if !defined(__GLIBC_PREREQ)
+//    common->num_procs = nums;
+//#else
+//
+//#if !__GLIBC_PREREQ(2, 3)
+//    common->num_procs = nums;
+//#elif __GLIBC_PREREQ(2, 7)
+//    cpusetp = CPU_ALLOC(nums);
+//    if (cpusetp == NULL) {
+//        common->num_procs = nums;
+//    } else {
+//        size_t size;
+//        size = CPU_ALLOC_SIZE(nums);
+//        ret = sched_getaffinity(0,size,cpusetp);
+//        if (ret!=0)
+//            common->num_procs = nums;
+//        else
+//            common->num_procs = CPU_COUNT_S(size,cpusetp);
+//    }
+//    CPU_FREE(cpusetp);
+//#else
+//    ret = sched_getaffinity(0,sizeof(cpu_set_t), cpusetp);
+//    if (ret!=0) {
+//        common->num_procs = nums;
+//    } else {
+//#if !__GLIBC_PREREQ(2, 6)
+//    int i;
+//    int n = 0;
+//    for (i=0;i<nums;i++)
+//        if (CPU_ISSET(i,cpusetp)) n++;
+//    common->num_procs = n;
+//    }
+//#else
+//    common->num_procs = CPU_COUNT(sizeof(cpu_set_t),cpusetp);
+//    }
+//#endif
+//
+//#endif
+//#endif
+//    if(common -> num_procs > MAX_CPUS) {
+//      fprintf(stderr, "\nOpenBLAS Warning : The number of CPU/Cores(%d) is beyond the limit(%d). Terminated.\n", common->num_procs, MAX_CPUS);
+//      exit(1);
+//    }
+//
+//    for (cpu = 0; cpu < common -> num_procs; cpu++) common -> cpu_info[cpu] = cpu;
+//
+//    numa_check();
+//
+//    disable_hyperthread();
+//
+//    if (common -> num_nodes > 1) numa_mapping();
+//
+//    common -> final_num_procs = 0;
+//    for(i = 0; i < common -> avail_count; i++) common -> final_num_procs += rcount(common -> avail[i]) + 1;   //Make the max cpu number. 
+//
+//    for (cpu = 0; cpu < common -> final_num_procs; cpu ++) common -> cpu_use[cpu] =  0;
+//
+//    common -> magic = SH_MAGIC;
+//
+//  }
+//
+//  disable_affinity();
+//
+//  num_avail = 0;
+//  for(i=0; i<lprocmask_count; i++) num_avail += popcount(lprocmask[i]);
+//
+//  if ((numprocs <= 0) || (numprocs > num_avail)) numprocs = num_avail;
+//
+//#ifdef DEBUG
+//  fprintf(stderr, "Number of threads = %d\n", numprocs);
+//#endif
+//
+//  local_cpu_map();
+//
+//  blas_unlock(&common -> lock);
+//
+//#ifndef USE_OPENMP
+//  if (!disable_mapping) {
+//
+//#ifdef DEBUG
+//    fprintf(stderr, "Giving Affinity[%3d] --> %3d\n", 0, cpu_mapping[0]);
+//#endif
+//
+//    CPU_ZERO(&cpu_mask);
+//    CPU_SET (cpu_mapping[0], &cpu_mask);
+//
+//    sched_setaffinity(0, sizeof(cpu_mask), &cpu_mask);
+//
+//    node_mapping[WhereAmI()] = READ_NODE(common -> cpu_info[cpu_sub_mapping[0]]);
+//
+//    setup_mempolicy();
+//
+//    if (readenv_atoi("OPENBLAS_MAIN_FREE") || readenv_atoi("GOTOBLAS_MAIN_FREE")) {
+//      sched_setaffinity(0, sizeof(cpu_orig_mask), &cpu_orig_mask[0]);
+//    }
+//
+//  }
+//#endif
+//
+//#ifdef DEBUG
+//  fprintf(stderr, "Initialization is done.\n");
+//#endif
+//}
+//
 void gotoblas_affinity_quit(void) {
 
   int i;
@@ -1007,7 +1007,7 @@ void gotoblas_affinity_quit(void) {
 
 #else
 
-void gotoblas_affinity_init(void) {};
+//void gotoblas_affinity_init(void) {};
 
 void gotoblas_set_affinity(int threads) {};
 
@@ -1015,7 +1015,8 @@ void gotoblas_set_affinity2(int threads) {};
 
 void gotoblas_affinity_reschedule(void) {};
 
-int get_num_procs(void) { return sysconf(_SC_NPROCESSORS_CONF); }
+//int get_num_procs(void) { return sysconf(_SC_NPROCESSORS_CONF); }
+int get_num_proces(void) { return 1; }
 
 int get_num_nodes(void) { return 1; }
 
