@@ -328,8 +328,7 @@ class Model(object):
                 i += 1
             if hasattr(layer, u'_layers'):
                 queue.extend(layer._layers)
-        return msgpack.dumps({b'weights': weights}, use_bin_type=True,
-                             encoding='utf8')
+        return msgpack.dumps({b'weights': weights}, use_bin_type=True)
 
     def from_bytes(self, bytes_data):
         data = msgpack.loads(bytes_data, encoding='utf8')
