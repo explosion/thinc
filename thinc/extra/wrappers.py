@@ -4,20 +4,22 @@ from ..neural._classes.model import Model
 
 try:
     import cupy
+except ImportError:
+    cupy = None
+
+try:
     import torch.autograd
     import torch.optim
     import torch
     import torch.utils.dlpack
 except ImportError:
     torch = None
-    cupy = None
-    pass
 
 def xp2torch(xp_tensor):
     if hasattr(xp_tensor, 'toDlpack'):
         return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
     else:
-        return torch.Tensor(xp_tensor)
+        return torch.from_numpy(xp_tensor)
 
 def torch2xp(torch_tensor):
     if torch_tensor.is_cuda:
@@ -40,6 +42,7 @@ class PyTorchWrapper(Model):
         '''Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         '''
+        x_torch = xp2torch(x_data)
         x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
         # Make prediction
 
