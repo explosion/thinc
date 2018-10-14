@@ -38,9 +38,9 @@ structured input and variable-length sequences.
     :target: https://anaconda.org/conda-forge/thinc
     :alt: conda Version
 
-.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg?style=flat-square
-    :target: https://gitter.im/explosion/thinc
-    :alt: Thinc on Gitter
+.. image:: https://img.shields.io/badge/wheels-%E2%9C%93-4c1.svg?longCache=true&style=flat-square&logo=python&logoColor=white
+    :target: https://github.com/explosion/wheelwright/releases
+    :alt: Python wheels
 
 .. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
     :target: https://twitter.com/explosion_ai
