@@ -175,6 +175,7 @@ def setup_package():
                 'dill>=0.2.7,<0.3.0',
                 'pathlib==1.0.1; python_version < "3.4"'
             ],
+            setup_requires=["wheel>=0.32.0,<0.33.0"],
             extras_require={
                 'cuda': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy>=5.0.0b4'],
                 'cuda80': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda80>=5.0.0b4'],
