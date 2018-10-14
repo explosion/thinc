@@ -48,54 +48,8 @@ MOD_NAMES = [
 ]
 
 compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
-                    'other' : {
-                        'gcc': ['-O2', '-Wno-strict-prototypes', '-Wno-unused-function'],
-                        'nvcc': ['-arch=sm_30', '--ptxas-options=-v', '-c', '--compiler-options', "'-fPIC'"]}}
+                    'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
 link_options    =  {'msvc'  : [], 'other' : []}
-
-
-def customize_compiler_for_nvcc(self):
-    """inject deep into distutils to customize how the dispatch
-    to gcc/nvcc works.
-
-    If you subclass UnixCCompiler, it's not trivial to get your subclass
-    injected in, and still have the right customizations (i.e.
-    distutils.sysconfig.customize_compiler) run on it. So instead of going
-    the OO route, I have this. Note, it's kindof like a wierd functional
-    subclassing going on."""
-
-    # tell the compiler it can processes .cu
-    self.src_extensions.append('.cu')
-
-    # save references to the default compiler_so and _comple methods
-    if hasattr(self, 'compiler_so'):
-        default_compiler_so = self.compiler_so
-    else:
-        # This was put in for Windows, but I'm running blind here...
-        default_compiler_so = None
-    super = self._compile
-
-    # now redefine the _compile method. This gets executed for each
-    # object but distutils doesn't have the ability to change compilers
-    # based on source extension: we add it.
-    def _compile(obj, src, ext, cc_args, extra_postargs, pp_opts):
-        if os.path.splitext(src)[1] == '.cu' and CUDA is not None:
-            # use the cuda for .cu files
-            if hasattr(self, 'set_executable'):
-                # This was put in for Windows, but I'm running blind here...
-                self.set_executable('compiler_so', CUDA['nvcc'])
-            # use only a subset of the extra_postargs, which are 1-1 translated
-            # from the extra_compile_args in the Extension class
-            postargs = extra_postargs['nvcc']
-        else:
-            postargs = extra_postargs['gcc']
-
-        super(obj, src, ext, cc_args, postargs, pp_opts)
-        # reset the default compiler_so, which we might have changed for cuda
-        self.compiler_so = default_compiler_so
-
-    # inject our redefined _compile method into the class
-    self._compile = _compile
 
 
 # By subclassing build_extensions we have the actual compiler that will be used
@@ -116,7 +70,6 @@ class build_ext_options:
 class build_ext_subclass(build_ext, build_ext_options):
     def build_extensions(self):
         build_ext_options.build_options(self)
-        customize_compiler_for_nvcc(self.compiler)
         build_ext.build_extensions(self)
 
 
@@ -137,45 +90,6 @@ def find_in_path(name, path):
         if os.path.exists(binpath):
             return os.path.abspath(binpath)
     return None
-
-
-def locate_cuda():
-    """Locate the CUDA environment on the system
-
-    Returns a dict with keys 'home', 'nvcc', 'include', and 'lib64'
-    and values giving the absolute path to each directory.
-
-    Starts by looking for the CUDAHOME env variable. If not found, everything
-    is based on finding 'nvcc' in the PATH.
-    """
-
-    # first check if the CUDAHOME env variable is in use
-    if 'CUDA_HOME' in os.environ:
-        home = os.environ['CUDA_HOME']
-        nvcc = os.path.join(home, 'bin', 'nvcc')
-    elif os.path.exists('/usr/local/cuda/bin/nvcc'):
-        home = '/usr/local/cuda'
-        nvcc = os.path.join(home, 'bin', 'nvcc')
-    else:
-        # otherwise, search the PATH for NVCC
-        nvcc = find_in_path('nvcc', os.environ['PATH'])
-        if nvcc is None:
-            print('Warning: The nvcc binary could not be located in your $PATH. '
-                  'For GPU capability, either add it to your path, or set $CUDA_HOME')
-            return None
-        home = os.path.dirname(os.path.dirname(nvcc))
-
-    cudaconfig = {'home':home, 'nvcc':nvcc,
-                  'include': os.path.join(home, 'include'),
-                  'lib64': os.path.join(home, 'lib64')}
-    for k, v in cudaconfig.items():
-        if not os.path.exists(v):
-            print('Warning: The CUDA %s path could not be located in %s' % (k, v))
-            return None
-    return cudaconfig
-
-
-CUDA = locate_cuda()
 
 
 def is_source_release(path):
@@ -229,27 +143,11 @@ def setup_package():
             mod_path = mod_name.replace('.', '/') + '.cpp'
             if mod_name.endswith('gpu_ops'):
                 continue
-            else:
-                ext = Extension(mod_name, [mod_path],
-                        language='c++', include_dirs=include_dirs)
-            ext_modules.append(ext)
-        if CUDA is None:
-            pass
-        else:
-            with chdir(root):
-                ext_modules.append(
-                    Extension("thinc.neural.gpu_ops",
-                        sources=["thinc/neural/gpu_ops.cpp", "include/_cuda_shim.cu"],
-                        library_dirs=[CUDA['lib64']],
-                        libraries=['cudart'],
-                        language='c++',
-                        runtime_library_dirs=[CUDA['lib64']],
-                        # this syntax is specific to this build system
-                        # we're only going to use certain compiler args with nvcc and not with gcc
-                        # the implementation of this trick is in customize_compiler() below
-                        extra_compile_args=['-arch=sm_30', '--ptxas-options=-v', '-c',
-                                            '--compiler-options', "'-fPIC'"],
-                        include_dirs = include_dirs + [CUDA['include']]))
+            mod_path = mod_name.replace('.', '/') + '.cpp'
+            ext_modules.append(
+                Extension(mod_name, [mod_path],
+                    language='c++', include_dirs=include_dirs
+                ))
 
         if not is_source_release(root):
             generate_cython(root, 'thinc')
@@ -269,6 +167,7 @@ def setup_package():
             ext_modules=ext_modules,
             install_requires=[
                 'blis>=0.1.0,<0.2.0',
+                'thinc_gpu_ops>=0.0.1,<0.1.0',
                 'numpy>=1.7.0',
                 'msgpack>=0.5.6,<1.0.0',
                 'msgpack-numpy>=0.4.1,<1.0.0',
