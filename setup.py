@@ -177,12 +177,12 @@ def setup_package():
             ],
             setup_requires=["wheel>=0.32.0,<0.33.0"],
             extras_require={
-                'cuda': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy>=5.0.0b4'],
-                'cuda80': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda80>=5.0.0b4'],
-                'cuda90': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda90>=5.0.0b4'],
-                'cuda91': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda91>=5.0.0b4'],
-                'cuda92': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda92>=5.0.0b4'],
-                'cuda10': ['thinc_gpu_ops>=0.0.2,<0.1.0', 'cupy-cuda10>=5.0.0b4'],
+                'cuda': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy>=5.0.0b4'],
+                'cuda80': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy-cuda80>=5.0.0b4'],
+                'cuda90': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy-cuda90>=5.0.0b4'],
+                'cuda91': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy-cuda91>=5.0.0b4'],
+                'cuda92': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy-cuda92>=5.0.0b4'],
+                'cuda10': ['thinc_gpu_ops>=0.0.3,<0.1.0', 'cupy-cuda10>=5.0.0b4'],
             },
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
