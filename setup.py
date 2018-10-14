@@ -161,7 +161,6 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'thinc_gpu_ops>=0.0.1,<0.1.0',
                 'numpy>=1.7.0',
                 'msgpack>=0.5.6,<1.0.0',
                 'msgpack-numpy>=0.4.1,<1.0.0',
@@ -176,6 +175,14 @@ def setup_package():
                 'dill>=0.2.7,<0.3.0',
                 'pathlib==1.0.1; python_version < "3.4"'
             ],
+            extras_require={
+                'cuda': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy>=5.0.0b4'],
+                'cuda80': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy-cuda80>=5.0.0b4'],
+                'cuda90': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy-cuda90>=5.0.0b4'],
+                'cuda91': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy-cuda91>=5.0.0b4'],
+                'cuda92': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy-cuda92>=5.0.0b4'],
+                'cuda10': ['thinc_gpu_ops>=0.0.1,<0.1.0', 'cupy-cuda10>=5.0.0b4'],
+            },
             classifiers=[
                 'Development Status :: 5 - Production/Stable',
                 'Environment :: Console',
