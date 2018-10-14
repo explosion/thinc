@@ -60,7 +60,7 @@ except ImportError:
     import toolz
 
 try:
-    from . import gpu_ops
+    import thinc_gpu_ops as gpu_ops
 except ImportError:
     pass
 
