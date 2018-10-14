@@ -163,7 +163,7 @@ def setup_package():
             install_requires=[
                 'numpy>=1.7.0',
                 'msgpack>=0.5.6,<1.0.0',
-                'msgpack-numpy>=0.4.1,<1.0.0',
+                'msgpack-numpy<0.4.4.0',
                 'murmurhash>=0.28.0,<0.29.0',
                 'cymem>=1.30.0,<1.32.0',
                 'preshed>=1.0.0,<2.0.0',
