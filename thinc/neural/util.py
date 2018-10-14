@@ -20,6 +20,28 @@ def get_ops(ops):
     else:
         raise ValueError("TODO error %s" % ops)
 
+def prefer_gpu():
+    '''Use GPU if it's available. Returns True if so, False otherwise.'''
+    from ._classes.model import Model
+    from .ops import CupyOps
+    if CupyOps.xp is not None:
+        Model.Ops = CupyOps
+        Model.ops = CupyOps()
+        return True
+    else:
+        return False
+
+def require_gpu():
+    from ._classes.model import Model
+    from .ops import CupyOps
+    if CupyOps.xp is not None:
+        raise ValueError(
+            "GPU is not accessible. Check your LD_LIBRARY_PATH enironment variable "
+            "and check that thinc was installed with GPU, e.g. thinc[cuda]")
+    Model.Ops = CupyOps
+    Model.ops = CupyOps()
+    return True
+
 
 def mark_sentence_boundaries(sequences, drop=0.): # pragma: no cover
     '''Pad sentence sequences with EOL markers.'''
