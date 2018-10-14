@@ -174,7 +174,7 @@ def setup_package():
                 'tqdm>=4.10.0,<5.0.0',
                 'six>=1.10.0,<2.0.0',
                 'dill>=0.2.7,<0.3.0',
-                'pathlib2>=2.3.2,<2.4.0; python_version < "3.4"'
+                'pathlib==1.0.1; python_version < "3.4"'
             ],
             classifiers=[
                 'Development Status :: 5 - Production/Stable',

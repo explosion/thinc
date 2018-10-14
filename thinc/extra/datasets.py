@@ -5,11 +5,12 @@ import os.path # pragma: no cover
 import csv # pragma: no cover
 import numpy
 import json
+from pathlib import Path
 
 from ._vendorized.keras_data_utils import get_file # pragma: no cover
 from ..neural.util import partition
 from ..neural.util import to_categorical
-from ..compat import basestring, Path
+from ..compat import basestring
 
 
 GITHUB = 'https://github.com/UniversalDependencies/' # pragma: no cover
