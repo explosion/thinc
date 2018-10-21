@@ -12,7 +12,7 @@ from .typedefs cimport weight_t
 include "compile_time_constants.pxi"
 
 IF USE_BLAS:
-    cimport blis.cy
+    from scipy.linalg cimport cython_blas as blas
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
@@ -88,7 +88,7 @@ cdef class Vec:
     cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
-            blis.cy.scalv(BLIS_NO_CONJUGATE, nr, scal, vec, 1)
+            blas.sscal(&nr, &scal, vec)
         ELSE:
             for i in range(nr):
                 vec[i] *= scal
@@ -171,8 +171,9 @@ cdef class VecVec:
                            weight_t scale,
                            int32_t nr) nogil:
         cdef int i
+        cdef int32_t one
         IF USE_BLAS:
-            blis.cy.axpyv(BLIS_NO_CONJUGATE, nr, scale, y, 1, x, 1)
+            blas.saxpy(&nr, &scale, x, &one, y, &one)
         ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale

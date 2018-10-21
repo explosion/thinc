@@ -24,10 +24,7 @@ from ..linalg cimport VecVec, Vec
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
-cimport blis
-cimport blis.cy
-import blis.py
-
+cimport scipy.linalg.cython_blas
 
 cdef extern from "math.h":
     float sqrtf(float x) nogil
@@ -54,6 +51,20 @@ try:
     from . import gpu_ops
 except ImportError:
     pass
+
+cdef int set_gemm_sizes(int* nM, int* nN, int* nK,
+        int a_rows, int a_cols, int b_rows, int b_cols,
+        int transA, int transB) nogil:
+    if not transA:
+        nM[0] = a_rows
+        nK[0] = a_cols
+    else:
+        nM[0] = a_cols
+        nK[0] = a_rows
+    if not transB:
+        nN[0] = b_cols
+    else:
+        nN[0] = b_rows
 
 
 class Ops(object):
@@ -403,24 +414,30 @@ class NumpyOps(Ops):
 
     def gemm(self, float[:, ::1] x, float[:, ::1] y, trans1=False, trans2=False,
              out=None):
-        cdef int m
-        if trans1:
-            m = x.shape[1]
-        else:
-            m = x.shape[0]
-        cdef int n
-        if trans2: 
-            n = y.shape[0]
-        else:
-            n = y.shape[1]
+        # Our data is row major, but we're calling col-major blas. This takes
+        # some trickery. See
+        # https://www.christophlassner.de/using-blas-from-c-with-row-major-data.html
+        cdef int nM, nN, nK, lda, ldb, ldc
+        set_gemm_sizes(&nM, &nN, &nK,
+            x.shape[0], x.shape[1], y.shape[0], y.shape[1], trans1, trans2)
         cdef np.ndarray out_array
         if out is None:
-            out_array = self.allocate((m, n))
+            out_array = self.allocate((nM, nN))
         else:
             out_array = self.xp.asarray(out)
-        assert out_array.shape[0] == m
-        assert out_array.shape[1] == n
-        blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
+        assert out_array.shape[0] == nM
+        assert out_array.shape[1] == nN
+        lda = x.shape[1]
+        ldb = y.shape[1]
+        ldc = out_array.shape[1]
+        cdef float one = 1.0
+        cdef char transA = 't' if trans1 else 'n'
+        cdef char transB = 't' if trans2 else 'n'
+        scipy.linalg.cython_blas.sgemm(
+            &transB, &transA, &nN, &nM, &nK,
+            &one, &y[0,0], &ldb,
+            &x[0,0], &lda, &one,
+            <float*>out_array.data, &ldc)
         return out_array
 
     def affine(self, weights, bias, signal):
