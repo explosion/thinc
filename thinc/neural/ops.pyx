@@ -32,6 +32,9 @@ cdef extern from "math.h":
     float sqrtf(float x) nogil
     float expf(float x) nogil
     float tanhf(float x) nogil
+    float sinf(float x) nogil
+    float cosf(float x) nogil
+
 
 
 try:
@@ -732,6 +735,34 @@ class NumpyOps(Ops):
         for i in range(keys_.shape[0]-n):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
         return output_
+    
+    def position_encode(self, int N, int D, int period=10000, out=None):
+        cdef np.ndarray out_
+        if out is None:
+            out_ = self.allocate((N, D))
+        else:
+            out_ = out
+        assert out_.shape[0] == N
+        assert out_.shape[1] == D
+        cpu_position_encode(<float*>out_.data, period, N, D) 
+        return out_
+
+
+cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
+    cdef float pos, d
+    cdef int j
+    for i in range(N):
+        pos = i
+        j = 0
+        while (j+1) < D:
+            d = j
+            output[j]   = sinf(pos / period ** (2 * d / D))
+            output[j+1] = cosf(pos / period ** (2 * d / D))
+            j += 2
+        if j < D:
+            output[j]   = sinf(pos / period ** (2 * d / D))
+        output += D
+
 
 
 cdef void cpu_scatter_add(float* dest,
