@@ -257,3 +257,10 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
     assert flat.ndim == 1
     unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(shape=strategies.shapes())
+def test_position_encode(cpu_ops, shape):
+    encoded = cpu_ops.position_encode(shape[0], shape[1])
+    assert encoded.shape == shape
+    assert encoded[0,0] == 0.0
