@@ -4,6 +4,12 @@ sudo: true
 dist: trusty
 group: edge
 
+
+env:
+  global: 
+    - PLAT=x86_64
+    - UNICODE_WIDTH=32
+
 python:
   - "2.7"
   - "3.4"
