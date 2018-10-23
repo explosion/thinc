@@ -49,7 +49,9 @@ class Affine(Model):
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def predict(self, input__BI):
-        return self.ops.gemm(input__BI, self.W, trans2=True) + self.b
+        output = self.ops.gemm(input__BI, self.W, trans2=True)
+        output += self.b
+        return output
 
     @check.arg(1, has_shape(('nB', 'nI')))
     def begin_update(self, input__BI, drop=0.):
@@ -57,7 +59,8 @@ class Affine(Model):
         output__BO = self.predict(input__BI)
         def finish_update(grad__BO, sgd=None):
             grad__BO = self.ops.xp.ascontiguousarray(grad__BO)
-            self.d_W += self.ops.gemm(grad__BO, input__BI, trans1=True)
+            self.ops.gemm(grad__BO, input__BI, trans1=True,
+                out=self.d_W)
             self.d_b += grad__BO.sum(axis=0)
             grad__BI = self.ops.gemm(grad__BO, self.W)
             if sgd is not None:

@@ -1,14 +1,19 @@
 language: python
+sudo: required
+dist: xenial
 
-sudo: true
-dist: trusty
-group: edge
+
+env:
+  global: 
+    - PLAT=x86_64
+    - UNICODE_WIDTH=32
 
 python:
   - "2.7"
   - "3.4"
   - "3.5"
   - "3.6"
+
 
 install:
   - cat /proc/cpuinfo
@@ -20,6 +25,14 @@ install:
 
 script:
   - python -m pytest thinc --cov=thinc
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-6
+    - clang
 
 after_success:
   coveralls
