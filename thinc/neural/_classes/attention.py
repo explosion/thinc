@@ -1,4 +1,5 @@
 import math
+from numpy import einsum
 from ... import describe
 from ...describe import Dimension, Synapses, Gradient
 from .model import Model
@@ -16,8 +17,8 @@ class SelfAttention(Model):
         X, lengths = X_lengths
         
         (queries, keys, values), get_dX = self.project_inputs(X)
-        (attention, alengths), backprop_compare = self.compare(queries, keys, lengths)
-        output, backprop_rescale = self.rescale(values, attention, alengths)
+        attention, backprop_compare = self.compare(queries, keys, lengths)
+        output, backprop_rescale = self.rescale(values, attention, lengths)
 
         def self_attention_finish_update(d_output, sgd=None):
             d_values, d_attention = backprop_rescale(d_output)
@@ -26,6 +27,7 @@ class SelfAttention(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradients, key=self._mem.key)
             return dX
+
         return output, self_attention_finish_update
 
     def project_inputs(self, X, lengths):
@@ -37,6 +39,7 @@ class SelfAttention(Model):
         keys = Y[:, self.nK:self.nK*2]
         # This will be shape (sum(kv_lengths), 64)
         values = Y[:, self.nK*2:]
+
         def backprop_get_inputs(d_queries, d_keys, d_values):
             dY = self.ops.xp.hstack((d_queries, d_keys, d_values)) # (25, 128)
             # ab,cb->ac
@@ -44,6 +47,7 @@ class SelfAttention(Model):
             # ac,ab->cb
             self.ops.gemm(X, dY, out=self.dW, trans1=True) 
             return dX
+
         return (queries, keys, values), backprop_get_inputs
 
     def compare(self, queries, keys, lengths):
@@ -59,6 +63,7 @@ class SelfAttention(Model):
             self.ops, queries, keys, lengths, self.nW)
         dotprod /= ops.xp.sqrt(self.nK)
         attention = self.ops.softmax_sequences(dotprod, dotprod_lengths)
+
         def backprop_attention(d_attention):
             d_dotprod = self.ops.backprop_softmax_sequences(d_attention,
                                                             attention,
@@ -66,18 +71,52 @@ class SelfAttention(Model):
             d_dotprod /= ops.xp.sqrt(self.nO)
             d_queries, d_keys = _backprop_rwd(d_dotprod)
             return d_queries, d_keys
-        return (attention, dotprod_lengths), backprop_attention
 
-    def rescale(self, V, A, window_sizes):
-        '''Perform a weighted sum of values with the attention. Both arrays are ragged.'''
-        raise NotImplementedError
-        #output = self.ops.allocate(V.shape)
-        #for i, window_size in enumerate(window_sizes):
-        #    # TODO: This is wrong -- it doesn't center the window correctly =/
-        #    values = V[start : start + window_size]
-        #    attention = A[start : start + window_size]
-        #    output[i] = (v_window * attention).sum(axis=0)
-        #return output, backprop_rescale
+        return attention, backprop_attention
+
+    def rescale(self, V, A, lengths, nW=None):
+        '''Perform a weighted sum of values with the attention.
+        
+        Values is a ragged array of sequences, unpacked it would be
+        [(N1, d), (N2, d), ...etc], where N1 is the length of sequence 1,
+        N2 is the length of sequence 2, etc.
+
+        Attention is a ragged array of rows, where each row is a word's
+        attention weights, and the weights are of varying length at the edge
+        of each sequence.
+        '''
+        if nW is None:
+            nW = self.nW
+        output = self.ops.allocate(V.shape)
+        vidx = 0
+        aidx = 0
+        for i, length in enumerate(lengths):
+            V_ = V[vidx : vidx + length]
+            for j in range(length):
+                values = V_[max(0, j-nW) : j+nW]
+                attention = A[aidx : aidx + values.shape[0]]
+                # set row of d from ((w, d) * (w, d)).sum()
+                output[aidx] = (values * attention).sum(axis=0)
+                aidx += 1
+            vidx += length
+
+        V_shape = tuple(V.shape)
+        A_shape = tuple(A.shape)
+        def backprop_rescale(d_output):
+            dV = self.ops.allocate(V_shape)
+            dA = self.ops.allocate(A_shape)
+            for i, length in enumerate(lengths):
+                V_ = V[vidx : vidx + length]
+                dV_ = dV[vidx : vidx + length]
+                for j in range(length):
+                    values    = V_[max(0, j-nW) : j+nW]
+                    attention = A[aidx : aidx + values.shape[0]]
+                    
+                    dV_[max(0, j-nW) : j+nW]          += attention * d_output[aidx]
+                    dA[aidx : aidx + values.shape[0]] += values    * d_output[aidx]
+                    aidx += 1
+                vidx += length
+        return output, backprop_rescale
 
 
 def _ragged_window_dot(ops, X, Y, lengths, nW):
@@ -85,38 +124,62 @@ def _ragged_window_dot(ops, X, Y, lengths, nW):
     matrices, representing concatenated sequences. We output a ragged array
     where each entry is a vector with the dot product of X[i] against the
     context-window of Y, where the context-window is of variable length'''
+    # Imagine we had the simple thing (without the window, no raggedness etc):
+    #
+    # output = einsum('nd,nd->nn', X, Y)
+    # dX     = einsum('nn,nd->nd', d_output, Y)
+    # dY     = einsum('nn,nd->nd', d_output, X)
+    # 
+    # Okay. Now let's say we expand and pad, wrapping that in an op:
+    # 
+    # winY, backprop_window = window(Y, window_size)
+    # 
+    # where winY is of shape (n, w, d) for w = window_size*2+1
+    #
+    # Then:
+    # 
+    # output = einsum('nd,nwd->nw', X, winY)
+    # dX     = einsum('nw,nwd->nd', d_output, win_Y)
+    # d_winY = einsum('nw,nd->nwd', d_output, X)
+    # dY = backprop_window(d_winY)
     start = 0
     output = []
+    backprops = []
     for i, length in enumerate(lengths):
         X_ = X[start : start+length]
         Y_ = Y[start : start+length]
         for j in range(length):
-            dots = X_[j].dot(Y_[max(j-nW, 0) : j + nW].T)
+            dots, backprop = _window_dot(X_, Y_, j, nW)
             output.append(dots)
+            backprops.append(backprop)
         start += length
-    # We do have to output a ragged array here...If we pad, it'll be frustrating
-    # later, because our softmax will be off due to the padding.
     out_lengths = ops.asarray([len(out) for out in output])
     shape = tuple(X.shape)
-    def backprop_ragged_window_dot(d_output):
-        # Imagine we had the simple thing (without the raggedness, window):
-        # output = einsum('nd,nd->nn', X, Y)
-        # dX     = einsum('nn,nd->nd', d_output, Y)
-        # dY     = einsum('nn,nd->nd', d_output, X)
-        # Let w be the window size, and imagine we expanded and padded. Then:
-        # output = einsum('nd,nwd->nw', X, window_Y)
-        # dX     = einsum('nw,nwd->nd', d_output, window_Y)
-        # dY     = einsum('nw,nwd->nd', d_output, window_X)
+
+    def backprop_rwd(d_output):
+        d_output_list = ops.unflatten(d_output, out_lengths)
         dX = ops.allocate(shape)
         dY = ops.allocate(shape)
-        d_output_list = ops.unflatten(d_output, out_lengths)
-        for i, d_dots in enumerate(d_output_list):
-            dX_ = X[start : start+length]
-            dY_ = Y[start : start+length]
-            for j in range(length):
-                dX_[j] = TODO(Y_[max(j-nW, 0) : j + nW], d_dots)
-                dY_[max(j-nW, 0) : j+nW] = TODO(X[j], d_dots)
+        for i, (d_dots, backprop) in enumerate(zip(d_output_list, backprops)):
+            dX[i], dY[i] = backprop(d_dots)
+        return dX, dY
+
+    # We do have to output a ragged array here...If we pad, it'll be frustrating
+    # later, because our softmax will be off due to the padding.
     return ops.flatten(output), out_lengths
+
+
+def _window_dot(X, Y, i, nW):
+    start = max(0, i-nW)
+    end = i + nW
+    output = einsum('d,nwd->nw', X[i], Y[start : end])
+
+    def backprop_window_dot(d_output):
+        dXi = einsum('nw,nwd->d', d_output, Y[start : end])
+        d_winY = einsum('nw,d->nwd', d_output, X[i])
+        return dXi, d_winY
+
+    return output, backprop_window_dot
 
 
 @describe.attributes(
