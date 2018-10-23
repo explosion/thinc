@@ -268,7 +268,7 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-                'blis>=0.0.16,<0.1.0',
+                'blis>=0.1.0,<0.2.0',
                 'numpy>=1.7.0',
                 'msgpack>=0.5.6,<1.0.0',
                 'msgpack-numpy>=0.4.1,<1.0.0',
