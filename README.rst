@@ -12,7 +12,7 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
-🔮 **Version 6.11 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
+🔮 **Version 6.12 out now!** `Read the release notes here. <https://github.com/explosion/thinc/releases/>`_
 
 .. image:: https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square
     :target: https://travis-ci.org/explosion/thinc
@@ -38,9 +38,9 @@ structured input and variable-length sequences.
     :target: https://anaconda.org/conda-forge/thinc
     :alt: conda Version
 
-.. image:: https://img.shields.io/badge/gitter-join%20chat%20%E2%86%92-7676d1.svg?style=flat-square
-    :target: https://gitter.im/explosion/thinc
-    :alt: Thinc on Gitter
+.. image:: https://img.shields.io/badge/wheels-%E2%9C%93-4c1.svg?longCache=true&style=flat-square&logo=python&logoColor=white
+    :target: https://github.com/explosion/wheelwright/releases
+    :alt: Python wheels
 
 .. image:: https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow
     :target: https://twitter.com/explosion_ai
@@ -392,6 +392,7 @@ for layer definitions. Specifically, the following decorators are available:
 =========== ============== ===========
 Version     Date           Description
 =========== ============== ===========
+`v6.12.0`_  ``2018-10-15`` Wheels and separate GPU ops
 `v6.10.3`_  ``2018-07-21`` Python 3.7 support and dependency updates
 `v6.11.2`_  ``2018-05-21`` Improve GPU installation
 `v6.11.1`_  ``2018-05-20`` Support direct linkage to BLAS libraries
@@ -422,6 +423,7 @@ Version     Date           Description
 `v6.0.0`_   ``2016-12-31`` Add ``thinc.neural`` for NLP-oriented deep learning
 =========== ============== ===========
 
+.. _v6.12.0: https://github.com/explosion/thinc/releases/tag/v6.12.0
 .. _v6.11.2: https://github.com/explosion/thinc/releases/tag/v6.11.2
 .. _v6.11.1: https://github.com/explosion/thinc/releases/tag/v6.11.1
 .. _v6.10.3: https://github.com/explosion/thinc/releases/tag/v6.10.3
