@@ -12,7 +12,7 @@ from .typedefs cimport weight_t
 include "compile_time_constants.pxi"
 
 IF USE_BLAS:
-    from . cimport openblas
+    cimport blis.cy
 
 cdef extern from "math.h" nogil:
     weight_t exp(weight_t x)
@@ -88,7 +88,7 @@ cdef class Vec:
     cdef inline void mul_i(weight_t* vec, weight_t scal, int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
-            openblas.scale(vec, nr, scal)
+            blis.cy.scalv(BLIS_NO_CONJUGATE, nr, scal, vec, 1)
         ELSE:
             for i in range(nr):
                 vec[i] *= scal
@@ -172,8 +172,7 @@ cdef class VecVec:
                            int32_t nr) nogil:
         cdef int i
         IF USE_BLAS:
-            openblas.simple_axpy(x, nr,
-                y, scale)
+            blis.cy.axpyv(BLIS_NO_CONJUGATE, nr, scale, y, 1, x, 1)
         ELSE:
             for i in range(nr):
                 x[i] += y[i] * scale
@@ -273,222 +272,3 @@ cdef class Mat:
                 sum_ += x - Ex[i]
             Vx[i] = (sum2 - sum_**2 / nr_row) / nr_row
             Vx[i] += eps
- 
-
-cdef class MatVec:
-    @staticmethod
-    cdef inline void add_i(weight_t* mat,
-            const weight_t* vec, weight_t scale, int32_t nr_row, int32_t nr_col) nogil:
-        cdef int i
-        for i in range(nr_row):
-            VecVec.add_i(mat + (i * nr_col),
-                vec, scale, nr_col)
-
-    @staticmethod
-    cdef inline void mul(weight_t* output,
-                         const weight_t* mat,
-                         const weight_t* vec,
-                         int32_t nr_row, int32_t nr_col) nogil:
-        memcpy(output, mat, sizeof(output[0]) * nr_row * nr_col)
-        MatVec.mul_i(output, vec, nr_row, nr_col)
-
-    @staticmethod
-    cdef inline void mul_i(weight_t* mat,
-                           const weight_t* vec,
-                           int32_t nr_row, int32_t nr_col) nogil:
-        cdef int i, row, col
-        for i in range(nr_row):
-            row = i * nr_col
-            for col in range(nr_col):
-                mat[row + col] *= vec[col]
-
-    @staticmethod
-    cdef inline void dot(weight_t* output,
-                         const weight_t* mat,
-                         const weight_t* vec,
-                         int32_t nr_row, int32_t nr_col) nogil:
-        cdef int i, row, col
-        cdef double zero = 0.0
-        cdef int nr_batch = 1
-        IF USE_BLAS:
-            openblas.simple_gemm(output,
-                nr_batch, nr_row,
-                vec, nr_batch, nr_col,
-                mat, nr_row, nr_col, 0, 1)
-        ELSE:
-            for i in range(nr_row):
-                row = i * nr_col
-                for col in range(nr_col):
-                    output[i] += mat[row + col] * vec[col]
-    
-    @staticmethod
-    cdef inline void batch_dot(weight_t* output,
-                         const weight_t* mat,
-                         const weight_t* vec,
-                         int32_t nr_row, int32_t nr_col, int32_t nr_batch) nogil:
-        # Output dim: batch_size * nr_row
-        # vec dim:    batch_size * nr_col
-        # mat dim:    nr_row     * nr_col
-        # batch_size must be M, because can't transpose C
-        # so nr_row must be N
-        # so nr_col must be K
-
-        # vec:   M * K
-        # mat.T: K * N
-        # out:   M * N
-        cdef int i, row, col
-        cdef double one = 1.0
-        IF USE_BLAS:
-            openblas.simple_gemm(output,
-                nr_batch, nr_row,
-                vec, nr_batch, nr_col,
-                mat, nr_row, nr_col, 0, 1)
-        ELSE:
-            for b in range(nr_batch):
-                MatVec.dot(output,
-                    mat, vec, nr_row, nr_col)
-                output += nr_row
-                vec += nr_col
-
-    @staticmethod
-    cdef inline void T_dot(weight_t* output,
-                             const weight_t* mat,
-                             const weight_t* vec,
-                             int32_t nr_row,
-                             int32_t nr_col) nogil:
-        cdef int i, row, col
-        cdef double zero = 0.0
-        cdef double one = 1.0
-        cdef int nr_batch = 1
-        IF USE_BLAS:
-            openblas.simple_gemm(output,
-                nr_batch, nr_row,
-                vec, nr_batch, nr_col,
-                mat, nr_row, nr_col, 0, 1)
-        ELSE:
-            for row in range(nr_row):
-                for col in range(nr_col):
-                    output[col] += vec[row] * mat[(row * nr_col) + col]
-
-    @staticmethod
-    cdef inline void batch_T_dot(weight_t* output,
-                             const weight_t* mat,
-                             const weight_t* vec,
-                             int32_t nr_row,
-                             int32_t nr_col,
-                             int32_t nr_batch) nogil:
-        cdef int _
-        cdef double one = 1.0
-        IF USE_BLAS:
-            # output is (nr_batch, nr_col)
-            # mat is (nr_row, nr_col)
-            # vec is (nr_batch, nr_row)
-            # Output defined as (M, N)
-            # So
-            # nr_batch = M
-            # nr_col = N
-            # nr_row = K
-            #
-            # vec:  M * K
-            # mat:  K * N
-            # out:  M * N
-            openblas.simple_gemm(output,
-                nr_batch, nr_col,
-                vec, nr_batch, nr_row,
-                mat, nr_row, nr_col, 0, 0)
-        ELSE:
-            for _ in range(nr_batch):
-                MatVec.T_dot(output,
-                    mat, vec, nr_row, nr_col)
-                output += nr_col
-                vec += nr_row
-
-
-cdef class MatMat:
-    @staticmethod
-    cdef inline void add(weight_t* output,
-                         const weight_t* x,
-                         const weight_t* y,
-                         int32_t nr_row, int32_t nr_col) nogil:
-        memcpy(output, x, sizeof(output[0]) * nr_row * nr_col)
-        MatMat.add_i(output, y, nr_row, nr_col)
-
-    @staticmethod
-    cdef inline void add_i(weight_t* x,
-                           const weight_t* y,
-                           int32_t nr_row, int32_t nr_col) nogil:
-        cdef int i, row, col
-        for i in range(nr_row):
-            row = i * nr_col
-            for col in range(nr_col):
-                x[row + col] += y[row + col]
-
-    @staticmethod
-    cdef inline void mul(weight_t* output,
-                         const weight_t* x,
-                         const weight_t* y,
-                         int32_t nr_row, int32_t nr_col) nogil:
-        memcpy(output, x, sizeof(output[0]) * nr_row * nr_col)
-        MatMat.mul_i(output, y, nr_row, nr_col)
-
-    @staticmethod
-    cdef inline void mul_i(weight_t* x,
-                           const weight_t* y,
-                           int32_t nr_row, int32_t nr_col) nogil:
-        cdef int i, row, col
-        for i in range(nr_row):
-            row = i * nr_col
-            for col in range(nr_col):
-                x[row + col] *= y[row + col]
-
-    @staticmethod 
-    cdef inline void add_outer_i(weight_t* mat,
-                                 const weight_t* x,
-                                 const weight_t* y,
-                                 int32_t nr_row,
-                                 int32_t nr_col) nogil:
-        cdef int i, j, row
-        cdef double one = 1.0
-        cdef float alpha = 1.0
-        IF USE_BLAS:
-            openblas.simple_ger(mat, nr_row, nr_col,
-                x, nr_row, y, nr_col)
-        ELSE:
-            for i in range(nr_row):
-                row = i * nr_col
-                for j in range(nr_col):
-                    mat[row + j] += x[i] * y[j]
-
-    @staticmethod 
-    cdef inline void batch_add_outer_i(weight_t* output,
-                                 const weight_t* x,
-                                 const weight_t* y,
-                                 int32_t nr_row,
-                                 int32_t nr_col,
-                                 int32_t nr_batch) nogil:
-        # Output dim: nr_row * nr_col
-        # x dim:    batch_size * nr_row
-        # y dim:    batch_size * nr_col
-        # 
-        # Output is M*N (can't transpose)
-        # nr_row = M
-        # nr_col = N
-        # batch_size = K
-
-        # x.T:  M * K
-        # y:    K * N
-        # out:  M * N
-        cdef double one = 1.0
-        IF USE_BLAS:
-            openblas.simple_gemm(output,
-                nr_row, nr_col,
-                x, nr_batch, nr_row,
-                y, nr_row, nr_col, 0, 0)
-        ELSE:
-            for _ in range(nr_batch):
-                for i in range(nr_row):
-                    row = i * nr_col
-                    for j in range(nr_col):
-                        output[row + j] += x[i] * y[j]
-                x += nr_row
-                y += nr_col

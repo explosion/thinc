@@ -18,14 +18,15 @@ cimport numpy as np
 
 from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
-from ..linalg cimport Mat, MatMat, MatVec, VecVec, Vec
 from .util import copy_array, get_array_module
+from ..linalg cimport VecVec, Vec
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from six import integer_types
 
-
-from .. cimport openblas
+cimport blis
+cimport blis.cy
+import blis.py
 
 
 cdef extern from "math.h":
@@ -53,7 +54,7 @@ except ImportError:
 
 
 try:
-    from . import gpu_ops
+    import thinc_gpu_ops as gpu_ops
 except ImportError:
     pass
 
@@ -422,17 +423,13 @@ class NumpyOps(Ops):
             out_array = self.xp.asarray(out)
         assert out_array.shape[0] == m
         assert out_array.shape[1] == n
-        cdef np.ndarray x_
-        cdef np.ndarray y_
-        openblas.simple_gemm(<float*>out_array.data, out_array.shape[0], out_array.shape[1],
-            &x[0,0], x.shape[0], x.shape[1],
-            &y[0,0], y.shape[0], y.shape[1],
-            trans1, trans2)
+        blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
         return out_array
 
     def affine(self, weights, bias, signal):
         dotted = self.gemm(signal, weights, trans2=True)
-        return dotted + bias
+        dotted += bias
+        return dotted
 
     def elu(self, ndarray X, inplace=True):
         cdef weight_t* data = <weight_t*>X.data
