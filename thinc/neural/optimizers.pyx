@@ -67,7 +67,7 @@ class Optimizer(object):
         self.L2 = L2
         self.nesterov = nesterov
         self.decay_steps = decay_steps
-        self.L2_is_weight_decay = l2_is_weight_decay
+        self.L2_is_weight_decay = L2_is_weight_decay
 
     def to_gpu(self):
         self.ops = CupyOps()
