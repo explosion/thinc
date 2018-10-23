@@ -166,11 +166,8 @@ def setup_package():
             license=about['__license__'],
             ext_modules=ext_modules,
             install_requires=[
-<<<<<<< HEAD
                 'blis>=0.1.0,<0.2.0',
                 'thinc_gpu_ops>=0.0.1,<0.1.0',
-=======
->>>>>>> ab89663... Move thinc_gpu_ops into optional extras
                 'numpy>=1.7.0',
                 'msgpack>=0.5.6,<1.0.0',
                 'msgpack-numpy>=0.4.1,<1.0.0',
