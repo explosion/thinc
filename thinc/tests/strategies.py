@@ -1,3 +1,9 @@
+'''
+These helper functions are used to randomly generate input arrays of various
+shapes, for use in property-based testing. They get rather complicated,
+because we need to generate pairs or triples of arrays where the shapes
+have certain relationships. See the hypothesis docs for details.
+'''
 from hypothesis import given, assume
 from hypothesis.strategies import just, tuples, lists, integers, floats
 from hypothesis.extra.numpy import arrays
@@ -148,4 +154,18 @@ def arrays_OPFI_BI_lengths(max_B=5, max_P=3, max_F=5, max_I=8):
             ndarrays_of_shape(opfi_lengths[:-1]),
             ndarrays_of_shape((sum(opfi_lengths[-1]), opfi_lengths[-2])),
             just(opfi_lengths[-1])))
+    return strat
+
+
+def arrays_BI_BI_lengths(max_B=20, max_I=16):
+    shapes = tuples(
+                lengths(hi=max_I),
+                arrays('int32', shape=(5,),
+                    elements=integers(min_value=1, max_value=10)))
+
+    strat = shapes.flatmap(
+        lambda i_lengths: tuples(
+            ndarrays_of_shape((sum(i_lengths[1]), i_lengths[0])),
+            ndarrays_of_shape((sum(i_lengths[1]), i_lengths[0])),
+            just(i_lengths[1])))
     return strat
