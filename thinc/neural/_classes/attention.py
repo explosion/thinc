@@ -1,3 +1,4 @@
+import math
 from ... import describe
 from ...describe import Dimension, Synapses, Gradient
 from .model import Model
@@ -13,45 +14,29 @@ class SelfAttention(Model):
 
     def begin_update(self, X_lengths):
         X, lengths = X_lengths
-        # Let's say we have three inputs, of lengths [10, 12, 3], d=128
-        # X becomes (25, 128)
-        (queries, keys, values, key_lengths), get_dX = self.get_inputs(X)
-        # We attend over a window of 5 words previous, 5 words following.
-        # We project queries and keys down to d=32, values to 64. This gives:
-        # queries: (25, 32)
-        # keys: (sum(kv_lengths), 32)
-        # values: (sum(kv_lengths), 64)
-        attention, backprop_attention = self.get_attention(queries, keys, key_lengths)
-        # Attention table is something like (25, 10), except not all words
-        # will have a full window. Instead the values are concatenated, and
-        # we keep a lengths vector.
-        # The weight attention[i, j] tells us about the pair (X[i], X[i+context[j]]
-        # where context is [-5, -4, -3, -2, -1, 1, 2, 3, 4, 5]
-        weighted = values * attention # (sum(kv_lengths), 54)
-        output = self.ops.sum_pool(weighted, kv_lengths)
+        
+        (queries, keys, values), get_dX = self.project_inputs(X)
+        (attention, alengths), backprop_compare = self.compare(queries, keys, lengths)
+        output, backprop_rescale = self.rescale(values, attention, alengths)
 
         def self_attention_finish_update(d_output, sgd=None):
-            d_weighted = self.ops.backprop_sum_pool(d_output, kv_lengths)
-            d_attention = d_weighted * values
-            d_values    = d_weighted * attention
-            d_queries, d_keys = backprop_attention(d_attention)
-            dX = get_dX(d_queries, d_keys, d_values) if sgd is not None:
+            d_values, d_attention = backprop_rescale(d_output)
+            d_queries, d_keys = backprop_compare(d_attention)
+            dX = get_dX(d_queries, d_keys, d_values)
+            if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradients, key=self._mem.key)
             return dX
         return output, self_attention_finish_update
 
-    def get_inputs(self, X, lengths):
+    def project_inputs(self, X, lengths):
         # Let's say X is (25, 300)
         # If nK=32 and nO=64, we need to project down to 32+32+64=128
         # So we have a weight matrix of shape (300, 128)
         Y = self.ops.gemm(X, self.W) # (25, 128)
-        left_lengths, right_lengths = get_kv_lengths(lengths, self.nL, self.nR)
-        kv_lengths = left_lengths + right_lengths
         queries = Y[:, :self.nK] # Shape (25, 32)
-        # This will be shape (sum(kv_lengths), 32)
-        keys = concat_contexts(Y[:, self.nK:self.nK*2], left_lengths, right_lengths)
+        keys = Y[:, self.nK:self.nK*2]
         # This will be shape (sum(kv_lengths), 64)
-        values = concat_contexts(Y[:, self.nK*2:, left_lengths, right_lengths) 
+        values = Y[:, self.nK*2:]
         def backprop_get_inputs(d_queries, d_keys, d_values):
             dY = self.ops.xp.hstack((d_queries, d_keys, d_values)) # (25, 128)
             # ab,cb->ac
@@ -59,55 +44,79 @@ class SelfAttention(Model):
             # ac,ab->cb
             self.ops.gemm(X, dY, out=self.dW, trans1=True) 
             return dX
-        return (queries, keys, values, kv_lengths), backprop_get_inputs
+        return (queries, keys, values), backprop_get_inputs
 
-    def get_attention(self, queries, keys, lengths):
-        # TODO: Figure out how to do this
-        dotprod = _ragged_dot(self.ops, queries, keys, lengths)
-        # Should get back a vector of shape (N,), representing a ragged
-        # matrix of shape (25, <10)
+    def compare(self, queries, keys, lengths):
+        '''Compare queries and keys according to scaled dot product attention.
+        
+        Queries and keys should be equally-shaped ragged arrays, representing
+        variable length sequences. Typically each row will represent a word.
+
+        We return a ragged matrix which if padded would be of shape:
+        (sum(lengths), window_size)
+        '''
+        (dotprod, dotprod_lengths), backprop_rwd = _ragged_window_dot(
+            self.ops, queries, keys, lengths, self.nW)
         dotprod /= ops.xp.sqrt(self.nK)
-        attention = self.ops.softmax_sequences(dotprod, lengths)
+        attention = self.ops.softmax_sequences(dotprod, dotprod_lengths)
         def backprop_attention(d_attention):
             d_dotprod = self.ops.backprop_softmax_sequences(d_attention,
                                                             attention,
-                                                            lengths)
+                                                            dotprod_lengths)
             d_dotprod /= ops.xp.sqrt(self.nO)
-            # Keys has shape (N, 32), d_dotprod has shape (N, 32)
-            d_queries = self.ops.gemm(keys, d_attention, trans1=True)
-            d_keys = self.ops.gemm(queries, d_attention)
+            d_queries, d_keys = _backprop_rwd(d_dotprod)
             return d_queries, d_keys
-        return attention, backprop_attention
+        return (attention, dotprod_lengths), backprop_attention
+
+    def rescale(self, V, A, window_sizes):
+        '''Perform a weighted sum of values with the attention. Both arrays are ragged.'''
+        raise NotImplementedError
+        #output = self.ops.allocate(V.shape)
+        #for i, window_size in enumerate(window_sizes):
+        #    # TODO: This is wrong -- it doesn't center the window correctly =/
+        #    values = V[start : start + window_size]
+        #    attention = A[start : start + window_size]
+        #    output[i] = (v_window * attention).sum(axis=0)
+        #return output, backprop_rescale
 
 
-def get_kv_lengths(lengths, nL, nR):
-    '''Calculate how much left context and how much right context is available
-    for sequences.'''
-    lefts = numpy.zeros(lengths.shape, dtype='i')
-    rights = numpy.zeros(lengths.shape, dtype='i')
+def _ragged_window_dot(ops, X, Y, lengths, nW):
+    '''Multiply X against context windows of Y, where X and Y are both ragged
+    matrices, representing concatenated sequences. We output a ragged array
+    where each entry is a vector with the dot product of X[i] against the
+    context-window of Y, where the context-window is of variable length'''
+    start = 0
+    output = []
     for i, length in enumerate(lengths):
-        lefts[i] = max(0, i-nL)
-        rights[i] = min(length, i+nR)
-    return lefts, rights
-
-
-def concat_contexts(vectors, left_lengths, right_lengths):
-    '''Create a ragged array with the surrounding contexts. Contexts can be
-    variable length, if only part of the context is available.'''
-    xp = get_array_module(vectors)
-    n = left_lengths.sum() + right_lengths.sum()
-    output = xp.zeros((n, vectors.shape[1]), dtype='f')
-    idx = 0
-    for i in range(vectors.shape[0]):
-        nL = left_lengths[i]
-        nR = right_lengths[i]
-        assert nL <= i
-        assert (i+nR) < vectors.shape[0]
-        output[idx : idx + nL] = vectors[i-nL : i]
-        idx += nL
-        output[idx : idx + nR] = vectors[i+1 : i+nR]
-        idx += nR
-    return output
+        X_ = X[start : start+length]
+        Y_ = Y[start : start+length]
+        for j in range(length):
+            dots = X_[j].dot(Y_[max(j-nW, 0) : j + nW].T)
+            output.append(dots)
+        start += length
+    # We do have to output a ragged array here...If we pad, it'll be frustrating
+    # later, because our softmax will be off due to the padding.
+    out_lengths = ops.asarray([len(out) for out in output])
+    shape = tuple(X.shape)
+    def backprop_ragged_window_dot(d_output):
+        # Imagine we had the simple thing (without the raggedness, window):
+        # output = einsum('nd,nd->nn', X, Y)
+        # dX     = einsum('nn,nd->nd', d_output, Y)
+        # dY     = einsum('nn,nd->nd', d_output, X)
+        # Let w be the window size, and imagine we expanded and padded. Then:
+        # output = einsum('nd,nwd->nw', X, window_Y)
+        # dX     = einsum('nw,nwd->nd', d_output, window_Y)
+        # dY     = einsum('nw,nwd->nd', d_output, window_X)
+        dX = ops.allocate(shape)
+        dY = ops.allocate(shape)
+        d_output_list = ops.unflatten(d_output, out_lengths)
+        for i, d_dots in enumerate(d_output_list):
+            dX_ = X[start : start+length]
+            dY_ = Y[start : start+length]
+            for j in range(length):
+                dX_[j] = TODO(Y_[max(j-nW, 0) : j + nW], d_dots)
+                dY_[max(j-nW, 0) : j+nW] = TODO(X[j], d_dots)
+    return ops.flatten(output), out_lengths
 
 
 @describe.attributes(
@@ -172,5 +181,3 @@ class ParametricAttention(Model):
             dXs         = d_output * attention
             return dXs, d_attention
         return output, apply_attention_bwd
-
-
