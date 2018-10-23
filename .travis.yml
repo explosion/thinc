@@ -21,6 +21,14 @@ install:
 script:
   - python -m pytest thinc --cov=thinc
 
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-6
+    - clang
+
 after_success:
   coveralls
 
