@@ -1,8 +1,6 @@
 language: python
-
 sudo: required
 dist: xenial
-group: edge
 
 
 env:
@@ -15,9 +13,6 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
-
-before_install:
-  export CC="gcc-6"
 
 
 install:
