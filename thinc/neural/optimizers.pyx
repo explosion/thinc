@@ -48,7 +48,7 @@ class Optimizer(object):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
                  decay_steps=5000,
                  b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., gradient_noise=0.0,
-                 nesterov=True):
+                 nesterov=True, L2_is_weight_decay=False):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
@@ -67,6 +67,7 @@ class Optimizer(object):
         self.L2 = L2
         self.nesterov = nesterov
         self.decay_steps = decay_steps
+        self.L2_is_weight_decay = l2_is_weight_decay
 
     def to_gpu(self):
         self.ops = CupyOps()
@@ -100,7 +101,7 @@ class Optimizer(object):
 
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
-        if self.L2 != 0:
+        if self.L2 != 0 and not self.L2_is_weight_decay:
             gradient += self.L2 * weights
         if self.max_grad_norm:
             self.ops.clip_gradient(gradient, self.max_grad_norm)
@@ -117,6 +118,8 @@ class Optimizer(object):
         else:
             weights -= lr_scale * self.alpha * gradient
         gradient.fill(0.)
+        if self.L2 != 0 and self.L2_is_weight_decay:
+            weights -= self.L2 * weights
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
