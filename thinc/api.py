@@ -95,6 +95,14 @@ def flatten_add_lengths(seqs, pad=0, drop=0.):
     X = ops.flatten(seqs, pad=pad)
     return (X, lengths), finish_update
 
+@layerize
+def unflatten(X_lengths, drop=0.):
+    ops = Model.ops
+    X, lengths = X_lengths
+    def finish_update(d_Xs, sgd=None):
+        return ops.flatten(d_Xs)
+    return ops.unflatten(X, lengths), finish_update
+
 
 def remap_ids(ops=None, column=0):
     id_map = {0: 0}
@@ -466,3 +474,9 @@ def foreach_sentence(layer, drop_factor=1.0):
         return output, sentence_bwd
     model = wrap(sentence_fwd, layer)
     return model
+
+
+@layerize
+def position_encode(X, drop=0.):
+    ops = Model.ops
+    return ops.position_encode(X.shape[0], X.shape[1]), None
