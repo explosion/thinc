@@ -25,22 +25,23 @@ class SelfAttention(Model):
         self.nR = nR
         self.nI = nI
 
-    def begin_update(self, X_lengths):
+    def begin_update(self, X_lengths, drop=0.):
         X, lengths = X_lengths
         
         (queries, keys, values), get_dX = self.project_inputs(X, lengths)
         attention, backprop_compare = self.compare(queries, keys, lengths)
-        output, backprop_rescale = self.rescale(values, attention, lengths)
+        output, backprop_rescale = self.rescale(values, attention, lengths,
+                                                self.nL, self.nR)
 
         def self_attention_finish_update(d_output, sgd=None):
             d_values, d_attention = backprop_rescale(d_output)
             d_queries, d_keys = backprop_compare(d_attention)
             dX = get_dX(d_queries, d_keys, d_values)
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradients, key=self._mem.key)
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dX
 
-        return output, self_attention_finish_update
+        return (output, lengths), self_attention_finish_update
 
     def project_inputs(self, X, lengths):
         # Let's say X is (25, 300)
@@ -124,11 +125,12 @@ class SelfAttention(Model):
                 V_ = V[seq_idx : seq_idx + length]
                 dV_ = dV[seq_idx : seq_idx + length]
                 for j in range(length):
+                    d_out_word = d_output[word_idx]
                     values    = V_[max(0, j-nL) : j+nR]
                     attention = A[att_idx : att_idx + values.shape[0]]
                     
-                    dV_[max(0, j-nW) : j+nW]          += attention * d_output[word_idx]
-                    dA[att_idx : att_idx + values.shape[0]] += values    * d_output[word_idx]
+                    dV_[max(0, j-nL) : j+nR] += self.ops.xp.outer(attention, d_out_word)
+                    dA[att_idx : att_idx + values.shape[0]] += (values * d_out_word).sum(axis=-1)
                     word_idx += 1
                     att_idx += values.shape[0]
                 seq_idx += length
