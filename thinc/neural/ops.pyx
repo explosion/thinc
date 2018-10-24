@@ -420,9 +420,12 @@ class NumpyOps(Ops):
         if out is None:
             out_array = self.allocate((m, n))
         else:
+            if out.shape != (m, n):
+                raise ValueError(
+                    "Unexpected shape of output array. " +
+                    "Expected: (%d, %d). " % (m, n) +
+                    "Got: (%d, %d)" % (out.shape[0], out.shape[1]))
             out_array = self.xp.asarray(out)
-        assert out_array.shape[0] == m
-        assert out_array.shape[1] == n
         blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
         return out_array
 

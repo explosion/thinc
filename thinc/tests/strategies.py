@@ -169,3 +169,16 @@ def arrays_BI_BI_lengths(max_B=20, max_I=16):
             ndarrays_of_shape((sum(i_lengths[1]), i_lengths[0])),
             just(i_lengths[1])))
     return strat
+
+
+def arrays_BI_lengths(max_B=20, max_I=16):
+    shapes = tuples(
+                lengths(hi=max_I),
+                arrays('int32', shape=(5,),
+                    elements=integers(min_value=1, max_value=10)))
+
+    strat = shapes.flatmap(
+        lambda i_lengths: tuples(
+            ndarrays_of_shape((sum(i_lengths[1]), i_lengths[0])),
+            just(i_lengths[1])))
+    return strat

@@ -73,15 +73,14 @@ class SelfAttention(Model):
         '''
         (dotprod, dotprod_lengths), backprop_rwd = _ragged_window_dot(
             self.ops, queries, keys, lengths, self.nL, self.nR)
-        dotprod /= ops.xp.sqrt(self.nK)
-        attention = self.ops.softmax_sequences(dotprod, dotprod_lengths)
+        dotprod /= self.ops.xp.sqrt(self.nK)
+        attention = softmax_ragged(self.ops, dotprod, dotprod_lengths)
 
         def backprop_attention(d_attention):
-            d_dotprod = self.ops.backprop_softmax_sequences(d_attention,
-                                                            attention,
-                                                            dotprod_lengths)
-            d_dotprod /= ops.xp.sqrt(self.nO)
-            d_queries, d_keys = _backprop_rwd(d_dotprod)
+            d_dotprod = backprop_softmax_ragged(self.ops, d_attention, attention,
+                                                dotprod_lengths)
+            d_dotprod /= self.ops.xp.sqrt(self.nO)
+            d_queries, d_keys = backprop_rwd(d_dotprod)
             return d_queries, d_keys
 
         return attention, backprop_attention
@@ -133,6 +132,25 @@ class SelfAttention(Model):
         return output, backprop_rescale
 
 
+def softmax_ragged(ops, X, lengths):
+    Y = ops.allocate(X.shape)
+    start = 0
+    for i, length in enumerate(lengths):
+        Y[start : start+length] = ops.softmax(X[start:start+length])
+        start += length
+    return Y
+
+
+def backprop_softmax_ragged(ops, dY, Y, lengths):
+    dX = dY * Y
+    start = 0
+    for i, length in enumerate(lengths):
+        sumdx = dX[start : start+length].sum()
+        dX[start : start+length] -= Y[start : start+length] * sumdx
+        start += length
+    return dX
+    
+
 def _ragged_window_dot(ops, X, Y, lengths, nL, nR):
     '''Multiply X against context windows of Y, where X and Y are both ragged
     matrices, representing concatenated sequences. We output a ragged array
@@ -180,7 +198,7 @@ def _ragged_window_dot(ops, X, Y, lengths, nL, nR):
 
     # We do have to output a ragged array here...If we pad, it'll be frustrating
     # later, because our softmax will be off due to the padding.
-    return ops.flatten(output), out_lengths
+    return (ops.flatten(output), out_lengths), backprop_rwd
 
 
 def _window_dot(X, Y, i, nL, nR):
@@ -191,7 +209,7 @@ def _window_dot(X, Y, i, nL, nR):
     def backprop_window_dot(d_output):
         dXi = einsum('w,wd->d', d_output, Y[start : end])
         d_winY = einsum('w,d->wd', d_output, X[i])
-        return dXi, d_winY
+        return dXi, d_winY.sum(axis=0)
 
     return output, backprop_window_dot
 
