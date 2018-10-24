@@ -96,39 +96,43 @@ class SelfAttention(Model):
         attention weights, and the weights are of varying length at the edge
         of each sequence.
         '''
-        if nW is None:
-            nW = self.nW
         output = self.ops.allocate(V.shape)
-        vidx = 0
-        aidx = 0
+        seq_idx = 0
+        word_idx = 0
+        att_idx = 0
         for i, length in enumerate(lengths):
-            V_ = V[vidx : vidx + length]
+            V_ = V[seq_idx : seq_idx + length]
             for j in range(length):
                 values = V_[max(0, j-nL) : j+nR]
-                attention = A[aidx : aidx + values.shape[0]]
+                attention = A[att_idx : att_idx + values.shape[0]]
+                attention = attention.reshape((attention.size, 1))
                 # set row of d from ((w, d) * (w, d)).sum()
-                output[aidx] = (values * attention).sum(axis=0)
-                aidx += 1
-            vidx += length
+                output[word_idx] = (values * attention).sum(axis=0)
+                word_idx += 1
+                att_idx += values.shape[0]
+            seq_idx += length
 
         V_shape = tuple(V.shape)
         A_shape = tuple(A.shape)
         def backprop_rescale(d_output):
             dV = self.ops.allocate(V_shape)
             dA = self.ops.allocate(A_shape)
+            seq_idx = 0
+            word_idx = 0
+            att_idx = 0
             for i, length in enumerate(lengths):
-                V_ = V[vidx : vidx + length]
-                dV_ = dV[vidx : vidx + length]
+                V_ = V[seq_idx : seq_idx + length]
+                dV_ = dV[seq_idx : seq_idx + length]
                 for j in range(length):
                     values    = V_[max(0, j-nL) : j+nR]
-                    attention = A[aidx : aidx + values.shape[0]]
+                    attention = A[att_idx : att_idx + values.shape[0]]
                     
-                    dV_[max(0, j-nW) : j+nW]          += attention * d_output[aidx]
-                    dA[aidx : aidx + values.shape[0]] += values    * d_output[aidx]
-                    aidx += 1
-                vidx += length
+                    dV_[max(0, j-nW) : j+nW]          += attention * d_output[word_idx]
+                    dA[att_idx : att_idx + values.shape[0]] += values    * d_output[word_idx]
+                    word_idx += 1
+                    att_idx += values.shape[0]
+                seq_idx += length
             return dV, dA
-
         return output, backprop_rescale
 
 
