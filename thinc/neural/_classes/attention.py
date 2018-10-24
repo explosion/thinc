@@ -28,7 +28,7 @@ class SelfAttention(Model):
     def begin_update(self, X_lengths):
         X, lengths = X_lengths
         
-        (queries, keys, values), get_dX = self.project_inputs(X)
+        (queries, keys, values), get_dX = self.project_inputs(X, lengths)
         attention, backprop_compare = self.compare(queries, keys, lengths)
         output, backprop_rescale = self.rescale(values, attention, lengths)
 
@@ -46,7 +46,7 @@ class SelfAttention(Model):
         # Let's say X is (25, 300)
         # If nK=32 and nO=64, we need to project down to 32+32+64=128
         # So we have a weight matrix of shape (300, 128)
-        Y = self.ops.gemm(X, self.W) # (25, 128)
+        Y = self.ops.gemm(X, self.W, trans2=True) # (25, 128)
         queries = Y[:, :self.nK] # Shape (25, 32)
         keys = Y[:, self.nK:self.nK*2]
         # This will be shape (sum(kv_lengths), 64)
@@ -55,9 +55,9 @@ class SelfAttention(Model):
         def backprop_get_inputs(d_queries, d_keys, d_values):
             dY = self.ops.xp.hstack((d_queries, d_keys, d_values)) # (25, 128)
             # ab,cb->ac
-            dX = self.ops.gemm(dY, self.W, trans2=True)
+            dX = self.ops.gemm(dY, self.W)
             # ac,ab->cb
-            self.ops.gemm(X, dY, out=self.dW, trans1=True) 
+            self.ops.gemm(dY, X, out=self.d_W, trans1=True) 
             return dX
 
         return (queries, keys, values), backprop_get_inputs
