@@ -101,7 +101,7 @@ def get_file(fname, origin, untar=False, unzip=False,
         error_msg = 'URL fetch failure on {}: {} -- {}'
         try:
             try:
-                urlretrieve(origin, fpath, dl_progress)
+                urlretrieve(origin, fpath, None)
             except URLError as e:
                 raise Exception(error_msg.format(origin, e.errno, e.reason))
             except HTTPError as e:
