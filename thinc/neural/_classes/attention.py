@@ -3,6 +3,7 @@ from numpy import einsum
 from ... import describe
 from ...describe import Dimension, Synapses, Gradient
 from .model import Model
+from ..util import get_array_module
 
 
 @describe.attributes(
@@ -104,7 +105,8 @@ class SelfAttention(Model):
         for i, length in enumerate(lengths):
             V_ = V[seq_idx : seq_idx + length]
             for j in range(length):
-                values = V_[max(0, j-nL) : j+nR]
+                values = get_window(V_, j, nL, nR)
+                #values = V_[max(0, j-nL) : j+nR+1]
                 attention = A[att_idx : att_idx + values.shape[0]]
                 attention = attention.reshape((attention.size, 1))
                 # set row of d from ((w, d) * (w, d)).sum()
@@ -126,10 +128,12 @@ class SelfAttention(Model):
                 dV_ = dV[seq_idx : seq_idx + length]
                 for j in range(length):
                     d_out_word = d_output[word_idx]
-                    values    = V_[max(0, j-nL) : j+nR]
+                    #values    = V_[max(0, j-nL) : j+nR+1]
+                    values = get_window(V_, j, nL, nR)
                     attention = A[att_idx : att_idx + values.shape[0]]
                     
-                    dV_[max(0, j-nL) : j+nR] += self.ops.xp.outer(attention, d_out_word)
+                    #dV_[max(0, j-nL) : j+nR+1] += self.ops.xp.outer(attention, d_out_word)
+                    inc_window(dV_, j, nL, nR, self.ops.xp.outer(attention, d_out_word))
                     dA[att_idx : att_idx + values.shape[0]] += (values * d_out_word).sum(axis=-1)
                     word_idx += 1
                     att_idx += values.shape[0]
@@ -137,6 +141,21 @@ class SelfAttention(Model):
             return dV, dA
         return output, backprop_rescale
 
+def get_window(X, i, nL, nR):
+    # TODO: This is wrong; we're including the dot-product of the word
+    # against itself.
+    xp = get_array_module(X)
+    lefts = X[max(i-nL, 0) : i]
+    rights = X[i : i+nR+1]
+    return xp.vstack((lefts, rights))
+
+def inc_window(X, i, nL, nR, Y):
+    # TODO: This is wrong; we're including the dot-product of the word
+    # against itself.
+    left_start = max(i-nL, 0)
+    right_end = i+nR+1
+    X[left_start : i] += Y[:i-left_start]
+    X[i : right_end] += Y[i-left_start:]
 
 def softmax_ragged(ops, X, lengths):
     Y = ops.allocate(X.shape)
@@ -208,8 +227,10 @@ def _ragged_window_dot(ops, X, Y, lengths, nL, nR):
 
 
 def _window_dot(X, Y, i, nL, nR):
+    # TODO: This is wrong; we're including the dot-product of the word
+    # against itself.
     start = max(0, i-nL)
-    end = i + nR
+    end = i + nR + 1
     output = einsum('d,wd->w', X[i], Y[start : end])
 
     def backprop_window_dot(d_output):
