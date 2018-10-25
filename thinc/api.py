@@ -137,6 +137,15 @@ def with_getitem(idx, layer):
     return model
 
 
+def getitem(idx):
+    def begin_update(items, drop=0.):
+        def finish_update(dX, sgd=None):
+            return dX
+        return items[idx], finish_update
+    return layerize(begin_update)
+
+
+
 def noop(*layers):
     '''Transform a sequences of layers into a null operation.'''
     def begin_update(X, drop=0.):

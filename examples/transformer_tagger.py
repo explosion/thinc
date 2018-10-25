@@ -17,8 +17,8 @@ from thinc.misc import LayerNorm
 from thinc.misc import Residual
 from thinc.api import with_flatten
 
-from thinc.api import layerize, chain, concatenate, clone, add
-from thinc.api import flatten_add_lengths, unflatten, with_getitem
+from thinc.api import wrap, layerize, chain, concatenate, clone, add
+from thinc.api import flatten_add_lengths, unflatten, with_getitem, getitem
 from thinc.api import position_encode
 from thinc.neural.util import flatten_sequences, remap_ids, to_categorical
 from thinc.neural.util import prefer_gpu
@@ -94,6 +94,15 @@ def debug(X, drop=0.):
     _i += 1
     return X, lambda d, sgd: d
 
+def concatenate_ragged(*layers):
+    model = concatenate(*[chain(layer, getitem(0)) for layer in layers])
+    def begin_update(X_lengths, drop=0.):
+        X, lengths = X_lengths
+        Y, get_dX = model.begin_update(X_lengths, drop=drop)
+        return (Y, lengths), get_dX
+    output = wrap(begin_update, model)
+    return output
+
 
 @plac.annotations(
     width=("Width of the hidden layers", "option", "w", int),
@@ -120,7 +129,7 @@ def main(width=100, depth=4, vector_length=64,
     extracter = FeatureExtracter('es', attrs=[LOWER, SHAPE, PREFIX, SUFFIX])
     Model.lsuv = True
     with Model.define_operators({'**': clone, '>>': chain, '+': add,
-                                 '|': concatenate}):
+            '|': concatenate, '&': concatenate_ragged}):
         lower_case = HashEmbed(width, 100, column=0)
         shape      = HashEmbed(width//2, 200, column=1)
         prefix     = HashEmbed(width//2, 100, column=2)
@@ -132,7 +141,12 @@ def main(width=100, depth=4, vector_length=64,
                 (lower_case | shape | prefix | suffix )
                 >> LayerNorm(Maxout(width, pieces=3))
             )
-            >> SelfAttention(nK=32, nO=width, nI=width, nL=1, nR=1)
+            >> Residual(LayerNorm(concatenate_ragged(
+                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
+                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
+                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
+                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1))
+            ))
             >> with_getitem(0, Softmax(nr_tag))
             >> unflatten
         )
