@@ -141,12 +141,12 @@ def main(width=100, depth=4, vector_length=64,
                 (lower_case | shape | prefix | suffix )
                 >> LayerNorm(Maxout(width, pieces=3))
             )
-            >> Residual(LayerNorm(concatenate_ragged(
+            >> concatenate_ragged(
                 SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
                 SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
                 SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1),
-                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1))
-            ))
+                SelfAttention(nK=16, nO=16, nI=width, nL=1, nR=1)
+            )
             >> with_getitem(0, Softmax(nr_tag))
             >> unflatten
         )
