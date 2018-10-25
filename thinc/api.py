@@ -477,6 +477,14 @@ def foreach_sentence(layer, drop_factor=1.0):
 
 
 @layerize
-def position_encode(X, drop=0.):
+def position_encode(X_lengths, drop=0.):
     ops = Model.ops
-    return ops.position_encode(X.shape[0], X.shape[1]), None
+    X, lengths = X_lengths
+    max_length = max(lengths)
+    encodings = ops.position_encode(max_length, X.shape[1])
+    start = 0
+    output = ops.allocate(X.shape)
+    for length in lengths:
+        output[start : start + length] = X[start : start+length] + encodings[:length]
+        start += length
+    return (output, lengths), None
