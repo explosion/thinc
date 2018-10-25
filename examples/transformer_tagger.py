@@ -1,3 +1,4 @@
+'''Experimental script to test SelfAttention layer.'''
 from __future__ import print_function, division
 import plac
 import numpy
@@ -108,8 +109,8 @@ def debug(X, drop=0.):
     L2=("L2 regularization penalty", "option", "L", float),
 )
 def main(width=100, depth=4, vector_length=64,
-         min_batch_size=1, max_batch_size=32, learn_rate=0.001,
-         momentum=0.9, dropout=0.5, dropout_decay=1e-4,
+         min_batch_size=4, max_batch_size=32, learn_rate=0.001,
+         momentum=0.9, dropout=0.0, dropout_decay=1e-4,
          nb_epoch=20, L2=1e-6):
     cfg = dict(locals())
     print(cfg)
@@ -130,7 +131,6 @@ def main(width=100, depth=4, vector_length=64,
             >> with_getitem(0,
                 (lower_case | shape | prefix | suffix )
                 >> LayerNorm(Maxout(width, pieces=3))
-                >> Residual(position_encode)
             )
             >> SelfAttention(nK=32, nO=width, nI=width, nL=1, nR=1)
             >> with_getitem(0, Softmax(nr_tag))

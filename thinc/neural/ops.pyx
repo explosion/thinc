@@ -751,16 +751,18 @@ class NumpyOps(Ops):
 cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
     cdef float pos, d
     cdef int j
+    cdef float dimensions = D
     for i in range(N):
         pos = i
         j = 0
+        d = 0
         while (j+1) < D:
             d = j
-            output[j]   = sinf(pos / period ** (2 * d / D))
-            output[j+1] = cosf(pos / period ** (2 * d / D))
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
+            output[j+1] = cosf(pos / period ** (2 * d / dimensions))
             j += 2
         if j < D:
-            output[j]   = sinf(pos / period ** (2 * d / D))
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
         output += D
 
 
