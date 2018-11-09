@@ -31,7 +31,6 @@ MOD_NAMES = [
     'thinc.linalg',
     'thinc.structs',
     'thinc.typedefs',
-    'thinc.rates',
     'thinc.linear.avgtron',
     'thinc.linear.features',
     'thinc.linear.serialize',
