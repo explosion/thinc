@@ -41,7 +41,7 @@ def main(nr_col=128):
 
 
 if __name__ == '__main__':
-    if 0:
+    if 1:
         plac.call(main)
     else:
         cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
