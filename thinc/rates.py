@@ -13,7 +13,9 @@ def decaying(base_rate, decay, t=0):
     
         >>> learn_rates = linear_decay(0.001, 1e-4)
         >>> next(learn_rates)
+        0.001
         >>> next(learn_rates)
+        0.00999
     '''
     while True:
         yield base_rate * (1./(1. + decay * t))
