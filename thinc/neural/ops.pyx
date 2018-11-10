@@ -767,7 +767,9 @@ cdef void cpu_layer_norm(weight_t* X, int nr_dim, int nr_row) nogil:
             continue
         sqrt_var = v ** -0.5
         for j in range(nr_dim):
-            X[j] = (X[j] - mu) * sqrt_var
+            X[j] -= mu
+        for j in range(nr_dim):
+            X[j] *= sqrt_var
         X += nr_dim
 
 
