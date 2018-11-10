@@ -735,6 +735,61 @@ class NumpyOps(Ops):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
         return output_
 
+    def layer_norm(self, float[:, ::1] X, np.ndarray out=None):
+        if out is None:
+            out = self.allocate((X.shape[0], X.shape[1]))
+        copy_array(out, X)
+        cpu_layer_norm(<weight_t*>out.data,
+            out.shape[1], out.shape[0])
+        return out
+
+    def backprop_layer_norm(self, float[:, ::1] dXb, float[:, ::1] Xa,
+            np.ndarray out=None):
+        if out is None:
+            out = self.allocate((Xa.shape[0], Xa.shape[1]))
+        cpu_backprop_layer_norm(<weight_t*>out.data,
+            &dXb[0,0], &Xa[0,0], out.shape[1], out.shape[0])
+        return out
+
+
+cdef void cpu_layer_norm(weight_t* X, int nr_dim, int nr_row) nogil:
+    cdef double sqrt_var
+    for i in range(nr_row):
+        mu = Vec.mean(X, nr_dim)
+        v = Vec.variance(X, nr_dim)
+        if mu == 0. and v == 0:
+            X += nr_dim
+            continue
+        sqrt_var = v ** -0.5
+        for j in range(nr_dim):
+            X[j] = (X[j] - mu) * sqrt_var
+        X += nr_dim
+
+
+cdef void cpu_backprop_layer_norm(weight_t* dXa,
+        const weight_t* dXb, const weight_t* Xa, int nr_dim, int nr_row) nogil:
+    cdef double inv_var, inv_sqrt_var, sum_dXb_dist
+    for i in range(nr_row):
+        mu = Vec.mean(Xa, nr_dim)
+        v = Vec.variance(Xa, nr_dim)
+        inv_sqrt_var = v ** (-1./2)
+        inv_var = 1. / v
+        sum_dXb = Vec.sum(dXb, nr_dim)
+        sum_dXb_dist = 0.
+        for j in range(nr_dim):
+            sum_dXb_dist += dXb[j] * (Xa[j]-mu)
+        for j in range(nr_dim):
+            dXa[j] = (
+                nr_dim * dXb[j]
+                - sum_dXb
+                - (Xa[j]-mu) * inv_var * sum_dXb_dist
+            )
+            dXa[j] *= inv_sqrt_var
+            dXa[j] /= nr_dim
+        Xa += nr_dim
+        dXa += nr_dim
+        dXb += nr_dim
+ 
 
 cdef void cpu_scatter_add(float* dest,
         const int* indices, const float* src,
@@ -945,6 +1000,34 @@ class CupyOps(Ops):
             return W
         else:
             return inits
+
+    def layer_norm(self, X, out=None):
+        if out is None:
+            out = self.allocate(X.shape)
+            copy_array(out, X)
+
+        mu = X.mean(axis=1, keepdims=True)
+        var = X.var(axis=1, keepdims=True) + 1e-08
+        out -= mu
+        out *= var ** -0.5
+        return out
+
+    def backprop_layer_norm(self, dY, X, out=None):
+        if out is None:
+            out = self.allocate(X.shape)
+            copy_array(out, dY)
+        mu = X.mean(axis=1, keepdims=True)
+        var = X.var(axis=1, keepdims=True) + 1e-08
+        N = self.asarray([X.shape[1]], dtype='f')
+        dist = X-mu
+        sum_dy = self.xp.sum(dY, axis=1, keepdims=True)
+        sum_dy_dist = self.xp.sum(dY * dist, axis=1, keepdims=True)
+        out *= N
+        out -= sum_dy
+        out -= dist * var**(-1.) * sum_dy_dist
+        out *= var ** (-1. / 2)
+        out /= N
+        return out
 
 
 cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
