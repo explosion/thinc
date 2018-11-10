@@ -721,6 +721,11 @@ class NumpyOps(Ops):
         VecVec.add_i(&weights[0],
             &gradient[0], -learn_rate, weights.shape[0])
         memset(&gradient[0], 0, gradient.size * sizeof(float))
+    
+    def update_averages(self, np.ndarray ema, np.ndarray weights,
+            int t, max_decay=0.9999):
+        cpu_update_averages(<weight_t*>ema.data,
+            <const weight_t*>weights.data, ema.shape[0], t, max_decay)
 
     def ngrams(self, int n, uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
