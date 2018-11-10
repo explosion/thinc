@@ -735,12 +735,17 @@ class NumpyOps(Ops):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
         return output_
 
-    def layer_norm(self, float[:, ::1] X, np.ndarray out=None):
+    def layer_norm(self, np.ndarray X, np.ndarray out=None):
         if out is None:
             out = self.allocate((X.shape[0], X.shape[1]))
-        copy_array(out, X)
-        cpu_layer_norm(<weight_t*>out.data,
-            out.shape[1], out.shape[0])
+            copy_array(out, X)
+        #copy_array(out, X)
+        #cpu_layer_norm(<weight_t*>out.data,
+        #    out.shape[1], out.shape[0])
+        mu = X.mean(axis=1, keepdims=True)
+        var = X.var(axis=1, keepdims=True) + 1e-08
+        out -= mu
+        out *= var ** -0.5
         return out
 
     def backprop_layer_norm(self, float[:, ::1] dXb, float[:, ::1] Xa,
@@ -756,7 +761,7 @@ cdef void cpu_layer_norm(weight_t* X, int nr_dim, int nr_row) nogil:
     cdef double sqrt_var
     for i in range(nr_row):
         mu = Vec.mean(X, nr_dim)
-        v = Vec.variance(X, nr_dim)
+        v = Vec.variance(X, nr_dim) + 1e-8
         if mu == 0. and v == 0:
             X += nr_dim
             continue
