@@ -94,7 +94,7 @@ def remap_ids(ops):
 def copy_array(dst, src, casting='same_kind', where=None):
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
-    elif isinstance(dst, cupy.ndarray):
+    elif is_cupy_array(dst):
         src = cupy.array(src, copy=False)
         cupy.copyto(dst, src)
     else:
