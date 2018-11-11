@@ -32,10 +32,9 @@ def main(nr_col=128):
         pass
     total_Y = 0.
     start = time.time()
-    for i in range(1):
+    for i in range(10):
         for X in Xs:
             Y, get_dX = model.begin_update(X)
-            print(i, Y.sum())
             total_Y += Y.sum()
     end = time.time()
     print(end-start, total_Y)
