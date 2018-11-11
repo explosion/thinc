@@ -42,31 +42,25 @@ class LayerNorm(Model):
 
     def predict(self, X):
         X = self.child.predict(X)
-        N, mu, var = _get_moments(self.ops, X)
-        Xh = _forward(self.ops, X, mu, var)
-        y = Xh * self.G + self.b
-        return y
+        out = self.ops.layer_norm(X)
+        out *= self.G
+        out += self.b
+        return out
 
     def begin_update(self, X, drop=0.):
         X, backprop_child = self.child.begin_update(X, drop=0.)
-        N, mu, var = _get_moments(self.ops, X)
+        Xhat = self.ops.layer_norm(X)
+        Y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
-        Xhat = _forward(self.ops, X, mu, var)
-
-        y, backprop_rescale = self._begin_update_scale_shift(Xhat)
-
-        def finish_update(dy, sgd=None):
-            dy = backprop_rescale(dy, sgd)
-            dist, sum_dy, sum_dy_dist = _get_d_moments(self.ops, dy, X, mu)
-            d_xhat = N * dy - sum_dy - dist * var**(-1.) * sum_dy_dist
-            d_xhat *= var ** (-1. / 2)
-            d_xhat /= N
+        def finish_update(dY, sgd=None):
+            dY = backprop_rescale(dY, sgd)
+            dXhat = self.ops.backprop_layer_norm(dY, X)
             return backprop_child(d_xhat, sgd)
         if drop is not None:
             drop *= getattr(self.child, 'drop_factor', self.ops.asarray([1.0], dtype='f'))
-        y, bp_dropout = self.ops.dropout(y, drop)
-        assert y.dtype == 'float32'
-        return y, bp_dropout(finish_update)
+        Y, bp_dropout = self.ops.dropout(Y, drop)
+        assert Y.dtype == 'float32'
+        return Y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI, sgd=None):
