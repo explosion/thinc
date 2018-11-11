@@ -17,4 +17,3 @@ def test_LayerNorm_init(child):
 def test_LayerNorm_default_name(model):
     assert model.name == 'layernorm'
 
-
