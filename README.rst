@@ -213,8 +213,8 @@ For GPU support, we're grateful to use the work of Chainer's cupy module, which 
     export PATH=$PATH:$CUDA_HOME/bin
     pip install chainer
     python -c "import cupy; assert cupy" # Check it installed
-    pip install thinc
-    python -c "import thinc.neural.gpu_ops" # Check the GPU ops were built
+    pip install thinc_gpu_ops thinc # Or `thinc[cuda]`
+    python -c "import thinc_gpu_ops" # Check the GPU ops were built
 
 The rest of this section describes how to build Thinc from source. If you have
 `Fabric <http://www.fabfile.org>`_ installed, you can use the shortcut:
