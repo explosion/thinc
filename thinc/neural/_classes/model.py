@@ -303,7 +303,10 @@ class Model(object):
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, u'_mem'):
+            # Hack to support saving/loading PyTorch models. TODO: Improve
+            if hasattr(layer, '_model') and not isinstance(layer._model, Model):
+                weights.append(layer.to_bytes())
+            elif hasattr(layer, u'_mem'):
                 weights.append(OrderedDict((
                     (b'dims', OrderedDict(sorted(layer._dims.items()))),
                     (b'params', []))))
@@ -336,7 +339,11 @@ class Model(object):
         queue = [self]
         i = 0
         for layer in queue:
-            if hasattr(layer, '_mem'):
+            # Hack to support saving/loading PyTorch models. TODO: Improve
+            if hasattr(layer, '_model') and not isinstance(layer._model, Model):
+                layer.from_bytes(weights[i])
+                i += 1
+            elif hasattr(layer, '_mem'):
                 if b'seed' in weights[i]:
                     layer.seed = weights[i][b'seed']
                 for dim, value in weights[i][b'dims'].items():
