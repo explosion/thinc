@@ -39,7 +39,7 @@ def make():
 @task
 def sdist():
     with virtualenv(VENV_DIR):
-        with lcd(path.dirname(__file__)):
+        with lcd(PWD):
             local('python setup.py sdist')
 
 @task
