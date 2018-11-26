@@ -6,7 +6,7 @@ from fabtools.python import virtualenv
 from os import path, environ
 
 
-PWD = path.dirname(__file__)
+PWD = path.join(path.dirname(__file__), '..')
 ENV = environ['VENV_DIR'] if 'VENV_DIR' in environ else '.env'
 VENV_DIR = path.join(PWD, ENV)
 
@@ -30,7 +30,7 @@ def install():
 @task
 def make():
     with virtualenv(VENV_DIR):
-        with lcd(path.dirname(__file__)):
+        with lcd(PWD):
             local('pip install cython')
             local('pip install murmurhash')
             local('pip install -r requirements.txt')
@@ -44,12 +44,12 @@ def sdist():
 
 @task
 def clean():
-    with lcd(path.dirname(__file__)):
+    with lcd(PWD):
         local('python setup.py clean --all')
 
 
 @task
 def test():
     with virtualenv(VENV_DIR):
-        with lcd(path.dirname(__file__)):
+        with lcd(PWD):
             local('py.test -x spacy/tests')
