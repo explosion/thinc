@@ -345,9 +345,7 @@ class FeatureExtracter(Model):
     def begin_update(self, docs, drop=0.):
         # Handle spans
         features = [self._get_feats(doc) for doc in docs]
-        def feature_extracter_bwd(d_features, sgd=None):
-            return d_features
-        return features, feature_extracter_bwd
+        return features, _feature_extracter_bwd
 
     def _get_feats(self, doc):
         if hasattr(doc, 'to_array'):
@@ -355,6 +353,10 @@ class FeatureExtracter(Model):
         else:
             arr = doc.doc.to_array(self.attrs)[doc.start:doc.end]
         return self.ops.asarray(arr, dtype='uint64')
+    
+
+def _feature_extracter_bwd(d_features, sgd=None):
+    return d_features
 
 
 def wrap(func, *child_layers):
