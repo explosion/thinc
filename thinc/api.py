@@ -5,68 +5,10 @@ from .neural._classes.model import Model
 from . import check
 from .check import equal_axis
 from . import describe
+from .neural._classes.feature_extracter import FeatureExtracter
+from .neural._classes.function_layer import FunctionLayer
+from .neural._classes.feed_forward import FeedForward
 
-
-class FunctionLayer(Model):
-    '''Wrap functions into weightless Model instances, for use as network
-    components.'''
-    def __init__(self, begin_update, predict=None, predict_one=None,
-            nI=None, nO=None, *args, **kwargs):
-        self.begin_update = begin_update
-        if predict is not None:
-            self.predict = predict
-        if predict_one is not None:
-            self.predict_one = predict_one
-        self.nI = nI
-        self.nO = nO
-        Model.__init__(self)
-
-
-def _run_child_hooks(model, X, y):
-    for layer in model._layers:
-        for hook in layer.on_data_hooks:
-            hook(layer, X, y)
-        X = layer(X)
-
-
-@describe.on_data(_run_child_hooks)
-class FeedForward(Model):
-    '''A feed-forward network, that chains multiple Model instances together.'''
-    name = 'feed-forward'
-    def __init__(self, layers, **kwargs):
-        self._layers = []
-        for layer in layers:
-            if isinstance(layer, FeedForward):
-                self._layers.extend(layer._layers)
-            else:
-                self._layers.append(layer)
-        Model.__init__(self, **kwargs)
-
-    @property
-    def input_shape(self):
-        return self._layers[0].input_shape
-
-    @property
-    def output_shape(self):
-        return self._layers[-1].output_shape
-
-    def predict(self, X):
-        for layer in self._layers:
-            X = layer(X)
-        return X
-
-    def begin_update(self, X, drop=0.):
-        callbacks = []
-        for layer in self._layers:
-            X, inc_layer_grad = layer.begin_update(X, drop=drop)
-            callbacks.append(inc_layer_grad)
-        def continue_update(gradient, sgd=None):
-            for callback in reversed(callbacks):
-                if gradient is None or callback == None:
-                    break
-                gradient = callback(gradient, sgd)
-            return gradient
-        return X, continue_update
 
 def layerize(begin_update=None, predict=None, *args, **kwargs):
     '''Wrap a function into a layer'''
@@ -335,28 +277,6 @@ def get_word_ids(ops, pad=1, token_drop=0., ignore=None):
             seqs.append(ops.asarray(seq, dtype='uint64'))
         return seqs, None
     return layerize(forward)
-
-
-class FeatureExtracter(Model):
-    def __init__(self, attrs):
-        Model.__init__(self)
-        self.attrs = attrs
-    
-    def begin_update(self, docs, drop=0.):
-        # Handle spans
-        features = [self._get_feats(doc) for doc in docs]
-        return features, _feature_extracter_bwd
-
-    def _get_feats(self, doc):
-        if hasattr(doc, 'to_array'):
-            arr = doc.to_array(self.attrs)
-        else:
-            arr = doc.doc.to_array(self.attrs)[doc.start:doc.end]
-        return self.ops.asarray(arr, dtype='uint64')
-    
-
-def _feature_extracter_bwd(d_features, sgd=None):
-    return d_features
 
 
 def wrap(func, *child_layers):
