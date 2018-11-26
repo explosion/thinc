@@ -51,7 +51,7 @@ except NameError:
 #
 # Rules
 #
-def process_pyx(fromfile, tofile):
+def process_pyx(fromfile, tofile, language_level='-2'):
     try:
         from Cython.Compiler.Version import version as cython_version
         from distutils.version import LooseVersion
@@ -61,7 +61,7 @@ def process_pyx(fromfile, tofile):
     except ImportError:
         pass
 
-    flags = ['--fast-fail']
+    flags = ['--fast-fail', language_level]
     if tofile.endswith('.cpp'):
         flags += ['--cplus']
 
