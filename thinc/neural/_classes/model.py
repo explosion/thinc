@@ -334,7 +334,7 @@ class Model(object):
         return msgpack.dumps({b'weights': weights}, use_bin_type=True)
 
     def from_bytes(self, bytes_data):
-        data = msgpack.loads(bytes_data, encoding='utf8')
+        data = msgpack.loads(bytes_data, raw=False)
         weights = data[b'weights']
         queue = [self]
         i = 0
