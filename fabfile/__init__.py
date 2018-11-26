@@ -8,6 +8,8 @@ from fabtools.python import virtualenv
 from . import eg
 from _util import PWD, VENV_DIR
 
+from .build import *
+
 
 @task
 def env():
