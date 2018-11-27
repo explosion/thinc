@@ -1,6 +1,8 @@
 from __future__ import print_function, unicode_literals
 import numpy
+from pathlib import Path
 from preshed.maps import PreshMap
+
 
 try:
     import cupy
@@ -18,9 +20,6 @@ try:
     unicode
 except NameError:
     unicode = str
-
-
-from pathlib import Path
 
 
 def is_cupy_array(arr):
