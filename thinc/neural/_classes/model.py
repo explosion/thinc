@@ -5,6 +5,7 @@ import contextlib
 import msgpack
 import msgpack_numpy
 from collections import OrderedDict
+import dill
 
 msgpack_numpy.patch()
 
@@ -93,6 +94,12 @@ class Model(object):
         for hook in self.on_init_hooks:
             hook(self, *args, **kwargs)
         self.set_id()
+
+    def __getstate__(self):
+        return dill.dumps(self.__dict__)
+
+    def __setstate__(self, state_data):
+        self.__dict__ = dill.loads(state_data)
 
     def _update_defaults(self, args, kwargs):
         new_kwargs = {}
