@@ -34,7 +34,7 @@ def prefer_gpu():
 def require_gpu():
     from ._classes.model import Model
     from .ops import CupyOps
-    if CupyOps.xp is None:
+    if CupyOps.xp is not None:
         raise ValueError(
             "GPU is not accessible. Check your LD_LIBRARY_PATH enironment variable "
             "and check that thinc was installed with GPU, e.g. thinc[cuda]")
