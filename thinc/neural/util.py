@@ -61,7 +61,7 @@ def prefer_gpu():
 def require_gpu():
     from ._classes.model import Model
     from .ops import CupyOps
-    if CupyOps.xp is not None:
+    if CupyOps.xp is None:
         raise ValueError("GPU is not accessible. Was the library installed correctly?")
     Model.Ops = CupyOps
     Model.ops = CupyOps()
