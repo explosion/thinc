@@ -170,7 +170,7 @@ def setup_package():
                 'blis>=0.2.1,<0.3.0',
                 'thinc_gpu_ops>=0.0.1,<0.1.0',
                 'numpy>=1.7.0',
-                'msgpack>=0.5.6,<1.0.0',
+                'msgpack>=0.5.6,<0.6.0',
                 'msgpack-numpy>=0.4.1,<1.0.0',
                 'murmurhash>=0.28.0,<1.1.0',
                 'cymem>=2.0.2,<2.1.0',
