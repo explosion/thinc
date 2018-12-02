@@ -188,6 +188,7 @@ def setup_package():
                 'plac>=0.9.6,<1.0.0',
                 'tqdm>=4.10.0,<5.0.0',
                 'six>=1.10.0,<2.0.0',
+                'wasabi>=0.0.9,<1.1.0',
                 'srsly>=0.0.4,<1.1.0',
                 'pathlib==1.0.1; python_version < "3.4"',
             ],
