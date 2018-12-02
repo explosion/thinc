@@ -2,7 +2,7 @@ from __future__ import division
 
 import numpy
 import pytest
-import pickle
+from srsly import cloudpickle as pickle
 import io
 
 from ...linear.linear import LinearModel

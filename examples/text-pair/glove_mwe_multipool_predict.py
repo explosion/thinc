@@ -16,7 +16,7 @@ except (ImportError, OSError):
 import plac
 import spacy
 from pathlib import Path
-import dill as pickle
+from srsly import cloudpickle as pickle
 
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow

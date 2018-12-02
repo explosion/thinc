@@ -3,7 +3,7 @@ import plac
 import numpy
 import time
 from timeit import default_timer as timer
-import dill as pickle
+from srsly import cloudpickle as pickle
 
 import spacy
 from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE

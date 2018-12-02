@@ -2,7 +2,7 @@ import numpy
 import numpy.random
 import copy
 import itertools
-import dill
+import srsly
 import tqdm
 
 
@@ -100,7 +100,7 @@ def resample(curr, min_, max_, temperature):
 
 def train_epoch(model, sgd, hparams, train_X, train_y, dev_X, dev_y, device_id=-1,
                 temperature=0.0):
-    model, sgd, hparams = dill.loads(dill.dumps((model, sgd, hparams)))
+    model, sgd, hparams = srsly.pickle_loads(srsly.pickle_dumps((model, sgd, hparams)))
     if device_id >= 0:
         device = model.to_gpu(device_id)
         sgd.ops = model.ops
