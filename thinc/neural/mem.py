@@ -1,5 +1,7 @@
-from numpy import prod
+# coding: utf8
+from __future__ import unicode_literals
 
+from numpy import prod
 
 from .. import check
 from ..check import is_shape
@@ -17,11 +19,11 @@ class Memory(object):
 
     @property
     def weights(self):
-        return self._mem[0, :self._i]
+        return self._mem[0, : self._i]
 
     @property
     def gradient(self):
-        return self._mem[1, :self._i]
+        return self._mem[1, : self._i]
 
     def __contains__(self, name):
         return name in self._offsets
@@ -35,7 +37,7 @@ class Memory(object):
         return self[name] if name in self._offsets else default
 
     def set(self, value):
-        self._mem[0, :self._i] = value
+        self._mem[0, : self._i] = value
 
     @check.arg(2, is_shape)
     def add(self, name, shape):
@@ -55,7 +57,7 @@ class Memory(object):
         return self._mem[1, offset : offset + size].reshape(shape)
 
     def _get_blob(self, nr_req):
-        nr_avail = self._mem.shape[1] - (self._i+1)
+        nr_avail = self._mem.shape[1] - (self._i + 1)
         if nr_avail < nr_req:
             self._realloc(max(self._mem.shape[1], nr_req) * 2)
         blob = self._mem[:, self._i : self._i + nr_req]
@@ -64,8 +66,9 @@ class Memory(object):
 
     def _realloc(self, new_size):
         new_mem = self.ops.allocate((self._mem.shape[0], new_size))
-        new_mem[:, :self._i+1] = self._mem[:, :self._i+1]
+        new_mem[:, : self._i + 1] = self._mem[:, : self._i + 1]
         self._mem = new_mem
+
 
 #
 #    def merge_params(self, others):

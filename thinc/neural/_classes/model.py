@@ -1,24 +1,24 @@
-from __future__ import division, unicode_literals
-from numpy import prod
+# coding: utf8
+from __future__ import unicode_literals, division
+
 import numpy
 import contextlib
 from collections import OrderedDict
 import srsly
 
-
 from .. import util
 from ..train import Trainer
 from ..ops import NumpyOps, CupyOps
 from ..mem import Memory
-from ..util import get_ops, copy_array, ensure_path
+from ..util import get_ops, copy_array
 from ... import check
-from ... import describe
-from ...check import equal_length, has_shape, is_sequence, is_float, is_array
+from ...check import has_shape, is_sequence, is_float
 
 
 class Model(object):
-    '''Model base class.'''
-    name = 'model'
+    """Model base class."""
+
+    name = "model"
     id = 0
     lsuv = False
     ops = NumpyOps()
@@ -27,13 +27,13 @@ class Model(object):
     drop_factor = 1.0
     descriptions = []
     on_data_hooks = []
-    on_init_hooks = [] # Use this to add layers
+    on_init_hooks = []  # Use this to add layers
     _operators = {}
 
     @classmethod
     @contextlib.contextmanager
     def define_operators(cls, operators):
-        '''Bind operators to specified functions for the scope of the context:
+        """Bind operators to specified functions for the scope of the context:
 
         Example
         -------
@@ -45,7 +45,7 @@ class Model(object):
                 # "plus"
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
-        '''
+        """
         old_ops = dict(cls._operators)
         for op, func in operators.items():
             cls._operators[op] = func
@@ -55,7 +55,7 @@ class Model(object):
     @classmethod
     @contextlib.contextmanager
     def use_device(cls, device):
-        '''Change the device to execute on for the scope of the block.'''
+        """Change the device to execute on for the scope of the block."""
         if device == cls.ops.device:
             yield
         else:
@@ -80,7 +80,7 @@ class Model(object):
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._dims = {}
-        if not hasattr(self, '_layers'):
+        if not hasattr(self, "_layers"):
             self._layers = []
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
@@ -113,7 +113,7 @@ class Model(object):
         for layer in self._layers:
             layer.set_id()
 
-    #@check.args(equal_length)
+    # @check.args(equal_length)
     @check.arg(1, is_sequence)
     def begin_training(self, train_X, train_y=None, **trainer_cfg):
         for hook in self.on_data_hooks:
@@ -121,7 +121,7 @@ class Model(object):
         return self.Trainer(self, **trainer_cfg)
 
     @check.arg(2, is_float)
-    @check.arg(1, has_shape(('nB', 'nI')))
+    @check.arg(1, has_shape(("nB", "nI")))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
@@ -134,14 +134,14 @@ class Model(object):
         return self.predict(X)[0]
 
     @contextlib.contextmanager
-    def use_params(self, params): # pragma: no cover
+    def use_params(self, params):  # pragma: no cover
         backup = None
         weights = self._mem.weights
         if self.id in params:
             param = params[self.id]
             backup = weights.copy()
             copy_array(weights, param)
-        if hasattr(self, '_layers'):
+        if hasattr(self, "_layers"):
             contexts = [layer.use_params(params) for layer in self._layers]
             for context in contexts:
                 next(context.gen)
@@ -157,11 +157,11 @@ class Model(object):
                 pass
 
     def __call__(self, x):
-        '''
+        """
         x
             Must match expected type
             Must match expected shape
-        '''
+        """
         return self.predict(x)
 
     def pipe(self, stream, batch_size=128):
@@ -178,16 +178,17 @@ class Model(object):
 
     def to_gpu(self, device_num):
         import cupy.cuda.device
+
         device = cupy.cuda.device.Device(device_num)
         device.use()
         queue = [self]
         for layer in queue:
             layer.ops = CupyOps()
             layer.Ops = CupyOps
-            if hasattr(layer, u'_mem'):
+            if hasattr(layer, "_mem"):
                 layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
                 layer._mem.ops = layer.ops
-            if hasattr(layer, u'_layers'):
+            if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
         return device
 
@@ -196,23 +197,23 @@ class Model(object):
         for layer in queue:
             layer.ops = NumpyOps()
             layer.Ops = NumpyOps
-            if hasattr(layer, u'_mem'):
-                if hasattr(layer._mem._mem, 'get'):
+            if hasattr(layer, "_mem"):
+                if hasattr(layer._mem._mem, "get"):
                     layer._mem._mem = layer._mem._mem.get()
                 layer._mem.ops = layer.ops
-            if hasattr(layer, u'_layers'):
+            if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
 
     def evaluate(self, X, y):
-        '''
+        """
         x
             Must match expected type
             Must match expected shape
         y
             Must match expected type
-        '''
+        """
         scores = self.ops.flatten(list(self.pipe(X)))
-        if not hasattr(y, 'shape'):
+        if not hasattr(y, "shape"):
             y = self.ops.flatten(y)
         scores = scores.reshape(y.shape)
         if len(scores.shape) == 1:
@@ -229,78 +230,80 @@ class Model(object):
         if maximum is not None:
             yh = self.ops.xp.minimum(yh, maximum)
         assert len(yh.shape) == 1
-        losses = -y * self.ops.xp.log(yh + 1e-8) - (1-y) * self.ops.xp.log((1-yh)+1e-8)
+        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
+            (1 - yh) + 1e-8
+        )
         return losses.mean()
 
-    @check.operator_is_defined('+')
+    @check.operator_is_defined("+")
     def __add__(self, other):
-        '''Apply the function bound to the '+' operator.'''
-        return self._operators['+'](self, other)
+        """Apply the function bound to the '+' operator."""
+        return self._operators["+"](self, other)
 
-    @check.operator_is_defined('-')
+    @check.operator_is_defined("-")
     def __sub__(self, other):
-        '''Apply the function bound to the '-' operator.'''
-        return self._operators['-'](self, other)
+        """Apply the function bound to the '-' operator."""
+        return self._operators["-"](self, other)
 
-    @check.operator_is_defined('*')
+    @check.operator_is_defined("*")
     def __mul__(self, other):
-        '''Apply the function bound to the '*' operator.'''
-        return self._operators['*'](self, other)
+        """Apply the function bound to the '*' operator."""
+        return self._operators["*"](self, other)
 
-    @check.operator_is_defined('@')
+    @check.operator_is_defined("@")
     def __matmul__(self, other):
-        '''Apply the function bound to the '@' operator.'''
-        return self._operators['@'](self, other)
+        """Apply the function bound to the '@' operator."""
+        return self._operators["@"](self, other)
 
-    @check.operator_is_defined('/')
+    @check.operator_is_defined("/")
     def __div__(self, other):
-        '''Apply the function bound to the '/' operator.'''
-        return self._operators['/'](self, other)
+        """Apply the function bound to the '/' operator."""
+        return self._operators["/"](self, other)
 
-    @check.operator_is_defined('/')
-    def __truediv__(self, other): # pragma: no cover
-        '''Apply the function bound to the '/' operator.'''
-        return self._operators['/'](self, other)
+    @check.operator_is_defined("/")
+    def __truediv__(self, other):  # pragma: no cover
+        """Apply the function bound to the '/' operator."""
+        return self._operators["/"](self, other)
 
-    @check.operator_is_defined('//')
+    @check.operator_is_defined("//")
     def __floordiv__(self, other):
-        '''Apply the function bound to the '//' operator.'''
-        return self._operators['//'](self, other)
+        """Apply the function bound to the '//' operator."""
+        return self._operators["//"](self, other)
 
-    @check.operator_is_defined('%')
+    @check.operator_is_defined("%")
     def __mod__(self, other):
-        '''Apply the function bound to the '%' operator.'''
-        return self._operators['%'](self, other)
+        """Apply the function bound to the '%' operator."""
+        return self._operators["%"](self, other)
 
-    @check.operator_is_defined('**')
+    @check.operator_is_defined("**")
     def __pow__(self, other, modulo=None):
-        '''Apply the function bound to the '**' operator.'''
-        return self._operators['**'](self, other)
+        """Apply the function bound to the '**' operator."""
+        return self._operators["**"](self, other)
 
-    @check.operator_is_defined('<<')
+    @check.operator_is_defined("<<")
     def __lshift__(self, other):
-        '''Apply the function bound to the '<<' operator.'''
-        return self._operators['<<'](self, other)
+        """Apply the function bound to the '<<' operator."""
+        return self._operators["<<"](self, other)
 
-    @check.operator_is_defined('>>')
+    @check.operator_is_defined(">>")
     def __rshift__(self, other):
-        '''Apply the function bound to the '>>' operator.'''
-        return self._operators['>>'](self, other)
+        """Apply the function bound to the '>>' operator."""
+        return self._operators[">>"](self, other)
 
-    @check.operator_is_defined('&')
+    @check.operator_is_defined("&")
     def __and__(self, other):
-        '''Apply the function bound to the '&' operator.'''
-        return self._operators['&'](self, other)
+        """Apply the function bound to the '&' operator."""
+        return self._operators["&"](self, other)
 
-    @check.operator_is_defined('^')
+    @check.operator_is_defined("^")
     def __xor__(self, other):
-        '''Apply the function bound to the '^' operator.'''
-        return self._operators['^'](self, other)
+        """Apply the function bound to the '^' operator."""
+        return self._operators["^"](self, other)
 
-    @check.operator_is_defined('|')
+    @check.operator_is_defined("|")
     def __or__(self, other):
-        '''Apply the function bound to the '|' operator.'''
-        return self._operators['|'](self, other)
+        """Apply the function bound to the '|' operator."""
+        return self._operators["|"](self, other)
 
     def to_bytes(self):
         weights = []
@@ -308,14 +311,19 @@ class Model(object):
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, '_model') and not isinstance(layer._model, Model):
+            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
                 weights.append(layer.to_bytes())
-            elif hasattr(layer, u'_mem'):
-                weights.append(OrderedDict((
-                    (b'dims', OrderedDict(sorted(layer._dims.items()))),
-                    (b'params', []))))
-                if hasattr(layer, u'seed'):
-                    weights[-1][b'seed'] = layer.seed
+            elif hasattr(layer, "_mem"):
+                weights.append(
+                    OrderedDict(
+                        (
+                            (b"dims", OrderedDict(sorted(layer._dims.items()))),
+                            (b"params", []),
+                        )
+                    )
+                )
+                if hasattr(layer, "seed"):
+                    weights[-1][b"seed"] = layer.seed
 
                 offsets = sorted(layer._mem._offsets.items())
                 for (id_, name), (start, row, shape) in offsets:
@@ -324,54 +332,56 @@ class Model(object):
                     param = layer._mem.get((id_, name))
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
-                    weights[-1][b'params'].append(
-                        OrderedDict((
-                            (b'name', name),
-                            (b'offset', start),
-                            (b'shape', shape),
-                            (b'value', param),
-                        ))
+                    weights[-1][b"params"].append(
+                        OrderedDict(
+                            (
+                                (b"name", name),
+                                (b"offset", start),
+                                (b"shape", shape),
+                                (b"value", param),
+                            )
+                        )
                     )
                 i += 1
-            if hasattr(layer, u'_layers'):
+            if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
-        return srsly.msgpack_dumps({b'weights': weights})
+        return srsly.msgpack_dumps({b"weights": weights})
 
     def from_bytes(self, bytes_data):
         data = srsly.msgpack_loads(bytes_data)
-        weights = data[b'weights']
+        weights = data[b"weights"]
         queue = [self]
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, '_model') and not isinstance(layer._model, Model):
+            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
                 layer.from_bytes(weights[i])
                 i += 1
-            elif hasattr(layer, '_mem'):
-                if b'seed' in weights[i]:
-                    layer.seed = weights[i][b'seed']
-                for dim, value in weights[i][b'dims'].items():
+            elif hasattr(layer, "_mem"):
+                if b"seed" in weights[i]:
+                    layer.seed = weights[i][b"seed"]
+                for dim, value in weights[i][b"dims"].items():
                     if isinstance(dim, bytes):
-                        dim = dim.decode('utf8')
+                        dim = dim.decode("utf8")
                     setattr(layer, dim, value)
-                for param in weights[i][b'params']:
-                    name = param[b'name']
+                for param in weights[i][b"params"]:
+                    name = param[b"name"]
                     if isinstance(name, bytes):
-                        name = name.decode('utf8')
+                        name = name.decode("utf8")
                     dest = getattr(layer, name)
-                    copy_array(dest, param[b'value'])
+                    copy_array(dest, param[b"value"])
                 i += 1
-            if hasattr(layer, '_layers'):
+            if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
         return self
 
     def to_disk(self, path):
         path = util.ensure_path(path)
-        with path.open('wb') as file_:
+        with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
     def from_disk(self, path):
         path = util.ensure_path(path)
-        with path.open('rb') as file_:
+        with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)

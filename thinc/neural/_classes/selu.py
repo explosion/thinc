@@ -1,18 +1,9 @@
-from .affine import Affine
-from ... import describe
-from ...describe import Dimension, Synapses, Biases
-from ... import check
-from ...describe import Dimension, Synapses, Biases
-from ...check import has_shape
+# coding: utf8
+from __future__ import unicode_literals
 
-from .model import Model
 from ... import describe
+from .model import Model
 from ...describe import Dimension, Synapses, Biases, Gradient
-from ..mem import Memory
-from ... import check
-from ...check import has_shape
-from .._lsuv import LSUVinit
-from ..util import copy_array
 
 
 def _set_dimensions_if_needed(model, X, y=None):
@@ -30,16 +21,17 @@ def _set_dimensions_if_needed(model, X, y=None):
     nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
     nO=Dimension("Output size"),
-    W=Synapses("Weights matrix",
+    W=Synapses(
+        "Weights matrix",
         lambda obj: (obj.nO, obj.nI),
-        lambda W, ops: ops.normal_init(W, W.shape[-1])),
-    b=Biases("Bias vector",
-        lambda obj: (obj.nO,)),
+        lambda W, ops: ops.normal_init(W, W.shape[-1]),
+    ),
+    b=Biases("Bias vector", lambda obj: (obj.nO,)),
     d_W=Gradient("W"),
-    d_b=Gradient("b")
+    d_b=Gradient("b"),
 )
 class SELU(Model):
-    name = 'selu'
+    name = "selu"
 
     @property
     def input_shape(self):
@@ -53,19 +45,20 @@ class SELU(Model):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.nI = nI
-        self.drop_factor = kwargs.get('drop_factor', 1.0)
+        self.drop_factor = kwargs.get("drop_factor", 1.0)
 
     def predict(self, input__bi):
         output__bo = self.ops.affine(self.W, self.b, input__bi)
         self.ops.selu(output__bo, inplace=True)
         return output__bo
 
-    def begin_update(self, input__bi, drop=0.):
+    def begin_update(self, input__bi, drop=0.0):
         output__bo = self.predict(input__bi)
-        output_copy = self.ops.xp.ascontiguousarray(output__bo, dtype='f')
+        output_copy = self.ops.xp.ascontiguousarray(output__bo, dtype="f")
         self.ops.selu(output_copy, inplace=True)
+
         def finish_update(grad__bo, sgd=None):
-            grad__bo = self.ops.xp.ascontiguousarray(grad__bo, dtype='f')
+            grad__bo = self.ops.xp.ascontiguousarray(grad__bo, dtype="f")
             self.ops.backprop_selu(grad__bo, output_copy, inplace=True)
             self.d_W += self.ops.batch_outer(grad__bo, input__bi)
             self.d_b += grad__bo.sum(axis=0)
@@ -73,6 +66,7 @@ class SELU(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return grad__BI
+
         if drop is not None:
             drop *= self.drop_factor
         return self.dropout(output__bo, finish_update, drop)
@@ -81,11 +75,13 @@ class SELU(Model):
         if drop <= 0:
             return X, finish_update
         alpha = -1.75809934
-        q = 1. - drop
-        a = (q * (1. + alpha * alpha * (1.-q))) ** -0.5
-        b = -a * (1.-q) * alpha
-        mask = self.ops.xp.random.uniform(0., 1., X.shape)
+        q = 1.0 - drop
+        a = (q * (1.0 + alpha * alpha * (1.0 - q))) ** -0.5
+        b = -a * (1.0 - q) * alpha
+        mask = self.ops.xp.random.uniform(0.0, 1.0, X.shape)
+
         def backprop_selu_dropout(d_dropped, sgd=None):
             return finish_update(a * d_dropped * mask, sgd=sgd)
+
         dropped = self.ops.xp.where(mask >= drop, X, alpha)
         return a * dropped + b, backprop_selu_dropout

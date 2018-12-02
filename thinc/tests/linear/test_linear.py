@@ -1,9 +1,8 @@
-from __future__ import division
+# coding: utf8
+from __future__ import unicode_literals, division
 
 import numpy
 import pytest
-from srsly import cloudpickle as pickle
-import io
 
 from ...linear.linear import LinearModel
 from ...neural.optimizers import SGD
@@ -13,11 +12,11 @@ from ...neural.util import to_categorical
 
 @pytest.fixture
 def instances():
-    lengths = numpy.asarray([5,4], dtype='int32')
-    keys = numpy.arange(9, dtype='uint64')
-    values = numpy.ones(9, dtype='float')
+    lengths = numpy.asarray([5, 4], dtype="int32")
+    keys = numpy.arange(9, dtype="uint64")
+    values = numpy.ones(9, dtype="float")
     X = (keys, values, lengths)
-    y = numpy.asarray([0,2], dtype='int32')
+    y = numpy.asarray([0, 2], dtype="int32")
     return X, to_categorical(y, nb_classes=3)
 
 
@@ -25,21 +24,23 @@ def instances():
 def sgd():
     return SGD(NumpyOps(), 0.001)
 
+
 @pytest.mark.xfail
 def test_basic(instances, sgd):
     X, y = instances
     nr_class = 3
     model = LinearModel(nr_class)
     yh, backprop = model.begin_update(X)
-    loss1 = ((yh-y)**2).sum()
-    backprop(yh-y, sgd)
+    loss1 = ((yh - y) ** 2).sum()
+    backprop(yh - y, sgd)
     yh, backprop = model.begin_update(X)
-    loss2 = ((yh-y)**2).sum()
+    loss2 = ((yh - y) ** 2).sum()
     assert loss2 < loss1
     print(loss2, loss1)
 
-#@pytest.fixture
-#def model(instances):
+
+# @pytest.fixture
+# def model(instances):
 #    templates = []
 #    for batch in instances:
 #        for _, feats in batch:
@@ -54,7 +55,7 @@ def test_basic(instances, sgd):
 #                model.update_weight(key, clas, value)
 #    return model
 #
-#def get_score(nr_class, model, feats, clas):
+# def get_score(nr_class, model, feats, clas):
 #    eg = Example(nr_class)
 #    eg.features = feats
 #    eg.costs = [i != clas for i in range(nr_class)]
@@ -62,14 +63,14 @@ def test_basic(instances, sgd):
 #    return eg.scores[clas]
 #
 #
-#def get_scores(nr_class, model, feats):
+# def get_scores(nr_class, model, feats):
 #    eg = Example(nr_class)
 #    eg.features = feats
 #    model(eg)
 #    return list(eg.scores)
 #
 #
-#def test_averaging(model):
+# def test_averaging(model):
 #    model.end_training()
 #    nr_class = 4
 #    # Feature 1
@@ -94,7 +95,7 @@ def test_basic(instances, sgd):
 #    assert_near_eq(get_score(nr_class, model, {5: 1}, 3), sum([0, 0, -7]) / 3.0)
 #
 #
-#def test_dump_load(model):
+# def test_dump_load(model):
 #    loc = tempfile.mkstemp()[1]
 #    model.end_training()
 #    model.dump(loc)

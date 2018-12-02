@@ -1,8 +1,10 @@
-'''Test feature extracter.'''
+# coding: utf8
 from __future__ import unicode_literals
 
-from ...api import FeatureExtracter
 from srsly import cloudpickle as pickle
+
+from ...neural._classes.feature_extracter import FeatureExtracter
+
 
 def test_pickle():
     model = FeatureExtracter([100, 200])

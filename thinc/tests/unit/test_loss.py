@@ -8,7 +8,7 @@ from numpy import ndarray
 from ...loss import categorical_crossentropy
 
 
-@pytest.mark.parametrize('shape,labels', [([100, 100, 100], [-1, -1, -1])])
+@pytest.mark.parametrize("shape,labels", [([100, 100, 100], [-1, -1, -1])])
 def test_loss(shape, labels):
     scores = MagicMock(spec=ndarray, shape=shape)
     loss = categorical_crossentropy(scores, labels)

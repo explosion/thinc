@@ -1,11 +1,33 @@
+# coding: utf8
 from __future__ import unicode_literals, print_function
-import sys
 
-print("Warning: The code here might be broken --- the results don't seem right")
+# Warning: The code here might be broken --- the results don't seem right
+
+import sys
+import plac
+from pathlib import Path
+from srsly import cloudpickle as pickle
+
+from thinc.v2v import Model, Maxout
+from thinc.t2v import Pooling, mean_pool, max_pool
+from thinc.i2v import HashEmbed, StaticVectors
+from thinc.t2t import ExtractWindow
+from thinc.neural._classes.difference import Siamese, CauchySimilarity
+from thinc.misc import LayerNorm as LN
+from thinc.misc import Residual
+from thinc.neural.ops import CupyOps
+
+from thinc.api import layerize, with_getitem, flatten_add_lengths
+from thinc.api import add, chain, clone, concatenate, get_word_ids
+
+from thinc.extra import datasets
+from thinc.extra.load_nlp import get_spacy
+
 
 try:
     import spacy
-    spacy.load('en')
+
+    spacy.load("en")
 except (ImportError, OSError):
     print("Missing dependency: spacy. Try:")
     print("pip install spacy")
@@ -13,67 +35,53 @@ except (ImportError, OSError):
     print("python -m spacy link en_vectors_web_lg en")
     sys.exit(1)
 
-import plac
-import spacy
-from pathlib import Path
-from srsly import cloudpickle as pickle
-import numpy
 
-from thinc.v2v import Model, ReLu, Softmax, Maxout
-from thinc.t2v import Pooling, mean_pool, max_pool
-from thinc.i2v import HashEmbed, StaticVectors
-from thinc.t2t import ExtractWindow
-from thinc.neural._classes.difference import Siamese, CauchySimilarity
-from thinc.neural.util import to_categorical
-from thinc.misc import BatchNorm as BN
-from thinc.misc import LayerNorm as LN
-from thinc.misc import Residual
-from thinc.neural.ops import CupyOps
-
-from thinc.api import layerize, with_flatten, with_getitem, flatten_add_lengths
-from thinc.api import add, chain, clone, concatenate, Arg, get_word_ids
-
-from thinc.extra import datasets
-from thinc.extra.load_nlp import get_spacy, get_vectors
-
-
-epoch_train_acc = 0.
+epoch_train_acc = 0.0
 epoch = 0
+
+
+print("Warning: The code here might be broken --- the results don't seem right")
+
+
 def track_progress(**context):
-    '''Print training progress. Called after each epoch.'''
-    model = context['model']
-    train_X = context['train_X']
-    dev_X = context['dev_X']
-    dev_y = context['dev_y']
+    """Print training progress. Called after each epoch."""
+    model = context["model"]
+    train_X = context["train_X"]
+    dev_X = context["dev_X"]
+    dev_y = context["dev_y"]
     n_train = len(train_X)
-    trainer = context['trainer']
+    trainer = context["trainer"]
+
     def each_epoch():
         global epoch_train_acc, epoch
         with model.use_params(trainer.optimizer.averages):
             avg_acc = model.evaluate_logloss(dev_X, dev_y)
         stats = (avg_acc, float(epoch_train_acc) / n_train, trainer.dropout)
         print("%.3f dev acc, %.3f train acc, %.4f drop" % stats)
-        epoch_train_acc = 0.
+        epoch_train_acc = 0.0
         epoch += 1
+
     return each_epoch
 
 
 def preprocess(ops, nlp, rows, get_ids):
-    '''Parse the texts with spaCy. Make one-hot vectors for the labels.'''
+    """Parse the texts with spaCy. Make one-hot vectors for the labels."""
     Xs = []
     ys = []
     for (text1, text2), label in rows:
         Xs.append((get_ids([nlp(text1)])[0], get_ids([nlp(text2)])[0]))
         ys.append(label)
-    return Xs, ops.asarray(ys, dtype='float32')
+    return Xs, ops.asarray(ys, dtype="float32")
 
 
 @layerize
-def logistic(X, drop=0.):
+def logistic(X, drop=0.0):
     ops = Model.ops
-    y = 1. / (1. + ops.xp.exp(-X))
+    y = 1.0 / (1.0 + ops.xp.exp(-X))
+
     def backward(dy, sgd=None):
-        return dy * y * (1-y)
+        return dy * y * (1 - y)
+
     return y, backward
 
 
@@ -94,12 +102,27 @@ def logistic(X, drop=0.):
     pooling=("Which pooling to use", "option", "P", str),
     job_id=("Job ID for Neptune", "option", "J"),
     rest_api_url=("REST API URL", "option", "R"),
-    ws_api_url=("WS API URL", "option", "W")
+    ws_api_url=("WS API URL", "option", "W"),
 )
-def main(dataset='quora', width=200, depth=2, min_batch_size=1,
-        max_batch_size=512, dropout=0.2, dropout_decay=0.0, pooling="mean+max",
-        nb_epoch=5, pieces=3, L2=0.0, use_gpu=False, out_loc=None, quiet=False,
-        job_id=None, ws_api_url=None, rest_api_url=None):
+def main(
+    dataset="quora",
+    width=200,
+    depth=2,
+    min_batch_size=1,
+    max_batch_size=512,
+    dropout=0.2,
+    dropout_decay=0.0,
+    pooling="mean+max",
+    nb_epoch=5,
+    pieces=3,
+    L2=0.0,
+    use_gpu=False,
+    out_loc=None,
+    quiet=False,
+    job_id=None,
+    ws_api_url=None,
+    rest_api_url=None,
+):
     cfg = dict(locals())
 
     if out_loc:
@@ -107,7 +130,7 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
         if not out_loc.parent.exists():
             raise IOError("Can't open output location: %s" % out_loc)
     print(cfg)
-    if pooling == 'mean+max':
+    if pooling == "mean+max":
         pool_layer = Pooling(mean_pool, max_pool)
     elif pooling == "mean":
         pool_layer = mean_pool
@@ -116,9 +139,8 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
     else:
         raise ValueError("Unrecognised pooling", pooling)
 
-
     print("Load spaCy")
-    nlp = get_spacy('en')
+    nlp = get_spacy("en")
 
     if use_gpu:
         Model.ops = CupyOps()
@@ -132,35 +154,34 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
     # * concatenate (|): Merge the outputs of two models into a single vector,
     # i.e. (f|g)(x) -> hstack(f(x), g(x))
     Model.lsuv = True
-    #Model.ops = CupyOps()
-    with Model.define_operators({'>>': chain, '**': clone, '|': concatenate,
-                                 '+': add}):
-        mwe_encode = (
-            ExtractWindow(nW=1)
-            >> LN(Maxout(width, drop_factor=0.0, pieces=pieces))
+    # Model.ops = CupyOps()
+    with Model.define_operators({">>": chain, "**": clone, "|": concatenate, "+": add}):
+        mwe_encode = ExtractWindow(nW=1) >> LN(
+            Maxout(width, drop_factor=0.0, pieces=pieces)
         )
 
         sent2vec = (
             flatten_add_lengths
-            >> with_getitem(0,
-                (HashEmbed(width, 3000) | StaticVectors('en', width))
-                >> LN(Maxout(width, width*2))
-                >> Residual(mwe_encode) ** depth
-            ) # : word_ids{T}
+            >> with_getitem(
+                0,
+                (HashEmbed(width, 3000) | StaticVectors("en", width))
+                >> LN(Maxout(width, width * 2))
+                >> Residual(mwe_encode) ** depth,
+            )  # : word_ids{T}
             >> Pooling(mean_pool, max_pool)
-            >> Residual(LN(Maxout(width*2, pieces=pieces), nO=width*2)) **2
+            >> Residual(LN(Maxout(width * 2, pieces=pieces), nO=width * 2)) ** 2
             >> logistic
         )
-        model = Siamese(sent2vec, CauchySimilarity(width*2))
+        model = Siamese(sent2vec, CauchySimilarity(width * 2))
 
     print("Read and parse data: %s" % dataset)
-    if dataset == 'quora':
+    if dataset == "quora":
         train, dev = datasets.quora_questions()
-    elif dataset == 'snli':
+    elif dataset == "snli":
         train, dev = datasets.snli()
-    elif dataset == 'stackxc':
+    elif dataset == "stackxc":
         train, dev = datasets.stack_exchange()
-    elif dataset in ('quora+snli', 'snli+quora'):
+    elif dataset in ("quora+snli", "snli+quora"):
         train, dev = datasets.quora_questions()
         train2, dev2 = datasets.snli()
         train.extend(train2)
@@ -171,7 +192,10 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
     train_X, train_y = preprocess(model.ops, nlp, train, get_ids)
     dev_X, dev_y = preprocess(model.ops, nlp, dev, get_ids)
 
-    with model.begin_training(train_X[:10000], train_y[:10000], **cfg) as (trainer, optimizer):
+    with model.begin_training(train_X[:10000], train_y[:10000], **cfg) as (
+        trainer,
+        optimizer,
+    ):
         # Pass a callback to print progress. Give it all the local scope,
         # because why not?
         trainer.each_epoch.append(track_progress(**locals()))
@@ -187,11 +211,11 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
             assert yh.shape == y.shape, (yh.shape, y.shape)
 
-            assert (yh >= 0.).all(), yh
+            assert (yh >= 0.0).all(), yh
             train_acc = ((yh >= 0.5) == (y >= 0.5)).sum()
-            loss = model.ops.xp.abs(yh-y).mean()
+            loss = model.ops.xp.abs(yh - y).mean()
             epoch_train_acc += train_acc
-            backprop(yh-y, optimizer)
+            backprop(yh - y, optimizer)
             n_iter += 1
 
             # Slightly useful trick: start with low batch size, accelerate.
@@ -199,17 +223,18 @@ def main(dataset='quora', width=200, depth=2, min_batch_size=1,
             batch_size *= 1.001
         if out_loc:
             out_loc = Path(out_loc)
-            print('Saving to', out_loc)
-            with out_loc.open('wb') as file_:
+            print("Saving to", out_loc)
+            with out_loc.open("wb") as file_:
                 pickle.dump(model, file_, -1)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     if 1:
         plac.call(main)
     else:
         import cProfile
         import pstats
+
         cProfile.runctx("plac.call(main)", globals(), locals(), "Profile.prof")
         s = pstats.Stats("Profile.prof")
         s.strip_dirs().sort_stats("time").print_stats(100)

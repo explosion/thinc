@@ -1,3 +1,6 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 import contextlib
 from ..compat import BytesIO
 from ..neural._classes.model import Model
@@ -15,11 +18,13 @@ try:
 except ImportError:
     torch = None
 
+
 def xp2torch(xp_tensor):
-    if hasattr(xp_tensor, 'toDlpack'):
+    if hasattr(xp_tensor, "toDlpack"):
         return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
     else:
         return torch.from_numpy(xp_tensor)
+
 
 def torch2xp(torch_tensor):
     if torch_tensor.is_cuda:
@@ -29,24 +34,25 @@ def torch2xp(torch_tensor):
 
 
 class PyTorchWrapper(Model):
-    '''Wrap a PyTorch model, so that it has the same API as Thinc models.
+    """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
-    '''
+    """
+
     def __init__(self, model):
         Model.__init__(self)
         self._model = model
         self._optimizer = None
 
-    def begin_update(self, x_data, drop=0.):
-        '''Return the output of the wrapped PyTorch model for the given input,
+    def begin_update(self, x_data, drop=0.0):
+        """Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
-        '''
-        x_torch = xp2torch(x_data)
+        """
         x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
         # Make prediction
 
         y_var = self._model(x_var)
+
         def backward_pytorch(dy_data, sgd=None):
             dy_var = xp2torch(dy_data)
             torch.autograd.backward((y_var,), grad_tensors=(dy_var,))
@@ -56,6 +62,7 @@ class PyTorchWrapper(Model):
                 self._optimizer.step()
                 self._optimizer.zero_grad()
             return torch2xp(x_var.grad)
+
         return torch2xp(y_var), backward_pytorch
 
     def _create_optimizer(self, sgd):
@@ -96,15 +103,15 @@ class PyTorchWrapper(Model):
         self._model.cpu()
 
     def resize_output(self, new_dim):
-        #self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
-        #self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
+        # self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
+        # self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
         raise NotImplementedError
 
     def resize_input(self):
         raise NotImplementedError
 
     @contextlib.contextmanager
-    def use_params(self, params): # pragma: no cover
+    def use_params(self, params):  # pragma: no cover
         if self.id in params:
             backup = self.to_bytes()
             self.from_bytes(params[self.id])
@@ -116,20 +123,21 @@ class PyTorchWrapper(Model):
 
 
 class PyTorchWrapperRNN(PyTorchWrapper):
-    '''Wrap a PyTorch RNN model
-    '''
+    """Wrap a PyTorch RNN model
+    """
+
     def __call__(self, x_data, h_0=None):
         x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=False)
         # Make prediction
         out, h_n = self._model(x_var, h_0)
         return (self.ops.asarray(out.data), h_n)
 
-    def begin_update(self, x_data, h_0=None, drop=0.):
-        '''Return the output of the wrapped PyTorch model for the given input,
+    def begin_update(self, x_data, h_0=None, drop=0.0):
+        """Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
-        '''
+        """
         x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
-        
+
         # Make prediction
         out, h_n = self._model(x_var, h_0)
         # Shapes will be:
@@ -146,18 +154,19 @@ class PyTorchWrapperRNN(PyTorchWrapper):
                 self._optimizer.step()
                 self._optimizer.zero_grad()
             return torch2xp(x_var.grad)
+
         return (torch2xp(out), h_n), backward_pytorch_rnn
 
     def resize_output(self, new_dim):
-        #self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
-        #self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
+        # self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
+        # self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
         raise NotImplementedError
 
     def resize_input(self):
         raise NotImplementedError
 
     @contextlib.contextmanager
-    def use_params(self, params): # pragma: no cover
+    def use_params(self, params):  # pragma: no cover
         if self.id in params:
             backup = self.to_bytes()
             self.from_bytes(params[self.id])

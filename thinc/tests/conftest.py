@@ -1,11 +1,14 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 import pytest
-from numpy.testing import assert_allclose
 from collections import defaultdict
 
 
 @pytest.fixture(params=[1, 2, 9])
 def nB(request):
     return request.param
+
 
 @pytest.fixture(params=[1, 6])
 def nI(request):
@@ -46,8 +49,7 @@ def positions(ids):
 
 
 def pytest_addoption(parser):
-    parser.addoption("--slow", action="store_true",
-        help="include slow tests")
+    parser.addoption("--slow", action="store_true", help="include slow tests")
 
 
 def pytest_runtest_setup(item):
@@ -60,6 +62,6 @@ def pytest_runtest_setup(item):
         # options weren't given.
         return item.config.getoption("--%s" % opt, False)
 
-    for opt in ['slow']:
+    for opt in ["slow"]:
         if opt in item.keywords and not getopt("--%s" % opt):
             pytest.skip("need --%s option to run" % opt)
