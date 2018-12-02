@@ -16,7 +16,7 @@ except (ImportError, OSError):
 import plac
 import spacy
 from pathlib import Path
-import dill as pickle
+from srsly import cloudpickle as pickle
 import numpy
 
 from thinc.v2v import Model, ReLu, Softmax, Maxout

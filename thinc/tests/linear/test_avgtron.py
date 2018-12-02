@@ -2,7 +2,7 @@ from __future__ import division
 from __future__ import unicode_literals
 
 import pytest
-import pickle
+from srsly import cloudpickle as pickle
 import io
 import tempfile
 
@@ -46,11 +46,11 @@ from ...extra.eg import Example
 #    #eg = Example(nr_class)
 #    #eg.features = {0: 3, 3: 1}
 #    #model(eg)
-#    #assert eg.scores[1] < 0 
+#    #assert eg.scores[1] < 0
 #    #eg = Example(nr_class)
 #    #eg.features = {0: 3, 3: 1}
 #    #model(eg)
-#    #assert eg.scores[2] > 0 
+#    #assert eg.scores[2] > 0
 #
 #
 #@pytest.fixture
@@ -68,7 +68,7 @@ from ...extra.eg import Example
 #        ],
 #        [
 #            (1, {1: -1, 2: 2}),
-#            (2, {1: 5, 2: -5}), 
+#            (2, {1: 5, 2: -5}),
 #            (3, {4: 1, 5: -7, 2: 1})
 #        ]
 #    ]

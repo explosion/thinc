@@ -2,7 +2,7 @@
 from __future__ import unicode_literals
 
 from ...api import FeatureExtracter
-import pickle
+from srsly import cloudpickle as pickle
 
 def test_pickle():
     model = FeatureExtracter([100, 200])
