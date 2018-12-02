@@ -1,6 +1,6 @@
 from __future__ import print_function
 import plac
-import dill as pickle
+from srsly import cloudpickle as pickle
 from tqdm import tqdm
 from thinc.v2v import Model, Maxout, ReLu, Softmax
 from thinc.api import clone, chain

@@ -1,5 +1,5 @@
 from __future__ import print_function
-import pickle
+from srsly import cloudpickle as pickle
 
 from thinc.misc import Residual
 from thinc.t2t import ExtractWindow

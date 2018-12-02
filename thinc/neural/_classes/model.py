@@ -2,12 +2,9 @@ from __future__ import division, unicode_literals
 from numpy import prod
 import numpy
 import contextlib
-import msgpack
-import msgpack_numpy
 from collections import OrderedDict
-import cloudpickle
+import srsly
 
-msgpack_numpy.patch()
 
 from .. import util
 from ..train import Trainer
@@ -96,10 +93,10 @@ class Model(object):
         self.set_id()
 
     def __getstate__(self):
-        return cloudpickle.dumps(self.__dict__)
+        return srsly.pickle_dumps(self.__dict__)
 
     def __setstate__(self, state_data):
-        self.__dict__ = cloudpickle.loads(state_data)
+        self.__dict__ = srsly.pickle_loads(state_data)
 
     def _update_defaults(self, args, kwargs):
         new_kwargs = {}
@@ -338,10 +335,10 @@ class Model(object):
                 i += 1
             if hasattr(layer, u'_layers'):
                 queue.extend(layer._layers)
-        return msgpack.dumps({b'weights': weights}, use_bin_type=True)
+        return srsly.msgpack_dumps({b'weights': weights})
 
     def from_bytes(self, bytes_data):
-        data = msgpack.loads(bytes_data, raw=False)
+        data = srsly.msgpack_loads(bytes_data)
         weights = data[b'weights']
         queue = [self]
         i = 0

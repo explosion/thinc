@@ -28,13 +28,8 @@ import spacy.orth
 import pathlib
 import numpy.random
 import numpy.linalg
-
 import plac
-
-try:
-    import cPickle as pickle
-except ImportError:
-    import pickle
+from srsly import cloudpickle as pickle
 
 
 try:

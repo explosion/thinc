@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 
 import pytest
-import pickle
+from srsly import cloudpickle as pickle
 import io
 import numpy as np
 import random
@@ -78,7 +78,7 @@ def test_update():
     model.b[:] = bias
     sgd = SGD(model.ops, 1.0, L2=0.0)
     sgd.averages = None
-    
+
     ff = np.asarray([[0.,0.]], dtype='f')
     tf = np.asarray([[1.,0.]], dtype='f')
     ft = np.asarray([[0.,1.]], dtype='f')
