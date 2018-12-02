@@ -1,20 +1,20 @@
-from __future__ import division
-from __future__ import unicode_literals
+# coding: utf8
+from __future__ import division, unicode_literals
 
-import pytest
-from srsly import cloudpickle as pickle
-import io
-import tempfile
+# import pytest
+# from srsly import cloudpickle as pickle
+# import io
+# import tempfile
 
-from ...linear.avgtron import AveragedPerceptron
-from ...extra.eg import Example
+# from ...linear.avgtron import AveragedPerceptron
+# from ...extra.eg import Example
 
 
-#def assert_near_eq(float1, float2):
+# def assert_near_eq(float1, float2):
 #    assert abs(float1 - float2) < 0.001
 #
 #
-#def test_basic():
+# def test_basic():
 #    nr_class = 3
 #    model = AveragedPerceptron(((1,), (2,), (3,), (4,), (5,)))
 #    instances = [
@@ -53,8 +53,8 @@ from ...extra.eg import Example
 #    #assert eg.scores[2] > 0
 #
 #
-#@pytest.fixture
-#def instances():
+# @pytest.fixture
+# def instances():
 #    instances = [
 #        [
 #            (1, {1: -1, 2: 1}),
@@ -74,8 +74,8 @@ from ...extra.eg import Example
 #    ]
 #    return instances
 #
-#@pytest.fixture
-#def model(instances):
+# @pytest.fixture
+# def model(instances):
 #    templates = []
 #    for batch in instances:
 #        for _, feats in batch:
@@ -90,7 +90,7 @@ from ...extra.eg import Example
 #                model.update_weight(key, clas, value)
 #    return model
 #
-#def get_score(nr_class, model, feats, clas):
+# def get_score(nr_class, model, feats, clas):
 #    eg = Example(nr_class)
 #    eg.features = feats
 #    eg.costs = [i != clas for i in range(nr_class)]
@@ -98,14 +98,14 @@ from ...extra.eg import Example
 #    return eg.scores[clas]
 #
 #
-#def get_scores(nr_class, model, feats):
+# def get_scores(nr_class, model, feats):
 #    eg = Example(nr_class)
 #    eg.features = feats
 #    model(eg)
 #    return list(eg.scores)
 #
 #
-#def test_averaging(model):
+# def test_averaging(model):
 #    model.end_training()
 #    nr_class = 4
 #    # Feature 1
@@ -130,7 +130,7 @@ from ...extra.eg import Example
 #    assert_near_eq(get_score(nr_class, model, {5: 1}, 3), sum([0, 0, -7]) / 3.0)
 #
 #
-#def test_dump_load(model):
+# def test_dump_load(model):
 #    loc = tempfile.mkstemp()[1]
 #    model.end_training()
 #    model.dump(loc)

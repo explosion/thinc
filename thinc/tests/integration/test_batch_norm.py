@@ -1,14 +1,15 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 import pytest
 from mock import MagicMock
 import numpy
 import numpy.random
 from numpy.testing import assert_allclose
-from hypothesis import given, settings, strategies
+from hypothesis import given
 
 from ...neural._classes.batchnorm import BatchNorm
 from ...api import layerize, noop
-
-from ...neural._classes.affine import Affine
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
 
@@ -32,7 +33,7 @@ def test_batch_norm_init(layer):
 def test_batch_norm_weights_init_to_one(layer):
     layer = BatchNorm(layer)
     assert layer.G is not None
-    assert all(weight == 1. for weight in layer.G.flatten())
+    assert all(weight == 1.0 for weight in layer.G.flatten())
 
 
 def test_batch_norm_runs_child_hooks(layer):
@@ -60,18 +61,17 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     W, b, input_ = W_b_input
 
     model = BatchNorm(model)
-    
+
     output, finish_update = model.begin_update(input_)
 
     seen_keys = set()
+
     def sgd(data, gradient, key=None, **kwargs):
         seen_keys.add(key)
         assert data.shape == gradient.shape
         assert data.ndim == 1
         assert gradient.ndim == 1
 
-    grad_BO = numpy.ones((nr_batch, nr_out), dtype='f')
-    grad_BI = finish_update(grad_BO, sgd)
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
+    grad_BI = finish_update(grad_BO, sgd)  # noqa: F841
     assert seen_keys == {model.id, model.child.id}
-
-
