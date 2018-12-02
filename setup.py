@@ -47,10 +47,19 @@ MOD_NAMES = [
     'thinc.extra.cache',
 ]
 
-compile_options =  {'msvc'  : ['/Ox', '/EHsc'],
+COMPILE_OPTIONS =  {'msvc'  : ['/Ox', '/EHsc'],
                     'other' : ['-O3', '-Wno-strict-prototypes', '-Wno-unused-function']}
-link_options    =  {'msvc'  : [], 'other' : []}
+LINK_OPTIONS    =  {'msvc'  : [], 'other' : []}
 
+
+if sys.platform == 'darwin':
+    # On Mac, use libc++ because Apple deprecated use of
+    # libstdc
+    COMPILE_OPTIONS['other'].append('-stdlib=libc++')
+    LINK_OPTIONS['other'].append('-lc++')
+    # g++ (used by unix compiler on mac) links to libstdc++ as a default lib.
+    # See: https://stackoverflow.com/questions/1653047/avoid-linking-to-libstdc
+    LINK_OPTIONS['other'].append('-nodefaultlibs')
 
 # By subclassing build_extensions we have the actual compiler that will be used
 # which is really known only after finalize_options
@@ -62,10 +71,10 @@ class build_ext_options:
             self.compiler.initialize()
         self.compiler.platform = sys.platform[:6]
         for e in self.extensions:
-            e.extra_compile_args = compile_options.get(
-                self.compiler.compiler_type, compile_options['other'])
-            e.extra_link_args = link_options.get(
-                self.compiler.compiler_type, link_options['other'])
+            e.extra_compile_args = COMPILE_OPTIONS.get(
+                self.compiler.compiler_type, COMPILE_OPTIONS['other'])
+            e.extra_link_args = LINK_OPTIONS.get(
+                self.compiler.compiler_type, LINK_OPTIONS['other'])
 
 class build_ext_subclass(build_ext, build_ext_options):
     def build_extensions(self):
