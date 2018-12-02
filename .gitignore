@@ -34,3 +34,4 @@ tmp/
 *.dat
 .eggs/
 .pytest_cache/
+.vscode/
