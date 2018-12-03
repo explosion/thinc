@@ -1,8 +1,8 @@
 import numpy
 import timeit
 import pytest
-from cytoolz import partition_all
 
+from ...neuraal.util import minibatch
 from ...neural.ops import NumpyOps
 from ...neural._classes.rnn import LSTM, BiLSTM, RNN_step
 from ...neural._classes.rnn import Recurrent, Bidirectional
@@ -133,7 +133,7 @@ def test_benchmark_RNN_fwd():
     lengths = numpy.maximum(lengths, 1)
     batches = []
     uniform_lengths = False
-    for batch_lengths in partition_all(batch_size, lengths):
+    for batch_lengths in minibatch(lengths, batch_size):
         batch_lengths = list(batch_lengths)
         if uniform_lengths:
             seq_len = max(batch_lengths)
