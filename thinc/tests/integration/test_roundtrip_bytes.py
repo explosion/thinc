@@ -1,3 +1,6 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 from ...neural._classes.maxout import Maxout
 from ...api import chain
 

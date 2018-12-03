@@ -1,4 +1,5 @@
-from functools import wraps
+# coding: utf8
+from __future__ import unicode_literals
 
 
 class AttributeDescription(object):
@@ -10,10 +11,10 @@ class AttributeDescription(object):
     def __call__(self, attr, model):
         self.name = attr
 
-    def __get__(self, obj, type=None): # pragma: no cover
+    def __get__(self, obj, type=None):  # pragma: no cover
         return self.value
 
-    def __set__(self, obj, val): # pragma: no cover
+    def __set__(self, obj, val):  # pragma: no cover
         self.value = val
 
 
@@ -81,8 +82,9 @@ class Moment(Weights):
 
 
 def attributes(**specs):
-    if not specs: # pragma: no cover
+    if not specs:  # pragma: no cover
         raise ValueError("Must describe at least one attribute")
+
     def wrapped(cls):
         cls.descriptions = dict(cls.descriptions)
         cls.descriptions.update(specs)
@@ -90,6 +92,7 @@ def attributes(**specs):
             setattr(cls, attr, desc)
             desc.name = attr
         return cls
+
     return wrapped
 
 
@@ -98,6 +101,7 @@ def on_init(*callbacks):
         cls.on_init_hooks = list(cls.on_init_hooks)
         cls.on_init_hooks.extend(callbacks)
         return cls
+
     return wrapped
 
 
@@ -106,6 +110,7 @@ def on_data(*callbacks):
         cls.on_data_hooks = list(cls.on_data_hooks)
         cls.on_data_hooks.extend(callbacks)
         return cls
+
     return wrapped
 
 
@@ -113,6 +118,7 @@ def input(getter):
     def wrapped(cls):
         cls.describe_input = getter
         return cls
+
     return wrapped
 
 
@@ -120,4 +126,5 @@ def output(getter):
     def wrapped(cls):
         cls.describe_output = getter
         return cls
+
     return wrapped

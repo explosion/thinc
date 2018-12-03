@@ -1,3 +1,6 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 import numpy as np
 from .util import copy_array
 
@@ -8,7 +11,7 @@ from .util import copy_array
 # Orthonorm init code is taken from Lasagne
 # https://github.com/Lasagne/Lasagne/blob/master/lasagne/init.py
 def svd_orthonormal(shape):
-    if len(shape) < 2: # pragma: no cover
+    if len(shape) < 2:  # pragma: no cover
         raise RuntimeError("Only shapes of length 2 or more are supported.")
     flat_shape = (shape[0], np.prod(shape[1:]))
     a = np.random.standard_normal(flat_shape)
@@ -19,13 +22,14 @@ def svd_orthonormal(shape):
 
 
 _initialized = set()
+
+
 def do_lsuv(ops, weights, predict, X):
     if id(predict) in _initialized:
         return
     _initialized.add(id(predict))
     copy_array(weights, svd_orthonormal(weights.shape))
     X_copy = ops.xp.ascontiguousarray(X)
-    acts = predict(X_copy)
     tol_var = 0.1
     t_max = 10
     t_i = 0
@@ -40,11 +44,11 @@ def do_lsuv(ops, weights, predict, X):
 
 
 def LSUVinit(model, X, y=None):
-    if model.name == 'batchnorm': # pragma: no cover
+    if model.name == "batchnorm":  # pragma: no cover
         model = model._layers[0]
-    if model.name in 'softmax': # pragma: no cover
+    if model.name in "softmax":  # pragma: no cover
         return
-    if hasattr(model, 'lsuv') and not model.lsuv:
+    if hasattr(model, "lsuv") and not model.lsuv:
         return
     if model.id in _initialized:
         return
