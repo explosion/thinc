@@ -17,19 +17,17 @@ from setuptools import Extension, setup
 
 def is_new_osx():
     '''Check whether we're on OSX >= 10.10'''
-    print(sys.platform, platform.mac_ver(), distutils.util.get_platform())
-    print('uname', platform.uname())
-    print('platform', platform.platform())
-    print('os.uname', os.uname())
+    name = distutils.util.get_platform()
     if sys.platform != 'darwin':
         return False
-    else:
-        version = platform.mac_ver()[0]
-        major, minor, patch = version.split('.')
-        if int(major) >= 10 and int(minor) >= 10:
+    elif name.startswith('macosx-10'):
+        minor_version = int(name.split('-')[1].split('.')[1])
+        if minor_version < 7:
             return True
         else:
             return False
+    else:
+        return False
 
 
 PACKAGES = [
