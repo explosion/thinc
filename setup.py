@@ -1,11 +1,12 @@
 #!/usr/bin/env python
 from __future__ import print_function
 import io
+import os
 import os.path
 import subprocess
 import sys
 import contextlib
-import distutil.util
+import distutils.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
@@ -19,6 +20,7 @@ def is_new_osx():
     print(sys.platform, platform.mac_ver(), distutils.util.get_platform())
     print('uname', platform.uname())
     print('platform', platform.platform())
+    print('os.uname', os.uname())
     if sys.platform != 'darwin':
         return False
     else:
