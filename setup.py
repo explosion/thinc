@@ -20,7 +20,7 @@ def is_new_osx():
     else:
         version = platform.mac_ver()[0]
         major, minor, patch = version.split('.')
-        if major >= 10 and minor >= 10:
+        if int(major) >= 10 and int(minor) >= 10:
             return True
         else:
             return False
