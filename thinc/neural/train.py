@@ -1,23 +1,23 @@
-from __future__ import unicode_literals, print_function
-
-from .optimizers import Adam, SGD, linear_decay
-from .util import minibatch
+# coding: utf8
+from __future__ import unicode_literals
 
 import numpy.random
 from tqdm import tqdm
+
+from .optimizers import Adam, linear_decay
 
 
 class Trainer(object):
     def __init__(self, model, **cfg):
         self.ops = model.ops
         self.model = model
-        self.L2 = cfg.get('L2', 0.0)
+        self.L2 = cfg.get("L2", 0.0)
         self.optimizer = Adam(model.ops, 0.001, decay=0.0, eps=1e-8, L2=self.L2)
-        self.batch_size = cfg.get('batch_size', 128)
-        self.nb_epoch = cfg.get('nb_epoch', 20)
+        self.batch_size = cfg.get("batch_size", 128)
+        self.nb_epoch = cfg.get("nb_epoch", 20)
         self.i = 0
-        self.dropout = cfg.get('dropout', 0.)
-        self.dropout_decay = cfg.get('dropout_decay', 0.)
+        self.dropout = cfg.get("dropout", 0.0)
+        self.dropout_decay = cfg.get("dropout_decay", 0.0)
         self.each_epoch = []
 
     def __enter__(self):
@@ -39,8 +39,7 @@ class Trainer(object):
                     X = _take_slice(train_X, slice_)
                     y = _take_slice(train_y, slice_)
                     yield X, y
-                    self.dropout = linear_decay(orig_dropout, self.dropout_decay,
-                                                j)
+                    self.dropout = linear_decay(orig_dropout, self.dropout_decay, j)
                     j += self.batch_size
                     if progress_bar:
                         pbar.update(self.batch_size)

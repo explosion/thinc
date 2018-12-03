@@ -1,11 +1,23 @@
+# coding: utf8
+from __future__ import unicode_literals
+
 from .model import Model
 
 
 class FunctionLayer(Model):
-    '''Wrap functions into weightless Model instances, for use as network
-    components.'''
-    def __init__(self, begin_update, predict=None, predict_one=None,
-            nI=None, nO=None, *args, **kwargs):
+    """Wrap functions into weightless Model instances, for use as network
+    components."""
+
+    def __init__(
+        self,
+        begin_update,
+        predict=None,
+        predict_one=None,
+        nI=None,
+        nO=None,
+        *args,
+        **kwargs
+    ):
         self.begin_update = begin_update
         if predict is not None:
             self.predict = predict

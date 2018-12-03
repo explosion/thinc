@@ -1,17 +1,20 @@
+# coding: utf8
 from __future__ import unicode_literals
+
 import pytest
 from srsly import cloudpickle as pickle
 
 from ...api import with_flatten
 from ...v2v import Affine
 
+
 @pytest.fixture
 def affine():
     return Affine(5, 3)
 
+
 def test_pickle_with_flatten(affine):
-    Xs = [affine.ops.allocate((2, 3)),
-          affine.ops.allocate((4, 3))]
+    Xs = [affine.ops.allocate((2, 3)), affine.ops.allocate((4, 3))]
     model = with_flatten(affine)
     pickled = pickle.dumps(model)
     loaded = pickle.loads(pickled)
