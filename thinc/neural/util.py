@@ -3,6 +3,7 @@ from __future__ import print_function, unicode_literals
 
 import numpy
 from pathlib import Path
+import itertools
 
 
 try:
@@ -74,6 +75,23 @@ def require_gpu():
     Model.Ops = CupyOps
     Model.ops = CupyOps()
     return True
+
+
+def minibatch(items, size=8):
+    """Iterate over batches of items. `size` may be an iterator,
+    so that batch-size can vary on each step.
+    """
+    if isinstance(size, int):
+        size_ = itertools.repeat(size)
+    else:
+        size_ = size
+    items = iter(items)
+    while True:
+        batch_size = next(size_)
+        batch = list(itertools.islice(items, int(batch_size)))
+        if len(batch) == 0:
+            break
+        yield list(batch)
 
 
 def mark_sentence_boundaries(sequences, drop=0.0):  # pragma: no cover

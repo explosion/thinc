@@ -3,8 +3,8 @@ from __future__ import unicode_literals
 
 import numpy
 import timeit
-from cytoolz import partition_all
 
+from ...neural.util import minibatch
 from ...neural.ops import NumpyOps
 from ...neural._classes.rnn import LSTM
 
@@ -132,7 +132,7 @@ def test_benchmark_RNN_fwd():
     lengths = numpy.maximum(lengths, 1)
     batches = []
     uniform_lengths = False
-    for batch_lengths in partition_all(batch_size, lengths):
+    for batch_lengths in minibatch(lengths, batch_size):
         batch_lengths = list(batch_lengths)
         if uniform_lengths:
             seq_len = max(batch_lengths)
