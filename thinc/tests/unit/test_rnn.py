@@ -2,7 +2,7 @@ import numpy
 import timeit
 import pytest
 
-from ...neuraal.util import minibatch
+from ...neural.util import minibatch
 from ...neural.ops import NumpyOps
 from ...neural._classes.rnn import LSTM, BiLSTM, RNN_step
 from ...neural._classes.rnn import Recurrent, Bidirectional
