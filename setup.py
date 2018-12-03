@@ -5,6 +5,7 @@ import os.path
 import subprocess
 import sys
 import contextlib
+import distutil.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
@@ -15,7 +16,7 @@ from setuptools import Extension, setup
 
 def is_new_osx():
     '''Check whether we're on OSX >= 10.10'''
-    print(sys.platform, platform.mac_ver())
+    print(sys.platform, platform.mac_ver(), distutils.util.get_platform())
     if sys.platform != 'darwin':
         return False
     else:
