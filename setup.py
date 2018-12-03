@@ -15,6 +15,7 @@ from setuptools import Extension, setup
 
 def is_new_osx():
     '''Check whether we're on OSX >= 10.10'''
+    print(sys.platform, platform.mac_ver()
     if sys.platform != 'darwin':
         return False
     else:
