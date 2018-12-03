@@ -9,8 +9,21 @@ from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 from distutils.ccompiler import new_compiler
+import platform
 
 from setuptools import Extension, setup
+
+def is_new_osx():
+    '''Check whether we're on OSX >= 10.10'''
+    if sys.platform != 'darwin':
+        return False
+    else:
+        version = platform.mac_ver()[0]
+        major, minor, patch = version.split('.')
+        if major >= 10 and minor >= 10:
+            return True
+        else:
+            return False
 
 
 PACKAGES = [
@@ -54,7 +67,7 @@ COMPILE_OPTIONS = {
 LINK_OPTIONS = {"msvc": [], "other": []}
 
 
-if sys.platform == "darwin":
+if is_new_osx():
     # On Mac, use libc++ because Apple deprecated use of
     # libstdc
     COMPILE_OPTIONS["other"].append("-stdlib=libc++")
