@@ -4,7 +4,7 @@ from __future__ import unicode_literals, division
 import numpy
 import pytest
 
-from ...linear.linear import LinearModel
+from ...sparse.linear import LinearModel
 from ...neural.optimizers import SGD
 from ...neural.ops import NumpyOps
 from ...neural.util import to_categorical

@@ -1,7 +1,7 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-from ...linear.sparse import SparseArray
+from ...sparse.sparse import SparseArray
 
 
 def test_init():
