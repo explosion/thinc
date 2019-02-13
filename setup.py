@@ -185,6 +185,10 @@ def setup_package():
                     mod_name, [mod_path], language="c++", include_dirs=include_dirs
                 )
             )
+        ext_modules.append(
+            Extension('thinc.extra.wrapt._wrappers', ['thinc/extra/wrapt/_wrappers.c'],
+                      include_dirs=include_dirs)
+        )
 
         if not is_source_release(root):
             generate_cython(root, "thinc")
@@ -211,7 +215,6 @@ def setup_package():
                 "murmurhash>=0.28.0,<1.1.0",
                 "cymem>=2.0.2,<2.1.0",
                 "preshed>=1.0.1,<2.1.0",
-                "wrapt>=1.10.0,<1.11.0",
                 "plac>=0.9.6,<1.0.0",
                 "tqdm>=4.10.0,<5.0.0",
                 "six>=1.10.0,<2.0.0",
