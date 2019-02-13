@@ -3,8 +3,8 @@ from __future__ import unicode_literals
 
 from collections import Sequence, Sized, Iterable, Callable
 from numpy import ndarray
-from six import integer_types
 
+from .compat import integer_types
 from .extra import wrapt
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError

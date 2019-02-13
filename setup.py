@@ -209,17 +209,18 @@ def setup_package():
             ext_modules=ext_modules,
             setup_requires=["numpy>=1.7.0"],
             install_requires=[
-                "blis>=0.2.1,<0.3.0",
-                "thinc_gpu_ops>=0.0.1,<0.1.0",
-                "numpy>=1.7.0",
+                # Explosion-provided dependencies
                 "murmurhash>=0.28.0,<1.1.0",
                 "cymem>=2.0.2,<2.1.0",
                 "preshed>=1.0.1,<2.1.0",
-                "plac>=0.9.6,<1.0.0",
-                "tqdm>=4.10.0,<5.0.0",
-                "six>=1.10.0,<2.0.0",
+                "blis>=0.2.1,<0.3.0",
                 "wasabi>=0.0.9,<1.1.0",
                 "srsly>=0.0.5,<1.1.0",
+                "thinc_gpu_ops>=0.0.1,<0.1.0",
+                # Third-party dependencies
+                "numpy>=1.7.0",
+                "plac>=0.9.6,<1.0.0",
+                "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
             ],
             extras_require={
