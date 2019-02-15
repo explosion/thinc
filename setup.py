@@ -41,6 +41,7 @@ PACKAGES = [
     "thinc.extra",
     "thinc.neural._classes",
     "thinc.extra._vendorized",
+    "thinc.extra.wrapt"
 ]
 
 
