@@ -22,7 +22,7 @@ from .util import copy_array, get_array_module
 from ..linalg cimport VecVec, Vec
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
-from six import integer_types
+from ..compat import integer_types
 
 cimport blis
 cimport blis.cy

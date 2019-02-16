@@ -1,7 +1,7 @@
 # cython: infer_types=True
 cimport cython
 
-from six import integer_types
+from ..compat import integer_types
 
 
 cdef ExampleC init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
