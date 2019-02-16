@@ -11,9 +11,7 @@ import os
 import sys
 import shutil
 import hashlib
-from six.moves.urllib.request import urlopen
-from six.moves.urllib.error import URLError, HTTPError
-
+from ...compat import urlopen, URLError, HTTPError
 from .keras_generic_utils import Progbar
 
 

@@ -22,5 +22,10 @@ is_python_pre_3_5 = is_python2 or (is_python3 and sys.version_info[1] < 5)
 
 if is_python3:
     integer_types = (int,)
+    from urllib.error import URLError, HTTPError
+    from urllib.request import urlopen
 else:
     integer_types = (int, long)
+    from urllib2 import URLError, HTTPError
+    from urllib2 import urlopen
+
