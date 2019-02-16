@@ -4,10 +4,14 @@
 
 import gzip
 import sys
-from six.moves import cPickle
 import numpy as np
 
 from .keras_data_utils import get_file
+
+try:
+    import cPickle
+else:
+    import pickle as cPickle
 
 
 def load_mnist(path='mnist.pkl.gz'):
