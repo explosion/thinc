@@ -333,6 +333,8 @@ for layer definitions. Specifically, the following decorators are available:
 
 | Version | Date | Description |
 | --- | --- | --- |
+| [v7.0.2] | `2019-02-23` | Fix regression in linear model class |
+| [v7.0.1] | `2019-02-16` | Fix import errors |
 | [v7.0.0] | `2019-02-15` | Overhaul package dependencies |
 | [v6.12.1] | `2018-11-30` | Fix `msgpack` pin |
 | [v6.12.0] | `2018-10-15` | Wheels and separate GPU ops |
@@ -364,6 +366,8 @@ for layer definitions. Specifically, the following decorators are available:
 | v6.1.0 | `2017-01-09` | *n/a* |
 | [v6.0.0] | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning |
 
+[v7.0.2]: https://github.com/explosion/thinc/releases/tag/v7.0.2
+[v7.0.1]: https://github.com/explosion/thinc/releases/tag/v7.0.1
 [v7.0.0]: https://github.com/explosion/thinc/releases/tag/v7.0.0
 [v6.12.1]: https://github.com/explosion/thinc/releases/tag/v6.12.1
 [v6.12.0]: https://github.com/explosion/thinc/releases/tag/v6.12.0
