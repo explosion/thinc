@@ -45,24 +45,29 @@ class LinearModel(Model):
         cpu_lengths = lengths.get()
         return self._begin_cpu_update(cpu_keys, cpu_values, cpu_lengths, drop=drop)
 
-    def _begin_cpu_update(self, uint64_t[::1] keys, float[::1] values,
+    def _begin_cpu_update(self, uint64_t[::1] keys, np.ndarray values_,
             long[::1] lengths, drop):
         if drop is not None:
             drop *= self.drop_factor
-        mask = self.ops.get_dropout_mask(values.shape, drop)
+        mask = self.ops.get_dropout_mask((values_.shape[0],), drop)
+        cdef float[::1] values
         if mask is not None:
-            values = values * mask
+            values = values_ * mask
         else:
-            values = values
+            values = values_
         cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO)) + self.b
         cdef float[::1] weights = self.W
         set_scoresC(&scores[0, 0],
             &keys[0], &values[0], &lengths[0],
             lengths.shape[0], self.nO,
             &weights[0], self.length)
+        closure = {"keys": keys, "values": values, "lengths": lengths}
         def finish_update(float[:, ::1] d_scores, sgd=None):
             cdef float[::1] d_weights = self.d_W
             cdef float[::1] d_bias = self.d_b
+            cdef uint64_t[::1] keys = closure["keys"]
+            cdef float[::1] values = closure["values"]
+            cdef long[::1] lengths = closure["lengths"]
             set_gradientC(&d_weights[0],
                 &keys[0], &values[0], &lengths[0],
                 lengths.shape[0], self.nO,
