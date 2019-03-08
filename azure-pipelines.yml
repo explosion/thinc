@@ -1,0 +1,65 @@
+trigger:
+  batch: true
+
+jobs:
+
+- job: 'Test'
+  strategy:
+    matrix:
+      Python27Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '2.7'
+      Python27Mac:
+        imageName: 'macos-10.13'
+        python.version: '2.7'
+      Python35Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.5'
+      Python35Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.5'
+      Python35Mac:
+        imageName: 'macos-10.13'
+        python.version: '3.5'
+      Python36Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.6'
+      Python36Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.6'
+      Python36Mac:
+        imageName: 'macos-10.13'
+        python.version: '3.6'
+      Python37Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.7'
+      Python37Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.7'
+      Python37Mac:
+        imageName: 'macos-10.13'
+        python.version: '3.7'
+    maxParallel: 4
+  pool:
+    vmImage: $(imageName)
+
+  steps:
+  - task: UsePythonVersion@0
+    inputs:
+      versionSpec: '$(python.version)'
+      architecture: 'x64'
+
+  - script: pip install dist/*.tar.gz
+    condition: eq( variables['Agent.OS'], 'Linux')
+    displayName: 'Install dependencies (Linux)'
+
+  - script: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+    displayName: 'Install dependencies'
+
+  - script: pip install -e .
+    displayName: 'Install'
+
+  - script: python -m pytest thinc
+    displayName: 'Run tests'
