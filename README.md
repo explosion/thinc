@@ -16,8 +16,6 @@ structured input and variable-length sequences.
 🔮 **Version 6.12 out now!** [Read the release notes here.](https://github.com/explosion/thinc/releases/)
 
 [![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7.svg?logo=azure-devops&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
-[![Travis Build Status](https://img.shields.io/travis/explosion/thinc/master.svg?style=flat-square)](https://travis-ci.org/explosion/thinc)
-[![Appveyor Build Status](https://img.shields.io/appveyor/ci/explosion/thinc/master.svg?style=flat-square)](https://ci.appveyor.com/project/explosion/thinc)
 [![Current Release Version](https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square)](https://github.com/explosion/thinc/releases)
 [![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?style=flat-square)](https://pypi.python.org/pypi/thinc)
 [![conda Version](https://anaconda.org/conda-forge/thinc/badges/version.svg)](https://anaconda.org/conda-forge/thinc)
