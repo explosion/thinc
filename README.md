@@ -15,27 +15,26 @@ structured input and variable-length sequences.
 
 🔮 **Version 6.12 out now!** [Read the release notes here.](https://github.com/explosion/thinc/releases/)
 
-[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7.svg?logo=azure-devops&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
+[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-devops&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
 [![Current Release Version](https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square)](https://github.com/explosion/thinc/releases)
 [![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?style=flat-square)](https://pypi.python.org/pypi/thinc)
 [![conda Version](https://anaconda.org/conda-forge/thinc/badges/version.svg)](https://anaconda.org/conda-forge/thinc)
 [![Python wheels](https://img.shields.io/badge/wheels-%E2%9C%93-4c1.svg?longCache=true&style=flat-square&logo=python&logoColor=white)](https://github.com/explosion/wheelwright/releases)
 [![Follow us on Twitter](https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow)](https://twitter.com/explosion_ai)
 
-
 ## What's where (as of v6.9.0)
 
-| Module | Description |
-| --- | --- |
-| `thinc.v2v.Model` | Base class. |
-| `thinc.v2v` | Layers transforming vectors to vectors. |
-| `thinc.i2v` | Layers embedding IDs to vectors. |
-| `thinc.t2v` | Layers pooling tensors to vectors. |
-| `thinc.t2t` | Layers transforming tensors to tensors (e.g. CNN, LSTM). |
-| `thinc.api` | Higher-order functions, for building networks. Will be renamed. |
-| `thinc.extra` | Datasets and utilities. |
-| `thinc.neural.ops` | Container classes for mathematical operations. Will be reorganized. |
-| `thinc.linear.avgtron` | Legacy efficient Averaged Perceptron implementation. |
+| Module                 | Description                                                         |
+| ---------------------- | ------------------------------------------------------------------- |
+| `thinc.v2v.Model`      | Base class.                                                         |
+| `thinc.v2v`            | Layers transforming vectors to vectors.                             |
+| `thinc.i2v`            | Layers embedding IDs to vectors.                                    |
+| `thinc.t2v`            | Layers pooling tensors to vectors.                                  |
+| `thinc.t2t`            | Layers transforming tensors to tensors (e.g. CNN, LSTM).            |
+| `thinc.api`            | Higher-order functions, for building networks. Will be renamed.     |
+| `thinc.extra`          | Datasets and utilities.                                             |
+| `thinc.neural.ops`     | Container classes for mathematical operations. Will be reorganized. |
+| `thinc.linear.avgtron` | Legacy efficient Averaged Perceptron implementation.                |
 
 ## Development status
 
@@ -170,7 +169,7 @@ better fit for your problem.
 
 Thinc should install cleanly with both [pip](http://pypi.python.org/pypi/thinc)
 and [conda](https://anaconda.org/conda-forge/thinc), for
-**Pythons 2.7+ and 3.5+**, on **Linux**, **macOS / OSX** and **Windows**.  Its
+**Pythons 2.7+ and 3.5+**, on **Linux**, **macOS / OSX** and **Windows**. Its
 only system dependency is a compiler tool-chain (e.g. `build-essential`) and
 the Python development headers (e.g. `python-dev`).
 
@@ -268,11 +267,11 @@ with Model.define_operators({'>>': chain}):
 The overloading is cleaned up at the end of the block. A fairly arbitrary zoo
 of functions are currently implemented. Some of the most useful:
 
-* `chain(model1, model2)`: Compose two models `f(x)` and `g(x)` into a single model computing `g(f(x))`.
-* `clone(model1, int)`: Create `n` copies of a model, each with distinct weights, and chain them together.
-* `concatenate(model1, model2)`: Given two models with output dimensions `(n,)` and `(m,)`, construct a model with output dimensions `(m+n,)`.
-* `add(model1, model2)`: `add(f(x), g(x)) = f(x)+g(x)`
-* `make_tuple(model1, model2)`: Construct tuples of the outputs of two models, at the batch level. The backward pass expects to receive a tuple of gradients, which are routed through the appropriate model, and summed.
+-   `chain(model1, model2)`: Compose two models `f(x)` and `g(x)` into a single model computing `g(f(x))`.
+-   `clone(model1, int)`: Create `n` copies of a model, each with distinct weights, and chain them together.
+-   `concatenate(model1, model2)`: Given two models with output dimensions `(n,)` and `(m,)`, construct a model with output dimensions `(m+n,)`.
+-   `add(model1, model2)`: `add(f(x), g(x)) = f(x)+g(x)`
+-   `make_tuple(model1, model2)`: Construct tuples of the outputs of two models, at the batch level. The backward pass expects to receive a tuple of gradients, which are routed through the appropriate model, and summed.
 
 Putting these things together, here's the sort of tagging model that Thinc is
 designed to make easy.
@@ -323,46 +322,46 @@ action of the optimizer.
 To keep the class hierarchy shallow, Thinc uses class decorators to reuse code
 for layer definitions. Specifically, the following decorators are available:
 
-* `describe.attributes()`: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters.
-* `describe.on_init()`: Allows callbacks to be specified, which will be called at the end of the `__init__.py`.
-* `describe.on_data()`: Allows callbacks to be specified, which will be called on `Model.begin_training()`.
+-   `describe.attributes()`: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters.
+-   `describe.on_init()`: Allows callbacks to be specified, which will be called at the end of the `__init__.py`.
+-   `describe.on_data()`: Allows callbacks to be specified, which will be called on `Model.begin_training()`.
 
 ## 🛠 Changelog
 
-| Version | Date | Description |
-| --- | --- | --- |
-| [v7.0.2] | `2019-02-23` | Fix regression in linear model class |
-| [v7.0.1] | `2019-02-16` | Fix import errors |
-| [v7.0.0] | `2019-02-15` | Overhaul package dependencies |
-| [v6.12.1] | `2018-11-30` | Fix `msgpack` pin |
-| [v6.12.0] | `2018-10-15` | Wheels and separate GPU ops |
-| [v6.10.3] | `2018-07-21` | Python 3.7 support and dependency updates |
-| [v6.11.2] | `2018-05-21` | Improve GPU installation |
-| [v6.11.1] | `2018-05-20` | Support direct linkage to BLAS libraries |
-| v6.11.0 | `2018-03-16` | *n/a* |
-| [v6.10.2] | `2017-12-06` | Efficiency improvements and bug fixes |
-| [v6.10.1] | `2017-11-15` | Fix GPU install and minor memory leak |
-| [v6.10.0] | `2017-10-28` | CPU efficiency improvements, refactoring |
-| [v6.9.0] | `2017-10-03` | Reorganize layers, bug fix to Layer Normalization |
-| [v6.8.2] | `2017-09-26` | Fix packaging of `gpu_ops` |
-| [v6.8.1] | `2017-08-23` | Fix Windows support |
-| [v6.8.0] | `2017-07-25` | SELU layer, attention, improved GPU/CPU compatibility |
-| [v6.7.3] | `2017-06-05` | Fix convolution on GPU |
-| [v6.7.2] | `2017-06-02` | Bug fixes to serialization |
-| [v6.7.1] | `2017-06-02` | Improve serialization |
-| [v6.7.0] | `2017-06-01` | Fixes to serialization, hash embeddings and flatten ops |
-| [v6.6.0] | `2017-05-14` | Improved GPU usage and examples |
-| v6.5.2 | `2017-03-20` | *n/a* |
-| [v6.5.1] | `2017-03-20` | Improved linear class and Windows fix |
-| [v6.5.0] | `2017-03-11` | Supervised similarity, fancier embedding and improvements to linear model |
-| v6.4.0 | `2017-02-15` | *n/a* |
-| [v6.3.0] | `2017-01-25` | Efficiency improvements, argument checking and error messaging |
-| [v6.2.0] | `2017-01-15` | Improve API and introduce overloaded operators |
-| [v6.1.3] | `2017-01-10` | More neural network functions and training continuation |
-| v6.1.2 | `2017-01-09` | *n/a* |
-| v6.1.1 | `2017-01-09` | *n/a* |
-| v6.1.0 | `2017-01-09` | *n/a* |
-| [v6.0.0] | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning |
+| Version   | Date         | Description                                                               |
+| --------- | ------------ | ------------------------------------------------------------------------- |
+| [v7.0.2]  | `2019-02-23` | Fix regression in linear model class                                      |
+| [v7.0.1]  | `2019-02-16` | Fix import errors                                                         |
+| [v7.0.0]  | `2019-02-15` | Overhaul package dependencies                                             |
+| [v6.12.1] | `2018-11-30` | Fix `msgpack` pin                                                         |
+| [v6.12.0] | `2018-10-15` | Wheels and separate GPU ops                                               |
+| [v6.10.3] | `2018-07-21` | Python 3.7 support and dependency updates                                 |
+| [v6.11.2] | `2018-05-21` | Improve GPU installation                                                  |
+| [v6.11.1] | `2018-05-20` | Support direct linkage to BLAS libraries                                  |
+| v6.11.0   | `2018-03-16` | _n/a_                                                                     |
+| [v6.10.2] | `2017-12-06` | Efficiency improvements and bug fixes                                     |
+| [v6.10.1] | `2017-11-15` | Fix GPU install and minor memory leak                                     |
+| [v6.10.0] | `2017-10-28` | CPU efficiency improvements, refactoring                                  |
+| [v6.9.0]  | `2017-10-03` | Reorganize layers, bug fix to Layer Normalization                         |
+| [v6.8.2]  | `2017-09-26` | Fix packaging of `gpu_ops`                                                |
+| [v6.8.1]  | `2017-08-23` | Fix Windows support                                                       |
+| [v6.8.0]  | `2017-07-25` | SELU layer, attention, improved GPU/CPU compatibility                     |
+| [v6.7.3]  | `2017-06-05` | Fix convolution on GPU                                                    |
+| [v6.7.2]  | `2017-06-02` | Bug fixes to serialization                                                |
+| [v6.7.1]  | `2017-06-02` | Improve serialization                                                     |
+| [v6.7.0]  | `2017-06-01` | Fixes to serialization, hash embeddings and flatten ops                   |
+| [v6.6.0]  | `2017-05-14` | Improved GPU usage and examples                                           |
+| v6.5.2    | `2017-03-20` | _n/a_                                                                     |
+| [v6.5.1]  | `2017-03-20` | Improved linear class and Windows fix                                     |
+| [v6.5.0]  | `2017-03-11` | Supervised similarity, fancier embedding and improvements to linear model |
+| v6.4.0    | `2017-02-15` | _n/a_                                                                     |
+| [v6.3.0]  | `2017-01-25` | Efficiency improvements, argument checking and error messaging            |
+| [v6.2.0]  | `2017-01-15` | Improve API and introduce overloaded operators                            |
+| [v6.1.3]  | `2017-01-10` | More neural network functions and training continuation                   |
+| v6.1.2    | `2017-01-09` | _n/a_                                                                     |
+| v6.1.1    | `2017-01-09` | _n/a_                                                                     |
+| v6.1.0    | `2017-01-09` | _n/a_                                                                     |
+| [v6.0.0]  | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning                         |
 
 [v7.0.2]: https://github.com/explosion/thinc/releases/tag/v7.0.2
 [v7.0.1]: https://github.com/explosion/thinc/releases/tag/v7.0.1
