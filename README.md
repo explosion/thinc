@@ -330,6 +330,7 @@ for layer definitions. Specifically, the following decorators are available:
 
 | Version   | Date         | Description                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------- |
+| [v7.0.3]  | `2019-03-15` | Fix pruning in beam search                                                |
 | [v7.0.2]  | `2019-02-23` | Fix regression in linear model class                                      |
 | [v7.0.1]  | `2019-02-16` | Fix import errors                                                         |
 | [v7.0.0]  | `2019-02-15` | Overhaul package dependencies                                             |
@@ -363,6 +364,7 @@ for layer definitions. Specifically, the following decorators are available:
 | v6.1.0    | `2017-01-09` | _n/a_                                                                     |
 | [v6.0.0]  | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning                         |
 
+[v7.0.3]: https://github.com/explosion/thinc/releases/tag/v7.0.3
 [v7.0.2]: https://github.com/explosion/thinc/releases/tag/v7.0.2
 [v7.0.1]: https://github.com/explosion/thinc/releases/tag/v7.0.1
 [v7.0.0]: https://github.com/explosion/thinc/releases/tag/v7.0.0
