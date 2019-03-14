@@ -61,6 +61,10 @@ cdef class Beam:
         def __get__(self):
             return [self._states[i].score for i in range(self.size)]
 
+    property histories:
+        def __get__(self):
+            return self.histories
+
     cdef int set_row(self, int i, const weight_t* scores, const int* is_valid,
                      const weight_t* costs) except -1:
         cdef int j
@@ -171,6 +175,7 @@ cdef class Beam:
         cdef _State* s
         cdef int i, j, move_id
         assert self.size >= 1
+        cdef vector[Entry] entries
         for i in range(self.size):
             s = &self._states[i]
             move_id = i * self.nr_class
@@ -181,19 +186,31 @@ cdef class Beam:
                 else:
                     entry.first = s.score
                 entry.second = move_id
-                if q.empty() \
-                or q.top().first < 0 \
-                or entry.first >= (q.top().first * self.min_density):
-                    q.push(entry)
+                entries.push_back(entry)
             else:
                 for j in range(self.nr_class):
                     if is_valid[i][j]:
                         entry.first = s.score + scores[i][j]
                         entry.second = move_id + j
-                        if q.empty() \
-                        or q.top().first < 0 \
-                        or entry.first >= (q.top().first * self.min_density):
-                            q.push(entry)
+                        entries.push_back(entry)
+        cdef double max_ = entries[0].first
+        cdef double Z = 0.
+        cdef double cutoff = 0.0
+        if self.min_density == 0.0:
+            for i in range(entries.size()):
+                q.push(entries[i])
+        else:
+            # Softmax into probabilities, so we can prune
+            for i in range(entries.size()):
+                if entries[i].first > max_:
+                max_ = entries[i].first
+            for i in range(entries.size()):
+                Z += exp(entries[i].first-max_)
+            cutoff = (1. / Z) * self.min_density
+            for i in range(entries.size()):
+                prob = exp(entries[i].first-max_)
+                if prob >= cutoff:
+                    q.push(entries[i])
 
 
 cdef class MaxViolation:
