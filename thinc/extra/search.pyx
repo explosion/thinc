@@ -203,12 +203,12 @@ cdef class Beam:
             # Softmax into probabilities, so we can prune
             for i in range(entries.size()):
                 if entries[i].first > max_:
-                max_ = entries[i].first
+                    max_ = entries[i].first
             for i in range(entries.size()):
                 Z += exp(entries[i].first-max_)
             cutoff = (1. / Z) * self.min_density
             for i in range(entries.size()):
-                prob = exp(entries[i].first-max_)
+                prob = exp(entries[i].first-max_) / Z
                 if prob >= cutoff:
                     q.push(entries[i])
 
