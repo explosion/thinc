@@ -268,3 +268,14 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
     assert flat.ndim == 1
     unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)
+
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_nested_unflatten_length_zero(cpu_ops, X):
+    nums = [[x] for x in X]
+    if len(nums) > 1:
+        nums[-1] = []
+
+    lengths = [len(lst) for lst in nums]
+    unflat = cpu_ops.unflatten(nums, lengths)

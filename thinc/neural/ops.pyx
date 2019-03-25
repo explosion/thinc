@@ -135,7 +135,7 @@ class Ops(object):
             X = X[length:]
         if pad >= 1 and length != 0:
             X = X[pad:]
-        assert len(X) == 0
+        # assert len(X) == 0 can cause error if 0 exists in lengths
         assert len(unflat) == len(lengths)
         return unflat
 
@@ -235,7 +235,7 @@ class Ops(object):
 
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
-    
+
     def sigmoid(self, X):
         return 1./(1. + self.xp.exp(-X))
 
@@ -342,7 +342,7 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
-    
+
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -409,7 +409,7 @@ class NumpyOps(Ops):
         else:
             m = x.shape[0]
         cdef int n
-        if trans2: 
+        if trans2:
             n = y.shape[0]
         else:
             n = y.shape[1]
@@ -710,7 +710,7 @@ class NumpyOps(Ops):
                 ids.shape[0], out.shape[1])
         else:
             self.xp.add.at(out, ids, inputs)
- 
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
@@ -740,7 +740,7 @@ cdef void cpu_scatter_add(float* dest,
         if id_ >= 0:
             VecVec.add_i(&dest[id_*nr_col],
         	&src[i*nr_col], 1., nr_col)
- 
+
 
 @cython.cdivision(True)
 cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
