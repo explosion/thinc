@@ -1,5 +1,6 @@
 # coding: utf8
 from __future__ import unicode_literals
+from random import randint
 
 import pytest
 import numpy
@@ -273,9 +274,16 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_nested_unflatten_length_zero(cpu_ops, X):
-    nums = [[x] for x in X]
-    if len(nums) > 1:
-        nums[-1] = []
+    nums = nums = [x for x in X]
+    n = len(X)
+    if n > 1:
+        random_idx = randint(0, n - 1)
+        nums[random_idx] = []
 
+    nums = numpy.array([numpy.array(num, dtype=float) for num in nums])
+    flat = cpu_ops.flatten(nums)
+    assert flat.ndim == 1
     lengths = [len(lst) for lst in nums]
-    unflat = cpu_ops.unflatten(nums, lengths)
+    unflat = cpu_ops.unflatten(flat, lengths)
+    for n, u in zip(nums, unflat):
+        assert_allclose(n, u)
