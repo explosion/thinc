@@ -20,8 +20,11 @@ class MultiHeadedAttention(Model):
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
         self.nD = nM // nH
-        self.linears = [with_reshape(Affine(nM, nM)) for i in range(4)]
-        self._layers = list(self.linears)
+        self.get_queries = with_reshape(Affine(nM, nM))
+        self.get_keys = with_reshape(Affine(nM, nM))
+        self.get_values = with_reshape(Affine(nM, nM))
+        self.get_output = with_reshape(Affine(nM, nM))
+        self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
 
     def begin_update(self, input, drop=0.0):
         # Queries come from input[0], keys and values from input[1]
@@ -44,17 +47,17 @@ class MultiHeadedAttention(Model):
         # x2: nB, nL, nM
         # x3: nB, nL, nM
         nB, nL, nD, nH = x0.shape[0], x0.shape[1], self.nD, self.nH
-        q0, get_dx0 = self.linears[0].begin_update(x0)
+        q0, get_dx0 = self.get_queries.begin_update(x0)
         q1 = q0.reshape(nB, -1, self.nH, self.nD)
-        k0, get_dy0_1 = self.linears[1].begin_update(y0)
+        k0, get_dy0_1 = self.get_keys.begin_update(y0)
         k1 = k0.reshape(nB, -1, self.nH, self.nD)
-        v0, get_dy0_2 = self.linears[2].begin_update(y0)
+        v0, get_dy0_2 = self.get_values.begin_update(y0)
         v1 = v0.reshape(nB, -1, self.nH, self.nD)
 
         x1, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask)
 
         x2 = x1.reshape(x1.shape[0], x1.shape[1], x1.shape[2]*x1.shape[3])
-        x3, get_dx2 = self.linears[-1].begin_update(x2)
+        x3, get_dx2 = self.get_output.begin_update(x2)
 
         def finish_update(dx3, sgd=None):
             dx2 = get_dx2(dx3, sgd=sgd)
@@ -63,8 +66,7 @@ class MultiHeadedAttention(Model):
             dv0 = dv1.reshape(nB, nL, nH, nD)
             dk0 = dk1.reshape(nB, nL, nH, nD)
             dq0 = dq1.reshape(nB, nL, nH, nD)
-            dy0 = get_dy0_2(dv0, sgd=sgd)
-            dy0 += get_dy0_1(dk0, sgd=sgd)
+            dy0 = get_dy0_2(dv0, sgd=sgd) + get_dy0_1(dk0, sgd=sgd)
             dx0 = get_dx0(dq0, sgd=sgd)
             if self_attention:
                 return dx0 + dy0
@@ -81,17 +83,18 @@ class MultiHeadedAttention(Model):
         '''
         # query shape: nB, nL, nH, nD
 
-        S0, get_dQ_dK = self._scaled_dot_prod(Q, K)
-        S1, get_dS0 = self._mask(S0, mask)
-        S2, get_dS1 = self._softmax(S1)
-        S3, get_dS2_dV = self._apply_attn(S2, V)
+        S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
+        S1, bp_mask = self._mask(S0, mask)
+        S2, bp_softmax = self._softmax(S1)
+        S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
             ''' Attention three inputs, one output '''
-            dS2, dV = get_dS2_dV(dS3)
-            dS1 = get_dS1(dS2)
-            dS0 = get_dS0(dS1)
-            dQ, dK = get_dQ_dK(dS0)
+            dS2, dV = bp_apply_attn(dS3)
+            dS1 = bp_softmax(dS2)
+            dS0 = bp_mask(dS1)
+            dQ, dK = bp_scaled_dp(dS0)
+            #print("attn", "dQ", dQ.mean(), dQ.var(), "dK", dK.mean(), dK.var(), "dV", dV.mean(), dV.var())
             return dQ, dK, dV
         return S3, backprop_attn
 
