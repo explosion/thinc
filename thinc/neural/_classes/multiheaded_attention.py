@@ -144,8 +144,10 @@ class MultiHeadedAttention(Model):
         S1 = self.ops.softmax(S0)
 
         def backprop_attn3(dS1):
-            dS0 = dS1 * (1-S0)
-            #dS0 = self.ops.xp.matmul(dS1, self.ops.xp.matmul(S0, (1 - S0)))
+            dS0 = dS1 * S1
+            sum_dS0 = dS0.sum(axis=2, keepdims=True)
+            dS0 -= sum_dS0 * S1
+            #print("bp_softmax", "S1", S1.mean(), S1.var(), "dS1", dS1.mean(), dS1.var(), "dS0", dS0.mean(), dS0.var())
             return dS0
         return S1, backprop_attn3
 
