@@ -2,6 +2,7 @@ from __future__ import unicode_literals, print_function
 
 from .model import Model
 from .affine import Affine
+from .maxout import Maxout
 from ...api import with_reshape
 
 
@@ -23,7 +24,7 @@ class MultiHeadedAttention(Model):
         self.get_queries = with_reshape(Affine(nM, nM))
         self.get_keys = with_reshape(Affine(nM, nM))
         self.get_values = with_reshape(Affine(nM, nM))
-        self.get_output = with_reshape(Affine(nM, nM))
+        self.get_output = with_reshape(Maxout(nM, nM))
         self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
 
     def begin_update(self, input, drop=0.0):
@@ -150,7 +151,6 @@ class MultiHeadedAttention(Model):
             dS0 = dS1 * S1
             sum_dS0 = dS0.sum(axis=2, keepdims=True)
             dS0 -= sum_dS0 * S1
-            #print("bp_softmax", "S1", S1.mean(), S1.var(), "dS1", dS1.mean(), dS1.var(), "dS0", dS0.mean(), dS0.var())
             return dS0
         return S1, backprop_attn3
 
