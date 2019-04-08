@@ -260,9 +260,9 @@ class PytorchMultiHeadedAttention(nn.Module):
         S0 = self._scaled_dot_prod(Q, K)
         S1 = self._mask(S0, mask)
         S2 = self._softmax(S1)
-        # if sentX is not None and sentY is not None:
-        #     visualize_attention(sentX, sentY, S2[0], layer=self.layer,
-        #     self_attn=self_attn)
+        if sentX is not None and sentY is not None:
+            visualize_attention(sentX, sentY, S2[0].data.numpy(), layer=self.layer,
+            self_attn=self_attn)
         S3 = self._apply_attn(S2, V)
         return S3
 
