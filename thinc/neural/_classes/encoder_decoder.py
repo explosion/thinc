@@ -85,7 +85,7 @@ class EncoderDecoder(Model):
 
 def EncoderLayer(nH, nM):
     return chain(
-        MultiHeadedAttention(nM, nH),
+        MultiHeadedAttention(nM, nH, layer='Encoder'),
         with_getitem(0, with_reshape(LayerNorm(Affine(nM, nM))))
     )
 
@@ -146,8 +146,8 @@ class DecoderLayer(Model):
         Model.__init__(self)
         self.nH = nH
         self.nM = nM
-        self.x_attn = MultiHeadedAttention(nM, nH)
-        self.y_attn = MultiHeadedAttention(nM, nH)
+        self.x_attn = MultiHeadedAttention(nM, nH, layer='Decoder')
+        self.y_attn = MultiHeadedAttention(nM, nH, layer='Decoder')
         self.ffd = with_reshape(LayerNorm(Affine(nM, nM)))
         self._layers = [self.x_attn, self.y_attn, self.ffd]
 

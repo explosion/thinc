@@ -15,11 +15,12 @@ class MultiHeadedAttention(Model):
     For the time being; key, query and value matrices are supposed to have the
     same length.
     '''
-    def __init__(self, nM=300, nH=6):
+    def __init__(self, nM=300, nH=6, layer='Encoder'):
         Model.__init__(self)
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
         self.nD = nM // nH
+        self.layer = layer
         self.get_queries = with_reshape(Affine(nM, nM))
         self.get_keys = with_reshape(Affine(nM, nM))
         self.get_values = with_reshape(Affine(nM, nM))
@@ -55,7 +56,8 @@ class MultiHeadedAttention(Model):
         v0, get_dy0_2 = self.get_values.begin_update(y0)
         v1 = v0.reshape(nB, -1, self.nH, self.nD)
 
-        x1, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX, sentY=sentY)
+        x1, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
+                                        sentY=sentY, self_attn=self_attention)
 
         x2 = x1.reshape(x1.shape[0], x1.shape[1], x1.shape[2]*x1.shape[3])
         x3, get_dx2 = self.get_output.begin_update(x2)
@@ -75,7 +77,7 @@ class MultiHeadedAttention(Model):
                 return (dx0, dy0)
         return (x3, mask), finish_update
 
-    def attn(self, Q, K, V, mask=None, sentX=None, sentY=None):
+    def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
         '''
         Compute attention on (query, key, value) triplets.
         The similarity of the (Q, K) pairs are used to
@@ -88,7 +90,8 @@ class MultiHeadedAttention(Model):
         S1, bp_mask = self._mask(S0, mask)
         S2, bp_softmax = self._softmax(S1)
         if sentX is not None and sentY is not None:
-            visualize_attention(sentX, sentY, S2[0])
+            visualize_attention(sentX, sentY, S2[0], layer=self.layer,
+            self_attn=self_attn)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
