@@ -4,6 +4,11 @@ from .model import Model
 from .affine import Affine
 from ...api import with_reshape
 from thinc.extra.visualizer import visualize_attention
+from thinc.extra.wrappers import xp2torch
+import numpy as np
+import torch.nn as nn
+import torch
+import math
 
 class MultiHeadedAttention(Model):
     ''' This class implements multiheaded attention. It can be used for self
