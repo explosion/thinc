@@ -196,3 +196,122 @@ class MultiHeadedAttention(Model):
             return dS0, dV0
 
         return S3, backprop_attn4
+
+
+
+
+class PytorchMultiHeadedAttention(nn.Module):
+    def __init__(self, nM=300, nH=6, layer='Encoder'):
+        super(PytorchMultiHeadedAttention, self).__init__()
+        self.nH = nH
+        self.nM = nM  # model size: the length of the embeddings
+        self.nD = nM // nH
+        self.layer = layer
+        self.get_queries = nn.Linear(nM, nM)
+        self.get_keys = nn.Linear(nM, nM)
+        self.get_values = nn.Linear(nM, nM)
+        self.get_output = nn.Linear(nM, nM)
+        self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
+
+    def forward(self, input, drop=0.0):
+        # Queries come from input[0], keys and values from input[1]
+        if len(input) == 3:
+            x0, mask, sentX = input
+            sentY = sentX
+            y0 = x0
+            self_attention = True
+        else:
+            self_attention = False
+            x0, y0, mask, sentX, sentY = input
+        mask = xp2torch(mask.astype(np.float32))
+        ''' Shapes '''
+        # x0: nB, nL, nM
+        # q0: nB, nL, nM
+        # k0: nB, nL, nM
+        # v0: nB, nL, nM
+        # q1: nB, nL, nH, nD
+        # k1: nB, nL, nH, nD
+        # v1: nB, nL, nH, nD
+        # x1: nB, nL, nH, nD
+        # x2: nB, nL, nM
+        # x3: nB, nL, nM
+        nB, nL, nD, nH = x0.shape[0], x0.shape[1], self.nD, self.nH
+        q0 = self.get_queries(x0)
+        q1 = q0.view(nB, -1, self.nH, self.nD)
+        k0 = self.get_keys(y0)
+        k1 = k0.view(nB, -1, self.nH, self.nD)
+        v0 = self.get_values(y0)
+        v1 = v0.reshape(nB, -1, self.nH, self.nD)
+        x1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
+                                        sentY=sentY, self_attn=self_attention)
+        x2 = x1.reshape(x1.shape[0], x1.shape[1], x1.shape[2]*x1.shape[3])
+        x3 = self.get_output(x2)
+        return (x3, mask)
+
+    def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
+        '''
+        Compute attention on (query, key, value) triplets.
+        The similarity of the (Q, K) pairs are used to
+        compute an attention matrix, which is used to rescale
+        V.
+        '''
+        # query shape: nB, nL, nH, nD
+
+        S0 = self._scaled_dot_prod(Q, K)
+        S1 = self._mask(S0, mask)
+        S2 = self._softmax(S1)
+        # if sentX is not None and sentY is not None:
+        #     visualize_attention(sentX, sentY, S2[0], layer=self.layer,
+        #     self_attn=self_attn)
+        S3 = self._apply_attn(S2, V)
+        return S3
+
+    def _scaled_dot_prod(self, Q0, K0):
+        # nB: #Sentences, nL: #Length, nH: #Heads, nD: #Dimensions
+        nB, nL, nH, nD = Q0.shape
+        # Shape of Q0: (nB, nL, nH, nD)
+        # Shape of K0: (nB, nL, nH, nD)
+        # --> (nB*nH, nL, nD)
+        Q1 = Q0.permute(0, 2, 1, 3).contiguous().view(nB*nH, nL, nD)
+
+        # --> (nB*nH, nD, nL)
+        K1 = K0.permute(0, 2, 3, 1).contiguous().view(nB*nH, nD, nL)
+
+        K2 = K1 / math.sqrt(self.nM)
+        # (nB*nH, nL, nD) @ (nB*nH, nD, nL) --> (nB*nH, nL, nL)
+
+        S = Q1 @ K2
+        return S.view((nB, nH, nL, nL))
+
+    def _mask(self, S0, mask):
+        S1 = S0.permute(1, 0, 2, 3)
+        S2 = S1 * mask - (1 - mask) * (1e9)
+        S3 = S2.permute(1, 0, 2, 3)
+        return S3
+
+    def _softmax(self, S0):
+        ''' A simple softmax to the scores '''
+        # S0: nB, nH, nL, nL
+        # S1: nB, nH, nL, nL
+        softmax_layer = nn.Softmax(dim=-1)
+        S1 = softmax_layer(S0)
+        return S1
+
+    def _apply_attn(self, S0, V0):
+        ''' Multiplication with values '''
+        nB, nH, nL, nL = S0.shape
+        nD = V0.shape[-1]
+        V1 = V0.view((nB*nH, nL, nD))
+
+        S1 = S0.view((nB*nH, nL, nL))
+        # S0: (nB, nH, nL, nL)
+        # S1: (nB*nH, nL, nL)
+        # V1:  (nB*nH, nL, nD)
+        # S2: (nB*nH, nL, nD)
+        # S3: (nB, nL, nH, nD)
+
+        # (nB*nH, nL, nL) @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
+
+        S2 = S1 @ V1
+        S3 = S2.view((nB, nH, nL, nD)).permute(0, 2, 1, 3)
+        return S3
