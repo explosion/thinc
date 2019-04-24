@@ -10,6 +10,7 @@ import torch.nn as nn
 import torch
 import math
 
+
 class MultiHeadedAttention(Model):
     ''' This class implements multiheaded attention. It can be used for self
     attention or outer attention, depending on our needs. There is no left
@@ -79,7 +80,7 @@ class MultiHeadedAttention(Model):
             if self_attention:
                 return dx0 + dy0
             else:
-                return (dx0, dy0)
+                return (dy0, dx0)
         return (x3, mask), finish_update
 
     def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
@@ -215,15 +216,15 @@ class PytorchMultiHeadedAttention(nn.Module):
 
     def forward(self, input, drop=0.0):
         # Queries come from input[0], keys and values from input[1]
-        if len(input) == 3:
-            x0, mask, sentX = input
-            sentY = sentX
+        if len(input) == 2:
+            x0, mask = input
             y0 = x0
             self_attention = True
         else:
             self_attention = False
-            x0, y0, mask, sentX, sentY = input
-        mask = xp2torch(mask.astype(np.float32))
+            x0, y0, mask = input
+        sentX = None
+        sentY = None
         ''' Shapes '''
         # x0: nB, nL, nM
         # q0: nB, nL, nM
