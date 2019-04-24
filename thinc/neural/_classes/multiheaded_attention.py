@@ -7,6 +7,8 @@ from thinc.extra.visualizer import visualize_attention
 from thinc.extra.wrappers import xp2torch
 import numpy as np
 import torch.nn as nn
+import copy
+import torch.nn.functional as F
 import torch
 import math
 
@@ -81,7 +83,7 @@ class MultiHeadedAttention(Model):
                 return dx0 + dy0
             else:
                 return (dy0, dx0)
-        return (x3, mask), finish_update
+        return x3, finish_update
 
     def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
         '''
@@ -199,120 +201,43 @@ class MultiHeadedAttention(Model):
         return S3, backprop_attn4
 
 
+def clones(module, N):
+    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
+
+
+def attention(query, key, value, mask=None, dropout=None):
+    "Compute 'Scaled Dot Product Attention'"
+    d_k = query.size(-1)
+    scores = torch.matmul(query, key.transpose(-2, -1)) \
+             / math.sqrt(d_k)
+    if mask is not None:
+        scores = scores.masked_fill(mask == 0, -1e9)
+    p_attn = F.softmax(scores, dim = -1)
+    if dropout is not None:
+        p_attn = dropout(p_attn)
+    return torch.matmul(p_attn, value), p_attn
 
 
 class PytorchMultiHeadedAttention(nn.Module):
-    def __init__(self, nM=300, nH=6, layer='Encoder'):
+    def __init__(self, nH=6, nM=300, dropout=0.0):
+        "Take in model size and number of heads."
         super(PytorchMultiHeadedAttention, self).__init__()
+        assert nM % nH == 0
+        self.d_k = nM // nH
         self.nH = nH
-        self.nM = nM  # model size: the length of the embeddings
-        self.nD = nM // nH
-        self.layer = layer
-        self.get_queries = nn.Linear(nM, nM)
-        self.get_keys = nn.Linear(nM, nM)
-        self.get_values = nn.Linear(nM, nM)
-        self.get_output = nn.Linear(nM, nM)
-        self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
+        self.linears = clones(nn.Linear(nM, nM), 4)
+        self.attn = None
+        self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, input, drop=0.0):
-        # Queries come from input[0], keys and values from input[1]
-        if len(input) == 2:
-            x0, mask = input
-            y0 = x0
-            self_attention = True
-        else:
-            self_attention = False
-            x0, y0, mask = input
-        sentX = None
-        sentY = None
-        ''' Shapes '''
-        # x0: nB, nL, nM
-        # q0: nB, nL, nM
-        # k0: nB, nL, nM
-        # v0: nB, nL, nM
-        # q1: nB, nL, nH, nD
-        # k1: nB, nL, nH, nD
-        # v1: nB, nL, nH, nD
-        # x1: nB, nL, nH, nD
-        # x2: nB, nL, nM
-        # x3: nB, nL, nM
-        nB, nL, nD, nH = x0.shape[0], x0.shape[1], self.nD, self.nH
-        q0 = self.get_queries(x0)
-        q1 = q0.view(nB, -1, self.nH, self.nD)
-        k0 = self.get_keys(y0)
-        k1 = k0.view(nB, -1, self.nH, self.nD)
-        v0 = self.get_values(y0)
-        v1 = v0.reshape(nB, -1, self.nH, self.nD)
-        x1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
-                                        sentY=sentY, self_attn=self_attention)
-        x2 = x1.reshape(x1.shape[0], x1.shape[1], x1.shape[2]*x1.shape[3])
-        x3 = self.get_output(x2)
-        return (x3, mask)
-
-    def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
-        '''
-        Compute attention on (query, key, value) triplets.
-        The similarity of the (Q, K) pairs are used to
-        compute an attention matrix, which is used to rescale
-        V.
-        '''
-        # query shape: nB, nL, nH, nD
-
-        S0 = self._scaled_dot_prod(Q, K)
-        S1 = self._mask(S0, mask)
-        S2 = self._softmax(S1)
-        if sentX is not None and sentY is not None:
-            visualize_attention(sentX, sentY, S2[0].data.numpy(), layer=self.layer,
-            self_attn=self_attn)
-        S3 = self._apply_attn(S2, V)
-        return S3
-
-    def _scaled_dot_prod(self, Q0, K0):
-        # nB: #Sentences, nL: #Length, nH: #Heads, nD: #Dimensions
-        nB, nL, nH, nD = Q0.shape
-        # Shape of Q0: (nB, nL, nH, nD)
-        # Shape of K0: (nB, nL, nH, nD)
-        # --> (nB*nH, nL, nD)
-        Q1 = Q0.permute(0, 2, 1, 3).contiguous().view(nB*nH, nL, nD)
-
-        # --> (nB*nH, nD, nL)
-        K1 = K0.permute(0, 2, 3, 1).contiguous().view(nB*nH, nD, nL)
-
-        K2 = K1 / math.sqrt(self.nM)
-        # (nB*nH, nL, nD) @ (nB*nH, nD, nL) --> (nB*nH, nL, nL)
-
-        S = Q1 @ K2
-        return S.view((nB, nH, nL, nL))
-
-    def _mask(self, S0, mask):
-        S1 = S0.permute(1, 0, 2, 3)
-        S2 = S1 * mask - (1 - mask) * (1e9)
-        S3 = S2.permute(1, 0, 2, 3)
-        return S3
-
-    def _softmax(self, S0):
-        ''' A simple softmax to the scores '''
-        # S0: nB, nH, nL, nL
-        # S1: nB, nH, nL, nL
-        softmax_layer = nn.Softmax(dim=-1)
-        S1 = softmax_layer(S0)
-        return S1
-
-    def _apply_attn(self, S0, V0):
-        ''' Multiplication with values '''
-        nB, nH, nL, nL = S0.shape
-        nD = V0.shape[-1]
-        V1 = V0.view((nB*nH, nL, nD))
-
-        S1 = S0.view((nB*nH, nL, nL))
-        # S0: (nB, nH, nL, nL)
-        # S1: (nB*nH, nL, nL)
-        # V1:  (nB*nH, nL, nD)
-        # S2: (nB*nH, nL, nD)
-        # S3: (nB, nL, nH, nD)
-
-        # (nB*nH, nL, nL) @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
-
-        S2 = S1 @ V1
-        S3 = S2.view((nB, nH, nL, nD)).permute(0, 2, 1, 3)
-        return S3
+    def forward(self, input):
+        query, key, value, mask = input
+        mask = mask.unsqueeze(1)
+        nbatches = query.size(0)
+        query, key, value = \
+            [l(x).view(nbatches, -1, self.nH, self.d_k).transpose(1, 2)
+             for l, x in zip(self.linears, (query, key, value))]
+        x, self.attn = attention(query, key, value, mask=mask,
+                                 dropout=self.dropout)
+        x = x.transpose(1, 2).contiguous() \
+             .view(nbatches, -1, self.nH * self.d_k)
+        return self.linears[-1](x)
