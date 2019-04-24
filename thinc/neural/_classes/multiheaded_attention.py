@@ -35,8 +35,18 @@ class MultiHeadedAttention(Model):
         self.get_values = with_reshape(Affine(nM, nM))
         self.get_output = with_reshape(Affine(nM, nM))
         self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
+        self._softmax = PyTorchWrapper(nn.Softmax())
+
+        ''' mask conf '''
+        i_grad = [1, 0]
+        o_xp = None
+        b_map = None
+        ret_x = [0]
+        conf = [i_grad, o_xp, b_map, ret_x]
+        self._mask = PyTorchWrapper(PytorchMaskScores(), conf=conf)
 
     def begin_update(self, input, drop=0.0):
+        # TESTED
         # Queries come from input[0], keys and values from input[1]
         if len(input) == 3:
             x0, mask, sentX = input
@@ -89,8 +99,9 @@ class MultiHeadedAttention(Model):
         compute an attention matrix, which is used to rescale
         V.
         '''
+        # TESTED
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
-        S1, bp_mask = self._mask(S0, mask)
+        S1, bp_mask = self._mask.begin_update((S0, mask))
         # S2, bp_softmax = self._softmax(S1)
         S2, bp_softmax = self._softmax.begin_update(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
@@ -105,6 +116,7 @@ class MultiHeadedAttention(Model):
         return S3, backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
+        # TESTED
         # Q0: nB, nH, nL, nD
         # K0: nB, nH, nL, nD
         nB, nH, nL, nD = Q0.shape
@@ -124,40 +136,28 @@ class MultiHeadedAttention(Model):
             dS0 = dS1.reshape((nB*nH, nL, nL))
             dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
             dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
-            dK1 = dK2 * self.ops.xp.sqrt(self.nM)
+            dK1 = dK2 / self.ops.xp.sqrt(self.nM)
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
             return dQ0, dK0
         return S1, backprop_attn1
 
-    def _mask(self, S0, mask):
-        S1 = S0.transpose(1, 0, 2, 3)
-        S2 = S1 * mask - (1 - mask) * (1e9)
-        S3 = S2.transpose(1, 0, 2, 3)
-
-        def backprop_attn2(dS3):
-            dS2 = dS3.transpose(1, 0, 2, 3)
-            dS1 = dS2 * mask
-            dS0 = dS1.transpose(1, 0, 2, 3)
-            return dS0
-
-        return S3, backprop_attn2
-
-    # def _softmax(self, S0):
-    #     ''' A simple softmax to the scores '''
-    #     # S0: nB, nH, nL, nL
-    #     # S1: nB, nH, nL, nL
-    #     S1 = self.ops.softmax(S0)
+    # def _mask(self, S0, mask):
+    #     S1 = S0.transpose(1, 0, 2, 3)
+    #     S2 = S1 - (1 - mask) * (1e9)
+    #     S3 = S2.transpose(1, 0, 2, 3)
     #
-    #     def backprop_attn3(dS1):
-    #         dS0 = dS1 * S1
-    #         sum_dS0 = dS0.sum(axis=2, keepdims=True)
-    #         dS0 -= sum_dS0 * S1
+    #     def backprop_attn2(dS3):
+    #         dS2 = dS3.transpose(1, 0, 2, 3)
+    #         dS1 = dS2
+    #         dS0 = dS1.transpose(1, 0, 2, 3)
     #         return dS0
-    #     return S1, backprop_attn3
+    #
+    #     return S3, backprop_attn2
 
     def _apply_attn(self, S0, V0):
         ''' Multiplication with values '''
+        # TESTED
         # S0: (nB, nH, nL, nL)
         # VO: (nB, nH, nL, nD)
         # S1: (nB*nH, nL, nL)
@@ -189,39 +189,11 @@ def clones(module, N):
     return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
 
 
-def attention(query, key, value, mask=None, dropout=None):
-    "Compute 'Scaled Dot Product Attention'"
-    d_k = query.size(-1)
-    scores = torch.matmul(query, key.transpose(-2, -1)) \
-             / math.sqrt(d_k)
-    if mask is not None:
-        scores = scores.masked_fill(mask == 0, -1e9)
-    p_attn = F.softmax(scores, dim=-1)
-    if dropout is not None:
-        p_attn = dropout(p_attn)
-    return torch.matmul(p_attn, value), p_attn
-
-
-class PytorchMultiHeadedAttention(nn.Module):
-    def __init__(self, nH=6, nM=300, dropout=0.0):
-        "Take in model size and number of heads."
-        super(PytorchMultiHeadedAttention, self).__init__()
-        assert nM % nH == 0
-        self.d_k = nM // nH
-        self.nH = nH
-        self.linears = clones(nn.Linear(nM, nM), 4)
-        self.attn = None
-        self.dropout = nn.Dropout(p=dropout)
+class PytorchMaskScores(nn.Module):
+    def __init__(self):
+        super(PytorchMaskScores, self).__init__()
 
     def forward(self, input):
-        query, key, value, mask = input
+        scores, mask = input
         mask = mask.unsqueeze(1)
-        nbatches = query.size(0)
-        query, key, value = \
-            [l(x).view(nbatches, -1, self.nH, self.d_k).transpose(1, 2)
-             for l, x in zip(self.linears, (query, key, value))]
-        x, self.attn = attention(query, key, value, mask=mask,
-                                 dropout=self.dropout)
-        x = x.transpose(1, 2).contiguous() \
-             .view(nbatches, -1, self.nH * self.d_k)
-        return self.linears[-1](x)
+        return scores.masked_fill(mask == 0, -1e9)
