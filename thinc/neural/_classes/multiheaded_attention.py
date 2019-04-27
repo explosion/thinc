@@ -35,7 +35,7 @@ class MultiHeadedAttention(Model):
         self.get_values = with_reshape(Affine(nM, nM))
         self.get_output = with_reshape(Affine(nM, nM))
         self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
-        self._softmax = PyTorchWrapper(nn.Softmax())
+        self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
 
         ''' mask conf '''
         i_grad = [1, 0]
@@ -102,7 +102,6 @@ class MultiHeadedAttention(Model):
         # TESTED
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
         S1, bp_mask = self._mask.begin_update((S0, mask))
-        # S2, bp_softmax = self._softmax(S1)
         S2, bp_softmax = self._softmax.begin_update(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
