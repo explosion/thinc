@@ -124,7 +124,7 @@ class MultiHeadedAttention(Model):
         # K1: (nB*nH, nD, nL)
         K1 = K0.transpose(0, 1, 3, 2).reshape((nB*nH, nD, nL))
         # K2: (nB*nH, nD, nL)
-        K2 = K1 / self.ops.xp.sqrt(self.nM)
+        K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
         # S0: (nB*nH, nL, nL)
         S0 = self.ops.xp.matmul(Q1, K2)
 
@@ -135,7 +135,7 @@ class MultiHeadedAttention(Model):
             dS0 = dS1.reshape((nB*nH, nL, nL))
             dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
             dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
-            dK1 = dK2 / self.ops.xp.sqrt(self.nM)
+            dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
             return dQ0, dK0
