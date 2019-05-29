@@ -199,7 +199,7 @@ def setup_package():
             generate_cython(root, "thinc")
 
         setup(
-            name=about["__title__"],
+            name="thinc",
             zip_safe=False,
             packages=PACKAGES,
             package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp"]},
