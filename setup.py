@@ -15,13 +15,14 @@ import platform
 
 from setuptools import Extension, setup
 
+
 def is_new_osx():
-    '''Check whether we're on OSX >= 10.10'''
+    """Check whether we're on OSX >= 10.10"""
     name = distutils.util.get_platform()
-    if sys.platform != 'darwin':
+    if sys.platform != "darwin":
         return False
-    elif name.startswith('macosx-10'):
-        minor_version = int(name.split('-')[1].split('.')[1])
+    elif name.startswith("macosx-10"):
+        minor_version = int(name.split("-")[1].split(".")[1])
         if minor_version >= 7:
             return True
         else:
@@ -41,7 +42,7 @@ PACKAGES = [
     "thinc.extra",
     "thinc.neural._classes",
     "thinc.extra._vendorized",
-    "thinc.extra.wrapt"
+    "thinc.extra.wrapt",
 ]
 
 
@@ -187,8 +188,11 @@ def setup_package():
                 )
             )
         ext_modules.append(
-            Extension('thinc.extra.wrapt._wrappers', ['thinc/extra/wrapt/_wrappers.c'],
-                      include_dirs=include_dirs)
+            Extension(
+                "thinc.extra.wrapt._wrappers",
+                ["thinc/extra/wrapt/_wrappers.c"],
+                include_dirs=include_dirs,
+            )
         )
 
         if not is_source_release(root):
