@@ -1,34 +1,26 @@
-import math
-import pdb
+# coding: utf8
+from __future__ import unicode_literals, print_function
 from .model import Model
 from ...api import chain, clone, with_getitem, wrap, with_reshape
 from .softmax import Softmax
+from .relu import ReLu
 from .layernorm import LayerNorm
+from .maxout import Maxout
 from .resnet import Residual
 from .affine import Affine
 from .multiheaded_attention import MultiHeadedAttention
-
-
-def with_reshape(layer):
-    def with_reshape_forward(X, drop=0.):
-        initial_shape = X.shape
-        final_shape = list(initial_shape[:-1]) + [layer.nO]
-        nB = X.shape[0]
-        nL = X.shape[1]
-        X2d = X.reshape(-1, X.shape[-1])
-        X2d = X2d.astype(layer.ops.xp.float32)
-        Y2d, Y2d_backprop = layer.begin_update(X2d, drop=drop)
-        Y = Y2d.reshape(final_shape)
-
-        def with_reshape_backward(dY, sgd=None):
-            dY2d = dY.reshape(nB*nL, -1).astype(layer.ops.xp.float32)
-            return Y2d_backprop(dY2d, sgd=sgd).reshape(initial_shape)
-        return Y, with_reshape_backward
-    return wrap(with_reshape_forward, layer)
+from .positionwise_ffd import PositionwiseFeedForward
+import copy
+import math
+import numpy as np
+import torch.nn as nn
+import torch
+from thinc.extra.wrappers import PyTorchWrapper
+import torch.nn.functional as F
 
 
 class EncoderDecoder(Model):
-    def __init__(self, nS=1, nH=6, nM=300, nTGT=10000):
+    def __init__(self, nS=1, nH=6, nM=300, nTGT=10000, device='cpu'):
         '''
         EncoderDecoder consists of an encoder stack, a decoder stack and an
         output layer which is a linear + softmax.
@@ -43,125 +35,132 @@ class EncoderDecoder(Model):
         self.nH = nH
         self.nM = nM
         self.nTGT = nTGT
-        self.enc = clone(EncoderLayer(self.nH, self.nM), 1)
-        # self.dec = clone(DecoderLayer(self.nH, self.nM), 1)
-        self.dec = PoolingDecoder(self.nM)
+        self.device = device
+        self.enc = Encoder(nM=nM, nH=nH, device=device, nS=nS)
+        self.norm = PyTorchWrapper(PytorchLayerNorm(nM=nM, device=device))
+        self.dec = clone(DecoderLayer(nM=nM, nH=nH, device=device), nS)
         self.proj = with_reshape(Softmax(nO=nTGT, nI=nM))
         self._layers = [self.enc, self.dec, self.proj]
 
-    def begin_update(self, inputs, drop=0.0):
+    def begin_update(self, inputs, drop=0.1):
         '''
         A batch object flows through the network. It contains input, output and
         corresponding masks. Input changes while the object travels through
         the network. Output is the golden output.
         Input: nB x nL x nM
         '''
-        if len(inputs) == 2:
-            (X0, Xmask), (Y0, Ymask) = inputs
-            sentX = None
-            sentY = None
-        else:
-            (X0, Xmask), (Y0, Ymask), (sentX, sentY) = inputs
-        (X1, _), backprop_encode = self.enc.begin_update((X0, Xmask, sentX), drop=drop)
-        (_, (Y1, _)), backprop_decode = self.dec.begin_update(((X1, Xmask, sentX), (Y0, Ymask, sentY)), drop=drop)
-        word_probs, backprop_output = self.proj.begin_update(Y1, drop=drop)
-        # Right-shift the word probabilities
-        word_probs[:, 1:] = word_probs[:, :-1]
-        word_probs[:, 0] = 0
+        X0, Xmask, Y0, Ymask = inputs
+        X1, backprop_encode = self.enc.begin_update((X0, Xmask), drop=drop)
+        (Y1, _, _, _), backprop_decode = self.dec.begin_update((Y0, X1, Xmask, Ymask), drop=drop)
+        Y2, b_Y2 = self.norm.begin_update(Y1)
+        word_probs, backprop_output = self.proj.begin_update(Y2, drop=drop)
 
         def finish_update(d_word_probs, sgd=None):
-            # Unshift
-            d_word_probs[:, :-1] = d_word_probs[:, 1:]
-            d_word_probs[:, -1] = 0.
-
-            dY1 = backprop_output(d_word_probs, sgd=sgd)
+            dY2 = backprop_output(d_word_probs, sgd=sgd)
+            dY1 = b_Y2(dY2, sgd=sgd)
             zeros = Model.ops.xp.zeros(X0.shape, dtype=Model.ops.xp.float32)
-            dX1, dY0 = backprop_decode((zeros, dY1), sgd=sgd)
+            dY0, dX1 = backprop_decode((dY1, zeros), sgd=sgd)
             dX0 = backprop_encode(dX1, sgd=sgd)
             return (dX0, dY0)
-
         return (word_probs, Xmask), finish_update
 
 
-def EncoderLayer(nH, nM):
-    return chain(
-        MultiHeadedAttention(nM, nH, layer='Encoder'),
-        with_getitem(0, with_reshape(LayerNorm(Affine(nM, nM))))
-    )
+class PytorchLayerNorm(nn.Module):
+    def __init__(self, nM=300, eps=1e-6, device='cpu'):
+        super(PytorchLayerNorm, self).__init__()
+        self.a_2 = nn.Parameter(torch.ones(nM).to(device))
+        self.b_2 = nn.Parameter(torch.zeros(nM).to(device))
+        self.eps = eps
+        self.device = device
+
+    def forward(self, x):
+        mean = x.mean(-1, keepdim=True).to(self.device)
+        std = x.std(-1, keepdim=True).to(self.device)
+        return self.a_2 * (x - mean) / (std + self.eps) + self.b_2
 
 
-class PoolingDecoder(Model):
-    def __init__(self, nM):
+class Encoder(Model):
+    def __init__(self, nM=300, nH=6, nS=6, device='cpu'):
         Model.__init__(self)
+        self.stack = clone(EncoderLayer(nM=nM, nH=nH, device=device), nS)
+        self.norm = PyTorchWrapper(PytorchLayerNorm(nM=nM, device=device))
+
+    def begin_update(self, input, drop=0.1):
+        X0, mask = input
+        (X1, _), b_X1 = self.stack.begin_update((X0, mask), drop=0.1)
+        X2, b_X2 = self.norm.begin_update(X1)
+
+        def finish_update(dX2, sgd=None):
+            dX1 = b_X2(dX2, sgd=sgd)
+            dX0 = b_X1(dX1, sgd=sgd)
+            return dX0
+        return X2, finish_update
+
+
+class EncoderLayer(Model):
+    def __init__(self, nM=300, nH=6, device='cpu'):
+        Model.__init__(self)
+        self.attn = MultiHeadedAttention(nM=nM, nH=nH)
+        self.ffd = PositionwiseFeedForward(nM, 4 * nM)
+        self.norm = PyTorchWrapper(PytorchLayerNorm(nM, device=device))
         self.nM = nM
-        self.ffd = LayerNorm(Maxout(nO=nM, nI=nM*3, pieces=3))
-        self._layers = [self.ffd]
+        self.layers_ = [self.attn, self.ffd, self.norm]
 
-    def begin_update(self, X_Y, drop=0.):
-        (X0, Xmask, _), (Y0, Ymask, _) = X_Y
-        X_masked = self.ops.xp.copy(X0)
-        X_masked[Xmask[:, 0, :] == 0] = -math.inf
-        Xpool = X_masked.max(axis=1, keepdims=True)
+    def begin_update(self, input, drop=0.1):
+        X0, mask = input
+        X1, b_X1 = self.attn.begin_update((X0, mask, None), drop=drop)
+        X2, b_X2 = self.norm.begin_update(X1)
+        X3 = X0 + X2
 
-        Y_masked = self.ops.xp.copy(Y0)
-        Y_masked[Ymask[:, -1, :] == 0] = -math.inf
-        Ypool = self.ops.allocate((X0.shape[0], X0.shape[1], self.nM))
+        X4, b_X4 = self.ffd.begin_update(X3, drop=drop)
+        X5, b_X5 = self.norm.begin_update(X4)
+        X6 = X3 + X5
 
-        # maxing only over previous elements
-        for i in range(X0.shape[1]):
-            Ypool[:, i, :] = Y_masked[:, :i+1, :].max(axis=1, keepdims=True).squeeze()
+        def finish_update(dX6, sgd=None):
+            dX5 = dX6
+            dX4 = b_X5(dX5, sgd=sgd)
+            dX3 = b_X4(dX4, sgd=sgd)
+            dX3 += dX6
 
-        mixed = self.ops.allocate((X0.shape[0], X0.shape[1], self.nM*3))
-        mixed[:, :, :self.nM] = Xpool
-        mixed[:, :, self.nM:self.nM*2] = Ypool
-        mixed[:, :, self.nM*2:] = Y0
-        output, bp_output = self.ffd.begin_update(mixed.reshape((-1, self.nM*3)))
-        output = output.reshape((X0.shape[0], X0.shape[1], output.shape[1]))
+            dX2 = dX3
+            dX1 = b_X2(dX2, sgd=sgd)
+            dX0 = b_X1(dX1, sgd=sgd)
 
-        def backprop_pooling_decoder(dX_d_output, sgd=None):
-            dXin, d_output = dX_d_output
-            d_output = d_output.reshape((X0.shape[0]*X0.shape[1], d_output.shape[2]))
-            d_mixed = bp_output(d_output, sgd=sgd)
-            d_mixed = d_mixed.reshape((X0.shape[0], X0.shape[1], d_mixed.shape[1]))
-            dXpool = d_mixed[:, :, :self.nM]
-            dYpool = d_mixed[:, :, self.nM:self.nM*2]
-            dY0 = d_mixed[:, :, self.nM*2:]
-            dX0 = self.ops.allocate(X0.shape)
-            for i in range(X0.shape[0]):
-                for j in range(X0.shape[1]):
-                    for k in range(X0.shape[2]):
-                        if X0[i, j, k] >= Xpool[i, 0, k]:
-                            dX0[i, j, k] += dXpool[i, j, k]
-            for i in range(Y0.shape[0]):
-                for j in range(Y0.shape[1]):
-                    for k in range(Y0.shape[2]):
-                        if Y0[i, j, k] >= Ypool[i, j, k]:
-                            dY0[i, j, k] += dYpool[i, j, k]
-            return dXin + dX0, dY0
-        return ((X0, Xmask), (output, Ymask)), backprop_pooling_decoder
+            dX0 += dX3
+            return X0
+        return (X6, mask), finish_update
 
 
 class DecoderLayer(Model):
-    def __init__(self, nH, nM):
+    def __init__(self, nM=300, nH=6, device='cpu'):
         Model.__init__(self)
-        self.nH = nH
-        self.nM = nM
-        self.x_attn = MultiHeadedAttention(nM, nH, layer='Decoder')
-        self.y_attn = MultiHeadedAttention(nM, nH, layer='Decoder')
-        self.ffd = with_reshape(LayerNorm(Affine(nM, nM)))
-        self._layers = [self.x_attn, self.y_attn, self.ffd]
+        self.y_attn = MultiHeadedAttention(nM=nM, nH=nH)
+        self.x_attn = MultiHeadedAttention(nM=nM, nH=nH)
+        self.norm = PyTorchWrapper(PytorchLayerNorm(nM, device=device))
+        self.ffd = PositionwiseFeedForward(nM, 4 * nM)
+        self.layers_ = [self.norm, self.y_attn, self.x_attn, self.ffd]
 
-    def begin_update(self, X_Y, drop=0.0):
-        (X0, Xmask, sentX), (Y0, Ymask, sentY) = X_Y
-        (Y1, _), bp_self_attn = self.y_attn.begin_update((Y0, Ymask, sentY))
-        (mixed, _), bp_mix_attn = self.x_attn.begin_update((Y1, X0, Xmask, sentY, sentX))
-        output, bp_output = self.ffd.begin_update(mixed)
+    def begin_update(self, input, drop=0.1):
+        Y0, X0, X_mask, Y_mask = input
+        Y1, b_Y1 = self.y_attn.begin_update((Y0, Y_mask, None), drop=drop)
+        Y2, b_Y2 = self.norm.begin_update(Y1)
+        Y3 = Y0 + Y2
+        Y4, b_Y4 = self.x_attn.begin_update((Y3, X0, X_mask, None, None), drop=drop)
+        Y5, b_Y5 = self.norm.begin_update(Y4)
+        Y6 = Y3 + Y5
+        Y7, b_Y7 = self.ffd.begin_update(Y6, drop=drop)
 
-        def finish_update(dXprev_d_output, sgd=None):
-            dXprev, d_output = dXprev_d_output
-            d_mixed = bp_output(d_output, sgd=sgd)
-            dY1, dX0 = bp_mix_attn(d_mixed, sgd=sgd)
-            dY0 = bp_self_attn(dY1, sgd=sgd)
-            return (dX0 + dXprev, dY0)
-
-        return ((X0, Xmask), (output, Ymask)), finish_update
+        def finish_update(dI, sgd=None):
+            dY7, dX = dI
+            dY6 = b_Y7(dY7, sgd=sgd)
+            dY5 = dY6
+            dY4 = b_Y5(dY5, sgd=sgd)
+            dY3, dX0 = b_Y4(dY4, sgd=sgd)
+            dY3 += dY6
+            dY2 = dY3
+            dY1 = b_Y2(dY2, sgd=sgd)
+            dY0 = b_Y1(dY1, sgd=sgd)
+            dY0 += dY3
+            dX0 += dX
+            return (dY0, dX0)
+        return (Y7, X0, X_mask, Y_mask), finish_update
