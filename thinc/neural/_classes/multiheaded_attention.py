@@ -59,9 +59,11 @@ class SparseAttention(Model):
         k1 = k0.reshape(nB, -1, self.nH, self.nD).transpose(0, 2, 1, 3)
         v0, get_dy0_2 = self.get_values.begin_update(y0)
         v1 = v0.reshape(nB, -1, self.nH, self.nD).transpose(0, 2, 1, 3)
-        q2, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
+        mask1 = mask.astype(Model.ops.xp.uint8) & self.mask_floor(nB, nL)
+        mask2 = mask.astype(Model.ops.xp.uint8) & self.mask_repetitive(nB, nL)
+        q2, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask1, sentX=sentX,
                                         sentY=sentY, self_attn=self_attention)
-        x1, get_dq2_dk1_dv1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
+        x1, get_dq2_dk1_dv1 = self.attn(q1, k1, v1, mask=mask2, sentX=sentX,
                                         sentY=sentY, self_attn=self_attention)
 
         x2 = x1.transpose(0, 2, 1, 3).reshape((nB, nL, nH*nD))
@@ -93,7 +95,6 @@ class SparseAttention(Model):
         compute an attention matrix, which is used to rescale
         V.
         '''
-        # TESTED
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
         S1, bp_mask = self._mask.begin_update((S0, mask))
         S2, bp_softmax = self._softmax.begin_update(S1)
@@ -109,7 +110,6 @@ class SparseAttention(Model):
         return S3, backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
-        # TESTED
         # Q0: nB, nH, nL, nD
         # K0: nB, nH, nL, nD
         nB, nH, nL, nD = Q0.shape
@@ -150,7 +150,6 @@ class SparseAttention(Model):
 
     def _apply_attn(self, S0, V0):
         ''' Multiplication with values '''
-        # TESTED
         # S0: (nB, nH, nL, nL)
         # VO: (nB, nH, nL, nD)
         # S1: (nB*nH, nL, nL)
@@ -177,19 +176,25 @@ class SparseAttention(Model):
 
         return S3, backprop_attn4
 
-    def mask_floor(nB, nL):
+    def mask_floor(self, nB, nL):
         stride = math.ceil(math.sqrt(nL))
-        floor_mask = Model.ops.xp.zeros((nB, nL, nL), dtype=Model.ops.xp.uint8)
+        floor_mask = \
+            Model.ops.xp.expand_dims(
+                Model.ops.xp.eye(nL), axis=0).repeat(nB, axis=0).astype(
+                    Model.ops.xp.uint8)
         for i in range(nL):
             lower = max(0, i - (i % stride))
             higher = i + 1
             floor_mask[:, i, lower:higher] = 1
         return floor_mask
 
-    def mask_repetitive(nB, nL):
+    def mask_repetitive(self, nB, nL, c=1, mode='left'):
         ''' Every stride tokens, mask one (independent of row) '''
         stride = math.ceil(math.sqrt(nL))
-        repetitive_mask = Model.ops.xp.zeros((nB, nL, nL), dtype=Model.ops.xp.uint8)
+        repetitive_mask = \
+            Model.ops.xp.expand_dims(
+                Model.ops.xp.eye(nL), axis=0).repeat(nB, axis=0).astype(
+                    Model.ops.xp.uint8)
         for j in range(nL):
             if ((j % stride) >= (stride - c)):
                 if mode == 'left':
@@ -228,7 +233,6 @@ class MultiHeadedAttention(Model):
         self._mask = PyTorchWrapper(PytorchMaskScores(), conf=conf)
 
     def begin_update(self, input, drop=0.1):
-        # TESTED
         # Queries come from input[0], keys and values from input[1]
         if len(input) == 3:
             x0, mask, sentX = input
@@ -281,7 +285,6 @@ class MultiHeadedAttention(Model):
         compute an attention matrix, which is used to rescale
         V.
         '''
-        # TESTED
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
         S1, bp_mask = self._mask.begin_update((S0, mask))
         S2, bp_softmax = self._softmax.begin_update(S1)
@@ -297,7 +300,6 @@ class MultiHeadedAttention(Model):
         return S3, backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
-        # TESTED
         # Q0: nB, nH, nL, nD
         # K0: nB, nH, nL, nD
         nB, nH, nL, nD = Q0.shape
@@ -338,7 +340,6 @@ class MultiHeadedAttention(Model):
 
     def _apply_attn(self, S0, V0):
         ''' Multiplication with values '''
-        # TESTED
         # S0: (nB, nH, nL, nL)
         # VO: (nB, nH, nL, nD)
         # S1: (nB*nH, nL, nL)
