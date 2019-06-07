@@ -220,7 +220,7 @@ def setup_package():
                 "preshed>=1.0.1,<2.1.0",
                 "blis>=0.2.1,<0.3.0",
                 "wasabi>=0.0.9,<1.1.0",
-                "srsly>=0.0.5,<1.1.0",
+                "srsly>=0.0.6,<1.1.0",
                 # Third-party dependencies
                 "numpy>=1.7.0",
                 "plac>=0.9.6,<1.0.0",
