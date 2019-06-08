@@ -43,7 +43,7 @@ def ancora_pos_tags(encode_words=False):  # pragma: no cover
 
 
 def ewtb_pos_tags(encode_tags=False, encode_words=False):  # pragma: no cover
-    data_dir = get_file("UD_English-r1.4", EWTB_1_4_ZIP, unzip=True)
+    data_dir = get_file("UD_English-EWT-r1.4", EWTB_1_4_ZIP, unzip=True)
     train_loc = os.path.join(data_dir, "en-ud-train.conllu")
     dev_loc = os.path.join(data_dir, "en-ud-dev.conllu")
     return ud_pos_tags(
