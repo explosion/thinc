@@ -15,8 +15,9 @@ import math
 
 
 class SparseAttention(Model):
-    ''' This class implements multiheaded attention in steps, factorizing
-    the attention matrix. '''
+    """ This class implements multiheaded attention in steps, factorizing
+    the attention matrix. """
+
     def __init__(self, nM=300, nH=6):
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
@@ -25,9 +26,14 @@ class SparseAttention(Model):
         self.get_keys = with_reshape(Affine(nM, nM))
         self.get_values = with_reshape(Affine(nM, nM))
         self.get_output = with_reshape(Affine(nM, nM))
-        self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
+        self._layers = [
+            self.get_queries,
+            self.get_keys,
+            self.get_values,
+            self.get_output,
+        ]
         self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
-        ''' mask conf '''
+        """ mask conf """
         i_grad = [1, 0]
         o_xp = None
         b_map = None
@@ -44,7 +50,7 @@ class SparseAttention(Model):
         else:
             self_attention = False
             x0, y0, mask, sentX, sentY = input
-        ''' Shapes '''
+        """ Shapes """
         # x0: nB, nL, nM
         # q0: nB, nL, nM
         # k0: nB, nL, nM
@@ -61,12 +67,14 @@ class SparseAttention(Model):
         v1 = v0.reshape(nB, -1, self.nH, self.nD).transpose(0, 2, 1, 3)
         mask1 = mask.astype(Model.ops.xp.uint8) & self.mask_floor(nB, nL)
         mask2 = mask.astype(Model.ops.xp.uint8) & self.mask_repetitive(nB, nL)
-        q2, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask1, sentX=sentX,
-                                        sentY=sentY, self_attn=self_attention)
-        x1, get_dq2_dk1_dv1 = self.attn(q1, k1, v1, mask=mask2, sentX=sentX,
-                                        sentY=sentY, self_attn=self_attention)
+        q2, get_dq1_dk1_dv1 = self.attn(
+            q1, k1, v1, mask=mask1, sentX=sentX, sentY=sentY, self_attn=self_attention
+        )
+        x1, get_dq2_dk1_dv1 = self.attn(
+            q1, k1, v1, mask=mask2, sentX=sentX, sentY=sentY, self_attn=self_attention
+        )
 
-        x2 = x1.transpose(0, 2, 1, 3).reshape((nB, nL, nH*nD))
+        x2 = x1.transpose(0, 2, 1, 3).reshape((nB, nL, nH * nD))
         x3, get_dx2 = self.get_output.begin_update(x2)
 
         def finish_update(dx3, sgd=None):
@@ -86,27 +94,29 @@ class SparseAttention(Model):
                 return dx0 + dy0
             else:
                 return (dx0, dy0)
+
         return x3, finish_update
 
     def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
-        '''
+        """
         Compute attention on (query, key, value) triplets.
         The similarity of the (Q, K) pairs are used to
         compute an attention matrix, which is used to rescale
         V.
-        '''
+        """
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
         S1, bp_mask = self._mask.begin_update((S0, mask))
         S2, bp_softmax = self._softmax.begin_update(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
-            ''' Attention three inputs, one output '''
+            """ Attention three inputs, one output """
             dS2, dV = bp_apply_attn(dS3)
             dS1 = bp_softmax(dS2)
             dS0 = bp_mask(dS1)
             dQ, dK = bp_scaled_dp(dS0)
             return dQ, dK, dV
+
         return S3, backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
@@ -114,9 +124,9 @@ class SparseAttention(Model):
         # K0: nB, nH, nL, nD
         nB, nH, nL, nD = Q0.shape
         # Q1: nB*nH, nL, nD
-        Q1 = Q0.reshape((nB*nH, nL, nD))
+        Q1 = Q0.reshape((nB * nH, nL, nD))
         # K1: (nB*nH, nD, nL)
-        K1 = K0.transpose(0, 1, 3, 2).reshape((nB*nH, nD, nL))
+        K1 = K0.transpose(0, 1, 3, 2).reshape((nB * nH, nD, nL))
         # K2: (nB*nH, nD, nL)
         K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
         # S0: (nB*nH, nL, nL)
@@ -126,13 +136,14 @@ class SparseAttention(Model):
         S1 = S0.reshape((nB, nH, nL, nL))
 
         def backprop_attn1(dS1):
-            dS0 = dS1.reshape((nB*nH, nL, nL))
+            dS0 = dS1.reshape((nB * nH, nL, nL))
             dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
             dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
             dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
             return dQ0, dK0
+
         return S1, backprop_attn1
 
     # def _mask(self, S0, mask):
@@ -149,7 +160,7 @@ class SparseAttention(Model):
     #     return S3, backprop_attn2
 
     def _apply_attn(self, S0, V0):
-        ''' Multiplication with values '''
+        """ Multiplication with values """
         # S0: (nB, nH, nL, nL)
         # VO: (nB, nH, nL, nD)
         # S1: (nB*nH, nL, nL)
@@ -158,14 +169,14 @@ class SparseAttention(Model):
         # S3: (nB, nH, nL, nD)
         nB, nH, nL, nL = S0.shape
         nD = V0.shape[-1]
-        V1 = V0.reshape((nB*nH, nL, nD))
-        S1 = S0.reshape((nB*nH, nL, nL))
+        V1 = V0.reshape((nB * nH, nL, nD))
+        S1 = S0.reshape((nB * nH, nL, nL))
         S2 = self.ops.xp.matmul(S1, V1)
 
         S3 = S2.reshape((nB, nH, nL, nD))
 
         def backprop_attn4(dS3):
-            dS2 = dS3.reshape((nB*nH, nL, nD))
+            dS2 = dS3.reshape((nB * nH, nL, nD))
             # (nB*nH, nL, nD) @ (nB*nH, nL, nD).T --> (nB*nH, nL, nL)
             dS1 = self.ops.xp.matmul(dS2, V1.transpose(0, 2, 1))
             # (nB*nH, nL, nL).T @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
@@ -178,32 +189,34 @@ class SparseAttention(Model):
 
     def mask_floor(self, nB, nL):
         stride = math.ceil(math.sqrt(nL))
-        floor_mask = \
-            Model.ops.xp.expand_dims(
-                Model.ops.xp.eye(nL), axis=0).repeat(nB, axis=0).astype(
-                    Model.ops.xp.uint8)
+        floor_mask = (
+            Model.ops.xp.expand_dims(Model.ops.xp.eye(nL), axis=0)
+            .repeat(nB, axis=0)
+            .astype(Model.ops.xp.uint8)
+        )
         for i in range(nL):
             lower = max(0, i - (i % stride))
             higher = i + 1
             floor_mask[:, i, lower:higher] = 1
         return floor_mask
 
-    def mask_repetitive(self, nB, nL, c=1, mode='left'):
-        ''' Every stride tokens, mask one (independent of row) '''
+    def mask_repetitive(self, nB, nL, c=1, mode="left"):
+        """ Every stride tokens, mask one (independent of row) """
         stride = math.ceil(math.sqrt(nL))
-        repetitive_mask = \
-            Model.ops.xp.expand_dims(
-                Model.ops.xp.eye(nL), axis=0).repeat(nB, axis=0).astype(
-                    Model.ops.xp.uint8)
+        repetitive_mask = (
+            Model.ops.xp.expand_dims(Model.ops.xp.eye(nL), axis=0)
+            .repeat(nB, axis=0)
+            .astype(Model.ops.xp.uint8)
+        )
         for j in range(nL):
-            if ((j % stride) >= (stride - c)):
-                if mode == 'left':
+            if (j % stride) >= (stride - c):
+                if mode == "left":
                     repetitive_mask[:, j:, j] = 1
         return repetitive_mask
 
 
 class MultiHeadedAttention(Model):
-    ''' This class implements multiheaded attention. It can be used for self
+    """ This class implements multiheaded attention. It can be used for self
     attention or outer attention, depending on our needs. There is no left
     and right context width. We attend to the whole sentence and we take
     care of the masks to adjust appropriately. There are no actual different
@@ -211,7 +224,8 @@ class MultiHeadedAttention(Model):
     Going to bigger dimensions is the key to get the multiple heads.
     For the time being; key, query and value matrices are supposed to have the
     same length.
-    '''
+    """
+
     def __init__(self, nM=300, nH=6):
         Model.__init__(self)
         self.nH = nH
@@ -221,10 +235,15 @@ class MultiHeadedAttention(Model):
         self.get_keys = with_reshape(Affine(nM, nM))
         self.get_values = with_reshape(Affine(nM, nM))
         self.get_output = with_reshape(Affine(nM, nM))
-        self._layers = [self.get_queries, self.get_keys, self.get_values, self.get_output]
+        self._layers = [
+            self.get_queries,
+            self.get_keys,
+            self.get_values,
+            self.get_output,
+        ]
         self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
 
-        ''' mask conf '''
+        """ mask conf """
         i_grad = [1, 0]
         o_xp = None
         b_map = None
@@ -242,7 +261,7 @@ class MultiHeadedAttention(Model):
         else:
             self_attention = False
             x0, y0, mask, sentX, sentY = input
-        ''' Shapes '''
+        """ Shapes """
         # x0: nB, nL, nM
         # q0: nB, nL, nM
         # k0: nB, nL, nM
@@ -257,9 +276,10 @@ class MultiHeadedAttention(Model):
         k1 = k0.reshape(nB, -1, self.nH, self.nD).transpose(0, 2, 1, 3)
         v0, get_dy0_2 = self.get_values.begin_update(y0)
         v1 = v0.reshape(nB, -1, self.nH, self.nD).transpose(0, 2, 1, 3)
-        x1, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=mask, sentX=sentX,
-                                        sentY=sentY, self_attn=self_attention)
-        x2 = x1.transpose(0, 2, 1, 3).reshape((nB, nL, nH*nD))
+        x1, get_dq1_dk1_dv1 = self.attn(
+            q1, k1, v1, mask=mask, sentX=sentX, sentY=sentY, self_attn=self_attention
+        )
+        x2 = x1.transpose(0, 2, 1, 3).reshape((nB, nL, nH * nD))
         x3, get_dx2 = self.get_output.begin_update(x2)
 
         def finish_update(dx3, sgd=None):
@@ -276,27 +296,29 @@ class MultiHeadedAttention(Model):
                 return dx0 + dy0
             else:
                 return (dx0, dy0)
+
         return x3, finish_update
 
     def attn(self, Q, K, V, mask=None, sentX=None, sentY=None, self_attn=True):
-        '''
+        """
         Compute attention on (query, key, value) triplets.
         The similarity of the (Q, K) pairs are used to
         compute an attention matrix, which is used to rescale
         V.
-        '''
+        """
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
         S1, bp_mask = self._mask.begin_update((S0, mask))
         S2, bp_softmax = self._softmax.begin_update(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
-            ''' Attention three inputs, one output '''
+            """ Attention three inputs, one output """
             dS2, dV = bp_apply_attn(dS3)
             dS1 = bp_softmax(dS2)
             dS0 = bp_mask(dS1)
             dQ, dK = bp_scaled_dp(dS0)
             return dQ, dK, dV
+
         return S3, backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
@@ -304,9 +326,9 @@ class MultiHeadedAttention(Model):
         # K0: nB, nH, nL, nD
         nB, nH, nL, nD = Q0.shape
         # Q1: nB*nH, nL, nD
-        Q1 = Q0.reshape((nB*nH, nL, nD))
+        Q1 = Q0.reshape((nB * nH, nL, nD))
         # K1: (nB*nH, nD, nL)
-        K1 = K0.transpose(0, 1, 3, 2).reshape((nB*nH, nD, nL))
+        K1 = K0.transpose(0, 1, 3, 2).reshape((nB * nH, nD, nL))
         # K2: (nB*nH, nD, nL)
         K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
         # S0: (nB*nH, nL, nL)
@@ -316,13 +338,14 @@ class MultiHeadedAttention(Model):
         S1 = S0.reshape((nB, nH, nL, nL))
 
         def backprop_attn1(dS1):
-            dS0 = dS1.reshape((nB*nH, nL, nL))
+            dS0 = dS1.reshape((nB * nH, nL, nL))
             dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
             dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
             dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
             return dQ0, dK0
+
         return S1, backprop_attn1
 
     # def _mask(self, S0, mask):
@@ -339,7 +362,7 @@ class MultiHeadedAttention(Model):
     #     return S3, backprop_attn2
 
     def _apply_attn(self, S0, V0):
-        ''' Multiplication with values '''
+        """ Multiplication with values """
         # S0: (nB, nH, nL, nL)
         # VO: (nB, nH, nL, nD)
         # S1: (nB*nH, nL, nL)
@@ -348,14 +371,14 @@ class MultiHeadedAttention(Model):
         # S3: (nB, nH, nL, nD)
         nB, nH, nL, nL = S0.shape
         nD = V0.shape[-1]
-        V1 = V0.reshape((nB*nH, nL, nD))
-        S1 = S0.reshape((nB*nH, nL, nL))
+        V1 = V0.reshape((nB * nH, nL, nD))
+        S1 = S0.reshape((nB * nH, nL, nL))
         S2 = self.ops.xp.matmul(S1, V1)
 
         S3 = S2.reshape((nB, nH, nL, nD))
 
         def backprop_attn4(dS3):
-            dS2 = dS3.reshape((nB*nH, nL, nD))
+            dS2 = dS3.reshape((nB * nH, nL, nD))
             # (nB*nH, nL, nD) @ (nB*nH, nL, nD).T --> (nB*nH, nL, nL)
             dS1 = self.ops.xp.matmul(dS2, V1.transpose(0, 2, 1))
             # (nB*nH, nL, nL).T @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)

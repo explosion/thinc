@@ -14,28 +14,35 @@ except:
     import pickle as cPickle
 
 
-def load_mnist(path='mnist.pkl.gz'):
-    path = get_file(path,
-        origin='https://s3.amazonaws.com/img-datasets/mnist.pkl.gz')
+def load_mnist(path="mnist.pkl.gz"):
+    path = get_file(path, origin="https://s3.amazonaws.com/img-datasets/mnist.pkl.gz")
 
-    if path.endswith('.gz'):
-        f = gzip.open(path, 'rb')
+    if path.endswith(".gz"):
+        f = gzip.open(path, "rb")
     else:
-        f = open(path, 'rb')
+        f = open(path, "rb")
 
     if sys.version_info < (3,):
         data = cPickle.load(f)
     else:
-        data = cPickle.load(f, encoding='bytes')
+        data = cPickle.load(f, encoding="bytes")
 
     f.close()
     return data  # (X_train, y_train), (X_test, y_test)
 
 
-def load_reuters(path='reuters.pkl', nb_words=None, skip_top=0,
-              maxlen=None, test_split=0.2, seed=113,
-              start_char=1, oov_char=2, index_from=3):
-    '''Loads the Reuters newswire classification dataset.
+def load_reuters(
+    path="reuters.pkl",
+    nb_words=None,
+    skip_top=0,
+    maxlen=None,
+    test_split=0.2,
+    seed=113,
+    start_char=1,
+    oov_char=2,
+    index_from=3,
+):
+    """Loads the Reuters newswire classification dataset.
 
     # Arguments
         path: where to store the data (in `/.keras/dataset`)
@@ -58,11 +65,10 @@ def load_reuters(path='reuters.pkl', nb_words=None, skip_top=0,
     because they're not making the `nb_words` cut here.
     Words that were not seen in the trining set but are in the test set
     have simply been skipped.
-    '''
+    """
 
-    path = get_file(path,
-            origin='https://s3.amazonaws.com/text-datasets/reuters.pkl')
-    f = open(path, 'rb')
+    path = get_file(path, origin="https://s3.amazonaws.com/text-datasets/reuters.pkl")
+    f = open(path, "rb")
     X, labels = cPickle.load(f)
     f.close()
 
@@ -98,28 +104,30 @@ def load_reuters(path='reuters.pkl', nb_words=None, skip_top=0,
         for x in X:
             nx = []
             for w in x:
-                if (w >= nb_words or w < skip_top):
+                if w >= nb_words or w < skip_top:
                     nx.append(w)
             nX.append(nx)
         X = nX
 
-    X_train = X[:int(len(X) * (1 - test_split))]
-    y_train = labels[:int(len(X) * (1 - test_split))]
+    X_train = X[: int(len(X) * (1 - test_split))]
+    y_train = labels[: int(len(X) * (1 - test_split))]
 
-    X_test = X[int(len(X) * (1 - test_split)):]
-    y_test = labels[int(len(X) * (1 - test_split)):]
+    X_test = X[int(len(X) * (1 - test_split)) :]
+    y_test = labels[int(len(X) * (1 - test_split)) :]
 
     return (X_train, y_train), (X_test, y_test)
 
 
-def get_word_index(path='reuters_word_index.pkl'):
-    path = get_file(path, origin='https://s3.amazonaws.com/text-datasets/reuters_word_index.pkl')
-    f = open(path, 'rb')
+def get_word_index(path="reuters_word_index.pkl"):
+    path = get_file(
+        path, origin="https://s3.amazonaws.com/text-datasets/reuters_word_index.pkl"
+    )
+    f = open(path, "rb")
 
     if sys.version_info < (3,):
         data = cPickle.load(f)
     else:
-        data = cPickle.load(f, encoding='latin1')
+        data = cPickle.load(f, encoding="latin1")
 
     f.close()
     return data

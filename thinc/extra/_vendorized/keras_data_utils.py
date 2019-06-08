@@ -18,9 +18,10 @@ from .keras_generic_utils import Progbar
 # Under Python 2, 'urlretrieve' relies on FancyURLopener from legacy
 # urllib module, known to have issues with proxy management
 if sys.version_info[0] == 2:
+
     def urlretrieve(url, filename, reporthook=None, data=None):
         def chunk_read(response, chunk_size=8192, reporthook=None):
-            total_size = response.info().get('Content-Length').strip()
+            total_size = response.info().get("Content-Length").strip()
             total_size = int(total_size)
             count = 0
             while 1:
@@ -34,16 +35,19 @@ if sys.version_info[0] == 2:
                 yield chunk
 
         response = urlopen(url, data)
-        with open(filename, 'wb') as fd:
+        with open(filename, "wb") as fd:
             for chunk in chunk_read(response, reporthook=reporthook):
                 fd.write(chunk)
+
+
 else:
     from ...compat import urlretrieve
 
 
-def get_file(fname, origin, untar=False, unzip=False,
-             md5_hash=None, cache_subdir='datasets'):
-    '''Downloads a file from a URL if it not already in the cache.
+def get_file(
+    fname, origin, untar=False, unzip=False, md5_hash=None, cache_subdir="datasets"
+):
+    """Downloads a file from a URL if it not already in the cache.
 
     Passing the MD5 hash will verify the file after download as well as if it is already present in the cache.
 
@@ -56,10 +60,10 @@ def get_file(fname, origin, untar=False, unzip=False,
 
     # Returns
         Path to the downloaded file
-    '''
-    datadir_base = os.path.expanduser(os.path.join('~', '.keras'))
+    """
+    datadir_base = os.path.expanduser(os.path.join("~", ".keras"))
     if not os.access(datadir_base, os.W_OK):
-        datadir_base = os.path.join('/tmp', '.keras')
+        datadir_base = os.path.join("/tmp", ".keras")
     datadir = os.path.join(datadir_base, cache_subdir)
     if not os.path.exists(datadir):
         os.makedirs(datadir)
@@ -67,9 +71,9 @@ def get_file(fname, origin, untar=False, unzip=False,
     if untar or unzip:
         untar_fpath = os.path.join(datadir, fname)
         if unzip:
-            fpath = untar_fpath + '.zip'
+            fpath = untar_fpath + ".zip"
         else:
-            fpath = untar_fpath + '.tar.gz'
+            fpath = untar_fpath + ".tar.gz"
     else:
         fpath = os.path.join(datadir, fname)
 
@@ -78,14 +82,16 @@ def get_file(fname, origin, untar=False, unzip=False,
         # file found; verify integrity if a hash was provided
         if md5_hash is not None:
             if not validate_file(fpath, md5_hash):
-                print('A local file was found, but it seems to be '
-                      'incomplete or outdated.')
+                print(
+                    "A local file was found, but it seems to be "
+                    "incomplete or outdated."
+                )
                 download = True
     else:
         download = True
 
     if download:
-        print('Downloading data from', origin)
+        print("Downloading data from", origin)
         global progbar
         progbar = None
 
@@ -96,7 +102,7 @@ def get_file(fname, origin, untar=False, unzip=False,
             else:
                 progbar.update(count * block_size)
 
-        error_msg = 'URL fetch failure on {}: {} -- {}'
+        error_msg = "URL fetch failure on {}: {} -- {}"
         try:
             try:
                 urlretrieve(origin, fpath, dl_progress)
@@ -112,8 +118,8 @@ def get_file(fname, origin, untar=False, unzip=False,
 
     if untar:
         if not os.path.exists(untar_fpath):
-            print('Untaring file...')
-            tfile = tarfile.open(fpath, 'r:gz')
+            print("Untaring file...")
+            tfile = tarfile.open(fpath, "r:gz")
             try:
                 tfile.extractall(path=datadir)
             except (Exception, KeyboardInterrupt) as e:
@@ -127,7 +133,7 @@ def get_file(fname, origin, untar=False, unzip=False,
         return untar_fpath
     elif unzip:
         if not os.path.exists(untar_fpath):
-            print('Unzipping file...')
+            print("Unzipping file...")
             with zipfile.ZipFile(fpath) as file_:
                 try:
                     file_.extractall(path=datadir)
@@ -144,7 +150,7 @@ def get_file(fname, origin, untar=False, unzip=False,
 
 
 def validate_file(fpath, md5_hash):
-    '''Validates a file against a MD5 hash
+    """Validates a file against a MD5 hash
 
     # Arguments
         fpath: path to the file being validated
@@ -152,9 +158,9 @@ def validate_file(fpath, md5_hash):
 
     # Returns
         Whether the file is valid
-    '''
+    """
     hasher = hashlib.md5()
-    with open(fpath, 'rb') as f:
+    with open(fpath, "rb") as f:
         buf = f.read()
         hasher.update(buf)
     if str(hasher.hexdigest()) == str(md5_hash):
