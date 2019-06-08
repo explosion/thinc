@@ -3,20 +3,25 @@ from __future__ import unicode_literals, print_function
 from .model import Model
 from .affine import Affine
 from ...api import with_reshape
-from thinc.extra.visualizer import visualize_attention
-from thinc.extra.wrappers import xp2torch
+from ...extra.wrappers import PyTorchWrapper
+from ...extra.visualizer import visualize_attention
+from ...extra.wrappers import xp2torch
 import numpy as np
-import torch.nn as nn
 import copy
-import torch.nn.functional as F
-import torch
-from thinc.extra.wrappers import PyTorchWrapper
 import math
 
 
+try:
+    from torch import nn
+    import torch.nn.functional as F
+except ImportError:
+    nn = None
+    F = None
+
+
 class SparseAttention(Model):
-    """ This class implements multiheaded attention in steps, factorizing
-    the attention matrix. """
+    """This class implements multiheaded attention in steps, factorizing
+    the attention matrix."""
 
     def __init__(self, nM=300, nH=6):
         self.nH = nH
@@ -33,7 +38,7 @@ class SparseAttention(Model):
             self.get_output,
         ]
         self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
-        """ mask conf """
+        # mask conf
         i_grad = [1, 0]
         o_xp = None
         b_map = None
@@ -216,7 +221,7 @@ class SparseAttention(Model):
 
 
 class MultiHeadedAttention(Model):
-    """ This class implements multiheaded attention. It can be used for self
+    """This class implements multiheaded attention. It can be used for self
     attention or outer attention, depending on our needs. There is no left
     and right context width. We attend to the whole sentence and we take
     care of the masks to adjust appropriately. There are no actual different
@@ -225,7 +230,6 @@ class MultiHeadedAttention(Model):
     For the time being; key, query and value matrices are supposed to have the
     same length.
     """
-
     def __init__(self, nM=300, nH=6):
         Model.__init__(self)
         self.nH = nH
@@ -243,7 +247,7 @@ class MultiHeadedAttention(Model):
         ]
         self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
 
-        """ mask conf """
+        # mask conf
         i_grad = [1, 0]
         o_xp = None
         b_map = None
