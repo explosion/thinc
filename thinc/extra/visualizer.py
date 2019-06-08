@@ -1,6 +1,10 @@
 """ A visualizer module for Thinc """
-import seaborn
-import matplotlib.pyplot as plt
+
+try:
+    import seaborn
+    import matplotlib.pyplot as plt
+except ImportError:
+    pass
 
 
 def visualize_attention(x, y, weights, layer="Encoder", self_attn=True):
