@@ -152,7 +152,7 @@ def main(
                 (lower_case | shape | prefix | suffix)
                 >> Maxout(width, pieces=3), pad=depth)
             >> with_pad_and_mask(
-                SparseAttention(nM=width, nH=2)
+                SparseAttention(nM=width, nH=6)
             )
             >> with_flatten(Softmax(nr_tag))
         )
@@ -169,7 +169,6 @@ def main(
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
-        trainer.batch_size = 2
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
 
@@ -177,8 +176,8 @@ def main(
 
             backprop(gradient, optimizer)
 
-            #trainer.batch_size = min(int(batch_size), max_batch_size)
-            #batch_size *= 1.001
+            trainer.batch_size = min(int(batch_size), max_batch_size)
+            batch_size *= 1.001
     with model.use_params(trainer.optimizer.averages):
         print(model.evaluate(dev_X, model.ops.flatten(dev_y)))
         with open("/tmp/model.pickle", "wb") as file_:
