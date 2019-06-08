@@ -15,8 +15,10 @@ try:
     import torch.optim
     import torch
     import torch.utils.dlpack
+    from torch.nn import Module as PyTorchModule
 except ImportError:
     torch = None
+    PyTorchModule = None
 
 
 def xp2torch(xp_tensor):
