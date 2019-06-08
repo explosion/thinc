@@ -41,9 +41,10 @@ class PyTorchWrapper(Model):
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
     """
 
-    def __init__(self, model):
+    def __init__(self, model, conf=None):
         Model.__init__(self)
         self._model = model
+        self.conf = conf
         self._optimizer = None
 
     def begin_update(self, x_data, drop=0.0, **kwargs):
