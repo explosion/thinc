@@ -152,7 +152,7 @@ def main(
                 (lower_case | shape | prefix | suffix)
                 >> Maxout(width, pieces=3), pad=depth)
             >> with_pad_and_mask(
-                SparseAttention(nM=width, nH=6)
+                MultiHeadedAttention(nM=width, nH=2)
             )
             >> with_flatten(Softmax(nr_tag))
         )
