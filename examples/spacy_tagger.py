@@ -5,89 +5,18 @@ from timeit import default_timer as timer
 import numpy
 import spacy
 from spacy.tokens import Doc
-import spacy.orth
 import numpy.random
 import numpy.linalg
 import plac
 
 from thinc.extra import datasets
 from thinc.neural.vec2vec import Model, Maxout
-from thinc.neural.vec2vec import Softmax
+from thinc.neural.vec2vec import Softmax, Affine
 from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural.util import to_categorical
-from thinc.neural._classes.spacy_vectors import SpacyVectors
-from thinc.api import layerize, chain, concatenate, clone
-
-
-@layerize
-def Orth(docs, drop=0.0):
-    """Get word forms."""
-    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype="i")
-    i = 0
-    for doc in docs:
-        for token in doc:
-            ids[i] = token.orth
-            i += 1
-    return ids, None
-
-
-# class SpacyVectors(Embed):
-#    on_data_hooks = []
-#    def __init__(self, nlp):
-#        Model.__init__(self)
-#        self._id_map = {0: 0}
-#        self.nO = nlp.vocab.vectors_length
-#        self.nM = self.nO
-#        self.nV = len(nlp.vocab)
-#        self.W.fill(0)
-#        vectors = self.vectors
-#        for i, word in enumerate(nlp.vocab):
-#            self._id_map[word.orth] = i+1
-#            vectors[i+1] = word.vector / (word.vector_norm or 1.)
-#
-#    def predict(self, ids):
-#        return self._embed(ids)
-#
-#    def begin_update(self, ids, drop=0.):
-#        return self.predict(ids), None
-#
-
-
-@layerize
-def Shape(docs, drop=0.0):
-    """Get word shapes."""
-    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype="i")
-    i = 0
-    for doc in docs:
-        for token in doc:
-            ids[i] = token.shape
-            i += 1
-    return ids, None
-
-
-@layerize
-def Prefix(docs, drop=0.0):
-    """Get prefixes."""
-    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype="i")
-    i = 0
-    for doc in docs:
-        for token in doc:
-            ids[i] = token.prefix
-            i += 1
-    return ids, None
-
-
-@layerize
-def Suffix(docs, drop=0.0):
-    """Get suffixes."""
-    ids = numpy.zeros((sum(len(doc) for doc in docs),), dtype="i")
-    i = 0
-    for doc in docs:
-        for token in doc:
-            ids[i] = token.suffix
-            i += 1
-    return ids, None
+from thinc.api import layerize, chain, concatenate, clone, with_flatten
+from spacy._ml import SpacyVectors
 
 
 def spacy_preprocess(nlp, train_sents, dev_sents):
@@ -108,7 +37,7 @@ def spacy_preprocess(nlp, train_sents, dev_sents):
             y.append([tagmap[tag] for tag in tags])
             oovs += sum(not w.has_vector for w in X[-1])
             n += len(X[-1])
-        print(oovs, n, oovs / n)
+        print(oovs, n, oovs / (n+1e-10))
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
@@ -128,8 +57,8 @@ def get_positions(ids, drop=0.0):
     dropout=("Dropout", "option", "D", float),
 )
 def main(nr_epoch=20, nr_sent=0, width=128, depth=3, max_batch_size=32, dropout=0.3):
-    print("Loading spaCy and preprocessing")
-    nlp = spacy.load("en", parser=False, tagger=False, entity=False)
+    print("Loading spaCy model")
+    nlp = spacy.load("en_core_web_md", pipeline=[])
     train_sents, dev_sents, _ = datasets.ewtb_pos_tags()
     train_sents, dev_sents, nr_class = spacy_preprocess(nlp, train_sents, dev_sents)
     if nr_sent >= 1:
@@ -138,12 +67,13 @@ def main(nr_epoch=20, nr_sent=0, width=128, depth=3, max_batch_size=32, dropout=
     print("Building the model")
     with Model.define_operators({">>": chain, "|": concatenate, "**": clone}):
         model = (
-            Orth
-            >> SpacyVectors(nlp, width)
-            >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
-            >> Softmax(nr_class)
-        )
-
+            SpacyVectors
+            >> with_flatten(
+              Affine(width)
+              >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
+              >> Softmax(nr_class)
+          )
+       )
     print("Preparing training")
     dev_X, dev_y = zip(*dev_sents)
     dev_y = model.ops.flatten(dev_y)
