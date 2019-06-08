@@ -13,7 +13,7 @@ architecture. It's designed to be easy to install, efficient for CPU usage and
 optimised for NLP and deep learning with text – in particular, hierarchically
 structured input and variable-length sequences.
 
-🔮 **Version 6.12 out now!** [Read the release notes here.](https://github.com/explosion/thinc/releases/)
+🔮 [Read the release notes here.](https://github.com/explosion/thinc/releases/)
 
 [![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-devops&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
 [![Current Release Version](https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square)](https://github.com/explosion/thinc/releases)
@@ -22,7 +22,7 @@ structured input and variable-length sequences.
 [![Python wheels](https://img.shields.io/badge/wheels-%E2%9C%93-4c1.svg?longCache=true&style=flat-square&logo=python&logoColor=white)](https://github.com/explosion/wheelwright/releases)
 [![Follow us on Twitter](https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow)](https://twitter.com/explosion_ai)
 
-## What's where (as of v6.9.0)
+## What's where (as of v7.0.0)
 
 | Module                 | Description                                                         |
 | ---------------------- | ------------------------------------------------------------------- |
