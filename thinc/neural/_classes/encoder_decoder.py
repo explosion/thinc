@@ -10,13 +10,10 @@ from .resnet import Residual
 from .affine import Affine
 from .multiheaded_attention import MultiHeadedAttention
 from .positionwise_ffd import PositionwiseFeedForward
+from ...extra.wrappers import PyTorchWrapper, PyTorchModule
 import copy
 import math
 import numpy as np
-import torch.nn as nn
-import torch
-from thinc.extra.wrappers import PyTorchWrapper
-import torch.nn.functional as F
 
 
 class EncoderDecoder(Model):
@@ -68,7 +65,7 @@ class EncoderDecoder(Model):
         return (word_probs, Xmask), finish_update
 
 
-class PytorchLayerNorm(nn.Module):
+class PytorchLayerNorm(PyTorchModule):
     def __init__(self, nM=300, eps=1e-6, device="cpu"):
         super(PytorchLayerNorm, self).__init__()
         self.a_2 = nn.Parameter(torch.ones(nM).to(device))
