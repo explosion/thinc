@@ -34,9 +34,12 @@ def _run_child_hooks(model, X, y=None):
 class LayerNorm(Model):
     name = "layernorm"
 
-    def __init__(self, child, **kwargs):
+    def __init__(self, child=None, **kwargs):
         self.child = child
-        self._layers = [child]
+        if child is not None:
+            self._layers = [child]
+        else:
+            self._layers = []
         Model.__init__(self, **kwargs)
         if "nO" in kwargs:
             self.nO = kwargs["nO"]
@@ -45,14 +48,18 @@ class LayerNorm(Model):
         self.nr_upd = 0
 
     def predict(self, X):
-        X = self.child.predict(X)
+        if self.child is not None:
+            X = self.child.predict(X)
         N, mu, var = _get_moments(self.ops, X)
         Xh = _forward(self.ops, X, mu, var)
         y = Xh * self.G + self.b
         return y
 
     def begin_update(self, X, drop=0.0):
-        X, backprop_child = self.child.begin_update(X, drop=0.0)
+        if self.child is not None:
+            X, backprop_child = self.child.begin_update(X, drop=0.0)
+        else:
+            backprop_child = None
         N, mu, var = _get_moments(self.ops, X)
 
         Xhat = _forward(self.ops, X, mu, var)
@@ -65,7 +72,10 @@ class LayerNorm(Model):
             d_xhat = N * dy - sum_dy - dist * var ** (-1.0) * sum_dy_dist
             d_xhat *= var ** (-1.0 / 2)
             d_xhat /= N
-            return backprop_child(d_xhat, sgd)
+            if backprop_child is not None:
+                return backprop_child(d_xhat, sgd)
+            else:
+                return d_xhat
 
         if drop is not None:
             drop *= getattr(
