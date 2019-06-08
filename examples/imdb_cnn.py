@@ -14,7 +14,7 @@ from thinc.extra import datasets
 from thinc.neural.util import to_categorical
 from thinc.api import layerize, chain, concatenate, clone
 from thinc.api import foreach, flatten_add_lengths, with_getitem
-from thinc.api import FeatureExtracter
+from thinc.misc import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
 
