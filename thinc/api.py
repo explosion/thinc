@@ -66,6 +66,24 @@ def remap_ids(ops=None, column=0):
     return model
 
 
+def with_reshape(layer):
+    def with_reshape_forward(X, drop=0.):
+        initial_shape = X.shape
+        final_shape = list(initial_shape[:-1]) + [layer.nO]
+        nB = X.shape[0]
+        nT = X.shape[1]
+        X2d = X.reshape(-1, X.shape[2])
+        X2d = X2d.astype(layer.ops.xp.float32)
+        Y2d, Y2d_backprop = layer.begin_update(X2d, drop=drop)
+        Y = Y2d.reshape(final_shape)
+
+        def with_reshape_backward(dY, sgd=None):
+            dY = dY.reshape(nB*nT, -1).astype(layer.ops.xp.float32)
+            return Y2d_backprop(dY, sgd=sgd).reshape(initial_shape)
+        return Y, with_reshape_backward
+    return wrap(with_reshape_forward, layer)
+
+
 def with_getitem(idx, layer):
     def begin_update(items, drop=0.0):
         X, finish = layer.begin_update(items[idx], drop=drop)
