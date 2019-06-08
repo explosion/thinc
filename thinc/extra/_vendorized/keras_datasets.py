@@ -10,7 +10,7 @@ from .keras_data_utils import get_file
 
 try:
     import cPickle
-else:
+except:
     import pickle as cPickle
 
 
