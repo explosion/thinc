@@ -3,19 +3,9 @@ from __future__ import unicode_literals, print_function
 from .model import Model
 from .affine import Affine
 from ...api import with_reshape, layerize
-from ...extra.wrappers import PyTorchWrapper
-from ...extra.wrappers import xp2torch
 import numpy as np
 import copy
 import math
-
-
-try:
-    from torch import nn
-    import torch.nn.functional as F
-except ImportError:
-    nn = None
-    F = None
 
 
 def with_pad_and_mask(layer):
@@ -78,14 +68,12 @@ class SparseAttention(Model):
             self.get_values,
             self.get_output,
         ]
-        self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
         # mask conf
         i_grad = [1, 0]
         o_xp = None
         b_map = None
         ret_x = [0]
         conf = [i_grad, o_xp, b_map, ret_x]
-        self._mask = PyTorchWrapper(PytorchMaskScores(), conf=conf)
 
     def begin_update(self, input, drop=0.1):
         if len(input) == 3:
@@ -151,8 +139,8 @@ class SparseAttention(Model):
         V.
         """
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
-        S1, bp_mask = self._mask.begin_update((S0, mask))
-        S2, bp_softmax = self._softmax.begin_update(S1)
+        S1, bp_mask = self._mask((S0, mask))
+        S2, bp_softmax = self._softmax(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
@@ -192,18 +180,16 @@ class SparseAttention(Model):
 
         return S1, backprop_attn1
 
-    # def _mask(self, S0, mask):
-    #     S1 = S0.transpose(1, 0, 2, 3)
-    #     S2 = S1 - (1 - mask) * (1e9)
-    #     S3 = S2.transpose(1, 0, 2, 3)
-    #
-    #     def backprop_attn2(dS3):
-    #         dS2 = dS3.transpose(1, 0, 2, 3)
-    #         dS1 = dS2
-    #         dS0 = dS1.transpose(1, 0, 2, 3)
-    #         return dS0
-    #
-    #     return S3, backprop_attn2
+    def _mask(self, S0, mask):
+        S1 = S0.transpose(1, 0, 2, 3)
+        S2 = S1 - (1 - mask) * (1e9)
+        S3 = S2.transpose(1, 0, 2, 3)
+        def backprop_attn2(dS3):
+            dS2 = dS3.transpose(1, 0, 2, 3)
+            dS1 = dS2
+            dS0 = dS1.transpose(1, 0, 2, 3)
+            return dS0
+        return S3, backprop_attn2
 
     def _apply_attn(self, S0, V0):
         """ Multiplication with values """
@@ -286,7 +272,6 @@ class MultiHeadedAttention(Model):
             self.get_values,
             self.get_output,
         ]
-        self._softmax = PyTorchWrapper(nn.Softmax(dim=-1))
 
         # mask conf
         i_grad = [1, 0]
@@ -294,7 +279,6 @@ class MultiHeadedAttention(Model):
         b_map = None
         ret_x = [0]
         conf = [i_grad, o_xp, b_map, ret_x]
-        self._mask = PyTorchWrapper(PytorchMaskScores(), conf=conf)
 
     def begin_update(self, input, drop=0.1):
         # Queries come from input[0], keys and values from input[1]
@@ -352,8 +336,8 @@ class MultiHeadedAttention(Model):
         V.
         """
         S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
-        S1, bp_mask = self._mask.begin_update((S0, mask))
-        S2, bp_softmax = self._softmax.begin_update(S1)
+        S1, bp_mask = self._mask(S0, mask)
+        S2, bp_softmax = self._softmax(S1)
         S3, bp_apply_attn = self._apply_attn(S2, V)
 
         def backprop_attn(dS3):
@@ -393,18 +377,23 @@ class MultiHeadedAttention(Model):
 
         return S1, backprop_attn1
 
-    # def _mask(self, S0, mask):
-    #     S1 = S0.transpose(1, 0, 2, 3)
-    #     S2 = S1 - (1 - mask) * (1e9)
-    #     S3 = S2.transpose(1, 0, 2, 3)
-    #
-    #     def backprop_attn2(dS3):
-    #         dS2 = dS3.transpose(1, 0, 2, 3)
-    #         dS1 = dS2
-    #         dS0 = dS1.transpose(1, 0, 2, 3)
-    #         return dS0
-    #
-    #     return S3, backprop_attn2
+    def _softmax(self, X, drop=0.):
+        Y = self.ops.softmax(X, axis=-1)
+        def backprop_softmax(dY, sgd=None):
+            return self.ops.backprop_softmax(Y, dY, axis=-1)
+        return Y, backprop_softmax
+
+    def _mask(self, S0, mask):
+        S1 = S0.transpose(1, 0, 2, 3)
+        S2 = S1 - (1 - mask) * (1e9)
+        S3 = S2.transpose(1, 0, 2, 3)
+   
+        def backprop_attn2(dS3):
+            dS2 = dS3.transpose(1, 0, 2, 3)
+            dS1 = dS2
+            dS0 = dS1.transpose(1, 0, 2, 3)
+            return dS0
+        return S3, backprop_attn2
 
     def _apply_attn(self, S0, V0):
         """ Multiplication with values """
@@ -433,17 +422,3 @@ class MultiHeadedAttention(Model):
             return dS0, dV0
 
         return S3, backprop_attn4
-
-
-def clones(module, N):
-    return nn.ModuleList([copy.deepcopy(module) for _ in range(N)])
-
-
-class PytorchMaskScores(nn.Module):
-    def __init__(self):
-        super(PytorchMaskScores, self).__init__()
-
-    def forward(self, input):
-        scores, mask = input
-        mask = mask.unsqueeze(1)
-        return scores.masked_fill(mask == 0, -1e9)
