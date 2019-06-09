@@ -246,9 +246,6 @@ class Ops(object):
         return 1-y**2
 
     def softmax(self, x, inplace=False, axis=-1):
-        if x.ndim >= 3:
-            raise NotImplementedError(
-                "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -274,6 +271,11 @@ class Ops(object):
             return Xs
         else:
             return new_x
+
+    def backprop_softmax(self, Y, dY, axis=-1):
+        dX = Y * dY
+        dX -= Y * dX.sum(axis=axis, keepdims=True)
+        return dX
 
     def backprop_softmax_sequences(self, dy, y, lengths):
         dx = y * dy
