@@ -813,6 +813,9 @@ class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
 
+    def matmul(self, x, y, out=None):
+        return self.xp.matmul(x, y, out=out)
+
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
             x = x.T
