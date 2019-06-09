@@ -8,6 +8,7 @@ import copy
 import math
 
 
+
 def with_pad_and_mask(layer):
     def create_model_input_forward(Xs, drop=0.):
         nX = model.ops.asarray([x.shape[0] for x in Xs], dtype='i')
@@ -164,15 +165,15 @@ class SparseAttention(Model):
         # K2: (nB*nH, nD, nL)
         K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
         # S0: (nB*nH, nL, nL)
-        S0 = self.ops.xp.matmul(Q1, K2)
+        S0 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1), self.ops.xp.ascontiguousarray(K2))
 
         # S1 shape: (nB, nH, nL, nL)
         S1 = S0.reshape((nB, nH, nL, nL))
 
         def backprop_attn1(dS1):
-            dS0 = dS1.reshape((nB * nH, nL, nL))
-            dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
-            dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
+            dS0 = self.ops.xp.ascontiguousarray(dS1.reshape((nB * nH, nL, nL)))
+            dQ1 = self.ops.matmul(dS0, self.ops.xp.ascontiguousarray(K2.transpose(0, 2, 1)))
+            dK2 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1.transpose(0, 2, 1)), dS0)
             dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
@@ -201,18 +202,18 @@ class SparseAttention(Model):
         # S3: (nB, nH, nL, nD)
         nB, nH, nL, nL = S0.shape
         nD = V0.shape[-1]
-        V1 = V0.reshape((nB * nH, nL, nD))
-        S1 = S0.reshape((nB * nH, nL, nL))
-        S2 = self.ops.xp.matmul(S1, V1)
+        V1 = self.ops.xp.ascontiguousarray(V0.reshape((nB * nH, nL, nD)))
+        S1 = self.ops.xp.ascontiguousarray(S0.reshape((nB * nH, nL, nL)))
+        S2 = self.ops.matmul(S1, V1)
 
         S3 = S2.reshape((nB, nH, nL, nD))
 
         def backprop_attn4(dS3):
-            dS2 = dS3.reshape((nB * nH, nL, nD))
+            dS2 = self.ops.xp.ascontiguousarray(dS3.reshape((nB * nH, nL, nD)))
             # (nB*nH, nL, nD) @ (nB*nH, nL, nD).T --> (nB*nH, nL, nL)
-            dS1 = self.ops.xp.matmul(dS2, V1.transpose(0, 2, 1))
+            dS1 = self.ops.matmul(dS2, self.ops.xp.ascontiguousarray(V1.transpose(0, 2, 1)))
             # (nB*nH, nL, nL).T @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
-            dV1 = self.ops.xp.matmul(S1.transpose(0, 2, 1), dS2)
+            dV1 = self.ops.matmul(self.ops.xp.ascontiguousarray(S1.transpose(0, 2, 1)), dS2)
             dS0 = dS1.reshape((nB, nH, nL, nL))
             dV0 = dV1.reshape((nB, nH, nL, nD))
             return dS0, dV0
@@ -361,15 +362,15 @@ class MultiHeadedAttention(Model):
         # K2: (nB*nH, nD, nL)
         K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
         # S0: (nB*nH, nL, nL)
-        S0 = self.ops.xp.matmul(Q1, K2)
+        S0 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1), self.ops.xp.ascontiguousarray(K2))
 
         # S1 shape: (nB, nH, nL, nL)
         S1 = S0.reshape((nB, nH, nL, nL))
 
         def backprop_attn1(dS1):
             dS0 = dS1.reshape((nB * nH, nL, nL))
-            dQ1 = self.ops.xp.matmul(dS0, K2.transpose(0, 2, 1))
-            dK2 = self.ops.xp.matmul(Q1.transpose(0, 2, 1), dS0)
+            dQ1 = self.ops.matmul(dS0, self.ops.xp.ascontiguousarray(K2.transpose(0, 2, 1)))
+            dK2 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1.transpose(0, 2, 1)), dS0)
             dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
             dK0 = dK1.reshape((nB, nH, nD, nL)).transpose(0, 1, 3, 2)
             dQ0 = dQ1.reshape((nB, nH, nL, nD))
@@ -407,16 +408,16 @@ class MultiHeadedAttention(Model):
         nD = V0.shape[-1]
         V1 = V0.reshape((nB * nH, nL, nD))
         S1 = S0.reshape((nB * nH, nL, nL))
-        S2 = self.ops.xp.matmul(S1, V1)
+        S2 = self.ops.matmul(self.ops.xp.ascontiguousarray(S1), self.ops.xp.ascontiguousarray(V1))
 
         S3 = S2.reshape((nB, nH, nL, nD))
 
         def backprop_attn4(dS3):
-            dS2 = dS3.reshape((nB * nH, nL, nD))
+            dS2 = self.ops.xp.ascontiguousarray(dS3.reshape((nB * nH, nL, nD)))
             # (nB*nH, nL, nD) @ (nB*nH, nL, nD).T --> (nB*nH, nL, nL)
-            dS1 = self.ops.xp.matmul(dS2, V1.transpose(0, 2, 1))
+            dS1 = self.ops.matmul(dS2, self.ops.xp.ascontiguousarray(V1.transpose(0, 2, 1)))
             # (nB*nH, nL, nL).T @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
-            dV1 = self.ops.xp.matmul(S1.transpose(0, 2, 1), dS2)
+            dV1 = self.ops.matmul(self.ops.xp.ascontiguousarray(S1.transpose(0, 2, 1)), dS2)
             dS0 = dS1.reshape((nB, nH, nL, nL))
             dV0 = dV1.reshape((nB, nH, nL, nD))
             return dS0, dV0
