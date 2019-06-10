@@ -14,6 +14,8 @@ class Residual(Model):
         Y = self._layers[0](X)
         if isinstance(X, list) or isinstance(X, tuple):
             return [X[i] + Y[i] for i in range(len(X))]
+        elif isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
+            return (X[0] + Y[0], X[1])
         else:
             return X + Y
 
