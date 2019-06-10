@@ -19,9 +19,9 @@ def _init_to_one(W, ops):
 
 
 def _run_child_hooks(model, X, y=None):
-    for hook in model.child.on_data_hooks:
-        hook(model.child, X, y)
-    # model.nO = model.child.nO
+    if model.child:
+        for hook in model.child.on_data_hooks:
+            hook(model.child, X, y)
 
 
 @describe.on_data(_run_child_hooks)
@@ -81,8 +81,10 @@ class LayerNorm(Model):
             drop *= getattr(
                 self.child, "drop_factor", self.ops.asarray([1.0], dtype="f")
             )
+
         y, bp_dropout = self.ops.dropout(y, drop)
         assert y.dtype == "float32"
+
         return y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
