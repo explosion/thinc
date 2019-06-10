@@ -12,7 +12,7 @@ from spacy.tokens.doc import Doc
 from thinc.i2v import HashEmbed
 from thinc.v2v import Model, Maxout, Softmax
 from thinc.t2t import ExtractWindow
-from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention, SparseAttention, with_pad_and_mask
+from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
 from thinc.misc import Residual, LayerNorm
 from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
 

@@ -9,49 +9,6 @@ import copy
 import math
 
 
-
-def with_pad_and_mask(layer):
-    def create_model_input_forward(Xs, drop=0.):
-        nX = model.ops.asarray([x.shape[0] for x in Xs], dtype='i')
-        nL = nX.max()
-        X, unpad_X = pad_sequences(model.ops, Xs, pad_to=nL)
-        X_mask = get_mask(X, nX)
-        Y, bp_Y = layer.begin_update((X.astype("float32"), X_mask, None), drop=drop)
-        def create_model_input_backward(dYs, sgd=None):
-            dY, _ = pad_sequences(model.ops, dYs, pad_to=nL)
-            dX = bp_Y(dY, sgd=sgd)
-            return unpad_X(dX)
-        return unpad_X(Y), create_model_input_backward
-    model = layerize(create_model_input_forward)
-    return model
-
-
-def pad_sequences(ops, seqs_in, pad_to=None):
-    lengths = ops.asarray([len(seq) for seq in seqs_in], dtype='i')
-    nB = len(seqs_in)
-    if pad_to is None:
-        pad_to = lengths.max()
-    arr = ops.allocate((nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype)
-    for arr_i, seq in enumerate(seqs_in):
-        arr[arr_i, :seq.shape[0]] = ops.asarray(seq)
-    
-    def unpad(padded):
-        unpadded = [None] * len(lengths)
-        for i in range(padded.shape[0]):
-            unpadded[i] = padded[i, :lengths[i]]
-        return unpadded
-    return arr, unpad
-
-
-def get_mask(X, nX):
-    nB = X.shape[0]
-    nL = X.shape[1]
-    X_mask = Model.ops.allocate((nB, nL, nL))
-    for i, length in enumerate(nX):
-        X_mask[i, :, :length] = 1.0
-    return X_mask
-
-
 class SparseAttention(Model):
     """This class implements multiheaded attention in steps, factorizing
     the attention matrix."""
