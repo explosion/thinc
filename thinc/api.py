@@ -43,6 +43,17 @@ def flatten_add_lengths(seqs, pad=0, drop=0.0):
     X = ops.flatten(seqs, pad=pad)
     return (X, lengths), finish_update
 
+@layerize
+def unflatten(X_lengths, drop=0.):
+    ops = Model.ops
+    X, lengths = X_lengths
+    Xs = ops.unflatten(X, lengths)
+
+    def backprop_unflatten(dXs, sgd=None):
+        dX = ops.flatten(dXs, pad=0)
+        return dX
+
+    return Xs, backprop_unflatten
 
 def remap_ids(ops=None, column=0):
     id_map = {0: 0}
