@@ -167,8 +167,7 @@ def main(
                 >> Maxout(width, pieces=3), pad=0)
             >> PositionEncode(1000, width)
             >> flatten_add_lengths
-            >> MultiHeadedAttention(nM=width, nH=8)
-            >> with_getitem(0, LayerNorm(nO=width))
+            >> Residual(MultiHeadedAttention(nM=width, nH=1))
             >> unflatten
             >> with_flatten(Softmax(nr_tag))
         )
