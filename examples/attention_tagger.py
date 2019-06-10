@@ -10,9 +10,10 @@ from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
 from thinc.i2v import HashEmbed
-from thinc.v2v import Model, Maxout, Softmax
+from thinc.v2v import Model, Affine, Maxout, Softmax
 from thinc.t2t import ExtractWindow
 from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
+from thinc.neural._classes.multiheaded_attention import get_qkv_self_attention
 from thinc.misc import Residual, LayerNorm
 from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
 
@@ -164,10 +165,13 @@ def main(
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, pieces=3), pad=0)
+                >> Maxout(width, pieces=3))
             >> PositionEncode(1000, width)
             >> flatten_add_lengths
-            >> Residual(MultiHeadedAttention(nM=width, nH=1))
+            >> Residual(
+                get_qkv_self_attention(Affine(width*3, width), nM=width, nH=4)
+                >> MultiHeadedAttention(nM=width, nH=4)
+                >> with_getitem(0, Affine(width, width)))
             >> unflatten
             >> with_flatten(Softmax(nr_tag))
         )

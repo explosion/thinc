@@ -2,11 +2,53 @@ from __future__ import unicode_literals, print_function
 
 from .model import Model
 from .affine import Affine
-from ...api import with_reshape, layerize
+from ...api import with_reshape, layerize, wrap
 from ..util import get_array_module
 import numpy as np
 import copy
 import math
+
+
+def get_qkv_self_attention(affine, nM=300, nH=6):
+    nD = nM // nH
+    def qkv_sa_forward(X_lengths, drop=0.0):
+        X, lengths = X_lengths
+        QKV, get_dX = affine.begin_update(X, drop=drop)
+        Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
+
+        def qkv_sa_backward(dQs_dKs_dVs, sgd=None):
+            dQs, dKs, dVs = dQs_dKs_dVs
+            dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
+            dX = get_dX(dQKV, sgd=sgd)
+            return dX
+        return (Qs, Ks, Vs), qkv_sa_backward
+    return wrap(qkv_sa_forward, affine)
+
+
+def _split_seqs(QKV, lengths, nH, nD):
+    Qs = []
+    Ks = []
+    Vs = []
+    i = 0
+    xp = get_array_module(QKV)
+    for length in lengths:
+        qkv = QKV[i:i+length]
+        qkv = qkv.reshape((length, 3, nH*nD))
+        queries = xp.ascontiguousarray(qkv[:, 0])
+        keys = xp.ascontiguousarray(qkv[:, 1])
+        values = xp.ascontiguousarray(qkv[:, 2])
+        Qs.append(queries.reshape((-1, nH, nD)))
+        Ks.append(keys.reshape((-1, nH, nD)))
+        Vs.append(values.reshape((-1, nH, nD)))
+        i += length
+    return Qs, Ks, Vs
+
+def _join_seqs(Qs, Ks, Vs, nH, nD):
+    xp = get_array_module(Qs[0])
+    Q = xp.vstack(Qs).reshape((-1, nH*nD))
+    K = xp.vstack(Ks).reshape((-1, nH*nD))
+    V = xp.vstack(Vs).reshape((-1, nH*nD))
+    return xp.hstack((Q, K, V))
 
 
 class MultiHeadedAttention(Model):
@@ -34,79 +76,24 @@ class MultiHeadedAttention(Model):
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
         self.nD = nM // nH
-        self.get_queries_keys_values = Affine(nM*3, nM)
-        self.get_output = Affine(nM, nM)
-        self._layers = [
-            self.get_queries_keys_values,
-            self.get_output,
-        ]
 
-    def begin_update(self, inputs, drop=0.0):
-        (Qs, Ks, Vs), get_d_inputs = self.handle_inputs(inputs, drop=drop)
-        Y, get_dQs_dKs_dVs = self.attend((Qs, Ks, Vs), drop=drop)
-        outputs, get_dY = self.handle_outputs(Y, inputs)
-
-        def backprop_self_attn(d_outputs, sgd=None):
-            dY = get_dY(d_outputs, sgd=sgd)
-            dQs, dKs, dVs = get_dQs_dKs_dVs(dY, sgd=sgd)
-            d_inputs = get_d_inputs((dQs, dKs, dVs), sgd=sgd)
-            return d_inputs
-        
-        return outputs, backprop_self_attn
-
-    def handle_inputs(self, X_lengths, drop=0.0):
-        X, lengths = X_lengths
-        QKV, get_dX = self.get_queries_keys_values.begin_update(X, drop=drop)
-        Qs, Ks, Vs = self._split_seqs(QKV, lengths)
-
-        def backprop_handle_inputs(dQs_dKs_dVs, sgd=None):
-            dQs, dKs, dVs = dQs_dKs_dVs
-            dQKV = self._join_seqs(dQs, dKs, dVs)
-            dX = get_dX(dQKV, sgd=sgd)
-            return dX
-        return (Qs, Ks, Vs), backprop_handle_inputs
-
-    def handle_outputs(self, Y, X_lengths):
-        X, lengths = X_lengths
-        return (Y, lengths), lambda dY, sgd=None: dY
+    def begin_update(self, Qs_Ks_Vs, drop=0.0):
+        Qs, Ks, Vs = Qs_Ks_Vs
+        output, get_dQs_dKs_dVs = self.attend((Qs, Ks, Vs), drop=drop)
+        return output, get_dQs_dKs_dVs
 
     def attend(self, Qs_Ks_Vs, drop=0.0):
         Qs, Ks, Vs = Qs_Ks_Vs
-        Xattns, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs)
-        Xattn = self.ops.flatten(Xattns)
-        Y, get_dXattn = self.get_output.begin_update(Xattn, drop=drop)
-        lengths = self.ops.asarray([len(x) for x in Xattns], dtype='i')
+        Ys, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs)
+        lengths = self.ops.asarray([len(y) for y in Ys], dtype='i')
+        Y = self.ops.flatten(Ys)
 
         def backprop_attend(dY, sgd=None):
-            dXattn = get_dXattn(dY, sgd=sgd)
-            dXattns = self.ops.unflatten(dXattn, lengths)
-            dQs, dKs, dVs = get_dQs_dKs_dVs(dXattns, sgd=sgd)
+            dYs = self.ops.unflatten(dY, lengths)
+            dQs, dKs, dVs = get_dQs_dKs_dVs(dYs, sgd=sgd)
             return dQs, dKs, dVs
 
-        return Y, backprop_attend
-
-    def _split_seqs(self, QKV, lengths):
-        Qs = []
-        Ks = []
-        Vs = []
-        i = 0
-        for length in lengths:
-            qkv = QKV[i:i+length]
-            qkv = qkv.reshape((length, 3, self.nM))
-            queries = self.ops.xp.ascontiguousarray(qkv[:, 0])
-            keys = self.ops.xp.ascontiguousarray(qkv[:, 1])
-            values = self.ops.xp.ascontiguousarray(qkv[:, 2])
-            Qs.append(queries.reshape((-1, self.nH, self.nD)))
-            Ks.append(keys.reshape((-1, self.nH, self.nD)))
-            Vs.append(values.reshape((-1, self.nH, self.nD)))
-            i += length
-        return Qs, Ks, Vs
-
-    def _join_seqs(self, Qs, Ks, Vs):
-        Q = self.ops.xp.vstack(Qs).reshape((-1, self.nH*self.nD))
-        K = self.ops.xp.vstack(Ks).reshape((-1, self.nH*self.nD))
-        V = self.ops.xp.vstack(Vs).reshape((-1, self.nH*self.nD))
-        return self.ops.xp.hstack((Q, K, V))
+        return (Y, lengths), backprop_attend
 
     def _attend_seqs(self, Qs, Ks, Vs):
         outputs = []
