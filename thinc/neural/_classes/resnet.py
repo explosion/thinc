@@ -19,8 +19,11 @@ class Residual(Model):
 
     def begin_update(self, X, drop=0.0):
         y, bp_y = self._layers[0].begin_update(X, drop=drop)
-        if isinstance(X, list) or isinstance(X, tuple):
+        if isinstance(X, list):
             output = [X[i] + y[i] for i in range(len(X))]
+        elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
+            # Handle case where we have (data, lengths) tuple
+            output = (X[0] + y[0], X[1])
         else:
             output = X + y
 
