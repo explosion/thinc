@@ -273,9 +273,9 @@ class MultiHeadedAttention(Model):
 
     def begin_update(self, X_lengths, drop=0.0):
         X, lengths = X_lengths
-        QKV, get_dX = self.get_queries_keys_values.begin_update(X)
+        QKV, get_dX = self.get_queries_keys_values.begin_update(X, drop=drop)
         Xattn, get_dQKV = self.attn(QKV, lengths)
-        Y, get_dXattn = self.get_output.begin_update(Xattn)
+        Y, get_dXattn = self.get_output.begin_update(Xattn, drop=drop)
 
         def backprop_self_attn(dY, sgd=None):
             dXattn = get_dXattn(dY, sgd=sgd)
