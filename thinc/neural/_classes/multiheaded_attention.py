@@ -264,111 +264,89 @@ class MultiHeadedAttention(Model):
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
         self.nD = nM // nH
-        self.get_queries = Affine(nM, nM)
-        self.get_keys = Affine(nM, nM)
-        self.get_values = Affine(nM, nM)
+        self.get_queries_keys_values = Affine(nM*3, nM)
         self.get_output = Affine(nM, nM)
         self._layers = [
-            self.get_queries,
-            self.get_keys,
-            self.get_values,
+            self.get_queries_keys_values,
             self.get_output,
         ]
 
-    def begin_update(self, Xs, drop=0.0):
-        """ Shapes """
-        # x0: nB, nL, nM
-        # q0: nB, nL, nM
-        # k0: nB, nL, nM
-        # v0: nB, nL, nM
-        # q1: nB, nH, nL, nD
-        # k1: nB, nH, nL, nD
-        # v1: nB, nH, nL, nD
-        Ys = []
-        backprops = []
-        nD = self.nD
-        nH = self.nH
-        for x0 in Xs:
-            y0 = x0
-            nL = x0.shape[0]
-            q0, get_dx0 = self.get_queries.begin_update(x0)
-            q1 = q0.reshape(-1, self.nH, self.nD).transpose(1, 0, 2)
-            k0, get_dy0_1 = self.get_keys.begin_update(y0)
-            k1 = k0.reshape(-1, self.nH, self.nD).transpose(1, 0, 2)
-            v0, get_dy0_2 = self.get_values.begin_update(y0)
-            v1 = v0.reshape(-1, self.nH, self.nD).transpose(1, 0, 2)
-            x1, get_dq1_dk1_dv1 = self.attn(q1, k1, v1, mask=None)
-            x2 = x1.transpose(1, 0, 2).reshape((nL, nH * nD))
-            x3, get_dx2 = self.get_output.begin_update(x2)
-            Ys.append(x3)
-            backprops.append((get_dx0, get_dy0_1, get_dy0_2, get_dq1_dk1_dv1, get_dx2))
+    def begin_update(self, X_lengths, drop=0.0):
+        X, lengths = X_lengths
+        QKV, get_dX = self.get_queries_keys_values.begin_update(X)
+        Xattn, get_dQKV = self.attn(QKV, lengths)
+        Y, get_dXattn = self.get_output.begin_update(Xattn)
 
-        def finish_update(dYs, sgd=None):
-            dXs = []
-            for dY, (get_dx0, get_dy0_1, get_dy0_2, get_dq1_dk1_dv1, get_dx2) in zip(dYs, backprops):
-                nL = dY.shape[0]
-                dx2 = get_dx2(dY, sgd=sgd)
-                dx1 = dx2.reshape((nL, nH, nD)).transpose(1, 0, 2)
-                dq1, dk1, dv1 = get_dq1_dk1_dv1(dx1)
-                nM = nH * nD
-                dq0 = dq1.transpose(1, 0, 2).reshape((nL, nM))
-                dk0 = dk1.transpose(1, 0, 2).reshape((nL, nM))
-                dv0 = dv1.transpose(1, 0, 2).reshape((nL, nM))
-                dy0 = get_dy0_2(dv0, sgd=sgd) + get_dy0_1(dk0, sgd=sgd)
-                dx0 = get_dx0(dq0, sgd=sgd)
-                dXs.append(dx0+dy0)
-            return dXs
+        def backprop_self_attn(dY, sgd=None):
+            dXattn = get_dXattn(dY, sgd=sgd)
+            dQKV = get_dQKV(dXattn, sgd=sgd)
+            dX = get_dX(dQKV, sgd=sgd)
+            return dX
+        
+        return (Y, lengths), backprop_self_attn
 
-        return Ys, finish_update
-
-    def attn(self, Q, K, V, mask=None):
+    def attn(self, QKV, lengths):
         """
         Compute attention on (query, key, value) triplets.
         The similarity of the (Q, K) pairs are used to
         compute an attention matrix, which is used to rescale
         V.
         """
-        S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
-        S1, bp_mask = self._mask(S0, mask)
-        S2, bp_softmax = self._softmax(S1)
-        S3, bp_apply_attn = self._apply_attn(S2, V)
+        outputs = []
+        backprops = []
+        i = 0
+        for length in lengths:
+            Q = QKV[i:i+length, :self.nM]
+            K = QKV[i:i+length, self.nM:self.nM*2]
+            V = QKV[i:i+length, -self.nM:]
+            S0, bp_scaled_dp = self._scaled_dot_prod(Q, K)
+            S1, bp_softmax = self._softmax(S0)
+            S2, bp_apply_attn = self._apply_attn(S1, V)
+            backprops.append((bp_scaled_dp, bp_softmax, bp_apply_attn))
+            outputs.append(S2)
+            i += length
 
-        def backprop_attn(dS3):
+        def backprop_attn(d_outputs, sgd=None):
             """ Attention three inputs, one output """
-            dS2, dV = bp_apply_attn(dS3)
-            dS1 = bp_softmax(dS2)
-            dS0 = bp_mask(dS1)
-            dQ, dK = bp_scaled_dp(dS0)
-            return dQ, dK, dV
-
-        return S3, backprop_attn
+            i = 0
+            d_inputs = []
+            for length, (bp_scaled_dp, bp_softmax, bp_apply_attn) in zip(lengths, backprops):
+                dS2 = d_outputs[i:i+length]
+                dS1, dV = bp_apply_attn(dS2)
+                dS0 = bp_softmax(dS1)
+                dQ, dK = bp_scaled_dp(dS0)
+                assert dQ.shape == dK.shape == dV.shape
+                dQKV = self.ops.xp.hstack((dQ, dK, dV))
+                d_inputs.append(dQKV)
+                i += length
+            d_inputs = self.ops.xp.vstack(d_inputs)
+            return d_inputs.reshape(QKV.shape)
+        return self.ops.xp.vstack(outputs), backprop_attn
 
     def _scaled_dot_prod(self, Q0, K0):
-        # Q0: nB, nH, nL, nD
-        # K0: nB, nH, nL, nD
+        Q0 = Q0.reshape((-1, self.nH, self.nD)).transpose((1, 0, 2))
+        K0 = K0.reshape((-1, self.nH, self.nD)).transpose((1, 0, 2))
+        # Q0: nH, nL, nD
+        # K0: nH, nL, nD
         nH, nL, nD = Q0.shape
-        # Q1: nB*nH, nL, nD
+        # Q1: nH, nL, nD
         Q1 = Q0.reshape((nH, nL, nD))
-        # K1: (nB*nH, nD, nL)
+        # K1: (nH, nD, nL)
         K1 = K0.transpose(0, 2, 1).reshape((nH, nD, nL))
-        # K2: (nB*nH, nD, nL)
+        # K2: (nH, nD, nL)
         K2 = (K1 / self.ops.xp.sqrt(self.nM)).astype("float32")
-        # S0: (nB*nH, nL, nL)
+        # S0: (nH, nL, nL)
         S0 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1), self.ops.xp.ascontiguousarray(K2))
 
-        # S1 shape: (nB, nH, nL, nL)
-        S1 = S0.reshape((nH, nL, nL))
-
-        def backprop_attn1(dS1):
-            dS0 = dS1.reshape((nH, nL, nL))
+        def backprop_attn1(dS0, sgd=None):
             dQ1 = self.ops.matmul(dS0, self.ops.xp.ascontiguousarray(K2.transpose(0, 2, 1)))
             dK2 = self.ops.matmul(self.ops.xp.ascontiguousarray(Q1.transpose(0, 2, 1)), dS0)
             dK1 = (dK2 / self.ops.xp.sqrt(self.nM)).astype("float32")
-            dK0 = dK1.reshape((nH, nD, nL)).transpose(0, 2, 1)
-            dQ0 = dQ1.reshape((nH, nL, nD))
+            dK0 = dK1.reshape((nH, nD, nL)).transpose(2, 0, 1)
+            dQ0 = dQ1.reshape((nH, nL, nD)).transpose((1, 0, 2))
             return dQ0, dK0
 
-        return S1, backprop_attn1
+        return S0, backprop_attn1
 
     def _softmax(self, X, drop=0.):
         Y = self.ops.softmax(X, axis=-1)
@@ -376,45 +354,28 @@ class MultiHeadedAttention(Model):
             return self.ops.backprop_softmax(Y, dY, axis=-1)
         return Y, backprop_softmax
 
-    def _mask(self, S0, mask):
-        if mask is None:
-            S2 = S0
-        else:
-            mask = self.ops.asarray(mask, dtype='f')
-            S2 = S1 - (1 - mask) * (1e9)
-   
-        def backprop_attn2(dS2):
-            if mask is None:
-                return dS2
-            else:
-                dS1 = dS2 * mask
-                return dS1
-        return S2, backprop_attn2
-
     def _apply_attn(self, S0, V0):
         """ Multiplication with values """
-        # S0: (nB, nH, nL, nL)
-        # VO: (nB, nH, nL, nD)
-        # S1: (nB*nH, nL, nL)
-        # V1:  (nB*nH, nL, nD)
-        # S2: (nB*nH, nL, nD)
-        # S3: (nB, nH, nL, nD)
+        # S0: (nH, nL, nL)
+        # VO: (nL, nH, nD)
+        # S1: (nH, nL, nD)
+        # V1:  (nH, nL, nD)
+        # S2: (nL, nH*nD)
         nH, nL, nL = S0.shape
+        V0 = V0.reshape((nL, nH, -1))
         nD = V0.shape[-1]
-        V1 = V0.reshape((nH, nL, nD))
-        S1 = S0.reshape((nH, nL, nL))
-        S2 = self.ops.matmul(self.ops.xp.ascontiguousarray(S1), self.ops.xp.ascontiguousarray(V1))
+        V1 = V0.transpose((1, 0, 2))
+        S1 = self.ops.matmul(self.ops.xp.ascontiguousarray(S0), self.ops.xp.ascontiguousarray(V1))
+        S2 = S1.transpose((1, 0, 2)).reshape((-1, self.nH*self.nD))
 
-        S3 = S2.reshape((nH, nL, nD))
-
-        def backprop_attn4(dS3):
-            dS2 = self.ops.xp.ascontiguousarray(dS3.reshape((nH, nL, nD)))
-            # (nB*nH, nL, nD) @ (nB*nH, nL, nD).T --> (nB*nH, nL, nL)
-            dS1 = self.ops.matmul(dS2, self.ops.xp.ascontiguousarray(V1.transpose(0, 2, 1)))
-            # (nB*nH, nL, nL).T @ (nB*nH, nL, nD) --> (nB*nH, nL, nD)
-            dV1 = self.ops.matmul(self.ops.xp.ascontiguousarray(S1.transpose(0, 2, 1)), dS2)
-            dS0 = dS1.reshape((nH, nL, nL))
-            dV0 = dV1.reshape((nH, nL, nD))
+        def backprop_attn4(dS2):
+            dS1 = dS2.reshape((-1, self.nH, self.nD)).transpose((1, 0, 2))
+            dS1 = self.ops.xp.ascontiguousarray(dS1)
+            # (nH, nL, nD) @ (nH, nL, nD).T --> (nH, nL, nL)
+            dS0 = self.ops.matmul(dS1, self.ops.xp.ascontiguousarray(V1.transpose(0, 2, 1)))
+            # (nH, nL, nL).T @ (nH, nL, nD) --> (nH, nL, nD)
+            dV1 = self.ops.matmul(self.ops.xp.ascontiguousarray(S0.transpose(0, 2, 1)), dS1)
+            dV0 = dV1.reshape((nH, nL, nD)).transpose((1, 0, 2))
             return dS0, dV0
 
-        return S3, backprop_attn4
+        return S2, backprop_attn4
