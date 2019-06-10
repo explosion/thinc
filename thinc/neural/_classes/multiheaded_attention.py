@@ -10,6 +10,25 @@ import math
 
 
 class MultiHeadedAttention(Model):
+    """Multi-headed attention. Subclasses can control the specifics by subclassing:
+
+    * handle_inputs:
+        Takes the inputs, and must return a tuple (queries, keys, values). Each
+        of the elements of the tuple should be a list of arrays. The lists need
+        to be the same lengths. The keys and values arrays have to be the same
+        shape. The handle_inputs function needs to also return a callback,
+        to do the backward pass.
+    * handle_outputs:
+        Performs output transforms. This makes it easier for subclasses to work
+        on lists, padded batches, etc.
+    * attend:
+        Takes a triple (queries, keys, values) and returns a single array with
+        the concatenated outputs, after applying the attention. Normally this
+        will involve computing an attention matrix using (queries, keys), and then
+        applying the attention matrix to values.
+
+    The defaults for all these things are currently configured for self-attention.
+    """
     def __init__(self, nM=300, nH=6):
         Model.__init__(self)
         self.nH = nH
