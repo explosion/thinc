@@ -14,6 +14,10 @@ def get_spacy(lang, **kwargs):
         SPACY_MODELS[lang] = spacy.load(lang, **kwargs)
     return SPACY_MODELS[lang]
 
+def register_vectors(ops, lang, data):
+    key = (ops.device, lang)
+    VECTORS[key] = data
+
 
 def get_vectors(ops, lang):
     global VECTORS
