@@ -10,12 +10,14 @@ class Residual(Model):
         self._layers.append(layer)
         self.on_data_hooks.append(on_data)
 
-    def __call__(self, X):
+    def predict(self, X):
         Y = self._layers[0](X)
         if isinstance(X, list) or isinstance(X, tuple):
             return [X[i] + Y[i] for i in range(len(X))]
         elif isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
-            return (X[0] + Y[0], X[1])
+            assert X[1].sum() == Y[1].sum()
+            assert Y[1].sum() == Y[0].shape[0], (Y[1].sum(), Y[0].shape[0])
+            return (X[0] + Y[0], Y[1])
         else:
             return X + Y
 
@@ -25,7 +27,9 @@ class Residual(Model):
             output = [X[i] + y[i] for i in range(len(X))]
         elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
             # Handle case where we have (data, lengths) tuple
-            output = (X[0] + y[0], X[1])
+            assert X[1].sum() == y[1].sum()
+            assert y[1].sum() == y[0].shape[0], (y[1].sum(), y[0].shape[0])
+            output = (X[0] + y[0], y[1])
         else:
             output = X + y
 
