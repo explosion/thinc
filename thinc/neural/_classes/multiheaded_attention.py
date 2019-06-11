@@ -9,7 +9,7 @@ import copy
 import math
 
 
-def get_qkv_self_attention(affine, nM=300, nH=6):
+def prepare_self_attention(affine, nM=300, nH=6):
     nD = nM // nH
     def qkv_sa_forward(X_lengths, drop=0.0):
         X, lengths = X_lengths
@@ -22,7 +22,7 @@ def get_qkv_self_attention(affine, nM=300, nH=6):
             dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
             dX = get_dX(dQKV, sgd=sgd)
             return dX
-        return (Qs, Ks, Vs), qkv_sa_backward
+        return (Qs, Ks, Vs, None), qkv_sa_backward
     return wrap(qkv_sa_forward, affine)
 
 
@@ -45,6 +45,7 @@ def _split_seqs(QKV, lengths, nH, nD):
         i += length
     return Qs, Ks, Vs
 
+
 def _join_seqs(Qs, Ks, Vs, nH, nD):
     xp = get_array_module(Qs[0])
     Q = xp.vstack(Qs).reshape((-1, nH*nD))
@@ -55,60 +56,38 @@ def _join_seqs(Qs, Ks, Vs, nH, nD):
 
 
 class MultiHeadedAttention(Model):
-    """Multi-headed attention. Subclasses can control the specifics by subclassing:
-
-    * handle_inputs:
-        Takes the inputs, and must return a tuple (queries, keys, values). Each
-        of the elements of the tuple should be a list of arrays. The lists need
-        to be the same lengths. The keys and values arrays have to be the same
-        shape. The handle_inputs function needs to also return a callback,
-        to do the backward pass.
-    * handle_outputs:
-        Performs output transforms. This makes it easier for subclasses to work
-        on lists, padded batches, etc.
-    * attend:
-        Takes a triple (queries, keys, values) and returns a single array with
-        the concatenated outputs, after applying the attention. Normally this
-        will involve computing an attention matrix using (queries, keys), and then
-        applying the attention matrix to values.
-
-    The defaults for all these things are currently configured for self-attention.
-    """
+    """Multi-headed attention. Requires a preprocessor to prepare (Qs, Ks, Vs, masks)
+    triples, such as the prepare_self_attention() preprocessor. A layer
+    should run after this to do the projection as well."""
     def __init__(self, nM=300, nH=6):
         Model.__init__(self)
         self.nH = nH
         self.nM = nM  # model size: the length of the embeddings
         self.nD = nM // nH
 
-    def begin_update(self, Qs_Ks_Vs, drop=0.0):
-        Qs, Ks, Vs = Qs_Ks_Vs
+    def begin_update(self, Qs_Ks_Vs_masks, drop=0.0):
+        Qs, Ks, Vs, masks = Qs_Ks_Vs_masks
+        if masks is None:
+            masks = [None for _ in Qs]
         assert len(Qs) == len(Ks) == len(Vs)
-        Ys, get_dQs_dKs_dVs = self.attend((Qs, Ks, Vs), drop=drop)
+        Ys, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs, masks)
         lengths = self.ops.asarray([len(y) for y in Ys], dtype='i')
         assert sum(lengths) == sum([len(q) for q in Qs])
         Y = self.ops.flatten(Ys)
+        
         def finish_update(dY, sgd=None):
             dYs = self.ops.unflatten(dY, lengths)
             return get_dQs_dKs_dVs(dYs, sgd=sgd)
+        
         assert sum(lengths) == Y.shape[0], (sum(lengths, Y.shape[0]))
         assert sum([len(q) for q in Qs]) == sum(lengths)
         return (Y, lengths), finish_update
 
-    def attend(self, Qs_Ks_Vs, drop=0.0):
-        Qs, Ks, Vs = Qs_Ks_Vs
-        Ys, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs)
-
-        def backprop_attend(dYs, sgd=None):
-            dQs, dKs, dVs = get_dQs_dKs_dVs(dYs, sgd=sgd)
-            return dQs, dKs, dVs
-
-        return Ys, backprop_attend
-
-    def _attend_seqs(self, Qs, Ks, Vs):
+    def _attend_seqs(self, Qs, Ks, Vs, masks):
         outputs = []
         backprops = []
-        for Q, K, V in zip(Qs, Ks, Vs):
-            output, backprop = self._attend(Q, K, V)
+        for Q, K, V, mask in zip(Qs, Ks, Vs, masks):
+            output, backprop = self._attend(Q, K, V, mask)
             outputs.append(output)
             backprops.append(backprop)
             assert output.shape[0] == Q.shape[0]
@@ -125,14 +104,14 @@ class MultiHeadedAttention(Model):
             return dQs, dKs, dVs
         return outputs, backprop_attend_seqs
 
-    def _attend(self, Q, K, V):
+    def _attend(self, Q, K, V, mask):
         """
         Compute attention on a (query, key, value) triplet.
         The similarity of the (Q, K) pairs are used to
         compute an attention matrix, which is used to rescale
         V.
         """
-        attn, get_dQ_dK = self._get_attn_weights(Q, K)
+        attn, get_dQ_dK = self._get_attn_weights(Q, K, mask)
         output, get_d_attn_dV = self._apply_attn(attn, V)
 
         def backprop_attend(d_output, sgd=None):
@@ -142,7 +121,7 @@ class MultiHeadedAttention(Model):
 
         return output, backprop_attend
 
-    def _get_attn_weights(self, Q0, K0):
+    def _get_attn_weights(self, Q0, K0, mask):
         nQ, nK, nH, nD = (Q0.shape[0], K0.shape[0], self.nH, self.nD)
         assert Q0.shape == (nQ, nH, nD)
         assert K0.shape == (nK, nH, nD)
@@ -154,6 +133,9 @@ class MultiHeadedAttention(Model):
         K1 /= sqrtM
         attn0 = self.ops.matmul(Q1, K1)
         assert attn0.shape == (nH, nQ, nK)
+        if mask is not None:
+            # TODO: Allow masking
+            pass
         attn1 = self.ops.softmax(attn0, axis=-1)
         assert attn1.shape == (nH, nQ, nK)
 
