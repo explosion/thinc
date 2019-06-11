@@ -15,6 +15,7 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
         get_mask = window_mask(window)
     else:
         get_mask = None
+    affine.W *= 2
     def qkv_sa_forward(Xs, drop=0.0):
         X = affine.ops.flatten(Xs)
         lengths = affine.ops.asarray([len(x) for x in Xs], dtype='i')
@@ -77,11 +78,8 @@ class MultiHeadedAttention(Model):
     """Multi-headed attention. Requires a preprocessor to prepare (Qs, Ks, Vs, masks)
     triples, such as the prepare_self_attention() preprocessor. A layer
     should run after this to do the projection as well."""
-    def __init__(self, nM=300, nH=6):
+    def __init__(self):
         Model.__init__(self)
-        self.nH = nH
-        self.nM = nM  # model size: the length of the embeddings
-        self.nD = nM // nH
 
     def begin_update(self, Qs_Ks_Vs_masks, drop=0.0):
         Qs, Ks, Vs, masks = Qs_Ks_Vs_masks
@@ -131,10 +129,10 @@ class MultiHeadedAttention(Model):
         return output, backprop_attend
 
     def _get_attn_weights(self, Q0, K0, mask):
-        nQ, nK, nH, nD = (Q0.shape[0], K0.shape[0], self.nH, self.nD)
+        nQ, nK, nH, nD = (Q0.shape[0], K0.shape[0], Q0.shape[1], Q0.shape[2])
         assert Q0.shape == (nQ, nH, nD)
         assert K0.shape == (nK, nH, nD)
-        sqrtM = self.ops.xp.sqrt(self.nM).astype("f")
+        sqrtM = self.ops.xp.sqrt(nH*nD).astype("f")
         Q1 = _trans(Q0, 1, 0, 2)
         assert Q1.shape == (nH, nQ, nD)
         K1 = _trans(K0, 1, 2, 0)
@@ -179,7 +177,7 @@ class MultiHeadedAttention(Model):
     def _apply_attn(self, attn, V0):
         """ Multiplication with values """
         nH, nQ, nV = attn.shape
-        nD = self.nD
+        nD = V0.shape[-1]
         assert V0.shape == (nV, nH, nD)
         V1 = _trans(V0, 1, 0, 2)
         assert V1.shape == (nH, nV, nD)

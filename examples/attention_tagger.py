@@ -167,12 +167,10 @@ def main(
                 (lower_case | shape | prefix | suffix)
                 >> Maxout(width, width+(width//2)*3, pieces=3))
             >> PositionEncode(1000, width)
-            >> flatten_add_lengths
             >> Residual(
-                prepare_self_attention(Affine(width*3, width), window=6, nM=width, nH=4)
-                >> MultiHeadedAttention(nM=width, nH=4)
-                >> with_getitem(0, Affine(width, width))) 
-            >> unflatten
+                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                >> MultiHeadedAttention()
+                >> with_flatten(Affine(width, width)))
             >> with_flatten(Softmax(nr_tag, width))
         )
 

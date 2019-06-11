@@ -12,7 +12,7 @@ from thinc.misc import Residual
 
 from thinc.extra import datasets
 from thinc.extra.load_nlp import register_vectors
-from thinc.neural.util import to_categorical
+from thinc.neural.util import to_categorical, require_gpu
 from thinc.api import layerize, chain, concatenate, clone
 from thinc.api import foreach, with_flatten, flatten_add_lengths, with_getitem
 from thinc.misc import FeatureExtracter
@@ -20,7 +20,7 @@ import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
 
 from thinc.neural.ops import CupyOps
-from spacy.util import compounding
+from spacy.util import compounding, fix_random_seed
 
 
 @layerize
@@ -43,8 +43,8 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
             with_flatten(embed)
             >> Residual(
                 prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
-                >> MultiHeadedAttention(nM=width, nH=4)
-                >> with_flatten(Affine(width, width))
+                >> MultiHeadedAttention()
+                >> with_flatten(Maxout(width, width, pieces=3))
             )
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
@@ -56,13 +56,13 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
             foreach(sent2vec, drop_factor=2.0)
             >> Residual(
                 prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
-                >> MultiHeadedAttention(nM=width, nH=4)
-                >> with_flatten(Affine(width, width))
+                >> MultiHeadedAttention()
+                >> with_flatten(LN(Affine(width, width)))
             )
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
             >> Pooling(sum_pool)
-            >> Residual(LN(Maxout(width))) ** depth
+            >> Residual(LN(Maxout(width))) ** 2
             >> Softmax(nr_class)
         )
     model.lsuv = False
@@ -70,9 +70,9 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
 
 
 def main(use_gpu=False, nb_epoch=100):
+    fix_random_seed(0)
     if use_gpu:
-        Model.ops = CupyOps()
-        Model.Ops = CupyOps
+        require_gpu()
     train, test = datasets.imdb(limit=2000)
     print("Load data")
     train_X, train_y = zip(*train)
