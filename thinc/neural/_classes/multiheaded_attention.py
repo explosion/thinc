@@ -13,6 +13,7 @@ def get_qkv_self_attention(affine, nM=300, nH=6):
     nD = nM // nH
     def qkv_sa_forward(X_lengths, drop=0.0):
         X, lengths = X_lengths
+        assert sum(lengths) == X.shape[0], (sum(lengths), X.shape[0])
         QKV, get_dX = affine.begin_update(X, drop=drop)
         Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
 
@@ -26,6 +27,7 @@ def get_qkv_self_attention(affine, nM=300, nH=6):
 
 
 def _split_seqs(QKV, lengths, nH, nD):
+    assert sum(lengths) == QKV.shape[0], (sum(lengths), QKV.shape[0])
     Qs = []
     Ks = []
     Vs = []
@@ -48,6 +50,7 @@ def _join_seqs(Qs, Ks, Vs, nH, nD):
     Q = xp.vstack(Qs).reshape((-1, nH*nD))
     K = xp.vstack(Ks).reshape((-1, nH*nD))
     V = xp.vstack(Vs).reshape((-1, nH*nD))
+    assert Q.shape[0] == K.shape[0] == V.shape[0]
     return xp.hstack((Q, K, V))
 
 
@@ -79,21 +82,27 @@ class MultiHeadedAttention(Model):
 
     def begin_update(self, Qs_Ks_Vs, drop=0.0):
         Qs, Ks, Vs = Qs_Ks_Vs
-        output, get_dQs_dKs_dVs = self.attend((Qs, Ks, Vs), drop=drop)
-        return output, get_dQs_dKs_dVs
+        assert len(Qs) == len(Ks) == len(Vs)
+        Ys, get_dQs_dKs_dVs = self.attend((Qs, Ks, Vs), drop=drop)
+        lengths = self.ops.asarray([len(y) for y in Ys], dtype='i')
+        assert sum(lengths) == sum([len(q) for q in Qs])
+        Y = self.ops.flatten(Ys)
+        def finish_update(dY, sgd=None):
+            dYs = self.ops.unflatten(dY, lengths)
+            return get_dQs_dKs_dVs(dYs, sgd=sgd)
+        assert sum(lengths) == Y.shape[0], (sum(lengths, Y.shape[0]))
+        assert sum([len(q) for q in Qs]) == sum(lengths)
+        return (Y, lengths), finish_update
 
     def attend(self, Qs_Ks_Vs, drop=0.0):
         Qs, Ks, Vs = Qs_Ks_Vs
         Ys, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs)
-        lengths = self.ops.asarray([len(y) for y in Ys], dtype='i')
-        Y = self.ops.flatten(Ys)
 
-        def backprop_attend(dY, sgd=None):
-            dYs = self.ops.unflatten(dY, lengths)
+        def backprop_attend(dYs, sgd=None):
             dQs, dKs, dVs = get_dQs_dKs_dVs(dYs, sgd=sgd)
             return dQs, dKs, dVs
 
-        return (Y, lengths), backprop_attend
+        return Ys, backprop_attend
 
     def _attend_seqs(self, Qs, Ks, Vs):
         outputs = []
@@ -102,6 +111,7 @@ class MultiHeadedAttention(Model):
             output, backprop = self._attend(Q, K, V)
             outputs.append(output)
             backprops.append(backprop)
+            assert output.shape[0] == Q.shape[0]
 
         def backprop_attend_seqs(d_outputs, sgd=None):
             dQs = []
