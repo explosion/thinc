@@ -403,9 +403,13 @@ def foreach(layer, drop_factor=1.0):
         lengths = []
         for doc in docs:
             doc_sents = [sent for sent in doc if len(sent)]
-            subset = [
-                s for s in doc_sents if numpy.random.random() >= drop * drop_factor
-            ]
+            assert len(doc_sents)
+            if drop:
+                subset = [
+                    s for s in doc_sents if numpy.random.random() >= drop * drop_factor
+                ]
+            else:
+                subset = list(doc_sents)
             if subset:
                 sents.extend(subset)
                 lengths.append(len(subset))
@@ -413,6 +417,7 @@ def foreach(layer, drop_factor=1.0):
                 numpy.random.shuffle(doc_sents)
                 sents.append(doc_sents[0])
                 lengths.append(1)
+        assert len(sents)
         flat, bp_flat = layer.begin_update(sents, drop=0.0)
         output = layer.ops.unflatten(flat, lengths)
 
