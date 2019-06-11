@@ -13,12 +13,11 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
     nD = nM // nH
     if window is not None:
         get_mask = window_mask(window)
-        print("Use window size", window)
     else:
         get_mask = None
-    def qkv_sa_forward(X_lengths, drop=0.0):
-        X, lengths = X_lengths
-        assert sum(lengths) == X.shape[0], (sum(lengths), X.shape[0])
+    def qkv_sa_forward(Xs, drop=0.0):
+        X = affine.ops.flatten(Xs)
+        lengths = affine.ops.asarray([len(x) for x in Xs], dtype='i')
         QKV, get_dX = affine.begin_update(X, drop=drop)
         Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
 
@@ -26,12 +25,12 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
             dQs, dKs, dVs = dQs_dKs_dVs
             dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
             dX = get_dX(dQKV, sgd=sgd)
-            return dX
+            return affine.ops.unflatten(dX, lengths)
         if get_mask is not None:
             xp = get_array_module(lengths)
             masks = [get_mask(xp, length, length) for length in lengths]
         else:
-            masks = []
+            masks = [None for _ in lengths]
         return (Qs, Ks, Vs, masks), qkv_sa_backward
     return wrap(qkv_sa_forward, affine)
 
@@ -89,22 +88,12 @@ class MultiHeadedAttention(Model):
         if masks is None:
             masks = [None for _ in Qs]
         assert len(Qs) == len(Ks) == len(Vs)
-        Ys, get_dQs_dKs_dVs = self._attend_seqs(Qs, Ks, Vs, masks)
-        lengths = self.ops.asarray([len(y) for y in Ys], dtype='i')
-        assert sum(lengths) == sum([len(q) for q in Qs])
-        Y = self.ops.flatten(Ys)
+        return self._attend_seqs(Qs, Ks, Vs, masks)
         
-        def finish_update(dY, sgd=None):
-            dYs = self.ops.unflatten(dY, lengths)
-            return get_dQs_dKs_dVs(dYs, sgd=sgd)
-        
-        assert sum(lengths) == Y.shape[0], (sum(lengths, Y.shape[0]))
-        assert sum([len(q) for q in Qs]) == sum(lengths)
-        return (Y, lengths), finish_update
-
     def _attend_seqs(self, Qs, Ks, Vs, masks):
         outputs = []
         backprops = []
+        assert len(Qs) == len(Ks) == len(Vs) == len(masks), (len(Qs), len(Ks), len(Vs), len(masks))
         for Q, K, V, mask in zip(Qs, Ks, Vs, masks):
             output, backprop = self._attend(Q, K, V, mask)
             outputs.append(output)
@@ -121,6 +110,7 @@ class MultiHeadedAttention(Model):
                 dKs.append(dK)
                 dVs.append(dV)
             return dQs, dKs, dVs
+        assert len(outputs) == len(Qs), len(Qs)
         return outputs, backprop_attend_seqs
 
     def _attend(self, Q, K, V, mask):
