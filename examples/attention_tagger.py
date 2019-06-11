@@ -13,7 +13,7 @@ from thinc.i2v import HashEmbed
 from thinc.v2v import Model, Affine, Maxout, Softmax
 from thinc.t2t import ExtractWindow
 from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
-from thinc.neural._classes.multiheaded_attention import get_qkv_self_attention
+from thinc.neural._classes.multiheaded_attention import prepare_self_attention
 from thinc.misc import Residual, LayerNorm
 from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
 
@@ -165,15 +165,15 @@ def main(
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, pieces=3))
+                >> Maxout(width, width+(width//2)*3, pieces=3))
             >> PositionEncode(1000, width)
             >> flatten_add_lengths
             >> Residual(
-                get_qkv_self_attention(Affine(width*3, width), nM=width, nH=4)
+                prepare_self_attention(Affine(width*3, width), window=6, nM=width, nH=4)
                 >> MultiHeadedAttention(nM=width, nH=4)
-                >> with_getitem(0, Affine(width, width)))
+                >> with_getitem(0, Affine(width, width))) 
             >> unflatten
-            >> with_flatten(Softmax(nr_tag))
+            >> with_flatten(Softmax(nr_tag, width))
         )
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
