@@ -9,8 +9,13 @@ import copy
 import math
 
 
-def prepare_self_attention(affine, nM=300, nH=6):
+def prepare_self_attention(affine, window=None, nM=300, nH=6):
     nD = nM // nH
+    if window is not None:
+        get_mask = window_mask(window)
+        print("Use window size", window)
+    else:
+        get_mask = None
     def qkv_sa_forward(X_lengths, drop=0.0):
         X, lengths = X_lengths
         assert sum(lengths) == X.shape[0], (sum(lengths), X.shape[0])
@@ -22,8 +27,22 @@ def prepare_self_attention(affine, nM=300, nH=6):
             dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
             dX = get_dX(dQKV, sgd=sgd)
             return dX
-        return (Qs, Ks, Vs, None), qkv_sa_backward
+        if get_mask is not None:
+            xp = get_array_module(lengths)
+            masks = [get_mask(xp, length, length) for length in lengths]
+        else:
+            masks = []
+        return (Qs, Ks, Vs, masks), qkv_sa_backward
     return wrap(qkv_sa_forward, affine)
+
+
+def window_mask(n):
+    def get_mask(xp, nX, nY):
+        mask = xp.zeros((nX, nY), dtype='f')
+        for i in range(nX):
+            mask[i, i-n:i+n] = 1
+        return mask
+    return get_mask
 
 
 def _split_seqs(QKV, lengths, nH, nD):
@@ -133,15 +152,14 @@ class MultiHeadedAttention(Model):
         K1 /= sqrtM
         attn0 = self.ops.matmul(Q1, K1)
         assert attn0.shape == (nH, nQ, nK)
-        if mask is not None:
-            # TODO: Allow masking
-            pass
-        attn1 = self.ops.softmax(attn0, axis=-1)
-        assert attn1.shape == (nH, nQ, nK)
+        attn1, backprop_mask = self._apply_mask(attn0, mask)
+        attn2 = self.ops.softmax(attn1, axis=-1)
+        assert attn2.shape == (nH, nQ, nK)
 
-        def backprop_attn1(d_attn1, sgd=None):
-            assert d_attn1.shape == (nH, nQ, nK)
-            d_attn0 = self.ops.backprop_softmax(attn1, d_attn1, axis=-1)
+        def backprop_attn1(d_attn2, sgd=None):
+            assert d_attn2.shape == (nH, nQ, nK)
+            d_attn1 = self.ops.backprop_softmax(attn2, d_attn2, axis=-1)
+            d_attn0 = backprop_mask(d_attn1)
             assert d_attn0.shape == (nH, nQ, nK)
             dQ1 = self.ops.matmul(d_attn0, _trans(K1, 0, 2, 1))
             assert dQ1.shape == (nH, nQ, nD)
@@ -154,7 +172,19 @@ class MultiHeadedAttention(Model):
             assert dQ0.shape == (nQ, nH, nD)
             return dQ0, dK0
 
-        return attn1, backprop_attn1
+        return attn2, backprop_attn1
+
+    def _apply_mask(self, attn, mask):
+        def backprop_apply_mask(d_attn, sgd=None):
+            if mask is None:
+                return d_attn
+            else:
+                return d_attn * mask
+
+        if mask is None:
+            return attn, backprop_apply_mask
+        else:
+            return attn - (1-mask)*1e9, backprop_apply_mask
 
     def _apply_attn(self, attn, V0):
         """ Multiplication with values """
