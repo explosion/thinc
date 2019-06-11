@@ -12,6 +12,7 @@ from thinc.misc import Residual
 
 from thinc.extra import datasets
 from thinc.neural.util import to_categorical
+from thinc.extra.load_nlp import register_vectors
 from thinc.api import layerize, chain, concatenate, clone
 from thinc.api import foreach, flatten_add_lengths, with_getitem
 from thinc.misc import FeatureExtracter
@@ -28,11 +29,11 @@ def get_sents(docs, drop=0.0):
     return sents, None
 
 
-def build_model(nr_class, width, depth, conv_depth, **kwargs):
+def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
     with Model.define_operators({"|": concatenate, ">>": chain, "**": clone}):
         embed = (
             HashEmbed(width, 5000, column=1)
-            | StaticVectors("spacy_pretrained_vectors", width, column=5)
+            | StaticVectors(vectors_name, width, column=5)
             | HashEmbed(width // 2, 750, column=2)
             | HashEmbed(width // 2, 750, column=3)
             | HashEmbed(width // 2, 750, column=4)
@@ -81,6 +82,7 @@ def main(use_gpu=False, nb_epoch=100):
 
     nlp = spacy.load("en_vectors_web_lg")
     nlp.add_pipe(nlp.create_pipe("sentencizer"), first=True)
+    register_vectors(Model.ops, nlp.vocab.vectors.name, nlp.vocab.vectors.data)
 
     preprocessor = FeatureExtracter([ORTH, LOWER, PREFIX, SUFFIX, SHAPE, ID])
     train_X = [preprocessor(list(doc.sents)) for doc in tqdm.tqdm(nlp.pipe(train_X))]
@@ -95,7 +97,8 @@ def main(use_gpu=False, nb_epoch=100):
     print("%d sentences" % n_sent)
 
     model = build_model(
-        2, width=128, conv_depth=2, depth=2, train_X=train_X, train_y=train_y
+        2, vectors_name=nlp.vocab.vectors.name, width=128, conv_depth=2,
+        depth=2, train_X=train_X, train_y=train_y
     )
     with model.begin_training(train_X[:100], train_y[:100]) as (trainer, optimizer):
         epoch_loss = [0.0]
