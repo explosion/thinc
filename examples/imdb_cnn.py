@@ -11,15 +11,15 @@ from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 
 from thinc.extra import datasets
-from thinc.neural.util import to_categorical
+from thinc.neural.util import to_categorical, require_gpu
 from thinc.extra.load_nlp import register_vectors
 from thinc.api import layerize, chain, concatenate, clone
 from thinc.api import foreach, flatten_add_lengths, with_getitem
 from thinc.misc import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
+from spacy.util import fix_random_seed
 
-from thinc.neural.ops import CupyOps
 from spacy.util import compounding
 
 
@@ -70,9 +70,9 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
 
 
 def main(use_gpu=False, nb_epoch=100):
+    fix_random_seed(0)
     if use_gpu:
-        Model.ops = CupyOps()
-        Model.Ops = CupyOps
+        require_gpu()
     train, test = datasets.imdb(limit=2000)
     print("Load data")
     train_X, train_y = zip(*train)
