@@ -6,7 +6,7 @@ from thinc.i2v import StaticVectors, HashEmbed
 from thinc.v2v import Model, Affine, Maxout, Softmax
 from thinc.t2t import ExtractWindow, ParametricAttention
 from thinc.t2t import MultiHeadedAttention, prepare_self_attention
-from thinc.t2v import Pooling, sum_pool
+from thinc.t2v import Pooling, sum_pool, mean_pool, max_pool
 from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 
@@ -48,7 +48,7 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
             )
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
-            >> Pooling(sum_pool)
+            >> Pooling(mean_pool)
             >> Residual(LN(Maxout(width)))
         )
 
@@ -61,7 +61,7 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
             )
             >> flatten_add_lengths
             >> ParametricAttention(width, hard=False)
-            >> Pooling(sum_pool)
+            >> Pooling(mean_pool)
             >> Residual(LN(Maxout(width))) ** 2
             >> Softmax(nr_class)
         )
