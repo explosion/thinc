@@ -15,7 +15,6 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
         get_mask = window_mask(window)
     else:
         get_mask = None
-    affine.W *= 2
     def qkv_sa_forward(Xs, drop=0.0):
         X = affine.ops.flatten(Xs)
         lengths = affine.ops.asarray([len(x) for x in Xs], dtype='i')
