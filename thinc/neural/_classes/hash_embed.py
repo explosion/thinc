@@ -39,7 +39,11 @@ class HashEmbed(Model):
         self.column = kwargs.get("column", 0)
         self.nO = nO
         self.nV = nV
-        self.seed = self.id
+        
+        if seed is not None:
+            self.seed = seed
+        else:
+            self.seed = self.id
 
     def predict(self, ids):
         if ids.ndim >= 2:
