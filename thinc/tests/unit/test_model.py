@@ -4,6 +4,8 @@ from __future__ import unicode_literals
 import tempfile
 import os
 import pytest
+import threading
+import time
 
 from ...neural._classes import model as base
 from ...neural.ops import NumpyOps
@@ -106,6 +108,31 @@ def test_plus_chain():
             + base.Model(name="d")
         )
         assert m.name == "a"
+
+
+def test_overload_operators_in_subthread():
+    """Test we can create a model in a child thread with overloaded operators."""
+    # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.
+    # Without thread-safety, worker2 will find that its operator definitions
+    # have been removed, causing an error.
+    worker1 = threading.Thread(target=_overload_plus, args=("+", 1))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 3,))
+    worker2.start()
+    worker1.start()
+    worker1.join()
+    worker2.join()
+
+
+def _overload_plus(operator, sleep):
+    m1 = base.Model(name="a")
+    m2 = base.Model(name="b")
+    with base.Model.define_operators({operator: lambda a, b: a.name + b.name}):
+        time.sleep(sleep)
+        if operator == "+":
+            value = m1 + m2
+        else:
+            value = m1 * m2
+    assert value == "ab"
 
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())

@@ -5,6 +5,7 @@ import numpy
 import contextlib
 from collections import OrderedDict
 import srsly
+import threading
 
 from .. import util
 from ..train import Trainer
@@ -13,6 +14,9 @@ from ..mem import Memory
 from ..util import get_ops, copy_array
 from ... import check
 from ...check import has_shape, is_sequence, is_float
+
+THREAD_LOCAL = threading.local()
+THREAD_LOCAL.operators = {}
 
 
 class Model(object):
@@ -28,7 +32,7 @@ class Model(object):
     descriptions = []
     on_data_hooks = []
     on_init_hooks = []  # Use this to add layers
-    _operators = {}
+    _operators = THREAD_LOCAL.operators
 
     @classmethod
     @contextlib.contextmanager
