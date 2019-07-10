@@ -10,11 +10,12 @@ from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
 from thinc.i2v import HashEmbed
-from thinc.v2v import Model, Maxout, Softmax
+from thinc.v2v import Model, Affine, Maxout, Softmax
 from thinc.t2t import ExtractWindow
-from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention, SparseAttention, with_pad_and_mask
-from thinc.misc import Residual
-from thinc.api import with_flatten
+from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
+from thinc.neural._classes.multiheaded_attention import prepare_self_attention
+from thinc.misc import Residual, LayerNorm
+from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import to_categorical, prefer_gpu
@@ -49,6 +50,18 @@ def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True)
     return layerize(forward)
 
 
+def PositionEncode(L, D):
+    positions = Model.ops.position_encode(L, D)
+    def position_encode_forward(Xs, drop=0.):
+        output = []
+        for x in Xs:
+            output.append(x + positions[:x.shape[0]])
+        def position_encode_backward(dYs, sgd=None):
+            return dYs
+        return output, position_encode_backward
+    return layerize(position_encode_forward)
+
+
 epoch_train_acc = 0.0
 
 
@@ -60,6 +73,7 @@ def track_progress(**context):
     trainer = context["trainer"]
     n_dev = len(dev_y)
     epoch_times = [timer()]
+    losses = context["losses"]
 
     def each_epoch():
         global epoch_train_acc
@@ -75,17 +89,18 @@ def track_progress(**context):
         stats = (
             acc,
             avg_acc,
-            float(epoch_train_acc) / n_train,
+            float(losses[-1]),
             trainer.dropout,
             wps_train,
             wps_run,
         )
         print(
-            "%.3f (%.3f) dev acc, %.3f train acc, %.4f drop, %d wps train, %d wps run"
+            "%.3f (%.3f) dev acc, %.3f train loss, %.4f drop, %d wps train, %d wps run"
             % stats
         )
         epoch_train_acc = 0.0
         epoch_times.append(timer())
+        losses.append(0.)
 
     return each_epoch
 
@@ -122,7 +137,7 @@ def debug(X, drop=0.0):
     L2=("L2 regularization penalty", "option", "L", float),
 )
 def main(
-    width=100,
+    width=128,
     depth=4,
     vector_length=64,
     min_batch_size=1,
@@ -150,11 +165,13 @@ def main(
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, pieces=3), pad=depth)
-            >> with_pad_and_mask(
-                MultiHeadedAttention(nM=width, nH=4)
-            )
-            >> with_flatten(Softmax(nr_tag))
+                >> Maxout(width, width+(width//2)*3, pieces=3))
+            >> PositionEncode(1000, width)
+            >> Residual(
+                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                >> MultiHeadedAttention()
+                >> with_flatten(Affine(width, width)))
+            >> with_flatten(Softmax(nr_tag, width))
         )
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
@@ -162,6 +179,7 @@ def main(
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
+    losses = [0.]
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (
         trainer,
         optimizer,
@@ -169,10 +187,12 @@ def main(
         trainer.each_epoch.append(track_progress(**locals()))
         trainer.batch_size = min_batch_size
         batch_size = float(min_batch_size)
+        trainer.dropout = 0.1
         for X, y in trainer.iterate(train_X, train_y):
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
 
             gradient = [yh[i] - y[i] for i in range(len(yh))]
+            losses[-1] += sum((g**2).sum() for g in gradient)
 
             backprop(gradient, optimizer)
 

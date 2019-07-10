@@ -43,6 +43,17 @@ def flatten_add_lengths(seqs, pad=0, drop=0.0):
     X = ops.flatten(seqs, pad=pad)
     return (X, lengths), finish_update
 
+@layerize
+def unflatten(X_lengths, drop=0.):
+    ops = Model.ops
+    X, lengths = X_lengths
+    Xs = ops.unflatten(X, lengths)
+
+    def backprop_unflatten(dXs, sgd=None):
+        dX = ops.flatten(dXs, pad=0)
+        return dX
+
+    return Xs, backprop_unflatten
 
 def remap_ids(ops=None, column=0):
     id_map = {0: 0}
@@ -392,9 +403,13 @@ def foreach(layer, drop_factor=1.0):
         lengths = []
         for doc in docs:
             doc_sents = [sent for sent in doc if len(sent)]
-            subset = [
-                s for s in doc_sents if numpy.random.random() >= drop * drop_factor
-            ]
+            assert len(doc_sents)
+            if drop:
+                subset = [
+                    s for s in doc_sents if numpy.random.random() >= drop * drop_factor
+                ]
+            else:
+                subset = list(doc_sents)
             if subset:
                 sents.extend(subset)
                 lengths.append(len(subset))
@@ -402,6 +417,7 @@ def foreach(layer, drop_factor=1.0):
                 numpy.random.shuffle(doc_sents)
                 sents.append(doc_sents[0])
                 lengths.append(1)
+        assert len(sents)
         flat, bp_flat = layer.begin_update(sents, drop=0.0)
         output = layer.ops.unflatten(flat, lengths)
 
@@ -460,3 +476,50 @@ def foreach_sentence(layer, drop_factor=1.0):
 
     model = wrap(sentence_fwd, layer)
     return model
+
+
+# This stuff was developed for the multi-headed attention.
+
+def with_pad_and_mask(layer):
+    def create_model_input_forward(Xs, drop=0.):
+        nX = model.ops.asarray([x.shape[0] for x in Xs], dtype='i')
+        nL = nX.max()
+        X, unpad_X = pad_sequences(model.ops, Xs, pad_to=nL)
+        X_mask = _get_mask(X, nX)
+        Y, bp_Y = layer.begin_update((X.astype("float32"), X_mask, None), drop=drop)
+        def create_model_input_backward(dYs, sgd=None):
+            dY, _ = pad_sequences(model.ops, dYs, pad_to=nL)
+            dX = bp_Y(dY, sgd=sgd)
+            return unpad_X(dX)
+        return unpad_X(Y), create_model_input_backward
+    model = layerize(create_model_input_forward)
+    return model
+
+
+def pad_sequences(ops, seqs_in, pad_to=None):
+    lengths = ops.asarray([len(seq) for seq in seqs_in], dtype='i')
+    nB = len(seqs_in)
+    if pad_to is None:
+        pad_to = lengths.max()
+    arr = ops.allocate((nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype)
+    for arr_i, seq in enumerate(seqs_in):
+        arr[arr_i, :seq.shape[0]] = ops.asarray(seq)
+    
+    def unpad(padded):
+        unpadded = [None] * len(lengths)
+        for i in range(padded.shape[0]):
+            unpadded[i] = padded[i, :lengths[i]]
+        return unpadded
+    return arr, unpad
+
+
+def _get_mask(X, nX):
+    nB = X.shape[0]
+    nL = X.shape[1]
+    X_mask = Model.ops.allocate((nB, nL, nL))
+    for i, length in enumerate(nX):
+        X_mask[i, :, :length] = 1.0
+    return X_mask
+
+
+

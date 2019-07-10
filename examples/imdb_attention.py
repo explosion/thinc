@@ -3,24 +3,24 @@ from __future__ import unicode_literals
 
 import tqdm
 from thinc.i2v import StaticVectors, HashEmbed
-from thinc.v2v import Model, Maxout, Softmax
-from thinc.t2t import ExtractWindow
-from thinc.t2t import ParametricAttention
-from thinc.t2v import Pooling, sum_pool
+from thinc.v2v import Model, Affine, Maxout, Softmax
+from thinc.t2t import ExtractWindow, ParametricAttention
+from thinc.t2t import MultiHeadedAttention, prepare_self_attention
+from thinc.t2v import Pooling, sum_pool, mean_pool, max_pool
 from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 
 from thinc.extra import datasets
-from thinc.neural.util import to_categorical, require_gpu
 from thinc.extra.load_nlp import register_vectors
+from thinc.neural.util import to_categorical, require_gpu
 from thinc.api import layerize, chain, concatenate, clone
-from thinc.api import foreach, flatten_add_lengths, with_getitem
+from thinc.api import foreach, with_flatten, flatten_add_lengths, with_getitem
 from thinc.misc import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
-from spacy.util import fix_random_seed
 
-from spacy.util import compounding
+from thinc.neural.ops import CupyOps
+from spacy.util import compounding, fix_random_seed
 
 
 @layerize
@@ -40,29 +40,29 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
         ) >> LN(Maxout(width))
 
         sent2vec = (
-            flatten_add_lengths
-            >> with_getitem(
-                0,
-                embed
-                >> Residual(ExtractWindow(nW=1) >> LN(Maxout(width))) ** conv_depth,
+            with_flatten(embed)
+            >> Residual(
+                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                >> MultiHeadedAttention()
+                >> with_flatten(Maxout(width, width, pieces=3))
             )
-            >> ParametricAttention(width)
-            >> Pooling(sum_pool)
-            >> Residual(LN(Maxout(width))) ** depth
+            >> flatten_add_lengths
+            >> ParametricAttention(width, hard=False)
+            >> Pooling(mean_pool)
+            >> Residual(LN(Maxout(width)))
         )
 
         model = (
             foreach(sent2vec, drop_factor=2.0)
+            >> Residual(
+                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                >> MultiHeadedAttention()
+                >> with_flatten(LN(Affine(width, width)))
+            )
             >> flatten_add_lengths
-            # This block would allow the model to learn some cross-sentence
-            # features. It's not useful on this problem. It might make more
-            # sense to use a BiLSTM here, following Liang et al (2016).
-            # >> with_getitem(0,
-            #    Residual(ExtractWindow(nW=1) >> LN(Maxout(width))) ** conv_depth
-            # )
             >> ParametricAttention(width, hard=False)
-            >> Pooling(sum_pool)
-            >> Residual(LN(Maxout(width))) ** depth
+            >> Pooling(mean_pool)
+            >> Residual(LN(Maxout(width))) ** 2
             >> Softmax(nr_class)
         )
     model.lsuv = False
@@ -97,8 +97,7 @@ def main(use_gpu=False, nb_epoch=100):
     print("%d sentences" % n_sent)
 
     model = build_model(
-        2, vectors_name=nlp.vocab.vectors.name, width=128, conv_depth=2,
-        depth=2, train_X=train_X, train_y=train_y
+        2, vectors_name=nlp.vocab.vectors.name, width=128, conv_depth=2, depth=2, train_X=train_X, train_y=train_y
     )
     with model.begin_training(train_X[:100], train_y[:100]) as (trainer, optimizer):
         epoch_loss = [0.0]

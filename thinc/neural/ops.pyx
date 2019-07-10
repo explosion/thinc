@@ -33,7 +33,8 @@ cdef extern from "math.h":
     float sqrtf(float x) nogil
     float expf(float x) nogil
     float tanhf(float x) nogil
-
+    float sinf(float x) nogil
+    float cosf(float x) nogil
 
 try:
     import cupy
@@ -246,9 +247,6 @@ class Ops(object):
         return 1-y**2
 
     def softmax(self, x, inplace=False, axis=-1):
-        if x.ndim >= 3:
-            raise NotImplementedError(
-                "Softmax currently only supports 2d. ndim=%d" % x.ndim)
         shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
@@ -274,6 +272,11 @@ class Ops(object):
             return Xs
         else:
             return new_x
+
+    def backprop_softmax(self, Y, dY, axis=-1):
+        dX = Y * dY
+        dX -= Y * dX.sum(axis=axis, keepdims=True)
+        return dX
 
     def backprop_softmax_sequences(self, dy, y, lengths):
         dx = y * dy
@@ -400,6 +403,21 @@ class NumpyOps(Ops):
     def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
         VecVec.add_i(<float*>x.data,
             <float*>y.data, scale, x.shape[0])
+
+    def matmul(self, float[:, :, ::1] x, float[:, :, ::1] y, out=None):
+        assert x.shape[0] == y.shape[0]
+        assert x.shape[2] == y.shape[1]
+        cdef np.ndarray out_array
+        if out is None:
+            out_array = self.allocate((x.shape[0], x.shape[1], y.shape[2]))
+        else:
+            out_array = self.xp.asarray(out)
+        assert out_array.shape[0] == x.shape[0]
+        assert out_array.shape[1] == x.shape[1]
+        assert out_array.shape[2] == y.shape[2]
+        for i in range(x.shape[0]):
+            blis.py.gemm(x[i], y[i], out=out_array[i])
+        return out_array
 
     def gemm(self, float[:, ::1] x, float[:, ::1] y, trans1=False, trans2=False,
              out=None):
@@ -730,6 +748,34 @@ class NumpyOps(Ops):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
         return output_
 
+    def position_encode(self, int N, int D, int period=10000, out=None):
+        cdef np.ndarray out_
+        if out is None:
+            out_ = self.allocate((N, D))
+        else:
+            out_ = out
+        assert out_.shape[0] == N
+        assert out_.shape[1] == D
+        cpu_position_encode(<float*>out_.data, period, N, D)
+        return out_ 
+    
+cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
+    cdef float pos, d
+    cdef int j
+    cdef float dimensions = D
+    for i in range(N):
+        pos = i
+        j = 0
+        d = 0
+        while (j+1) < D:
+            d = j
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
+            output[j+1] = cosf(pos / period ** (2 * d / dimensions))
+            j += 2
+        if j < D:
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
+        output += D
+
 
 cdef void cpu_scatter_add(float* dest,
         const int* indices, const float* src,
@@ -795,6 +841,9 @@ cdef void cpu_update_averages(weight_t* ema,
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+
+    def matmul(self, x, y, out=None):
+        return self.xp.matmul(x, y, out=out)
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
