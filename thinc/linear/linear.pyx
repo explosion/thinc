@@ -61,23 +61,34 @@ class LinearModel(Model):
             &keys[0], &values[0], &lengths[0],
             lengths.shape[0], self.nO,
             &weights[0], self.length)
-        closure = {"keys": keys, "values": values, "lengths": lengths}
-        def finish_update(float[:, ::1] d_scores, sgd=None):
-            cdef float[::1] d_weights = self.d_W
-            cdef float[::1] d_bias = self.d_b
-            cdef uint64_t[::1] keys = closure["keys"]
-            cdef float[::1] values = closure["values"]
-            cdef long[::1] lengths = closure["lengths"]
-            set_gradientC(&d_weights[0],
-                &keys[0], &values[0], &lengths[0],
-                lengths.shape[0], self.nO,
-                &d_scores[0,0], self.length)
-            cdef int i, j
-            for i in range(d_scores.shape[0]):
-                for j in range(d_scores.shape[1]):
-                    d_bias[j] += d_scores[i, j]
-            sgd(self._mem.weights, self._mem.gradient, key=self.id)
-        return scores, finish_update
+        return scores, _finish_linear_update(self, keys, values, lengths)
+
+
+class _finish_linear_update(object):
+    """Move this out of a closure, into its own callable object, to avoid
+    pickling errors :(."""
+    def __init__(self, layer, keys, values, lengths):
+        self.layer = layer
+        self.keys = keys
+        self.values = values
+        self.lengths = lengths
+
+    def __call__(self, float[:, ::1] d_scores, sgd=None):
+        cdef float[::1] d_weights = self.layer.d_W
+        cdef float[::1] d_bias = self.layer.d_b
+        cdef uint64_t[::1] keys = self.keys
+        cdef float[::1] values = self.values
+        cdef long[::1] lengths = self.lengths
+        set_gradientC(&d_weights[0],
+            &keys[0], &values[0], &lengths[0],
+            lengths.shape[0], self.nO,
+            &d_scores[0,0], self.length)
+        cdef int i, j
+        for i in range(d_scores.shape[0]):
+            for j in range(d_scores.shape[1]):
+                d_bias[j] += d_scores[i, j]
+        sgd(self.layer._mem.weights, self.layer._mem.gradient, key=self.layer.id)
+        return None
 
 
 cdef void set_scoresC(float* scores,
