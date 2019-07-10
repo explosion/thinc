@@ -134,7 +134,7 @@ class Ops(object):
                 X = X[pad:]
             unflat.append(X[:length])
             X = X[length:]
-        if pad >= 1 and length != 0:
+        if pad >= 1:
             X = X[pad:]
         assert len(X) == 0
         assert len(unflat) == len(lengths)
