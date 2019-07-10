@@ -10,16 +10,23 @@ from .. import describe
 from ..describe import Dimension, Synapses, Biases, Gradient
 from ..neural.util import is_cupy_array, is_numpy_array
 
+# Sigh, these stuff up pickling if they're lambdas...
+
+def _get_W_shape(obj):
+    return (obj.nO * obj.length,)
+
+def _init_W(W, ops):
+    W.fill(0.)
+
+def _get_bias_shape(obj):
+    return (obj.nO,)
+
+
 @describe.attributes(
     nO=Dimension("Output size"),
     length=Dimension("Weights length"),
-    W=Synapses("Weights matrix",
-        lambda obj: (obj.nO * obj.length,),
-        lambda W, ops: W.fill(0.)
-    ),
-    b=Biases("Biases",
-        lambda obj: (obj.nO,),
-    ),
+    W=Synapses("Weights matrix", _get_W_shape, _init_W),
+    b=Biases("Biases", _get_bias_shape),
     d_W=Gradient("W"),
     d_b=Gradient("b"),
 )
@@ -45,8 +52,7 @@ class LinearModel(Model):
         cpu_lengths = lengths.get()
         return self._begin_cpu_update(cpu_keys, cpu_values, cpu_lengths, drop=drop)
 
-    def _begin_cpu_update(self, uint64_t[::1] keys, np.ndarray values_,
-            long[::1] lengths, drop):
+    def _begin_cpu_update(self, uint64_t[::1] keys, np.ndarray values_, long[::1] lengths, drop):
         if drop is not None:
             drop *= self.drop_factor
         mask = self.ops.get_dropout_mask((values_.shape[0],), drop)
