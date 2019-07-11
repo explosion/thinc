@@ -93,7 +93,8 @@ class _finish_linear_update(object):
         for i in range(d_scores.shape[0]):
             for j in range(d_scores.shape[1]):
                 d_bias[j] += d_scores[i, j]
-        sgd(self.layer._mem.weights, self.layer._mem.gradient, key=self.layer.id)
+        if sgd is not None:
+            sgd(self.layer._mem.weights, self.layer._mem.gradient, key=self.layer.id)
         return None
 
 
