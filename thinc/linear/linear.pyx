@@ -87,8 +87,8 @@ class _finish_linear_update(object):
         cdef long[::1] lengths = self.lengths
         set_gradientC(&d_weights[0],
             &keys[0], &values[0], &lengths[0],
-            lengths.shape[0], self.nO,
-            &d_scores[0,0], self.length)
+            lengths.shape[0], self.layer.nO,
+            &d_scores[0,0], self.layer.length)
         cdef int i, j
         for i in range(d_scores.shape[0]):
             for j in range(d_scores.shape[1]):
