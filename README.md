@@ -330,6 +330,8 @@ for layer definitions. Specifically, the following decorators are available:
 
 | Version   | Date         | Description                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------- |
+| [v7.0.8]  | `2019-07-11` | Fix version for PyPi                                                      |
+| [v7.0.7]  | `2019-07-11` | Avoid allocating a negative shape for ngrams                              |
 | [v7.0.6]  | `2019-07-11` | Fix `LinearModel` regression                                              |
 | [v7.0.5]  | `2019-07-10` | Bug fixes for pickle, threading, unflatten and consistency                |
 | [v7.0.4]  | `2019-03-19` | Don't require `thinc_gpu_ops`                                             |
@@ -367,6 +369,8 @@ for layer definitions. Specifically, the following decorators are available:
 | v6.1.0    | `2017-01-09` | _n/a_                                                                     |
 | [v6.0.0]  | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning                         |
 
+[v7.0.8]: https://github.com/explosion/thinc/releases/tag/v7.0.8
+[v7.0.7]: https://github.com/explosion/thinc/releases/tag/v7.0.7
 [v7.0.6]: https://github.com/explosion/thinc/releases/tag/v7.0.6
 [v7.0.5]: https://github.com/explosion/thinc/releases/tag/v7.0.5
 [v7.0.4]: https://github.com/explosion/thinc/releases/tag/v7.0.4
