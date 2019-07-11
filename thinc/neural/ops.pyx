@@ -742,7 +742,8 @@ class NumpyOps(Ops):
 
     def ngrams(self, int n, uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
-        cdef np.ndarray output_ = self.allocate((keys_.shape[0]-n,), dtype='uint64')
+        length = max(0, keys_.shape[0]-n)
+        cdef np.ndarray output_ = self.allocate((length,), dtype='uint64')
         output = <uint64_t*>output_.data
         for i in range(keys_.shape[0]-n):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
