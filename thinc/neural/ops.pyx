@@ -15,7 +15,12 @@ import numpy
 from cytoolz import concat
 from numpy import prod
 from numpy cimport ndarray
-from collections import Sized
+try:
+    # Python >= 3.3
+    from collections.abc import Sized
+except ImportError:
+    # Python < 3.3
+    from collections import Sized
 cimport numpy as np
 
 from ..typedefs cimport weight_t

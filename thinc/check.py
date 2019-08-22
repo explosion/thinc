@@ -1,4 +1,9 @@
-from collections import defaultdict, Sequence, Sized, Iterable, Callable
+try:
+    # Python >= 3.3
+    from collections.abc import defaultdict, Sequence, Sized, Iterable, Callable
+except ImportError:
+    # Python < 3.3
+    from collections import defaultdict, Sequence, Sized, Iterable, Callable
 import inspect
 import wrapt
 from cytoolz import curry

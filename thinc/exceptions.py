@@ -1,6 +1,11 @@
 # coding: utf-8
 from __future__ import unicode_literals
-from collections import Sized
+try:
+    # Python >= 3.3
+    from collections.abc import Sized
+except ImportError:
+    # Python < 3.3
+    from collections import Sized
 
 import traceback
 from termcolor import colored as color
