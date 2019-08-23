@@ -419,7 +419,7 @@ class NumpyOps(Ops):
             blis.py.gemm(x[i], y[i], out=out_array[i])
         return out_array
 
-    def gemm(self, float[:, ::1] x, float[:, ::1] y, trans1=False, trans2=False,
+    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,
              out=None):
         cdef int m
         if trans1:
@@ -508,7 +508,7 @@ class NumpyOps(Ops):
                 dX_ptr[i] = 0.
         return dX
 
-    def maxout(self, float[:, :, ::1] py_cands):
+    def maxout(self, const float[:, :, ::1] py_cands):
         cdef Pool mem = Pool()
         cdef int B = py_cands.shape[0]
         cdef int O = py_cands.shape[1]
@@ -520,7 +520,7 @@ class NumpyOps(Ops):
             &py_cands[0, 0, 0], B, O, P)
         return best, which
 
-    def backprop_maxout(self, float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
+    def backprop_maxout(self, const float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
         cdef int B = dX__bo.shape[0]
         cdef int O = dX__bo.shape[1]
 
@@ -542,7 +542,7 @@ class NumpyOps(Ops):
     #        &d_output[0, 0], &gates[0, 0], &cells[0, 0], &prev[0, 0],
     #        cells.shape[0], cells.shape[1])
 
-    def seq2col(self, float[:, ::1] seq, int nW):
+    def seq2col(self, const float[:, ::1] seq, int nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
@@ -558,7 +558,7 @@ class NumpyOps(Ops):
         memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
         return py_out.reshape((B, I * (2*nW+1)))
 
-    def backprop_seq2col(self, float[:, ::1] dY, int nW):
+    def backprop_seq2col(self, const float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
@@ -606,7 +606,7 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def hash(self, uint64_t[::1] ids, uint32_t seed):
+    def hash(self, const uint64_t[::1] ids, uint32_t seed):
         '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
         # Written to mirror the GPU implementation
         cdef ndarray[uint32_t, ndim=2] keys = self.allocate((ids.shape[0], 4), dtype='uint32')
@@ -624,7 +624,7 @@ class NumpyOps(Ops):
             dest += 16
         return keys
 
-    def mean_pool(self, float[:, ::1] X, int[::1] lengths):
+    def mean_pool(self, const float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -636,7 +636,7 @@ class NumpyOps(Ops):
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(means, (B, O))
 
-    def sum_pool(self, float[:, ::1] X, int[::1] lengths):
+    def sum_pool(self, const float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -648,7 +648,7 @@ class NumpyOps(Ops):
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(sums, (B, O))
 
-    def backprop_mean_pool(self, float[:, ::1] d_means, int[::1] lengths):
+    def backprop_mean_pool(self, const float[:, ::1] d_means, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_means.shape[1]
         cdef int T = 0
@@ -662,7 +662,7 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def backprop_sum_pool(self, float[:, ::1] d_sums, int[::1] lengths):
+    def backprop_sum_pool(self, const float[:, ::1] d_sums, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_sums.shape[1]
         cdef int T = 0
@@ -676,7 +676,7 @@ class NumpyOps(Ops):
         return cpu_floats_ptr2array(dX, (T, O))
 
 
-    def max_pool(self, float[:, ::1] X, int[::1] lengths):
+    def max_pool(self, const float[:, ::1] X, const int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -692,8 +692,8 @@ class NumpyOps(Ops):
         cdef ndarray py_which = cpu_ints_ptr2array(which, (B, O))
         return py_best, py_which
 
-    def backprop_max_pool(self, float[:, ::1] d_maxes,
-            int[:, ::1] which, int[::1] lengths):
+    def backprop_max_pool(self, const float[:, ::1] d_maxes,
+            const int[:, ::1] which, const int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_maxes.shape[1]
         cdef int T = 0
@@ -732,7 +732,7 @@ class NumpyOps(Ops):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
-            float[::1] mom2, float beta1, float beta2, float eps,
+             float[::1] mom2, const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
         _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
@@ -740,7 +740,7 @@ class NumpyOps(Ops):
             &gradient[0], -learn_rate, weights.shape[0])
         memset(&gradient[0], 0, gradient.size * sizeof(float))
 
-    def ngrams(self, int n, uint64_t[::1] keys_):
+    def ngrams(self, int n, const uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
         length = max(0, keys_.shape[0]-n)
         cdef np.ndarray output_ = self.allocate((length,), dtype='uint64')
@@ -1098,14 +1098,14 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
 
 
 
-cdef cpu_floats_ptr2array(const float* ptr, shape):
+cdef cpu_floats_ptr2array(float* ptr, shape):
     cdef ndarray py_out = numpy.zeros(shape, dtype='float32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
     return py_out
 
 
-cdef cpu_ints_ptr2array(const int* ptr, shape):
+cdef cpu_ints_ptr2array(int* ptr, shape):
     cdef ndarray py_out = numpy.zeros(shape, dtype='int32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))

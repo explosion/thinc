@@ -218,7 +218,7 @@ def setup_package():
                 "murmurhash>=0.28.0,<1.1.0",
                 "cymem>=2.0.2,<2.1.0",
                 "preshed>=1.0.1,<2.1.0",
-                "blis>=0.3.1,<0.4.0",
+                "blis>=0.4.0,<0.5.0",
                 "wasabi>=0.0.9,<1.1.0",
                 "srsly>=0.0.6,<1.1.0",
                 # Third-party dependencies
