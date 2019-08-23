@@ -731,8 +731,8 @@ class NumpyOps(Ops):
  
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, float[::1] weights, float[::1] gradient, const float[::1] mom1,
-            const float[::1] mom2, const float beta1, const float beta2, float eps,
+    def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
+             float[::1] mom2, const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
         _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
             weights.shape[0], beta1, beta2, eps, learn_rate)
