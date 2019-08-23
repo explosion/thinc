@@ -1,7 +1,12 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-from collections import Sequence, Sized, Iterable, Callable
+try:
+    # Python >= 3.3
+    from collections.abc import Sequence, Sized, Iterable, Callable
+except ImportError:
+    # Python < 3.3
+    from collections import Sequence, Sized, Iterable, Callable
 from numpy import ndarray
 
 from .compat import integer_types
