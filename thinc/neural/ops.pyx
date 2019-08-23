@@ -606,7 +606,7 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def hash(self, uint64_t[::1] ids, uint32_t seed):
+    def hash(self, const uint64_t[::1] ids, uint32_t seed):
         '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
         # Written to mirror the GPU implementation
         cdef ndarray[uint32_t, ndim=2] keys = self.allocate((ids.shape[0], 4), dtype='uint32')
@@ -731,7 +731,7 @@ class NumpyOps(Ops):
  
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, const float[::1] weights, const float[::1] gradient, const float[::1] mom1,
+    def adam(self, float[::1] weights, float[::1] gradient, const float[::1] mom1,
             const float[::1] mom2, const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
         _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
@@ -740,7 +740,7 @@ class NumpyOps(Ops):
             &gradient[0], -learn_rate, weights.shape[0])
         memset(&gradient[0], 0, gradient.size * sizeof(float))
 
-    def ngrams(self, int n, uint64_t[::1] keys_):
+    def ngrams(self, int n, const uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
         length = max(0, keys_.shape[0]-n)
         cdef np.ndarray output_ = self.allocate((length,), dtype='uint64')
@@ -1098,14 +1098,14 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
 
 
 
-cdef cpu_floats_ptr2array(const float* ptr, shape):
+cdef cpu_floats_ptr2array(float* ptr, shape):
     cdef ndarray py_out = numpy.zeros(shape, dtype='float32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
     return py_out
 
 
-cdef cpu_ints_ptr2array(const int* ptr, shape):
+cdef cpu_ints_ptr2array(int* ptr, shape):
     cdef ndarray py_out = numpy.zeros(shape, dtype='int32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
