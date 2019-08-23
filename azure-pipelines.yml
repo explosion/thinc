@@ -17,7 +17,7 @@ jobs:
         python.version: '2.7'
       Python35Linux:
         imageName: 'ubuntu-16.04'
-        python.version: '3.5.5'
+        python.version: '3.5.7'
       Python35Windows:
         imageName: 'vs2017-win2016'
         python.version: '3.5'
