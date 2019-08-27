@@ -15,7 +15,8 @@ def ops():
 @pytest.mark.parametrize("size", [0, 10, 1000, 7, 12])
 def test_init_allocates_mem(ops, size):
     params = Memory(ops, size)
-    assert params._mem[0].size == size
+    assert params._weights_array.size == size
+    assert params._grads_array.size == size
     assert params._i == 0
 
 
