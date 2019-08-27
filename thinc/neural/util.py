@@ -77,23 +77,6 @@ def require_gpu():
     return True
 
 
-def minibatch(items, size=8):
-    """Iterate over batches of items. `size` may be an iterator,
-    so that batch-size can vary on each step.
-    """
-    if isinstance(size, int):
-        size_ = itertools.repeat(size)
-    else:
-        size_ = size
-    items = iter(items)
-    while True:
-        batch_size = next(size_)
-        batch = list(itertools.islice(items, int(batch_size)))
-        if len(batch) == 0:
-            break
-        yield list(batch)
-
-
 def mark_sentence_boundaries(sequences, drop=0.0):  # pragma: no cover
     """Pad sentence sequences with EOL markers."""
     for sequence in sequences:
@@ -163,18 +146,26 @@ def partition(examples, split_size):  # pragma: no cover
     return examples[:split], examples[split:]
 
 
-def minibatch(stream, batch_size=1000):  # pragma: no cover
+def minibatch(stream, size=1000):  # pragma: no cover
+    if isinstance(size, int):
+        size_ = itertools.repeat(size)
+    else:
+        size_ = size
+
     if hasattr(stream, "__len__") and hasattr(stream, "__getitem__"):
         i = 0
         while i < len(stream):
+            batch_size = next(size_)
             yield stream[i : i + batch_size]
             i += batch_size
     else:
         batch = []
+        batch_size = next(size_)
         for X in stream:
             batch.append(X)
             if len(batch) >= batch_size:
                 yield batch
                 batch = []
+                batch_size = next(size_)
         if len(batch) != 0:
             yield batch
