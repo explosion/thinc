@@ -31,7 +31,7 @@ EWTB_1_4_ZIP = "{github}/{ewtb}/archive/r1.4.zip".format(
 )  # pragma: no cover
 
 SNLI_URL = "http://nlp.stanford.edu/projects/snli/snli_1.0.zip"
-QUORA_QUESTIONS_URL = "http://qim.ec.quoracdn.net/quora_duplicate_questions.tsv"
+QUORA_QUESTIONS_URL = "http://qim.fs.quoracdn.net/quora_duplicate_questions.tsv"
 IMDB_URL = "http://ai.stanford.edu/~amaas/data/sentiment/aclImdb_v1.tar.gz"
 
 
