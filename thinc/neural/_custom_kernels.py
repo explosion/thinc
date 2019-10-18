@@ -1,6 +1,8 @@
+from __future__ import unicode_literals
 from numpy.testing import assert_allclose
 import re
 from pathlib import Path
+from collections import defaultdict
 
 try:
     import cupy
@@ -30,10 +32,10 @@ def compile_mmh(src):
     return cupy.RawKernel(src, "hash_data")
 
     
-SRC = (Path(__file__).parent / "_custom_kernels.cu").open().read()
+SRC = (Path(__file__).parent / "_custom_kernels.cu").open().read(encoding="utf8")
 KERNELS = compile_kernels(SRC)
 
-MMH_SRC = (Path(__file__).parent / "_murmur3.cu").open().read()
+MMH_SRC = (Path(__file__).parent / "_murmur3.cu").open().read(encoding="utf8")
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 sum_pool_kernel = KERNELS["sum_pool"]
