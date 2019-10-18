@@ -158,7 +158,7 @@ def test_dropout_backward(ops, X):
 @given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
     X = ops.asarray(X)
-    if ops.xp.abs(X).max() >= 50:
+    if ops.xp.abs(X).max() >= 30:
         return None
     lengths = ops.asarray([3] * len(X), dtype="i")
     out = ops.backprop_sum_pool(X, lengths)
@@ -181,7 +181,7 @@ def test_softmax_sums_to_one(ops, X):
 @given(X=strategies.arrays_BI())
 def test_softmax_sequence_sums_to_two(ops, X):
     X = ops.asarray(X)
-    if ops.xp.abs(X).max() >= 50:
+    if ops.xp.abs(X).max() >= 30:
         return None
     half = X.shape[0] // 2
     if half >= 1:
