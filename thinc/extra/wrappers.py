@@ -40,11 +40,12 @@ class PyTorchWrapper(Model):
     To optimize the model, you'll need to create a PyTorch optimizer and call
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
     """
+
     def __init__(self, model):
         Model.__init__(self)
         self._model = model
         self._optimizer = None
-    
+
     def prepare_input(self, x_data, is_update=True):
         x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
         return (x_var,), {}
@@ -86,6 +87,7 @@ class PyTorchWrapper(Model):
                 self._optimizer.step()
                 self._optimizer.zero_grad()
             return self.prepare_backward_output(fwd_args, fwd_kwargs)
+
         return y, backward_pytorch
 
     def _create_optimizer(self, sgd):
@@ -175,6 +177,7 @@ class PyTorchWrapper(Model):
 
 class PyTorchWrapperRNN(PyTorchWrapper):
     """Wrap a PyTorch RNN model"""
+
     def prepare_input(self, inputs, is_update=False):
         if isinstance(inputs, tuple):
             x_data, h_0 = inputs
