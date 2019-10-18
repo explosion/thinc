@@ -156,22 +156,39 @@ def test_dropout_backward(ops, X):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
+def test_backprop_sum_pool(ops, X):
+    X = ops.asarray(X)
+    if ops.xp.abs(X).max() >= 50:
+        return None
+    lengths = ops.asarray([3] * len(X), dtype="i")
+    out = ops.backprop_sum_pool(X, lengths)
+    assert out.shape == (sum(lengths), X.shape[1])
+    start = 0
+    for i, length in enumerate(lengths):
+        ops.xp.testing.assert_allclose(out[start : length].sum(axis=0), X[i] * length)
+
+
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
 def test_softmax_sums_to_one(ops, X):
     y = ops.softmax(ops.asarray(X))
     for row in y:
-        assert 0.99999 <= row.sum() <= 1.00001
+        assert 0.99999 <= row.sum() <= 1.0001
 
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_softmax_sequence_sums_to_two(ops, X):
+    X = ops.asarray(X)
+    if ops.xp.abs(X).max() >= 50:
+        return None
     half = X.shape[0] // 2
     if half >= 1:
-        X = ops.asarray(X)
         lengths = ops.asarray([half, X.shape[0] - half], dtype="i")
         y = ops.softmax_sequences(X, lengths)
         for col in y.sum(axis=0):
-            assert 0.99999 <= col <= 2.00001
+            assert 0.99999 <= col <= 2.0001, col
 
 
 @settings(max_examples=MAX_EXAMPLES)
