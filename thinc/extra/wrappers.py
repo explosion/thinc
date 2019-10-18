@@ -134,7 +134,8 @@ class PyTorchWrapper(Model):
         if self.ops.device == "cpu":
             map_location = "cpu"
         else:
-            map_location = "cuda:0"
+            device_id = torch.cuda.current_device()
+            map_location = "cuda:%d" % device_id
         self._model.load_state_dict(torch.load(path, map_location=map_location))
         self._model.to(map_location)
 
@@ -150,7 +151,8 @@ class PyTorchWrapper(Model):
         if self.ops.device == "cpu":
             map_location = "cpu"
         else:
-            map_location = "cuda:0"
+            device_id = torch.cuda.current_device()
+            map_location = "cuda:%d" % device_id
         self._model.load_state_dict(torch.load(filelike, map_location=map_location))
         self._model.to(map_location)
 
