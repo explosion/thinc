@@ -90,3 +90,59 @@ void max_pool(float* maxes, int* which,
 	X += O;
     }
 }
+
+
+extern "C" __global__
+void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
+    int B, int T, int O)
+{
+    int row = blockIdx.x * blockDim.x + threadIdx.x; // row we're working on
+    if (row >= T) return;
+    
+    // Find the sequence item we're working on
+    int seq_start = 0;
+    int b = 0;
+    while ((b < B) && (seq_start+lengths[b]) < row)
+    {
+       seq_start += lengths[b];
+       b += 1;
+    }
+        
+    dX = &dX[row * O];
+    d_sum = &d_sum[b * O];
+
+    for (int i=0; i < O; ++i) 
+    {
+	dX[i] = d_sum[i];
+    }
+}
+
+
+extern "C" __global__
+void backprop_max_pool(float* dX,
+    const float* d_maxes, const int* which, const int* lengths, int B, int T, int O)
+{
+    int row = blockIdx.x * blockDim.x + threadIdx.x; // Batch-item we're working on
+    if (row >= T) return;
+    
+    // Find the sequence item we're working on
+    int seq_start = 0;
+    int b = 0;
+    while ((b < B) && (seq_start+lengths[b]) < row)
+    {
+       seq_start += lengths[b];
+       b += 1;
+    }
+
+    dX = &dX[row];
+    which = &which[b];
+    d_maxes = &d_maxes[b];
+ 
+    for (int j=0; j < O; ++j)
+    {
+	// If we used the value for this cell,
+	// pass the gradient
+        if (which[j] == (row-seq_start))
+           dX[j] = d_maxes[j];
+    }
+}

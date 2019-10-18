@@ -30,6 +30,8 @@ KERNELS = compile_kernels(SRC)
 sum_pool_kernel = KERNELS["sum_pool"]
 max_pool_kernel = KERNELS["max_pool"]
 maxout_kernel = KERNELS["maxout"]
+backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
+backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
 
 
 def sum_pool(X, lengths, out=None, threads_per_block=128):
@@ -64,10 +66,43 @@ def max_pool(X, lengths, out=None, threads_per_block=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    num_blocks = min(1, B // threads_per_block)
+    num_blocks = max(1, B // threads_per_block)
     max_pool_kernel((num_blocks,), (threads_per_block,),
         (maxes, which, X, lengths, B, T, O))
     return maxes, which
+
+
+def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128):
+    B = len(lengths)
+    T = int(lengths.sum())
+    O = d_sum.shape[1]
+    if out is None:
+        out = cupy.zeros((T, O), dtype="f")
+
+    num_blocks = max(1, T // threads_per_block)
+    backprop_sum_pool_kernel((num_blocks,), (threads_per_block,),
+        (out, d_sum, lengths, B, T, O))
+    return out
+
+
+def backprop_mean_pool(d_mean, lengths, out=None, threads_per_block=128):
+    out = backprop_sum_pool(d_mean, lengths, out=out,
+            threads_per_block=threads_per_block)
+    out /= lengths
+    return out
+
+
+def backprop_max_pool(d_maxes, which, lengths, out=None, threads_per_block=128):
+    B = len(lengths)
+    T = int(lengths.sum())
+    O = d_maxes.shape[1]
+    if out is None:
+        out = cupy.zeros((T, O), dtype="f")
+
+    num_blocks = max(1, T // threads_per_block)
+    backprop_max_pool_kernel((num_blocks,), (threads_per_block,),
+        (out, d_maxes, which, lengths, B, T, O))
+    return out
 
 
 def test_sum_pool():
