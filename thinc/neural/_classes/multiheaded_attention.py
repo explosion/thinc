@@ -17,7 +17,7 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
         get_mask = None
     def qkv_sa_forward(Xs, drop=0.0):
         X = affine.ops.flatten(Xs)
-        lengths = affine.ops.asarray([len(x) for x in Xs], dtype='i')
+        lengths = [len(x) for x in Xs]
         QKV, get_dX = affine.begin_update(X, drop=drop)
         Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
 
@@ -27,7 +27,7 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
             dX = get_dX(dQKV, sgd=sgd)
             return affine.ops.unflatten(dX, lengths)
         if get_mask is not None:
-            xp = get_array_module(lengths)
+            xp = get_array_module(X)
             masks = [get_mask(xp, length, length) for length in lengths]
         else:
             masks = [None for _ in lengths]
