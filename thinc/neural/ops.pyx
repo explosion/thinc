@@ -21,6 +21,7 @@ except ImportError:
     from collections import Sized
 cimport numpy as np
 
+from . import _custom_kernels
 from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from .util import copy_array, get_array_module
@@ -28,6 +29,7 @@ from ..linalg cimport VecVec, Vec
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from ..compat import integer_types
+from . import _custom_kernels
 
 cimport blis
 cimport blis.cy
@@ -949,22 +951,22 @@ class CupyOps(Ops):
         return dX
 
     def mean_pool(self, X, lengths):
-        return gpu_ops.mean_pool(self, X, lengths)
+        return _custom_kernels.mean_pool(X, lengths)
 
     def backprop_mean_pool(self, d_means, lengths):
-        return gpu_ops.backprop_mean_pool(self, d_means, lengths)
+        return _custom_kernels.backprop_mean_pool(d_means, lengths)
 
     def max_pool(self, X, lengths):
-        return gpu_ops.max_pool(self, X, lengths)
+        return _custom_kernels.max_pool(X, lengths)
 
     def backprop_max_pool(self, d_maxes, which, lengths):
-        return gpu_ops.backprop_max_pool(self, d_maxes, which, lengths)
+        return _custom_kernels.backprop_max_pool(self, d_maxes, which, lengths)
 
     def sum_pool(self, X, lengths):
-        return gpu_ops.sum_pool(self, X, lengths)
+        return _custom_kernels.sum_pool(X, lengths)
 
     def backprop_sum_pool(self, d_sums, lengths):
-        return gpu_ops.backprop_sum_pool(self, d_sums, lengths)
+        return _custom_kernels.backprop_sum_pool(d_sums, lengths)
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
