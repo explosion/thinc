@@ -54,7 +54,7 @@ class PyTorchWrapper(Model):
         return torch2xp(y_var)
 
     def prepare_backward_input(self, dy_data, y_var):
-        dy_var = xp2torch(dy)
+        dy_var = xp2torch(dy_data)
         return (y_var,), {"grad_tensors": (dy_var,)}
 
     def prepare_backward_output(self, x_args, x_kwargs):
