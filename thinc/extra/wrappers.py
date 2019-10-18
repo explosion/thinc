@@ -66,6 +66,7 @@ class PyTorchWrapper(Model):
         x_args, x_kwargs = self.prepare_input(x_data, is_update=False)
         with torch.no_grad():
             y_var = self._model(*x_args, **x_kwargs)
+        self._model.train()
         return self.prepare_output(y_var)
 
     def begin_update(self, x_data, drop=0.0):
@@ -74,6 +75,7 @@ class PyTorchWrapper(Model):
         """
         if drop is None:
             return self.predict(x_data), None
+        self._model.train()
         fwd_args, fwd_kwargs = self.prepare_input(x_data, is_update=True)
         y_var = self._model(*fwd_args, **fwd_kwargs)
         y = self.prepare_output(y_var)
