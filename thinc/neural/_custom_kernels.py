@@ -119,38 +119,10 @@ def hash(ids, seed, out=None, threads_per_block=128):
     if out is None:
         out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
     # sizeof(uint32_t) * 4
-    row_stride = 4 * 4
-    col_stride = 8 # sizeof(uint64_t)
+    out_size = 4 * 4
+    in_size = 8 # sizeof(uint64_t)
     T = ids.shape[0]
-
-    num_blocks = max(1, T // threads_per_block)
-    hash_data_kernel((num_blocks,), (threads_per_block,),
-        (out, ids, row_stride, col_stride, ids.shape[0], seed))
+    # Having trouble executing this in parallel? Shrug
+    hash_data_kernel((T,), (1,),
+        (out, ids, out_size, in_size, ids.shape[0], seed))
     return out
-
-
-def test_sum_pool():
-    m = cupy.zeros((19, 5), dtype="f")
-    m += 1
-    lengths = cupy.array([5,5,3,6], dtype="i")
-    output = sum_pool(m, lengths)
-    assert output.sum() == m.sum(), (output.sum(), m.sum())
-
-
-def test_max_pool():
-    m = cupy.zeros((19, 5), dtype="f")
-    m += cupy.random.uniform(-1, 1, m.shape)
-    lengths = cupy.array([5,5,3,6], dtype="i")
-    m[4, 0] = 1
-    m[0, 1] = 2
-    m[1, 3] = 3
-    maxes, which = max_pool(m, lengths)
-    start = 0
-    for i, length in enumerate(lengths):
-        truth = m[start:start+length].max(axis=0)
-        assert_allclose(maxes[i].get(), truth.get())
-        start += length
-
-
-test_sum_pool()
-test_max_pool()

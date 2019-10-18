@@ -285,3 +285,26 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
     assert flat.ndim == 1
     unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)
+
+
+def test_sum_pool(ops):
+    m = ops.xp.zeros((19, 5), dtype="f")
+    m += 1
+    lengths = ops.xp.array([5,5,3,6], dtype="i")
+    output = ops.sum_pool(m, lengths)
+    assert output.sum() == m.sum(), (output.sum(), m.sum())
+
+
+def test_max_pool(ops):
+    m = ops.xp.zeros((19, 5), dtype="f")
+    m += ops.xp.random.uniform(-1, 1, m.shape)
+    lengths = ops.xp.array([5,5,3,6], dtype="i")
+    m[4, 0] = 1
+    m[0, 1] = 2
+    m[1, 3] = 3
+    maxes, which = ops.max_pool(m, lengths)
+    start = 0
+    for i, length in enumerate(lengths):
+        truth = m[start:start+length].max(axis=0)
+        ops.xp.testing.assert_allclose(maxes[i], truth)
+        start += length
