@@ -23,15 +23,25 @@ def compile_kernels(src):
         return defaultdict(lambda: None)
     kernels = parse_kernels(src)
     return {name: cupy.RawKernel(src, name) for name, src in kernels.items()}
+
+def compile_mmh(src):
+    if cupy is None:
+        return None
+    return cupy.RawKernel(src, "hash_data")
+
     
 SRC = (Path(__file__).parent / "_custom_kernels.cu").open().read()
 KERNELS = compile_kernels(SRC)
+
+MMH_SRC = (Path(__file__).parent / "_murmur3.cu").open().read()
+KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 sum_pool_kernel = KERNELS["sum_pool"]
 max_pool_kernel = KERNELS["max_pool"]
 maxout_kernel = KERNELS["maxout"]
 backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
 backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
+hash_data_kernel = compile_mmh(MMH_SRC)
 
 
 def sum_pool(X, lengths, out=None, threads_per_block=128):
@@ -102,6 +112,20 @@ def backprop_max_pool(d_maxes, which, lengths, out=None, threads_per_block=128):
     num_blocks = max(1, T // threads_per_block)
     backprop_max_pool_kernel((num_blocks,), (threads_per_block,),
         (out, d_maxes, which, lengths, B, T, O))
+    return out
+
+
+def hash(ids, seed, out=None, threads_per_block=128):
+    if out is None:
+        out = cupy.zeros((ids.shape[0], 4), dtype="uint32")
+    # sizeof(uint32_t) * 4
+    row_stride = 4 * 4
+    col_stride = 8 # sizeof(uint64_t)
+    T = ids.shape[0]
+
+    num_blocks = max(1, T // threads_per_block)
+    hash_data_kernel((num_blocks,), (threads_per_block,),
+        (out, ids, row_stride, col_stride, ids.shape[0], seed))
     return out
 
 

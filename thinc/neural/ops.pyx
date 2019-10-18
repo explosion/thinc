@@ -965,7 +965,7 @@ class CupyOps(Ops):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, ids, uint64_t seed):
-        return gpu_ops.hash(self, ids, seed)
+        return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, out, ids, inputs):
         self.xp.scatter_add(out, ids, inputs)
