@@ -387,10 +387,8 @@ typedef struct _loop1d_info {
       (defined(__FreeBSD__) && (__FreeBSD_version >= 502114))
 
 #if defined(__GLIBC__) || defined(__APPLE__) || \
-    defined(__MINGW32__) || defined(__FreeBSD__)
+    defined(__MINGW32__) || defined(__FreeBSD__) || defined(__CYGWIN__)
 #include <fenv.h>
-#elif defined(__CYGWIN__)
-#include "fenv/fenv.c"
 #endif
 
 #define UFUNC_CHECK_STATUS(ret) { \
