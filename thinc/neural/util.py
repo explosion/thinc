@@ -55,10 +55,12 @@ def get_ops(ops):
 
 def set_active_gpu(gpu_id):
     import cupy.cuda.device
+
     device = cupy.cuda.device.Device(gpu_id)
     device.use()
     try:
         import torch
+
         torch.cuda.set_device(gpu_id)
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
     except ImportError:
