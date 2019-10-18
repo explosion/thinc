@@ -62,15 +62,17 @@ class PyTorchWrapper(Model):
 
     def predict(self, x_data):
         self._model.eval()
-        x_var, kwargs = self.prepare_input(x_data, is_update=False)
+        x_args, x_kwargs = self.prepare_input(x_data, is_update=False)
         with torch.no_grad():
-            y_var = self._model(x_var, **kwargs)
-        return self.prepare_output(y_var, x_data, x_var, kwargs)
+            y_var = self._model(*x_args, **x_kwargs)
+        return self.prepare_output(y_var)
 
     def begin_update(self, x_data, drop=0.0):
         """Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         """
+        if drop is None:
+            return self.predict(x_data), None
         fwd_args, fwd_kwargs = self.prepare_input(x_data, is_update=True)
         y_var = self._model(*fwd_args, **fwd_kwargs)
         y = self.prepare_output(y_var)
