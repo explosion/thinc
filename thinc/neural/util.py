@@ -53,20 +53,33 @@ def get_ops(ops):
         raise ValueError("Invalid ops (or device) description: %s" % ops)
 
 
-def prefer_gpu():
+def set_active_gpu(gpu_id):
+    import cupy.cuda.device
+
+    device = cupy.cuda.device.Device(gpu_id)
+    device.use()
+    try:
+        import torch
+
+        torch.cuda.set_device(gpu_id)
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
+    except ImportError:
+        pass
+    return device
+
+
+def prefer_gpu(gpu_id=0):
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    from ._classes.model import Model
     from .ops import CupyOps
 
-    if CupyOps.xp is not None:
-        Model.Ops = CupyOps
-        Model.ops = CupyOps()
-        return True
-    else:
+    if CupyOps.xp is None:
         return False
+    else:
+        require_gpu(gpu_id=gpu_id)
+        return True
 
 
-def require_gpu():
+def require_gpu(gpu_id=0):
     from ._classes.model import Model
     from .ops import CupyOps
 
@@ -74,6 +87,7 @@ def require_gpu():
         raise ValueError("GPU is not accessible. Was the library installed correctly?")
     Model.Ops = CupyOps
     Model.ops = CupyOps()
+    set_active_gpu(gpu_id)
     return True
 
 

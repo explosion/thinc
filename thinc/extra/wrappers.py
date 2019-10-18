@@ -41,122 +41,56 @@ class PyTorchWrapper(Model):
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
     """
 
-    def __init__(self, model, conf=None):
+    def __init__(self, model):
         Model.__init__(self)
         self._model = model
-        self.conf = conf
         self._optimizer = None
 
-    def begin_update(self, x_data, drop=0.0, **kwargs):
+    def prepare_input(self, x_data, is_update=True):
+        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
+        return (x_var,), {}
+
+    def prepare_output(self, y_var):
+        return torch2xp(y_var)
+
+    def prepare_backward_input(self, dy_data, y_var):
+        dy_var = xp2torch(dy_data)
+        return (y_var,), {"grad_tensors": (dy_var,)}
+
+    def prepare_backward_output(self, x_args, x_kwargs):
+        x_var = x_args[0]
+        return torch2xp(x_var.grad)
+
+    def predict(self, x_data):
+        self._model.eval()
+        x_args, x_kwargs = self.prepare_input(x_data, is_update=False)
+        with torch.no_grad():
+            y_var = self._model(*x_args, **x_kwargs)
+        self._model.train()
+        return self.prepare_output(y_var)
+
+    def begin_update(self, x_data, drop=0.0):
         """Return the output of the wrapped PyTorch model for the given input,
         along with a callback to handle the backward pass.
         """
-        if self.conf is None:
-            x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
-            y_var = self._model(x_var, **kwargs)
+        if drop is None:
+            return self.predict(x_data), None
+        self._model.train()
+        fwd_args, fwd_kwargs = self.prepare_input(x_data, is_update=True)
+        y_var = self._model(*fwd_args, **fwd_kwargs)
+        y = self.prepare_output(y_var)
 
-            def backward_pytorch(dy_data, sgd=None):
-                dy_var = xp2torch(dy_data)
-                torch.autograd.backward((y_var,), grad_tensors=(dy_var,))
-                if sgd is not None:
-                    if self._optimizer is None:
-                        self._optimizer = self._create_optimizer(sgd)
-                    self._optimizer.step()
-                    self._optimizer.zero_grad()
-                return torch2xp(x_var.grad)
-
-            y = torch2xp(y_var)
-        else:
-            """
-                self.grads specifies how the pytorch wrapper should behave
-                when multiple inputs come into play.
-                Let's say we have n inputs and m outputs
-                Args:
-                    i_grad: (bool iterable)
-                        controls which of n inputs require grad
-                    o_xp: int or None
-                        determines the number of outputs
-                    b_map: list or None
-                        maps each dYi with one or more Yj.
-                        Leave none if there is only one gradient
-                    ret_x: list of int
-                        a list of indexes of the inputs that will be returned
-                        in the backpropagation
-            """
-            i_grad, o_xp, b_map, ret_x = self.conf
-
-            """ Input numpy arrays to tensors with grad or no grad """
-            x_var = [
-                xp2torch(x_data[i])
-                if not grad
-                else torch.autograd.Variable(xp2torch(x_data[i]), requires_grad=True)
-                for i, grad in enumerate(i_grad)
-            ]
-
-            y_var = self._model(x_var, **kwargs)
-
-            """ Tensors to numpy arrays """
-            if o_xp is not None:
-                y = []
-                for i in range(o_xp):
-                    y.append(torch2xp(y_var[i]))
-                y = tuple(y)
-            else:
-                y = torch2xp(y_var)
-
-            def backward_pytorch(dy_data, sgd=None):
-                if b_map is None:
-                    # one gradient, one output
-                    dy_var = xp2torch(dy_data)
-                    torch.autograd.backward((y_var,), grad_tensors=(dy_var,))
-                else:
-                    if len(b_map) == 1:
-                        # this corresponds to one gradient and multiple outputs
-                        dy_var = xp2torch(dy_data)
-                        grad_list = b_map[0]
-                        for y_indx in grad_list:
-                            torch.autograd.backward(
-                                (y_var[y_indx],),
-                                grad_tensors=(dy_var,),
-                                retain_graph=True,
-                            )
-                    else:
-                        # this corresponds to multiple gradients
-                        vars = []
-                        for grad_indx, grad_list in enumerate(b_map):
-                            dy_var = xp2torch(dy_data[grad_indx])
-                            for y_indx in grad_list:
-                                if o_xp is not None:
-                                    torch.autograd.backward(
-                                        (y_var[y_indx],), grad_tensors=(dy_var,)
-                                    )
-                                else:
-                                    torch.autograd.backward(
-                                        (y_var,),
-                                        grad_tensors=(dy_var,),
-                                        retain_graph=True,
-                                    )
-                if sgd is not None:
-                    if self._optimizer is None:
-                        self._optimizer = self._create_optimizer(sgd)
-                    self._optimizer.step()
-                    self._optimizer.zero_grad()
-                b_out = []
-                for indx in ret_x:
-                    if i_grad[indx]:
-                        b_out.append(torch2xp(x_var[indx].grad))
-                    else:
-                        b_out.append(torch2xp(x_var[indx]))
-                if len(b_out) == 0:
-                    return None
-                elif len(b_out) == 1:
-                    return b_out[0]
-                else:
-                    return b_out
+        def backward_pytorch(dy_data, sgd=None):
+            d_args, d_kwargs = self.prepare_backward_input(dy_data, y_var)
+            torch.autograd.backward(*d_args, **d_kwargs)
+            if sgd is not None:
+                if self._optimizer is None:
+                    self._optimizer = self._create_optimizer(sgd)
+                self._optimizer.step()
+                self._optimizer.zero_grad()
+            return self.prepare_backward_output(fwd_args, fwd_kwargs)
 
         return y, backward_pytorch
-
-        return torch2xp(y_var), backward_pytorch
 
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
@@ -168,26 +102,65 @@ class PyTorchWrapper(Model):
             raise NotImplementedError
         return optimizer
 
+    @contextlib.contextmanager
+    def use_params(self, params):
+        key_prefix = f"pytorch_{self.id}_"
+        state_dict = {}
+        for k, v in params.items():
+            if hasattr(k, "startswith") and k.startswith(key_prefix):
+                state_dict[k.replace(key_prefix, "")] = xp2torch(v)
+        if state_dict:
+            backup = {k: v.clone() for k, v in self._model.state_dict().items()}
+            self._model.load_state_dict(state_dict)
+            yield
+            self._model.load_state_dict(backup)
+        else:
+            yield
+
+    def _update_pytorch_averages(self, sgd, *, init_steps=1):
+        if getattr(sgd, "averages", None) is None:
+            return
+        # Collect parameters if we don't have them
+        for name, param in self._model.state_dict().items():
+            key = f"pytorch_{self.id}_{name}"
+            sgd.nr_update[key] += 1
+            xp_param = torch2xp(param)
+            if key in sgd.averages:
+                self.ops.update_averages(
+                    sgd.averages[key], xp_param, sgd.nr_update[key]
+                )
+            else:
+                sgd.averages[key] = xp_param.copy()
+                sgd.nr_update[key] = init_steps
+
     def to_disk(self, path):
-        # TODO: Untested
         torch.save(self._model.state_dict(), str(path))
 
     def from_disk(self, path):
-        # TODO: Untested
-        self._model.load_state_dict(torch.load(path))
+        if self.ops.device == "cpu":
+            map_location = "cpu"
+        else:
+            device_id = torch.cuda.current_device()
+            map_location = "cuda:%d" % device_id
+        self._model.load_state_dict(torch.load(path, map_location=map_location))
+        self._model.to(map_location)
 
     def to_bytes(self):
-        # TODO: Untested
         filelike = BytesIO()
         torch.save(self._model.state_dict(), filelike)
         filelike.seek(0)
         return filelike.getvalue()
 
     def from_bytes(self, data):
-        # TODO: Untested
         filelike = BytesIO(data)
         filelike.seek(0)
-        self._model.load_state_dict(torch.load(filelike))
+        if self.ops.device == "cpu":
+            map_location = "cpu"
+        else:
+            device_id = torch.cuda.current_device()
+            map_location = "cuda:%d" % device_id
+        self._model.load_state_dict(torch.load(filelike, map_location=map_location))
+        self._model.to(map_location)
 
     def to_gpu(self, device_num):
         self._model.cuda(device_num)
@@ -203,68 +176,29 @@ class PyTorchWrapper(Model):
     def resize_input(self):
         raise NotImplementedError
 
-    @contextlib.contextmanager
-    def use_params(self, params):  # pragma: no cover
-        if self.id in params:
-            backup = self.to_bytes()
-            self.from_bytes(params[self.id])
-        else:
-            backup = None
-        yield
-        if backup is not None:
-            self.from_bytes(backup)
-
 
 class PyTorchWrapperRNN(PyTorchWrapper):
-    """Wrap a PyTorch RNN model
-    """
+    """Wrap a PyTorch RNN model"""
 
-    def __call__(self, x_data, h_0=None):
-        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=False)
-        # Make prediction
-        out, h_n = self._model(x_var, h_0)
-        return (self.ops.asarray(out.data), h_n)
-
-    def begin_update(self, x_data, h_0=None, drop=0.0):
-        """Return the output of the wrapped PyTorch model for the given input,
-        along with a callback to handle the backward pass.
-        """
-        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=True)
-
-        # Make prediction
-        out, h_n = self._model(x_var, h_0)
-        # Shapes will be:
-        # out = seq_len, batch, hidden_size * num_directions
-        # h_n = num_layers * num_directions, batch, hidden_size
-
-        def backward_pytorch_rnn(d_data, sgd=None):
-            dy_data, _ = d_data
-            dout = xp2torch(dy_data)
-            torch.autograd.backward((out,), grad_tensors=(dout,))
-            if sgd is not None:
-                if self._optimizer is None:
-                    self._optimizer = self._create_optimizer(sgd)
-                self._optimizer.step()
-                self._optimizer.zero_grad()
-            return torch2xp(x_var.grad)
-
-        return (torch2xp(out), h_n), backward_pytorch_rnn
-
-    def resize_output(self, new_dim):
-        # self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
-        # self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
-        raise NotImplementedError
-
-    def resize_input(self):
-        raise NotImplementedError
-
-    @contextlib.contextmanager
-    def use_params(self, params):  # pragma: no cover
-        if self.id in params:
-            backup = self.to_bytes()
-            self.from_bytes(params[self.id])
+    def prepare_input(self, inputs, is_update=False):
+        if isinstance(inputs, tuple):
+            x_data, h_0 = inputs
         else:
-            backup = None
-        yield
-        if backup is not None:
-            self.from_bytes(backup)
+            x_data = inputs
+            h_0 = None
+        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
+        return (x_var, h_0), {}
+
+    def prepare_output(self, torch_outputs):
+        y_var, h_n = torch_outputs
+        return torch2xp(y_var), h_n
+
+    def prepare_backward_input(self, dy_data, y_var):
+        dy, _ = dy_data
+        dy_var = xp2torch(dy)
+        y_var, _ = y_var
+        return (y_var,), {"grad_tensors": (dy_var,)}
+
+    def prepare_backward_output(self, x_args, x_kwargs):
+        x_var, _ = x_args
+        return torch2xp(x_var.grad)
