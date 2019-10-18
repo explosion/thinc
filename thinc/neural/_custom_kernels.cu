@@ -1,4 +1,3 @@
-
 extern "C" __global__
 void sum_pool(float* output,
     const float* X, const int* lengths, int B, int T, int O)

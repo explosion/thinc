@@ -8,7 +8,7 @@ except ImportError:
     cupy = None
 
 
-kernel_re = re.compile(r"extern \"C\" __global__.+(?=extern|$)", re.DOTALL)
+kernel_re = re.compile(r"extern \"C\" __global__.+?(?=extern|$)", re.DOTALL)
 name_re = re.compile(r"(?<=void )\w+(?=\()")
 def parse_kernels(src):
     kernels = {}
@@ -16,18 +16,21 @@ def parse_kernels(src):
         name = name_re.search(kernel).group()
         kernels[name] = kernel
     return kernels
+
+
+def compile_kernels(src):
+    if cupy is None:
+        return defaultdict(lambda: None)
+    kernels = parse_kernels(src)
+    return {name: cupy.RawKernel(src, name) for name, src in kernels.items()}
     
 SRC = (Path(__file__).parent / "_custom_kernels.cu").open().read()
-kernels = parse_kernels(SRC)
-for name, src in kernels.items():
-    print(name)
-    print(src)
+KERNELS = compile_kernels(SRC)
 
+sum_pool_kernel = KERNELS["sum_pool"]
+max_pool_kernel = KERNELS["max_pool"]
+maxout_kernel = KERNELS["maxout"]
 
-#if cupy is not None:
-#    sum_pool_kernel = cupy.RawKernel(SUM_POOL_STR, "sum_pool")
-#    max_pool_kernel = cupy.RawKernel(MAX_POOL_STR, "max_pool")
-#
 
 def sum_pool(X, lengths, out=None, threads_per_block=128):
     if out is None:
@@ -90,5 +93,5 @@ def test_max_pool():
         start += length
 
 
-#test_sum_pool()
-#test_max_pool()
+test_sum_pool()
+test_max_pool()
