@@ -77,7 +77,7 @@ def prefer_gpu(gpu_id=0):
         return True
 
 
-def require_gpu():
+def require_gpu(gpu_id=0):
     from ._classes.model import Model
     from .ops import CupyOps
 
