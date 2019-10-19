@@ -36,22 +36,30 @@ void seq2col(float* output,
     int nF = nW * 2 + 1;
 
     int o_start = b * I * nF;
+    // Let's say b=0, nW=1, I=10, B=20
+    // x_start = (0-1) * 10 : -10
+    // x_end = (0+1+1)*10 : 20
+    // o_start = (0*0*3) = 0
     int x_start = (b-nW) * I;
     int x_end = (b+nW+1) * I;
     if (x_start < 0)
     {
+	// Adjust o_start to 10, because we're skipping
+	// the first feature
         o_start += -x_start;
         x_start = 0;
     }
-    if (x_end >= B * I)
+    if (x_end >= (B * I))
     {
         x_end = B * I;
     }
+    // cpy_length = 20-0 : 20
     // Unsure which memcpy function to use on CUDA..
     // Shrug, just write the loop...
     int cpy_length = x_end - x_start;
     for (int i=0; i<cpy_length; ++i)
     {
+	// Write the region output[10:30] = X[0:20]
         output[o_start+i] = X[x_start+i];
     }
 }
