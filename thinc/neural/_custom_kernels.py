@@ -54,7 +54,6 @@ def seq2col(X, nW, out=None, threads_per_block=128, num_blocks=128):
         out = cupy.zeros((X.shape[0], X.shape[1] * ((nW*2)+1)), dtype="f")
     B = X.shape[0]
     I = X.shape[1]
-    X = cupy.ascontiguousarray(X)
     seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, nW, B, I))
     return out
 
@@ -100,7 +99,6 @@ def backprop_seq2col(dY, nW, out=None, threads_per_block=128, num_blocks=128):
     I = dY.shape[1] // nF
     if out is None:
         out = cupy.zeros((B, I), dtype="f")
-    dY = cupy.ascontiguousarray(dY)
     backprop_seq2col_kernel((num_blocks,), (threads_per_block,),
         (out, dY, nW, B, I))
     return out
