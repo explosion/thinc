@@ -39,12 +39,23 @@ KERNELS = compile_kernels(SRC)
 MMH_SRC = (PWD / "_murmur3.cu").open("r", encoding="utf8").read()
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
+seq2col_kernel = KERNELS["seq2col"]
 sum_pool_kernel = KERNELS["sum_pool"]
 max_pool_kernel = KERNELS["max_pool"]
 maxout_kernel = KERNELS["maxout"]
 backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
 backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
 hash_data_kernel = compile_mmh(MMH_SRC)
+
+
+def seq2col(X, nW, out=None, threads_per_block=128):
+    if out is None:
+        out = cupy.zeros((X.shape[0], X.shape[1] * ((nW*2)+1)), dtype="f")
+    B = X.shape[0]
+    I = X.shape[1]
+    num_blocks = min(1, B // threads_per_block)
+    seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, nW, B, I))
+    return out
 
 
 def sum_pool(X, lengths, out=None, threads_per_block=128):

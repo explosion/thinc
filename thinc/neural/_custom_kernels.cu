@@ -1,4 +1,65 @@
 extern "C" __global__
+void seq2col(float* output,
+    const float* X, int nW, int B, int I)
+{
+    // Let's say nW is 1 (it usually is). Then we want to take:
+
+    // 1a 1b 1c
+    // 2a 2b 2c
+    // 3a 3b 3c
+
+    // And make
+
+    // __ __ __ 1a 1b 1c 2a 2b 2c
+    // 1a 1b 1c 2a 2b 2c 3a 3b 3c
+    // 2a 2b 2c 3a 3b 3c __ __ __
+
+    // Where __ is padding.
+
+    // Now let's say nW is 2. Then we want to take:
+
+    // 1a 1b 1c
+    // 2a 2b 2c
+    // 3a 3b 3c
+
+    // And make
+
+    // __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
+    // __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
+    // 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
+    
+    // * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
+    // * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
+    // * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
+    int b = blockIdx.x * blockDim.x + threadIdx.x; // Batch-item we're working on
+    if (b >= B) return;
+    int nF = nW * 2 + 1;
+
+    int o_start = b * I * nF;
+    int x_start = (b-nW) * I;
+    int x_end = (b+nW+1) * I;
+    if (x_start < 0)
+    {
+        o_start += -x_start * I;
+        x_start = 0;
+    }
+    if (x_end >= B * I)
+    {
+        x_end = B * I;
+    }
+    // Unsure which memcpy function to use on CUDA..
+    // Shrug, just write the loop...
+    int cpy_length = x_end - x_start;
+    for (int i=0; i<cpy_length; ++i)
+    {
+        output[o_start+i] = X[x_start+i];
+    }
+}
+
+
+
+
+extern "C" __global__
 void sum_pool(float* output,
     const float* X, const int* lengths, int B, int T, int O)
 {
