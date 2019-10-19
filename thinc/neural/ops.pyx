@@ -563,13 +563,9 @@ class NumpyOps(Ops):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
-        cdef Pool mem = Pool()
-        dX = <float*>mem.alloc(B * I, sizeof(float))
-        backprop_seq2col(dX, &dY[0,0], B, I, nW)
-        cdef ndarray py_out = self.xp.ascontiguousarray(
-            self.allocate(B * I, dtype='float32'))
-        memcpy(py_out.data, dX, B * I * sizeof(dX[0]))
-        return py_out.reshape((B, I))
+        cdef ndarray dX = self.allocate((B, I), dtype='float32')
+        backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
+        return dX
 
     def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
         cdef uint64_t* ids = &ids_mv[0]
@@ -1040,17 +1036,22 @@ cdef void backprop_seq2col(float* d_seqs,
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
     #    d_seq[i] += d_cols[i-1, 3]
-    #    d_seq[i] += d_cols[i+2, 0]
-    #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i, 2]
+    #    d_seq[i] += d_cols[i+1, 1]
+    #    d_seq[i] += d_cols[i+2, 0]
+    cdef int col_feat
     nF = nW * 2 + 1
     for i in range(B):
-        seq_row = &d_seqs[i * I]
-        col_row = &d_cols[i * I * nF]
+        seq_row = i * I
+        col_feat = nF * I
         for f in range(-nW, nW+1):
-            if B > (i+f) >= 0:
-                feat = col_row + (f * I)
-                VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
+            col_row = (i+f) * (I * nF)
+            col_feat -= I
+            if col_row >= 0 and (col_row < (B*I*nF)):
+                j = col_row + col_feat
+                if j >= 0 and (j+I) < (B*I*nF):
+                    VecVec.add_i(&d_seqs[seq_row],
+                        &d_cols[j], 1., I)
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
