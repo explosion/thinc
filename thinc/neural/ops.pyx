@@ -66,6 +66,36 @@ class Ops(object):
         if xp is not None:
             self.xp = xp
 
+    def seq2col(self, seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
+        # This is a test implementation that only supports nW=1
+        assert nW == 1
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cols = self.allocate((B, (nW*2+1), I))
+        # Copy left contexts. The last words aren't the left-context for anything.
+        cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
+        cols[:, nW] = seq
+        cols[:-nW, nW+1:] = seq[nW:].reshape((-1, nW, I))
+        return cols.reshape((B, I * (2*nW+1)))
+
+    def backprop_seq2col(self, dY, int nW):
+        # This is a test implementation that only supports nW=1
+        assert nW == 1
+        cdef int nF = nW*2+1
+        cdef int B = dY.shape[0]
+        cdef int I = dY.shape[1] / nF
+        # Having trouble getting the kernel to work...
+        dX = self.allocate((B, I))
+        dY = dY.reshape((B, nF, I))
+        dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
+        dX += dY[:, nW]
+        dX[nW:] += dY[:-nW, nW+1:].reshape((-1, I))
+        return dX
+
     def dropout_sequences(self, X, dropout, inplace=False):
         if dropout is None or dropout <= 0.0:
             return X, lambda func: func
