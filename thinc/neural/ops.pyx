@@ -923,13 +923,7 @@ class CupyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
-        cdef int B = seq.shape[0]
-        cdef int I = seq.shape[1]
-        cols = self.allocate((B, (nW*2+1), I))
-        cols[1:, 0] = seq[:-1]
-        cols[:, 1] = seq
-        cols[:-1, 2] = seq[1:]
-        return cols.reshape((B, I * (2*nW+1)))
+        return _custom_kernels.seq2col(seq, nW)
 
     def backprop_seq2col(self, dY, int nW):
         cdef int nF = nW*2+1
@@ -1008,22 +1002,36 @@ cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     2a 2b 2c 3a 3b 3c __ __ __
 
     Where __ is padding.
+
+    Now let's say nW is 2. Then we want to take:
+
+    1a 1b 1c
+    2a 2b 2c
+    3a 3b 3c
+
+    And make
+
+    __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
+    __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
+    1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
+    
+    * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
+    * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
+    * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
+ 
     '''
     nF = nW * 2 + 1
-    cdef int oI = nW * I
-    cdef int xI = 0
-    cdef int stride = I*nW
-    cdef int stride1 = I*(nW+1)
-    for i in range(B-nW):
-        memcpy(&output[oI],
-            &X[xI], stride1 * sizeof(output[0]))
-        oI += stride1
-        memcpy(&output[oI],
-            &X[xI], stride * sizeof(output[0]))
-        oI += stride
-        xI += I
-    memcpy(&output[oI],
-        &X[xI], stride * sizeof(output[0]))
+    for i in range(B):
+        o_start = i * I * nF
+        x_start = (i-nW) * I
+        x_end = (i+nW+1) * I
+        if x_start < 0:
+            o_start += -x_start * I
+            x_start = 0
+        if x_end >= B * I:
+            x_end = B * I
+        memcpy(&output[o_start],
+            &X[x_start], (x_end-x_start) * sizeof(output[0]))
 
 
 cdef void backprop_seq2col(float* d_seqs,
