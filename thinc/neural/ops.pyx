@@ -580,14 +580,9 @@ class NumpyOps(Ops):
         '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef Pool mem = Pool()
-        cols = <float*>mem.alloc(B * I * (nW*2+1), sizeof(float))
-        seq2col(cols,
-            &seq[0,0], B, I, nW)
-        cdef ndarray py_out = self.xp.ascontiguousarray(
-            self.allocate(B*(2 * nW+1) * I, dtype='float32'))
-        memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
-        return py_out.reshape((B, I * (2*nW+1)))
+        cdef ndarray cols = self.allocate((B, (2 * nW+1) * I), dtype='float32')
+        seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
+        return cols
 
     def backprop_seq2col(self, const float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
@@ -1003,7 +998,7 @@ class CupyOps(Ops):
             return inits
 
 
-cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
+cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     '''
     Let's say nW is 1 (it usually is). Then we want to take:
 
