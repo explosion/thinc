@@ -7,7 +7,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 
 from .. import strategies
-from ...neural.ops import NumpyOps, CupyOps
+from ...neural.ops import NumpyOps, CupyOps, Ops
 
 
 MAX_EXAMPLES = 10
@@ -60,7 +60,7 @@ def test_get_dropout_not_empty(ops):
     assert all(value >= 0 for value in mask.flatten())
 
 
-def test_seq2col_window_one(ops):
+def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
     if not isinstance(cols, numpy.ndarray):
@@ -70,8 +70,18 @@ def test_seq2col_window_one(ops):
     assert_allclose(cols[2], [3.0, 4.0, 5.0])
     assert_allclose(cols[3], [4.0, 5.0, 0.0])
 
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_seq2col_window_one(ops, X):
+    X = ops.asarray(X)
+    base_ops = Ops()
+    base_ops.xp = ops.xp
+    target = base_ops.seq2col(X, nW=1)
+    predicted = ops.seq2col(X, nW=1)
+    ops.xp.testing.assert_allclose(target, predicted)
 
-def test_backprop_seq2col_window_one(ops):
+
+def test_backprop_seq2col_window_one_small(ops):
     cols = ops.asarray(
         [[0.0, 0.0, 0.0], [-1.0, 0.0, 1.0], [2.0, 0.0, 0.0]], dtype="float32"
     )
@@ -80,6 +90,27 @@ def test_backprop_seq2col_window_one(ops):
     if not isinstance(seq, numpy.ndarray):
         seq = seq.get()
     assert_allclose(seq, expected)
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_backprop_seq2col_window_one(ops, X):
+    if X.shape[1] % 3:
+        return None
+    X = ops.asarray(X)
+    if ops.xp.abs(X).max() >= 30:
+        return None
+    base_ops = Ops()
+    base_ops.xp = ops.xp
+    target = base_ops.backprop_seq2col(X, nW=1)
+    predicted = ops.backprop_seq2col(X, nW=1)
+    for row in range(target.shape[0]):
+        diff = target[row].sum() - predicted[row].sum()
+        if diff < -0.1 or diff > 0.1:
+            print(row, diff)
+            print(target[row])
+            print(predicted[row])
+    ops.xp.testing.assert_allclose(target, predicted)
+
 
 
 def test_seq2col_window_two(ops):
