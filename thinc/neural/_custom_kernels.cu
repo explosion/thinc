@@ -162,7 +162,7 @@ void max_pool(float* maxes, int* which,
 
 extern "C" __global__
 void backprop_seq2col(float* d_seqs,
-    const float* d_cols, int B, int I, int nW)
+    const float* d_cols, int nW, int B, int I)
 {
     // Here's what we're doing, if we had 2d indexing.
     //for i in range(B):
@@ -187,7 +187,7 @@ void backprop_seq2col(float* d_seqs,
 	    if ((start >= 0) && ((start+I) < (B*I*nF)))
 	    {
 	        for (int i=0; i < I; ++i)
-		    d_seqs[seq_row+i] += d_cols[start+i];
+		    atomicAdd(&d_seqs[seq_row+i], d_cols[start+i]);
 	    }
 	}
     }

@@ -54,7 +54,8 @@ def seq2col(X, nW, out=None, threads_per_block=128):
         out = cupy.zeros((X.shape[0], X.shape[1] * ((nW*2)+1)), dtype="f")
     B = X.shape[0]
     I = X.shape[1]
-    num_blocks = min(1, B // threads_per_block)
+    num_blocks = max(1, B // threads_per_block)
+    X = cupy.ascontiguousarray(X)
     seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, nW, B, I))
     return out
 
@@ -65,7 +66,7 @@ def sum_pool(X, lengths, out=None, threads_per_block=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    num_blocks = min(1, B // threads_per_block)
+    num_blocks = max(1, B // threads_per_block)
     sum_pool_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
 
@@ -76,7 +77,7 @@ def mean_pool(X, lengths, out=None, threads_per_block=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    num_blocks = min(1, B // threads_per_block)
+    num_blocks = max(1, B // threads_per_block)
     sum_pool_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     out /= lengths
     return out
@@ -104,8 +105,9 @@ def backprop_seq2col(dY, nW, out=None, threads_per_block=128):
     if out is None:
         out = cupy.zeros((B, I), dtype="f")
     num_blocks = max(1, B // threads_per_block)
+    dY = cupy.ascontiguousarray(dY)
     backprop_seq2col_kernel((num_blocks,), (threads_per_block,),
-        (out, dY, B, I, nW))
+        (out, dY, nW, B, I))
     return out
 
 
@@ -149,7 +151,8 @@ def hash(ids, seed, out=None, threads_per_block=128):
     out_size = 4 * 4
     in_size = 8 # sizeof(uint64_t)
     T = ids.shape[0]
+    num_blocks = max(1, T // threads_per_block)
     # Having trouble executing this in parallel? Shrug
-    hash_data_kernel((T,), (1,),
+    hash_data_kernel((num_blocks,), (threads_per_block,),
         (out, ids, out_size, in_size, ids.shape[0], seed))
     return out
