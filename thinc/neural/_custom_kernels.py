@@ -43,6 +43,7 @@ seq2col_kernel = KERNELS["seq2col"]
 sum_pool_kernel = KERNELS["sum_pool"]
 max_pool_kernel = KERNELS["max_pool"]
 maxout_kernel = KERNELS["maxout"]
+backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
 backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
 hash_data_kernel = compile_mmh(MMH_SRC)
@@ -94,6 +95,18 @@ def max_pool(X, lengths, out=None, threads_per_block=128):
     max_pool_kernel((num_blocks,), (threads_per_block,),
         (maxes, which, X, lengths, B, T, O))
     return maxes, which
+
+
+def backprop_seq2col(dY, nW, out=None, threads_per_block=128):
+    B = dY.shape[0]
+    nF = nW*2+1
+    I = dY.shape[1] // nF
+    if out is None:
+        out = cupy.zeros((B, I), dtype="f")
+    num_blocks = max(1, B // threads_per_block)
+    backprop_seq2col_kernel((num_blocks,), (threads_per_block,),
+        (out, dY, B, I, nW))
+    return out
 
 
 def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128):

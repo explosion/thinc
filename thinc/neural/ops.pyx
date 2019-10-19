@@ -922,17 +922,7 @@ class CupyOps(Ops):
         return _custom_kernels.seq2col(seq, nW)
 
     def backprop_seq2col(self, dY, int nW):
-        cdef int nF = nW*2+1
-        cdef int B = dY.shape[0]
-        cdef int I = dY.shape[1] / nF
-        assert nF == 3, "TODO: Support variable window size"
-        # Having trouble getting the kernel to work...
-        dX = self.allocate((B, I))
-        dY = dY.reshape((B, nF, I))
-        dX[:-1] += dY[1:, 0]
-        dX += dY[:, nW]
-        dX[1:] += dY[:-1, 2]
-        return dX
+        return _custom_kernels.backprop_seq2col(dY, nW)
 
     def mean_pool(self, X, lengths):
         return _custom_kernels.mean_pool(X, lengths)

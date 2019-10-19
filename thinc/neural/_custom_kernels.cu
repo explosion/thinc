@@ -152,6 +152,39 @@ void max_pool(float* maxes, int* which,
     }
 }
 
+extern "C" __global__
+void backprop_seq2col(float* d_seqs,
+    const float* d_cols, int B, int I, int nW)
+{
+    // Here's what we're doing, if we had 2d indexing.
+    //for i in range(B):
+    //    d_seq[i] += d_cols[i-2, 4]
+    //    d_seq[i] += d_cols[i-1, 3]
+    //    d_seq[i] += d_cols[i, 2]
+    //    d_seq[i] += d_cols[i+1, 1]
+    //    d_seq[i] += d_cols[i+2, 0]
+    int b = blockIdx.x * blockDim.x + threadIdx.x; // Batch-item we're working on
+    if (b >= B) return;
+
+    int nF = nW * 2 + 1;
+    int seq_row = b * I;
+    int col_feat = nF * I;
+    for (int f=-nW; f < (nW+1); ++f)
+    {
+	int col_row = (b+f) * (I * nF);
+	col_feat -= I;
+	if ((col_row >= 0) && (col_row < (B*I*nF)))
+	{
+            int start = col_row + col_feat;
+	    if ((start >= 0) && ((start+I) < (B*I*nF)))
+	    {
+	        for (int i=0; i < I; ++i)
+		    d_seqs[seq_row+i] += d_cols[start+i];
+	    }
+	}
+    }
+}
+
 
 extern "C" __global__
 void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
