@@ -66,6 +66,36 @@ class Ops(object):
         if xp is not None:
             self.xp = xp
 
+    def seq2col(self, seq, int nW):
+        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        The new sequence is constructed by concatenating nW preceding and succeeding
+        vectors onto each column in the sequence, to extract a window of features.
+        '''
+        # This is a test implementation that only supports nW=1
+        assert nW == 1
+        cdef int B = seq.shape[0]
+        cdef int I = seq.shape[1]
+        cols = self.allocate((B, (nW*2+1), I))
+        # Copy left contexts. The last words aren't the left-context for anything.
+        cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
+        cols[:, nW] = seq
+        cols[:-nW, nW+1:] = seq[nW:].reshape((-1, nW, I))
+        return cols.reshape((B, I * (2*nW+1)))
+
+    def backprop_seq2col(self, dY, int nW):
+        # This is a test implementation that only supports nW=1
+        assert nW == 1
+        cdef int nF = nW*2+1
+        cdef int B = dY.shape[0]
+        cdef int I = dY.shape[1] / nF
+        # Having trouble getting the kernel to work...
+        dX = self.allocate((B, I))
+        dY = dY.reshape((B, nF, I))
+        dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
+        dX += dY[:, nW]
+        dX[nW:] += dY[:-nW, nW+1:].reshape((-1, I))
+        return dX
+
     def dropout_sequences(self, X, dropout, inplace=False):
         if dropout is None or dropout <= 0.0:
             return X, lambda func: func
@@ -550,26 +580,17 @@ class NumpyOps(Ops):
         '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef Pool mem = Pool()
-        cols = <float*>mem.alloc(B * I * (nW*2+1), sizeof(float))
-        seq2col(cols,
-            &seq[0,0], B, I, nW)
-        cdef ndarray py_out = self.xp.ascontiguousarray(
-            self.allocate(B*(2 * nW+1) * I, dtype='float32'))
-        memcpy(py_out.data, cols, B * (2*nW+1) * I * sizeof(cols[0]))
-        return py_out.reshape((B, I * (2*nW+1)))
+        cdef ndarray cols = self.allocate((B, (2 * nW+1) * I), dtype='float32')
+        seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
+        return cols
 
     def backprop_seq2col(self, const float[:, ::1] dY, int nW):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
-        cdef Pool mem = Pool()
-        dX = <float*>mem.alloc(B * I, sizeof(float))
-        backprop_seq2col(dX, &dY[0,0], B, I, nW)
-        cdef ndarray py_out = self.xp.ascontiguousarray(
-            self.allocate(B * I, dtype='float32'))
-        memcpy(py_out.data, dX, B * I * sizeof(dX[0]))
-        return py_out.reshape((B, I))
+        cdef ndarray dX = self.allocate((B, I), dtype='float32')
+        backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
+        return dX
 
     def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
         cdef uint64_t* ids = &ids_mv[0]
@@ -923,26 +944,10 @@ class CupyOps(Ops):
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
-        cdef int B = seq.shape[0]
-        cdef int I = seq.shape[1]
-        cols = self.allocate((B, (nW*2+1), I))
-        cols[1:, 0] = seq[:-1]
-        cols[:, 1] = seq
-        cols[:-1, 2] = seq[1:]
-        return cols.reshape((B, I * (2*nW+1)))
+        return _custom_kernels.seq2col(seq, nW)
 
     def backprop_seq2col(self, dY, int nW):
-        cdef int nF = nW*2+1
-        cdef int B = dY.shape[0]
-        cdef int I = dY.shape[1] / nF
-        assert nF == 3, "TODO: Support variable window size"
-        # Having trouble getting the kernel to work...
-        dX = self.allocate((B, I))
-        dY = dY.reshape((B, nF, I))
-        dX[:-1] += dY[1:, 0]
-        dX += dY[:, nW]
-        dX[1:] += dY[:-1, 2]
-        return dX
+        return _custom_kernels.backprop_seq2col(dY, nW)
 
     def mean_pool(self, X, lengths):
         return _custom_kernels.mean_pool(X, lengths)
@@ -993,7 +998,7 @@ class CupyOps(Ops):
             return inits
 
 
-cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
+cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     '''
     Let's say nW is 1 (it usually is). Then we want to take:
 
@@ -1008,22 +1013,36 @@ cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
     2a 2b 2c 3a 3b 3c __ __ __
 
     Where __ is padding.
+
+    Now let's say nW is 2. Then we want to take:
+
+    1a 1b 1c
+    2a 2b 2c
+    3a 3b 3c
+
+    And make
+
+    __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
+    __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
+    1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
+    
+    * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
+    * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
+    * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
+ 
     '''
     nF = nW * 2 + 1
-    cdef int oI = nW * I
-    cdef int xI = 0
-    cdef int stride = I*nW
-    cdef int stride1 = I*(nW+1)
-    for i in range(B-nW):
-        memcpy(&output[oI],
-            &X[xI], stride1 * sizeof(output[0]))
-        oI += stride1
-        memcpy(&output[oI],
-            &X[xI], stride * sizeof(output[0]))
-        oI += stride
-        xI += I
-    memcpy(&output[oI],
-        &X[xI], stride * sizeof(output[0]))
+    for i in range(B):
+        o_start = i * I * nF
+        x_start = (i-nW) * I
+        x_end = (i+nW+1) * I
+        if x_start < 0:
+            o_start += -x_start
+            x_start = 0
+        if x_end >= B * I:
+            x_end = B * I
+        memcpy(&output[o_start],
+            &X[x_start], (x_end-x_start) * sizeof(output[0]))
 
 
 cdef void backprop_seq2col(float* d_seqs,
@@ -1032,17 +1051,22 @@ cdef void backprop_seq2col(float* d_seqs,
     #for i in range(B):
     #    d_seq[i] += d_cols[i-2, 4]
     #    d_seq[i] += d_cols[i-1, 3]
-    #    d_seq[i] += d_cols[i+2, 0]
-    #    d_seq[i] += d_cols[i+1, 1]
     #    d_seq[i] += d_cols[i, 2]
+    #    d_seq[i] += d_cols[i+1, 1]
+    #    d_seq[i] += d_cols[i+2, 0]
+    cdef int col_feat
     nF = nW * 2 + 1
     for i in range(B):
-        seq_row = &d_seqs[i * I]
-        col_row = &d_cols[i * I * nF]
+        seq_row = i * I
+        col_feat = nF * I
         for f in range(-nW, nW+1):
-            if B > (i+f) >= 0:
-                feat = col_row + (f * I)
-                VecVec.add_i(seq_row, &feat[(f+nW) * I], 1., I)
+            col_row = (i+f) * (I * nF)
+            col_feat -= I
+            if col_row >= 0 and (col_row < (B*I*nF)):
+                j = col_row + col_feat
+                if j >= 0 and (j+I) < (B*I*nF):
+                    VecVec.add_i(&d_seqs[seq_row],
+                        &d_cols[j], 1., I)
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
