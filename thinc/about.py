@@ -4,7 +4,7 @@
 # https://github.com/pypa/warehouse/blob/master/warehouse/__about__.py
 
 __name__ = "thinc"
-__version__ = "7.1.1"
+__version__ = "7.2.0.dev0"
 __summary__ = "Practical Machine Learning for NLP"
 __uri__ = "https://github.com/explosion/thinc"
 __author__ = "Matthew Honnibal"
