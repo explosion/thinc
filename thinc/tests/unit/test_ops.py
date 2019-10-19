@@ -82,7 +82,6 @@ def test_backprop_seq2col_window_one(ops):
     assert_allclose(seq, expected)
 
 
-@pytest.mark.xfail
 def test_seq2col_window_two(ops):
     seq = ops.asarray([[1.0], [2.0], [3.0], [4]], dtype="float32")
     cols = ops.seq2col(seq, 2)
@@ -94,18 +93,25 @@ def test_seq2col_window_two(ops):
     assert_allclose(cols[3], [2.0, 3.0, 4.0, 0.0, 0.0])
 
 
-# def test_backprop_seq2col_window_two(ops):
-#    cols = ops.asarray([
-#        [0., 0., 0.],
-#        [-1., 0., 1.],
-#        [2., 0., 0.],
-#    ], dtype='float32')
-#    expected = [[-1.], [2.], [1.]]
-#    seq = ops.backprop_seq2col(cols, 1)
-#    if not isinstance(seq, numpy.ndarray):
-#        seq = seq.get()
-#    assert_allclose(seq, expected)
-#
+def test_backprop_seq2col_window_two(ops):
+    cols = ops.asarray([
+        [0.0, 0.0, 1.0, 2.0, 3.0],
+        [0.0, 1.0, 2.0, 3.0, 4.0],
+        [1.0, 2.0, 3.0, 4.0, 0.0],
+        [2.0, 3.0, 4.0, 0.0, 0.0]
+    ], dtype="float32")
+    # We're summing the values that each row
+    # was used as a feature. So row 0 had a
+    # gradient of 1 in row 0, 1 in row 2, and
+    # 1 in row 3. 
+    expected = ops.asarray([
+        [1+1+1.+0.],
+        [2.+2.+2.+2.],
+        [3.+3.+3.+3.],
+        [0.+4.+4.+4.]
+    ], dtype="f")
+    seq = ops.backprop_seq2col(cols, 2)
+    ops.xp.testing.assert_allclose(seq, expected)
 
 
 @settings(max_examples=MAX_EXAMPLES)
