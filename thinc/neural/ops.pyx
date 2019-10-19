@@ -1012,7 +1012,7 @@ cdef void seq2col(float* output, const float* X, int B, int I, int nW) nogil:
         x_start = (i-nW) * I
         x_end = (i+nW+1) * I
         if x_start < 0:
-            o_start += -x_start * I
+            o_start += -x_start
             x_start = 0
         if x_end >= B * I:
             x_end = B * I

@@ -40,7 +40,7 @@ void seq2col(float* output,
     int x_end = (b+nW+1) * I;
     if (x_start < 0)
     {
-        o_start += -x_start * I;
+        o_start += -x_start;
         x_start = 0;
     }
     if (x_end >= B * I)
