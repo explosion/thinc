@@ -16,6 +16,7 @@ from thinc.neural._classes.difference import Siamese, CauchySimilarity
 from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 from thinc.neural.ops import CupyOps
+from thinc.neural.util import require_gpu
 
 from thinc.api import layerize, with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, get_word_ids
@@ -27,7 +28,7 @@ from thinc.extra.load_nlp import get_spacy
 try:
     import spacy
 
-    spacy.load("en")
+    spacy.load("en_vectors_web_lg")
 except (ImportError, OSError):
     print("Missing dependency: spacy. Try:")
     print("pip install spacy")
@@ -123,6 +124,7 @@ def main(
     ws_api_url=None,
     rest_api_url=None,
 ):
+    require_gpu()
     cfg = dict(locals())
 
     if out_loc:
@@ -140,7 +142,7 @@ def main(
         raise ValueError("Unrecognised pooling", pooling)
 
     print("Load spaCy")
-    nlp = get_spacy("en")
+    nlp = get_spacy("en_vectors_web_lg")
 
     if use_gpu:
         Model.ops = CupyOps()
@@ -164,7 +166,7 @@ def main(
             flatten_add_lengths
             >> with_getitem(
                 0,
-                (HashEmbed(width, 3000) | StaticVectors("en", width))
+                (HashEmbed(width, 3000) | StaticVectors("en_vectors_web_lg", width))
                 >> LN(Maxout(width, width * 2))
                 >> Residual(mwe_encode) ** depth,
             )  # : word_ids{T}

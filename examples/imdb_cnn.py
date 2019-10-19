@@ -69,11 +69,11 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
     return model
 
 
-def main(use_gpu=False, nb_epoch=100):
+def main(gpu_id=0, nb_epoch=100):
     fix_random_seed(0)
-    if use_gpu:
-        require_gpu()
-    train, test = datasets.imdb(limit=2000)
+    if gpu_id >= 0:
+        require_gpu(gpu_id=gpu_id)
+    train, test = datasets.imdb(limit=0)
     print("Load data")
     train_X, train_y = zip(*train)
     test_X, test_y = zip(*test)
