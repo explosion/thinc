@@ -959,7 +959,7 @@ class CupyOps(Ops):
         return _custom_kernels.max_pool(X, lengths)
 
     def backprop_max_pool(self, d_maxes, which, lengths):
-        return _custom_kernels.backprop_max_pool(self, d_maxes, which, lengths)
+        return _custom_kernels.backprop_max_pool(d_maxes, which, lengths)
 
     def sum_pool(self, X, lengths):
         return _custom_kernels.sum_pool(X, lengths)

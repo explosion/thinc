@@ -45,6 +45,7 @@ max_pool_kernel = KERNELS["max_pool"]
 maxout_kernel = KERNELS["maxout"]
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
+backprop_mean_pool_kernel = KERNELS["backprop_mean_pool"]
 backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
 hash_data_kernel = compile_mmh(MMH_SRC)
 
@@ -75,7 +76,7 @@ def mean_pool(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     T = X.shape[0]
     O = X.shape[1]
     sum_pool_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
-    out /= lengths
+    out /= lengths.reshape((-1, 1))
     return out
 
 
@@ -117,9 +118,14 @@ def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128, num_block
 
 
 def backprop_mean_pool(d_mean, lengths, out=None, threads_per_block=128, num_blocks=128):
-    out = backprop_sum_pool(d_mean, lengths, out=out,
-            threads_per_block=threads_per_block, num_blocks=num_blocks)
-    out /= lengths
+    B = len(lengths)
+    T = int(lengths.sum())
+    O = d_mean.shape[1]
+    if out is None:
+        out = cupy.zeros((T, O), dtype="f")
+
+    backprop_mean_pool_kernel((num_blocks,), (threads_per_block,),
+        (out, d_mean, lengths, B, T, O))
     return out
 
 
