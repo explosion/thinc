@@ -223,7 +223,7 @@ void backprop_maxout(float* dX,
 	const float* dY_b = &dY[b*O];
 	const int* which_b = &which[b*O];
         for (int i=0; i < O; ++i)
-            dX_b[i+which_b[i]] = dY_b[i];
+            dX_b[(i*P)+which_b[i]] = dY_b[i];
     }
 }
  
