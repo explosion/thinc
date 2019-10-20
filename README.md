@@ -2,8 +2,8 @@
 
 # Thinc: Practical Machine Learning for NLP in Python
 
-**Thinc** is the machine learning library powering [spaCy](https://spacy.io).
-It features a battle-tested linear model designed for large sparse learning
+**Thinc** is the machine learning library powering [spaCy](https://spacy.io). It
+features a battle-tested linear model designed for large sparse learning
 problems, and a flexible neural network model under development for
 [spaCy v2.0](https://spacy.io/usage/v2).
 
@@ -42,10 +42,10 @@ unstable, and we're not yet ready to provide usage support. However, if you're
 already quite familiar with neural networks, there's a lot here you might find
 interesting. Thinc's conceptual model is quite different from TensorFlow's.
 Thinc also implements some novel features, such as a small DSL for concisely
-wiring up models, embedding tables that support pre-computation and the
-hashing trick, dynamic batch sizes, a concatenation-based approach to
-variable-length sequences, and support for model averaging for the
-Adam solver (which performs very well).
+wiring up models, embedding tables that support pre-computation and the hashing
+trick, dynamic batch sizes, a concatenation-based approach to variable-length
+sequences, and support for model averaging for the Adam solver (which performs
+very well).
 
 ## No computational graph – just higher order functions
 
@@ -85,8 +85,8 @@ clearer, we need a function for a weights layer. Usually this will be
 implemented as a class — but let's continue using closures, to keep things
 concise, and to keep the simplicity of the interface explicit.
 
-The main complication for the weights layer is that we now have a side-effect
-to manage: we would like to update the weights. There are a few ways to handle
+The main complication for the weights layer is that we now have a side-effect to
+manage: we would like to update the weights. There are a few ways to handle
 this. In Thinc we currently pass a callable into the backward pass. (I'm not
 convinced this is best.)
 
@@ -159,18 +159,18 @@ This conceptual model makes Thinc very flexible. The trade-off is that Thinc is
 less convenient and efficient at workloads that fit exactly into what
 [TensorFlow](https://www.tensorflow.org/) etc. are designed for. If your graph
 really is static, and your inputs are homogenous in size and shape,
-[Keras](https://keras.io/) will likely be faster and simpler. But if you want
-to pass normal Python objects through your network, or handle sequences and
+[Keras](https://keras.io/) will likely be faster and simpler. But if you want to
+pass normal Python objects through your network, or handle sequences and
 recursions of arbitrary length or complexity, you might find Thinc's design a
 better fit for your problem.
 
 ## Quickstart
 
 Thinc should install cleanly with both [pip](http://pypi.python.org/pypi/thinc)
-and [conda](https://anaconda.org/conda-forge/thinc), for
-**Pythons 2.7+ and 3.5+**, on **Linux**, **macOS / OSX** and **Windows**. Its
-only system dependency is a compiler tool-chain (e.g. `build-essential`) and
-the Python development headers (e.g. `python-dev`).
+and [conda](https://anaconda.org/conda-forge/thinc), for **Pythons 2.7+ and
+3.5+**, on **Linux**, **macOS / OSX** and **Windows**. Its only system
+dependency is a compiler tool-chain (e.g. `build-essential`) and the Python
+development headers (e.g. `python-dev`).
 
 ```bash
 pip install thinc
@@ -179,8 +179,8 @@ pip install thinc
 For GPU support, we're grateful to use the work of Chainer's `cupy` module,
 which provides a numpy-compatible interface for GPU arrays. However, installing
 Chainer when no GPU is available currently causes an error. We therefore do not
-list Chainer as an explicit dependency — so building Thinc for GPU requires
-some extra steps:
+list Chainer as an explicit dependency — so building Thinc for GPU requires some
+extra steps:
 
 ```bash
 export CUDA_HOME=/usr/local/cuda-8.0 # Or wherever your CUDA is
@@ -233,8 +233,8 @@ python examples/cnn_tagger.py
 ## Usage
 
 The Neural Network API is still subject to change, even within minor versions.
-You can get a feel for the current API by checking out the examples. Here are
-a few quick highlights.
+You can get a feel for the current API by checking out the examples. Here are a
+few quick highlights.
 
 ### 1. Shape inference
 
@@ -252,25 +252,29 @@ model = chain(ReLu(512), ReLu(512), Softmax())
 
 ### 2. Operator overloading
 
-The `Model.define_operators()` classmethod allows you to bind arbitrary
-binary functions to Python operators, for use in any `Model` instance. The
-method can (and should) be used as a context-manager, so that the overloading
-is limited to the immediate block. This allows concise and expressive model
-definition:
+The `Model.define_operators()` classmethod allows you to bind arbitrary binary
+functions to Python operators, for use in any `Model` instance. The method can
+(and should) be used as a context-manager, so that the overloading is limited to
+the immediate block. This allows concise and expressive model definition:
 
 ```python
 with Model.define_operators({'>>': chain}):
     model = ReLu(512) >> ReLu(512) >> Softmax()
 ```
 
-The overloading is cleaned up at the end of the block. A fairly arbitrary zoo
-of functions are currently implemented. Some of the most useful:
+The overloading is cleaned up at the end of the block. A fairly arbitrary zoo of
+functions are currently implemented. Some of the most useful:
 
--   `chain(model1, model2)`: Compose two models `f(x)` and `g(x)` into a single model computing `g(f(x))`.
--   `clone(model1, int)`: Create `n` copies of a model, each with distinct weights, and chain them together.
--   `concatenate(model1, model2)`: Given two models with output dimensions `(n,)` and `(m,)`, construct a model with output dimensions `(m+n,)`.
+-   `chain(model1, model2)`: Compose two models `f(x)` and `g(x)` into a single
+    model computing `g(f(x))`.
+-   `clone(model1, int)`: Create `n` copies of a model, each with distinct
+    weights, and chain them together.
+-   `concatenate(model1, model2)`: Given two models with output dimensions
+    `(n,)` and `(m,)`, construct a model with output dimensions `(m+n,)`.
 -   `add(model1, model2)`: `add(f(x), g(x)) = f(x)+g(x)`
--   `make_tuple(model1, model2)`: Construct tuples of the outputs of two models, at the batch level. The backward pass expects to receive a tuple of gradients, which are routed through the appropriate model, and summed.
+-   `make_tuple(model1, model2)`: Construct tuples of the outputs of two models,
+    at the batch level. The backward pass expects to receive a tuple of
+    gradients, which are routed through the appropriate model, and summed.
 
 Putting these things together, here's the sort of tagging model that Thinc is
 designed to make easy.
@@ -290,10 +294,10 @@ with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
 ```
 
 Not all of these pieces are implemented yet, but hopefully this shows where
-we're going. The `memoize` function will be particularly important: in any
-batch of text, the common words will be very common. It's therefore important
-to evaluate models such as the `CharLSTM` once per word type per minibatch,
-rather than once per token.
+we're going. The `memoize` function will be particularly important: in any batch
+of text, the common words will be very common. It's therefore important to
+evaluate models such as the `CharLSTM` once per word type per minibatch, rather
+than once per token.
 
 ### 3. Callback-based backpropagation
 
@@ -312,24 +316,27 @@ def explicit_sgd_update(X, y):
 Separating the backpropagation into three parts like this has many advantages.
 The interface to all models is completely uniform — there is no distinction
 between the top-level model you use as a predictor and the internal models for
-the layers. We also make concurrency simple, by making the `begin_update()`
-step a pure function, and separating the accumulation of the gradient from the
-action of the optimizer.
+the layers. We also make concurrency simple, by making the `begin_update()` step
+a pure function, and separating the accumulation of the gradient from the action
+of the optimizer.
 
 ### 4. Class annotations
 
 To keep the class hierarchy shallow, Thinc uses class decorators to reuse code
 for layer definitions. Specifically, the following decorators are available:
 
--   `describe.attributes()`: Allows attributes to be specified by keyword argument. Used especially for dimensions and parameters.
--   `describe.on_init()`: Allows callbacks to be specified, which will be called at the end of the `__init__.py`.
--   `describe.on_data()`: Allows callbacks to be specified, which will be called on `Model.begin_training()`.
+-   `describe.attributes()`: Allows attributes to be specified by keyword
+    argument. Used especially for dimensions and parameters.
+-   `describe.on_init()`: Allows callbacks to be specified, which will be called
+    at the end of the `__init__.py`.
+-   `describe.on_data()`: Allows callbacks to be specified, which will be called
+    on `Model.begin_training()`.
 
 ## 🛠 Changelog
 
 | Version   | Date         | Description                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------- |
-| [v7.2.0]  | `2019-10-19` | Simpler GPU install and bug fixes                                         |
+| [v7.2.0]  | `2019-10-20` | Simpler GPU install and bug fixes                                         |
 | [v7.1.1]  | `2019-09-10` | Support `preshed` v3.0.0                                                  |
 | [v7.1.0]  | `2019-08-23` | Support other CPUs, read-only arrays                                      |
 | [v7.0.8]  | `2019-07-11` | Fix version for PyPi                                                      |
