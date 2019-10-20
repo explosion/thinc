@@ -256,7 +256,7 @@ void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
         }
             
         float* dX_t = &dX[t * O];
-        const float* d_mean_b = &d_mean_b[b * O];
+        const float* d_mean_b = &d_mean[b * O];
         int lengths_b = lengths[b];
 
         for (int i=0; i < O; ++i) 
@@ -293,7 +293,7 @@ void backprop_max_pool(float* dX,
         // with the index math.
         float* dX_t = &dX[t*O];
         const float* d_maxes_b = &d_maxes[b*O];
-        const float* which_b = &which[b*O];
+        const int* which_b = &which[b*O];
         // Now loop over our row.
         for (int i=0; i < O; ++i)
         {
