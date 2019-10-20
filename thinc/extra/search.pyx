@@ -80,10 +80,16 @@ cdef class Beam:
             memcpy(self.is_valid[i], is_valid[i], sizeof(bint) * self.nr_class)
             memcpy(self.costs[i], costs[i], sizeof(int) * self.nr_class)
 
-    cdef int initialize(self, init_func_t init_func, int n, void* extra_args) except -1:
+    cdef int initialize(self, init_func_t init_func, del_func_t del_func, int n, void* extra_args) except -1:
         for i in range(self.width):
             self._states[i].content = init_func(self.mem, n, extra_args)
             self._parents[i].content = init_func(self.mem, n, extra_args)
+        self.del_func = del_func
+
+    def __del__(self):
+        for i in range(self.width):
+            self.del_func(self.mem, self._states[i].content, NULL)
+            self.del_func(self.mem, self._parents[i].content, NULL)
 
     @cython.cdivision(True)
     cdef int advance(self, trans_func_t transition_func, hash_func_t hash_func,
