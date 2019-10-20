@@ -70,6 +70,19 @@ def test_seq2col_window_one_small(ops):
     assert_allclose(cols[2], [3.0, 4.0, 5.0])
     assert_allclose(cols[3], [4.0, 5.0, 0.0])
 
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BOP())
+def test_maxout(ops, X):
+    X = ops.asarray(X)
+    expected_best = X.max(axis=-1)
+    predicted_best, which = ops.maxout(X)
+    ops.xp.testing.assert_allclose(expected_best, predicted_best,
+        rtol=0.001, atol=0.001)
+    # Can't compare 'which' directly, as sort order might be different
+    # We could check that using the 'which', we get the right results?
+
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_seq2col_window_one(ops, X):
