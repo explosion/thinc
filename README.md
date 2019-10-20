@@ -15,12 +15,11 @@ structured input and variable-length sequences.
 
 🔮 [Read the release notes here.](https://github.com/explosion/thinc/releases/)
 
-[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-devops&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
-[![Current Release Version](https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square)](https://github.com/explosion/thinc/releases)
-[![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?style=flat-square)](https://pypi.python.org/pypi/thinc)
-[![conda Version](https://anaconda.org/conda-forge/thinc/badges/version.svg)](https://anaconda.org/conda-forge/thinc)
+[![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-pipelines&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
+[![Current Release Version](https://img.shields.io/github/release/explosion/thinc.svg?style=flat-square&logo=github)](https://github.com/explosion/thinc/releases)
+[![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?style=flat-square&logo=pypi&logoColor=white)](https://pypi.python.org/pypi/thinc)
+[![conda Version](https://img.shields.io/conda/vn/conda-forge/thinc.svg?style=flat-square&logo=conda-forge&logoColor=white)](https://anaconda.org/conda-forge/thinc)
 [![Python wheels](https://img.shields.io/badge/wheels-%E2%9C%93-4c1.svg?longCache=true&style=flat-square&logo=python&logoColor=white)](https://github.com/explosion/wheelwright/releases)
-[![Follow us on Twitter](https://img.shields.io/twitter/follow/explosion_ai.svg?style=social&label=Follow)](https://twitter.com/explosion_ai)
 
 ## What's where (as of v7.0.0)
 
@@ -330,6 +329,7 @@ for layer definitions. Specifically, the following decorators are available:
 
 | Version   | Date         | Description                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------- |
+| [v7.2.0]  | `2019-10-19` | Simpler GPU install and bug fixes                                         |
 | [v7.1.1]  | `2019-09-10` | Support `preshed` v3.0.0                                                  |
 | [v7.1.0]  | `2019-08-23` | Support other CPUs, read-only arrays                                      |
 | [v7.0.8]  | `2019-07-11` | Fix version for PyPi                                                      |
@@ -371,6 +371,7 @@ for layer definitions. Specifically, the following decorators are available:
 | v6.1.0    | `2017-01-09` | _n/a_                                                                     |
 | [v6.0.0]  | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning                         |
 
+[v7.2.0]: https://github.com/explosion/thinc/releases/tag/v7.2.0
 [v7.1.1]: https://github.com/explosion/thinc/releases/tag/v7.1.1
 [v7.1.0]: https://github.com/explosion/thinc/releases/tag/v7.1.0
 [v7.0.8]: https://github.com/explosion/thinc/releases/tag/v7.0.8
