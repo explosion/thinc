@@ -83,18 +83,18 @@ void maxout(float* best, int* which,
         // Go to the regions we're working on
         float* best_b = &best[b*O];
         int* which_b = &which[b*O];
-        const float* cands_b = &cands[b*O*P];
 
         for (int i=0; i < O; ++i)
         {
+            const float* cands_bi = &cands[b*O*P+(i*P)];
             which_b[i] = 0;
-            best_b[i] = cands_b[0];
+            best_b[i] = cands_bi[0];
             for (int p=1; p < P; ++p)
             {
-                if (cands_b[i+p] > best_b[i])
+                if (cands_bi[p] > best_b[i])
                 {
                     which_b[i] = p;
-                    best_b[i] = cands_b[i+p];
+                    best_b[i] = cands_bi[p];
                 }
             }
         }
