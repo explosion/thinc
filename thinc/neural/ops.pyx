@@ -892,14 +892,10 @@ class CupyOps(Ops):
             return self.xp.array(X, dtype=dtype)
 
     def maxout(self, X):
-        amax = X.max(axis=-1)
-        argmax = self.asarray(X.argmax(axis=-1), dtype='i')
-        return amax, argmax
+        return _custom_kernels.maxout(X)
 
-    def backprop_maxout(self, dX__bo, which__bo, int P):
-        dX__bop = gpu_backprop_maxout(
-            dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
-        return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
+    def backprop_maxout(self, dY, which, int P):
+        return _custom_kernels.backprop_maxout(dY, which, P)
 
     def relu(self, X, inplace=False):
         if not inplace:
@@ -1084,27 +1080,6 @@ cdef void cpu_backprop_maxout(float* dX__bop,
             dX__bop += P
             dX__bo += 1
             which__bo += 1
-
-
-# Here we broadcast over the longest dimension (dX) and compute indexes
-# for the narrower dimensions.
-if cupy is not None:
-    gpu_backprop_maxout = cupy.ElementwiseKernel(
-        'raw float32 best, raw int32 which, raw int32 P',
-        'float32 dX',
-        'dX = (which[i/P] == i%P) ? best[i/P] : 0',
-        'bp_maxout')
-    # 't2b' is a mapping from the T dimension (i.e. lengths.sum()) to
-    # the B dimension. It tells you which sequence the index is in.
-    gpu_backprop_max_pool = cupy.ElementwiseKernel(
-        ('raw float32 d_best, raw int32 which,'
-         'raw int32 lengths, raw int32 t2b, raw int32 O'),
-        'float32 dX',
-        '''
-        dX = (which[t2b[i/O]] == i % O) ? d_best[t2b[i/O]] : 0',
-        ''',
-        'bp_maxpool'
-    )
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):
