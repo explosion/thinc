@@ -332,13 +332,25 @@ def test_sum_pool(ops):
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
 
+def test_max_pool_sm(ops):
+    X = ops.xp.zeros((6, 3), dtype="f")
+    X += ops.xp.random.uniform(-1, 1, X.shape)
+    lengths = ops.xp.array([2,2,2], dtype="i")
+    maxes, which = ops.max_pool(X, lengths)
+    start = 0
+    for i, length in enumerate(lengths):
+        truth = X[start:start+length].max(axis=0)
+        ops.xp.testing.assert_allclose(maxes[i], truth)
+        start += length
+
+
 def test_max_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
     lengths = ops.xp.array([5,5,3,6], dtype="i")
-    m[4, 0] = 1
-    m[0, 1] = 2
-    m[1, 3] = 3
+    #m[4, 0] = 1
+    #m[0, 1] = 2
+    #m[1, 3] = 3
     maxes, which = ops.max_pool(m, lengths)
     start = 0
     for i, length in enumerate(lengths):
