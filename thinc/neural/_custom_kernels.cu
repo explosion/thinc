@@ -112,9 +112,11 @@ void sum_pool(float* output,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
+	float* output_b = &output[b*O];
+        // Find the sequence item we're working on
+	const float* X_t = X;
         for (int i=0; i < b; ++i) {
-            output += O;
-            X += lengths[i] * O;
+	    X_t += lengths[i] * O;
         }
         int length = lengths[b];
         // Each invocation of the kernel sums one batch.
@@ -122,9 +124,9 @@ void sum_pool(float* output,
         {
             for (int i=0; i < O; ++i) 
             {
-              output[i] += X[i];
+              output_b[i] += X_t[i];
             }
-            X += O;
+	    X_t += O;
         }
     }
 }
@@ -141,23 +143,22 @@ void max_pool(float* maxes, int* which,
 
         // Go to the regions we're working on
         float* maxes_b = &maxes[b*O];
-        float* which_b = &which[b*O];
+        int* which_b = &which[b*O];
         // Find the sequence item we're working on
-        int seq_start = 0;
+        const float* X_t = X;
         for (int i=0; i < b; ++i) {
-            seq_start += lengths[b];
+	    X_t += lengths[i] * O;
         }
         // Each invocation of the kernel maxes one sequence.
-        // Start by assuming maxes are at i=0
+        // Start by assuming maxes are the first element.
         for (int i=0; i < O; ++i) {
-            maxes_b[i] = X[i];
+            maxes_b[i] = X_t[i];
             which_b[i] = 0;
         }
-        
         int length = lengths[b];
         for (int i=1; i < length; ++i) // Iterate over rows
         {
-            float* X_t = &X[(seq_start+i)*O]
+            X_t += O;
             for (int j=0; j < O; ++j)
             {
                 if (X_t[j] > maxes_b[j])
