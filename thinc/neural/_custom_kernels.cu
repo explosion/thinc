@@ -114,19 +114,19 @@ void sum_pool(float* output,
         // Go to the regions we're working on
 	float* output_b = &output[b*O];
         // Find the sequence item we're working on
-	const float* X_t = X;
+	int t = 0;
         for (int i=0; i < b; ++i) {
-	    X_t += lengths[i] * O;
+	    t += lengths[i];
         }
         int length = lengths[b];
         // Each invocation of the kernel sums one batch.
-        for (int _=0; _ < length; ++_) // Iterate over rows
+        for (int i=0; i < length; ++i) // Iterate over rows
         {
-            for (int i=0; i < O; ++i) 
+	    const float* X_t = &X[(t+i)*O];
+            for (int j=0; j < O; ++j) 
             {
-              output_b[i] += X_t[i];
+              output_b[j] += X_t[j];
             }
-	    X_t += O;
         }
     }
 }
@@ -228,7 +228,7 @@ void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
         }
             
         float* dX_t = &dX[t * O];
-        const float* d_sum_b = &d_sum_b[b * O];
+        const float* d_sum_b = &d_sum[b * O];
 
         for (int i=0; i < O; ++i) 
         {
@@ -255,13 +255,13 @@ void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
            b += 1;
         }
             
-        dX_t = &dX[t * O];
-        d_mean_b = &d_mean_b[b * O];
+        float* dX_t = &dX[t * O];
+        const float* d_mean_b = &d_mean_b[b * O];
         int lengths_b = lengths[b];
 
         for (int i=0; i < O; ++i) 
         {
-            dX_t[i] = d_mean_t[i] / lengths_b;
+            dX_t[i] = d_mean_b[i] / lengths_b;
         }
     }
 }
