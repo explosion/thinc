@@ -247,7 +247,7 @@ void backprop_mean_pool(float* dX, const float* d_sum, const int* lengths,
 
         for (int i=0; i < O; ++i) 
         {
-            dX[i] = d_sum[i] / lengths[i];
+            dX[i] = d_sum[i] / lengths[b];
         }
     }
 }
