@@ -1,5 +1,4 @@
-global-include *.h *.S *.c
-recursive-include include *.cu
+global-include *.h *.S *.c *.cu
 recursive-include include *.cpp
 include buildbot.json
 include LICENSE

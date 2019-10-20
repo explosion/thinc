@@ -202,7 +202,7 @@ def setup_package():
             name="thinc",
             zip_safe=False,
             packages=PACKAGES,
-            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp"]},
+            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp", "*.cu"]},
             description=about["__summary__"],
             long_description=readme,
             long_description_content_type="text/markdown",
