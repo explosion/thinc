@@ -81,20 +81,20 @@ void maxout(float* best, int* which,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
-        float* best_b = &maxes[b*O];
-        float* which_b = &which[b*O];
-        const float* cands_b = &cands[b*O*P];
+        float* best_b = &best[b*O];
+        int* which_b = &which[b*O];
 
         for (int i=0; i < O; ++i)
         {
-            which_b[i] = 0
-            best_b[i] = cands_b[0];
+            const float* cands_bi = &cands[b*O*P+(i*P)];
+            which_b[i] = 0;
+            best_b[i] = cands_bi[0];
             for (int p=1; p < P; ++p)
             {
-                if (cands_b[i+p] > best_b[0])
+                if (cands_bi[p] > best_b[i])
                 {
                     which_b[i] = p;
-                    best_b[i] = cands_b[i+p];
+                    best_b[i] = cands_bi[p];
                 }
             }
         }
@@ -112,19 +112,21 @@ void sum_pool(float* output,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
+	float* output_b = &output[b*O];
+        // Find the sequence item we're working on
+	int t = 0;
         for (int i=0; i < b; ++i) {
-            output += O;
-            X += lengths[i] * O;
+	    t += lengths[i];
         }
         int length = lengths[b];
         // Each invocation of the kernel sums one batch.
-        for (int _=0; _ < length; ++_) // Iterate over rows
+        for (int i=0; i < length; ++i) // Iterate over rows
         {
-            for (int i=0; i < O; ++i) 
+	    const float* X_t = &X[(t+i)*O];
+            for (int j=0; j < O; ++j) 
             {
-              output[i] += X[i];
+              output_b[j] += X_t[j];
             }
-            X += O;
         }
     }
 }
@@ -141,23 +143,22 @@ void max_pool(float* maxes, int* which,
 
         // Go to the regions we're working on
         float* maxes_b = &maxes[b*O];
-        float* which_b = &which[b*O];
+        int* which_b = &which[b*O];
         // Find the sequence item we're working on
-        int seq_start = 0;
+        const float* X_t = X;
         for (int i=0; i < b; ++i) {
-            seq_start += lengths[b];
+	    X_t += lengths[i] * O;
         }
         // Each invocation of the kernel maxes one sequence.
-        // Start by assuming maxes are at i=0
+        // Start by assuming maxes are the first element.
         for (int i=0; i < O; ++i) {
-            maxes_b[i] = X[i];
+            maxes_b[i] = X_t[i];
             which_b[i] = 0;
         }
-        
         int length = lengths[b];
         for (int i=1; i < length; ++i) // Iterate over rows
         {
-            float* X_t = &X[(seq_start+i)*O]
+            X_t += O;
             for (int j=0; j < O; ++j)
             {
                 if (X_t[j] > maxes_b[j])
@@ -210,6 +211,24 @@ void backprop_seq2col(float* d_seqs,
 
 
 extern "C" __global__
+void backprop_maxout(float* dX,
+    const float* dY, const int* which, int B, int O, int P)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    for (int b = _loop_start; b < B; b += _loop_stride)
+    {
+	// Go to the regions we're working on
+	float* dX_b = &dX[b*O*P];
+	const float* dY_b = &dY[b*O];
+	const int* which_b = &which[b*O];
+        for (int i=0; i < O; ++i)
+            dX_b[(i*P)+which_b[i]] = dY_b[i];
+    }
+}
+ 
+
+extern "C" __global__
 void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
     int B, int T, int O)
 {
@@ -227,7 +246,7 @@ void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
         }
             
         float* dX_t = &dX[t * O];
-        const float* d_sum_b = &d_sum_b[b * O];
+        const float* d_sum_b = &d_sum[b * O];
 
         for (int i=0; i < O; ++i) 
         {
@@ -254,13 +273,13 @@ void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
            b += 1;
         }
             
-        dX_t = &dX[t * O];
-        d_mean_b = &d_mean_b[b * O];
+        float* dX_t = &dX[t * O];
+        const float* d_mean_b = &d_mean[b * O];
         int lengths_b = lengths[b];
 
         for (int i=0; i < O; ++i) 
         {
-            dX_t[i] = d_mean_t[i] / lengths_b;
+            dX_t[i] = d_mean_b[i] / lengths_b;
         }
     }
 }
@@ -292,7 +311,7 @@ void backprop_max_pool(float* dX,
         // with the index math.
         float* dX_t = &dX[t*O];
         const float* d_maxes_b = &d_maxes[b*O];
-        const float* which_b = &which[b*O];
+        const int* which_b = &which[b*O];
         // Now loop over our row.
         for (int i=0; i < O; ++i)
         {

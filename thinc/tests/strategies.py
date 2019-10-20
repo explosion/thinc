@@ -38,7 +38,7 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
     return tuples(lengths(lo=min_rows, hi=max_rows), lengths(lo=min_cols, hi=max_cols))
 
 
-def ndarrays_of_shape(shape, lo=-100.0, hi=100.0, dtype="float32"):
+def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32"):
     return arrays("float32", shape=shape, elements=floats(min_value=lo, max_value=hi))
 
 
