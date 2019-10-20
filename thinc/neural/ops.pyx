@@ -426,6 +426,23 @@ class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
 
+    def asarray(self, data, dtype=None):
+        if isinstance(data, self.xp.ndarray):
+            if dtype is not None:
+                return self.xp.asarray(data, dtype=dtype)
+            else:
+                return self.xp.asarray(data)
+        elif hasattr(data, 'numpy'):
+            # Handles PyTorch Tensor
+            return data.numpy()
+        elif hasattr(data, "get"):
+            return data.get()
+        elif dtype is not None:
+            return self.xp.array(data, dtype=dtype)
+        else:
+            return self.xp.array(data)
+
+
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
             shape = (shape,)
