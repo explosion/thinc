@@ -81,17 +81,17 @@ void maxout(float* best, int* which,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
-        float* best_b = &maxes[b*O];
-        float* which_b = &which[b*O];
+        float* best_b = &best[b*O];
+        int* which_b = &which[b*O];
         const float* cands_b = &cands[b*O*P];
 
         for (int i=0; i < O; ++i)
         {
-            which_b[i] = 0
+            which_b[i] = 0;
             best_b[i] = cands_b[0];
             for (int p=1; p < P; ++p)
             {
-                if (cands_b[i+p] > best_b[0])
+                if (cands_b[i+p] > best_b[i])
                 {
                     which_b[i] = p;
                     best_b[i] = cands_b[i+p];
@@ -209,6 +209,24 @@ void backprop_seq2col(float* d_seqs,
     }
 }
 
+
+extern "C" __global__
+void backprop_maxout(float* dX,
+    const float* dY, const int* which, int B, int O, int P)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    for (int b = _loop_start; b < B; b += _loop_stride)
+    {
+	// Go to the regions we're working on
+	float* dX_b = &dX[b*O*P];
+	const float* dY_b = &dY[b*O];
+	const int* which_b = &which[b*O];
+        for (int i=0; i < O; ++i)
+            dX_b[i+which_b[i]] = dY_b[i];
+    }
+}
+ 
 
 extern "C" __global__
 void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
