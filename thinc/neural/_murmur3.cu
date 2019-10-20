@@ -155,14 +155,17 @@ extern "C" __global__
 void hash_data(char* dest,
     const char* src, size_t out_size, size_t in_size, size_t n_items, uint32_t seed)
 {
-    int i = (blockIdx.x * blockDim.x + threadIdx.x);
-    if (i >= n_items) return;
-    
-    src += i * in_size;
-    dest += i * out_size;
-    
     char entropy[16]; // 128/8=16
-    MurmurHash3_x64_128(src, in_size, seed, entropy);
-    for (int i=0; i < out_size; ++i)
-        dest[i] = entropy[i];	
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    for (int i = _loop_start; i < n_items; i += _loop_stride)
+    {
+    
+        const char* src_i = &src[i*in_size];
+        char* dest_i = &dest[i*out_size];
+    
+        MurmurHash3_x64_128(src_i, in_size, seed, entropy);
+        for (int j=0; j < out_size; ++j)
+            dest_i[j] = entropy[j];	
+    }
 }
