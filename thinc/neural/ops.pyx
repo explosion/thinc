@@ -367,6 +367,58 @@ class Ops(object):
         d_prev[:] = dc * hf
         copy_array(d_cells, dc)
 
+    def softplus(self, X, threshold=20., out=None):
+        xp = get_array_module(X)
+        log1p_exp = xp.log1p(xp.exp(X))
+        indices = X >= threshold
+        log1p_exp[indices] = X[indices]
+        if out is None:
+            return log1p_exp
+        else:
+            out[:] = log1p_exp
+            return out
+
+    def backprop_softplus(self, dY, X, threshold=20, out=None):
+        xp = get_array_module(X)
+        if out is None:
+            out = xp.zeros(X.shape, dtype="f")
+        out[:] = 1 - 1 / (1 + xp.exp(X))
+        out *= dY
+        indices = X >= threshold
+        out[indices] = dY[indices]
+        return out
+
+    def mish(self, X, threshold=20., out=None):
+        indices = X < threshold
+        Xsub = X[indices]
+        Ysub = self.xp.tanh(self.softplus(Xsub, threshold=threshold))
+        Ysub *= Xsub
+        if out is None:
+            out = X.copy()
+        else:
+            out[:] = X
+        out[indices] = Ysub
+        return out
+
+    def backprop_mish(self, dY, X, threshold=20, out=None):
+        xp = get_array_module(X)
+        indices = X < threshold
+        Xsub = X[indices]
+        dYsub = dY[indices]
+        omega = 4. * (Xsub+1.)
+        omega += 4. * xp.exp(2.*Xsub)
+        omega += xp.exp(Xsub) * ((4.*Xsub)+6.)
+        delta = 2. * xp.exp(Xsub)
+        delta += xp.exp(2.*Xsub)
+        delta += 2.
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
+        if out is None:
+            out = dY.copy()
+        else:
+            out[:] = dY
+        out[indices] = dXsub
+        return out
+
     def xavier_uniform_init(self, W, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -945,6 +997,9 @@ class CupyOps(Ops):
         if inplace:
             copy_array(delta, out)
         return out
+
+    def backprop_mish(self, dY, X, out=None):
+        return _custom_kernels.backprop_mish(dY, X, out=out)
 
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)
