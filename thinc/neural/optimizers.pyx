@@ -48,10 +48,12 @@ class Optimizer(object):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
                  decay_steps=5000,
                  b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., gradient_noise=0.0,
-                 nesterov=True, L2_is_weight_decay=False):
+                 nesterov=True, L2_is_weight_decay=False, lookahead_k=0,
+                 lookahead_alpha=0.5):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
+        self.slow_weights = {} # For lookahead
         self.averages = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
@@ -68,6 +70,8 @@ class Optimizer(object):
         self.nesterov = nesterov
         self.decay_steps = decay_steps
         self.L2_is_weight_decay = L2_is_weight_decay
+        self.lookahead_k = lookahead_k
+        self.lookahead_alpha = lookahead_alpha
 
     def to_gpu(self):
         self.ops = CupyOps()
@@ -120,6 +124,12 @@ class Optimizer(object):
         gradient.fill(0.)
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
+        if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
+            if key not in self.slow_weights:
+                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+            slow = self.slow_weights[key]
+            slow += self.lookahead_alpha * (weights - slow)
+            weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
