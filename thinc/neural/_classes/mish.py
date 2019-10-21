@@ -16,27 +16,6 @@ def _set_dimensions_if_needed(model, X, y=None):
         else:
             model.nO = int(y.max()) + 1
 
-def lecun_uniform_init(W, ops):
-    if (W != 0).any():
-        return W
-    scale = ops.xp.sqrt(3. / W.shape[0])
-    W += ops.xp.random.uniform(-scale, scale, W.shape)
-    return W
-
-def svd_orthonormal_init(W, ops):
-    if (W != 0).any():
-        return W
-    shape = W.shape
-    if len(shape) < 2:  # pragma: no cover
-        raise RuntimeError("Only shapes of length 2 or more are supported.")
-    flat_shape = (shape[0], numpy.prod(shape[1:]))
-    a = numpy.random.standard_normal(flat_shape)
-    u, _, v = numpy.linalg.svd(a, full_matrices=False)
-    q = u if u.shape == flat_shape else v
-    q = q.reshape(shape)
-    W += ops.asarray(q)
-
-
 
 @describe.on_data(_set_dimensions_if_needed)
 @describe.attributes(
@@ -46,14 +25,17 @@ def svd_orthonormal_init(W, ops):
     W=Synapses(
         "Weights matrix",
         lambda obj: (obj.nO, obj.nI),
-        svd_orthonormal_init
-        #lambda W, ops: ops.xavier_uniform_init(W),
+        lambda W, ops: ops.xavier_uniform_init(W),
     ),
     b=Biases("Bias vector", lambda obj: (obj.nO,)),
     d_W=Gradient("W"),
     d_b=Gradient("b"),
 )
 class Mish(Model):
+    """Dense layer with mish activation.
+    
+    https://arxiv.org/pdf/1908.08681.pdf
+    """
     name = "mish"
 
     @property
