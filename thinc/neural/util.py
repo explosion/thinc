@@ -99,13 +99,20 @@ def minibatch(items, size=8):
         size_ = itertools.repeat(size)
     else:
         size_ = size
-    items = iter(items)
-    while True:
-        batch_size = next(size_)
-        batch = list(itertools.islice(items, int(batch_size)))
-        if len(batch) == 0:
-            break
-        yield list(batch)
+    if hasattr(items, "__len__") and hasattr(items, "__getitem__"):
+        i = 0
+        while i < len(items):
+            batch_size = next(size_)
+            yield items[i : i + batch_size]
+            i += batch_size
+    else:
+        items = iter(items)
+        while True:
+            batch_size = next(size_)
+            batch = list(itertools.islice(items, int(batch_size)))
+            if len(batch) == 0:
+                break
+            yield list(batch)
 
 
 def mark_sentence_boundaries(sequences, drop=0.0):  # pragma: no cover
