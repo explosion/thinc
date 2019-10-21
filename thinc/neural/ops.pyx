@@ -37,6 +37,7 @@ import blis.py
 
 
 cdef extern from "math.h":
+    float logf(float x) nogil
     float sqrtf(float x) nogil
     float expf(float x) nogil
     float tanhf(float x) nogil
@@ -629,6 +630,28 @@ class NumpyOps(Ops):
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         return dX__bop
 
+    def mish(self, const float[:, ::1] X, threshold=20, out=None):
+        if out is None:
+            shape = [X.shape[i] for i in range(X.ndim)]
+            out = self.allocate(tuple(shape), dtype="f")
+        cdef np.ndarray Y = out
+        cpu_mish(<float*>Y.data,
+            &X[0, 0], threshold, X.size)
+        return out
+    
+    def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
+            threshold=20, out=None):
+        cdef np.ndarray dX
+        if out is None:
+            shape = [X.shape[i] for i in range(X.ndim)]
+            dX = self.allocate(tuple(shape), dtype="f")
+        else:
+            dX = self.xp.asarray(out)
+        cpu_backprop_mish(<float*>dX.data,
+            &dY[0, 0], &X[0, 0], threshold, X.size)
+        return dX
+
+
     #def lstm(self, float[:, ::1] output, float[:, ::1] cells,
     #        float[:, ::1] gates, float[:, ::1] prev):
     #    cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
@@ -930,6 +953,35 @@ cdef void cpu_update_averages(weight_t* ema,
         ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
+cdef void cpu_mish(weight_t* Y, const weight_t* X, int threshold, int N) nogil:
+    cdef float one = 1.
+    for i in range(N):
+        x = X[i]
+        if x >= threshold:
+            Y[i] = x
+        else:
+            Y[i] = x * tanhf(logf(one + expf(x)))
+
+
+cdef void cpu_backprop_mish(weight_t* dX,
+        const weight_t* dY, const weight_t* X, int threshold, int N) nogil:
+    cdef float one = 1.
+    cdef float x, exp_x, exp_2x, exp_3x, omega, delta
+    for i in range(N):
+        x = X[i]
+        dy = dY[i]
+        if x >= threshold:
+            dX[i] = dy
+        else:
+            exp_x = expf(x)
+            exp_2x = expf(2*x)
+            exp_3x = expf(3*x)
+            omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6)
+            delta = 2 * exp_x + exp_2x + 2
+            dX[i] = dy * ((exp_x * omega) / delta ** 2)
+
+     
+
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
@@ -997,6 +1049,9 @@ class CupyOps(Ops):
         if inplace:
             copy_array(delta, out)
         return out
+    
+    def mish(self, X, threshold=20, out=None):
+        return _custom_kernels.mish(X, threshold=threshold, out=out)
 
     def backprop_mish(self, dY, X, out=None):
         return _custom_kernels.backprop_mish(dY, X, out=out)
