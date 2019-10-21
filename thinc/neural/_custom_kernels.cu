@@ -101,6 +101,22 @@ void maxout(float* best, int* which,
     }
 }
 
+extern "C" __global__
+void mish(float* Y, const float* X, int threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    float one = 1.;
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+        if (x >= threshold)
+	    Y[i] = x;
+	else
+            Y[i] = x * tanhf(logf(one + expf(x)));
+    }
+} 
+
 
 extern "C" __global__
 void sum_pool(float* output,
