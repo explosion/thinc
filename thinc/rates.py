@@ -1,7 +1,18 @@
 # coding: utf8
 """Generators that provide different rates, schedules, decays or series."""
-
 from __future__ import unicode_literals, division
+import numpy
+
+
+def constant_then(rate, steps, schedule):
+    """Yield a constant rate for N steps, before starting a schedule."""
+    for i in range(steps):
+        yield rate
+    yield from schedule
+
+
+def constant(rate):
+    yield rate
 
 
 def decaying(base_rate, decay, t=0):
@@ -51,6 +62,15 @@ def annealing(rate, decay, decay_steps, t=0.0):
         else:
             yield rate * decay ** (t / decay_steps)
             t += 1
+
+
+def annealing_cos(start, end, step=0.001):
+    pct = step
+    while True:
+        cos_out = numpy.cos(numpy.pi * pct) + 1
+        yield end + (start-end)/2 * cos_out
+        pct += step
+
 
 
 def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0.0):
