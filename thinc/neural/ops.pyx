@@ -408,9 +408,9 @@ class Ops(object):
         delta += 2.
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
         if out is None:
-            out = dY.copy()
-        else:
-            out[:] = dY
+            out = xp.zeros(dY.shape, dtype="f")
+        # Gradient when above threshold will ignore softplus.
+        out[:] = dY + dY * self.dtanh(X)
         out[indices] = dXsub
         return out
 
