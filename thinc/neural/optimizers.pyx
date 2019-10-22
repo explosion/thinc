@@ -49,8 +49,8 @@ class Optimizer(object):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, decay=0.0,
                  decay_steps=5000,
                  b1_decay=0.0, b2_decay=0.0, max_grad_norm=10., gradient_noise=0.0,
-                 nesterov=True, L2_is_weight_decay=False, lookahead_k=6,
-                 lookahead_alpha=0.5, use_radam=True, use_lars=True):
+                 nesterov=True, L2_is_weight_decay=False, lookahead_k=0,
+                 lookahead_alpha=0.5, use_radam=False, use_lars=False):
         self.ops = ops
         self.mom1 = {}
         self.mom2 = {}
