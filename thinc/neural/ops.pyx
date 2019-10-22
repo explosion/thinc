@@ -390,16 +390,10 @@ class Ops(object):
         return out
 
     def mish(self, X, threshold=20., out=None):
-        indices = X < threshold
-        Xsub = X[indices]
-        Ysub = self.xp.tanh(self.softplus(Xsub, threshold=threshold))
-        Ysub *= Xsub
-        if out is None:
-            out = X.copy()
-        else:
-            out[:] = X
-        out[indices] = Ysub
-        return out
+        Xsoft = self.softplus(X, threshold=threshold, out=out)
+        Y = self.xp.tanh(Xsoft, out=out)
+        Y *= X
+        return Y
 
     def backprop_mish(self, dY, X, threshold=20, out=None):
         xp = get_array_module(X)
@@ -958,7 +952,7 @@ cdef void cpu_mish(weight_t* Y, const weight_t* X, int threshold, int N) nogil:
     for i in range(N):
         x = X[i]
         if x >= threshold:
-            Y[i] = x
+            Y[i] = x * tanhf(x)
         else:
             Y[i] = x * tanhf(logf(one + expf(x)))
 
@@ -971,7 +965,7 @@ cdef void cpu_backprop_mish(weight_t* dX,
         x = X[i]
         dy = dY[i]
         if x >= threshold:
-            dX[i] = dy
+            dX[i] = dy + dy * dtanh(x)
         else:
             exp_x = expf(x)
             exp_2x = expf(2*x)

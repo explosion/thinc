@@ -111,7 +111,7 @@ void mish(float* Y, const float* X, int threshold, int N)
     {
         float x = X[i];
         if (x >= threshold)
-	    Y[i] = x;
+	    Y[i] = x * tanhf(x);
 	else
             Y[i] = x * tanhf(logf(one + expf(x)));
     }
@@ -256,7 +256,7 @@ void backprop_mish(float* dX,
 	float x = X[i];
 	if (x >= 20.)
         {
-	    dX[i] = dY[i];
+	    dX[i] = dY[i] + dY[i] * (1-pow(x, two));
 	} else
 	{
 	    float exp_x = exp(x);
