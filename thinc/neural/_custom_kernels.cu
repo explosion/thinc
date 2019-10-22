@@ -109,11 +109,10 @@ void mish(float* Y, const float* X, int threshold, int N)
     float one = 1.;
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-        float x = X[i];
-        if (x >= threshold)
-	    Y[i] = x * tanhf(x);
+        if (X[i] >= threshold)
+	    Y[i] = X[i];
 	else
-            Y[i] = x * tanhf(logf(one + expf(x)));
+            Y[i] = X[i] * tanhf(logf(one + expf(X[i])));
     }
 } 
 
