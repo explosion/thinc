@@ -943,7 +943,7 @@ cdef void cpu_update_averages(weight_t* ema,
         ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
-cdef void cpu_mish(weight_t* Y, const weight_t* X, int threshold, int N) nogil:
+cdef void cpu_mish(weight_t* Y, const weight_t* X, float threshold, int N) nogil:
     cdef float one = 1.
     for i in range(N):
         if X[i] >= threshold:
@@ -953,7 +953,7 @@ cdef void cpu_mish(weight_t* Y, const weight_t* X, int threshold, int N) nogil:
 
 
 cdef void cpu_backprop_mish(weight_t* dX,
-        const weight_t* dY, const weight_t* X, int threshold, int N) nogil:
+        const weight_t* dY, const weight_t* X, float threshold, int N) nogil:
     cdef float one = 1.
     cdef float exp_x, exp_2x, exp_3x, omega, delta
     for i in range(N):
@@ -1038,11 +1038,11 @@ class CupyOps(Ops):
             copy_array(delta, out)
         return out
     
-    def mish(self, X, threshold=20, out=None):
+    def mish(self, X, threshold=5, out=None):
         return _custom_kernels.mish(X, threshold=threshold, out=out)
 
-    def backprop_mish(self, dY, X, out=None):
-        return _custom_kernels.backprop_mish(dY, X, out=out)
+    def backprop_mish(self, dY, X, threshold=5, out=None):
+        return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)

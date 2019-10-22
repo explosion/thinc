@@ -102,7 +102,7 @@ void maxout(float* best, int* which,
 }
 
 extern "C" __global__
-void mish(float* Y, const float* X, int threshold, int N)
+void mish(float* Y, const float* X, float threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -245,7 +245,7 @@ void backprop_maxout(float* dX,
 
 extern "C" __global__
 void backprop_mish(float* dX,
-    const float* dY, const float* X, int N)
+    const float* dY, const float* X, float threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -253,9 +253,9 @@ void backprop_mish(float* dX,
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
 	float x = X[i];
-	if (x >= 20.)
+	if (x >= threshold)
         {
-	    dX[i] = dY[i] + dY[i] * (1-pow(x, two));
+	    dX[i] = dY[i];
 	} else
 	{
 	    float exp_x = exp(x);

@@ -74,7 +74,7 @@ def maxout(X, out=None, threads_per_block=128, num_blocks=128):
     return best, which
 
 
-def mish(X, out=None, threshold=20, threads_per_block=128, num_blocks=128):
+def mish(X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
     N = X.size
     if out is None:
         out = cupy.zeros(X.shape, dtype="f")
@@ -138,15 +138,14 @@ def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=12
         (out, dY, which, B, I, P))
     return out
 
-def backprop_mish(dY, X, out=None, threads_per_block=128, num_blocks=128):
+def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
     B = dY.shape[0]
     I = dY.shape[1]
     if out is None:
         out = cupy.zeros((B, I), dtype="f")
     backprop_mish_kernel((num_blocks,), (threads_per_block,),
-        (out, dY, X, B*I))
+        (out, dY, X, threshold, B*I))
     return out
-
 
 
 def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128, num_blocks=128):
