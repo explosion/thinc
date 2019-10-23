@@ -153,7 +153,7 @@ __device__ void MurmurHash3_x64_128 ( const void * key, const int len,
 // of entropy. Input size should be specified in bytes.
 extern "C" __global__
 void hash_data(char* dest,
-    const char* src, size_t out_size, size_t in_size, size_t n_items, uint32_t seed)
+    const char* src, size_t in_size, size_t n_items, uint32_t seed)
 {
     char entropy[16]; // 128/8=16
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -162,10 +162,10 @@ void hash_data(char* dest,
     {
     
         const char* src_i = &src[i*in_size];
-        char* dest_i = &dest[i*out_size];
+        char* dest_i = &dest[i*16];
     
         MurmurHash3_x64_128(src_i, in_size, seed, entropy);
-        for (int j=0; j < out_size; ++j)
+        for (int j=0; j < 16; ++j)
             dest_i[j] = entropy[j];	
     }
 }
