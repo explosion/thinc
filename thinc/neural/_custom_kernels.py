@@ -173,5 +173,5 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
     in_size = 8 # sizeof(uint64_t)
     T = ids.shape[0]
     hash_data_kernel((num_blocks,), (threads_per_block,),
-        (out, ids, in_size, ids.shape[0], seed))
+        (out, ids, out_size, in_size, ids.shape[0], seed))
     return out
