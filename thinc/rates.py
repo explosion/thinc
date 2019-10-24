@@ -8,11 +8,13 @@ def constant_then(rate, steps, schedule):
     """Yield a constant rate for N steps, before starting a schedule."""
     for i in range(steps):
         yield rate
-    yield from schedule
+    for value in schedule:
+        yield value
 
 
 def constant(rate):
-    yield rate
+    while True:
+        yield rate
 
 
 def decaying(base_rate, decay, t=0):
