@@ -101,6 +101,21 @@ void maxout(float* best, int* which,
     }
 }
 
+extern "C" __global__
+void mish(float* Y, const float* X, float threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    float one = 1.;
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        if (X[i] >= threshold)
+	    Y[i] = X[i];
+	else
+            Y[i] = X[i] * tanhf(logf(one + expf(X[i])));
+    }
+} 
+
 
 extern "C" __global__
 void sum_pool(float* output,
@@ -228,6 +243,32 @@ void backprop_maxout(float* dX,
 }
  
 
+extern "C" __global__
+void backprop_mish(float* dX,
+    const float* dY, const float* X, float threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    float two = 2.;
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+	float x = X[i];
+	if (x >= threshold)
+        {
+	    dX[i] = dY[i];
+	} else
+	{
+	    float exp_x = exp(x);
+	    float exp_2x = exp(2*x);
+	    float exp_3x = exp(3*x);
+
+	    float omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
+	    float delta = 2 * exp_x + exp_2x + 2;
+	    dX[i] = dY[i] * ((exp_x * omega) / pow(delta, two));
+	}
+    }
+}
+ 
 extern "C" __global__
 void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
     int B, int T, int O)
