@@ -7,3 +7,4 @@ from .neural._classes.relu import ReLu  # noqa: F401
 from .neural._classes.maxout import Maxout  # noqa: F401
 from .neural._classes.softmax import Softmax  # noqa: F401
 from .neural._classes.selu import SELU  # noqa: F401
+from .neural._classes.mish import Mish  # noqa: F401

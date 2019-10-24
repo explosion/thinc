@@ -208,7 +208,7 @@ def test_dropout_backward(ops, X):
 @given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
     X = ops.asarray(X)
-    if ops.xp.abs(X).max() >= 10:
+    if ops.xp.abs(X).max() >= 5:
         return None
     lengths = ops.asarray([3] * len(X), dtype="i")
     out = ops.backprop_sum_pool(X, lengths)
@@ -373,3 +373,42 @@ def test_max_pool(ops):
         truth = m[start:start+length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
+
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_softplus(ops, X):
+    X = ops.asarray(X)
+    Y = ops.softplus(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert not (Y == 0).any()
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_backprop_softplus(ops, X):
+    X = ops.asarray(X)
+    # Test zero gradients result in 0 dX
+    zeros = ops.allocate(X.shape)
+    dX = ops.backprop_softplus(zeros, X)
+    assert dX.shape == X.shape
+    assert (dX==0).all()
+
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_mish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.mish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+@settings(max_examples=MAX_EXAMPLES)
+@given(X=strategies.arrays_BI())
+def test_backprop_mish(ops, X):
+    X = ops.asarray(X)
+    # Test zero gradients result in 0 dX
+    zeros = ops.allocate(X.shape)
+    dX = ops.backprop_mish(zeros, X)
+    assert dX.shape == X.shape
+    assert (dX==0).all()
