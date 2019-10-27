@@ -91,7 +91,7 @@ def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0
 
 
 
-def warmup_linear_rates(initial_rate, warmup_steps, total_steps):
+def warmup_linear(initial_rate, warmup_steps, total_steps):
     """Generate a series, starting from an initial rate, and then with a warmup
     period, and then a linear decline. Used for learning rates.
     """
@@ -107,7 +107,7 @@ def warmup_linear_rates(initial_rate, warmup_steps, total_steps):
         step += 1
 
 
-def cyclic_triangular_rate(min_lr, max_lr, period):
+def cyclic_triangular(min_lr, max_lr, period):
     it = 1
     while True:
         # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
