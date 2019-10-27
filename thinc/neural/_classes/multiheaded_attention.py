@@ -8,6 +8,9 @@ from ..ops import NumpyOps
 import numpy
 import copy
 import math
+import blis.py
+from timebudget import timebudget
+
 
 class PaddedAttentionInputs(object):
     def __init__(self, QKV, lengths):
@@ -18,16 +21,51 @@ class PaddedAttentionInputs(object):
         self.lengths = lengths
         self.ops = NumpyOps()
 
-    def queries_dot_keys(self, scale=1.):
-        queries = self.QKV[:, :, 0]
-        keys = self.QKV[:, :, 1]
-        assert queries.shape == (self.nB, self.nL, self.nH, self.nD)
-        assert keys.shape == (self.nB, self.nL, self.nH, self.nD)
-        queries = queries.transpose((0, 2, 1, 3))
-        keys = keys.transpose((0, 2, 3, 1))
+    def _get_feature(self, index, dims, contiguous):
+        data = self.QKV[:, :, index]
+        return self.transpose(data,
+            current=("nB", "nL", "nH", "nD"), target=dims, contiguous=contiguous)
+
+    def get_queries(self, dims, contiguous=False):
+        return self._get_feature(0, dims, contiguous)
+
+    def get_keys(self, dims, contiguous=False):
+        return self._get_feature(1, dims, contiguous)
+    
+    def get_values(self, dims, contiguous=False):
+        return self._get_feature(2, dims, contiguous)
+
+    def transpose(self, array, target, current, contiguous=False):
+        assert set(current) == set(target)
+        if current == target:
+            return array
+        array = array.transpose([current.index(d) for d in target])
+        if contiguous:
+            array = self.ops.xp.ascontiguousarray(array)
+        return array
+
+    @timebudget
+    def get_attn(self, scale=1.):
+        queries = self.get_queries(("nB", "nH", "nL", "nD"))
+        keys = self.get_keys(("nB", "nH", "nD", "nL"))
         dots = self.ops.xp.matmul(queries, keys)
         dots /= scale
-        return dots
+        for i, length in enumerate(self.lengths):
+            dots[i, :, :, length:] = -self.ops.xp.inf
+        attn = self.ops.softmax(dots, axis=-1)
+        for i, length in enumerate(self.lengths):
+            attn[i, :, length:] = 0
+
+        def backprop_attn(d_attn):
+            assert d_attn.shape == ("nB", "nH", "nL", "nL")
+            d_dots = self.ops.backprop_softmax(attn, d_attn, axis=-1)
+            d_dots /= scale
+            # (nB, nH, nQ, nK) @ (nB, nH, nD, nK).T = (nB, nH, nQ, nD)
+            d_queries = self.ops.xp.matmul(d_dots, keys.transpose((0, 1, 3, 2)))
+            # (nB, nH, nQ, nK).T @ (nB, nH, nQ, nD) = (nB, nH, nK, nD)
+            d_keys = self.ops.xp.matmul(d_dots.transpose((0, 1, 3, 2)), queries)
+            return d_queries, d_keys
+        return attn, backprop_attn
 
 
 class AttentionInputs(object):
@@ -77,6 +115,61 @@ class AttentionInputs(object):
             array = self.ops.xp.ascontiguousarray(array)
         return array
 
+    def get_attn(self, scale=1.):
+        return self._get_attn_cpu(self.ops.xp.array([scale], dtype="f"))
+
+    @timebudget
+    def _get_attn_cpu(self, scale):
+        # Transpose keys to (heads, lengths, dims)
+        Q = self.get_queries(("nH", "nN", "nD"), contiguous=True)
+        K = self.get_keys(("nH", "nN", "nD"), contiguous=True)
+        attn = numpy.zeros((self.nH, self.nP), dtype="f")
+        for h in range(self.nH):
+            for s, e, aS, aE in self.slices:
+                blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True,
+                    out=attn[h, aS:aE].reshape((e-s, e-s)))
+                self.ops.softmax(attn[h, aS:aE].reshape(e-s, e-s), axis=-1, inplace=True)
+        
+        def backprop_get_attn_cpu(d_attn):
+            dQ = self.ops.allocate((self.nH, self.nN, self.nD))
+            dK = self.ops.allocate((self.nH, self.nN, self.nD))
+            for h in range(self.nH):
+                for s, e, aS, aE in self.slices:
+                    # d_dots has shape (qlength, klength)
+                    d_dots = self.ops.backprop_softmax(
+                        attn[h, s:e], d_attn[h, aS:aE], axis=-1)
+                    # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
+                    blis.py.gemm.gemm(d_dots, K[h, s:e], alpha=scale,
+                        out=dQ[h, s:e])
+                    # Compute (qlength, klength).T @ (qlength, nD) = (klength, nD)
+                    blis.py.gemm(d_dots, Q[h, s:e], alpha=scale, trans1=True,
+                        out=dK[h, s:e])
+            dQ = self.transpose(dQ,
+                target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
+            dK = self.transpose(dK,
+                target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
+            return dQ, dK
+        return attn, backprop_get_attn_cpu
+
+    def _get_attn_gpu(queries, keys, values, out=None):
+        A_ptr = self.K.data.ptr
+        B_ptr = self.Q.data.ptr
+        C_ptr = out.data.ptr
+        strideA = self.cmp_size * self.K.shape[1]
+        strideB = self.Q.shape[1]
+        strideC = self.cmp_size
+
+        sgemmStridedBatched(
+            handle,
+            False, False,
+            Q.shape[0], 1, Q.shape[1],
+            alpha,
+            A_ptr, K.shape[1], da, strideA,
+            B_ptr, Q.shape[1], strideB,
+            C_ptr, V.shape[1], strideC,
+            batchCount
+        )
+
     def apply_attention(self, attn, attn_dims=("nH", "nN")):
         attn = self.transpose(attn,
             target=("nH", "nP"), current=attn_dims, contiguous=True)
@@ -113,58 +206,6 @@ class AttentionInputs(object):
                 target=("nN", "nH", "nN"), current=("nH", "nN", "nN"))
             return d_values, d_attn
         return output, backprop_apply_attention
-
-    def get_attn(self, scale=1.):
-        return self._get_attn_cpu(self.ops.xp.array([scale], dtype="f"))
-
-    def _get_attn_cpu(self, scale):
-        # Transpose keys to (heads, lengths, dims)
-        Q = self.get_queries(("nH", "nN", "nD"), contiguous=True)
-        K = self.get_keys(("nH", "nN", "nD"), contiguous=True)
-        attn = numpy.zeros((self.nH, self.nP), dtype="f")
-        for h in range(self.nH):
-            for s, e, aS, aE in self.slices:
-                dots = self.ops.gemm(Q[h, s:e], K[h, s:e], trans2=True)
-                dots /= scale
-                smax = self.ops.softmax(dots, axis=-1)
-                attn[h, aS:aE] = self.ops.softmax(dots, axis=-1).ravel()
-        
-        def backprop_get_attn_cpu(d_attn):
-            dQ = self.ops.allocate((self.nH, self.nN, self.nD))
-            dK = self.ops.allocate((self.nH, self.nN, self.nD))
-            for h in range(self.nH):
-                for s, e, aS, aE in self.slices:
-                    # d_dots has shape (qlength, klength)
-                    d_dots = self.ops.backprop_softmax(
-                        attn[h, s:e], d_attn[h, aS:aE], axis=-1)
-                    # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
-                    self.ops.gemm(d_dots, K[h, s:e],
-                        out=dQ[h, s:e])
-                    # Compute (qlength, klength).T @ (qlength, nD) = (klength, nD)
-                    self.ops.gemm(d_dots, Q[h, s:e], trans1=True, out=dK[h, s:e])
-            dQ = self.transpose(dQ, target=("nN", "nH"), current=("nH", "nN"))
-            dK = self.transpose(dK, target=("nN", "nH"), current=("nH", "nN"))
-            return dQ, dK
-        return attn, backprop_get_attn_cpu
-
-    def _dot_queries_to_keys_gpu(queries, keys, values, out=None):
-        A_ptr = self.K.data.ptr
-        B_ptr = self.Q.data.ptr
-        C_ptr = out.data.ptr
-        strideA = self.cmp_size * self.K.shape[1]
-        strideB = self.Q.shape[1]
-        strideC = self.cmp_size
-
-        sgemmStridedBatched(
-            handle,
-            False, False,
-            Q.shape[0], 1, Q.shape[1],
-            alpha,
-            A_ptr, K.shape[1], da, strideA,
-            B_ptr, Q.shape[1], strideB,
-            C_ptr, V.shape[1], strideC,
-            batchCount
-        )
 
 
 def prepare_self_attention(affine, nM=300, nH=6):
