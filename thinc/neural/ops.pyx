@@ -484,7 +484,6 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
             shape = (shape,)
@@ -493,6 +492,19 @@ class NumpyOps(Ops):
     def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
         VecVec.add_i(<float*>x.data,
             <float*>y.data, scale, x.shape[0])
+
+    def softmax(self, np.ndarray X, int axis=-1, inplace=False):
+        if axis != -1 or not X.flags['C_CONTIGUOUS']:
+            return Ops.softmax(self, X, axis=axis, inplace=inplace)
+        shape = tuple([X.shape[d] for d in range(X.ndim)])
+        assert X.dtype == "float32"
+        cdef np.ndarray Y
+        if inplace:
+            Y = X
+        else:
+            Y = X.copy()
+        cpu_softmax(<float*>Y.data, Y.size, shape[-1])
+        return Y
 
     def matmul(self, float[:, :, ::1] x, float[:, :, ::1] y, out=None):
         assert x.shape[0] == y.shape[0]
@@ -1178,6 +1190,18 @@ cdef void backprop_seq2col(float* d_seqs,
                 if j >= 0 and (j+I) < (B*I*nF):
                     VecVec.add_i(&d_seqs[seq_row],
                         &d_cols[j], 1., I)
+
+cdef void cpu_softmax(weight_t* X, int size, int nr_col) nogil:
+    cdef int stride = size / nr_col
+    cdef double sum_
+    cdef int i
+    for i from 0 <= i < size by stride: # Still no range(0, size, stride) :(
+        sum_ = 0.
+        max_ = Vec.max(&X[i], nr_col)
+        for j in range(nr_col):
+            X[i+j] = expf(X[i+j] - max_)
+            sum_ += X[i+j]
+        Vec.div_i(&X[i], sum_, nr_col)
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
