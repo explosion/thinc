@@ -494,15 +494,16 @@ class NumpyOps(Ops):
             <float*>y.data, scale, x.shape[0])
 
     def softmax(self, np.ndarray X, int axis=-1, inplace=False):
-        if axis != -1 or not X.flags['C_CONTIGUOUS']:
-            return Ops.softmax(self, X, axis=axis, inplace=inplace)
+        if axis != -1 or not X.flags['C_CONTIGUOUS'] or X.dtype != "float32":
+            ops = Ops()
+            return ops.softmax(X, axis=axis, inplace=inplace)
         shape = tuple([X.shape[d] for d in range(X.ndim)])
-        assert X.dtype == "float32"
         cdef np.ndarray Y
         if inplace:
             Y = X
         else:
-            Y = X.copy()
+            Y = self.allocate(shape)
+            Y[:] = X
         cpu_softmax(<float*>Y.data, Y.size, shape[-1])
         return Y
 
@@ -1192,16 +1193,16 @@ cdef void backprop_seq2col(float* d_seqs,
                         &d_cols[j], 1., I)
 
 cdef void cpu_softmax(weight_t* X, int size, int nr_col) nogil:
-    cdef int stride = size / nr_col
     cdef double sum_
-    cdef int i
-    for i from 0 <= i < size by stride: # Still no range(0, size, stride) :(
+    cdef int i = 0
+    while i < size:
         sum_ = 0.
         max_ = Vec.max(&X[i], nr_col)
         for j in range(nr_col):
             X[i+j] = expf(X[i+j] - max_)
             sum_ += X[i+j]
         Vec.div_i(&X[i], sum_, nr_col)
+        i += nr_col
 
 
 cdef void cpu_maxout(float* best__bo, int* which__bo,
