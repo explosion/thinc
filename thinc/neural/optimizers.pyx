@@ -189,7 +189,7 @@ class Optimizer(object):
                 local_lr = 1
             else:
                 local_lr = phi_p / u_norm
-            lr = self.alpha * lr_scale * local_lr * 10
+            lr = self.alpha * lr_scale * local_lr
         else:
             lr = self.alpha * lr_scale
         weights -= lr * update
