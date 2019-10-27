@@ -14,16 +14,17 @@ def get_lengths(nr_length, mean=50, scale=10):
     return [length for length in lengths]
 
 
-def get_attn_inputs(lengths, nH, nD):
-    nN = sum(lengths)
+def get_random_values(lengths, nH, nD):
     data = numpy.random.uniform(-1, 1, (sum(lengths), 3, nH, nD))
     data = data.astype("f")
-    return AttentionInputs(data, lengths)
+    return data
 
 
-def get_padded_attn_inputs(lengths, nH, nD, values=None):
-    if values is None:
-        values = numpy.random.uniform(-1, 1, (sum(lengths), 3, nH, nD))
+def get_attn_inputs(lengths, values, nH, nD):
+    return AttentionInputs(values, lengths)
+
+
+def get_padded_attn_inputs(lengths, values, nH, nD):
     data = numpy.zeros((len(lengths), max(lengths), 3, nH, nD), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -43,6 +44,17 @@ def get_attn_padded(batch):
     attn, backprop_attn = batch.get_attn()
     return attn
 
+@timebudget
+def apply_attn_ragged(batch, attn):
+    output, _ = batch.apply_attn(attn)
+    return output
+
+
+@timebudget
+def apply_attn_padded(batch, attn):
+    output, _ = batch.apply_attn(attn)
+    return output
+
 
 def main(nr_batch=100, nr_length=30, nH=4, nD=128//4):
     numpy.random.seed(0)
@@ -50,15 +62,18 @@ def main(nr_batch=100, nr_length=30, nH=4, nD=128//4):
     padded = []
     for batch in range(nr_batch):
         lengths = get_lengths(nr_length)
-        unpadded.append(get_attn_inputs(lengths, nH, nD))
-        padded.append(get_padded_attn_inputs(lengths, nH, nD, values=unpadded[-1].QKV))
+        values = get_random_values(lengths, nH, nD)
+        unpadded.append(get_attn_inputs(lengths, values, nH, nD))
+        padded.append(get_padded_attn_inputs(lengths, values, nH, nD))
     unpadded_pow = 0.
     for batch in unpadded:
         attn = get_attn_ragged(batch)
         unpadded_pow += (attn*attn).sum()
+        output = apply_attn_ragged(batch, attn)
     padded_pow = 0.
     for batch in padded:
         attn = get_attn_padded(batch)
+        output = apply_attn_padded(batch, attn)
         padded_pow += (attn*attn).sum()
     print(unpadded_pow, padded_pow)
     total_words = sum(batch.nN for batch in unpadded)
