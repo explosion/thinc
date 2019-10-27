@@ -65,6 +65,15 @@ class PaddedAttentionInputs(object):
             return d_queries, d_keys
         return attn, backprop_attn
 
+    def apply_attn(self, attn):
+        values = self.get_values(("nB", "nH", "nL", "nD"), contiguous=True)
+        attn = self.ops.xp.ascontiguousarray(attn)
+        context = self.ops.xp.matmul(attn, values)
+        assert context.shape == (self.nB, self.nH, self.nL, self.nD)
+        context = self.transpose(context,
+            current=("nB", "nH", "nL", "nD"), target=("nB", "nL", "nH", "nD"))
+        return context, None
+
 
 class AttentionInputs(object):
     """Inputs for an attention model."""
@@ -168,7 +177,7 @@ class AttentionInputs(object):
             batchCount
         )
 
-    def apply_attention(self, attn, attn_dims=("nH", "nN")):
+    def apply_attn(self, attn, attn_dims=("nH", "nP")):
         attn = self.transpose(attn,
             target=("nH", "nP"), current=attn_dims, contiguous=True)
         values = self.get_values(("nH", "nN", "nD"), contiguous=True)
