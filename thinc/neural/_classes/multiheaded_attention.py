@@ -9,7 +9,6 @@ import numpy
 import copy
 import math
 import blis.py
-from timebudget import timebudget
 
 
 class PaddedAttentionInputs(object):
@@ -44,7 +43,6 @@ class PaddedAttentionInputs(object):
             array = self.ops.xp.ascontiguousarray(array)
         return array
 
-    @timebudget
     def get_attn(self, scale=1.):
         queries = self.get_queries(("nB", "nH", "nL", "nD"))
         keys = self.get_keys(("nB", "nH", "nD", "nL"))
@@ -70,17 +68,18 @@ class PaddedAttentionInputs(object):
 
 class AttentionInputs(object):
     """Inputs for an attention model."""
-    def __init__(self, QKV, lengths): 
-        self.QKV = QKV
-        self.nH = QKV.shape[2]
-        self.nD = QKV.shape[3]
+    def __init__(self, QKV, lengths, dims=("nN", "qkv", "nH", "nD")): 
+        self.ops = NumpyOps()
+        self.nH = QKV.shape[dims.index("nH")]
+        self.nN = QKV.shape[dims.index("nN")]
+        self.nD = QKV.shape[dims.index("nD")]
         self.nM = self.nH*self.nD
-        self.nN = QKV.shape[0]
         self.nB = len(lengths)
         self.nP = sum(length*length for length in lengths)
-        self.cmp_size = max(lengths)
+        self.nL = max(lengths)
         self.lengths = lengths
-        self.ops = NumpyOps()
+        self.QKV = self.transpose(QKV, target=("qkv", "nH", "nN", "nD"),
+            current=dims, contiguous=True)
 
     @property
     def slices(self):
@@ -93,9 +92,9 @@ class AttentionInputs(object):
             attn_start += attn_length
 
     def _get_feature(self, index, dims, contiguous):
-        data = self.QKV[:, index]
+        data = self.QKV[index]
         return self.transpose(data,
-            current=("nN", "nH", "nD"), target=dims, contiguous=contiguous)
+            current=("nH", "nN", "nD"), target=dims, contiguous=contiguous)
 
     def get_queries(self, dims, contiguous=False):
         return self._get_feature(0, dims, contiguous)
@@ -111,14 +110,13 @@ class AttentionInputs(object):
         if current == target:
             return array
         array = array.transpose([current.index(d) for d in target])
-        if contiguous:
+        if contiguous and not array.flags["C_CONTIGUOUS"]:
             array = self.ops.xp.ascontiguousarray(array)
         return array
 
     def get_attn(self, scale=1.):
         return self._get_attn_cpu(self.ops.xp.array([scale], dtype="f"))
 
-    @timebudget
     def _get_attn_cpu(self, scale):
         # Transpose keys to (heads, lengths, dims)
         Q = self.get_queries(("nH", "nN", "nD"), contiguous=True)
@@ -155,9 +153,9 @@ class AttentionInputs(object):
         A_ptr = self.K.data.ptr
         B_ptr = self.Q.data.ptr
         C_ptr = out.data.ptr
-        strideA = self.cmp_size * self.K.shape[1]
+        strideA = self.nL * self.K.shape[1]
         strideB = self.Q.shape[1]
-        strideC = self.cmp_size
+        strideC = self.nL
 
         sgemmStridedBatched(
             handle,
