@@ -495,7 +495,7 @@ class NumpyOps(Ops):
 
     def softmax(self, np.ndarray X, int axis=-1, inplace=False):
         if axis != -1 or not X.flags['C_CONTIGUOUS'] or X.dtype != "float32":
-            ops = Ops()
+            ops = Ops(xp=self.xp)
             return ops.softmax(X, axis=axis, inplace=inplace)
         shape = tuple([X.shape[d] for d in range(X.ndim)])
         cdef np.ndarray Y
