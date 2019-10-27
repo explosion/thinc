@@ -74,7 +74,7 @@ class Optimizer(object):
         self.lookahead_k = lookahead_k
         self.lookahead_alpha = lookahead_alpha
         self.use_radam = use_radam
-        self.use_lars = True
+        self.use_lars = use_lars
         self.lars_min = 0
         self.lars_max = 10
 
