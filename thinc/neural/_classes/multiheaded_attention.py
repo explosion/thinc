@@ -55,7 +55,7 @@ class PaddedAttentionInputs(object):
             attn[i, :, length:] = 0
 
         def backprop_attn(d_attn):
-            assert d_attn.shape == ("nB", "nH", "nL", "nL")
+            assert d_attn.shape == (self.nB, self.nH, self.nL, self.nL), d_attn.shape
             d_dots = self.ops.backprop_softmax(attn, d_attn, axis=-1)
             d_dots /= scale
             # (nB, nH, nQ, nK) @ (nB, nH, nD, nK).T = (nB, nH, nQ, nD)
@@ -72,7 +72,21 @@ class PaddedAttentionInputs(object):
         assert context.shape == (self.nB, self.nH, self.nL, self.nD)
         context = self.transpose(context,
             current=("nB", "nH", "nL", "nD"), target=("nB", "nL", "nH", "nD"))
-        return context, None
+
+        def backprop_apply_attn_padded(d_context):
+            nonlocal values, attn
+            d_context = self.transpose(d_context,
+                current=("nB", "nL", "nH", "nD"), target=("nB", "nH", "nL", "nD"))
+            values = self.transpose(values,
+                current=("nB", "nH", "nV", "nD"), target=("nB", "nH", "nD", "nV"))
+            # (nB, nH, nQ, nD) @ (nB, nH, nV, nD).T = (nB, nH, nQ, nV)
+            d_attn = self.ops.xp.matmul(d_context, values)
+            # (nB, nH, nQ, nV).T @ (nB, nH, nQ, nD) = (nB, nH, nV, nD)
+            attn = self.transpose(attn,
+                current=("nB", "nH", "nQ", "nV"), target=("nB", "nH", "nV", "nQ"))
+            d_values = self.ops.xp.matmul(attn, d_context)
+            return d_values, d_attn
+        return context, backprop_apply_attn_padded
 
 
 class AttentionInputs(object):
@@ -142,14 +156,16 @@ class AttentionInputs(object):
             dK = self.ops.allocate((self.nH, self.nN, self.nD))
             for h in range(self.nH):
                 for s, e, aS, aE in self.slices:
+                    n = e-s
                     # d_dots has shape (qlength, klength)
                     d_dots = self.ops.backprop_softmax(
-                        attn[h, s:e], d_attn[h, aS:aE], axis=-1)
+                        attn[h, aS:aE], d_attn[h, aS:aE], axis=-1)
+                    d_dots = d_dots.reshape((n, n))
                     # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
-                    blis.py.gemm.gemm(d_dots, K[h, s:e], alpha=scale,
+                    blis.py.gemm(d_dots, K[h, s:e], alpha=float(scale),
                         out=dQ[h, s:e])
                     # Compute (qlength, klength).T @ (qlength, nD) = (klength, nD)
-                    blis.py.gemm(d_dots, Q[h, s:e], alpha=scale, trans1=True,
+                    blis.py.gemm(d_dots, Q[h, s:e], alpha=float(scale), trans1=True,
                         out=dK[h, s:e])
             dQ = self.transpose(dQ,
                 target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
@@ -193,24 +209,24 @@ class AttentionInputs(object):
             target=("nN", "nH", "nD"), current=("nH", "nN", "nD"), contiguous=True)
 
         def backprop_apply_attention(d_output):
-            output = self.transpose(d_output,
+            d_output = self.transpose(d_output,
                 target=("nH", "nN", "nD"), current=("nN", "nH", "nD"), contiguous=True)
             d_values = self.ops.allocate((self.nH, self.nN, self.nD))
             d_attn = self.ops.allocate((self.nH, self.nP))
             for h in range(self.nH):
                 for s, e, aS, aE in self.slices:
                     n = e-s
-                    seq_attn = attn[h, aS:aE].reshape((e-s, -1))
+                    seq_attn = attn[h, aS:aE].reshape((n, n))
                     # (nQ, nV).T @ (nQ, nD) = (nV, nD)
-                    self.ops.gemm(seq_attn, d_output[h, s:e],
+                    blis.py.gemm(seq_attn, d_output[h, s:e],
                         trans1=True, out=d_values[h, s:e])
                     # (nQ, nD) @ (nV, nD).T = (nQ, nV)
-                    self.ops.gemm(d_output[h, s:e], d_values[h, s:e],
-                        trans2=True, out=d_attn[h, aS:aE].reshape((e-s, -1)))
+                    blis.py.gemm(d_output[h, s:e], d_values[h, s:e],
+                        trans2=True, out=d_attn[h, aS:aE].reshape((n, n)))
             d_values = self.transpose(d_values,
                 target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
             d_attn = self.transpose(d_attn,
-                target=("nN", "nH", "nN"), current=("nH", "nN", "nN"))
+                target=attn_dims, current=("nH", "nP"))
             return d_values, d_attn
         return output, backprop_apply_attention
 
@@ -252,10 +268,11 @@ class MultiHeadedAttention(Model):
         Model.__init__(self)
 
     def begin_update(self, qkv, drop=0.0):
-        attn, get_dQ_dK = qkv.queries_dot_keys(scale=self.ops.xp.sqrt(qkv.nM))
+        attn, get_dQ_dK = qkv.get_attn(scale=self.ops.xp.sqrt(qkv.nM))
         output0, get_dV_d_attn = qkv.apply_attn(attn)
         output1 = output0.reshape((qkv.nN, qkv.nH*qkv.nD))
         lengths = qkv.lengths
+        nN, nH, nD = (qkv.nN, qkv.nH, qkv.nD)
 
         def backprop_multiheaded_attention(d_output1, sgd=None):
             d_output0 = d_output1.reshape((nN, nH, nD))
