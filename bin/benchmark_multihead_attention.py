@@ -35,25 +35,35 @@ def get_padded_attn_inputs(lengths, values, nH, nD):
 
 @timebudget
 def get_attn_ragged(batch):
-    attn, backprop_attn = batch.get_attn()
-    return attn
-
+    return batch.get_attn()
 
 @timebudget
 def get_attn_padded(batch):
-    attn, backprop_attn = batch.get_attn()
-    return attn
+    return batch.get_attn()
 
 @timebudget
 def apply_attn_ragged(batch, attn):
-    output, _ = batch.apply_attn(attn)
-    return output
-
+    return batch.apply_attn(attn)
 
 @timebudget
 def apply_attn_padded(batch, attn):
-    output, _ = batch.apply_attn(attn)
-    return output
+    return batch.apply_attn(attn)
+
+@timebudget
+def backprop_apply_ragged(d_output, backprop):
+    return backprop(d_output)
+
+@timebudget
+def backprop_apply_padded(d_output, backprop):
+    return backprop(d_output)
+
+@timebudget
+def backprop_attn_ragged(d_attn, backprop):
+    return backprop(d_attn)
+
+@timebudget
+def backprop_attn_padded(d_attn, backprop):
+    return backprop(d_attn)
 
 
 def main(nr_batch=100, nr_length=30, nH=4, nD=128//4):
@@ -67,13 +77,17 @@ def main(nr_batch=100, nr_length=30, nH=4, nD=128//4):
         padded.append(get_padded_attn_inputs(lengths, values, nH, nD))
     unpadded_pow = 0.
     for batch in unpadded:
-        attn = get_attn_ragged(batch)
+        attn, backprop_attn = get_attn_ragged(batch)
         unpadded_pow += (attn*attn).sum()
-        output = apply_attn_ragged(batch, attn)
+        output, backprop_apply = apply_attn_ragged(batch, attn)
+        _, d_attn = backprop_apply_ragged(output, backprop_apply)
+        backprop_attn_ragged(d_attn, backprop_attn)
     padded_pow = 0.
     for batch in padded:
-        attn = get_attn_padded(batch)
-        output = apply_attn_padded(batch, attn)
+        attn, backprop_attn = get_attn_padded(batch)
+        output, backprop_apply = apply_attn_padded(batch, attn)
+        _, d_attn = backprop_apply_padded(output, backprop_apply)
+        backprop_attn_padded(d_attn, backprop_attn)
         padded_pow += (attn*attn).sum()
     print(unpadded_pow, padded_pow)
     total_words = sum(batch.nN for batch in unpadded)
