@@ -129,6 +129,9 @@ class AttentionInputs(object):
         return self._get_feature(2, dims, contiguous)
 
     def transpose(self, array, target, current, contiguous=False):
+        for i, dim in enumerate(current):
+            if hasattr(self, dim):
+                assert array.shape[i] == getattr(self, dim)
         assert set(current) == set(target)
         if current == target:
             return array
@@ -147,6 +150,9 @@ class AttentionInputs(object):
         attn = numpy.zeros((self.nH, self.nP), dtype="f")
         for h in range(self.nH):
             for s, e, aS, aE in self.slices:
+                # attn cell (0, 5) will record how much token 5 impacts
+                # the vector for token 0. cell (52, 2) shows how much token
+                # 2 influences token 52. Etc.
                 blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True,
                     out=attn[h, aS:aE].reshape((e-s, e-s)))
                 self.ops.softmax(attn[h, aS:aE].reshape(e-s, e-s), axis=-1, inplace=True)
@@ -197,9 +203,10 @@ class AttentionInputs(object):
         attn = self.transpose(attn,
             target=("nH", "nP"), current=attn_dims, contiguous=True)
         values = self.get_values(("nH", "nN", "nD"), contiguous=True)
-        # Attn is (nH, nQ, nV)
+        # Attn is (nH, nQ, nKV)
         # V    is (nH, nV, nD)
-        # Do: (nH, nQ, nV) @ (nH, nV, nD) = (nH, nQ, nD)
+        # where nK == nV
+        # Do: (nH, nQ, nK) @ (nH, nV, nD) = (nH, nQ, nD)
         output = self.ops.allocate((self.nH, self.nN, self.nD))
         for h in range(self.nH):
             for s, e, aS, aE in self.slices:
@@ -244,7 +251,7 @@ def prepare_self_attention(affine, nM=300, nH=6):
             dQKV = d_output.QKV.reshape((QKV.shape[0], -1))
             dX = get_dX(dQKV, sgd=sgd)
             if was_ragged:
-                return dX, lengths
+                return dX
             else:
                 return affine.ops.unflatten(dX, lengths)
 
@@ -281,5 +288,4 @@ class MultiHeadedAttention(Model):
             dQKV = self.ops.xp.hstack((dQ, dK, dV))
             dQKV = dQKV.reshape((dQKV.shape[0], 3, nH, nD))
             return AttentionInputs(dQKV, lengths)
-
         return (output1, lengths), backprop_multiheaded_attention

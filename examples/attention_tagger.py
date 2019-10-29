@@ -10,10 +10,8 @@ from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 
 from thinc.i2v import HashEmbed
-from thinc.v2v import Model, Affine, Maxout, Softmax
-from thinc.t2t import ExtractWindow
-from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
-from thinc.neural._classes.multiheaded_attention import prepare_self_attention
+from thinc.v2v import Model, Affine, Maxout, Softmax, Mish
+from thinc.t2t import SelfAttention
 from thinc.misc import Residual, LayerNorm
 from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
 
@@ -52,13 +50,15 @@ def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True)
 
 def PositionEncode(L, D):
     positions = Model.ops.position_encode(L, D)
-    def position_encode_forward(Xs, drop=0.):
-        output = []
-        for x in Xs:
-            output.append(x + positions[:x.shape[0]])
+    def position_encode_forward(X_lengths, drop=0.):
+        X, lengths = X_lengths
+        Y = X.copy()
+        start = 0
+        for length in lengths:
+            Y[start:start+length] += positions[:length]
         def position_encode_backward(dYs, sgd=None):
             return dYs
-        return output, position_encode_backward
+        return (Y, lengths), position_encode_backward
     return layerize(position_encode_forward)
 
 
@@ -163,15 +163,14 @@ def main(
         suffix = HashEmbed(width // 2, 100, column=3)
 
         model = (
-            with_flatten(
+            flatten_add_lengths
+            >> with_getitem(0, 
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, width+(width//2)*3, pieces=3))
+                >> LayerNorm(Maxout(width, width+(width//2)*3, pieces=3)))
             >> PositionEncode(1000, width)
-            >> Residual(
-                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
-                >> MultiHeadedAttention()
-                >> with_flatten(Affine(width, width)))
-            >> with_flatten(Softmax(nr_tag, width))
+            >> SelfAttention(width, 1, 2)
+            >> with_getitem(0, Softmax(nr_tag, width))
+            >> unflatten
         )
 
     train_X, train_y = preprocess(model.ops, extracter, train_data, nr_tag)
