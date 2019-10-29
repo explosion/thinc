@@ -168,7 +168,7 @@ def main(
                 (lower_case | shape | prefix | suffix)
                 >> LayerNorm(Maxout(width, width+(width//2)*3, pieces=3)))
             >> PositionEncode(1000, width)
-            >> SelfAttention(width, 1, 2)
+            >> SelfAttention(width, depth=depth, pieces=2)
             >> with_getitem(0, Softmax(nr_tag, width))
             >> unflatten
         )
