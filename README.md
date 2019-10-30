@@ -336,6 +336,7 @@ for layer definitions. Specifically, the following decorators are available:
 
 | Version   | Date         | Description                                                               |
 | --------- | ------------ | ------------------------------------------------------------------------- |
+| [v7.3.1]  | `2019-10-30` | Relax dependecy requirements                                              |
 | [v7.3.0]  | `2019-10-28` | Mish activation and experimental optimizers                               |
 | [v7.2.0]  | `2019-10-20` | Simpler GPU install and bug fixes                                         |
 | [v7.1.1]  | `2019-09-10` | Support `preshed` v3.0.0                                                  |
@@ -379,6 +380,7 @@ for layer definitions. Specifically, the following decorators are available:
 | v6.1.0    | `2017-01-09` | _n/a_                                                                     |
 | [v6.0.0]  | `2016-12-31` | Add `thinc.neural` for NLP-oriented deep learning                         |
 
+[v7.3.1]: https://github.com/explosion/thinc/releases/tag/v7.3.1
 [v7.3.0]: https://github.com/explosion/thinc/releases/tag/v7.3.0
 [v7.2.0]: https://github.com/explosion/thinc/releases/tag/v7.2.0
 [v7.1.1]: https://github.com/explosion/thinc/releases/tag/v7.1.1
