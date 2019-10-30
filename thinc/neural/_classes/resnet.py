@@ -12,30 +12,29 @@ class Residual(Model):
 
     def predict(self, X):
         Y = self._layers[0](X)
-        if isinstance(X, list) or isinstance(X, tuple):
-            return [X[i] + Y[i] for i in range(len(X))]
-        elif isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
-            assert X[1].sum() == Y[1].sum()
-            assert Y[1].sum() == Y[0].shape[0], (Y[1].sum(), Y[0].shape[0])
+        if isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
             return (X[0] + Y[0], Y[1])
+        elif isinstance(X, list) or isinstance(X, tuple):
+            return [X[i] + Y[i] for i in range(len(X))]
         else:
             return X + Y
 
     def begin_update(self, X, drop=0.0):
         y, bp_y = self._layers[0].begin_update(X, drop=drop)
-        if isinstance(X, list):
-            output = [X[i] + y[i] for i in range(len(X))]
-        elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
+        if isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
             # Handle case where we have (data, lengths) tuple
-            assert X[1].sum() == y[1].sum()
-            assert y[1].sum() == y[0].shape[0], (y[1].sum(), y[0].shape[0])
             output = (X[0] + y[0], y[1])
+            input_type = "ragged"
+        elif isinstance(X, list) or isinstance(X, tuple):
+            output = [X[i] + y[i] for i in range(len(X))]
+            input_type = "list"
         else:
+            input_type = "array"
             output = X + y
 
         def residual_bwd(d_output, sgd=None):
             dX = bp_y(d_output, sgd)
-            if isinstance(d_output, list) or isinstance(d_output, tuple):
+            if input_type == "list":
                 return [d_output[i] + dX[i] for i in range(len(d_output))]
             else:
                 return d_output + dX
