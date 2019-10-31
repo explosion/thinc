@@ -101,7 +101,8 @@ class AttentionInputs(object):
         self.nP = sum(length*length for length in lengths)
         self.nL = max(lengths)
         self.lengths = lengths
-        self.QKV = self.transpose(QKV, target=("qkv", "nH", "nN", "nD"),
+        self.qkv_dims = ("qkv", "nH", "nN", "nD")
+        self.QKV = self.transpose(QKV, target=self.qkv_dims,
             current=dims, contiguous=True)
 
     @property
@@ -115,9 +116,11 @@ class AttentionInputs(object):
             attn_start += attn_length
 
     def _get_feature(self, index, dims, contiguous):
+        assert self.qkv_dims[0] == "qkv"
+        current = self.qkv_dims[1:]
         data = self.QKV[index]
         return self.transpose(data,
-            current=("nH", "nN", "nD"), target=dims, contiguous=contiguous)
+            current=current, target=dims, contiguous=contiguous)
 
     def get_queries(self, dims, contiguous=False):
         return self._get_feature(0, dims, contiguous)
@@ -136,7 +139,7 @@ class AttentionInputs(object):
         if current == target:
             return array
         array = array.transpose([current.index(d) for d in target])
-        if contiguous and not array.flags["C_CONTIGUOUS"]:
+        if (contiguous and not array.flags["C_CONTIGUOUS"]):
             array = self.ops.xp.ascontiguousarray(array)
         return array
 
@@ -153,9 +156,9 @@ class AttentionInputs(object):
                 # attn cell (0, 5) will record how much token 5 impacts
                 # the vector for token 0. cell (52, 2) shows how much token
                 # 2 influences token 52. Etc.
-                blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True,
-                    out=attn[h, aS:aE].reshape((e-s, e-s)))
-                self.ops.softmax(attn[h, aS:aE].reshape(e-s, e-s), axis=-1, inplace=True)
+                dot_seq = blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True)
+                attn_seq = self.ops.softmax(dot_seq, axis=-1)
+                attn[h, aS:aE] = attn_seq.ravel()
         
         def backprop_get_attn_cpu(d_attn):
             dQ = self.ops.allocate((self.nH, self.nN, self.nD))
@@ -167,41 +170,16 @@ class AttentionInputs(object):
                     d_dots = self.ops.backprop_softmax(
                         attn[h, aS:aE], d_attn[h, aS:aE], axis=-1)
                     d_dots = d_dots.reshape((n, n))
+                    d_dots /= scale
                     # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
-                    blis.py.gemm(d_dots, K[h, s:e], alpha=float(scale),
-                        out=dQ[h, s:e])
+                    dQ[h, s:e] = blis.py.gemm(d_dots, K[h, s:e])
                     # Compute (qlength, klength).T @ (qlength, nD) = (klength, nD)
-                    blis.py.gemm(d_dots, Q[h, s:e], alpha=float(scale), trans1=True,
-                        out=dK[h, s:e])
-            dQ = self.transpose(dQ,
-                target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
-            dK = self.transpose(dK,
-                target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
+                    dK[h, s:e] = blis.py.gemm(d_dots, Q[h, s:e], trans1=True)
             return dQ, dK
         return attn, backprop_get_attn_cpu
 
-    def _get_attn_gpu(queries, keys, values, out=None):
-        A_ptr = self.K.data.ptr
-        B_ptr = self.Q.data.ptr
-        C_ptr = out.data.ptr
-        strideA = self.nL * self.K.shape[1]
-        strideB = self.Q.shape[1]
-        strideC = self.nL
-
-        sgemmStridedBatched(
-            handle,
-            False, False,
-            Q.shape[0], 1, Q.shape[1],
-            alpha,
-            A_ptr, K.shape[1], da, strideA,
-            B_ptr, Q.shape[1], strideB,
-            C_ptr, V.shape[1], strideC,
-            batchCount
-        )
-
-    def apply_attn(self, attn, attn_dims=("nH", "nP")):
-        attn = self.transpose(attn,
-            target=("nH", "nP"), current=attn_dims, contiguous=True)
+    def apply_attn(self, attn):
+        assert attn.shape == (self.nH, self.nP)
         values = self.get_values(("nH", "nN", "nD"), contiguous=True)
         # Attn is (nH, nQ, nKV)
         # V    is (nH, nV, nD)
@@ -211,13 +189,9 @@ class AttentionInputs(object):
         for h in range(self.nH):
             for s, e, aS, aE in self.slices:
                 seq_attn = attn[h, aS:aE].reshape((e-s, -1))
-                self.ops.gemm(seq_attn, values[h, s:e], out=output[h, s:e])
-        output = self.transpose(output,
-            target=("nN", "nH", "nD"), current=("nH", "nN", "nD"), contiguous=True)
+                output[h, s:e] = self.ops.gemm(seq_attn, values[h, s:e])
 
         def backprop_apply_attention(d_output):
-            d_output = self.transpose(d_output,
-                target=("nH", "nN", "nD"), current=("nN", "nH", "nD"), contiguous=True)
             d_values = self.ops.allocate((self.nH, self.nN, self.nD))
             d_attn = self.ops.allocate((self.nH, self.nP))
             for h in range(self.nH):
@@ -225,15 +199,12 @@ class AttentionInputs(object):
                     n = e-s
                     seq_attn = attn[h, aS:aE].reshape((n, n))
                     # (nQ, nV).T @ (nQ, nD) = (nV, nD)
-                    blis.py.gemm(seq_attn, d_output[h, s:e],
-                        trans1=True, out=d_values[h, s:e])
+                    d_values[h, s:e] = blis.py.gemm(seq_attn, d_output[h, s:e],
+                        trans1=True)
                     # (nQ, nD) @ (nV, nD).T = (nQ, nV)
-                    blis.py.gemm(d_output[h, s:e], d_values[h, s:e],
-                        trans2=True, out=d_attn[h, aS:aE].reshape((n, n)))
-            d_values = self.transpose(d_values,
-                target=("nN", "nH", "nD"), current=("nH", "nN", "nD"))
-            d_attn = self.transpose(d_attn,
-                target=attn_dims, current=("nH", "nP"))
+                    d_seq_attn = blis.py.gemm(d_output[h, s:e], values[h, s:e],
+                        trans2=True)
+                    d_attn[h, aS:aE] = d_seq_attn.ravel()
             return d_values, d_attn
         return output, backprop_apply_attention
 
@@ -243,12 +214,19 @@ def prepare_self_attention(affine, nM=300, nH=6):
     
     def qkv_sa_forward(Xs, drop=0.0):
         (X, lengths), was_ragged = _get_ragged_array(affine.ops, Xs)
+        assert X.shape[1] == nM
         assert X.shape == (sum(lengths), Xs[0].shape[-1]), (X.shape, Xs[0].shape)
         QKV, get_dX = affine.begin_update(X, drop=drop)
-        output = AttentionInputs(QKV.reshape((X.shape[0], 3, nH, -1)), lengths)
+        output = AttentionInputs(QKV.reshape((X.shape[0], 3, nH, -1)), lengths,
+            dims=("nN", "qkv", "nH", "nD"))
+        assert output.nH == nH
+        assert output.nD == nD
 
         def qkv_sa_backward(d_output, sgd=None):
-            dQKV = d_output.QKV.reshape((QKV.shape[0], -1))
+            dQKV = d_output.transpose(d_output.QKV,
+                current=d_output.qkv_dims, target=("nN", "qkv", "nH", "nD"),
+                contiguous=True)
+            dQKV = dQKV.reshape((dQKV.shape[0], -1))
             dX = get_dX(dQKV, sgd=sgd)
             if was_ragged:
                 return dX
@@ -277,15 +255,22 @@ class MultiHeadedAttention(Model):
     def begin_update(self, qkv, drop=0.0):
         attn, get_dQ_dK = qkv.get_attn(scale=self.ops.xp.sqrt(qkv.nM))
         output0, get_dV_d_attn = qkv.apply_attn(attn)
-        output1 = output0.reshape((qkv.nN, qkv.nH*qkv.nD))
+        output1 = qkv.transpose(output0, current=("nH", "nN", "nD"),
+            target=("nN", "nH", "nD"), contiguous=True)
+        output2 = output1.reshape((qkv.nN, qkv.nH*qkv.nD))
         lengths = qkv.lengths
         nN, nH, nD = (qkv.nN, qkv.nH, qkv.nD)
 
-        def backprop_multiheaded_attention(d_output1, sgd=None):
-            d_output0 = d_output1.reshape((nN, nH, nD))
+        def backprop_multiheaded_attention(d_output2, sgd=None):
+            assert d_output2.shape == (nN, nH*nD)
+            d_output1 = d_output2.reshape((nN, nH, nD))
+            d_output0 = qkv.transpose(d_output1, current=("nN", "nH", "nD"),
+                target=("nH", "nN", "nD"), contiguous=True)
             dV, d_attn = get_dV_d_attn(d_output0)
             dQ, dK = get_dQ_dK(d_attn)
-            dQKV = self.ops.xp.hstack((dQ, dK, dV))
-            dQKV = dQKV.reshape((dQKV.shape[0], 3, nH, nD))
-            return AttentionInputs(dQKV, lengths)
-        return (output1, lengths), backprop_multiheaded_attention
+            assert dQ.shape == (nH, nN, nD)
+            assert dK.shape == (nH, nN, nD)
+            assert dV.shape == (nH, nN, nD)
+            dQKV = self.ops.xp.vstack((dQ, dK, dV)).reshape((3, nH, nN, nD))
+            return AttentionInputs(dQKV, lengths, dims=("qkv", "nH", "nN", "nD"))
+        return (output2, lengths), backprop_multiheaded_attention
