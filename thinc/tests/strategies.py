@@ -122,3 +122,17 @@ def arrays_OPFI_BI_lengths(max_B=5, max_P=3, max_F=5, max_I=8):
         )
     )
     return strat
+
+
+def arrays_ragged(width=16, max_elements=5, max_length=10):
+     length_arrays = lengths(lo=1, hi=max_length).flatmap(
+        lambda n: ndarrays_of_shape((n,), lo=1, hi=max_length)
+    )
+
+    strat = length_arrays.flatmap(
+        lambda lengths_arr: tuples(
+            ndarrays_of_shape((lengths_arr.sum(), width)),
+            lengths_arr)
+    )
+
+    return strat
