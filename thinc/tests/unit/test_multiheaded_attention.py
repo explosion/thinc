@@ -199,16 +199,16 @@ def get_small_apply_attn_example():
          for i in range(3)]
     ]
     # Calculate d_attn
-    # context[0,0] came from attn[0,0] * values[0,0] + attn[0,1]*values[1,0]
-    # context[1,0] came from attn[1,0] * values[0,0] + attn[1,1]*values[1,0]
+    # context[0] came from attn[0,0] * values[0] + attn[0,1]*values[1]
+    # context[1] came from attn[1,0] * values[0] + attn[1,1]*values[1]
     # So d_attn[0,0] = sum(d_context[0] * values[0]) 
     # d_attn[0,1] = sum(d_context[0] * values[1]) 
     # d_attn[1,0] = sum(d_context[1] * values[0]) 
     # d_attn[1,1] = sum(d_context[1] * values[1]) 
-    dot = lambda X, Y: sum(X[i]*Y[i] for i in range(3)
+ 
     d_attn = [
-        [dot(d_context[0], d_values[0]), dot(d_context[0], d_values[1])],
-        [dot(d_context[1], d_values[0]), dot(d_context[1], d_values[1])]
+        [(1*-1 + -1*1 + 0*0.5), (1*1+-1*-1+0*2)],
+        [(0.5*-1+0.5*1+0.5*0.5), (0.5*1+0.5*-1+0.5*2)]
     ]
 
     data = numpy.array(queries + keys + values, dtype="f")
@@ -231,5 +231,6 @@ def test_apply_attn_forward_backward_small():
     context, backprop_context = ainputs.apply_attn(attn)
     assert_allclose(context, expected["context"])
     d_values, d_attn = backprop_context(d_context)
+    d_attn = d_attn.reshape((2, 2))
     assert_allclose(d_values, expected["d_values"], atol=1e-5, rtol=1e-5)
     assert_allclose(d_attn, expected["d_attn"], atol=1e-5, rtol=1e-5)
