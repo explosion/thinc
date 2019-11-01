@@ -65,7 +65,7 @@ def test_attn_non_zero_gradients(ainputs):
     d_attn += numpy.random.uniform(-1, 1., d_attn.shape)
     dQ1, dK1 = backprop_attn(d_attn)
     attn, backprop_attn = ainputs._get_attn_cpu(1.)
-    dQ2, dK2 = backprop_attn(d_attn+100)
+    dQ2, dK2 = backprop_attn(d_attn*2)
     abs_dQ1 = numpy.abs(dQ1).ravel()
     abs_dQ2 = numpy.abs(dQ2).ravel()
     for i in range(abs_dQ1.size):
