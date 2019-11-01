@@ -187,7 +187,7 @@ def get_small_apply_attn_example():
         [1., -1., 0.],
         [0.5, 0.5, 0.5]
     ]
-    # Backprop d_values
+    # Calculate d_values
     # context[0,0] came from attn[0,0] * values[0,0] + attn[0,1]*values[1,0]
     # context[1,0] came from attn[1,0] * values[0,0] + attn[1,1]*values[1,0]
     # So d_values[0,0] = attn[0,0] * d_context[0,0] + attn[1,0] * d_context[1,0]
@@ -198,6 +198,18 @@ def get_small_apply_attn_example():
         [d_context[0][i] * attn[0][1] + d_context[1][i] * attn[1][1]
          for i in range(3)]
     ]
+    # Calculate d_attn
+    # context[0,0] came from attn[0,0] * values[0,0] + attn[0,1]*values[1,0]
+    # context[1,0] came from attn[1,0] * values[0,0] + attn[1,1]*values[1,0]
+    # So d_attn[0,0] = sum(d_context[0] * values[0]) 
+    # d_attn[0,1] = sum(d_context[0] * values[1]) 
+    # d_attn[1,0] = sum(d_context[1] * values[0]) 
+    # d_attn[1,1] = sum(d_context[1] * values[1]) 
+    dot = lambda X, Y: sum(X[i]*Y[i] for i in range(3)
+    d_attn = [
+        [dot(d_context[0], d_values[0]), dot(d_context[0], d_values[1])],
+        [dot(d_context[1], d_values[0]), dot(d_context[1], d_values[1])]
+    ]
 
     data = numpy.array(queries + keys + values, dtype="f")
     QKV = data.reshape((3, 1, 2, 3))
@@ -206,7 +218,7 @@ def get_small_apply_attn_example():
         "attn": numpy.array(attn, dtype="f").reshape((1, -1)),
         "context": numpy.array(context, dtype="f").reshape((1, 2, 3)),
         "d_values": numpy.array(d_values, dtype="f").reshape((1, 2, 3)),
-        "d_attn": None
+        "d_attn": numpy.array(d_attn, dtype="f")
     }
     d_context = numpy.array(d_context, dtype="f").reshape((1, 2, 3))
     return ainputs, d_context, expected
@@ -220,3 +232,4 @@ def test_apply_attn_forward_backward_small():
     assert_allclose(context, expected["context"])
     d_values, d_attn = backprop_context(d_context)
     assert_allclose(d_values, expected["d_values"], atol=1e-5, rtol=1e-5)
+    assert_allclose(d_attn, expected["d_attn"], atol=1e-5, rtol=1e-5)
