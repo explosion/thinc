@@ -153,3 +153,70 @@ def test_attn_forward_backward_small():
     d_queries, d_keys = backprop_attn(d_attn)
     assert_allclose(d_queries, expected["d_queries"])
     assert_allclose(d_keys, expected["d_keys"])
+
+
+def get_small_apply_attn_example():
+    lengths = [2]
+    queries = [
+        [1, -1, 1],
+        [0, 0, 1]
+    ]
+    keys = [
+        [1, 0, 0],
+        [1, -1, 0]
+    ]
+    values = [
+        [-1., 1., 0.5],
+        [1., -1, 2,]
+    ]
+    # Softmax
+    exp1 = 2.718281828459045
+    exp2 = 7.38905609893065
+    attn = [
+        # 2.7 / 10.1 = 0.73, 7.4 / 10.1 = 27
+        [exp1 / (exp1+exp2), exp2 / (exp1+exp2)],
+        [1. / 2., 1. / 2.]
+    ]
+    context = [
+        [(attn[0][0] * values[0][i] + attn[0][1] * values[1][i])
+         for i in range(3)],
+        [(attn[1][0] * values[0][i] + attn[1][1] * values[1][i])
+         for i in range(3)]
+    ]
+    d_context = [
+        [1., -1., 0.],
+        [0.5, 0.5, 0.5]
+    ]
+    # Backprop d_values
+    # context[0,0] came from attn[0,0] * values[0,0] + attn[0,1]*values[1,0]
+    # context[1,0] came from attn[1,0] * values[0,0] + attn[1,1]*values[1,0]
+    # So d_values[0,0] = attn[0,0] * d_context[0,0] + attn[1,0] * d_context[1,0]
+    # So d_values[1,0] = attn[1,0] * d_context[1,0] + attn[1,1] * d_context[1,0]
+    d_values = [
+        [d_context[0][i] * attn[0][0] + d_context[1][i] * attn[1][0]
+         for i in range(3)],
+        [d_context[0][i] * attn[0][1] + d_context[1][i] * attn[1][1]
+         for i in range(3)]
+    ]
+
+    data = numpy.array(queries + keys + values, dtype="f")
+    QKV = data.reshape((3, 1, 2, 3))
+    ainputs = AttentionInputs(QKV, [2], dims=("qkv", "nH", "nN", "nD"))
+    expected = {
+        "attn": numpy.array(attn, dtype="f").reshape((1, -1)),
+        "context": numpy.array(context, dtype="f").reshape((1, 2, 3)),
+        "d_values": numpy.array(d_values, dtype="f").reshape((1, 2, 3)),
+        "d_attn": None
+    }
+    d_context = numpy.array(d_context, dtype="f").reshape((1, 2, 3))
+    return ainputs, d_context, expected
+
+
+def test_apply_attn_forward_backward_small():
+    ainputs, d_context, expected = get_small_apply_attn_example()
+    attn, backprop_attn = ainputs.get_attn()
+    assert_allclose(attn, expected["attn"])
+    context, backprop_context = ainputs.apply_attn(attn)
+    assert_allclose(context, expected["context"])
+    d_values, d_attn = backprop_context(d_context)
+    assert_allclose(d_values, expected["d_values"], atol=1e-5, rtol=1e-5)
