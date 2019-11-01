@@ -303,7 +303,7 @@ class Ops(object):
     def backprop_softmax(self, Y, dY, axis=-1):
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
-        return dX
+        return dY * dX
 
     def backprop_softmax_sequences(self, dy, y, lengths):
         dx = y * dy
