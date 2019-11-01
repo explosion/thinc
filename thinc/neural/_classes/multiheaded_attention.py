@@ -56,7 +56,7 @@ class PaddedAttentionInputs(object):
 
         def backprop_attn(d_attn):
             assert d_attn.shape == (self.nB, self.nH, self.nL, self.nL), d_attn.shape
-            d_dots = self.ops.backprop_softmax(attn, d_attn, axis=-1)
+            d_dots = d_attn * self.ops.backprop_softmax(attn, d_attn, axis=-1)
             d_dots /= scale
             # (nB, nH, nQ, nK) @ (nB, nH, nD, nK).T = (nB, nH, nQ, nD)
             d_queries = self.ops.xp.matmul(d_dots, keys.transpose((0, 1, 3, 2)))
@@ -157,6 +157,7 @@ class AttentionInputs(object):
                 # the vector for token 0. cell (52, 2) shows how much token
                 # 2 influences token 52. Etc.
                 dot_seq = blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True)
+                assert dot_seq.shape == (e-s, e-s)
                 attn_seq = self.ops.softmax(dot_seq, axis=-1)
                 attn[h, aS:aE] = attn_seq.ravel()
         
@@ -166,10 +167,11 @@ class AttentionInputs(object):
             for h in range(self.nH):
                 for s, e, aS, aE in self.slices:
                     n = e-s
+                    seq_attn = attn[h, aS:aE].reshape((n, n))
+                    d_seq_attn = d_attn[h, aS:aE].reshape((n, n))
                     # d_dots has shape (qlength, klength)
-                    d_dots = self.ops.backprop_softmax(
-                        attn[h, aS:aE], d_attn[h, aS:aE], axis=-1)
-                    d_dots = d_dots.reshape((n, n))
+                    d_dots = d_seq_attn * self.ops.backprop_softmax(seq_attn, d_seq_attn, axis=-1)
+                    assert d_dots.shape == (n, n)
                     d_dots /= scale
                     # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
                     dQ[h, s:e] = blis.py.gemm(d_dots, K[h, s:e])
