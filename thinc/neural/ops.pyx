@@ -136,8 +136,8 @@ class Ops(object):
     def flatten(self, X, dtype=None, pad=0):
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or 'f')
-        X = [x for x in X if x.size != 0]
         xp = get_array_module(X[0])
+        X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
             padded = []
             for x in X:
@@ -1107,6 +1107,10 @@ class CupyOps(Ops):
             return W
         else:
             return inits
+
+    def position_encode(self, *args, **kwargs):
+        positions = NumpyOps().position_encode(*args, **kwargs)
+        return self.asarray(positions)
 
 
 cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
