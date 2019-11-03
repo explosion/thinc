@@ -44,11 +44,10 @@ def test_attns_sum_to_one(ainputs):
     attn, backprop_attn = ainputs._get_attn_cpu(1.)
     assert attn.shape == (ainputs.nH, ainputs.nP)
     for h in range(ainputs.nH):
-        for s, e, aS, aE in ainputs.slices:
-            n = e - s
-            seq_attn = attn[h, aS:aE].reshape((n, n))
-            assert_allclose(seq_attn.sum(axis=-1), numpy.ones((n,), dtype="f"),
-                rtol=1e-5, atol=1e-4)
+        for q_slice, k_slice, attn_slice, attn_shape in ainputs.slices:
+            seq_attn = attn[h, attn_slice].reshape(attn_shape)
+            assert_allclose(seq_attn.sum(axis=-1),
+                numpy.ones((attn_shape[0],), dtype="f"), rtol=1e-5, atol=1e-4)
 
 
 def test_attn_zero_gradients(ainputs):

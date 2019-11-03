@@ -110,10 +110,12 @@ class AttentionInputs(object):
         start = 0
         attn_start = 0
         for length in self.lengths:
-            attn_length = length*length
-            yield start, start+length, attn_start, attn_start+attn_length
+            q_slice = slice(start, start+length)
+            k_slice = slice(start, start+length)
+            attn_slice = slice(attn_start, attn_start+length*length)
+            yield q_slice, k_slice, attn_slice, (length, length)
             start += length
-            attn_start += attn_length
+            attn_start += length * length
 
     def _get_feature(self, index, dims, contiguous):
         assert self.qkv_dims[0] == "qkv"
@@ -152,29 +154,29 @@ class AttentionInputs(object):
         K = self.get_keys(("nH", "nN", "nD"), contiguous=True)
         attn = numpy.zeros((self.nH, self.nP), dtype="f")
         for h in range(self.nH):
-            for s, e, aS, aE in self.slices:
+            for q_slice, k_slice, attn_slice, attn_shape in self.slices:
                 # Do the dot product and attention in-place, for efficiency.
-                blis.py.gemm(Q[h, s:e], K[h, s:e], beta=scale, trans2=True,
-                    out=attn[h, aS:aE].reshape((e-s, e-s)))
-                self.ops.softmax(attn[h, aS:aE].reshape((e-s, e-s)),
+                blis.py.gemm(Q[h, q_slice], K[h, k_slice], beta=scale, trans2=True,
+                    out=attn[h, attn_slice].reshape(attn_shape))
+                self.ops.softmax(attn[h, attn_slice].reshape(attn_shape),
                     axis=-1, inplace=True)
         
         def backprop_get_attn_cpu(d_attn):
             dQ = self.ops.allocate((self.nH, self.nN, self.nD))
             dK = self.ops.allocate((self.nH, self.nN, self.nD))
             for h in range(self.nH):
-                for s, e, aS, aE in self.slices:
-                    seq_attn = attn[h, aS:aE].reshape((e-s, e-s))
-                    d_seq_attn = d_attn[h, aS:aE].reshape((e-s, e-s))
+                for q_slice, k_slice, attn_slice, attn_shape in self.slices:
+                    seq_attn = attn[h, attn_slice].reshape(attn_shape)
+                    d_seq_attn = d_attn[h, attn_slice].reshape(attn_shape)
                     # d_dots has shape (qlength, klength)
                     d_dots = self.ops.backprop_softmax(seq_attn, d_seq_attn, axis=-1)
-                    assert d_dots.shape == (e-s, e-s)
+                    assert d_dots.shape == attn_shape
                     # Compute (qlength, klength) @ (klength, nD) = (qlength, nD)
-                    blis.py.gemm(d_dots, K[h, s:e], alpha=scale,
-                        out=dQ[h, s:e])
+                    blis.py.gemm(d_dots, K[h, k_slice], alpha=scale,
+                        out=dQ[h, q_slice])
                     # Compute (qlength, klength).T @ (qlength, nD) = (klength, nD)
-                    blis.py.gemm(d_dots, Q[h, s:e], trans1=True, alpha=scale,
-                        out=dK[h, s:e])
+                    blis.py.gemm(d_dots, Q[h, q_slice], trans1=True, alpha=scale,
+                        out=dK[h, k_slice])
             return dQ, dK
         return attn, backprop_get_attn_cpu
 
@@ -187,22 +189,22 @@ class AttentionInputs(object):
         # Do: (nH, nQ, nK) @ (nH, nV, nD) = (nH, nQ, nD)
         output = self.ops.allocate((self.nH, self.nN, self.nD))
         for h in range(self.nH):
-            for s, e, aS, aE in self.slices:
-                seq_attn = attn[h, aS:aE].reshape((e-s, -1))
-                self.ops.gemm(seq_attn, values[h, s:e], out=output[h, s:e])
+            for q_slice, v_slice, attn_slice, attn_shape in self.slices:
+                seq_attn = attn[h, attn_slice].reshape(attn_shape)
+                self.ops.gemm(seq_attn, values[h, v_slice], out=output[h, q_slice])
 
         def backprop_apply_attention(d_output):
             d_values = self.ops.allocate((self.nH, self.nN, self.nD))
             d_attn = self.ops.allocate((self.nH, self.nP))
             for h in range(self.nH):
-                for s, e, aS, aE in self.slices:
-                    seq_attn = attn[h, aS:aE].reshape((e-s, e-s))
+                for q_slice, v_slice, attn_slice, attn_shape in self.slices:
+                    seq_attn = attn[h, attn_slice].reshape(attn_shape)
                     # (nQ, nV).T @ (nQ, nD) = (nV, nD)
-                    blis.py.gemm(seq_attn, d_output[h, s:e], trans1=True,
-                        out=d_values[h, s:e])
+                    blis.py.gemm(seq_attn, d_output[h, q_slice], trans1=True,
+                        out=d_values[h, v_slice])
                     # (nQ, nD) @ (nV, nD).T = (nQ, nV)
-                    blis.py.gemm(d_output[h, s:e], values[h, s:e], trans2=True,
-                        out=d_attn[h, aS:aE].reshape((e-s, e-s)))
+                    blis.py.gemm(d_output[h, q_slice], values[h, v_slice], trans2=True,
+                        out=d_attn[h, attn_slice].reshape(attn_shape))
             return d_values, d_attn
         return output, backprop_apply_attention
 
