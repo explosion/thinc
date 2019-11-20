@@ -223,7 +223,7 @@ def setup_package():
                 "srsly>=0.0.6,<1.1.0",
                 # Third-party dependencies
                 "numpy>=1.7.0",
-                "plac>=0.9.6,<1.0.0",
+                "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
             ],

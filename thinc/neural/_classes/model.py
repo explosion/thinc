@@ -208,7 +208,7 @@ class Model(object):
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
 
-    def evaluate(self, X, y):
+    def evaluate(self, X, y, batch_size=128):
         """
         x
             Must match expected type
@@ -216,7 +216,7 @@ class Model(object):
         y
             Must match expected type
         """
-        scores = self.ops.flatten(list(self.pipe(X)))
+        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
         if not hasattr(y, "shape"):
             y = self.ops.flatten(y)
         scores = scores.reshape(y.shape)

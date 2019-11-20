@@ -37,6 +37,7 @@ import blis.py
 
 
 cdef extern from "math.h":
+    float logf(float x) nogil
     float sqrtf(float x) nogil
     float expf(float x) nogil
     float tanhf(float x) nogil
@@ -51,11 +52,6 @@ try:
 except ImportError:
     cupy = None
 
-
-try:
-    import thinc_gpu_ops as gpu_ops
-except ImportError:
-    pass
 
 
 class Ops(object):
@@ -140,8 +136,8 @@ class Ops(object):
     def flatten(self, X, dtype=None, pad=0):
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or 'f')
-        X = [x for x in X if x.size != 0]
         xp = get_array_module(X[0])
+        X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
             padded = []
             for x in X:
@@ -367,6 +363,52 @@ class Ops(object):
         d_prev[:] = dc * hf
         copy_array(d_cells, dc)
 
+    def softplus(self, X, threshold=20., out=None):
+        xp = get_array_module(X)
+        log1p_exp = xp.log1p(xp.exp(X))
+        indices = X >= threshold
+        log1p_exp[indices] = X[indices]
+        if out is None:
+            return log1p_exp
+        else:
+            out[:] = log1p_exp
+            return out
+
+    def backprop_softplus(self, dY, X, threshold=20, out=None):
+        xp = get_array_module(X)
+        if out is None:
+            out = xp.zeros(X.shape, dtype="f")
+        out[:] = 1 - 1 / (1 + xp.exp(X))
+        out *= dY
+        indices = X >= threshold
+        out[indices] = dY[indices]
+        return out
+
+    def mish(self, X, threshold=20., out=None):
+        Xsoft = self.softplus(X, threshold=threshold, out=out)
+        Y = self.xp.tanh(Xsoft, out=out)
+        Y *= X
+        return Y
+
+    def backprop_mish(self, dY, X, threshold=20, out=None):
+        xp = get_array_module(X)
+        indices = X < threshold
+        Xsub = X[indices]
+        dYsub = dY[indices]
+        omega = 4. * (Xsub+1.)
+        omega += 4. * xp.exp(2.*Xsub)
+        omega += xp.exp(Xsub) * ((4.*Xsub)+6.)
+        delta = 2. * xp.exp(Xsub)
+        delta += xp.exp(2.*Xsub)
+        delta += 2.
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
+        if out is None:
+            out = xp.zeros(dY.shape, dtype="f")
+        # Gradient when above threshold will ignore softplus.
+        out[:] = dY + dY * self.dtanh(X)
+        out[indices] = dXsub
+        return out
+
     def xavier_uniform_init(self, W, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -425,6 +467,23 @@ class Ops(object):
 class NumpyOps(Ops):
     device = 'cpu'
     xp = numpy
+
+    def asarray(self, data, dtype=None):
+        if isinstance(data, self.xp.ndarray):
+            if dtype is not None:
+                return self.xp.asarray(data, dtype=dtype)
+            else:
+                return self.xp.asarray(data)
+        elif hasattr(data, 'numpy'):
+            # Handles PyTorch Tensor
+            return data.numpy()
+        elif hasattr(data, "get"):
+            return data.get()
+        elif dtype is not None:
+            return self.xp.array(data, dtype=dtype)
+        else:
+            return self.xp.array(data)
+
 
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, integer_types):
@@ -559,6 +618,29 @@ class NumpyOps(Ops):
         cpu_backprop_maxout(<float*>dX__bop.data,
             &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
         return dX__bop
+
+    def mish(self, const float[:, ::1] X, threshold=5, out=None):
+        shape = [X.shape[i] for i in range(X.ndim)]
+        cdef np.ndarray Y = self.allocate(tuple(shape), dtype="f")
+        cpu_mish(<float*>Y.data,
+            &X[0, 0], threshold, X.size)
+        if out is not None:
+            out[:] = Y
+            return out
+        else:
+            return Y
+    
+    def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
+            threshold=5, out=None):
+        shape = [X.shape[i] for i in range(X.ndim)]
+        cdef np.ndarray dX = self.allocate(tuple(shape), dtype="f")
+        cpu_backprop_mish(<float*>dX.data,
+            &dY[0, 0], &X[0, 0], threshold, X.size)
+        if out is not None:
+            out[:] = dX
+            return out
+        else:
+            return dX
 
     #def lstm(self, float[:, ::1] output, float[:, ::1] cells,
     #        float[:, ::1] gates, float[:, ::1] prev):
@@ -861,6 +943,33 @@ cdef void cpu_update_averages(weight_t* ema,
         ema[i] -= one_minus_decay * (ema[i] - weights[i])
 
 
+cdef void cpu_mish(weight_t* Y, const weight_t* X, float threshold, int N) nogil:
+    cdef float one = 1.
+    for i in range(N):
+        if X[i] >= threshold:
+            Y[i] = X[i]
+        else:
+            Y[i] = X[i] * tanhf(logf(one + expf(X[i])))
+
+
+cdef void cpu_backprop_mish(weight_t* dX,
+        const weight_t* dY, const weight_t* X, float threshold, int N) nogil:
+    cdef float one = 1.
+    cdef float exp_x, exp_2x, exp_3x, omega, delta
+    for i in range(N):
+        x = X[i]
+        if x >= threshold:
+            dX[i] = dY[i]
+        else:
+            exp_x = expf(x)
+            exp_2x = expf(2*x)
+            exp_3x = expf(3*x)
+            omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6)
+            delta = 2. * exp_x + exp_2x + 2.
+            dX[i] = dY[i] * ((exp_x * omega) / (delta * delta))
+
+     
+
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
@@ -892,14 +1001,10 @@ class CupyOps(Ops):
             return self.xp.array(X, dtype=dtype)
 
     def maxout(self, X):
-        amax = X.max(axis=-1)
-        argmax = self.asarray(X.argmax(axis=-1), dtype='i')
-        return amax, argmax
+        return _custom_kernels.maxout(X)
 
-    def backprop_maxout(self, dX__bo, which__bo, int P):
-        dX__bop = gpu_backprop_maxout(
-            dX__bo.ravel(), which__bo.ravel(), P, size=dX__bo.size * P)
-        return dX__bop.reshape((dX__bo.shape[0], dX__bo.shape[1], P))
+    def backprop_maxout(self, dY, which, int P):
+        return _custom_kernels.backprop_maxout(dY, which, P)
 
     def relu(self, X, inplace=False):
         if not inplace:
@@ -932,6 +1037,12 @@ class CupyOps(Ops):
         if inplace:
             copy_array(delta, out)
         return out
+    
+    def mish(self, X, threshold=5, out=None):
+        return _custom_kernels.mish(X, threshold=threshold, out=out)
+
+    def backprop_mish(self, dY, X, threshold=5, out=None):
+        return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
         xp = get_array_module(gradient)
@@ -996,6 +1107,10 @@ class CupyOps(Ops):
             return W
         else:
             return inits
+
+    def position_encode(self, *args, **kwargs):
+        positions = NumpyOps().position_encode(*args, **kwargs)
+        return self.asarray(positions)
 
 
 cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
@@ -1084,27 +1199,6 @@ cdef void cpu_backprop_maxout(float* dX__bop,
             dX__bop += P
             dX__bo += 1
             which__bo += 1
-
-
-# Here we broadcast over the longest dimension (dX) and compute indexes
-# for the narrower dimensions.
-if cupy is not None:
-    gpu_backprop_maxout = cupy.ElementwiseKernel(
-        'raw float32 best, raw int32 which, raw int32 P',
-        'float32 dX',
-        'dX = (which[i/P] == i%P) ? best[i/P] : 0',
-        'bp_maxout')
-    # 't2b' is a mapping from the T dimension (i.e. lengths.sum()) to
-    # the B dimension. It tells you which sequence the index is in.
-    gpu_backprop_max_pool = cupy.ElementwiseKernel(
-        ('raw float32 d_best, raw int32 which,'
-         'raw int32 lengths, raw int32 t2b, raw int32 O'),
-        'float32 dX',
-        '''
-        dX = (which[t2b[i/O]] == i % O) ? d_best[t2b[i/O]] : 0',
-        ''',
-        'bp_maxpool'
-    )
 
 
 def cpu_clip_gradient(weight_t[::1] gradient, weight_t threshold):

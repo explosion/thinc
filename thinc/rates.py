@@ -1,7 +1,20 @@
 # coding: utf8
 """Generators that provide different rates, schedules, decays or series."""
-
 from __future__ import unicode_literals, division
+import numpy
+
+
+def constant_then(rate, steps, schedule):
+    """Yield a constant rate for N steps, before starting a schedule."""
+    for i in range(steps):
+        yield rate
+    for value in schedule:
+        yield value
+
+
+def constant(rate):
+    while True:
+        yield rate
 
 
 def decaying(base_rate, decay, t=0):
@@ -53,6 +66,15 @@ def annealing(rate, decay, decay_steps, t=0.0):
             t += 1
 
 
+def annealing_cos(start, end, step=0.001):
+    pct = step
+    while True:
+        cos_out = numpy.cos(numpy.pi * pct) + 1
+        yield end + (start-end)/2 * cos_out
+        pct += step
+
+
+
 def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0.0):
     """Yield an infinite series of values according to Howard and Ruder's
     "slanted triangular learning rate" schedule.
@@ -66,3 +88,31 @@ def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0
             p = 1 - ((t - cut) / (cut * (1 / cut_frac - 1)))
         learn_rate = max_rate * (1 + p * (ratio - 1)) * (1 / ratio)
         yield learn_rate
+
+
+
+def warmup_linear(initial_rate, warmup_steps, total_steps):
+    """Generate a series, starting from an initial rate, and then with a warmup
+    period, and then a linear decline. Used for learning rates.
+    """
+    step = 0
+    while True:
+        if step < warmup_steps:
+            factor = step / max(1, warmup_steps)
+        else:
+            factor = max(
+                0.0, (total_steps - step) / max(1.0, total_steps - warmup_steps)
+            )
+        yield factor * initial_rate
+        step += 1
+
+
+def cyclic_triangular(min_lr, max_lr, period):
+    it = 1
+    while True:
+        # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
+        cycle = numpy.floor(1 + it / (2 * period))
+        x = numpy.abs(it / period - 2 * cycle + 1)
+        relative = max(0, 1 - x)
+        yield min_lr + (max_lr - min_lr) * relative
+        it += 1

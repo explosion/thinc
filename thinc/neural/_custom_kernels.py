@@ -40,10 +40,14 @@ MMH_SRC = (PWD / "_murmur3.cu").open("r", encoding="utf8").read()
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 seq2col_kernel = KERNELS["seq2col"]
+maxout_kernel = KERNELS["maxout"]
+mish_kernel = KERNELS["mish"]
 sum_pool_kernel = KERNELS["sum_pool"]
 max_pool_kernel = KERNELS["max_pool"]
-maxout_kernel = KERNELS["maxout"]
+
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
+backprop_maxout_kernel = KERNELS["backprop_maxout"]
+backprop_mish_kernel = KERNELS["backprop_mish"]
 backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
 backprop_mean_pool_kernel = KERNELS["backprop_mean_pool"]
 backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
@@ -56,6 +60,26 @@ def seq2col(X, nW, out=None, threads_per_block=128, num_blocks=128):
     B = X.shape[0]
     I = X.shape[1]
     seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, nW, B, I))
+    return out
+
+def maxout(X, out=None, threads_per_block=128, num_blocks=128):
+    B, I, P = X.shape
+    if out is None:
+        best = cupy.zeros((B, I), dtype="f")
+        which = cupy.zeros((B, I), dtype="i")
+    else:
+        best, which = None
+    maxout_kernel((num_blocks,), (threads_per_block,),
+        (best, which, X, B, I, P))
+    return best, which
+
+
+def mish(X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
+    N = X.size
+    if out is None:
+        out = cupy.zeros(X.shape, dtype="f")
+    mish_kernel((num_blocks,), (threads_per_block,),
+        (out, X, threshold, N))
     return out
 
 
@@ -105,6 +129,25 @@ def backprop_seq2col(dY, nW, out=None, threads_per_block=128, num_blocks=128):
     return out
 
 
+def backprop_maxout(dY, which, P, out=None, threads_per_block=128, num_blocks=128):
+    B = dY.shape[0]
+    I = dY.shape[1]
+    if out is None:
+        out = cupy.zeros((B, I, P), dtype="f")
+    backprop_maxout_kernel((num_blocks,), (threads_per_block,),
+        (out, dY, which, B, I, P))
+    return out
+
+def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
+    B = dY.shape[0]
+    I = dY.shape[1]
+    if out is None:
+        out = cupy.zeros((B, I), dtype="f")
+    backprop_mish_kernel((num_blocks,), (threads_per_block,),
+        (out, dY, X, threshold, B*I))
+    return out
+
+
 def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128, num_blocks=128):
     B = len(lengths)
     T = int(lengths.sum())
@@ -149,7 +192,6 @@ def hash(ids, seed, out=None, threads_per_block=128, num_blocks=128):
     out_size = 4 * 4
     in_size = 8 # sizeof(uint64_t)
     T = ids.shape[0]
-    # Having trouble executing this in parallel? Shrug
     hash_data_kernel((num_blocks,), (threads_per_block,),
         (out, ids, out_size, in_size, ids.shape[0], seed))
     return out

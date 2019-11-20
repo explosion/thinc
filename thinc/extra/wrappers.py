@@ -47,15 +47,27 @@ class PyTorchWrapper(Model):
         self._optimizer = None
 
     def prepare_input(self, x_data, is_update=True):
-        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
-        return (x_var,), {}
+        if isinstance(x_data, (list, tuple)):
+            x_var = [torch.autograd.Variable(xp2torch(x), requires_grad=is_update)
+                     for x in x_data]
+            return tuple(x_var), {}
+        else:
+            x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
+            return (x_var,), {}
 
     def prepare_output(self, y_var):
-        return torch2xp(y_var)
+        if isinstance(y_var, (list, tuple)):
+            return tuple([torch2xp(y) for y in y_var])
+        else:
+            return torch2xp(y_var)
 
     def prepare_backward_input(self, dy_data, y_var):
-        dy_var = xp2torch(dy_data)
-        return (y_var,), {"grad_tensors": (dy_var,)}
+        if isinstance(dy_data, (list, tuple)):
+            dy_var = [xp2torch(dy) for dy in dy_data]
+            return y_var, {"grad_tensors": dy_var}
+        else:
+            dy_var = xp2torch(dy_data)
+            return (y_var,), {"grad_tensors": (dy_var,)}
 
     def prepare_backward_output(self, x_args, x_kwargs):
         x_var = x_args[0]
