@@ -17,6 +17,7 @@ from ...check import has_shape, is_sequence, is_float
 
 THREAD_LOCAL = threading.local()
 THREAD_LOCAL.operators = {}
+THREAD_LOCAL.old_operators = {}
 
 
 class Model(object):
@@ -33,6 +34,7 @@ class Model(object):
     on_data_hooks = []
     on_init_hooks = []  # Use this to add layers
     _operators = THREAD_LOCAL.operators
+    _old_operators = THREAD_LOCAL.old_operators
 
     @classmethod
     @contextlib.contextmanager
@@ -50,11 +52,11 @@ class Model(object):
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
         """
-        old_ops = dict(cls._operators)
+        cls._old_operators = dict(cls._operators)
         for op, func in operators.items():
             cls._operators[op] = func
         yield
-        cls._operators = old_ops
+        cls._operators = cls._old_operators
 
     @classmethod
     @contextlib.contextmanager
