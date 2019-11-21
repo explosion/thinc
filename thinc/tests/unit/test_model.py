@@ -139,12 +139,14 @@ def _overload_plus(operator, sleep):
         else:
             value = m1 * m2
     assert value == "ab"
+    assert base.Model._thread_local.operators == {}
 
 
 def test_nested_operator_contexts():
     operator = "+"
     m1 = base.Model(name="a")
     m2 = base.Model(name="b")
+    assert base.Model._thread_local.operators == {}
     with base.Model.define_operators({"+": lambda a, b: a.name + b.name}):
         value = m1 + m2
         with pytest.raises(TypeError):
@@ -153,10 +155,18 @@ def test_nested_operator_contexts():
             with pytest.raises(TypeError):
                 value = m1 + m2
             value = m1 * m2
+            with base.Model.define_operators({"-": lambda a, b: a.name + b.name}):
+                with pytest.raises(TypeError):
+                    value = m1 + m2
+                value = m1 - m2
+            with pytest.raises(TypeError):
+                value = m1 + m2
+            value = m1 * m2
         value = m1 + m2
         with pytest.raises(TypeError):
             value = m1 * m2
     assert value == "ab"
+    assert base.Model._thread_local.operators == {}
 
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
@@ -238,6 +248,7 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
+    assert base.Model._thread_local.operators == {}
 
 
 def test_model_can_save_to_disk(model_with_no_args):

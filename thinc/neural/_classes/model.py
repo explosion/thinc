@@ -47,10 +47,11 @@ class Model(object):
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
         """
-        cls._thread_local.old_operators = dict(getattr(cls._thread_local, "operators", {}))
+        cls._thread_local.old_operator_stack = getattr(cls._thread_local, "old_operator_stack", [])
+        cls._thread_local.old_operator_stack.append(dict(getattr(cls._thread_local, "operators", {})))
         cls._thread_local.operators = dict(operators)
         yield
-        cls._thread_local.operators = dict(cls._thread_local.old_operators)
+        cls._thread_local.operators = dict(cls._thread_local.old_operator_stack.pop())
 
     @classmethod
     @contextlib.contextmanager
