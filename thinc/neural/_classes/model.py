@@ -29,7 +29,7 @@ class Model(object):
     descriptions = []
     on_data_hooks = []
     on_init_hooks = []  # Use this to add layers
-    THREAD_LOCAL = threading.local()
+    _thread_local = threading.local()
 
     @classmethod
     @contextlib.contextmanager
@@ -47,10 +47,10 @@ class Model(object):
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
         """
-        cls.THREAD_LOCAL.old_operators = dict(getattr(cls.THREAD_LOCAL, "operators", {}))
-        cls.THREAD_LOCAL.operators = dict(operators)
+        cls._thread_local.old_operators = dict(getattr(cls._thread_local, "operators", {}))
+        cls._thread_local.operators = dict(operators)
         yield
-        cls.THREAD_LOCAL.operators = dict(cls.THREAD_LOCAL.old_operators)
+        cls._thread_local.operators = dict(cls._thread_local.old_operators)
 
     @classmethod
     @contextlib.contextmanager
@@ -238,72 +238,72 @@ class Model(object):
     @check.operator_is_defined("+")
     def __add__(self, other):
         """Apply the function bound to the '+' operator."""
-        return self.THREAD_LOCAL.operators["+"](self, other)
+        return self._thread_local.operators["+"](self, other)
 
     @check.operator_is_defined("-")
     def __sub__(self, other):
         """Apply the function bound to the '-' operator."""
-        return self.THREAD_LOCAL.operators["-"](self, other)
+        return self._thread_local.operators["-"](self, other)
 
     @check.operator_is_defined("*")
     def __mul__(self, other):
         """Apply the function bound to the '*' operator."""
-        return self.THREAD_LOCAL.operators["*"](self, other)
+        return self._thread_local.operators["*"](self, other)
 
     @check.operator_is_defined("@")
     def __matmul__(self, other):
         """Apply the function bound to the '@' operator."""
-        return self.THREAD_LOCAL.operators["@"](self, other)
+        return self._thread_local.operators["@"](self, other)
 
     @check.operator_is_defined("/")
     def __div__(self, other):
         """Apply the function bound to the '/' operator."""
-        return self.THREAD_LOCAL.operators["/"](self, other)
+        return self._thread_local.operators["/"](self, other)
 
     @check.operator_is_defined("/")
     def __truediv__(self, other):  # pragma: no cover
         """Apply the function bound to the '/' operator."""
-        return self.THREAD_LOCAL.operators["/"](self, other)
+        return self._thread_local.operators["/"](self, other)
 
     @check.operator_is_defined("//")
     def __floordiv__(self, other):
         """Apply the function bound to the '//' operator."""
-        return self.THREAD_LOCAL.operators["//"](self, other)
+        return self._thread_local.operators["//"](self, other)
 
     @check.operator_is_defined("%")
     def __mod__(self, other):
         """Apply the function bound to the '%' operator."""
-        return self.THREAD_LOCAL.operators["%"](self, other)
+        return self._thread_local.operators["%"](self, other)
 
     @check.operator_is_defined("**")
     def __pow__(self, other, modulo=None):
         """Apply the function bound to the '**' operator."""
-        return self.THREAD_LOCAL.operators["**"](self, other)
+        return self._thread_local.operators["**"](self, other)
 
     @check.operator_is_defined("<<")
     def __lshift__(self, other):
         """Apply the function bound to the '<<' operator."""
-        return self.THREAD_LOCAL.operators["<<"](self, other)
+        return self._thread_local.operators["<<"](self, other)
 
     @check.operator_is_defined(">>")
     def __rshift__(self, other):
         """Apply the function bound to the '>>' operator."""
-        return self.THREAD_LOCAL.operators[">>"](self, other)
+        return self._thread_local.operators[">>"](self, other)
 
     @check.operator_is_defined("&")
     def __and__(self, other):
         """Apply the function bound to the '&' operator."""
-        return self.THREAD_LOCAL.operators["&"](self, other)
+        return self._thread_local.operators["&"](self, other)
 
     @check.operator_is_defined("^")
     def __xor__(self, other):
         """Apply the function bound to the '^' operator."""
-        return self.THREAD_LOCAL.operators["^"](self, other)
+        return self._thread_local.operators["^"](self, other)
 
     @check.operator_is_defined("|")
     def __or__(self, other):
         """Apply the function bound to the '|' operator."""
-        return self.THREAD_LOCAL.operators["|"](self, other)
+        return self._thread_local.operators["|"](self, other)
 
     def to_bytes(self):
         weights = []
