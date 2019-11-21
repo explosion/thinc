@@ -59,7 +59,6 @@ def test_init_assigns_attributes():
     model = base.Model()
     model._mem
     assert model._layers == []
-    assert model._operators == {}
 
 
 def test_init_installs_via_descriptions():
@@ -115,8 +114,15 @@ def test_overload_operators_in_subthread():
     # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.
     # Without thread-safety, worker2 will find that its operator definitions
     # have been removed, causing an error.
+    worker1 = threading.Thread(target=_overload_plus, args=("+", 0))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 1,))
+    worker2.start()
+    worker1.start()
+    worker1.join()
+    worker2.join()
+
     worker1 = threading.Thread(target=_overload_plus, args=("+", 1))
-    worker2 = threading.Thread(target=_overload_plus, args=("*", 3,))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 0,))
     worker2.start()
     worker1.start()
     worker1.join()
@@ -214,7 +220,6 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
-    assert base.Model._operators == {}
 
 
 def test_model_can_save_to_disk(model_with_no_args):

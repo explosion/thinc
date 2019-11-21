@@ -130,8 +130,8 @@ def operator_is_defined(op):
             instance = args[0]
         if instance is None:
             raise ExpectedTypeError(instance, ["Model"])
-        if op not in instance._operators:
-            raise UndefinedOperatorError(op, instance, args[0], instance._operators)
+        if op not in instance.THREAD_LOCAL.operators:
+            raise UndefinedOperatorError(op, instance, args[0], instance.THREAD_LOCAL.operators)
         else:
             return wrapped(*args, **kwargs)
 
