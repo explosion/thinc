@@ -141,6 +141,24 @@ def _overload_plus(operator, sleep):
     assert value == "ab"
 
 
+def test_nested_operator_contexts():
+    operator = "+"
+    m1 = base.Model(name="a")
+    m2 = base.Model(name="b")
+    with base.Model.define_operators({"+": lambda a, b: a.name + b.name}):
+        value = m1 + m2
+        with pytest.raises(TypeError):
+            value = m1 * m2
+        with base.Model.define_operators({"*": lambda a, b: a.name + b.name}):
+            with pytest.raises(TypeError):
+                value = m1 + m2
+            value = m1 * m2
+        value = m1 + m2
+        with pytest.raises(TypeError):
+            value = m1 * m2
+    assert value == "ab"
+
+
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
 def test_all_operators(op):
     m1 = base.Model(name="a")
