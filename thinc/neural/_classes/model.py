@@ -47,11 +47,10 @@ class Model(object):
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
         """
-        cls._thread_local.old_operator_stack = getattr(cls._thread_local, "old_operator_stack", [])
-        cls._thread_local.old_operator_stack.append(dict(getattr(cls._thread_local, "operators", {})))
+        curr_operators = dict(getattr(cls._thread_local, "operators", {}))
         cls._thread_local.operators = dict(operators)
         yield
-        cls._thread_local.operators = dict(cls._thread_local.old_operator_stack.pop())
+        cls._thread_local.operators = dict(curr_operators)
 
     @classmethod
     @contextlib.contextmanager
@@ -60,13 +59,13 @@ class Model(object):
         if device == cls._thread_local.ops.device:
             yield
         else:
-            cls._thread_local.curr_Ops = getattr(cls._thread_local, "Ops", cls.Ops)
-            cls._thread_local.curr_ops = getattr(cls._thread_local, "ops", cls.ops)
+            curr_Ops = getattr(cls._thread_local, "Ops", cls.Ops)
+            curr_ops = getattr(cls._thread_local, "ops", cls.ops)
             cls._thread_local.Ops = get_ops(device)
             cls._thread_local.ops = cls._thread_local.Ops()
             yield
-            cls._thread_local.Ops = cls._thread_local.curr_Ops
-            cls._thread_local.ops = cls._thread_local.curr_ops
+            cls._thread_local.Ops = curr_Ops
+            cls._thread_local.ops = curr_ops
 
     @property
     def input_shape(self):
