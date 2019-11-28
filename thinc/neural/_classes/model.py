@@ -15,9 +15,6 @@ from ..util import get_ops, copy_array
 from ... import check
 from ...check import has_shape, is_sequence, is_float
 
-THREAD_LOCAL = threading.local()
-THREAD_LOCAL.operators = {}
-
 
 class Model(object):
     """Model base class."""
@@ -32,7 +29,7 @@ class Model(object):
     descriptions = []
     on_data_hooks = []
     on_init_hooks = []  # Use this to add layers
-    _operators = THREAD_LOCAL.operators
+    _thread_local = threading.local()
 
     @classmethod
     @contextlib.contextmanager
@@ -50,25 +47,25 @@ class Model(object):
             print(model + other)
             # Raises TypeError --- binding limited to scope of with block.
         """
-        old_ops = dict(cls._operators)
-        for op, func in operators.items():
-            cls._operators[op] = func
+        curr_operators = dict(getattr(cls._thread_local, "operators", {}))
+        cls._thread_local.operators = dict(operators)
         yield
-        cls._operators = old_ops
+        cls._thread_local.operators = dict(curr_operators)
 
     @classmethod
     @contextlib.contextmanager
     def use_device(cls, device):
         """Change the device to execute on for the scope of the block."""
-        if device == cls.ops.device:
+        if device == cls._thread_local.ops.device:
             yield
         else:
-            curr_Ops, curr_ops = (cls.Ops, cls.ops)
-            cls.Ops = get_ops(device)
-            cls.ops = cls.Ops()
+            curr_Ops = getattr(cls._thread_local, "Ops", cls.Ops)
+            curr_ops = getattr(cls._thread_local, "ops", cls.ops)
+            cls._thread_local.Ops = get_ops(device)
+            cls._thread_local.ops = cls._thread_local.Ops()
             yield
-            cls.Ops = curr_Ops
-            cls.ops = curr_ops
+            cls._thread_local.Ops = curr_Ops
+            cls._thread_local.ops = curr_ops
 
     @property
     def input_shape(self):
@@ -80,9 +77,9 @@ class Model(object):
 
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
-        self.ops = self.Ops()
+        self._thread_local.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
-        self._mem = Memory(self.ops)
+        self._mem = Memory(self._thread_local.ops)
         self._dims = {}
         if not hasattr(self, "_layers"):
             self._layers = []
@@ -134,7 +131,7 @@ class Model(object):
         return y
 
     def predict_one(self, x):
-        X = self.ops.expand_dims(x, axis=0)
+        X = self._thread_local.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
 
     @contextlib.contextmanager
@@ -190,7 +187,7 @@ class Model(object):
             layer.ops = CupyOps()
             layer.Ops = CupyOps
             if hasattr(layer, "_mem"):
-                layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
+                layer._mem._mem = self._thread_local.ops.xp.asarray(layer._mem._mem)
                 layer._mem.ops = layer.ops
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
@@ -216,9 +213,9 @@ class Model(object):
         y
             Must match expected type
         """
-        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
+        scores = self._thread_local.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
         if not hasattr(y, "shape"):
-            y = self.ops.flatten(y)
+            y = self._thread_local.ops.flatten(y)
         scores = scores.reshape(y.shape)
         if len(scores.shape) == 1:
             correct = ((scores >= 0.5) == (y >= 0.5)).sum()
@@ -227,14 +224,14 @@ class Model(object):
         return correct / y.shape[0]
 
     def evaluate_logloss(self, X, y, minimum=None, maximum=None):
-        yh = self.ops.xp.vstack(self.pipe(X))
+        yh = self._thread_local.ops.xp.vstack(self.pipe(X))
         yh = yh.reshape(y.shape)
         if minimum is not None:
-            yh = self.ops.xp.maximum(yh, minimum)
+            yh = self._thread_local.ops.xp.maximum(yh, minimum)
         if maximum is not None:
-            yh = self.ops.xp.minimum(yh, maximum)
+            yh = self._thread_local.ops.xp.minimum(yh, maximum)
         assert len(yh.shape) == 1
-        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
+        losses = -y * self._thread_local.ops.xp.log(yh + 1e-8) - (1 - y) * self._thread_local.ops.xp.log(
             (1 - yh) + 1e-8
         )
         return losses.mean()
@@ -242,72 +239,72 @@ class Model(object):
     @check.operator_is_defined("+")
     def __add__(self, other):
         """Apply the function bound to the '+' operator."""
-        return self._operators["+"](self, other)
+        return self._thread_local.operators["+"](self, other)
 
     @check.operator_is_defined("-")
     def __sub__(self, other):
         """Apply the function bound to the '-' operator."""
-        return self._operators["-"](self, other)
+        return self._thread_local.operators["-"](self, other)
 
     @check.operator_is_defined("*")
     def __mul__(self, other):
         """Apply the function bound to the '*' operator."""
-        return self._operators["*"](self, other)
+        return self._thread_local.operators["*"](self, other)
 
     @check.operator_is_defined("@")
     def __matmul__(self, other):
         """Apply the function bound to the '@' operator."""
-        return self._operators["@"](self, other)
+        return self._thread_local.operators["@"](self, other)
 
     @check.operator_is_defined("/")
     def __div__(self, other):
         """Apply the function bound to the '/' operator."""
-        return self._operators["/"](self, other)
+        return self._thread_local.operators["/"](self, other)
 
     @check.operator_is_defined("/")
     def __truediv__(self, other):  # pragma: no cover
         """Apply the function bound to the '/' operator."""
-        return self._operators["/"](self, other)
+        return self._thread_local.operators["/"](self, other)
 
     @check.operator_is_defined("//")
     def __floordiv__(self, other):
         """Apply the function bound to the '//' operator."""
-        return self._operators["//"](self, other)
+        return self._thread_local.operators["//"](self, other)
 
     @check.operator_is_defined("%")
     def __mod__(self, other):
         """Apply the function bound to the '%' operator."""
-        return self._operators["%"](self, other)
+        return self._thread_local.operators["%"](self, other)
 
     @check.operator_is_defined("**")
     def __pow__(self, other, modulo=None):
         """Apply the function bound to the '**' operator."""
-        return self._operators["**"](self, other)
+        return self._thread_local.operators["**"](self, other)
 
     @check.operator_is_defined("<<")
     def __lshift__(self, other):
         """Apply the function bound to the '<<' operator."""
-        return self._operators["<<"](self, other)
+        return self._thread_local.operators["<<"](self, other)
 
     @check.operator_is_defined(">>")
     def __rshift__(self, other):
         """Apply the function bound to the '>>' operator."""
-        return self._operators[">>"](self, other)
+        return self._thread_local.operators[">>"](self, other)
 
     @check.operator_is_defined("&")
     def __and__(self, other):
         """Apply the function bound to the '&' operator."""
-        return self._operators["&"](self, other)
+        return self._thread_local.operators["&"](self, other)
 
     @check.operator_is_defined("^")
     def __xor__(self, other):
         """Apply the function bound to the '^' operator."""
-        return self._operators["^"](self, other)
+        return self._thread_local.operators["^"](self, other)
 
     @check.operator_is_defined("|")
     def __or__(self, other):
         """Apply the function bound to the '|' operator."""
-        return self._operators["|"](self, other)
+        return self._thread_local.operators["|"](self, other)
 
     def to_bytes(self):
         weights = []
