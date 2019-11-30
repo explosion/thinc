@@ -48,6 +48,8 @@ class LayerNorm(Model):
         self.nr_upd = 0
 
     def predict(self, X):
+        if X.size == 0:
+            return X
         if self.child is not None:
             X = self.child.predict(X)
         N, mu, var = _get_moments(self.ops, X)
