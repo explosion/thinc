@@ -33,6 +33,11 @@ cdef void* initialize(Pool mem, int n, void* extra_args) except NULL:
     return state
 
 
+cdef int destroy(Pool mem, void* state, void* extra_args) except -1:
+    state = <TestState*>state
+    mem.free(state)
+
+
 def test_init(nr_class, beam_width):
     b = Beam(nr_class, beam_width)
     assert b.size == 1
@@ -42,7 +47,7 @@ def test_init(nr_class, beam_width):
 
 def test_initialize(nr_class, beam_width, length):
     b = Beam(nr_class, beam_width)
-    b.initialize(initialize, length, NULL)
+    b.initialize(initialize, destroy, length, NULL)
     for i in range(b.width):
         s = <TestState*>b.at(i)
         assert s.length == length, s.length
@@ -51,7 +56,7 @@ def test_initialize(nr_class, beam_width, length):
 
 def test_initialize_extra(nr_class, beam_width, length, unicode extra):
     b = Beam(nr_class, beam_width)
-    b.initialize(initialize, length, <void*><Py_UNICODE*>extra)
+    b.initialize(initialize, destroy, length, <void*><Py_UNICODE*>extra)
     for i in range(b.width):
         s = <TestState*>b.at(i)
         assert s.length == length
@@ -59,7 +64,7 @@ def test_initialize_extra(nr_class, beam_width, length, unicode extra):
 
 def test_transition(nr_class=3, beam_width=6, length=3):
     b = Beam(nr_class, beam_width)
-    b.initialize(initialize, length, NULL)
+    b.initialize(initialize, destroy, length, NULL)
     b.set_cell(0, 2, 30, True, 0)
     b.set_cell(0, 1, 42, False, 0)
     b.advance(transition, NULL, NULL)

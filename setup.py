@@ -234,7 +234,7 @@ def setup_package():
                 "cuda91": ["cupy-cuda91>=5.0.0b4"],
                 "cuda92": ["cupy-cuda92>=5.0.0b4"],
                 "cuda100": ["cupy-cuda100>=5.0.0b4"],
-                "cuda110": ["cupy-cuda110>=5.0.0b4"],
+                "cuda101": ["cupy-cuda101>=5.0.0b4"],
             },
             classifiers=[
                 "Development Status :: 5 - Production/Stable",

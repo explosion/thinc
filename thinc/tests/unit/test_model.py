@@ -59,7 +59,6 @@ def test_init_assigns_attributes():
     model = base.Model()
     model._mem
     assert model._layers == []
-    assert model._operators == {}
 
 
 def test_init_installs_via_descriptions():
@@ -85,12 +84,12 @@ def test_init_calls_hooks():
 
 
 def test_use_device():
-    dev_id = id(base.Model.ops)
-    with base.Model.use_device(base.Model.ops.device):
-        assert id(base.Model.ops) == dev_id
+    dev_id = id(base.Model._thread_local.ops)
+    with base.Model.use_device(base.Model._thread_local.ops.device):
+        assert id(base.Model._thread_local.ops) == dev_id
     with base.Model.use_device("gpu"):
-        assert id(base.Model.ops) != dev_id
-    assert id(base.Model.ops) == dev_id
+        assert id(base.Model._thread_local.ops) != dev_id
+    assert id(base.Model._thread_local.ops) == dev_id
 
 
 def test_bind_plus():
@@ -115,8 +114,15 @@ def test_overload_operators_in_subthread():
     # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.
     # Without thread-safety, worker2 will find that its operator definitions
     # have been removed, causing an error.
+    worker1 = threading.Thread(target=_overload_plus, args=("+", 0))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 1,))
+    worker2.start()
+    worker1.start()
+    worker1.join()
+    worker2.join()
+
     worker1 = threading.Thread(target=_overload_plus, args=("+", 1))
-    worker2 = threading.Thread(target=_overload_plus, args=("*", 3,))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 0,))
     worker2.start()
     worker1.start()
     worker1.join()
@@ -133,6 +139,34 @@ def _overload_plus(operator, sleep):
         else:
             value = m1 * m2
     assert value == "ab"
+    assert base.Model._thread_local.operators == {}
+
+
+def test_nested_operator_contexts():
+    operator = "+"
+    m1 = base.Model(name="a")
+    m2 = base.Model(name="b")
+    assert base.Model._thread_local.operators == {}
+    with base.Model.define_operators({"+": lambda a, b: a.name + b.name}):
+        value = m1 + m2
+        with pytest.raises(TypeError):
+            value = m1 * m2
+        with base.Model.define_operators({"*": lambda a, b: a.name + b.name}):
+            with pytest.raises(TypeError):
+                value = m1 + m2
+            value = m1 * m2
+            with base.Model.define_operators({"-": lambda a, b: a.name + b.name}):
+                with pytest.raises(TypeError):
+                    value = m1 + m2
+                value = m1 - m2
+            with pytest.raises(TypeError):
+                value = m1 + m2
+            value = m1 * m2
+        value = m1 + m2
+        with pytest.raises(TypeError):
+            value = m1 * m2
+    assert value == "ab"
+    assert base.Model._thread_local.operators == {}
 
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
@@ -214,7 +248,7 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
-    assert base.Model._operators == {}
+    assert base.Model._thread_local.operators == {}
 
 
 def test_model_can_save_to_disk(model_with_no_args):
