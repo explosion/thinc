@@ -4,7 +4,7 @@ from .model import Model
 from .affine import Affine
 from ...api import with_reshape, layerize, wrap
 from ..util import get_array_module
-from ..ops import NumpyOps
+from ..ops import NumpyOps, CupyOps
 import numpy
 import copy
 import math
@@ -12,13 +12,29 @@ import blis.py
 
 
 class PaddedAttentionInputs(object):
-    def __init__(self, QKV, lengths):
-        self.QKV = QKV
+    def __init__(self, QKV, lengths, dims=("nN", "qkv", "nH", "nD")): 
+        self.ops = NumpyOps() if isinstance(QKV, numpy.ndarray) else CupyOps()
+        if QKV.ndim == 4:
+            QKV = self.transpose(QKV, current=dims, target=("nN", "qkv", "nH", "nD"))
+            nL = max(lengths)
+            nB = len(lengths)
+            nH = QKV.shape[2]
+            nD = QKV.shape[3]
+            padded = self.ops.allocate((nB, nL, 3, nH, nD)) 
+            start = 0
+            for i, length in enumerate(lengths):
+                padded[i, :length] = QKV[start:start+length]
+                start += length
+            QKV = padded
+        else:
+            QKV = self.transpose(QKV, current=dims, target=("nB", "nL", "qkv", "nH", "nD"))
         self.nB, self.nL, three, self.nH, self.nD = QKV.shape
+        self.nM = self.nH * self.nD
         self.nN = sum(lengths)
         assert three == 3
+        self.QKV = QKV
         self.lengths = lengths
-        self.ops = NumpyOps()
+        self._py_lengths = list(lengths)
 
     def _get_feature(self, index, dims, contiguous):
         data = self.QKV[:, :, index]
@@ -51,7 +67,7 @@ class PaddedAttentionInputs(object):
         for i, length in enumerate(self.lengths):
             dots[i, :, :, length:] = -self.ops.xp.inf
         attn = self.ops.softmax(dots, axis=-1)
-        for i, length in enumerate(self.lengths):
+        for i, length in enumerate(self._py_lengths):
             attn[i, :, length:] = 0
 
         def backprop_attn(d_attn):
@@ -72,9 +88,20 @@ class PaddedAttentionInputs(object):
         assert context.shape == (self.nB, self.nH, self.nL, self.nD)
         context = self.transpose(context,
             current=("nB", "nH", "nL", "nD"), target=("nB", "nL", "nH", "nD"))
+        unpadded = self.ops.allocate((self.nN, self.nH, self.nD))
+        start = 0
+        for i, length in enumerate(self.lengths):
+            unpadded[start:start+length] = context[i, :length]
+            start += length
 
-        def backprop_apply_attn_padded(d_context):
+        def backprop_apply_attn_padded(d_unpadded):
             nonlocal values, attn
+            d_context = self.ops.allocate((self.nB, self.nL, self.nH, self.nD))
+            start = 0
+            for i, length in enumerate(self.lengths):
+                d_context[i, :length] = d_unpadded[start:start+length]
+                start += length
+
             d_context = self.transpose(d_context,
                 current=("nB", "nL", "nH", "nD"), target=("nB", "nH", "nL", "nD"))
             values = self.transpose(values,
@@ -86,13 +113,16 @@ class PaddedAttentionInputs(object):
                 current=("nB", "nH", "nQ", "nV"), target=("nB", "nH", "nV", "nQ"))
             d_values = self.ops.xp.matmul(attn, d_context)
             return d_values, d_attn
-        return context, backprop_apply_attn_padded
+        return unpadded, backprop_apply_attn_padded
 
 
 class AttentionInputs(object):
     """Inputs for an attention model."""
     def __init__(self, QKV, lengths, dims=("nN", "qkv", "nH", "nD")): 
-        self.ops = NumpyOps()
+        if isinstance(QKV, numpy.ndarray):
+            self.ops = NumpyOps()
+        else:
+            self.ops = CupyOps()
         self.nH = QKV.shape[dims.index("nH")]
         self.nN = QKV.shape[dims.index("nN")]
         self.nD = QKV.shape[dims.index("nD")]
@@ -101,6 +131,7 @@ class AttentionInputs(object):
         self.nP = sum(length*length for length in lengths)
         self.nL = max(lengths)
         self.lengths = lengths
+        self._py_lengths = list(lengths)
         self.qkv_dims = ("qkv", "nH", "nN", "nD")
         self.QKV = self.transpose(QKV, target=self.qkv_dims,
             current=dims, contiguous=True)
@@ -109,7 +140,7 @@ class AttentionInputs(object):
     def slices(self):
         start = 0
         attn_start = 0
-        for length in self.lengths:
+        for length in self._py_lengths:
             q_slice = slice(start, start+length)
             k_slice = slice(start, start+length)
             attn_slice = slice(attn_start, attn_start+length*length)
@@ -255,17 +286,17 @@ class MultiHeadedAttention(Model):
     def begin_update(self, qkv, drop=0.0):
         attn, get_dQ_dK = qkv.get_attn(scale=self.ops.xp.sqrt(qkv.nM))
         output0, get_dV_d_attn = qkv.apply_attn(attn)
-        output1 = qkv.transpose(output0, current=("nH", "nN", "nD"),
-            target=("nN", "nH", "nD"), contiguous=True)
-        output2 = output1.reshape((qkv.nN, qkv.nH*qkv.nD))
+        #output1 = qkv.transpose(output0, current=("nH", "nN", "nD"),
+        #    target=("nN", "nH", "nD"), contiguous=True)
+        output1 = output0.reshape((qkv.nN, qkv.nH*qkv.nD))
         lengths = qkv.lengths
         nN, nH, nD = (qkv.nN, qkv.nH, qkv.nD)
 
-        def backprop_multiheaded_attention(d_output2, sgd=None):
-            assert d_output2.shape == (nN, nH*nD)
-            d_output1 = d_output2.reshape((nN, nH, nD))
-            d_output0 = qkv.transpose(d_output1, current=("nN", "nH", "nD"),
-                target=("nH", "nN", "nD"), contiguous=True)
+        def backprop_multiheaded_attention(d_output1, sgd=None):
+            assert d_output1.shape == (nN, nH*nD)
+            d_output0 = d_output1.reshape((nN, nH, nD))
+            #d_output0 = qkv.transpose(d_output1, current=("nN", "nH", "nD"),
+            #    target=("nH", "nN", "nD"), contiguous=True)
             dV, d_attn = get_dV_d_attn(d_output0)
             dQ, dK = get_dQ_dK(d_attn)
             assert dQ.shape == (nH, nN, nD)
@@ -273,4 +304,4 @@ class MultiHeadedAttention(Model):
             assert dV.shape == (nH, nN, nD)
             dQKV = self.ops.xp.vstack((dQ, dK, dV)).reshape((3, nH, nN, nD))
             return AttentionInputs(dQKV, lengths, dims=("qkv", "nH", "nN", "nD"))
-        return (output2, lengths), backprop_multiheaded_attention
+        return (output1, lengths), backprop_multiheaded_attention
