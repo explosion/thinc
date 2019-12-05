@@ -2,6 +2,7 @@
 from __future__ import unicode_literals
 
 import contextlib
+import numpy
 from ..compat import BytesIO
 from ..neural._classes.model import Model
 
@@ -41,10 +42,11 @@ class PyTorchWrapper(Model):
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
     """
 
-    def __init__(self, model):
+    def __init__(self, model, lr_scale=1.0):
         Model.__init__(self)
         self._model = model
         self._optimizer = None
+        self.lr_scale = lr_scale
 
     def prepare_input(self, x_data, is_update=True):
         if isinstance(x_data, (list, tuple)):
@@ -110,10 +112,11 @@ class PyTorchWrapper(Model):
 
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
+        learn_rate = sgd.alpha * self.lr_scale
         if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = torch.optim.Adam(params, lr=sgd.alpha, betas=(sgd.b1, sgd.b2))
+            optimizer = torch.optim.Adam(params, lr=learn_rate, betas=(sgd.b1, sgd.b2))
         elif sgd.b2 == 0:
-            optimizer = torch.optim.SGD(params, lr=sgd.alpha, momentum=sgd.b1)
+            optimizer = torch.optim.SGD(params, lr=learn_rate, momentum=sgd.b1)
         else:
             raise NotImplementedError
         return optimizer
@@ -191,6 +194,19 @@ class PyTorchWrapper(Model):
 
     def resize_input(self):
         raise NotImplementedError
+
+
+class PyTorchWrapperTransformer(PyTorchWrapper):
+    def prepare_input(self, X_masking, is_update=True):
+        X, masking, _ = X_masking
+        masking = self.ops.asarray(masking[:, 0, :])
+        if isinstance(masking, numpy.ndarray):
+            masking = xp2torch(masking).type(torch.BoolTensor)
+        else:
+            masking = xp2torch(masking).type(torch.cuda.BoolTensor)
+        masking = ~masking
+        Xvar = torch.autograd.Variable(xp2torch(X), requires_grad=is_update)
+        return (Xvar,), {"src_key_padding_mask": masking}
 
 
 class PyTorchWrapperRNN(PyTorchWrapper):
