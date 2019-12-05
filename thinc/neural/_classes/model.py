@@ -56,16 +56,16 @@ class Model(object):
     @contextlib.contextmanager
     def use_device(cls, device):
         """Change the device to execute on for the scope of the block."""
-        if device == cls._thread_local.ops.device:
+        if device == cls.ops.device:
             yield
         else:
-            curr_Ops = getattr(cls._thread_local, "Ops", cls.Ops)
-            curr_ops = getattr(cls._thread_local, "ops", cls.ops)
-            cls._thread_local.Ops = get_ops(device)
-            cls._thread_local.ops = cls._thread_local.Ops()
+            curr_Ops = cls.Ops
+            curr_ops = cls.ops
+            cls.Ops = get_ops(device)
+            cls.ops = cls.Ops()
             yield
-            cls._thread_local.Ops = curr_Ops
-            cls._thread_local.ops = curr_ops
+            cls.Ops = curr_Ops
+            cls.ops = curr_ops
 
     @property
     def input_shape(self):
@@ -77,9 +77,9 @@ class Model(object):
 
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
-        self._thread_local.ops = self.Ops()
+        self.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
-        self._mem = Memory(self._thread_local.ops)
+        self._mem = Memory(self.ops)
         self._dims = {}
         if not hasattr(self, "_layers"):
             self._layers = []
