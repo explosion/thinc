@@ -92,20 +92,11 @@ def get_file(
 
     if download:
         print("Downloading data from", origin)
-        global progbar
-        progbar = None
-
-        def dl_progress(count, block_size, total_size):
-            global progbar
-            if progbar is None:
-                progbar = Progbar(total_size)
-            else:
-                progbar.update(count * block_size)
 
         error_msg = "URL fetch failure on {}: {} -- {}"
         try:
             try:
-                urlretrieve(origin, fpath, dl_progress)
+                urlretrieve(origin, fpath, lambda: None)
             except URLError as e:
                 raise Exception(error_msg.format(origin, e.errno, e.reason))
             except HTTPError as e:
@@ -114,7 +105,6 @@ def get_file(
             if os.path.exists(fpath):
                 os.remove(fpath)
             raise
-        progbar = None
 
     if untar:
         if not os.path.exists(untar_fpath):
