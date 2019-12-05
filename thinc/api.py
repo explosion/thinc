@@ -513,6 +513,22 @@ def pad_sequences(ops, seqs_in, pad_to=None):
     return arr, unpad
 
 
+def with_transpose(layer, trans_to, trans_from):
+    def begin_transpose_forward(X_mask, drop=0.):
+        X, mask, _ = X_mask
+        X = X.transpose(trans_to)
+        Y, finish_update = layer.begin_update((X, mask, None), drop=drop)
+        Y = Y.transpose(trans_from)
+
+        def finish_update_transpose(dY, sgd=None):
+            dX = finish_update(dY.transpose(trans_to), sgd=sgd)
+            return dX.transpose(trans_from)
+
+        return Y, finish_update_transpose
+
+    return wrap(begin_transpose_forward, layer)
+
+
 def _get_mask(X, nX):
     nB = X.shape[0]
     nL = X.shape[1]
