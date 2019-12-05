@@ -90,6 +90,13 @@ def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0
         yield learn_rate
 
 
+def warmup_inverse_square_root(initial_rate, warmup_steps):
+    step = 0
+    while True:
+        step += 1
+        rate = initial_rate * min(step**-0.5, step*warmup_steps**-1.5)
+        yield rate
+
 
 def warmup_linear(initial_rate, warmup_steps, total_steps):
     """Generate a series, starting from an initial rate, and then with a warmup
