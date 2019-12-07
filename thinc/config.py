@@ -1,3 +1,5 @@
+from __future__ import unicode_literals
+
 import configparser
 from pathlib import Path
 

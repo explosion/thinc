@@ -1,4 +1,5 @@
-import json
+from __future__ import unicode_literals
+
 from thinc.config import Config
 
 
@@ -63,4 +64,3 @@ def test_read_config():
     assert cfg["optimizer"]["learn_rate"]["start"] == 0.1
     assert cfg["pipeline"]["parser"]["factory"] == "parser"
     assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
-    print(json.dumps(cfg, indent=2))
