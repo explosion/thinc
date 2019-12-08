@@ -24,25 +24,27 @@ SGD_DEFAULTS = {
 
 
 ADAM_DEFAULTS = {
-    "L2": SGD_DEFAULTS["L2"],
+    "learn_rate": 0.001,
     "beta1": 0.9,
     "beta2": 0.999,
     "eps": 1e-08,
+    "L2": SGD_DEFAULTS["L2"],
     "max_grad_norm": SGD_DEFAULTS["max_grad_norm"],
-    "L2_is_weight_decay": SGD_DEFAULTS["L2_is_weight_decay"]
+    "L2_is_weight_decay": SGD_DEFAULTS["L2_is_weight_decay"],
+    "schedules": None
 }
 
 
 @registry.optimizers.register("thinc.RAdam.v1")
-def RAdam(learn_rate,
-        ops=None,
+def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         L2=ADAM_DEFAULTS["L2"],
         beta1=ADAM_DEFAULTS["beta1"],
         beta2=ADAM_DEFAULTS["beta2"],
         eps=ADAM_DEFAULTS["eps"],
         max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
-        schedules=None
+        schedules=None,
+        ops=None,
 ):
     ops = _make_ops(ops)
     return Optimizer(
@@ -61,14 +63,14 @@ def RAdam(learn_rate,
 
 
 @registry.optimizers.register("thinc.Adam.v1")
-def Adam(learn_rate,
-        ops=None,
+def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         L2=ADAM_DEFAULTS["L2"],
         beta1=ADAM_DEFAULTS["beta1"],
         beta2=ADAM_DEFAULTS["beta2"],
         eps=ADAM_DEFAULTS["eps"],
         max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
+        ops=None,
         schedules=None
 ):
     ops = _make_ops(ops)
@@ -89,7 +91,7 @@ def Adam(learn_rate,
 
 
 @registry.optimizers.register("thinc.SGD.v1")
-def SGD(learn_rate,
+def create_SGD(learn_rate,
         ops=None,
         L2=SGD_DEFAULTS["L2"],
         max_grad_norm=SGD_DEFAULTS["max_grad_norm"],
@@ -115,7 +117,7 @@ class Optimizer(object):
     '''
     @classmethod
     def from_config(cls, config):
-        return registry.unpack_config(config)
+        return registry.make_from_config(config)
 
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, 
                  max_grad_norm=10., gradient_noise=0.0, nesterov=True,
@@ -152,7 +154,6 @@ class Optimizer(object):
         self.lars_max = 10
         self.b1_decay = 0.0
         self.b2_decay = 0.0
-
 
     def to_gpu(self):
         self.ops = CupyOps()
@@ -330,6 +331,16 @@ def _make_ops(ops):
 
 
 # These are deprecated
+
+def Adam(*args, **kwargs):
+    return Optimizer(*args, **kwargs)
+
+def SGD(*args, **kwargs):
+    kwargs.setdefault('beta1', 0.)
+    kwargs.setdefault('beta2', 0.)
+    return Optimizer(*args, **kwargs)
+
+
 def linear_decay(rate, decay, nr_upd):
     return rate * 1./(1. + decay * nr_upd)
 

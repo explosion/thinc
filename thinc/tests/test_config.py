@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 from thinc.config import Config
+from thinc.neural.optimizers import Optimizer
 
 
 EXAMPLE_CONFIG = """
@@ -57,6 +58,18 @@ window_size = 1
 @layers: thinc.Affine.v1
 """
 
+OPTIMIZER_CFG = """
+[optimizer]
+@optimizers: thinc.Adam.v1
+beta1 = 0.9
+beta2 = 0.999
+use_averages = true
+
+[optimizer.schedules.learn_rate]
+@schedules: thinc.warmup_linear_rate.v1
+start = 0.1
+steps = 10000
+"""
 
 def test_read_config():
     byte_string = EXAMPLE_CONFIG.encode("utf8")
@@ -64,3 +77,9 @@ def test_read_config():
     assert cfg["optimizer"]["learn_rate"]["start"] == 0.1
     assert cfg["pipeline"]["parser"]["factory"] == "parser"
     assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
+
+
+def test_optimizer_config():
+    cfg = Config().from_bytes(OPTIMIZER_CFG.encode("utf8"))
+    optimizer = Optimizer.from_config(cfg)
+
