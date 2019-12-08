@@ -221,6 +221,7 @@ def setup_package():
                 "blis>=0.4.0,<0.5.0",
                 "wasabi>=0.0.9,<1.1.0",
                 "srsly>=0.0.6,<1.1.0",
+                "catalogue>=0.0.7,<1.1.0",
                 # Third-party dependencies
                 "numpy>=1.7.0",
                 "plac>=0.9.6,<1.2.0",
