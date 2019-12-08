@@ -5,3 +5,4 @@ from __future__ import unicode_literals
 import numpy  # noqa: F401
 
 from .about import __name__, __version__  # noqa: F401
+from ._registry import registry
