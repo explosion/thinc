@@ -28,8 +28,7 @@ class Config(dict):
                     value = strip_quotes(config.get(section, key))
                     node[key] = value
 
-    def from_bytes(self, byte_string):
-        text = byte_string.decode("utf8")
+    def from_str(self, text):
         config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation())
         config.read_string(text)
@@ -38,10 +37,13 @@ class Config(dict):
         self.interpret_config(config)
         return self
 
+    def from_bytes(self, byte_string):
+        return self.from_str(byte_string.decode("utf8"))
+
     def from_disk(self, path):
-        with Path(path).open("rb", encoding="utf8") as file_:
-            data = file_.read()
-        return self.from_bytes(data)
+        with Path(path).open("r", encoding="utf8") as file_:
+            text = file_.read()
+        return self.from_str(text)
 
 
 def is_int(value):
