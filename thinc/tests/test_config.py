@@ -8,13 +8,13 @@ EXAMPLE_CONFIG = """
 [DEFAULT]
 
 [optimizer]
-@optimizers: thinc.Adam.v1
+@optimizers = "thinc.Adam.v1"
 beta1 = 0.9
 beta2 = 0.999
 use_averages = true
 
 [optimizer.learn_rate]
-@schedules: thinc.warmup_linear_rate.v1
+@schedules = "thinc.warmup_linear_rate.v1"
 start = 0.1
 steps = 10000
 
@@ -25,48 +25,48 @@ name = "parser"
 factory = "parser"
 
 [pipeline.parser.model]
-@layers: spacy.ParserModel.v1
+@layers = "spacy.ParserModel.v1"
 hidden_depth = 1
 hidden_width = 64
 token_vector_width = 128
 
 [pipeline.parser.model.tok2vec]
-@layers: spacy.Tok2Vec.v1
+@layers = "spacy.Tok2Vec.v1"
 width = ${pipeline.parser.model:token_vector_width}
 
 [pipeline.parser.model.tok2vec.embed]
-@layers: spacy.MultiFeatureHashEmbed.v1
+@layers = "spacy.MultiFeatureHashEmbed.v1"
 width = ${pipeline.parser.model.tok2vec:width}
 
 [pipeline.parser.model.tok2vec.embed.hidden]
-@layers: thinc.MLP.v1
+@layers = "thinc.MLP.v1"
 depth = 1
 pieces = 3
 layer_norm = true
 outputs = ${pipeline.parser.model.tok2vec.embed:width}
 
 [pipeline.parser.model.tok2vec.encode]
-@layers: spacy.MaxoutWindowEncoder.v1
+@layers = "spacy.MaxoutWindowEncoder.v1"
 depth = 4
 pieces = 3
 window_size = 1
 
 [pipeline.parser.model.lower]
-@: spacy.ParserLower.v1
+@layers = "spacy.ParserLower.v1"
 
 [pipeline.parser.model.upper]
-@layers: thinc.Affine.v1
+@layers = "thinc.Affine.v1"
 """
 
 OPTIMIZER_CFG = """
 [optimizer]
-@optimizers: thinc.Adam.v1
+@optimizers = "thinc.Adam.v1"
 beta1 = 0.9
 beta2 = 0.999
 use_averages = true
 
 [optimizer.schedules.learn_rate]
-@schedules: thinc.warmup_linear_rate.v1
+@schedules = "thinc.warmup_linear_rate.v1"
 start = 0.1
 steps = 10000
 """

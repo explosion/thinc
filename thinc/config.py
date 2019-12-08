@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import configparser
+import json
 from pathlib import Path
 
 
@@ -18,15 +19,7 @@ class Config(dict):
             for part in parts:
                 node = node.setdefault(part, {})
             for key, value in values.items():
-                if is_float(value):
-                    node[key] = config.getfloat(section, key)
-                elif is_int(value):
-                    node[key] = config.getint(section, key)
-                elif is_bool(value):
-                    node[key] = config.getboolean(section, key)
-                else:
-                    value = strip_quotes(config.get(section, key))
-                    node[key] = value
+                node[key] = json.loads(config.get(section, key))
 
     def from_str(self, text):
         config = configparser.ConfigParser(
@@ -44,32 +37,3 @@ class Config(dict):
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text)
-
-
-def is_int(value):
-    try:
-        int(value)
-        return True
-    except ValueError:
-        return False
-
-def is_float(value):
-    try:
-        float(value)
-        return True
-    except ValueError:
-        return False
-
-def is_bool(value):
-    return value.lower() in ["true", "false"]
-
-
-def strip_quotes(value):
-    if len(value) < 3:
-        return value
-    elif value.startswith('"') and value.endswith('"'):
-        return value[1:-1]
-    elif value.startswith("'") and value.endswith("'"):
-        return value[1:-1]
-    else:
-        return value
