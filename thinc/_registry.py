@@ -3,12 +3,8 @@ import catalogue
 
 class registry(object):
     optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
-    rates = catalogue.create("thinc", "rates", entry_points=True)
-    
+    schedules = catalogue.create("thinc", "schedules", entry_points=True)
     layers = catalogue.create("thinc", "layers", entry_points=True)
-    initializers = catalogue.create("thinc", "initializers", entry_points=True)
-    combinators = catalogue.create("thinc", "combinators", entry_points=True)
-    transforms = catalogue.create("thinc", "transforms", entry_points=True)
 
     @classmethod
     def get(cls, name, key):
