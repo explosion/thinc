@@ -520,6 +520,3 @@ def _get_mask(X, nX):
     for i, length in enumerate(nX):
         X_mask[i, :, :length] = 1.0
     return X_mask
-
-
-
