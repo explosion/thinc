@@ -34,6 +34,63 @@ def LSUVinit(model, X, y=None):
     return X
 
 
+@describe.attributes(
+    nM=Dimension("Vector dimensions"),
+    nV=Dimension("Number of vectors"),
+    vectors=Weights(
+        "Embedding table", lambda obj: (obj.nV, obj.nM), _uniform_init(-0.1, 0.1)
+    ),
+    d_vectors=Gradient("vectors"),
+)
+class SimpleEmbed(Model):
+    name = "simple-embed"
+
+    def __init__(self, nO, nV=None, **kwargs):
+        Model.__init__(self, **kwargs)
+        self.column = kwargs.get("column", 0)
+        self.nO = nO
+        self.nV = nV
+
+    def predict(self, ids):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
+        ids = ids.copy()
+        ids[ids >= self.nV] = 0
+        return self.vectors[ids]
+
+    def begin_update(self, ids, drop=0.0):
+        if ids.ndim == 2:
+            ids = ids[:, self.column]
+        mask = self.ops.get_dropout_mask(ids.shape[0], drop)
+        if mask is not None:
+            ids = ids * (mask > 0)
+        ids[ids >= self.nV] = 0
+        vectors = self.vectors[ids]
+
+        def finish_update(gradients, sgd=None):
+            if hasattr(self.ops.xp, "scatter_add"):
+                self.ops.xp.scatter_add(self.d_vectors, ids, gradients)
+            else:
+                self.ops.xp.add.at(d_vectors, ids, gradients)
+            if sgd is not None:
+                sgd(self._mem.weights, self._mem.gradient, key=self.id)
+            return None
+        
+        return vectors, finish_update
+
+    @contextlib.contextmanager
+    def use_params(self, params):
+        backup = None
+        weights = self._mem.weights
+        if self.id in params:
+            param = params[self.id]
+            backup = weights.copy()
+            weights[:] = param
+        yield
+        if backup is not None:
+            weights[:] = backup
+
+
 @describe.on_data(LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
@@ -52,14 +109,6 @@ def LSUVinit(model, X, y=None):
 )
 class Embed(Model):
     name = "embed"
-
-    # @property
-    # def input_shape(self):
-    #    return (self.nB,)
-
-    # @property
-    # def output_shape(self):
-    #    return (self.nB, self.nO)
 
     @check.arg(1, is_int)
     def __init__(self, nO, nM=None, nV=None, **kwargs):
