@@ -35,7 +35,7 @@ ADAM_DEFAULTS = {
 }
 
 
-@registry.optimizers.register("thinc.RAdam.v1")
+@registry.optimizers.register("RAdam.v1")
 def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         L2=ADAM_DEFAULTS["L2"],
         beta1=ADAM_DEFAULTS["beta1"],
@@ -62,7 +62,7 @@ def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
     )
 
 
-@registry.optimizers.register("thinc.Adam.v1")
+@registry.optimizers.register("Adam.v1")
 def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         L2=ADAM_DEFAULTS["L2"],
         beta1=ADAM_DEFAULTS["beta1"],
@@ -90,7 +90,7 @@ def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
     )
 
 
-@registry.optimizers.register("thinc.SGD.v1")
+@registry.optimizers.register("SGD.v1")
 def create_SGD(learn_rate,
         ops=None,
         L2=SGD_DEFAULTS["L2"],
