@@ -19,20 +19,20 @@ some_other_key =
         "multiline values?": true
     }
 
-[another_section]
-more_values = "yes!"
-null_values = null
-interpolation = ${some_section:third_key}
-
 # Describe nested sections with a dot notation in the section names.
 [some_section.subsection]
 # This will be moved, producing:
 #   config["some_section"]["subsection"] = {"hi": true, "bye": false}
 hi = true
 bye = false
+
+[another_section]
+more_values = "yes!"
+null_values = null
+interpolation = ${some_section:third_key}
 ```
 
-The config format has two has two main differences from the built-in `configparser`
+The config format has two main differences from the built-in `configparser`
 module's behaviour:
 
 * JSON-formatted values. Thinc passes all values through `json.loads()` to
