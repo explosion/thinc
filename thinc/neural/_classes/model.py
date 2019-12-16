@@ -56,16 +56,16 @@ class Model(object):
     @contextlib.contextmanager
     def use_device(cls, device):
         """Change the device to execute on for the scope of the block."""
-        if device == cls._thread_local.ops.device:
+        if device == cls.ops.device:
             yield
         else:
-            curr_Ops = getattr(cls._thread_local, "Ops", cls.Ops)
-            curr_ops = getattr(cls._thread_local, "ops", cls.ops)
-            cls._thread_local.Ops = get_ops(device)
-            cls._thread_local.ops = cls._thread_local.Ops()
+            curr_Ops = cls.Ops
+            curr_ops = cls.ops
+            cls.Ops = get_ops(device)
+            cls.ops = cls.Ops()
             yield
-            cls._thread_local.Ops = curr_Ops
-            cls._thread_local.ops = curr_ops
+            cls.Ops = curr_Ops
+            cls.ops = curr_ops
 
     @property
     def input_shape(self):
@@ -77,9 +77,10 @@ class Model(object):
 
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
-        self._thread_local.ops = self.Ops()
+        self.Ops = self.__class__.Ops
+        self.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
-        self._mem = Memory(self._thread_local.ops)
+        self._mem = Memory(self.ops)
         self._dims = {}
         if not hasattr(self, "_layers"):
             self._layers = []
@@ -131,7 +132,7 @@ class Model(object):
         return y
 
     def predict_one(self, x):
-        X = self._thread_local.ops.expand_dims(x, axis=0)
+        X = self.ops.expand_dims(x, axis=0)
         return self.predict(X)[0]
 
     @contextlib.contextmanager
@@ -187,7 +188,7 @@ class Model(object):
             layer.ops = CupyOps()
             layer.Ops = CupyOps
             if hasattr(layer, "_mem"):
-                layer._mem._mem = self._thread_local.ops.xp.asarray(layer._mem._mem)
+                layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
                 layer._mem.ops = layer.ops
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
@@ -213,9 +214,9 @@ class Model(object):
         y
             Must match expected type
         """
-        scores = self._thread_local.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
+        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
         if not hasattr(y, "shape"):
-            y = self._thread_local.ops.flatten(y)
+            y = self.ops.flatten(y)
         scores = scores.reshape(y.shape)
         if len(scores.shape) == 1:
             correct = ((scores >= 0.5) == (y >= 0.5)).sum()
@@ -224,14 +225,14 @@ class Model(object):
         return correct / y.shape[0]
 
     def evaluate_logloss(self, X, y, minimum=None, maximum=None):
-        yh = self._thread_local.ops.xp.vstack(self.pipe(X))
+        yh = self.ops.xp.vstack(self.pipe(X))
         yh = yh.reshape(y.shape)
         if minimum is not None:
-            yh = self._thread_local.ops.xp.maximum(yh, minimum)
+            yh = self.ops.xp.maximum(yh, minimum)
         if maximum is not None:
-            yh = self._thread_local.ops.xp.minimum(yh, maximum)
+            yh = self.ops.xp.minimum(yh, maximum)
         assert len(yh.shape) == 1
-        losses = -y * self._thread_local.ops.xp.log(yh + 1e-8) - (1 - y) * self._thread_local.ops.xp.log(
+        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
             (1 - yh) + 1e-8
         )
         return losses.mean()
