@@ -84,12 +84,12 @@ def test_init_calls_hooks():
 
 
 def test_use_device():
-    dev_id = id(base.Model._thread_local.ops)
-    with base.Model.use_device(base.Model._thread_local.ops.device):
-        assert id(base.Model._thread_local.ops) == dev_id
+    dev_id = id(base.Model.ops)
+    with base.Model.use_device(base.Model.ops.device):
+        assert id(base.Model.ops) == dev_id
     with base.Model.use_device("gpu"):
-        assert id(base.Model._thread_local.ops) != dev_id
-    assert id(base.Model._thread_local.ops) == dev_id
+        assert id(base.Model.ops) != dev_id
+    assert id(base.Model.ops) == dev_id
 
 
 def test_bind_plus():
