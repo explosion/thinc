@@ -11,7 +11,7 @@ class registry(object):
         if not hasattr(cls, name):
             raise ValueError("Unknown registry: %s" % name)
         reg = getattr(cls, name)
-        func = reg.get(name)
+        func = reg.get(key)
         if func is None:
             raise ValueError("Could not find %s in %s" % (name, key))
         return func
@@ -55,7 +55,14 @@ class registry(object):
         if len(id_keys) >= 2:
             raise ValueError("Multiple registry keys in config: %s" % id_keys)
         elif len(id_keys) == 0:
-            return config
+            # Recurse over subdictionaries, filling in values.
+            filled = {}
+            for key, value in config.items():
+                if isinstance(value, dict):
+                    filled[key] = cls.make_from_config(value, id_start=id_start)
+                else:
+                    filled[key] = value
+            return filled
         else:
             getter = cls.get(id_keys[0].replace(id_start, ""), config[id_keys[0]])
             args = []
