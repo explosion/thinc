@@ -66,9 +66,10 @@ beta2 = 0.999
 use_averages = true
 
 [optimizer.schedules.learn_rate]
-@schedules = "warmup_linear_rate.v1"
-start = 0.1
-steps = 10000
+@schedules = "warmup_linear.v1"
+initial_rate = 0.1
+warmup_steps = 10000
+total_steps = 100000
 """
 
 def test_read_config():
