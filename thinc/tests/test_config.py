@@ -14,7 +14,7 @@ beta2 = 0.999
 use_averages = true
 
 [optimizer.learn_rate]
-@schedules = "warmup_linear_rate.v1"
+@schedules = "warmup_linear.v1"
 start = 0.1
 steps = 10000
 
