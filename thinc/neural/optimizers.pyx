@@ -43,6 +43,7 @@ def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         eps=ADAM_DEFAULTS["eps"],
         max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
+        use_averages=True,
         schedules=None,
         ops=None,
 ):
@@ -58,6 +59,7 @@ def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         nesterov=None, lookahead_k=0, lookahead_alpha=0,
+        use_averages=True,
         use_radam=True, use_lars=False
     )
 
@@ -70,6 +72,7 @@ def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         eps=ADAM_DEFAULTS["eps"],
         max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
+        use_averages=True,
         ops=None,
         schedules=None
 ):
@@ -84,6 +87,7 @@ def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
         max_grad_norm=max_grad_norm,
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
+        use_averages=True,
         decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0, 
         nesterov=None, lookahead_k=0, lookahead_alpha=0,
         use_radam=False, use_lars=False
@@ -96,6 +100,7 @@ def create_SGD(learn_rate,
         L2=SGD_DEFAULTS["L2"],
         max_grad_norm=SGD_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay=SGD_DEFAULTS["L2_is_weight_decay"],
+        use_averages=True,
         schedules=None
 ):
     ops = _make_ops(ops)
@@ -122,7 +127,7 @@ class Optimizer(object):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, 
                  max_grad_norm=10., gradient_noise=0.0, nesterov=True,
                  L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
-                 use_radam=False, use_lars=False, schedule=None, **_):
+                 use_averages=True, use_radam=False, use_lars=False, schedule=None, **_):
         self.ops = ops
         if schedule is None:
             self.schedule = {}
@@ -131,7 +136,10 @@ class Optimizer(object):
         self.mom1 = {}
         self.mom2 = {}
         self.slow_weights = {} # For lookahead
-        self.averages = {}
+        if use_averages:
+            self.averages = {}
+        else:
+            self.averages = None
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
         self.max_grad_norm = max_grad_norm
