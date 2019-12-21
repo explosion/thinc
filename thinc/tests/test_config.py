@@ -8,13 +8,13 @@ EXAMPLE_CONFIG = """
 [DEFAULT]
 
 [optimizer]
-@optimizers = "thinc.Adam.v1"
+@optimizers = "Adam.v1"
 beta1 = 0.9
 beta2 = 0.999
 use_averages = true
 
 [optimizer.learn_rate]
-@schedules = "thinc.warmup_linear_rate.v1"
+@schedules = "warmup_linear_rate.v1"
 start = 0.1
 steps = 10000
 
@@ -31,7 +31,7 @@ hidden_width = 64
 token_vector_width = 128
 
 [pipeline.parser.model.tok2vec]
-@layers = "spacy.Tok2Vec.v1"
+@layers = "Tok2Vec.v1"
 width = ${pipeline.parser.model:token_vector_width}
 
 [pipeline.parser.model.tok2vec.embed]
@@ -39,7 +39,7 @@ width = ${pipeline.parser.model:token_vector_width}
 width = ${pipeline.parser.model.tok2vec:width}
 
 [pipeline.parser.model.tok2vec.embed.hidden]
-@layers = "thinc.MLP.v1"
+@layers = "MLP.v1"
 depth = 1
 pieces = 3
 layer_norm = true
@@ -60,13 +60,13 @@ window_size = 1
 
 OPTIMIZER_CFG = """
 [optimizer]
-@optimizers = "thinc.Adam.v1"
+@optimizers = "Adam.v1"
 beta1 = 0.9
 beta2 = 0.999
 use_averages = true
 
 [optimizer.schedules.learn_rate]
-@schedules = "thinc.warmup_linear_rate.v1"
+@schedules = "warmup_linear_rate.v1"
 start = 0.1
 steps = 10000
 """
