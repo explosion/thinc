@@ -178,6 +178,28 @@ class Model(object):
             gradient = finish_update(y)
             yield gradient
 
+    def walk(self):
+        """Iterate out layers of the model, breadth-first."""
+        queue = [self]
+        seen = set()
+        for node in queue:
+            if node.id in seen:
+                continue
+            seen.add(node.id)
+            yield node
+            if hasattr(node, "_layers"):
+                queue.extend(node._layers)
+
+    def get_gradients(self):
+        """Get non-zero gradients of the model's parameters, as a dictionary
+        keyed by the parameter ID. The values are (weights, gradients) tuples.
+        """
+        gradients = {}
+        for node in self.walk():
+            if hasattr(node, "_mem") and node._mem.gradient.any():
+                gradients[node.id] = [node._mem.weights, node._mem.gradient]
+        return gradients
+
     def to_gpu(self, device_num):
         import cupy.cuda.device
 
