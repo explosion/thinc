@@ -3,6 +3,9 @@ import inspect
 from pydantic import create_model
 
 
+class _PromiseSchemaConfig:
+    extra = "forbid"
+
 class registry(object):
     optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules = catalogue.create("thinc", "schedules", entry_points=True)
@@ -103,14 +106,17 @@ class registry(object):
     def make_promise_schema(cls, obj):
         func = cls.get_constructor(obj)
         # Read the argument annotations and defaults from the function signature
-        sig_args = {}
+        id_keys = [k for k in obj.keys() if k.startswith("@")]
+        sig_args = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
             # If no default value is specified assume that it's required
             if param.default != param.empty:
                 sig_args[param.name] = (param.annotation, param.default)
             else:
                 sig_args[param.name] = (param.annotation, ...)
-        return create_model("ArgModel", **sig_args)
+
+        return create_model("ArgModel", **sig_args,
+            __config__=_PromiseSchemaConfig)
 
     @classmethod
     def get_return_type(cls, obj):

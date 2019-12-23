@@ -13,9 +13,15 @@ class HelloIntsSchema(BaseModel):
     hello: int
     world: int
 
+    class Config:
+        extra = "forbid"
+
 class DefaultsSchema(BaseModel):
     required: int
     optional: str = "default value"
+
+    class Config:
+        extra = "forbid"
 
 
 class ComplexSchema(BaseModel):
@@ -40,6 +46,15 @@ def test_invalidate_simple_config():
     invalid_config = {
         "hello": 1,
         "world": "hi!"
+    }
+    with pytest.raises(ValidationError):
+        f, v = my_registry.fill_and_validate(invalid_config, HelloIntsSchema)
+
+def test_invalidate_extra_args():
+    invalid_config = {
+        "hello": 1,
+        "world": 2,
+        "extra": 3
     }
     with pytest.raises(ValidationError):
         f, v = my_registry.fill_and_validate(invalid_config, HelloIntsSchema)
@@ -131,3 +146,29 @@ def test_validate_promise():
     filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
     assert filled == config
     assert validated == {"required": 1, "optional": ""}
+
+def test_fill_validate_promise():
+    config = {
+        "required": 1,
+        "optional": {
+            "@cats": "catsie.v1",
+            "evil": False
+        }
+    }
+    filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
+    assert filled["optional"]["cute"] == True
+
+def test_fill_invalidate_promise():
+    config = {
+        "required": 1,
+        "optional": {
+            "@cats": "catsie.v1",
+            "evil": False
+        }
+    }
+
+    with pytest.raises(ValidationError):
+        filled, validated = my_registry.fill_and_validate(config, HelloIntsSchema)
+    config["optional"]["whiskers"] = True
+    with pytest.raises(ValidationError):
+        filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
