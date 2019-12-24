@@ -39,12 +39,13 @@ ADAM_DEFAULTS = {
 @registry.optimizers.register("RAdam.v1")
 def create_RAdam(
         learn_rate: float=ADAM_DEFAULTS["learn_rate"],
-        L2: float=ADAM_DEFAULTS["L2"],
         beta1: float=ADAM_DEFAULTS["beta1"],
         beta2: float=ADAM_DEFAULTS["beta2"],
         eps: float=ADAM_DEFAULTS["eps"],
+        weight_decay: float=ADAM_DEFAULTS["L2"],
         max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
-        L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
+        lookeahead_k: int=6,
+        lookahead_alpha: float=0.5,
         use_averages: bool=True,
         schedules: Dict[str, Sequence[float]]=None,
         ops=None,
@@ -53,12 +54,12 @@ def create_RAdam(
     return Optimizer(
         ops,
         learn_rate,
-        L2=L2,
         beta1=beta1,
         beta2=beta2,
         eps=eps,
         max_grad_norm=max_grad_norm,
-        L2_is_weight_decay=L2_is_weight_decay,
+        L2_is_weight_decay=True,
+        L2=weight_decay,
         schedules=schedules,
         nesterov=None, lookahead_k=0, lookahead_alpha=0,
         use_averages=True,
@@ -76,6 +77,8 @@ def create_Adam(
         max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool=True,
+        lookahead_k: int=6,
+        lookahead_alpha: float=0.5,
         ops=None,
         schedules: Dict[str, Sequence[float]]=None
 ):
@@ -92,7 +95,7 @@ def create_Adam(
         schedules=schedules,
         use_averages=True,
         decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0, 
-        nesterov=None, lookahead_k=0, lookahead_alpha=0,
+        nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
         use_radam=False, use_lars=False
     )
 
@@ -130,12 +133,12 @@ class Optimizer(object):
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, 
                  max_grad_norm=10., gradient_noise=0.0, nesterov=True,
                  L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
-                 use_averages=True, use_radam=False, use_lars=False, schedule=None, **_):
+                 use_averages=True, use_radam=False, use_lars=False, schedules=None, **_):
         self.ops = ops
-        if schedule is None:
-            self.schedule = {}
+        if schedules is None:
+            self.schedules = {}
         else:
-            self.schedule = dict(schedule)
+            self.schedules = dict(schedules)
         self.mom1 = {}
         self.mom2 = {}
         self.slow_weights = {} # For lookahead
@@ -157,6 +160,7 @@ class Optimizer(object):
         self.lookahead_k = lookahead_k
         self.lookahead_alpha = lookahead_alpha
         self.use_radam = use_radam
+        self._radam_buffer = [[None, None, None] for _ in range(10)]
         # Deprecated
         self.use_lars = use_lars
         self.decay = 0.0
@@ -217,7 +221,7 @@ class Optimizer(object):
         if self.gradient_noise:
             add_gradient_noise(gradient, self.gradient_noise, nr_upd)
         if self.use_radam:
-            self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
+            self._radam2(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and not self.nesterov:
@@ -293,6 +297,80 @@ class Optimizer(object):
         else:
             lr = self.alpha * lr_scale
         weights -= lr * update
+        self._lookahead(weights, key)
+
+    def _radam2(self, xp, weights, grad, lr_scale, key, nr_upd):
+        if key not in self.mom1:
+            self.mom1[key] = self.ops.allocate(weights.size)
+        if key not in self.mom2:
+            self.mom2[key] = self.ops.allocate(weights.size)
+ 
+        # While we port from PyTorch
+        p_data_fp32 = weights
+        state = {
+            "step": self.nr_update[key],
+            "exp_avg": self.mom1[key],
+            "exp_avg_sq": self.mom2[key]
+        }
+        group = {
+            "lr": self.alpha,
+            "betas": [self.b1, self.b2],
+            "eps": self.eps,
+            "weight_decay": 0.0,
+            "buffer": self._radam_buffer 
+        }
+        degenerated_to_sgd = True
+
+        exp_avg, exp_avg_sq = state['exp_avg'], state['exp_avg_sq']
+        beta1, beta2 = group['betas']
+
+        # exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
+        exp_avg_sq *= beta2
+        exp_avg_sq += (1-beta2) * (grad * grad)
+        # exp_avg.mul_(beta1).add_(1 - beta1, grad)
+        exp_avg *= beta1
+        exp_avg += (1-beta1) * grad
+
+        state['step'] += 1
+        buffered = group['buffer'][int(state['step'] % 10)]
+        if state['step'] == buffered[0]:
+            N_sma, step_size = buffered[1], buffered[2]
+        else:
+            buffered[0] = state['step']
+            beta2_t = beta2 ** state['step']
+            N_sma_max = 2 / (1 - beta2) - 1
+            N_sma = N_sma_max - 2 * state['step'] * beta2_t / (1 - beta2_t)
+            buffered[1] = N_sma
+
+            # more conservative since it's an approximated value
+            if N_sma >= 5:
+                step_size = math.sqrt((1 - beta2_t) * (N_sma - 4) / (N_sma_max - 4) * (N_sma - 2) / N_sma * N_sma_max / (N_sma_max - 2)) / (1 - beta1 ** state['step'])
+            elif degenerated_to_sgd:
+                step_size = 1.0 / (1 - beta1 ** state['step'])
+            else:
+                step_size = -1
+            buffered[2] = step_size
+
+        # more conservative since it's an approximated value
+        if N_sma >= 5:
+            if group['weight_decay'] != 0:
+                p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
+            denom = xp.sqrt(exp_avg_sq) + group['eps']
+            p_data_fp32 += -step_size * group["lr"] * (exp_avg / denom)
+        elif step_size > 0:
+            if group['weight_decay'] != 0:
+                p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
+            p_data_fp32 += -step_size * group["lr"] * exp_avg
+        self._lookahead(weights, key)
+
+    def _lookahead(self, weights, key):
+        if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
+            if key not in self.slow_weights:
+                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+            slow = self.slow_weights[key]
+            slow += self.lookahead_alpha * (weights - slow)
+            weights[:] = slow
+ 
 
     def _nesterov(self, xp, weights, gradient, lr_scale, key):
         # http://cs231n.github.io/neural-networks-3/
