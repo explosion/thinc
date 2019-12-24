@@ -7,6 +7,7 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
+from typing import Sequence, Dict
 from collections import defaultdict
 import numpy
 
@@ -36,15 +37,16 @@ ADAM_DEFAULTS = {
 
 
 @registry.optimizers.register("RAdam.v1")
-def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
-        L2=ADAM_DEFAULTS["L2"],
-        beta1=ADAM_DEFAULTS["beta1"],
-        beta2=ADAM_DEFAULTS["beta2"],
-        eps=ADAM_DEFAULTS["eps"],
-        max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
-        L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
-        use_averages=True,
-        schedules=None,
+def create_RAdam(
+        learn_rate: float=ADAM_DEFAULTS["learn_rate"],
+        L2: float=ADAM_DEFAULTS["L2"],
+        beta1: float=ADAM_DEFAULTS["beta1"],
+        beta2: float=ADAM_DEFAULTS["beta2"],
+        eps: float=ADAM_DEFAULTS["eps"],
+        max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
+        L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
+        use_averages: bool=True,
+        schedules: Dict[str, Sequence[float]]=None,
         ops=None,
 ):
     ops = _make_ops(ops)
@@ -65,16 +67,17 @@ def create_RAdam(learn_rate=ADAM_DEFAULTS["learn_rate"],
 
 
 @registry.optimizers.register("Adam.v1")
-def create_Adam(learn_rate=ADAM_DEFAULTS["learn_rate"],
-        L2=ADAM_DEFAULTS["L2"],
-        beta1=ADAM_DEFAULTS["beta1"],
-        beta2=ADAM_DEFAULTS["beta2"],
-        eps=ADAM_DEFAULTS["eps"],
-        max_grad_norm=ADAM_DEFAULTS["max_grad_norm"],
-        L2_is_weight_decay=ADAM_DEFAULTS["L2_is_weight_decay"],
-        use_averages=True,
+def create_Adam(
+        learn_rate: float=ADAM_DEFAULTS["learn_rate"],
+        L2: float=ADAM_DEFAULTS["L2"],
+        beta1: float=ADAM_DEFAULTS["beta1"],
+        beta2: float=ADAM_DEFAULTS["beta2"],
+        eps: float=ADAM_DEFAULTS["eps"],
+        max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
+        L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
+        use_averages: bool=True,
         ops=None,
-        schedules=None
+        schedules: Dict[str, Sequence[float]]=None
 ):
     ops = _make_ops(ops)
     return Optimizer(
