@@ -30,7 +30,7 @@ class registry(object):
         filled = {}
         for key, value in config.items():
             if isinstance(value, dict):
-                filled[key] = cls.make_from_config(value, id_start=id_start)
+                filled[key] = cls.make_from_config(value)
             else:
                 filled[key] = value
         if cls.is_promise(filled):
@@ -115,8 +115,7 @@ class registry(object):
             else:
                 sig_args[param.name] = (param.annotation, ...)
 
-        return create_model("ArgModel", **sig_args,
-            __config__=_PromiseSchemaConfig)
+        return create_model("ArgModel", **sig_args, __config__=_PromiseSchemaConfig)
 
     @classmethod
     def get_return_type(cls, obj):
