@@ -61,7 +61,7 @@ def create_RAdam(
         L2_is_weight_decay=True,
         L2=weight_decay,
         schedules=schedules,
-        nesterov=None, lookahead_k=0, lookahead_alpha=0,
+        nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
         use_averages=True,
         use_radam=True, use_lars=False
     )
@@ -77,7 +77,7 @@ def create_Adam(
         max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool=True,
-        lookahead_k: int=6,
+        lookahead_k: int=0,
         lookahead_alpha: float=0.5,
         ops=None,
         schedules: Dict[str, Sequence[float]]=None
