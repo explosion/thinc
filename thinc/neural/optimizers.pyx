@@ -44,7 +44,7 @@ def create_RAdam(
         eps: float=ADAM_DEFAULTS["eps"],
         weight_decay: float=ADAM_DEFAULTS["L2"],
         max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
-        lookeahead_k: int=6,
+        lookahead_k: int=0,
         lookahead_alpha: float=0.5,
         use_averages: bool=True,
         schedules: Dict[str, Sequence[float]]=None,
