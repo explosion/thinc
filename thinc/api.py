@@ -2,7 +2,7 @@ import copy
 import numpy
 
 from .neural._classes.model import Model
-from .neural._classes.function_layer import FunctionLayer
+from .neural._classes.function_layer import FunctionLayer, wrap
 from .neural._classes.feed_forward import FeedForward
 
 
@@ -340,19 +340,6 @@ def get_word_ids(ops, pad=1, token_drop=0.0, ignore=None):
         return seqs, None
 
     return layerize(forward)
-
-
-def wrap(func, *child_layers):
-    model = layerize(func)
-    model._layers.extend(child_layers)
-
-    def on_data(self, X, y):
-        for child in self._layers:
-            for hook in child.on_data_hooks:
-                hook(child, X, y)
-
-    model.on_data_hooks.append(on_data)
-    return model
 
 
 def uniqued(layer, column=0):
