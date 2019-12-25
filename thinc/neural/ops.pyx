@@ -9,24 +9,17 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-
 import numpy
 from numpy import prod
 from numpy cimport ndarray
-try:
-    # Python >= 3.3
-    from collections.abc import Sized
-except ImportError:
-    # Python < 3.3
-    from collections import Sized
+from collections.abc import Sized
 cimport numpy as np
+from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
 from . import _custom_kernels
 from ..typedefs cimport weight_t
 from .util import copy_array, get_array_module
 from ..linalg cimport VecVec, Vec
-
-from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from . import _custom_kernels
 
 cimport blis
