@@ -297,58 +297,86 @@ class Model(object):
 
     def __add__(self, other):
         """Apply the function bound to the '+' operator."""
+        if "+" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: +")
         return self._thread_local.operators["+"](self, other)
 
     def __sub__(self, other):
         """Apply the function bound to the '-' operator."""
+        if "-" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: -")
         return self._thread_local.operators["-"](self, other)
 
     def __mul__(self, other):
         """Apply the function bound to the '*' operator."""
+        if "*" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: *")
         return self._thread_local.operators["*"](self, other)
 
     def __matmul__(self, other):
         """Apply the function bound to the '@' operator."""
+        if "@" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
     def __div__(self, other):
         """Apply the function bound to the '/' operator."""
+        if "/" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
     def __truediv__(self, other):  # pragma: no cover
         """Apply the function bound to the '/' operator."""
+        if "/" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
     def __floordiv__(self, other):
         """Apply the function bound to the '//' operator."""
+        if "//" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: //")
         return self._thread_local.operators["//"](self, other)
 
     def __mod__(self, other):
         """Apply the function bound to the '%' operator."""
+        if "%" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: %")
         return self._thread_local.operators["%"](self, other)
 
     def __pow__(self, other, modulo=None):
         """Apply the function bound to the '**' operator."""
+        if "**" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: **")
         return self._thread_local.operators["**"](self, other)
 
     def __lshift__(self, other):
         """Apply the function bound to the '<<' operator."""
+        if "<<" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: <<")
         return self._thread_local.operators["<<"](self, other)
 
     def __rshift__(self, other):
         """Apply the function bound to the '>>' operator."""
+        if ">>" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: >>")
         return self._thread_local.operators[">>"](self, other)
 
     def __and__(self, other):
         """Apply the function bound to the '&' operator."""
+        if "&" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: &")
         return self._thread_local.operators["&"](self, other)
 
     def __xor__(self, other):
         """Apply the function bound to the '^' operator."""
+        if "^" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: ^")
         return self._thread_local.operators["^"](self, other)
 
     def __or__(self, other):
         """Apply the function bound to the '|' operator."""
+        if "|" not in self._thread_local.operators:
+            raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
 
     def to_bytes(self):
