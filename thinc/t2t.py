@@ -22,7 +22,9 @@ def make_TorchBiLSTM(outputs: int, inputs: int, depth: int, dropout: float = 0.2
 
     if depth == 0:
         return layerize(noop())
-    model = torch.nn.LSTM(nI, nO // 2, depth, bidirectional=True, dropout=dropout)
+    model = torch.nn.LSTM(
+        inputs, outputs // 2, depth, bidirectional=True, dropout=dropout
+    )
     return with_square_sequences(PyTorchWrapperRNN(model))
 
 
@@ -38,12 +40,12 @@ def make_MaxoutWindowEncoder(width: int, depth: int, *, pieces: int, window_size
     with Model.define_operators({">>": chain, "**": clone}):
         model = (
             Residual(
-                ExtractWindow(nW=window)
+                ExtractWindow(nW=window_size)
                 >> LayerNorm(Maxout(width, width * n_tokens, pieces=pieces))
             )
             ** depth
         )
-    model.nO = nO
+    model.nO = width
     model.receptive_field = n_tokens * depth
     return model
 
@@ -60,10 +62,11 @@ def make_MishWindowEncoder(width: int, depth: int, *, window_size: int):
     with Model.define_operators({">>": chain, "**": clone}):
         model = (
             Residual(
-                ExtractWindow(nW=window) >> LayerNorm(Mish(width, width * n_tokens))
+                ExtractWindow(nW=window_size)
+                >> LayerNorm(Mish(width, width * n_tokens))
             )
             ** depth
         )
-    model.nO = nO
+    model.nO = width
     model.receptive_field = n_tokens * depth
     return model

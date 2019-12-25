@@ -1,6 +1,7 @@
 # TODO: These should probably be data classes?
 class ParamInfo:
     """Information about a weights parameter. Stored in model._params"""
+
     def __init__(self, name, get_shape, init, text):
         self.name = name
         self.get_shape = get_shape
@@ -10,6 +11,7 @@ class ParamInfo:
 
 class GradInfo:
     """Information about a parameter gradient. Stored in model._grads"""
+
     def __init__(self, name, param_name, text):
         self.name = name
         self.param_name = param_name
@@ -56,7 +58,9 @@ class Weights(AttributeDescription):
 
     def install(self, attr, obj):
         self.name = attr
-        obj._params[self.name] = ParamInfo(self.name, self.get_shape, self.init, self.text)
+        obj._params[self.name] = ParamInfo(
+            self.name, self.get_shape, self.init, self.text
+        )
 
     def __get__(self, obj, type=None):
         return obj.get_param(self.name)

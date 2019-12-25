@@ -6,6 +6,7 @@ from pydantic import create_model
 class _PromiseSchemaConfig:
     extra = "forbid"
 
+
 class registry(object):
     optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules = catalogue.create("thinc", "schedules", entry_points=True)
@@ -56,9 +57,7 @@ class registry(object):
                 validation[key] = type_.__new__(type_)
             elif hasattr(value, "items"):
                 field = schema.__fields__[key]
-                filled[key], validation[key] = cls.fill_and_validate(
-                    value, field.type_
-                )
+                filled[key], validation[key] = cls.fill_and_validate(value, field.type_)
             else:
                 filled[key] = value
                 validation[key] = value

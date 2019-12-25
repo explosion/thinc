@@ -5,6 +5,12 @@ from .positionwise_ffd import PositionwiseFeedForward
 from ...api import clone, with_reshape
 from ...extra.wrappers import PyTorchWrapper, PyTorchModule
 
+try:
+    import torch
+    import torch.nn
+except ImportError:
+    torch = None
+
 
 class EncoderDecoder(Model):
     def __init__(self, nS=1, nH=6, nM=300, nTGT=10000, device="cpu"):
@@ -58,8 +64,8 @@ class EncoderDecoder(Model):
 class PytorchLayerNorm(PyTorchModule):
     def __init__(self, nM=300, eps=1e-6, device="cpu"):
         super(PytorchLayerNorm, self).__init__()
-        self.a_2 = nn.Parameter(torch.ones(nM).to(device))
-        self.b_2 = nn.Parameter(torch.zeros(nM).to(device))
+        self.a_2 = torch.nn.Parameter(torch.ones(nM).to(device))
+        self.b_2 = torch.nn.Parameter(torch.zeros(nM).to(device))
         self.eps = eps
         self.device = device
 
