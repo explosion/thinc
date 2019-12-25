@@ -1,8 +1,5 @@
 from numpy import prod
 
-from .. import check
-from ..check import is_shape
-
 
 class Memory(object):
     def __init__(self, ops, size=128):
@@ -36,7 +33,6 @@ class Memory(object):
     def set(self, value):
         self._mem[0, : self._i] = value
 
-    @check.arg(2, is_shape)
     def add(self, name, shape):
         assert name not in self._offsets, "TODO error"
         self._offsets[name] = (self._i, 0, shape)
