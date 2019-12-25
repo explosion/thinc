@@ -21,7 +21,6 @@ class Model(object):
 
     name = "model"
     id = 0
-    lsuv = False
     ops = NumpyOps()
     Ops = NumpyOps
     Trainer = Trainer
