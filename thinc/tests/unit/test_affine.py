@@ -5,7 +5,6 @@ import numpy
 from numpy.testing import assert_allclose
 from thinc.neural._classes.affine import Affine
 from thinc.neural.ops import NumpyOps
-from thinc.check import ShapeMismatchError
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -116,7 +115,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 def test_begin_update_not_batch():
     model = Affine(4, 5)
     input_ = model.ops.allocate((6,))
-    with pytest.raises(ShapeMismatchError):
+    with pytest.raises(TypeError):
         model.begin_update(input_)
 
 
@@ -124,7 +123,7 @@ def test_begin_update_not_batch():
 def test_predict_update_dim_mismatch():
     model = Affine(4, 5, ops=NumpyOps())
     input_ = model.ops.allocate((10, 9))
-    with pytest.raises(ShapeMismatchError):
+    with pytest.raises(TypeError):
         model.begin_update(input_)
 
 
