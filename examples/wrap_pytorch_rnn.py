@@ -92,8 +92,5 @@ def init_hidden(rnn_model, rnn_type, batch_size, num_layers, hidden_size):
 if __name__ == "__main__":
     for rnn in ["RNN", "GRU", "LSTM"]:
         for bi in [False, True]:
-            test_title = "Using {bidirectional}{rnn_type}".format(
-                rnn_type=rnn, bidirectional="Bi-" if bi else ""
-            )
-            print(test_title)
+            print(f"Using {'Bi-' if bi else ''}{rnn}")
             test_rnn(rnn_type=rnn, bidirectional=bi)
