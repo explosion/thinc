@@ -221,7 +221,6 @@ def setup_package():
                 "numpy>=1.7.0",
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
-                'pathlib==1.0.1; python_version < "3.4"',
                 "pydantic>=1.3.0,<2.0.0",
             ],
             extras_require={
