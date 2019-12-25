@@ -38,7 +38,6 @@ PACKAGES = [
     "thinc.extra",
     "thinc.neural._classes",
     "thinc.extra._vendorized",
-    "thinc.extra.wrapt",
 ]
 
 
@@ -182,13 +181,6 @@ def setup_package():
                     mod_name, [mod_path], language="c++", include_dirs=include_dirs
                 )
             )
-        ext_modules.append(
-            Extension(
-                "thinc.extra.wrapt._wrappers",
-                ["thinc/extra/wrapt/_wrappers.c"],
-                include_dirs=include_dirs,
-            )
-        )
 
         if not is_source_release(root):
             generate_cython(root, "thinc")
