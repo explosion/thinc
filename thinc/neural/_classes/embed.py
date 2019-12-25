@@ -3,8 +3,6 @@ import contextlib
 from ..ops import CupyOps
 from .model import Model
 from ... import describe
-from ... import check
-from ...check import is_int
 from ...describe import Dimension, Weights, Synapses, Gradient
 from ..util import copy_array
 
@@ -99,7 +97,6 @@ class SimpleEmbed(Model):
 class Embed(Model):
     name = "embed"
 
-    @check.arg(1, is_int)
     def __init__(self, nO, nM=None, nV=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.is_static = kwargs.get("is_static", False)
@@ -108,7 +105,6 @@ class Embed(Model):
         self.nM = nM
         self.nV = nV
 
-    # @check.arg(1, is_int_array)
     def predict(self, ids):
         if ids.ndim == 2:
             ids = ids[:, self.column]
