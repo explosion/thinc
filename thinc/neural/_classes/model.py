@@ -8,8 +8,6 @@ from ..train import Trainer
 from ..ops import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array
-from ... import check
-from ...check import has_shape, is_sequence, is_float
 
 
 class Model(object):
@@ -157,15 +155,11 @@ class Model(object):
         for layer in self._layers:
             layer.set_id()
 
-    # @check.args(equal_length)
-    @check.arg(1, is_sequence)
     def begin_training(self, train_X, train_y=None, **trainer_cfg):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
         return self.Trainer(self, **trainer_cfg)
 
-    @check.arg(2, is_float)
-    @check.arg(1, has_shape(("nB", "nI")))
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
@@ -301,72 +295,58 @@ class Model(object):
         )
         return losses.mean()
 
-    @check.operator_is_defined("+")
     def __add__(self, other):
         """Apply the function bound to the '+' operator."""
         return self._thread_local.operators["+"](self, other)
 
-    @check.operator_is_defined("-")
     def __sub__(self, other):
         """Apply the function bound to the '-' operator."""
         return self._thread_local.operators["-"](self, other)
 
-    @check.operator_is_defined("*")
     def __mul__(self, other):
         """Apply the function bound to the '*' operator."""
         return self._thread_local.operators["*"](self, other)
 
-    @check.operator_is_defined("@")
     def __matmul__(self, other):
         """Apply the function bound to the '@' operator."""
         return self._thread_local.operators["@"](self, other)
 
-    @check.operator_is_defined("/")
     def __div__(self, other):
         """Apply the function bound to the '/' operator."""
         return self._thread_local.operators["/"](self, other)
 
-    @check.operator_is_defined("/")
     def __truediv__(self, other):  # pragma: no cover
         """Apply the function bound to the '/' operator."""
         return self._thread_local.operators["/"](self, other)
 
-    @check.operator_is_defined("//")
     def __floordiv__(self, other):
         """Apply the function bound to the '//' operator."""
         return self._thread_local.operators["//"](self, other)
 
-    @check.operator_is_defined("%")
     def __mod__(self, other):
         """Apply the function bound to the '%' operator."""
         return self._thread_local.operators["%"](self, other)
 
-    @check.operator_is_defined("**")
     def __pow__(self, other, modulo=None):
         """Apply the function bound to the '**' operator."""
         return self._thread_local.operators["**"](self, other)
 
-    @check.operator_is_defined("<<")
     def __lshift__(self, other):
         """Apply the function bound to the '<<' operator."""
         return self._thread_local.operators["<<"](self, other)
 
-    @check.operator_is_defined(">>")
     def __rshift__(self, other):
         """Apply the function bound to the '>>' operator."""
         return self._thread_local.operators[">>"](self, other)
 
-    @check.operator_is_defined("&")
     def __and__(self, other):
         """Apply the function bound to the '&' operator."""
         return self._thread_local.operators["&"](self, other)
 
-    @check.operator_is_defined("^")
     def __xor__(self, other):
         """Apply the function bound to the '^' operator."""
         return self._thread_local.operators["^"](self, other)
 
-    @check.operator_is_defined("|")
     def __or__(self, other):
         """Apply the function bound to the '|' operator."""
         return self._thread_local.operators["|"](self, other)
