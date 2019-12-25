@@ -9,7 +9,6 @@ from ... import describe
 from ... import check
 from ...check import is_int
 from ...describe import Dimension, Weights, Synapses, Gradient
-from .._lsuv import do_lsuv
 from ..util import copy_array
 
 
@@ -26,12 +25,6 @@ def _uniform_init(lo, hi):
         copy_array(W, ops.xp.random.uniform(lo, hi, W.shape))
 
     return wrapped
-
-
-def LSUVinit(model, X, y=None):
-    if model.vectors is not None and model.W is not None:
-        do_lsuv(model.ops, model.W, model, X)
-    return X
 
 
 @describe.attributes(
@@ -91,7 +84,6 @@ class SimpleEmbed(Model):
             weights[:] = backup
 
 
-@describe.on_data(LSUVinit)
 @describe.attributes(
     nM=Dimension("Vector dimensions"),
     nV=Dimension("Number of vectors"),
