@@ -1,22 +1,16 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function, division
-
 import sys
 import plac
 import numpy
 from timeit import default_timer as timer
 from pathlib import Path
-
 from spacy.attrs import ORTH, LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
 from thinc.extra.load_nlp import get_spacy
-
 from thinc.neural._classes.hash_embed import HashEmbed
 from thinc.neural._classes.static_vectors import StaticVectors
 from thinc.neural.vec2vec import Model, Maxout, Softmax
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.neural._classes.batchnorm import BatchNorm as BN
-
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import flatten_sequences, to_categorical
 from thinc.neural.ops import CupyOps

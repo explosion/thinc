@@ -1,13 +1,8 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 # Warning: The code here might be broken --- the results don't seem right
-
 import sys
 import plac
 from pathlib import Path
 from srsly import cloudpickle as pickle
-
 from thinc.v2v import Model, Maxout
 from thinc.t2v import Pooling, mean_pool, max_pool
 from thinc.i2v import HashEmbed, StaticVectors
@@ -17,10 +12,8 @@ from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
 from thinc.neural.ops import CupyOps
 from thinc.neural.util import require_gpu
-
 from thinc.api import layerize, with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, get_word_ids
-
 from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy
 
@@ -33,7 +26,6 @@ except (ImportError, OSError):
     print("Missing dependency: spacy. Try:")
     print("pip install spacy")
     print("python -m spacy download en_vectors_web_lg")
-    print("python -m spacy link en_vectors_web_lg en")
     sys.exit(1)
 
 

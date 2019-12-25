@@ -1,5 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
 from typing import Sequence, Optional, Union
 
 from .neural._classes.batchnorm import BatchNorm  # noqa: F401
@@ -17,5 +15,5 @@ def make_FeatureExtractor(attrs: Sequence[Union[int, str]]):
 
 
 @registry.layers.register("LayerNorm.v1")
-def make_LayerNorm(outputs: Optional[int]=None, child=None):
+def make_LayerNorm(outputs: Optional[int] = None, child=None):
     return LayerNorm(nO=outputs, child=child)

@@ -1,8 +1,4 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 from srsly import cloudpickle as pickle
-
 from thinc.v2v import Model, Softmax
 from thinc.t2v import Pooling, mean_pool
 from thinc.extra import datasets
@@ -12,7 +8,6 @@ from thinc.api import chain, concatenate, clone, uniqued
 from thinc.api import flatten_add_lengths, with_getitem
 from thinc.api import FeatureExtracter
 from thinc.neural.ops import CupyOps
-
 from spacy.language import Language
 from spacy.attrs import ORTH
 

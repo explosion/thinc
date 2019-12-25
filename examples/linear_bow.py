@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 from thinc.linear.linear import LinearModel
 from thinc.extra import datasets
 from thinc.neural.util import to_categorical

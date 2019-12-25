@@ -1,25 +1,19 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import tqdm
 from thinc.i2v import StaticVectors, HashEmbed
 from thinc.v2v import Model, Affine, Maxout, Softmax
-from thinc.t2t import ExtractWindow, ParametricAttention
+from thinc.t2t import ParametricAttention
 from thinc.t2t import MultiHeadedAttention, prepare_self_attention
-from thinc.t2v import Pooling, sum_pool, mean_pool, max_pool
+from thinc.t2v import Pooling, mean_pool
 from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
-
 from thinc.extra import datasets
 from thinc.extra.load_nlp import register_vectors
 from thinc.neural.util import to_categorical, require_gpu
 from thinc.api import layerize, chain, concatenate, clone
-from thinc.api import foreach, with_flatten, flatten_add_lengths, with_getitem
+from thinc.api import foreach, with_flatten, flatten_add_lengths
 from thinc.misc import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
-
-from thinc.neural.ops import CupyOps
 from spacy.util import compounding, fix_random_seed
 
 
@@ -42,7 +36,7 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
         sent2vec = (
             with_flatten(embed)
             >> Residual(
-                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                prepare_self_attention(Affine(width * 3, width), nM=width, nH=4)
                 >> MultiHeadedAttention()
                 >> with_flatten(Maxout(width, width, pieces=3))
             )
@@ -55,7 +49,7 @@ def build_model(nr_class, width, depth, conv_depth, vectors_name, **kwargs):
         model = (
             foreach(sent2vec, drop_factor=2.0)
             >> Residual(
-                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                prepare_self_attention(Affine(width * 3, width), nM=width, nH=4)
                 >> MultiHeadedAttention()
                 >> with_flatten(LN(Affine(width, width)))
             )
@@ -97,7 +91,13 @@ def main(use_gpu=False, nb_epoch=100):
     print("%d sentences" % n_sent)
 
     model = build_model(
-        2, vectors_name=nlp.vocab.vectors.name, width=128, conv_depth=2, depth=2, train_X=train_X, train_y=train_y
+        2,
+        vectors_name=nlp.vocab.vectors.name,
+        width=128,
+        conv_depth=2,
+        depth=2,
+        train_X=train_X,
+        train_y=train_y,
     )
     with model.begin_training(train_X[:100], train_y[:100]) as (trainer, optimizer):
         epoch_loss = [0.0]

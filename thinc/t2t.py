@@ -1,11 +1,6 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from .neural._classes.convolution import ExtractWindow  # noqa: F401
 from .neural._classes.attention import ParametricAttention  # noqa: F401
 from .neural._classes.rnn import LSTM, BiLSTM  # noqa: F401
-from .neural._classes.multiheaded_attention import MultiHeadedAttention
-from .neural._classes.multiheaded_attention import prepare_self_attention
 from ._registry import registry
 from .api import layerize, noop, with_square_sequences
 from .extra.wrappers import PyTorchWrapperRNN
@@ -22,8 +17,9 @@ def make_ParametricAttention(outputs: int):
 
 
 @registry.layers.register("TorchBiLSTM.v1")
-def make_TorchBiLSTM(outputs: int, inputs: int, depth: int, dropout: float=0.2):
+def make_TorchBiLSTM(outputs: int, inputs: int, depth: int, dropout: float = 0.2):
     import torch.nn
+
     if depth == 0:
         return layerize(noop())
     model = torch.nn.LSTM(nI, nO // 2, depth, bidirectional=True, dropout=dropout)
@@ -40,10 +36,13 @@ def make_MaxoutWindowEncoder(width: int, depth: int, *, pieces: int, window_size
 
     n_tokens = (window_size * 2) + 1
     with Model.define_operators({">>": chain, "**": clone}):
-        model = Residual(
-            ExtractWindow(nW=window)
-            >> LayerNorm(Maxout(width, width * n_tokens, pieces=pieces))
-        ) ** depth
+        model = (
+            Residual(
+                ExtractWindow(nW=window)
+                >> LayerNorm(Maxout(width, width * n_tokens, pieces=pieces))
+            )
+            ** depth
+        )
     model.nO = nO
     model.receptive_field = n_tokens * depth
     return model
@@ -59,10 +58,12 @@ def make_MishWindowEncoder(width: int, depth: int, *, window_size: int):
 
     n_tokens = (window_size * 2) + 1
     with Model.define_operators({">>": chain, "**": clone}):
-        model = Residual(
-            ExtractWindow(nW=window)
-            >> LayerNorm(Mish(width, width * n_tokens))
-        ) ** depth
+        model = (
+            Residual(
+                ExtractWindow(nW=window) >> LayerNorm(Mish(width, width * n_tokens))
+            )
+            ** depth
+        )
     model.nO = nO
     model.receptive_field = n_tokens * depth
     return model

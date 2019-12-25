@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from ...rates import decaying, compounding, annealing, slanted_triangular
 
 

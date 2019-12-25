@@ -1,12 +1,4 @@
-# coding: utf8
-from __future__ import unicode_literals
-
-try:
-    # Python >= 3.3
-    from collections.abc import Sequence, Sized, Iterable, Callable
-except ImportError:
-    # Python < 3.3
-    from collections import Sequence, Sized, Iterable, Callable
+from collections.abc import Sequence, Sized, Iterable, Callable
 from numpy import ndarray
 
 from .compat import integer_types
@@ -131,7 +123,9 @@ def operator_is_defined(op):
         if instance is None:
             raise ExpectedTypeError(instance, ["Model"])
         if op not in instance._thread_local.operators:
-            raise UndefinedOperatorError(op, instance, args[0], instance._thread_local.operators)
+            raise UndefinedOperatorError(
+                op, instance, args[0], instance._thread_local.operators
+            )
         else:
             return wrapped(*args, **kwargs)
 

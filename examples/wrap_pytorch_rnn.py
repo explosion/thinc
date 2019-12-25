@@ -1,15 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import torch
 import numpy
-
 from thinc.neural.optimizers import SGD
-
 from torch import autograd
 from torch import nn
 import torch.optim
-
 from thinc.extra.wrappers import PyTorchWrapperRNN
 
 

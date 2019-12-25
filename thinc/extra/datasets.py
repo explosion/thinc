@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import random  # pragma: no cover
 import io  # pragma: no cover
 from collections import Counter  # pragma: no cover

@@ -1,14 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import plac
-
 import torch
 from torch import nn
 import torch.optim
 import torch.cuda
 from thinc.neural.ops import CupyOps
-
 from thinc.extra.wrappers import PyTorchWrapper
 from thinc.v2v import Model
 

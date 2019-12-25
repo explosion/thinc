@@ -1,11 +1,6 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import pytest
 import numpy
 import numpy.linalg
-
-# from ...neural._classes.difference import word_movers_similarity
 
 
 @pytest.fixture
@@ -52,22 +47,3 @@ def cosine_similarity(vec1_vec2):
 
     dotted = (vec1 * vec2).sum(axis=1)
     return dotted, backward
-
-
-# def test_word_movers_similarity_unit_matrices(mat1, mat2):
-#    sim, backward = word_movers_similarity(mat1, mat2)
-#    assert_allclose(sim, 1.0)
-#    d_mat1, d_mat2 = backward(0.0, None)
-#    assert d_mat1.shape == mat1.shape
-#    assert d_mat2.shape == mat2.shape
-#
-#
-# def test_gradient(mat1, mat2):
-#    mat1[0] = 10.0
-#    mat2[-1] = 10.0
-#    mat1[1] = -2.
-#    mat2[0] = -2
-#    sim, backward = word_movers_similarity(mat1, mat2)
-#    d_mat1, d_mat2 = backward(-1.0)
-#    assert d_mat1[0, -1] != 0.
-#    assert d_mat1[0, 0] == (-1./(mat1.shape[0]+mat2.shape[0])) * 10.

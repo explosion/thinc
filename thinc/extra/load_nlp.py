@@ -1,7 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
-
 SPACY_MODELS = {}
 VECTORS = {}
 
@@ -13,6 +9,7 @@ def get_spacy(lang, **kwargs):
     if lang not in SPACY_MODELS:
         SPACY_MODELS[lang] = spacy.load(lang, **kwargs)
     return SPACY_MODELS[lang]
+
 
 def register_vectors(ops, lang, data):
     key = (ops.device, lang)

@@ -1,12 +1,6 @@
-from __future__ import unicode_literals, print_function
-
 from .model import Model
-from .affine import Affine
-from ...api import with_reshape, layerize, wrap
+from ...api import wrap
 from ..util import get_array_module
-import numpy as np
-import copy
-import math
 
 
 def prepare_self_attention(affine, window=None, nM=300, nH=6):
@@ -15,6 +9,7 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
         get_mask = window_mask(window)
     else:
         get_mask = None
+
     def qkv_sa_forward(Xs, drop=0.0):
         X = affine.ops.flatten(Xs)
         lengths = [len(x) for x in Xs]
@@ -26,21 +21,24 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
             dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
             dX = get_dX(dQKV, sgd=sgd)
             return affine.ops.unflatten(dX, lengths)
+
         if get_mask is not None:
             xp = get_array_module(X)
             masks = [get_mask(xp, length, length) for length in lengths]
         else:
             masks = [None for _ in lengths]
         return (Qs, Ks, Vs, masks), qkv_sa_backward
+
     return wrap(qkv_sa_forward, affine)
 
 
 def window_mask(n):
     def get_mask(xp, nX, nY):
-        mask = xp.zeros((nX, nY), dtype='f')
+        mask = xp.zeros((nX, nY), dtype="f")
         for i in range(nX):
-            mask[i, i-n:i+n] = 1
+            mask[i, i - n : i + n] = 1
         return mask
+
     return get_mask
 
 
@@ -52,8 +50,8 @@ def _split_seqs(QKV, lengths, nH, nD):
     i = 0
     xp = get_array_module(QKV)
     for length in lengths:
-        qkv = QKV[i:i+length]
-        qkv = qkv.reshape((length, 3, nH*nD))
+        qkv = QKV[i : i + length]
+        qkv = qkv.reshape((length, 3, nH * nD))
         queries = xp.ascontiguousarray(qkv[:, 0])
         keys = xp.ascontiguousarray(qkv[:, 1])
         values = xp.ascontiguousarray(qkv[:, 2])
@@ -66,9 +64,9 @@ def _split_seqs(QKV, lengths, nH, nD):
 
 def _join_seqs(Qs, Ks, Vs, nH, nD):
     xp = get_array_module(Qs[0])
-    Q = xp.vstack(Qs).reshape((-1, nH*nD))
-    K = xp.vstack(Ks).reshape((-1, nH*nD))
-    V = xp.vstack(Vs).reshape((-1, nH*nD))
+    Q = xp.vstack(Qs).reshape((-1, nH * nD))
+    K = xp.vstack(Ks).reshape((-1, nH * nD))
+    V = xp.vstack(Vs).reshape((-1, nH * nD))
     assert Q.shape[0] == K.shape[0] == V.shape[0]
     return xp.hstack((Q, K, V))
 
@@ -77,6 +75,7 @@ class MultiHeadedAttention(Model):
     """Multi-headed attention. Requires a preprocessor to prepare (Qs, Ks, Vs, masks)
     triples, such as the prepare_self_attention() preprocessor. A layer
     should run after this to do the projection as well."""
+
     def __init__(self):
         Model.__init__(self)
 
@@ -86,11 +85,16 @@ class MultiHeadedAttention(Model):
             masks = [None for _ in Qs]
         assert len(Qs) == len(Ks) == len(Vs)
         return self._attend_seqs(Qs, Ks, Vs, masks)
-        
+
     def _attend_seqs(self, Qs, Ks, Vs, masks):
         outputs = []
         backprops = []
-        assert len(Qs) == len(Ks) == len(Vs) == len(masks), (len(Qs), len(Ks), len(Vs), len(masks))
+        assert len(Qs) == len(Ks) == len(Vs) == len(masks), (
+            len(Qs),
+            len(Ks),
+            len(Vs),
+            len(masks),
+        )
         for Q, K, V, mask in zip(Qs, Ks, Vs, masks):
             output, backprop = self._attend(Q, K, V, mask)
             outputs.append(output)
@@ -107,6 +111,7 @@ class MultiHeadedAttention(Model):
                 dKs.append(dK)
                 dVs.append(dV)
             return dQs, dKs, dVs
+
         assert len(outputs) == len(Qs), len(Qs)
         return outputs, backprop_attend_seqs
 
@@ -131,7 +136,7 @@ class MultiHeadedAttention(Model):
         nQ, nK, nH, nD = (Q0.shape[0], K0.shape[0], Q0.shape[1], Q0.shape[2])
         assert Q0.shape == (nQ, nH, nD)
         assert K0.shape == (nK, nH, nD)
-        sqrtM = self.ops.xp.sqrt(nH*nD).astype("f")
+        sqrtM = self.ops.xp.sqrt(nH * nD).astype("f")
         Q1 = _trans(Q0, 1, 0, 2)
         assert Q1.shape == (nH, nQ, nD)
         K1 = _trans(K0, 1, 2, 0)
@@ -171,7 +176,7 @@ class MultiHeadedAttention(Model):
         if mask is None:
             return attn, backprop_apply_mask
         else:
-            return attn - (1-mask)*1e9, backprop_apply_mask
+            return attn - (1 - mask) * 1e9, backprop_apply_mask
 
     def _apply_attn(self, attn, V0):
         """ Multiplication with values """
@@ -185,10 +190,10 @@ class MultiHeadedAttention(Model):
         assert S0.shape == (nH, nQ, nD)
         S1 = _trans(S0, 1, 0, 2)
         assert S1.shape == (nQ, nH, nD)
-        S2 = S1.reshape((nQ, nH*nD))
+        S2 = S1.reshape((nQ, nH * nD))
 
         def backprop_apply_attn(dS2):
-            assert dS2.shape == (nQ, nH*nD)
+            assert dS2.shape == (nQ, nH * nD)
             dS1 = dS2.reshape((nQ, nH, nD))
             dS0 = dS1.transpose((1, 0, 2))
             assert dS0.shape == (nH, nQ, nD)
@@ -204,6 +209,7 @@ class MultiHeadedAttention(Model):
             return d_attn, dV0
 
         return S2, backprop_apply_attn
+
 
 def _trans(X, *order):
     """Transpose and make contiguous"""

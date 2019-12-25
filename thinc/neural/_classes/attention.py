@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from ... import describe
 from ...describe import Dimension, Synapses, Gradient
 from .model import Model

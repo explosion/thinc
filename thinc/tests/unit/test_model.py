@@ -1,6 +1,3 @@
-# encoding: utf8
-from __future__ import unicode_literals
-
 import tempfile
 import os
 import pytest
@@ -143,7 +140,6 @@ def _overload_plus(operator, sleep):
 
 
 def test_nested_operator_contexts():
-    operator = "+"
     m1 = base.Model(name="a")
     m2 = base.Model(name="b")
     assert base.Model._thread_local.operators == {}

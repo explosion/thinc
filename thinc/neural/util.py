@@ -1,10 +1,6 @@
-# coding: utf8
-from __future__ import print_function, unicode_literals
-
 import numpy
 from pathlib import Path
 import itertools
-
 
 try:
     import cupy

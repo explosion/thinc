@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays

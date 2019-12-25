@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import contextlib
 
 from ..ops import CupyOps
@@ -68,7 +65,7 @@ class SimpleEmbed(Model):
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
-        
+
         return vectors, finish_update
 
     @contextlib.contextmanager

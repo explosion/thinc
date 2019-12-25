@@ -1,14 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function, division
-
 import plac
 from timeit import default_timer as timer
 from srsly import cloudpickle as pickle
-
 import spacy
 from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
-
 from thinc.i2v import HashEmbed
 from thinc.t2t import BiLSTM
 from thinc.v2v import Model, Maxout, Softmax

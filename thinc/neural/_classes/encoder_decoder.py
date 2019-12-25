@@ -1,19 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
 from .model import Model
-from ...api import chain, clone, with_getitem, wrap, with_reshape
 from .softmax import Softmax
-from .relu import ReLu
-from .layernorm import LayerNorm
-from .maxout import Maxout
-from .resnet import Residual
-from .affine import Affine
 from .multiheaded_attention import MultiHeadedAttention
 from .positionwise_ffd import PositionwiseFeedForward
+from ...api import clone, with_reshape
 from ...extra.wrappers import PyTorchWrapper, PyTorchModule
-import copy
-import math
-import numpy as np
 
 
 class EncoderDecoder(Model):

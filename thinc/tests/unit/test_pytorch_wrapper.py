@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from thinc.v2v import Affine
 from thinc.neural.optimizers import SGD
 import numpy

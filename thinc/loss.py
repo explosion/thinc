@@ -1,8 +1,4 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import numpy
-
 
 try:
     from cupy import get_array_module

@@ -2,8 +2,6 @@
 # cython: experimental_cpp_class_def=True
 # cython: cdivision=True
 # cython: infer_types=True
-
-from __future__ cimport division
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport log, exp
@@ -56,7 +54,7 @@ cdef class Beam:
     property probs:
         def __get__(self):
             return _softmax([self._states[i].score for i in range(self.size)])
-    
+
     property scores:
         def __get__(self):
             return [self._states[i].score for i in range(self.size)]

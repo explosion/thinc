@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import tqdm
 from thinc.i2v import StaticVectors, HashEmbed
 from thinc.v2v import Model, Maxout, Softmax
@@ -9,7 +6,6 @@ from thinc.t2t import ParametricAttention
 from thinc.t2v import Pooling, sum_pool
 from thinc.misc import LayerNorm as LN
 from thinc.misc import Residual
-
 from thinc.extra import datasets
 from thinc.neural.util import to_categorical, require_gpu
 from thinc.extra.load_nlp import register_vectors
@@ -18,9 +14,7 @@ from thinc.api import foreach, flatten_add_lengths, with_getitem
 from thinc.misc import FeatureExtracter
 import spacy
 from spacy.attrs import ORTH, LOWER, SHAPE, PREFIX, SUFFIX, ID
-from spacy.util import fix_random_seed
-
-from spacy.util import compounding
+from spacy.util import fix_random_seed, compounding
 
 
 @layerize
@@ -97,8 +91,13 @@ def main(gpu_id=0, nb_epoch=100):
     print("%d sentences" % n_sent)
 
     model = build_model(
-        2, vectors_name=nlp.vocab.vectors.name, width=128, conv_depth=2,
-        depth=2, train_X=train_X, train_y=train_y
+        2,
+        vectors_name=nlp.vocab.vectors.name,
+        width=128,
+        conv_depth=2,
+        depth=2,
+        train_X=train_X,
+        train_y=train_y,
     )
     with model.begin_training(train_X[:100], train_y[:100]) as (trainer, optimizer):
         epoch_loss = [0.0]

@@ -1,7 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
-
 class AttributeDescription(object):
     def __init__(self, text, value=None, *args, **kwargs):
         self.name = None

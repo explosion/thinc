@@ -1,5 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
 from typing import Optional
 
 from .neural._classes.hash_embed import HashEmbed  # noqa: F401
@@ -9,7 +7,7 @@ from ._registry import registry
 
 
 @registry.layers.register("HashEmbed.v1")
-def make_HashEmbed(outputs: int, rows: int, column: int, seed: Optional[int]=None):
+def make_HashEmbed(outputs: int, rows: int, column: int, seed: Optional[int] = None):
     return HashEmbed(outputs, rows, seed=seed, column=column)
 
 

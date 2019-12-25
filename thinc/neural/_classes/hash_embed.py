@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from .model import Model
 from ... import describe
 from ...describe import Weights, Dimension, Gradient
@@ -31,7 +28,7 @@ class HashEmbed(Model):
         self.column = kwargs.get("column", 0)
         self.nO = nO
         self.nV = nV
-        
+
         if seed is not None:
             self.seed = seed
         else:
