@@ -1,9 +1,8 @@
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
-
-from ..neural.ops import NumpyOps
-from ..v2v import Affine
+from thinc.neural.ops import NumpyOps
+from thinc.v2v import Affine
 
 
 def get_ops():
@@ -35,8 +34,10 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
     return tuples(lengths(lo=min_rows, hi=max_rows), lengths(lo=min_cols, hi=max_cols))
 
 
-def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32"):
-    return arrays("float32", shape=shape, elements=floats(min_value=lo, max_value=hi))
+def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32", width=32):
+    return arrays(
+        dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
+    )
 
 
 def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):

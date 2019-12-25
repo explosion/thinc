@@ -57,8 +57,8 @@ def pytest_runtest_setup(item):
         # recognize the option we're asking about. To avoid this, we need to
         # pass a default value. We default to False, i.e., we act like all the
         # options weren't given.
-        return item.config.getoption("--%s" % opt, False)
+        return item.config.getoption(f"--{opt}", False)
 
     for opt in ["slow"]:
-        if opt in item.keywords and not getopt("--%s" % opt):
-            pytest.skip("need --%s option to run" % opt)
+        if opt in item.keywords and not getopt(f"--{opt}"):
+            pytest.skip(f"need --{opt} option to run")

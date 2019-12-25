@@ -1,4 +1,4 @@
-from ..neural._classes.affine import Affine
+from thinc.neural._classes.affine import Affine
 
 
 def get_model(W_b_input, cls=Affine):

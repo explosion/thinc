@@ -1,10 +1,9 @@
 import pytest
 import numpy
 from numpy.testing import assert_allclose
-
-from ..api import chain, layerize, metalayerize, noop, clone
-from ..neural._classes.affine import Affine
-from ..neural._classes.model import Model
+from thinc.api import chain, layerize, metalayerize, noop, clone
+from thinc.neural._classes.affine import Affine
+from thinc.neural._classes.model import Model
 
 
 @pytest.fixture

@@ -3,9 +3,8 @@ import os
 import pytest
 import threading
 import time
-
-from ...neural._classes import model as base
-from ...neural.ops import NumpyOps
+from thinc.neural._classes import model as base
+from thinc.neural.ops import NumpyOps
 
 
 @pytest.fixture

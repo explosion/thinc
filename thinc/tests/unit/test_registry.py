@@ -122,7 +122,7 @@ def test_validate_promise():
 def test_fill_validate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
     filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
-    assert filled["optional"]["cute"] == True
+    assert filled["optional"]["cute"] is True
 
 
 def test_fill_invalidate_promise():

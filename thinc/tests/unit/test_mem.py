@@ -1,7 +1,6 @@
 import pytest
-
-from ...neural.mem import Memory
-from ...neural.ops import NumpyOps
+from thinc.neural.mem import Memory
+from thinc.neural.ops import NumpyOps
 
 
 @pytest.fixture
