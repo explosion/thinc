@@ -54,14 +54,14 @@ def test_clone(model1, nI):
 
 def test_layerize_predict_noop(model1, model2, nI):
     ones = numpy.ones((10, nI))
-    model = layerize(noop(model1, model2))
+    model = noop(model1, model2)
     y = model(ones)
     assert_allclose(y, ones)
 
 
 def test_layerize_update_noop(model1, model2, nI):
     ones = numpy.ones((10, nI))
-    model = layerize(noop(model1, model2))
+    model = noop(model1, model2)
     y, finish_update = model.begin_update(ones)
     assert_allclose(y, ones)
     grad_in = numpy.ones(y.shape) + 1.0
