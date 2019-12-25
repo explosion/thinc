@@ -77,7 +77,7 @@ class ConcatenationLayer(Model):
     name = "concatenate"
     
     def begin_update(self, X, drop=0.):
-        Ys, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in layers])
+        Ys, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
         lengths = [Y.shape[1] for Y in Ys]
         output = self.ops.xp.hstack(Ys)
 
@@ -100,7 +100,7 @@ class ConcatenationLayer(Model):
 
 class AdditionLayer(Model):
     def begin_update(self, X, drop=0.0):
-        outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in layers])
+        outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
         out = outs[0]
         for o in outs:
             out += o
