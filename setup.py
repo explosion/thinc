@@ -227,6 +227,7 @@ def setup_package():
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
+                "pydantic>=1.3,<1.4"
             ],
             extras_require={
                 "cuda": ["cupy>=5.0.0b4"],
@@ -247,11 +248,6 @@ def setup_package():
                 "Operating System :: MacOS :: MacOS X",
                 "Operating System :: Microsoft :: Windows",
                 "Programming Language :: Cython",
-                "Programming Language :: Python :: 2.6",
-                "Programming Language :: Python :: 2.7",
-                "Programming Language :: Python :: 3.3",
-                "Programming Language :: Python :: 3.4",
-                "Programming Language :: Python :: 3.5",
                 "Programming Language :: Python :: 3.6",
                 "Programming Language :: Python :: 3.7",
                 "Programming Language :: Python :: 3.8",
