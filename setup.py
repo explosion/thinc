@@ -151,7 +151,7 @@ def setup_package():
             exec(f.read(), about)
 
         include_dirs = [get_python_inc(plat_specific=True), str(root / "include")]
-        include_dirs.extend(numpy.get_include())
+        include_dirs.append(numpy.get_include())
 
         ext_modules = []
         for mod_name in MOD_NAMES:
