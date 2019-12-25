@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import pytest
 
-from ...neural.vec2vec import Model, ReLu, Softmax
+from ...v2v import Model, ReLu, Softmax
 from ...neural._classes.embed import Embed
 from ...neural._classes.convolution import ExtractWindow
 from ...api import chain, with_flatten

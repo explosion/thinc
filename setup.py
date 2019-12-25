@@ -58,8 +58,6 @@ MOD_NAMES = [
     "thinc.neural.optimizers",
     "thinc.neural.ops",
     "thinc.neural.gpu_ops",
-    "thinc.neural._aligned_alloc",
-    #'thinc.neural._fast_maxout_cnn',
     "thinc.extra.eg",
     "thinc.extra.mb",
     "thinc.extra.search",

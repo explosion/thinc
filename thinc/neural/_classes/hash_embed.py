@@ -2,16 +2,9 @@
 from __future__ import unicode_literals
 
 from .model import Model
-from .._lsuv import do_lsuv
 from ... import describe
 from ...describe import Weights, Dimension, Gradient
 from ..util import copy_array
-
-
-def LSUVinit(model, X, y=None):
-    if model.vectors is not None:
-        do_lsuv(model.ops, model.vectors, model, X)
-    return X
 
 
 def _uniform_init(lo, hi):
@@ -22,7 +15,6 @@ def _uniform_init(lo, hi):
     return wrapped
 
 
-# @describe.on_data(LSUVinit)
 @describe.attributes(
     nO=Dimension("Vector dimensions"),
     nV=Dimension("Number of vectors"),

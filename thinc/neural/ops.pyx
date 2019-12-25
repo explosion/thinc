@@ -22,7 +22,6 @@ except ImportError:
 cimport numpy as np
 
 from . import _custom_kernels
-from ._aligned_alloc import zeros_aligned
 from ..typedefs cimport weight_t
 from .util import copy_array, get_array_module
 from ..linalg cimport VecVec, Vec
