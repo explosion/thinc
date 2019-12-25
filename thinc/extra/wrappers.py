@@ -1,5 +1,6 @@
 import contextlib
-from ..compat import BytesIO
+from io import BytesIO
+
 from ..neural._classes.model import Model
 
 try:

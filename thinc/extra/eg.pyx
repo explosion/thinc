@@ -1,8 +1,6 @@
 # cython: infer_types=True
 cimport cython
 
-from ..compat import integer_types
-
 
 cdef ExampleC init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, widths=None):
     if widths is None:
@@ -19,12 +17,12 @@ cdef ExampleC init_eg(Pool mem, int nr_class=0, int nr_atom=0, int nr_feat=0, wi
     eg.costs = <weight_t*>mem.alloc(nr_class, sizeof(eg.costs[0]))
     eg.atoms = <atom_t*>mem.alloc(nr_atom, sizeof(eg.atoms[0]))
     eg.features = <FeatureC*>mem.alloc(nr_feat, sizeof(eg.features[0]))
-        
+
     eg.is_valid = <int*>mem.alloc(nr_class, sizeof(eg.is_valid[0]))
     for i in range(eg.nr_class):
         eg.is_valid[i] = 1
     return eg
-    
+
 
 cdef class Example:
     def __init__(self, int nr_class=0, int nr_atom=0, int nr_feat=0):
@@ -48,7 +46,7 @@ cdef class Example:
     def fill_is_valid(self, int value, int nr_class):
         for i in range(self.c.nr_class):
             self.c.is_valid[i] = value
-   
+
     def fill_costs(self, weight_t value, int nr_class):
         for i in range(self.c.nr_class):
             self.c.costs[i] = value
@@ -59,7 +57,7 @@ cdef class Example:
         self.fill_scores(0, self.c.nr_class)
         self.fill_costs(0, self.c.nr_class)
         self.fill_is_valid(1, self.c.nr_class)
-   
+
     property features:
         def __get__(self):
             for i in range(self.nr_feat):
@@ -71,7 +69,7 @@ cdef class Example:
                 feats_dict = features
                 features = []
                 for key, value in feats_dict.items():
-                    if isinstance(key, integer_types):
+                    if isinstance(key, int):
                         slot = 0
                     else:
                         slot, key = key
@@ -125,17 +123,17 @@ cdef class Example:
                 and (best == -1 or self.c.scores[i] > self.c.scores[best]):
                     best = i
             return best
-    
+
     property cost:
         def __get__(self):
             return self.c.costs[self.guess]
         def __set__(self, weight_t value):
             self.c.costs[self.guess] = value
-   
+
     property nr_class:
         def __get__(self):
             return self.c.nr_class
- 
+
     property nr_atom:
         def __get__(self):
             return self.c.nr_atom

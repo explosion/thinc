@@ -27,7 +27,6 @@ from .util import copy_array, get_array_module
 from ..linalg cimport VecVec, Vec
 
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
-from ..compat import integer_types
 from . import _custom_kernels
 
 cimport blis
@@ -213,7 +212,7 @@ class Ops(object):
         return self.asarray(mask, dtype='float32')
 
     def allocate(self, shape, dtype='float32'):
-        if isinstance(shape, integer_types):
+        if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype=dtype)
@@ -262,7 +261,7 @@ class Ops(object):
 
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
-    
+
     def sigmoid(self, X):
         return 1./(1. + self.xp.exp(-X))
 
@@ -417,7 +416,7 @@ class Ops(object):
             return W
         else:
             return self.xp.random.uniform(-scale, scale, W.shape)
-    
+
     def normal_init(self, W, fan_in, inplace=True):
         if (W**2).sum() != 0.:
             return W
@@ -516,7 +515,7 @@ class NumpyOps(Ops):
         else:
             m = x.shape[0]
         cdef int n
-        if trans2: 
+        if trans2:
             n = y.shape[0]
         else:
             n = y.shape[1]
@@ -628,7 +627,7 @@ class NumpyOps(Ops):
             return out
         else:
             return Y
-    
+
     def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
             threshold=5, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
@@ -831,7 +830,7 @@ class NumpyOps(Ops):
                 ids.shape[0], out.shape[1])
         else:
             self.xp.add.at(out, ids, inputs)
- 
+
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
@@ -861,8 +860,8 @@ class NumpyOps(Ops):
         assert out_.shape[0] == N
         assert out_.shape[1] == D
         cpu_position_encode(<float*>out_.data, period, N, D)
-        return out_ 
-    
+        return out_
+
 cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
     cdef float pos, d
     cdef int j
@@ -890,7 +889,7 @@ cdef void cpu_scatter_add(float* dest,
         if id_ >= 0:
             VecVec.add_i(&dest[id_*nr_col],
         	&src[i*nr_col], 1., nr_col)
- 
+
 
 @cython.cdivision(True)
 cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
@@ -967,7 +966,7 @@ cdef void cpu_backprop_mish(weight_t* dX,
             delta = 2. * exp_x + exp_2x + 2.
             dX[i] = dY[i] * ((exp_x * omega) / (delta * delta))
 
-     
+
 
 class CupyOps(Ops):
     device = 'gpu'
@@ -1036,7 +1035,7 @@ class CupyOps(Ops):
         if inplace:
             copy_array(delta, out)
         return out
-    
+
     def mish(self, X, threshold=5, out=None):
         return _custom_kernels.mish(X, threshold=threshold, out=out)
 
@@ -1139,11 +1138,11 @@ cdef void seq2col(float* output, const float* X, int nW, int B, int I) nogil:
     __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
     __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
     1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
-    
+
     * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
     * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
- 
+
     '''
     nF = nW * 2 + 1
     for i in range(B):
@@ -1386,5 +1385,3 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
         gates += N*4
         cells += N
         prev += N
-
-
