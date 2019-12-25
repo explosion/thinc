@@ -32,6 +32,33 @@ class FeedForward(Model):
     def output_shape(self):
         return self._layers[-1].output_shape
 
+    def has_dim(self, name):
+        return self._layers[-1].has_dim(name)
+
+    def get_dim(self, name):
+        return self._layers[-1].get_dim(name)
+
+    def set_dim(self, name, value):
+        self._layers[-1].set_dim(name, value)
+
+    def has_param(self, name):
+        return name in self._layers[-1]._params
+
+    def get_param(self, name):
+        return self._layers[-1].get_param(name)
+    
+    def set_param(self, name, value):
+        return self._layers[-1].set_param(name, value)
+
+    def has_grad(self, name):
+        return self._layers[-1].has_grad(name)
+
+    def get_grad(self, name):
+        return self._layers[-1].get_grad(name)
+    
+    def set_grad(self, name, value):
+        self._layers[-1].set_grad(name, value)
+
     def predict(self, X):
         for layer in self._layers:
             X = layer(X)
