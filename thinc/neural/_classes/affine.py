@@ -1,8 +1,6 @@
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
-from ... import check
-from ...check import has_shape
 
 
 def _set_dimensions_if_needed(model, X, y=None):
@@ -48,13 +46,11 @@ class Affine(Model):
         self.nI = nI
         self.drop_factor = kwargs.get("drop_factor", 1.0)
 
-    @check.arg(1, has_shape(("nB", "nI")))
     def predict(self, input__BI):
         output = self.ops.gemm(input__BI, self.W, trans2=True)
         output += self.b
         return output
 
-    @check.arg(1, has_shape(("nB", "nI")))
     def begin_update(self, input__BI, drop=0.0):
         input__BI = self.ops.xp.ascontiguousarray(input__BI)
         output__BO = self.predict(input__BI)
