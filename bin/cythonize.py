@@ -49,7 +49,7 @@ except NameError:
 #
 
 
-def process_pyx(fromfile, tofile, language_level="-2"):
+def process_pyx(fromfile, tofile, language_level="-3"):
     try:
         from Cython.Compiler.Version import version as cython_version
         from distutils.version import LooseVersion
