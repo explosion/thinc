@@ -18,15 +18,6 @@ jobs:
       Python36Mac:
         imageName: 'macos-10.13'
         python.version: '3.6'
-      Python37Linux:
-        imageName: 'ubuntu-16.04'
-        python.version: '3.7.5'
-      Python37Windows:
-        imageName: 'vs2017-win2016'
-        python.version: '3.7'
-      Python37Mac:
-        imageName: 'macos-10.13'
-        python.version: '3.7'
       Python38Linux:
         imageName: 'ubuntu-16.04'
         python.version: '3.8'
