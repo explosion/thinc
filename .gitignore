@@ -1,6 +1,8 @@
+*.egg-info/
+dist/
+*.dat
 build/
 .env/
-.~env/
 .python/
 *.pyc
 *.swp
