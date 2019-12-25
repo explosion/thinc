@@ -6,7 +6,6 @@ import contextlib
 import distutils.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
-from distutils import ccompiler, msvccompiler
 from setuptools import Extension, setup
 from pathlib import Path
 import numpy
@@ -107,16 +106,6 @@ def generate_cython(root, source):
         raise RuntimeError("Running cythonize failed")
 
 
-def find_in_path(name, path):
-    "Find a file in a search path"
-    # adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
-    for dir_path in path.parts:
-        bin_path = dir_path / name
-        if bin_path.exists():
-            return bin_path.resolve()
-    return None
-
-
 def clean(path):
     for name in MOD_NAMES:
         name = name.replace(".", "/")
@@ -149,8 +138,7 @@ def setup_package():
             about = {}
             exec(f.read(), about)
 
-        include_dirs = [get_python_inc(plat_specific=True), str(root / "include")]
-        include_dirs.append(numpy.get_include())
+        include_dirs = [get_python_inc(plat_specific=True), numpy.get_include()]
 
         ext_modules = []
         for mod_name in MOD_NAMES:
