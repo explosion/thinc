@@ -41,8 +41,8 @@ class AttributeDescription:
 
 class Dimension(AttributeDescription):
     def install(self, attr, obj):
-        print("Install dimension", attr, obj)
         self.name = attr
+        obj._dims[self.name] = self.value
 
     def __get__(self, obj, type=None):
         return obj.get_dim(self.name)
