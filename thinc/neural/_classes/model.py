@@ -80,7 +80,9 @@ class Model(object):
         self.ops = self.Ops()
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
+        self._params = {}
         self._dims = {}
+        self._grads = {}
         if not hasattr(self, "_layers"):
             self._layers = []
         self.descriptions = dict(self.descriptions)
@@ -107,6 +109,51 @@ class Model(object):
             else:
                 new_kwargs[key] = value
         return new_kwargs
+
+    def has_dim(self, name):
+        return name in self._dims
+
+    def get_dim(self, name):
+        return self._dims.get(name, None)
+
+    def set_dim(self, name, value):
+        self._dims[name] = value
+
+    def has_param(self, name):
+        return name in self._params
+
+    def get_param(self, name):
+        key = (self.id, name)
+        if key in self._mem:
+            return self._mem[key]
+        else:
+            param_info = self._params[name]
+            shape = param_info.get_shape(self)
+            data = self._mem.add(key, shape)
+            if param_info.init is not None:
+                param_info.init(data, self.ops)
+            return data
+
+    def set_param(self, name, value):
+        data = self._mem.get((self.id, name))
+        copy_array(dst=data, src=value)
+
+    def has_grad(self, name):
+        return name in self._grads
+
+    def get_grad(self, name):
+        key = (self.id, name)
+        if key in self._mem:
+            return self._mem.get(key)
+        else:
+            grad_info = self._grads[name]
+            param_key = (self.id, grad_info.param_name)
+            grad = self._mem.add_gradient(key, param_key)
+            return grad
+
+    def set_grad(self, name, value):
+        data = self._mem.get((self.id, name))
+        copy_array(dst=data, src=value)
 
     def set_id(self):
         Model.id += 1
@@ -141,14 +188,14 @@ class Model(object):
         if self.id in params:
             param = params[self.id]
             backup = weights.copy()
-            copy_array(weights, param)
+            copy_array(dst=weights, src=param)
         if hasattr(self, "_layers"):
             contexts = [layer.use_params(params) for layer in self._layers]
             for context in contexts:
                 next(context.gen)
         yield
         if backup is not None:
-            copy_array(self._mem.weights, backup)
+            copy_array(dst=self._mem.weights, src=backup)
         for i, context in enumerate(contexts):
             # This is ridiculous, but apparently it's what you
             # have to do to make this work across Python 2/3?
@@ -392,7 +439,7 @@ class Model(object):
                     if isinstance(name, bytes):
                         name = name.decode("utf8")
                     dest = getattr(layer, name)
-                    copy_array(dest, param[b"value"])
+                    copy_array(dst=dest, src=param[b"value"])
                 i += 1
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)

@@ -2,14 +2,35 @@
 from __future__ import unicode_literals
 
 
-class AttributeDescription(object):
+# TODO: These should probably be data classes?
+class ParamInfo:
+    """Information about a weights parameter. Stored in model._params"""
+    def __init__(self, name, get_shape, init, text):
+        self.name = name
+        self.get_shape = get_shape
+        self.init = init
+        self.text = text
+
+
+class GradInfo:
+    """Information about a parameter gradient. Stored in model._grads"""
+    def __init__(self, name, param_name, text):
+        self.name = name
+        self.param_name = param_name
+        self.text = text
+
+
+class AttributeDescription:
     def __init__(self, text, value=None, *args, **kwargs):
         self.name = None
         self.text = text
         self.value = value
 
-    def __call__(self, attr, model):
+    def install(self, attr, obj):
         self.name = attr
+
+    def __call__(self, attr, obj):
+        self.install(attr, obj)
 
     def __get__(self, obj, type=None):  # pragma: no cover
         return self.value
@@ -19,11 +40,15 @@ class AttributeDescription(object):
 
 
 class Dimension(AttributeDescription):
+    def install(self, attr, obj):
+        self.name = attr
+        obj._dims[self.name] = self.value
+
     def __get__(self, obj, type=None):
-        return obj._dims.get(self.name, None)
+        return obj.get_dim(self.name)
 
     def __set__(self, obj, value):
-        obj._dims[self.name] = value
+        return obj.set_dim(self.name, value)
 
 
 class Weights(AttributeDescription):
@@ -32,21 +57,16 @@ class Weights(AttributeDescription):
         self.text = text
         self.get_shape = get_shape
         self.init = init
+    
+    def install(self, attr, obj):
+        self.name = attr
+        obj._params[self.name] = ParamInfo(self.name, self.get_shape, self.init, self.text)
 
     def __get__(self, obj, type=None):
-        key = (obj.id, self.name)
-        if key in obj._mem:
-            return obj._mem[key]
-        else:
-            shape = self.get_shape(obj)
-            data = obj._mem.add(key, shape)
-            if self.init is not None:
-                self.init(data, obj.ops)
-            return data
+        return obj.get_param(self.name)
 
-    def __set__(self, obj, val):
-        data = obj._mem.get((obj.id, self.name))
-        data[:] = val
+    def __set__(self, obj, value):
+        return obj.set_param(self.name, value)
 
 
 class Gradient(AttributeDescription):
@@ -55,18 +75,15 @@ class Gradient(AttributeDescription):
         self.text = "Gradient of %s" % param_name
         self.param_name = param_name
 
-    def __get__(self, obj, type=None):
-        key = (obj.id, self.name)
-        if key in obj._mem:
-            return obj._mem.get(key)
-        else:
-            param_key = (obj.id, self.param_name)
-            grad = obj._mem.add_gradient(key, param_key)
-            return grad
+    def install(self, attr, obj):
+        self.name = attr
+        obj._grads[self.name] = GradInfo(self.name, self.param_name, self.text)
 
-    def __set__(self, obj, val):
-        data = obj._mem.get((obj.id, self.name))
-        data[:] = val
+    def __get__(self, obj, type=None):
+        return obj.get_grad(self.name)
+
+    def __set__(self, obj, value):
+        return obj.set_grad(self.name, value)
 
 
 class Synapses(Weights):
