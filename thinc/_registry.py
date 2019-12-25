@@ -24,7 +24,7 @@ class registry(object):
 
     @classmethod
     def make_from_config(cls, config):
-        """Unpack a config dictionary, creating objects from the registry 
+        """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
         # Recurse over subdictionaries, filling in values.
