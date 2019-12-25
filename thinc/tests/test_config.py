@@ -2,7 +2,6 @@ from __future__ import unicode_literals
 
 from thinc.config import Config
 from thinc.neural.optimizers import Optimizer
-import thinc.rates
 
 
 EXAMPLE_CONFIG = """
@@ -82,11 +81,6 @@ def test_read_config():
 
 
 def test_optimizer_config():
-    cfg = Config().from_str(OPTIMIZER_CFG)
-    optimizer = Optimizer.from_config(cfg["optimizer"])
-    assert optimizer.b1 == 0.9
+    cfg = Config().from_bytes(OPTIMIZER_CFG.encode("utf8"))
+    optimizer = Optimizer.from_config(cfg)
 
-
-def test_config_to_str():
-    cfg = Config().from_str(OPTIMIZER_CFG)
-    assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()

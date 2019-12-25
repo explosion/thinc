@@ -94,7 +94,7 @@ class PyTorchWrapper(Model):
 
         def backward_pytorch(dy_data, sgd=None):
             d_args, d_kwargs = self.prepare_backward_input(dy_data, y_var)
-            torch.autograd.backward(*d_args, **d_kwargs, retain_graph=True)
+            torch.autograd.backward(*d_args, **d_kwargs)
             if sgd is not None:
                 if self._optimizer is None:
                     self._optimizer = self._create_optimizer(sgd)
