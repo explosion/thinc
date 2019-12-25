@@ -17,18 +17,6 @@ def layerize(begin_update=None, predict=None, *args, **kwargs):
     return wrapper
 
 
-def metalayerize(user_func):
-    """Wrap a function over a sequence of layers and an input into a layer."""
-
-    def returned(layers, *args, **kwargs):
-        def begin_update(X, *args, **kwargs):
-            return user_func(layers, X, *args, **kwargs)
-
-        return FunctionLayer(begin_update, *args, **kwargs)
-
-    return returned
-
-
 @layerize
 def flatten_add_lengths(seqs, pad=0, drop=0.0):
     ops = Model.ops
@@ -233,34 +221,6 @@ def add(*layers):
 
     model.on_data_hooks.append(on_data)
     return model
-
-
-def split_backward(layers):  # pragma: no cover
-    """Separate a sequence of layers' `begin_update` methods into two lists of
-    functions: one that computes the forward values, and the other that completes
-    the backward pass. The backward sequence is only populated after the forward
-    functions have been applied.
-    """
-    backward = []
-    forward = [sink_return(op.begin_update, backward.append) for op in layers]
-    return forward, backward
-
-
-def sink_return(func, sink, splitter=None):  # pragma: no cover
-    """Transform a function `func` that returns tuples into a function that returns
-    single values. Call a function `sink` on the unused values.
-    """
-
-    def wrap(*args, **kwargs):
-        output = func(*args, **kwargs)
-        if splitter is None:
-            to_keep, to_sink = output
-        else:
-            to_keep, to_sink = splitter(*output)
-        sink(to_sink)
-        return to_keep
-
-    return wrap
 
 
 def Arg(i):
