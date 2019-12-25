@@ -1,6 +1,8 @@
 # coding: utf8
 from __future__ import unicode_literals
 
+import numpy
+import numpy.linalg
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
@@ -180,9 +182,9 @@ def svd_orthonormal(shape):
     if len(shape) < 2:
         # pragma: no cover
         raise RuntimeError("Only shapes of length 2 or more are supported.")
-    flat_shape = (shape[0], np.prod(shape[1:]))
-    a = np.random.standard_normal(flat_shape)
-    u, _, v = np.linalg.svd(a, full_matrices=False)
+    flat_shape = (shape[0], numpy.prod(shape[1:]))
+    a = numpy.random.standard_normal(flat_shape)
+    u, _, v = numpy.linalg.svd(a, full_matrices=False)
     q = u if u.shape == flat_shape else v
     q = q.reshape(shape)
     return q 
