@@ -52,7 +52,6 @@ MOD_NAMES = [
     "thinc.linear.linear",
     "thinc.neural.optimizers",
     "thinc.neural.ops",
-    "thinc.neural.gpu_ops",
     "thinc.extra.eg",
     "thinc.extra.mb",
     "thinc.extra.search",
