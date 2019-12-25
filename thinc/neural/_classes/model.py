@@ -1,6 +1,5 @@
 import numpy
 import contextlib
-from collections import OrderedDict
 import srsly
 import threading
 
@@ -335,12 +334,7 @@ class Model(object):
                 weights.append(layer.to_bytes())
             elif hasattr(layer, "_mem"):
                 weights.append(
-                    OrderedDict(
-                        (
-                            (b"dims", OrderedDict(sorted(layer._dims.items()))),
-                            (b"params", []),
-                        )
-                    )
+                    {b"dims": dict(sorted(layer._dims.items())), b"params": []}
                 )
                 if hasattr(layer, "seed"):
                     weights[-1][b"seed"] = layer.seed
@@ -353,14 +347,12 @@ class Model(object):
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
                     weights[-1][b"params"].append(
-                        OrderedDict(
-                            (
-                                (b"name", name),
-                                (b"offset", start),
-                                (b"shape", shape),
-                                (b"value", param),
-                            )
-                        )
+                        {
+                            b"name": name,
+                            b"offset": start,
+                            b"shape": shape,
+                            b"value": param,
+                        }
                     )
                 i += 1
             if hasattr(layer, "_layers"):
