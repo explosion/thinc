@@ -30,7 +30,7 @@ def make_TorchBiLSTM(outputs: int, inputs: int, depth: int, dropout: float=0.2):
     return with_square_sequences(PyTorchWrapperRNN(model))
 
 
-@registry.architectures.register("MaxoutWindowEncoder.v1")
+@registry.layers.register("MaxoutWindowEncoder.v1")
 def make_MaxoutWindowEncoder(width: int, depth: int, *, pieces: int, window_size: int):
     from .neural._classes.model import Model
     from .neural._classes.maxout import Maxout
@@ -49,7 +49,7 @@ def make_MaxoutWindowEncoder(width: int, depth: int, *, pieces: int, window_size
     return model
 
 
-@registry.architectures.register("MishWindowEncoder.v1")
+@registry.layers.register("MishWindowEncoder.v1")
 def make_MishWindowEncoder(width: int, depth: int, *, window_size: int):
     from .neural._classes.mish import Mish
     from .neural._classes.model import Model
