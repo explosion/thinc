@@ -249,6 +249,7 @@ def setup_package():
                 "Topic :: Scientific/Engineering",
             ],
             cmdclass={"build_ext": build_ext_subclass},
+            python_requires=">=3.6",
         )
 
 
