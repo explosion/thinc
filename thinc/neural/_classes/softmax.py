@@ -17,7 +17,6 @@ class Softmax(Affine):
     def begin_update(self, input__BI, drop=0.0):
         output__BO = self.predict(input__BI)
 
-        @check.arg(0, has_shape(("nB", "nO")))
         def finish_update(grad__BO, sgd=None):
             self.ops.gemm(grad__BO, input__BI, trans1=True, out=self.d_W)
             self.d_b += grad__BO.sum(axis=0)
