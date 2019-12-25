@@ -1,14 +1,13 @@
 import pytest
-
-from ...v2v import Model, ReLu, Softmax
-from ...neural._classes.feed_forward import FeedForward
-from ...neural._classes.batchnorm import BatchNorm
-from ...neural._classes.elu import ELU
-from ...neural._classes.maxout import Maxout
-from ...neural.ops import NumpyOps
-from ...api import clone, chain
-from ...neural.util import to_categorical
-from ...extra import datasets
+from thinc.v2v import Model, ReLu, Softmax
+from thinc.neural._classes.feed_forward import FeedForward
+from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.neural._classes.elu import ELU
+from thinc.neural._classes.maxout import Maxout
+from thinc.neural.ops import NumpyOps
+from thinc.api import clone, chain
+from thinc.neural.util import to_categorical
+from thinc.extra import datasets
 
 
 @pytest.fixture(scope="module")

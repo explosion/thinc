@@ -1,6 +1,5 @@
 from srsly import cloudpickle as pickle
-
-from ...neural._classes.feature_extracter import FeatureExtracter
+from thinc.neural._classes.feature_extracter import FeatureExtracter
 
 
 def test_pickle():

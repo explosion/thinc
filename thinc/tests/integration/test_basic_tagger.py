@@ -1,11 +1,10 @@
 import pytest
-
-from ...v2v import Model, ReLu, Softmax
-from ...neural._classes.embed import Embed
-from ...neural._classes.convolution import ExtractWindow
-from ...api import chain, with_flatten
-from ...loss import categorical_crossentropy
-from ...extra import datasets
+from thinc.v2v import Model, ReLu, Softmax
+from thinc.neural._classes.embed import Embed
+from thinc.neural._classes.convolution import ExtractWindow
+from thinc.api import chain, with_flatten
+from thinc.loss import categorical_crossentropy
+from thinc.extra import datasets
 
 
 @pytest.fixture(scope="module")

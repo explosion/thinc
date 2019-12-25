@@ -1,4 +1,4 @@
-from ...rates import decaying, compounding, annealing, slanted_triangular
+from thinc.rates import decaying, compounding, annealing, slanted_triangular
 
 
 def test_decaying_rate():
