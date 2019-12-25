@@ -9,6 +9,7 @@ from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 from setuptools import Extension, setup
 from pathlib import Path
+import numpy
 
 
 def is_new_osx():
@@ -51,7 +52,6 @@ MOD_NAMES = [
     "thinc.linear.linear",
     "thinc.neural.optimizers",
     "thinc.neural.ops",
-    "thinc.neural.gpu_ops",
     "thinc.extra.eg",
     "thinc.extra.mb",
     "thinc.extra.search",
@@ -150,18 +150,10 @@ def setup_package():
             exec(f.read(), about)
 
         include_dirs = [get_python_inc(plat_specific=True), str(root / "include")]
-
-        if (
-            ccompiler.new_compiler().compiler_type == "msvc"
-            and msvccompiler.get_build_version() == 9
-        ):
-            include_dirs.append(str(root / "include" / "msvc9"))
+        include_dirs.append(numpy.get_include())
 
         ext_modules = []
         for mod_name in MOD_NAMES:
-            mod_path = mod_name.replace(".", "/") + ".cpp"
-            if mod_name.endswith("gpu_ops"):
-                continue
             mod_path = mod_name.replace(".", "/") + ".cpp"
             ext_modules.append(
                 Extension(
