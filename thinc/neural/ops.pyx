@@ -484,7 +484,7 @@ class NumpyOps(Ops):
 
 
     def allocate(self, shape, dtype='float32'):
-        if isinstance(shape, integer_types):
+        if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
