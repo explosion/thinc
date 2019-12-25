@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from numpy.testing import assert_allclose
-from thinc.api import chain, layerize, metalayerize, noop, clone
+from thinc.api import chain, layerize, noop, clone
 from thinc.neural._classes.affine import Affine
 from thinc.neural._classes.model import Model
 
@@ -80,27 +80,6 @@ def test_layerize_prespecify_predict(model1, model2, nI):
     ones = numpy.ones((10, nI))
     assert_allclose(ones, noop_model.predict(ones))
     assert_allclose(ones[0], noop_model.predict_one(ones[0]))
-
-
-def test_metalayerize_noop(model1, model2, nI):
-    @metalayerize
-    def meta_noop(layers, X, *args, **kwargs):
-        def finish_update(d, sgd=None):
-            return d
-
-        return X, finish_update
-
-    ones = numpy.ones((10, nI))
-    model = meta_noop((model1, model2))
-
-    y = model(ones)
-    assert_allclose(y, ones)
-
-    y, finish_update = model.begin_update(ones)
-    assert_allclose(y, ones)
-    grad_in = numpy.ones(y.shape) + 1.0
-    grad_out = finish_update(grad_in)
-    assert_allclose(grad_in, grad_out)
 
 
 def test_chain_dimension_mismatch(model1, model2):
