@@ -29,18 +29,14 @@ https://raw.github.com/dagss/private-scipy-refactor/cythonize/cythonize.py
 Note: this script does not check any of the dependent C libraries; it only
 operates on the Cython .pyx files.
 """
-
-from __future__ import division, print_function, absolute_import
-
 import os
-import re
 import sys
 import hashlib
 import subprocess
 
-HASH_FILE = 'cythonize.dat'
-DEFAULT_ROOT = 'spacy'
-VENDOR = 'spaCy'
+HASH_FILE = "cythonize.dat"
+DEFAULT_ROOT = "spacy"
+VENDOR = "spaCy"
 
 # WindowsError is not defined on unix systems
 try:
@@ -51,36 +47,49 @@ except NameError:
 #
 # Rules
 #
-def process_pyx(fromfile, tofile, language_level='-2'):
+
+
+def process_pyx(fromfile, tofile, language_level="-3"):
     try:
         from Cython.Compiler.Version import version as cython_version
         from distutils.version import LooseVersion
-        if LooseVersion(cython_version) < LooseVersion('0.19'):
-            raise Exception('Building %s requires Cython >= 0.19' % VENDOR)
+
+        if LooseVersion(cython_version) < LooseVersion("0.19"):
+            raise Exception("Building %s requires Cython >= 0.19" % VENDOR)
 
     except ImportError:
         pass
 
-    flags = ['--fast-fail', language_level]
-    if tofile.endswith('.cpp'):
-        flags += ['--cplus']
+    flags = ["--fast-fail", language_level]
+    if tofile.endswith(".cpp"):
+        flags += ["--cplus"]
 
     try:
         try:
-            r = subprocess.call(['cython'] + flags + ["-o", tofile, fromfile], env=os.environ)
+            r = subprocess.call(
+                ["cython"] + flags + ["-o", tofile, fromfile], env=os.environ
+            )
             if r != 0:
-                raise Exception('Cython failed')
+                raise Exception("Cython failed")
         except OSError:
             # There are ways of installing Cython that don't result in a cython
             # executable on the path, see gh-2397.
-            r = subprocess.call([sys.executable, '-c',
-                                 'import sys; from Cython.Compiler.Main import '
-                                 'setuptools_main as main; sys.exit(main())'] + flags +
-                                 ["-o", tofile, fromfile], env=os.environ)
+            r = subprocess.call(
+                [
+                    sys.executable,
+                    "-c",
+                    "import sys; from Cython.Compiler.Main import "
+                    "setuptools_main as main; sys.exit(main())",
+                ]
+                + flags
+                + ["-o", tofile, fromfile],
+                env=os.environ,
+            )
             if r != 0:
-                raise Exception('Cython failed')
+                raise Exception("Cython failed")
     except OSError:
-        raise OSError('Cython needs to be installed')
+        raise OSError("Cython needs to be installed")
+
 
 def process_tempita_pyx(fromfile, tofile):
     try:
@@ -89,30 +98,36 @@ def process_tempita_pyx(fromfile, tofile):
         except ImportError:
             import tempita
     except ImportError:
-        raise Exception('Building %s requires Tempita: '
-                        'pip install --user Tempita' % VENDOR)
+        raise Exception(
+            "Building %s requires Tempita: " "pip install --user Tempita" % VENDOR
+        )
     with open(fromfile, "r") as f:
         tmpl = f.read()
     pyxcontent = tempita.sub(tmpl)
-    assert fromfile.endswith('.pyx.in')
-    pyxfile = fromfile[:-len('.pyx.in')] + '.pyx'
+    assert fromfile.endswith(".pyx.in")
+    pyxfile = fromfile[: -len(".pyx.in")] + ".pyx"
     with open(pyxfile, "w") as f:
         f.write(pyxcontent)
     process_pyx(pyxfile, tofile)
 
+
 rules = {
     # fromext : function
-    '.pyx' : process_pyx,
-    '.pyx.in' : process_tempita_pyx
-    }
+    ".pyx": process_pyx,
+    ".pyx.in": process_tempita_pyx,
+}
+
+
 #
 # Hash db
 #
+
+
 def load_hashes(filename):
     # Return { filename : (sha1 of input, sha1 of output) }
     if os.path.isfile(filename):
         hashes = {}
-        with open(filename, 'r') as f:
+        with open(filename, "r") as f:
             for line in f:
                 filename, inhash, outhash = line.split()
                 hashes[filename] = (inhash, outhash)
@@ -120,10 +135,12 @@ def load_hashes(filename):
         hashes = {}
     return hashes
 
+
 def save_hashes(hash_db, filename):
-    with open(filename, 'w') as f:
+    with open(filename, "w") as f:
         for key, value in sorted(hash_db.items()):
             f.write("%s %s %s\n" % (key, value[0], value[1]))
+
 
 def sha1_of_file(filename):
     h = hashlib.sha1()
@@ -131,33 +148,37 @@ def sha1_of_file(filename):
         h.update(f.read())
     return h.hexdigest()
 
+
 #
 # Main program
 #
 
+
 def normpath(path):
-    path = path.replace(os.sep, '/')
-    if path.startswith('./'):
+    path = path.replace(os.sep, "/")
+    if path.startswith("./"):
         path = path[2:]
     return path
+
 
 def get_hash(frompath, topath):
     from_hash = sha1_of_file(frompath)
     to_hash = sha1_of_file(topath) if os.path.exists(topath) else None
     return (from_hash, to_hash)
 
+
 def process(path, fromfile, tofile, processor_function, hash_db):
     fullfrompath = os.path.join(path, fromfile)
     fulltopath = os.path.join(path, tofile)
     current_hash = get_hash(fullfrompath, fulltopath)
     if current_hash == hash_db.get(normpath(fullfrompath), None):
-        print('%s has not changed' % fullfrompath)
+        print("%s has not changed" % fullfrompath)
         return
 
     orig_cwd = os.getcwd()
     try:
         os.chdir(path)
-        print('Processing %s' % fullfrompath)
+        print("Processing %s" % fullfrompath)
         processor_function(fromfile, tofile)
     finally:
         os.chdir(orig_cwd)
@@ -172,7 +193,7 @@ def find_process_files(root_dir):
     for cur_dir, dirs, files in os.walk(root_dir):
         for filename in files:
             in_file = os.path.join(cur_dir, filename + ".in")
-            if filename.endswith('.pyx') and os.path.isfile(in_file):
+            if filename.endswith(".pyx") and os.path.isfile(in_file):
                 continue
             for fromext, function in rules.items():
                 if filename.endswith(fromext):
@@ -183,9 +204,10 @@ def find_process_files(root_dir):
                     #     if m:
                     #         toext = ".cxx"
                     fromfile = filename
-                    tofile = filename[:-len(fromext)] + toext
+                    tofile = filename[: -len(fromext)] + toext
                     process(cur_dir, fromfile, tofile, function, hash_db)
                     save_hashes(hash_db, HASH_FILE)
+
 
 def main():
     try:
@@ -195,5 +217,5 @@ def main():
     find_process_files(root_dir)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

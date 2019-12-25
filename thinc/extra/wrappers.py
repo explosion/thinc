@@ -1,8 +1,6 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import contextlib
-from ..compat import BytesIO
+from io import BytesIO
+
 from ..neural._classes.model import Model
 
 try:
@@ -48,8 +46,10 @@ class PyTorchWrapper(Model):
 
     def prepare_input(self, x_data, is_update=True):
         if isinstance(x_data, (list, tuple)):
-            x_var = [torch.autograd.Variable(xp2torch(x), requires_grad=is_update)
-                     for x in x_data]
+            x_var = [
+                torch.autograd.Variable(xp2torch(x), requires_grad=is_update)
+                for x in x_data
+            ]
             return tuple(x_var), {}
         else:
             x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
@@ -100,8 +100,8 @@ class PyTorchWrapper(Model):
                     self._optimizer = self._create_optimizer(sgd)
                 if getattr(sgd, "max_grad_norm", None):
                     torch.nn.utils.clip_grad_norm_(
-                        self._model.parameters(),
-                        sgd.max_grad_norm)
+                        self._model.parameters(), sgd.max_grad_norm
+                    )
                 self._optimizer.step()
                 self._optimizer.zero_grad()
             return self.prepare_backward_output(fwd_args, fwd_kwargs)

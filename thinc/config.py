@@ -1,5 +1,3 @@
-from __future__ import unicode_literals
-
 import configparser
 import json
 import io
@@ -24,7 +22,8 @@ class Config(dict):
 
     def from_str(self, text):
         config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
+            interpolation=configparser.ExtendedInterpolation()
+        )
         config.read_string(text)
         for key in list(self.keys()):
             self.pop(key)
@@ -33,7 +32,8 @@ class Config(dict):
 
     def to_str(self):
         flattened = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation())
+            interpolation=configparser.ExtendedInterpolation()
+        )
         queue = [(tuple(), self)]
         for path, node in queue:
             for key, value in node.items():

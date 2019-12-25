@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function, division
-
 import plac
 from timeit import default_timer as timer
 from srsly import cloudpickle as pickle
@@ -11,17 +8,15 @@ from spacy.tokens.doc import Doc
 
 from thinc.i2v import HashEmbed
 from thinc.v2v import Model, Affine, Maxout, Softmax
-from thinc.t2t import ExtractWindow
 from thinc.neural._classes.multiheaded_attention import MultiHeadedAttention
 from thinc.neural._classes.multiheaded_attention import prepare_self_attention
-from thinc.misc import Residual, LayerNorm
-from thinc.api import with_flatten, flatten_add_lengths, unflatten, with_getitem
+from thinc.misc import Residual
+from thinc.api import with_flatten
 
 from thinc.api import layerize, chain, concatenate, clone, add
 from thinc.neural.util import to_categorical, prefer_gpu
 from thinc.extra.datasets import ancora_pos_tags
 
-# from thinc.api import FeatureExtracter
 
 try:
     import cupy
@@ -52,13 +47,17 @@ def FeatureExtracter(lang, attrs=[LOWER, SHAPE, PREFIX, SUFFIX], tokenized=True)
 
 def PositionEncode(L, D):
     positions = Model.ops.position_encode(L, D)
-    def position_encode_forward(Xs, drop=0.):
+
+    def position_encode_forward(Xs, drop=0.0):
         output = []
         for x in Xs:
-            output.append(x + positions[:x.shape[0]])
+            output.append(x + positions[: x.shape[0]])
+
         def position_encode_backward(dYs, sgd=None):
             return dYs
+
         return output, position_encode_backward
+
     return layerize(position_encode_forward)
 
 
@@ -100,7 +99,7 @@ def track_progress(**context):
         )
         epoch_train_acc = 0.0
         epoch_times.append(timer())
-        losses.append(0.)
+        losses.append(0.0)
 
     return each_epoch
 
@@ -165,12 +164,14 @@ def main(
         model = (
             with_flatten(
                 (lower_case | shape | prefix | suffix)
-                >> Maxout(width, width+(width//2)*3, pieces=3))
+                >> Maxout(width, width + (width // 2) * 3, pieces=3)
+            )
             >> PositionEncode(1000, width)
             >> Residual(
-                prepare_self_attention(Affine(width*3, width), nM=width, nH=4)
+                prepare_self_attention(Affine(width * 3, width), nM=width, nH=4)
                 >> MultiHeadedAttention()
-                >> with_flatten(Affine(width, width)))
+                >> with_flatten(Affine(width, width))
+            )
             >> with_flatten(Softmax(nr_tag, width))
         )
 
@@ -179,7 +180,7 @@ def main(
 
     n_train = float(sum(len(x) for x in train_X))
     global epoch_train_acc
-    losses = [0.]
+    losses = [0.0]
     with model.begin_training(train_X[:5000], train_y[:5000], **cfg) as (
         trainer,
         optimizer,
@@ -192,7 +193,7 @@ def main(
             yh, backprop = model.begin_update(X, drop=trainer.dropout)
 
             gradient = [yh[i] - y[i] for i in range(len(yh))]
-            losses[-1] += sum((g**2).sum() for g in gradient)
+            losses[-1] += sum((g ** 2).sum() for g in gradient)
 
             backprop(gradient, optimizer)
 

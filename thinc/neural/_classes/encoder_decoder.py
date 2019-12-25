@@ -1,19 +1,15 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
 from .model import Model
-from ...api import chain, clone, with_getitem, wrap, with_reshape
 from .softmax import Softmax
-from .relu import ReLu
-from .layernorm import LayerNorm
-from .maxout import Maxout
-from .resnet import Residual
-from .affine import Affine
 from .multiheaded_attention import MultiHeadedAttention
 from .positionwise_ffd import PositionwiseFeedForward
+from ...api import clone, with_reshape
 from ...extra.wrappers import PyTorchWrapper, PyTorchModule
-import copy
-import math
-import numpy as np
+
+try:
+    import torch
+    import torch.nn
+except ImportError:
+    torch = None
 
 
 class EncoderDecoder(Model):
@@ -68,8 +64,8 @@ class EncoderDecoder(Model):
 class PytorchLayerNorm(PyTorchModule):
     def __init__(self, nM=300, eps=1e-6, device="cpu"):
         super(PytorchLayerNorm, self).__init__()
-        self.a_2 = nn.Parameter(torch.ones(nM).to(device))
-        self.b_2 = nn.Parameter(torch.zeros(nM).to(device))
+        self.a_2 = torch.nn.Parameter(torch.ones(nM).to(device))
+        self.b_2 = torch.nn.Parameter(torch.zeros(nM).to(device))
         self.eps = eps
         self.device = device
 

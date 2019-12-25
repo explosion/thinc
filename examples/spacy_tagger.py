@@ -1,14 +1,7 @@
-# coding: utf8
-from __future__ import print_function, unicode_literals, division
-
 from timeit import default_timer as timer
-import numpy
 import spacy
 from spacy.tokens import Doc
-import numpy.random
-import numpy.linalg
 import plac
-
 from thinc.extra import datasets
 from thinc.neural.vec2vec import Model, Maxout
 from thinc.neural.vec2vec import Softmax, Affine
@@ -37,7 +30,7 @@ def spacy_preprocess(nlp, train_sents, dev_sents):
             y.append([tagmap[tag] for tag in tags])
             oovs += sum(not w.has_vector for w in X[-1])
             n += len(X[-1])
-        print(oovs, n, oovs / (n+1e-10))
+        print(oovs, n, oovs / (n + 1e-10))
         return zip(X, y)
 
     return _encode(train_sents), _encode(dev_sents), len(tagmap)
@@ -66,14 +59,11 @@ def main(nr_epoch=20, nr_sent=0, width=128, depth=3, max_batch_size=32, dropout=
 
     print("Building the model")
     with Model.define_operators({">>": chain, "|": concatenate, "**": clone}):
-        model = (
-            SpacyVectors
-            >> with_flatten(
-              Affine(width)
-              >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
-              >> Softmax(nr_class)
-          )
-       )
+        model = SpacyVectors >> with_flatten(
+            Affine(width)
+            >> (ExtractWindow(nW=1) >> BatchNorm(Maxout(width))) ** depth
+            >> Softmax(nr_class)
+        )
     print("Preparing training")
     dev_X, dev_y = zip(*dev_sents)
     dev_y = model.ops.flatten(dev_y)

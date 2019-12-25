@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from .. import Model
 from ...api import layerize
 from ... import describe

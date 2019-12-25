@@ -1,15 +1,6 @@
-# coding: utf8
-from __future__ import unicode_literals
-
-try:
-    # Python >= 3.3
-    from collections.abc import Sequence, Sized, Iterable, Callable
-except ImportError:
-    # Python < 3.3
-    from collections import Sequence, Sized, Iterable, Callable
+from collections.abc import Sequence, Sized, Iterable, Callable
 from numpy import ndarray
 
-from .compat import integer_types
 from .extra import wrapt
 from .exceptions import UndefinedOperatorError, DifferentLengthError
 from .exceptions import ExpectedTypeError, ShapeMismatchError
@@ -63,7 +54,7 @@ def has_shape(shape):
             raise ExpectedTypeError(arg, ["array"])
         shape_values = []
         for dim in shape:
-            if not isinstance(dim, integer_types):
+            if not isinstance(dim, int):
                 dim = getattr(self, dim, None)
             shape_values.append(dim)
         if len(shape) != len(arg.shape):
@@ -81,7 +72,7 @@ def is_shape(arg_id, args, func_kwargs, **kwargs):
     if not isinstance(arg, Iterable):
         raise ExpectedTypeError(arg, ["iterable"])
     for value in arg:
-        if not isinstance(value, integer_types) or value < 0:
+        if not isinstance(value, int) or value < 0:
             raise ExpectedTypeError(arg, ["valid shape (positive ints)"])
 
 
@@ -103,7 +94,7 @@ def is_float(arg_id, args, func_kwargs, **kwargs):
 
 def is_int(arg_id, args, func_kwargs, **kwargs):
     arg = args[arg_id]
-    if not isinstance(arg, integer_types):
+    if not isinstance(arg, int):
         raise ExpectedTypeError(arg, ["int"])
     if "min" in kwargs and arg < kwargs["min"]:
         raise OutsideRangeError(arg, kwargs["min"], ">=")
@@ -131,7 +122,9 @@ def operator_is_defined(op):
         if instance is None:
             raise ExpectedTypeError(instance, ["Model"])
         if op not in instance._thread_local.operators:
-            raise UndefinedOperatorError(op, instance, args[0], instance._thread_local.operators)
+            raise UndefinedOperatorError(
+                op, instance, args[0], instance._thread_local.operators
+            )
         else:
             return wrapped(*args, **kwargs)
 

@@ -1,14 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 import plac
 from srsly import cloudpickle as pickle
-
 from thinc.v2v import Model
 from thinc.neural.util import to_categorical, prefer_gpu
 from thinc.extra import datasets
 from thinc.extra.wrappers import PyTorchWrapper
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

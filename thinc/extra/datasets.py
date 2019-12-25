@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import random  # pragma: no cover
 import io  # pragma: no cover
 from collections import Counter  # pragma: no cover
@@ -14,12 +11,6 @@ from pathlib import Path
 
 from ._vendorized.keras_data_utils import get_file  # pragma: no cover
 from ..neural.util import partition
-from ..compat import basestring
-
-try:
-    unicode
-except NameError:
-    unicode = str
 
 
 GITHUB = "https://github.com/UniversalDependencies/"  # pragma: no cover
@@ -187,7 +178,7 @@ def reuters():  # pragma: no cover
 def quora_questions(loc=None):
     if loc is None:
         loc = get_file("quora_similarity.tsv", QUORA_QUESTIONS_URL)
-    if isinstance(loc, basestring):
+    if isinstance(loc, str):
         loc = Path(loc)
     is_header = True
     lines = []
@@ -197,9 +188,9 @@ def quora_questions(loc=None):
                 is_header = False
                 continue
             id_, qid1, qid2, sent1, sent2, is_duplicate = row
-            if not isinstance(sent1, unicode):
+            if not isinstance(sent1, str):
                 sent1 = sent1.decode("utf8").strip()
-            if not isinstance(sent2, unicode):
+            if not isinstance(sent2, str):
                 sent2 = sent2.decode("utf8").strip()
             if sent1 and sent2:
                 lines.append(((sent1, sent2), int(is_duplicate)))
@@ -215,7 +206,7 @@ def snli(loc=None, ternary=False):
     label_scheme = THREE_LABELS if ternary else TWO_LABELS
     if loc is None:
         loc = get_file("snli_1.0", SNLI_URL, unzip=True)
-    if isinstance(loc, basestring):
+    if isinstance(loc, str):
         loc = Path(loc)
 
     train = read_snli(Path(loc) / "snli_1.0_train.jsonl", label_scheme)

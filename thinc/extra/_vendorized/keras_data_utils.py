@@ -1,47 +1,15 @@
 # https://raw.githubusercontent.com/fchollet/keras/master/keras/utils/data_utils.py
 # Copyright Francois Chollet, Google, others (2015)
 # Under MIT license
-
-from __future__ import absolute_import
-from __future__ import print_function
-
 import tarfile
 import zipfile
 import os
-import sys
 import shutil
 import hashlib
-from ...compat import urlopen, URLError, HTTPError
+from urllib.error import URLError, HTTPError
+from urllib.request import urlretrieve
+
 from .keras_generic_utils import Progbar
-
-
-# Under Python 2, 'urlretrieve' relies on FancyURLopener from legacy
-# urllib module, known to have issues with proxy management
-if sys.version_info[0] == 2:
-
-    def urlretrieve(url, filename, reporthook=None, data=None):
-        def chunk_read(response, chunk_size=8192, reporthook=None):
-            total_size = response.info().get("Content-Length").strip()
-            total_size = int(total_size)
-            count = 0
-            while 1:
-                chunk = response.read(chunk_size)
-                count += 1
-                if not chunk:
-                    reporthook(count, total_size, total_size)
-                    break
-                if reporthook:
-                    reporthook(count, chunk_size, total_size)
-                yield chunk
-
-        response = urlopen(url, data)
-        with open(filename, "wb") as fd:
-            for chunk in chunk_read(response, reporthook=reporthook):
-                fd.write(chunk)
-
-
-else:
-    from ...compat import urlretrieve
 
 
 def get_file(

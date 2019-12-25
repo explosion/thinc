@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import numpy
 import numpy.linalg
 from .model import Model
@@ -177,6 +174,7 @@ def _uniform_init(lo, hi):
 
     return wrapped
 
+
 # Orthonorm init code is taken from Lasagne # https://github.com/Lasagne/Lasagne/blob/master/lasagne/init.py
 def svd_orthonormal(shape):
     if len(shape) < 2:
@@ -187,7 +185,8 @@ def svd_orthonormal(shape):
     u, _, v = numpy.linalg.svd(a, full_matrices=False)
     q = u if u.shape == flat_shape else v
     q = q.reshape(shape)
-    return q 
+    return q
+
 
 @describe.attributes(
     nO=Dimension("Output size"),

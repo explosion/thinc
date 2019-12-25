@@ -1,25 +1,17 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function, division
-
 import plac
 from timeit import default_timer as timer
 from srsly import cloudpickle as pickle
-
 import spacy
 from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
-
 from thinc.i2v import HashEmbed
 from thinc.v2v import Model, Maxout, Softmax
 from thinc.t2t import ExtractWindow
 from thinc.misc import Residual
-from thinc.api import with_flatten
-
-from thinc.api import layerize, chain, concatenate, clone, add
+from thinc.api import with_flatten, layerize, chain, concatenate, clone, add
 from thinc.neural.util import to_categorical, prefer_gpu
 from thinc.extra.datasets import ancora_pos_tags
 
-# from thinc.api import FeatureExtracter
 
 try:
     import cupy

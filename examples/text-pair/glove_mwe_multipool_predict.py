@@ -1,33 +1,26 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 import sys
-
 import plac
 from pathlib import Path
 from srsly import cloudpickle as pickle
-
 from thinc.neural import Model, Softmax, Maxout
 from thinc.neural import ExtractWindow
 from thinc.neural.pooling import Pooling, mean_pool, max_pool
 from thinc.neural._classes.static_vectors import StaticVectors, get_word_ids
 from thinc.neural.util import to_categorical
-
 from thinc.api import with_getitem, flatten_add_lengths
 from thinc.api import add, chain, clone, concatenate, Arg
-
 from thinc.extra import datasets
 from thinc.extra.load_nlp import get_spacy
 
 try:
     import spacy
 
-    spacy.load("en")
+    spacy.load("en_vectors_web_lg")
 except (ImportError, OSError):
     print("Missing dependency: spacy. Try:")
     print("pip install spacy")
     print("python -m spacy download en_vectors_web_lg")
-    print("python -m spacy link en_vectors_web_lg en")
+    print("python -m spacy link en_vectors_web_lg")
     sys.exit(1)
 
 epoch_train_acc = 0.0
@@ -110,7 +103,7 @@ def main(
         raise ValueError("Unrecognised pooling", pooling)
 
     print("Load spaCy")
-    nlp = get_spacy("en")
+    nlp = get_spacy("en_vectors_web_lg")
 
     # if use_gpu:
     #    Model.ops = CupyOps()

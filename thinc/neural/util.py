@@ -1,10 +1,6 @@
-# coding: utf8
-from __future__ import print_function, unicode_literals
-
 import numpy
 from pathlib import Path
 import itertools
-
 
 try:
     import cupy
@@ -12,16 +8,6 @@ try:
 except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
-
-try:
-    basestring
-except NameError:
-    basestring = str
-
-try:
-    unicode
-except NameError:
-    unicode = str
 
 
 def is_cupy_array(arr):
@@ -151,7 +137,7 @@ def copy_array(dst, src, casting="same_kind", where=None):
 
 
 def ensure_path(path):
-    if isinstance(path, unicode) or isinstance(path, str):
+    if isinstance(path, str):
         return Path(path)
     else:
         return path

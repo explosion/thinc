@@ -1,14 +1,9 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function, division
-
 import plac
 from timeit import default_timer as timer
 from srsly import cloudpickle as pickle
-
 import spacy
 from spacy.attrs import LOWER, PREFIX, SUFFIX, SHAPE
 from spacy.tokens.doc import Doc
-
 from thinc import prefer_gpu
 from thinc.i2v import HashEmbed
 from thinc.extra.wrappers import PyTorchWrapperRNN
@@ -16,11 +11,9 @@ from thinc.v2v import Model, Maxout, Softmax
 from thinc.api import with_flatten, layerize, chain, concatenate, clone, add
 from thinc.api import with_square_sequences
 from thinc.neural.util import to_categorical
-
 import torch
 import torch.nn
 import torch.autograd
-
 from thinc.extra.datasets import ancora_pos_tags
 
 

@@ -1,14 +1,8 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 from thinc.i2v import HashEmbed
 from thinc.v2v import ReLu, Softmax
-
 from thinc.api import chain, with_flatten
-
 from thinc.extra.datasets import ancora_pos_tags
 from thinc.neural.util import to_categorical
-
 import plac
 
 

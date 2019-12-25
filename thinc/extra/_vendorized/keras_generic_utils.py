@@ -1,20 +1,17 @@
 # https://raw.githubusercontent.com/fchollet/keras/master/keras/utils/data_utils.py
 # Copyright Francois Chollet, Google, others (2015)
 # Under MIT license
-
-from __future__ import absolute_import
 import numpy as np
 import time
 import sys
 import marshal
 import types as python_types
-from ...compat import string_types
 
 
 def get_from_module(
     identifier, module_params, module_name, instantiate=False, kwargs=None
 ):
-    if isinstance(identifier, string_types):
+    if isinstance(identifier, str):
         res = module_params.get(identifier)
         if not res:
             raise ValueError("Invalid " + str(module_name) + ": " + str(identifier))

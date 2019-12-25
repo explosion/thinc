@@ -1,8 +1,5 @@
-from __future__ import unicode_literals
-
 from thinc.config import Config
 from thinc.neural.optimizers import Optimizer
-import thinc.rates
 
 
 EXAMPLE_CONFIG = """
@@ -72,6 +69,7 @@ initial_rate = 0.1
 warmup_steps = 10000
 total_steps = 100000
 """
+
 
 def test_read_config():
     byte_string = EXAMPLE_CONFIG.encode("utf8")

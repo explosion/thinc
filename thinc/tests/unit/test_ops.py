@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import pytest
 import numpy
 from hypothesis import given, settings
@@ -77,8 +74,9 @@ def test_maxout(ops, X):
     X = ops.asarray(X)
     expected_best = X.max(axis=-1)
     predicted_best, which = ops.maxout(X)
-    ops.xp.testing.assert_allclose(expected_best, predicted_best,
-        rtol=0.001, atol=0.001)
+    ops.xp.testing.assert_allclose(
+        expected_best, predicted_best, rtol=0.001, atol=0.001
+    )
     # Can't compare 'which' directly, as sort order might be different
     # We could check that using the 'which', we get the right results?
 
@@ -104,6 +102,7 @@ def test_backprop_seq2col_window_one_small(ops):
         seq = seq.get()
     assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_backprop_seq2col_window_one(ops, X):
@@ -125,7 +124,6 @@ def test_backprop_seq2col_window_one(ops, X):
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
 
-
 def test_seq2col_window_two(ops):
     seq = ops.asarray([[1.0], [2.0], [3.0], [4]], dtype="float32")
     cols = ops.seq2col(seq, 2)
@@ -138,22 +136,28 @@ def test_seq2col_window_two(ops):
 
 
 def test_backprop_seq2col_window_two(ops):
-    cols = ops.asarray([
-        [0.0, 0.0, 1.0, 2.0, 3.0],
-        [0.0, 1.0, 2.0, 3.0, 4.0],
-        [1.0, 2.0, 3.0, 4.0, 0.0],
-        [2.0, 3.0, 4.0, 0.0, 0.0]
-    ], dtype="float32")
+    cols = ops.asarray(
+        [
+            [0.0, 0.0, 1.0, 2.0, 3.0],
+            [0.0, 1.0, 2.0, 3.0, 4.0],
+            [1.0, 2.0, 3.0, 4.0, 0.0],
+            [2.0, 3.0, 4.0, 0.0, 0.0],
+        ],
+        dtype="float32",
+    )
     # We're summing the values that each row
     # was used as a feature. So row 0 had a
     # gradient of 1 in row 0, 1 in row 2, and
-    # 1 in row 3. 
-    expected = ops.asarray([
-        [1+1+1.+0.],
-        [2.+2.+2.+2.],
-        [3.+3.+3.+3.],
-        [0.+4.+4.+4.]
-    ], dtype="f")
+    # 1 in row 3.
+    expected = ops.asarray(
+        [
+            [1 + 1 + 1.0 + 0.0],
+            [2.0 + 2.0 + 2.0 + 2.0],
+            [3.0 + 3.0 + 3.0 + 3.0],
+            [0.0 + 4.0 + 4.0 + 4.0],
+        ],
+        dtype="f",
+    )
     seq = ops.backprop_seq2col(cols, 2)
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
@@ -215,10 +219,10 @@ def test_backprop_sum_pool(ops, X):
     assert out.shape == (sum(lengths), X.shape[1])
     start = 0
     for i, length in enumerate(lengths):
-        ops.xp.testing.assert_allclose(out[start : start+length].sum(axis=0), X[i] * length,
-            rtol=0.1, atol=0.1)
+        ops.xp.testing.assert_allclose(
+            out[start : start + length].sum(axis=0), X[i] * length, rtol=0.1, atol=0.1
+        )
         start += length
-
 
 
 @settings(max_examples=MAX_EXAMPLES)
@@ -229,10 +233,9 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.0001
 
 
-
-#@settings(max_examples=MAX_EXAMPLES)
-#@given(X=strategies.arrays_BI())
-#def test_softmax_sequence_sums_to_two(ops, X):
+# @settings(max_examples=MAX_EXAMPLES)
+# @given(X=strategies.arrays_BI())
+# def test_softmax_sequence_sums_to_two(ops, X):
 #    X = ops.asarray(X)
 #    if ops.xp.abs(X).max() >= 30:
 #        return None
@@ -343,7 +346,7 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 def test_sum_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += 1
-    lengths = ops.xp.array([5,5,3,6], dtype="i")
+    lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
     output = ops.sum_pool(m, lengths)
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
@@ -351,11 +354,11 @@ def test_sum_pool(ops):
 def test_max_pool_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
     X += ops.xp.random.uniform(-1, 1, X.shape)
-    lengths = ops.xp.array([2,2,2], dtype="i")
+    lengths = ops.xp.array([2, 2, 2], dtype="i")
     maxes, which = ops.max_pool(X, lengths)
     start = 0
     for i, length in enumerate(lengths):
-        truth = X[start:start+length].max(axis=0)
+        truth = X[start : start + length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
 
@@ -363,14 +366,14 @@ def test_max_pool_sm(ops):
 def test_max_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
-    lengths = ops.xp.array([5,5,3,6], dtype="i")
-    #m[4, 0] = 1
-    #m[0, 1] = 2
-    #m[1, 3] = 3
+    lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
+    # m[4, 0] = 1
+    # m[0, 1] = 2
+    # m[1, 3] = 3
     maxes, which = ops.max_pool(m, lengths)
     start = 0
     for i, length in enumerate(lengths):
-        truth = m[start:start+length].max(axis=0)
+        truth = m[start : start + length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
 
@@ -384,6 +387,7 @@ def test_softplus(ops, X):
     assert not ops.xp.isnan(Y).any()
     assert not (Y == 0).any()
 
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_backprop_softplus(ops, X):
@@ -392,7 +396,7 @@ def test_backprop_softplus(ops, X):
     zeros = ops.allocate(X.shape)
     dX = ops.backprop_softplus(zeros, X)
     assert dX.shape == X.shape
-    assert (dX==0).all()
+    assert (dX == 0).all()
 
 
 @settings(max_examples=MAX_EXAMPLES)
@@ -403,6 +407,7 @@ def test_mish(ops, X):
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
 
+
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
@@ -411,4 +416,4 @@ def test_backprop_mish(ops, X):
     zeros = ops.allocate(X.shape)
     dX = ops.backprop_mish(zeros, X)
     assert dX.shape == X.shape
-    assert (dX==0).all()
+    assert (dX == 0).all()

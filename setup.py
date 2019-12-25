@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-from __future__ import print_function
 import io
 import os
 import os.path
@@ -10,9 +9,6 @@ import distutils.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
-from distutils.ccompiler import new_compiler
-import platform
-
 from setuptools import Extension, setup
 
 
@@ -83,9 +79,10 @@ if is_new_osx():
 # By subclassing build_extensions we have the actual compiler that will be used
 # which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
+
+
 class build_ext_options:
     def build_options(self):
-        src_dir = os.path.join(os.path.dirname(__file__), "thinc", "_files")
         if hasattr(self.compiler, "initialize"):
             self.compiler.initialize()
         self.compiler.platform = sys.platform[:6]
@@ -224,8 +221,7 @@ def setup_package():
                 "numpy>=1.7.0",
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
-                'pathlib==1.0.1; python_version < "3.4"',
-                "pydantic>=1.3,<1.4"
+                "pydantic>=1.3.0,<2.0.0",
             ],
             extras_require={
                 "cuda": ["cupy>=5.0.0b4"],
@@ -252,6 +248,7 @@ def setup_package():
                 "Topic :: Scientific/Engineering",
             ],
             cmdclass={"build_ext": build_ext_subclass},
+            python_requires=">=3.6",
         )
 
 

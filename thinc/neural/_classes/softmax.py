@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 from .affine import Affine
 from ... import describe
 from ...describe import Synapses

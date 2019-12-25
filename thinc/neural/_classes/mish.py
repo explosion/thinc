@@ -1,7 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-import numpy
-
 from ... import describe
 from .model import Model
 from ...describe import Dimension, Synapses, Biases, Gradient
@@ -33,9 +29,10 @@ def _set_dimensions_if_needed(model, X, y=None):
 )
 class Mish(Model):
     """Dense layer with mish activation.
-    
+
     https://arxiv.org/pdf/1908.08681.pdf
     """
+
     name = "mish"
 
     @property

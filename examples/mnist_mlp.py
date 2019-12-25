@@ -1,12 +1,8 @@
-# coding: utf8
-from __future__ import unicode_literals, print_function
-
 import plac
 from srsly import cloudpickle as pickle
 from thinc.v2v import Model, ReLu, Softmax
 from thinc.api import clone, chain
 from thinc.neural.util import to_categorical, prefer_gpu
-
 from thinc.extra import datasets
 
 

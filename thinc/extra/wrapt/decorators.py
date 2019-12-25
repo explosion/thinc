@@ -219,7 +219,7 @@ def decorator(wrapper=None, enabled=None, adapter=None):
                     ns = {}
                     if not isinstance(adapter, string_types):
                         adapter = formatargspec(*adapter)
-                    exec_("def adapter{}: pass".format(adapter), ns, ns)
+                    exec_(f"def adapter{adapter}: pass", ns, ns)
                     adapter = ns["adapter"]
 
                 return AdapterWrapper(

@@ -1,6 +1,3 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import contextlib
 
 from ..ops import CupyOps
@@ -64,11 +61,11 @@ class SimpleEmbed(Model):
             if hasattr(self.ops.xp, "scatter_add"):
                 self.ops.xp.scatter_add(self.d_vectors, ids, gradients)
             else:
-                self.ops.xp.add.at(d_vectors, ids, gradients)
+                self.ops.xp.add.at(self.d_vectors, ids, gradients)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
-        
+
         return vectors, finish_update
 
     @contextlib.contextmanager

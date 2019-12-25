@@ -1,7 +1,6 @@
-# coding: utf8
 """Generators that provide different rates, schedules, decays or series."""
-from __future__ import unicode_literals, division
 import numpy
+
 from ._registry import registry
 
 
@@ -62,7 +61,6 @@ def _clip(value, start, stop):
     return max(value, stop) if (start > stop) else min(value, stop)
 
 
-
 @registry.schedules.register("slanted_triangular.v1")
 def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0.0):
     """Yield an infinite series of values according to Howard and Ruder's
@@ -110,6 +108,7 @@ def cyclic_triangular(min_lr, max_lr, period):
 
 # Deprecated
 
+
 def annealing(rate, decay, decay_steps, t=0.0):
     while True:
         if decay == 0.0:
@@ -123,7 +122,5 @@ def annealing_cos(start, end, step=0.001):
     pct = step
     while True:
         cos_out = numpy.cos(numpy.pi * pct) + 1
-        yield end + (start-end)/2 * cos_out
+        yield end + (start - end) / 2 * cos_out
         pct += step
-
-
