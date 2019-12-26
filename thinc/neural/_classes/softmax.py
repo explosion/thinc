@@ -1,10 +1,9 @@
 from .affine import Affine
 from ... import describe
-from ...describe import Synapses
 
 
 @describe.attributes(
-    W=Synapses("Weights matrix", lambda obj: (obj.nO, obj.nI), lambda W, ops: None)
+    W=describe.Weights("Weights matrix", lambda obj: (obj.nO, obj.nI), lambda W, ops: None)
 )
 class Softmax(Affine):
     name = "softmax"

@@ -2,7 +2,6 @@ import numpy
 import numpy.linalg
 from .model import Model
 from ... import describe
-from ...describe import Dimension, Synapses, Biases, Gradient
 from ...api import layerize
 from ..util import copy_array
 
@@ -188,30 +187,30 @@ def svd_orthonormal(shape):
 
 
 @describe.attributes(
-    nO=Dimension("Output size"),
-    nI=Dimension("Input size"),
-    W=Synapses(
+    nO=describe.Dimension("Output size"),
+    nI=describe.Dimension("Input size"),
+    W=describe.Weights(
         "Weights matrix",
         lambda obj: (obj.nO * 4, obj.nI + obj.nO),
         lambda W, ops: copy_array(W, svd_orthonormal(W.shape)),
     ),
-    b=Biases("Bias vector", lambda obj: (obj.nO * 4,)),
-    forget_bias=Biases(
+    b=describe.Weights("Bias vector", lambda obj: (obj.nO * 4,)),
+    forget_bias=describe.Weights(
         "Bias for forget gates",
         lambda obj: (obj.nO,),
         lambda b, ops: copy_array(b, ops.xp.ones(b.shape, dtype=b.dtype)),
     ),
-    d_W=Gradient("W"),
-    d_b=Gradient("b"),
-    d_forget_bias=Gradient("forget_bias"),
-    initial_hiddens=Biases(
+    d_W=describe.Gradient("W"),
+    d_b=describe.Gradient("b"),
+    d_forget_bias=describe.Gradient("forget_bias"),
+    initial_hiddens=describe.Weights(
         "Initial hiddens", lambda obj: (obj.nO,), _uniform_init(-0.1, 0.1)
     ),
-    initial_cells=Biases(
+    initial_cells=describe.Weights(
         "Initial cells", lambda obj: (obj.nO,), _uniform_init(-0.1, 0.1)
     ),
-    d_initial_hiddens=Gradient("initial_hiddens"),
-    d_initial_cells=Gradient("initial_cells"),
+    d_initial_hiddens=describe.Gradient("initial_hiddens"),
+    d_initial_cells=describe.Gradient("initial_cells"),
 )
 class LSTM_weights(Model):
     def __init__(self, nO, nI):

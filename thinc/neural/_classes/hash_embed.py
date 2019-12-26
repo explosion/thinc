@@ -13,7 +13,7 @@ def _uniform_init(lo, hi):
 
 @describe.attributes(
     nO=describe.Dimension("Vector dimensions"),
-    nV=Ddescribe.imension("Number of vectors"),
+    nV=describe.Dimension("Number of vectors"),
     vectors=describe.Weights(
         "Embedding table", lambda obj: (obj.nV, obj.nO), _uniform_init(-0.1, 0.1)
     ),
