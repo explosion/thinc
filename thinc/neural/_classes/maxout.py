@@ -4,13 +4,6 @@ from ...describe import Dimension, Synapses, Biases, Gradient
 from ..util import get_array_module
 
 
-def _set_dimensions_if_needed(model, X, y=None):
-    if model.nI is None:
-        model.nI = X.shape[1]
-    if model.nO is None and y is not None:  # pragma: no cover
-        model.nO = int(y.max()) + 1
-
-
 def xavier_uniform_init(W, ops):
     if (W ** 2).sum() != 0:
         return
@@ -34,9 +27,6 @@ def normal_init(W, ops):
         )
 
 
-@describe.on_data(_set_dimensions_if_needed)
-@describe.output(("nO",))
-@describe.input(("nI",))
 @describe.attributes(
     nI=Dimension("Size of input"),
     nP=Dimension("Number of pieces"),

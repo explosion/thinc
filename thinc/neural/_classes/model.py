@@ -16,10 +16,7 @@ class Model(object):
     id = 0
     ops = NumpyOps()
     Ops = NumpyOps
-    drop_factor = 1.0
     descriptions = []
-    on_data_hooks = []
-    on_init_hooks = []  # Use this to add layers
     _thread_local = threading.local()
 
     @classmethod
@@ -58,18 +55,12 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    @property
-    def input_shape(self):
-        raise NotImplementedError
-
-    @property
-    def output_shape(self):
-        raise NotImplementedError
-
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
         self.Ops = self.__class__.Ops
         self.ops = self.Ops()
+        self.drop_factor = 1.0
+        self.on_data_hooks = []
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._params = {}
@@ -78,13 +69,11 @@ class Model(object):
         if not hasattr(self, "_layers"):
             self._layers = []
         self.descriptions = dict(self.descriptions)
-        self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
+        self.on_data_hooks.append(lambda model, X, Y=None: model.infer_dimensions(X, Y))
 
         for attr, install in self.descriptions.items():
             install(attr, self)
-        for hook in self.on_init_hooks:
-            hook(self, *args, **kwargs)
         self.set_id()
 
     def __getstate__(self):
@@ -160,11 +149,12 @@ class Model(object):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
 
-    def infer_dimensions(self, X, Y=None):
-        if self.get_dim("nI") is None:
-            self.set_dim("nI",  get_width(X))
-        if self.get_dim("nO") is None and Y is not None:
-            self.set_dim("nO", get_width(Y))
+    def infer_dimensions(self, X=None, Y=None):
+        if X is not None and self.get_dim("nI") is None:
+            self.set_dim("nI",  util.get_width(X))
+        if Y is not None and self.get_dim("nO") is None:
+            print("Infering nO", Y.shape)
+            self.set_dim("nO", util.get_width(Y))
 
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError

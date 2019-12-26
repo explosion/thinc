@@ -111,37 +111,3 @@ def attributes(**specs):
         return cls
 
     return wrapped
-
-
-def on_init(*callbacks):
-    def wrapped(cls):
-        cls.on_init_hooks = list(cls.on_init_hooks)
-        cls.on_init_hooks.extend(callbacks)
-        return cls
-
-    return wrapped
-
-
-def on_data(*callbacks):
-    def wrapped(cls):
-        cls.on_data_hooks = list(cls.on_data_hooks)
-        cls.on_data_hooks.extend(callbacks)
-        return cls
-
-    return wrapped
-
-
-def input(getter):
-    def wrapped(cls):
-        cls.describe_input = getter
-        return cls
-
-    return wrapped
-
-
-def output(getter):
-    def wrapped(cls):
-        cls.describe_output = getter
-        return cls
-
-    return wrapped

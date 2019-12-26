@@ -3,19 +3,7 @@ from .model import Model
 from ...describe import Dimension, Synapses, Biases, Gradient
 
 
-def _set_dimensions_if_needed(model, X, y=None):
-    if model.nI is None:
-        model.nI = X.shape[1]
-    if model.nO is None and y is not None:
-        if len(y.shape) == 2:
-            model.nO = y.shape[1]
-        else:
-            model.nO = int(y.max()) + 1
-
-
-@describe.on_data(_set_dimensions_if_needed)
 @describe.attributes(
-    nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
     nO=Dimension("Output size"),
     W=Synapses(
@@ -34,14 +22,6 @@ class Mish(Model):
     """
 
     name = "mish"
-
-    @property
-    def input_shape(self):
-        return (self.nB, self.nI)
-
-    @property
-    def output_shape(self):
-        return (self.nB, self.nO)
 
     def __init__(self, nO=None, nI=None, **kwargs):
         Model.__init__(self, **kwargs)

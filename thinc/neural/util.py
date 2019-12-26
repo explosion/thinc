@@ -192,10 +192,16 @@ def get_width(X, dim=-1):
             return X.shape[dim]
     elif isinstance(seqs, tuple) and len(seqs) == 2:
         return get_width(seqs[0], dim=dim)
-    elif hasattr(X, "__len__")
+    elif hasattr(X, "__len__"):
         if len(X) == 0:
             return 0
         else:
             return get_width(X[0], dim=dim)
     else:
         raise ValueError("Cannot get width of object: has neither shape nor length.")
+
+
+def run_child_hooks(model, X, y):
+    for child in model._layers:
+        for hook in child.on_data_hooks:
+            hook(child, X, y)

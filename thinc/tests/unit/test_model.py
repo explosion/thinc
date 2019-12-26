@@ -68,17 +68,6 @@ def test_init_installs_via_descriptions():
     assert model2.myattr == "model=%s" % "model2"
 
 
-def test_init_calls_hooks():
-    def mock_init_hook(self, *args, **kwargs):
-        setattr(self, "hooked", (args, kwargs))
-
-    base.Model.on_init_hooks = [mock_init_hook]
-    model = base.Model(0, 1, 2)
-    assert model.hooked == ((0, 1, 2), {})
-    model2 = base.Model(value="something")
-    assert model2.hooked == (tuple(), {"value": "something"})
-
-
 def test_use_device():
     dev_id = id(base.Model.ops)
     with base.Model.use_device(base.Model.ops.device):
