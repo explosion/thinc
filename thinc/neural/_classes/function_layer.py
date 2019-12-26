@@ -1,6 +1,5 @@
 from .. import util
 from .model import Model
-from ... import describe
 
 
 class FunctionLayer(Model):

@@ -1,11 +1,10 @@
 from .model import Model
 from ... import describe
-from ...describe import Dimension, AttributeDescription
+from ...describe import Dimension
 
 
 @describe.attributes(
-    nW=Dimension("Number of surrounding tokens on each side to extract"),
-    gap=AttributeDescription("Number of nearest tokens to skip, to offset the window"),
+    nW=describe.Dimension("Number of surrounding tokens on each side to extract"),
 )
 class ExtractWindow(Model):
     """Add context to vectors in a sequence by concatenating n surrounding
@@ -17,11 +16,9 @@ class ExtractWindow(Model):
 
     name = "extract_window"
 
-    def __init__(self, nW=2, gap=0):
-        assert gap == 0
+    def __init__(self, nW=1):
         Model.__init__(self)
         self.nW = nW
-        self.gap = gap
 
     def predict(self, X):
         return self.ops.seq2col(X, self.nW)

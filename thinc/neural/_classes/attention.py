@@ -1,16 +1,15 @@
 from ... import describe
-from ...describe import Dimension, Synapses, Gradient
 from .model import Model
 
 
 @describe.attributes(
-    nO=Dimension("Output size"),
-    Q=Synapses(
+    nO=describe.Dimension("Output size"),
+    Q=describe.Weights(
         "Learned 'query' vector",
         lambda obj: (obj.nO, 1),
         lambda Q, ops: ops.normal_init(Q, Q.shape[0]),
     ),
-    dQ=Gradient("Q"),
+    dQ=describe.Gradient("Q"),
 )
 class ParametricAttention(Model):
     """Weight inputs by similarity to a learned vector"""

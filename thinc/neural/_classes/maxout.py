@@ -1,6 +1,5 @@
 from .model import Model
 from ... import describe
-from ...describe import Dimension, Synapses, Biases, Gradient
 from ..util import get_array_module
 
 
@@ -28,15 +27,15 @@ def normal_init(W, ops):
 
 
 @describe.attributes(
-    nI=Dimension("Size of input"),
-    nP=Dimension("Number of pieces"),
-    nO=Dimension("Size of output"),
-    W=Synapses(
+    nI=describe.Dimension("Size of input"),
+    nP=describe.Dimension("Number of pieces"),
+    nO=describe.Dimension("Size of output"),
+    W=describe.Weights(
         "The weights matrix", lambda obj: (obj.nO, obj.nP, obj.nI), xavier_uniform_init
     ),
-    b=Biases("Bias parameter", lambda obj: (obj.nO, obj.nP)),
-    d_W=Gradient("W"),
-    d_b=Gradient("b"),
+    b=describe.Weights("Bias parameter", lambda obj: (obj.nO, obj.nP)),
+    d_W=describe.Gradient("W"),
+    d_b=describe.Gradient("b"),
 )
 class Maxout(Model):
     name = "maxout"
