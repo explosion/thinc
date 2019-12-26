@@ -22,9 +22,9 @@ def _uniform_init(lo, hi):
 class HashEmbed(Model):
     name = "hash-embed"
 
-    def __init__(self, nO, nV, seed=None, **kwargs):
+    def __init__(self, nO, nV, seed=None, column=0, **kwargs):
         Model.__init__(self, **kwargs)
-        self.column = kwargs.get("column", 0)
+        self.column = column
         self.nO = nO
         self.nV = nV
 
