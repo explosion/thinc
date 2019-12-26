@@ -10,7 +10,7 @@ from ..util import get_ops, copy_array
 
 
 class Model(object):
-    """Model base class."""
+    """Base class for Thinc models and layers."""
 
     name = "model"
     id = 0
@@ -40,8 +40,6 @@ class Model(object):
         yield
         cls._thread_local.operators = dict(curr_operators)
 
-    @classmethod
-    @contextlib.contextmanager
     def use_device(cls, device):
         """Change the device to execute on for the scope of the block."""
         if device == cls.ops.device:
@@ -55,21 +53,18 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
+        self.descriptions = dict(self.__class__.descriptions)
         self.name = self.__class__.name
         self.Ops = self.__class__.Ops
         self.ops = self.Ops()
         self.drop_factor = 1.0
         self.on_data_hooks = []
-        kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._params = {}
         self._dims = {}
         self._grads = {}
-        if not hasattr(self, "_layers"):
-            self._layers = []
-        self.descriptions = dict(self.descriptions)
-        self.on_data_hooks = list(self.on_data_hooks)
+        self._layers = []
         self.on_data_hooks.append(lambda model, X, Y=None: model.infer_dimensions(X, Y))
 
         for attr, install in self.descriptions.items():
@@ -82,31 +77,28 @@ class Model(object):
     def __setstate__(self, state_data):
         self.__dict__ = srsly.pickle_loads(state_data)
 
-    def _update_defaults(self, args, kwargs):
-        new_kwargs = {}
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-            else:
-                new_kwargs[key] = value
-        return new_kwargs
-
     def add_layer(self, layer):
+        """Add a child layer to the model."""
         self._layers.append(layer)
 
     def has_dim(self, name):
+        """Check whether the model has a dimension of a given name."""
         return name in self._dims
 
     def get_dim(self, name):
+        """Retrieve the value of a dimension of the given name, or None if unset."""
         return self._dims.get(name, None)
 
     def set_dim(self, name, value):
+        """Set a value for a dimension."""
         self._dims[name] = value
 
     def has_param(self, name):
+        """Check whether the model has a weights parameter of the given name."""
         return name in self._params
 
     def get_param(self, name):
+        """Retrieve a weights parameter by name."""
         key = (self.id, name)
         if key in self._mem:
             return self._mem[key]
@@ -119,13 +111,16 @@ class Model(object):
             return data
 
     def set_param(self, name, value):
+        """Set a weights parameter's value."""
         data = self._mem.get((self.id, name))
         copy_array(dst=data, src=value)
 
     def has_grad(self, name):
+        """Check whether the model has a gradient of the given name."""
         return name in self._grads
 
     def get_grad(self, name):
+        """Get a gradient from the model."""
         key = (self.id, name)
         if key in self._mem:
             return self._mem.get(key)
@@ -136,39 +131,64 @@ class Model(object):
             return grad
 
     def set_grad(self, name, value):
+        """Set a gradient value for the model."""
         data = self._mem.get((self.id, name))
         copy_array(dst=data, src=value)
 
     def set_id(self):
+        """Update the model's ID, and also update the ID recursively for children."""
         Model.id += 1
         self.id = Model.id
         for layer in self._layers:
             layer.set_id()
 
-    def begin_training(self, train_X, train_y=None, **trainer_cfg):
+    def begin_training(self, X=None, Y=None):
+        """Lifecycle method that can be called to initiate training. Triggers
+        calls to any functions registered in model.on_data_hooks.
+
+        You can provide example input and output data in the X and Y arguments.
+        This is mostly useful for allowing shapes to be inferred from the example
+        data.
+        """
         for hook in self.on_data_hooks:
-            hook(self, train_X, train_y)
+            hook(self, X=X, Y=Y)
 
     def infer_dimensions(self, X=None, Y=None):
+        """Infer missing dimensions from example data."""
         if X is not None and self.get_dim("nI") is None:
             self.set_dim("nI", util.get_width(X))
         if Y is not None and self.get_dim("nO") is None:
-            print("Infering nO", Y.shape)
             self.set_dim("nO", util.get_width(Y))
 
     def begin_update(self, X, drop=0.0):
+        """Run the model over a batch of data, returning the output and a callback
+        to complete the backward pass.
+
+        X: A batch of input data.
+        drop (float). Dropout rate. Defaults to 0. If set to the special value
+            "None", layers are allowed to assume backpropagation is not necessary,
+            and may perform optimizations accordingly. 
+
+        RETURNS:
+            A tuple (Y, finish_update), where Y is a batch of output data,
+            and finish_update is a callback that takes the gradient with
+            respect to the output and an optimizer function, and returns
+            the gradient with respect to the input.
+        """
         raise NotImplementedError
 
     def predict(self, X):
         y, _ = self.begin_update(X, drop=None)
         return y
 
-    def predict_one(self, x):
-        X = self.ops.expand_dims(x, axis=0)
-        return self.predict(X)[0]
-
     @contextlib.contextmanager
     def use_params(self, params):  # pragma: no cover
+        """Context manager to temporarily set the model's parameters to specified
+        values.
+
+        params (dict): A dictionary keyed by model IDs, whose values are arrays
+            of weight values.
+        """
         backup = None
         weights = self._mem.weights
         if self.id in params:
@@ -189,27 +209,7 @@ class Model(object):
                 next(context.gen)
             except StopIteration:
                 pass
-
-    def __call__(self, x):
-        """
-        x
-            Must match expected type
-            Must match expected shape
-        """
-        return self.predict(x)
-
-    def pipe(self, stream, batch_size=128):
-        for batch in util.minibatch(stream, batch_size):
-            ys = self.predict(batch)
-            for y in ys:
-                yield y
-
-    def update(self, stream, batch_size=1000):
-        for X, y in util.minibatch(stream, batch_size=batch_size):
-            output, finish_update = self.begin_update(X)
-            gradient = finish_update(y)
-            yield gradient
-
+     
     def walk(self):
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
@@ -233,6 +233,7 @@ class Model(object):
         return gradients
 
     def to_gpu(self, device_num):
+        """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
         device = cupy.cuda.device.Device(device_num)
@@ -249,6 +250,7 @@ class Model(object):
         return device
 
     def to_cpu(self):
+        """Copy the model to CPU."""
         queue = [self]
         for layer in queue:
             layer.ops = NumpyOps()
@@ -260,38 +262,14 @@ class Model(object):
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)
 
-    def evaluate(self, X, y, batch_size=128):
-        """
-        x
-            Must match expected type
-            Must match expected shape
-        y
-            Must match expected type
-        """
-        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
-        if not hasattr(y, "shape"):
-            y = self.ops.flatten(y)
-        scores = scores.reshape(y.shape)
-        if len(scores.shape) == 1:
-            correct = ((scores >= 0.5) == (y >= 0.5)).sum()
-        else:
-            correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
-        return correct / y.shape[0]
-
-    def evaluate_logloss(self, X, y, minimum=None, maximum=None):
-        yh = self.ops.xp.vstack(self.pipe(X))
-        yh = yh.reshape(y.shape)
-        if minimum is not None:
-            yh = self.ops.xp.maximum(yh, minimum)
-        if maximum is not None:
-            yh = self.ops.xp.minimum(yh, maximum)
-        assert len(yh.shape) == 1
-        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
-            (1 - yh) + 1e-8
-        )
-        return losses.mean()
-
     def to_bytes(self):
+        """Serialize the model to a bytes representation. Models are usually
+        serialized using msgpack, so you should be able to call msgpack.loads()
+        on the data and get back a dictionary with the contents.
+
+        Serialization should round-trip identically, i.e. the same bytes should
+        result from loading and serializing a model.
+        """
         weights = []
         queue = [self]
         i = 0
@@ -327,6 +305,13 @@ class Model(object):
         return srsly.msgpack_dumps({b"weights": weights})
 
     def from_bytes(self, bytes_data):
+        """Deserialize the model from a bytes representation. Models are usually
+        serialized using msgpack, so you should be able to call msgpack.loads()
+        on the data and get back a dictionary with the contents.
+
+        Serialization should round-trip identically, i.e. the same bytes should
+        result from loading and serializing a model.
+        """
         data = srsly.msgpack_loads(bytes_data)
         weights = data[b"weights"]
         queue = [self]
@@ -355,11 +340,17 @@ class Model(object):
         return self
 
     def to_disk(self, path):
+        """Serialize the model to disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
         path = util.ensure_path(path)
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
     def from_disk(self, path):
+        """Deserialize the model from disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
         path = util.ensure_path(path)
         with path.open("rb") as file_:
             bytes_data = file_.read()
@@ -448,3 +439,50 @@ class Model(object):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
+
+    """
+    I think we should consider changing __call__ to begin_update
+    def __call__(self, x):
+        return self.predict(x)
+    """
+ 
+    """
+    I think we probably want to deprecate these? They're not necessary, and
+    they get in the way.
+
+    def pipe(self, stream, batch_size=128):
+        for batch in util.minibatch(stream, batch_size):
+            ys = self.predict(batch)
+            for y in ys:
+                yield y
+
+    def update(self, stream, batch_size=1000):
+        for X, y in util.minibatch(stream, batch_size=batch_size):
+            output, finish_update = self.begin_update(X)
+            gradient = finish_update(y)
+            yield gradient
+
+    def evaluate(self, X, y, batch_size=128):
+        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
+        if not hasattr(y, "shape"):
+            y = self.ops.flatten(y)
+        scores = scores.reshape(y.shape)
+        if len(scores.shape) == 1:
+            correct = ((scores >= 0.5) == (y >= 0.5)).sum()
+        else:
+            correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
+        return correct / y.shape[0]
+
+    def evaluate_logloss(self, X, y, minimum=None, maximum=None):
+        yh = self.ops.xp.vstack(self.pipe(X))
+        yh = yh.reshape(y.shape)
+        if minimum is not None:
+            yh = self.ops.xp.maximum(yh, minimum)
+        if maximum is not None:
+            yh = self.ops.xp.minimum(yh, maximum)
+        assert len(yh.shape) == 1
+        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
+            (1 - yh) + 1e-8
+        )
+        return losses.mean()
+    """
