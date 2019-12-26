@@ -186,7 +186,11 @@ class Model(object):
     def predict(self, X):
         y, _ = self.begin_update(X, drop=None)
         return y
-
+    
+    def __call__(self, x):
+        # I think we should remove this.
+        return self.predict(x)
+ 
     @contextlib.contextmanager
     def use_params(self, params):  # pragma: no cover
         """Context manager to temporarily set the model's parameters to specified
