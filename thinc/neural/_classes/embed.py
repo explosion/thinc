@@ -3,7 +3,6 @@ import contextlib
 from ..ops import CupyOps
 from .model import Model
 from ... import describe
-from ...describe import Dimension, Weights, Synapses, Gradient
 from ..util import copy_array
 
 
@@ -15,12 +14,12 @@ def _uniform_init(lo, hi):
 
 
 @describe.attributes(
-    nM=Dimension("Vector dimensions"),
-    nV=Dimension("Number of vectors"),
-    vectors=Weights(
+    nM=describe.Dimension("Vector dimensions"),
+    nV=describe.Dimension("Number of vectors"),
+    vectors=describe.Weights(
         "Embedding table", lambda obj: (obj.nV, obj.nM), _uniform_init(-0.1, 0.1)
     ),
-    d_vectors=Gradient("vectors"),
+    d_vectors=describe.Gradient("vectors"),
 )
 class SimpleEmbed(Model):
     name = "simple-embed"
@@ -72,19 +71,19 @@ class SimpleEmbed(Model):
 
 
 @describe.attributes(
-    nM=Dimension("Vector dimensions"),
-    nV=Dimension("Number of vectors"),
-    nO=Dimension("Size of output"),
-    W=Synapses(
+    nM=describe.Dimension("Vector dimensions"),
+    nV=describe.Dimension("Number of vectors"),
+    nO=describe.Dimension("Size of output"),
+    W=describe.Weights(
         "A projection matrix, to change vector dimensionality",
         lambda obj: (obj.nO, obj.nM),
         lambda W, ops: ops.xavier_uniform_init(W),
     ),
-    vectors=Weights(
+    vectors=describe.Weights(
         "Embedding table", lambda obj: (obj.nV, obj.nM), _uniform_init(-0.1, 0.1)
     ),
-    d_W=Gradient("W"),
-    d_vectors=Gradient("vectors"),
+    d_W=describe.Gradient("W"),
+    d_vectors=describe.Gradient("vectors"),
 )
 class Embed(Model):
     name = "embed"

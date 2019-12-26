@@ -86,18 +86,6 @@ class Gradient(AttributeDescription):
         return obj.set_grad(self.name, value)
 
 
-class Synapses(Weights):
-    pass
-
-
-class Biases(Weights):
-    pass
-
-
-class Moment(Weights):
-    pass
-
-
 def attributes(**specs):
     if not specs:  # pragma: no cover
         raise ValueError("Must describe at least one attribute")

@@ -1,19 +1,18 @@
 from .model import Model
 from ... import describe
-from ...describe import Dimension, Synapses, Biases, Gradient
 
 
 @describe.attributes(
-    nI=Dimension("Input size"),
-    nO=Dimension("Output size"),
-    W=Synapses(
+    nI=describe.Dimension("Input size"),
+    nO=describe.Dimension("Output size"),
+    W=describe.Weights(
         "Weights matrix",
         lambda obj: (obj.nO, obj.nI),
         lambda W, ops: ops.xavier_uniform_init(W),
     ),
-    b=Biases("Bias vector", lambda obj: (obj.nO,)),
-    d_W=Gradient("W"),
-    d_b=Gradient("b"),
+    b=describe.Weights("Bias vector", lambda obj: (obj.nO,)),
+    d_W=describe.Gradient("W"),
+    d_b=describe.Gradient("b"),
 )
 class Affine(Model):
     """Computes the linear transform Y = (W @ X) + b."""

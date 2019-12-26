@@ -1,5 +1,4 @@
 from ... import describe
-from ...describe import Dimension, Synapses, Gradient
 from .model import Model
 from ...extra.load_nlp import get_vectors
 
@@ -9,16 +8,15 @@ except ImportError:
     cupy = None
 
 
-# @describe.on_data(LSUVinit)
 @describe.attributes(
-    nM=Dimension("Vector dimensions"),
-    nO=Dimension("Size of output"),
-    W=Synapses(
+    nM=describe.Dimension("Vector dimensions"),
+    nO=describe.Dimension("Size of output"),
+    W=describe.Weights(
         "A projection matrix, to change vector dimensionality",
         lambda obj: (obj.nO, obj.nM),
         lambda W, ops: ops.xavier_uniform_init(W),
     ),
-    d_W=Gradient("W"),
+    d_W=describe.Gradient("W"),
 )
 class StaticVectors(Model):
     """Load a static embedding table, and learn a linear projection from it.

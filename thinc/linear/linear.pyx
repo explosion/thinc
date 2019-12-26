@@ -7,7 +7,6 @@ cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
 from ..neural._classes.model import Model
 from .. import describe
-from ..describe import Dimension, Synapses, Biases, Gradient
 from ..neural.util import is_cupy_array, is_numpy_array
 
 # Sigh, these stuff up pickling if they're lambdas...
@@ -23,12 +22,12 @@ def _get_bias_shape(obj):
 
 
 @describe.attributes(
-    nO=Dimension("Output size"),
-    length=Dimension("Weights length"),
-    W=Synapses("Weights matrix", _get_W_shape, _init_W),
-    b=Biases("Biases", _get_bias_shape),
-    d_W=Gradient("W"),
-    d_b=Gradient("b"),
+    nO=describe.Dimension("Output size"),
+    length=describe.Dimension("Weights length"),
+    W=describe.Weights("Weights matrix", _get_W_shape, _init_W),
+    b=describe.Weights("Biases", _get_bias_shape),
+    d_W=describe.Gradient("W"),
+    d_b=describe.Gradient("b"),
 )
 class LinearModel(Model):
     name = 'linear'

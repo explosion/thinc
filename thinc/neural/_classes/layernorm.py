@@ -9,7 +9,7 @@ def _init_to_one(W, ops):
 
 @describe.attributes(
     G=describe.Weights("Scaling vector", lambda obj: (obj.nO,), _init_to_one),
-    b=describe.Biases("Bias vector", lambda obj: (obj.nO,)),
+    b=describe.Weights("Bias vector", lambda obj: (obj.nO,)),
     d_G=describe.Gradient("G"),
     d_b=describe.Gradient("b"),
 )
