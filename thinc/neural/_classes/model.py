@@ -61,7 +61,6 @@ class Model(object):
         self.ops = self.Ops()
         self.drop_factor = 1.0
         self.on_data_hooks = []
-        self.on_init_hooks = [] 
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._params = {}
@@ -70,14 +69,11 @@ class Model(object):
         if not hasattr(self, "_layers"):
             self._layers = []
         self.descriptions = dict(self.descriptions)
-        self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
         self.on_data_hooks.append(lambda model, X, Y=None: model.infer_dimensions(X, Y))
 
         for attr, install in self.descriptions.items():
             install(attr, self)
-        for hook in self.on_init_hooks:
-            hook(self, *args, **kwargs)
         self.set_id()
 
     def __getstate__(self):
