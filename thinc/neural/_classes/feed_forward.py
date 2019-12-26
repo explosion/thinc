@@ -34,10 +34,16 @@ class FeedForward(Model):
         return self._layers[-1].has_dim(name)
 
     def get_dim(self, name):
-        return self._layers[-1].get_dim(name)
+        if name == "nI":
+            return self._layers[0].get_dim(name)
+        else:
+            return self._layers[-1].get_dim(name)
 
     def set_dim(self, name, value):
-        self._layers[-1].set_dim(name, value)
+        if name == "nI":
+            self._layers[0].set_dim(name, value)
+        else:
+            self._layers[-1].set_dim(name, value)
 
     def has_param(self, name):
         return name in self._layers[-1]._params
