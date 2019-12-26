@@ -211,7 +211,7 @@ def with_flatten(layer, pad=0, ndim=4):
 
     def with_flatten_predict(seqs_in):
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
-        X = layer(layer.ops.flatten(seqs_in, pad=pad))
+        X = layer.predict(layer.ops.flatten(seqs_in, pad=pad))
         return layer.ops.unflatten(X, lengths, pad=pad)
 
     return wrap(
