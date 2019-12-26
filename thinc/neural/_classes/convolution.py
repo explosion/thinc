@@ -1,6 +1,5 @@
 from .model import Model
 from ... import describe
-from ...describe import Dimension
 
 
 @describe.attributes(
