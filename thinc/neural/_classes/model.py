@@ -4,7 +4,6 @@ import srsly
 import threading
 
 from .. import util
-from ..train import Trainer
 from ..ops import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array
@@ -17,7 +16,6 @@ class Model(object):
     id = 0
     ops = NumpyOps()
     Ops = NumpyOps
-    Trainer = Trainer
     drop_factor = 1.0
     descriptions = []
     on_data_hooks = []
