@@ -83,6 +83,14 @@ class ConcatenationLayer(Model):
     def __init__(self, *layers):
         Model.__init__(self)
         self._layers.extend(layers)
+
+    def get_dim(self, name):
+        if name == "nO":
+            return sum(layer.get_dim(name) for layer in self._layers)
+        elif name == "nI":
+            return self._layers[0].get_dim(name)
+        else:
+            return Model.get_dim(self, name)
     
     def begin_update(self, X, drop=0.):
         Ys, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
@@ -107,9 +115,17 @@ class ConcatenationLayer(Model):
 
 
 class AdditionLayer(Model):
+    name = "add"
+
     def __init__(self, *layers):
         Model.__init__(self)
         self._layers.extend(layers)
+
+    def get_dim(self, name):
+        if name in ("nO", "nI"):
+            return self._layers[0].get_dim(name)
+        else:
+            return Model.get_dim(self, name)
  
     def begin_update(self, X, drop=0.0):
         outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
