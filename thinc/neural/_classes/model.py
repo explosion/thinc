@@ -183,6 +183,20 @@ class Model(object):
         """
         raise NotImplementedError
 
+    def finish_update(self, optimizer):
+        """Update parameters with current gradients.
+        
+        optimizer (Callable[array, array, key=None]):
+            The optimizer. The function is called with each parameter and
+            gradient of the model.
+        """
+        optimizer(self._mem.weights, self._mem.gradient, key=self.id)
+        seen = set([self.id])
+        for node in self.walk():
+            if node.id not in seen:
+                node.finish_update(optimizer)
+                seen.add(node.id)
+
     def predict(self, X):
         y, _ = self.begin_update(X, drop=None)
         return y
