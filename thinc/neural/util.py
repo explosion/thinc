@@ -153,7 +153,7 @@ def get_width(X, dim=-1):
     * A tuple (for a ragged array): Use the shape of the first element.
     * A list of arrays (for sequences): Use the shape of the first element.
     """
-    if hasattr(X, "shape"):
+    if hasattr(X, "shape") and hasattr(X, "ndim"):
         if len(X.shape) == 0:
             return 0
         elif len(X.shape) == 1:
