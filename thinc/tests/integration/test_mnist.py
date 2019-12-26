@@ -1,7 +1,6 @@
 import pytest
 from thinc.v2v import Model, ReLu, Softmax
 from thinc.neural._classes.feed_forward import FeedForward
-from thinc.neural._classes.batchnorm import BatchNorm
 from thinc.neural._classes.elu import ELU
 from thinc.neural._classes.maxout import Maxout
 from thinc.neural.ops import NumpyOps
@@ -50,12 +49,6 @@ def create_relu_softmax(depth, width):
     return model
 
 
-def create_relu_batchnorm_softmax(depth, width):
-    with Model.define_operators({"*": clone, ">>": chain}):
-        model = BatchNorm(ReLu(width, 784)) >> Softmax(10, width)
-    return model
-
-
 def create_elu_maxout_softmax(depth, width):
     with Model.define_operators({">>": chain}):
         model = ELU(width) >> Maxout(5) >> Softmax()
@@ -66,7 +59,6 @@ def create_elu_maxout_softmax(depth, width):
     params=[
         create_relu_softmax,
         create_elu_maxout_softmax,
-        create_relu_batchnorm_softmax,
     ]
 )
 def create_model(request):
