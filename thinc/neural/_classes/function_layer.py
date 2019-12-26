@@ -1,3 +1,4 @@
+from .. import util
 from .model import Model
 from ... import describe
 
@@ -28,25 +29,22 @@ class FunctionLayer(Model):
         self._layers.extend(layers)
         
 
-def run_child_hooks(self, X, y):
-    for child in self._layers:
-        for hook in child.on_data_hooks:
-            hook(child, X, y)
-
-
-@describe.on_data(run_child_hooks)
 class wrap(Model):
     """Create a unary function layer, that wraps a single child layer. The
     wrapping layer works like a proxy, delegating requests for dimensions,
     parameters and gradients to the child.
     """
-    def __init__(self, begin_update, layer, *, predict=None, predict_one=None):
+    def __init__(self, begin_update, layer, *, predict=None, predict_one=None,
+            name=None, on_data_hooks=None):
         self.begin_update = begin_update
         if predict is not None:
             self.predict = predict
         if predict_one is not None:
             self.predict_one = predict_one
         Model.__init__(self)
+        self.name = name if name is not None else f"wrap-{layer.name}"
+        if on_data_hooks is not None:
+            self.on_data_hooks.extend(on_data_hooks)
         self._layers = [layer]
 
     def has_dim(self, name):
@@ -83,6 +81,11 @@ class ConcatenationLayer(Model):
     def __init__(self, *layers):
         Model.__init__(self)
         self._layers.extend(layers)
+        self.on_data_hooks.append(util.run_child_hooks)
+
+    def infer_dimensions(self, X=None, Y=None):
+        for layer in self._layers:
+            layer.infer_dimensions(X=X)
 
     def get_dim(self, name):
         if name == "nO":
@@ -120,6 +123,11 @@ class AdditionLayer(Model):
     def __init__(self, *layers):
         Model.__init__(self)
         self._layers.extend(layers)
+        self.on_data_hooks.append(util.run_child_hooks)
+    
+    def infer_dimensions(self, X=None, Y=None):
+        for layer in self._layers:
+            layer.infer_dimensions(X=X, Y=Y)
 
     def get_dim(self, name):
         if name in ("nO", "nI"):

@@ -80,6 +80,7 @@ class Model(object):
         self.descriptions = dict(self.descriptions)
         self.on_init_hooks = list(self.on_init_hooks)
         self.on_data_hooks = list(self.on_data_hooks)
+        self.on_data_hooks.append(lambda model, X, Y=None: model.infer_dimensions(X, Y))
 
         for attr, install in self.descriptions.items():
             install(attr, self)
@@ -160,11 +161,13 @@ class Model(object):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
 
-    def infer_dimensions(self, X, Y=None):
-        if self.get_dim("nI") is None:
-            self.set_dim("nI",  get_width(X))
-        if self.get_dim("nO") is None and Y is not None:
-            self.set_dim("nO", get_width(Y))
+    def infer_dimensions(self, X=None, Y=None):
+        print("Infer dimensions")
+        if X is not None and self.get_dim("nI") is None:
+            self.set_dim("nI",  util.get_width(X))
+        if Y is not None and self.get_dim("nO") is None:
+            print("Infering nO", Y.shape)
+            self.set_dim("nO", util.get_width(Y))
 
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError

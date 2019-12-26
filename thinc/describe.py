@@ -122,15 +122,6 @@ def on_init(*callbacks):
     return wrapped
 
 
-def on_data(*callbacks):
-    def wrapped(cls):
-        cls.on_data_hooks = list(cls.on_data_hooks)
-        cls.on_data_hooks.extend(callbacks)
-        return cls
-
-    return wrapped
-
-
 def input(getter):
     def wrapped(cls):
         cls.describe_input = getter

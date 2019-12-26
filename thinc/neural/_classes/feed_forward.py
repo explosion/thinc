@@ -9,7 +9,6 @@ def _run_child_hooks(model, X, y):
         X = layer(X)
 
 
-@describe.on_data(_run_child_hooks)
 class FeedForward(Model):
     """A feed-forward network, that chains multiple Model instances together."""
 
@@ -23,6 +22,7 @@ class FeedForward(Model):
             else:
                 self._layers.append(layer)
         Model.__init__(self, **kwargs)
+        self.on_data_hooks.append(_run_child_hooks)
 
     @property
     def input_shape(self):
@@ -31,6 +31,13 @@ class FeedForward(Model):
     @property
     def output_shape(self):
         return self._layers[-1].output_shape
+
+    def infer_dimensions(self, X=None, Y=None):
+        if Y is not None:
+            self._layers[-1].infer_dimensions(X=None, Y=Y)
+        for layer in self._layers:
+            layer.infer_dimensions(X=X)
+            X = layer(X)
 
     def has_dim(self, name):
         return self._layers[-1].has_dim(name)
