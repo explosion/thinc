@@ -542,49 +542,6 @@ class NumpyOps(Ops):
         dotted += bias
         return dotted
 
-    def elu(self, ndarray X, inplace=True):
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = expf(data[i])-1.
-
-    def selu(self, ndarray X, inplace=True):
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = alpha * (expf(data[i])-1.)
-            data[i] *= scale
-
-    def backprop_selu(self, ndarray delta_, ndarray signal_in_,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-
-        for i in range(size):
-            delta[i] *= scale
-            if signal_in[i] <= 0:
-                delta[i] *= alpha * expf(signal_in[i])
-
-    def backprop_elu(self, ndarray delta_, ndarray signal_out_,
-            inplace=True):
-        # Backprop the ELU transformation
-        # Note that this is over the function _output_, not the function
-        # _input_!
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
-        for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] *= signal_out[i] + 1.
-
     def relu(self, ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
         cdef weight_t* data = <weight_t*>out.data
@@ -919,25 +876,6 @@ class CupyOps(Ops):
             return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
-
-    def selu(self, X, inplace=True):
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = scale * self.xp.where(X>=0., X, alpha * (self.xp.exp(X)-1.))
-        if inplace:
-            copy_array(X, out)
-        return out
-
-    def backprop_selu(self, delta, signal_in,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = delta * self.xp.where(signal_in >= 0, scale,
-                scale * alpha * self.xp.exp(signal_in))
-        if inplace:
-            copy_array(delta, out)
-        return out
 
     def mish(self, X, threshold=5, out=None):
         return _custom_kernels.mish(X, threshold=threshold, out=out)
