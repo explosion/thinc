@@ -34,8 +34,8 @@ class Residual(Model):
         else:
             output = X + y
 
-        def residual_bwd(d_output, sgd=None):
-            dX = bp_y(d_output, sgd)
+        def residual_bwd(d_output):
+            dX = bp_y(d_output)
             if isinstance(d_output, list) or isinstance(d_output, tuple):
                 return [d_output[i] + dX[i] for i in range(len(d_output))]
             else:

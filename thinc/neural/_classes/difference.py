@@ -37,27 +37,21 @@ def Siamese(layer, similarity):
         vec2, bp_vec2 = layer.begin_update(input2, drop=0.0)
         output, bp_output = similarity.begin_update((vec1, vec2), drop=0.0)
 
-        def finish_update(d_output, sgd=None):
+        def finish_update(d_output):
             d_vec1, d_vec2 = bp_output(d_output, sgd)
-            # Remember that this is the same layer --
-            # Is this bad? Are we making bp_vec2 stale?
-            d_input1 = bp_vec1(d_vec1, lambda *args, **kwargs: None)
-            d_input2 = bp_vec2(d_vec2, sgd)
+            d_input1 = bp_vec1(d_vec1)
+            d_input2 = bp_vec2(d_vec2)
             return (d_input1, d_input2)
 
         return output, finish_update
 
-    model = layerize(begin_update)
-
-    model._layers.append(layer)
-    model._layers.append(similarity)
 
     def on_data(self, X, y):
         input1, input2 = zip(*X)
         for hook in layer.on_data_hooks:
             hook(layer, input1, y)
 
-    model.on_data_hooks.append(on_data)
+    model = layerize(begin_update, layers=(layer, similarity), on_data_hooks=[on_data])
     return model
 
 
@@ -85,7 +79,7 @@ class CauchySimilarity(Model):
         sim, bp_sim = inverse(total)
         total = total.reshape((vec1.shape[0], 1))
 
-        def finish_update(d_sim, sgd=None):
+        def finish_update(d_sim):
             d_total = bp_sim(d_sim)
             d_total = d_total.reshape(total.shape)
             self.d_W += (d_total * square_diff).sum(axis=0)
@@ -93,7 +87,6 @@ class CauchySimilarity(Model):
             d_diff = 2 * d_square_diff * diff
             d_vec1 = d_diff
             d_vec2 = -d_diff
-            sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return (d_vec1, d_vec2)
 
         return sim, finish_update

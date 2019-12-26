@@ -16,10 +16,10 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
         QKV, get_dX = affine.begin_update(X, drop=drop)
         Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
 
-        def qkv_sa_backward(dQs_dKs_dVs, sgd=None):
+        def qkv_sa_backward(dQs_dKs_dVs):
             dQs, dKs, dVs = dQs_dKs_dVs
             dQKV = _join_seqs(dQs, dKs, dVs, nH, nD)
-            dX = get_dX(dQKV, sgd=sgd)
+            dX = get_dX(dQKV)
             return affine.ops.unflatten(dX, lengths)
 
         if get_mask is not None:
@@ -101,12 +101,12 @@ class MultiHeadedAttention(Model):
             backprops.append(backprop)
             assert output.shape[0] == Q.shape[0]
 
-        def backprop_attend_seqs(d_outputs, sgd=None):
+        def backprop_attend_seqs(d_outputs):
             dQs = []
             dKs = []
             dVs = []
             for d_output, backprop in zip(d_outputs, backprops):
-                dQ, dK, dV = backprop(d_output, sgd=sgd)
+                dQ, dK, dV = backprop(d_output)
                 dQs.append(dQ)
                 dKs.append(dK)
                 dVs.append(dV)
@@ -125,7 +125,7 @@ class MultiHeadedAttention(Model):
         attn, get_dQ_dK = self._get_attn_weights(Q, K, mask)
         output, get_d_attn_dV = self._apply_attn(attn, V)
 
-        def backprop_attend(d_output, sgd=None):
+        def backprop_attend(d_output):
             d_attn, dV = get_d_attn_dV(d_output)
             dQ, dK = get_dQ_dK(d_attn)
             return (dQ, dK, dV)
@@ -148,7 +148,7 @@ class MultiHeadedAttention(Model):
         attn2 = self.ops.softmax(attn1, axis=-1)
         assert attn2.shape == (nH, nQ, nK)
 
-        def backprop_attn1(d_attn2, sgd=None):
+        def backprop_attn1(d_attn2):
             assert d_attn2.shape == (nH, nQ, nK)
             d_attn1 = self.ops.backprop_softmax(attn2, d_attn2, axis=-1)
             d_attn0 = backprop_mask(d_attn1)
@@ -167,7 +167,7 @@ class MultiHeadedAttention(Model):
         return attn2, backprop_attn1
 
     def _apply_mask(self, attn, mask):
-        def backprop_apply_mask(d_attn, sgd=None):
+        def backprop_apply_mask(d_attn):
             if mask is None:
                 return d_attn
             else:

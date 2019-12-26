@@ -99,9 +99,11 @@ def test_LSTM_learns():
     Yhs, bp_Yhs = model.begin_update([X])
     loss1 = ((Yhs[0] - Y) ** 2).sum()
     Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y], sgd=sgd)
+    dXs = bp_Yhs([Yhs[0] - Y])
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
     Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y], sgd=sgd)  # noqa: F841
+    dXs = bp_Yhs([Yhs[0] - Y])  # noqa: F841
     loss2 = ((Yhs[0] - Y) ** 2).sum()
     assert loss1 > loss2, (loss1, loss2)
 

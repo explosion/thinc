@@ -24,9 +24,9 @@ def _uniform_init(lo, hi):
 class SimpleEmbed(Model):
     name = "simple-embed"
 
-    def __init__(self, nO, nV=None, **kwargs):
+    def __init__(self, nO, nV=None, column=0, **kwargs):
         Model.__init__(self, **kwargs)
-        self.column = kwargs.get("column", 0)
+        self.column = column
         self.nO = nO
         self.nV = nV
 
@@ -46,13 +46,11 @@ class SimpleEmbed(Model):
         ids[ids >= self.nV] = 0
         vectors = self.vectors[ids]
 
-        def finish_update(gradients, sgd=None):
+        def finish_update(gradients):
             if hasattr(self.ops.xp, "scatter_add"):
                 self.ops.xp.scatter_add(self.d_vectors, ids, gradients)
             else:
                 self.ops.xp.add.at(self.d_vectors, ids, gradients)
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
 
         return vectors, finish_update
@@ -118,7 +116,7 @@ class Embed(Model):
         vectors = self._embed(ids)
         dotted = self.ops.gemm(vectors, self.W, trans2=True)
 
-        def finish_update(gradients, sgd=None):
+        def finish_update(gradients):
             self.d_W += self.ops.gemm(gradients, vectors, trans1=True)
             if not self.is_static:
                 gradients = self.ops.gemm(gradients, self.W)
@@ -127,11 +125,6 @@ class Embed(Model):
                     self.ops.xp.scatter_add(d_vectors, ids % self.nV, gradients)
                 else:
                     self.ops.xp.add.at(d_vectors, ids % self.nV, gradients)
-            if sgd is not None:
-                if self.is_static:
-                    sgd(self.W.ravel(), self.d_W.ravel(), key=self.id)
-                else:
-                    sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
 
         return dotted, finish_update

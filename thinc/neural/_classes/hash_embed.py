@@ -50,7 +50,7 @@ class HashEmbed(Model):
         if mask is not None:
             vectors *= mask
 
-        def finish_update(delta, sgd=None):
+        def finish_update(delta):
             if mask is not None:
                 delta *= mask
             keys = self.ops.hash(ids, self.seed) % self.nV

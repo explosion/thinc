@@ -51,14 +51,14 @@ class LayerNorm(Model):
 
         y, backprop_rescale = self._begin_update_scale_shift(Xhat)
 
-        def finish_update(dy, sgd=None):
-            dy = backprop_rescale(dy, sgd)
+        def finish_update(dy):
+            dy = backprop_rescale(dy)
             dist, sum_dy, sum_dy_dist = _get_d_moments(self.ops, dy, X, mu)
             d_xhat = N * dy - sum_dy - dist * var ** (-1.0) * sum_dy_dist
             d_xhat *= var ** (-1.0 / 2)
             d_xhat /= N
             if backprop_child is not None:
-                return backprop_child(d_xhat, sgd)
+                return backprop_child(d_xhat)
             else:
                 return d_xhat
 
@@ -73,12 +73,10 @@ class LayerNorm(Model):
         return y, bp_dropout(finish_update)
 
     def _begin_update_scale_shift(self, input__BI):
-        def finish_update(gradient__BI, sgd=None):
+        def finish_update(gradient__BI):
             self.d_b += gradient__BI.sum(axis=0)
             d_G = self.d_G
             d_G += (gradient__BI * input__BI).sum(axis=0)
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return gradient__BI * self.G
 
         return input__BI * self.G + self.b, finish_update

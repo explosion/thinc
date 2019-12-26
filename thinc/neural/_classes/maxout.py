@@ -65,7 +65,7 @@ class Maxout(Model):
         best__bo, which__bo = self.ops.maxout(output__boc)
         best__bo, bp_dropout = self.ops.dropout(best__bo, drop)
 
-        def finish_update(dX__bo, sgd=None):
+        def finish_update(dX__bo):
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
             self.d_b += dX__bop.sum(axis=0)
             dX__bop = dX__bop.reshape((dX__bop.shape[0], self.nO * self.nP))
@@ -75,8 +75,6 @@ class Maxout(Model):
             dX__bi = self.ops.gemm(
                 dX__bop, self.W.reshape((self.nO * self.nP, self.nI))
             )
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dX__bi
 
         return best__bo, bp_dropout(finish_update)

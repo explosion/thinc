@@ -41,13 +41,11 @@ class Mish(Model):
         drop *= self.drop_factor
         Y3, bp_dropout = self.ops.dropout(Y2, drop)
 
-        def finish_update(dY2, sgd=None):
+        def finish_update(dY2):
             dY1 = self.ops.backprop_mish(dY2, Y1)
             self.ops.gemm(dY1, X, trans1=True, out=self.d_W)
             self.d_b += dY1.sum(axis=0)
             dX = self.ops.gemm(dY1, self.W)
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dX
 
         return Y3, bp_dropout(finish_update)

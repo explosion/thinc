@@ -118,12 +118,12 @@ def flatten_add_lengths(seqs, drop=0.0):
     where data is the concatenated data.
     """
     if is_ragged(seqs):
-        return seqs, lambda d_seqs, sgd=None: d_seqs
+        return seqs, lambda d_seqs: d_seqs
 
     ops = Model.ops
     lengths = ops.asarray([len(seq) for seq in seqs], dtype="i")
 
-    def finish_update(d_X, sgd=None):
+    def finish_update(d_X):
         return ops.unflatten(d_X, lengths)
 
     return (ops.flatten(seqs), lengths), finish_update
@@ -136,7 +136,7 @@ def unflatten(X_lengths, drop=0.0):
     X, lengths = X_lengths
     Xs = ops.unflatten(X, lengths)
 
-    def backprop_unflatten(dXs, sgd=None):
+    def backprop_unflatten(dXs):
         dX = ops.flatten(dXs, pad=0)
         return dX
 
@@ -156,9 +156,9 @@ def with_reshape(layer):
         Y2d, Y2d_backprop = layer.begin_update(X2d, drop=drop)
         Y = Y2d.reshape(final_shape)
 
-        def with_reshape_backward(dY, sgd=None):
+        def with_reshape_backward(dY):
             dY = dY.reshape(nB * nT, -1).astype(layer.ops.xp.float32)
-            return Y2d_backprop(dY, sgd=sgd).reshape(initial_shape)
+            return Y2d_backprop(dY).reshape(initial_shape)
 
         return Y, with_reshape_backward
 
@@ -183,9 +183,9 @@ def with_square_sequences(model):
         (padded_out, _), backprop_model = model.begin_update(padded_in, drop=drop)
         seqs_out = unpad(padded_out)
 
-        def backprop_padding(d_seqs_out, sgd=None):
+        def backprop_padding(d_seqs_out):
             d_padded_out, sizes_at_t, unpad = model.ops.square_sequences(d_seqs_out)
-            d_padded_in = backprop_model((d_padded_out, None), sgd=sgd)
+            d_padded_in = backprop_model((d_padded_out, None))
             return unpad(d_padded_in)
 
         return seqs_out, backprop_padding
@@ -200,8 +200,8 @@ def with_flatten(layer, pad=0, ndim=4):
         if bp_layer is None:
             return layer.ops.unflatten(X, lengths, pad=pad), None
 
-        def finish_update(d_seqs_out, sgd=None):
-            d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad), sgd=sgd)
+        def finish_update(d_seqs_out):
+            d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad))
             if d_X is None:
                 return None
             else:
@@ -254,10 +254,10 @@ def uniqued(layer, column=0):
         Y_uniq, bp_Y_uniq = layer.begin_update(X_uniq, drop=drop)
         Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
 
-        def uniqued_bwd(dY, sgd=None):
+        def uniqued_bwd(dY):
             dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype="f")
             layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
-            d_uniques = bp_Y_uniq(dY_uniq, sgd=sgd)
+            d_uniques = bp_Y_uniq(dY_uniq)
             if d_uniques is not None:
                 dX = (d_uniques / counts)[inv]
                 return dX
@@ -296,9 +296,9 @@ def foreach(layer, drop_factor=1.0):
         flat, bp_flat = layer.begin_update(sents, drop=0.0)
         output = layer.ops.unflatten(flat, lengths)
 
-        def foreach_bwd(d_output, sgd=None):
+        def foreach_bwd(d_output):
             d_flat = layer.ops.flatten(d_output)
-            d_sents = bp_flat(d_flat, sgd=sgd)
+            d_sents = bp_flat(d_flat)
             if d_sents is None:
                 return d_sents
             else:
@@ -341,9 +341,9 @@ def foreach_sentence(layer, get_sents=None, drop_factor=1.0):
         flat, bp_flat = layer.begin_update(sents, drop=0.0)
         output = layer.ops.unflatten(flat, lengths)
 
-        def sentence_bwd(d_output, sgd=None):
+        def sentence_bwd(d_output):
             d_flat = layer.ops.flatten(d_output)
-            d_sents = bp_flat(d_flat, sgd=sgd)
+            d_sents = bp_flat(d_flat)
             if d_sents is None:
                 return d_sents
             else:
@@ -365,9 +365,9 @@ def with_pad_and_mask(layer):
         X_mask = _get_mask(layer.ops, X, nX)
         Y, bp_Y = layer.begin_update((X.astype("float32"), X_mask), drop=drop)
 
-        def create_model_input_backward(dYs, sgd=None):
+        def create_model_input_backward(dYs):
             dY, _ = layer.ops.pad_sequences(dYs, pad_to=nL)
-            dX = bp_Y(dY, sgd=sgd)
+            dX = bp_Y(dY)
             return unpad_X(dX)
 
         return unpad_X(Y), create_model_input_backward

@@ -22,5 +22,5 @@ class FeatureExtracter(Model):
         return self.ops.asarray(arr, dtype="uint64")
 
 
-def _feature_extracter_bwd(d_features, sgd=None):
+def _feature_extracter_bwd(d_features):
     return d_features
