@@ -190,8 +190,8 @@ def get_width(X, dim=-1):
             return int(X.max()) + 1
         else:
             return X.shape[dim]
-    elif isinstance(seqs, tuple) and len(seqs) == 2:
-        return get_width(seqs[0], dim=dim)
+    elif isinstance(X, tuple) and len(X) == 2:
+        return get_width(X[0], dim=dim)
     elif hasattr(X, "__len__"):
         if len(X) == 0:
             return 0
