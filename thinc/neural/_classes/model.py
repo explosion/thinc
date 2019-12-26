@@ -159,7 +159,6 @@ class Model(object):
     def begin_training(self, train_X, train_y=None, **trainer_cfg):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
-        return self.Trainer(self, **trainer_cfg)
 
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
