@@ -27,8 +27,6 @@ def normal_init(W, ops):
         )
 
 
-@describe.output(("nO",))
-@describe.input(("nI",))
 @describe.attributes(
     nI=Dimension("Size of input"),
     nP=Dimension("Number of pieces"),

@@ -1,5 +1,4 @@
 from .model import Model
-from ... import describe
 
 
 def _run_child_hooks(model, X, y):
@@ -23,14 +22,6 @@ class FeedForward(Model):
                 self._layers.append(layer)
         Model.__init__(self, **kwargs)
         self.on_data_hooks.append(_run_child_hooks)
-
-    @property
-    def input_shape(self):
-        return self._layers[0].input_shape
-
-    @property
-    def output_shape(self):
-        return self._layers[-1].output_shape
 
     def infer_dimensions(self, X=None, Y=None):
         if Y is not None:

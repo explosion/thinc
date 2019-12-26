@@ -55,14 +55,6 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    @property
-    def input_shape(self):
-        raise NotImplementedError
-
-    @property
-    def output_shape(self):
-        raise NotImplementedError
-
     def __init__(self, *args, **kwargs):
         self.name = self.__class__.name
         self.Ops = self.__class__.Ops

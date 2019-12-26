@@ -4,7 +4,6 @@ from ...describe import Dimension, Synapses, Biases, Gradient
 
 
 @describe.attributes(
-    nB=Dimension("Batch size"),
     nI=Dimension("Input size"),
     nO=Dimension("Output size"),
     W=Synapses(
@@ -20,14 +19,6 @@ class Affine(Model):
     """Computes the linear transform Y = (W @ X) + b."""
 
     name = "affine"
-
-    @property
-    def input_shape(self):
-        return (self.nB, self.nI)
-
-    @property
-    def output_shape(self):
-        return (self.nB, self.nO)
 
     def __init__(self, nO=None, nI=None, **kwargs):
         Model.__init__(self, **kwargs)
