@@ -51,7 +51,7 @@ def create_variadic(layers, *, cls=None, function=None, **kwargs):
     """
     if not layers:
         return noop()
-    elif cls is not None: 
+    elif cls is not None:
         if isinstance(layers[0], cls):
             main_layer = layers[0]
             others = layers[1:]
@@ -112,7 +112,7 @@ def add(*layers):
 
 
 @layerize
-def flatten_add_lengths(seqs, drop=0.):
+def flatten_add_lengths(seqs, drop=0.0):
     """Transform sequences to ragged arrays if necessary. If sequences are
     already ragged, do nothing. A ragged array is a tuple (data, lengths),
     where data is the concatenated data.
@@ -169,6 +169,7 @@ def with_getitem(idx, layer):
     """Transform data on the way into and out of a layer, by plucking an item
     from a tuple. 
     """
+
     def with_getitem_forward(items, drop=0.0):
         X, finish = layer.begin_update(items[idx], drop=drop)
         return items[:idx] + (X,) + items[idx + 1 :], finish
@@ -212,9 +213,14 @@ def with_flatten(layer, pad=0, ndim=4):
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
         X = layer(layer.ops.flatten(seqs_in, pad=pad))
         return layer.ops.unflatten(X, lengths, pad=pad)
-    
-    return wrap(with_flatten_forward, layer, predict=with_flatten_predict, 
-        name=f"with_flatten-{layer.name}", on_data_hooks=[_with_flatten_on_data])
+
+    return wrap(
+        with_flatten_forward,
+        layer,
+        predict=with_flatten_predict,
+        name=f"with_flatten-{layer.name}",
+        on_data_hooks=[_with_flatten_on_data],
+    )
 
 
 def _with_flatten_on_data(model, X, y):
@@ -382,6 +388,7 @@ def with_pad_and_mask(layer):
         return unpad_X(Y), create_model_input_backward
 
     return wrap(create_model_input_forward, layer)
+
 
 def _get_mask(X, nX):
     nB = X.shape[0]

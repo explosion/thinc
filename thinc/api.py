@@ -11,6 +11,7 @@ from .wire import with_flatten, uniqued
 
 # Deprecated
 
+
 def remap_ids(ops=None, column=0):
     id_map = {0: 0}
 
@@ -40,5 +41,3 @@ def Arg(i):
         return inputs[i], None
 
     return begin_update
-
-

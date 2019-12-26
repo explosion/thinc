@@ -15,7 +15,7 @@ class FunctionLayer(Model):
         nO=None,
         *args,
         layers=tuple(),
-        **kwargs
+        **kwargs,
     ):
         self.begin_update = begin_update
         if predict is not None:
@@ -26,15 +26,24 @@ class FunctionLayer(Model):
         self.nO = nO
         Model.__init__(self)
         self._layers.extend(layers)
-        
+
 
 class wrap(Model):
     """Create a unary function layer, that wraps a single child layer. The
     wrapping layer works like a proxy, delegating requests for dimensions,
     parameters and gradients to the child.
     """
-    def __init__(self, begin_update, layer, *, predict=None, predict_one=None,
-            name=None, on_data_hooks=None):
+
+    def __init__(
+        self,
+        begin_update,
+        layer,
+        *,
+        predict=None,
+        predict_one=None,
+        name=None,
+        on_data_hooks=None,
+    ):
         self.begin_update = begin_update
         if predict is not None:
             self.predict = predict
@@ -60,7 +69,7 @@ class wrap(Model):
 
     def get_param(self, name):
         return self._layers[-1].get_param(name)
-    
+
     def set_param(self, name, value):
         return self._layers[-1].set_param(name, value)
 
@@ -69,7 +78,7 @@ class wrap(Model):
 
     def get_grad(self, name):
         return self._layers[-1].get_grad(name)
-    
+
     def set_grad(self, name, value):
         self._layers[-1].set_grad(name, value)
 
@@ -93,8 +102,8 @@ class ConcatenationLayer(Model):
             return self._layers[0].get_dim(name)
         else:
             return Model.get_dim(self, name)
-    
-    def begin_update(self, X, drop=0.):
+
+    def begin_update(self, X, drop=0.0):
         Ys, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
         widths = [Y.shape[1] for Y in Ys]
         output = self.ops.xp.hstack(Ys)
@@ -104,7 +113,7 @@ class ConcatenationLayer(Model):
             start = 0
             for bwd, width in zip(callbacks, widths):
                 if bwd is not None:
-                    d = bwd(d_output[:, start:start+width], sgd=sgd)
+                    d = bwd(d_output[:, start : start + width], sgd=sgd)
                     if d is not None and hasattr(X, "shape"):
                         if layer_grad is None:
                             layer_grad = d
@@ -123,7 +132,7 @@ class AdditionLayer(Model):
         Model.__init__(self)
         self._layers.extend(layers)
         self.on_data_hooks.append(util.run_child_hooks)
-    
+
     def infer_dimensions(self, X=None, Y=None):
         for layer in self._layers:
             layer.infer_dimensions(X=X, Y=Y)
@@ -133,7 +142,7 @@ class AdditionLayer(Model):
             return self._layers[0].get_dim(name)
         else:
             return Model.get_dim(self, name)
- 
+
     def begin_update(self, X, drop=0.0):
         outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
         out = outs[0]

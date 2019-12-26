@@ -151,7 +151,7 @@ class Model(object):
 
     def infer_dimensions(self, X=None, Y=None):
         if X is not None and self.get_dim("nI") is None:
-            self.set_dim("nI",  util.get_width(X))
+            self.set_dim("nI", util.get_width(X))
         if Y is not None and self.get_dim("nO") is None:
             print("Infering nO", Y.shape)
             self.set_dim("nO", util.get_width(Y))
@@ -448,5 +448,3 @@ class Model(object):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
-
-

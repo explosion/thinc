@@ -100,14 +100,14 @@ def test_overload_operators_in_subthread():
     # Without thread-safety, worker2 will find that its operator definitions
     # have been removed, causing an error.
     worker1 = threading.Thread(target=_overload_plus, args=("+", 0))
-    worker2 = threading.Thread(target=_overload_plus, args=("*", 1,))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 1))
     worker2.start()
     worker1.start()
     worker1.join()
     worker2.join()
 
     worker1 = threading.Thread(target=_overload_plus, args=("+", 1))
-    worker2 = threading.Thread(target=_overload_plus, args=("*", 0,))
+    worker2 = threading.Thread(target=_overload_plus, args=("*", 0))
     worker2.start()
     worker1.start()
     worker1.join()

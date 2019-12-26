@@ -48,11 +48,7 @@ def create_relu_softmax(depth, width):
     return model
 
 
-@pytest.fixture(
-    params=[
-        create_relu_softmax,
-    ]
-)
+@pytest.fixture(params=[create_relu_softmax])
 def create_model(request):
     return request.param
 

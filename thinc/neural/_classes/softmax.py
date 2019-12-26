@@ -3,7 +3,9 @@ from ... import describe
 
 
 @describe.attributes(
-    W=describe.Weights("Weights matrix", lambda obj: (obj.nO, obj.nI), lambda W, ops: None)
+    W=describe.Weights(
+        "Weights matrix", lambda obj: (obj.nO, obj.nI), lambda W, ops: None
+    )
 )
 class Softmax(Affine):
     name = "softmax"

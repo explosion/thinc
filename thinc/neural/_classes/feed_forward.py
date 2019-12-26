@@ -50,7 +50,7 @@ class FeedForward(Model):
 
     def get_param(self, name):
         return self._layers[-1].get_param(name)
-    
+
     def set_param(self, name, value):
         return self._layers[-1].set_param(name, value)
 
@@ -59,7 +59,7 @@ class FeedForward(Model):
 
     def get_grad(self, name):
         return self._layers[-1].get_grad(name)
-    
+
     def set_grad(self, name, value):
         self._layers[-1].set_grad(name, value)
 

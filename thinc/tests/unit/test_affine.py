@@ -26,7 +26,7 @@ def test_Affine_calls_default_descriptions():
         name: Mock(desc) for (name, desc) in Affine.descriptions.items()
     }
     model = Affine()
- 
+
     assert len(model.descriptions) == 6
     for name, desc in model.descriptions.items():
         desc.assert_called()

@@ -4,7 +4,7 @@ from ...describe import Dimension
 
 
 @describe.attributes(
-    nW=describe.Dimension("Number of surrounding tokens on each side to extract"),
+    nW=describe.Dimension("Number of surrounding tokens on each side to extract")
 )
 class ExtractWindow(Model):
     """Add context to vectors in a sequence by concatenating n surrounding
