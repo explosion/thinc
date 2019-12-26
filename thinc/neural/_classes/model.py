@@ -55,7 +55,7 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    def __init__(self, name=None, ops=None, layers=None):
+    def __init__(self, name=None, ops=None, layers=None, drop_factor=1.0):
         self.descriptions = dict(self.__class__.descriptions)
         self.name = self.__class__.name if name is None else name
         if ops is None:
@@ -64,7 +64,7 @@ class Model(object):
         else:
             self.Ops = ops.__class__
             self.ops = ops
-        self.drop_factor = 1.0
+        self.drop_factor = drop_factor
         self.on_data_hooks = []
         self._mem = Memory(self.ops)
         self._params = {}
