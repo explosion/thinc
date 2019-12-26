@@ -44,7 +44,6 @@ except ImportError:
     cupy = None
 
 
-
 class Ops(object):
     device = 'cpu'
     xp = None
@@ -492,7 +491,6 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-
     def allocate(self, shape, dtype='float32'):
         if isinstance(shape, int):
             shape = (shape,)
@@ -543,49 +541,6 @@ class NumpyOps(Ops):
         dotted = self.gemm(signal, weights, trans2=True)
         dotted += bias
         return dotted
-
-    def elu(self, ndarray X, inplace=True):
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = expf(data[i])-1.
-
-    def selu(self, ndarray X, inplace=True):
-        cdef weight_t* data = <weight_t*>X.data
-        cdef size_t size = X.size
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        for i in range(size):
-            if data[i] < 0:
-                data[i] = alpha * (expf(data[i])-1.)
-            data[i] *= scale
-
-    def backprop_selu(self, ndarray delta_, ndarray signal_in_,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_in = <const weight_t*>signal_in_.data
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-
-        for i in range(size):
-            delta[i] *= scale
-            if signal_in[i] <= 0:
-                delta[i] *= alpha * expf(signal_in[i])
-
-    def backprop_elu(self, ndarray delta_, ndarray signal_out_,
-            inplace=True):
-        # Backprop the ELU transformation
-        # Note that this is over the function _output_, not the function
-        # _input_!
-        cdef size_t size = delta_.size
-        cdef weight_t* delta = <weight_t*>delta_.data
-        cdef const weight_t* signal_out = <const weight_t*>signal_out_.data
-        for i in range(size):
-            if signal_out[i] <= 0:
-                delta[i] *= signal_out[i] + 1.
 
     def relu(self, ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
@@ -872,111 +827,6 @@ class NumpyOps(Ops):
         cpu_position_encode(<float*>out_.data, period, N, D)
         return out_
 
-cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
-    cdef float pos, d
-    cdef int j
-    cdef float dimensions = D
-    for i in range(N):
-        pos = i
-        j = 0
-        d = 0
-        while (j+1) < D:
-            d = j
-            output[j]   = sinf(pos / period ** (2 * d / dimensions))
-            output[j+1] = cosf(pos / period ** (2 * d / dimensions))
-            j += 2
-        if j < D:
-            output[j]   = sinf(pos / period ** (2 * d / dimensions))
-        output += D
-
-
-cdef void cpu_scatter_add(float* dest,
-        const int* indices, const float* src,
-        int nr_id, int nr_col) nogil:
-    cdef int i
-    for i in range(nr_id):
-        id_ = indices[i]
-        if id_ >= 0:
-            VecVec.add_i(&dest[id_*nr_col],
-        	&src[i*nr_col], 1., nr_col)
-
-
-@cython.cdivision(True)
-cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
-        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
-        weight_t learn_rate) nogil:
-    # Calculate Adam on CPU, fused.
-    # Assumes the learning rate adustment is calculated by the caller;
-    # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
-    cdef weight_t one_minus_beta1 = 1-beta1
-    cdef weight_t one_minus_beta2 = 1-beta2
-    cdef weight_t m1, m2, g
-    cdef int i
-    # Blockwise implementation is a bit faster. Adam is slooow :(
-    cdef weight_t[64] buff
-    cdef int steps = nr_weight // 64
-    if steps * 64 < nr_weight:
-        steps += 1
-    idx = 0
-    for i in range(steps):
-        step_size = min(64, nr_weight-idx)
-        Vec.mul_i(mom1, beta1, step_size)
-        VecVec.add_i(mom1, gradient, one_minus_beta1, step_size)
-        Vec.mul_i(mom2, beta2, step_size)
-        for j in range(step_size):
-            mom2[j] += one_minus_beta2 * gradient[j] ** 2
-        for j in range(step_size):
-            buff[j] = sqrtf(mom2[j])
-        for j in range(step_size):
-            buff[j] += eps
-        for j in range(step_size):
-            buff[j] = mom1[j] / buff[j]
-        for j in range(step_size):
-            gradient[j] = buff[j]
-        mom1 += step_size
-        mom2 += step_size
-        gradient += step_size
-        idx += step_size
-
-
-@cython.cdivision(True)
-cdef void cpu_update_averages(weight_t* ema,
-        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
-    cdef weight_t decay = (1.0 + t) / (10.0 + t)
-    if decay > max_decay:
-        decay = max_decay
-    cdef weight_t one_minus_decay = 1-decay
-    cdef int i
-    for i in range(nr_weight): # num_threads=4, schedule='static'):
-        ema[i] -= one_minus_decay * (ema[i] - weights[i])
-
-
-cdef void cpu_mish(weight_t* Y, const weight_t* X, float threshold, int N) nogil:
-    cdef float one = 1.
-    for i in range(N):
-        if X[i] >= threshold:
-            Y[i] = X[i]
-        else:
-            Y[i] = X[i] * tanhf(logf(one + expf(X[i])))
-
-
-cdef void cpu_backprop_mish(weight_t* dX,
-        const weight_t* dY, const weight_t* X, float threshold, int N) nogil:
-    cdef float one = 1.
-    cdef float exp_x, exp_2x, exp_3x, omega, delta
-    for i in range(N):
-        x = X[i]
-        if x >= threshold:
-            dX[i] = dY[i]
-        else:
-            exp_x = expf(x)
-            exp_2x = expf(2*x)
-            exp_3x = expf(3*x)
-            omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6)
-            delta = 2. * exp_x + exp_2x + 2.
-            dX[i] = dY[i] * ((exp_x * omega) / (delta * delta))
-
-
 
 class CupyOps(Ops):
     device = 'gpu'
@@ -1026,25 +876,6 @@ class CupyOps(Ops):
             return delta_ * (signal_out > 0)
         delta_ *= (signal_out > 0)
         return delta_
-
-    def selu(self, X, inplace=True):
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = scale * self.xp.where(X>=0., X, alpha * (self.xp.exp(X)-1.))
-        if inplace:
-            copy_array(X, out)
-        return out
-
-    def backprop_selu(self, delta, signal_in,
-            inplace=True):
-        # Backprop the SELU transformation
-        cdef float scale = 1.0507009873554805
-        cdef float alpha = 1.6732632423543772
-        out = delta * self.xp.where(signal_in >= 0, scale,
-                scale * alpha * self.xp.exp(signal_in))
-        if inplace:
-            copy_array(delta, out)
-        return out
 
     def mish(self, X, threshold=5, out=None):
         return _custom_kernels.mish(X, threshold=threshold, out=out)
@@ -1223,6 +1054,110 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
                        dtype='float32')
 
+
+cdef void cpu_position_encode(float* output, float period, int N, int D) nogil:
+    cdef float pos, d
+    cdef int j
+    cdef float dimensions = D
+    for i in range(N):
+        pos = i
+        j = 0
+        d = 0
+        while (j+1) < D:
+            d = j
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
+            output[j+1] = cosf(pos / period ** (2 * d / dimensions))
+            j += 2
+        if j < D:
+            output[j]   = sinf(pos / period ** (2 * d / dimensions))
+        output += D
+
+
+cdef void cpu_scatter_add(float* dest,
+        const int* indices, const float* src,
+        int nr_id, int nr_col) nogil:
+    cdef int i
+    for i in range(nr_id):
+        id_ = indices[i]
+        if id_ >= 0:
+            VecVec.add_i(&dest[id_*nr_col],
+        	&src[i*nr_col], 1., nr_col)
+
+
+@cython.cdivision(True)
+cdef void _adam_momentum(weight_t* gradient, weight_t* mom1, weight_t* mom2,
+        int nr_weight, weight_t beta1, weight_t beta2, weight_t eps,
+        weight_t learn_rate) nogil:
+    # Calculate Adam on CPU, fused.
+    # Assumes the learning rate adustment is calculated by the caller;
+    # a_t = learn_rate * sqrt(1-beta2**timestep) / (1-beta1**timestep)
+    cdef weight_t one_minus_beta1 = 1-beta1
+    cdef weight_t one_minus_beta2 = 1-beta2
+    cdef weight_t m1, m2, g
+    cdef int i
+    # Blockwise implementation is a bit faster. Adam is slooow :(
+    cdef weight_t[64] buff
+    cdef int steps = nr_weight // 64
+    if steps * 64 < nr_weight:
+        steps += 1
+    idx = 0
+    for i in range(steps):
+        step_size = min(64, nr_weight-idx)
+        Vec.mul_i(mom1, beta1, step_size)
+        VecVec.add_i(mom1, gradient, one_minus_beta1, step_size)
+        Vec.mul_i(mom2, beta2, step_size)
+        for j in range(step_size):
+            mom2[j] += one_minus_beta2 * gradient[j] ** 2
+        for j in range(step_size):
+            buff[j] = sqrtf(mom2[j])
+        for j in range(step_size):
+            buff[j] += eps
+        for j in range(step_size):
+            buff[j] = mom1[j] / buff[j]
+        for j in range(step_size):
+            gradient[j] = buff[j]
+        mom1 += step_size
+        mom2 += step_size
+        gradient += step_size
+        idx += step_size
+
+
+@cython.cdivision(True)
+cdef void cpu_update_averages(weight_t* ema,
+        const weight_t* weights, int nr_weight, weight_t t, weight_t max_decay) nogil:
+    cdef weight_t decay = (1.0 + t) / (10.0 + t)
+    if decay > max_decay:
+        decay = max_decay
+    cdef weight_t one_minus_decay = 1-decay
+    cdef int i
+    for i in range(nr_weight): # num_threads=4, schedule='static'):
+        ema[i] -= one_minus_decay * (ema[i] - weights[i])
+
+
+cdef void cpu_mish(weight_t* Y, const weight_t* X, float threshold, int N) nogil:
+    cdef float one = 1.
+    for i in range(N):
+        if X[i] >= threshold:
+            Y[i] = X[i]
+        else:
+            Y[i] = X[i] * tanhf(logf(one + expf(X[i])))
+
+
+cdef void cpu_backprop_mish(weight_t* dX,
+        const weight_t* dY, const weight_t* X, float threshold, int N) nogil:
+    cdef float one = 1.
+    cdef float exp_x, exp_2x, exp_3x, omega, delta
+    for i in range(N):
+        x = X[i]
+        if x >= threshold:
+            dX[i] = dY[i]
+        else:
+            exp_x = expf(x)
+            exp_2x = expf(2*x)
+            exp_3x = expf(3*x)
+            omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6)
+            delta = 2. * exp_x + exp_2x + 2.
+            dX[i] = dY[i] * ((exp_x * omega) / (delta * delta))
 
 
 cdef cpu_floats_ptr2array(float* ptr, shape):
