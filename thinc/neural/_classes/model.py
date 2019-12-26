@@ -40,6 +40,8 @@ class Model(object):
         yield
         cls._thread_local.operators = dict(curr_operators)
 
+    @classmethod
+    @contextlib.contextmanager
     def use_device(cls, device):
         """Change the device to execute on for the scope of the block."""
         if device == cls.ops.device:
@@ -53,18 +55,22 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    def __init__(self):
+    def __init__(self, name=None, ops=None, layers=None):
         self.descriptions = dict(self.__class__.descriptions)
-        self.name = self.__class__.name
-        self.Ops = self.__class__.Ops
-        self.ops = self.Ops()
+        self.name = self.__class__.name if name is None else name
+        if ops is None:
+            self.Ops = self.__class__.Ops
+            self.ops = self.Ops()
+        else:
+            self.Ops = ops.__class__
+            self.ops = ops
         self.drop_factor = 1.0
         self.on_data_hooks = []
         self._mem = Memory(self.ops)
         self._params = {}
         self._dims = {}
         self._grads = {}
-        self._layers = []
+        self._layers = [] if layers is None else list(layers)
         self.on_data_hooks.append(lambda model, X, Y=None: model.infer_dimensions(X, Y))
 
         for attr, install in self.descriptions.items():
@@ -439,50 +445,3 @@ class Model(object):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
-
-    """
-    I think we should consider changing __call__ to begin_update
-    def __call__(self, x):
-        return self.predict(x)
-    """
- 
-    """
-    I think we probably want to deprecate these? They're not necessary, and
-    they get in the way.
-
-    def pipe(self, stream, batch_size=128):
-        for batch in util.minibatch(stream, batch_size):
-            ys = self.predict(batch)
-            for y in ys:
-                yield y
-
-    def update(self, stream, batch_size=1000):
-        for X, y in util.minibatch(stream, batch_size=batch_size):
-            output, finish_update = self.begin_update(X)
-            gradient = finish_update(y)
-            yield gradient
-
-    def evaluate(self, X, y, batch_size=128):
-        scores = self.ops.flatten(list(self.pipe(X, batch_size=batch_size)))
-        if not hasattr(y, "shape"):
-            y = self.ops.flatten(y)
-        scores = scores.reshape(y.shape)
-        if len(scores.shape) == 1:
-            correct = ((scores >= 0.5) == (y >= 0.5)).sum()
-        else:
-            correct = (scores.argmax(axis=1) == y.argmax(axis=1)).sum()
-        return correct / y.shape[0]
-
-    def evaluate_logloss(self, X, y, minimum=None, maximum=None):
-        yh = self.ops.xp.vstack(self.pipe(X))
-        yh = yh.reshape(y.shape)
-        if minimum is not None:
-            yh = self.ops.xp.maximum(yh, minimum)
-        if maximum is not None:
-            yh = self.ops.xp.minimum(yh, maximum)
-        assert len(yh.shape) == 1
-        losses = -y * self.ops.xp.log(yh + 1e-8) - (1 - y) * self.ops.xp.log(
-            (1 - yh) + 1e-8
-        )
-        return losses.mean()
-    """
