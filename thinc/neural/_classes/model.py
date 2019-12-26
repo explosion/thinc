@@ -16,10 +16,7 @@ class Model(object):
     id = 0
     ops = NumpyOps()
     Ops = NumpyOps
-    drop_factor = 1.0
     descriptions = []
-    on_data_hooks = []
-    on_init_hooks = []  # Use this to add layers
     _thread_local = threading.local()
 
     @classmethod
@@ -70,6 +67,9 @@ class Model(object):
         self.name = self.__class__.name
         self.Ops = self.__class__.Ops
         self.ops = self.Ops()
+        self.drop_factor = 1.0
+        self.on_data_hooks = []
+        self.on_init_hooks = [] 
         kwargs = self._update_defaults(args, kwargs)
         self._mem = Memory(self.ops)
         self._params = {}
