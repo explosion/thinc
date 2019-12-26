@@ -291,6 +291,80 @@ class Model(object):
         )
         return losses.mean()
 
+    def to_bytes(self):
+        weights = []
+        queue = [self]
+        i = 0
+        for layer in queue:
+            # Hack to support saving/loading PyTorch models. TODO: Improve
+            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
+                weights.append(layer.to_bytes())
+            elif hasattr(layer, "_mem"):
+                weights.append(
+                    {b"dims": dict(sorted(layer._dims.items())), b"params": []}
+                )
+                if hasattr(layer, "seed"):
+                    weights[-1][b"seed"] = layer.seed
+
+                offsets = sorted(layer._mem._offsets.items())
+                for (id_, name), (start, row, shape) in offsets:
+                    if row == 1:
+                        continue
+                    param = layer._mem.get((id_, name))
+                    if not isinstance(layer._mem.weights, numpy.ndarray):
+                        param = param.get()
+                    weights[-1][b"params"].append(
+                        {
+                            b"name": name,
+                            b"offset": start,
+                            b"shape": shape,
+                            b"value": param,
+                        }
+                    )
+                i += 1
+            if hasattr(layer, "_layers"):
+                queue.extend(layer._layers)
+        return srsly.msgpack_dumps({b"weights": weights})
+
+    def from_bytes(self, bytes_data):
+        data = srsly.msgpack_loads(bytes_data)
+        weights = data[b"weights"]
+        queue = [self]
+        i = 0
+        for layer in queue:
+            # Hack to support saving/loading PyTorch models. TODO: Improve
+            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
+                layer.from_bytes(weights[i])
+                i += 1
+            elif hasattr(layer, "_mem"):
+                if b"seed" in weights[i]:
+                    layer.seed = weights[i][b"seed"]
+                for dim, value in weights[i][b"dims"].items():
+                    if isinstance(dim, bytes):
+                        dim = dim.decode("utf8")
+                    setattr(layer, dim, value)
+                for param in weights[i][b"params"]:
+                    name = param[b"name"]
+                    if isinstance(name, bytes):
+                        name = name.decode("utf8")
+                    dest = getattr(layer, name)
+                    copy_array(dst=dest, src=param[b"value"])
+                i += 1
+            if hasattr(layer, "_layers"):
+                queue.extend(layer._layers)
+        return self
+
+    def to_disk(self, path):
+        path = util.ensure_path(path)
+        with path.open("wb") as file_:
+            file_.write(self.to_bytes())
+
+    def from_disk(self, path):
+        path = util.ensure_path(path)
+        with path.open("rb") as file_:
+            bytes_data = file_.read()
+        return self.from_bytes(bytes_data)
+
     def __add__(self, other):
         """Apply the function bound to the '+' operator."""
         if "+" not in self._thread_local.operators:
@@ -375,76 +449,4 @@ class Model(object):
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
 
-    def to_bytes(self):
-        weights = []
-        queue = [self]
-        i = 0
-        for layer in queue:
-            # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
-                weights.append(layer.to_bytes())
-            elif hasattr(layer, "_mem"):
-                weights.append(
-                    {b"dims": dict(sorted(layer._dims.items())), b"params": []}
-                )
-                if hasattr(layer, "seed"):
-                    weights[-1][b"seed"] = layer.seed
 
-                offsets = sorted(layer._mem._offsets.items())
-                for (id_, name), (start, row, shape) in offsets:
-                    if row == 1:
-                        continue
-                    param = layer._mem.get((id_, name))
-                    if not isinstance(layer._mem.weights, numpy.ndarray):
-                        param = param.get()
-                    weights[-1][b"params"].append(
-                        {
-                            b"name": name,
-                            b"offset": start,
-                            b"shape": shape,
-                            b"value": param,
-                        }
-                    )
-                i += 1
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
-        return srsly.msgpack_dumps({b"weights": weights})
-
-    def from_bytes(self, bytes_data):
-        data = srsly.msgpack_loads(bytes_data)
-        weights = data[b"weights"]
-        queue = [self]
-        i = 0
-        for layer in queue:
-            # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
-                layer.from_bytes(weights[i])
-                i += 1
-            elif hasattr(layer, "_mem"):
-                if b"seed" in weights[i]:
-                    layer.seed = weights[i][b"seed"]
-                for dim, value in weights[i][b"dims"].items():
-                    if isinstance(dim, bytes):
-                        dim = dim.decode("utf8")
-                    setattr(layer, dim, value)
-                for param in weights[i][b"params"]:
-                    name = param[b"name"]
-                    if isinstance(name, bytes):
-                        name = name.decode("utf8")
-                    dest = getattr(layer, name)
-                    copy_array(dst=dest, src=param[b"value"])
-                i += 1
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
-        return self
-
-    def to_disk(self, path):
-        path = util.ensure_path(path)
-        with path.open("wb") as file_:
-            file_.write(self.to_bytes())
-
-    def from_disk(self, path):
-        path = util.ensure_path(path)
-        with path.open("rb") as file_:
-            bytes_data = file_.read()
-        return self.from_bytes(bytes_data)
