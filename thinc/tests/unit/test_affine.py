@@ -99,7 +99,9 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
         assert data.shape[0] == (nr_out * nr_in) + nr_out, data.shape[0]
 
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
-    grad_BI = finish_update(grad_BO, sgd)  # noqa: F841
+    grad_BI = finish_update(grad_BO)  # noqa: F841
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
     assert seen_keys == {model.id}
 
 

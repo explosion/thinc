@@ -28,7 +28,7 @@ def Bidirectional(l2r, r2l):
             [l2r.ops.xp.ascontiguousarray(X[::-1]) for X in Xs]
         )
 
-        def birnn_bwd(dZs, sgd=None):
+        def birnn_bwd(dZs):
             d_l2r_Zs = []
             d_r2l_Zs = []
             for dZ in dZs:
@@ -36,8 +36,8 @@ def Bidirectional(l2r, r2l):
                 r2l_fwd = dZ[:, nO:]
                 d_l2r_Zs.append(l2r.ops.xp.ascontiguousarray(l2r_fwd))
                 d_r2l_Zs.append(l2r.ops.xp.ascontiguousarray(r2l_fwd[::-1]))
-            dXs_l2r = bp_l2r_Zs(d_l2r_Zs, sgd=sgd)
-            dXs_r2l = bp_r2l_Zs(d_r2l_Zs, sgd=sgd)
+            dXs_l2r = bp_l2r_Zs(d_l2r_Zs)
+            dXs_r2l = bp_r2l_Zs(d_r2l_Zs)
             dXs = [dXf + dXb[::-1] for dXf, dXb in zip(dXs_l2r, dXs_r2l)]
             return dXs
 
@@ -76,16 +76,12 @@ def Recurrent(step_model):
                 Y[t, :size] *= out_drop
         outputs = unpad(Y)
 
-        def recurrent_bwd(d_outputs, sgd=None):
+        def recurrent_bwd(d_outputs):
             dY, size_at_t, unpad = step_model.ops.square_sequences(d_outputs)
             d_state = [
                 step_model.ops.allocate((dY.shape[1], step_model.nO)),
                 step_model.ops.allocate((dY.shape[1], step_model.nO)),
             ]
-            updates = {}
-
-            def gather_updates(weights, gradient, key=None):
-                updates[key] = (weights, gradient)
 
             dX = step_model.ops.allocate(
                 (dY.shape[0], dY.shape[1], step_model.weights.nI)
@@ -93,7 +89,7 @@ def Recurrent(step_model):
             for t in range(max(lengths) - 1, -1, -1):
                 if out_drop is not None:
                     dY[t] *= out_drop
-                d_state_t, dXt = backprops[t]((d_state, dY[t]), sgd=gather_updates)
+                d_state_t, dXt = backprops[t]((d_state, dY[t]))
                 d_state[0][: d_state_t[0].shape[0]] = d_state_t[0]
                 d_state[1][: d_state_t[1].shape[0]] = d_state_t[1]
                 dX[t, : dXt.shape[0]] = dXt
@@ -104,9 +100,6 @@ def Recurrent(step_model):
             d_cell, d_hidden = d_state
             step_model.weights.d_initial_cells += d_cell.sum(axis=0)
             step_model.weights.d_initial_hiddens += d_hidden.sum(axis=0)
-            if sgd is not None:
-                for key, (weights, gradient) in updates.items():
-                    sgd(weights, gradient, key=key)
             return unpad(dX)
 
         return outputs, recurrent_bwd
@@ -125,10 +118,10 @@ def RNN_step(weights, gates):
         acts, bp_acts = weights.begin_update((inputs, hidden_tm1), drop=drop)
         (cells, hiddens), bp_gates = gates.begin_update((acts, cell_tm1), drop=drop)
 
-        def rnn_step_bwd(d_state_d_hiddens, sgd=None):
+        def rnn_step_bwd(d_state_d_hiddens):
             (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
-            d_acts, d_cell_tm1 = bp_gates((d_cells, d_hiddens), sgd=sgd)
-            d_inputs, d_hidden_tm1 = bp_acts(d_acts, sgd=sgd)
+            d_acts, d_cell_tm1 = bp_gates((d_cells, d_hiddens))
+            d_inputs, d_hidden_tm1 = bp_acts(d_acts)
             return (d_cell_tm1, d_hidden_tm1), d_inputs
 
         return ((cells, hiddens), hiddens), rnn_step_bwd
@@ -150,7 +143,7 @@ def LSTM_gates(ops):
         state = (new_cells, new_hiddens)
         size = new_cells.shape[0]
 
-        def lstm_gates_bwd(d_state, sgd=None):
+        def lstm_gates_bwd(d_state):
             d_cells, d_hiddens = d_state
             d_cells = d_cells[:size]
             d_hiddens = d_hiddens[:size]
@@ -226,7 +219,7 @@ class LSTM_weights(Model):
         acts = self._split_activations(acts)
         acts[0] += self.forget_bias
 
-        def bwd_lstm_weights(d_acts, sgd=None):
+        def bwd_lstm_weights(d_acts):
             self.d_forget_bias += d_acts[0].sum(axis=0)
             d_acts = self._merge_activations(d_acts)
             dX = self.ops.gemm(d_acts, self.W)
@@ -234,8 +227,6 @@ class LSTM_weights(Model):
             self.d_b += d_acts.sum(axis=0)
             d_input = dX[:, : self.nI]
             d_hidden = dX[:, self.nI :]
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return d_input, d_hidden
 
         return acts, bwd_lstm_weights

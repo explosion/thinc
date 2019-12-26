@@ -31,16 +31,13 @@ class Affine(Model):
         return output
 
     def begin_update(self, input__BI, drop=0.0):
-        input__BI = self.ops.xp.ascontiguousarray(input__BI)
         output__BO = self.predict(input__BI)
 
-        def finish_update(grad__BO, sgd=None):
+        def finish_update(grad__BO):
             grad__BO = self.ops.xp.ascontiguousarray(grad__BO)
             self.ops.gemm(grad__BO, input__BI, trans1=True, out=self.d_W)
             self.d_b += grad__BO.sum(axis=0)
             grad__BI = self.ops.gemm(grad__BO, self.W)
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return grad__BI
 
         if drop is not None:

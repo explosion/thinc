@@ -104,7 +104,7 @@ class ConcatenationLayer(Model):
         widths = [Y.shape[1] for Y in Ys]
         output = self.ops.xp.hstack(Ys)
 
-        def finish_update_concatenate(d_output, sgd=None):
+        def finish_update_concatenate(d_output):
             layer_grad = None
             start = 0
             for bwd, width in zip(callbacks, widths):
@@ -145,7 +145,7 @@ class AdditionLayer(Model):
         for o in outs:
             out += o
 
-        def backward(d_out, sgd=None):
+        def backward(d_out):
             grads = [bp(d_out, sgd=sgd) for bp in callbacks if bp is not None]
             grads = [g for g in grads if g is not None]
             if grads:

@@ -92,21 +92,21 @@ class PyTorchWrapper(Model):
         y_var = self._model(*fwd_args, **fwd_kwargs)
         y = self.prepare_output(y_var)
 
-        def backward_pytorch(dy_data, sgd=None):
+        def backward_pytorch(dy_data):
             d_args, d_kwargs = self.prepare_backward_input(dy_data, y_var)
             torch.autograd.backward(*d_args, **d_kwargs, retain_graph=True)
-            if sgd is not None:
-                if self._optimizer is None:
-                    self._optimizer = self._create_optimizer(sgd)
-                if getattr(sgd, "max_grad_norm", None):
-                    torch.nn.utils.clip_grad_norm_(
-                        self._model.parameters(), sgd.max_grad_norm
-                    )
-                self._optimizer.step()
-                self._optimizer.zero_grad()
             return self.prepare_backward_output(fwd_args, fwd_kwargs)
 
         return y, backward_pytorch
+
+    def finish_update(self, optimizer):
+        if not self._optimizer:
+            self._optimizer = self._create_optimizer(optimizer)
+        if getattr(optimizer, "max_grad_norm", None):
+            torch.nn.utils.clip_grad_norm_(
+                self._model.parameters(), optimizer.max_grad_norm)
+        self._optimizer.step()
+        self._optimizer.zero_grad()
 
     def _create_optimizer(self, sgd):
         params = self._model.parameters()

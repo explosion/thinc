@@ -27,13 +27,11 @@ class ParametricAttention(Model):
         attention, bp_attention = self._get_attention(self.Q, Xs, lengths)
         output, bp_output = self._apply_attention(attention, Xs, lengths)
 
-        def attention_bwd(d_output, sgd=None):
+        def attention_bwd(d_output):
             dXs, d_attention = bp_output(d_output)
             dQ, dXs2 = bp_attention(d_attention)
             self.dQ += dQ
             dXs += dXs2
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return dXs
 
         return (output, lengths), attention_bwd

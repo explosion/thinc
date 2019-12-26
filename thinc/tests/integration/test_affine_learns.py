@@ -83,7 +83,9 @@ def test_update():
     assert_allclose(scores[0, 0], scores[0, 1])
     # Tell it the answer was 'f'
     gradient = np.asarray([[-1.0, 0.0]], dtype="f")
-    finish_update(gradient, sgd)
+    finish_update(gradient)
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
 
     assert model.b[0] == 1.0
     assert model.b[1] == 0.0
@@ -97,7 +99,9 @@ def test_update():
     scores, finish_update = model.begin_update(tf)
     # Tell it the answer was 'T'
     gradient = np.asarray([[0.0, -1.0]], dtype="f")
-    finish_update(gradient, sgd)
+    finish_update(gradient)
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
 
     assert model.b[0] == 1.0
     assert model.b[1] == 1.0

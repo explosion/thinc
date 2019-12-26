@@ -24,11 +24,8 @@ class ExtractWindow(Model):
 
     def begin_update(self, X__bi, drop=0.0):
         X__bo = self.ops.seq2col(X__bi, self.nW)
-        finish_update = self._get_finish_update()
-        return X__bo, finish_update
-
-    def _get_finish_update(self):
-        def finish_update(gradient, sgd=None):
+        
+        def finish_update(gradient):
             return self.ops.backprop_seq2col(gradient, self.nW)
-
-        return finish_update
+        
+        return X__bo, finish_update
