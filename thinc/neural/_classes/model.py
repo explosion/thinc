@@ -104,6 +104,9 @@ class Model(object):
                 new_kwargs[key] = value
         return new_kwargs
 
+    def add_layer(self, layer):
+        self._layers.append(layer)
+
     def has_dim(self, name):
         return name in self._dims
 
