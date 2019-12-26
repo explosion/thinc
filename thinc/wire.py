@@ -59,7 +59,7 @@ def create_variadic(layers, *, cls=None, function=None, **kwargs):
             main_layer = layers[0]
             others = layers[1:]
         else:
-            return cls(layers, **kwargs)
+            return cls(layers=layers, **kwargs)
     elif function is not None:
         if layers[0].begin_update is function:
             main_layer = layers[0]
@@ -223,11 +223,11 @@ def with_flatten(layer, pad=0, ndim=4):
     )
 
 
-def _with_flatten_on_data(model, X, y):
+def _with_flatten_on_data(model, X, Y):
     X = model.ops.flatten(X)
     for layer in model._layers:
         for hook in layer.on_data_hooks:
-            hook(layer, X, y)
+            hook(layer, X, Y)
         X = layer(X)
 
 
