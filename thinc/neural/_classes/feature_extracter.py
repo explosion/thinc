@@ -6,6 +6,9 @@ class FeatureExtracter(Model):
         Model.__init__(self)
         self.attrs = attrs
 
+    def infer_dimensions(self, X=None, Y=None):
+        pass
+
     def begin_update(self, docs, drop=0.0):
         # Handle spans
         features = [self._get_feats(doc) for doc in docs]
