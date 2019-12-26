@@ -18,7 +18,7 @@ def shape():
 
 @pytest.fixture
 def layer(shape):
-    dummy = layerize(noop())
+    dummy = noop()
     dummy.nO = shape[-1]
     return dummy
 

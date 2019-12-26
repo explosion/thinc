@@ -168,3 +168,12 @@ def partition(examples, split_size):  # pragma: no cover
     n_docs = len(examples)
     split = int(n_docs * split_size)
     return examples[:split], examples[split:]
+
+
+def is_ragged(seqs):
+    if isinstance(seqs, tuple) and len(seqs) == 2:
+        if len(seqs[0]) == sum(seqs[1]):
+            return True
+    return False
+
+

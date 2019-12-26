@@ -3,7 +3,7 @@ import numpy.linalg
 from .model import Model
 from ... import describe
 from ...describe import Dimension, Synapses, Biases, Gradient
-from ...api import wrap, layerize
+from ...api import layerize
 from ..util import copy_array
 
 
@@ -45,7 +45,7 @@ def Bidirectional(l2r, r2l):
         Zs = [l2r.ops.xp.hstack((Zf, Zb[::-1])) for Zf, Zb in zip(l2r_Zs, r2l_Zs)]
         return Zs, birnn_bwd
 
-    return wrap(birnn_fwd, l2r, r2l)
+    return layerize(birnn_fwd, layers=(l2r, r2l))
 
 
 def Recurrent(step_model):
@@ -112,8 +112,7 @@ def Recurrent(step_model):
 
         return outputs, recurrent_bwd
 
-    model = wrap(recurrent_fwd, step_model)
-    model.nO = step_model.nO
+    model = layerize(recurrent_fwd, nO=step_model.nO, layers=(step_model,))
     return model
 
 
@@ -135,7 +134,7 @@ def RNN_step(weights, gates):
 
         return ((cells, hiddens), hiddens), rnn_step_bwd
 
-    model = wrap(rnn_step_fwd, weights, gates)
+    model = layerize(rnn_step_fwd, layers=(weights, gates))
     model.nO = weights.nO
     model.nI = weights.nI
     model.weights = weights

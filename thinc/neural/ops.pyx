@@ -158,6 +158,23 @@ class Ops(object):
         assert len(unflat) == len(lengths)
         return unflat
 
+    def pad_sequences(self, seqs_in, pad_to=None):
+        lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
+        nB = len(seqs_in)
+        if pad_to is None:
+            pad_to = lengths.max()
+        arr = self.allocate((nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype)
+        for arr_i, seq in enumerate(seqs_in):
+            arr[arr_i, : seq.shape[0]] = self.asarray(seq)
+
+        def unpad(padded):
+            unpadded = [None] * len(lengths)
+            for i in range(padded.shape[0]):
+                unpadded[i] = padded[i, : lengths[i]]
+            return unpadded
+
+        return arr, unpad
+
     def square_sequences(self, seqs):
         '''Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
