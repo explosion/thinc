@@ -231,24 +231,6 @@ def _with_flatten_on_data(model, X, y):
         X = layer(X)
 
 
-def get_word_ids(ops, pad=1, token_drop=0.0, ignore=None):
-    # TODO: Is this made obsolete by the FeatureExtractor?
-    def forward(docs, drop=0.0):
-        """Get word forms."""
-        seqs = []
-        ops = Model.ops
-        for doc in docs:
-            if ignore is not None:
-                doc = [token for token in doc if not ignore(token)]
-            # seq = [0] * pad
-            seq = [(token.lex_id or token.orth) for token in doc]
-            # seq += [0] * pad
-            seqs.append(ops.asarray(seq, dtype="uint64"))
-        return seqs, None
-
-    return layerize(forward)
-
-
 def uniqued(layer, column=0):
     """Group inputs to a layer, so that the layer only has to compute
     for the unique values. The data is transformed back before output, and the same
@@ -373,12 +355,15 @@ def foreach_sentence(layer, get_sents=None, drop_factor=1.0):
 
 
 def with_pad_and_mask(layer):
+    """Wrap a layer so that list inputs are transformed into padded batches.
+    The inputs are provided as (data, mask) tuples.
+    """
     def create_model_input_forward(Xs, drop=0.0):
         nX = layer.ops.asarray([x.shape[0] for x in Xs], dtype="i")
         nL = nX.max()
         X, unpad_X = layer.ops.pad_sequences(Xs, pad_to=nL)
-        X_mask = _get_mask(X, nX)
-        Y, bp_Y = layer.begin_update((X.astype("float32"), X_mask, None), drop=drop)
+        X_mask = _get_mask(layer.ops, X, nX)
+        Y, bp_Y = layer.begin_update((X.astype("float32"), X_mask), drop=drop)
 
         def create_model_input_backward(dYs, sgd=None):
             dY, _ = layer.ops.pad_sequences(dYs, pad_to=nL)
@@ -390,10 +375,10 @@ def with_pad_and_mask(layer):
     return wrap(create_model_input_forward, layer)
 
 
-def _get_mask(X, nX):
+def _get_mask(ops, X, nX):
     nB = X.shape[0]
     nL = X.shape[1]
-    X_mask = Model.ops.allocate((nB, nL, nL))
+    X_mask = ops.allocate((nB, nL, nL))
     for i, length in enumerate(nX):
         X_mask[i, :, :length] = 1.0
     return X_mask
