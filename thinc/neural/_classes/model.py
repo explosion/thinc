@@ -160,6 +160,12 @@ class Model(object):
         for hook in self.on_data_hooks:
             hook(self, train_X, train_y)
 
+    def infer_dimensions(self, X, Y=None):
+        if self.get_dim("nI") is None:
+            self.set_dim("nI",  get_width(X))
+        if self.get_dim("nO") is None and Y is not None:
+            self.set_dim("nO", get_width(Y))
+
     def begin_update(self, X, drop=0.0):
         raise NotImplementedError
 
