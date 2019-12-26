@@ -83,10 +83,9 @@ class wrap(Model):
 class ConcatenationLayer(Model):
     name = "concatenate"
 
-    def __init__(self, *layers):
-        Model.__init__(self)
-        self._layers.extend(layers)
-        self.on_data_hooks.append(util.run_child_hooks)
+    def __init__(self, layers):
+        Model.__init__(self, layers=layers)
+        self.on_data_hooks = [util.run_child_hooks]
 
     def infer_dimensions(self, X=None, Y=None):
         for layer in self._layers:
