@@ -10,10 +10,10 @@ def prepare_self_attention(affine, window=None, nM=300, nH=6):
     else:
         get_mask = None
 
-    def qkv_sa_forward(Xs, drop=0.0):
+    def qkv_sa_forward(Xs):
         X = affine.ops.flatten(Xs)
         lengths = [len(x) for x in Xs]
-        QKV, get_dX = affine.begin_update(X, drop=drop)
+        QKV, get_dX = affine.begin_update(X)
         Qs, Ks, Vs = _split_seqs(QKV, lengths, nH, nD)
 
         def qkv_sa_backward(dQs_dKs_dVs):
@@ -79,7 +79,7 @@ class MultiHeadedAttention(Model):
     def __init__(self):
         Model.__init__(self)
 
-    def begin_update(self, Qs_Ks_Vs_masks, drop=0.0):
+    def begin_update(self, Qs_Ks_Vs_masks):
         Qs, Ks, Vs, masks = Qs_Ks_Vs_masks
         if masks is None:
             masks = [None for _ in Qs]

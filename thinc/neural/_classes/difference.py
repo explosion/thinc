@@ -13,29 +13,14 @@ def inverse(total):
     return inverse, backward
 
 
-def _get_mask(ops, shape, drop):
-    return ops.xp.random.uniform(0.0, 1.0, shape) > drop
-
-
 def Siamese(layer, similarity):
-    def begin_update(inputs, drop=0.0):
+    def begin_update(inputs):
         ops = layer.ops
-        if drop not in (None, 0.0):
-            dropped = []
-            for in1, in2 in inputs:
-                if in1.size > in2.size:
-                    mask = _get_mask(ops, in1.shape, drop)
-                else:
-                    mask = _get_mask(ops, in2.shape, drop)
-                in1 = in1 * mask[: in1.shape[0]]
-                in2 = in2 * mask[: in2.shape[0]]
-                dropped.append((in1, in2))
-            inputs = dropped
 
         input1, input2 = zip(*inputs)
-        vec1, bp_vec1 = layer.begin_update(input1, drop=0.0)
-        vec2, bp_vec2 = layer.begin_update(input2, drop=0.0)
-        output, bp_output = similarity.begin_update((vec1, vec2), drop=0.0)
+        vec1, bp_vec1 = layer.begin_update(input1)
+        vec2, bp_vec2 = layer.begin_update(input2)
+        output, bp_output = similarity.begin_update((vec1, vec2))
 
         def finish_update(d_output):
             d_vec1, d_vec2 = bp_output(d_output, sgd)
@@ -70,7 +55,7 @@ class CauchySimilarity(Model):
         Model.__init__(self)
         self.nO = length
 
-    def begin_update(self, vec1_vec2, drop=0.0):
+    def begin_update(self, vec1_vec2):
         weights = self.W
         vec1, vec2 = vec1_vec2
         diff = vec1 - vec2

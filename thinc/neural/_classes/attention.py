@@ -20,9 +20,8 @@ class ParametricAttention(Model):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.hard = hard
-        self.drop_factor = kwargs.get("drop_factor", 1.0)
 
-    def begin_update(self, Xs_lengths, drop=0.0):
+    def begin_update(self, Xs_lengths):
         Xs, lengths = Xs_lengths
         attention, bp_attention = self._get_attention(self.Q, Xs, lengths)
         output, bp_output = self._apply_attention(attention, Xs, lengths)

@@ -37,12 +37,9 @@ class SimpleEmbed(Model):
         ids[ids >= self.nV] = 0
         return self.vectors[ids]
 
-    def begin_update(self, ids, drop=0.0):
+    def begin_update(self, ids):
         if ids.ndim == 2:
             ids = ids[:, self.column]
-        mask = self.ops.get_dropout_mask(ids.shape[0], drop)
-        if mask is not None:
-            ids = ids * (mask > 0)
         ids[ids >= self.nV] = 0
         vectors = self.vectors[ids]
 
@@ -107,12 +104,9 @@ class Embed(Model):
         output = dotted_uniq[positions]
         return self.ops.xp.ascontiguousarray(output)
 
-    def begin_update(self, ids, drop=0.0):
+    def begin_update(self, ids):
         if ids.ndim == 2:
             ids = ids[:, self.column]
-        mask = self.ops.get_dropout_mask(ids.shape[0], drop)
-        if mask is not None:
-            ids = ids * (mask > 0)
         vectors = self._embed(ids)
         dotted = self.ops.gemm(vectors, self.W, trans2=True)
 

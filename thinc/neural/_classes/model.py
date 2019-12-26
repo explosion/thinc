@@ -55,7 +55,7 @@ class Model(object):
             cls.Ops = curr_Ops
             cls.ops = curr_ops
 
-    def __init__(self, name=None, ops=None, layers=None, drop_factor=1.0):
+    def __init__(self, name=None, ops=None, layers=None):
         self.descriptions = dict(self.__class__.descriptions)
         self.name = self.__class__.name if name is None else name
         if ops is None:
@@ -64,7 +64,6 @@ class Model(object):
         else:
             self.Ops = ops.__class__
             self.ops = ops
-        self.drop_factor = drop_factor
         self.on_data_hooks = []
         self._mem = Memory(self.ops)
         self._params = {}
@@ -166,14 +165,11 @@ class Model(object):
         if Y is not None and self.get_dim("nO") is None:
             self.set_dim("nO", util.get_width(Y))
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X):
         """Run the model over a batch of data, returning the output and a callback
         to complete the backward pass.
 
         X: A batch of input data.
-        drop (float). Dropout rate. Defaults to 0. If set to the special value
-            "None", layers are allowed to assume backpropagation is not necessary,
-            and may perform optimizations accordingly. 
 
         RETURNS:
             A tuple (Y, finish_update), where Y is a batch of output data,
@@ -198,9 +194,26 @@ class Model(object):
                 seen.add(node.id)
 
     def predict(self, X):
-        y, _ = self.begin_update(X, drop=None)
+        self.disable_dropout()
+        y, _ = self.begin_update(X)
+        self.enable_dropout()
         return y
+
+    def set_dropout(self, rate):
+        for node in self.walk():
+            if node.name == "dropout":
+                node.drop = rate
+
+    def disable_dropout(self):
+        for node in self.walk():
+            if node.name == "dropout":
+                node.is_enabled = False
     
+    def enable_dropout(self):
+        for node in self.walk():
+            if node.name == "dropout":
+                node.is_enabled = True
+ 
     def __call__(self, x):
         # I think we should remove this.
         return self.predict(x)

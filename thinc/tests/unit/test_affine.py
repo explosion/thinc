@@ -3,7 +3,9 @@ from mock import MagicMock, Mock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
+from thinc.wire import chain
 from thinc.neural._classes.affine import Affine
+from thinc.neural._classes.dropout import Dropout
 from thinc.neural.ops import NumpyOps
 
 from ..strategies import arrays_OI_O_BI
@@ -63,7 +65,8 @@ def test_begin_update_matches_predict(W_b_input):
 @pytest.mark.skip
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_dropout_gives_zero_activations(W_b_input):
-    model = get_model(W_b_input)
+    model = chain(get_model(W_b_input), Dropout(0.0))
+    model.set_dropout(1.0)
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
     W, b, input_ = W_b_input
     fwd_dropped, _ = model.begin_update(input_)
@@ -72,10 +75,11 @@ def test_dropout_gives_zero_activations(W_b_input):
 
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_dropout_gives_zero_gradients(W_b_input):
-    model = get_model(W_b_input)
+    model = chain(get_model(W_b_input), Dropout(0.0))
     nr_batch, nr_out, nr_in = get_shape(W_b_input)
     W, b, input_ = W_b_input
-    fwd_dropped, finish_update = model.begin_update(input_, drop=1.0)
+    model.set_dropout(1.0)
+    fwd_dropped, finish_update = model.begin_update(input_)
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)
     assert all(val == 0.0 for val in grad_BI.flatten())

@@ -41,14 +41,11 @@ class HashEmbed(Model):
         summed = vectors.sum(axis=1)
         return summed
 
-    def begin_update(self, ids, drop=0.0):
+    def begin_update(self, ids):
         if ids.ndim >= 2:
             ids = self.ops.xp.ascontiguousarray(ids[:, self.column], dtype="uint64")
         keys = self.ops.hash(ids, self.seed) % self.nV
         vectors = self.vectors[keys].sum(axis=1)
-        mask = self.ops.get_dropout_mask((vectors.shape[1],), drop)
-        if mask is not None:
-            vectors *= mask
 
         def finish_update(delta):
             if mask is not None:

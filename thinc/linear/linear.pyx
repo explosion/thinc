@@ -36,30 +36,23 @@ class LinearModel(Model):
         self.nO = nO
         self.length = length
 
-    def begin_update(self, keys_values_lengths, drop=0.):
+    def begin_update(self, keys_values_lengths):
         keys, values, lengths = keys_values_lengths
         if is_cupy_array(keys):
-            return self._begin_gpu_update(keys, values, lengths, drop=drop)
+            return self._begin_gpu_update(keys, values, lengths)
         else:
-            return self._begin_cpu_update(keys, values, lengths, drop=drop)
+            return self._begin_cpu_update(keys, values, lengths)
 
-    def _begin_gpu_update(self, keys, values, lengths, drop):
+    def _begin_gpu_update(self, keys, values, lengths):
         # Currently we don't have a GPU-compatible implementation of this function :(
         # It sucks, but at least we can get the correct result by copying to CPU.
         cpu_keys = keys.get()
         cpu_values = values.get()
         cpu_lengths = lengths.get()
-        return self._begin_cpu_update(cpu_keys, cpu_values, cpu_lengths, drop=drop)
+        return self._begin_cpu_update(cpu_keys, cpu_values, cpu_lengths)
 
-    def _begin_cpu_update(self, uint64_t[::1] keys, np.ndarray values_, long[::1] lengths, drop):
-        if drop is not None:
-            drop *= self.drop_factor
-        mask = self.ops.get_dropout_mask((values_.shape[0],), drop)
-        cdef float[::1] values
-        if mask is not None:
-            values = values_ * mask
-        else:
-            values = values_
+    def _begin_cpu_update(self, uint64_t[::1] keys, np.ndarray values_, long[::1] lengths):
+        cdef float[::1] values = values_
         cdef float[:, ::1] scores = self.ops.allocate((len(lengths), self.nO)) + self.b
         cdef float[::1] weights = self.W
         set_scoresC(&scores[0, 0],
@@ -78,7 +71,7 @@ class _finish_linear_update(object):
         self.values = values
         self.lengths = lengths
 
-    def __call__(self, float[:, ::1] d_scores, sgd=None):
+    def __call__(self, float[:, ::1] d_scores):
         cdef float[::1] d_weights = self.layer.d_W
         cdef float[::1] d_bias = self.layer.d_b
         cdef uint64_t[::1] keys = self.keys
@@ -92,8 +85,6 @@ class _finish_linear_update(object):
         for i in range(d_scores.shape[0]):
             for j in range(d_scores.shape[1]):
                 d_bias[j] += d_scores[i, j]
-        if sgd is not None:
-            sgd(self.layer._mem.weights, self.layer._mem.gradient, key=self.layer.id)
         return None
 
 

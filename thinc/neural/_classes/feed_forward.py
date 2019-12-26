@@ -70,10 +70,10 @@ class FeedForward(Model):
             X = layer.predict(X)
         return X
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X):
         callbacks = []
         for layer in self._layers:
-            X, inc_layer_grad = layer.begin_update(X, drop=drop)
+            X, inc_layer_grad = layer.begin_update(X)
             callbacks.append(inc_layer_grad)
 
         def continue_update(gradient):
