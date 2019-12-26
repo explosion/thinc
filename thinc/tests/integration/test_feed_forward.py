@@ -57,8 +57,8 @@ def test_models_have_shape(model1, model2, nI, nH, nO):
 
 
 def test_model_shape(model, model1, model2, nI, nH, nO):
-    assert model.input_shape == model1.input_shape
-    assert model.output_shape == model2.output_shape
+    assert model.get_dim("nI") == model1.get_dim("nI")
+    assert model.get_dim("nO") == model2.get_dim("nO")
 
 
 def test_predict_and_begin_update_match(model, model1, model2, input_data):

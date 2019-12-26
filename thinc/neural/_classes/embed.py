@@ -7,14 +7,6 @@ from ...describe import Dimension, Weights, Synapses, Gradient
 from ..util import copy_array
 
 
-def _set_dimensions_if_needed(model, X, y=None):
-    if model.nV is None:
-        max_id = int(X.max()) + 1
-        if max_id >= 10000000:  # pragma: no cover
-            raise ValueError("TODO error --- really want us to make 1m vectors?")
-        model.nV = max_id
-
-
 def _uniform_init(lo, hi):
     def wrapped(W, ops):
         copy_array(W, ops.xp.random.uniform(lo, hi, W.shape))

@@ -177,3 +177,31 @@ def is_ragged(seqs):
     return False
 
 
+def get_width(X, dim=-1):
+    """Infer the 'width' of a batch of data, which could be any of:
+    * An n-dimensional array: Use the shape
+    * A tuple (for a ragged array): Use the shape of the first element.
+    * A list of arrays (for sequences): Use the shape of the first element.
+    """
+    if hasattr(X, "shape"):
+        if len(X.shape) == 0:
+            return 0
+        elif len(X.shape) == 1:
+            return int(X.max()) + 1
+        else:
+            return X.shape[dim]
+    elif isinstance(seqs, tuple) and len(seqs) == 2:
+        return get_width(seqs[0], dim=dim)
+    elif hasattr(X, "__len__"):
+        if len(X) == 0:
+            return 0
+        else:
+            return get_width(X[0], dim=dim)
+    else:
+        raise ValueError("Cannot get width of object: has neither shape nor length.")
+
+
+def run_child_hooks(model, X, y):
+    for child in model._layers:
+        for hook in child.on_data_hooks:
+            hook(child, X, y)

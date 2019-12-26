@@ -1,5 +1,4 @@
 from .model import Model
-from ... import describe
 
 
 def _run_child_hooks(model, X, y):
@@ -9,7 +8,6 @@ def _run_child_hooks(model, X, y):
         X = layer(X)
 
 
-@describe.on_data(_run_child_hooks)
 class FeedForward(Model):
     """A feed-forward network, that chains multiple Model instances together."""
 
@@ -23,23 +21,29 @@ class FeedForward(Model):
             else:
                 self._layers.append(layer)
         Model.__init__(self, **kwargs)
+        self.on_data_hooks.append(_run_child_hooks)
 
-    @property
-    def input_shape(self):
-        return self._layers[0].input_shape
-
-    @property
-    def output_shape(self):
-        return self._layers[-1].output_shape
+    def infer_dimensions(self, X=None, Y=None):
+        if Y is not None:
+            self._layers[-1].infer_dimensions(X=None, Y=Y)
+        for layer in self._layers:
+            layer.infer_dimensions(X=X)
+            X = layer(X)
 
     def has_dim(self, name):
         return self._layers[-1].has_dim(name)
 
     def get_dim(self, name):
-        return self._layers[-1].get_dim(name)
+        if name == "nI":
+            return self._layers[0].get_dim(name)
+        else:
+            return self._layers[-1].get_dim(name)
 
     def set_dim(self, name, value):
-        self._layers[-1].set_dim(name, value)
+        if name == "nI":
+            self._layers[0].set_dim(name, value)
+        else:
+            self._layers[-1].set_dim(name, value)
 
     def has_param(self, name):
         return name in self._layers[-1]._params
