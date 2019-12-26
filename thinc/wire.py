@@ -193,7 +193,7 @@ def with_square_sequences(model):
 
 
 def with_flatten(layer, pad=0, ndim=4):
-    def begin_update(seqs_in, drop=0.0):
+    def with_flatten_forward(seqs_in, drop=0.0):
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
         X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad), drop=drop)
         if bp_layer is None:
@@ -208,16 +208,13 @@ def with_flatten(layer, pad=0, ndim=4):
 
         return layer.ops.unflatten(X, lengths, pad=pad), finish_update
 
-    def predict(seqs_in):
+    def with_flatten_predict(seqs_in):
         lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
         X = layer(layer.ops.flatten(seqs_in, pad=pad))
         return layer.ops.unflatten(X, lengths, pad=pad)
-
-    model = layerize(begin_update, predict=predict)
-    model._layers.append(layer)
-    model.on_data_hooks.append(_with_flatten_on_data)
-    model.name = "flatten"
-    return model
+    
+    return wrap(with_flatten_forward, layer, predict=with_flatten_predict, 
+        name=f"with_flatten-{layer.name}", on_data_hooks=[_with_flatten_on_data])
 
 
 def _with_flatten_on_data(model, X, y):
