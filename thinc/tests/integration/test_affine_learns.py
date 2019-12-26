@@ -26,19 +26,19 @@ def test_init(model):
 def test_predict_bias(model):
     input_ = model.ops.allocate((1, model.nI))
     target_scores = model.ops.allocate((1, model.nO))
-    scores = model(input_)
+    scores = model.predict(input_)
     assert_allclose(scores[0], target_scores[0])
 
     # Set bias for class 0
     model.b[0] = 2.0
     target_scores[0, 0] = 2.0
-    scores = model(input_)
+    scores = model.predict(input_)
     assert_allclose(scores, target_scores)
 
     # Set bias for class 1
     model.b[1] = 5.0
     target_scores[0, 1] = 5.0
-    scores = model(input_)
+    scores = model.predict(input_)
     assert_allclose(scores, target_scores)
 
 
@@ -54,16 +54,13 @@ def test_predict_bias(model):
 def test_predict_weights(X, expected):
     W = np.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
     bias = np.asarray([0.0, 0.0], dtype="f")
-    print(W)
-    print(bias)
 
     model = Affine(W.shape[0], W.shape[1])
     model.W[:] = W
     model.b[:] = bias
 
-    scores = model.predict_one(X)
-    print("scores", scores, "expected", expected)
-    assert_allclose(scores, expected)
+    scores = model.predict(X.reshape((1, -1)))
+    assert_allclose(scores.ravel(), expected)
 
 
 def test_update():

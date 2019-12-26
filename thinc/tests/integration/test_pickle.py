@@ -14,7 +14,7 @@ def test_pickle_with_flatten(affine):
     model = with_flatten(affine)
     pickled = pickle.dumps(model)
     loaded = pickle.loads(pickled)
-    Ys = loaded(Xs)
+    Ys = loaded.predict(Xs)
     assert len(Ys) == 2
     assert Ys[0].shape == (Xs[0].shape[0], affine.nO)
     assert Ys[1].shape == (Xs[1].shape[0], affine.nO)

@@ -47,15 +47,15 @@ def test_clone(model1, nI):
     model1.nI = None
     model = clone(model1, 10)
     model.begin_training(ones)
-    output_from_cloned = model(ones)
-    output_from_orig = model1(ones)
+    output_from_cloned = model.predict(ones)
+    output_from_orig = model1.predict(ones)
     assert output_from_cloned.sum() != output_from_orig.sum()
 
 
 def test_layerize_predict_noop(model1, model2, nI):
     ones = numpy.ones((10, nI))
     model = noop(model1, model2)
-    y = model(ones)
+    y = model.predict(ones)
     assert_allclose(y, ones)
 
 
@@ -73,13 +73,12 @@ def test_layerize_prespecify_predict(model1, model2, nI):
     def noop_predict(X):
         return X
 
-    @layerize(predict=noop_predict, predict_one=noop_predict)
+    @layerize(predict=noop_predict)
     def noop_model(X, drop=0.0):
         return X, lambda d, sgd=None: d
 
     ones = numpy.ones((10, nI))
     assert_allclose(ones, noop_model.predict(ones))
-    assert_allclose(ones[0], noop_model.predict_one(ones[0]))
 
 
 def test_chain_dimension_mismatch(model1, model2):
