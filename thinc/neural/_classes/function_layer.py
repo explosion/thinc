@@ -36,6 +36,10 @@ def run_child_hooks(self, X, y):
 
 @describe.on_data(run_child_hooks)
 class wrap(Model):
+    """Create a unary function layer, that wraps a single child layer. The
+    wrapping layer works like a proxy, delegating requests for dimensions,
+    parameters and gradients to the child.
+    """
     def __init__(self, begin_update, layer, *, predict=None, predict_one=None):
         self.begin_update = begin_update
         if predict is not None:
@@ -75,30 +79,38 @@ class wrap(Model):
 
 class ConcatenationLayer(Model):
     name = "concatenate"
+
+    def __init__(self, *layers):
+        Model.__init__(self)
+        self._layers.extend(layers)
     
     def begin_update(self, X, drop=0.):
         Ys, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
-        lengths = [Y.shape[1] for Y in Ys]
+        widths = [Y.shape[1] for Y in Ys]
         output = self.ops.xp.hstack(Ys)
 
         def finish_update_concatenate(d_output, sgd=None):
             layer_grad = None
             start = 0
-            for bwd, length in zip(callbacks, lengths):
+            for bwd, width in zip(callbacks, widths):
                 if bwd is not None:
-                    d = bwd(d_output[:, start:start+length], sgd=sgd)
+                    d = bwd(d_output[:, start:start+width], sgd=sgd)
                     if d is not None and hasattr(X, "shape"):
                         if layer_grad is None:
                             layer_grad = d
                         else:
                             layer_grad += d
-                start += length
+                start += width
             return layer_grad
 
         return output, finish_update_concatenate
 
 
 class AdditionLayer(Model):
+    def __init__(self, *layers):
+        Model.__init__(self)
+        self._layers.extend(layers)
+ 
     def begin_update(self, X, drop=0.0):
         outs, callbacks = zip(*[lyr.begin_update(X, drop=drop) for lyr in self._layers])
         out = outs[0]
