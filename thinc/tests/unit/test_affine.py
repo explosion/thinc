@@ -48,7 +48,7 @@ def test_Affine_calls_init_hooks(model):
 
 def test_Affine_dimensions_on_data():
     X = MagicMock(shape=(5, 10))
-    y = MagicMock()
+    y = MagicMock(shape=(8,))
     y.max = MagicMock()
     model = Affine()
     model.on_data_hooks = model.on_data_hooks[:1]
