@@ -204,7 +204,8 @@ class Optimizer(object):
         return alpha * numpy.sqrt(fix2) / fix1
 
     def __call__(self, weights, gradient, lr_scale=1., key=None):
-        assert len(gradient) >= 1
+        if len(gradient) < 1:
+            return
         xp = get_array_module(weights)
         if xp is not self.ops.xp:
             if xp is numpy:
