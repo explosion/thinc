@@ -48,15 +48,11 @@ class HashEmbed(Model):
         vectors = self.vectors[keys].sum(axis=1)
 
         def finish_update(delta):
-            if mask is not None:
-                delta *= mask
             keys = self.ops.hash(ids, self.seed) % self.nV
             d_vectors = self.d_vectors
             keys = self.ops.xp.ascontiguousarray(keys.T, dtype="i")
             for i in range(keys.shape[0]):
                 self.ops.scatter_add(d_vectors, keys[i], delta)
-            if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
 
         return vectors, finish_update

@@ -109,7 +109,7 @@ class ConcatenationLayer(Model):
             start = 0
             for bwd, width in zip(callbacks, widths):
                 if bwd is not None:
-                    d = bwd(d_output[:, start : start + width], sgd=sgd)
+                    d = bwd(d_output[:, start : start + width])
                     if d is not None and hasattr(X, "shape"):
                         if layer_grad is None:
                             layer_grad = d
@@ -146,7 +146,7 @@ class AdditionLayer(Model):
             out += o
 
         def backward(d_out):
-            grads = [bp(d_out, sgd=sgd) for bp in callbacks if bp is not None]
+            grads = [bp(d_out) for bp in callbacks if bp is not None]
             grads = [g for g in grads if g is not None]
             if grads:
                 total = grads[0]
