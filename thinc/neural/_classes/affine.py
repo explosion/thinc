@@ -34,9 +34,7 @@ class Affine(Model):
         Y = self.predict(X)
 
         def backprop_affine(dY):
-            print("dY", dY.shape)
             dY = self.ops.xp.ascontiguousarray(dY)
-            print(dY.shape, X.shape, self.d_W.shape)
             self.ops.gemm(dY, X, trans1=True, out=self.d_W)
             self.d_b += dY.sum(axis=0)
             return self.ops.gemm(dY, self.W)
