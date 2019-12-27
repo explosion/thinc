@@ -26,20 +26,15 @@ class Mish(Model):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.nI = nI
-        self.drop_factor = kwargs.get("drop_factor", 1.0)
 
     def predict(self, X):
         Y = self.ops.affine(self.W, self.b, X)
         Y = self.ops.mish(Y)
         return Y
 
-    def begin_update(self, X, drop=0.0):
-        if drop is None:
-            return self.predict(X), None
+    def begin_update(self, X):
         Y1 = self.ops.affine(self.W, self.b, X)
         Y2 = self.ops.mish(Y1)
-        drop *= self.drop_factor
-        Y3, bp_dropout = self.ops.dropout(Y2, drop)
 
         def finish_update(dY2):
             dY1 = self.ops.backprop_mish(dY2, Y1)
@@ -48,4 +43,4 @@ class Mish(Model):
             dX = self.ops.gemm(dY1, self.W)
             return dX
 
-        return Y3, bp_dropout(finish_update)
+        return Y3, finish_update

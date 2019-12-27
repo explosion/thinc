@@ -45,7 +45,6 @@ class Maxout(Model):
         self.nO = nO
         self.nI = nI
         self.nP = pieces
-        self.drop_factor = kwargs.get("drop_factor", 1.0)
 
     def predict(self, X__BI):
         W = self.W.reshape((self.nO * self.nP, self.nI))
@@ -55,15 +54,12 @@ class Maxout(Model):
         best__BO, _ = self.ops.maxout(X__BOP)
         return best__BO
 
-    def begin_update(self, X__bi, drop=0.0):
+    def begin_update(self, X__bi):
         W = self.W.reshape((self.nO * self.nP, self.nI))
-        if drop is not None:
-            drop *= self.drop_factor
         output__boc = self.ops.gemm(X__bi, W, trans2=True)
         output__boc += self.b.reshape((self.nO * self.nP,))
         output__boc = output__boc.reshape((output__boc.shape[0], self.nO, self.nP))
         best__bo, which__bo = self.ops.maxout(output__boc)
-        best__bo, bp_dropout = self.ops.dropout(best__bo, drop)
 
         def finish_update(dX__bo):
             dX__bop = self.ops.backprop_maxout(dX__bo, which__bo, self.nP)
@@ -77,4 +73,4 @@ class Maxout(Model):
             )
             return dX__bi
 
-        return best__bo, bp_dropout(finish_update)
+        return best__bo, finish_update

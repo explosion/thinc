@@ -22,8 +22,8 @@ def Bidirectional(l2r, r2l):
     """Stitch two RNN models into a bidirectional layer."""
     nO = l2r.nO
 
-    def birnn_fwd(Xs, drop=0.0):
-        l2r_Zs, bp_l2r_Zs = l2r.begin_update(Xs, drop=drop)
+    def birnn_fwd(Xs):
+        l2r_Zs, bp_l2r_Zs = l2r.begin_update(Xs)
         r2l_Zs, bp_r2l_Zs = r2l.begin_update(
             [l2r.ops.xp.ascontiguousarray(X[::-1]) for X in Xs]
         )
@@ -51,13 +51,10 @@ def Recurrent(step_model):
     """Apply a stepwise model over a sequence, maintaining state. For RNNs"""
     ops = step_model.ops
 
-    def recurrent_fwd(seqs, drop=0.0):
+    def recurrent_fwd(seqs):
         lengths = [len(X) for X in seqs]
         X, size_at_t, unpad = ops.square_sequences(seqs)
         Y = ops.allocate((X.shape[0], X.shape[1], step_model.nO))
-        cell_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.0)
-        hidden_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.0)
-        out_drop = ops.get_dropout_mask((len(seqs), step_model.nO), 0.0)
         backprops = [None] * max(lengths)
         state = step_model.weights.get_initial_state(len(seqs))
         for t in range(max(lengths)):
@@ -66,14 +63,8 @@ def Recurrent(step_model):
             Xt = X[t, :size]
             state[0] = state[0][:size]
             state[1] = state[1][:size]
-            if cell_drop is not None:
-                state[0] *= cell_drop
-            if hidden_drop is not None:
-                state[1] *= hidden_drop
             inputs = (state, Xt)
             (state, Y[t, :size]), backprops[t] = step_model.begin_update(inputs)
-            if out_drop is not None:
-                Y[t, :size] *= out_drop
         outputs = unpad(Y)
 
         def recurrent_bwd(d_outputs):
@@ -87,16 +78,10 @@ def Recurrent(step_model):
                 (dY.shape[0], dY.shape[1], step_model.weights.nI)
             )
             for t in range(max(lengths) - 1, -1, -1):
-                if out_drop is not None:
-                    dY[t] *= out_drop
                 d_state_t, dXt = backprops[t]((d_state, dY[t]))
                 d_state[0][: d_state_t[0].shape[0]] = d_state_t[0]
                 d_state[1][: d_state_t[1].shape[0]] = d_state_t[1]
                 dX[t, : dXt.shape[0]] = dXt
-                if cell_drop is not None:
-                    d_state[0] *= cell_drop
-                if hidden_drop is not None:
-                    d_state[1] *= hidden_drop
             d_cell, d_hidden = d_state
             step_model.weights.d_initial_cells += d_cell.sum(axis=0)
             step_model.weights.d_initial_hiddens += d_hidden.sum(axis=0)
@@ -111,12 +96,12 @@ def Recurrent(step_model):
 def RNN_step(weights, gates):
     """Create a step model for an RNN, given weights and gates functions."""
 
-    def rnn_step_fwd(prevstate_inputs, drop=0.0):
+    def rnn_step_fwd(prevstate_inputs):
         prevstate, inputs = prevstate_inputs
         cell_tm1, hidden_tm1 = prevstate
 
-        acts, bp_acts = weights.begin_update((inputs, hidden_tm1), drop=drop)
-        (cells, hiddens), bp_gates = gates.begin_update((acts, cell_tm1), drop=drop)
+        acts, bp_acts = weights.begin_update((inputs, hidden_tm1))
+        (cells, hiddens), bp_gates = gates.begin_update((acts, cell_tm1))
 
         def rnn_step_bwd(d_state_d_hiddens):
             (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
@@ -135,7 +120,7 @@ def RNN_step(weights, gates):
 
 
 def LSTM_gates(ops):
-    def lstm_gates_fwd(acts_prev_cells, drop=0.0):
+    def lstm_gates_fwd(acts_prev_cells):
         acts, prev_cells = acts_prev_cells
         new_cells = ops.allocate(prev_cells.shape)
         new_hiddens = ops.allocate(prev_cells.shape)
@@ -211,7 +196,7 @@ class LSTM_weights(Model):
         self.nO = nO
         self.nI = nI
 
-    def begin_update(self, inputs_hidden, drop=0.0):
+    def begin_update(self, inputs_hidden):
         inputs, hidden = inputs_hidden
         assert inputs.dtype == "float32"
         X = self.ops.xp.hstack([inputs, hidden])

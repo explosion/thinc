@@ -40,9 +40,9 @@ class LayerNorm(Model):
         y = Xh * self.G + self.b
         return y
 
-    def begin_update(self, X, drop=0.0):
+    def begin_update(self, X):
         if self.child is not None:
-            X, backprop_child = self.child.begin_update(X, drop=0.0)
+            X, backprop_child = self.child.begin_update(X)
         else:
             backprop_child = None
         N, mu, var = _get_moments(self.ops, X)
@@ -62,15 +62,9 @@ class LayerNorm(Model):
             else:
                 return d_xhat
 
-        if drop is not None:
-            drop *= getattr(
-                self.child, "drop_factor", self.ops.asarray([1.0], dtype="f")
-            )
-
-        y, bp_dropout = self.ops.dropout(y, drop)
         assert y.dtype == "float32"
 
-        return y, bp_dropout(finish_update)
+        return y, finish_update
 
     def _begin_update_scale_shift(self, input__BI):
         def finish_update(gradient__BI):

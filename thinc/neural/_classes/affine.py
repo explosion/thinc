@@ -25,22 +25,20 @@ class Affine(Model):
         self.nI = nI
         self.drop_factor = kwargs.get("drop_factor", 1.0)
 
-    def predict(self, input__BI):
-        output = self.ops.gemm(input__BI, self.W, trans2=True)
-        output += self.b
-        return output
+    def predict(self, X):
+        Y = self.ops.gemm(X, self.W, trans2=True)
+        Y += self.b
+        return Y
 
-    def begin_update(self, input__BI, drop=0.0):
-        output__BO = self.predict(input__BI)
+    def begin_update(self, X):
+        Y = self.predict(X)
 
-        def finish_update(grad__BO):
-            grad__BO = self.ops.xp.ascontiguousarray(grad__BO)
-            self.ops.gemm(grad__BO, input__BI, trans1=True, out=self.d_W)
-            self.d_b += grad__BO.sum(axis=0)
-            grad__BI = self.ops.gemm(grad__BO, self.W)
-            return grad__BI
+        def backprop_affine(dY):
+            print("dY", dY.shape)
+            dY = self.ops.xp.ascontiguousarray(dY)
+            print(dY.shape, X.shape, self.d_W.shape)
+            self.ops.gemm(dY, X, trans1=True, out=self.d_W)
+            self.d_b += dY.sum(axis=0)
+            return self.ops.gemm(dY, self.W)
 
-        if drop is not None:
-            drop *= self.drop_factor
-        output__BO, bp_dropout = self.ops.dropout(output__BO, drop, inplace=True)
-        return output__BO, bp_dropout(finish_update)
+        return Y, backprop_affine

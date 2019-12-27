@@ -22,7 +22,7 @@ class ExtractWindow(Model):
     def predict(self, X):
         return self.ops.seq2col(X, self.nW)
 
-    def begin_update(self, X__bi, drop=0.0):
+    def begin_update(self, X__bi):
         X__bo = self.ops.seq2col(X__bi, self.nW)
         
         def finish_update(gradient):
