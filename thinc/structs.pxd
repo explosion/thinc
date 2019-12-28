@@ -6,7 +6,7 @@ from libc.string cimport memcpy, memset
 from murmurhash.mrmr cimport real_hash64 as hash64
 
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
-from .linalg cimport VecVec
+from .backends.linalg cimport VecVec
 
 DEF LINE_SIZE = 7
 DEF MIN_ABS_FEAT_VAL = 0.0
