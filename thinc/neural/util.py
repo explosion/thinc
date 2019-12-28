@@ -162,13 +162,13 @@ def get_width(X, dim=-1):
             return X.shape[dim]
     elif isinstance(X, tuple) and len(X) == 2:
         return get_width(X[0], dim=dim)
-    elif hasattr(X, "__len__"):
+    elif hasattr(X, "__len__") and hasattr(X, "__getitem__"):
         if len(X) == 0:
             return 0
         else:
             return get_width(X[0], dim=dim)
     else:
-        raise ValueError("Cannot get width of object: has neither shape nor length.")
+        raise ValueError("Cannot get width of object: has neither shape nor __getitem__.")
 
 
 def run_child_hooks(model, X, y):
