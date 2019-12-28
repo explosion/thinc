@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from thinc.linear.linear import LinearModel
+from thinc.neural._classes.sparse_linear import LinearModel
 from thinc.neural.optimizers import SGD
 from thinc.backends import NumpyOps
 from thinc.neural.util import to_categorical

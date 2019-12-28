@@ -5,9 +5,9 @@
 from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
-from ..neural._classes.model import Model
-from .. import describe
-from ..neural.util import is_cupy_array, is_numpy_array
+from .model import Model
+from ... import describe
+from ..util import is_cupy_array, is_numpy_array
 
 # Sigh, these stuff up pickling if they're lambdas...
 
