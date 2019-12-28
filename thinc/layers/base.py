@@ -2,7 +2,7 @@ import numpy
 import contextlib
 import srsly
 import threading
-from typing import Tuple, Dict, List, Callable, Optional, Any, Union, Iterable
+from typing import Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
 from ..neural import util
@@ -246,7 +246,7 @@ class Model:
 
     def finish_update(self, optimizer: Optimizer) -> None:
         """Update parameters with current gradients.
-        
+
         optimizer (Callable[array, array, key=None]):
             The optimizer. The function is called with each parameter and
             gradient of the model.
@@ -260,7 +260,7 @@ class Model:
 
     def set_child_attrs(self, name: str, attr: str, value) -> int:
         """Walk through layers for any that match the given name, and set
-        an attribute on those nodes. 
+        an attribute on those nodes.
 
         >>> node.walk_set_attrs("dropout", "rate", 0.2)
 

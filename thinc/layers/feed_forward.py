@@ -1,7 +1,6 @@
-from typing import Tuple, Callable
-from .base import Model
+from typing import Tuple, Callable, List, Optional
 
-Array = "Array"  # TODO: Fix type
+from .base import Model, Array
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
@@ -24,7 +23,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     return X, backprop
 
 
-def init(model, X=None, Y=None):
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     if not model._layers:
         return
     if Y is not None:
@@ -36,7 +35,7 @@ def init(model, X=None, Y=None):
     model.set_dim("nO", model._layers[-1].get_dim("nO"))
 
 
-def make_FeedForward(layers):
+def FeedForward(layers: List[Model]) -> Model:
     return Model(
         ">>".join(layer.name for layer in layers),
         forward,

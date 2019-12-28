@@ -1,17 +1,19 @@
-from .base import Model
+from typing import Tuple, Callable, Optional
+
+from .base import Model, Array
 from ..neural import util
 
 
-def forward(model, X, is_train):
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y = model.ops.relu(X)
 
-    def relu_backward(dY):
+    def relu_backward(dY: Array) -> Array:
         return model.ops.backprop_relu(dY, Y)
 
     return Y, relu_backward
 
 
-def init(model, X=None, Y=None):
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     if X is not None:
         X_width = util.get_width(X)
         model.set_dim("nI", X_width)
@@ -22,7 +24,7 @@ def init(model, X=None, Y=None):
         model.set_dim("nO", Y_width)
 
 
-def make_ReLu():
+def ReLu() -> Model:
     return Model(
         "relu",
         forward,
