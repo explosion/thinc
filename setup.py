@@ -42,20 +42,12 @@ PACKAGES = [
 
 
 MOD_NAMES = [
-    "thinc.structs",
     "thinc.typedefs",
-    "thinc.linear.avgtron",
-    "thinc.linear.features",
-    "thinc.linear.serialize",
-    "thinc.linear.sparse",
-    "thinc.linear.linear",
+    "thinc.neural._classes.sparse_linear",
     "thinc.neural.optimizers",
     "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
-    "thinc.extra.eg",
-    "thinc.extra.mb",
     "thinc.extra.search",
-    "thinc.extra.cache",
 ]
 
 COMPILE_OPTIONS = {
