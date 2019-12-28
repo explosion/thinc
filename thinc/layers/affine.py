@@ -1,5 +1,7 @@
+from typing import Tuple, Dict, List, Callable, Optional, Any, Union, Iterable
 from .base import Model
 from ..initializers import xavier_uniform_init, zero_init
+from ..neural import util
 
 Array = "Array"  # TODO: Fix type-check for this
 
@@ -12,8 +14,8 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y += b
 
     def affine_backward(dY):
-        model.ops.inc_grad("b", dY.sum(axis=0))
-        model.ops.inc_grad("W", model.ops.gemm(dY, X, trans2=True))
+        model.inc_grad("b", dY.sum(axis=0))
+        model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
 
     return Y, affine_backward
@@ -24,9 +26,9 @@ def create_init(init_W: Callable, init_b: Callable) -> Callable:
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if X is not None:
-            model.set_dim("nI", X.shape[1])
+            model.set_dim("nI", util.get_width(X))
         if Y is not None:
-            model.set_dim("nO", Y.shape[1])
+            model.set_dim("nO", util.get_width(Y))
         W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
         b = model.ops.allocate((model.get_dim("nO"),))
         init_W(W, inplace=True)
@@ -43,7 +45,7 @@ def make_Affine(
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
 ) -> Model:
-    return Model(
+    model = Model(
         "affine",
         forward,
         init=create_init(init_W, init_b),
@@ -52,3 +54,6 @@ def make_Affine(
         layers=[],
         attrs={},
     )
+    if nO is not None and nI is not None:
+        model.initialize()
+    return model
