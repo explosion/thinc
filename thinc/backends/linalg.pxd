@@ -7,9 +7,15 @@ from libc.string cimport memset, memcpy
 from cymem.cymem cimport Pool
 
 
-from .typedefs cimport weight_t
+from ..typedefs cimport weight_t
 
-include "compile_time_constants.pxi"
+DEF LINE_SIZE = 7
+DEF MIN_ABS_FEAT_VAL = 0.0
+DEF MAX_TEMPLATE_LEN = 10
+
+DEF USE_BLAS = False
+DEF EPS = 1e-5
+
 
 IF USE_BLAS:
     cimport blis.cy

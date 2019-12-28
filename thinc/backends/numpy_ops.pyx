@@ -17,6 +17,7 @@ from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 from ..typedefs cimport weight_t
 from .util import copy_array, get_array_module
 from .linalg cimport VecVec, Vec
+from .base import Ops
 
 cimport blis
 cimport blis.cy
