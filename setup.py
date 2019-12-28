@@ -32,7 +32,6 @@ PACKAGES = [
     "thinc.tests.unit",
     "thinc.tests.integration",
     "thinc.tests.linear",
-    "thinc.linear",
     "thinc.neural",
     "thinc.backends",
     "thinc.extra",
