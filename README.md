@@ -31,7 +31,6 @@ structured input and variable-length sequences.
 | `thinc.t2v`            | Layers pooling tensors to vectors.                                  |
 | `thinc.t2t`            | Layers transforming tensors to tensors (e.g. CNN, LSTM).            |
 | `thinc.api`            | Higher-order functions, for building networks. Will be renamed.     |
-| `thinc.extra`          | Datasets and utilities.                                             |
 | `thinc.neural.ops`     | Container classes for mathematical operations. Will be reorganized. |
 | `thinc.linear.avgtron` | Legacy efficient Averaged Perceptron implementation.                |
 

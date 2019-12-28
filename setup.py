@@ -35,7 +35,6 @@ PACKAGES = [
     "thinc.backends",
     "thinc.extra",
     "thinc.neural._classes",
-    "thinc.extra._vendorized",
 ]
 
 
