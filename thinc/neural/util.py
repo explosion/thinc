@@ -29,7 +29,7 @@ def is_numpy_array(arr):
 
 
 def get_ops(ops):
-    from .ops import NumpyOps, CupyOps
+    from ..backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
         return NumpyOps

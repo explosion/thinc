@@ -2,7 +2,7 @@ import numpy
 import pytest
 from thinc.linear.linear import LinearModel
 from thinc.neural.optimizers import SGD
-from thinc.neural.ops import NumpyOps
+from thinc.backends import NumpyOps
 from thinc.neural.util import to_categorical
 
 

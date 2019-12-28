@@ -1,6 +1,6 @@
 import contextlib
 
-from ..ops import CupyOps
+from ...backends import CupyOps
 from .model import Model
 from ... import describe
 from ..util import copy_array

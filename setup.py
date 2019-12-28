@@ -34,6 +34,7 @@ PACKAGES = [
     "thinc.tests.linear",
     "thinc.linear",
     "thinc.neural",
+    "thinc.backends",
     "thinc.extra",
     "thinc.neural._classes",
     "thinc.extra._vendorized",
@@ -41,7 +42,6 @@ PACKAGES = [
 
 
 MOD_NAMES = [
-    "thinc.linalg",
     "thinc.structs",
     "thinc.typedefs",
     "thinc.linear.avgtron",
@@ -50,7 +50,8 @@ MOD_NAMES = [
     "thinc.linear.sparse",
     "thinc.linear.linear",
     "thinc.neural.optimizers",
-    "thinc.neural.ops",
+    "thinc.backends.linalg",
+    "thinc.backends.numpy_ops",
     "thinc.extra.eg",
     "thinc.extra.mb",
     "thinc.extra.search",

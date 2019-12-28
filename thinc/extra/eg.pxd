@@ -8,7 +8,7 @@ from preshed.maps cimport map_get as Map_get
 
 from ..structs cimport ExampleC, FeatureC, MapC
 from ..typedefs cimport feat_t, weight_t, atom_t
-from ..linalg cimport Vec, VecVec
+from ..backends.linalg cimport Vec, VecVec
 
 
 cdef class Example:

@@ -4,7 +4,7 @@ import pytest
 import threading
 import time
 from thinc.neural._classes import model as base
-from thinc.neural.ops import NumpyOps
+from thinc.backends import NumpyOps
 
 
 @pytest.fixture

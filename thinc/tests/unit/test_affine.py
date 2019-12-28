@@ -6,7 +6,7 @@ from numpy.testing import assert_allclose
 from thinc.wire import chain
 from thinc.neural._classes.affine import Affine
 from thinc.neural._classes.dropout import Dropout
-from thinc.neural.ops import NumpyOps
+from thinc.backends import NumpyOps
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
