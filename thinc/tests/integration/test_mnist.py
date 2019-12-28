@@ -5,12 +5,12 @@ from thinc.neural._classes.maxout import Maxout
 from thinc.backends import NumpyOps
 from thinc.api import clone, chain
 from thinc.neural.util import to_categorical
-from thinc.extra import datasets
+import ml_datasets
 
 
 @pytest.fixture(scope="module")
 def mnist():
-    train_data, dev_data, _ = datasets.mnist()
+    train_data, dev_data, _ = ml_datasets.mnist()
     train_X, train_y = NumpyOps().unzip(train_data)
     dev_X, dev_y = NumpyOps().unzip(dev_data)
     dev_y = to_categorical(dev_y, nb_classes=10)

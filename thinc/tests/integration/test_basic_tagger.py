@@ -4,12 +4,12 @@ from thinc.neural._classes.embed import Embed
 from thinc.neural._classes.convolution import ExtractWindow
 from thinc.api import chain, with_flatten
 from thinc.loss import categorical_crossentropy
-from thinc.extra import datasets
+import ml_datasets
 
 
 @pytest.fixture(scope="module")
 def ancora():
-    train_data, check_data, nr_class = datasets.ancora_pos_tags()
+    train_data, check_data, nr_class = ml_datasets.ancora_pos_tags()
     train_X, train_y = zip(*train_data)
     dev_X, dev_y = zip(*check_data)
     return (train_X[:100], train_y[:100]), (dev_X, dev_y)
