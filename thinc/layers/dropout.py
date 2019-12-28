@@ -1,7 +1,9 @@
-from .base import Model
+from typing import Tuple, Callable
+
+from .base import Model, Array
 
 
-def forward(model, X):
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if not is_enabled:
