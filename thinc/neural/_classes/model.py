@@ -113,6 +113,8 @@ class Model(object):
         else:
             param_info = self._params[name]
             shape = param_info.get_shape(self)
+            if any(dim is None for dim in shape):
+                raise ValueError(f"Dimensions unset!: {shape}")
             data = self._mem.add(key, shape)
             if param_info.init is not None:
                 param_info.init(data, self.ops)
