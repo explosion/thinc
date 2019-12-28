@@ -1,5 +1,5 @@
 import numpy
-from thinc.linear.linear import LinearModel
+from thinc.neural._classes.sparse_linear import LinearModel
 
 
 def test_init():
