@@ -8,8 +8,9 @@ from murmurhash.mrmr cimport real_hash64 as hash64
 from .typedefs cimport len_t, idx_t, atom_t, weight_t
 from .linalg cimport VecVec
 
-
-include "compile_time_constants.pxi"
+DEF LINE_SIZE = 7
+DEF MIN_ABS_FEAT_VAL = 0.0
+DEF MAX_TEMPLATE_LEN = 10
 
 ctypedef vector[weight_t] vector_weight_t
 
