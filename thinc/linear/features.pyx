@@ -5,7 +5,9 @@ from murmurhash.mrmr cimport hash64
 
 from ..extra.eg cimport Example
 
-include "../compile_time_constants.pxi"
+DEF LINE_SIZE = 7
+DEF MIN_ABS_FEAT_VAL = 0.0
+DEF MAX_TEMPLATE_LEN = 10
 
 
 cdef class ConjunctionExtracter:
