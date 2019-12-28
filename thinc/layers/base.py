@@ -244,7 +244,7 @@ class Model:
     def predict(self, X):
         return self._func(self, X, is_train=False)[0]
 
-    def finish_update(self, optimizer):
+    def finish_update(self, optimizer: Optimizer) -> None:
         """Update parameters with current gradients.
         
         optimizer (Callable[array, array, key=None]):
