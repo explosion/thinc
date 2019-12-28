@@ -2,14 +2,14 @@ import numpy
 import contextlib
 import srsly
 import threading
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable
+from typing import Tuple, Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
-from .. import util
-from ...backends import Ops, NumpyOps, CupyOps
-from ...neural.optimizers import Optimizer  # noqa
-from ..mem import Memory
-from ..util import get_ops, copy_array
+from ..neural import util
+from ..backends import Ops, NumpyOps, CupyOps
+from ..neural.optimizers import Optimizer  # noqa
+from ..neural.mem import Memory
+from ..neural.util import get_ops, copy_array
 
 
 # TODO: Better way to handle the type declarations here?
@@ -28,11 +28,12 @@ def create_thread_local():
 class Model:
     """Base class for Thinc models and layers."""
 
-    id: int = 0
+    global_id: int = 0
     _thread_local = create_thread_local()
 
     name: str
     ops: Ops
+    id: int
     _func: Callable
     _init: Callable
     _mem: Memory
@@ -46,6 +47,7 @@ class Model:
     # an unexpected variable.
     __slots__ = [
         "name",
+        "id",
         "ops",
         "_func",
         "_init",
@@ -78,16 +80,18 @@ class Model:
         self._dims = dict(dims)
         self._attrs = dict(attrs)
         self._layers = list(layers)
-        self.id = self.__class__.id
-        self.__class__.id += 1
+        self.__class__.global_id += 1
+        self.id = self.__class__.global_id
         self._params = {}
         self._grads = {}
         for name, value in params.items():
             self._params[name] = None
-            self.set_param(name, value)
+            if value is not None:
+                self.set_param(name, value)
         for name, value in grads.items():
             self._grads[name] = None
-            self.set_grad(name, value)
+            if value is not None:
+                self.set_grad(name, value)
 
     @classmethod
     @contextlib.contextmanager
@@ -217,15 +221,12 @@ class Model:
     def set_attr(self, name: str, value: Any) -> None:
         self._attrs[name] = value
 
-    def set_id(self):
-        """Update the model's ID, and also update the ID recursively for children."""
-        Model.id += 1
-        self.id = Model.id
-        for layer in self._layers:
-            layer.set_id()
-
     def __call__(self, X, is_train=False):
         return self._func(self, X, is_train=is_train)
+
+    def initialize(self, X=None, Y=None):
+        if self._init is not None:
+            self._init(self, X=X, Y=Y)
 
     def begin_update(self, X):
         """Run the model over a batch of data, returning the output and a callback
