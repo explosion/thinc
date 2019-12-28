@@ -4,7 +4,7 @@ import srsly
 import threading
 
 from .. import util
-from ..ops import NumpyOps, CupyOps
+from ...backends import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array
 
