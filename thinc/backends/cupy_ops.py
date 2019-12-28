@@ -10,7 +10,7 @@ except ImportError:
 from .base import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
-from ..util import copy_array, get_array_module
+from ..neural.util import copy_array, get_array_module
 
 
 class CupyOps(Ops):
@@ -46,7 +46,7 @@ class CupyOps(Ops):
     def maxout(self, X):
         return _custom_kernels.maxout(X)
 
-    def backprop_maxout(self, dY, which, int P):
+    def backprop_maxout(self, dY, which, P):
         return _custom_kernels.backprop_maxout(dY, which, P)
 
     def relu(self, X, inplace=False):
@@ -74,14 +74,14 @@ class CupyOps(Ops):
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
-    def seq2col(self, seq, int nW):
+    def seq2col(self, seq, nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
         return _custom_kernels.seq2col(seq, nW)
 
-    def backprop_seq2col(self, dY, int nW):
+    def backprop_seq2col(self, dY, nW):
         return _custom_kernels.backprop_seq2col(dY, nW)
 
     def mean_pool(self, X, lengths):
@@ -102,9 +102,7 @@ class CupyOps(Ops):
     def backprop_sum_pool(self, d_sums, lengths):
         return _custom_kernels.backprop_sum_pool(d_sums, lengths)
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
-    def hash(self, ids, uint64_t seed):
+    def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, out, ids, inputs):

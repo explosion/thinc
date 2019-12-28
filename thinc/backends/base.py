@@ -1,4 +1,9 @@
-class Ops(object):
+import numpy
+from ..neural.util import copy_array
+from ..neural.util import get_array_module
+
+
+class Ops:
     device = 'cpu'
     xp = None
 
@@ -6,15 +11,15 @@ class Ops(object):
         if xp is not None:
             self.xp = xp
 
-    def seq2col(self, seq, int nW):
+    def seq2col(self, seq, nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         '''
         # This is a test implementation that only supports nW=1
         assert nW == 1
-        cdef int B = seq.shape[0]
-        cdef int I = seq.shape[1]
+        B = seq.shape[0]
+        I = seq.shape[1]
         cols = self.allocate((B, (nW*2+1), I))
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
@@ -22,12 +27,12 @@ class Ops(object):
         cols[:-nW, nW+1:] = seq[nW:].reshape((-1, nW, I))
         return cols.reshape((B, I * (2*nW+1)))
 
-    def backprop_seq2col(self, dY, int nW):
+    def backprop_seq2col(self, dY, nW):
         # This is a test implementation that only supports nW=1
         assert nW == 1
-        cdef int nF = nW*2+1
-        cdef int B = dY.shape[0]
-        cdef int I = dY.shape[1] / nF
+        nF = nW*2+1
+        B = dY.shape[0]
+        I = dY.shape[1] / nF
         # Having trouble getting the kernel to work...
         dX = self.allocate((B, I))
         dY = dY.reshape((B, nF, I))
@@ -163,8 +168,6 @@ class Ops(object):
             return unpadded
         return arr, batch_size_at_t, unpad
 
-    @cython.boundscheck(False)
-    @cython.wraparound(False)
     def get_dropout_mask(self, shape, drop):
         if drop is None or drop <= 0:
             return None
@@ -397,7 +400,7 @@ class Ops(object):
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
-        cdef weight_t decay = (1.0 + t) / (10.0 + t)
+        decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
             decay = max_decay
         ema -= (1-decay) * (ema - weights)
