@@ -192,8 +192,7 @@ class Model:
         else:
             grad = self._mem.add_gradient(key, param_key)
         grad += value
-        if grad_name not in self._grads:
-            self._grads[grad_name] = True
+        self._grads[grad_name] = True
 
     def get_grad(self, param_name: str) -> Optional[Array]:
         """Get a gradient from the model."""
