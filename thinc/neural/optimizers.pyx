@@ -12,7 +12,7 @@ from collections import defaultdict
 import numpy
 
 from ..typedefs cimport weight_t
-from .ops import NumpyOps, CupyOps, add_gradient_noise
+from ..backends import NumpyOps, CupyOps
 from .util import get_array_module
 from .._registry import registry
 
@@ -131,7 +131,7 @@ class Optimizer(object):
         return registry.make_from_config(config)
 
     def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, 
-                 max_grad_norm=10., gradient_noise=0.0, nesterov=True,
+                 max_grad_norm=10., nesterov=True,
                  L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
                  use_averages=True, use_radam=False, use_lars=False, schedules=None, **_):
         self.ops = ops
@@ -152,7 +152,6 @@ class Optimizer(object):
         self.alpha = lr
         self.b1 = beta1
         self.b2 = beta2
-        self.gradient_noise = gradient_noise
         self.eps = eps
         self.L2 = L2
         self.nesterov = nesterov
@@ -219,8 +218,6 @@ class Optimizer(object):
             gradient += self.L2 * weights
         if self.max_grad_norm:
             self.ops.clip_gradient(gradient, self.max_grad_norm)
-        if self.gradient_noise:
-            add_gradient_noise(gradient, self.gradient_noise, nr_upd)
         if self.use_radam:
             self._radam2(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and self.b2 > 0.:
