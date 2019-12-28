@@ -17,7 +17,7 @@ def forward(model, X):
         return Y, wrap_backprop(lambda dY: dY)
 
 
-def Dropout(rate: float=0.0)-> Model:
+def Dropout(rate: float = 0.0) -> Model:
     return Model(
         "dropout",
         forward,
