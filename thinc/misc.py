@@ -5,6 +5,7 @@ from .neural._classes.resnet import Residual  # noqa: F401
 from .neural._classes.feature_extracter import FeatureExtracter  # noqa: F401
 from .neural._classes.function_layer import FunctionLayer  # noqa: F401
 from .neural._classes.feed_forward import FeedForward  # noqa: F401
+from .neural._classes.dropout import Dropout
 from ._registry import registry
 
 
