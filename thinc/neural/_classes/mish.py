@@ -43,4 +43,4 @@ class Mish(Model):
             dX = self.ops.gemm(dY1, self.W)
             return dX
 
-        return Y3, finish_update
+        return Y2, finish_update

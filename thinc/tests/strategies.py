@@ -1,7 +1,7 @@
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
-from thinc.neural.ops import NumpyOps
+from thinc.backends import NumpyOps
 from thinc.v2v import Affine
 
 

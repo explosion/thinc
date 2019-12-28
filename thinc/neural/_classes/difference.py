@@ -15,15 +15,13 @@ def inverse(total):
 
 def Siamese(layer, similarity):
     def begin_update(inputs):
-        ops = layer.ops
-
         input1, input2 = zip(*inputs)
         vec1, bp_vec1 = layer.begin_update(input1)
         vec2, bp_vec2 = layer.begin_update(input2)
         output, bp_output = similarity.begin_update((vec1, vec2))
 
         def finish_update(d_output):
-            d_vec1, d_vec2 = bp_output(d_output, sgd)
+            d_vec1, d_vec2 = bp_output(d_output)
             d_input1 = bp_vec1(d_vec1)
             d_input2 = bp_vec2(d_vec2)
             return (d_input1, d_input2)

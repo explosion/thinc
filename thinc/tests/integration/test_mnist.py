@@ -2,7 +2,7 @@ import pytest
 from thinc.v2v import Model, ReLu, Softmax
 from thinc.neural._classes.feed_forward import FeedForward
 from thinc.neural._classes.maxout import Maxout
-from thinc.neural.ops import NumpyOps
+from thinc.backends import NumpyOps
 from thinc.api import clone, chain
 from thinc.neural.util import to_categorical
 from thinc.extra import datasets

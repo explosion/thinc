@@ -4,7 +4,7 @@ import srsly
 import threading
 
 from .. import util
-from ..ops import NumpyOps, CupyOps
+from ...backends import NumpyOps, CupyOps
 from ..mem import Memory
 from ..util import get_ops, copy_array
 
@@ -85,6 +85,9 @@ class Model(object):
     def add_layer(self, layer):
         """Add a child layer to the model."""
         self._layers.append(layer)
+    
+    def dim_is_unset(self, name):
+        return self.has_dim(name) and self.get_dim(name) is None
 
     def has_dim(self, name):
         """Check whether the model has a dimension of a given name."""
@@ -110,6 +113,8 @@ class Model(object):
         else:
             param_info = self._params[name]
             shape = param_info.get_shape(self)
+            if any(dim is None for dim in shape):
+                raise ValueError(f"Dimensions unset!: {shape}")
             data = self._mem.add(key, shape)
             if param_info.init is not None:
                 param_info.init(data, self.ops)
@@ -160,9 +165,9 @@ class Model(object):
 
     def infer_dimensions(self, X=None, Y=None):
         """Infer missing dimensions from example data."""
-        if X is not None and self.get_dim("nI") is None:
+        if X is not None and self.dim_is_unset("nI"):
             self.set_dim("nI", util.get_width(X))
-        if Y is not None and self.get_dim("nO") is None:
+        if Y is not None and self.dim_is_unset("nO"):
             self.set_dim("nO", util.get_width(Y))
 
     def begin_update(self, X):

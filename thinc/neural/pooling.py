@@ -1,7 +1,7 @@
 import numpy
 
 from ..api import layerize
-from .ops import NumpyOps, CupyOps
+from ..backends import NumpyOps, CupyOps
 from ._classes.model import Model
 
 
