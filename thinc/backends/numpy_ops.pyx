@@ -14,7 +14,6 @@ from collections.abc import Sized
 cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
-from ..typedefs cimport weight_t
 from ..util import copy_array, get_array_module
 from .linalg cimport VecVec, Vec
 from .base import Ops
@@ -22,6 +21,9 @@ from .base import Ops
 cimport blis
 cimport blis.cy
 import blis.py
+
+
+ctypedef float weight_t
 
 
 cdef extern from "math.h":

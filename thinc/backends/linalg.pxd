@@ -8,6 +8,7 @@ from cymem.cymem cimport Pool
 
 
 from ..typedefs cimport weight_t
+ctypedef float weight_t
 
 DEF USE_BLAS = False
 DEF EPS = 1e-5
