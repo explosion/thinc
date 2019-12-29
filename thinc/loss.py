@@ -16,7 +16,7 @@ def categorical_crossentropy(scores: Array, labels: Array) -> Tuple[Array, float
 
 def L1_distance(
     vec1: Array, vec2: Array, labels: Array, margin: float = 0.2
-) -> Tuple[Array, float]:
+) -> Tuple[Array, Array, float]:
     xp = get_array_module(vec1)
     dist = xp.abs(vec1 - vec2).sum(axis=1)
     loss = (dist > margin) - labels
