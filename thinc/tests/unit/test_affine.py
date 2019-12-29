@@ -3,10 +3,10 @@ from mock import MagicMock, Mock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
-from thinc.wire import chain
-from thinc.neural._classes.dropout import Dropout
+from thinc.layers.chain import chain
+from thinc.layers.dropout import Dropout
 from thinc.backends import NumpyOps
-from thinc.layers.affine import make_Affine
+from thinc.layers.affine import Affine
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -14,7 +14,7 @@ from ..util import get_model, get_shape
 
 @pytest.fixture
 def model():
-    model = make_Affine()
+    model = Affine()
     return model
 
 
@@ -26,7 +26,7 @@ def test_Affine_dimensions_on_data():
     X = MagicMock(shape=(5, 10))
     y = MagicMock(shape=(8,))
     y.max = MagicMock()
-    model = make_Affine()
+    model = Affine()
     model.initialize(X, y)
     assert model.get_dim("nI") is not None
     y.max.assert_called_with()
@@ -85,7 +85,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 def test_predict_small(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = make_Affine(nr_out, nr_in)
+    model = Affine(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 
@@ -106,7 +106,7 @@ def test_predict_small(W_b_input):
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = make_Affine(nr_out, nr_in)
+    model = Affine(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 
