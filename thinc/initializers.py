@@ -1,9 +1,9 @@
-from .neural.util import get_array_module, copy_array
+from .util import get_array_module, copy_array
 
 
 def xavier_uniform_init(W, inplace=False):
     xp = get_array_module(W)
-    scale = xp.sqrt(6. / (W.shape[0] + W.shape[1]))
+    scale = xp.sqrt(6.0 / (W.shape[0] + W.shape[1]))
     if inplace:
         copy_array(W, xp.random.uniform(-scale, scale, W.shape))
         return W
@@ -13,7 +13,7 @@ def xavier_uniform_init(W, inplace=False):
 
 def zero_init(data, inplace=False):
     if inplace:
-        data.fill(0.)
+        data.fill(0.0)
         return data
     else:
         xp = get_array_module(data)

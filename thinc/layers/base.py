@@ -7,9 +7,9 @@ from pathlib import Path
 
 from ..neural import util
 from ..backends import Ops, NumpyOps, CupyOps
-from ..neural.optimizers import Optimizer  # noqa
+from ..neural.optimizers import Optimizer  # noqa: F401
 from ..neural.mem import Memory
-from ..neural.util import get_ops, copy_array
+from ..util import get_ops, copy_array
 
 
 # TODO: Better way to handle the type declarations here?

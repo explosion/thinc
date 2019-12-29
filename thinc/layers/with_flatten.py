@@ -1,21 +1,25 @@
-from .base import Model
+from typing import Tuple, Callable, List, Optional
+
+from .base import Model, Array
 
 
-def forward(model, seqs_in, is_train):
+def forward(
+    model: Model, seqs_in: List[Array], is_train: bool
+) -> Tuple[Array, Callable]:
     layer = model._layers[0]
     pad = model.get_attr("pad")
 
     lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
     X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad))
 
-    def backprop_with_flatten(d_seqs_out):
+    def backprop_with_flatten(d_seqs_out: List[Array]) -> List[Array]:
         d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad))
         return layer.ops.unflatten(d_X, lengths, pad=pad)
 
     return layer.ops.unflatten(X, lengths, pad=pad), backprop_with_flatten
 
 
-def init(model, X=None, Y=None):
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     layer = model._layers[0]
     pad = model.get_attr("pad")
     if X is not None:
@@ -27,7 +31,7 @@ def init(model, X=None, Y=None):
     model.set_dim("nO", layer.get_dim("nO"))
 
 
-def with_flatten(layer, pad: int = 0):
+def WithFlatten(layer: Model, pad: int = 0) -> Model:
     return Model(
         f"with_flatten-{layer.name}",
         forward,

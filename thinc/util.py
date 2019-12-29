@@ -168,7 +168,9 @@ def get_width(X, dim=-1):
         else:
             return get_width(X[0], dim=dim)
     else:
-        raise ValueError("Cannot get width of object: has neither shape nor __getitem__.")
+        raise ValueError(
+            "Cannot get width of object: has neither shape nor __getitem__."
+        )
 
 
 def run_child_hooks(model, X, y):
