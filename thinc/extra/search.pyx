@@ -9,7 +9,6 @@ import math
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-from ..typedefs cimport hash_t
 
 
 cdef class Beam:
