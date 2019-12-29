@@ -8,8 +8,11 @@ from ..util import get_width
 def Mish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
+    *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
+    dropout: Optional[float],
+    normalize: bool=False,
 ) -> Model:
     """Dense layer with mish activation.
     https://arxiv.org/pdf/1908.08681.pdf
@@ -23,6 +26,10 @@ def Mish(
         layers=[],
         attrs={},
     )
+    if normalize is not None:
+        model = chain(model, LayerNorm())
+    if dropout is not None:
+        model = chain(model, Dropout(dropout))
     if nO is not None and nI is not None:
         model.initialize()
     return model
