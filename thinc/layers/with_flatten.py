@@ -3,7 +3,7 @@ from typing import Tuple, Callable, List, Optional
 from .base import Model, Array
 
 
-def WithFlatten(layer: Model, pad: int = 0) -> Model:
+def with_flatten(layer: Model, pad: int = 0) -> Model:
     return Model(
         f"with_flatten-{layer.name}",
         forward,
@@ -17,9 +17,8 @@ def WithFlatten(layer: Model, pad: int = 0) -> Model:
 def forward(
     model: Model, seqs_in: List[Array], is_train: bool
 ) -> Tuple[Array, Callable]:
-    layer = model._layers[0]
+    layer = model.layers[0]
     pad = model.get_attr("pad")
-
     lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
     X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad))
 
@@ -31,7 +30,7 @@ def forward(
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    layer = model._layers[0]
+    layer = model.layers[0]
     pad = model.get_attr("pad")
     if X is not None:
         Xflat = layer.ops.flatten(X, pad=pad)

@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, List, Sequence
 from .base import Model, Array
 
 
-def ForEach(layer: Model) -> Model:
+def foreach(layer: Model) -> Model:
     """Map a layer across list items"""
     return Model(
         f"foreach-{layer.name}",
@@ -18,15 +18,16 @@ def ForEach(layer: Model) -> Model:
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     Xflat = [X[0]] if X else None
     Yflat = [Y[0]] if Y else None
-    model._layers[0].initialize(X=Xflat, Y=Yflat)
-    model.set_dim("nO", model._layers[0].get_dim("nO"))
-    model.set_dim("nI", model._layers[0].get_dim("nI"))
+    layer = model.layers[0]
+    layer.initialize(X=Xflat, Y=Yflat)
+    model.set_dim("nO", layer.get_dim("nO"))
+    model.set_dim("nI", layer.get_dim("nI"))
 
 
 def forward(
     model: Model, docs: List[Sequence], is_train: bool
 ) -> Tuple[Array, Callable]:
-    layer = model._layers[0]
+    layer = model.layers[0]
     sents = []
     lengths = []
     for doc in docs:

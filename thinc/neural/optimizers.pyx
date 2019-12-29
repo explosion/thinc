@@ -13,7 +13,7 @@ import numpy
 
 from ..typedefs cimport weight_t
 from ..backends import NumpyOps, CupyOps
-from .util import get_array_module
+from ..util import get_array_module
 from .._registry import registry
 
 
@@ -94,7 +94,7 @@ def create_Adam(
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         use_averages=True,
-        decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0, 
+        decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0,
         nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
         use_radam=False, use_lars=False
     )
@@ -118,9 +118,9 @@ def create_SGD(learn_rate,
 class Optimizer(object):
     '''Do various flavours of stochastic gradient descent, with first and
     second order momentum.
-    
+
     Examples
-    
+
     * beta1=0., beta2=0.: "vanilla" SGD
     * beta1=0.9, beta2=0.: "Classic momentum"
     * beta1=0.0, beta2=0.2: RMS prop
@@ -130,7 +130,7 @@ class Optimizer(object):
     def from_config(cls, config):
         return registry.make_from_config(config)
 
-    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08, 
+    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08,
                  max_grad_norm=10., nesterov=True,
                  L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
                  use_averages=True, use_radam=False, use_lars=False, schedules=None, **_):
@@ -174,7 +174,7 @@ class Optimizer(object):
         for params in (self.mom1, self.mom2, self.averages):
             for key, value in params.items():
                 params[key] = self.ops.xp.asarray(value, dtype=value.dtype)
-    
+
     def to_cpu(self):
         self.ops = NumpyOps()
         for params in (self.mom1, self.mom2, self.averages):
@@ -249,7 +249,7 @@ class Optimizer(object):
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
             self.mom2[key] = self.ops.allocate(weights.size)
- 
+
         beta1 = self.b1
         beta2 = self.b2
         eps = self.eps
@@ -302,7 +302,7 @@ class Optimizer(object):
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
             self.mom2[key] = self.ops.allocate(weights.size)
- 
+
         # While we port from PyTorch
         p_data_fp32 = weights
         state = {
@@ -315,7 +315,7 @@ class Optimizer(object):
             "betas": [self.b1, self.b2],
             "eps": self.eps,
             "weight_decay": 0.0,
-            "buffer": self._radam_buffer 
+            "buffer": self._radam_buffer
         }
         degenerated_to_sgd = True
 
@@ -368,7 +368,7 @@ class Optimizer(object):
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
- 
+
 
     def _nesterov(self, xp, weights, gradient, lr_scale, key):
         # http://cs231n.github.io/neural-networks-3/

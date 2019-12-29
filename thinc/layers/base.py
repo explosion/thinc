@@ -114,6 +114,10 @@ class Model:
             if value is not None:
                 self.set_grad(name, value)
 
+    @property
+    def layers(self):
+        return self._layers
+
     @classmethod
     @contextlib.contextmanager
     def define_operators(cls, operators):
@@ -164,9 +168,6 @@ class Model:
     def add_layer(self, layer: Model) -> None:
         """Add a child layer to the model."""
         self._layers.append(layer)
-
-    def get_layer(self, n: int) -> Model:
-        return self._layers[n]
 
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None
