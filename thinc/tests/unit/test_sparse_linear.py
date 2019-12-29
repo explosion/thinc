@@ -1,9 +1,8 @@
 import numpy
 import pytest
-from thinc.neural._classes.sparse_linear import LinearModel
-from thinc.neural.optimizers import SGD
+from thinc.optimizers import SGD
 from thinc.backends import NumpyOps
-from thinc.neural.util import to_categorical
+from thinc.util import to_categorical
 
 
 @pytest.fixture
@@ -18,11 +17,12 @@ def instances():
 
 @pytest.fixture
 def sgd():
-    return SGD(NumpyOps(), 0.001)
+    return SGD(0.001, ops=NumpyOps())
 
 
 @pytest.mark.xfail
 def test_basic(instances, sgd):
+    from thinc.layers.sparse_linear import LinearModel
     X, y = instances
     nr_class = 3
     model = LinearModel(nr_class)

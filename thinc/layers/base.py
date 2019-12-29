@@ -89,7 +89,7 @@ class Model:
         params: Dict[str, Optional[Array]] = {},
         grads: Dict[str, Optional[Array]] = {},
         layers: List["Model"] = [],
-        attrs: Dict[str, object],
+        attrs: Dict[str, object] = {},
         ops: Optional[Ops] = None,
     ):
         self.name = name
@@ -442,13 +442,12 @@ class Model:
                 for dim, value in weights[i][b"dims"].items():
                     if isinstance(dim, bytes):
                         dim = dim.decode("utf8")
-                    setattr(layer, dim, value)
+                    layer.set_dim(dim, value)
                 for param in weights[i][b"params"]:
                     name = param[b"name"]
                     if isinstance(name, bytes):
                         name = name.decode("utf8")
-                    dest = getattr(layer, name)
-                    copy_array(dst=dest, src=param[b"value"])
+                    layer.set_param(name, param[b"value"])
                 i += 1
             if hasattr(layer, "_layers"):
                 queue.extend(layer._layers)

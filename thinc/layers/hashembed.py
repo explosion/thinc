@@ -7,15 +7,17 @@ from ..util import get_width
 
 
 def HashEmbed(
-    nO: Array,
-    nV: Array,
+    nO: int,
+    nV: int,
     seed: Optional[int] = None,
     column: int = 0,
     initializer: Callable = uniform_init,
 ) -> Model:
     model = Model(
+        "hashembed",
         forward,
         init=create_init(initializer),
+        params={"vectors": None},
         dims={"nO": nO, "nV": nV},
         attrs={"seed": seed, "column": column},
     )
@@ -51,10 +53,8 @@ def create_init(initializer: Callable) -> Callable:
     def init_hash_embed(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> Model:
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        vectors = model.get_param("vectors")
-        vectors = initializer(vectors, inplace=False)
+        vectors = model.ops.allocate((model.get_dim("nV"), model.get_dim("nO")))
+        initializer(vectors, inplace=True)
         model.set_param("vectors", vectors)
         return model
 

@@ -1,7 +1,7 @@
-from thinc.layers.affine import make_Affine
+from thinc.layers.affine import Affine
 
 
-def get_model(W_b_input, cls=make_Affine):
+def get_model(W_b_input, cls=Affine):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
     model = cls(nr_out, nr_in)

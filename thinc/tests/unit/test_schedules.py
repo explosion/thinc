@@ -1,4 +1,4 @@
-from thinc.rates import decaying, compounding, annealing, slanted_triangular
+from thinc.schedules import decaying, compounding, slanted_triangular
 
 
 def test_decaying_rate():
@@ -20,17 +20,6 @@ def test_compounding_rate():
     rate3 = next(rates)
     assert rate3 > rate2 > rate1 > rate0
     assert (rate3 - rate2) > (rate2 - rate1) > (rate1 - rate0)
-
-
-def test_annealing_rate():
-    rates = annealing(0.001, 1e-4, 1000)
-    rate0 = next(rates)
-    rate1 = next(rates)
-    rate2 = next(rates)
-    rate3 = next(rates)
-    assert rate0 == 0.001
-    assert rate3 < rate2 < rate1 < rate0
-    assert (rate2 - rate3) < (rate1 - rate2)
 
 
 def test_slanted_triangular_rate():
