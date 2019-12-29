@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional
 
 from .base import Model, Array
 from ..initializers import xavier_uniform_init, zero_init
-from ..neural import util
+from ..util import get_width
 
 
 def Affine(
@@ -44,9 +44,9 @@ def create_init(init_W: Callable, init_b: Callable) -> Callable:
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if X is not None:
-            model.set_dim("nI", util.get_width(X))
+            model.set_dim("nI", get_width(X))
         if Y is not None:
-            model.set_dim("nO", util.get_width(Y))
+            model.set_dim("nO", get_width(Y))
         W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
         b = model.ops.allocate((model.get_dim("nO"),))
         init_W(W, inplace=True)

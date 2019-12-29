@@ -1,6 +1,6 @@
-from ... import describe
 from .model import Model
-from .. import util
+from ...util import run_child_hooks
+from ... import describe
 
 
 def _init_to_one(W, ops):
@@ -28,7 +28,7 @@ class LayerNorm(Model):
         elif getattr(child, "nO", None):
             self.nO = child.nO
         self.nr_upd = 0
-        self.on_data_hooks.append(util.run_child_hooks)
+        self.on_data_hooks.append(run_child_hooks)
 
     def predict(self, X):
         if X.size == 0:

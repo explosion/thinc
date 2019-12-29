@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, Optional
 
 from .base import Model, Array
-from ..neural import util
+from ..util import get_width
 
 
 def ReLu() -> Model:
@@ -27,10 +27,10 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     if X is not None:
-        X_width = util.get_width(X)
+        X_width = get_width(X)
         model.set_dim("nI", X_width)
         model.set_dim("nO", X_width)
     elif Y is not None:
-        Y_width = util.get_width(Y)
+        Y_width = get_width(Y)
         model.set_dim("nI", Y_width)
         model.set_dim("nO", Y_width)
