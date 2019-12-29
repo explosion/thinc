@@ -165,10 +165,6 @@ class Model:
     def __setstate__(self, state_data: bytes) -> None:
         self.__dict__ = srsly.pickle_loads(state_data)
 
-    def add_layer(self, layer: Model) -> None:
-        """Add a child layer to the model."""
-        self._layers.append(layer)
-
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None
 
