@@ -1,5 +1,5 @@
 import pytest
-from thinc.neural.mem import Memory
+from thinc.mem import Memory
 from thinc.backends import NumpyOps
 
 
@@ -77,62 +77,3 @@ def test_get_gradient_absent_parameter(ops):
     params = Memory(ops, size=10)
     d_b = params.get("d_b")
     assert d_b is None
-
-
-# def test_merge_empty_others(ops):
-#    params = Memory(ops, size=10)
-#    assert params.allow_resize
-#    params.merge_params([])
-#    assert params.allow_resize
-#
-#
-# def test_merge_no_resize(ops):
-#    parent = Memory(ops, size=5)
-#    assert parent.allow_resize
-#    child = Memory(ops, size=2)
-#    w_parent = parent.add('W', (4,))
-#    w_child = child.add('W', (2,))
-#    child._mem[0, 0] = 10.0
-#    assert parent._i == 4
-#    assert child._i == 2
-#    parent.merge_params([child])
-#    assert not parent.allow_resize
-#    assert not child.allow_resize
-#    assert parent._i == 6
-#    assert child._i == 2
-#
-#
-# def test_merge_with_resize(ops):
-#    parent = Memory(ops, size=5)
-#    child = Memory(ops, size=5)
-#    w_parent = parent.add('W', (4,))
-#    w_parent[0] += 2.
-#    w_child = child.add('W', (3,))
-#    w_child[0] += 5.
-#    parent.merge_params([child])
-#    w_parent = parent.get('W')
-#    w_child = child.get('W')
-#    assert w_child[0] == 5
-#    assert w_parent[0] == 2
-#
-#
-# def test_resize_disallowed_after_merge(ops):
-#    parent = Memory(ops, size=5)
-#    child = Memory(ops, size=5)
-#    w_parent = parent.add('W', (4,))
-#    w_child = child.add('W', (3,))
-#    parent.merge_params([child])
-#    with pytest.raises(ValueError):
-#        child.add('b', (2,))
-#
-# def test_merge_disallowed_after_merge(ops):
-#    parent = Memory(ops, size=5)
-#    child = Memory(ops, size=5)
-#    parent.add('W', (4,))
-#    child.add('W', (3,))
-#    parent.merge_params([child])
-#    parent2 = Memory(ops, size=5)
-#    with pytest.raises(ValueError):
-#        parent2.merge_params([parent])
-#    with pytest.raises(ValueError):
-#        parent.replace_mem([parent2])
