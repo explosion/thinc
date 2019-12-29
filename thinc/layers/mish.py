@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array
+from .base import Model, Array, create_init
 from ..initializers import xavier_uniform_init, zero_init
 from ..util import get_width
 
@@ -17,7 +17,7 @@ def Mish(
     model = Model(
         "mish",
         forward,
-        init=create_init(init_W, init_b),
+        init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
         layers=[],
@@ -29,34 +29,16 @@ def Mish(
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
-    W = model.get_attr("W")
-    b = model.get_attr("b")
-    Y1 = model.ops.affine(W, b, X)
-    Y2 = model.ops.mish(Y1)
+    W = model.get_param("W")
+    b = model.get_param("b")
+    Y_pre_mish = model.ops.affine(W, b, X)
+    Y = model.ops.mish(Y_pre_mish)
 
-    def mish_backward(dY2: Array) -> Array:
-        dY1 = model.ops.backprop_mish(dY2, Y1)
-        model.inc_grad("W", model.ops.gemm(dY1, X, trans1=True))
-        model.inc_grad("b", dY1.sum(axis=0))
-        dX = model.ops.gemm(dY1, W)
+    def mish_backward(dY: Array) -> Array:
+        dY_pre_mish = model.ops.backprop_mish(dY, Y_pre_mish)
+        model.inc_grad("W", model.ops.gemm(dY_pre_mish, X, trans1=True))
+        model.inc_grad("b", dY_pre_mish.sum(axis=0))
+        dX = model.ops.gemm(dY_pre_mish, W)
         return dX
 
-    return Y2, mish_backward
-
-
-def create_init(init_W: Callable, init_b: Callable) -> Callable:
-    def do_mish_init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-    ) -> None:
-        if X is not None:
-            model.set_dim("nI", get_width(X))
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
-        b = model.ops.allocate((model.get_dim("nO"),))
-        init_W(W, inplace=True)
-        init_b(b, inplace=True)
-        model.set_param("W", W)
-        model.set_param("b", b)
-
-    return do_mish_init
+    return Y, mish_backward
