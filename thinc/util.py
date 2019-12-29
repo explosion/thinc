@@ -37,7 +37,7 @@ def is_numpy_array(arr: Array) -> bool:
 
 
 def get_ops(ops: Union[int, OpNames]) -> "thinc.backends.Ops":
-    from ..backends import NumpyOps, CupyOps
+    from .backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
         return NumpyOps
