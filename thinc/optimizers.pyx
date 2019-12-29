@@ -11,11 +11,11 @@ from typing import Sequence, Dict
 from collections import defaultdict
 import numpy
 
-from ..typedefs cimport weight_t
-from ..backends import NumpyOps, CupyOps
-from ..util import get_array_module
-from .._registry import registry
+from .backends import NumpyOps, CupyOps
+from .util import get_array_module
+from ._registry import registry
 
+ctypedef float weight_t
 
 SGD_DEFAULTS = {
     "L2": 1e-4,

@@ -6,10 +6,13 @@ from typing import Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
 from ..backends import Ops, NumpyOps, CupyOps
-from ..neural.optimizers import Optimizer  # noqa: F401
-from ..neural.mem import Memory
+from ..optimizers import Optimizer  # noqa: F401
+from ..mem import Memory
 from ..util import get_ops, copy_array, get_width
 from ..types import Array
+
+
+Model = "Model"
 
 
 def create_thread_local():
@@ -160,10 +163,6 @@ class Model:
 
     def __setstate__(self, state_data: bytes) -> None:
         self.__dict__ = srsly.pickle_loads(state_data)
-
-    def add_layer(self, layer: Model) -> None:
-        """Add a child layer to the model."""
-        self._layers.append(layer)
 
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None

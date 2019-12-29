@@ -31,17 +31,13 @@ PACKAGES = [
     "thinc.tests",
     "thinc.tests.unit",
     "thinc.tests.integration",
-    "thinc.neural",
     "thinc.backends",
     "thinc.extra",
-    "thinc.neural._classes",
 ]
 
 
 MOD_NAMES = [
-    "thinc.typedefs",
-    "thinc.neural._classes.sparse_linear",
-    "thinc.neural.optimizers",
+    "thinc.optimizers",
     "thinc.backends.linalg",
     "thinc.backends.numpy_ops",
     "thinc.extra.search",

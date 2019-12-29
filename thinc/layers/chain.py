@@ -2,6 +2,7 @@ from typing import Tuple, Callable, List, Optional
 
 from .base import Model
 from ..types import Array
+from ..util import get_width
 
 
 def chain(*layers: List[Model]) -> Model:
@@ -38,10 +39,15 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     if not model.layers:
         return
-    if Y is not None:
-        model.layers[-1].initialize(X=None, Y=Y)
-    for layer in model.layers:
+    # Try to set nO on each layer, where available.
+    nO = get_width(Y) if Y is not None else model.get_dim("nO")
+    for layer in reversed(model.layers):
+        if nO is not None and layer.dim_is_unset("nO"):
+            layer.set_dim("nO", nO)
+        nO = layer.get_dim("nI")
+    for layer in model.layers[:-1]:
         layer.initialize(X=X)
         X = layer.predict(X)
+    model.layers[-1].initialize(X=X, Y=Y)
     model.set_dim("nI", model.layers[0].get_dim("nI"))
     model.set_dim("nO", model.layers[-1].get_dim("nO"))

@@ -6,9 +6,9 @@ from libcpp.pair cimport pair
 from libcpp.queue cimport priority_queue
 from libcpp.vector cimport vector
 
-ctypedef hash_t uint64_t
-ctypedef class_t uint64_t
-ctypedef weight_t float
+ctypedef uint64_t hash_t
+ctypedef uint64_t class_t
+ctypedef float weight_t
 
 
 ctypedef pair[weight_t, size_t] Entry
