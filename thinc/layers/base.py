@@ -24,6 +24,28 @@ def create_thread_local():
     return obj
 
 
+def create_init(initializers: Dict[str, Callable]) -> Callable:
+    """Create an init function, given a dictionary of parameter initializers."""
+
+    def do_init(
+        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+    ) -> None:
+        if X is not None:
+            model.set_dim("nI", get_width(X))
+        if Y is not None:
+            model.set_dim("nO", get_width(Y))
+        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
+        b = model.ops.allocate((model.get_dim("nO"),))
+        if "W" in initializers:
+            initializers["W"](W, inplace=True)
+        if "b" in initializers:
+            initializers("b", inplace=True)
+        model.set_param("W", W)
+        model.set_param("b", b)
+
+    return do_init
+
+
 class Model:
     """Base class for Thinc models and layers."""
 
