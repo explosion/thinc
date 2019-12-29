@@ -8,7 +8,7 @@ from pathlib import Path
 from ..backends import Ops, NumpyOps, CupyOps
 from ..optimizers import Optimizer  # noqa: F401
 from ..mem import Memory
-from ..util import get_ops, copy_array, ensure_path, get_width
+from ..util import get_ops, copy_array, get_width
 
 
 # TODO: Better way to handle the type declarations here?
@@ -171,7 +171,7 @@ class Model:
         """Check whether the model has a dimension of a given name."""
         return name in self._dims
 
-    def get_dim(self, name: int) -> Optional[int]:
+    def get_dim(self, name: str) -> Optional[int]:
         """Retrieve the value of a dimension of the given name, or None if unset."""
         return self._dims.get(name, None)
 
@@ -458,7 +458,7 @@ class Model:
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = ensure_path(path)
+        path = Path(path)
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -466,7 +466,7 @@ class Model:
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = ensure_path(path)
+        path = Path(path)
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
