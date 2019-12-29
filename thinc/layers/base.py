@@ -6,8 +6,8 @@ from typing import Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
 from ..backends import Ops, NumpyOps, CupyOps
-from ..neural.optimizers import Optimizer  # noqa: F401
-from ..neural.mem import Memory
+from ..optimizers import Optimizer  # noqa: F401
+from ..mem import Memory
 from ..util import get_ops, copy_array, ensure_path, get_width
 
 
