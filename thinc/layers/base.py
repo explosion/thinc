@@ -144,6 +144,9 @@ class Model:
         """Add a child layer to the model."""
         self._layers.append(layer)
 
+    def get_layer(self, n: int) -> Model:
+        return self._layers[n]
+
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None
 
