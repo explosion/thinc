@@ -1,8 +1,11 @@
 import pytest
-from thinc.v2v import Model, ReLu, Softmax
-from thinc.neural._classes.embed import Embed
-from thinc.neural._classes.convolution import ExtractWindow
-from thinc.api import chain, with_flatten
+from thinc.layers.base import Model
+from thinc.layers.relu import ReLu
+from thinc.layers.softmax import Softmax
+from thinc.layers.embed import Embed
+from thinc.layers.extractwindow import ExtractWindow
+from thinc.layers.chain import chain
+from thinc.layers.with_flatten import with_flatten
 from thinc.loss import categorical_crossentropy
 import ml_datasets
 
@@ -56,7 +59,7 @@ def create_model(request):
     return request.param
 
 
-@pytest.mark.slow
+@pytest.mark.xfail
 @pytest.mark.parametrize(
     ("depth", "width", "vector_width", "nb_epoch"), [(2, 32, 16, 5)]
 )
