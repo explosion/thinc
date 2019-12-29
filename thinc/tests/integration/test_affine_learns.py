@@ -2,8 +2,8 @@ import pytest
 import numpy as np
 import random
 from numpy.testing import assert_allclose
-from thinc.neural.optimizers import SGD
-from thinc.layers.affine import make_Affine as Affine
+from thinc.optimizers import SGD
+from thinc.layers.affine import Affine
 
 
 np.random.seed(2)
