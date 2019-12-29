@@ -3,10 +3,9 @@ import contextlib
 import srsly
 import threading
 
-from .. import util
 from ...backends import NumpyOps, CupyOps
 from ..mem import Memory
-from ..util import get_ops, copy_array
+from ...util import get_ops, copy_array, get_width, ensure_path
 
 
 class Model(object):
@@ -85,7 +84,7 @@ class Model(object):
     def add_layer(self, layer):
         """Add a child layer to the model."""
         self._layers.append(layer)
-    
+
     def dim_is_unset(self, name):
         return self.has_dim(name) and self.get_dim(name) is None
 
@@ -166,9 +165,9 @@ class Model(object):
     def infer_dimensions(self, X=None, Y=None):
         """Infer missing dimensions from example data."""
         if X is not None and self.dim_is_unset("nI"):
-            self.set_dim("nI", util.get_width(X))
+            self.set_dim("nI", get_width(X))
         if Y is not None and self.dim_is_unset("nO"):
-            self.set_dim("nO", util.get_width(Y))
+            self.set_dim("nO", get_width(Y))
 
     def begin_update(self, X):
         """Run the model over a batch of data, returning the output and a callback
@@ -186,7 +185,7 @@ class Model(object):
 
     def finish_update(self, optimizer):
         """Update parameters with current gradients.
-        
+
         optimizer (Callable[array, array, key=None]):
             The optimizer. The function is called with each parameter and
             gradient of the model.
@@ -213,16 +212,16 @@ class Model(object):
         for node in self.walk():
             if node.name == "dropout":
                 node.is_enabled = False
-    
+
     def enable_dropout(self):
         for node in self.walk():
             if node.name == "dropout":
                 node.is_enabled = True
- 
+
     def __call__(self, x):
         # I think we should remove this.
         return self.predict(x)
- 
+
     @contextlib.contextmanager
     def use_params(self, params):  # pragma: no cover
         """Context manager to temporarily set the model's parameters to specified
@@ -251,7 +250,7 @@ class Model(object):
                 next(context.gen)
             except StopIteration:
                 pass
-     
+
     def walk(self):
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
@@ -385,7 +384,7 @@ class Model(object):
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = util.ensure_path(path)
+        path = ensure_path(path)
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -393,7 +392,7 @@ class Model(object):
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = util.ensure_path(path)
+        path = ensure_path(path)
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)

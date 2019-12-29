@@ -5,14 +5,17 @@ from ..initializers import xavier_uniform_init, zero_init
 from ..util import get_width
 
 
-def Affine(
+def Mish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
 ) -> Model:
+    """Dense layer with mish activation.
+    https://arxiv.org/pdf/1908.08681.pdf
+    """
     model = Model(
-        "affine",
+        "mish",
         forward,
         init=create_init(init_W, init_b),
         dims={"nO": nO, "nI": nI},
@@ -26,21 +29,23 @@ def Affine(
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
-    W = model.get_param("W")
-    b = model.get_param("b")
-    Y = model.ops.gemm(X, W, trans2=True)
-    Y += b
+    W = model.get_attr("W")
+    b = model.get_attr("b")
+    Y1 = model.ops.affine(W, b, X)
+    Y2 = model.ops.mish(Y1)
 
-    def affine_backward(dY: Array) -> Array:
-        model.inc_grad("b", dY.sum(axis=0))
-        model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
-        return model.ops.gemm(dY, W)
+    def mish_backward(dY2: Array) -> Array:
+        dY1 = model.ops.backprop_mish(dY2, Y1)
+        model.inc_grad("W", model.ops.gemm(dY1, X, trans1=True))
+        model.inc_grad("b", dY1.sum(axis=0))
+        dX = model.ops.gemm(dY1, W)
+        return dX
 
-    return Y, affine_backward
+    return Y2, mish_backward
 
 
 def create_init(init_W: Callable, init_b: Callable) -> Callable:
-    def do_affine_init(
+    def do_mish_init(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if X is not None:
@@ -54,4 +59,4 @@ def create_init(init_W: Callable, init_b: Callable) -> Callable:
         model.set_param("W", W)
         model.set_param("b", b)
 
-    return do_affine_init
+    return do_mish_init

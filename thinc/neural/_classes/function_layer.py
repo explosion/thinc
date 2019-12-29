@@ -1,5 +1,5 @@
-from .. import util
 from .model import Model
+from ...util import run_child_hooks
 
 
 class FunctionLayer(Model):
@@ -85,7 +85,7 @@ class ConcatenationLayer(Model):
 
     def __init__(self, layers):
         Model.__init__(self, layers=layers)
-        self.on_data_hooks = [util.run_child_hooks]
+        self.on_data_hooks = [run_child_hooks]
 
     def infer_dimensions(self, X=None, Y=None):
         for layer in self._layers:
@@ -127,7 +127,7 @@ class AdditionLayer(Model):
     def __init__(self, *layers):
         Model.__init__(self)
         self._layers.extend(layers)
-        self.on_data_hooks.append(util.run_child_hooks)
+        self.on_data_hooks.append(run_child_hooks)
 
     def infer_dimensions(self, X=None, Y=None):
         for layer in self._layers:
