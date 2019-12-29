@@ -38,7 +38,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         if "W" in initializers:
             initializers["W"](W, inplace=True)
         if "b" in initializers:
-            initializers("b", inplace=True)
+            initializers["b"](b, inplace=True)
         model.set_param("W", W)
         model.set_param("b", b)
 
