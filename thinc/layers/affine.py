@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array
+from .base import Model
+from ..types import Array
 from ..initializers import xavier_uniform_init, zero_init
 from ..util import get_width
 

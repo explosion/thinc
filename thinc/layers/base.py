@@ -8,12 +8,8 @@ from pathlib import Path
 from ..backends import Ops, NumpyOps, CupyOps
 from ..neural.optimizers import Optimizer  # noqa: F401
 from ..neural.mem import Memory
-from ..util import get_ops, copy_array, ensure_path, get_width
-
-
-# TODO: Better way to handle the type declarations here?
-Array = "Array"
-Model = "Model"
+from ..util import get_ops, copy_array, get_width
+from ..types import Array
 
 
 def create_thread_local():
@@ -463,7 +459,7 @@ class Model:
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = ensure_path(path)
+        path = Path(path)
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -471,7 +467,7 @@ class Model:
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = ensure_path(path)
+        path = Path(path)
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)

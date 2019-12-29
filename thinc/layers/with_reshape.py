@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array
+from .base import Model
+from ..types import Array
 
 
 def with_reshape(layer: Model) -> Model:

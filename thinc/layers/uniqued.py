@@ -1,7 +1,8 @@
 from typing import Tuple, Callable, Optional
 import numpy
 
-from .base import Model, Array
+from .base import Model
+from ..types import Array
 
 
 def uniqued(layer: Model, column: int = 0) -> Model:

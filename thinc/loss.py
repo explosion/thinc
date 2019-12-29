@@ -1,11 +1,4 @@
-import numpy
-
-try:
-    from cupy import get_array_module
-except ImportError:
-
-    def get_array_module(*a, **k):
-        return numpy
+from .util import get_array_module
 
 
 def categorical_crossentropy(scores, labels):
