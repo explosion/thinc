@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional
 from .base import Model, Array
 
 
-def WithReshape(layer: Model) -> Model:
+def with_reshape(layer: Model) -> Model:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape-{layer.name}",

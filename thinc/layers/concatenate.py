@@ -4,7 +4,7 @@ from .base import Model, Array
 from ..util import get_width
 
 
-def Concatenate(layers: List[Model]) -> Model:
+def concatenate(layers: List[Model]) -> Model:
     if layers and layers[0].name == "concatenate":
         layers[0].layers.extend(layers[1:])
         return layers[0]

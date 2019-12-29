@@ -4,7 +4,7 @@ from .base import Model, Array
 from ..util import get_width
 
 
-def Add(layers: List[Model]) -> Model:
+def add(layers: List[Model]) -> Model:
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]

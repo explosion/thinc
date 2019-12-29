@@ -3,7 +3,7 @@ from typing import Tuple, Callable, List, Optional
 from .base import Model, Array
 
 
-def WithFlatten(layer: Model, pad: int = 0) -> Model:
+def with_flatten(layer: Model, pad: int = 0) -> Model:
     return Model(
         f"with_flatten-{layer.name}",
         forward,

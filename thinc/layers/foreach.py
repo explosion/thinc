@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, List, Sequence
 from .base import Model, Array
 
 
-def ForEach(layer: Model) -> Model:
+def foreach(layer: Model) -> Model:
     """Map a layer across list items"""
     return Model(
         f"foreach-{layer.name}",

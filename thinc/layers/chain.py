@@ -3,7 +3,7 @@ from typing import Tuple, Callable, List, Optional
 from .base import Model, Array
 
 
-def FeedForward(layers: List[Model]) -> Model:
+def chain(*layers: List[Model]) -> Model:
     return Model(
         ">>".join(layer.name for layer in layers),
         forward,
