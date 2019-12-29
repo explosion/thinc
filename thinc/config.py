@@ -1,5 +1,5 @@
-from typing import Union, Dict, Any, Optional
-import configparser
+from typing import Union, Dict, Any, Optional, List, Tuple
+from configparser import ConfigParser, ExtendedInterpolation
 import json
 import io
 from pathlib import Path
@@ -12,7 +12,7 @@ class Config(dict):
             data = {}
         self.update(data)
 
-    def interpret_config(self, config: Dict[str, Any]):
+    def interpret_config(self, config: Union[Dict[str, Any], ConfigParser]):
         for section, values in config.items():
             parts = section.split(".")
             node = self
@@ -22,9 +22,7 @@ class Config(dict):
                 node[key] = json.loads(config.get(section, key))
 
     def from_str(self, text: str) -> "Config":
-        config = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation()
-        )
+        config = ConfigParser(interpolation=ExtendedInterpolation())
         config.read_string(text)
         for key in list(self.keys()):
             self.pop(key)
@@ -32,10 +30,8 @@ class Config(dict):
         return self
 
     def to_str(self) -> str:
-        flattened = configparser.ConfigParser(
-            interpolation=configparser.ExtendedInterpolation()
-        )
-        queue = [(tuple(), self)]
+        flattened = ConfigParser(interpolation=ExtendedInterpolation())
+        queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
             for key, value in node.items():
                 if hasattr(value, "items"):

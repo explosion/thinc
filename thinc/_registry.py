@@ -108,14 +108,15 @@ class registry(object):
         func = cls.get_constructor(obj)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]
-        sig_args = {id_keys[0]: (str, ...)}
+        sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
             # If no default value is specified assume that it's required
             if param.default != param.empty:
                 sig_args[param.name] = (param.annotation, param.default)
             else:
                 sig_args[param.name] = (param.annotation, ...)
-        return create_model("ArgModel", **sig_args, __config__=_PromiseSchemaConfig)
+        sig_args["__config__"] = _PromiseSchemaConfig
+        return create_model("ArgModel", **sig_args)
 
     @classmethod
     def get_return_type(cls, obj: Dict[str, Any]):
