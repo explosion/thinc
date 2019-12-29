@@ -3,8 +3,8 @@ from typing import Tuple, Callable, Optional
 from .base import Model, Array, create_init
 from .dropout import Dropout
 from .layernorm import LayerNorm
+from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
-from ..util import get_width
 
 
 def Maxout(
@@ -15,7 +15,7 @@ def Maxout(
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float],
-    normalize: bool=False,
+    normalize: bool = False,
 ) -> Model:
     model = Model(
         "maxout",

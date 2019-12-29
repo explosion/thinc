@@ -1,7 +1,10 @@
 from typing import Tuple, Callable, Optional
 
 from .base import Model, Array, create_init
-from ..util import get_width
+from .chain import chain
+from .layernorm import LayerNorm
+from .dropout import Dropout
+from .initializers import xavier_uniform_init, zero_init
 
 
 def ReLu(
@@ -11,7 +14,7 @@ def ReLu(
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float],
-    normalize: bool=False,
+    normalize: bool = False,
 ) -> Model:
     model = Model(
         "relu",
@@ -34,7 +37,7 @@ def ReLu(
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
-    
+
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b
     model.ops.relu(Y, inplace=True)

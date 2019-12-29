@@ -8,7 +8,7 @@ from pathlib import Path
 from ..backends import Ops, NumpyOps, CupyOps
 from ..neural.optimizers import Optimizer  # noqa: F401
 from ..neural.mem import Memory
-from ..util import get_ops, copy_array, ensure_path
+from ..util import get_ops, copy_array, ensure_path, get_width
 
 
 # TODO: Better way to handle the type declarations here?

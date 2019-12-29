@@ -1,8 +1,10 @@
 from typing import Tuple, Callable, Optional
 
 from .base import Model, Array, create_init
+from .chain import chain
+from .layernorm import LayerNorm
+from .dropout import Dropout
 from ..initializers import xavier_uniform_init, zero_init
-from ..util import get_width
 
 
 def Mish(
@@ -12,7 +14,7 @@ def Mish(
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float],
-    normalize: bool=False,
+    normalize: bool = False,
 ) -> Model:
     """Dense layer with mish activation.
     https://arxiv.org/pdf/1908.08681.pdf
