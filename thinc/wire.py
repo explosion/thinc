@@ -1,11 +1,10 @@
 import copy
-import numpy
 
-from .neural._classes.model import Model
-from .neural._classes.feed_forward import FeedForward
 from .neural._classes.function_layer import FunctionLayer
 from .neural._classes.function_layer import wrap, AdditionLayer, ConcatenationLayer
-from .neural.util import is_ragged
+from .layers.feed_forward import FeedForward
+from .layers.base import Model
+from .util import is_ragged
 
 
 def layerize(begin_update=None, predict=None, *args, **kwargs):
@@ -40,7 +39,7 @@ def create_variadic(layers, *, cls=None, function=None, **kwargs):
         layer = (child1 | child2 | child2)
 
     This will result in two calls:
-        
+
         concatenate(concatenate(child1, child2), child3)
 
     With create_variadic, this will be flattened to:
@@ -143,31 +142,9 @@ def unflatten(X_lengths):
     return Xs, backprop_unflatten
 
 
-def with_reshape(layer):
-    """Reshape data on the way into and out from a layer."""
-
-    def with_reshape_forward(X):
-        initial_shape = X.shape
-        final_shape = list(initial_shape[:-1]) + [layer.nO]
-        nB = X.shape[0]
-        nT = X.shape[1]
-        X2d = X.reshape(-1, X.shape[2])
-        X2d = X2d.astype(layer.ops.xp.float32)
-        Y2d, Y2d_backprop = layer.begin_update(X2d)
-        Y = Y2d.reshape(final_shape)
-
-        def with_reshape_backward(dY):
-            dY = dY.reshape(nB * nT, -1).astype(layer.ops.xp.float32)
-            return Y2d_backprop(dY).reshape(initial_shape)
-
-        return Y, with_reshape_backward
-
-    return wrap(with_reshape_forward, layer)
-
-
 def with_getitem(idx, layer):
     """Transform data on the way into and out of a layer, by plucking an item
-    from a tuple. 
+    from a tuple.
     """
 
     def with_getitem_forward(items):
@@ -193,151 +170,11 @@ def with_square_sequences(model):
     return wrap(padded_forward, model)
 
 
-def with_flatten(layer, pad=0, ndim=4):
-    def with_flatten_forward(seqs_in):
-        lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
-        X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad))
-        if bp_layer is None:
-            return layer.ops.unflatten(X, lengths, pad=pad), None
-
-        def finish_update(d_seqs_out):
-            d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad))
-            if d_X is None:
-                return None
-            else:
-                return layer.ops.unflatten(d_X, lengths, pad=pad)
-
-        return layer.ops.unflatten(X, lengths, pad=pad), finish_update
-
-    def with_flatten_predict(seqs_in):
-        lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
-        X = layer.predict(layer.ops.flatten(seqs_in, pad=pad))
-        return layer.ops.unflatten(X, lengths, pad=pad)
-
-    return wrap(
-        with_flatten_forward,
-        layer,
-        predict=with_flatten_predict,
-        name=f"with_flatten-{layer.name}",
-        on_data_hooks=[_with_flatten_on_data],
-    )
-
-
-def _with_flatten_on_data(model, X, Y):
-    X = model.ops.flatten(X)
-    for layer in model._layers:
-        for hook in layer.on_data_hooks:
-            hook(layer, X, Y)
-        X = layer(X)
-
-
-def uniqued(layer, column=0):
-    """Group inputs to a layer, so that the layer only has to compute
-    for the unique values. The data is transformed back before output, and the same
-    transformation is applied for the gradient. Effectively, this is a cache
-    local to each minibatch.
-
-    The uniqued wrapper is useful for word inputs, because common words are
-    seen often, but we may want to compute complicated features for the words,
-    using e.g. character LSTM.
-    """
-
-    def uniqued_fwd(X):
-        keys = X[:, column]
-        keys = layer.ops.xp.ascontiguousarray(keys)
-        if not isinstance(keys, numpy.ndarray):
-            keys = keys.get()
-        uniq_keys, ind, inv, counts = numpy.unique(
-            keys, return_index=True, return_inverse=True, return_counts=True
-        )
-        X_uniq = layer.ops.xp.ascontiguousarray(X[ind])
-        Y_uniq, bp_Y_uniq = layer.begin_update(X_uniq)
-        Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
-
-        def uniqued_bwd(dY):
-            dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype="f")
-            layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
-            d_uniques = bp_Y_uniq(dY_uniq)
-            if d_uniques is not None:
-                dX = (d_uniques / counts)[inv]
-                return dX
-            else:
-                return None
-
-        return Y, uniqued_bwd
-
-    model = wrap(uniqued_fwd, layer)
-    return model
-
-
-def foreach(layer):
-    """Map a layer across list items"""
-
-    def foreach_fwd(docs):
-        sents = []
-        lengths = []
-        for doc in docs:
-            doc_sents = [sent for sent in doc if len(sent)]
-            sents.extend(doc_sents)
-            lengths.append(len(doc_sents))
-        assert len(sents)
-        flat, bp_flat = layer.begin_update(sents)
-        output = layer.ops.unflatten(flat, lengths)
-
-        def foreach_bwd(d_output):
-            d_flat = layer.ops.flatten(d_output)
-            d_sents = bp_flat(d_flat)
-            if d_sents is None:
-                return d_sents
-            else:
-                return layer.ops.unflatten(d_sents, lengths)
-
-        return output, foreach_bwd
-
-    model = wrap(foreach_fwd, layer)
-
-    def _run_foreach_child_hooks(model, X, y):
-        for layer in model._layers:
-            for hook in layer.on_data_hooks:
-                hook(layer, X[0], y[0])
-
-    model.on_data_hooks = [_run_foreach_child_hooks]
-
-    return model
-
-
-def foreach_sentence(layer, get_sents=None):
-    """Map a layer across sentences"""
-    if get_sents is None:
-        get_sents = lambda doc: doc.sents
-
-    def sentence_fwd(docs):
-        sents = []
-        lengths = []
-        for doc in docs:
-            doc_sents = [sent for sent in get_sents(doc) if len(sent)]
-            sents.extend(doc_sents)
-            lengths.append(len(doc_sents))
-        flat, bp_flat = layer.begin_update(sents)
-        output = layer.ops.unflatten(flat, lengths)
-
-        def sentence_bwd(d_output):
-            d_flat = layer.ops.flatten(d_output)
-            d_sents = bp_flat(d_flat)
-            if d_sents is None:
-                return d_sents
-            else:
-                return layer.ops.unflatten(d_sents, lengths)
-
-        return output, sentence_bwd
-
-    return wrap(sentence_fwd, layer)
-
-
 def with_pad_and_mask(layer):
     """Wrap a layer so that list inputs are transformed into padded batches.
     The inputs are provided as (data, mask) tuples.
     """
+
     def create_model_input_forward(Xs):
         nX = layer.ops.asarray([x.shape[0] for x in Xs], dtype="i")
         nL = nX.max()

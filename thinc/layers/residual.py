@@ -15,7 +15,7 @@ def Residual(layer: Model) -> Model:
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
-    y, bp_y = model._layers[0].begin_update(X)
+    y, bp_y = model.layers[0].begin_update(X)
     if isinstance(X, list):
         output = [X[i] + y[i] for i in range(len(X))]
     elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
@@ -35,6 +35,6 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    model._layers[0].initialize(X=X, Y=Y)
-    model.set_dim("nO", model._layers[0].get_dim("nO"))
-    model.set_dim("nI", model._layers[0].get_dim("nI"))
+    model.layers[0].initialize(X=X, Y=Y)
+    model.set_dim("nO", model.layers[0].get_dim("nO"))
+    model.set_dim("nI", model.layers[0].get_dim("nI"))

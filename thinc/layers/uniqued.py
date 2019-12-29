@@ -26,7 +26,7 @@ def uniqued(layer: Model, column: int = 0) -> Model:
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    layer = model.get_layer(0)
+    layer = model.layers[0]
     layer.initialize(X=X, Y=Y)
     model.set_dim("nI", layer.get_dim("nI"))
     model.set_dim("nO", layer.get_dim("nO"))
@@ -34,7 +34,7 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     column = model.get_attr("column")
-    layer = model.get_layer(0)
+    layer = model.layers[0]
     keys = X[:, column]
     keys = layer.ops.xp.ascontiguousarray(keys)
     if not isinstance(keys, numpy.ndarray):

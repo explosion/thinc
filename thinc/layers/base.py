@@ -92,6 +92,10 @@ class Model:
             if value is not None:
                 self.set_grad(name, value)
 
+    @property
+    def layers(self):
+        return self._layers
+
     @classmethod
     @contextlib.contextmanager
     def define_operators(cls, operators):

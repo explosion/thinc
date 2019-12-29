@@ -40,7 +40,7 @@ model = chain(
 model.initialize(X=X, Y=Y)
 assert model.get_dim("nI") == 16
 assert model.get_dim("nO") == 10
-assert model.get_layer(0).get_dim("nO") == n_hidden
+assert model.layers[0].get_dim("nO") == n_hidden
 
 # We call functions like 'chain' *combinators*. Combinators one or more models
 # as arguments, and return another model instance, without introducing any
@@ -69,7 +69,7 @@ assert model.get_dim("nO") == n_hidden * 2
 # and we can let the rest of the dimensions be inferred from the data.
 
 model = clone(Affine(), 5)
-model.get_layer(0).set_dim("nO", n_hidden)
+model.layers[0].set_dim("nO", n_hidden)
 model.initialize(X=X, Y=Y)
 
 # We can apply 'clone' to model instances that have child layers, making it easy

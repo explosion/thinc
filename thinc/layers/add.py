@@ -6,7 +6,7 @@ from ..util import get_width
 
 def Add(layers: List[Model]) -> Model:
     if layers and layers[0].name == "add":
-        layers[0]._layers.extend(layers[1:])
+        layers[0].layers.extend(layers[1:])
         return layers[0]
     return Model(
         "add",
@@ -20,7 +20,7 @@ def Add(layers: List[Model]) -> Model:
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
-    Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model._layers])
+    Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     Y = Ys[0]
     for y in Ys:
         Y += y
@@ -42,8 +42,8 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
-        for layer in model._layers:
+        for layer in model.layers:
             layer.set_dim("nI", X_width)
-    for layer in model._layers:
+    for layer in model.layers:
         layer.initialize(X=X)
     model.set_dim("nO", sum(layer.get_dim("nO") for layer in model._layers))
