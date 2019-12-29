@@ -32,7 +32,7 @@ class Ops:
         assert nW == 1
         nF = nW * 2 + 1
         B = dY.shape[0]
-        I = dY.shape[1] / nF
+        I = dY.shape[1] // nF
         # Having trouble getting the kernel to work...
         dX = self.allocate((B, I))
         dY = dY.reshape((B, nF, I))
@@ -188,7 +188,6 @@ class Ops:
     def allocate(self, shape, dtype="float32"):
         if isinstance(shape, int):
             shape = (shape,)
-        nr_weight = numpy.prod(shape)
         return self.xp.zeros(shape, dtype=dtype)
 
     def unzip(self, data):
