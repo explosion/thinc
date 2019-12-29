@@ -26,7 +26,7 @@ def ReLu(
         attrs={},
         layers=[],
     )
-    if normalize is not None:
+    if normalize:
         model = chain(model, LayerNorm())
     if dropout is not None:
         model = chain(model, Dropout(dropout))
