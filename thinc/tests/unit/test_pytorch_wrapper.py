@@ -1,5 +1,5 @@
-from thinc.v2v import Affine
-from thinc.neural.optimizers import SGD
+from thinc.layers.affine import Affine
+from thinc.optimizers import SGD
 import numpy
 
 try:
