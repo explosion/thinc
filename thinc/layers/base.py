@@ -171,7 +171,7 @@ class Model:
         """Check whether the model has a dimension of a given name."""
         return name in self._dims
 
-    def get_dim(self, name: int) -> Optional[int]:
+    def get_dim(self, name: str) -> Optional[int]:
         """Retrieve the value of a dimension of the given name, or None if unset."""
         return self._dims.get(name, None)
 
