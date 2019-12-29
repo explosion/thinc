@@ -1,3 +1,4 @@
+from typing import Union, Dict, Any, Optional
 import configparser
 import json
 import io
@@ -5,13 +6,13 @@ from pathlib import Path
 
 
 class Config(dict):
-    def __init__(self, data=None):
+    def __init__(self, data: Optional[Dict[str, Any]] = None):
         dict.__init__(self)
         if data is None:
             data = {}
         self.update(data)
 
-    def interpret_config(self, config):
+    def interpret_config(self, config: Dict[str, Any]):
         for section, values in config.items():
             parts = section.split(".")
             node = self
@@ -20,7 +21,7 @@ class Config(dict):
             for key, value in values.items():
                 node[key] = json.loads(config.get(section, key))
 
-    def from_str(self, text):
+    def from_str(self, text: str) -> "Config":
         config = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation()
         )
@@ -30,7 +31,7 @@ class Config(dict):
         self.interpret_config(config)
         return self
 
-    def to_str(self):
+    def to_str(self) -> str:
         flattened = configparser.ConfigParser(
             interpolation=configparser.ExtendedInterpolation()
         )
@@ -49,18 +50,18 @@ class Config(dict):
         flattened.write(string_io)
         return string_io.getvalue()
 
-    def to_bytes(self):
+    def to_bytes(self) -> bytes:
         return self.to_str().encode("utf8")
 
-    def to_disk(self, path):
+    def to_disk(self, path: Union[str, Path]):
         path = Path(path)
         with path.open("w", encoding="utf8") as file_:
             file_.write(self.to_str())
 
-    def from_bytes(self, byte_string):
+    def from_bytes(self, byte_string: bytes) -> "Config":
         return self.from_str(byte_string.decode("utf8"))
 
-    def from_disk(self, path):
+    def from_disk(self, path: Union[str, Path]) -> "Config":
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text)

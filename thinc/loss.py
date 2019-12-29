@@ -1,7 +1,10 @@
+from typing import Tuple
+
+from .types import Array
 from .util import get_array_module
 
 
-def categorical_crossentropy(scores, labels):
+def categorical_crossentropy(scores: Array, labels: Array) -> Tuple[Array, float]:
     xp = get_array_module(scores)
     target = xp.zeros(scores.shape, dtype="float32")
     loss = 0.0
@@ -11,7 +14,9 @@ def categorical_crossentropy(scores, labels):
     return scores - target, loss
 
 
-def L1_distance(vec1, vec2, labels, margin=0.2):
+def L1_distance(
+    vec1: Array, vec2: Array, labels: Array, margin: float = 0.2
+) -> Tuple[Array, float]:
     xp = get_array_module(vec1)
     dist = xp.abs(vec1 - vec2).sum(axis=1)
     loss = (dist > margin) - labels

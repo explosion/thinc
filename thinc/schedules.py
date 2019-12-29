@@ -1,11 +1,14 @@
 """Generators that provide different rates, schedules, decays or series."""
+from typing import Iterable
 import numpy
 
 from ._registry import registry
 
 
-@registry.schedules.register("constant_then.v1")
-def constant_then(rate, steps, schedule):
+@registry.schedules("constant_then.v1")
+def constant_then(
+    rate: float, steps: int, schedule: Iterable[float]
+) -> Iterable[float]:
     """Yield a constant rate for N steps, before starting a schedule."""
     for i in range(steps):
         yield rate
@@ -13,14 +16,14 @@ def constant_then(rate, steps, schedule):
         yield value
 
 
-@registry.schedules.register("constant.v1")
-def constant(rate):
+@registry.schedules("constant.v1")
+def constant(rate: float) -> Iterable[float]:
     while True:
         yield rate
 
 
-@registry.schedules.register("decaying.v1")
-def decaying(base_rate, decay, t=0):
+@registry.schedules("decaying.v1")
+def decaying(base_rate: float, decay: float, t: int = 0):
     """Yield an infinite series of linearly decaying values,
     following the schedule:
 
@@ -39,14 +42,16 @@ def decaying(base_rate, decay, t=0):
         t += 1
 
 
-@registry.schedules.register("compounding.v1")
-def compounding(start, stop, compound, t=0.0):
+@registry.schedules("compounding.v1")
+def compounding(
+    start: float, stop: float, compound: float, *, t: float = 0.0
+) -> Iterable[float]:
     """Yield an infinite series of compounding values. Each time the
     generator is called, a value is produced by multiplying the previous
     value by the compound rate.
 
     EXAMPLE:
-      >>> sizes = compounding(1., 10., 1.5)
+      >>> sizes = compounding(1.0, 10.0, 1.5)
       >>> assert next(sizes) == 1.
       >>> assert next(sizes) == 1 * 1.5
       >>> assert next(sizes) == 1.5 * 1.5
@@ -57,12 +62,20 @@ def compounding(start, stop, compound, t=0.0):
         curr *= compound
 
 
-def _clip(value, start, stop):
+def _clip(value: float, start: float, stop: float) -> float:
     return max(value, stop) if (start > stop) else min(value, stop)
 
 
-@registry.schedules.register("slanted_triangular.v1")
-def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0.0):
+@registry.schedules("slanted_triangular.v1")
+def slanted_triangular(
+    max_rate: float,
+    num_steps: float,
+    *,
+    cut_frac: float = 0.1,
+    ratio: int = 32,
+    decay: float = 1.0,
+    t: float = 0.0,
+) -> Iterable[float]:
     """Yield an infinite series of values according to Howard and Ruder's
     "slanted triangular learning rate" schedule.
     """
@@ -77,8 +90,10 @@ def slanted_triangular(max_rate, num_steps, cut_frac=0.1, ratio=32, decay=1, t=0
         yield learn_rate
 
 
-@registry.schedules.register("warmup_linear.v1")
-def warmup_linear(initial_rate, warmup_steps, total_steps):
+@registry.schedules("warmup_linear.v1")
+def warmup_linear(
+    initial_rate: float, warmup_steps: int, total_steps: int
+) -> Iterable[float]:
     """Generate a series, starting from an initial rate, and then with a warmup
     period, and then a linear decline. Used for learning rates.
     """
@@ -94,8 +109,8 @@ def warmup_linear(initial_rate, warmup_steps, total_steps):
         step += 1
 
 
-@registry.schedules.register("cyclic_triangular.v1")
-def cyclic_triangular(min_lr, max_lr, period):
+@registry.schedules("cyclic_triangular.v1")
+def cyclic_triangular(min_lr: float, max_lr: float, period: int) -> Iterable[float]:
     it = 1
     while True:
         # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee

@@ -4,7 +4,7 @@ from numpy import prod
 class Memory(object):
     def __init__(self, ops, size=128):
         if size < 0:
-            raise ValueError("TODO error re negative size %d" % size)
+            raise ValueError(f"TODO error re negative size {size}")
         self.ops = ops
         self._mem = self.ops.allocate((2, size))
         self._offsets = {}
@@ -34,7 +34,7 @@ class Memory(object):
         self._mem[0, : self._i] = value
 
     def add(self, name, shape):
-        assert name not in self._offsets, "TODO error"
+        assert name not in self._offsets, "TODO: error"
         self._offsets[name] = (self._i, 0, shape)
         size = prod(shape)
         self._sizes[name] = size
@@ -42,7 +42,7 @@ class Memory(object):
         return blob[0].reshape(shape)
 
     def add_gradient(self, grad_name, param_name):
-        assert grad_name not in self._offsets, "TODO error"
+        assert grad_name not in self._offsets, "TODO: error"
         offset, _, shape = self._offsets[param_name]
         size = self._sizes[param_name]
         self._offsets[grad_name] = (offset, 1, shape)

@@ -1,7 +1,7 @@
 from typing import Union
 from enum import Enum
 
-# TODO: Write proper types
+
 Array = Union["numpy.ndarray", "cupy.ndarray"]
 
 
