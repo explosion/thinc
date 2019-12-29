@@ -1,10 +1,10 @@
 import numpy
-from ..neural.util import copy_array
-from ..neural.util import get_array_module
+
+from ..util import copy_array, get_array_module
 
 
 class Ops:
-    device = 'cpu'
+    device = "cpu"
     xp = None
 
     def __init__(self, xp=None):
@@ -12,25 +12,25 @@ class Ops:
             self.xp = xp
 
     def seq2col(self, seq, nW):
-        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
-        '''
+        """
         # This is a test implementation that only supports nW=1
         assert nW == 1
         B = seq.shape[0]
         I = seq.shape[1]
-        cols = self.allocate((B, (nW*2+1), I))
+        cols = self.allocate((B, (nW * 2 + 1), I))
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
-        cols[:-nW, nW+1:] = seq[nW:].reshape((-1, nW, I))
-        return cols.reshape((B, I * (2*nW+1)))
+        cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
+        return cols.reshape((B, I * (2 * nW + 1)))
 
     def backprop_seq2col(self, dY, nW):
         # This is a test implementation that only supports nW=1
         assert nW == 1
-        nF = nW*2+1
+        nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] / nF
         # Having trouble getting the kernel to work...
@@ -38,13 +38,14 @@ class Ops:
         dY = dY.reshape((B, nF, I))
         dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
         dX += dY[:, nW]
-        dX[nW:] += dY[:-nW, nW+1:].reshape((-1, I))
+        dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
         return dX
 
     def dropout_sequences(self, X, dropout, inplace=False):
         if dropout is None or dropout <= 0.0:
             return X, lambda func: func
         masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
+
         def wrap_backprop(backprop):
             def finish_update(gradient, *args, **kwargs):
                 masked = []
@@ -55,7 +56,9 @@ class Ops:
                     else:
                         masked.append(gradient * mask)
                 return backprop(masked, *args, **kwargs)
+
             return finish_update
+
         if inplace:
             for i, mask in enumerate(masks):
                 X[i] *= mask
@@ -72,10 +75,13 @@ class Ops:
         mask = self.get_dropout_mask(x.shape, dropout)
         if mask is None:
             return x, lambda func: func
+
         def wrap_backprop(backprop):
             def finish_update(gradient, *args, **kwargs):
                 return backprop(gradient * mask, *args, **kwargs)
+
             return finish_update
+
         if inplace:
             x *= mask
             return x, wrap_backprop
@@ -84,17 +90,15 @@ class Ops:
 
     def flatten(self, X, dtype=None, pad=0):
         if X is None or len(X) == 0:
-            return self.allocate((0,), dtype=dtype or 'f')
+            return self.allocate((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
         X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
             padded = []
             for x in X:
-                padded.append(
-                    xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
+                padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
                 padded.append(x)
-            padded.append(
-                xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
+            padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
             X = padded
         result = xp.concatenate(X)
         if dtype is not None:
@@ -121,7 +125,9 @@ class Ops:
         nB = len(seqs_in)
         if pad_to is None:
             pad_to = lengths.max()
-        arr = self.allocate((nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype)
+        arr = self.allocate(
+            (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
+        )
         for arr_i, seq in enumerate(seqs_in):
             arr[arr_i, : seq.shape[0]] = self.asarray(seq)
 
@@ -134,11 +140,11 @@ class Ops:
         return arr, unpad
 
     def square_sequences(self, seqs):
-        '''Sort a batch of sequence by decreasing length, pad, and transpose
+        """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
         to reverse the transformation.
-        '''
+        """
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
@@ -151,33 +157,35 @@ class Ops:
         extra_dims = tuple(range(2, len(arr.shape)))
         arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.allocate((nS,), dtype='i')
+        batch_size_at_t = self.allocate((nS,), dtype="i")
         batch_size_at_t += 1
         i = len(lengths)
         for t in range(nS):
-            if t == lengths[i-1]:
+            if t == lengths[i - 1]:
                 i -= 1
                 if i == 0:
                     break
             batch_size_at_t[t] = i
+
         def unpad(padded):
             unpadded = [None] * len(lengths)
             padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
             for i in range(padded.shape[0]):
-                unpadded[indices[i]] = padded[i, :lengths[i]]
+                unpadded[indices[i]] = padded[i, : lengths[i]]
             return unpadded
+
         return arr, batch_size_at_t, unpad
 
     def get_dropout_mask(self, shape, drop):
         if drop is None or drop <= 0:
             return None
-        elif drop >= 1.:
+        elif drop >= 1.0:
             return self.allocate(shape)
-        coinflips = self.xp.random.uniform(0., 1., shape)
-        mask = (coinflips >= drop) / (1.-drop)
-        return self.asarray(mask, dtype='float32')
+        coinflips = self.xp.random.uniform(0.0, 1.0, shape)
+        mask = (coinflips >= drop) / (1.0 - drop)
+        return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape, dtype='float32'):
+    def allocate(self, shape, dtype="float32"):
         if isinstance(shape, int):
             shape = (shape,)
         nr_weight = numpy.prod(shape)
@@ -193,7 +201,7 @@ class Ops:
                 return self.xp.asarray(data, dtype=dtype)
             else:
                 return self.xp.asarray(data)
-        elif hasattr(data, 'numpy'):
+        elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
             return data.numpy()
         elif dtype is not None:
@@ -229,13 +237,13 @@ class Ops:
         return self.xp.argmax(x, axis=axis)
 
     def sigmoid(self, X):
-        return 1./(1. + self.xp.exp(-X))
+        return 1.0 / (1.0 + self.xp.exp(-X))
 
     def dsigmoid(self, y):
-        return y*(1-y)
+        return y * (1 - y)
 
     def dtanh(self, y):
-        return 1-y**2
+        return 1 - y ** 2
 
     def softmax(self, x, inplace=False, axis=-1):
         shape = x.shape
@@ -252,9 +260,10 @@ class Ops:
     def softmax_sequences(self, Xs, lengths, inplace=False, axis=-1):
         if Xs.ndim >= 3:
             raise NotImplementedError(
-                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim)
+                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim
+            )
         # This loses almost no fidelity, and helps the numerical stability.
-        Xs = self.xp.clip(Xs, -20., 20.)
+        Xs = self.xp.clip(Xs, -20.0, 20.0)
         new_x = self.xp.exp(Xs)
         summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
         new_x /= summed
@@ -287,7 +296,7 @@ class Ops:
     def take_which(self, x, which, axis=-1):
         output = self.allocate(which.shape)
         for i in range(x.shape[axis]):
-            output += x[:,:,i] * (which == i)
+            output += x[:, :, i] * (which == i)
         return output
 
     def backprop_take(self, dX__bo, which__bo, nP):
@@ -306,8 +315,9 @@ class Ops:
         cells[:] = hf * prev + hi * hc
         output[:] = self.xp.tanh(cells) * ho
 
-    def backprop_lstm(self, d_cells, d_prev, d_gate_pieces,
-            d_output, gate_pieces, cells, prev):
+    def backprop_lstm(
+        self, d_cells, d_prev, d_gate_pieces, d_output, gate_pieces, cells, prev
+    ):
         hf, hi, ho, hc = gate_pieces
         dhf, dhi, dho, dhc = d_gate_pieces
 
@@ -316,18 +326,18 @@ class Ops:
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
         dho[:] = ct * d_output * self.dsigmoid(ho)
         dc = ho * d_output * self.dtanh(ct)
-        dc += d_cells # Carry gradient from previous step
+        dc += d_cells  # Carry gradient from previous step
 
         # Gradient for hf, hi, hc, prev[i]
         # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
         dhf[:] = self.dsigmoid(hf) * dc * prev
         dhi[:] = self.dsigmoid(hi) * dc * hc
-        dhc[:] = self.dtanh(hc)    * dc * hi
+        dhc[:] = self.dtanh(hc) * dc * hi
 
         d_prev[:] = dc * hf
         copy_array(d_cells, dc)
 
-    def softplus(self, X, threshold=20., out=None):
+    def softplus(self, X, threshold=20.0, out=None):
         xp = get_array_module(X)
         log1p_exp = xp.log1p(xp.exp(X))
         indices = X >= threshold
@@ -348,7 +358,7 @@ class Ops:
         out[indices] = dY[indices]
         return out
 
-    def mish(self, X, threshold=20., out=None):
+    def mish(self, X, threshold=20.0, out=None):
         Xsoft = self.softplus(X, threshold=threshold, out=out)
         Y = self.xp.tanh(Xsoft, out=out)
         Y *= X
@@ -359,13 +369,13 @@ class Ops:
         indices = X < threshold
         Xsub = X[indices]
         dYsub = dY[indices]
-        omega = 4. * (Xsub+1.)
-        omega += 4. * xp.exp(2.*Xsub)
-        omega += xp.exp(Xsub) * ((4.*Xsub)+6.)
-        delta = 2. * xp.exp(Xsub)
-        delta += xp.exp(2.*Xsub)
-        delta += 2.
-        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta**2))
+        omega = 4.0 * (Xsub + 1.0)
+        omega += 4.0 * xp.exp(2.0 * Xsub)
+        omega += xp.exp(Xsub) * ((4.0 * Xsub) + 6.0)
+        delta = 2.0 * xp.exp(Xsub)
+        delta += xp.exp(2.0 * Xsub)
+        delta += 2.0
+        dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
         if out is None:
             out = xp.zeros(dY.shape, dtype="f")
         # Gradient when above threshold will ignore softplus.
@@ -374,9 +384,9 @@ class Ops:
         return out
 
     def xavier_uniform_init(self, W, inplace=True):
-        if (W**2).sum() != 0.:
+        if (W ** 2).sum() != 0.0:
             return W
-        scale = self.xp.sqrt(6. / (W.shape[0] + W.shape[1]))
+        scale = self.xp.sqrt(6.0 / (W.shape[0] + W.shape[1]))
         if inplace:
             copy_array(W, self.xp.random.uniform(-scale, scale, W.shape))
             return W
@@ -384,9 +394,9 @@ class Ops:
             return self.xp.random.uniform(-scale, scale, W.shape)
 
     def normal_init(self, W, fan_in, inplace=True):
-        if (W**2).sum() != 0.:
+        if (W ** 2).sum() != 0.0:
             return W
-        scale = self.xp.sqrt(1. / fan_in)
+        scale = self.xp.sqrt(1.0 / fan_in)
         inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
         inits = inits.reshape(W.shape)
         if inplace:
@@ -396,21 +406,22 @@ class Ops:
             return inits
 
     def he_normal_init(self, shape, fan_in):
-        scale = self.xp.sqrt(2. / fan_in)
+        scale = self.xp.sqrt(2.0 / fan_in)
         return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
         decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
             decay = max_decay
-        ema -= (1-decay) * (ema - weights)
+        ema -= (1 - decay) * (ema - weights)
 
-    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
-            learn_rate, mod_rate=1.):
+    def adam(
+        self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
+    ):
         mom1 *= beta1
         mom2 *= beta2
-        mom1 += gradient * (1.-beta1)
-        mom2 += gradient * gradient * (1.-beta2)
+        mom1 += gradient * (1.0 - beta1)
+        mom2 += gradient * gradient * (1.0 - beta2)
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
@@ -424,5 +435,5 @@ class Ops:
 
     def logloss(self, y_true, y_pred):
         log_yp = self.xp.log(y_pred + 1e-8)
-        loss = (y_true * log_yp) + (1-y_true) * self.xp.log((1-y_pred)+1e-8)
+        loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss

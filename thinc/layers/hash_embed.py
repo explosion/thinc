@@ -5,6 +5,25 @@ from ..initializers import uniform_init
 from ..util import get_width
 
 
+def HashEmbed(
+    nO: Array,
+    nV: Array,
+    seed: Optional[int] = None,
+    column: int = 0,
+    initializer: Callable = uniform_init,
+) -> Model:
+    model = Model(
+        forward,
+        init=create_init(initializer),
+        dims={"nO": nO, "nV": nV},
+        attrs={"seed": seed, "column": column},
+    )
+    if seed is None:
+        model.set_attr("seed", model.id)
+    model.initialize()
+    return model
+
+
 def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
@@ -39,22 +58,3 @@ def create_init(initializer: Callable) -> Callable:
         return model
 
     return init_hash_embed
-
-
-def HashEmbed(
-    nO: Array,
-    nV: Array,
-    seed: Optional[int] = None,
-    column: int = 0,
-    initializer: Callable = uniform_init,
-) -> Model:
-    model = Model(
-        forward,
-        init=create_init(initializer),
-        dims={"nO": nO, "nV": nV},
-        attrs={"seed": seed, "column": column},
-    )
-    if seed is None:
-        model.set_attr("seed", model.id)
-    model.initialize()
-    return model

@@ -4,6 +4,18 @@ from .base import Model, Array
 from ..neural import util
 
 
+def ReLu() -> Model:
+    return Model(
+        "relu",
+        forward,
+        init=init,
+        dims={"nO": None, "nI": None},
+        params={},
+        attrs={},
+        layers=[],
+    )
+
+
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y = model.ops.relu(X)
 
@@ -22,15 +34,3 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
         Y_width = util.get_width(Y)
         model.set_dim("nI", Y_width)
         model.set_dim("nO", Y_width)
-
-
-def ReLu() -> Model:
-    return Model(
-        "relu",
-        forward,
-        init=init,
-        dims={"nO": None, "nI": None},
-        params={},
-        attrs={},
-        layers=[],
-    )
