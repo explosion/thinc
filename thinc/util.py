@@ -173,7 +173,17 @@ def get_width(X, dim=-1):
         )
 
 
-def run_child_hooks(model, X, y):
-    for child in model._layers:
-        for hook in child.on_data_hooks:
-            hook(child, X, y)
+def xp2torch(xp_tensor):
+    """Convert a numpy or cupy tensor to a PyTorch tensor."""
+    if hasattr(xp_tensor, "toDlpack"):
+        return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
+    else:
+        return torch.from_numpy(xp_tensor)
+
+
+def torch2xp(torch_tensor):
+    """Convert a torch tensor to a numpy or cupy tensor."""
+    if torch_tensor.is_cuda:
+        return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
+    else:
+        return torch_tensor.detach().numpy()
