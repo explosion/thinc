@@ -3,6 +3,17 @@ from typing import Tuple, Callable, List, Optional
 from .base import Model, Array
 
 
+def FeedForward(layers: List[Model]) -> Model:
+    return Model(
+        ">>".join(layer.name for layer in layers),
+        forward,
+        init=init,
+        dims={"nO": None, "nI": None},
+        layers=layers,
+        attrs={},
+    )
+
+
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
@@ -33,14 +44,3 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
         X = layer.predict(X)
     model.set_dim("nI", model._layers[0].get_dim("nI"))
     model.set_dim("nO", model._layers[-1].get_dim("nO"))
-
-
-def FeedForward(layers: List[Model]) -> Model:
-    return Model(
-        ">>".join(layer.name for layer in layers),
-        forward,
-        init=init,
-        dims={"nO": None, "nI": None},
-        layers=layers,
-        attrs={},
-    )

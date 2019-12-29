@@ -5,6 +5,27 @@ from ..initializers import xavier_uniform_init, zero_init
 from ..util import get_width
 
 
+def Maxout(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    nP: int = 3,
+    init_W: Callable = xavier_uniform_init,
+    init_b: Callable = zero_init,
+) -> Model:
+    model = Model(
+        "maxout",
+        forward,
+        init=create_init(init_W, init_b),
+        dims={"nO": nO, "nI": nI, "nP": nP},
+        params={"W": None, "b": None},
+        layers=[],
+        attrs={},
+    )
+    if nO is not None and nI is not None:
+        model.initialize()
+    return model
+
+
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     nO = model.get_dim("nO")
     nP = model.get_dim("nP")
@@ -45,24 +66,3 @@ def create_init(init_W: Callable, init_b: Callable) -> Callable:
         model.set_param("b", b)
 
     return do_maxout_init
-
-
-def Maxout(
-    nO: Optional[int] = None,
-    nI: Optional[int] = None,
-    nP: int = 3,
-    init_W: Callable = xavier_uniform_init,
-    init_b: Callable = zero_init,
-) -> Model:
-    model = Model(
-        "maxout",
-        forward,
-        init=create_init(init_W, init_b),
-        dims={"nO": nO, "nI": nI, "nP": nP},
-        params={"W": None, "b": None},
-        layers=[],
-        attrs={},
-    )
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model

@@ -3,6 +3,17 @@ from typing import Tuple, Callable, Optional
 from .base import Model, Array
 
 
+def Residual(layer: Model) -> Model:
+    return Model(
+        forward,
+        init=init,
+        layers=[layer],
+        params={},
+        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
+        attrs={},
+    )
+
+
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     y, bp_y = model._layers[0].begin_update(X)
     if isinstance(X, list):
@@ -27,14 +38,3 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     model._layers[0].initialize(X=X, Y=Y)
     model.set_dim("nO", model._layers[0].get_dim("nO"))
     model.set_dim("nI", model._layers[0].get_dim("nI"))
-
-
-def Residual(layer: Model) -> Model:
-    return Model(
-        forward,
-        init=init,
-        layers=[layer],
-        params={},
-        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
-        attrs={},
-    )

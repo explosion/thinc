@@ -3,6 +3,17 @@ from typing import Tuple, Callable, List, Optional
 from .base import Model, Array
 
 
+def WithFlatten(layer: Model, pad: int = 0) -> Model:
+    return Model(
+        f"with_flatten-{layer.name}",
+        forward,
+        init=init,
+        layers=[layer],
+        attrs={"pad": pad},
+        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
+    )
+
+
 def forward(
     model: Model, seqs_in: List[Array], is_train: bool
 ) -> Tuple[Array, Callable]:
@@ -29,14 +40,3 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     layer.initialize(X=Xflat, Y=Yflat)
     model.set_dim("nI", layer.get_dim("nI"))
     model.set_dim("nO", layer.get_dim("nO"))
-
-
-def WithFlatten(layer: Model, pad: int = 0) -> Model:
-    return Model(
-        f"with_flatten-{layer.name}",
-        forward,
-        init=init,
-        layers=[layer],
-        attrs={"pad": pad},
-        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
-    )

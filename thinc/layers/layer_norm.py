@@ -5,6 +5,18 @@ from ..backends import Ops
 from ..util import get_width
 
 
+def LayerNorm(nO: Optional[Array] = None) -> Model:
+    return Model(
+        "layernorm",
+        forward,
+        init=init,
+        dims={"nO": nO, "nI": nO},
+        params={"G": None, "b": None},
+        layers=[],
+        attrs={},
+    )
+
+
 def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
     N, mu, var = _get_moments(model.ops, X)
     Xhat = (X - mu) * var ** (-1.0 / 2.0)
@@ -33,18 +45,6 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     nO = model.get_dim("nO")
     model.set_param("G", model.ops.allocate((nO,)))
     model.set_param("b", model.ops.allocate((nO,)))
-
-
-def LayerNorm(nO: Optional[Array] = None) -> Model:
-    return Model(
-        "layernorm",
-        forward,
-        init=init,
-        dims={"nO": nO, "nI": nO},
-        params={"G": None, "b": None},
-        layers=[],
-        attrs={},
-    )
 
 
 def _begin_update_scale_shift(model: Model, X: Array) -> Tuple[Array, Callable]:

@@ -5,6 +5,26 @@ from ..initializers import xavier_uniform_init, zero_init
 from ..neural import util
 
 
+def Affine(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    init_W: Callable = xavier_uniform_init,
+    init_b: Callable = zero_init,
+) -> Model:
+    model = Model(
+        "affine",
+        forward,
+        init=create_init(init_W, init_b),
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None},
+        layers=[],
+        attrs={},
+    )
+    if nO is not None and nI is not None:
+        model.initialize()
+    return model
+
+
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
@@ -35,23 +55,3 @@ def create_init(init_W: Callable, init_b: Callable) -> Callable:
         model.set_param("b", b)
 
     return do_affine_init
-
-
-def Affine(
-    nO: Optional[int] = None,
-    nI: Optional[int] = None,
-    init_W: Callable = xavier_uniform_init,
-    init_b: Callable = zero_init,
-) -> Model:
-    model = Model(
-        "affine",
-        forward,
-        init=create_init(init_W, init_b),
-        dims={"nO": nO, "nI": nI},
-        params={"W": None, "b": None},
-        layers=[],
-        attrs={},
-    )
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model
