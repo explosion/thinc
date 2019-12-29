@@ -1,13 +1,12 @@
 import numpy
-from thinc.neural._classes.hash_embed import HashEmbed
+from thinc.layers.hashembed import HashEmbed
 
 
 def test_init():
     model = HashEmbed(64, 1000)
-    assert model.nV == 1000
-    assert model.nO == 64
-    assert model.vectors.shape == (1000, 64)
-    # assert model.word_weights.shape == (1000,)
+    assert model.get_dim("nV") == 1000
+    assert model.get_dim("nO") == 64
+    assert model.get_param("vectors").shape == (1000, 64)
 
 
 def test_seed_changes_bucket():
