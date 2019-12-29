@@ -4,7 +4,7 @@ from .base import Model, Array, create_init
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
-from .initializers import xavier_uniform_init, zero_init
+from .initializers import zero_init
 
 
 def Softmax(
