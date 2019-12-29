@@ -13,7 +13,6 @@ from ..util import get_ops, copy_array, ensure_path, get_width
 
 # TODO: Better way to handle the type declarations here?
 Array = "Array"
-Model = "Model"
 
 
 def create_thread_local():
