@@ -1,4 +1,4 @@
-import pytest.mark
+import pytest
 from srsly import cloudpickle as pickle
 
 
