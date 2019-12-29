@@ -1,6 +1,7 @@
 from typing import Tuple, Callable
 
-from .base import Model, Array
+from .base import Model
+from ..types import Array
 
 
 def Dropout(rate: float = 0.0) -> Model:

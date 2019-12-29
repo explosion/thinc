@@ -1,10 +1,11 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array, create_init
+from .base import Model, create_init
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
+from ..types import Array
 
 
 def Maxout(

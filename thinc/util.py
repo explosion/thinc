@@ -1,5 +1,5 @@
+from typing import Iterable, Any, Union
 import numpy
-from pathlib import Path
 import itertools
 
 try:
@@ -9,8 +9,16 @@ except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
 
+try:
+    import torch
+except ImportError:
+    torch = None
 
-def is_cupy_array(arr):
+
+from .types import Array, OpNames
+
+
+def is_cupy_array(arr: Array) -> bool:
     """Check whether an array is a cupy array"""
     if cupy is None:
         return False
@@ -20,7 +28,7 @@ def is_cupy_array(arr):
         return False
 
 
-def is_numpy_array(arr):
+def is_numpy_array(arr: Array) -> bool:
     """Check whether an array is a numpy array"""
     if isinstance(arr, numpy.ndarray):
         return True
@@ -28,7 +36,7 @@ def is_numpy_array(arr):
         return False
 
 
-def get_ops(ops):
+def get_ops(ops: Union[int, OpNames]) -> "thinc.backends.Ops":
     from ..backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
@@ -36,10 +44,10 @@ def get_ops(ops):
     elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
         return CupyOps
     else:
-        raise ValueError("Invalid ops (or device) description: %s" % ops)
+        raise ValueError(f"Invalid ops (or device) description: {ops}")
 
 
-def set_active_gpu(gpu_id):
+def set_active_gpu(gpu_id: int):
     import cupy.cuda.device
 
     device = cupy.cuda.device.Device(gpu_id)
@@ -54,7 +62,7 @@ def set_active_gpu(gpu_id):
     return device
 
 
-def prefer_gpu(gpu_id=0):
+def prefer_gpu(gpu_id: int = 0) -> bool:
     """Use GPU if it's available. Returns True if so, False otherwise."""
     from .ops import CupyOps
 
@@ -65,7 +73,7 @@ def prefer_gpu(gpu_id=0):
         return True
 
 
-def require_gpu(gpu_id=0):
+def require_gpu(gpu_id: int = 0) -> bool:
     from ._classes.model import Model
     from .ops import CupyOps
 
@@ -77,7 +85,7 @@ def require_gpu(gpu_id=0):
     return True
 
 
-def minibatch(items, size=8):
+def minibatch(items: Iterable[Any], size: int = 8) -> Iterable[Any]:
     """Iterate over batches of items. `size` may be an iterator,
     so that batch-size can vary on each step.
     """
@@ -101,7 +109,7 @@ def minibatch(items, size=8):
             yield list(batch)
 
 
-def copy_array(dst, src, casting="same_kind", where=None):
+def copy_array(dst: Array, src: Array) -> None:
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
     elif is_cupy_array(dst):
@@ -111,22 +119,7 @@ def copy_array(dst, src, casting="same_kind", where=None):
         numpy.copyto(dst, src)
 
 
-def ensure_path(path):
-    if isinstance(path, str):
-        return Path(path)
-    else:
-        return path
-
-
-def partition(examples, split_size):  # pragma: no cover
-    examples = list(examples)
-    numpy.random.shuffle(examples)
-    n_docs = len(examples)
-    split = int(n_docs * split_size)
-    return examples[:split], examples[split:]
-
-
-def to_categorical(y, nb_classes=None):
+def to_categorical(y: Array, nb_classes=None):
     # From keras
     xp = get_array_module(y)
     if xp is cupy:
@@ -140,14 +133,14 @@ def to_categorical(y, nb_classes=None):
     return xp.asarray(categorical)
 
 
-def is_ragged(seqs):
+def is_ragged(seqs) -> bool:
     if isinstance(seqs, tuple) and len(seqs) == 2:
         if len(seqs[0]) == sum(seqs[1]):
             return True
     return False
 
 
-def get_width(X, dim=-1):
+def get_width(X: Array, dim: int = -1) -> int:
     """Infer the 'width' of a batch of data, which could be any of:
     * An n-dimensional array: Use the shape
     * A tuple (for a ragged array): Use the shape of the first element.
@@ -168,9 +161,8 @@ def get_width(X, dim=-1):
         else:
             return get_width(X[0], dim=dim)
     else:
-        raise ValueError(
-            "Cannot get width of object: has neither shape nor __getitem__."
-        )
+        err = "Cannot get width of object: has neither shape nor __getitem__"
+        raise ValueError(err)
 
 
 def xp2torch(xp_tensor):

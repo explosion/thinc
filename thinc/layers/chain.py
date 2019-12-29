@@ -1,7 +1,8 @@
 from typing import Tuple, Callable, List, Optional
 
-from .base import Model, Array
-from .. import util
+from .base import Model
+from ..types import Array
+from ..util import get_width
 
 
 def chain(*layers: List[Model]) -> Model:
@@ -39,7 +40,7 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     if not model.layers:
         return
     # Try to set nO on each layer, where available.
-    nO = util.get_width(Y) if Y is not None else model.get_dim("nO")
+    nO = get_width(Y) if Y is not None else model.get_dim("nO")
     for layer in reversed(model.layers):
         if nO is not None and layer.dim_is_unset("nO"):
             layer.set_dim("nO", nO)

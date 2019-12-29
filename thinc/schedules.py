@@ -104,23 +104,3 @@ def cyclic_triangular(min_lr, max_lr, period):
         relative = max(0, 1 - x)
         yield min_lr + (max_lr - min_lr) * relative
         it += 1
-
-
-# Deprecated
-
-
-def annealing(rate, decay, decay_steps, t=0.0):
-    while True:
-        if decay == 0.0:
-            yield rate
-        else:
-            yield rate * decay ** (t / decay_steps)
-            t += 1
-
-
-def annealing_cos(start, end, step=0.001):
-    pct = step
-    while True:
-        cos_out = numpy.cos(numpy.pi * pct) + 1
-        yield end + (start - end) / 2 * cos_out
-        pct += step

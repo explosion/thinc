@@ -9,10 +9,10 @@ from ..backends import Ops, NumpyOps, CupyOps
 from ..optimizers import Optimizer  # noqa: F401
 from ..mem import Memory
 from ..util import get_ops, copy_array, get_width
+from ..types import Array
 
 
-# TODO: Better way to handle the type declarations here?
-Array = "Array"
+Model = "Model"
 
 
 def create_thread_local():
