@@ -1,36 +1,48 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array
+from .base import Model, Array, create_init
 from ..util import get_width
 
 
-def ReLu() -> Model:
-    return Model(
+def ReLu(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = xavier_uniform_init,
+    init_b: Callable = zero_init,
+    dropout: Optional[float],
+    normalize: bool=False,
+) -> Model:
+    model = Model(
         "relu",
         forward,
-        init=init,
-        dims={"nO": None, "nI": None},
-        params={},
+        init=create_init({"W": init_W, "b": init_b}),
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None},
         attrs={},
         layers=[],
     )
+    if normalize is not None:
+        model = chain(model, LayerNorm())
+    if dropout is not None:
+        model = chain(model, Dropout(dropout))
+    if nO is not None and nI is not None:
+        model.initialize()
+    return model
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
-    Y = model.ops.relu(X)
+    W = model.get_param("W")
+    b = model.get_param("b")
+    
+    Y = model.ops.gemm(X, W, trans2=True)
+    Y += b
+    model.ops.relu(Y, inplace=True)
 
     def relu_backward(dY: Array) -> Array:
-        return model.ops.backprop_relu(dY, Y)
+        dY = model.ops.backprop_relu(dY, Y)
+        model.inc_grad("b", dY.sum(axis=0))
+        model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
+        return model.ops.gemm(dY, W)
 
     return Y, relu_backward
-
-
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    if X is not None:
-        X_width = get_width(X)
-        model.set_dim("nI", X_width)
-        model.set_dim("nO", X_width)
-    elif Y is not None:
-        Y_width = get_width(Y)
-        model.set_dim("nI", Y_width)
-        model.set_dim("nO", Y_width)
