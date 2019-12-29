@@ -1,7 +1,9 @@
-from .base import Model
+from typing import Tuple, Callable, Optional, List, Sequence
+
+from .base import Model, Array
 
 
-def ForEach(layer):
+def ForEach(layer: Model) -> Model:
     """Map a layer across list items"""
     return Model(
         f"foreach-{layer.name}",
@@ -13,7 +15,7 @@ def ForEach(layer):
     )
 
 
-def init(model, X=None, Y=None):
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     Xflat = [X[0]] if X else None
     Yflat = [Y[0]] if Y else None
     model._layers[0].initialize(X=Xflat, Y=Yflat)
@@ -21,7 +23,9 @@ def init(model, X=None, Y=None):
     model.set_dim("nI", model._layers[0].get_dim("nI"))
 
 
-def forward(model, docs, is_train):
+def forward(
+    model: Model, docs: List[Sequence], is_train: bool
+) -> Tuple[Array, Callable]:
     layer = model._layers[0]
     sents = []
     lengths = []
@@ -33,7 +37,7 @@ def forward(model, docs, is_train):
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def foreach_bwd(d_output):
+    def foreach_bwd(d_output: List[Sequence]) -> List[Sequence]:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)
