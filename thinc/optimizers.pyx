@@ -411,8 +411,8 @@ def _make_ops(ops):
     elif ops == "NumpyOps":
         return NumpyOps()
     elif ops is None:
-        from ._classes.model import Model
-        return Model.ops
+        from .layers.base import Model
+        return Model.get_class_ops()
     else:
         return ops
 
