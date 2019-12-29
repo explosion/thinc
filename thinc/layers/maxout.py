@@ -1,6 +1,8 @@
 from typing import Tuple, Callable, Optional
 
-from .base import Model, Array
+from .base import Model, Array, create_init
+from .dropout import Dropout
+from .layernorm import LayerNorm
 from ..initializers import xavier_uniform_init, zero_init
 from ..util import get_width
 
@@ -9,18 +11,25 @@ def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     nP: int = 3,
+    *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
+    dropout: Optional[float],
+    normalize: bool=False,
 ) -> Model:
     model = Model(
         "maxout",
         forward,
-        init=create_init(init_W, init_b),
+        init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI, "nP": nP},
         params={"W": None, "b": None},
         layers=[],
         attrs={},
     )
+    if normalize is not None:
+        model = chain(model, LayerNorm())
+    if dropout is not None:
+        model = chain(model, Dropout(dropout))
     if nO is not None and nI is not None:
         model.initialize()
     return model
@@ -39,30 +48,10 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     best, which = model.ops.maxout(Y)
 
     def finish_update(d_best: Array):
-        dY = model.ops.backprop_maxout(d_best, which, model.nP)
-        model.d_b += dY.sum(axis=0)
+        dY = model.ops.backprop_maxout(d_best, which, nP)
         dY = dY.reshape((dY.shape[0], nO * nP))
-        dW = model.ops.gemm(dY, X, trans1=True)
-        model.inc_grad("W", dW.reshape((nO, nP, nI)))
-        # Bop,opi->Bi
+        model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
+        model.inc_grad("b", dY.sum(axis=0))
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
     return best, finish_update
-
-
-def create_init(init_W: Callable, init_b: Callable) -> Callable:
-    def do_maxout_init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-    ) -> None:
-        if X is not None:
-            model.set_dim("nI", get_width(X))
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
-        b = model.ops.allocate((model.get_dim("nO"),))
-        init_W(W, inplace=True)
-        init_b(b, inplace=True)
-        model.set_param("W", W)
-        model.set_param("b", b)
-
-    return do_maxout_init
