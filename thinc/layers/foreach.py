@@ -1,7 +1,10 @@
-from typing import Tuple, Callable, Optional, List, Sequence
+from typing import Tuple, Callable, Optional, List, Sequence, TypeVar
 
 from ..model import Model
-from ..types import Array
+
+
+InputType = TypeVar("InputType", bound=List[Sequence])
+OutputType = TypeVar("OutputType", bound=List[Sequence])
 
 
 def foreach(layer: Model) -> Model:
@@ -15,8 +18,8 @@ def foreach(layer: Model) -> Model:
 
 
 def forward(
-    model: Model, docs: List[Sequence], is_train: bool
-) -> Tuple[Array, Callable]:
+    model: Model, docs: InputType, is_train: bool
+) -> Tuple[OutputType, Callable]:
     layer = model.layers[0]
     sents = []
     lengths = []
@@ -28,7 +31,7 @@ def forward(
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def backprop(d_output: List[Sequence]) -> List[Sequence]:
+    def backprop(d_output: OutputType) -> InputType:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)
@@ -36,7 +39,9 @@ def forward(
     return output, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
     Xflat = [X[0]] if X else None
     Yflat = [Y[0]] if Y else None
     layer = model.layers[0]

@@ -1,8 +1,11 @@
-from typing import Callable, Tuple, Optional
+from typing import Callable, Tuple, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..initializers import uniform_init
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def HashEmbed(
@@ -26,7 +29,9 @@ def HashEmbed(
     return model
 
 
-def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(
+    model: Model, ids: InputType, is_train: bool
+) -> Tuple[OutputType, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
@@ -36,7 +41,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     keys = model.ops.hash(ids, seed) % nV
     output = vectors[keys].sum(axis=1)
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutputType) -> InputType:
         keys = model.ops.hash(ids, seed) % nV
         d_vectors = model.ops.allocate(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")
@@ -50,7 +55,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
 
 def create_init(initializer: Callable) -> Callable:
     def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+        model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
     ) -> Model:
         vectors = model.ops.allocate((model.get_dim("nV"), model.get_dim("nO")))
         initializer(vectors, inplace=True)

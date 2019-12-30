@@ -1,9 +1,13 @@
-from typing import Callable, Tuple, Optional
+from typing import Callable, Tuple, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..initializers import uniform_init
 from ..util import get_width
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Embed(
@@ -22,7 +26,9 @@ def Embed(
     )
 
 
-def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(
+    model: Model, ids: InputType, is_train: bool
+) -> Tuple[OutputType, Callable]:
     nV = model.get_dim("nV")
     vectors = model.get_param("vectors")
     column = model.get_attr("column")
@@ -31,7 +37,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     ids[ids >= nV] = 0
     output = vectors[ids]
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutputType) -> InputType:
         d_vectors = model.ops.allocate(vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
