@@ -22,17 +22,12 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
     output = model.ops.xp.hstack(Ys)
 
     def backprop(d_output: OutputType) -> InputType:
-        layer_grad = None
-        start = 0
-        for bwd, width in zip(callbacks, widths):
-            d = bwd(d_output[:, start : start + width])
-            if hasattr(X, "shape"):
-                if layer_grad is None:
-                    layer_grad = d
-                else:
-                    layer_grad += d
+        dX = callbacks[0](d_output[: widths[0]])
+        start = widths[0]
+        for bwd, width in zip(callbacks[1:], widths[1:]):
+            dX += bwd(d_output[:, start : start + width])
             start += width
-        return layer_grad
+        return dX
 
     return output, backprop
 
