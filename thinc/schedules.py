@@ -23,7 +23,7 @@ def constant(rate: float) -> Iterable[float]:
 
 
 @registry.schedules("decaying.v1")
-def decaying(base_rate: float, decay: float, t: int = 0):
+def decaying(base_rate: float, decay: float, *, t: int = 0):
     """Yield an infinite series of linearly decaying values,
     following the schedule:
 
@@ -31,7 +31,7 @@ def decaying(base_rate: float, decay: float, t: int = 0):
 
     Example:
 
-        >>> learn_rates = linear_decay(0.001, 1e-4)
+        >>> learn_rates = decaying(0.001, 1e-4)
         >>> next(learn_rates)
         0.001
         >>> next(learn_rates)
@@ -69,7 +69,7 @@ def _clip(value: float, start: float, stop: float) -> float:
 @registry.schedules("slanted_triangular.v1")
 def slanted_triangular(
     max_rate: float,
-    num_steps: float,
+    num_steps: int,
     *,
     cut_frac: float = 0.1,
     ratio: int = 32,
