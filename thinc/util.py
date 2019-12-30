@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union
+from typing import Iterable, Any, Union, Tuple
 import numpy
 import itertools
 import threading
@@ -91,6 +91,14 @@ def require_gpu(gpu_id: int = 0) -> bool:
     Model.ops = CupyOps()
     set_active_gpu(gpu_id)
     return True
+
+
+def get_shuffled_batches(X: Array, Y: Array, batch_size) -> Iterable[Tuple[Array, Array]]:
+    xp = get_array_module(X)
+    indices = xp.arange(X.shape[0], dtype="i")
+    xp.random.shuffle(indices)
+    for index_batch in minibatch(indices, size=batch_size):
+        yield X[index_batch], Y[index_batch]
 
 
 def minibatch(items: Iterable[Any], size: int = 8) -> Iterable[Any]:

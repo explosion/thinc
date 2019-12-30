@@ -1,6 +1,6 @@
 from thinc.layers import chain, ReLu, Softmax
 from thinc.optimizers import Adam
-from thinc.util import minibatch, to_categorical
+from thinc.util import get_shuffled_batches
 import ml_datasets
 import tqdm
 
@@ -31,8 +31,20 @@ dropout = ${hyper_params:dropout}
 learn_rate = ${hyper_params:learn_rate}
 """
 
+def load_mnist():
+    from thinc.backends import NumpyOps
+    from thinc.util import to_categorical
+    ops = NumpyOps()
+    mnist_train, mnist_dev, _ = ml_datasets.mnist()
+    train_X, train_Y = ops.unzip(mnist_train)
+    train_Y = to_categorical(train_Y, nb_classes=10)
+    dev_X, dev_Y = ops.unzip(mnist_dev)
+    dev_Y = to_categorical(dev_Y, nb_classes=10)
+    return (train_X, train_Y), (dev_X, dev_Y)
 
-def main(n_hidden=32, dropout=0.2, n_iter=10):
+
+
+def main(n_hidden=32, dropout=0.2, n_iter=10, batch_size=128):
     # Define the model
     model = chain(
         ReLu(n_hidden, dropout=dropout),
@@ -41,26 +53,20 @@ def main(n_hidden=32, dropout=0.2, n_iter=10):
     )
 
     # Load the data
-    mnist_train, mnist_dev, _ = ml_datasets.mnist()
-    train_X, train_Y = model.ops.unzip(mnist_train)
-    train_Y = to_categorical(train_Y, nb_classes=10)
-    dev_X, dev_Y = model.ops.unzip(mnist_dev)
-    dev_Y = to_categorical(dev_Y, nb_classes=10)
-
+    (train_X, train_Y), (dev_X, dev_Y) = load_mnist()
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     # Create the optimizer.
-    optimizer = Adam(0.001)
-    
+    optimizer = Adam(0.001, L2=0.0, use_averages=False, max_grad_norm=0.0)
     # Train
-    indices = model.ops.xp.arange(train_X.shape[0], dtype="i")
     for i in range(n_iter):
-        model.ops.xp.random.shuffle(indices)
-        for idx_batch in minibatch(tqdm.tqdm(indices, leave=False)):
-            Yh, backprop = model.begin_update(train_X[idx_batch])
-            backprop(Yh - train_Y[idx_batch])
+        train_batches = list(get_shuffled_batches(train_X, train_Y, batch_size))
+        for images, truths in tqdm.tqdm(train_batches):
+
+            guesses, backprop = model.begin_update(images)
+            d_guesses = (guesses - truths) / guesses.shape[0]
+            backprop(d_guesses)
             model.finish_update(optimizer)
-        # Print progress
 
 
 if __name__ == "__main__":
