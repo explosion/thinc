@@ -4,38 +4,6 @@ from .model import Model
 from .util import is_ragged
 
 
-@layerize
-def flatten_add_lengths(seqs):
-    """Transform sequences to ragged arrays if necessary. If sequences are
-    already ragged, do nothing. A ragged array is a tuple (data, lengths),
-    where data is the concatenated data.
-    """
-    if is_ragged(seqs):
-        return seqs, lambda d_seqs: d_seqs
-
-    ops = Model.ops
-    lengths = ops.asarray([len(seq) for seq in seqs], dtype="i")
-
-    def finish_update(d_X):
-        return ops.unflatten(d_X, lengths)
-
-    return (ops.flatten(seqs), lengths), finish_update
-
-
-@layerize
-def unflatten(X_lengths):
-    """Transform sequences from a ragged format into lists."""
-    ops = Model.ops
-    X, lengths = X_lengths
-    Xs = ops.unflatten(X, lengths)
-
-    def backprop_unflatten(dXs):
-        dX = ops.flatten(dXs, pad=0)
-        return dX
-
-    return Xs, backprop_unflatten
-
-
 def with_square_sequences(model):
     def padded_forward(seqs_in):
         padded_in, _, unpad = model.ops.square_sequences(seqs_in)
