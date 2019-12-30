@@ -1,11 +1,11 @@
 from typing import Optional, List, Callable, Tuple, Union
 
-from ..types import Device, Xp, Array, Shape
+from ..types import Xp, Array, Shape
 from ..util import copy_array, get_array_module
 
 
 class Ops:
-    device: Device = "cpu"
+    device: str = "cpu"
     xp: Xp = None
 
     def __init__(self, xp: Optional[Xp] = None):

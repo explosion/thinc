@@ -4,8 +4,8 @@ import pytest
 import threading
 import time
 from thinc.layers.affine import Affine
-from thinc.layers import base
 from thinc.backends import NumpyOps, get_current_ops, use_device
+from thinc.model import Model
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def model_with_no_args():
 
 
 def create_model(name):
-    return base.Model(name, lambda X: (X, lambda dY: dY))
+    return Model(name, lambda X: (X, lambda dY: dY))
 
 
 def test_Model_defaults_to_cpu(model_with_no_args):
@@ -47,13 +47,13 @@ def test_use_device():
 
 
 def test_bind_plus():
-    with base.Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
+    with Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
         m = create_model(name="a") + create_model(name="b")
         assert m == ("a", "b")
 
 
 def test_plus_chain():
-    with base.Model.define_operators({"+": lambda a, b: a}):
+    with Model.define_operators({"+": lambda a, b: a}):
         m = (
             create_model(name="a")
             + create_model(name="b")
@@ -86,29 +86,29 @@ def test_overload_operators_in_subthread():
 def _overload_plus(operator, sleep):
     m1 = create_model(name="a")
     m2 = create_model(name="b")
-    with base.Model.define_operators({operator: lambda a, b: a.name + b.name}):
+    with Model.define_operators({operator: lambda a, b: a.name + b.name}):
         time.sleep(sleep)
         if operator == "+":
             value = m1 + m2
         else:
             value = m1 * m2
     assert value == "ab"
-    assert base.Model._thread_local.operators == {}
+    assert Model._thread_local.operators == {}
 
 
 def test_nested_operator_contexts():
     m1 = create_model(name="a")
     m2 = create_model(name="b")
-    assert base.Model._thread_local.operators == {}
-    with base.Model.define_operators({"+": lambda a, b: a.name + b.name}):
+    assert Model._thread_local.operators == {}
+    with Model.define_operators({"+": lambda a, b: a.name + b.name}):
         value = m1 + m2
         with pytest.raises(TypeError):
             value = m1 * m2
-        with base.Model.define_operators({"*": lambda a, b: a.name + b.name}):
+        with Model.define_operators({"*": lambda a, b: a.name + b.name}):
             with pytest.raises(TypeError):
                 value = m1 + m2
             value = m1 * m2
-            with base.Model.define_operators({"-": lambda a, b: a.name + b.name}):
+            with Model.define_operators({"-": lambda a, b: a.name + b.name}):
                 with pytest.raises(TypeError):
                     value = m1 + m2
                 value = m1 - m2
@@ -119,14 +119,14 @@ def test_nested_operator_contexts():
         with pytest.raises(TypeError):
             value = m1 * m2
     assert value == "ab"
-    assert base.Model._thread_local.operators == {}
+    assert Model._thread_local.operators == {}
 
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
 def test_all_operators(op):
     m1 = Affine()
     m2 = Affine()
-    with base.Model.define_operators({op: lambda a, b: a.name + b.name}):
+    with Model.define_operators({op: lambda a, b: a.name + b.name}):
         if op == "+":
             value = m1 + m2
         else:
@@ -201,7 +201,7 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
-    assert base.Model._thread_local.operators == {}
+    assert Model._thread_local.operators == {}
 
 
 def test_model_can_save_to_disk(model_with_no_args):

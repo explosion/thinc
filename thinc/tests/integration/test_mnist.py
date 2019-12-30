@@ -1,5 +1,5 @@
 import pytest
-from thinc.layers.base import Model
+from thinc.model import Model
 from thinc.layers.relu import ReLu
 from thinc.layers.softmax import Softmax
 from thinc.layers.chain import chain

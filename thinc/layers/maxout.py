@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, Dict
 
-from .base import Model
+from ..model import Model
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain

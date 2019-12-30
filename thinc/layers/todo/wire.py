@@ -3,7 +3,7 @@ import copy
 from .neural._classes.function_layer import FunctionLayer
 from .neural._classes.function_layer import wrap, AdditionLayer, ConcatenationLayer
 from .layers.feed_forward import FeedForward
-from .layers.base import Model
+from .model import Model
 from .util import is_ragged
 
 

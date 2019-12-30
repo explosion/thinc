@@ -3,7 +3,7 @@ import numpy
 from numpy.testing import assert_allclose
 from thinc.layers.chain import chain
 from thinc.layers.affine import Affine
-from thinc.layers.base import Model
+from thinc.model import Model
 
 
 @pytest.fixture
