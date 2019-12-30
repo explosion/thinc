@@ -47,11 +47,11 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y_uniq, bp_Y_uniq = layer(X_uniq, is_train)
     Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
 
-    def uniqued_bwd(dY: Array) -> Array:
+    def backprop(dY: Array) -> Array:
         dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype="f")
         layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"
         return (d_uniques / counts)[inv]
 
-    return Y, uniqued_bwd
+    return Y, backprop

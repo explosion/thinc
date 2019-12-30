@@ -23,6 +23,24 @@ def Embed(
     )
 
 
+def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
+    nV = model.get_dim("nV")
+    vectors = model.get_param("vectors")
+    column = model.get_attr("column")
+    if ids.ndim == 2:
+        ids = ids[:, column]
+    ids[ids >= nV] = 0
+    output = vectors[ids]
+
+    def backprop(d_output: Array) -> Array:
+        d_vectors = model.ops.allocate(vectors.shape)
+        model.ops.scatter_add(d_vectors, ids, d_output)
+        model.inc_grad("vectors", d_vectors)
+        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+
+    return output, backprop
+
+
 def create_init(initializer: Callable) -> Callable:
     def init(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
@@ -34,21 +52,3 @@ def create_init(initializer: Callable) -> Callable:
         model.set_param("vectors", vectors)
 
     return init
-
-
-def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
-    nV = model.get_dim("nV")
-    vectors = model.get_param("vectors")
-    column = model.get_attr("column")
-    if ids.ndim == 2:
-        ids = ids[:, column]
-    ids[ids >= nV] = 0
-    output = vectors[ids]
-
-    def backprop_embed(d_output: Array) -> Array:
-        d_vectors = model.ops.allocate(vectors.shape)
-        model.ops.scatter_add(d_vectors, ids, d_output)
-        model.inc_grad("vectors", d_vectors)
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
-
-    return output, backprop_embed

@@ -23,11 +23,11 @@ def forward(
     lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
     X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad))
 
-    def backprop_with_flatten(d_seqs_out: List[Array]) -> List[Array]:
+    def backprop(d_seqs_out: List[Array]) -> List[Array]:
         d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad))
         return layer.ops.unflatten(d_X, lengths, pad=pad)
 
-    return layer.ops.unflatten(X, lengths, pad=pad), backprop_with_flatten
+    return layer.ops.unflatten(X, lengths, pad=pad), backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:

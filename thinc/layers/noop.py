@@ -9,4 +9,7 @@ def noop(*layers: List[Model]) -> Model:
 
 
 def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
-    return X, lambda dY: dY
+    def backprop(dY: Any) -> Any:
+        return dY
+
+    return X, backprop

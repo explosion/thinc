@@ -15,63 +15,6 @@ def layerize(begin_update=None, predict=None, *args, **kwargs):
     return wrapper
 
 
-def noop(*layers):
-    """Transform a sequences of layers into a null operation."""
-
-    def noop_forward(X):
-        return X, lambda D, *a, **k: D
-
-    return layerize(noop_forward, layers=list(layers))
-
-
-def create_variadic(layers, *, cls=None, function=None, **kwargs):
-    """Create a layer for a variadic function, i.e. a function that can apply
-    over a variable number of child layers. If the first child layer is already
-    set up for the function, we just extend its children instead of creating
-    a new layer.
-
-    For instance, let's say we're concatenating a sequence of layers, defined
-    using the | operator:
-
-        layer = (child1 | child2 | child2)
-
-    This will result in two calls:
-
-        concatenate(concatenate(child1, child2), child3)
-
-    With create_variadic, this will be flattened to:
-
-        concatenate(child1, child2, child3)
-
-    Which will be more efficient.
-    """
-    if not layers:
-        return noop()
-    elif cls is not None:
-        if isinstance(layers[0], cls):
-            main_layer = layers[0]
-            others = layers[1:]
-        elif isinstance(layers[-1], cls):
-            main_layer = layers[0]
-            others = layers[1:]
-        else:
-            return cls(layers=layers, **kwargs)
-    elif function is not None:
-        if layers[0].begin_update is function:
-            main_layer = layers[0]
-            others = layers[1:]
-        elif layers[-1].begin_update is function:
-            main_layer = layers[-1]
-            others = layers[:-1]
-        else:
-            return FunctionLayer(function, layers=layers, **kwargs)
-    else:
-        raise ValueError("One of 'cls' or 'function' must be provided")
-    for layer in others:
-        main_layer.add_layer(layer)
-    return main_layer
-
-
 @layerize
 def flatten_add_lengths(seqs):
     """Transform sequences to ragged arrays if necessary. If sequences are

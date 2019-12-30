@@ -17,7 +17,7 @@ Model = "Model"
 def create_init(initializers: Dict[str, Callable]) -> Callable:
     """Create an init function, given a dictionary of parameter initializers."""
 
-    def do_init(
+    def init(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if X is not None:
@@ -33,7 +33,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         model.set_param("W", W)
         model.set_param("b", b)
 
-    return do_init
+    return init
 
 
 class Model:

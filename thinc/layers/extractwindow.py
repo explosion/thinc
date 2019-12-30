@@ -20,7 +20,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     nW = model.get_attr("window_size")
     Y = model.ops.seq2col(X, nW)
 
-    def backprop_convolution(dY: Array) -> Array:
+    def backprop(dY: Array) -> Array:
         return model.ops.backprop_seq2col(dY, nW)
 
-    return Y, backprop_convolution
+    return Y, backprop

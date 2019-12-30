@@ -36,7 +36,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     keys = model.ops.hash(ids, seed) % nV
     output = vectors[keys].sum(axis=1)
 
-    def backprop_hash_embed(d_output: Array) -> Array:
+    def backprop(d_output: Array) -> Array:
         keys = model.ops.hash(ids, seed) % nV
         d_vectors = model.ops.allocate(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")
@@ -45,11 +45,11 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
         model.inc_grad("vectors", d_vectors)
         return model.ops.allocate(ids.shape, dtype=ids.dtype)
 
-    return output, backprop_hash_embed
+    return output, backprop
 
 
 def create_init(initializer: Callable) -> Callable:
-    def init_hash_embed(
+    def init(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> Model:
         vectors = model.ops.allocate((model.get_dim("nV"), model.get_dim("nO")))
@@ -57,4 +57,4 @@ def create_init(initializer: Callable) -> Callable:
         model.set_param("vectors", vectors)
         return model
 
-    return init_hash_embed
+    return init

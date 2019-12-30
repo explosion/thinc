@@ -25,14 +25,14 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     else:
         output = X + y
 
-    def residual_bwd(d_output: Array) -> Array:
+    def backprop(d_output: Array) -> Array:
         dX = bp_y(d_output)
         if isinstance(d_output, list) or isinstance(d_output, tuple):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
         else:
             return d_output + dX
 
-    return output, residual_bwd
+    return output, backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
