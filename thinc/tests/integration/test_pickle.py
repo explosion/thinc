@@ -1,7 +1,7 @@
 import pytest
 from srsly import cloudpickle as pickle
-from thinc.api import with_flatten
-from thinc.v2v import Affine
+from thinc.layers.with_flatten import with_flatten
+from thinc.layers.affine import Affine
 
 
 @pytest.fixture
@@ -16,5 +16,5 @@ def test_pickle_with_flatten(affine):
     loaded = pickle.loads(pickled)
     Ys = loaded.predict(Xs)
     assert len(Ys) == 2
-    assert Ys[0].shape == (Xs[0].shape[0], affine.nO)
-    assert Ys[1].shape == (Xs[1].shape[0], affine.nO)
+    assert Ys[0].shape == (Xs[0].shape[0], affine.get_dim("nO"))
+    assert Ys[1].shape == (Xs[1].shape[0], affine.get_dim("nO"))
