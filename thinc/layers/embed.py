@@ -45,7 +45,7 @@ def create_init(initializer: Callable) -> Callable:
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if Y is not None:
-            model.set_dim(get_width(Y))
+            model.set_dim("nO", get_width(Y))
         shape = (model.get_dim("nV"), model.get_dim("nO"))
         vectors = initializer(model.ops.allocate(shape))
         model.set_param("vectors", vectors)
