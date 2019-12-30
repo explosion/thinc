@@ -1,9 +1,6 @@
 from typing import Tuple, Callable, Optional
 
 from ..model import Model, Array, create_init
-from .chain import chain
-from .layernorm import LayerNorm
-from .dropout import Dropout
 from ..initializers import zero_init
 
 
@@ -36,9 +33,9 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y += b
     model.ops.softmax(Y, inplace=True)
 
-    def softmax_backward(dY: Array) -> Array:
+    def backprop(dY: Array) -> Array:
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
 
-    return Y, softmax_backward
+    return Y, backprop

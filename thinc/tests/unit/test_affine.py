@@ -1,11 +1,8 @@
 import pytest
-from mock import MagicMock, Mock
+from mock import MagicMock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
-from thinc.layers.chain import chain
-from thinc.layers.dropout import Dropout
-from thinc.backends import NumpyOps
 from thinc.layers.affine import Affine
 
 from ..strategies import arrays_OI_O_BI
@@ -42,7 +39,6 @@ def test_begin_update_matches_predict(W_b_input):
     assert_allclose(fwd_via_begin_update, fwd_via_predict_batch)
 
 
-
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_finish_update_calls_optimizer_with_weights(W_b_input):
     model = get_model(W_b_input)
@@ -66,14 +62,14 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     assert seen_keys == {model.id}
 
 
-#def test_begin_update_not_batch():
+# def test_begin_update_not_batch():
 #    model = make_Affine(4, 5)
 #    input_ = model.ops.allocate((6,))
 #    with pytest.raises(ValueError):
 #        model.begin_update(input_)
 
-#@pytest.mark.skip
-#def test_predict_update_dim_mismatch():
+# @pytest.mark.skip
+# def test_predict_update_dim_mismatch():
 #    model = make_Affine(4, 5)
 #    input_ = model.ops.allocate((10, 9))
 #    with pytest.raises(ValueError):
@@ -123,9 +119,9 @@ def test_predict_extensive(W_b_input):
     assert_allclose(predicted_output, expected_output, rtol=1e-04, atol=0.0001)
 
 
-#@pytest.mark.skip
-#@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-#def test_dropout_gives_zero_activations(W_b_input):
+# @pytest.mark.skip
+# @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+# def test_dropout_gives_zero_activations(W_b_input):
 #    model = chain(get_model(W_b_input), Dropout(0.0))
 #    model.set_dropout(1.0)
 #    nr_batch, nr_out, nr_in = get_shape(W_b_input)
@@ -134,8 +130,8 @@ def test_predict_extensive(W_b_input):
 #    assert all(val == 0.0 for val in fwd_dropped.flatten())
 
 
-#@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-#def test_dropout_gives_zero_gradients(W_b_input):
+# @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+# def test_dropout_gives_zero_gradients(W_b_input):
 #    model = chain(get_model(W_b_input), Dropout(0.0))
 #    nr_batch, nr_out, nr_in = get_shape(W_b_input)
 #    W, b, input_ = W_b_input
@@ -144,5 +140,3 @@ def test_predict_extensive(W_b_input):
 #    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
 #    grad_BI = finish_update(grad_BO)
 #    assert all(val == 0.0 for val in grad_BI.flatten())
-
-

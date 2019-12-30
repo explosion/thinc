@@ -28,7 +28,6 @@ def Siamese(layer, similarity):
 
         return output, finish_update
 
-
     def on_data(self, X, y):
         input1, input2 = zip(*X)
         for hook in layer.on_data_hooks:

@@ -1,7 +1,7 @@
 import pytest
 import numpy
-from numpy.testing import assert_allclose
 from thinc.layers.chain import chain
+from thinc.layers.clone import clone
 from thinc.layers.affine import Affine
 from thinc.model import Model
 

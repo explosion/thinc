@@ -5,6 +5,10 @@ from ..types import Array
 from ..util import get_width
 
 
+InputType = Array
+OutputType = Array
+
+
 def add(layers: List[Model]) -> Model:
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
@@ -20,17 +24,13 @@ def add(layers: List[Model]) -> Model:
     )
 
 
-InputType = Array
-OutputType = Array
-
-
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     Y = Ys[0]
     for y in Ys:
         Y += y
 
-    def finish_update_add(d_output: OutputType) -> InputType:
+    def backprop(d_output: OutputType) -> InputType:
         grads = [bp(d_output) for bp in callbacks]
         if grads:
             total = grads[0]
@@ -40,7 +40,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
         else:
             return None
 
-    return Y, finish_update_add
+    return Y, backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:

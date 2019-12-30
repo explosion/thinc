@@ -3,7 +3,7 @@ from thinc.model import Model
 from thinc.layers.relu import ReLu
 from thinc.layers.softmax import Softmax
 from thinc.layers.chain import chain
-from thinc.layers.maxout import Maxout
+from thinc.layers.clone import clone
 from thinc.backends import NumpyOps
 from thinc.util import to_categorical
 import ml_datasets
@@ -60,7 +60,7 @@ def test_small_end_to_end(
     depth, width, nb_epoch, create_model, train_X, train_y, dev_X, dev_y
 ):
     model = create_model(depth, width)
-    assert isinstance(model, FeedForward)
+    assert isinstance(model, chain)
     losses = []
     with model.begin_training(train_X, train_y) as (trainer, optimizer):
         trainer.each_epoch.append(lambda: print(model.evaluate(dev_X, dev_y)))

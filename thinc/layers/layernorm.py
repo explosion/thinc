@@ -23,7 +23,7 @@ def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
     Xhat = (X - mu) * var ** (-1.0 / 2.0)
     y, backprop_rescale = _begin_update_scale_shift(model, Xhat)
 
-    def finish_update(dY: Array) -> Array:
+    def backprop(dY: Array) -> Array:
         dY = backprop_rescale(dY)
         dist, sum_dy, sum_dy_dist = _get_d_moments(model.ops, dY, X, mu)
         d_xhat = N * dY - sum_dy - dist * var ** (-1.0) * sum_dy_dist
@@ -31,7 +31,7 @@ def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
         d_xhat /= N
         return d_xhat
 
-    return y, finish_update
+    return y, backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:

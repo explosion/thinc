@@ -25,7 +25,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
 
-    def finish_update_concatenate(d_output: Array) -> Array:
+    def backprop(d_output: Array) -> Array:
         layer_grad = None
         start = 0
         for bwd, width in zip(callbacks, widths):
@@ -38,7 +38,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
             start += width
         return layer_grad
 
-    return output, finish_update_concatenate
+    return output, backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:

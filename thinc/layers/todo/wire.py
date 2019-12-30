@@ -1,8 +1,5 @@
-import copy
-
 from .neural._classes.function_layer import FunctionLayer
-from .neural._classes.function_layer import wrap, AdditionLayer, ConcatenationLayer
-from .layers.feed_forward import FeedForward
+from .neural._classes.function_layer import wrap
 from .model import Model
 from .util import is_ragged
 
@@ -16,98 +13,6 @@ def layerize(begin_update=None, predict=None, *args, **kwargs):
         return FunctionLayer(begin_update, *args, **kwargs)
 
     return wrapper
-
-
-def noop(*layers):
-    """Transform a sequences of layers into a null operation."""
-
-    def noop_forward(X):
-        return X, lambda D, *a, **k: D
-
-    return layerize(noop_forward, layers=list(layers))
-
-
-def create_variadic(layers, *, cls=None, function=None, **kwargs):
-    """Create a layer for a variadic function, i.e. a function that can apply
-    over a variable number of child layers. If the first child layer is already
-    set up for the function, we just extend its children instead of creating
-    a new layer.
-
-    For instance, let's say we're concatenating a sequence of layers, defined
-    using the | operator:
-
-        layer = (child1 | child2 | child2)
-
-    This will result in two calls:
-
-        concatenate(concatenate(child1, child2), child3)
-
-    With create_variadic, this will be flattened to:
-
-        concatenate(child1, child2, child3)
-
-    Which will be more efficient.
-    """
-    if not layers:
-        return noop()
-    elif cls is not None:
-        if isinstance(layers[0], cls):
-            main_layer = layers[0]
-            others = layers[1:]
-        elif isinstance(layers[-1], cls):
-            main_layer = layers[0]
-            others = layers[1:]
-        else:
-            return cls(layers=layers, **kwargs)
-    elif function is not None:
-        if layers[0].begin_update is function:
-            main_layer = layers[0]
-            others = layers[1:]
-        elif layers[-1].begin_update is function:
-            main_layer = layers[-1]
-            others = layers[:-1]
-        else:
-            return FunctionLayer(function, layers=layers, **kwargs)
-    else:
-        raise ValueError("One of 'cls' or 'function' must be provided")
-    for layer in others:
-        main_layer.add_layer(layer)
-    return main_layer
-
-
-def chain(*layers):
-    """Compose two models `f` and `g` such that they become layers of a single
-    feed-forward model that computes `g(f(x))`.
-    """
-    return create_variadic(layers, cls=FeedForward)
-
-
-def clone(orig, n):
-    """Construct `n` copies of a layer, with distinct weights.
-
-    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
-    """
-    if n == 0:
-        return noop()
-    layers = [orig]
-    for i in range(n - 1):
-        layers.append(copy.deepcopy(orig))
-        layers[-1].set_id()
-    return chain(*layers)
-
-
-def concatenate(*layers):
-    """Compose two or more models `f`, `g`, etc, such that their outputs are
-    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
-    """
-    return create_variadic(layers, cls=ConcatenationLayer)
-
-
-def add(*layers):
-    """Compose two or more models `f`, `g`, etc, such that their outputs are
-    added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`
-    """
-    return create_variadic(layers, cls=AdditionLayer)
 
 
 @layerize

@@ -149,7 +149,7 @@ class Optimizer(object):
     def __init__(
         self,
         lr: float,
-        *, 
+        *,
         ops: Optional[Ops] = None,
         L2: float = 1e-4,
         beta1: float = 0.90,

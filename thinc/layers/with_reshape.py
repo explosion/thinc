@@ -26,11 +26,11 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
     Y = Y2d.reshape(final_shape)
 
-    def with_reshape_backward(dY):
+    def backprop(dY):
         dY = dY.reshape(nB * nT, -1).astype(layer.ops.xp.float32)
         return Y2d_backprop(dY).reshape(initial_shape)
 
-    return Y, with_reshape_backward
+    return Y, backprop
 
 
 def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:

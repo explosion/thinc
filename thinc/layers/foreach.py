@@ -16,15 +16,6 @@ def foreach(layer: Model) -> Model:
     )
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    Xflat = [X[0]] if X else None
-    Yflat = [Y[0]] if Y else None
-    layer = model.layers[0]
-    layer.initialize(X=Xflat, Y=Yflat)
-    model.set_dim("nO", layer.get_dim("nO"))
-    model.set_dim("nI", layer.get_dim("nI"))
-
-
 def forward(
     model: Model, docs: List[Sequence], is_train: bool
 ) -> Tuple[Array, Callable]:
@@ -39,9 +30,18 @@ def forward(
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def foreach_bwd(d_output: List[Sequence]) -> List[Sequence]:
+    def backprop(d_output: List[Sequence]) -> List[Sequence]:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)
 
-    return output, foreach_bwd
+    return output, backprop
+
+
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+    Xflat = [X[0]] if X else None
+    Yflat = [Y[0]] if Y else None
+    layer = model.layers[0]
+    layer.initialize(X=Xflat, Y=Yflat)
+    model.set_dim("nO", layer.get_dim("nO"))
+    model.set_dim("nI", layer.get_dim("nI"))

@@ -6,6 +6,7 @@ from .layernorm import LayerNorm
 from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
 from ..types import Array
+from ..util import get_width
 
 
 def Maxout(
@@ -48,27 +49,29 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y = Y.reshape((Y.shape[0], nO, nP))
     best, which = model.ops.maxout(Y)
 
-    def finish_update(d_best: Array):
+    def backprop(d_best: Array):
         dY = model.ops.backprop_maxout(d_best, which, nP)
         dY = dY.reshape((dY.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
         model.inc_grad("b", dY.sum(axis=0))
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
-    return best, finish_update
+    return best, backprop
 
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
     """Create an init function, given a dictionary of parameter initializers."""
 
-    def do_init(
+    def init(
         model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
     ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")))
+        W = model.ops.allocate(
+            (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
+        )
         b = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP")))
         if "W" in initializers:
             initializers["W"](W, inplace=True)
@@ -77,6 +80,4 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         model.set_param("W", W)
         model.set_param("b", b)
 
-    return do_init
-
-
+    return init
