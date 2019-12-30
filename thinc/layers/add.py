@@ -17,17 +17,20 @@ def add(layers: List[Model]) -> Model:
 
 
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
-    Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
-    Y = Ys[0]
-    for y in Ys:
-        Y += y
+    if not model.layers:
+        return X, lambda dY: dY
+    Y, first_callback = model.layers[0](X, is_train=is_train)
+    callbacks = []
+    for layer in model.layers[1:]:
+        layer_Y, layer_callback = layer(X, is_train=is_train)
+        Y += layer_Y
+        callbacks.append(layer_callback)
 
-    def backprop(d_output: OutputType) -> InputType:
-        grads = [bp(d_output) for bp in callbacks]
-        total = grads[0]
-        for g in grads:
-            total += g
-        return total
+    def backprop(dY: OutputType) -> InputType:
+        dX = first_callback(dY)
+        for callback in callbacks:
+            dX += callback(dY)
+        return dX
 
     return Y, backprop
 
