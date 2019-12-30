@@ -22,7 +22,6 @@ def uniqued(layer: Model, column: int = 0) -> Model:
         layers=[layer],
         dims={"nO": None, "nI": None},
         attrs={"column": column},
-        params={},
     )
 
 

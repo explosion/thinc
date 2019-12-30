@@ -4,14 +4,11 @@ import contextlib
 import srsly
 from pathlib import Path
 
-from .backends import Ops, NumpyOps, CupyOps, get_current_ops
+from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .mem import Memory
 from .util import copy_array, get_width, create_thread_local
 from .types import Array
-
-
-Model = "Model"
 
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
@@ -43,7 +40,7 @@ class Model:
     _thread_local = create_thread_local({"operators": {}})
 
     name: str
-    ops: Ops
+    ops: Union[NumpyOps, CupyOps]
     id: int
     _func: Callable
     _init: Callable
@@ -81,7 +78,7 @@ class Model:
         grads: Dict[str, Optional[Array]] = {},
         layers: List["Model"] = [],
         attrs: Dict[str, object] = {},
-        ops: Optional[Ops] = None,
+        ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
         self.name = name
         self._func = forward
@@ -134,12 +131,16 @@ class Model:
         """Check whether the model has a dimension of a given name."""
         return name in self._dims
 
-    def get_dim(self, name: str) -> Optional[int]:
+    def get_dim(self, name: str) -> int:
         """Retrieve the value of a dimension of the given name, or None if unset."""
-        return self._dims.get(name, None)
+        if name not in self._dims:
+            raise KeyError(f"Can't get dimension '{name}'")
+        return self._dims[name]
 
     def set_dim(self, name: str, value: int) -> None:
         """Set a value for a dimension."""
+        if name not in self._dims:
+            raise KeyError(f"Can't set dimension '{name}'")
         self._dims[name] = value
 
     def has_param(self, name: str) -> bool:
@@ -196,11 +197,15 @@ class Model:
         """Check whether the model has the given attribute."""
         return name in self._attrs
 
-    def get_attr(self, name: str) -> Optional[Any]:
+    def get_attr(self, name: str) -> Any:
         """Get the attribute, or None if not present."""
-        return self._attrs.get(name)
+        if name not in self._attrs:
+            raise KeyError(f"Can't get attribute '{name}'")
+        return self._attrs[name]
 
     def set_attr(self, name: str, value: Any) -> None:
+        if name not in self._attrs:
+            raise KeyError(f"Can't set attribute '{name}'")
         self._attrs[name] = value
 
     def __call__(self, X, is_train=False):

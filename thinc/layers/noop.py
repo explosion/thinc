@@ -1,15 +1,19 @@
-from typing import Tuple, Callable, List, Any
+from typing import Tuple, Callable, TypeVar
 
 from ..model import Model
 
 
-def noop(*layers: List[Model]) -> Model:
+InputType = TypeVar("InputType")
+OutputType = TypeVar("OutputType")
+
+
+def noop(*layers: Model) -> Model:
     """Transform a sequences of layers into a null operation."""
-    return Model(forward, layers=layers)
+    return Model("noop", forward, layers=layers)
 
 
-def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
-    def backprop(dY: Any) -> Any:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+    def backprop(dY: OutputType) -> InputType:
         return dY
 
     return X, backprop

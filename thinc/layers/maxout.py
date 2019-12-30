@@ -25,8 +25,6 @@ def Maxout(
         init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI, "nP": nP},
         params={"W": None, "b": None},
-        layers=[],
-        attrs={},
     )
     if normalize:
         model = chain(model, LayerNorm())

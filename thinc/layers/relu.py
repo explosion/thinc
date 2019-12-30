@@ -23,8 +23,6 @@ def ReLu(
         init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={},
-        layers=[],
     )
     if normalize:
         model = chain(model, LayerNorm())

@@ -9,15 +9,7 @@ def concatenate(layers: List[Model]) -> Model:
     if layers and layers[0].name == "concatenate":
         layers[0].layers.extend(layers[1:])
         return layers[0]
-    return Model(
-        "concatenate",
-        forward,
-        init=init,
-        dims={"nO": None, "nI": None},
-        params={},
-        layers=[],
-        attrs={},
-    )
+    return Model("concatenate", forward, init=init, dims={"nO": None, "nI": None})
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:

@@ -13,8 +13,6 @@ def LayerNorm(nO: Optional[Array] = None) -> Model:
         init=init,
         dims={"nO": nO, "nI": nO},
         params={"G": None, "b": None},
-        layers=[],
-        attrs={},
     )
 
 

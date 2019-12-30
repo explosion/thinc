@@ -1,11 +1,11 @@
-from typing import Tuple, Callable, List, Optional
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..types import Array
 from ..util import get_width
 
 
-def chain(*layers: List[Model]) -> Model:
+def chain(*layers: Model) -> Model:
     if layers and layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
@@ -16,7 +16,6 @@ def chain(*layers: List[Model]) -> Model:
         init=init,
         dims={"nO": None, "nI": None},
         layers=layers,
-        attrs={},
     )
     if layers and layers[0].get_dim("nI") and layers[-1].get_dim("nO"):
         model.initialize()

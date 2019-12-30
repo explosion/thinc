@@ -18,7 +18,6 @@ def Embed(
         init=create_init(initializer),
         dims={"nO": nO, "nV": nV},
         attrs={"column": column},
-        layers=[],
         params={"vectors": None},
     )
 

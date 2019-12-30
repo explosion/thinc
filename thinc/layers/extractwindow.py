@@ -5,15 +5,7 @@ from ..types import Array
 
 
 def ExtractWindow(window_size: int = 1) -> Model:
-    return Model(
-        "extract_window",
-        forward,
-        attrs={"window_size": window_size},
-        init=None,
-        dims={},
-        params={},
-        layers=[],
-    )
+    return Model("extract_window", forward, attrs={"window_size": window_size})
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:

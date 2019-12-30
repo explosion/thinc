@@ -5,15 +5,7 @@ from ..types import Array
 
 
 def Dropout(rate: float = 0.0) -> Model:
-    return Model(
-        "dropout",
-        forward,
-        init=None,
-        dims={},
-        params={},
-        layers=[],
-        attrs={"rate": rate, "is_enabled": True},
-    )
+    return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:

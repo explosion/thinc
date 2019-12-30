@@ -1,27 +1,19 @@
-from typing import Tuple, Callable, List, Optional
+from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..util import get_width
 
 
-InputType = Array
-OutputType = Array
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def add(layers: List[Model]) -> Model:
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]
-    return Model(
-        "add",
-        forward,
-        init=init,
-        dims={"nO": None, "nI": None},
-        params={},
-        layers=[],
-        attrs={},
-    )
+    return Model("add", forward, init=init, dims={"nO": None, "nI": None})
 
 
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:

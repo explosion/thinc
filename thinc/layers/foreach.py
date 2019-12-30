@@ -11,8 +11,6 @@ def foreach(layer: Model) -> Model:
         forward,
         init=init,
         dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
-        params={},
-        attrs={},
     )
 
 

@@ -17,8 +17,6 @@ def Softmax(
         init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
-        attrs={},
-        layers=[],
     )
     if nO is not None and nI is not None:
         model.initialize()
