@@ -7,15 +7,18 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Sequence, Dict
+from typing import Sequence, Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
-from .backends import NumpyOps, CupyOps
+from .types import Array
+from .backends import Ops, NumpyOps, CupyOps
 from .util import get_array_module
 from ._registry import registry
 
+
 ctypedef float weight_t
+
 
 SGD_DEFAULTS = {
     "L2": 1e-4,
@@ -37,18 +40,18 @@ ADAM_DEFAULTS = {
 
 
 @registry.optimizers.register("RAdam.v1")
-def create_RAdam(
-        learn_rate: float=ADAM_DEFAULTS["learn_rate"],
-        beta1: float=ADAM_DEFAULTS["beta1"],
-        beta2: float=ADAM_DEFAULTS["beta2"],
-        eps: float=ADAM_DEFAULTS["eps"],
-        weight_decay: float=ADAM_DEFAULTS["L2"],
-        max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
-        lookahead_k: int=0,
-        lookahead_alpha: float=0.5,
-        use_averages: bool=True,
-        schedules: Dict[str, Sequence[float]]=None,
-        ops=None,
+def RAdam(
+        learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        beta1: float = ADAM_DEFAULTS["beta1"],
+        beta2: float = ADAM_DEFAULTS["beta2"],
+        eps: float = ADAM_DEFAULTS["eps"],
+        weight_decay: float = ADAM_DEFAULTS["L2"],
+        max_grad_norm: float = ADAM_DEFAULTS["max_grad_norm"],
+        lookahead_k: int = 0,
+        lookahead_alpha: float = 0.5,
+        use_averages: bool = True,
+        schedules: Dict[str, Sequence[float]] = None,
+        ops: Optional[Ops] = None,
 ):
     ops = _make_ops(ops)
     return Optimizer(
@@ -61,26 +64,28 @@ def create_RAdam(
         L2_is_weight_decay=True,
         L2=weight_decay,
         schedules=schedules,
-        nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
+        nesterov=None,
+        lookahead_k=lookahead_k,
+        lookahead_alpha=lookahead_alpha,
         use_averages=True,
-        use_radam=True, use_lars=False
+        use_radam=True, use_lars=False,
     )
 
 
 @registry.optimizers.register("Adam.v1")
-def create_Adam(
-        learn_rate: float=ADAM_DEFAULTS["learn_rate"],
-        L2: float=ADAM_DEFAULTS["L2"],
-        beta1: float=ADAM_DEFAULTS["beta1"],
-        beta2: float=ADAM_DEFAULTS["beta2"],
-        eps: float=ADAM_DEFAULTS["eps"],
-        max_grad_norm: float=ADAM_DEFAULTS["max_grad_norm"],
-        L2_is_weight_decay: bool=ADAM_DEFAULTS["L2_is_weight_decay"],
-        use_averages: bool=True,
-        lookahead_k: int=0,
-        lookahead_alpha: float=0.5,
-        ops=None,
-        schedules: Dict[str, Sequence[float]]=None
+def Adam(
+        learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        L2: float = ADAM_DEFAULTS["L2"],
+        beta1: float = ADAM_DEFAULTS["beta1"],
+        beta2: float = ADAM_DEFAULTS["beta2"],
+        eps: float = ADAM_DEFAULTS["eps"],
+        max_grad_norm: float = ADAM_DEFAULTS["max_grad_norm"],
+        L2_is_weight_decay: bool = ADAM_DEFAULTS["L2_is_weight_decay"],
+        use_averages: bool = True,
+        lookahead_k: int = 0,
+        lookahead_alpha: float = 0.5,
+        ops: Optional[Ops] = None,
+        schedules: Optional[Dict[str, Sequence[float]]] = None,
 ):
     ops = _make_ops(ops)
     return Optimizer(
@@ -94,46 +99,73 @@ def create_Adam(
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         use_averages=True,
-        decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0,
-        nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
-        use_radam=False, use_lars=False
+        decay=0.0,
+        decay_steps=0,
+        b1_decay=0,
+        b2_decay=0,
+        nesterov=None,
+        lookahead_k=lookahead_k,
+        lookahead_alpha=lookahead_alpha,
+        use_radam=False,
+        use_lars=False,
     )
 
 
 @registry.optimizers.register("SGD.v1")
-def create_SGD(learn_rate,
-        ops=None,
-        L2=SGD_DEFAULTS["L2"],
-        max_grad_norm=SGD_DEFAULTS["max_grad_norm"],
-        L2_is_weight_decay=SGD_DEFAULTS["L2_is_weight_decay"],
-        use_averages=True,
-        schedules=None
+def SGD(
+        learn_rate: float,
+        ops: Ops = None,
+        L2: float = SGD_DEFAULTS["L2"],
+        max_grad_norm: float = SGD_DEFAULTS["max_grad_norm"],
+        L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
+        use_averages: bool = True,
+        schedules: Optional[Dict[str, Sequence[float]]] = None,
 ):
     ops = _make_ops(ops)
     return Optimizer(ops, learn_rate,
-        L2=L2, max_grad_norm=max_grad_norm, L2_is_weight_decay=L2_is_weight_decay,
-        schedules=schedules, beta1=0.0, beta2=0.0)
+        L2=L2,
+        max_grad_norm=max_grad_norm,
+        L2_is_weight_decay=L2_is_weight_decay,
+        schedules=schedules,
+        beta1=0.0,
+        beta2=0.0,
+    )
 
 
 class Optimizer(object):
-    '''Do various flavours of stochastic gradient descent, with first and
+    """Do various flavours of stochastic gradient descent, with first and
     second order momentum.
 
-    Examples
-
+    Examples:
     * beta1=0., beta2=0.: "vanilla" SGD
     * beta1=0.9, beta2=0.: "Classic momentum"
     * beta1=0.0, beta2=0.2: RMS prop
     * b1=0.999, b2=0.9: Adam
-    '''
+    """
+
     @classmethod
-    def from_config(cls, config):
+    def from_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
         return registry.make_from_config(config)
 
-    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08,
-                 max_grad_norm=10., nesterov=True,
-                 L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
-                 use_averages=True, use_radam=False, use_lars=False, schedules=None, **_):
+    def __init__(
+        self,
+        ops: Ops,
+        lr: float,
+        L2: float = 1e-4,
+        beta1: float = 0.90,
+        beta2: float = 0.999,
+        eps: float = 1e-08,
+        max_grad_norm: float = 10.0,
+        nesterov: bool = True,
+        L2_is_weight_decay: bool = False,
+        lookahead_k: int = 0,
+        lookahead_alpha: float = 0.5,
+        use_averages: bool = True,
+        use_radam: bool = False,
+        use_lars: bool = False,
+        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        **_,
+    ):
         self.ops = ops
         if schedules is None:
             self.schedules = {}
@@ -187,7 +219,7 @@ class Optimizer(object):
             setattr(self, key, next(schedule))
 
     @property
-    def learn_rate(self):
+    def learn_rate(self) -> float:
         return self.alpha
 
     @learn_rate.setter
@@ -202,7 +234,7 @@ class Optimizer(object):
         fix2 = 1.- (self.b2 ** nr_upd)
         return alpha * numpy.sqrt(fix2) / fix1
 
-    def __call__(self, weights, gradient, lr_scale=1., key=None):
+    def __call__(self, weights, gradient: Array, lr_scale: float = 1.0, key=None):
         if len(gradient) < 1:
             return
         xp = get_array_module(weights)
@@ -211,7 +243,6 @@ class Optimizer(object):
                 self.ops = NumpyOps()
             else:
                 self.ops = CupyOps()
-
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         if self.L2 != 0 and not self.L2_is_weight_decay:
@@ -405,7 +436,7 @@ class Optimizer(object):
         gradient.fill(0)
 
 
-def _make_ops(ops):
+def _make_ops(ops: Optional[Union[Ops, str]]):
     if ops == "CupyOps":
         return CupyOps()
     elif ops == "NumpyOps":
@@ -416,24 +447,14 @@ def _make_ops(ops):
     else:
         return ops
 
-
-# These are deprecated
-
-def Adam(*args, **kwargs):
-    return Optimizer(*args, **kwargs)
-
-def SGD(*args, **kwargs):
-    kwargs.setdefault('beta1', 0.)
-    kwargs.setdefault('beta2', 0.)
-    return Optimizer(*args, **kwargs)
-
-
-def linear_decay(rate, decay, nr_upd):
-    return rate * 1./(1. + decay * nr_upd)
-
+# TODO: deprecate
 
 def anneal(rate, decay, decay_steps, nr_upd):
     if decay == 0.0:
         return rate
     else:
         return rate * decay ** (nr_upd / decay_steps)
+
+
+def linear_decay(rate, decay, nr_upd):
+    return rate * 1./(1. + decay * nr_upd)

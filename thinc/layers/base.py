@@ -1,8 +1,8 @@
+from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
 import numpy
 import contextlib
 import srsly
 import threading
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
 from ..backends import Ops, NumpyOps, CupyOps
@@ -10,9 +10,6 @@ from ..optimizers import Optimizer  # noqa: F401
 from ..mem import Memory
 from ..util import get_ops, copy_array, get_width
 from ..types import Array
-
-
-Model = "Model"
 
 
 def create_thread_local():
@@ -60,7 +57,7 @@ class Model:
     _params: Dict[str, Optional[bool]]
     _dims: Dict[str, Optional[int]]
     _grads: Dict[str, Optional[bool]]
-    _layers: List[Model]
+    _layers: List["Model"]
     _attrs: Dict[str, Any]
 
     # This "locks" the class, so we get an error if you try to assign to
@@ -320,10 +317,10 @@ class Model:
             except StopIteration:
                 pass
 
-    def walk(self) -> Iterable[Model]:
+    def walk(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
-        seen = set()
+        seen: Set[int] = set()
         for node in queue:
             if node.id in seen:
                 continue
@@ -383,7 +380,7 @@ class Model:
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
+            if hasattr(layer, "_model") and not isinstance(layer._model, self):
                 weights.append(layer.to_bytes())
             elif hasattr(layer, "_mem"):
                 weights.append(
@@ -413,7 +410,7 @@ class Model:
                 queue.extend(layer._layers)
         return srsly.msgpack_dumps({b"weights": weights})
 
-    def from_bytes(self, bytes_data: bytes) -> Model:
+    def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
         serialized using msgpack, so you should be able to call msgpack.loads()
         on the data and get back a dictionary with the contents.
@@ -427,7 +424,7 @@ class Model:
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, Model):
+            if hasattr(layer, "_model") and not isinstance(layer._model, "Model"):
                 layer.from_bytes(weights[i])
                 i += 1
             elif hasattr(layer, "_mem"):
@@ -455,7 +452,7 @@ class Model:
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
-    def from_disk(self, path: Union[Path, str]) -> Model:
+    def from_disk(self, path: Union[Path, str]) -> "Model":
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
@@ -464,85 +461,85 @@ class Model:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
 
-    def __add__(self, other) -> Model:
+    def __add__(self, other) -> "Model":
         """Apply the function bound to the '+' operator."""
         if "+" not in self._thread_local.operators:
             raise TypeError("Undefined operator: +")
         return self._thread_local.operators["+"](self, other)
 
-    def __sub__(self, other) -> Model:
+    def __sub__(self, other) -> "Model":
         """Apply the function bound to the '-' operator."""
         if "-" not in self._thread_local.operators:
             raise TypeError("Undefined operator: -")
         return self._thread_local.operators["-"](self, other)
 
-    def __mul__(self, other) -> Model:
+    def __mul__(self, other) -> "Model":
         """Apply the function bound to the '*' operator."""
         if "*" not in self._thread_local.operators:
             raise TypeError("Undefined operator: *")
         return self._thread_local.operators["*"](self, other)
 
-    def __matmul__(self, other) -> Model:
+    def __matmul__(self, other) -> "Model":
         """Apply the function bound to the '@' operator."""
         if "@" not in self._thread_local.operators:
             raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
-    def __div__(self, other) -> Model:
+    def __div__(self, other) -> "Model":
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
-    def __truediv__(self, other) -> Model:  # pragma: no cover
+    def __truediv__(self, other) -> "Model":  # pragma: no cover
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
-    def __floordiv__(self, other) -> Model:
+    def __floordiv__(self, other) -> "Model":
         """Apply the function bound to the '//' operator."""
         if "//" not in self._thread_local.operators:
             raise TypeError("Undefined operator: //")
         return self._thread_local.operators["//"](self, other)
 
-    def __mod__(self, other) -> Model:
+    def __mod__(self, other) -> "Model":
         """Apply the function bound to the '%' operator."""
         if "%" not in self._thread_local.operators:
             raise TypeError("Undefined operator: %")
         return self._thread_local.operators["%"](self, other)
 
-    def __pow__(self, other, modulo=None) -> Model:
+    def __pow__(self, other, modulo=None) -> "Model":
         """Apply the function bound to the '**' operator."""
         if "**" not in self._thread_local.operators:
             raise TypeError("Undefined operator: **")
         return self._thread_local.operators["**"](self, other)
 
-    def __lshift__(self, other: Model) -> Model:
+    def __lshift__(self, other: "Model") -> "Model":
         """Apply the function bound to the '<<' operator."""
         if "<<" not in self._thread_local.operators:
             raise TypeError("Undefined operator: <<")
         return self._thread_local.operators["<<"](self, other)
 
-    def __rshift__(self, other) -> Model:
+    def __rshift__(self, other) -> "Model":
         """Apply the function bound to the '>>' operator."""
         if ">>" not in self._thread_local.operators:
             raise TypeError("Undefined operator: >>")
         return self._thread_local.operators[">>"](self, other)
 
-    def __and__(self, other) -> Model:
+    def __and__(self, other) -> "Model":
         """Apply the function bound to the '&' operator."""
         if "&" not in self._thread_local.operators:
             raise TypeError("Undefined operator: &")
         return self._thread_local.operators["&"](self, other)
 
-    def __xor__(self, other) -> Model:
+    def __xor__(self, other) -> "Model":
         """Apply the function bound to the '^' operator."""
         if "^" not in self._thread_local.operators:
             raise TypeError("Undefined operator: ^")
         return self._thread_local.operators["^"](self, other)
 
-    def __or__(self, other) -> Model:
+    def __or__(self, other) -> "Model":
         """Apply the function bound to the '|' operator."""
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
