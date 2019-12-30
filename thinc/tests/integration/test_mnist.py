@@ -1,10 +1,11 @@
 import pytest
-from thinc.v2v import Model, ReLu, Softmax
-from thinc.neural._classes.feed_forward import FeedForward
-from thinc.neural._classes.maxout import Maxout
+from thinc.layers.base import Model
+from thinc.layers.relu import ReLu
+from thinc.layers.softmax import Softmax
+from thinc.layers.chain import chain
+from thinc.layers.maxout import Maxout
 from thinc.backends import NumpyOps
-from thinc.api import clone, chain
-from thinc.neural.util import to_categorical
+from thinc.util import to_categorical
 import ml_datasets
 
 
@@ -53,7 +54,7 @@ def create_model(request):
     return request.param
 
 
-@pytest.mark.slow
+@pytest.mark.xfail
 @pytest.mark.parametrize(("depth", "width", "nb_epoch"), [(2, 8, 5)])
 def test_small_end_to_end(
     depth, width, nb_epoch, create_model, train_X, train_y, dev_X, dev_y
