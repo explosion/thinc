@@ -1,6 +1,6 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, Dict
 
-from .base import Model, create_init
+from .base import Model
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
@@ -15,7 +15,7 @@ def Maxout(
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
-    dropout: Optional[float],
+    dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model:
     model = Model(
@@ -56,3 +56,27 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
     return best, finish_update
+
+
+def create_init(initializers: Dict[str, Callable]) -> Callable:
+    """Create an init function, given a dictionary of parameter initializers."""
+
+    def do_init(
+        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+    ) -> None:
+        if X is not None:
+            model.set_dim("nI", get_width(X))
+        if Y is not None:
+            model.set_dim("nO", get_width(Y))
+        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")))
+        b = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP")))
+        if "W" in initializers:
+            initializers["W"](W, inplace=True)
+        if "b" in initializers:
+            initializers["b"](b, inplace=True)
+        model.set_param("W", W)
+        model.set_param("b", b)
+
+    return do_init
+
+
