@@ -6,7 +6,11 @@ from ..util import get_width
 
 
 def chain(*layers: List[Model]) -> Model:
-    return Model(
+    if layers and layers[0]._func is forward:
+        layers[0].layers.extend(layers[1:])
+        return layers[0]
+ 
+    model = Model(
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,
@@ -14,6 +18,9 @@ def chain(*layers: List[Model]) -> Model:
         layers=layers,
         attrs={},
     )
+    if layers and layers[0].get_dim("nI") and layers[-1].get_dim("nO"):
+        model.initialize()
+    return model
 
 
 def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
