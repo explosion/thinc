@@ -24,13 +24,10 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
 
     def backprop(d_output: OutputType) -> InputType:
         grads = [bp(d_output) for bp in callbacks]
-        if grads:
-            total = grads[0]
-            for g in grads:
-                total += g
-            return total
-        else:
-            return None
+        total = grads[0]
+        for g in grads:
+            total += g
+        return total
 
     return Y, backprop
 
