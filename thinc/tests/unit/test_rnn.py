@@ -5,7 +5,6 @@ from thinc.backends import NumpyOps
 import pytest
 
 
-@pytest.mark.xfail
 def test_square_sequences():
     ops = NumpyOps()
     seqs = [numpy.zeros((5, 4)), numpy.zeros((8, 4)), numpy.zeros((2, 4))]
