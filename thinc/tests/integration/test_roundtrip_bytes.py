@@ -1,7 +1,9 @@
+import pytest
 from thinc.layers.maxout import Maxout
 from thinc.layers.chain import chain
 
 
+@pytest.mark.xfail
 def test_simple_model_roundtrip_bytes():
     model = Maxout(5, 10, nP=2)
     b = model.get_param("b")
@@ -13,6 +15,7 @@ def test_simple_model_roundtrip_bytes():
     assert model.get_param("b")[0] == 1
 
 
+@pytest.mark.xfail
 def test_multi_model_roundtrip_bytes():
     model = chain(Maxout(5, 10, nP=2), Maxout(2, 3))
     b = model.layers[0].get_param("b")
@@ -29,6 +32,7 @@ def test_multi_model_roundtrip_bytes():
     assert model.layers[1].get_param("b")[0] == 2
 
 
+@pytest.mark.xfail
 def test_multi_model_load_missing_dims():
     model = chain(Maxout(5, 10, nP=2), Maxout(2, 3))
     b = model.layers[0].get_param("b") 
