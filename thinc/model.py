@@ -81,8 +81,9 @@ class Model:
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
         self.name = name
-        self._func = forward
-        self._init = init
+        # Assign to callable attrs: https://github.com/python/mypy/issues/2427
+        setattr(self, "_func", forward)
+        setattr(self, "_init", init)
         self.ops = ops if ops is not None else get_current_ops()
         self._mem = Memory(self.ops)
         self._dims = dict(dims)
