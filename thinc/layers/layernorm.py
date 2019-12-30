@@ -1,9 +1,12 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..backends import Ops
 from ..util import get_width
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def LayerNorm(nO: Optional[Array] = None) -> Model:
@@ -16,12 +19,12 @@ def LayerNorm(nO: Optional[Array] = None) -> Model:
     )
 
 
-def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType) -> Tuple[OutputType, Callable]:
     N, mu, var = _get_moments(model.ops, X)
     Xhat = (X - mu) * var ** (-1.0 / 2.0)
     y, backprop_rescale = _begin_update_scale_shift(model, Xhat)
 
-    def backprop(dY: Array) -> Array:
+    def backprop(dY: OutputType) -> InputType:
         dY = backprop_rescale(dY)
         dist, sum_dy, sum_dy_dist = _get_d_moments(model.ops, dY, X, mu)
         d_xhat = N * dY - sum_dy - dist * var ** (-1.0) * sum_dy_dist
@@ -32,7 +35,9 @@ def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
     return y, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
