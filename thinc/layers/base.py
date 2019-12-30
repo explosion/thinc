@@ -158,12 +158,6 @@ class Model:
     def set_class_ops(cls, ops):
         cls._thread_local.ops = ops
 
-    def __getstate__(self) -> bytes:
-        return srsly.pickle_dumps(self.__dict__)
-
-    def __setstate__(self, state_data: bytes) -> None:
-        self.__dict__ = srsly.pickle_loads(state_data)
-
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None
 
