@@ -1,26 +1,17 @@
 import numpy
 import contextlib
 import srsly
-import threading
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable
 from pathlib import Path
 
-from ..backends import Ops, NumpyOps, CupyOps
+from ..backends import Ops, NumpyOps, CupyOps, get_current_ops
 from ..optimizers import Optimizer  # noqa: F401
 from ..mem import Memory
-from ..util import get_ops, copy_array, get_width
+from ..util import get_ops, copy_array, get_width, create_thread_local
 from ..types import Array
 
 
 Model = "Model"
-
-
-def create_thread_local():
-    obj = threading.local()
-    obj.operators = {}
-    obj.Ops = NumpyOps
-    obj.ops = NumpyOps()
-    return obj
 
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
@@ -49,7 +40,7 @@ class Model:
     """Base class for Thinc models and layers."""
 
     global_id: int = 0
-    _thread_local = create_thread_local()
+    _thread_local = create_thread_local({"operators": {}})
 
     name: str
     ops: Ops
@@ -95,7 +86,7 @@ class Model:
         self.name = name
         self._func = forward
         self._init = init
-        self.ops = ops if ops is not None else self.get_class_ops()
+        self.ops = ops if ops is not None else get_current_ops()
         self._mem = Memory(self.ops)
         self._dims = dict(dims)
         self._attrs = dict(attrs)
@@ -137,26 +128,6 @@ class Model:
         cls._thread_local.operators = dict(operators)
         yield
         cls._thread_local.operators = dict(curr_operators)
-
-    @classmethod
-    @contextlib.contextmanager
-    def use_device(cls, device):
-        """Change the device to execute on for the scope of the block."""
-        current_ops = cls.get_class_ops()
-        if device == current_ops.device:
-            yield
-        else:
-            cls.set_class_ops(get_ops(device))
-            yield
-            cls.set_class_ops(current_ops)
-
-    @classmethod
-    def get_class_ops(cls):
-        return cls._thread_local.ops
-
-    @classmethod
-    def set_class_ops(cls, ops):
-        cls._thread_local.ops = ops
 
     def dim_is_unset(self, name: str) -> bool:
         return self.has_dim(name) and self.get_dim(name) is None

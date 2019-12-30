@@ -11,7 +11,7 @@ from typing import Sequence, Dict
 from collections import defaultdict
 import numpy
 
-from .backends import NumpyOps, CupyOps
+from .backends import NumpyOps, CupyOps, get_current_ops
 from .util import get_array_module
 from ._registry import registry
 
@@ -50,9 +50,7 @@ def create_RAdam(
         schedules: Dict[str, Sequence[float]]=None,
         ops=None,
 ):
-    ops = _make_ops(ops)
     return Optimizer(
-        ops,
         learn_rate,
         beta1=beta1,
         beta2=beta2,
@@ -63,7 +61,7 @@ def create_RAdam(
         schedules=schedules,
         nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
         use_averages=True,
-        use_radam=True, use_lars=False
+        use_radam=True, use_lars=False, ops=ops
     )
 
 
@@ -82,9 +80,7 @@ def create_Adam(
         ops=None,
         schedules: Dict[str, Sequence[float]]=None
 ):
-    ops = _make_ops(ops)
     return Optimizer(
-        ops,
         learn_rate,
         L2=L2,
         beta1=beta1,
@@ -96,7 +92,7 @@ def create_Adam(
         use_averages=True,
         decay=0.0, decay_steps=0, b1_decay=0, b2_decay=0,
         nesterov=None, lookahead_k=lookahead_k, lookahead_alpha=lookahead_alpha,
-        use_radam=False, use_lars=False
+        use_radam=False, use_lars=False, ops=ops
     )
 
 
@@ -109,10 +105,9 @@ def create_SGD(learn_rate,
         use_averages=True,
         schedules=None
 ):
-    ops = _make_ops(ops)
-    return Optimizer(ops, learn_rate,
+    return Optimizer(learn_rate,
         L2=L2, max_grad_norm=max_grad_norm, L2_is_weight_decay=L2_is_weight_decay,
-        schedules=schedules, beta1=0.0, beta2=0.0)
+        schedules=schedules, beta1=0.0, beta2=0.0, ops=ops)
 
 
 class Optimizer(object):
@@ -130,11 +125,12 @@ class Optimizer(object):
     def from_config(cls, config):
         return registry.make_from_config(config)
 
-    def __init__(self, ops, lr, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08,
+    def __init__(self, lr, *, L2=1e-4, beta1=0.90, beta2=0.999, eps=1e-08,
                  max_grad_norm=10., nesterov=True,
                  L2_is_weight_decay=False, lookahead_k=0, lookahead_alpha=0.5,
-                 use_averages=True, use_radam=False, use_lars=False, schedules=None, **_):
-        self.ops = ops
+                 use_averages=True, use_radam=False, use_lars=False, schedules=None,
+                 ops=None, **_):
+        self.ops = ops if ops is not None else get_current_ops()
         if schedules is None:
             self.schedules = {}
         else:
@@ -403,18 +399,6 @@ class Optimizer(object):
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
         gradient.fill(0)
-
-
-def _make_ops(ops):
-    if ops == "CupyOps":
-        return CupyOps()
-    elif ops == "NumpyOps":
-        return NumpyOps()
-    elif ops is None:
-        from .layers.base import Model
-        return Model.get_class_ops()
-    else:
-        return ops
 
 
 # These are deprecated

@@ -1,6 +1,7 @@
 from typing import Iterable, Any, Union
 import numpy
 import itertools
+import threading
 
 try:
     import cupy
@@ -16,6 +17,13 @@ except ImportError:
 
 
 from .types import Array, OpNames
+
+
+def create_thread_local(attrs):
+    obj = threading.local()
+    for name, value in attrs.items():
+        setattr(obj, name, value)
+    return obj
 
 
 def is_cupy_array(arr: Array) -> bool:

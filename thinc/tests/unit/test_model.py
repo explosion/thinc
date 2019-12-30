@@ -5,7 +5,7 @@ import threading
 import time
 from thinc.layers.affine import Affine
 from thinc.layers import base
-from thinc.backends import NumpyOps
+from thinc.backends import NumpyOps, get_current_ops, use_device
 
 
 @pytest.fixture
@@ -34,15 +34,15 @@ def test_init_assigns_attributes():
 
 
 def test_use_device():
-    class_ops = base.Model.get_class_ops()
+    class_ops = get_current_ops()
     dev_id = id(class_ops)
-    with base.Model.use_device(class_ops.device):
-        new_ops = base.Model.get_class_ops()
+    with use_device(class_ops.device):
+        new_ops = get_current_ops()
         assert id(new_ops) == dev_id
-    with base.Model.use_device("gpu"):
-        new_ops = base.Model.get_class_ops()
+    with use_device("gpu"):
+        new_ops = get_current_ops()
         assert id(new_ops) != dev_id
-    new_ops = base.Model.get_class_ops()
+    new_ops = get_current_ops()
     assert id(new_ops) == dev_id
 
 
