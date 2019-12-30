@@ -3,7 +3,6 @@ from typing import Callable, Tuple, Optional
 from ..model import Model
 from ..types import Array
 from ..initializers import uniform_init
-from ..util import get_width
 
 
 def HashEmbed(

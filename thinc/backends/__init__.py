@@ -1,7 +1,7 @@
 import contextlib
-from .base import Ops
-from .cupy_ops import CupyOps
-from .numpy_ops import NumpyOps
+from .base import Ops  # noqa: F401
+from .cupy_ops import CupyOps  # noqa: F401
+from .numpy_ops import NumpyOps  # noqa: F401
 from ..util import create_thread_local, get_ops
 
 STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})

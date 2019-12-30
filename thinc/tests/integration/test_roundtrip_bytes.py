@@ -35,7 +35,7 @@ def test_multi_model_roundtrip_bytes():
 @pytest.mark.xfail
 def test_multi_model_load_missing_dims():
     model = chain(Maxout(5, 10, nP=2), Maxout(2, 3))
-    b = model.layers[0].get_param("b") 
+    b = model.layers[0].get_param("b")
     b += 1
     b = model.layers[1].get_param("b")
     b += 2

@@ -124,7 +124,8 @@ class CupyOps(Ops):
 
     def normal_init(self, W, fan_in, inplace=True):
         scale = self.xp.sqrt(1.0 / fan_in)
-        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
+        size = int(self.xp.prod(W.shape))
+        inits = self.xp.random.normal(scale=scale, size=size)
         inits = inits.reshape(W.shape)
         if inplace:
             copy_array(W, inits)

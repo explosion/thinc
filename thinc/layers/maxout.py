@@ -6,6 +6,7 @@ from .layernorm import LayerNorm
 from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
 from ..types import Array
+from ..util import get_width
 
 
 def Maxout(
@@ -68,7 +69,9 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")))
+        W = model.ops.allocate(
+            (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
+        )
         b = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP")))
         if "W" in initializers:
             initializers["W"](W, inplace=True)
@@ -78,5 +81,3 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         model.set_param("b", b)
 
     return do_init
-
-

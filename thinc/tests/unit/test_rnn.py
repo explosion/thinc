@@ -7,7 +7,6 @@ import pytest
 
 @pytest.mark.xfail
 def test_square_sequences():
-    from thinc.layers.rnn import LSTM
     ops = NumpyOps()
     seqs = [numpy.zeros((5, 4)), numpy.zeros((8, 4)), numpy.zeros((2, 4))]
     arr, size_at_t, unpad = ops.square_sequences(seqs)
@@ -28,6 +27,8 @@ def test_square_sequences():
 
 @pytest.mark.xfail
 def test_LSTM_init():
+    from thinc.layers.rnn import LSTM
+
     model = LSTM(1, 2)
     model = LSTM(2, 2)
     model = LSTM(100, 200)
@@ -36,6 +37,8 @@ def test_LSTM_init():
 
 @pytest.mark.xfail
 def test_LSTM_fwd_bwd_shapes():
+    from thinc.layers.rnn import LSTM
+
     nO = 1
     nI = 2
     model = LSTM(nO, nI)
@@ -90,8 +93,11 @@ def test_LSTM_fwd_bwd_shapes():
 #
 #
 
+
 @pytest.mark.xfail
 def test_LSTM_learns():
+    from thinc.layers.rnn import LSTM
+
     nO = 2
     nI = 2
     model = LSTM(nO, nI)
@@ -127,8 +133,11 @@ def test_LSTM_learns():
 #
 #
 
+
 @pytest.mark.xfail
 def test_benchmark_RNN_fwd():
+    from thinc.layers.rnn import LSTM
+
     nO = 128
     nI = 128
     n_batch = 1000

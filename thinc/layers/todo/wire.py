@@ -1,8 +1,5 @@
-import copy
-
 from .neural._classes.function_layer import FunctionLayer
-from .neural._classes.function_layer import wrap, AdditionLayer, ConcatenationLayer
-from .layers.feed_forward import FeedForward
+from .neural._classes.function_layer import wrap
 from .model import Model
 from .util import is_ragged
 
@@ -73,41 +70,6 @@ def create_variadic(layers, *, cls=None, function=None, **kwargs):
     for layer in others:
         main_layer.add_layer(layer)
     return main_layer
-
-
-def chain(*layers):
-    """Compose two models `f` and `g` such that they become layers of a single
-    feed-forward model that computes `g(f(x))`.
-    """
-    return create_variadic(layers, cls=FeedForward)
-
-
-def clone(orig, n):
-    """Construct `n` copies of a layer, with distinct weights.
-
-    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
-    """
-    if n == 0:
-        return noop()
-    layers = [orig]
-    for i in range(n - 1):
-        layers.append(copy.deepcopy(orig))
-        layers[-1].set_id()
-    return chain(*layers)
-
-
-def concatenate(*layers):
-    """Compose two or more models `f`, `g`, etc, such that their outputs are
-    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`
-    """
-    return create_variadic(layers, cls=ConcatenationLayer)
-
-
-def add(*layers):
-    """Compose two or more models `f`, `g`, etc, such that their outputs are
-    added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`
-    """
-    return create_variadic(layers, cls=AdditionLayer)
 
 
 @layerize
