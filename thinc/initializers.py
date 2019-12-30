@@ -28,5 +28,6 @@ def uniform_init(
     values = xp.random.uniform(lo, hi, data.shape)
     if inplace:
         copy_array(data, values)
+        return data
     else:
         return values.astype(data.dtype)

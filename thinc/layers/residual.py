@@ -6,6 +6,7 @@ from ..types import Array
 
 def Residual(layer: Model) -> Model:
     return Model(
+        "residual",
         forward,
         init=init,
         layers=[layer],
