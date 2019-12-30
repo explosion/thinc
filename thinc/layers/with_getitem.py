@@ -11,7 +11,6 @@ def with_getitem(idx: int, layer: Model) -> Model:
         forward,
         init=init,
         layers=[layer],
-        dims={"nO": None, "nI": None},
         attrs={"idx": idx},
     )
 
