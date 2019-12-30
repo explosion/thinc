@@ -63,6 +63,8 @@ def process_pyx(fromfile, tofile, language_level="-3"):
     flags = ["--fast-fail", language_level]
     if tofile.endswith(".cpp"):
         flags += ["--cplus"]
+    # https://stackoverflow.com/a/27412401/6400719
+    flags += ["-X embedsignature=True", "-X annotation_typing=False"]
 
     try:
         try:
