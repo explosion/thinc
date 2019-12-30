@@ -147,15 +147,14 @@ class Model:
         """Check whether the model has a weights parameter of the given name."""
         return name in self._params
 
-    def get_param(self, name: str) -> Optional[Array]:
+    def get_param(self, name: str) -> Array:
         """Retrieve a weights parameter by name."""
         if name not in self._params:
             raise KeyError(f"Unknown param: {name}")
         key = (self.id, name)
-        if key in self._mem:
-            return self._mem[key]
-        else:
-            return None
+        if key not in self._mem:
+            raise KeyError(f"Parameter '{name}' as not been allocated yet")
+        return self._mem[key]
 
     def set_param(self, name: str, value: Array) -> None:
         """Set a weights parameter's value."""
@@ -178,14 +177,13 @@ class Model:
         grad += value
         self._grads[grad_name] = True
 
-    def get_grad(self, param_name: str) -> Optional[Array]:
+    def get_grad(self, param_name: str) -> Array:
         """Get a gradient from the model."""
         grad_name = f"d_{param_name}"
         key = (self.id, grad_name)
-        if key in self._mem:
-            return self._mem[key]
-        else:
-            return None
+        if key not in self._mem:
+            raise KeyError(f"Gradient '{grad_name}' as not been allocated yet")
+        return self._mem[key]
 
     def set_grad(self, param_name: str, value: Array) -> None:
         """Set a gradient value for the model."""
