@@ -1,20 +1,22 @@
-import numpy
+from typing import Optional, List, Callable, Tuple, Union
 
+from ..types import Device, Xp, Array, Shape
 from ..util import copy_array, get_array_module
 
 
 class Ops:
-    device = "cpu"
-    xp = None
+    device: Device = "cpu"
+    xp: Xp = None
 
-    def __init__(self, xp=None):
+    def __init__(self, xp: Optional[Xp] = None):
         if xp is not None:
             self.xp = xp
 
-    def seq2col(self, seq, nW):
-        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
-        The new sequence is constructed by concatenating nW preceding and succeeding
-        vectors onto each column in the sequence, to extract a window of features.
+    def seq2col(self, seq: Array, nW: int) -> Array:
+        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
+        sequence. The new sequence is constructed by concatenating nW preceding
+        and succeeding vectors onto each column in the sequence, to extract a
+        window of features.
         """
         # This is a test implementation that only supports nW=1
         assert nW == 1
@@ -27,7 +29,7 @@ class Ops:
         cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
         return cols.reshape((B, I * (2 * nW + 1)))
 
-    def backprop_seq2col(self, dY, nW):
+    def backprop_seq2col(self, dY: Array, nW: int) -> Array:
         # This is a test implementation that only supports nW=1
         assert nW == 1
         nF = nW * 2 + 1
@@ -41,13 +43,15 @@ class Ops:
         dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
         return dX
 
-    def dropout_sequences(self, X, dropout, inplace=False):
+    def dropout_sequences(
+        self, X: Array, dropout: float, inplace: bool = False
+    ) -> Tuple[Union[Array, List[Array]], Callable]:
         if dropout is None or dropout <= 0.0:
             return X, lambda func: func
         masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
 
-        def wrap_backprop(backprop):
-            def finish_update(gradient, *args, **kwargs):
+        def wrap_backprop(backprop: Callable):
+            def finish_update(gradient: Array, *args, **kwargs):
                 masked = []
                 for i, mask in enumerate(masks):
                     if inplace:
@@ -69,26 +73,28 @@ class Ops:
                 masked.append(X[i] * mask)
             return masked, wrap_backprop
 
-    def dropout(self, x, dropout, inplace=False):
+    def dropout(
+        self, X: Array, dropout: float, inplace: bool = False
+    ) -> Tuple[Array, Callable]:
         if dropout is None or dropout <= 0.0:
-            return x, lambda func: func
-        mask = self.get_dropout_mask(x.shape, dropout)
+            return X, lambda func: func
+        mask = self.get_dropout_mask(X.shape, dropout)
         if mask is None:
-            return x, lambda func: func
+            return X, lambda func: func
 
-        def wrap_backprop(backprop):
-            def finish_update(gradient, *args, **kwargs):
+        def wrap_backprop(backprop: Callable):
+            def finish_update(gradient: Array, *args, **kwargs):
                 return backprop(gradient * mask, *args, **kwargs)
 
             return finish_update
 
         if inplace:
-            x *= mask
-            return x, wrap_backprop
+            X *= mask
+            return X, wrap_backprop
         else:
-            return x * mask, wrap_backprop
+            return X * mask, wrap_backprop
 
-    def flatten(self, X, dtype=None, pad=0):
+    def flatten(self, X: List[Array], dtype: str = None, pad: int = 0) -> Array:
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
@@ -105,7 +111,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X, lengths, pad=0):
+    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[Array]:
         unflat = []
         pad = int(pad)
         for length in lengths:
@@ -120,7 +126,9 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad_sequences(self, seqs_in, pad_to=None):
+    def pad_sequences(
+        self, seqs_in: List[Array], pad_to: Optional[int] = None
+    ) -> Tuple[Array, Callable]:
         lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
@@ -131,7 +139,7 @@ class Ops:
         for arr_i, seq in enumerate(seqs_in):
             arr[arr_i, : seq.shape[0]] = self.asarray(seq)
 
-        def unpad(padded):
+        def unpad(padded: Array) -> List[Union[None, Array]]:
             unpadded = [None] * len(lengths)
             for i in range(padded.shape[0]):
                 unpadded[i] = padded[i, : lengths[i]]
@@ -139,7 +147,7 @@ class Ops:
 
         return arr, unpad
 
-    def square_sequences(self, seqs):
+    def square_sequences(self, seqs: List[Array]) -> Tuple[Array, Array, Callable]:
         """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
@@ -167,7 +175,7 @@ class Ops:
                     break
             batch_size_at_t[t] = i
 
-        def unpad(padded):
+        def unpad(padded: Array) -> List[Union[None, Array]]:
             unpadded = [None] * len(lengths)
             padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
             for i in range(padded.shape[0]):
@@ -176,7 +184,7 @@ class Ops:
 
         return arr, batch_size_at_t, unpad
 
-    def get_dropout_mask(self, shape, drop):
+    def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
         if drop is None or drop <= 0:
             return None
         elif drop >= 1.0:
@@ -185,16 +193,17 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape, dtype="float32"):
+    def allocate(self, shape: Shape, dtype: str = "float32") -> Array:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
+    # TODO: types
     def unzip(self, data):
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
-    def asarray(self, data, dtype=None):
+    def asarray(self, data, dtype: Optional[str] = None) -> Array:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -208,23 +217,12 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def batch_dot(self, x, y, transpose=False):
-        # TODO: Fix this confusing inversion =/
-        if not transpose:
-            return self.xp.dot(x, y.T)
-        else:
-            return self.xp.dot(x, y)
-
     def add_batch_outer(self, output, x, y):
         # TODO: Deprecate this
         output += self.xp.tensordot(x, y, axes=[[0], [0]])
 
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
-
-    def dot(self, x, y):
-        # TODO: Deprecate this
-        return self.xp.dot(x, y)
 
     def affine(self, weights, bias, signal):
         return self.gemm(signal, weights, trans2=True) + bias
@@ -245,7 +243,6 @@ class Ops:
         return 1 - y ** 2
 
     def softmax(self, x, inplace=False, axis=-1):
-        shape = x.shape
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -396,7 +393,8 @@ class Ops:
         if (W ** 2).sum() != 0.0:
             return W
         scale = self.xp.sqrt(1.0 / fan_in)
-        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
+        size = int(self.xp.prod(W.shape))
+        inits = self.xp.random.normal(scale=scale, size=size)
         inits = inits.reshape(W.shape)
         if inplace:
             copy_array(W, inits)
@@ -406,7 +404,8 @@ class Ops:
 
     def he_normal_init(self, shape, fan_in):
         scale = self.xp.sqrt(2.0 / fan_in)
-        return self.xp.random.normal(scale=scale, size=prod(shape)).reshape(shape)
+        size = self.xp.prod(shape)
+        return self.xp.random.normal(scale=scale, size=size).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
         decay = (1.0 + t) / (10.0 + t)
