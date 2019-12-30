@@ -4,17 +4,6 @@ from .model import Model
 from .util import is_ragged
 
 
-def layerize(begin_update=None, predict=None, *args, **kwargs):
-    """Wrap a function into a layer"""
-    if begin_update is not None:
-        return FunctionLayer(begin_update, predict=predict, *args, **kwargs)
-
-    def wrapper(begin_update):
-        return FunctionLayer(begin_update, *args, **kwargs)
-
-    return wrapper
-
-
 @layerize
 def flatten_add_lengths(seqs):
     """Transform sequences to ragged arrays if necessary. If sequences are
@@ -45,18 +34,6 @@ def unflatten(X_lengths):
         return dX
 
     return Xs, backprop_unflatten
-
-
-def with_getitem(idx, layer):
-    """Transform data on the way into and out of a layer, by plucking an item
-    from a tuple.
-    """
-
-    def with_getitem_forward(items):
-        X, finish = layer.begin_update(items[idx])
-        return items[:idx] + (X,) + items[idx + 1 :], finish
-
-    return wrap(with_getitem_forward, layer)
 
 
 def with_square_sequences(model):
