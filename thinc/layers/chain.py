@@ -1,8 +1,12 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..util import get_width
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def chain(*layers: Model) -> Model:
@@ -22,7 +26,7 @@ def chain(*layers: Model) -> Model:
     return model
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
 
@@ -34,7 +38,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
         X, inc_layer_grad = layer(X, is_train=is_train)
         callbacks.append(inc_layer_grad)
 
-    def backprop(gradient: Array) -> Array:
+    def backprop(gradient: OutputType) -> InputType:
         for callback in reversed(callbacks):
             gradient = callback(gradient)
         return gradient
@@ -42,7 +46,9 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     return X, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
     if not model.layers:
         return
     # Try to set nO on each layer, where available.
