@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, List, Optional
 
-from .base import Model
+from ..model import Model
 from ..types import Array
 from ..util import get_width
 
@@ -20,13 +20,17 @@ def add(layers: List[Model]) -> Model:
     )
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+InputType = Array
+OutputType = Array
+
+
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     Y = Ys[0]
     for y in Ys:
         Y += y
 
-    def finish_update_add(d_output: Array) -> Array:
+    def finish_update_add(d_output: OutputType) -> InputType:
         grads = [bp(d_output) for bp in callbacks]
         if grads:
             total = grads[0]

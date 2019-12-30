@@ -5,11 +5,11 @@ import srsly
 import threading
 from pathlib import Path
 
-from ..backends import Ops, NumpyOps, CupyOps
-from ..optimizers import Optimizer  # noqa: F401
-from ..mem import Memory
-from ..util import get_ops, copy_array, get_width
-from ..types import Array
+from .backends import Ops, NumpyOps, CupyOps
+from .optimizers import Optimizer  # noqa: F401
+from .mem import Memory
+from .util import get_ops, copy_array, get_width
+from .types import Array
 
 
 def create_thread_local():
@@ -119,9 +119,7 @@ class Model:
     def define_operators(cls, operators):
         """Bind operators to specified functions for the scope of the context:
 
-        Example
-        -------
-
+        Example:
             model = Model()
             other = Model()
             with Model.define_operators({"+": lambda self, other: "plus"}):

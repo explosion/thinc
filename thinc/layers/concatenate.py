@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, List, Optional
 
-from .base import Model
-from .types import Array
+from ..model import Model
+from ..types import Array
 from ..util import get_width
 
 

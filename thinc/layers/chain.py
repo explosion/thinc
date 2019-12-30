@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, List, Optional
 
-from .base import Model
+from ..model import Model
 from ..types import Array
 from ..util import get_width
 
@@ -9,7 +9,7 @@ def chain(*layers: List[Model]) -> Model:
     if layers and layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
- 
+
     model = Model(
         ">>".join(layer.name for layer in layers),
         forward,

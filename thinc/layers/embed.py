@@ -1,6 +1,6 @@
 from typing import Callable, Tuple, Optional
 
-from .base import Model
+from ..model import Model
 from ..types import Array
 from ..initializers import uniform_init
 from ..util import get_width

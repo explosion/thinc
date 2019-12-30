@@ -114,7 +114,7 @@ def Adam(
 @registry.optimizers.register("SGD.v1")
 def SGD(
         learn_rate: float,
-        ops: Ops = None,
+        ops: Optional[Ops] = None,
         L2: float = SGD_DEFAULTS["L2"],
         max_grad_norm: float = SGD_DEFAULTS["max_grad_norm"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
@@ -122,7 +122,9 @@ def SGD(
         schedules: Optional[Dict[str, Sequence[float]]] = None,
 ):
     ops = _make_ops(ops)
-    return Optimizer(ops, learn_rate,
+    return Optimizer(
+        ops,
+        learn_rate,
         L2=L2,
         max_grad_norm=max_grad_norm,
         L2_is_weight_decay=L2_is_weight_decay,
@@ -442,7 +444,7 @@ def _make_ops(ops: Optional[Union[Ops, str]]):
     elif ops == "NumpyOps":
         return NumpyOps()
     elif ops is None:
-        from .layers.base import Model
+        from .model import Model
         return Model.get_class_ops()
     else:
         return ops

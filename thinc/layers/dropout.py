@@ -1,6 +1,6 @@
 from typing import Tuple, Callable
 
-from .base import Model
+from ..model import Model
 from ..types import Array
 
 

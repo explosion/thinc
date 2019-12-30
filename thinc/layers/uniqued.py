@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, Optional
 import numpy
 
-from .base import Model
+from ..model import Model
 from ..types import Array
 
 
