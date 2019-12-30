@@ -1,8 +1,12 @@
-from typing import Tuple, Callable, List, Optional
+from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
 from ..util import get_width
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def concatenate(layers: List[Model]) -> Model:
@@ -12,12 +16,12 @@ def concatenate(layers: List[Model]) -> Model:
     return Model("concatenate", forward, init=init, dims={"nO": None, "nI": None})
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutputType) -> InputType:
         layer_grad = None
         start = 0
         for bwd, width in zip(callbacks, widths):
@@ -33,7 +37,9 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     return output, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
