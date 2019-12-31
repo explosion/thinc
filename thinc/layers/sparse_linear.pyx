@@ -2,17 +2,26 @@
 # cython: cdivision=True
 # cython: bounds_check=False
 # cython: wraparound=False
-from typing import Tuple
 from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
+
+from typing import Tuple, Callable, Optional, TypeVar
+
 from ..types import Array
 from ..model import Model
 from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
 
-def SparseLinear(nO=None, length=2**18):
+InputKeys = TypeVar("InputKeys", bound=Array)
+InputValues = TypeVar("InputValues", bound=Array)
+InputLengths = TypeVar("InputLengths", bound=Array)
+InputType = Tuple[InputKeys, InputValues, InputLengths]
+OutputType = TypeVar("OutputType", bound=Array)
+
+
+def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
     model = Model(
         "sparse_linear",
         forward,
@@ -26,16 +35,7 @@ def SparseLinear(nO=None, length=2**18):
     return model
 
 
-def init(model, X=None, Y=None):
-    if Y is not None:
-        model.set_dim("nO", get_width(Y))
-    nO = model.get_dim("nO")
-    length = model.get_dim("length")
-    model.set_param("W", model.ops.allocate((nO * length,), dtype="f"))
-    model.set_param("b", model.ops.allocate((nO,), dtype="f"))
-
-
-def forward(model, keys_values_lengths: Tuple[Array, Array, Array], is_train) -> Array:
+def forward(model, keys_values_lengths: InputType, is_train: bool = False) -> Tuple[OutputType, Callable]:
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
@@ -45,6 +45,15 @@ def forward(model, keys_values_lengths: Tuple[Array, Array, Array], is_train) ->
         return _begin_cpu_update(model, keys, values, lengths)
 
 
+def init(model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None) -> None:
+    if Y is not None:
+        model.set_dim("nO", get_width(Y))
+    nO = model.get_dim("nO")
+    length = model.get_dim("length")
+    model.set_param("W", model.ops.allocate((nO * length,), dtype="f"))
+    model.set_param("b", model.ops.allocate((nO,), dtype="f"))
+
+
 def _begin_gpu_update(model, keys, values, lengths):
     xp = get_array_module(keys)
     scores_cpu, callback = _begin_cpu_update(model, keys.get(), values.get(), lengths.get())
@@ -52,7 +61,7 @@ def _begin_gpu_update(model, keys, values, lengths):
     def backprop_gpu_update(d_scores):
         callback(d_scores.get())
         return (keys, values, lengths)
-    
+
     return xp.asarray(scores_cpu), backprop_gpu_update
 
 
