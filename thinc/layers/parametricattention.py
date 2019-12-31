@@ -1,27 +1,32 @@
-from typing import Optional, Tuple
+from typing import Tuple, Callable, TypeVar, Optional
+
 from ..model import Model
 from ..types import Array
 from ..util import get_width
 
 
-def ParametricAttention(self, nO: Optional[int] = None):
+InputValue = TypeVar("InputValue", bound=Array)
+InputLengths = TypeVar("InputLengths", bound=Array)
+InputType = Tuple[InputValue, InputLengths]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputLengths = TypeVar("OutputLengths", bound=Array)
+OutputType = Tuple[OutputValue, OutputLengths]
+
+
+def ParametricAttention(self, nO: Optional[int] = None) -> Model:
     """Weight inputs by similarity to a learned vector"""
     return Model("para-attn", forward, init=init, params={"Q": None}, dims={"nO": nO})
 
 
-def init(model, X=None, Y=None):
-    if Y is not None:
-        model.set_dim("nO", get_width(Y))
-    model.set_param("Q", model.ops.allocate((model.get_dim("nO"),)))
-
-
-def forward(model, Xs_lengths: Tuple[Array, Array], is_train) -> Tuple[Array, Array]:
+def forward(
+    model, Xs_lengths: InputType, is_train: bool = False
+) -> Tuple[OutputType, Callable]:
     Xs, lengths = Xs_lengths
     Q = model.get_param("Q")
     attention, bp_attention = _get_attention(model.ops, Q, Xs, lengths)
     output, bp_output = _apply_attention(model.ops, attention, Xs, lengths)
 
-    def backprop(d_output_lengths):
+    def backprop(d_output_lengths: OutputType) -> InputType:
         d_output, lengths = d_output_lengths
         dXs, d_attention = bp_output(d_output)
         dQ, dXs2 = bp_attention(d_attention)
@@ -30,6 +35,14 @@ def forward(model, Xs_lengths: Tuple[Array, Array], is_train) -> Tuple[Array, Ar
         return (dXs, lengths)
 
     return (output, lengths), backprop
+
+
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[InputType] = None
+) -> None:
+    if Y is not None:
+        model.set_dim("nO", get_width(Y))
+    model.set_param("Q", model.ops.allocate((model.get_dim("nO"),)))
 
 
 def _get_attention(ops, Q, Xs, lengths):
