@@ -35,8 +35,14 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     pad = model.get_attr("pad")
     if X is not None:
         Xflat = layer.ops.flatten(X, pad=pad)
+    else:
+        Xflat = None
     if Y is not None:
         Yflat = layer.ops.flatten(Y, pad=pad)
+    else:
+        Yflat = None
     layer.initialize(X=Xflat, Y=Yflat)
-    model.set_dim("nI", layer.get_dim("nI"))
-    model.set_dim("nO", layer.get_dim("nO"))
+    if layer.has_dim("nI"):
+        model.set_dim("nI", layer.get_dim("nI"))
+    if layer.has_dim("nO"):
+        model.set_dim("nO", layer.get_dim("nO"))

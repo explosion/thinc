@@ -1,4 +1,5 @@
-from typing import List, Union, Array, Callable, Tuple
+from typing import List, Union, Callable, Tuple
+from ..types import Array
 from ..model import Model
 
 

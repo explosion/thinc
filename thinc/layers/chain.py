@@ -21,7 +21,7 @@ def chain(*layers: Model) -> Model:
         dims={"nO": None, "nI": None},
         layers=layers,
     )
-    if layers and layers[0].get_dim("nI") and layers[-1].get_dim("nO"):
+    if layers and layers[0].has_dim("nI") and layers[-1].has_dim("nO"):
         model.initialize()
     return model
 
@@ -51,6 +51,10 @@ def init(
 ) -> None:
     if not model.layers:
         return
+    if X is None and Y is None:
+        for layer in model.layers:
+            layer.initialize()
+        return
     # Try to set nO on each layer, where available.
     nO = get_width(Y) if Y is not None else model.get_dim("nO")
     for layer in reversed(model.layers):
@@ -61,5 +65,7 @@ def init(
         layer.initialize(X=X)
         X = layer.predict(X)
     model.layers[-1].initialize(X=X, Y=Y)
-    model.set_dim("nI", model.layers[0].get_dim("nI"))
-    model.set_dim("nO", model.layers[-1].get_dim("nO"))
+    if model.layers[0].has_dim("nI"):
+        model.set_dim("nI", model.layers[0].get_dim("nI"))
+    if model.layers[-1].has_dim("nO"):
+        model.set_dim("nO", model.layers[-1].get_dim("nO"))
