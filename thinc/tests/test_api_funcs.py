@@ -42,12 +42,21 @@ def test_chain_right_branch(model1, model2, model3):
     assert len(merge2.layers) == 3
 
 
-@pytest.mark.xfail
-def test_clone(model1, nI):
-    ones = numpy.ones((10, nI), dtype="f")
-    model1.nI = None
+def test_clone_changes_predictions(nH, nI):
+    model1 = Affine(nH)
     model = clone(model1, 10)
-    model.begin_training(ones)
+    ones = numpy.ones((10, nI), dtype="f")
+    model.initialize(X=ones)
     output_from_cloned = model.predict(ones)
     output_from_orig = model1.predict(ones)
     assert output_from_cloned.sum() != output_from_orig.sum()
+
+
+def test_clone_gives_distinct_ids(nH, nI):
+    model = clone(Affine(nH), 5)
+    assert len(model.layers) == 5
+    seen_ids = set()
+    for node in model.walk():
+        assert node.id not in seen_ids
+        seen_ids.add(node.id)
+    assert len(seen_ids) == 6
