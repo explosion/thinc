@@ -1,11 +1,16 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, Union, List, TypeVar
 
 from ..model import Model
 from ..types import Array
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+# TODO: fix
+InputValue = TypeVar("InputValue", bound=Array)
+InputLengths = TypeVar("InputLengths", bound=Array)
+InputType = Union[Tuple[InputValue, InputLengths], List[InputValue], InputValue]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputLengths = TypeVar("OutputLengths", bound=Array)
+OutputType = Union[Tuple[OutputValue, OutputLengths], List[OutputValue], OutputValue]
 
 
 def Residual(layer: Model) -> Model:

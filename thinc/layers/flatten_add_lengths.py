@@ -4,8 +4,11 @@ from ..model import Model
 from ..types import Array
 
 
-InputType = TypeVar("InputType", bound=List[Array])
-OutputType = TypeVar("OutputType", bound=Tuple[Array, Array])
+InputValue = TypeVar("InputValue", bound=Array)
+InputType = List[InputValue]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputLengths = TypeVar("OutputLengths", bound=Array)
+OutputType = Tuple[OutputValue, OutputLengths]
 
 
 def flatten_add_lengths() -> Model:

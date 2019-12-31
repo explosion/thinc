@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable, TypeVar, List
 
 from ..model import Model
 from ..types import Array
@@ -8,8 +8,7 @@ InputValue = TypeVar("InputValue", bound=Array)
 InputLengths = TypeVar("InputLengths", bound=Array)
 InputType = Tuple[InputValue, InputLengths]
 OutputValue = TypeVar("OutputValue", bound=Array)
-OutputLengths = TypeVar("OutputLengths", bound=Array)
-OutputType = Tuple[OutputValue, OutputLengths]
+OutputType = List[OutputValue]
 
 
 def unflatten() -> Model:

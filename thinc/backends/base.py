@@ -1,4 +1,4 @@
-from typing import Optional, List, Callable, Tuple, Union
+from typing import Optional, List, Callable, Tuple, Union, Sequence
 
 from ..types import Xp, Array, Shape
 from ..util import copy_array, get_array_module
@@ -94,7 +94,7 @@ class Ops:
         else:
             return X * mask, wrap_backprop
 
-    def flatten(self, X: List[Array], dtype: str = None, pad: int = 0) -> Array:
+    def flatten(self, X: Sequence[Array], dtype: str = None, pad: int = 0) -> Array:
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])

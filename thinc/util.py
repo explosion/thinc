@@ -44,7 +44,7 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def get_ops(ops: Union[int, OpNames]) -> "thinc.backends.Ops":
+def get_ops(ops: Union[int, OpNames]):  # TODO: return type
     from .backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
@@ -93,7 +93,9 @@ def require_gpu(gpu_id: int = 0) -> bool:
     return True
 
 
-def get_shuffled_batches(X: Array, Y: Array, batch_size) -> Iterable[Tuple[Array, Array]]:
+def get_shuffled_batches(
+    X: Array, Y: Array, batch_size
+) -> Iterable[Tuple[Array, Array]]:
     xp = get_array_module(X)
     indices = xp.arange(X.shape[0], dtype="i")
     xp.random.shuffle(indices)
@@ -131,11 +133,11 @@ def evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size):
     to cover all situations -- many applications will have to implement their
     own evaluation methods.
     """
-    score = 0.
-    total = 0.
+    score = 0.0
+    total = 0.0
     for i in range(0, dev_X.shape[0], batch_size):
-        X = dev_X[i:i+batch_size]
-        Y = dev_Y[i:i+batch_size]
+        X = dev_X[i : i + batch_size]
+        Y = dev_Y[i : i + batch_size]
         Yh = model.predict(X)
         score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
         total += Yh.shape[0]

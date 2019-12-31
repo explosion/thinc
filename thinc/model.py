@@ -1,4 +1,4 @@
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
+from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, Sequence
 import numpy
 import contextlib
 import srsly
@@ -75,9 +75,9 @@ class Model:
         *,
         init: Callable = lambda *a, **k: None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[Array]] = {},
+        params: Dict[str, Optional[bool]] = {},
         grads: Dict[str, Optional[Array]] = {},
-        layers: List["Model"] = [],
+        layers: Sequence["Model"] = [],
         attrs: Dict[str, object] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
@@ -135,9 +135,10 @@ class Model:
 
     def get_dim(self, name: str) -> int:
         """Retrieve the value of a dimension of the given name, or None if unset."""
-        if name not in self._dims:
+        if name not in self._dims or self._dims[name] is None:
             raise KeyError(f"Can't get dimension '{name}'")
-        return self._dims[name]
+        dim: int = self._dims[name]
+        return dim
 
     def set_dim(self, name: str, value: int) -> None:
         """Set a value for a dimension."""
@@ -326,7 +327,7 @@ class Model:
             grads=copy.deepcopy(self._grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
-            layers=[layer.copy() for layer in self._layers]
+            layers=[layer.copy() for layer in self._layers],
         )
         for name, is_allocated in self._params.items():
             if is_allocated:
@@ -377,7 +378,7 @@ class Model:
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, self):
+            if hasattr(layer, "_model") and not isinstance(layer._model, self):  # type: ignore
                 weights.append(layer.to_bytes())
             elif hasattr(layer, "_mem"):
                 weights.append(
@@ -421,7 +422,7 @@ class Model:
         i = 0
         for layer in queue:
             # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, "Model"):
+            if hasattr(layer, "_model") and not isinstance(layer._model, "Model"):  # type: ignore
                 layer.from_bytes(weights[i])
                 i += 1
             elif hasattr(layer, "_mem"):

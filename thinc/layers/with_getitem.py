@@ -1,10 +1,10 @@
-from typing import Callable, Optional, Tuple, TypeVar
+from typing import Callable, Optional, Tuple
 
 from ..model import Model
 
 
-InputType = TypeVar("InputType", bound=tuple)
-OutputType = TypeVar("OutputType", bound=tuple)
+InputType = Tuple
+OutputType = Tuple
 
 
 def with_getitem(idx: int, layer: Model) -> Model:
