@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, Dict
+from typing import Tuple, Callable, Optional, Dict, TypeVar
 
 from ..model import Model
 from .dropout import Dropout
@@ -7,6 +7,10 @@ from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
 from ..types import Array
 from ..util import get_width
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Maxout(
@@ -35,7 +39,7 @@ def Maxout(
     return model
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     nO = model.get_dim("nO")
     nP = model.get_dim("nP")
     nI = model.get_dim("nI")
@@ -47,7 +51,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y = Y.reshape((Y.shape[0], nO, nP))
     best, which = model.ops.maxout(Y)
 
-    def backprop(d_best: Array):
+    def backprop(d_best: OutputType) -> InputType:
         dY = model.ops.backprop_maxout(d_best, which, nP)
         dY = dY.reshape((dY.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
@@ -61,7 +65,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
     """Create an init function, given a dictionary of parameter initializers."""
 
     def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+        model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
     ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))

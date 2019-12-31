@@ -1,7 +1,11 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..types import Array
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Residual(layer: Model) -> Model:
@@ -14,7 +18,7 @@ def Residual(layer: Model) -> Model:
     )
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     y, bp_y = model.layers[0].begin_update(X)
     if isinstance(X, list):
         output = [X[i] + y[i] for i in range(len(X))]
@@ -24,7 +28,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     else:
         output = X + y
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutputType) -> InputType:
         dX = bp_y(d_output)
         if isinstance(d_output, list) or isinstance(d_output, tuple):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
@@ -34,7 +38,9 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     return output, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
     model.layers[0].initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))
     model.set_dim("nI", model.layers[0].get_dim("nI"))

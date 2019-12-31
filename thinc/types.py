@@ -1,11 +1,20 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Callable
 from enum import Enum
 
 
-Array = Union["numpy.ndarray", "cupy.ndarray"]
-Xp = Union["numpy", "cupy"]
+Array = Union["numpy.ndarray", "cupy.ndarray"]  # type: ignore
+Xp = Union["numpy", "cupy"]  # type: ignore
 
 Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
+
+
+class DocType:
+    # TODO:
+    # DocType = "spacy.tokens.Doc"  # type: ignore
+    doc: "DocType"
+    to_array: Callable
+    start: int
+    end: int
 
 
 class OpNames(str, Enum):

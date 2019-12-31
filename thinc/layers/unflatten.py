@@ -1,18 +1,29 @@
-from typing import Tuple
+from typing import Tuple, Callable, TypeVar
+
 from ..model import Model
 from ..types import Array
 
 
-def unflatten():
+InputValue = TypeVar("InputValue", bound=Array)
+InputLengths = TypeVar("InputLengths", bound=Array)
+InputType = Tuple[InputValue, InputLengths]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputLengths = TypeVar("OutputLengths", bound=Array)
+OutputType = Tuple[OutputValue, OutputLengths]
+
+
+def unflatten() -> Model:
     """Transform sequences from a ragged format into lists."""
     return Model("unflatten", forward)
 
 
-def forward(model: Model, X_lengths: Tuple[Array, Array], is_train: bool):
+def forward(
+    model: Model, X_lengths: InputType, is_train: bool
+) -> Tuple[OutputType, Callable]:
     X, lengths = X_lengths
     Xs = model.ops.unflatten(X, lengths)
 
-    def backprop(dXs):
-        return model.ops.flatten(dXs, pad=0)
+    def backprop(dXs: OutputType) -> InputType:
+        return model.ops.flatten(dXs, pad=0), lengths
 
     return Xs, backprop
