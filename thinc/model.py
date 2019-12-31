@@ -3,6 +3,7 @@ import numpy
 import contextlib
 import srsly
 from pathlib import Path
+import copy
 
 from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
@@ -298,9 +299,9 @@ class Model:
         queue = [self]
         seen: Set[int] = set()
         for node in queue:
-            if node.id in seen:
+            if id(node) in seen:
                 continue
-            seen.add(node.id)
+            seen.add(id(node))
             yield node
             if hasattr(node, "_layers"):
                 queue.extend(node._layers)
@@ -314,6 +315,25 @@ class Model:
             if hasattr(node, "_mem") and node._mem.gradient.any():
                 gradients[node.id] = [node._mem.weights, node._mem.gradient]
         return gradients
+
+    def copy(self) -> "Model":
+        copied = Model(
+            self.name,
+            self._func,
+            init=self._init,
+            params=copy.deepcopy(self._params),
+            grads=copy.deepcopy(self._grads),
+            dims=copy.deepcopy(self._dims),
+            attrs=copy.deepcopy(self._attrs),
+            layers=[layer.copy() for layer in self._layers]
+        )
+        for name, is_allocated in self._params.items():
+            if is_allocated:
+                copied.set_param(name, self.get_param(name))
+        for name, is_allocated in self._grads.items():
+            if is_allocated:
+                copied.set_grad(name, self.get_grad(name))
+        return copied
 
     def to_gpu(self, device_num: int) -> None:
         """Transfer the model to a given GPU device."""
