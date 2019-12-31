@@ -187,8 +187,7 @@ export CUDA_HOME=/usr/local/cuda-8.0 # Or wherever your CUDA is
 export PATH=$PATH:$CUDA_HOME/bin
 pip install chainer
 python -c "import cupy; assert cupy" # Check it installed
-pip install thinc_gpu_ops thinc # Or `thinc[cuda]`
-python -c "import thinc_gpu_ops" # Check the GPU ops were built
+pip install thinc # Or `thinc[cuda]`
 ```
 
 The rest of this section describes how to build Thinc from source. If you have
