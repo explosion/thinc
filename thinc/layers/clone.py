@@ -1,8 +1,9 @@
 from .noop import noop
 from .chain import chain
+from ..model import Model
 
 
-def clone(orig, n):
+def clone(orig: Model, n: int) -> Model:
     """Construct `n` copies of a layer, with distinct weights.
 
     i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
