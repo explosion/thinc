@@ -1,11 +1,10 @@
 import numpy
 import pytest
+from thinc.layers.sparse_linear import SparseLinear
 
 
-@pytest.mark.xfail
 def test_init():
-    from thinc.layers.sparse_linear import LinearModel
-    model = LinearModel(3)
+    model = SparseLinear(3)
     keys = numpy.ones((5,), dtype="uint64")
     values = numpy.ones((5,), dtype="f")
     lengths = numpy.zeros((2,), dtype=numpy.int_)
@@ -14,4 +13,4 @@ def test_init():
     scores, backprop = model.begin_update((keys, values, lengths))
     assert scores.shape == (2, 3)
     d_feats = backprop(scores)
-    assert d_feats is None
+    assert len(d_feats) == 3
