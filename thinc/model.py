@@ -214,6 +214,7 @@ class Model:
     def initialize(self, X=None, Y=None):
         if self._init is not None:
             self._init(self, X=X, Y=Y)
+        return self
 
     def begin_update(self, X):
         """Run the model over a batch of data, returning the output and a callback
