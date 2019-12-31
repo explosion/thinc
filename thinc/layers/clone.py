@@ -1,10 +1,5 @@
-import copy
-
-
 from .noop import noop
 from .chain import chain
-
-# TODO: fix
 
 
 def clone(orig, n):
@@ -16,6 +11,5 @@ def clone(orig, n):
         return noop()
     layers = [orig]
     for i in range(n - 1):
-        layers.append(copy.deepcopy(orig))
-        layers[-1].set_id()
+        layers.append(orig.copy())
     return chain(*layers)
