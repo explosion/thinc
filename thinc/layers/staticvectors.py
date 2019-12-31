@@ -36,7 +36,7 @@ def forward(
 
     def backprop(d_output: OutputType) -> InputType:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
-        return model.allocate(ids.shape, dtype=ids.dtype)
+        return model.ops.allocate(ids.shape, dtype=ids.dtype)
 
     output = model.ops.gemm(vectors, W, trans2=True)
     return output, backprop

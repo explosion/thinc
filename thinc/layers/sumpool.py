@@ -4,8 +4,12 @@ from ..types import Array
 from ..model import Model
 
 
-InputType = TypeVar("InputType", bound=Tuple[Array, Array])
-OutputType = TypeVar("OutputType", bound=Tuple[Array, Array])
+InputValue = TypeVar("InputValue", bound=Array)
+InputLengths = TypeVar("InputLengths", bound=Array)
+InputType = Tuple[InputValue, InputLengths]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputLengths = TypeVar("OutputLengths", bound=Array)
+OutputType = Tuple[OutputValue, OutputLengths]
 
 
 def SumPool() -> Model:
