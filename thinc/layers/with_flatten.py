@@ -7,7 +7,7 @@ InputType = TypeVar("InputType", bound=List[Array])
 OutputType = TypeVar("OutputType", bound=List[Array])
 
 
-def with_flatten(layer: Model, pad: int = 0) -> Model:
+def with_flatten(layer: Model, *, pad: int = 0) -> Model:
     return Model(
         f"with_flatten-{layer.name}",
         forward,

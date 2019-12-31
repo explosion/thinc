@@ -12,6 +12,7 @@ OutputType = TypeVar("OutputType", bound=Array)
 def HashEmbed(
     nO: int,
     nV: int,
+    *,
     seed: Optional[int] = None,
     column: int = 0,
     initializer: Callable = uniform_init,

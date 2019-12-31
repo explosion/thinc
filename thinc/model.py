@@ -137,7 +137,7 @@ class Model:
         """Retrieve the value of a dimension of the given name, or None if unset."""
         if name not in self._dims or self._dims[name] is None:
             raise KeyError(f"Can't get dimension '{name}'")
-        dim: int = self._dims[name]
+        dim: int = self._dims[name]  # type: ignore
         return dim
 
     def set_dim(self, name: str, value: int) -> None:
@@ -373,7 +373,7 @@ class Model:
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        weights = []
+        weights: List[Union[bytes, Dict[bytes, Any]]] = []
         queue = [self]
         i = 0
         for layer in queue:
@@ -395,7 +395,7 @@ class Model:
                     param = layer._mem.get((id_, name))
                     if not isinstance(layer._mem.weights, numpy.ndarray):
                         param = param.get()
-                    weights[-1][b"params"].append(
+                    weights[-1][b"params"].append(  # type: ignore
                         {
                             b"name": name,
                             b"offset": start,

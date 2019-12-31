@@ -8,6 +8,12 @@ Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
 
 
+class NlpType:
+    # TODO:
+    vocab: "spacy.vocab.Vocab"  # type: ignore
+    pass
+
+
 class DocType:
     # TODO:
     # DocType = "spacy.tokens.Doc"  # type: ignore

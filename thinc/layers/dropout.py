@@ -4,6 +4,7 @@ from ..model import Model
 from ..types import Array
 
 
+# TODO: fix
 InputType = TypeVar("InputType", bound=Array)
 OutputType = TypeVar("OutputType", bound=Array)
 

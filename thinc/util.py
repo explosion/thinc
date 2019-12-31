@@ -113,9 +113,9 @@ def minibatch(items: Iterable[Any], size: int = 8) -> Iterable[Any]:
         size_ = size
     if hasattr(items, "__len__") and hasattr(items, "__getitem__"):
         i = 0
-        while i < len(items):
+        while i < len(items):  # type: ignore
             batch_size = next(size_)
-            yield items[i : i + batch_size]
+            yield items[i : i + batch_size]  # type: ignore
             i += batch_size
     else:
         items = iter(items)

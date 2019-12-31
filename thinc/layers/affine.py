@@ -12,6 +12,7 @@ OutputType = TypeVar("OutputType", bound=Array)
 def Affine(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
+    *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
 ) -> Model:
