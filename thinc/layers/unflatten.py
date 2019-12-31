@@ -11,7 +11,7 @@ OutputValue = TypeVar("OutputValue", bound=Array)
 OutputType = List[OutputValue]
 
 
-def unflatten() -> Model:
+def Unflatten() -> Model:
     """Transform sequences from a ragged format into lists."""
     return Model("unflatten", forward)
 

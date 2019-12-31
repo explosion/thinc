@@ -11,7 +11,7 @@ OutputType = TypeVar("OutputType", bound=Array)
 STATE = create_thread_local({"vectors": {}})
 
 
-def StaticVectors(lang: str, nO: int, column: int = 0) -> Model:
+def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
     return Model(
         "static_vectors",
         forward,

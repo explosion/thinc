@@ -13,6 +13,7 @@ OutputType = TypeVar("OutputType", bound=Array)
 def Embed(
     nO: Optional[Array] = None,
     nV: Optional[Array] = None,
+    *,
     column: int = 0,
     initializer: Callable = uniform_init,
 ) -> Model:
