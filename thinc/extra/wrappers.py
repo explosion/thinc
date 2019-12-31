@@ -104,7 +104,8 @@ class PyTorchWrapper(Model):
             self._optimizer = self._create_optimizer(optimizer)
         if getattr(optimizer, "max_grad_norm", None):
             torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.max_grad_norm)
+                self._model.parameters(), optimizer.max_grad_norm
+            )
         self._optimizer.step()
         self._optimizer.zero_grad()
 

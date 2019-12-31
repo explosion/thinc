@@ -67,8 +67,9 @@ def test_predict_and_begin_update_match(model, model1, model2, input_data):
     via_update, _ = model.begin_update(input_data)
     assert_allclose(via_predict, via_update)
     expected = get_expected_predict(
-        input_data, [model1.get_param("W"), model2.get_param("W")],
-        [model1.get_param("b"), model2.get_param("b")]
+        input_data,
+        [model1.get_param("W"), model2.get_param("W")],
+        [model1.get_param("b"), model2.get_param("b")],
     )
     assert_allclose(via_update, expected, atol=1e-2, rtol=1e-4)
 
