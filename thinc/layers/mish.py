@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
@@ -6,6 +6,10 @@ from ..types import Array
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Mish(
@@ -36,13 +40,13 @@ def Mish(
     return model
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
     Y_pre_mish = model.ops.affine(W, b, X)
     Y = model.ops.mish(Y_pre_mish)
 
-    def backprop(dY: Array) -> Array:
+    def backprop(dY: OutputType) -> InputType:
         dY_pre_mish = model.ops.backprop_mish(dY, Y_pre_mish)
         model.inc_grad("W", model.ops.gemm(dY_pre_mish, X, trans1=True))
         model.inc_grad("b", dY_pre_mish.sum(axis=0))

@@ -1,12 +1,20 @@
-from typing import List, Union, Array, Callable, Tuple
+from typing import List, Union, Callable, Tuple, TypeVar
+
 from ..model import Model
+from ..types import Array, DocType
+
+
+InputType = TypeVar("InputType", bound=List[DocType])
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def FeatureExtractor(columns: List[Union[int, str]]) -> Model:
     return Model("extract_features", forward, attrs={"columns": columns})
 
 
-def forward(model: Model, docs, is_train: bool) -> Tuple[Array, Callable]:
+def forward(
+    model: Model, docs: InputType, is_train: bool
+) -> Tuple[OutputType, Callable]:
     columns = model.get_attr("columns")
     features = []
     for doc in docs:

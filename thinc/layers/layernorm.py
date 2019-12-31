@@ -5,6 +5,7 @@ from ..types import Array
 from ..backends import Ops
 from ..util import get_width
 
+
 InputType = TypeVar("InputType", bound=Array)
 OutputType = TypeVar("OutputType", bound=Array)
 

@@ -6,6 +6,7 @@ Array = Union["numpy.ndarray", "cupy.ndarray"]
 Xp = Union["numpy", "cupy"]
 
 Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
+DocType = "spacy.tokens.Doc"
 
 
 class OpNames(str, Enum):

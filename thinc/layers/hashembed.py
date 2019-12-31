@@ -4,6 +4,7 @@ from ..model import Model
 from ..types import Array
 from ..initializers import uniform_init
 
+
 InputType = TypeVar("InputType", bound=Array)
 OutputType = TypeVar("OutputType", bound=Array)
 

@@ -1,14 +1,18 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, TypeVar
 
 from ..model import Model
 from ..types import Array
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Dropout(rate: float = 0.0) -> Model:
     return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if not is_enabled:
