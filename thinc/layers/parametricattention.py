@@ -21,12 +21,13 @@ def forward(model, Xs_lengths: Tuple[Array, Array], is_train) -> Tuple[Array, Ar
     attention, bp_attention = _get_attention(model.ops, Q, Xs, lengths)
     output, bp_output = _apply_attention(model.ops, attention, Xs, lengths)
 
-    def backprop(d_output):
+    def backprop(d_output_lengths):
+        d_output, lengths = d_output_lengths
         dXs, d_attention = bp_output(d_output)
         dQ, dXs2 = bp_attention(d_attention)
         model.inc_grad("dQ", dQ)
         dXs += dXs2
-        return dXs
+        return (dXs, lengths)
 
     return (output, lengths), backprop
 
