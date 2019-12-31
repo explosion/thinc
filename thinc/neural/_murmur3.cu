@@ -12,12 +12,29 @@
  * and modified to work with CUDA.
  */
 // Including stdint.h is a pain in cupy, so just put the declarations in.
-typedef unsigned char                uint8_t;
-typedef unsigned int                uint32_t;
-typedef unsigned long int        uint64_t;
-typedef signed char                int8_t;
-typedef int                        int32_t;
-typedef long int                int64_t;
+// Beware that long int is not 64bit on all platforms!
+// e.g. Windows requires a 'long long' to get to 64 bit.
+
+typedef unsigned char           uint8_t;
+typedef unsigned int            uint32_t;
+typedef signed char             int8_t;
+typedef int                     int32_t;
+
+const unsigned long int test_var = 0;
+const int size = sizeof(test_var);
+
+#if size == 64
+
+typedef unsigned long int      uint64_t;
+typedef long int               int64_t;
+
+#else
+
+typedef unsigned long long      uint64_t;
+typedef long long               int64_t;
+
+#endif
+
 
 //-----------------------------------------------------------------------------
 // Platform-specific functions and macros
