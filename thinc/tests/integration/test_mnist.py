@@ -6,6 +6,7 @@ from thinc.layers.chain import chain
 from thinc.layers.clone import clone
 from thinc.backends import NumpyOps
 from thinc.util import to_categorical, get_shuffled_batches
+from thinc.util import evaluate_model_on_arrays
 from thinc.optimizers import Adam
 import ml_datasets
 
@@ -53,19 +54,6 @@ def create_relu_softmax(depth, width):
     return model
 
 
-def evaluate_model(model, dev_X, dev_Y, batch_size):
-    score = 0.
-    total = 0.
-    for i in range(0, dev_X.shape[0], batch_size):
-        X = dev_X[i:i+batch_size]
-        Y = dev_Y[i:i+batch_size]
-        Yh = model.predict(X)
-        #print(Y[0], Yh[0])
-        score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
-        total += Yh.shape[0]
-    return score / total
-
-
 @pytest.fixture(params=[create_relu_softmax])
 def create_model(request):
     return request.param
@@ -86,7 +74,7 @@ def test_small_end_to_end(
             backprop(Yh - Y)
             model.finish_update(optimizer)
             losses.append(((Yh - Y) ** 2).sum())
-        score = evaluate_model(model, dev_X, dev_Y, batch_size)
+        score = evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size)
         scores.append(score)
     assert losses[-1] < losses[0]
     assert scores[-1] > scores[0]
