@@ -1,6 +1,6 @@
 import numpy
 import pytest
-from thinc.layers.sparse_linear import SparseLinear
+from thinc.layers.sparselinear import SparseLinear
 
 
 def test_init():
