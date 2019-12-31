@@ -3,7 +3,7 @@ from ..types import Array
 from ..model import Model
 
 
-def sum_pool():
+def SumPool():
     return Model("sum_pool", forward)
 
 

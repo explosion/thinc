@@ -2,7 +2,7 @@ from typing import List, Union, Array, Callable, Tuple
 from ..model import Model
 
 
-def feature_extractor(columns: List[Union[int, str]]) -> Model:
+def FeatureExtractor(columns: List[Union[int, str]]) -> Model:
     return Model("extract_features", forward, attrs={"columns": columns})
 
 
