@@ -125,6 +125,23 @@ def minibatch(items: Iterable[Any], size: int = 8) -> Iterable[Any]:
             yield list(batch)
 
 
+def evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size):
+    """Helper to evaluate accuracy of a model in the simplest cases, where
+    there's one correct output class and the inputs are arrays. Not guaranteed
+    to cover all situations -- many applications will have to implement their
+    own evaluation methods.
+    """
+    score = 0.
+    total = 0.
+    for i in range(0, dev_X.shape[0], batch_size):
+        X = dev_X[i:i+batch_size]
+        Y = dev_Y[i:i+batch_size]
+        Yh = model.predict(X)
+        score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
+        total += Yh.shape[0]
+    return score / total
+
+
 def copy_array(dst: Array, src: Array) -> None:
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
