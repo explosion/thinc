@@ -3,7 +3,7 @@ from ..types import Array
 from ..model import Model
 
 
-def mean_pool():
+def MeanPool():
     return Model("mean_pool", forward)
 
 

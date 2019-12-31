@@ -3,7 +3,7 @@ from ..types import Array
 from ..model import Model
 
 
-def max_pool():
+def MaxPool():
     return Model("max_pool", forward)
 
 
