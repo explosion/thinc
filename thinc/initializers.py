@@ -2,14 +2,14 @@ from .types import Array
 from .util import get_array_module, copy_array
 
 
-def xavier_uniform_init(W: Array, inplace: bool = False) -> Array:
-    xp = get_array_module(W)
-    scale = xp.sqrt(6.0 / (W.shape[0] + W.shape[1]))
+def xavier_uniform_init(data: Array, inplace: bool = False) -> Array:
+    xp = get_array_module(data)
+    scale = xp.sqrt(6.0 / (data.shape[0] + data.shape[1]))
     if inplace:
-        copy_array(W, xp.random.uniform(-scale, scale, W.shape))
-        return W
+        copy_array(data, xp.random.uniform(-scale, scale, data.shape))
+        return data
     else:
-        return xp.random.uniform(-scale, scale, W.shape)
+        return xp.random.uniform(-scale, scale, data.shape)
 
 
 def zero_init(data: Array, inplace: bool = False) -> Array:
