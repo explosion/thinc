@@ -298,7 +298,7 @@ class Model:
         return n_set
 
     @contextlib.contextmanager
-    def use_params(self, params: Dict[str, Array]):
+    def use_params(self, params: Dict[int, Array]):
         """Context manager to temporarily set the model's parameters to specified
         values.
 
@@ -311,10 +311,9 @@ class Model:
             param = params[self.id]
             backup = weights.copy()
             copy_array(dst=weights, src=param)
-        if hasattr(self, "_layers"):
-            contexts = [layer.use_params(params) for layer in self._layers]
-            for context in contexts:
-                next(context.gen)
+        contexts = []
+        for layer in self.layers:
+            contexts.append(next(layer.use_params(params).gen))
         yield
         if backup is not None:
             copy_array(dst=self._mem.weights, src=backup)

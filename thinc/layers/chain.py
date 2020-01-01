@@ -60,12 +60,11 @@ def init(
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return
     # Try to set nO on each layer, where available.
+    nO = None
     if Y is not None:
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")
-    else:
-        nO = None
     for layer in reversed(model.layers):
         if nO is not None and layer.has_dim("nO") is None:
             layer.set_dim("nO", nO)
