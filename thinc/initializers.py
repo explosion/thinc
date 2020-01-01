@@ -31,3 +31,18 @@ def uniform_init(
         return data
     else:
         return values.astype(data.dtype)
+
+
+def normal_init(data: Array, fan_in: int, inplace=True):
+    xp = get_array_module(data)
+    scale = xp.sqrt(1.0 / fan_in)
+    size = int(xp.prod(W.shape))
+    inits = xp.random.normal(scale=scale, size=size)
+    inits = inits.reshape(W.shape)
+    if inplace:
+        copy_array(W, inits)
+        return W
+    else:
+        return inits
+
+
