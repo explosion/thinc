@@ -47,10 +47,7 @@ def dev_Y(mnist):
 
 def create_relu_softmax(depth, width):
     with Model.define_operators({"**": clone, ">>": chain}):
-        model = (
-            ReLu(width) ** depth
-            >> Softmax(10, width)
-        )
+        model = ReLu(width) ** depth >> Softmax(10, width)
     return model
 
 

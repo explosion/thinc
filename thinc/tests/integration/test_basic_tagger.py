@@ -51,21 +51,17 @@ def dev_Y(ancora):
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
-        model = (
-            strings2arrays()
-            >> with_flatten(
-                HashEmbed(width, vector_length)
-                >> ExtractWindow(window_size=1)
-                >> ReLu(width, width*3)
-                >> ReLu(width, width)
-                >> Softmax(17, width)
-            )
+        model = strings2arrays() >> with_flatten(
+            HashEmbed(width, vector_length)
+            >> ExtractWindow(window_size=1)
+            >> ReLu(width, width * 3)
+            >> ReLu(width, width)
+            >> Softmax(17, width)
         )
     return model
 
 
 def strings2arrays():
-
     def strings2arrays_forward(model, Xs, is_train):
         hashes = [[hash_unicode(word) for word in X] for X in Xs]
         arrays = [model.ops.asarray(h, dtype="uint64") for h in hashes]

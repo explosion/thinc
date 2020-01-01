@@ -22,7 +22,8 @@ def sgd():
 
 @pytest.mark.xfail
 def test_basic(instances, sgd):
-    from thinc.layers.sparse_linear import LinearModel
+    from thinc.layers.sparselinear import LinearModel
+
     X, y = instances
     nr_class = 3
     model = LinearModel(nr_class)

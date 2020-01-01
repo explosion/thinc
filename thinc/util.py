@@ -103,7 +103,9 @@ def get_shuffled_batches(
         yield X[index_batch], Y[index_batch]
 
 
-def minibatch(items: Iterable[Any], size: int = 8) -> Iterable[Any]:
+def minibatch(
+    items: Iterable[Any], size: Union[int, Iterable[int]] = 8
+) -> Iterable[Any]:
     """Iterate over batches of items. `size` may be an iterator,
     so that batch-size can vary on each step.
     """

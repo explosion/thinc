@@ -1,7 +1,5 @@
 import contextlib
-from io import BytesIO
-
-from thinc.model import Model
+from ..model import Model
 
 try:
     import cupy
@@ -15,35 +13,45 @@ try:
     import torch.utils.dlpack
     from torch.nn import Module as PyTorchModule
 except ImportError:
-    torch = None
-    PyTorchModule = None
+    has_torch = False
 
 
-def xp2torch(xp_tensor):
-    if hasattr(xp_tensor, "toDlpack"):
-        return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
-    else:
-        return torch.from_numpy(xp_tensor)
-
-
-def torch2xp(torch_tensor):
-    if torch_tensor.is_cuda:
-        return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
-    else:
-        return torch_tensor.detach().numpy()
-
-
-class PyTorchWrapper(Model):
+def PyTorchWrapper(pytorch_model):
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
     optimizer.step() after each batch --- see examples/wrap_pytorch.py
     """
+    return PyTorchModel("pytorch", forward, init=init, attrs={"_model": model})
 
-    def __init__(self, model):
-        Model.__init__(self)
-        self._model = model
-        self._optimizer = None
 
+def forward(model, x_data, is_train):
+    """Return the output of the wrapped PyTorch model for the given input,
+    along with a callback to handle the backward pass.
+    """
+    pytorch_model = model.get_attr("_model")
+    if is_train:
+        pytorch_model.train()
+        fwd_args, fwd_kwargs = model.prepare_input(x_data, is_update=True)
+        y_var = pytorch_model(*fwd_args, **fwd_kwargs)
+    else:
+        pytorch_model.eval()
+        x_args, x_kwargs = model.prepare_input(x_data, is_update=False)
+        with torch.no_grad():
+            y_var = pytorch_model(*x_args, **x_kwargs)
+        self._model.train()
+        return model.prepare_output(y_var)
+
+    y = model.prepare_output(y_var)
+
+    def backward_pytorch(dy_data):
+        d_args, d_kwargs = model.prepare_backward_input(dy_data, y_var)
+        torch.autograd.backward(*d_args, **d_kwargs, retain_graph=True)
+        return model.prepare_backward_output(fwd_args, fwd_kwargs)
+
+    return y, backward_pytorch
+ 
+
+class PyTorchModel(Model):
     def prepare_input(self, x_data, is_update=True):
         if isinstance(x_data, (list, tuple)):
             x_var = [
@@ -74,38 +82,14 @@ class PyTorchWrapper(Model):
         return torch2xp(x_var.grad)
 
     def predict(self, x_data):
-        self._model.eval()
-        x_args, x_kwargs = self.prepare_input(x_data, is_update=False)
-        with torch.no_grad():
-            y_var = self._model(*x_args, **x_kwargs)
-        self._model.train()
-        return self.prepare_output(y_var)
-
-    def begin_update(self, x_data, drop=0.0):
-        """Return the output of the wrapped PyTorch model for the given input,
-        along with a callback to handle the backward pass.
-        """
-        if drop is None:
-            return self.predict(x_data), None
-        self._model.train()
-        fwd_args, fwd_kwargs = self.prepare_input(x_data, is_update=True)
-        y_var = self._model(*fwd_args, **fwd_kwargs)
-        y = self.prepare_output(y_var)
-
-        def backward_pytorch(dy_data):
-            d_args, d_kwargs = self.prepare_backward_input(dy_data, y_var)
-            torch.autograd.backward(*d_args, **d_kwargs, retain_graph=True)
-            return self.prepare_backward_output(fwd_args, fwd_kwargs)
-
-        return y, backward_pytorch
+        pass
 
     def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
         if getattr(optimizer, "max_grad_norm", None):
             torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.max_grad_norm
-            )
+                self._model.parameters(), optimizer.max_grad_norm)
         self._optimizer.step()
         self._optimizer.zero_grad()
 
@@ -185,37 +169,29 @@ class PyTorchWrapper(Model):
     def to_cpu(self):
         self._model.cpu()
 
-    def resize_output(self, new_dim):
-        # self.weight = nn.Parameter(F.pad(self.weight, ...)) # add classes
-        # self.weight = nn.Parameter(F.pad(model.weight, ...)) # add classes
-        raise NotImplementedError
 
-    def resize_input(self):
-        raise NotImplementedError
-
-
-class PyTorchWrapperRNN(PyTorchWrapper):
-    """Wrap a PyTorch RNN model"""
-
-    def prepare_input(self, inputs, is_update=False):
-        if isinstance(inputs, tuple):
-            x_data, h_0 = inputs
-        else:
-            x_data = inputs
-            h_0 = None
-        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
-        return (x_var, h_0), {}
-
-    def prepare_output(self, torch_outputs):
-        y_var, h_n = torch_outputs
-        return torch2xp(y_var), h_n
-
-    def prepare_backward_input(self, dy_data, y_var):
-        dy, _ = dy_data
-        dy_var = xp2torch(dy)
-        y_var, _ = y_var
-        return (y_var,), {"grad_tensors": (dy_var,)}
-
-    def prepare_backward_output(self, x_args, x_kwargs):
-        x_var, _ = x_args
-        return torch2xp(x_var.grad)
+#class PyTorchWrapperRNN(PyTorchWrapper):
+#    """Wrap a PyTorch RNN model"""
+#
+#    def prepare_input(self, inputs, is_update=False):
+#        if isinstance(inputs, tuple):
+#            x_data, h_0 = inputs
+#        else:
+#            x_data = inputs
+#            h_0 = None
+#        x_var = torch.autograd.Variable(xp2torch(x_data), requires_grad=is_update)
+#        return (x_var, h_0), {}
+#
+#    def prepare_output(self, torch_outputs):
+#        y_var, h_n = torch_outputs
+#        return torch2xp(y_var), h_n
+#
+#    def prepare_backward_input(self, dy_data, y_var):
+#        dy, _ = dy_data
+#        dy_var = xp2torch(dy)
+#        y_var, _ = y_var
+#        return (y_var,), {"grad_tensors": (dy_var,)}
+#
+#    def prepare_backward_output(self, x_args, x_kwargs):
+#        x_var, _ = x_args
+#        return torch2xp(x_var.grad)
