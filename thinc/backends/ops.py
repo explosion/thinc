@@ -220,18 +220,8 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def add_batch_outer(self, output, x, y):
-        # TODO: Deprecate this
-        output += self.xp.tensordot(x, y, axes=[[0], [0]])
-
     def norm(self, x):
         return self.xp.sqrt((x * x).sum())
-
-    def affine(self, weights, bias, signal):
-        return self.gemm(signal, weights, trans2=True) + bias
-
-    def add_sum(self, out, to_sum):
-        out += to_sum.sum(axis=0)
 
     def argmax(self, x, axis=-1):
         return self.xp.argmax(x, axis=axis)
@@ -282,9 +272,6 @@ class Ops:
         sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
         dx -= y * sumdx
         return dx
-
-    def expand_dims(self, a, axis=-1):
-        return self.xp.expand_dims(a, axis=axis)
 
     def clip_low(self, x, value, inplace=False):
         if inplace:
@@ -381,34 +368,6 @@ class Ops:
         out[:] = dY + dY * self.dtanh(X)
         out[indices] = dXsub
         return out
-
-    def xavier_uniform_init(self, W, inplace=True):
-        if (W ** 2).sum() != 0.0:
-            return W
-        scale = self.xp.sqrt(6.0 / (W.shape[0] + W.shape[1]))
-        if inplace:
-            copy_array(W, self.xp.random.uniform(-scale, scale, W.shape))
-            return W
-        else:
-            return self.xp.random.uniform(-scale, scale, W.shape)
-
-    def normal_init(self, W, fan_in, inplace=True):
-        if (W ** 2).sum() != 0.0:
-            return W
-        scale = self.xp.sqrt(1.0 / fan_in)
-        size = int(self.xp.prod(W.shape))
-        inits = self.xp.random.normal(scale=scale, size=size)
-        inits = inits.reshape(W.shape)
-        if inplace:
-            copy_array(W, inits)
-            return W
-        else:
-            return inits
-
-    def he_normal_init(self, shape, fan_in):
-        scale = self.xp.sqrt(2.0 / fan_in)
-        size = self.xp.prod(shape)
-        return self.xp.random.normal(scale=scale, size=size).reshape(shape)
 
     def update_averages(self, ema, weights, t, max_decay=0.9999):
         decay = (1.0 + t) / (10.0 + t)

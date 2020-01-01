@@ -60,25 +60,6 @@ class NumpyOps(Ops):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
-    def inplace_add(self, np.ndarray x, np.ndarray y, float scale=1.0):
-        VecVec.add_i(<float*>x.data,
-            <float*>y.data, scale, x.shape[0])
-
-    def matmul(self, float[:, :, ::1] x, float[:, :, ::1] y, out=None):
-        assert x.shape[0] == y.shape[0]
-        assert x.shape[2] == y.shape[1]
-        cdef np.ndarray out_array
-        if out is None:
-            out_array = self.allocate((x.shape[0], x.shape[1], y.shape[2]))
-        else:
-            out_array = self.xp.asarray(out)
-        assert out_array.shape[0] == x.shape[0]
-        assert out_array.shape[1] == x.shape[1]
-        assert out_array.shape[2] == y.shape[2]
-        for i in range(x.shape[0]):
-            blis.py.gemm(x[i], y[i], out=out_array[i])
-        return out_array
-
     def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,
              out=None):
         cdef int m
@@ -100,11 +81,6 @@ class NumpyOps(Ops):
         assert out_array.shape[1] == n
         blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
         return out_array
-
-    def affine(self, weights, bias, signal):
-        dotted = self.gemm(signal, weights, trans2=True)
-        dotted += bias
-        return dotted
 
     def relu(self, ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
