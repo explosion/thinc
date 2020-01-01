@@ -184,7 +184,7 @@ class Ops:
     def dtanh(self, y):
         return 1 - y ** 2
 
-    def softmax(self, x, inplace=False, axis=-1):
+    def softmax(self, x: Array, inplace: bool = False, axis: int = -1) -> Array:
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -195,11 +195,12 @@ class Ops:
         else:
             return new_x
 
-    def softmax_sequences(self, Xs, lengths, inplace=False, axis=-1):
+    def softmax_sequences(
+        self, Xs, lengths: Array, inplace: bool = False, axis: int = -1
+    ) -> Array:
         if Xs.ndim >= 3:
-            raise NotImplementedError(
-                "Softmax currently only supports 2d. ndim=%d" % Xs.ndim
-            )
+            err = f"Softmax currently only supports 2d. Got: {Xs.ndim}"
+            raise NotImplementedError(err)
         # This loses almost no fidelity, and helps the numerical stability.
         Xs = self.xp.clip(Xs, -20.0, 20.0)
         new_x = self.xp.exp(Xs)
@@ -211,7 +212,7 @@ class Ops:
         else:
             return new_x
 
-    def backprop_softmax(self, Y, dY, axis=-1):
+    def backprop_softmax(self, Y, dY, axis: int = -1):
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
@@ -222,13 +223,13 @@ class Ops:
         dx -= y * sumdx
         return dx
 
-    def clip_low(self, x, value, inplace=False):
+    def clip_low(self, x, value, inplace: bool = False):
         if inplace:
             return self.xp.maximum(x, value, out=x)
         else:
             return self.xp.maximum(x, value)
 
-    def take_which(self, x, which, axis=-1):
+    def take_which(self, x, which, axis: int = -1):
         output = self.allocate(which.shape)
         for i in range(x.shape[axis]):
             output += x[:, :, i] * (which == i)
@@ -272,7 +273,9 @@ class Ops:
         d_prev[:] = dc * hf
         copy_array(d_cells, dc)
 
-    def softplus(self, X, threshold=20.0, out=None):
+    def softplus(
+        self, X, threshold: float = 20.0, out: Optional[Array] = None
+    ) -> Array:
         xp = get_array_module(X)
         log1p_exp = xp.log1p(xp.exp(X))
         indices = X >= threshold
