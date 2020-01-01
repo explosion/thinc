@@ -126,19 +126,26 @@ class Model:
         yield
         cls._thread_local.operators = dict(curr_operators)
 
-    def dim_is_unset(self, name: str) -> bool:
-        return self.has_dim(name) and self.get_dim(name) is None
-
-    def has_dim(self, name: str) -> bool:
-        """Check whether the model has a dimension of a given name."""
-        return name in self._dims
+    def has_dim(self, name: str) -> Optional[bool]:
+        """Check whether the model has a dimension of a given name. If the
+        dimension is registered but the value is unset, returns None. 
+        """
+        if name not in self._dims:
+            return False
+        elif self._dims[name] is not None:
+            return True
+        else:
+            return None
 
     def get_dim(self, name: str) -> int:
         """Retrieve the value of a dimension of the given name, or None if unset."""
-        if name not in self._dims or self._dims[name] is None:
+        if name not in self._dims:
             raise KeyError(f"Can't get dimension '{name}'")
-        dim: int = self._dims[name]  # type: ignore
-        return dim
+        value = self._dims[name]
+        if value is None:
+            raise ValueError(f"Cannot get dimension '{name}': value unset.")
+        else:
+            return value
 
     def set_dim(self, name: str, value: int) -> None:
         """Set a value for a dimension."""
@@ -146,9 +153,17 @@ class Model:
             raise KeyError(f"Can't set dimension '{name}'")
         self._dims[name] = value
 
-    def has_param(self, name: str) -> bool:
-        """Check whether the model has a weights parameter of the given name."""
-        return name in self._params
+    def has_param(self, name: str) -> Optional[bool]:
+        """Check whether the model has a weights parameter of the given name.
+
+        Returns None if the parameter is registered but currently unset. 
+        """
+        if name not in self._params:
+            return False
+        elif self._params[name] is not None:
+            return True
+        else:
+            return None
 
     def get_param(self, name: str) -> Array:
         """Retrieve a weights parameter by name."""
@@ -180,6 +195,19 @@ class Model:
         grad += value
         self._grads[grad_name] = True
 
+    def has_grad(self, name: str) -> Optional[bool]:
+        """Check whether the model has a non-zero gradient for a parameter.
+        Returns None if the gradient is allocated but currently 0. 
+        """
+        grad_name = f"d_{param_name}"
+        key = (self.id, grad_name)
+        if key not in self._mem:
+            return False
+        elif not self._mem[key].any():
+            return None
+        else:
+            return True
+
     def get_grad(self, param_name: str) -> Array:
         """Get a gradient from the model."""
         grad_name = f"d_{param_name}"
@@ -205,6 +233,7 @@ class Model:
         return self._attrs[name]
 
     def set_attr(self, name: str, value: Any) -> None:
+        """Set the attribute to the given value."""
         if name not in self._attrs:
             raise KeyError(f"Can't set attribute '{name}'")
         self._attrs[name] = value
@@ -319,6 +348,11 @@ class Model:
         return gradients
 
     def copy(self) -> "Model":
+        """
+        Create a copy of the model, its attributes, and its parameters. Any child
+        layers will also be deep-copied. The copy will receive a distinct `model.id`
+        value.
+        """
         copied = Model(
             self.name,
             self._func,
@@ -329,6 +363,9 @@ class Model:
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self._layers],
         )
+        # The `_params` and `_grads` dicts don't hold the actual values -- 
+        # those are within the `model._mem` object. So we need to call `set_param`
+        # on the copy.
         for name, is_allocated in self._params.items():
             if is_allocated:
                 copied.set_param(name, self.get_param(name))
