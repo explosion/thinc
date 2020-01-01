@@ -8,7 +8,7 @@ class Ops:
     device: str = "cpu"
     xp: Xp = None
 
-    def __init__(self, xp: Optional[Xp] = None):
+    def __init__(self, xp: Optional[Xp] = None) -> None:
         if xp is not None:
             self.xp = xp
 
@@ -94,7 +94,9 @@ class Ops:
         else:
             return X * mask, wrap_backprop
 
-    def flatten(self, X: Sequence[Array], dtype: str = None, pad: int = 0) -> Array:
+    def flatten(
+        self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
+    ) -> Array:
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
@@ -127,7 +129,7 @@ class Ops:
         return unflat
 
     def pad_sequences(
-        self, seqs_in: List[Array], pad_to: Optional[int] = None
+        self, seqs_in: Sequence[Array], pad_to: Optional[int] = None
     ) -> Tuple[Array, Callable]:
         lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
@@ -147,7 +149,7 @@ class Ops:
 
         return arr, unpad
 
-    def square_sequences(self, seqs: List[Array]) -> Tuple[Array, Array, Callable]:
+    def square_sequences(self, seqs: Sequence[Array]) -> Tuple[Array, Array, Callable]:
         """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
@@ -199,10 +201,11 @@ class Ops:
         return self.xp.zeros(shape, dtype=dtype)
 
     # TODO: types
-    def unzip(self, data):
+    def unzip(self, data) -> Tuple[Array, Array]:
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
+    # TODO: types
     def asarray(self, data, dtype: Optional[str] = None) -> Array:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
