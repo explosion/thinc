@@ -1,7 +1,7 @@
 import contextlib
 from io import BytesIO
 
-from ..neural._classes.model import Model
+from thinc.model import Model
 
 try:
     import cupy
