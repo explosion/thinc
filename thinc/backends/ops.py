@@ -337,7 +337,9 @@ class Ops:
             out[:] = log1p_exp
             return out
 
-    def backprop_softplus(self, dY, X, threshold=20, out=None):
+    def backprop_softplus(
+        self, dY, X, threshold: float = 20.0, out: Optional[Array] = None
+    ) -> Array:
         xp = get_array_module(X)
         if out is None:
             out = xp.zeros(X.shape, dtype="f")
