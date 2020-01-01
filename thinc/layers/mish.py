@@ -43,7 +43,7 @@ def Mish(
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
-    Y_pre_mish = self.gemm(X, W, trans2=True)
+    Y_pre_mish = model.ops.gemm(X, W, trans2=True)
     Y_pre_mish += b
     Y = model.ops.mish(Y_pre_mish)
 
