@@ -32,12 +32,11 @@ def _dropout_array(model: Model, X: Array, is_train: bool):
 
     def backprop(dY: Array):
         return dY * mask
-    
+
     return X * mask, backprop
 
 
 def _dropout_ragged(model: Model, X_lengths: Tuple[Array, Array], is_train: bool):
-    rate = model.get_attr("rate")
     X, lengths = X_lengths
     mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
     Y = X * mask
@@ -45,7 +44,7 @@ def _dropout_ragged(model: Model, X_lengths: Tuple[Array, Array], is_train: bool
     def backprop(dY_lengths: Tuple[Array, Array]):
         dY, lengths = dY_lengths
         return (dY * mask), lengths
-    
+
     return (Y, lengths), backprop
 
 
@@ -56,5 +55,5 @@ def _dropout_lists(model: Model, Xs: List[Array], is_train: bool):
 
     def backprop(dYs: List[Array]):
         return [dY * mask for dY, mask in zip(dYs, masks)]
-    
+
     return Ys, backprop
