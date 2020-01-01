@@ -18,9 +18,6 @@ class CupyOps(Ops):
     device = "gpu"
     xp = cupy
 
-    def matmul(self, x, y, out=None):
-        return self.xp.matmul(x, y, out=out)
-
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
             x = x.T
@@ -121,17 +118,6 @@ class CupyOps(Ops):
             "adam",
         )(gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2)
         gradient.fill(0)
-
-    def normal_init(self, W, fan_in, inplace=True):
-        scale = self.xp.sqrt(1.0 / fan_in)
-        size = int(self.xp.prod(W.shape))
-        inits = self.xp.random.normal(scale=scale, size=size)
-        inits = inits.reshape(W.shape)
-        if inplace:
-            copy_array(W, inits)
-            return W
-        else:
-            return inits
 
     def position_encode(self, *args, **kwargs):
         positions = NumpyOps().position_encode(*args, **kwargs)
