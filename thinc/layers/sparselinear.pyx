@@ -65,7 +65,7 @@ def _begin_gpu_update(model, keys, values, lengths):
     return xp.asarray(scores_cpu), backprop_gpu_update
 
 
-def _begin_cpu_update(model, uint64_t[::1] keys, float[::1] values, long[::1] lengths):
+def _begin_cpu_update(model, uint64_t[::1] keys, float[::1] values, int32_t[::1] lengths):
     cdef int nO = model.get_dim("nO")
     cdef int length = model.get_dim("length")
     cdef np.ndarray W = model.get_param("W")
@@ -95,7 +95,7 @@ class _finish_linear_update:
         cdef np.ndarray d_bias = self.model.ops.allocate((nO,))
         cdef uint64_t[::1] keys = self.keys
         cdef float[::1] values = self.values
-        cdef long[::1] lengths = self.lengths
+        cdef int32_t[::1] lengths = self.lengths
         set_gradientC(<float*>d_weights.data,
             &keys[0], &values[0], &lengths[0],
             lengths.shape[0], nO,
@@ -110,7 +110,7 @@ class _finish_linear_update:
 
 
 cdef void set_scoresC(float* scores,
-        const uint64_t* keys, const float* values, const long* lengths,
+        const uint64_t* keys, const float* values, const int32_t* lengths,
         int batch_size, int nr_out,
         const float* weights, int nr_weight) nogil:
     cdef uint32_t idx1, idx2
@@ -131,7 +131,7 @@ cdef void set_scoresC(float* scores,
 
 
 cdef void set_gradientC(float* d_weights,
-        const uint64_t* keys, const float* values, const long* lengths,
+        const uint64_t* keys, const float* values, const int32_t* lengths,
         int batch_size, int nr_out,
         const float* d_scores, int nr_weight) nogil:
     cdef uint32_t idx1, idx2
