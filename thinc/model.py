@@ -210,7 +210,7 @@ class Model:
             raise KeyError(f"Can't set attribute '{name}'")
         self._attrs[name] = value
 
-    def __call__(self, X: Any, is_train: bool = False) -> Any:
+    def __call__(self, X: Any, is_train: bool = False) -> Tuple[Any, Callable]:
         return self._func(self, X, is_train=is_train)
 
     def initialize(self, X: Optional[Any] = None, Y: Optional[Any] = None) -> "Model":
