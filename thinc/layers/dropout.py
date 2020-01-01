@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable, TypeVar, List
 
 from ..model import Model
 from ..types import Array
