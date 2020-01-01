@@ -3,7 +3,7 @@ import sys
 import distutils.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
-from setuptools import Extension, setup
+from setuptools import Extension, setup, find_packages
 from pathlib import Path
 import numpy
 from Cython.Build import cythonize
@@ -15,14 +15,7 @@ from Cython.Compiler import Options
 Options.docstrings = True
 
 
-PACKAGES = [
-    "thinc",
-    "thinc.tests",
-    "thinc.tests.unit",
-    "thinc.tests.integration",
-    "thinc.backends",
-    "thinc.extra",
-]
+PACKAGES = find_packages()
 MOD_NAMES = [
     "thinc.optimizers",
     "thinc.backends.linalg",
