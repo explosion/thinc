@@ -14,7 +14,6 @@ def with_flatten(layer: Model, *, pad: int = 0) -> Model:
         init=init,
         layers=[layer],
         attrs={"pad": pad},
-        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
     )
 
 
@@ -47,7 +46,3 @@ def init(
     else:
         Yflat = None
     layer.initialize(X=Xflat, Y=Yflat)
-    if layer.has_dim("nI"):
-        model.set_dim("nI", layer.get_dim("nI"))
-    if layer.has_dim("nO"):
-        model.set_dim("nO", layer.get_dim("nO"))
