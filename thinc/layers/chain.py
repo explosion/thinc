@@ -54,13 +54,24 @@ def init(
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
+        if model.layers[0].has_dim("nI"):
+            model.set_dim("nI", model.layers[0].get_dim("nI"))
+        if model.layers[-1].has_dim("nO"):
+            model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return
     # Try to set nO on each layer, where available.
-    nO = get_width(Y) if Y is not None else model.get_dim("nO")
+    nO = None
+    if Y is not None:
+        nO = get_width(Y)
+    elif model.has_dim("nO"):
+        nO = model.get_dim("nO")
     for layer in reversed(model.layers):
-        if nO is not None and layer.dim_is_unset("nO"):
+        if nO is not None and layer.has_dim("nO") is None:
             layer.set_dim("nO", nO)
-        nO = layer.get_dim("nI")
+        if layer.has_dim("nI"):
+            nO = layer.get_dim("nI")
+        else:
+            break
     for layer in model.layers[:-1]:
         layer.initialize(X=X)
         X = layer.predict(X)
