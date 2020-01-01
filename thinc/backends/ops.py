@@ -43,57 +43,6 @@ class Ops:
         dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
         return dX
 
-    def dropout_sequences(
-        self, X: Array, dropout: float, inplace: bool = False
-    ) -> Tuple[Union[Array, List[Array]], Callable]:
-        if dropout is None or dropout <= 0.0:
-            return X, lambda func: func
-        masks = [self.get_dropout_mask(x.shape, dropout) for x in X]
-
-        def wrap_backprop(backprop: Callable):
-            def finish_update(gradient: Array, *args, **kwargs):
-                masked = []
-                for i, mask in enumerate(masks):
-                    if inplace:
-                        gradient *= mask
-                        masked.append(gradient)
-                    else:
-                        masked.append(gradient * mask)
-                return backprop(masked, *args, **kwargs)
-
-            return finish_update
-
-        if inplace:
-            for i, mask in enumerate(masks):
-                X[i] *= mask
-            return X, wrap_backprop
-        else:
-            masked = []
-            for i, mask in enumerate(masks):
-                masked.append(X[i] * mask)
-            return masked, wrap_backprop
-
-    def dropout(
-        self, X: Array, dropout: float, inplace: bool = False
-    ) -> Tuple[Array, Callable]:
-        if dropout is None or dropout <= 0.0:
-            return X, lambda func: func
-        mask = self.get_dropout_mask(X.shape, dropout)
-        if mask is None:
-            return X, lambda func: func
-
-        def wrap_backprop(backprop: Callable):
-            def finish_update(gradient: Array, *args, **kwargs):
-                return backprop(gradient * mask, *args, **kwargs)
-
-            return finish_update
-
-        if inplace:
-            X *= mask
-            return X, wrap_backprop
-        else:
-            return X * mask, wrap_backprop
-
     def flatten(
         self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
     ) -> Array:
