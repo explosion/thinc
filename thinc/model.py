@@ -200,7 +200,7 @@ class Model:
         """Check whether the model has a non-zero gradient for a parameter.
         Returns None if the gradient is allocated but currently 0. 
         """
-        grad_name = f"d_{param_name}"
+        grad_name = f"d_{name}"
         key = (self.id, grad_name)
         if key not in self._mem:
             return False
