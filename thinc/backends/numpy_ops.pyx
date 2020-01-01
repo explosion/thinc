@@ -82,7 +82,6 @@ class NumpyOps(Ops):
         blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
         return out_array
 
-    def affine(self, weights, bias, signal):
     def relu(self, ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
         cdef weight_t* data = <weight_t*>out.data
