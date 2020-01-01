@@ -3,13 +3,14 @@ import pytest
 from thinc.optimizers import SGD
 from thinc.backends import NumpyOps
 from thinc.util import to_categorical
+from thinc.layers.sparselinear import SparseLinear
 
 
 @pytest.fixture
 def instances():
     lengths = numpy.asarray([5, 4], dtype="int32")
     keys = numpy.arange(9, dtype="uint64")
-    values = numpy.ones(9, dtype="float")
+    values = numpy.ones(9, dtype="float32")
     X = (keys, values, lengths)
     y = numpy.asarray([0, 2], dtype="int32")
     return X, to_categorical(y, nb_classes=3)
@@ -20,20 +21,17 @@ def sgd():
     return SGD(0.001, ops=NumpyOps())
 
 
-@pytest.mark.xfail
 def test_basic(instances, sgd):
-    from thinc.layers.sparselinear import LinearModel
-
     X, y = instances
     nr_class = 3
-    model = LinearModel(nr_class)
+    model = SparseLinear(nr_class)
     yh, backprop = model.begin_update(X)
     loss1 = ((yh - y) ** 2).sum()
-    backprop(yh - y, sgd)
+    backprop(yh - y)
+    model.finish_update(sgd)
     yh, backprop = model.begin_update(X)
     loss2 = ((yh - y) ** 2).sum()
     assert loss2 < loss1
-    print(loss2, loss1)
 
 
 # @pytest.fixture
