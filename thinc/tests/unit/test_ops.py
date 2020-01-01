@@ -164,52 +164,6 @@ def test_backprop_seq2col_window_two(ops):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_dropout_forward(ops, X):
-    drop_prob = 0.25
-
-    def drop_first_cell(shape, drop_prob_):
-        assert drop_prob_ == drop_prob
-        drop_mask = numpy.ones(shape)
-        drop_mask /= 1.0 - drop_prob
-        drop_mask[0, 0] = 0.0
-        return drop_mask
-
-    ops.get_dropout_mask = drop_first_cell
-    output, backprop = ops.dropout(X, drop_prob)
-    assert output[0, 0] == 0.0
-    for i in range(1, output.shape[0]):
-        for j in range(output.shape[1]):
-            assert output[i, j] == X[i, j] * (1.0 / 0.75)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_dropout_backward(ops, X):
-    drop_prob = 0.25
-
-    def drop_first_cell(shape, drop_prob_):
-        assert drop_prob_ == drop_prob
-        drop_mask = numpy.ones(shape)
-        drop_mask /= 1.0 - drop_prob
-        drop_mask[0, 0] = 0.0
-        return drop_mask
-
-    ops.get_dropout_mask = drop_first_cell
-    output, backprop = ops.dropout(X, drop_prob)
-    gradient = numpy.ones(output.shape)
-
-    def finish_update(d, *args, **kwargs):
-        return d
-
-    output_gradient = backprop(finish_update)(gradient)
-    assert output_gradient[0, 0] == 0.0
-    for i in range(1, output.shape[0]):
-        for j in range(output.shape[1]):
-            assert output_gradient[i, j] == 1.0 * (4.0 / 3.0)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
     X = ops.asarray(X)
     if ops.xp.abs(X).max() >= 5:
