@@ -351,3 +351,51 @@ class Ops:
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
+
+    def sum_pool(self, X: Array, lengths: Array) -> Array:
+        Y = self.allocate((lengths.shape[0], X.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            Y[i] = X[start : start + length].sum(axis=0)
+            start += length
+        return Y
+
+    def mean_pool(self, X: Array, lengths: Array) -> Array:
+        Y = self.allocate((lengths.shape[0], X.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            Y[i] = X[start : start + length].mean(axis=0)
+            start += length
+        return Y
+
+    def max_pool(self, X, lengths):
+        Y = self.allocate((lengths.shape[0], X.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            Y[i] = X[start : start + length].max(axis=0)
+            start += length
+        return Y
+
+    def backprop_sum_pool(self, d_sums, lengths):
+        dX = self.allocate((lengths.sum(), d_sums.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            dX[start : start + length] = d_sums[i]
+            start += length
+        return dX
+
+    def backprop_mean_pool(self, d_means, lengths):
+        dX = self.allocate((lengths.sum(), d_means.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            dX[start : start + length] = d_means[i] / length
+            start += length
+        return dX
+
+    def backprop_max_pool(self, d_maxes, which, lengths):
+        dX = self.allocate((lengths.sum(), d_maxes.shape[1]))
+        start = 0
+        for i, length in enumerate(lengths):
+            dX[start : start + length, which[i]] = d_maxes[i]
+            start += length
+        return dX
