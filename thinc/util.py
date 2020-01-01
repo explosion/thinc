@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple
+from typing import Iterable, Any, Union, Tuple, Iterator
 import numpy
 import itertools
 import threading
@@ -104,7 +104,7 @@ def get_shuffled_batches(
 
 
 def minibatch(
-    items: Iterable[Any], size: Union[int, Iterable[int]] = 8
+    items: Iterable[Any], size: Union[int, Iterator[int]] = 8
 ) -> Iterable[Any]:
     """Iterate over batches of items. `size` may be an iterator,
     so that batch-size can vary on each step.
