@@ -1,4 +1,5 @@
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, Sequence
+from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
+from typing import Sequence, Tuple
 import numpy
 import contextlib
 import srsly
@@ -35,7 +36,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
 
 
 class Model:
-    """Base class for Thinc models and layers."""
+    """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
     _thread_local = create_thread_local({"operators": {}})
@@ -168,11 +169,11 @@ class Model:
         copy_array(dst=data, src=value)
         self._params[name] = True
 
-    def inc_grad(self, param_name: str, value: Array) -> None:
+    def inc_grad(self, name: str, value: Array) -> None:
         """Check whether the model has a gradient of the given name."""
-        grad_name = f"d_{param_name}"
+        grad_name = f"d_{name}"
         key = (self.id, grad_name)
-        param_key = (self.id, param_name)
+        param_key = (self.id, name)
         if key in self._mem:
             grad = self._mem.get(key)
         else:
@@ -180,17 +181,17 @@ class Model:
         grad += value
         self._grads[grad_name] = True
 
-    def get_grad(self, param_name: str) -> Array:
+    def get_grad(self, name: str) -> Array:
         """Get a gradient from the model."""
-        grad_name = f"d_{param_name}"
+        grad_name = f"d_{name}"
         key = (self.id, grad_name)
         if key not in self._mem:
             raise KeyError(f"Gradient '{grad_name}' as not been allocated yet")
         return self._mem[key]
 
-    def set_grad(self, param_name: str, value: Array) -> None:
+    def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
-        grad_name = f"d_{param_name}"
+        grad_name = f"d_{name}"
         data = self._mem.get((self.id, grad_name))
         copy_array(dst=data, src=value)
 
@@ -209,15 +210,15 @@ class Model:
             raise KeyError(f"Can't set attribute '{name}'")
         self._attrs[name] = value
 
-    def __call__(self, X, is_train=False):
+    def __call__(self, X: Any, is_train: bool = False) -> Any:
         return self._func(self, X, is_train=is_train)
 
-    def initialize(self, X=None, Y=None):
+    def initialize(self, X: Optional[Any] = None, Y: Optional[Any] = None) -> "Model":
         if self._init is not None:
             self._init(self, X=X, Y=Y)
         return self
 
-    def begin_update(self, X):
+    def begin_update(self, X: Any) -> Tuple[Any, Callable]:
         """Run the model over a batch of data, returning the output and a callback
         to complete the backward pass.
 
@@ -231,7 +232,7 @@ class Model:
         """
         return self._func(self, X, is_train=True)
 
-    def predict(self, X):
+    def predict(self, X: Any) -> Any:
         return self._func(self, X, is_train=False)[0]
 
     def finish_update(self, optimizer: Optimizer) -> None:
@@ -268,7 +269,7 @@ class Model:
         return n_set
 
     @contextlib.contextmanager
-    def use_params(self, params):  # pragma: no cover
+    def use_params(self, params: Dict[str, Array]):
         """Context manager to temporarily set the model's parameters to specified
         values.
 
@@ -459,85 +460,85 @@ class Model:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
 
-    def __add__(self, other) -> "Model":
+    def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
         if "+" not in self._thread_local.operators:
             raise TypeError("Undefined operator: +")
         return self._thread_local.operators["+"](self, other)
 
-    def __sub__(self, other) -> "Model":
+    def __sub__(self, other: Any) -> "Model":
         """Apply the function bound to the '-' operator."""
         if "-" not in self._thread_local.operators:
             raise TypeError("Undefined operator: -")
         return self._thread_local.operators["-"](self, other)
 
-    def __mul__(self, other) -> "Model":
+    def __mul__(self, other: Any) -> "Model":
         """Apply the function bound to the '*' operator."""
         if "*" not in self._thread_local.operators:
             raise TypeError("Undefined operator: *")
         return self._thread_local.operators["*"](self, other)
 
-    def __matmul__(self, other) -> "Model":
+    def __matmul__(self, other: Any) -> "Model":
         """Apply the function bound to the '@' operator."""
         if "@" not in self._thread_local.operators:
             raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
-    def __div__(self, other) -> "Model":
+    def __div__(self, other: Any) -> "Model":
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
-    def __truediv__(self, other) -> "Model":  # pragma: no cover
+    def __truediv__(self, other: Any) -> "Model":
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
         return self._thread_local.operators["/"](self, other)
 
-    def __floordiv__(self, other) -> "Model":
+    def __floordiv__(self, other: Any) -> "Model":
         """Apply the function bound to the '//' operator."""
         if "//" not in self._thread_local.operators:
             raise TypeError("Undefined operator: //")
         return self._thread_local.operators["//"](self, other)
 
-    def __mod__(self, other) -> "Model":
+    def __mod__(self, other: Any) -> "Model":
         """Apply the function bound to the '%' operator."""
         if "%" not in self._thread_local.operators:
             raise TypeError("Undefined operator: %")
         return self._thread_local.operators["%"](self, other)
 
-    def __pow__(self, other, modulo=None) -> "Model":
+    def __pow__(self, other: Any, **kwargs) -> "Model":
         """Apply the function bound to the '**' operator."""
         if "**" not in self._thread_local.operators:
             raise TypeError("Undefined operator: **")
         return self._thread_local.operators["**"](self, other)
 
-    def __lshift__(self, other: "Model") -> "Model":
+    def __lshift__(self, other: Any) -> "Model":
         """Apply the function bound to the '<<' operator."""
         if "<<" not in self._thread_local.operators:
             raise TypeError("Undefined operator: <<")
         return self._thread_local.operators["<<"](self, other)
 
-    def __rshift__(self, other) -> "Model":
+    def __rshift__(self, other: Any) -> "Model":
         """Apply the function bound to the '>>' operator."""
         if ">>" not in self._thread_local.operators:
             raise TypeError("Undefined operator: >>")
         return self._thread_local.operators[">>"](self, other)
 
-    def __and__(self, other) -> "Model":
+    def __and__(self, other: Any) -> "Model":
         """Apply the function bound to the '&' operator."""
         if "&" not in self._thread_local.operators:
             raise TypeError("Undefined operator: &")
         return self._thread_local.operators["&"](self, other)
 
-    def __xor__(self, other) -> "Model":
+    def __xor__(self, other: Any) -> "Model":
         """Apply the function bound to the '^' operator."""
         if "^" not in self._thread_local.operators:
             raise TypeError("Undefined operator: ^")
         return self._thread_local.operators["^"](self, other)
 
-    def __or__(self, other) -> "Model":
+    def __or__(self, other: Any) -> "Model":
         """Apply the function bound to the '|' operator."""
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
