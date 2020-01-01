@@ -52,25 +52,23 @@ def test_get_param_absent(ops):
     assert b is None
 
 
-@pytest.mark.xfail
 def test_get_first_gradient(ops):
     params = Memory(ops, size=10)
     b = params.add("b", (5,))
-    b2 = params.get("d_b")
-    b[0] = 100
-    assert b2[0] == 0
+    db = params.get("d_b")
+    assert db is None
+    params.add_gradient("d_b", "b")
+    db = params.get("d_b")
+    assert db.shape == b.shape
 
 
-@pytest.mark.xfail
 def test_get_existing_gradient(ops):
     params = Memory(ops, size=10)
     b = params.add("b", (5,))
-    b2 = params.get("d_b")
-    b[0] = 100
-    assert b2[0] == 0
-    b2[0] = 20.0
-    b3 = params.get("d_b")
-    assert b3[0] == b2[0]
+    db = params.add_gradient("d_b", "b")
+    db += 1
+    db = params.get("d_b")
+    assert db[0] == 1
 
 
 def test_get_gradient_absent_parameter(ops):
