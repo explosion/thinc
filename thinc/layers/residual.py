@@ -29,7 +29,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
         output = [X[i] + y[i] for i in range(len(X))]
     elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
         # Handle case where we have (data, lengths) tuple
-        output = (X[0] + y[0], y[1])
+        output = (X[0] + y[0], y[1])  # type: ignore
     else:
         output = X + y
 
