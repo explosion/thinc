@@ -43,6 +43,17 @@ class Ops:
         dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
         return dX
 
+    def gemm(self, x, y, out=None, trans1=False, trans2=False):
+        if trans1:
+            x = x.T
+        if trans2:
+            y = y.T
+        if out is None:
+            return self.xp.dot(x, y)
+        else:
+            self.xp.dot(x, y, out=out)
+            return out
+
     def flatten(
         self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
     ) -> Array:
@@ -168,12 +179,6 @@ class Ops:
             return self.xp.array(data, dtype=dtype)
         else:
             return self.xp.array(data)
-
-    def norm(self, x):
-        return self.xp.sqrt((x * x).sum())
-
-    def argmax(self, x, axis=-1):
-        return self.xp.argmax(x, axis=axis)
 
     def sigmoid(self, X):
         return 1.0 / (1.0 + self.xp.exp(-X))
