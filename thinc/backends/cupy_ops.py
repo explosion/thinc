@@ -11,7 +11,7 @@ except ImportError:
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
-from ..util import copy_array, get_array_module
+from ..util import get_array_module
 
 
 class CupyOps(Ops):

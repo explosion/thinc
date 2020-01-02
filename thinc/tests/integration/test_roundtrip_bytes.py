@@ -1,4 +1,3 @@
-import pytest
 from thinc.layers.maxout import Maxout
 from thinc.layers.chain import chain
 

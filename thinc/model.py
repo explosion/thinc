@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Sequence, Tuple
+from typing import Sequence, Tuple, TypeVar
 import numpy
 import contextlib
 import srsly
@@ -9,8 +9,12 @@ import copy
 from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .backends.mem import Memory
+from .shims import Shim
 from .util import copy_array, get_width, create_thread_local
 from .types import Array
+
+InT = TypeVar("InT")
+OutT = TypeVar("OutT")
 
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
@@ -51,6 +55,7 @@ class Model:
     _dims: Dict[str, Optional[int]]
     _grads: Dict[str, Optional[bool]]
     _layers: List["Model"]
+    _shims: List[Shim]
     _attrs: Dict[str, Any]
 
     # This "locks" the class, so we get an error if you try to assign to
@@ -65,8 +70,9 @@ class Model:
         "_params",
         "_dims",
         "_grads",
-        "_layers",
         "_attrs",
+        "_layers",
+        "_shims",
     ]
 
     def __init__(
@@ -79,6 +85,7 @@ class Model:
         params: Dict[str, Optional[bool]] = {},
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
+        shims: List[Shim] = [],
         attrs: Dict[str, object] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
@@ -91,6 +98,7 @@ class Model:
         self._dims = dict(dims)
         self._attrs = dict(attrs)
         self._layers = list(layers)
+        self._shims = list(shims)
         self.__class__.global_id += 1
         self.id = self.__class__.global_id
         self._params = {}
@@ -107,6 +115,10 @@ class Model:
     @property
     def layers(self):
         return self._layers
+
+    @property
+    def shims(self):
+        return self._shims
 
     @classmethod
     @contextlib.contextmanager
@@ -228,15 +240,13 @@ class Model:
         return name in self._attrs
 
     def get_attr(self, name: str) -> Any:
-        """Get the attribute, or None if not present."""
+        """Get the attribute. Raises KeyError if not present."""
         if name not in self._attrs:
             raise KeyError(f"Can't get attribute '{name}'")
         return self._attrs[name]
 
     def set_attr(self, name: str, value: Any) -> None:
         """Set the attribute to the given value."""
-        if name not in self._attrs:
-            raise KeyError(f"Can't set attribute '{name}'")
         self._attrs[name] = value
 
     def __call__(self, X: Any, is_train: bool = False) -> Tuple[Any, Callable]:
@@ -247,7 +257,7 @@ class Model:
             self._init(self, X=X, Y=Y)
         return self
 
-    def begin_update(self, X: Any) -> Tuple[Any, Callable]:
+    def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
         """Run the model over a batch of data, returning the output and a callback
         to complete the backward pass.
 
@@ -272,30 +282,15 @@ class Model:
             gradient of the model.
         """
         optimizer(self._mem.weights, self._mem.gradient, key=self.id)
+        for shim in self.shims:
+            shim.finish_update(optimizer)
         seen = set([self.id])
         for node in self.walk():
             if node.id not in seen:
                 node.finish_update(optimizer)
                 seen.add(node.id)
-
-    def set_child_attrs(self, name: str, attr: str, value) -> int:
-        """Walk through layers for any that match the given name, and set
-        an attribute on those nodes.
-
-        >>> node.walk_set_attrs("dropout", "rate", 0.2)
-
-        name (str): The node name to look for.
-        attr (str): The attribute to set.
-        value (object): The value to set.
-
-        RETURNS (int): The number of matched nodes.
-        """
-        n_set = 0
-        for node in self.walk():
-            if node.name == name:
-                node.set_attr(attr, value)
-                n_set += 1
-        return n_set
+                for shim in node.shims:
+                    shim.finish_update(optimizer)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[int, Array]):
@@ -314,6 +309,8 @@ class Model:
         contexts = []
         for layer in self.layers:
             contexts.append(next(layer.use_params(params).gen))
+        for shim in self.shims:
+            contexts.append(next(shim.use_params(params).gen))
         yield
         if backup is not None:
             copy_array(dst=self._mem.weights, src=backup)
@@ -334,8 +331,7 @@ class Model:
                 continue
             seen.add(id(node))
             yield node
-            if hasattr(node, "_layers"):
-                queue.extend(node._layers)
+            queue.extend(node.layers)
 
     def get_gradients(self) -> Dict[int, Array]:
         """Get non-zero gradients of the model's parameters, as a dictionary
@@ -361,9 +357,9 @@ class Model:
             grads=copy.deepcopy(self._grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
-            layers=[layer.copy() for layer in self._layers],
+            layers=[layer.copy() for layer in self.layers],
         )
-        # The `_params` and `_grads` dicts don't hold the actual values -- 
+        # The `_params` and `_grads` dicts don't hold the actual values --
         # those are within the `model._mem` object. So we need to call `set_param`
         # on the copy.
         for name, is_allocated in self._params.items():
@@ -380,27 +376,21 @@ class Model:
 
         device = cupy.cuda.device.Device(device_num)
         device.use()
-        queue = [self]
-        for layer in queue:
+        for layer in self.walk():
             layer.ops = CupyOps()
             if hasattr(layer, "_mem"):
                 layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
                 layer._mem.ops = layer.ops
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
         return device
 
     def to_cpu(self) -> None:
         """Copy the model to CPU."""
-        queue = [self]
-        for layer in queue:
+        for layer in self.walk():
             layer.ops = NumpyOps()
             if hasattr(layer, "_mem"):
                 if hasattr(layer._mem._mem, "get"):
                     layer._mem._mem = layer._mem._mem.get()
                 layer._mem.ops = layer.ops
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -410,40 +400,36 @@ class Model:
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        weights: List[Union[bytes, Dict[bytes, Any]]] = []
-        queue = [self]
-        i = 0
-        for layer in queue:
-            # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, self):  # type: ignore
-                weights.append(layer.to_bytes())
-            elif hasattr(layer, "_mem"):
-                weights.append(
-                    {
-                        b"dims": dict(sorted(layer._dims.items())),
-                        b"params": [],
-                        b"attrs": dict(sorted(layer._attrs.items())),
-                    }
+        weights: List[Union[str, Dict[str, Any]]] = []
+        nodes = list(self.walk())
+        for i, layer in enumerate(nodes):
+            # Separate attrs that need to be serialized/deserialized with
+            # to_/from_bytes.
+            obj_attrs = {}
+            flat_attrs = {}
+            for name, value in layer._attrs.items():
+                if hasattr(value, "to_bytes"):
+                    obj_attrs[name] = value.to_bytes()
+                else:
+                    flat_attrs[name] = value
+            weights.append(
+                {
+                    "dims": layer._dims,
+                    "params": [],
+                    "obj_attrs": obj_attrs,
+                    "flat_attrs": flat_attrs,
+                }
+            )
+            for (id_, name), (start, row, shape) in layer._mem._offsets.items():
+                if row == 1:
+                    continue
+                param = layer._mem.get((id_, name))
+                if not isinstance(layer._mem.weights, numpy.ndarray):
+                    param = param.get()
+                weights[-1]["params"].append(  # type: ignore
+                    {"name": name, "offset": start, "shape": shape, "value": param}
                 )
-                offsets = sorted(layer._mem._offsets.items())
-                for (id_, name), (start, row, shape) in offsets:
-                    if row == 1:
-                        continue
-                    param = layer._mem.get((id_, name))
-                    if not isinstance(layer._mem.weights, numpy.ndarray):
-                        param = param.get()
-                    weights[-1][b"params"].append(  # type: ignore
-                        {
-                            b"name": name,
-                            b"offset": start,
-                            b"shape": shape,
-                            b"value": param,
-                        }
-                    )
-                i += 1
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
-        return srsly.msgpack_dumps({b"weights": weights})
+        return srsly.msgpack_dumps({"weights": weights})
 
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
@@ -453,30 +439,19 @@ class Model:
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        data = srsly.msgpack_loads(bytes_data)
-        weights = data[b"weights"]
-        queue = [self]
-        i = 0
-        for layer in queue:
-            # Hack to support saving/loading PyTorch models. TODO: Improve
-            if hasattr(layer, "_model") and not isinstance(layer._model, "Model"):  # type: ignore
-                layer.from_bytes(weights[i])
-                i += 1
-            elif hasattr(layer, "_mem"):
-                for attr, value in weights[i][b"attrs"].items():
-                    layer.set_attr(attr, value)
-                for dim, value in weights[i][b"dims"].items():
-                    if isinstance(dim, bytes):
-                        dim = dim.decode("utf8")
-                    layer.set_dim(dim, value)
-                for param in weights[i][b"params"]:
-                    name = param[b"name"]
-                    if isinstance(name, bytes):
-                        name = name.decode("utf8")
-                    layer.set_param(name, param[b"value"])
-                i += 1
-            if hasattr(layer, "_layers"):
-                queue.extend(layer._layers)
+        msg = srsly.msgpack_loads(bytes_data)
+        nodes = list(self.walk())
+        if len(msg["weights"]) != len(nodes):
+            raise ValueError("Cannot deserialize model: mismatched structure.")
+        for layer, data in zip(nodes, msg["weights"]):
+            for attr, value in data["flat_attrs"].items():
+                layer.set_attr(attr, value)
+            for attr, value in data["obj_attrs"].items():
+                layer.get_attr(attr).from_bytes(value)
+            for dim, value in data["dims"].items():
+                layer.set_dim(dim, value)
+            for param in data["params"]:
+                layer.set_param(param["name"], param["value"])
         return self
 
     def to_disk(self, path: Union[Path, str]) -> None:
