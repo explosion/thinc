@@ -21,9 +21,9 @@ ctypedef float weight_t
 
 
 SGD_DEFAULTS = {
-    "L2": 1e-4,
+    "L2": 1e-6,
     "L2_is_weight_decay": True,
-    "max_grad_norm": 10,
+    "grad_clip": 1.0,
 }
 
 
@@ -33,7 +33,7 @@ ADAM_DEFAULTS = {
     "beta2": 0.999,
     "eps": 1e-08,
     "L2": SGD_DEFAULTS["L2"],
-    "max_grad_norm": SGD_DEFAULTS["max_grad_norm"],
+    "grad_clip": SGD_DEFAULTS["grad_clip"],
     "L2_is_weight_decay": True,
     "schedules": None,
 }
@@ -46,7 +46,7 @@ def RAdam(
         beta2: float = ADAM_DEFAULTS["beta2"],
         eps: float = ADAM_DEFAULTS["eps"],
         weight_decay: float = ADAM_DEFAULTS["L2"],
-        max_grad_norm: float = ADAM_DEFAULTS["max_grad_norm"],
+        grad_clip: float = ADAM_DEFAULTS["grad_clip"],
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
@@ -58,7 +58,7 @@ def RAdam(
         beta1=beta1,
         beta2=beta2,
         eps=eps,
-        max_grad_norm=max_grad_norm,
+        grad_clip=grad_clip,
         L2_is_weight_decay=True,
         L2=weight_decay,
         schedules=schedules,
@@ -76,7 +76,7 @@ def Adam(
         beta1: float = ADAM_DEFAULTS["beta1"],
         beta2: float = ADAM_DEFAULTS["beta2"],
         eps: float = ADAM_DEFAULTS["eps"],
-        max_grad_norm: float = ADAM_DEFAULTS["max_grad_norm"],
+        grad_clip: float = ADAM_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = ADAM_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
         lookahead_k: int = 0,
@@ -90,7 +90,7 @@ def Adam(
         beta1=beta1,
         beta2=beta2,
         eps=eps,
-        max_grad_norm=max_grad_norm,
+        grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         use_averages=True,
@@ -108,7 +108,7 @@ def SGD(
         learn_rate: float,
         ops: Optional[Ops] = None,
         L2: float = SGD_DEFAULTS["L2"],
-        max_grad_norm: float = SGD_DEFAULTS["max_grad_norm"],
+        grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
         schedules: Optional[Dict[str, Sequence[float]]] = None,
@@ -116,7 +116,7 @@ def SGD(
     return Optimizer(
         learn_rate,
         L2=L2,
-        max_grad_norm=max_grad_norm,
+        grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         beta1=0.0,
@@ -145,11 +145,11 @@ class Optimizer(object):
         lr: float,
         *,
         ops: Optional[Ops] = None,
-        L2: float = 1e-4,
-        beta1: float = 0.90,
-        beta2: float = 0.999,
-        eps: float = 1e-08,
-        max_grad_norm: float = 10.0,
+        L2: float = ADAM_DEFAULTS["L2"],
+        beta1: float = ADAM_DEFAULTS["beta1"],
+        beta2: float = ADAM_DEFAULTS["beta2"],
+        eps: float = ADAM_DEFAULTS["eps"],
+        grad_clip: float = ADAM_DEFAULTS["grad_clip"],
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
@@ -172,7 +172,7 @@ class Optimizer(object):
             self.averages = None
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
-        self.max_grad_norm = max_grad_norm
+        self.grad_clip = grad_clip
         self.alpha = lr
         self.b1 = beta1
         self.b2 = beta2
@@ -222,10 +222,10 @@ class Optimizer(object):
         nr_upd = self.nr_update[key]
         if self.L2 != 0 and not self.L2_is_weight_decay:
             gradient += self.L2 * weights
-        if self.max_grad_norm:
-            self.ops.clip_gradient(gradient, self.max_grad_norm)
+        if self.grad_clip:
+            self.ops.clip_gradient(gradient, self.grad_clip)
         if self.use_radam:
-            self._radam2(xp, weights, gradient, lr_scale, key, nr_upd)
+            self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b2 > 0.:
@@ -316,7 +316,6 @@ class Optimizer(object):
             if group['weight_decay'] != 0:
                 p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
             p_data_fp32 += -step_size * group["lr"] * exp_avg
-        self._lookahead(weights, key)
 
     def _lookahead(self, weights, key):
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
