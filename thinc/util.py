@@ -202,12 +202,15 @@ def get_width(X: Array, dim: int = -1) -> int:
         raise ValueError(err)
 
 
-def xp2torch(xp_tensor):
+def xp2torch(xp_tensor, requires_grad=False):
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
-        return torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
+        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
     else:
-        return torch.from_numpy(xp_tensor)
+        torch_tensor = torch.from_numpy(xp_tensor)
+    if requires_grad:
+        torch_tensor.requires_grad_()
+    return torch_tensor
 
 
 def torch2xp(torch_tensor):
