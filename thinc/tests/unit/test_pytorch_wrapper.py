@@ -29,7 +29,6 @@ def check_learns_zero_output(model, sgd, X, Y):
         prev = total
 
 
-@pytest.mark.xfail
 @pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
 def test_unwrapped(nN=2, nI=3, nO=4):
     model = Affine(nO, nI)
@@ -40,7 +39,6 @@ def test_unwrapped(nN=2, nI=3, nO=4):
     check_learns_zero_output(model, sgd, X, Y)
 
 
-@pytest.mark.xfail
 @pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
 def test_wrapper(nN=2, nI=3, nO=4):
     model = PyTorchWrapper(torch.nn.Linear(nI, nO))
