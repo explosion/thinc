@@ -1,8 +1,11 @@
 import pytest
-from pydantic import BaseModel
-from pydantic.error_wrappers import ValidationError
+from pydantic import BaseModel, StrictBool
 import catalogue
 import thinc._registry
+from thinc._registry import ConfigValidationError
+from thinc.config import Config
+from thinc.optimizers import Adam  # noqa: F401
+from thinc.schedules import warmup_linear  # noqa: F401
 
 
 class my_registry(thinc._registry.registry):
@@ -42,13 +45,13 @@ def test_validate_simple_config():
 
 def test_invalidate_simple_config():
     invalid_config = {"hello": 1, "world": "hi!"}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigValidationError):
         f, v = my_registry.fill_and_validate(invalid_config, HelloIntsSchema)
 
 
 def test_invalidate_extra_args():
     invalid_config = {"hello": 1, "world": 2, "extra": 3}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigValidationError):
         f, v = my_registry.fill_and_validate(invalid_config, HelloIntsSchema)
 
 
@@ -58,7 +61,7 @@ def test_fill_defaults_simple_config():
     assert filled["required"] == 1
     assert filled["optional"] == "default value"
     invalid_config = {"optional": "some value"}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigValidationError):
         f, v = my_registry.fill_and_validate(invalid_config, DefaultsSchema)
 
 
@@ -74,7 +77,7 @@ def test_fill_recursive_config():
 
 
 @my_registry.cats.register("catsie.v1")
-def catsie_v1(evil: bool, cute: bool = True) -> str:
+def catsie_v1(evil: StrictBool, cute: bool = True) -> str:
     if evil:
         return "scratch!"
     else:
@@ -116,7 +119,7 @@ def test_validate_promise():
     config = {"required": 1, "optional": good_catsie}
     filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
     assert filled == config
-    assert validated == {"required": 1, "optional": ""}
+    assert validated == {"required": 1, "optional": "meow"}
 
 
 def test_fill_validate_promise():
@@ -127,9 +130,118 @@ def test_fill_validate_promise():
 
 def test_fill_invalidate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
-
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigValidationError):
         filled, validated = my_registry.fill_and_validate(config, HelloIntsSchema)
     config["optional"]["whiskers"] = True
-    with pytest.raises(ValidationError):
+    with pytest.raises(ConfigValidationError):
         filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
+
+
+def test_create_registry():
+    with pytest.raises(ValueError):
+        my_registry.create("cats")
+    my_registry.create("dogs")
+    assert hasattr(my_registry, "dogs")
+    assert len(my_registry.dogs.get_all()) == 0
+    my_registry.dogs.register("good_boy.v1", func=lambda x: x)
+    assert len(my_registry.dogs.get_all()) == 1
+    with pytest.raises(ValueError):
+        my_registry.create("dogs")
+
+
+def test_make_from_config_no_schema():
+    config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": True}}}
+    result = my_registry.make_from_config(config)
+    assert result["one"] == 1
+    assert result["two"] == {"three": "scratch!"}
+    with pytest.raises(ConfigValidationError):
+        config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": "true"}}}
+        my_registry.make_from_config(config)
+
+
+EXAMPLE_CONFIG = """
+[DEFAULT]
+
+[optimizer]
+@optimizers = "Adam.v1"
+beta1 = 0.9
+beta2 = 0.999
+use_averages = true
+
+[optimizer.learn_rate]
+@schedules = "warmup_linear.v1"
+start = 0.1
+steps = 10000
+
+[pipeline]
+
+[pipeline.parser]
+name = "parser"
+factory = "parser"
+
+[pipeline.parser.model]
+@layers = "spacy.ParserModel.v1"
+hidden_depth = 1
+hidden_width = 64
+token_vector_width = 128
+
+[pipeline.parser.model.tok2vec]
+@layers = "Tok2Vec.v1"
+width = ${pipeline.parser.model:token_vector_width}
+
+[pipeline.parser.model.tok2vec.embed]
+@layers = "spacy.MultiFeatureHashEmbed.v1"
+width = ${pipeline.parser.model.tok2vec:width}
+
+[pipeline.parser.model.tok2vec.embed.hidden]
+@layers = "MLP.v1"
+depth = 1
+pieces = 3
+layer_norm = true
+outputs = ${pipeline.parser.model.tok2vec.embed:width}
+
+[pipeline.parser.model.tok2vec.encode]
+@layers = "spacy.MaxoutWindowEncoder.v1"
+depth = 4
+pieces = 3
+window_size = 1
+
+[pipeline.parser.model.lower]
+@layers = "spacy.ParserLower.v1"
+
+[pipeline.parser.model.upper]
+@layers = "thinc.Affine.v1"
+"""
+
+OPTIMIZER_CFG = """
+[optimizer]
+@optimizers = "Adam.v1"
+beta1 = 0.9
+beta2 = 0.999
+use_averages = true
+
+[optimizer.schedules.learn_rate]
+@schedules = "warmup_linear.v1"
+initial_rate = 0.1
+warmup_steps = 10000
+total_steps = 100000
+"""
+
+
+def test_read_config():
+    byte_string = EXAMPLE_CONFIG.encode("utf8")
+    cfg = Config().from_bytes(byte_string)
+    assert cfg["optimizer"]["learn_rate"]["start"] == 0.1
+    assert cfg["pipeline"]["parser"]["factory"] == "parser"
+    assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
+
+
+def test_optimizer_config():
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    optimizer = my_registry.make_from_config(cfg["optimizer"])
+    assert optimizer.b1 == 0.9
+
+
+def test_config_to_str():
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()

@@ -135,11 +135,6 @@ class Optimizer(object):
     * beta1=0.0, beta2=0.2: RMS prop
     * b1=0.999, b2=0.9: Adam
     """
-
-    @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
-        return registry.make_from_config(config)
-
     def __init__(
         self,
         lr: float,
