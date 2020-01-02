@@ -1,24 +1,22 @@
 try:
     import cupy
     import cupy.cuda
-    from cupy.cuda.compiler import compile_with_cache
+    from cupy.cuda.compiler import compile_with_cache  # noqa: F401
+
     # We no longer have to set up the memory pool, fortunately.
 except ImportError:
     cupy = None
 
 
-from .base import Ops
+from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
-from ..neural.util import copy_array, get_array_module
+from ..util import copy_array, get_array_module
 
 
 class CupyOps(Ops):
-    device = 'gpu'
+    device = "gpu"
     xp = cupy
-
-    def matmul(self, x, y, out=None):
-        return self.xp.matmul(x, y, out=out)
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
@@ -34,7 +32,7 @@ class CupyOps(Ops):
     def asarray(self, X, dtype=None):
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
-        elif hasattr(X, 'data_ptr'):
+        elif hasattr(X, "data_ptr"):
             # Handles PyTorch Tensors
             pointer = cupy.cuda.MemoryPointer(X.data_ptr())
             shape = X.stride()
@@ -53,13 +51,13 @@ class CupyOps(Ops):
         if not inplace:
             return X * (X > 0)
         else:
-            X *= (X > 0)
+            X *= X > 0
             return X
 
     def backprop_relu(self, delta_, signal_out, inplace=False):
         if not inplace:
             return delta_ * (signal_out > 0)
-        delta_ *= (signal_out > 0)
+        delta_ *= signal_out > 0
         return delta_
 
     def mish(self, X, threshold=5, out=None):
@@ -75,10 +73,10 @@ class CupyOps(Ops):
             gradient *= threshold / grad_norm
 
     def seq2col(self, seq, nW):
-        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
+        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
-        '''
+        """
         return _custom_kernels.seq2col(seq, nW)
 
     def backprop_seq2col(self, dY, nW):
@@ -108,27 +106,18 @@ class CupyOps(Ops):
     def scatter_add(self, out, ids, inputs):
         self.xp.scatter_add(out, ids, inputs)
 
-    def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
-                   learn_rate, mod_rate=1.):
+    def adam(
+        self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
+    ):
         cupy.ElementwiseKernel(
-            'T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps',
-            'T param, T m, T v',
-            '''m += one_minus_beta1 * (grad - m);
+            "T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps",
+            "T param, T m, T v",
+            """m += one_minus_beta1 * (grad - m);
                v += one_minus_beta2 * (grad * grad - v);
-               param -= lr * m / (sqrt(v) + eps);''',
-            'adam')(gradient, learn_rate, 1 - beta1, 1 - beta2,
-                    eps, weights, mom1, mom2)
+               param -= lr * m / (sqrt(v) + eps);""",
+            "adam",
+        )(gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2)
         gradient.fill(0)
-
-    def normal_init(self, W, fan_in, inplace=True):
-        scale = self.xp.sqrt(1. / fan_in)
-        inits = self.xp.random.normal(scale=scale, size=int(prod(W.shape)))
-        inits = inits.reshape(W.shape)
-        if inplace:
-            copy_array(W, inits)
-            return W
-        else:
-            return inits
 
     def position_encode(self, *args, **kwargs):
         positions = NumpyOps().position_encode(*args, **kwargs)

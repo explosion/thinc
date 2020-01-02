@@ -1,9 +1,9 @@
 import pytest
 import numpy
 from numpy.testing import assert_allclose
-from thinc.neural._classes.feed_forward import FeedForward
-from thinc.neural._classes.affine import Affine
-from thinc.neural._classes.relu import ReLu
+from thinc.layers.chain import chain
+from thinc.layers.affine import Affine
+from thinc.layers.relu import ReLu
 
 
 @pytest.fixture
@@ -30,7 +30,7 @@ def gradient_data(nB, nO):
 
 @pytest.fixture
 def model(model1, model2):
-    return FeedForward((model1, model2))
+    return chain(model1, model2)
 
 
 def get_expected_predict(input_data, Ws, bs):
@@ -50,10 +50,10 @@ def numeric_gradient(predict, weights, epsilon=1e-4):
 
 
 def test_models_have_shape(model1, model2, nI, nH, nO):
-    assert model1.W.shape == (nH, nI)
-    assert model1.b.shape == (nH,)
-    assert model2.W.shape == (nO, nH)
-    assert model2.b.shape == (nO,)
+    assert model1.get_param("W").shape == (nH, nI)
+    assert model1.get_param("b").shape == (nH,)
+    assert model2.get_param("W").shape == (nO, nH)
+    assert model2.get_param("b").shape == (nO,)
 
 
 def test_model_shape(model, model1, model2, nI, nH, nO):
@@ -62,12 +62,14 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
 
 
 def test_predict_and_begin_update_match(model, model1, model2, input_data):
-    model = FeedForward((model1, model2))
+    model = chain(model1, model2)
     via_predict = model.predict(input_data)
     via_update, _ = model.begin_update(input_data)
     assert_allclose(via_predict, via_update)
     expected = get_expected_predict(
-        input_data, [model1.W, model2.W], [model1.b, model2.b]
+        input_data,
+        [model1.get_param("W"), model2.get_param("W")],
+        [model1.get_param("b"), model2.get_param("b")],
     )
     assert_allclose(via_update, expected, atol=1e-2, rtol=1e-4)
 
@@ -89,7 +91,7 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
     guess, backprop = model.begin_update(input_data)
     backprop(guess - truth)
 
-    for layer in model._layers:
+    for layer in model.layers:
 
         def predict(i, update):
             layer._mem.weights[i] += update

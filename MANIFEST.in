@@ -1,5 +1,4 @@
-global-include *.h *.S *.c *.cu
-recursive-include include *.cpp
+recursive-include thinc *.cu *.pyx *.pxd
 include LICENSE
 include README.md
 prune tmp/

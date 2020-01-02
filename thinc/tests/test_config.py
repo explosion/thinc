@@ -1,6 +1,6 @@
 from thinc.config import Config
-from thinc.neural.optimizers import Optimizer
-from thinc.rates import warmup_linear  # noqa: F401
+from thinc.optimizers import Optimizer
+from thinc.schedules import warmup_linear  # noqa: F401
 
 
 EXAMPLE_CONFIG = """

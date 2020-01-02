@@ -1,6 +1,8 @@
+from typing import Callable, Dict, Any, Tuple, List
 import catalogue
 import inspect
 from pydantic import create_model
+from pydantic.main import ModelMetaclass
 
 
 class _PromiseSchemaConfig:
@@ -13,17 +15,18 @@ class registry(object):
     layers = catalogue.create("thinc", "layers", entry_points=True)
 
     @classmethod
-    def get(cls, name, key):
-        if not hasattr(cls, name):
-            raise ValueError("Unknown registry: %s" % name)
-        reg = getattr(cls, name)
-        func = reg.get(key)
+    def get(cls, registry_name: str, func_name: str) -> Callable:
+        """Get a registered function from a given registry."""
+        if not hasattr(cls, registry_name):
+            raise ValueError(f"Unknown registry: '{registry_name}'")
+        reg = getattr(cls, registry_name)
+        func = reg.get(func_name)
         if func is None:
-            raise ValueError("Could not find %s in %s" % (name, key))
+            raise ValueError(f"Could not find '{func_name}' in '{registry_name}'")
         return func
 
     @classmethod
-    def make_from_config(cls, config):
+    def make_from_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
         """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
@@ -43,10 +46,12 @@ class registry(object):
 
     @classmethod
     def fill_and_validate(cls, config, schema):
-        # Build two representations of the config: one where the promises are
-        # preserved, and a second where the promises are represented by their
-        # return types. Use the validation representation to get default
-        # values via PyDantic. The defaults are filled into both representations.
+        """Build two representations of the config: one where the promises are
+        preserved, and a second where the promises are represented by their
+        return types. Use the validation representation to get default
+        values via pydantic. The defaults are filled into both representations.
+        """
+        # TODO: custom validation errors
         filled = {}
         validation = {}
         for key, value in config.items():
@@ -70,7 +75,7 @@ class registry(object):
         return filled, validation
 
     @classmethod
-    def is_promise(cls, obj):
+    def is_promise(cls, obj: Any) -> bool:
         if not hasattr(obj, "keys"):
             return False
         id_keys = [k for k in obj.keys() if k.startswith("@")]
@@ -80,7 +85,7 @@ class registry(object):
             return True
 
     @classmethod
-    def get_constructor(cls, obj):
+    def get_constructor(cls, obj: Dict[str, Any]) -> Callable:
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         if len(id_keys) != 1:
             raise ValueError
@@ -90,7 +95,7 @@ class registry(object):
             return cls.get(key[1:], value)
 
     @classmethod
-    def parse_args(cls, obj):
+    def parse_args(cls, obj: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
         args = []
         kwargs = {}
         for key, value in obj.items():
@@ -102,21 +107,21 @@ class registry(object):
         return [value for key, value in sorted(args)], kwargs
 
     @classmethod
-    def make_promise_schema(cls, obj):
+    def make_promise_schema(cls, obj: Dict[str, Any]) -> ModelMetaclass:
         func = cls.get_constructor(obj)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]
-        sig_args = {id_keys[0]: (str, ...)}
+        sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
             # If no default value is specified assume that it's required
             if param.default != param.empty:
                 sig_args[param.name] = (param.annotation, param.default)
             else:
                 sig_args[param.name] = (param.annotation, ...)
-
-        return create_model("ArgModel", **sig_args, __config__=_PromiseSchemaConfig)
+        sig_args["__config__"] = _PromiseSchemaConfig
+        return create_model("ArgModel", **sig_args)
 
     @classmethod
-    def get_return_type(cls, obj):
+    def get_return_type(cls, obj: Dict[str, Any]):
         func = cls.get_constructor(obj)
         return inspect.signature(func).return_annotation

@@ -164,52 +164,6 @@ def test_backprop_seq2col_window_two(ops):
 
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
-def test_dropout_forward(ops, X):
-    drop_prob = 0.25
-
-    def drop_first_cell(shape, drop_prob_):
-        assert drop_prob_ == drop_prob
-        drop_mask = numpy.ones(shape)
-        drop_mask /= 1.0 - drop_prob
-        drop_mask[0, 0] = 0.0
-        return drop_mask
-
-    ops.get_dropout_mask = drop_first_cell
-    output, backprop = ops.dropout(X, drop_prob)
-    assert output[0, 0] == 0.0
-    for i in range(1, output.shape[0]):
-        for j in range(output.shape[1]):
-            assert output[i, j] == X[i, j] * (1.0 / 0.75)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_dropout_backward(ops, X):
-    drop_prob = 0.25
-
-    def drop_first_cell(shape, drop_prob_):
-        assert drop_prob_ == drop_prob
-        drop_mask = numpy.ones(shape)
-        drop_mask /= 1.0 - drop_prob
-        drop_mask[0, 0] = 0.0
-        return drop_mask
-
-    ops.get_dropout_mask = drop_first_cell
-    output, backprop = ops.dropout(X, drop_prob)
-    gradient = numpy.ones(output.shape)
-
-    def finish_update(d, *args, **kwargs):
-        return d
-
-    output_gradient = backprop(finish_update)(gradient)
-    assert output_gradient[0, 0] == 0.0
-    for i in range(1, output.shape[0]):
-        for j in range(output.shape[1]):
-            assert output_gradient[i, j] == 1.0 * (4.0 / 3.0)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
     X = ops.asarray(X)
     if ops.xp.abs(X).max() >= 5:
@@ -277,15 +231,6 @@ def test_softmax_works_inplace(ops, X):
 #    assert_allclose(oi, expected)
 
 
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_norm_computes_correctly(cpu_ops, X):
-    for row in X:
-        assert_allclose(
-            [numpy.linalg.norm(row)], [cpu_ops.norm(row)], rtol=1e-04, atol=0.0001
-        )
-
-
 # @settings(max_examples=MAX_EXAMPLES)
 # @given(W_b_X=strategies.arrays_OI_O_BI())
 # def test_dot_computes_correctly(cpu_ops, W_b_X):
@@ -306,14 +251,6 @@ def test_gemm_computes_correctly(cpu_ops):
     Y = cpu_ops.gemm(X, W, trans2=True)
     expected = numpy.dot(X, W.T)
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_argmax_computes_correctly(cpu_ops, X):
-    which = cpu_ops.argmax(X, axis=-1)
-    for i in range(X.shape[0]):
-        assert max(X[i]) == X[i, which[i]]
 
 
 @settings(max_examples=MAX_EXAMPLES)

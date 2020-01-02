@@ -1,12 +1,11 @@
 import pytest
-from mock import MagicMock, Mock
+from mock import MagicMock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
-from thinc.wire import chain
-from thinc.neural._classes.affine import Affine
-from thinc.neural._classes.dropout import Dropout
-from thinc.backends import NumpyOps
+from thinc.layers.affine import Affine
+from thinc.layers.chain import chain
+from thinc.layers.dropout import Dropout
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -22,33 +21,13 @@ def test_Affine_default_name(model):
     assert model.name == "affine"
 
 
-def test_Affine_calls_default_descriptions():
-    orig_desc = dict(Affine.descriptions)
-    Affine.descriptions = {
-        name: Mock(desc) for (name, desc) in Affine.descriptions.items()
-    }
-    model = Affine()
-
-    assert len(model.descriptions) == 6
-    for name, desc in model.descriptions.items():
-        desc.assert_called()
-    assert "nI" in model.descriptions
-    assert "nO" in model.descriptions
-    assert "W" in model.descriptions
-    assert "b" in model.descriptions
-    assert "d_W" in model.descriptions
-    assert "d_b" in model.descriptions
-    Affine.descriptions = orig_desc
-
-
 def test_Affine_dimensions_on_data():
     X = MagicMock(shape=(5, 10))
     y = MagicMock(shape=(8,))
     y.max = MagicMock()
     model = Affine()
-    model.on_data_hooks = model.on_data_hooks[:1]
-    model.begin_training(X, y)
-    assert model.nI is not None
+    model.initialize(X, y)
+    assert model.get_dim("nI") is not None
     y.max.assert_called_with()
 
 
@@ -60,29 +39,6 @@ def test_begin_update_matches_predict(W_b_input):
     fwd_via_begin_update, finish_update = model.begin_update(input_)
     fwd_via_predict_batch = model.predict(input_)
     assert_allclose(fwd_via_begin_update, fwd_via_predict_batch)
-
-
-@pytest.mark.skip
-@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-def test_dropout_gives_zero_activations(W_b_input):
-    model = chain(get_model(W_b_input), Dropout(0.0))
-    model.set_dropout(1.0)
-    nr_batch, nr_out, nr_in = get_shape(W_b_input)
-    W, b, input_ = W_b_input
-    fwd_dropped, _ = model.begin_update(input_)
-    assert all(val == 0.0 for val in fwd_dropped.flatten())
-
-
-@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-def test_dropout_gives_zero_gradients(W_b_input):
-    model = chain(get_model(W_b_input), Dropout(0.0))
-    nr_batch, nr_out, nr_in = get_shape(W_b_input)
-    W, b, input_ = W_b_input
-    model.set_dropout(1.0)
-    fwd_dropped, finish_update = model.begin_update(input_)
-    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
-    grad_BI = finish_update(grad_BO)
-    assert all(val == 0.0 for val in grad_BI.flatten())
 
 
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
@@ -104,25 +60,22 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)  # noqa: F841
-    for key, (W, dW) in model.get_gradients().items():
-        sgd(W, dW, key=key)
+    model.finish_update(sgd)
     assert seen_keys == {model.id}
 
 
-@pytest.mark.xfail
-def test_begin_update_not_batch():
-    model = Affine(4, 5)
-    input_ = model.ops.allocate((6,))
-    with pytest.raises(TypeError):
-        model.begin_update(input_)
+# def test_begin_update_not_batch():
+#    model = make_Affine(4, 5)
+#    input_ = model.ops.allocate((6,))
+#    with pytest.raises(ValueError):
+#        model.begin_update(input_)
 
-
-@pytest.mark.skip
-def test_predict_update_dim_mismatch():
-    model = Affine(4, 5, ops=NumpyOps())
-    input_ = model.ops.allocate((10, 9))
-    with pytest.raises(TypeError):
-        model.begin_update(input_)
+# @pytest.mark.skip
+# def test_predict_update_dim_mismatch():
+#    model = make_Affine(4, 5)
+#    input_ = model.ops.allocate((10, 9))
+#    with pytest.raises(ValueError):
+#        model.begin_update(input_)
 
 
 @settings(max_examples=100)
@@ -131,8 +84,8 @@ def test_predict_small(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
     model = Affine(nr_out, nr_in)
-    model.W[:] = W
-    model.b[:] = b
+    model.set_param("W", W)
+    model.set_param("b", b)
 
     einsummed = numpy.einsum(
         "oi,bi->bo",
@@ -147,19 +100,18 @@ def test_predict_small(W_b_input):
     assert_allclose(predicted_output, expected_output, rtol=0.01, atol=0.01)
 
 
-@pytest.mark.skip
-@given(arrays_OI_O_BI(max_batch=100, max_out=100, max_in=100))
+@given(arrays_OI_O_BI(max_batch=20, max_out=30, max_in=30))
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
     model = Affine(nr_out, nr_in)
-    model.W[:] = W
-    model.b[:] = b
+    model.set_param("W", W)
+    model.set_param("b", b)
 
     einsummed = numpy.einsum(
-        "oi,bi->bo",
-        numpy.asarray(W, dtype="float64"),
-        numpy.asarray(input_, dtype="float64"),
+        "bi,oi->bo",
+        numpy.asarray(input_, dtype="float32"),
+        numpy.asarray(W, dtype="float32"),
         optimize=False,
     )
 
@@ -167,3 +119,24 @@ def test_predict_extensive(W_b_input):
 
     predicted_output = model.predict(input_)
     assert_allclose(predicted_output, expected_output, rtol=1e-04, atol=0.0001)
+
+
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+def test_dropout_gives_zero_activations(W_b_input):
+    model = chain(get_model(W_b_input), Dropout(1.0))
+    nr_batch, nr_out, nr_in = get_shape(W_b_input)
+    W, b, input_ = W_b_input
+    fwd_dropped, _ = model.begin_update(input_)
+    assert all(val == 0.0 for val in fwd_dropped.flatten())
+
+
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+def test_dropout_gives_zero_gradients(W_b_input):
+    model = chain(get_model(W_b_input), Dropout(1.0))
+    nr_batch, nr_out, nr_in = get_shape(W_b_input)
+    W, b, input_ = W_b_input
+    model.set_child_attrs("dropout", "rate", 1.0)
+    fwd_dropped, finish_update = model.begin_update(input_)
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
+    grad_BI = finish_update(grad_BO)
+    assert all(val == 0.0 for val in grad_BI.flatten())

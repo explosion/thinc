@@ -1,0 +1,58 @@
+from typing import Tuple, Callable, Optional, TypeVar
+import numpy
+
+from ..model import Model
+from ..types import Array
+
+
+InputType = TypeVar("InputType", bound=Array)
+OutputType = TypeVar("OutputType", bound=Array)
+
+
+def uniqued(layer: Model, *, column: int = 0) -> Model:
+    """Group inputs to a layer, so that the layer only has to compute for the
+    unique values. The data is transformed back before output, and the same
+    transformation is applied for the gradient. Effectively, this is a cache
+    local to each minibatch.
+    """
+    return Model(
+        f"uniqued-{layer.name}",
+        forward,
+        init=init,
+        layers=[layer],
+        dims={"nO": None, "nI": None},
+        attrs={"column": column},
+    )
+
+
+def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+    column = model.get_attr("column")
+    layer = model.layers[0]
+    keys = X[:, column]
+    keys = layer.ops.xp.ascontiguousarray(keys)
+    if not isinstance(keys, numpy.ndarray):
+        keys = keys.get()
+    uniq_keys, ind, inv, counts = numpy.unique(
+        keys, return_index=True, return_inverse=True, return_counts=True
+    )
+    X_uniq = layer.ops.xp.ascontiguousarray(X[ind])
+    Y_uniq, bp_Y_uniq = layer(X_uniq, is_train)
+    Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
+
+    def backprop(dY: OutputType) -> InputType:
+        dY_uniq = layer.ops.allocate(Y_uniq.shape, dtype="f")
+        layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
+        d_uniques = bp_Y_uniq(dY_uniq)
+        # This confusing bit of indexing "ununiques"
+        return (d_uniques / counts)[inv]
+
+    return Y, backprop
+
+
+def init(
+    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+) -> None:
+    layer = model.layers[0]
+    layer.initialize(X=X, Y=Y)
+    model.set_dim("nI", layer.get_dim("nI"))
+    model.set_dim("nO", layer.get_dim("nO"))

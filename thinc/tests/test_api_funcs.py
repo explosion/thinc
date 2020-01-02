@@ -1,9 +1,9 @@
 import pytest
 import numpy
-from numpy.testing import assert_allclose
-from thinc.api import chain, layerize, noop, clone
-from thinc.neural._classes.affine import Affine
-from thinc.neural._classes.model import Model
+from thinc.layers.chain import chain
+from thinc.layers.clone import clone
+from thinc.layers.affine import Affine
+from thinc.model import Model
 
 
 @pytest.fixture
@@ -33,61 +33,30 @@ def test_chain_one(model1):
 
 def test_chain_two(model1, model2):
     model = chain(model1, model2)
-    assert len(model._layers) == 2
+    assert len(model.layers) == 2
 
 
 def test_chain_right_branch(model1, model2, model3):
     merge1 = chain(model1, model2)
     merge2 = chain(merge1, model3)
-    assert len(merge2._layers) == 3
+    assert len(merge2.layers) == 3
 
 
-def test_clone(model1, nI):
-    ones = numpy.ones((10, nI), dtype="f")
-    model1.nI = None
+def test_clone_changes_predictions(nH, nI):
+    model1 = Affine(nH)
     model = clone(model1, 10)
-    model.begin_training(ones)
+    ones = numpy.ones((10, nI), dtype="f")
+    model.initialize(X=ones)
     output_from_cloned = model.predict(ones)
     output_from_orig = model1.predict(ones)
     assert output_from_cloned.sum() != output_from_orig.sum()
 
 
-def test_layerize_predict_noop(model1, model2, nI):
-    ones = numpy.ones((10, nI))
-    model = noop(model1, model2)
-    y = model.predict(ones)
-    assert_allclose(y, ones)
-
-
-def test_layerize_update_noop(model1, model2, nI):
-    ones = numpy.ones((10, nI))
-    model = noop(model1, model2)
-    y, finish_update = model.begin_update(ones)
-    assert_allclose(y, ones)
-    grad_in = numpy.ones(y.shape) + 1.0
-    grad_out = finish_update(grad_in)
-    assert_allclose(grad_in, grad_out)
-
-
-def test_layerize_prespecify_predict(model1, model2, nI):
-    def noop_predict(X):
-        return X
-
-    @layerize(predict=noop_predict)
-    def noop_model(X, drop=0.0):
-        return X, lambda d, sgd=None: d
-
-    ones = numpy.ones((10, nI))
-    assert_allclose(ones, noop_model.predict(ones))
-
-
-def test_chain_dimension_mismatch(model1, model2):
-    pass
-
-
-def test_chain_begin_update(model1, model2):
-    pass
-
-
-def test_chain_learns(model1, model2):
-    pass
+def test_clone_gives_distinct_ids(nH, nI):
+    model = clone(Affine(nH), 5)
+    assert len(model.layers) == 5
+    seen_ids = set()
+    for node in model.walk():
+        assert node.id not in seen_ids
+        seen_ids.add(node.id)
+    assert len(seen_ids) == 6

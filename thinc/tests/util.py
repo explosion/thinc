@@ -1,12 +1,12 @@
-from thinc.neural._classes.affine import Affine
+from thinc.layers.affine import Affine
 
 
 def get_model(W_b_input, cls=Affine):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
     model = cls(nr_out, nr_in)
-    model.W[:] = W
-    model.b[:] = b
+    model.set_param("W", W)
+    model.set_param("b", b)
     return model
 
 
