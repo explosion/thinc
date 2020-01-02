@@ -209,14 +209,6 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def lr(self, nr_upd):
-        alpha = self.alpha
-        if self.b1 == 0. or self.b2 == 0.:
-            return alpha
-        fix1 = 1.- (self.b1 ** nr_upd)
-        fix2 = 1.- (self.b2 ** nr_upd)
-        return alpha * numpy.sqrt(fix2) / fix1
-
     def __call__(self, weights, gradient: Array, lr_scale: float = 1.0, key=None):
         if len(gradient) < 1:
             return
@@ -281,7 +273,7 @@ class Optimizer(object):
 
         # exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
         exp_avg_sq *= beta2
-        exp_avg_sq += (1-beta2) * (grad * grad)
+        exp_avg_sq += (1-beta2) * (grad ** 2)
         # exp_avg.mul_(beta1).add_(1 - beta1, grad)
         exp_avg *= beta1
         exp_avg += (1-beta1) * grad
@@ -299,7 +291,15 @@ class Optimizer(object):
 
             # more conservative since it's an approximated value
             if N_sma >= 5:
-                step_size = math.sqrt((1 - beta2_t) * (N_sma - 4) / (N_sma_max - 4) * (N_sma - 2) / N_sma * N_sma_max / (N_sma_max - 2)) / (1 - beta1 ** state['step'])
+                step_size = math.sqrt(
+                                (1 - beta2_t)
+                                * (N_sma - 4)
+                                / (N_sma_max - 4)
+                                * (N_sma - 2)
+                                / N_sma
+                                * N_sma_max
+                                / (N_sma_max - 2)
+                            ) / (1 - beta1 ** state["step"])
             elif degenerated_to_sgd:
                 step_size = 1.0 / (1 - beta1 ** state['step'])
             else:
@@ -333,10 +333,11 @@ class Optimizer(object):
             self.mom2[key] = self.ops.allocate(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
-        cdef weight_t lr = self.lr(nr_upd)
+        fix1 = 1.- (self.b1 ** nr_upd)
+        fix2 = 1.- (self.b2 ** nr_upd)
+        cdef weight_t lr = self.learn_rate * numpy.sqrt(fix2) / fix1
         cdef weight_t b1 = self.b1
         cdef weight_t b2 = self.b2
         cdef weight_t eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
-        gradient.fill(0)
