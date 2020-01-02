@@ -4,6 +4,8 @@ from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
 from thinc.layers.affine import Affine
+from thinc.layers.chain import chain
+from thinc.layers.dropout import Dropout
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -98,7 +100,7 @@ def test_predict_small(W_b_input):
     assert_allclose(predicted_output, expected_output, rtol=0.01, atol=0.01)
 
 
-@given(arrays_OI_O_BI(max_batch=100, max_out=100, max_in=100))
+@given(arrays_OI_O_BI(max_batch=20, max_out=30, max_in=30))
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
@@ -119,24 +121,22 @@ def test_predict_extensive(W_b_input):
     assert_allclose(predicted_output, expected_output, rtol=1e-04, atol=0.0001)
 
 
-# @pytest.mark.skip
-# @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-# def test_dropout_gives_zero_activations(W_b_input):
-#    model = chain(get_model(W_b_input), Dropout(0.0))
-#    model.set_dropout(1.0)
-#    nr_batch, nr_out, nr_in = get_shape(W_b_input)
-#    W, b, input_ = W_b_input
-#    fwd_dropped, _ = model.begin_update(input_)
-#    assert all(val == 0.0 for val in fwd_dropped.flatten())
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+def test_dropout_gives_zero_activations(W_b_input):
+    model = chain(get_model(W_b_input), Dropout(1.0))
+    nr_batch, nr_out, nr_in = get_shape(W_b_input)
+    W, b, input_ = W_b_input
+    fwd_dropped, _ = model.begin_update(input_)
+    assert all(val == 0.0 for val in fwd_dropped.flatten())
 
 
-# @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
-# def test_dropout_gives_zero_gradients(W_b_input):
-#    model = chain(get_model(W_b_input), Dropout(0.0))
-#    nr_batch, nr_out, nr_in = get_shape(W_b_input)
-#    W, b, input_ = W_b_input
-#    model.set_child_attrs("dropout", "rate", 1.0)
-#    fwd_dropped, finish_update = model.begin_update(input_)
-#    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
-#    grad_BI = finish_update(grad_BO)
-#    assert all(val == 0.0 for val in grad_BI.flatten())
+@given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
+def test_dropout_gives_zero_gradients(W_b_input):
+    model = chain(get_model(W_b_input), Dropout(1.0))
+    nr_batch, nr_out, nr_in = get_shape(W_b_input)
+    W, b, input_ = W_b_input
+    model.set_child_attrs("dropout", "rate", 1.0)
+    fwd_dropped, finish_update = model.begin_update(input_)
+    grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
+    grad_BI = finish_update(grad_BO)
+    assert all(val == 0.0 for val in grad_BI.flatten())
