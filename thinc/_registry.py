@@ -1,12 +1,35 @@
-from typing import Callable, Dict, Any, Tuple, List
+from typing import Callable, Dict, Any, Tuple, List, Optional
 import catalogue
 import inspect
-from pydantic import create_model
+import pydantic
+from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
+from wasabi import table
+
+
+# TODO: pydantic's sequence_like includes generators, which causes Model.dict
+# to fail if the values are generators. We need to find a solution for this.
+pydantic.main.sequence_like = lambda v: isinstance(v, (list, tuple, set, frozenset))
+
+
+class ConfigValidationError(ValueError):
+    def __init__(self, config, errors):
+        """Custom error for validating configs."""
+        data = []
+        for error in errors:
+            err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
+            data.append((err_loc, error.get("msg")))
+        result = ["Config validation error", table(data), f"{config}"]
+        ValueError.__init__(self, "\n".join(result))
 
 
 class _PromiseSchemaConfig:
     extra = "forbid"
+
+
+class EmptySchema(BaseModel):
+    class Config:
+        extra = "allow"
 
 
 class registry(object):
@@ -26,12 +49,20 @@ class registry(object):
         return func
 
     @classmethod
-    def make_from_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
+    def make_from_config(
+        cls,
+        config: Dict[str, Any],
+        validate: bool = True,
+        base_schema: Optional[ModelMetaclass] = EmptySchema,
+    ) -> Dict[str, Any]:
         """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
+        if validate:
+            filled, _ = cls.fill_and_validate(config, base_schema)
+        else:
+            filled = {}
         # Recurse over subdictionaries, filling in values.
-        filled = {}
         for key, value in config.items():
             if isinstance(value, dict):
                 filled[key] = cls.make_from_config(value)
@@ -51,24 +82,35 @@ class registry(object):
         return types. Use the validation representation to get default
         values via pydantic. The defaults are filled into both representations.
         """
-        # TODO: custom validation errors
         filled = {}
         validation = {}
         for key, value in config.items():
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
                 filled[key], _ = cls.fill_and_validate(value, promise_schema)
-                type_ = cls.get_return_type(value)
-                validation[key] = type_.__new__(type_)
+                # Call the function and populate the field value. We can't just
+                # create an instance of the type here, since this wouldn't work
+                # for generics / more complex custom types
+                getter = cls.get_constructor(filled[key])
+                args, kwargs = cls.parse_args(filled[key])
+                validation[key] = getter(*args, **kwargs)
             elif hasattr(value, "items"):
-                field = schema.__fields__[key]
-                filled[key], validation[key] = cls.fill_and_validate(value, field.type_)
+                if key in schema.__fields__:
+                    field = schema.__fields__[key]
+                    field_type = field.type_
+                else:
+                    field_type = EmptySchema
+                filled[key], validation[key] = cls.fill_and_validate(value, field_type)
             else:
                 filled[key] = value
                 validation[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate.
-        validation.update(schema.parse_obj(validation).dict())
+        try:
+            result = schema.parse_obj(validation)
+        except ValidationError as e:
+            raise ConfigValidationError(config, e.errors())
+        validation.update(result.dict())
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
@@ -88,7 +130,8 @@ class registry(object):
     def get_constructor(cls, obj: Dict[str, Any]) -> Callable:
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         if len(id_keys) != 1:
-            raise ValueError
+            err = f"A block can only contain one function registry reference. Got: {id_keys}"
+            raise ValueError(err)
         else:
             key = id_keys[0]
             value = obj[key]

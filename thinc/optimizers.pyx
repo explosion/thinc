@@ -129,11 +129,6 @@ class Optimizer(object):
     """Do various flavours of stochastic gradient descent, with first and
     second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """
-
-    @classmethod
-    def from_config(cls, config: Dict[str, Any]) -> Dict[str, Any]:
-        return registry.make_from_config(config)
-
     def __init__(
         self,
         learn_rate: float,
