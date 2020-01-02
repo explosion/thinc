@@ -17,6 +17,10 @@ OutputType = Union[OutputTypeArray, OutputTypeList, OutputTypeRagged]
 
 
 def Dropout(rate: float = 0.0) -> Model:
+    """Help prevent overfitting by adding a random distortion to the input data
+    during training.  Specifically, cells of the input are zeroed with
+    probability determined by the `rate` argument.
+    """
     return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 

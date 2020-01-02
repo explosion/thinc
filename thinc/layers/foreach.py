@@ -8,7 +8,7 @@ OutputType = TypeVar("OutputType", bound=List[Sequence])
 
 
 def foreach(layer: Model) -> Model:
-    """Map a layer across list items"""
+    """Map a layer across list items."""
     return Model(
         f"foreach-{layer.name}",
         forward,

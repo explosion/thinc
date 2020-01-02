@@ -10,6 +10,9 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def chain(*layers: Model) -> Model:
+    """Compose two models `f` and `g` such that they become layers of a single
+    feed-forward model that computes `g(f(x))`.
+    """
     if layers and layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
@@ -29,9 +32,6 @@ def chain(*layers: Model) -> Model:
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
-
-    Returns (tuple):
-        The output of the model, and a callback to complete the backward pass.
     """
     callbacks = []
     for layer in model.layers:

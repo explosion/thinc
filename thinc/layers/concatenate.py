@@ -10,6 +10,9 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def concatenate(layers: List[Model]) -> Model:
+    """Compose two or more models `f`, `g`, etc, such that their outputs are
+    concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
+    """
     if layers and layers[0].name == "concatenate":
         layers[0].layers.extend(layers[1:])
         return layers[0]

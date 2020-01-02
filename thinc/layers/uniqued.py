@@ -10,14 +10,10 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def uniqued(layer: Model, *, column: int = 0) -> Model:
-    """Group inputs to a layer, so that the layer only has to compute
-    for the unique values. The data is transformed back before output, and the same
+    """Group inputs to a layer, so that the layer only has to compute for the
+    unique values. The data is transformed back before output, and the same
     transformation is applied for the gradient. Effectively, this is a cache
     local to each minibatch.
-
-    The uniqued wrapper is useful for word inputs, because common words are
-    seen often, but we may want to compute complicated features for the words,
-    using e.g. character LSTM.
     """
     return Model(
         f"uniqued-{layer.name}",

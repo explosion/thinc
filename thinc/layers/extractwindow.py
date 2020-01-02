@@ -9,6 +9,9 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def ExtractWindow(window_size: int = 1) -> Model:
+    """For each vector in an input, construct an output vector that contains the
+    input and a window of surrounding vectors. This is one step in a convolution.
+    """
     return Model("extract_window", forward, attrs={"window_size": window_size})
 
 

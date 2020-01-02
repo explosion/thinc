@@ -10,6 +10,9 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def add(layers: List[Model]) -> Model:
+    """Compose two or more models `f`, `g`, etc, such that their outputs are
+    added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
+    """
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]

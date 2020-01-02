@@ -17,6 +17,7 @@ def Embed(
     column: int = 0,
     initializer: Callable = uniform_init,
 ) -> Model:
+    """Map integers to vectors, using a fixed-size lookup table."""
     return Model(
         "embed",
         forward,

@@ -11,6 +11,9 @@ OutputType = TypeVar("OutputType", bound=Array)
 
 
 def CauchySimilarity(nI: Optional[Array] = None) -> Model:
+    """Compare input vectors according to the Cauchy similarity function proposed by
+    Chen (2013). Primarily used within Siamese neural networks.
+    """
     return Model(
         "cauchy_similarity",
         forward,

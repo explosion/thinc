@@ -16,6 +16,7 @@ def Affine(
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
 ) -> Model:
+    """Multiply inputs by a weights matrix and adds a bias vector."""
     model = Model(
         "affine",
         forward,

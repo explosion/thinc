@@ -4,9 +4,8 @@ from ..model import Model
 
 
 def clone(orig: Model, n: int) -> Model:
-    """Construct `n` copies of a layer, with distinct weights.
-
-    i.e. `clone(f, 3)(x)` computes `f(f'(f''(x)))`.
+    """Construct `n` copies of a layer, with distinct weights.  i.e.
+    `clone(f, 3)(x)` computes f(f'(f''(x))).
     """
     if n == 0:
         return noop()
