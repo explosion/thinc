@@ -25,6 +25,7 @@ class ConfigValidationError(ValueError):
 
 class _PromiseSchemaConfig:
     extra = "forbid"
+    arbitrary_types_allowed = True
 
 
 class EmptySchema(BaseModel):
