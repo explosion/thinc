@@ -1,6 +1,7 @@
 # cython: profile=True
 # cython: cdivision=True
 # cython: infer_types=True
+# cython: binding=True
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.math cimport exp, sqrt
