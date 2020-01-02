@@ -64,7 +64,7 @@ def test_get_first_gradient(ops):
 
 def test_get_existing_gradient(ops):
     params = Memory(ops, size=10)
-    b = params.add("b", (5,))
+    params.add("b", (5,))
     db = params.add_gradient("d_b", "b")
     db += 1
     db = params.get("d_b")

@@ -9,7 +9,6 @@ from thinc.layers.hashembed import HashEmbed
 from thinc.layers.extractwindow import ExtractWindow
 from thinc.layers.chain import chain
 from thinc.layers.with_flatten import with_flatten
-from thinc.loss import categorical_crossentropy
 from thinc.optimizers import Adam
 import ml_datasets
 
