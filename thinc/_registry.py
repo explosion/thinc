@@ -15,13 +15,14 @@ class registry(object):
     layers = catalogue.create("thinc", "layers", entry_points=True)
 
     @classmethod
-    def get(cls, name: str, key: str) -> Callable:
-        if not hasattr(cls, name):
-            raise ValueError(f"Unknown registry: {name}")
-        reg = getattr(cls, name)
-        func = reg.get(key)
+    def get(cls, registry_name: str, func_name: str) -> Callable:
+        """Get a registered function from a given registry."""
+        if not hasattr(cls, registry_name):
+            raise ValueError(f"Unknown registry: '{registry_name}'")
+        reg = getattr(cls, registry_name)
+        func = reg.get(func_name)
         if func is None:
-            raise ValueError(f"Could not find {name} in {key}")
+            raise ValueError(f"Could not find '{func_name}' in '{registry_name}'")
         return func
 
     @classmethod
@@ -45,10 +46,12 @@ class registry(object):
 
     @classmethod
     def fill_and_validate(cls, config, schema):
-        # Build two representations of the config: one where the promises are
-        # preserved, and a second where the promises are represented by their
-        # return types. Use the validation representation to get default
-        # values via PyDantic. The defaults are filled into both representations.
+        """Build two representations of the config: one where the promises are
+        preserved, and a second where the promises are represented by their
+        return types. Use the validation representation to get default
+        values via pydantic. The defaults are filled into both representations.
+        """
+        # TODO: custom validation errors
         filled = {}
         validation = {}
         for key, value in config.items():
