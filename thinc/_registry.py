@@ -67,6 +67,7 @@ class registry(object):
         """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
+        # TODO: handle validation where top-level config is a promise
         if validate:
             filled, _ = cls.fill_and_validate(config, base_schema)
         else:
