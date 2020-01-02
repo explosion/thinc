@@ -162,7 +162,7 @@ class Optimizer(object):
         lookahead_alpha (float): Alpha parameter for lookahead.
         use_averages (bool): Whether to track moving averages of the parameters.
         use_radam (bool): Whether to use the RAdam optimizer.
-        L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a 
+        L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         schedules (dict): Dictionary mapping hyper-parameter names to value
             sequences. On each call to optimizer.step_schedules(), the named
