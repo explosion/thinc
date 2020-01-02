@@ -22,8 +22,8 @@ ctypedef float weight_t
 
 SGD_DEFAULTS = {
     "L2": 1e-4,
+    "L2_is_weight_decay": True,
     "max_grad_norm": 10,
-    "L2_is_weight_decay": False
 }
 
 
@@ -34,8 +34,8 @@ ADAM_DEFAULTS = {
     "eps": 1e-08,
     "L2": SGD_DEFAULTS["L2"],
     "max_grad_norm": SGD_DEFAULTS["max_grad_norm"],
-    "L2_is_weight_decay": SGD_DEFAULTS["L2_is_weight_decay"],
-    "schedules": None
+    "L2_is_weight_decay": True,
+    "schedules": None,
 }
 
 
@@ -62,7 +62,6 @@ def RAdam(
         L2_is_weight_decay=True,
         L2=weight_decay,
         schedules=schedules,
-        nesterov=None,
         lookahead_k=lookahead_k,
         lookahead_alpha=lookahead_alpha,
         use_averages=True,
@@ -95,11 +94,7 @@ def Adam(
         L2_is_weight_decay=L2_is_weight_decay,
         schedules=schedules,
         use_averages=True,
-        decay=0.0,
         decay_steps=0,
-        b1_decay=0,
-        b2_decay=0,
-        nesterov=None,
         lookahead_k=lookahead_k,
         lookahead_alpha=lookahead_alpha,
         use_radam=False,
@@ -119,7 +114,6 @@ def SGD(
         schedules: Optional[Dict[str, Sequence[float]]] = None,
 ):
     return Optimizer(
-        ops,
         learn_rate,
         L2=L2,
         max_grad_norm=max_grad_norm,
@@ -156,13 +150,11 @@ class Optimizer(object):
         beta2: float = 0.999,
         eps: float = 1e-08,
         max_grad_norm: float = 10.0,
-        nesterov: bool = True,
-        L2_is_weight_decay: bool = False,
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
         use_radam: bool = False,
-        use_lars: bool = False,
+        L2_is_weight_decay: bool = True,
         schedules: Optional[Dict[str, Sequence[float]]] = None,
         **_,
     ):
@@ -186,20 +178,11 @@ class Optimizer(object):
         self.b2 = beta2
         self.eps = eps
         self.L2 = L2
-        self.nesterov = nesterov
-        self.L2_is_weight_decay = L2_is_weight_decay
         self.lookahead_k = lookahead_k
         self.lookahead_alpha = lookahead_alpha
         self.use_radam = use_radam
+        self.L2_is_weight_decay = L2_is_weight_decay
         self._radam_buffer = [[None, None, None] for _ in range(10)]
-        # Deprecated
-        self.use_lars = use_lars
-        self.decay = 0.0
-        self.decay_steps = 0
-        self.lars_min = 0
-        self.lars_max = 10
-        self.b1_decay = 0.0
-        self.b2_decay = 0.0
 
     def to_gpu(self):
         self.ops = CupyOps()
@@ -253,10 +236,6 @@ class Optimizer(object):
             self._radam2(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
-        elif self.b1 > 0. and not self.nesterov:
-            raise NotImplementedError
-        elif self.b1 > 0.:
-            self._nesterov(xp, weights, gradient, lr_scale, key)
         elif self.b2 > 0.:
             raise NotImplementedError
         else:
@@ -275,60 +254,7 @@ class Optimizer(object):
                 self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
             self.ops.update_averages(self.averages[key], weights, nr_upd)
 
-    def _radam(self, xp, weights, gradient, lr_scale, key, nr_upd):
-        if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
-        if key not in self.mom2:
-            self.mom2[key] = self.ops.allocate(weights.size)
-
-        beta1 = self.b1
-        beta2 = self.b2
-        eps = self.eps
-        sma_inf = 2 / (1-beta2) - 1
-
-        exp_avg = self.mom1[key]
-        exp_avg_sq = self.mom2[key]
-        # Decay the first and second moment running average coefficient
-        exp_avg *= beta1
-        exp_avg += (1-beta1) * gradient
-        exp_avg_sq *= beta2
-        exp_avg_sq += (1-beta2) * gradient**2
-        # Bias correction
-        bias_correction1 = 1 - beta1 ** nr_upd
-        bias_correction2 = 1 - beta2 ** nr_upd
-
-        # Compute length of SMA
-        sma_t = sma_inf - 2 * nr_upd * (1 - bias_correction2) / bias_correction2
-        update = self.ops.allocate(weights.shape, dtype="f")
-        if sma_t > 4:
-            # Variance rectification term
-            r_t = math.sqrt((sma_t - 4) * (sma_t - 2) * sma_inf / ((sma_inf - 4) * (sma_inf - 2) * sma_t))
-            # Adaptive momentum
-            update += r_t * (
-                (exp_avg / bias_correction1)
-                /
-                (self.ops.xp.sqrt(exp_avg_sq / bias_correction2) + eps)
-            )
-        else:
-            # Unadapted momentum
-            update += exp_avg / bias_correction1
-        if self.use_lars:
-            # LARS
-            w_norm = self.ops.xp.linalg.norm(weights)
-            u_norm = self.ops.xp.linalg.norm(update)
-            phi_p = min(max(w_norm, self.lars_min), self.lars_max)
-            # Compute the local LR
-            if phi_p == 0 or u_norm == 0:
-                local_lr = 1
-            else:
-                local_lr = phi_p / u_norm
-            lr = self.alpha * lr_scale * local_lr
-        else:
-            lr = self.alpha * lr_scale
-        weights -= lr * update
-        self._lookahead(weights, key)
-
-    def _radam2(self, xp, weights, grad, lr_scale, key, nr_upd):
+    def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
         if key not in self.mom2:
@@ -400,26 +326,6 @@ class Optimizer(object):
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
 
-
-    def _nesterov(self, xp, weights, gradient, lr_scale, key):
-        # http://cs231n.github.io/neural-networks-3/
-        # v_prev = v # back this up
-        # v = mu * v - lr * gradient # velocity update stays the same
-        # x += -mu * v_prev + (1 + mu) * v # position update changes form
-        # Implement this as
-        # x += -mu * v
-        # v *= mu
-        # v -= lr * gradient
-        # x += (1+mu) * v
-        lr = self.alpha * lr_scale
-        if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
-        momentum = self.mom1[key]
-        weights += -self.b1 * momentum
-        momentum *= self.b1
-        momentum -= lr * gradient
-        weights += (1+self.b1) * momentum
-
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         if key not in self.mom1:
             self.mom1[key] = self.ops.allocate(weights.size)
@@ -428,24 +334,9 @@ class Optimizer(object):
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
         cdef weight_t lr = self.lr(nr_upd)
-        cdef weight_t b1 = linear_decay(self.b1, self.b1_decay, nr_upd)
-        cdef weight_t b2 = linear_decay(self.b2, self.b2_decay, nr_upd)
+        cdef weight_t b1 = self.b1
+        cdef weight_t b2 = self.b2
         cdef weight_t eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
         gradient.fill(0)
-
-
-# These are deprecated
-
-def Adam(*args, **kwargs):
-    return Optimizer(*args, **kwargs)
-
-def SGD(*args, **kwargs):
-    kwargs.setdefault('beta1', 0.)
-    kwargs.setdefault('beta2', 0.)
-    return Optimizer(*args, **kwargs)
-
-
-def linear_decay(rate, decay, nr_upd):
-    return rate * 1./(1. + decay * nr_upd)
