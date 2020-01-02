@@ -38,6 +38,14 @@ class registry(object):
     layers = catalogue.create("thinc", "layers", entry_points=True)
 
     @classmethod
+    def create(cls, registry_name: str, entry_points: bool = False) -> None:
+        """Create a new custom registry."""
+        if hasattr(cls, registry_name):
+            raise ValueError(f"Registry '{registry_name}' already exists")
+        reg = catalogue.create("thinc", registry_name, entry_points=entry_points)
+        setattr(cls, registry_name, reg)
+
+    @classmethod
     def get(cls, registry_name: str, func_name: str) -> Callable:
         """Get a registered function from a given registry."""
         if not hasattr(cls, registry_name):
