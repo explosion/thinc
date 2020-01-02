@@ -231,15 +231,6 @@ def test_softmax_works_inplace(ops, X):
 #    assert_allclose(oi, expected)
 
 
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_norm_computes_correctly(cpu_ops, X):
-    for row in X:
-        assert_allclose(
-            [numpy.linalg.norm(row)], [cpu_ops.norm(row)], rtol=1e-04, atol=0.0001
-        )
-
-
 # @settings(max_examples=MAX_EXAMPLES)
 # @given(W_b_X=strategies.arrays_OI_O_BI())
 # def test_dot_computes_correctly(cpu_ops, W_b_X):
@@ -260,14 +251,6 @@ def test_gemm_computes_correctly(cpu_ops):
     Y = cpu_ops.gemm(X, W, trans2=True)
     expected = numpy.dot(X, W.T)
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
-
-
-@settings(max_examples=MAX_EXAMPLES)
-@given(X=strategies.arrays_BI())
-def test_argmax_computes_correctly(cpu_ops, X):
-    which = cpu_ops.argmax(X, axis=-1)
-    for i in range(X.shape[0]):
-        assert max(X[i]) == X[i, which[i]]
 
 
 @settings(max_examples=MAX_EXAMPLES)
