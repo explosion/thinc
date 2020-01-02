@@ -13,7 +13,7 @@ except ImportError:
 try:
     import torch
 except ImportError:
-    torch = None
+    has_torch = False
 
 
 from .types import Array, OpNames
