@@ -127,13 +127,7 @@ def SGD(
 
 class Optimizer(object):
     """Do various flavours of stochastic gradient descent, with first and
-    second order momentum.
-
-    Examples:
-    * beta1=0., beta2=0.: "vanilla" SGD
-    * beta1=0.9, beta2=0.: "Classic momentum"
-    * beta1=0.0, beta2=0.2: RMS prop
-    * b1=0.999, b2=0.9: Adam
+    second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """
 
     @classmethod
@@ -142,7 +136,7 @@ class Optimizer(object):
 
     def __init__(
         self,
-        lr: float,
+        learn_rate: float,
         *,
         ops: Optional[Ops] = None,
         L2: float = ADAM_DEFAULTS["L2"],
@@ -158,6 +152,27 @@ class Optimizer(object):
         schedules: Optional[Dict[str, Sequence[float]]] = None,
         **_,
     ):
+        """
+        learn_rate (float): The initial learning rate.
+
+        Keyword arguments:
+
+        ops (Ops): A backend object. Defaults to the currently selected backend.
+        L2 (float): The L2 regularization term.
+        beta1 (float): First-order momentum.
+        beta2 (float): Second-order momentum.
+        eps (float): Epsilon term for Adam etc.
+        grad_clip (float): Gradient clipping.
+        lookahead_k (int): K parameter for lookahead.
+        lookahead_alpha (float): Alpha parameter for lookahead.
+        use_averages (bool): Whether to track moving averages of the parameters.
+        use_radam (bool): Whether to use the RAdam optimizer.
+        L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a 
+            weight decay term, in the style of the AdamW optimizer.
+        schedules (dict): Dictionary mapping hyper-parameter names to value
+            sequences. On each call to optimizer.step_schedules(), the named
+            hyper-parameters are replaced with the next item from the generator.
+        """
         self.ops = ops if ops is not None else get_current_ops()
         if schedules is None:
             self.schedules = {}
@@ -173,7 +188,7 @@ class Optimizer(object):
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
         self.grad_clip = grad_clip
-        self.alpha = lr
+        self.alpha = learn_rate
         self.b1 = beta1
         self.b2 = beta2
         self.eps = eps
@@ -209,7 +224,7 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, weights, gradient: Array, lr_scale: float = 1.0, key=None):
+    def __call__(self, Array: weights, gradient: Array, *, lr_scale: float = 1.0, int key):
         if len(gradient) < 1:
             return
         xp = get_array_module(weights)
