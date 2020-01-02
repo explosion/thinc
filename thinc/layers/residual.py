@@ -19,7 +19,10 @@ def Residual(layer: Model) -> Model:
         forward,
         init=init,
         layers=[layer],
-        dims={"nO": layer.get_dim("nO"), "nI": layer.get_dim("nI")},
+        dims={
+            "nO": layer.get_dim("nO") if layer.has_dim("nO") else None,
+            "nI": layer.get_dim("nI") if layer.has_dim("nI") else None
+        },
     )
 
 
