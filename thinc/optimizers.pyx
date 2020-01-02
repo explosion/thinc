@@ -224,7 +224,7 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, Array: weights, gradient: Array, *, lr_scale: float = 1.0, int key):
+    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key):
         if len(gradient) < 1:
             return
         xp = get_array_module(weights)
