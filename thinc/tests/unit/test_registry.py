@@ -1,5 +1,5 @@
 import pytest
-from pydantic import BaseModel, StrictBool
+from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc._registry
 from thinc._registry import ConfigValidationError
@@ -245,3 +245,23 @@ def test_optimizer_config():
 def test_config_to_str():
     cfg = Config().from_str(OPTIMIZER_CFG)
     assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+
+
+def test_validation_custom_types():
+    def complex_args(
+        rate: StrictFloat,
+        steps: PositiveInt = 10,
+        log_level: constr(regex="(DEUG|INFO|WARNING|ERROR)") = "ERROR",
+    ):
+        return None
+
+    my_registry.create("complex")
+    my_registry.complex("complex.v1")(complex_args)
+    cfg = {"@complex": "complex.v1", "rate": 1.0, "steps": 20, "log_level": "INFO"}
+    my_registry.make_from_config({"config": cfg})
+    cfg = {"@complex": "complex.v1", "rate": 1.0, "steps": -1, "log_level": "INFO"}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config({"config": cfg})
+    cfg = {"@complex": "complex.v1", "rate": 1.0, "steps": 20, "log_level": "none"}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config({"config": cfg})
