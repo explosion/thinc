@@ -133,3 +133,15 @@ def test_fill_invalidate_promise():
     config["optional"]["whiskers"] = True
     with pytest.raises(ValidationError):
         filled, validated = my_registry.fill_and_validate(config, DefaultsSchema)
+
+
+def test_create_registry():
+    with pytest.raises(ValueError):
+        my_registry.create("cats")
+    my_registry.create("dogs")
+    assert hasattr(my_registry, "dogs")
+    assert len(my_registry.dogs.get_all()) == 0
+    my_registry.dogs.register("good_boy.v1", func=lambda x: x)
+    assert len(my_registry.dogs.get_all()) == 1
+    with pytest.raises(ValueError):
+        my_registry.create("dogs")

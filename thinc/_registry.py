@@ -10,9 +10,19 @@ class _PromiseSchemaConfig:
 
 
 class registry(object):
+    """Function registries that map string keys to objects."""
+
     optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules = catalogue.create("thinc", "schedules", entry_points=True)
     layers = catalogue.create("thinc", "layers", entry_points=True)
+
+    @classmethod
+    def create(cls, registry_name: str, entry_points: bool = False) -> None:
+        """Create a new custom registry."""
+        if hasattr(cls, registry_name):
+            raise ValueError(f"Registry '{registry_name}' already exists")
+        reg = catalogue.create("thinc", registry_name, entry_points=entry_points)
+        setattr(cls, registry_name, reg)
 
     @classmethod
     def get(cls, registry_name: str, func_name: str) -> Callable:
@@ -30,6 +40,7 @@ class registry(object):
         """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
+        # TODO: rewrite and merge with fill_and_validate
         # Recurse over subdictionaries, filling in values.
         filled = {}
         for key, value in config.items():
