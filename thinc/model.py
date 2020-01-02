@@ -8,7 +8,7 @@ import copy
 
 from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
-from .mem import Memory
+from .backends.mem import Memory
 from .util import copy_array, get_width, create_thread_local
 from .types import Array
 

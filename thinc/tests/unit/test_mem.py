@@ -1,5 +1,5 @@
 import pytest
-from thinc.mem import Memory
+from thinc.backends.mem import Memory
 from thinc.backends import NumpyOps
 
 
