@@ -2,15 +2,9 @@ from typing import Callable, Dict, Any, Tuple, List, Optional
 from types import GeneratorType
 import catalogue
 import inspect
-import pydantic
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
 from wasabi import table
-
-
-# TODO: pydantic's sequence_like includes generators, which causes Model.dict
-# to fail if the values are generators. We need to find a solution for this.
-pydantic.main.sequence_like = lambda v: isinstance(v, (list, tuple, set, frozenset))
 
 
 class ConfigValidationError(ValueError):
@@ -108,7 +102,7 @@ class registry(object):
                 if isinstance(validation[key], GeneratorType):
                     # Problem: value is a generator and pydantic will choke on it
                     # TODO: not sure what to do here?
-                    return_type = cls.get_return_type(filled[key])
+                    # return_type = cls.get_return_type(filled[key])
                     validation[key] = []
             elif hasattr(value, "items"):
                 field_type = EmptySchema
