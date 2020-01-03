@@ -122,7 +122,7 @@ class Model:
 
     @classmethod
     @contextlib.contextmanager
-    def define_operators(cls, operators):
+    def define_operators(cls, operators: Dict[str, Callable]):
         """Bind operators to specified functions for the scope of the context:
 
         Example:
