@@ -159,6 +159,29 @@ def test_make_from_config_no_schema():
         my_registry.make_from_config(config)
 
 
+def test_make_from_config_base_schema():
+    class TestBaseSubSchema(BaseModel):
+        three: str
+
+    class TestBaseSchema(BaseModel):
+        one: PositiveInt
+        two: TestBaseSubSchema
+
+        class Config:
+            extra = "forbid"
+
+    config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": True}}}
+    my_registry.make_from_config(config, base_schema=TestBaseSchema)
+    config = {"one": -1, "two": {"three": {"@cats": "catsie.v1", "evil": True}}}
+    with pytest.raises(ConfigValidationError):
+        # "one" is not a positive int
+        my_registry.make_from_config(config, base_schema=TestBaseSchema)
+    config = {"one": 1, "two": {"four": {"@cats": "catsie.v1", "evil": True}}}
+    with pytest.raises(ConfigValidationError):
+        # "three" is required in subschema
+        my_registry.make_from_config(config, base_schema=TestBaseSchema)
+
+
 EXAMPLE_CONFIG = """
 [DEFAULT]
 

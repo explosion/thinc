@@ -15,17 +15,18 @@ class ConfigValidationError(ValueError):
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
             data.append((err_loc, error.get("msg")))
         result = ["Config validation error", table(data), f"{config}"]
-        ValueError.__init__(self, "\n".join(result))
-
-
-class _PromiseSchemaConfig:
-    extra = "forbid"
-    arbitrary_types_allowed = True
+        ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
 class EmptySchema(BaseModel):
     class Config:
         extra = "allow"
+        arbitrary_types_allowed = True
+
+
+class _PromiseSchemaConfig:
+    extra = "forbid"
+    arbitrary_types_allowed = True
 
 
 class registry(object):
@@ -55,14 +56,36 @@ class registry(object):
     @classmethod
     def make_from_config(
         cls,
-        config: Dict[str, Any],
+        config: Dict[str, Dict[str, Any]],
+        *,
         validate: bool = True,
         base_schema: Optional[ModelMetaclass] = EmptySchema,
     ) -> Dict[str, Any]:
         """Unpack a config dictionary, creating objects from the registry
-        recursively.
+        recursively. If validate=True, the config will be validated against the
+        type annotations of the registered functions referenced in the config
+        (if available) and/or the base_schema (if available).
         """
-        # TODO: raise if this is the top-level config object and it's a promise
+        # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
+        # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
+        if cls.is_promise(config):
+            raise ValueError(
+                "The top-level config object can't be a reference "
+                "to a registered function."
+            )
+        return cls._make_from_config(config, validate, base_schema)
+
+    @classmethod
+    def _make_from_config(
+        cls,
+        config: Dict[str, Dict[str, Any]],
+        validate: bool = True,
+        base_schema: Optional[ModelMetaclass] = EmptySchema,
+    ) -> Dict[str, Any]:
+        """Unpack a config dictionary, creating objects from the registry
+        recursively. registry.make_from_config delegates to this helper method
+        so we can perform top-level validity checks in the main method.
+        """
         if validate:
             filled, _ = cls.fill_and_validate(config, base_schema)
         else:
@@ -70,7 +93,7 @@ class registry(object):
         # Recurse over subdictionaries, filling in values.
         for key, value in config.items():
             if isinstance(value, dict):
-                filled[key] = cls.make_from_config(value)
+                filled[key] = cls._make_from_config(value)
             else:
                 filled[key] = value
         if cls.is_promise(filled):
