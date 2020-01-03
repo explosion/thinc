@@ -13,7 +13,7 @@ OutputLengths = TypeVar("OutputLengths", bound=Array)
 OutputType = Tuple[OutputValue, OutputLengths]
 
 
-def ParametricAttention(self, nO: Optional[int] = None) -> Model:
+def ParametricAttention(nO: Optional[int] = None) -> Model:
     """Weight inputs by similarity to a learned vector"""
     return Model("para-attn", forward, init=init, params={"Q": None}, dims={"nO": nO})
 
