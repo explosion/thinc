@@ -1,10 +1,12 @@
-from typing import Callable, Dict, Any, Tuple, List, Optional
+from typing import Callable, Dict, Any, Tuple, List, Optional, Union
 from types import GeneratorType
 import catalogue
 import inspect
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
 from wasabi import table
+
+from .config import Config
 
 
 class ConfigValidationError(ValueError):
@@ -56,55 +58,54 @@ class registry(object):
     @classmethod
     def make_from_config(
         cls,
-        config: Dict[str, Dict[str, Any]],
+        config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
+        schema: Optional[ModelMetaclass] = EmptySchema,
         validate: bool = True,
-        base_schema: Optional[ModelMetaclass] = EmptySchema,
-    ) -> Dict[str, Any]:
+    ) -> Config:
         """Unpack a config dictionary, creating objects from the registry
         recursively. If validate=True, the config will be validated against the
         type annotations of the registered functions referenced in the config
-        (if available) and/or the base_schema (if available).
+        (if available) and/or the schema (if available).
         """
         # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
         # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
         if cls.is_promise(config):
-            raise ValueError(
-                "The top-level config object can't be a reference "
-                "to a registered function."
-            )
-        return cls._make_from_config(config, validate, base_schema)
+            err_msg = "The top-level config object can't be a reference to a registered function."
+            raise ConfigValidationError(config, [{"msg": err_msg}])
+        _, resolved = cls._fill(config, schema, validate)
+        return Config(resolved)
 
     @classmethod
-    def _make_from_config(
+    def fill_config(
+        cls,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        *,
+        schema: Optional[ModelMetaclass] = EmptySchema,
+        validate: bool = True,
+    ) -> Config:
+        """Unpack a config dictionary, leave all references to registry
+        functions intact and don't resolve them, but fill in all values and
+        defaults based on the type annotations. If validate=True, the config
+        will be validated against the type annotations of the registered
+        functions referenced in the config (if available) and/or the schema
+        (if available).
+        """
+        # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
+        # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
+        if cls.is_promise(config):
+            err_msg = "The top-level config object can't be a reference to a registered function."
+            raise ConfigValidationError(config, [{"msg": err_msg}])
+        filled, _ = cls._fill(config, schema, validate)
+        return Config(filled)
+
+    @classmethod
+    def _fill(
         cls,
         config: Dict[str, Dict[str, Any]],
+        schema: Optional[ModelMetaclass] = EmptySchema,
         validate: bool = True,
-        base_schema: Optional[ModelMetaclass] = EmptySchema,
-    ) -> Dict[str, Any]:
-        """Unpack a config dictionary, creating objects from the registry
-        recursively. registry.make_from_config delegates to this helper method
-        so we can perform top-level validity checks in the main method.
-        """
-        if validate:
-            filled, _ = cls.fill_and_validate(config, base_schema)
-        else:
-            filled = {}
-        # Recurse over subdictionaries, filling in values.
-        for key, value in config.items():
-            if isinstance(value, dict):
-                filled[key] = cls._make_from_config(value)
-            else:
-                filled[key] = value
-        if cls.is_promise(filled):
-            getter = cls.get_constructor(filled)
-            args, kwargs = cls.parse_args(filled)
-            return getter(*args, **kwargs)
-        else:
-            return filled
-
-    @classmethod
-    def fill_and_validate(cls, config, schema):
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """Build two representations of the config: one where the promises are
         preserved, and a second where the promises are represented by their
         return types. Use the validation representation to get default
@@ -115,17 +116,23 @@ class registry(object):
         for key, value in config.items():
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], _ = cls.fill_and_validate(value, promise_schema)
+                filled[key], _ = cls._fill(value, promise_schema, validate)
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
                 getter = cls.get_constructor(filled[key])
                 args, kwargs = cls.parse_args(filled[key])
-                validation[key] = getter(*args, **kwargs)
+                try:
+                    validation[key] = getter(*args, **kwargs)
+                except TypeError:
+                    # Required arguments are missing etc. We don't need to raise
+                    # here, since this will happen in parse_obj (if validation
+                    # is enabled)
+                    validation[key] = None
                 if isinstance(validation[key], GeneratorType):
-                    # Problem: value is a generator and pydantic will choke on it
-                    # TODO: not sure what to do here?
-                    # return_type = cls.get_return_type(filled[key])
+                    # If value is a generator we can't validate type without
+                    # consuming it (which doesn't work if it's infinite – see
+                    # schedule for examples). So we skip it.
                     validation[key] = []
             elif hasattr(value, "items"):
                 field_type = EmptySchema
@@ -135,16 +142,20 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key] = cls.fill_and_validate(value, field_type)
+                filled[key], validation[key] = cls._fill(value, field_type, validate)
             else:
                 filled[key] = value
                 validation[key] = value
         # Now that we've filled in all of the promises, update with defaults
-        # from schema, and validate.
-        try:
-            result = schema.parse_obj(validation)
-        except ValidationError as e:
-            raise ConfigValidationError(config, e.errors())
+        # from schema, and validate if validation is enabled
+        if validate:
+            try:
+                result = schema.parse_obj(validation)
+            except ValidationError as e:
+                raise ConfigValidationError(config, e.errors())
+        else:
+            # Same as parse_obj, but without validation
+            result = schema.construct(validation)
         validation.update(result.dict())
         for key, value in validation.items():
             if key not in filled:
@@ -153,6 +164,9 @@ class registry(object):
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
+        """Check whether an object is a "promise", i.e. contains a reference
+        to a registered function (via a key starting with `"@"`.
+        """
         if not hasattr(obj, "keys"):
             return False
         id_keys = [k for k in obj.keys() if k.startswith("@")]
