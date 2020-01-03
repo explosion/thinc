@@ -1,4 +1,5 @@
 from typing import Callable, Dict, Any, Tuple, List, Optional
+from types import GeneratorType
 import catalogue
 import inspect
 import pydantic
@@ -67,7 +68,7 @@ class registry(object):
         """Unpack a config dictionary, creating objects from the registry
         recursively.
         """
-        # TODO: handle validation where top-level config is a promise
+        # TODO: raise if this is the top-level config object and it's a promise
         if validate:
             filled, _ = cls.fill_and_validate(config, base_schema)
         else:
@@ -104,12 +105,19 @@ class registry(object):
                 getter = cls.get_constructor(filled[key])
                 args, kwargs = cls.parse_args(filled[key])
                 validation[key] = getter(*args, **kwargs)
+                if isinstance(validation[key], GeneratorType):
+                    # Problem: value is a generator and pydantic will choke on it
+                    # TODO: not sure what to do here?
+                    return_type = cls.get_return_type(filled[key])
+                    validation[key] = []
             elif hasattr(value, "items"):
+                field_type = EmptySchema
                 if key in schema.__fields__:
                     field = schema.__fields__[key]
                     field_type = field.type_
-                else:
-                    field_type = EmptySchema
+                    if not isinstance(field.type_, ModelMetaclass):
+                        # If we don't have a pydantic schema and just a type
+                        field_type = EmptySchema
                 filled[key], validation[key] = cls.fill_and_validate(value, field_type)
             else:
                 filled[key] = value
@@ -161,6 +169,9 @@ class registry(object):
 
     @classmethod
     def make_promise_schema(cls, obj: Dict[str, Any]) -> ModelMetaclass:
+        """Create a schema for a promise dict (referencing a registry function)
+        by inspecting the function signature.
+        """
         func = cls.get_constructor(obj)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]

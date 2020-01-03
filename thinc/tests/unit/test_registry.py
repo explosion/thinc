@@ -238,7 +238,8 @@ def test_read_config():
 
 def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
-    optimizer = my_registry.make_from_config(cfg["optimizer"])
+    result = my_registry.make_from_config(cfg)
+    optimizer = result["optimizer"]
     assert optimizer.b1 == 0.9
 
 
