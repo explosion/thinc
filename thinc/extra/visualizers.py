@@ -53,6 +53,8 @@ def pydot_visualizer(
             out_label = f"{'?' if output_shape is None else output_shape}"
             # nodes_in: InputLayer\n|{input:|output:}|{{[(?, ?)]}|{[(?, ?)]}}
             label = f"{label}|({in_label}, {out_label})"
+        # Hack to work around "bad label name" problem
+        label = label.replace(">", "&gt;")
         node = pydot.Node(layer.id, label=label)
         dot.add_node(node)
         nodes[layer.id] = node
