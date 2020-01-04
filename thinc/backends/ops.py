@@ -1,4 +1,4 @@
-from typing import Optional, List, Callable, Tuple, Union, Sequence
+from typing import Optional, List, Callable, Tuple, Sequence
 
 from ..types import Xp, Array, Shape
 from ..util import copy_array, get_array_module

@@ -1,7 +1,7 @@
-from typing import Tuple, Callable, TypeVar, Optional
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
-from ..types import Array, Ragged
+from ..types import Ragged
 from ..util import get_width
 
 
