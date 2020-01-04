@@ -19,7 +19,7 @@ def add(layers: List[Model]) -> Model:
     return Model("add", forward, init=init, dims={"nO": None, "nI": None})
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     if not model.layers:
         return X, lambda dY: dY
     Y, first_callback = model.layers[0](X, is_train=is_train)
@@ -29,7 +29,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
         Y += layer_Y
         callbacks.append(layer_callback)
 
-    def backprop(dY: OutputType) -> InputType:
+    def backprop(dY: Array) -> Array:
         dX = first_callback(dY)
         for callback in callbacks:
             dX += callback(dY)

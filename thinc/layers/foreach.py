@@ -1,6 +1,7 @@
-from typing import Tuple, Callable, Optional, List, Sequence, TypeVar
+from typing import Tuple, Callable, Optional, List, Sequence, TypeVar, Any
 
 from ..model import Model
+from ..types import Array
 
 
 InputValue = TypeVar("InputValue", bound=Sequence)
@@ -20,20 +21,18 @@ def foreach(layer: Model) -> Model:
 
 
 def forward(
-    model: Model, docs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+    model: Model, docs: Sequence[Array], is_train: bool
+) -> Tuple[Sequence[Array], Callable]:
     layer = model.layers[0]
     sents = []
-    lengths = []
     for doc in docs:
-        doc_sents = [sent for sent in doc if len(sent)]
-        sents.extend(doc_sents)
-        lengths.append(len(doc_sents))
+        sents.extend([sent for sent in doc if len(sent)])
     assert len(sents)
+    lengths = model.ops.asarray([len(s) for s in sents], dtype="i")
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: Sequence[Array]) -> Sequence[Array]:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)

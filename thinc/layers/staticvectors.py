@@ -23,8 +23,8 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
 
 
 def forward(
-    model: Model, ids: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+    model: Model, ids: Array, is_train: bool
+) -> Tuple[Array, Callable]:
     column = model.get_attr("column")
     W = model.get_param("W")
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
@@ -34,7 +34,7 @@ def forward(
     vectors = model.ops.xp.ascontiguousarray(vectors)
     assert vectors.shape[0] == ids.shape[0]
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: Array) -> Array:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
         return model.ops.allocate(ids.shape, dtype=ids.dtype)
 
@@ -43,7 +43,7 @@ def forward(
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
 ) -> None:
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])

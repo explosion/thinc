@@ -25,7 +25,7 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model:
 
 def forward(
     model, X1_X2: InputType, is_train: bool = False
-) -> Tuple[OutputType, Callable]:
+) -> Tuple[Array, Callable]:
     X1, X2 = X1_X2
     W = model.get_param("W")
     diff = X1 - X2
@@ -55,10 +55,10 @@ def init(
     model.set_param("W", W)
 
 
-def inverse(total: Array) -> Array:
-    inverse = 1.0 / (1 + total)
+def inverse(total: Array) -> Tuple[Array, Callable]:
+    inv = 1.0 / (1 + total)
 
     def backward(d_inverse: Array) -> Array:
         return d_inverse * (-1 / (total + 1) ** 2)
 
-    return inverse, backward
+    return inv, backward

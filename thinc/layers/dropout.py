@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, TypeVar, List, Union
 
 from ..model import Model
-from ..types import Array
+from ..types import Array, Ragged
 
 
 InputTypeArray = TypeVar("InputTypeArray", bound=Array)
@@ -24,12 +24,16 @@ def Dropout(rate: float = 0.0) -> Model:
     return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(
+        model: Model,
+        X: Union[Array, List[Array], Ragged],
+        is_train: bool
+) -> Tuple[Union[Array, List[Array], Ragged], Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
-    elif isinstance(X, tuple) and len(X) == 2:
+    elif isinstance(X, Ragged):
         return _dropout_ragged(model, X, is_train)  # type: ignore
     elif isinstance(X, list):
         return _dropout_lists(model, X, is_train)
@@ -38,39 +42,37 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
 
 
 def _dropout_array(
-    model: Model, X: InputTypeArray, is_train: bool
-) -> Tuple[OutputTypeArray, Callable]:
+    model: Model, X: Array, is_train: bool
+) -> Tuple[Array, Callable]:
     rate = model.get_attr("rate")
     mask = model.ops.get_dropout_mask(X.shape, rate)
 
-    def backprop(dY: OutputTypeArray) -> InputTypeArray:
+    def backprop(dY: Array) -> Array:
         return dY * mask
 
     return X * mask, backprop
 
 
-def _dropout_ragged(
-    model: Model, X_lengths: InputTypeRagged, is_train: bool
-) -> Tuple[OutputTypeRagged, Callable]:
-    X, lengths = X_lengths
+def _dropout_ragged(model: Model, Xr: Ragged, is_train: bool) -> Tuple[Ragged, Callable]:
+    X = Xr.data
+    lengths = Xr.lengths
     mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
     Y = X * mask
 
-    def backprop(dY_lengths: OutputTypeRagged) -> InputTypeRagged:
-        dY, lengths = dY_lengths
-        return (dY * mask), lengths
+    def backprop(dYr: Ragged) -> Ragged:
+        return Ragged(dYr.data * mask, dYr.lengths)
 
-    return (Y, lengths), backprop
+    return Ragged(Y, lengths), backprop
 
 
 def _dropout_lists(
-    model: Model, Xs: InputTypeList, is_train: bool
-) -> Tuple[OutputTypeList, Callable]:
+    model: Model, Xs: List[Array], is_train: bool
+) -> Tuple[List[Array], Callable]:
     rate = model.get_attr("rate")
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 
-    def backprop(dYs: OutputTypeList) -> InputTypeList:
+    def backprop(dYs: List[Array]) -> List[Array]:
         return [dY * mask for dY, mask in zip(dYs, masks)]
 
     return Ys, backprop
