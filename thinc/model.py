@@ -90,6 +90,7 @@ class Model:
         attrs: Dict[str, object] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
+        """Initialize a new model."""
         self.name = name
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
@@ -114,26 +115,25 @@ class Model:
                 self.set_grad(name, value)
 
     @property
-    def layers(self):
+    def layers(self) -> List["Model"]:
+        """A list of child layers of the model. You can append to it to add
+        layers but not reassign it.
+        """
         return self._layers
 
     @property
-    def shims(self):
+    def shims(self) -> List[Shim]:
         return self._shims
 
     @classmethod
     @contextlib.contextmanager
     def define_operators(cls, operators: Dict[str, Callable]):
-        """Bind operators to specified functions for the scope of the context:
+        """Bind arbitrary binary functions to Python operators, for use in any
+        `Model` instance. Can (and should) be used as a contextmanager.
 
-        Example:
-            model = Model()
-            other = Model()
-            with Model.define_operators({"+": lambda self, other: "plus"}):
-                print(model + other)
-                # "plus"
-            print(model + other)
-            # Raises TypeError --- binding limited to scope of with block.
+        EXAMPLE:
+            with Model.define_operators({">>": chain}):
+                model = ReLu(512) >> ReLu(512) >> Softmax()
         """
         curr_operators = dict(cls._thread_local.operators)
         cls._thread_local.operators = dict(operators)
@@ -251,36 +251,35 @@ class Model:
         self._attrs[name] = value
 
     def __call__(self, X: Any, is_train: bool = False) -> Tuple[Any, Callable]:
+        """Call the model's `forward` function, returning the output and a
+        callback to compute the gradients via backpropagation."""
         return self._func(self, X, is_train=is_train)
 
     def initialize(self, X: Optional[Any] = None, Y: Optional[Any] = None) -> "Model":
+        """Finish initialization of the model, optionally providing a batch of
+        example input and output data to perform shape inference."""
         if self._init is not None:
             self._init(self, X=X, Y=Y)
         return self
 
     def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
-        """Run the model over a batch of data, returning the output and a callback
-        to complete the backward pass.
-
-        X: A batch of input data.
-
-        RETURNS:
-            A tuple (Y, finish_update), where Y is a batch of output data,
-            and finish_update is a callback that takes the gradient with
-            respect to the output and an optimizer function, and returns
-            the gradient with respect to the input.
+        """Run the model over a batch of data, returning the output and a
+        callback to complete the backward pass. A tuple (Y, finish_update),
+        where Y is a batch of output data, and finish_update is a callback that
+        takes the gradient with respect to the output and an optimizer function,
+        and returns the gradient with respect to the input.
         """
         return self._func(self, X, is_train=True)
 
     def predict(self, X: Any) -> Any:
+        """Call the model's `forward` function with `is_train=False`, and return
+        only the output, instead of the `(output, callback)` tuple.
+        """
         return self._func(self, X, is_train=False)[0]
 
     def finish_update(self, optimizer: Optimizer) -> None:
-        """Update parameters with current gradients.
-
-        optimizer (Callable[array, array, key=None]):
-            The optimizer. The function is called with each parameter and
-            gradient of the model.
+        """Update parameters with current gradients. The optimizer is called
+        with each parameter and gradient of the model.
         """
         optimizer(self._mem.weights, self._mem.gradient, key=self.id)
         for shim in self.shims:
@@ -295,11 +294,9 @@ class Model:
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[int, Array]):
-        """Context manager to temporarily set the model's parameters to specified
-        values.
-
-        params (dict): A dictionary keyed by model IDs, whose values are arrays
-            of weight values.
+        """Context manager to temporarily set the model's parameters to
+        specified values. The params are a dictionary keyed by model IDs, whose
+        values are arrays of weight values.
         """
         backup = None
         weights = self._mem.weights
