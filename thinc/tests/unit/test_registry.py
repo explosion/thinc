@@ -1,4 +1,5 @@
 import pytest
+from typing import Iterable, Union, Sequence
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc._registry
@@ -266,6 +267,7 @@ def test_read_config():
     assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
 
 
+@pytest.mark.xfail(reason="Annotated Iterable[float] type by function argument")
 def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
     result = my_registry.make_from_config(cfg)
@@ -325,3 +327,24 @@ def test_validation_fill_defaults():
     assert result["two"]["evil"] is False
     assert result["two"]["cute"] is True
     assert result["two"]["cute_level"] == 1
+
+
+@pytest.mark.xfail(reason="Annotated Iterable[float] type by function argument")
+def test_validation_generators_iterable():
+    @thinc.registry.optimizers("test_optimizer.v1")
+    def test_optimizer_v1(rate: float, schedule: Union[float, Iterable[float]]) -> None:
+        return None
+
+    @thinc.registry.schedules("test_schedule.v1")
+    def test_schedule_v1(some_value: float = 1.0) -> Iterable[float]:
+        while True:
+            yield some_value
+
+    config = {
+        "optimizer": {
+            "@optimizers": "test_optimizer.v1",
+            "rate": 0.1,
+            "schedule": {"@schedules": "test_schedule.v1", "some_value": 1.0},
+        }
+    }
+    my_registry.make_from_config(config)
