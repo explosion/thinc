@@ -8,15 +8,22 @@ from .with_square_sequences import with_square_sequences
 
 
 def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return with_square_sequences(clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI))), depth))
+    return with_square_sequences(
+        clone(
+            bidirectional(
+                recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth))
 
 
 def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return with_square_sequences(clone(recurrent(LSTM_step(nO=nO, nI=nI)), depth))
+    return with_square_sequences(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth))
 
 
-def LSTM_step(nO=None, nI=None):
+def LSTM_step(nO=None, nI=None, *, dropout=0.0):
     """Create a step model for an LSTM."""
+    if dropout != 0.0:
+        msg = ("LSTM dropout not implemented yet. In the meantime, use the "
+                "PyTorchWrapper and the torch.LSTM class.")
+        raise NotImplementedError(msg)
     model = Model(
         "lstm_step", forward, init=init, layers=[Affine()], dims={"nO": nO, "nI": nI}
     )
