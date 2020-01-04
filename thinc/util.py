@@ -2,6 +2,7 @@ from typing import Iterable, Any, Union, Tuple, Iterator
 import numpy
 import itertools
 import threading
+import random
 
 try:
     import cupy
@@ -17,6 +18,14 @@ except ImportError:
 
 
 from .types import Array, OpNames
+
+
+def fix_random_seed(seed: int = 0) -> None:
+    """Set the random seed across random, numpy.random and cupy.random."""
+    random.seed(seed)
+    numpy.random.seed(seed)
+    if cupy is not None:
+        cupy.random.seed(seed)
 
 
 def create_thread_local(attrs):
@@ -96,6 +105,7 @@ def require_gpu(gpu_id: int = 0) -> bool:
 def get_shuffled_batches(
     X: Array, Y: Array, batch_size
 ) -> Iterable[Tuple[Array, Array]]:
+    """Iterate over paired batches from two arrays, shuffling the indices."""
     xp = get_array_module(X)
     indices = xp.arange(X.shape[0], dtype="i")
     xp.random.shuffle(indices)
@@ -129,10 +139,12 @@ def minibatch(
             yield list(batch)
 
 
-def evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size):
+def evaluate_model_on_arrays(
+    model, dev_X: Array, dev_Y: Array, batch_size: int
+) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
-    to cover all situations -- many applications will have to implement their
+    to cover all situations – many applications will have to implement their
     own evaluation methods.
     """
     score = 0.0

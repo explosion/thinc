@@ -13,7 +13,7 @@ from collections import defaultdict
 import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
-from .types import Array
+from .types import Array, Generator
 from .util import get_array_module
 from ._registry import registry
 
@@ -43,6 +43,7 @@ ADAM_DEFAULTS = {
 @registry.optimizers.register("RAdam.v1")
 def RAdam(
         learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        *,
         beta1: float = ADAM_DEFAULTS["beta1"],
         beta2: float = ADAM_DEFAULTS["beta2"],
         eps: float = ADAM_DEFAULTS["eps"],
@@ -51,7 +52,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Sequence[float]] = None,
+        schedules: Dict[str, Union[Sequence[float], Generator]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -73,6 +74,7 @@ def RAdam(
 @registry.optimizers.register("Adam.v1")
 def Adam(
         learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        *,
         L2: float = ADAM_DEFAULTS["L2"],
         beta1: float = ADAM_DEFAULTS["beta1"],
         beta2: float = ADAM_DEFAULTS["beta2"],
@@ -83,7 +85,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -107,12 +109,13 @@ def Adam(
 @registry.optimizers.register("SGD.v1")
 def SGD(
         learn_rate: float,
+        *,
         ops: Optional[Ops] = None,
         L2: float = SGD_DEFAULTS["L2"],
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -145,14 +148,13 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
         **_,
     ):
         """
+        Initialize an optimizer.
+
         learn_rate (float): The initial learning rate.
-
-        Keyword arguments:
-
         ops (Ops): A backend object. Defaults to the currently selected backend.
         L2 (float): The L2 regularization term.
         beta1 (float): First-order momentum.
@@ -166,7 +168,7 @@ class Optimizer(object):
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         schedules (dict): Dictionary mapping hyper-parameter names to value
-            sequences. On each call to optimizer.step_schedules(), the named
+            iterables. On each call to optimizer.step_schedules(), the named
             hyper-parameters are replaced with the next item from the generator.
         """
         self.ops = ops if ops is not None else get_current_ops()
@@ -220,7 +222,7 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key):
+    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key) -> None:
         if len(gradient) < 1:
             return
         xp = get_array_module(weights)

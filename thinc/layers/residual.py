@@ -27,17 +27,18 @@ def Residual(layer: Model) -> Model:
 
 
 def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
-    y, bp_y = model.layers[0].begin_update(X)
+    Y: OutputType
+    Y, backprop_layer = model.layers[0](X, is_train)
     if isinstance(X, list):
-        output = [X[i] + y[i] for i in range(len(X))]
-    elif isinstance(X, tuple) and isinstance(y, tuple) and len(X) == 2:
+        output = [X[i] + Y[i] for i in range(len(X))]
+    elif isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
         # Handle case where we have (data, lengths) tuple
-        output = (X[0] + y[0], y[1])  # type: ignore
+        output = (X[0] + Y[0], Y[1])  # type: ignore
     else:
-        output = X + y
+        output = X + Y
 
     def backprop(d_output: OutputType) -> InputType:
-        dX = bp_y(d_output)
+        dX = backprop_layer(d_output)
         if isinstance(d_output, list) or isinstance(d_output, tuple):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
         else:

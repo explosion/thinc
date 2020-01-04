@@ -12,18 +12,24 @@ class Config(dict):
     under the hood.
     """
 
-    def __init__(self, data: Optional[Union[Dict[str, Any], "Config"]] = None) -> None:
+    def __init__(
+        self, data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None
+    ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
         if data is None:
             data = {}
         self.update(data)
 
-    def interpret_config(self, config: Union[Dict[str, Any], "Config"]):
+    def interpret_config(self, config: Union[Dict[str, Any], "ConfigParser"]):
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
         for section, values in config.items():
+            if section == "DEFAULT":
+                # Skip [DEFAULT] section for now since it causes validation
+                # errors and we don't want to use it
+                continue
             parts = section.split(".")
             node = self
             for part in parts:
