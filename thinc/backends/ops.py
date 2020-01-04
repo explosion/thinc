@@ -180,16 +180,32 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def sigmoid(self, X):
-        return 1.0 / (1.0 + self.xp.exp(-X))
+    def sigmoid(self, X: Array, *, inplace=False) -> Array:
+        if inplace:
+            self.xp.exp(-X, out=X)
+            X += 1.0
+            X **= -1.0
+            return X
+        else:
+            return 1.0 / (1.0 + self.xp.exp(-X))
 
-    def dsigmoid(self, y):
-        return y * (1 - y)
+    def dsigmoid(self, Y: Array, *, inplace=False) -> Array:
+        if inplace:
+            Y *= 1-Y
+            return Y
+        else:
+            return Y * (1.0 - Y)
 
-    def dtanh(self, y):
-        return 1 - y ** 2
+    def dtanh(self, Y: Array, *, inplace=False) -> Array:
+        if inplace:
+            Y **= 2
+            Y *= -1.0
+            Y += 1.0
+            return Y
+        else:
+            return 1 - Y ** 2
 
-    def softmax(self, x: Array, inplace: bool = False, axis: int = -1) -> Array:
+    def softmax(self, x: Array, *, inplace: bool = False, axis: int = -1) -> Array:
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
