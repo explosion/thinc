@@ -149,10 +149,9 @@ class Optimizer(object):
         **_,
     ):
         """
+        Initialize an optimizer.
+
         learn_rate (float): The initial learning rate.
-
-        Keyword arguments:
-
         ops (Ops): A backend object. Defaults to the currently selected backend.
         L2 (float): The L2 regularization term.
         beta1 (float): First-order momentum.
@@ -220,7 +219,7 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key):
+    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key) -> None:
         if len(gradient) < 1:
             return
         xp = get_array_module(weights)
