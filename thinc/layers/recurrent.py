@@ -5,7 +5,7 @@ from ..types import Array
 
 def recurrent(step_model: Model) -> Model:
     model = Model(
-        step_model.name,
+        step_model.name.replace("_step", ""),
         forward,
         init=init,
         params={"initial_cells": None, "initial_hiddens": None},
