@@ -94,7 +94,7 @@ class Ops:
         lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
-            pad_to = lengths.max()
+            pad_to = int(lengths.max())
         arr = self.allocate(
             (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
         )
