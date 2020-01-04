@@ -349,3 +349,14 @@ def test_validation_generators_iterable():
         }
     }
     my_registry.make_from_config(config)
+
+
+def test_validation_unset_type_hints():
+    """Test that unset type hints are handled correctly (and treated as Any)."""
+
+    @thinc.registry.optimizers("test_optimizer.v2")
+    def test_optimizer_v2(rate, steps: int = 10) -> None:
+        return None
+
+    config = {"test": {"@optimizers": "test_optimizer.v2", "rate": 0.1, "steps": 20}}
+    my_registry.make_from_config(config)
