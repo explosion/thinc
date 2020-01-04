@@ -1,4 +1,4 @@
-from typing import Callable, TypeVar
+from typing import Callable, TypeVar, Tuple
 
 from ..data import Ragged
 from ..model import Model
