@@ -214,11 +214,12 @@ class registry(object):
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
+            annotation = param.annotation if param.annotation != param.empty else Any
             # If no default value is specified assume that it's required
             if param.default != param.empty:
-                sig_args[param.name] = (param.annotation, param.default)
+                sig_args[param.name] = (annotation, param.default)
             else:
-                sig_args[param.name] = (param.annotation, ...)
+                sig_args[param.name] = (annotation, ...)
         sig_args["__config__"] = _PromiseSchemaConfig
         return create_model("ArgModel", **sig_args)
 
