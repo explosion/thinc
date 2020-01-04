@@ -1,7 +1,7 @@
 from typing import Optional, Tuple
 from ..backends import Ops
 from ..model import Model
-from ..types import Array, Padded
+from ..types import Padded
 
 
 def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
@@ -21,8 +21,8 @@ def forward(model: Model, X: Padded, is_train: bool):
 
     def backprop(dZ, sgd=None):
         d_l2r_Z, d_r2l_Z = _split(model.ops, dZ)
-        dXs_l2r = bp_l2r_Zs(d_l2r_Z)
-        dXs_r2l = bp_r2l_Zs(d_r2l_Z)
+        dX_l2r = bp_l2r_Z(d_l2r_Z)
+        dX_r2l = bp_r2l_Z(d_r2l_Z)
         return _sum(dX_l2r, dX_r2l)
 
     return Z, backprop
