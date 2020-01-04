@@ -39,7 +39,6 @@ class registry(object):
     optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules = catalogue.create("thinc", "schedules", entry_points=True)
     layers = catalogue.create("thinc", "layers", entry_points=True)
-    visualizers = catalogue.create("thinc", "visualizers", entry_points=True)
 
     @classmethod
     def create(cls, registry_name: str, entry_points: bool = False) -> None:

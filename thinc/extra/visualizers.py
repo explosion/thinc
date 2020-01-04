@@ -1,7 +1,6 @@
 from typing import Dict, Union, Optional
 from pathlib import Path
 
-from .._registry import registry
 from ..model import Model
 
 try:
@@ -12,7 +11,6 @@ except ImportError:
     has_pydot = False
 
 
-@registry.visualizers("pydot.v1")
 def pydot_visualizer(
     model: Model,
     *,
