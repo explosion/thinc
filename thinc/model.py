@@ -10,6 +10,7 @@ from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .backends.mem import Memory
 from .shims import Shim
+from .visualizer import model_to_dot, export_dot, VisualizerFormats
 from .util import copy_array, get_width, create_thread_local
 from .types import Array
 
@@ -360,6 +361,18 @@ class Model:
             if is_allocated:
                 copied.set_grad(name, self.get_grad(name))
         return copied
+
+    def visualize(
+        self,
+        *,
+        output: Optional[Union[Path, str]] = None,
+        file_format: VisualizerFormats = VisualizerFormats.SVG,
+    ):
+        # TODO: Which settings should we expose via Model.visualize?
+        dot = model_to_dot(self)
+        if output is not None:
+            export_dot(dot, output, file_format=file_format)
+        return dot
 
     def to_gpu(self, device_num: int) -> None:
         """Transfer the model to a given GPU device."""
