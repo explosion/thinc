@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Tuple
 from numpy import prod
 from ..types import Array, Shape
-from .backends import Ops
+from .ops import Ops
 
 
 class Memory:
