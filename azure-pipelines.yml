@@ -5,7 +5,6 @@ trigger:
     - '*'
 
 jobs:
-
 - job: 'Test'
   strategy:
     matrix:
@@ -46,6 +45,9 @@ jobs:
       python setup.py build_ext --inplace
       python setup.py sdist --formats=gztar
     displayName: 'Build sdist'
+
+  - script: python -m mypy thinc
+    displayName: 'Run mypy'
 
   - task: DeleteFiles@1
     inputs:
