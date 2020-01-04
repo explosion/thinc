@@ -7,9 +7,9 @@ InputType = TypeVar("InputType", bound=List[Array])
 OutputType = TypeVar("OutputType", bound=List[Array])
 
 
-def with_flatten(layer: Model, *, pad: int = 0) -> Model:
+def with_list2array(layer: Model, *, pad: int = 0) -> Model:
     return Model(
-        f"with_flatten-{layer.name}",
+        f"with_list2array-{layer.name}",
         forward,
         init=init,
         layers=[layer],
@@ -18,18 +18,20 @@ def with_flatten(layer: Model, *, pad: int = 0) -> Model:
 
 
 def forward(
-    model: Model, seqs_in: InputType, is_train: bool
+    model: Model, Xs: InputType, is_train: bool
 ) -> Tuple[OutputType, Callable]:
     layer = model.layers[0]
     pad = model.get_attr("pad")
-    lengths = layer.ops.asarray([len(seq) for seq in seqs_in])
-    X, bp_layer = layer.begin_update(layer.ops.flatten(seqs_in, pad=pad))
+    lengths = layer.ops.asarray([len(seq) for seq in Xs])
+    Xf = layer.ops.flatten(Xs, pad=pad)
+    Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(d_seqs_out: OutputType) -> InputType:
-        d_X = bp_layer(layer.ops.flatten(d_seqs_out, pad=pad))
-        return layer.ops.unflatten(d_X, lengths, pad=pad)
+    def backprop(dYs: OutputType) -> InputType:
+        dYf = layer.ops.flatten(dYs, pad=pad)
+        dXf = get_dXf(dYf)
+        return layer.ops.unflatten(dXf, lengths, pad=pad)
 
-    return layer.ops.unflatten(X, lengths, pad=pad), backprop
+    return layer.ops.unflatten(Yf, lengths, pad=pad), backprop
 
 
 def init(

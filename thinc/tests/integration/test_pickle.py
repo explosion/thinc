@@ -1,6 +1,6 @@
 import pytest
 from srsly import pickle_loads, pickle_dumps
-from thinc.layers.with_flatten import with_flatten
+from thinc.layers.with_list2array import with_list2array
 from thinc.layers.affine import Affine
 
 
@@ -11,7 +11,7 @@ def affine():
 
 def test_pickle_with_flatten(affine):
     Xs = [affine.ops.allocate((2, 3)), affine.ops.allocate((4, 3))]
-    model = with_flatten(affine)
+    model = with_list2array(affine)
     pickled = pickle_dumps(model)
     loaded = pickle_loads(pickled)
     Ys = loaded.predict(Xs)
