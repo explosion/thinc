@@ -39,26 +39,25 @@ def init(model, X=None, Y=None):
 def forward(model, prevstate_inputs, is_train):
     (cell_tm1, hidden_tm1), inputs = prevstate_inputs
     weights = model.layers[0]
-    nI = model.get_dim("nI")
-    nO = model.get_dim("nO")
-    nB = inputs.shape[0]
+    nI = inputs.shape[1]
     X = model.ops.xp.hstack((inputs, hidden_tm1))
 
-    Y, bp_acts = weights(X, is_train)
-    acts = Y.reshape((nB, 4, nO)).transpose((1, 0, 2))
+    acts, bp_acts = weights(X, is_train)
     (cells, hiddens), bp_gates = _gates_forward(model.ops, acts, cell_tm1)
 
     def backprop(d_state_d_hiddens):
         (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
         d_acts, d_cell_tm1 = bp_gates(d_cells, d_hiddens)
-        dY = d_acts.transpose((1, 0, 2)).reshape((nB, 4 * nO))
-        dX = bp_acts(dY)
+        dX = bp_acts(d_acts)
         return (d_cell_tm1, dX[:, nI:]), dX[:, :nI]
 
     return ((cells, hiddens), hiddens), backprop
 
 
 def _gates_forward(ops, acts, prev_cells):
+    nB = acts.shape[0]
+    nO = acts.shape[1] // 4
+    acts = acts.reshape((nB, 4, nO)).transpose((1, 0, 2))
     new_cells = ops.allocate(prev_cells.shape)
     new_hiddens = ops.allocate(prev_cells.shape)
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
@@ -72,6 +71,7 @@ def _gates_forward(ops, acts, prev_cells):
         ops.backprop_lstm(
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
+        d_acts = d_acts.transpose((1, 0, 2)).reshape((nB, 4 * nO))
         return d_acts, d_prevcells
 
     return (new_cells, new_hiddens), backprop_gates
