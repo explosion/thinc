@@ -3,8 +3,10 @@ from typing import Tuple, Callable, List, Optional, TypeVar
 from ..model import Model
 from ..types import Array
 
-InputType = TypeVar("InputType", bound=List[Array])
-OutputType = TypeVar("OutputType", bound=List[Array])
+InputValue = TypeVar("InputValue", bound=Array)
+InputType = List[InputValue]
+OutputValue = TypeVar("OutputValue", bound=Array)
+OutputType = List[OutputValue]
 
 
 def with_list2array(layer: Model, *, pad: int = 0) -> Model:

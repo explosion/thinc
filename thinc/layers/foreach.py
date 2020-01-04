@@ -3,8 +3,10 @@ from typing import Tuple, Callable, Optional, List, Sequence, TypeVar
 from ..model import Model
 
 
-InputType = TypeVar("InputType", bound=List[Sequence])
-OutputType = TypeVar("OutputType", bound=List[Sequence])
+InputValue = TypeVar("InputValue", bound=Sequence)
+InputType = List[InputValue]
+OutputValue = TypeVar("OutputValue", bound=Sequence)
+OutputType = List[OutputValue]
 
 
 def foreach(layer: Model) -> Model:

@@ -5,8 +5,8 @@ from ..types import Array, Ragged
 
 
 InputValue = TypeVar("InputValue", bound=Array)
-InputType = TypeVar("InputType", bound=List[InputValue])
-OutputType = TypeVar("OutputType", bound=Ragged)
+InputType = List[InputValue]
+OutputType = Ragged
 
 
 def list2ragged() -> Model:

@@ -5,7 +5,7 @@ from ..types import Array, Ragged
 
 
 InputValue = TypeVar("InputValue", bound=Array)
-InputType = TypeVar("InputType", bound=Ragged)
+InputType = Ragged
 OutputType = List[InputValue]
 
 
