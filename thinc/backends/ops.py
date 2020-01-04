@@ -262,37 +262,39 @@ class Ops:
             dX__bop[:, :, i] += dX__bo * (which__bo == i)
         return dX__bop
 
-    def lstm(self, output, cells, act_pieces, prev):
-        hf, hi, ho, hc = act_pieces
-        hf[:] = self.sigmoid(hf)
-        hi[:] = self.sigmoid(hi)
-        ho[:] = self.sigmoid(ho)
-        hc[:] = self.xp.tanh(hc)
+    def lstm(self, output, cells, acts, prev):
+        # Activations is: hf, hi, ho, hc
+        self.sigmoid(acts[0], inplace=True)
+        self.sigmoid(acts[1], inplace=True)
+        self.sigmoid(acts[2], inplace=True)
+        self.xp.tanh(acts[3], out=acts[3])
 
-        cells[:] = hf * prev + hi * hc
-        output[:] = self.xp.tanh(cells) * ho
+        cells[:] = acts[0]
+        cells *= prev
+        cells += acts[1] * acts[3]
+        self.xp.tanh(cells, out=output)
+        output *= acts[2]
 
     def backprop_lstm(
-        self, d_cells, d_prev, d_gate_pieces, d_output, gate_pieces, cells, prev
+        self, d_cells, d_prev, d_gates, d_output, gates, cells, prev
     ):
-        hf, hi, ho, hc = gate_pieces
-        dhf, dhi, dho, dhc = d_gate_pieces
+        (hf, hi, ho, hc) = (0, 1, 2, 3)
 
-        ct = self.xp.tanh(cells)
+        cells_tanh = self.xp.tanh(cells)
 
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        dho[:] = ct * d_output * self.dsigmoid(ho)
-        dc = ho * d_output * self.dtanh(ct)
-        dc += d_cells  # Carry gradient from previous step
+        d_gates[ho] = cells_tanh
+        d_gates[ho] *= d_output * self.dsigmoid(gates[ho])
+        d_prevcells = gates[ho] * d_output * self.dtanh(cells_tanh)
+        d_prevcells += d_cells  # Carry gradient from timestep
 
         # Gradient for hf, hi, hc, prev[i]
         # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        dhf[:] = self.dsigmoid(hf) * dc * prev
-        dhi[:] = self.dsigmoid(hi) * dc * hc
-        dhc[:] = self.dtanh(hc) * dc * hi
-
-        d_prev[:] = dc * hf
-        copy_array(d_cells, dc)
+        d_gates[hf] = self.dsigmoid(gates[hf]) * d_prevcells * prev
+        d_gates[hi] = self.dsigmoid(gates[1]) * d_prevcells * gates[hc]
+        d_gates[hc] = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
+        d_prev[:] = d_prevcells * gates[hf]
+        copy_array(d_cells, d_prevcells)
 
     def softplus(
         self, X, threshold: float = 20.0, out: Optional[Array] = None
