@@ -40,9 +40,9 @@ def test_get_dropout_empty(ops):
     drop = 0.0
     mask = ops.get_dropout_mask(shape, drop)
     if drop <= 0.0:
-        assert mask is None
+        assert mask[mask==1.0].all()
     else:
-        assert mask is not None
+        assert mask[mask!=1.0].all()
 
 
 def test_get_dropout_not_empty(ops):
@@ -50,9 +50,9 @@ def test_get_dropout_not_empty(ops):
     drop = 0.1
     mask = ops.get_dropout_mask(shape, drop)
     if drop <= 0.0:
-        assert mask is None
+        assert mask[mask==1.0].all()
     else:
-        assert mask is not None
+        assert mask[mask!=1.0].all()
     assert mask.shape == shape
     assert all(value >= 0 for value in mask.flatten())
 
