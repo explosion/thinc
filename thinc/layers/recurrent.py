@@ -32,6 +32,7 @@ def forward(model: Model, X_size_at_t: Tuple[Array, Array], is_train: bool):
     # records the number of batch items that are still active at timestep t.
     X, size_at_t = X_size_at_t
     step_model = model.layers[0]
+    nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
     Y = model.ops.allocate((X.shape[0], X.shape[1], nO))
     backprops = [None] * X.shape[0]
@@ -46,18 +47,16 @@ def forward(model: Model, X_size_at_t: Tuple[Array, Array], is_train: bool):
 
     def backprop(dY_size_at_t):
         dY, size_at_t = dY_size_at_t
-        d_cell = step_model.ops.allocate((dY.shape[1], nO)),
-        d_hidden = step_model.ops.allocate((dY.shape[1], nO)),
+        d_state = (
+            step_model.ops.allocate((dY.shape[1], nO)),
+            step_model.ops.allocate((dY.shape[1], nO))
+        )
         dX = step_model.ops.allocate((dY.shape[0], dY.shape[1], nI))
         for t in range(dX.shape[0] - 1, -1, -1):
-            # Is this right? It feels strange to pass in the too-long buffer.
-            # Can't we just pass in d_cell_t??
-            (d_cell_t, d_hidden_t), dXt = backprops[t](((d_cell, d_hidden), dY[t]))
-            d_cell[: d_state_t[0].shape[0]] = d_state_t[0]
-            d_hidden[: d_state_t[1].shape[0]] = d_state_t[1]
-            dX[t, : dXt.shape[0]] = dXt
-        step_model.inc_grad("initial_cells", d_cell.sum(axis=0))
-        step_model.inc_grad("initial_hiddens", d_hidden.sum(axis=0))
+            n = size_at_t[t]
+            d_state, dX[t, :n] = backprops[t]((d_state, dY[t]))
+        model.inc_grad("initial_cells", d_state[0].sum(axis=0))
+        model.inc_grad("initial_hiddens", d_state[1].sum(axis=0))
         return (dX, size_at_t)
 
     return (Y, size_at_t), backprop
