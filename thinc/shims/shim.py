@@ -27,16 +27,16 @@ class Shim:
         self._optimizer = None
 
     def __call__(
-        self, args: List, kwargs: Dict, is_train: bool
+        self, args: Tuple, kwargs: Dict, is_train: bool
     ) -> Tuple[Any, Callable[[Any], Any]]:
         raise NotImplementedError
 
-    def predict(self, args: List, kwargs: Dict) -> Any:
+    def predict(self, args: Tuple, kwargs: Dict) -> Any:
         Y, backprop = self(args, kwargs, is_train=False)
         return Y
 
     def begin_update(
-        self, args: List, kwargs: Dict
+        self, args: Tuple, kwargs: Dict
     ) -> Tuple[Any, Callable[[Any], Any]]:
         return self(args, kwargs, is_train=True)
 
