@@ -12,7 +12,6 @@ def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
 
 def forward(model: Model, Xs: Tuple[Array, Array], is_train: bool):
     l2r, r2l = model.layers
-    nO = model.get_dim("nO")
 
     Xs_rev = _reverse(model.ops, Xs)
     l2r_Zs, bp_l2r_Zs = l2r(Xs, is_train)
