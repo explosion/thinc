@@ -14,9 +14,7 @@ def ragged2list() -> Model:
     return Model("ragged2list", forward)
 
 
-def forward(
-    model: Model, Xr: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, Xr: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     lengths = Xr.lengths
 
     def backprop(dXs: OutputType) -> InputType:

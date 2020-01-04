@@ -9,14 +9,10 @@ OutputType = TypeVar("OutputType", bound=List[Array])
 
 
 def with_list2padded(layer: Model) -> Model:
-    return Model(
-        f"with_list2padded-{layer.name}", forward, init=init, layers=[layer]
-    )
+    return Model(f"with_list2padded-{layer.name}", forward, init=init, layers=[layer])
 
 
-def forward(
-    model: Model, Xs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, Xs: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     # Pad out batches, and sort by decreasing length. The size_at_t array records
     # the number of batch items that are still active at timestep t.
     # We undo this transformation
@@ -36,8 +32,7 @@ def init(
 ) -> None:
 
     model.layers[0].initialize(
-        X=_maybe_get_padded(model.ops, X),
-        Y=_maybe_get_padded(model.ops, Y)
+        X=_maybe_get_padded(model.ops, X), Y=_maybe_get_padded(model.ops, Y)
     )
 
 

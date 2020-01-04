@@ -139,7 +139,9 @@ def minibatch(
             yield list(batch)
 
 
-def evaluate_model_on_arrays(model, dev_X: Array, dev_Y: Array, batch_size: int) -> float:
+def evaluate_model_on_arrays(
+    model, dev_X: Array, dev_Y: Array, batch_size: int
+) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
     to cover all situations – many applications will have to implement their

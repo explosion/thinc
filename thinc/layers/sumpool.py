@@ -13,9 +13,7 @@ def SumPool() -> Model:
     return Model("sum_pool", forward)
 
 
-def forward(
-    model: Model, Xr: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, Xr: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     Y = model.ops.sum_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

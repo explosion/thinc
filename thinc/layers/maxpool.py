@@ -13,9 +13,7 @@ def MaxPool() -> Model:
     return Model("max_pool", forward)
 
 
-def forward(
-    model: Model, Xr: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, Xr: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     Y, which = model.ops.max_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

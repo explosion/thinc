@@ -17,9 +17,7 @@ def with_list2array(layer: Model, *, pad: int = 0) -> Model:
     )
 
 
-def forward(
-    model: Model, Xs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, Xs: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     layer = model.layers[0]
     pad = model.get_attr("pad")
     lengths = layer.ops.asarray([len(seq) for seq in Xs])

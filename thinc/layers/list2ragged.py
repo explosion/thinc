@@ -17,10 +17,7 @@ def list2ragged() -> Model:
     return Model("list2ragged", forward)
 
 
-def forward(
-    model: Model, Xs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
-
+def forward(model: Model, Xs: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
     def backprop(dYr: OutputType) -> InputType:
         return model.ops.unflatten(dYr.data, dYr.lengths)
 
