@@ -13,7 +13,7 @@ def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
 def forward(model: Model, Xs: Tuple[Array, Array], is_train: bool):
     l2r, r2l = model.layers
     nO = model.get_dim("nO")
-    
+
     Xs_rev = _reverse(model.ops, Xs)
     l2r_Zs, bp_l2r_Zs = l2r(Xs, is_train)
     r2l_Zs, bp_r2l_Zs = r2l(Xs_rev, is_train)
@@ -27,8 +27,10 @@ def forward(model: Model, Xs: Tuple[Array, Array], is_train: bool):
 
     return Zs, backprop
 
+
 # The padded format with the auxiliary array is a bit quirky, so isolate
 # the operations on it so that the code above doesn't have to think about it.
+
 
 def _reverse(ops, X_size_at_t):
     X, size_at_t = X_size_at_t
@@ -54,4 +56,4 @@ def _split(ops, X_size_at_t):
 def _sum(ops, X_size_at_t, Y_size_at_t):
     X, size_at_t = X_size_at_t
     Y, size_at_t = Y_size_at_t
-    return (X+Y, size_at_t)
+    return (X + Y, size_at_t)

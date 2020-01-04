@@ -10,7 +10,7 @@ def recurrent(step_model: Model) -> Model:
         init=init,
         params={"initial_cells": None, "initial_hiddens": None},
         dims={"nO": step_model.get_dim("nO") if step_model.has_dim("nO") else None},
-        layers=[step_model]
+        layers=[step_model],
     )
     if model.has_dim("nO"):
         model.initialize()
@@ -49,7 +49,7 @@ def forward(model: Model, X_size_at_t: Tuple[Array, Array], is_train: bool):
         dY, size_at_t = dY_size_at_t
         d_state = (
             step_model.ops.allocate((dY.shape[1], nO)),
-            step_model.ops.allocate((dY.shape[1], nO))
+            step_model.ops.allocate((dY.shape[1], nO)),
         )
         dX = step_model.ops.allocate((dY.shape[0], dY.shape[1], nI))
         for t in range(dX.shape[0] - 1, -1, -1):

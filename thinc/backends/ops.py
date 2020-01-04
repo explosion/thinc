@@ -191,7 +191,7 @@ class Ops:
 
     def dsigmoid(self, Y: Array, *, inplace=False) -> Array:
         if inplace:
-            Y *= 1-Y
+            Y *= 1 - Y
             return Y
         else:
             return Y * (1.0 - Y)
@@ -275,9 +275,7 @@ class Ops:
         self.xp.tanh(cells, out=output)
         output *= acts[2]
 
-    def backprop_lstm(
-        self, d_cells, d_prev, d_gates, d_output, gates, cells, prev
-    ):
+    def backprop_lstm(self, d_cells, d_prev, d_gates, d_output, gates, cells, prev):
         (hf, hi, ho, hc) = (0, 1, 2, 3)
 
         cells_tanh = self.xp.tanh(cells)

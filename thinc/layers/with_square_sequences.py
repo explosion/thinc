@@ -19,7 +19,7 @@ def forward(
 ) -> Tuple[OutputType, Callable]:
     # Pad out batches, and sort by decreasing length. The size_at_t array records
     # the number of batch items that are still active at timestep t.
-    # We undo this transformation 
+    # We undo this transformation
     lengths = model.ops.asarray([len(seq) for seq in seqs_in], dtype="i")
     padded_in, size_at_t, unpad = model.ops.square_sequences(seqs_in)
     (padded_out, _), backprop_layer = model.layers[0]((padded_in, size_at_t), is_train)

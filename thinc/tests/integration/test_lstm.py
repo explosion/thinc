@@ -25,10 +25,7 @@ def test_square_sequences():
     assert unpadded[2].shape == (2, 4)
 
 
-@pytest.mark.parametrize(
-    "nO,nI",
-    [(1, 2), (2, 2), (100, 200), (9, 6)]
-)
+@pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
     model = LSTM(nO, nI)
     for node in model.walk():
@@ -41,10 +38,10 @@ def test_LSTM_init_with_sizes(nO, nI):
         # Check param sizes.
         if node.has_param("W"):
             W = node.get_param("W")
-            assert W.shape == (nO*4, nO+nI)
+            assert W.shape == (nO * 4, nO + nI)
         if node.has_param("b"):
             b = node.get_param("b")
-            assert b.shape == (nO*4,)
+            assert b.shape == (nO * 4,)
         if node.has_param("initial_hiddens"):
             initial_hiddens = node.get_param("initial_hiddens")
             assert initial_hiddens.shape == (nO,)
