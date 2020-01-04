@@ -17,13 +17,17 @@ def with_square_sequences(layer: Model) -> Model:
 def forward(
     model: Model, seqs_in: InputType, is_train: bool
 ) -> Tuple[OutputType, Callable]:
-    padded_in, _, unpad = model.ops.square_sequences(seqs_in)
-    (padded_out, _), backprop_layer = model.layers[0](padded_in, is_train)
+    # Pad out batches, and sort by decreasing length. The size_at_t array records
+    # the number of batch items that are still active at timestep t.
+    # We undo this transformation 
+    lengths = model.ops.asarray([len(seq) for seq in seqs], dtype="i")
+    padded_in, size_at_t, unpad = model.ops.square_sequences(seqs_in)
+    (padded_out, _), backprop_layer = model.layers[0]((padded_in, size_at_t), is_train)
     seqs_out = unpad(padded_out)
 
     def backprop(d_seqs_out: OutputType) -> InputType:
         d_padded_out, sizes_at_t, unpad = model.ops.square_sequences(d_seqs_out)
-        d_padded_in = backprop_layer((d_padded_out, None))
+        (d_padded_in, _) = backprop_layer((d_padded_out, size_at_t))
         return unpad(d_padded_in)
 
     return seqs_out, backprop
