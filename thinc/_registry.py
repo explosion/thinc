@@ -14,13 +14,14 @@ class ConfigValidationError(ValueError):
         self,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         errors: List[Dict[str, Any]],
+        message: str = "Config validation error",
     ) -> None:
         """Custom error for validating configs."""
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
             data.append((err_loc, error.get("msg")))
-        result = ["Config validation error", table(data), f"{config}"]
+        result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
@@ -128,11 +129,12 @@ class registry(object):
                 args, kwargs = cls.parse_args(filled[key])
                 try:
                     validation[key] = getter(*args, **kwargs)
-                except TypeError:
-                    # Required arguments are missing etc. We don't need to raise
-                    # here, since this will happen in parse_obj (if validation
-                    # is enabled)
-                    validation[key] = None
+                except TypeError as err:
+                    print(getter)
+                    err_msg = "Can't construct config: calling registry function failed"
+                    raise ConfigValidationError(
+                        {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
+                    )
                 if isinstance(validation[key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
