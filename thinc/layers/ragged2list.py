@@ -1,12 +1,11 @@
 from typing import Tuple, Callable, TypeVar, List
 
 from ..model import Model
-from ..data import Ragged
-from ..types import Array
+from ..types import Array, Ragged
 
 
 InputValue = TypeVar("InputValue", bound=Array)
-InputType = TypeVar("InputType", bound=Ragged[InputValue])
+InputType = TypeVar("InputType", bound=Ragged)
 OutputType = List[InputValue]
 
 

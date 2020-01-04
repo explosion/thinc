@@ -1,8 +1,7 @@
 from typing import Tuple, List, Callable, TypeVar
 
 from ..model import Model
-from ..data import Ragged
-from ..types import Array
+from ..types import Array, Ragged
 
 
 InputValue = TypeVar("InputValue", bound=Array)
