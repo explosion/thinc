@@ -4,14 +4,15 @@ from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .affine import Affine
+from .with_square_sequences import with_square_sequences
 
 
 def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI))), depth)
+    return with_square_sequences(clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI))), depth))
 
 
 def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return clone(recurrent(LSTM_step(nO=nO, nI=nI)), depth)
+    return with_square_sequences(clone(recurrent(LSTM_step(nO=nO, nI=nI)), depth))
 
 
 def LSTM_step(nO=None, nI=None):
