@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, Tuple, Callable, Generic, TypeVar
+from typing import Union, Tuple, Callable, TypeVar
 
 from enum import Enum
 
@@ -32,21 +32,18 @@ class OpNames(str, Enum):
     gpu = "gpu"
 
 
-_RaggedDataType = TypeVar("DataType", bound=Array)
-
 @dataclass
-class Ragged(Generic[_RaggedDataType]):
-    data: DataType
+class Ragged:
+    data: Array
     lengths: Array
 
 
-_PaddedDataType = TypeVar("DataType", bound=Array)
 @dataclass
-class Padded(Generic[_PaddedDataType]):
+class Padded:
     """A batch of padded sequences, sorted by decreasing length. The data array
     is of shape (batch, step, ...). The auxiliary array size_at_t indicates the
     length of the batch at each timestep, so you can do data[:size_at_t[t]] to
     shrink the batch. 
     """
-    data: _PaddedDataType
+    data: Array
     size_at_t: Array
