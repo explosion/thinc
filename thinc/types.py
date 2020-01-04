@@ -1,5 +1,14 @@
 from typing import Union, Tuple, Callable, Iterator
 from enum import Enum
+import numpy
+
+
+try:
+    import cupy
+
+    xp = cupy
+except ImportError:
+    xp = numpy
 
 
 Array = Union["numpy.ndarray", "cupy.ndarray"]  # type: ignore
@@ -22,6 +31,53 @@ class Generator(Iterator):
             raise TypeError("not a valid iterator")
         return v
 
+
+def validate_array(obj):
+    if not isinstance(obj, xp.ndarray):
+        raise TypeError("not a valid numpy or cupy array")
+    return obj
+
+
+def validate_array_dims(obj, expected_ndim):
+    if obj.ndim != expected_ndim:
+        err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
+        raise ValueError(err)
+    return obj
+
+
+def validate_array_dtype(obj, expected_dtype):
+    if obj.dtype != expected_dtype:
+        err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
+        raise ValueError(err)
+    return obj
+
+
+def get_array_validators(*, ndim, dtype):
+    return (
+        lambda v: validate_array(v),
+        lambda v: validate_array_dims(v, ndim),
+        lambda v: validate_array_dtype(v, dtype),
+    )
+
+
+class Floats1d(xp.ndarray):
+    """1-dimensional array of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=1, dtype=xp.float32):
+            yield validator
+
+
+class Floats2d(xp.ndarray):
+    """2-dimensional array of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=2, dtype=xp.float32):
+            yield validator
+
+
 Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
 
 
@@ -41,7 +97,7 @@ class DocType:
 
 
 class OpNames(str, Enum):
-    numpy = "numpy"
+    np = "numpy"
     cpu = "cpu"
-    cupy = "cupy"
+    cp = "cupy"
     gpu = "gpu"
