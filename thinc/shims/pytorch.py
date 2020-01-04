@@ -13,7 +13,6 @@ try:
     import torch.autograd
     import torch.optim
     import torch
-    from torch.nn import Module as PyTorchModule
 except ImportError:
     has_torch = False
 
