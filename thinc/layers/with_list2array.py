@@ -27,7 +27,7 @@ def forward(
     Yf, get_dXf = layer(Xf, is_train)
 
     def backprop(dYs: OutputType) -> InputType:
-        dYf = layer.ops.flatten(dXs, pad=pad)
+        dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
 
