@@ -65,9 +65,10 @@ def forward(model, prevstate_inputs, is_train):
 def _gates_forward(ops, acts, prev_cells):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
-    acts = acts.reshape((nB, 4, nO)).transpose((1, 0, 2))
+    acts = acts.reshape((nB, nO, 4))
     new_cells = ops.allocate(prev_cells.shape)
     new_hiddens = ops.allocate(prev_cells.shape)
+
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
     size = new_cells.shape[0]
 
@@ -79,7 +80,7 @@ def _gates_forward(ops, acts, prev_cells):
         ops.backprop_lstm(
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
-        d_acts = d_acts.transpose((1, 0, 2)).reshape((nB, 4 * nO))
+        d_acts = d_acts.reshape((nB, nO * 4))
         return d_acts, d_prevcells
 
     return (new_cells, new_hiddens), backprop_gates
