@@ -23,9 +23,7 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model:
     )
 
 
-def forward(
-    model, X1_X2: InputType, is_train: bool = False
-) -> Tuple[Array, Callable]:
+def forward(model, X1_X2: InputType, is_train: bool = False) -> Tuple[Array, Callable]:
     X1, X2 = X1_X2
     W = model.get_param("W")
     diff = X1 - X2

@@ -22,9 +22,7 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
     )
 
 
-def forward(
-    model: Model, ids: Array, is_train: bool
-) -> Tuple[Array, Callable]:
+def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     column = model.get_attr("column")
     W = model.get_param("W")
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
@@ -42,9 +40,7 @@ def forward(
     return output, backprop
 
 
-def init(
-    model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-) -> None:
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])

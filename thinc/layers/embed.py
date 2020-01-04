@@ -28,9 +28,7 @@ def Embed(
     )
 
 
-def forward(
-    model: Model, ids: Array, is_train: bool
-) -> Tuple[Array, Callable]:
+def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     nV = model.get_dim("nV")
     vectors = model.get_param("vectors")
     column = model.get_attr("column")

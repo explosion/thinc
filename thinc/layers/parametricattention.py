@@ -25,9 +25,7 @@ def forward(model, Xr: Ragged, is_train: bool) -> Tuple[Ragged, Callable]:
     return Ragged(output, Xr.lengths), backprop
 
 
-def init(
-    model: Model, X: Optional[Ragged] = None, Y: Optional[Ragged] = None
-) -> None:
+def init(model: Model, X: Optional[Ragged] = None, Y: Optional[Ragged] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y.data))
     model.set_param("Q", model.ops.allocate((model.get_dim("nO"),)))

@@ -31,9 +31,7 @@ def HashEmbed(
     return model
 
 
-def forward(
-    model: Model, ids: Array, is_train: bool
-) -> Tuple[Array, Callable]:
+def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
     column = model.get_attr("column")

@@ -25,9 +25,7 @@ def Dropout(rate: float = 0.0) -> Model:
 
 
 def forward(
-        model: Model,
-        X: Union[Array, List[Array], Ragged],
-        is_train: bool
+    model: Model, X: Union[Array, List[Array], Ragged], is_train: bool
 ) -> Tuple[Union[Array, List[Array], Ragged], Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
@@ -41,9 +39,7 @@ def forward(
         return _dropout_array(model, X, is_train)
 
 
-def _dropout_array(
-    model: Model, X: Array, is_train: bool
-) -> Tuple[Array, Callable]:
+def _dropout_array(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     rate = model.get_attr("rate")
     mask = model.ops.get_dropout_mask(X.shape, rate)
 
@@ -53,7 +49,9 @@ def _dropout_array(
     return X * mask, backprop
 
 
-def _dropout_ragged(model: Model, Xr: Ragged, is_train: bool) -> Tuple[Ragged, Callable]:
+def _dropout_ragged(
+    model: Model, Xr: Ragged, is_train: bool
+) -> Tuple[Ragged, Callable]:
     X = Xr.data
     lengths = Xr.lengths
     mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
