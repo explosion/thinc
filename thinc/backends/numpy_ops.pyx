@@ -145,18 +145,18 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    #def lstm(self, float[:, ::1] output, float[:, ::1] cells,
-    #        float[:, ::1] gates, float[:, ::1] prev):
-    #    cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
-    #        &gates[0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
-    #    return output
+    def lstm(self, float[:, ::1] output, float[:, ::1] cells,
+            float[:, :, ::1] gates, float[:, ::1] prev):
+        cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
+            &gates[0, 0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
+        return output
 
-    #def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
-    #        float[:, ::1] d_gates, float[:, ::1] d_output,
-    #        float[:, ::1] gates, float[:, ::1] cells, float[:, ::1] prev):
-    #    cpu_lstm_gates_bwd(&d_cells[0, 0], &d_prev[0, 0], &d_gates[0, 0],
-    #        &d_output[0, 0], &gates[0, 0], &cells[0, 0], &prev[0, 0],
-    #        cells.shape[0], cells.shape[1])
+    def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
+            float[:, :, ::1] d_gates, float[:, ::1] d_output,
+            float[:, :, ::1] gates, float[:, ::1] cells, float[:, ::1] prev):
+        cpu_lstm_gates_bwd(&d_cells[0, 0], &d_prev[0, 0], &d_gates[0, 0, 0],
+            &d_output[0, 0], &gates[0, 0, 0], &cells[0, 0], &prev[0, 0],
+            cells.shape[0], cells.shape[1])
 
     def seq2col(self, const float[:, ::1] seq, int nW):
         '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
