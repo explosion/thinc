@@ -8,7 +8,7 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Sequence, Dict, Optional, Union, Any
+from typing import Iterable, Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
@@ -52,7 +52,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Sequence[float]] = None,
+        schedules: Dict[str, Iterable[float]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -85,7 +85,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Iterable[float]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -115,7 +115,7 @@ def SGD(
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Iterable[float]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -148,7 +148,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Sequence[float]]] = None,
+        schedules: Optional[Dict[str, Iterable[float]]] = None,
         **_,
     ):
         """
@@ -168,7 +168,7 @@ class Optimizer(object):
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
         schedules (dict): Dictionary mapping hyper-parameter names to value
-            sequences. On each call to optimizer.step_schedules(), the named
+            iterables. On each call to optimizer.step_schedules(), the named
             hyper-parameters are replaced with the next item from the generator.
         """
         self.ops = ops if ops is not None else get_current_ops()
