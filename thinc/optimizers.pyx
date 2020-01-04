@@ -43,6 +43,7 @@ ADAM_DEFAULTS = {
 @registry.optimizers.register("RAdam.v1")
 def RAdam(
         learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        *,
         beta1: float = ADAM_DEFAULTS["beta1"],
         beta2: float = ADAM_DEFAULTS["beta2"],
         eps: float = ADAM_DEFAULTS["eps"],
@@ -73,6 +74,7 @@ def RAdam(
 @registry.optimizers.register("Adam.v1")
 def Adam(
         learn_rate: float = ADAM_DEFAULTS["learn_rate"],
+        *,
         L2: float = ADAM_DEFAULTS["L2"],
         beta1: float = ADAM_DEFAULTS["beta1"],
         beta2: float = ADAM_DEFAULTS["beta2"],
@@ -107,6 +109,7 @@ def Adam(
 @registry.optimizers.register("SGD.v1")
 def SGD(
         learn_rate: float,
+        *,
         ops: Optional[Ops] = None,
         L2: float = SGD_DEFAULTS["L2"],
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
