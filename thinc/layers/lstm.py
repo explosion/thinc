@@ -4,17 +4,17 @@ from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .affine import Affine
-from .with_square_sequences import with_square_sequences
+from .with_list2padded import with_list2padded
 
 
 def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return with_square_sequences(
+    return with_list2padded(
         clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
     )
 
 
 def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
-    return with_square_sequences(
+    return with_list2padded(
         clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
     )
 

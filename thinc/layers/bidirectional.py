@@ -1,6 +1,7 @@
 from typing import Optional, Tuple
+from ..backends import Ops
 from ..model import Model
-from ..types import Array
+from ..types import Array, Padded
 
 
 def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
@@ -10,49 +11,39 @@ def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
     return Model(f"bi{l2r.name}", forward, layers=[l2r, r2l])
 
 
-def forward(model: Model, Xs: Tuple[Array, Array], is_train: bool):
+def forward(model: Model, X: Padded, is_train: bool):
     l2r, r2l = model.layers
 
-    Xs_rev = _reverse(model.ops, Xs)
-    l2r_Zs, bp_l2r_Zs = l2r(Xs, is_train)
-    r2l_Zs, bp_r2l_Zs = r2l(Xs_rev, is_train)
-    Zs, split = _concatenate(model.ops, l2r_Zs, r2l_Zs)
+    X_rev = _reverse(model.ops, X)
+    l2r_Z, bp_l2r_Z = l2r(X, is_train)
+    r2l_Z, bp_r2l_Z = r2l(X_rev, is_train)
+    Z = _concatenate(model.ops, l2r_Z, r2l_Z)
 
-    def backprop(dZs, sgd=None):
-        d_l2r_Zs, d_r2l_Zs = split(dZs)
-        dXs_l2r = bp_l2r_Zs(d_l2r_Zs)
-        dXs_r2l = bp_r2l_Zs(d_r2l_Zs)
-        return _sum(dXs_l2r, dXs_r2l)
+    def backprop(dZ, sgd=None):
+        d_l2r_Z, d_r2l_Z = _split(model.ops, dZ)
+        dXs_l2r = bp_l2r_Zs(d_l2r_Z)
+        dXs_r2l = bp_r2l_Zs(d_r2l_Z)
+        return _sum(dX_l2r, dX_r2l)
 
-    return Zs, backprop
-
-
-# The padded format with the auxiliary array is a bit quirky, so isolate
-# the operations on it so that the code above doesn't have to think about it.
+    return Z, backprop
 
 
-def _reverse(ops, X_size_at_t):
-    X, size_at_t = X_size_at_t
-    reverse_X = X[::-1]
-    reverse_size_at_t = ops.xp.ascontiguousarray(size_at_t[::-1])
-    return reverse_X, reverse_size_at_t
+def _reverse(ops, Xp: Padded) -> Padded:
+    reverse_X = Xp.data[::-1]
+    return Padded(reverse_X, Xp.size_at_t)
 
 
-def _concatenate(ops, l2r, r2l):
-    size_at_t = l2r[1]
-    concatenated = ops.xp.hstack((l2r[0], r2l[0]), axis=-1)
-    return (concatenated, size_at_t)
+def _concatenate(ops, l2r: Padded, r2l: Padded) -> Padded:
+    concatenated = ops.xp.hstack((l2r.data, r2l.data), axis=-1)
+    return Padded(concatenated, l2r.size_at_t)
 
 
-def _split(ops, X_size_at_t):
-    X, size_at_t = X_size_at_t
-    half = X.shape[-1] // 2
-    X_l2r = X[..., :half]
-    X_r2l = X[..., half:]
-    return ((X_l2r, size_at_t), (X_r2l, size_at_t))
+def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
+    half = Xp.data.shape[-1] // 2
+    X_l2r = Xp.data[..., :half]
+    X_r2l = Xp.data[..., half:]
+    return (Padded(X_l2r, Xp.size_at_t), Padded(X_r2l, Xp.size_at_t))
 
 
-def _sum(ops, X_size_at_t, Y_size_at_t):
-    X, size_at_t = X_size_at_t
-    Y, size_at_t = Y_size_at_t
-    return (X + Y, size_at_t)
+def _sum(ops: Ops, Xp: Padded, Yp: Padded) -> Padded:
+    return Padded(Xp.data + Yp.data, Xp.size_at_t)
