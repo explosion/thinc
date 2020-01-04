@@ -1,4 +1,4 @@
-from typing import Any, Optional, List, Tuple, Callable, Dict
+from typing import Any, Optional, Tuple, Callable, Dict
 import contextlib
 from pathlib import Path
 
