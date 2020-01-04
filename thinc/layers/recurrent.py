@@ -27,7 +27,7 @@ def init(model, X=None, Y=None):
     model.set_param("initial_hiddens", model.ops.allocate((nO,)))
 
 
-def forward(model: Model, X_size_at_t: Tuple[Array, Array], is_train: bool):
+def forward(model, X_size_at_t, is_train):
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
     X, size_at_t = X_size_at_t
