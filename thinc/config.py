@@ -24,6 +24,10 @@ class Config(dict):
         as JSON. Mostly used internally and modifies the config in place.
         """
         for section, values in config.items():
+            if section == "DEFAULT":
+                # Skip [DEFAULT] section for now since it causes validation
+                # errors and it's unclear if we want to use this?
+                continue
             parts = section.split(".")
             node = self
             for part in parts:
