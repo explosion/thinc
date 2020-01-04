@@ -4,6 +4,7 @@ from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc._registry
 from thinc._registry import ConfigValidationError
+from thinc.types import Generator
 from thinc.config import Config
 from thinc.optimizers import Adam  # noqa: F401
 from thinc.schedules import warmup_linear  # noqa: F401
@@ -267,7 +268,6 @@ def test_read_config():
     assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
 
 
-@pytest.mark.xfail(reason="Annotated Iterable[float] type by function argument")
 def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
     result = my_registry.make_from_config(cfg)
@@ -329,10 +329,11 @@ def test_validation_fill_defaults():
     assert result["two"]["cute_level"] == 1
 
 
-@pytest.mark.xfail(reason="Annotated Iterable[float] type by function argument")
 def test_validation_generators_iterable():
     @thinc.registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(rate: float, schedule: Union[float, Iterable[float]]) -> None:
+    def test_optimizer_v1(
+        rate: float, schedule: Union[float, Sequence[float], Generator]
+    ) -> None:
         return None
 
     @thinc.registry.schedules("test_schedule.v1")

@@ -1,9 +1,23 @@
-from typing import Union, Tuple, Callable
+from typing import Union, Tuple, Callable, Iterator
 from enum import Enum
 
 
 Array = Union["numpy.ndarray", "cupy.ndarray"]  # type: ignore
 Xp = Union["numpy", "cupy"]  # type: ignore
+
+
+class Generator(Iterator):
+    """Generator of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v):
+        if not hasattr(v, "__iter__") and not hasattr(v, "__next__"):
+            raise TypeError("not a valid iterator")
+        return v
 
 Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
 
