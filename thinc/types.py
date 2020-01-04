@@ -7,7 +7,10 @@ Xp = Union["numpy", "cupy"]  # type: ignore
 
 
 class Generator(Iterator):
-    """Generator of floats."""
+    """Custom generator type. Used to annotate function arguments that accept
+    generators so they can be validated by pydantic (which doesn't support
+    iterators/iterables otherwise).
+    """
 
     @classmethod
     def __get_validators__(cls):
