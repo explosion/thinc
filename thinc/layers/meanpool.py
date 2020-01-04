@@ -1,14 +1,12 @@
 from typing import Tuple, Callable, TypeVar
 
 from ..types import Array
+from ..data import Ragged
 from ..model import Model
 
-InputValue = TypeVar("InputValue", bound=Array)
-InputLengths = TypeVar("InputLengths", bound=Array)
-InputType = Tuple[InputValue, InputLengths]
-OutputValue = TypeVar("OutputValue", bound=Array)
-OutputLengths = TypeVar("OutputLengths", bound=Array)
-OutputType = Tuple[OutputValue, OutputLengths]
+
+InputType = TypeVar("InputType", bound=Ragged)
+OutputType = TypeVar("OutputType", bound=Array)
 
 
 def MeanPool() -> Model:
@@ -16,12 +14,11 @@ def MeanPool() -> Model:
 
 
 def forward(
-    model: Model, X_lengths: InputType, is_train: bool
+    model: Model, Xr: Ragged, is_train: bool
 ) -> Tuple[OutputType, Callable]:
-    X, lengths = X_lengths
-    Y = model.ops.mean_pool(X, lengths)
+    Y = model.ops.mean_pool(Xr.data, Xr.lengths)
 
     def backprop(dY: OutputType) -> InputType:
-        return model.ops.backprop_mean_pool(dY, lengths), lengths
+        return Ragged(model.ops.backprop_mean_pool(dY, lengths), lengths)
 
     return Y, backprop
