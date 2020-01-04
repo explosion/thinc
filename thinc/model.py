@@ -193,7 +193,7 @@ class Model:
         key = (self.id, name)
         if key not in self._mem:
             self._mem.add(key, value.shape)
-        data = self._mem.get((self.id, name))
+        data = self._mem[(self.id, name)]
         copy_array(dst=data, src=value)
         self._params[name] = True
 
@@ -203,7 +203,7 @@ class Model:
         key = (self.id, grad_name)
         param_key = (self.id, name)
         if key in self._mem:
-            grad = self._mem.get(key)
+            grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
         grad += value
@@ -233,7 +233,7 @@ class Model:
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
         grad_name = f"d_{name}"
-        data = self._mem.get((self.id, grad_name))
+        data = self._mem[(self.id, grad_name)]
         copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
@@ -420,7 +420,7 @@ class Model:
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
                 if row == 1:
                     continue
-                param = layer._mem.get((id_, name))
+                param = layer._mem[(id_, name)]
                 if not isinstance(layer._mem.weights, numpy.ndarray):
                     param = param.get()
                 weights[-1]["params"].append(  # type: ignore
