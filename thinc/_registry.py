@@ -130,7 +130,6 @@ class registry(object):
                 try:
                     validation[key] = getter(*args, **kwargs)
                 except TypeError as err:
-                    print(getter)
                     err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg

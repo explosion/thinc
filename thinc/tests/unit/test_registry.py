@@ -314,9 +314,9 @@ def test_validation_no_validate():
 
 
 def test_validation_fill_defaults():
-    config = {"one": 1, "two": {"@cats": "catsie.v1"}}
+    config = {"one": 1, "two": {"@cats": "catsie.v1", "evil": "hello"}}
     result = my_registry.fill_config(config, validate=False)
-    assert len(result["two"]) == 2  # no value filled in for "evil"
+    assert len(result["two"]) == 3
     with pytest.raises(ConfigValidationError):
         # Required arg "evil" is not defined
         my_registry.fill_config(config)
