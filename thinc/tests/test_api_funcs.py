@@ -37,8 +37,8 @@ def test_chain_two(model1, model2):
 
 
 def test_chain_right_branch(model1, model2, model3):
-    merge1 = chain(model1, model2)
-    merge2 = chain(merge1, model3)
+    merge1 = chain(model1, model2, name="chain1")
+    merge2 = chain(merge1, model3, name="chain2")
     assert len(merge2.layers) == 3
 
 
