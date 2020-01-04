@@ -1,4 +1,4 @@
-from typing import Callable, Dict, Any, Tuple, List, Optional, Union
+from typing import Callable, Dict, Any, Tuple, List, Union, Type
 from types import GeneratorType
 import catalogue
 import inspect
@@ -10,7 +10,11 @@ from .config import Config
 
 
 class ConfigValidationError(ValueError):
-    def __init__(self, config, errors):
+    def __init__(
+        self,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        errors: List[Dict[str, Any]],
+    ) -> None:
         """Custom error for validating configs."""
         data = []
         for error in errors:
@@ -60,7 +64,7 @@ class registry(object):
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
-        schema: Optional[ModelMetaclass] = EmptySchema,
+        schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
     ) -> Config:
         """Unpack a config dictionary, creating objects from the registry
@@ -74,14 +78,14 @@ class registry(object):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
         _, resolved = cls._fill(config, schema, validate)
-        return Config(resolved)
+        return resolved
 
     @classmethod
     def fill_config(
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
-        schema: Optional[ModelMetaclass] = EmptySchema,
+        schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
     ) -> Config:
         """Unpack a config dictionary, leave all references to registry
@@ -97,22 +101,22 @@ class registry(object):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
         filled, _ = cls._fill(config, schema, validate)
-        return Config(filled)
+        return filled
 
     @classmethod
     def _fill(
         cls,
-        config: Dict[str, Dict[str, Any]],
-        schema: Optional[ModelMetaclass] = EmptySchema,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
-    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    ) -> Tuple[Config, Config]:
         """Build two representations of the config: one where the promises are
         preserved, and a second where the promises are represented by their
         return types. Use the validation representation to get default
         values via pydantic. The defaults are filled into both representations.
         """
-        filled = {}
-        validation = {}
+        filled: Dict[str, Any] = {}
+        validation: Dict[str, Any] = {}
         for key, value in config.items():
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
@@ -155,12 +159,12 @@ class registry(object):
                 raise ConfigValidationError(config, e.errors())
         else:
             # Same as parse_obj, but without validation
-            result = schema.construct(validation)
+            result = schema.construct(**validation)
         validation.update(result.dict())
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
-        return filled, validation
+        return Config(filled), Config(validation)
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
@@ -199,7 +203,7 @@ class registry(object):
         return [value for key, value in sorted(args)], kwargs
 
     @classmethod
-    def make_promise_schema(cls, obj: Dict[str, Any]) -> ModelMetaclass:
+    def make_promise_schema(cls, obj: Dict[str, Any]) -> Type[BaseModel]:
         """Create a schema for a promise dict (referencing a registry function)
         by inspecting the function signature.
         """

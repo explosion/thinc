@@ -281,7 +281,7 @@ def test_config_to_str():
 def test_validation_custom_types():
     def complex_args(
         rate: StrictFloat,
-        steps: PositiveInt = 10,
+        steps: PositiveInt = 10,  # type: ignore
         log_level: constr(regex="(DEUG|INFO|WARNING|ERROR)") = "ERROR",
     ):
         return None
