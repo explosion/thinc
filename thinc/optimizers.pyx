@@ -8,12 +8,12 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Iterable, Dict, Optional, Union, Any
+from typing import Sequence, Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
-from .types import Array
+from .types import Array, Generator
 from .util import get_array_module
 from ._registry import registry
 
@@ -52,7 +52,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Iterable[float]] = None,
+        schedules: Dict[str, Union[Sequence[float], Generator]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -85,7 +85,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Iterable[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -115,7 +115,7 @@ def SGD(
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Iterable[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -148,7 +148,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Iterable[float]]] = None,
+        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
         **_,
     ):
         """
