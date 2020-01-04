@@ -9,23 +9,20 @@ InputType = TypeVar("InputType", bound=Array)
 OutputType = TypeVar("OutputType", bound=Array)
 
 
-def chain(*layers: Model, name: str = None) -> Model:
+def chain(*layers: Model) -> Model:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     """
     if layers and layers[0]._func is forward:
-        container: Model = layers[0]
-        container.layers.extend(layers[1:])
-        if name is not None:
-            container.name = name
-        elif container.name.startswith("chain("):
-            container.name = f"chain({', '.join(l.name for l in container.layers)})"
-        return container
+        layers[0].layers.extend(layers[1:])
+        return layers[0]
 
-    if name is None:
-        name = f"chain({', '.join(layer.name for layer in layers)})"
-    model: Model = Model(
-        name, forward, init=init, dims={"nO": None, "nI": None}, layers=layers,
+    model = Model(
+        ">>".join(layer.name for layer in layers),
+        forward,
+        init=init,
+        dims={"nO": None, "nI": None},
+        layers=layers,
     )
     if layers and layers[0].has_dim("nI") and layers[-1].has_dim("nO"):
         model.initialize()
