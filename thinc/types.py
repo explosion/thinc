@@ -4,7 +4,6 @@ from typing import (
     Tuple,
     Callable,
     Iterator,
-    Iterable,
     Sized,
     Container,
     Any,
@@ -38,7 +37,7 @@ class DTypes(str, Enum):
     uint64 = "uint64"
 
 
-class Array(Iterable, Sized, Container):
+class Array(Sized, Container):
     T: "Array"
     base: Optional["Array"]
 
