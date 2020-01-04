@@ -55,16 +55,11 @@ def test(args, model, device, test_loader):
             # Get the index of the max log-probability
             pred = output.argmax(dim=1, keepdim=True)
             correct += pred.eq(target.view_as(pred)).sum().item()
-
     test_loss /= len(test_loader.dataset)
-
     print(
-        "\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n".format(
-            test_loss,
-            correct,
-            len(test_loader.dataset),
-            100.0 * correct / len(test_loader.dataset),
-        )
+        f"\nTest set: Average loss: {test_loss:.4f}, "
+        f"Accuracy: {correct}/{len(test_loader.dataset)} "
+        f"({correct / len(test_loader.dataset):.0%}%)\n"
     )
 
 
@@ -79,14 +74,12 @@ def main(
     (train_X, train_Y), (dev_X, dev_Y) = load_mnist()
     model = Net(10, 28 * 28, n_hidden)
     optimizer = optim.Adam(model.parameters())
-
     for epoch in range(n_epoch):
         model.train()
         train_batches = list(get_shuffled_batches(train_X, train_Y, batch_size))
         for images, true_labels in tqdm.tqdm(train_batches):
             images = xp2torch(images)
             true_labels = xp2torch(true_labels)
-
             optimizer.zero_grad()
             guess_labels = model(images)
             loss = F.nll_loss(guess_labels, true_labels)

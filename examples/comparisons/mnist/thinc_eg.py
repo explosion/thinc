@@ -63,7 +63,6 @@ def main(
     for i in range(n_iter):
         train_batches = list(get_shuffled_batches(train_X, train_Y, batch_size))
         for images, truths in tqdm.tqdm(train_batches):
-
             guesses, backprop = model.begin_update(images)
             d_guesses = (guesses - truths) / guesses.shape[0]
             backprop(d_guesses)
