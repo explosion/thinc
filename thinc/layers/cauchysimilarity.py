@@ -10,7 +10,7 @@ InputType = Tuple[InputValue, InputValue]
 OutputType = TypeVar("OutputType", bound=Array)
 
 
-def CauchySimilarity(nI: Optional[Array] = None) -> Model:
+def CauchySimilarity(nI: Optional[int] = None) -> Model:
     """Compare input vectors according to the Cauchy similarity function proposed by
     Chen (2013). Primarily used within Siamese neural networks.
     """
@@ -48,7 +48,7 @@ def init(
     model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
 ) -> None:
     if X is not None:
-        model.set_dim("nI", get_width(X))
+        model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
     W = model.ops.allocate((model.get_dim("nI"),))
     W += 1
