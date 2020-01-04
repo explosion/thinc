@@ -2,6 +2,7 @@ import numpy
 import timeit
 from thinc.util import minibatch
 from thinc.backends import NumpyOps
+from thinc.layers.lstm import LSTM
 import pytest
 
 
@@ -24,26 +25,41 @@ def test_square_sequences():
     assert unpadded[2].shape == (2, 4)
 
 
-@pytest.mark.xfail
-def test_LSTM_init():
-    from thinc.layers.rnn import LSTM
+@pytest.mark.parametrize(
+    "nO,nI",
+    [(1, 2), (2, 2), (100, 200), (9, 6)]
+)
+def test_LSTM_init_with_sizes(nO, nI):
+    model = LSTM(nO, nI)
+    for node in model.walk():
+        # Check no unallocated params.
+        assert node.has_param("W") is not None
+        assert node.has_param("b") is not None
+        assert node.has_param("initial_hiddens") is not None
+        assert node.has_param("initial_cells") is not None
+    for node in model.walk():
+        # Check param sizes.
+        if node.has_param("W"):
+            W = node.get_param("W")
+            assert W.shape == (nO*4, nO+nI)
+        if node.has_param("b"):
+            b = node.get_param("b")
+            assert b.shape == (nO*4,)
+        if node.has_param("initial_hiddens"):
+            initial_hiddens = node.get_param("initial_hiddens")
+            assert initial_hiddens.shape == (nO,)
+        if node.has_param("initial_cells"):
+            initial_cells = node.get_param("initial_cells")
+            assert initial_cells.shape == (nO,)
 
-    model = LSTM(1, 2)
-    model = LSTM(2, 2)
-    model = LSTM(100, 200)
-    model = LSTM(9, 6)  # noqa: F841
 
-
-@pytest.mark.xfail
-def test_LSTM_fwd_bwd_shapes():
-    from thinc.layers.rnn import LSTM
-
+def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
     model = LSTM(nO, nI)
 
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
-    ys, backprop_ys = model.begin_update([X])
+    ys, backprop_ys = model([X], is_train=False)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
