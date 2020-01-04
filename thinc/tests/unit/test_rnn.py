@@ -64,55 +64,7 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
 
-# def test_RNN_fwd_correctness():
-#    nO = 1
-#    nI = 2
-#    alloc, params = numpy_params()
-#    model = _RNN(alloc, nO, nI, begin_stepwise_relu, nG=1)
-#    (Wx, dWx), (Wh, dWh), (b, db), (pad, d_pad) = params
-#
-#    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
-#    Wx[:] = 1.
-#    b[:] = 0.25
-#    Wh[:] = 1.
-#    pad[:] = 0.05
-#
-#    # Step 1
-#    # (0.1, 0.1) @ [[1., 1.]] + (1.,) @ [[0.05]]
-#    # = (0.1 * 1) * 2 + 0.05
-#    # = (0.25,) + 0.25 bias
-#    Y = model([X])
-#    Y = Y[0][0]
-#    assert list(Y[0]) == [0.5]
-#
-#
-# @pytest.mark.skip
-# def test_RNN_learns():
-#    nO = 2
-#    nI = 2
-#    alloc, params = numpy_params()
-#    model = _RNN(alloc, nO, nI)
-#    X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype='f')
-#    Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype='f')
-#    Yhs, bp_Yhs = model([X])
-#    dXs = bp_Yhs([Yhs[0] - Y])
-#    loss1 = ((Yhs[0]-Y)**2).sum()
-#    for param, grad in params:
-#        param -= 0.001 * grad
-#        grad.fill(0)
-#    Yhs, bp_Yhs = model([X])
-#    dXs = bp_Yhs([Yhs[0] - Y])
-#    loss2 = ((Yhs[0]-Y)**2).sum()
-#    assert loss1 > loss2, (loss1, loss2)
-#
-#
-#
-
-
-@pytest.mark.xfail
 def test_LSTM_learns():
-    from thinc.layers.rnn import LSTM
-
     nO = 2
     nI = 2
     model = LSTM(nO, nI)
@@ -127,32 +79,15 @@ def test_LSTM_learns():
     loss1 = ((Yhs[0] - Y) ** 2).sum()
     Yhs, bp_Yhs = model.begin_update([X])
     dXs = bp_Yhs([Yhs[0] - Y])
-    for key, (W, dW) in model.get_gradients().items():
-        sgd(W, dW, key=key)
+    model.finish_update(sgd)
     Yhs, bp_Yhs = model.begin_update([X])
     dXs = bp_Yhs([Yhs[0] - Y])  # noqa: F841
     loss2 = ((Yhs[0] - Y) ** 2).sum()
     assert loss1 > loss2, (loss1, loss2)
 
 
-# def test_LSTM_fwd():
-#    nO = 2
-#    nI = 2
-#    alloc, params = numpy_params()
-#    model = _BiLSTM(alloc, nO, nI)
-#
-#    X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype='f')
-#    ys, backprop_ys =  model([X])
-#    dXs = backprop_ys(ys)
-#    assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
-#
-#
-
-
-@pytest.mark.xfail
-def test_benchmark_RNN_fwd():
-    from thinc.layers.rnn import LSTM
-
+@pytest.mark.skip
+def test_benchmark_LSTM_fwd():
     nO = 128
     nI = 128
     n_batch = 1000
