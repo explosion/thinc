@@ -304,21 +304,14 @@ class Model:
             param = params[self.id]
             backup = weights.copy()
             copy_array(dst=weights, src=param)
-        contexts = []
-        for layer in self.layers:
-            contexts.append(next(layer.use_params(params).gen))
-        for shim in self.shims:
-            contexts.append(next(shim.use_params(params).gen))
-        yield
+        with contextlib.ExitStack() as stack:
+            for layer in self.layers:
+                stack.enter_context(layer.use_params(params))
+            for shim in self.shims:
+                stack.enter_context(shim.use_params(params))
+            yield
         if backup is not None:
             copy_array(dst=self._mem.weights, src=backup)
-        for i, context in enumerate(contexts):
-            # This is ridiculous, but apparently it's what you
-            # have to do to make this work across Python 2/3?
-            try:
-                next(context.gen)
-            except StopIteration:
-                pass
 
     def walk(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
