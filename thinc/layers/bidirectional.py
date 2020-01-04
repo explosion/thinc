@@ -17,7 +17,7 @@ def forward(model: Model, Xs: Tuple[Array, Array], is_train: bool):
     Xs_rev = _reverse(model.ops, Xs)
     l2r_Zs, bp_l2r_Zs = l2r(Xs, is_train)
     r2l_Zs, bp_r2l_Zs = r2l(Xs_rev, is_train)
-    Zs, split = _concatenate(l2r_Zs, r2l_Zs)
+    Zs, split = _concatenate(model.ops, l2r_Zs, r2l_Zs)
 
     def backprop(dZs, sgd=None):
         d_l2r_Zs, d_r2l_Zs = split(dZs)
