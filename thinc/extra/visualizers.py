@@ -1,6 +1,8 @@
-from typing import Dict, Union
-from enum import Enum
+from typing import Dict, Union, Optional
 from pathlib import Path
+
+from .._registry import registry
+from ..model import Model
 
 try:
     import pydot
@@ -10,13 +12,9 @@ except ImportError:
     has_pydot = False
 
 
-class VisualizerFormats(Enum):
-    SVG = "svg"
-    PNG = "png"
-
-
-def model_to_dot(
-    model,  # TODO: how to do type?
+@registry.visualizers("pydot.v1")
+def pydot_visualizer(
+    model: Model,
     *,
     show_shapes: bool = True,
     show_layer_names: bool = True,
@@ -24,6 +22,8 @@ def model_to_dot(
     rankdir: str = "LR",
     fontname: str = "arial",
     fontsize: str = "10",
+    output: Optional[Union[Path, str]] = None,
+    file_format: str = "svg",
 ) -> "pydot.Dot":
     """Convert a Thinc model to a PyDot / Graphviz visualization. Requires
     GraphViz and PyDot to be installed.
@@ -65,20 +65,6 @@ def model_to_dot(
         to_node: pydot.Node = nodes[layer.id]
         if not dot.get_edge(from_node, to_node):
             dot.add_edge(pydot.Edge(from_node, to_node))
+    if output is not None:
+        dot.write(output, format=file_format)
     return dot
-
-
-def export_dot(
-    dot: pydot.Dot,
-    file_path: Union[Path, str],
-    file_format: VisualizerFormats = VisualizerFormats.SVG,
-) -> None:
-    """Shortcut for exporting visualization to a file."""
-    if file_format == VisualizerFormats.SVG:
-        result = dot.create_svg()
-    elif file_format == VisualizerFormats.PNG:
-        result = dot.create_png()
-    else:
-        raise ValueError(f"Unsupported format: {file_format}")
-    with Path(file_path).open("w", encoding="utf8") as f:
-        f.write(result.decode("utf-8"))

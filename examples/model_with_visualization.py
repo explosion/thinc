@@ -1,33 +1,7 @@
 from thinc.layers import chain, ReLu, Softmax, Affine, ExtractWindow, Maxout
+from thinc.extra.visualizers import pydot_visualizer
 import ml_datasets
 import typer
-
-
-CONFIG = """
-[hyper_params]
-n_hidden = 512
-dropout = 0.2
-
-[model]
-@layers = "chain.v1"
-
-[model.layers.relu1]
-@layers = "ReLu.v1"
-nO = ${hyper_params:n_hidden}
-dropout = ${hyper_params:dropout}
-
-[model.layers.relu2]
-@layers = "ReLu.v1"
-nO = ${hyper_params:n_hidden}
-dropout = ${hyper_params:dropout}
-
-[model.layers.softmax]
-@layers = "Softmax.v1"
-
-[optimizer]
-@optimizers = "Adam.v1"
-learn_rate = ${hyper_params:learn_rate}
-"""
 
 
 def load_mnist():
@@ -44,7 +18,12 @@ def load_mnist():
 
 
 def main(
-    n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
+    n_hidden: int = 32,
+    dropout: float = 0.2,
+    n_iter: int = 10,
+    batch_size: int = 128,
+    output: str = "model.svg",
+    file_format: str = "svg",
 ):
     # Define the model
     model = chain(
@@ -57,12 +36,11 @@ def main(
         ReLu(n_hidden, dropout=dropout),
         Softmax(),
     )
-
     # Load the data
     (train_X, train_Y), (dev_X, dev_Y) = load_mnist()
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
-    model.visualize(output="tmp/model.svg")
+    pydot_visualizer(model, output=output, file_format=file_format)
 
 
 if __name__ == "__main__":
