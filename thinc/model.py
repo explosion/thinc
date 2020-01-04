@@ -83,7 +83,7 @@ class Model:
         *,
         init: Callable = lambda *a, **k: None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[bool]] = {},
+        params: Dict[str, Optional[Array]] = {},
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
@@ -324,14 +324,14 @@ class Model:
             yield node
             queue.extend(node.layers)
 
-    def get_gradients(self) -> Dict[int, Array]:
+    def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
         gradients = {}
         for node in self.walk():
             if hasattr(node, "_mem") and node._mem.gradient.any():
-                gradients[node.id] = [node._mem.weights, node._mem.gradient]
+                gradients[node.id] = (node._mem.weights, node._mem.gradient)
         return gradients
 
     def copy(self) -> "Model":
@@ -340,12 +340,18 @@ class Model:
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
+        params = {}
+        for key, value in self._params.items():
+            params[key] = None if value is None else self.get_param(key)
+        grads = {}
+        for key, value in self._grads.items():
+            grads[key] = None if value is None else self.get_grad(key)
         copied = Model(
             self.name,
             self._func,
             init=self._init,
-            params=copy.deepcopy(self._params),
-            grads=copy.deepcopy(self._grads),
+            params=copy.deepcopy(params),
+            grads=copy.deepcopy(grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
