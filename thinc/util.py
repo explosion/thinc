@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple, Iterator
+from typing import Iterable, Any, Union, Tuple, Iterator, List, cast
 import numpy
 import itertools
 import threading
@@ -17,7 +17,7 @@ except ImportError:
     has_torch = False
 
 
-from .types import Array, OpNames
+from .types import Array, Ragged, Padded, OpNames
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -189,21 +189,24 @@ def is_ragged(seqs) -> bool:
     return False
 
 
-def get_width(X: Array, dim: int = -1) -> int:
+def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> int:
     """Infer the 'width' of a batch of data, which could be any of:
     * An n-dimensional array: Use the shape
     * A tuple (for a ragged array): Use the shape of the first element.
     * A list of arrays (for sequences): Use the shape of the first element.
     """
-    if hasattr(X, "shape") and hasattr(X, "ndim"):
+    if isinstance(X, Ragged):
+        return get_width(X.data, dim=dim)
+    elif isinstance(X, Padded):
+        return get_width(X.data, dim=dim)
+    elif hasattr(X, "shape") and hasattr(X, "ndim"):
+        X = cast(Array, X)
         if len(X.shape) == 0:
             return 0
         elif len(X.shape) == 1:
             return int(X.max()) + 1
         else:
             return X.shape[dim]
-    elif isinstance(X, tuple) and len(X) == 2:
-        return get_width(X[0], dim=dim)
     elif hasattr(X, "__len__") and hasattr(X, "__getitem__"):
         if len(X) == 0:
             return 0

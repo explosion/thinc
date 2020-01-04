@@ -2,6 +2,7 @@ from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..util import get_width
+from ..types import Ragged, Padded, Array
 
 
 InputType = TypeVar("InputType")
@@ -62,7 +63,7 @@ def init(
         return
     # Try to set nO on each layer, where available.
     nO = None
-    if Y is not None:
+    if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")
