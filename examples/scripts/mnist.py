@@ -3,6 +3,7 @@ from thinc.optimizers import Adam
 from thinc.util import minibatch, to_categorical
 import ml_datasets
 import tqdm
+import typer
 
 
 CONFIG = """
@@ -32,12 +33,10 @@ learn_rate = ${hyper_params:learn_rate}
 """
 
 
-def main(n_hidden=32, dropout=0.2, n_iter=10):
+def main(n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10):
     # Define the model
     model = chain(
-        ReLu(n_hidden, dropout=dropout),
-        ReLu(n_hidden, dropout=dropout),
-        Softmax()
+        ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
     )
 
     # Load the data
@@ -51,7 +50,7 @@ def main(n_hidden=32, dropout=0.2, n_iter=10):
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     # Create the optimizer.
     optimizer = Adam(0.001)
-    
+
     # Train
     indices = model.ops.xp.arange(train_X.shape[0], dtype="i")
     for i in range(n_iter):
@@ -64,5 +63,4 @@ def main(n_hidden=32, dropout=0.2, n_iter=10):
 
 
 if __name__ == "__main__":
-    import plac
-    plac.call(main)
+    typer.run(main)
