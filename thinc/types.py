@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, Tuple, Callable, Iterator, Iterable, Sized, Container, Any, Optional
+from typing import Union, Tuple, Callable, Iterator, Iterable, Sized, Container, Any, Optional, List
 from enum import Enum
 import numpy
 
@@ -10,6 +10,21 @@ try:
     xp = cupy
 except ImportError:
     xp = numpy
+
+    
+# type: ignore
+Xp = Union["numpy", "cupy"]  # type: ignore
+Shape = Tuple[int, ...]
+
+
+class DTypes(str, Enum):
+    f = "f"
+    i = "i"
+    float32 = "float32"
+    int32 = "int32"
+    int64 = "int64"
+    uint32 = "uint32"
+    uint64 = "uint64"
 
 
 class Array(Iterable, Sized, Container):
@@ -36,7 +51,7 @@ class Array(Iterable, Sized, Container):
  
     def astype(
         self,
-        dtype: Any,
+        dtype: DTypes,
         order: str = ...,
         casting: str = ...,
         subok: bool = ...,
@@ -119,8 +134,45 @@ class Array(Iterable, Sized, Container):
     def __invert__(self: "Array") -> "Array": ...
 
     def get(self) -> "Array": ...
-    # TODO(shoyer): remove when all methods are defined
-    #def __getattr__(self, name) -> Any: ...
+
+    def all(self, axis: int=-1, out: Optional["Array"]=None,
+            keepdims: bool=False) -> "Array": ...
+
+    def any(self, axis: int=-1, out: Optional["Array"]=None,
+            keepdims: bool=False) -> "Array": ...
+
+    def argmax(self, axis: int=-1, out: Optional["Array"]=None) -> "Array": ...
+
+    def argmin(self, axis: int=-1, out: Optional["Array"]=None) -> "Array": ...
+
+    def clip(self, a_min: Any, a_max: Any, out: Optional["Array"]) -> "Array": ...
+
+    def cumsum(self, axis: int=-1, dtype: Optional[DTypes]=None,
+            out: Optional["Array"]=None) -> "Array": ...
+
+    def max(self, axis: int=-1, out: Optional["Array"]=None) -> "Array": ...
+
+    def mean(self, axis: int=-1, dtype: Optional[DTypes]=None,
+            out: Optional["Array"]=None, keepdims: bool=False) -> "Array": ...
+
+    def min(self, axis: int=-1, out: Optional["Array"]=None) -> "Array": ...
+
+    def nonzero(self) -> "Array": ...
+
+    def prod(self, axis: int=-1, dtype: Optional[DTypes]=None,
+            out: Optional["Array"]=None, keepdims: bool=False) -> "Array": ...
+
+    def round(self, decimals: int=0, out: Optional["Array"]=None) -> "Array": ...
+
+    def sum(self, axis: int=-1, dtype: Optional[DTypes]=None,
+            out: Optional["Array"]=None, keepdims: bool=False) -> "Array": ...
+
+    def tobytes(self, order: str='C') -> bytes: ...
+
+    def tolist(self) -> List[Any]: ...
+
+    def var(self, axis: int=-1, dtype: Optional[DTypes]=None,
+            out: Optional["Array"]=None, ddof: int=0, keepdims: bool=False) -> "Array": ...
 
 
 class NumpyArray(Array):
@@ -129,11 +181,6 @@ class NumpyArray(Array):
 
 class CupyArray(Array):
     def get(self) -> NumpyArray: ...
-
-    
-# type: ignore
-Xp = Union["numpy", "cupy"]  # type: ignore
-Shape = Tuple[int, ...]
 
 
 def validate_array(obj):
