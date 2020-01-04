@@ -1,19 +1,8 @@
-from typing import List, Dict
-from thinc.layers import (
-    chain,
-    ReLu,
-    Softmax,
-    Affine,
-    Mish,
-    ExtractWindow,
-    Maxout,
-    concatenate,
-)
-from thinc.optimizers import Adam
+from typing import Dict
+from thinc.layers import chain, ReLu, Softmax, Affine, ExtractWindow, Maxout
 from thinc.model import Model
-from thinc.util import get_shuffled_batches
 import ml_datasets
-import tqdm
+import typer
 
 try:
     import pydot
@@ -61,7 +50,9 @@ def load_mnist():
     return (train_X, train_Y), (dev_X, dev_Y)
 
 
-def main(n_hidden=32, dropout=0.2, n_iter=10, batch_size=128):
+def main(
+    n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
+):
     # Define the model
     model = chain(
         ExtractWindow(3),
@@ -138,7 +129,4 @@ def model_to_dot(
 
 
 if __name__ == "__main__":
-    import plac
-
-    plac.call(main)
-
+    typer.run(main)
