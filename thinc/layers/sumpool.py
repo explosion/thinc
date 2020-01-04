@@ -17,6 +17,7 @@ def forward(
     model: Model, Xr: InputType, is_train: bool
 ) -> Tuple[OutputType, Callable]:
     Y = model.ops.sum_pool(Xr.data, Xr.lengths)
+    lengths = Xr.lengths
 
     def backprop(dY: OutputType) -> InputType:
         return Ragged(model.ops.backprop_sum_pool(dY, lengths), lengths)

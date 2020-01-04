@@ -14,9 +14,10 @@ def MeanPool() -> Model:
 
 
 def forward(
-    model: Model, Xr: Ragged, is_train: bool
+    model: Model, Xr: InputType, is_train: bool
 ) -> Tuple[OutputType, Callable]:
     Y = model.ops.mean_pool(Xr.data, Xr.lengths)
+    lengths = Xr.lengths
 
     def backprop(dY: OutputType) -> InputType:
         return Ragged(model.ops.backprop_mean_pool(dY, lengths), lengths)
