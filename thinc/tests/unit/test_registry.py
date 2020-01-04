@@ -314,9 +314,9 @@ def test_validation_no_validate():
 
 
 def test_validation_fill_defaults():
-    config = {"one": 1, "two": {"@cats": "catsie.v1"}}
+    config = {"one": 1, "two": {"@cats": "catsie.v1", "evil": "hello"}}
     result = my_registry.fill_config(config, validate=False)
-    assert len(result["two"]) == 2  # no value filled in for "evil"
+    assert len(result["two"]) == 3
     with pytest.raises(ConfigValidationError):
         # Required arg "evil" is not defined
         my_registry.fill_config(config)
@@ -348,4 +348,15 @@ def test_validation_generators_iterable():
             "schedule": {"@schedules": "test_schedule.v1", "some_value": 1.0},
         }
     }
+    my_registry.make_from_config(config)
+
+
+def test_validation_unset_type_hints():
+    """Test that unset type hints are handled correctly (and treated as Any)."""
+
+    @thinc.registry.optimizers("test_optimizer.v2")
+    def test_optimizer_v2(rate, steps: int = 10) -> None:
+        return None
+
+    config = {"test": {"@optimizers": "test_optimizer.v2", "rate": 0.1, "steps": 20}}
     my_registry.make_from_config(config)
