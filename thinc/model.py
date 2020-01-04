@@ -13,6 +13,7 @@ from .shims import Shim
 from .util import copy_array, get_width, create_thread_local
 from .types import Array
 
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
@@ -141,7 +142,7 @@ class Model:
 
     def has_dim(self, name: str) -> Optional[bool]:
         """Check whether the model has a dimension of a given name. If the
-        dimension is registered but the value is unset, returns None. 
+        dimension is registered but the value is unset, returns None.
         """
         if name not in self._dims:
             return False
@@ -169,7 +170,7 @@ class Model:
     def has_param(self, name: str) -> Optional[bool]:
         """Check whether the model has a weights parameter of the given name.
 
-        Returns None if the parameter is registered but currently unset. 
+        Returns None if the parameter is registered but currently unset.
         """
         if name not in self._params:
             return False
@@ -210,7 +211,7 @@ class Model:
 
     def has_grad(self, name: str) -> Optional[bool]:
         """Check whether the model has a non-zero gradient for a parameter.
-        Returns None if the gradient is allocated but currently 0. 
+        Returns None if the gradient is allocated but currently 0.
         """
         grad_name = f"d_{name}"
         key = (self.id, grad_name)

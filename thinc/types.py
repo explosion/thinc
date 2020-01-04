@@ -10,7 +10,7 @@ Shape = Union[Tuple[int], Tuple[int, int], Tuple[int, int, int]]
 
 class NlpType:
     # TODO:
-    vocab: "spacy.vocab.Vocab"  # type: ignore
+    vocab: "spacy.vocab.Vocab"  # type: ignore  # noqa: F821
     pass
 
 
