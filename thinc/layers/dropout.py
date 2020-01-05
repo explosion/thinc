@@ -45,14 +45,13 @@ def _dropout_padded(
     model: Model[InT, OutT], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
-    lengths = Xr.lengths
     mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
     Y = X * mask
 
     def backprop(dYp: Padded) -> Padded:
-        return Padded(dYr.data * mask, dYr.lengths)
+        return Padded(dYp.data * mask, dYp.size_at_t)
 
-    return Padded(Y, lengths), backprop
+    return Padded(Y, Xp.size_at_t), backprop
 
 
 
