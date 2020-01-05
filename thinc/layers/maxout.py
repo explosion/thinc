@@ -5,12 +5,8 @@ from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 from ..initializers import xavier_uniform_init, zero_init
-from ..types import Array
+from ..types import Array, Floats2d
 from ..util import get_width
-
-
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
 
 
 def Maxout(
@@ -23,7 +19,7 @@ def Maxout(
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model:
-    model = Model(
+    model = Model[Floats2d, Floats2d](
         "maxout",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -39,7 +35,7 @@ def Maxout(
     return model
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model, X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
     nO = model.get_dim("nO")
     nP = model.get_dim("nP")
     nI = model.get_dim("nI")
@@ -51,7 +47,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
     Y = Y.reshape((Y.shape[0], nO, nP))
     best, which = model.ops.maxout(Y)
 
-    def backprop(d_best: OutputType) -> InputType:
+    def backprop(d_best: Floats2d) -> Floats2d:
         dY = model.ops.backprop_maxout(d_best, which, nP)
         dY = dY.reshape((dY.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
@@ -65,7 +61,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
     """Create an init function, given a dictionary of parameter initializers."""
 
     def init(
-        model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+        model: Model, X: Optional[Floats2d] = None, Y: Optional[Floats2d] = None
     ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))

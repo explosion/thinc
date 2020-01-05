@@ -1,5 +1,7 @@
+from typing import Optional, List, Tuple
 from ..model import Model
 from ..util import get_width
+from ..types import Array
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
@@ -7,19 +9,19 @@ from .affine import Affine
 from .with_list2padded import with_list2padded
 
 
-def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
+def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0) -> Model[List[Array], List[Array]]:
     return with_list2padded(
         clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
     )
 
 
-def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
+def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0) -> Model[List[Array], List[Array]]:
     return with_list2padded(
         clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
     )
 
 
-def LSTM_step(nO=None, nI=None, *, dropout=0.0):
+def LSTM_step(nO: Optional[int]=None, nI: Optional[int]=None, *, dropout: float=0.0) -> Model[Array, Array]:
     """Create a step model for an LSTM."""
     if dropout != 0.0:
         msg = (
@@ -27,7 +29,7 @@ def LSTM_step(nO=None, nI=None, *, dropout=0.0):
             "PyTorchWrapper and the torch.LSTM class."
         )
         raise NotImplementedError(msg)
-    model = Model(
+    model = Model[Array, Array](
         "lstm_step", forward, init=init, layers=[Affine()], dims={"nO": nO, "nI": nI}
     )
     if nO is not None and nI is not None:
@@ -47,7 +49,7 @@ def init(model, X=None, Y=None):
     model.layers[0].initialize()
 
 
-def forward(model, prevstate_inputs, is_train):
+def forward(model: Model, prevstate_inputs: Tuple[Tuple[Array, Array], Array], is_train):
     (cell_tm1, hidden_tm1), inputs = prevstate_inputs
     weights = model.layers[0]
     nI = inputs.shape[1]

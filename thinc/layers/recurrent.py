@@ -1,9 +1,10 @@
+from typing import Optional, Tuple, Callable, List
 from ..model import Model
-from ..types import Padded
+from ..types import Array, Padded
 
 
-def recurrent(step_model: Model) -> Model:
-    model = Model(
+def recurrent(step_model: Model) -> Model[Padded, Padded]:
+    model = Model[Padded, Padded](
         step_model.name.replace("_step", ""),
         forward,
         init=init,
@@ -16,9 +17,9 @@ def recurrent(step_model: Model) -> Model:
     return model
 
 
-def init(model, X=None, Y=None):
-    Xt = X[0] if X is not None else None
-    Yt = Y[0] if Y is not None else None
+def init(model, X: Optional[Padded]=None, Y: Optional[Padded]=None):
+    Xt = X.data[0] if X is not None else None
+    Yt = Y.data[0] if Y is not None else None
     if Xt is not None or Yt is not None:
         model.layers[0].initialize(X=Xt, Y=Yt)
     nO = model.get_dim("nO")
@@ -26,7 +27,7 @@ def init(model, X=None, Y=None):
     model.set_param("initial_hiddens", model.ops.allocate((nO,)))
 
 
-def forward(model, Xp, is_train):
+def forward(model: Model[Padded, Padded], Xp: Padded, is_train: bool):
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
@@ -35,7 +36,7 @@ def forward(model, Xp, is_train):
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
     Y = model.ops.allocate((X.shape[0], X.shape[1], nO))
-    backprops = [None] * X.shape[0]
+    backprops: List[Optional[Callable]] = [None] * X.shape[0]
     (cell, hidden) = _get_initial_state(model, X.shape[1], nO)
     for t in range(X.shape[0]):
         # At each timestep t, we finish some of the sequences. The sequences

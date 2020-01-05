@@ -1,7 +1,7 @@
 from typing import Callable, Tuple, Optional, TypeVar
 
 from ..model import Model
-from ..types import Array
+from ..types import Array, Ints2d, Floats2d
 from ..initializers import uniform_init
 
 
@@ -17,7 +17,7 @@ def HashEmbed(
     column: int = 0,
     initializer: Callable = uniform_init,
 ) -> Model:
-    model = Model(
+    model = Model[Ints2d, Floats2d](
         "hashembed",
         forward,
         init=create_init(initializer),
@@ -31,7 +31,7 @@ def HashEmbed(
     return model
 
 
-def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, ids: Ints2d, is_train: bool) -> Tuple[Floats2d, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
