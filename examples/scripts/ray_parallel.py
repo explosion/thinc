@@ -65,17 +65,17 @@ class DataWorker:
 def get_model_weights(model):
     params = defaultdict(dict)
     for node in model.walk():
-        for name in node._params:
-            params[node.id][name] = node.get_param(name)
+        for name in node.params_names:
+            if node.has_param(name):
+                params[node.id][name] = node.get_param(name)
     return params
 
 
 def get_model_grads(model):
     grads = defaultdict(dict)
     for node in model.walk():
-        for name in node._params:
-            if node.has_grad(name):
-                grads[node.id][name] = node.get_grad(name)
+        for name in node.grad_names:
+            grads[node.id][name] = node.get_grad(name)
     return grads
 
 
