@@ -39,7 +39,8 @@ class DTypes(str, Enum):
     uint64 = "uint64"
 
 
-class Array(Sized, Container):
+ndim = TypeVar("ndim", bound=int)
+class Array(Generic[ndim], Sized, Container):
     T: "Array"
     base: Optional["Array"]
 
