@@ -12,7 +12,6 @@ from typing import (
     Generic,
     TypeVar,
 )
-from typing_extensions import Literal
 from enum import Enum
 import numpy
 
