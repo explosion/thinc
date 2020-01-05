@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any
+from typing import Tuple, Callable, Optional, TypeVar, Any, cast
 
 from ..model import Model
 from ..util import get_width
@@ -15,7 +15,7 @@ def chain(*layers: Model) -> Model[InT, OutT]:
     feed-forward model that computes `g(f(x))`.
     """
     if not layers:
-        return noop()
+        return cast(Model[InT, OutT], noop())
     elif len(layers) == 1:
         return layers[0]
     elif layers[0]._func is forward:

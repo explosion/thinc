@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional
+from typing import Callable, Tuple, Optional, cast
 
 from ..model import Model
 from ..types import Ints2d, Floats2d
@@ -49,7 +49,8 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
         for i in range(keys.shape[0]):
             model.ops.scatter_add(d_vectors, keys[i], d_output)
         model.inc_grad("vectors", d_vectors)
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+        dX: InT = cast(Ints2d, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        return dX
 
     return output, backprop
 

@@ -1,4 +1,4 @@
-from typing import Optional, Callable, List, Tuple
+from typing import Optional, Callable, List, Tuple, cast
 
 from ..model import Model
 from ..types import Padded, RNNState
@@ -45,7 +45,7 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
     Y = model.ops.allocate((X.shape[0], X.shape[1], nO))
-    backprops: List[Optional[Callable]] = [None] * X.shape[0]
+    backprops: List[Callable] = [lambda a: a] * X.shape[0]
     (cell, hidden) = _get_initial_state(model, X.shape[1], nO)
     for t in range(X.shape[0]):
         # At each timestep t, we finish some of the sequences. The sequences
@@ -65,6 +65,7 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
         dX = step_model.ops.allocate((dY.shape[0], dY.shape[1], nI))
         for t in range(dX.shape[0] - 1, -1, -1):
             n = size_at_t[t]
+            assert backprops[t] is not None
             d_state, dX[t, :n] = backprops[t]((d_state, dY[t]))
         model.inc_grad("initial_cells", d_state[0].sum(axis=0))
         model.inc_grad("initial_hiddens", d_state[1].sum(axis=0))
