@@ -1,15 +1,16 @@
-from typing import Tuple, Callable, TypeVar, Optional
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, Array
 from ..util import get_width
 
 
-InputValue = TypeVar("InputValue")
-InT = Tuple[InputValue, InputValue]
-OutT = TypeVar("OutT", bound=Array)
+# TODO: fix type errors
+# TODO: more specific types?
+InT = Tuple[Array, Array]
+OutT = Array
 
 
-def Siamese(layer: Model, similarity: Model) -> Model:
+def Siamese(layer: Model, similarity: Model) -> Model[InT, OutT]:
     return Model(
         f"siamese({layer.name}, {similarity.name})",
         forward,
@@ -19,7 +20,9 @@ def Siamese(layer: Model, similarity: Model) -> Model:
     )
 
 
-def forward(model: Model, X1_X2: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(
+    model: Model[InT, OutT], X1_X2: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
     vec1, bp_vec1 = model.layers[0](X1, is_train)
     vec2, bp_vec2 = model.layers[0](X2, is_train)

@@ -1,12 +1,12 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
 from ..types import Floats2d
 from ..initializers import xavier_uniform_init, zero_init
 
 
-InT = TypeVar("InT", bound=Floats2d)
-OutT = TypeVar("OutT", bound=Floats2d)
+InT = Floats2d
+OutT = Floats2d
 
 
 def Affine(

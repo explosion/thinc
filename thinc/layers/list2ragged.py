@@ -1,15 +1,15 @@
-from typing import Tuple, List, Callable, TypeVar
+from typing import Tuple, List, Callable
 
 from ..model import Model
 from ..types import Array, Ragged
 
 
-InputValue = TypeVar("InputValue", bound=Array)
-InT = List[InputValue]
+# TODO: make more specific?
+InT = List[Array]
 OutT = Ragged
 
 
-def list2ragged() -> Model:
+def list2ragged() -> Model[InT, OutT]:
     """Transform sequences to ragged arrays if necessary. If sequences are
     already ragged, do nothing. A ragged array is a tuple (data, lengths),
     where data is the concatenated data.
@@ -17,7 +17,7 @@ def list2ragged() -> Model:
     return Model("list2ragged", forward)
 
 
-def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     def backprop(dYr: OutT) -> InT:
         return model.ops.unflatten(dYr.data, dYr.lengths)
 

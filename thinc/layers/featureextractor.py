@@ -1,12 +1,12 @@
-from typing import List, Union, Callable, Tuple, TypeVar
+from typing import List, Union, Callable, Tuple
+
 from ..types import Array, DocType
 from ..model import Model
 
 
 # TODO: fix and make more specific
-InT = TypeVar("InT", bound=List[DocType])
-OutputValue = TypeVar("OutputValue", bound=Array)
-OutT = List[OutputValue]
+InT = List[DocType]
+OutT = List[Array]
 
 
 def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:

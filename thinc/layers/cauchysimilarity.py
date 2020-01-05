@@ -1,12 +1,13 @@
-from typing import Tuple, Callable, TypeVar, Optional
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..types import Array, Floats1d, Floats2d
 from ..util import get_width
 
 
+# TODO: remaining types
 InT = Tuple[Floats2d, Floats2d]
-OutT = TypeVar("OutT", bound=Floats1d)
+OutT = Floats1d
 
 
 def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:

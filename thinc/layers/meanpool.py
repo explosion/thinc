@@ -1,19 +1,19 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable
 
-from ..types import Array
-from ..data import Ragged
+from ..types import Array, Ragged
 from ..model import Model
 
 
-InT = TypeVar("InT", bound=Ragged)
-OutT = TypeVar("OutT", bound=Array)
+# TODO: more specific types?
+InT = Ragged
+OutT = Array
 
 
-def MeanPool() -> Model:
+def MeanPool() -> Model[InT, OutT]:
     return Model("mean_pool", forward)
 
 
-def forward(model: Model, Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.mean_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

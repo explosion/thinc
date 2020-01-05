@@ -1,15 +1,15 @@
-from typing import Tuple, Callable, List, Optional, TypeVar
+from typing import Tuple, Callable, List, Optional
 
 from ..model import Model
 from ..types import Array
 
-InputValue = TypeVar("InputValue", bound=Array)
-InT = List[InputValue]
-OutputValue = TypeVar("OutputValue", bound=Array)
-OutT = List[OutputValue]
+
+# TODO: more specific types?
+InT = List[Array]
+OutT = List[Array]
 
 
-def with_list2array(layer: Model, *, pad: int = 0) -> Model:
+def with_list2array(layer: Model, *, pad: int = 0) -> Model[InT, OutT]:
     return Model(
         f"with_list2array-{layer.name}",
         forward,
@@ -19,7 +19,7 @@ def with_list2array(layer: Model, *, pad: int = 0) -> Model:
     )
 
 
-def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     layer = model.layers[0]
     pad = model.get_attr("pad")
     lengths = layer.ops.asarray([len(seq) for seq in Xs])
@@ -35,7 +35,7 @@ def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
 
 
 def init(
-    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     layer = model.layers[0]
     pad = model.get_attr("pad")

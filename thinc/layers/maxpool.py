@@ -1,19 +1,19 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable
 
-from ..types import Array
+from ..types import Array, Ragged
 from ..model import Model
-from ..data import Ragged
 
 
-InT = TypeVar("InT", bound=Ragged)
-OutT = TypeVar("OutT", bound=Array)
+# TODO: more specific types?
+InT = Ragged
+OutT = Array
 
 
-def MaxPool() -> Model:
+def MaxPool() -> Model[InT, OutT]:
     return Model("max_pool", forward)
 
 
-def forward(model: Model, Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y, which = model.ops.max_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

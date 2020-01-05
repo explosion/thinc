@@ -1,11 +1,12 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, Array, create_init
 from ..initializers import zero_init
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+# TODO: more specific types?
+InT = Array
+OutT = Array
 
 
 def Softmax(
@@ -15,7 +16,7 @@ def Softmax(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init
 ) -> Model:
-    model = Model[Array, Array](
+    model: Model[Array, Array] = Model(
         "softmax",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -27,7 +28,7 @@ def Softmax(
     return model
 
 
-def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
 

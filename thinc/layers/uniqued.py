@@ -9,7 +9,7 @@ InT = TypeVar("InT", bound=Array)
 OutT = TypeVar("OutT", bound=Array)
 
 
-def uniqued(layer: Model, *, column: int = 0) -> Model:
+def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
     """Group inputs to a layer, so that the layer only has to compute for the
     unique values. The data is transformed back before output, and the same
     transformation is applied for the gradient. Effectively, this is a cache
@@ -25,7 +25,7 @@ def uniqued(layer: Model, *, column: int = 0) -> Model:
     )
 
 
-def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     column = model.get_attr("column")
     layer = model.layers[0]
     keys = X[:, column]
@@ -50,7 +50,7 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
 
 
 def init(
-    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     layer = model.layers[0]
     layer.initialize(X=X, Y=Y)

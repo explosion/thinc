@@ -1,12 +1,12 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable
 
 from ..model import Model
 from ..types import Array
 
 
 # TODO: more specific arrays
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Array
+OutT = Array
 
 
 def ExtractWindow(window_size: int = 1) -> Model[InT, OutT]:

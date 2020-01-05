@@ -1,11 +1,15 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
-from ..types import Array, Floats2d
+from ..types import Floats2d
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
+
+
+InT = Floats2d
+OutT = Floats2d
 
 
 def ReLu(
@@ -17,7 +21,7 @@ def ReLu(
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model:
-    model = Model[Floats2d, Floats2d](
+    model = Model[InT, OutT](
         "relu",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -33,7 +37,7 @@ def ReLu(
     return model
 
 
-def forward(model: Model, X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
 
@@ -41,7 +45,7 @@ def forward(model: Model, X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callab
     Y += b
     model.ops.relu(Y, inplace=True)
 
-    def backprop(dY: Floats2d) -> Floats2d:
+    def backprop(dY: OutT) -> InT:
         dY = model.ops.backprop_relu(dY, Y)
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))

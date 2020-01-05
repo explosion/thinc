@@ -1,18 +1,20 @@
-from typing import Tuple, Callable, List, Optional, TypeVar
+from typing import Tuple, Callable, List, Optional
 
 from ..types import Array, Padded
 from ..model import Model
+from ..backends import Ops
 
 
-InT = TypeVar("InT", bound=List[Array])
-OutT = TypeVar("OutT", bound=List[Array])
+# TODO: more specific types?
+InT = List[Array]
+OutT = List[Array]
 
 
-def with_list2padded(layer: Model) -> Model:
+def with_list2padded(layer: Model) -> Model[InT, OutT]:
     return Model(f"with_list2padded-{layer.name}", forward, init=init, layers=[layer])
 
 
-def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     # Pad out batches, and sort by decreasing length. The size_at_t array records
     # the number of batch items that are still active at timestep t.
     # We undo this transformation
@@ -28,15 +30,14 @@ def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
 
 
 def init(
-    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
-
     model.layers[0].initialize(
         X=_maybe_get_padded(model.ops, X), Y=_maybe_get_padded(model.ops, Y)
     )
 
 
-def _maybe_get_padded(ops, seqs: Optional[InT]) -> Optional[Padded]:
+def _maybe_get_padded(ops: Ops, seqs: Optional[InT]) -> Optional[Padded]:
     if seqs is None:
         return None
     flat, size_at_t, _ = ops.square_sequences(seqs)

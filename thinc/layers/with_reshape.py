@@ -1,14 +1,15 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..types import Array
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+# TODO: more specific types?
+InT = Array
+OutT = Array
 
 
-def with_reshape(layer: Model) -> Model:
+def with_reshape(layer: Model) -> Model[InT, OutT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape-{layer.name}",
@@ -19,7 +20,7 @@ def with_reshape(layer: Model) -> Model:
     )
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
@@ -30,13 +31,15 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
     Y = Y2d.reshape(final_shape)
 
-    def backprop(dY: Array) -> Array:
+    def backprop(dY: OutT) -> InT:
         dY = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
         return Y2d_backprop(dY).reshape(initial_shape)
 
     return Y, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
     # TODO: write
     pass

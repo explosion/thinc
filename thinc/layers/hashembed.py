@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional, TypeVar
+from typing import Callable, Tuple, Optional
 
 from ..model import Model
 from ..types import Ints2d, Floats2d
@@ -6,8 +6,8 @@ from ..initializers import uniform_init
 
 
 # TODO: fix type error
-InT = TypeVar("InT", bound=Ints2d)
-OutT = TypeVar("OutT", bound=Floats2d)
+InT = Ints2d
+OutT = Floats2d
 
 
 def HashEmbed(

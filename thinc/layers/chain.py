@@ -5,7 +5,7 @@ from ..util import get_width
 from ..types import Ragged, Padded, Array
 from .noop import noop
 
-# TODO: are these bound?
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 

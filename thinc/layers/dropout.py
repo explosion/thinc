@@ -1,21 +1,12 @@
-from typing import Tuple, Callable, TypeVar, List, Union
+from typing import Tuple, Callable, List, Union
 
 from ..model import Model
 from ..types import Array, Ragged
 
 
-# TODO: How to type the "sub-functions"?
-# TODO: improve this and make array types more specific
-InTArray = TypeVar("InTArray", bound=Array)
-InputLengths = TypeVar("InputLengths", bound=Array)
-InTList = List[InTArray]
-InTRagged = Tuple[InTArray, InputLengths]
-InT = Union[InTArray, InTList, InTRagged]
-OutTArray = TypeVar("OutTArray", bound=Array)
-OutputLengths = TypeVar("OutputLengths", bound=Array)
-OutTList = List[OutTArray]
-OutTRagged = Tuple[OutTArray, OutputLengths]
-OutT = Union[OutTArray, OutTList, OutTRagged]
+# TODO: improve this and make array types more specific?
+InT = Union[Array, List[Array], Ragged]
+OutT = Union[Array, List[Array], Ragged]
 
 
 def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
@@ -26,9 +17,7 @@ def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
     return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 
-def forward(
-    model: Model[InT, OutT], X: Union[Array, List[Array], Ragged], is_train: bool
-) -> Tuple[Union[Array, List[Array], Ragged], Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if rate == 0 or not is_enabled:

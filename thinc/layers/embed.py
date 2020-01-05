@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional, TypeVar
+from typing import Callable, Tuple, Optional
 
 from ..model import Model
 from ..types import Array
@@ -6,10 +6,9 @@ from ..initializers import uniform_init
 from ..util import get_width
 
 
-# TODO: fix type error
 # TODO: more speific array type
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Array
+OutT = Array
 
 
 def Embed(

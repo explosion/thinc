@@ -1,20 +1,19 @@
-from typing import Tuple, Callable, TypeVar, List
+from typing import Tuple, Callable, List
 
 from ..model import Model
 from ..types import Array, Ragged
 
 
-InputValue = TypeVar("InputValue", bound=Array)
 InT = Ragged
-OutT = List[InputValue]
+OutT = List[Array]
 
 
-def ragged2list() -> Model:
+def ragged2list() -> Model[InT, OutT]:
     """Transform sequences from a ragged format into lists."""
     return Model("ragged2list", forward)
 
 
-def forward(model: Model, Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     lengths = Xr.lengths
 
     def backprop(dXs: OutT) -> InT:

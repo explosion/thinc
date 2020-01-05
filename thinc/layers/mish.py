@@ -1,11 +1,15 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
-from ..types import Array, Floats2d
+from ..types import Floats2d
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
+
+
+InT = Floats2d
+OutT = Floats2d
 
 
 def Mish(
@@ -16,11 +20,11 @@ def Mish(
     init_b: Callable = zero_init,
     dropout: Optional[float],
     normalize: bool = False,
-) -> Model:
+) -> Model[InT, OutT]:
     """Dense layer with mish activation.
     https://arxiv.org/pdf/1908.08681.pdf
     """
-    model = Model[Floats2d, Floats2d](
+    model: Model[InT, OutT] = Model(
         "mish",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -36,14 +40,14 @@ def Mish(
     return model
 
 
-def forward(model: Model, X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
     Y_pre_mish = model.ops.gemm(X, W, trans2=True)
     Y_pre_mish += b
     Y = model.ops.mish(Y_pre_mish)
 
-    def backprop(dY: Floats2d) -> Floats2d:
+    def backprop(dY: OutT) -> InT:
         dY_pre_mish = model.ops.backprop_mish(dY, Y_pre_mish)
         model.inc_grad("W", model.ops.gemm(dY_pre_mish, X, trans1=True))
         model.inc_grad("b", dY_pre_mish.sum(axis=0))

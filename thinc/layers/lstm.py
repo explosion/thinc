@@ -1,6 +1,7 @@
 from typing import Optional, List, Tuple, Callable
 
 from ..model import Model
+from ..backends import Ops
 from ..util import get_width
 from ..types import Array, RNNState, Floats2d
 from .recurrent import recurrent
@@ -10,7 +11,9 @@ from .affine import Affine
 from .with_list2padded import with_list2padded
 
 
-# TODO: Input and output types
+# TODO: fix type error
+InT = List[Floats2d]
+OutT = List[Floats2d]
 
 
 def BiLSTM(
@@ -19,7 +22,7 @@ def BiLSTM(
     *,
     depth: int = 1,
     dropout: float = 0.0
-) -> Model[List[Floats2d], List[Floats2d]]:
+) -> Model[InT, OutT]:
     return with_list2padded(
         clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
     )
@@ -31,7 +34,7 @@ def LSTM(
     *,
     depth: int = 1,
     dropout: float = 0.0
-):
+) -> Model[InT, OutT]:
     return with_list2padded(
         clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
     )
@@ -55,9 +58,7 @@ def LSTM_step(
     return model
 
 
-def init(
-    model: Model, X: Optional[List[Array]] = None, Y: Optional[List[Array]] = None
-) -> None:
+def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -89,7 +90,7 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops, acts: Array, prev_cells: Floats2d):
+def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))

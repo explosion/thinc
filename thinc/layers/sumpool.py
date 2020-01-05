@@ -1,19 +1,18 @@
-from typing import Callable, TypeVar, Tuple
+from typing import Callable, Tuple
 
-from ..data import Ragged
 from ..model import Model
-from ..types import Array
+from ..types import Array, Ragged
 
 
-InT = TypeVar("InT", bound=Ragged)
-OutT = TypeVar("OutT", bound=Array)
+InT = Ragged
+OutT = Array
 
 
-def SumPool() -> Model:
+def SumPool() -> Model[InT, OutT]:
     return Model("sum_pool", forward)
 
 
-def forward(model: Model, Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.sum_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

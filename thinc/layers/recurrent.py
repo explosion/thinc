@@ -1,14 +1,17 @@
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Tuple
 
 from ..model import Model
 from ..types import Padded, RNNState
 
-# TODO: input / output types
+
+# TODO: fix type errors
 # TODO: finish types (function return types etc.)
+InT = Padded
+OutT = Padded
 
 
-def recurrent(step_model: Model[RNNState, RNNState]) -> Model[Padded, Padded]:
-    model = Model[Padded, Padded](
+def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
+    model: Model[Padded, Padded] = Model(
         step_model.name.replace("_step", ""),
         forward,
         init=init,
@@ -21,7 +24,9 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[Padded, Padded]:
     return model
 
 
-def init(model, X: Optional[Padded] = None, Y: Optional[Padded] = None):
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
     Xt = X.data[0] if X is not None else None
     Yt = Y.data[0] if Y is not None else None
     if Xt is not None or Yt is not None:
@@ -31,7 +36,7 @@ def init(model, X: Optional[Padded] = None, Y: Optional[Padded] = None):
     model.set_param("initial_hiddens", model.ops.allocate((nO,)))
 
 
-def forward(model: Model[Padded, Padded], Xp: Padded, is_train: bool):
+def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
@@ -50,7 +55,7 @@ def forward(model: Model[Padded, Padded], Xp: Padded, is_train: bool):
         inputs = ((cell[:n], hidden[:n]), X[t, :n])
         ((cell, hidden), Y[t, :n]), backprops[t] = step_model(inputs, is_train)
 
-    def backprop(dYp):
+    def backprop(dYp: OutT) -> InT:
         dY = dYp.data
         size_at_t = dYp.size_at_t
         d_state = (

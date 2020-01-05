@@ -6,7 +6,7 @@ from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
 
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..types import Array
 from ..model import Model
@@ -14,14 +14,12 @@ from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
 
-InputKeys = TypeVar("InputKeys", bound=Array)
-InputValues = TypeVar("InputValues", bound=Array)
-InputLengths = TypeVar("InputLengths", bound=Array)
-InT = Tuple[InputKeys, InputValues, InputLengths]
-OutT = TypeVar("OutT", bound=Array)
+# TODO: more specific types?
+InT = Tuple[Array, Array, Array]
+OutT = Array
 
 
-def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
+def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
     model = Model(
         "sparse_linear",
         forward,
@@ -35,7 +33,7 @@ def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
     return model
 
 
-def forward(model, keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
@@ -45,7 +43,7 @@ def forward(model, keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Call
         return _begin_cpu_update(model, keys, values, lengths)
 
 
-def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
@@ -54,11 +52,11 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
     model.set_param("b", model.ops.allocate((nO,), dtype="f"))
 
 
-def _begin_gpu_update(model, keys, values, lengths):
+def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:
     xp = get_array_module(keys)
     scores_cpu, callback = _begin_cpu_update(model, keys.get(), values.get(), lengths.get())
 
-    def backprop_gpu_update(d_scores):
+    def backprop_gpu_update(d_scores: Array) -> Tuple[Array, Array, Array]:
         callback(d_scores.get())
         return (keys, values, lengths)
 
