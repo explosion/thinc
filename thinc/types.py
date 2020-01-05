@@ -407,7 +407,7 @@ def validate_array(obj):
 
 
 def validate_array_dims(obj, expected_ndim):
-    # TODO: include validate_array here
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if expected_ndim is not None and obj.ndim != expected_ndim:
         err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
         raise ValueError(err)
@@ -415,7 +415,7 @@ def validate_array_dims(obj, expected_ndim):
 
 
 def validate_array_dtype(obj, expected_dtype):
-    # TODO: include validate_array here
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if obj.dtype != expected_dtype:
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
@@ -424,7 +424,6 @@ def validate_array_dtype(obj, expected_dtype):
 
 def get_array_validators(*, ndim, dtype):
     return (
-        lambda v: validate_array(v),
         lambda v: validate_array_dims(v, ndim),
         lambda v: validate_array_dtype(v, dtype),
     )
