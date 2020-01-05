@@ -10,7 +10,7 @@ InputType = TypeVar("InputType", bound=Array)
 OutputType = TypeVar("OutputType", bound=Array)
 
 
-def LayerNorm(nO: Optional[Array] = None) -> Model:
+def LayerNorm(nO: Optional[int] = None) -> Model:
     return Model(
         "layernorm",
         forward,
@@ -20,12 +20,12 @@ def LayerNorm(nO: Optional[Array] = None) -> Model:
     )
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     N, mu, var = _get_moments(model.ops, X)
     Xhat = (X - mu) * var ** (-1.0 / 2.0)
-    y, backprop_rescale = _begin_update_scale_shift(model, Xhat)
+    Y, backprop_rescale = _begin_update_scale_shift(model, Xhat)
 
-    def backprop(dY: OutputType) -> InputType:
+    def backprop(dY: Array) -> Array:
         dY = backprop_rescale(dY)
         dist, sum_dy, sum_dy_dist = _get_d_moments(model.ops, dY, X, mu)
         d_xhat = N * dY - sum_dy - dist * var ** (-1.0) * sum_dy_dist
@@ -33,7 +33,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
         d_xhat /= N
         return d_xhat
 
-    return y, backprop
+    return Y, backprop
 
 
 def init(
@@ -66,7 +66,7 @@ def _begin_update_scale_shift(model: Model, X: Array) -> Tuple[Array, Callable]:
     return Y, finish_update_scale_shift
 
 
-def _get_moments(ops: Ops, X: Array) -> Array:
+def _get_moments(ops: Ops, X: Array) -> Tuple[Array, Array, Array]:
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
     return ops.asarray([X.shape[1]], dtype="f"), mu, var

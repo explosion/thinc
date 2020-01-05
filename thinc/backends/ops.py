@@ -1,4 +1,4 @@
-from typing import Optional, List, Callable, Tuple, Union, Sequence
+from typing import Optional, List, Callable, Tuple, Sequence
 
 from ..types import Xp, Array, Shape
 from ..util import copy_array, get_array_module
@@ -94,14 +94,14 @@ class Ops:
         lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
-            pad_to = lengths.max()
+            pad_to = int(lengths.max())
         arr = self.allocate(
             (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
         )
         for arr_i, seq in enumerate(seqs_in):
             arr[arr_i, : seq.shape[0]] = self.asarray(seq)
 
-        def unpad(padded: Array) -> List[Union[None, Array]]:
+        def unpad(padded: Array) -> Sequence[Optional[Array]]:
             unpadded = [None] * len(lengths)
             for i in range(padded.shape[0]):
                 unpadded[i] = padded[i, : lengths[i]]
@@ -137,7 +137,7 @@ class Ops:
                     break
             batch_size_at_t[t] = i
 
-        def unpad(padded: Array) -> List[Union[None, Array]]:
+        def unpad(padded: Array) -> Sequence[Optional[Array]]:
             unpadded = [None] * len(lengths)
             padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
             for i in range(padded.shape[0]):
@@ -148,7 +148,7 @@ class Ops:
 
     def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
         if drop is None or drop <= 0:
-            return None
+            return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
             return self.allocate(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
@@ -311,13 +311,16 @@ class Ops:
         self, dY, X, threshold: float = 20.0, out: Optional[Array] = None
     ) -> Array:
         xp = get_array_module(X)
+        out_: Array
         if out is None:
-            out = xp.zeros(X.shape, dtype="f")
-        out[:] = 1 - 1 / (1 + xp.exp(X))
-        out *= dY
+            out_ = xp.zeros(X.shape, dtype="f")
+        else:
+            out_ = out
+        out_[:] = 1 - 1 / (1 + xp.exp(X))
+        out_ *= dY
         indices = X >= threshold
-        out[indices] = dY[indices]
-        return out
+        out_[indices] = dY[indices]
+        return out_
 
     def mish(self, X, threshold=20.0, out=None):
         Xsoft = self.softplus(X, threshold=threshold, out=out)

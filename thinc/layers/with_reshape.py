@@ -19,19 +19,19 @@ def with_reshape(layer: Model) -> Model:
     )
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
     nB = X.shape[0]
     nT = X.shape[1]
-    X2d = X.reshape(-1, X.shape[2])
+    X2d = X.reshape((-1, X.shape[2]))
     X2d = X2d.astype(layer.ops.xp.float32)
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
     Y = Y2d.reshape(final_shape)
 
-    def backprop(dY: OutputType) -> InputType:
-        dY = dY.reshape(nB * nT, -1).astype(layer.ops.xp.float32)
+    def backprop(dY: Array) -> Array:
+        dY = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
         return Y2d_backprop(dY).reshape(initial_shape)
 
     return Y, backprop

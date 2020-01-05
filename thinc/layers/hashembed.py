@@ -31,9 +31,7 @@ def HashEmbed(
     return model
 
 
-def forward(
-    model: Model, ids: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
@@ -43,7 +41,7 @@ def forward(
     keys = model.ops.hash(ids, seed) % nV
     output = vectors[keys].sum(axis=1)
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: Array) -> Array:
         keys = model.ops.hash(ids, seed) % nV
         d_vectors = model.ops.allocate(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")

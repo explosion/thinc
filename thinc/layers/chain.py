@@ -1,12 +1,12 @@
 from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
-from ..types import Array
 from ..util import get_width
+from ..types import Ragged, Padded, Array
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InputType = TypeVar("InputType")
+OutputType = TypeVar("OutputType")
 
 
 def chain(*layers: Model) -> Model:
@@ -35,15 +35,17 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
     """
     callbacks = []
     for layer in model.layers:
-        X, inc_layer_grad = layer(X, is_train=is_train)
+        Y, inc_layer_grad = layer(X, is_train=is_train)
         callbacks.append(inc_layer_grad)
+        X = Y
 
-    def backprop(gradient: OutputType) -> InputType:
+    def backprop(dY: OutputType) -> InputType:
         for callback in reversed(callbacks):
-            gradient = callback(gradient)
-        return gradient
+            dX = callback(dY)
+            dY = dX
+        return dX
 
-    return X, backprop
+    return Y, backprop
 
 
 def init(
@@ -61,7 +63,7 @@ def init(
         return
     # Try to set nO on each layer, where available.
     nO = None
-    if Y is not None:
+    if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")

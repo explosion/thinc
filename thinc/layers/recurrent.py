@@ -1,4 +1,3 @@
-from typing import Tuple
 from ..model import Model
 from ..types import Padded
 

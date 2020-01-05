@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar
 import numpy
 import contextlib
 import srsly
@@ -40,7 +40,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
     return init
 
 
-class Model:
+class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
@@ -83,7 +83,7 @@ class Model:
         *,
         init: Callable = lambda *a, **k: None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[bool]] = {},
+        params: Dict[str, Optional[Array]] = {},
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
@@ -193,7 +193,7 @@ class Model:
         key = (self.id, name)
         if key not in self._mem:
             self._mem.add(key, value.shape)
-        data = self._mem.get((self.id, name))
+        data = self._mem[(self.id, name)]
         copy_array(dst=data, src=value)
         self._params[name] = True
 
@@ -203,7 +203,7 @@ class Model:
         key = (self.id, grad_name)
         param_key = (self.id, name)
         if key in self._mem:
-            grad = self._mem.get(key)
+            grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
         grad += value
@@ -233,7 +233,7 @@ class Model:
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
         grad_name = f"d_{name}"
-        data = self._mem.get((self.id, grad_name))
+        data = self._mem[(self.id, grad_name)]
         copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
@@ -250,12 +250,12 @@ class Model:
         """Set the attribute to the given value."""
         self._attrs[name] = value
 
-    def __call__(self, X: Any, is_train: bool = False) -> Tuple[Any, Callable]:
+    def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
         callback to compute the gradients via backpropagation."""
         return self._func(self, X, is_train=is_train)
 
-    def initialize(self, X: Optional[Any] = None, Y: Optional[Any] = None) -> "Model":
+    def initialize(self, X: Optional[InT] = None, Y: Optional[OutT] = None) -> "Model":
         """Finish initialization of the model, optionally providing a batch of
         example input and output data to perform shape inference."""
         if self._init is not None:
@@ -271,7 +271,7 @@ class Model:
         """
         return self._func(self, X, is_train=True)
 
-    def predict(self, X: Any) -> Any:
+    def predict(self, X: InT) -> OutT:
         """Call the model's `forward` function with `is_train=False`, and return
         only the output, instead of the `(output, callback)` tuple.
         """
@@ -324,14 +324,14 @@ class Model:
             yield node
             queue.extend(node.layers)
 
-    def get_gradients(self) -> Dict[int, Array]:
+    def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
         gradients = {}
         for node in self.walk():
             if hasattr(node, "_mem") and node._mem.gradient.any():
-                gradients[node.id] = [node._mem.weights, node._mem.gradient]
+                gradients[node.id] = (node._mem.weights, node._mem.gradient)
         return gradients
 
     def copy(self) -> "Model":
@@ -340,12 +340,18 @@ class Model:
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
-        copied = Model(
+        params = {}
+        for key, value in self._params.items():
+            params[key] = None if value is None else self.get_param(key)
+        grads = {}
+        for key, value in self._grads.items():
+            grads[key] = None if value is None else self.get_grad(key)
+        copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
             init=self._init,
-            params=copy.deepcopy(self._params),
-            grads=copy.deepcopy(self._grads),
+            params=copy.deepcopy(params),
+            grads=copy.deepcopy(grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
@@ -414,7 +420,7 @@ class Model:
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
                 if row == 1:
                     continue
-                param = layer._mem.get((id_, name))
+                param = layer._mem[(id_, name)]
                 if not isinstance(layer._mem.weights, numpy.ndarray):
                     param = param.get()
                 weights[-1]["params"].append(  # type: ignore

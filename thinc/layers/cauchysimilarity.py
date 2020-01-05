@@ -10,7 +10,7 @@ InputType = Tuple[InputValue, InputValue]
 OutputType = TypeVar("OutputType", bound=Array)
 
 
-def CauchySimilarity(nI: Optional[Array] = None) -> Model:
+def CauchySimilarity(nI: Optional[int] = None) -> Model:
     """Compare input vectors according to the Cauchy similarity function proposed by
     Chen (2013). Primarily used within Siamese neural networks.
     """
@@ -23,9 +23,7 @@ def CauchySimilarity(nI: Optional[Array] = None) -> Model:
     )
 
 
-def forward(
-    model, X1_X2: InputType, is_train: bool = False
-) -> Tuple[OutputType, Callable]:
+def forward(model, X1_X2: InputType, is_train: bool = False) -> Tuple[Array, Callable]:
     X1, X2 = X1_X2
     W = model.get_param("W")
     diff = X1 - X2
@@ -48,17 +46,17 @@ def init(
     model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
 ) -> None:
     if X is not None:
-        model.set_dim("nI", get_width(X))
+        model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
     W = model.ops.allocate((model.get_dim("nI"),))
     W += 1
     model.set_param("W", W)
 
 
-def inverse(total: Array) -> Array:
-    inverse = 1.0 / (1 + total)
+def inverse(total: Array) -> Tuple[Array, Callable]:
+    inv = 1.0 / (1 + total)
 
     def backward(d_inverse: Array) -> Array:
         return d_inverse * (-1 / (total + 1) ** 2)
 
-    return inverse, backward
+    return inv, backward
