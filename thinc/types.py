@@ -557,6 +557,10 @@ class OpNames(str, Enum):
     gpu = "gpu"
 
 
+# This should probably become a dataclass too.
+RNN_State = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
+
+
 @dataclass
 class Ragged:
     data: Array
@@ -573,3 +577,7 @@ class Padded:
 
     data: Array
     size_at_t: Array
+
+
+
+

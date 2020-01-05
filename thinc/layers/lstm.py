@@ -1,16 +1,14 @@
-from typing import Optional
+from typing import Optional, List, Tuple
 
 from ..model import Model
-from ..types import Array
+from ..types import Array, Floats2d
 from ..util import get_width
+from ..types import Array, RNN_State
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .affine import Affine
 from .with_list2padded import with_list2padded
-
-
-# TODO: finish types
 
 
 def BiLSTM(
@@ -19,7 +17,7 @@ def BiLSTM(
     *,
     depth: int = 1,
     dropout: float = 0.0
-):
+) -> Model[List[Floats2d], List[Floats2d]]:
     return with_list2padded(
         clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
     )
@@ -39,7 +37,7 @@ def LSTM(
 
 def LSTM_step(
     nO: Optional[int] = None, nI: Optional[int] = None, *, dropout: float = 0.0
-):
+) -> Model[RNN_State, RNN_State]:
     """Create a step model for an LSTM."""
     if dropout != 0.0:
         msg = (
@@ -47,7 +45,7 @@ def LSTM_step(
             "PyTorchWrapper and the torch.LSTM class."
         )
         raise NotImplementedError(msg)
-    model = Model(
+    model = Model[RNN_State, RNN_State](
         "lstm_step", forward, init=init, layers=[Affine()], dims={"nO": nO, "nI": nI}
     )
     if nO is not None and nI is not None:
@@ -55,7 +53,7 @@ def LSTM_step(
     return model
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(model: Model, X: Optional[List[Array]] = None, Y: Optional[List[Array]] = None) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -67,7 +65,7 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     model.layers[0].initialize()
 
 
-def forward(model: Model, prevstate_inputs, is_train: bool):
+def forward(model: Model[RNN_State, RNN_State], prevstate_inputs: RNN_State, is_train: bool):
     (cell_tm1, hidden_tm1), inputs = prevstate_inputs
     weights = model.layers[0]
     nI = inputs.shape[1]
@@ -76,7 +74,7 @@ def forward(model: Model, prevstate_inputs, is_train: bool):
     acts, bp_acts = weights(X, is_train)
     (cells, hiddens), bp_gates = _gates_forward(model.ops, acts, cell_tm1)
 
-    def backprop(d_state_d_hiddens):
+    def backprop(d_state_d_hiddens: RNN_State) -> RNN_State:
         (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
         d_acts, d_cell_tm1 = bp_gates(d_cells, d_hiddens)
         dX = bp_acts(d_acts)
@@ -85,7 +83,7 @@ def forward(model: Model, prevstate_inputs, is_train: bool):
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops, acts, prev_cells):
+def _gates_forward(ops, acts: Array, prev_cells: Floats2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
@@ -95,7 +93,7 @@ def _gates_forward(ops, acts, prev_cells):
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
     size = new_cells.shape[0]
 
-    def backprop_gates(d_cells, d_hiddens):
+    def backprop_gates(d_cells: Floats2d, d_hiddens: Floats2d) -> Tuple[Floats2d, Floats2d]:
         d_cells = d_cells[:size]
         d_hiddens = d_hiddens[:size]
         d_acts = ops.allocate(acts.shape)
