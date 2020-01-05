@@ -9,7 +9,10 @@ from typing import (
     Any,
     Optional,
     List,
+    Generic,
+    TypeVar,
 )
+from typing_extensions import Literal
 from enum import Enum
 import numpy
 
@@ -430,7 +433,8 @@ def get_array_validators(*, ndim, dtype):
     )
 
 
-class Floats1d(Array):
+f1d1 = TypeVar("f1d1", bound=int)
+class Floats1d(Generic[f1d1], Array):
     """1-dimensional array of floats."""
 
     @classmethod
@@ -439,7 +443,9 @@ class Floats1d(Array):
             yield validator
 
 
-class Floats2d(Array):
+f2d1 = TypeVar("f2d1", bound=int)
+f2d2 = TypeVar("f2d2", bound=int)
+class Floats2d(Generic[f2d1, f2d2], Array):
     """2-dimensional array of floats."""
 
     @classmethod
@@ -448,7 +454,10 @@ class Floats2d(Array):
             yield validator
 
 
-class Floats3d(Array):
+f3d1 = TypeVar("f3d1", bound=int)
+f3d2 = TypeVar("f3d2", bound=int)
+f3d3 = TypeVar("f3d3", bound=int)
+class Floats3d(Generic[f3d1, f3d2, f3d3], Array):
     """3-dimensional array of floats."""
 
     @classmethod
@@ -456,8 +465,11 @@ class Floats3d(Array):
         for validator in get_array_validators(ndim=3, dtype=xp.float32):
             yield validator
 
-
-class Floats4d(Array):
+f4d1 = TypeVar("f4d1", bound=int)
+f4d2 = TypeVar("f4d2", bound=int)
+f4d3 = TypeVar("f4d3", bound=int)
+f4d4 = TypeVar("f4d4", bound=int)
+class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array):
     """4-dimensional array of floats."""
 
     @classmethod
@@ -465,8 +477,8 @@ class Floats4d(Array):
         for validator in get_array_validators(ndim=4, dtype=xp.float32):
             yield validator
 
-
-class FloatsNd(Array):
+f_ndim = TypeVar("f_ndim", bound=int)
+class FloatsNd(Generic[f_ndim], Array):
     """N-dimensional array of floats."""
 
     @classmethod
@@ -474,8 +486,8 @@ class FloatsNd(Array):
         for validator in get_array_validators(ndim=None, dtype=xp.float32):
             yield validator
 
-
-class Ints1d(Array):
+i1d1 = TypeVar("i1d1", bound=int)
+class Ints1d(Generic[i1d1], Array):
     """1-dimensional array of ints."""
 
     @classmethod
@@ -483,8 +495,9 @@ class Ints1d(Array):
         for validator in get_array_validators(ndim=1, dtype=xp.int32):
             yield validator
 
-
-class Ints2d(Array):
+i2d1 = TypeVar("i2d1", bound=int)
+i2d2 = TypeVar("i2d2", bound=int)
+class Ints2d(Generic[i2d1, i2d2], Array):
     """2-dimensional array of ints."""
 
     @classmethod
@@ -492,8 +505,11 @@ class Ints2d(Array):
         for validator in get_array_validators(ndim=2, dtype=xp.int32):
             yield validator
 
-
-class Ints3d(Array):
+i3d1 = TypeVar("i3d1", bound=int)
+i3d2 = TypeVar("i3d2", bound=int)
+i3d3 = TypeVar("i3d3", bound=int)
+i3d4 = TypeVar("i3d4", bound=int)
+class Ints3d(Generic[i3d1, i3d2, i3d3], Array):
     """3-dimensional array of ints."""
 
     @classmethod
@@ -501,8 +517,11 @@ class Ints3d(Array):
         for validator in get_array_validators(ndim=3, dtype=xp.int32):
             yield validator
 
-
-class Ints4d(Array):
+i4d1 = TypeVar("i4d1", bound=int)
+i4d2 = TypeVar("i4d2", bound=int)
+i4d3 = TypeVar("i4d3", bound=int)
+i4d4 = TypeVar("i4d4", bound=int)
+class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array):
     """4-dimensional array of ints."""
 
     @classmethod
@@ -511,7 +530,8 @@ class Ints4d(Array):
             yield validator
 
 
-class IntsNd(Array):
+i_ndim = TypeVar("i_ndim", bound=int)
+class IntsNd(Generic[i_ndim], Array):
     """N-dimensional array of ints."""
 
     @classmethod
