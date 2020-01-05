@@ -5,8 +5,8 @@ from ..model import Model
 from ..util import create_thread_local
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 STATE = create_thread_local({"vectors": {}})
 

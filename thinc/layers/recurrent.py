@@ -1,9 +1,13 @@
-from typing import Optional, Tuple, Callable, List
+from typing import Optional, Callable, List
+
 from ..model import Model
-from ..types import Array, Padded, RNN_State
+from ..types import Padded, RNNState
+
+# TODO: input / output types
+# TODO: finish types (function return types etc.)
 
 
-def recurrent(step_model: Model[RNN_State, RNN_State]) -> Model[Padded, Padded]:
+def recurrent(step_model: Model[RNNState, RNNState]) -> Model[Padded, Padded]:
     model = Model[Padded, Padded](
         step_model.name.replace("_step", ""),
         forward,
@@ -17,7 +21,7 @@ def recurrent(step_model: Model[RNN_State, RNN_State]) -> Model[Padded, Padded]:
     return model
 
 
-def init(model, X: Optional[Padded]=None, Y: Optional[Padded]=None):
+def init(model, X: Optional[Padded] = None, Y: Optional[Padded] = None):
     Xt = X.data[0] if X is not None else None
     Yt = Y.data[0] if Y is not None else None
     if Xt is not None or Yt is not None:
@@ -32,7 +36,7 @@ def forward(model: Model[Padded, Padded], Xp: Padded, is_train: bool):
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
     size_at_t = Xp.size_at_t
-    step_model: Model[RNN_State, RNN_State] = model.layers[0]
+    step_model: Model[RNNState, RNNState] = model.layers[0]
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
     Y = model.ops.allocate((X.shape[0], X.shape[1], nO))

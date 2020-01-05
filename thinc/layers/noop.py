@@ -3,7 +3,7 @@ from typing import Tuple, Callable, TypeVar
 from ..model import Model
 
 
-InputOutputType = TypeVar("InputOutputType")
+InputOutT = TypeVar("InputOutT")
 
 
 def noop(*layers: Model) -> Model:
@@ -12,9 +12,9 @@ def noop(*layers: Model) -> Model:
 
 
 def forward(
-    model: Model, X: InputOutputType, is_train: bool
-) -> Tuple[InputOutputType, Callable]:
-    def backprop(dY: InputOutputType) -> InputOutputType:
+    model: Model, X: InputOutT, is_train: bool
+) -> Tuple[InputOutT, Callable]:
+    def backprop(dY: InputOutT) -> InputOutT:
         return dY
 
     return X, backprop

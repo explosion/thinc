@@ -7,10 +7,10 @@ from ..types import Array
 # TODO: fix
 InputValue = TypeVar("InputValue", bound=Array)
 InputLengths = TypeVar("InputLengths", bound=Array)
-InputType = Union[Tuple[InputValue, InputLengths], List[InputValue], InputValue]
+InT = Union[Tuple[InputValue, InputLengths], List[InputValue], InputValue]
 OutputValue = TypeVar("OutputValue", bound=Array)
 OutputLengths = TypeVar("OutputLengths", bound=Array)
-OutputType = Union[Tuple[OutputValue, OutputLengths], List[OutputValue], OutputValue]
+OutT = Union[Tuple[OutputValue, OutputLengths], List[OutputValue], OutputValue]
 
 
 def Residual(layer: Model) -> Model:
@@ -26,8 +26,8 @@ def Residual(layer: Model) -> Model:
     )
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
-    Y: OutputType
+def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    Y: OutT
     Y, backprop_layer = model.layers[0](X, is_train)
     if isinstance(X, list):
         output = [X[i] + Y[i] for i in range(len(X))]
@@ -37,7 +37,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
     else:
         output = X + Y
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: OutT) -> InT:
         dX = backprop_layer(d_output)
         if isinstance(d_output, list) or isinstance(d_output, tuple):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
@@ -48,7 +48,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     model.layers[0].initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))

@@ -5,6 +5,10 @@ from ..model import Model
 from ..types import Padded
 
 
+# TODO: input / output types
+# TODO: remaining types
+
+
 def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
     """Stitch two RNN models into a bidirectional layer. Expects squared sequences."""
     if r2l is None:

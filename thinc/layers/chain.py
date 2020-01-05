@@ -5,6 +5,7 @@ from ..util import get_width
 from ..types import Ragged, Padded, Array
 from .noop import noop
 
+# TODO: are these bound?
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
@@ -20,10 +21,9 @@ def chain(*layers: Model) -> Model[InT, OutT]:
     elif layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
-    
-    layer0: Model[InT, Any] = layers[0]
-    layer1: Model[Any, OutT] = layers[-1]
-    
+    # Set type constraints for layers
+    layer0: Model[InT, Any] = layers[0]  # noqa: F841
+    layer1: Model[Any, OutT] = layers[-1]  # noqa: F841
     model = Model[InT, OutT](
         ">>".join(layer.name for layer in layers),
         forward,
@@ -55,9 +55,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     return Y, backprop
 
 
-def init(
-    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if not model.layers:
         return
     if X is None and Y is None:

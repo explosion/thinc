@@ -6,8 +6,8 @@ from ..backends import Ops
 from ..util import get_width
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 
 def LayerNorm(nO: Optional[int] = None) -> Model:
@@ -37,7 +37,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     if X is not None:
         X_width = get_width(X)

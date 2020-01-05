@@ -5,8 +5,8 @@ from ..types import Array, Ragged
 
 
 InputValue = TypeVar("InputValue", bound=Array)
-InputType = List[InputValue]
-OutputType = Ragged
+InT = List[InputValue]
+OutT = Ragged
 
 
 def list2ragged() -> Model:
@@ -17,8 +17,8 @@ def list2ragged() -> Model:
     return Model("list2ragged", forward)
 
 
-def forward(model: Model, Xs: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
-    def backprop(dYr: OutputType) -> InputType:
+def forward(model: Model, Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    def backprop(dYr: OutT) -> InT:
         return model.ops.unflatten(dYr.data, dYr.lengths)
 
     lengths = model.ops.asarray([len(x) for x in Xs], dtype="i")
