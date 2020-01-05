@@ -46,15 +46,12 @@ def test_get_dropout_empty(ops):
 
 
 def test_get_dropout_not_empty(ops):
-    shape = (2, 2)
-    drop = 0.1
+    shape = (200, 200)
+    drop = 0.5
     mask = ops.get_dropout_mask(shape, drop)
-    if drop <= 0.0:
-        assert mask[mask == 1.0].all()
-    else:
-        assert mask[mask != 1.0].all()
+    assert (mask > 1.0).any()
+    assert (mask == 0.0).any()
     assert mask.shape == shape
-    assert all(value >= 0 for value in mask.flatten())
 
 
 def test_seq2col_window_one_small(ops):
