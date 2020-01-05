@@ -1,13 +1,12 @@
 from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
-from ..types import Array
+from ..types import Floats2d
 from ..util import get_width
 
 
-# TODO: more specific input / output types?
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = TypeVar("InT", bound=Floats2d)
+OutT = TypeVar("OutT", bound=Floats2d)
 
 
 def concatenate(layers: List[Model]) -> Model[InT, OutT]:
@@ -21,12 +20,13 @@ def concatenate(layers: List[Model]) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    axis: int = model.get_attr("axis")
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     widths = [Y.shape[1] for Y in Ys]
-    output = model.ops.xp.hstack(Ys)
+    output = model.ops.xp.hstack(Ys, axis=axis)
 
     def backprop(d_output: OutT) -> InT:
-        dX = callbacks[0](d_output[: widths[0]])
+        dX = callbacks[0](d_output[:,  :widths[0]])
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dX += bwd(d_output[:, start : start + width])
