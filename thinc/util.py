@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, List, cast
+from typing import Iterable, Any, Union, Tuple, Iterator, List, cast, Dict, Optional
 import numpy
 import itertools
 import threading
@@ -17,7 +17,7 @@ except ImportError:
     has_torch = False
 
 
-from .types import Array, Ragged, Padded, OpNames
+from .types import Array, Ragged, Padded
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -28,7 +28,7 @@ def fix_random_seed(seed: int = 0) -> None:
         cupy.random.seed(seed)
 
 
-def create_thread_local(attrs):
+def create_thread_local(attrs: Dict[str, Any]):
     obj = threading.local()
     for name, value in attrs.items():
         setattr(obj, name, value)
@@ -53,7 +53,7 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def get_ops(ops: Union[int, OpNames]):  # TODO: return type
+def get_ops(ops: Union[int, str]):  # TODO: return type
     from .backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
@@ -64,7 +64,7 @@ def get_ops(ops: Union[int, OpNames]):  # TODO: return type
         raise ValueError(f"Invalid ops (or device) description: {ops}")
 
 
-def set_active_gpu(gpu_id: int):
+def set_active_gpu(gpu_id: int):  # TODO: return type
     import cupy.cuda.device
 
     device = cupy.cuda.device.Device(gpu_id)
@@ -167,7 +167,7 @@ def copy_array(dst: Array, src: Array) -> None:
         numpy.copyto(dst, src)
 
 
-def to_categorical(y: Array, nb_classes=None):
+def to_categorical(y: Array, nb_classes: Optional[int] = None) -> Array:
     # From keras
     xp = get_array_module(y)
     if xp is cupy:
@@ -216,7 +216,7 @@ def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> in
         raise ValueError(err)
 
 
-def xp2torch(xp_tensor, requires_grad=False):
+def xp2torch(xp_tensor, requires_grad: bool = False):
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
         torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())

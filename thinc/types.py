@@ -551,13 +551,6 @@ class DocType:
     end: int
 
 
-class OpNames(str, Enum):
-    np = "numpy"
-    cpu = "cpu"
-    cp = "cupy"
-    gpu = "gpu"
-
-
 # This should probably become a dataclass too.
 RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
