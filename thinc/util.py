@@ -13,9 +13,21 @@ except ImportError:
 
 try:
     import torch
+    has_torch = True
 except ImportError:
     has_torch = False
 
+try:
+    import tfdlpack
+    has_tfdlpack = True
+except ImportError:
+    has_tfdlpack = False
+
+try:
+    import tensorflow as tf
+    has_tensorflow = True
+except ImportError:
+    has_tensorflow = False
 
 from .types import Array, Ragged, Padded, OpNames
 
@@ -234,3 +246,30 @@ def torch2xp(torch_tensor):
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         return torch_tensor.detach().numpy()
+
+
+def xp2tensorflow(xp_tensor, requires_grad=False):
+    """Convert a numpy or cupy tensor to a TensorFlow tensor"""
+    assert has_tfdlpack, "tfdlpack is not installed"
+    assert has_tensorflow, "Tensorflow is not installed"
+
+    if hasattr(xp_tensor, "toDlpack"):
+        tensorflow_tensor = tfdlpack.from_dlpack(xp_tensor.toDlpack())
+    else:
+        tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
+
+    if requires_grad is False:
+        # tf.stop_gradient() automatically puts in GPU if available.
+        # So we need to control it using the context manager
+        with tf.device(tensorflow_tensor.device):
+            tensorflow_tensor = tf.stop_gradient(tensorflow_tensor)
+
+    return tensorflow_tensor
+
+
+def tensorflow2xp(tensorflow_tensor):
+    """Convert a Tensorflow tensor to numpy or cupy tensor"""
+    if "GPU" in tensorflow_tensor.device:
+        return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
+    else:
+        return tensorflow_tensor.numpy()
