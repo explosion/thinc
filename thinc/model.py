@@ -72,6 +72,7 @@ class Model(Generic[InT, OutT]):
         "_dims",
         "_grads",
         "_attrs",
+        "_refs",
         "_layers",
         "_shims",
     ]
@@ -87,7 +88,8 @@ class Model(Generic[InT, OutT]):
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
-        attrs: Dict[str, object] = {},
+        attrs: Dict[str, Any] = {},
+        refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
         """Initialize a new model."""
@@ -99,6 +101,7 @@ class Model(Generic[InT, OutT]):
         self._mem = Memory(self.ops)
         self._dims = dict(dims)
         self._attrs = dict(attrs)
+        self._refs = dict(refs)
         self._layers = list(layers)
         self._shims = list(shims)
         self.__class__.global_id += 1
@@ -124,6 +127,31 @@ class Model(Generic[InT, OutT]):
     @property
     def shims(self) -> List[Shim]:
         return self._shims
+
+    @property
+    def param_names(self) -> Tuple[str]:
+        """Get the names of registered parameter (including unset.)"""
+        return tuple(self._params.keys())
+
+    @property
+    def grad_names(self) -> Tuple[str]:
+        """Get the names of parameters with registered gradients (including unset.)"""
+        return tuple([name for name in self.param_names if self.has_grad(name)])
+
+    @property
+    def dim_names(self) -> Tuple[str]:
+        """Get the names of registered dimensions (including unset.)"""
+        return tuple(self._dims.keys())
+
+    @property
+    def attr_names(self) -> Tuple[str]:
+        """Get the names of attributes."""
+        return tuple(self._attrs.keys())
+
+    @property
+    def ref_names(self) -> Tuple[str]:
+        """Get the names of registered node references (including unset.)"""
+        return tuple(self._refs.keys())
 
     @classmethod
     @contextlib.contextmanager
@@ -188,14 +216,17 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Parameter '{name}' as not been allocated yet")
         return self._mem[key]
 
-    def set_param(self, name: str, value: Array) -> None:
+    def set_param(self, name: str, value: Optional[Array]) -> None:
         """Set a weights parameter's value."""
-        key = (self.id, name)
-        if key not in self._mem:
-            self._mem.add(key, value.shape)
-        data = self._mem[(self.id, name)]
-        copy_array(dst=data, src=value)
-        self._params[name] = True
+        if value is None:
+            self._params[name] = None
+        else:
+            key = (self.id, name)
+            if key not in self._mem:
+                self._mem.add(key, value.shape)
+            data = self._mem[(self.id, name)]
+            copy_array(dst=data, src=value)
+            self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
         """Check whether the model has a gradient of the given name."""
@@ -233,8 +264,12 @@ class Model(Generic[InT, OutT]):
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
         grad_name = f"d_{name}"
-        data = self._mem[(self.id, grad_name)]
-        copy_array(dst=data, src=value)
+        key = (self.id, grad_name)
+        if key not in self._mem:
+            self.inc_grad(name, value)
+        else:
+            data = self._mem[(self.id, value)]
+            copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
@@ -249,6 +284,31 @@ class Model(Generic[InT, OutT]):
     def set_attr(self, name: str, value: Any) -> None:
         """Set the attribute to the given value."""
         self._attrs[name] = value
+
+    def has_ref(self, name: str) -> Optional[bool]:
+        """Check whether the model has a reference of a given name. If the
+        reference is registered but the value is unset, returns None.
+        """
+        if name not in self._refs:
+            return False
+        elif self._refs[name] is not None:
+            return True
+        else:
+            return None
+
+    def get_ref(self, name: str) -> "Model":
+        """Retrieve the value of a reference of the given name, or None if unset."""
+        if name not in self._refs:
+            raise KeyError(f"Can't get reference '{name}'")
+        value = self._refs[name]
+        if value is None:
+            raise ValueError(f"Cannot get reference '{name}': value unset.")
+        else:
+            return value
+
+    def set_ref(self, name: str, value: Optional["Model"]) -> None:
+        """Set a value for a reference."""
+        self._refs[name] = value
 
     def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
@@ -323,6 +383,18 @@ class Model(Generic[InT, OutT]):
             seen.add(id(node))
             yield node
             queue.extend(node.layers)
+
+    def remove_node(self, node: "Model") -> None:
+        """Remove a node from all layers lists, and remove any references.
+        
+        This method works by object identity: it removes the *exact object*
+        you pass in.
+        """
+        queue = list(self.walk())
+        for child in queue:
+            while node in child.layers:
+                child.layers.remove(node)
+            child._refs = {k: v for k, v in child._refs.items() if v is not node}
 
     def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
