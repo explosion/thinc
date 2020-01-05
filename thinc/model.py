@@ -268,7 +268,7 @@ class Model(Generic[InT, OutT]):
         if key not in self._mem:
             self.inc_grad(name, value)
         else:
-            data = self._mem[(self.id, value)]
+            data = self._mem[key]
             copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
