@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar, cast
 from typing_extensions import Literal
 
 from ..model import Model, create_init
