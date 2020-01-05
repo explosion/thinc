@@ -4,12 +4,10 @@ from ..model import Model
 from ..types import Array
 
 
-# TODO: more specific types?
 InT = List[Array]
-OutT = List[Array]
 
 
-def with_list2array(layer: Model, *, pad: int = 0) -> Model[InT, OutT]:
+def with_list2array(layer: Model, *, pad: int = 0) -> Model[InT, InT]:
     return Model(
         f"with_list2array-{layer.name}",
         forward,
@@ -19,14 +17,14 @@ def with_list2array(layer: Model, *, pad: int = 0) -> Model[InT, OutT]:
     )
 
 
-def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, InT], Xs: InT, is_train: bool) -> Tuple[InT, Callable]:
     layer = model.layers[0]
     pad = model.get_attr("pad")
     lengths = layer.ops.asarray([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: OutT) -> InT:
+    def backprop(dYs: InT) -> InT:
         dYf = layer.ops.flatten(dYs, pad=pad)
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
@@ -35,7 +33,7 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> None:
     layer = model.layers[0]
     pad = model.get_attr("pad")
