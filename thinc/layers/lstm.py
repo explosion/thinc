@@ -3,14 +3,12 @@ from typing import Optional, List, Tuple
 from ..model import Model
 from ..types import Array, Floats2d
 from ..util import get_width
-from ..types import Array
+from ..types import Array, RNN_State
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .affine import Affine
 from .with_list2padded import with_list2padded
-
-RNN_State = Tuple[Floats2d, Tuple[Floats2d, Floats2d]]
 
 
 def BiLSTM(
@@ -85,7 +83,7 @@ def forward(model: Model[RNN_State, RNN_State], prevstate_inputs: RNN_State, is_
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops, acts: Array, prev_cells: Floats2d) -> Tuple[Floats2d, Floats2d]:
+def _gates_forward(ops, acts: Array, prev_cells: Floats2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
