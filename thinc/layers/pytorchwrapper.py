@@ -6,8 +6,6 @@ from ..util import xp2torch, torch2xp
 from ..types import Array
 
 
-# TODO: more specific types?
-# TODO: fix type error
 InT = Array
 OutT = Array
 

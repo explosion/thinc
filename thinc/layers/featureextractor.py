@@ -1,12 +1,11 @@
 from typing import List, Union, Callable, Tuple
 
-from ..types import Array, DocType
+from ..types import Ints2d, DocType
 from ..model import Model
 
 
-# TODO: fix and make more specific
 InT = List[DocType]
-OutT = List[Array]
+OutT = List[Ints2d]
 
 
 def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:

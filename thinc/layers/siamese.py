@@ -1,16 +1,18 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model, Array
 from ..util import get_width
 
 
-# TODO: fix type errors
-# TODO: more specific types?
-InT = Tuple[Array, Array]
+LayerT = TypeVar("LayerT")
+SimT = TypeVar("SimT")
+InT = Tuple[LayerT, LayerT]
 OutT = Array
 
 
-def Siamese(layer: Model, similarity: Model) -> Model[InT, OutT]:
+def Siamese(
+    layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
+) -> Model[InT, OutT]:
     return Model(
         f"siamese({layer.name}, {similarity.name})",
         forward,
@@ -39,16 +41,9 @@ def forward(
 
 def init(model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if X is not None:
-        X1, X2 = X
-        model.layers[0].set_dim("nI", get_width(X1))
-    else:
-        X1 = None
-        X2 = None
-    if Y is not None:
-        model.layers[1].set_dim("nO", get_width(Y))
-    model.layers[0].initialize(X=X1)
-    out1 = model.layers[0].predict(X1)
-    out2 = model.layers[0].predict(X2)
-    model.layers[1].initialize(X=(out1, out2), Y=Y)
+        model.layers[0].set_dim("nI", get_width(X[1]))
+        model.layers[0].initialize(X=X[0])
+        X = (model.layers[0].predict(X[0]), model.layers[0].predict(X[1]))
+    model.layers[1].initialize(X=X, Y=Y)
     model.set_dim("nI", model.layers[0].get_dim("nI"))
     model.set_dim("nO", model.layers[1].get_dim("nO"))

@@ -27,7 +27,7 @@ class Shim:
 
     def __call__(
         self, args: Tuple, kwargs: Dict, is_train: bool
-    ) -> Tuple[Any, Callable[[Any], Any]]:
+    ) -> Tuple[Any, Callable[..., Any]]:
         raise NotImplementedError
 
     def predict(self, args: Tuple, kwargs: Dict) -> Any:

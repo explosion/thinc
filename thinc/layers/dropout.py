@@ -1,12 +1,11 @@
 from typing import Tuple, Callable, List, Union
 
 from ..model import Model
-from ..types import Array, Ragged
+from ..types import Array, Ragged, Padded
 
 
-# TODO: improve this and make array types more specific?
-InT = Union[Array, List[Array], Ragged]
-OutT = Union[Array, List[Array], Ragged]
+InT = Union[Array, List[Array], Ragged, Padded]
+OutT = Union[Array, List[Array], Ragged, Padded]
 
 
 def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
@@ -24,6 +23,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         return X, lambda dY: dY
     elif isinstance(X, Ragged):
         return _dropout_ragged(model, X, is_train)  # type: ignore
+    elif isinstance(X, Padded):
+        return _dropout_padded(model, X, is_train)  # type: ignore
     elif isinstance(X, list):
         return _dropout_lists(model, X, is_train)
     else:
@@ -38,6 +39,19 @@ def _dropout_array(model: Model, X: Array, is_train: bool) -> Tuple[Array, Calla
         return dY * mask
 
     return X * mask, backprop
+
+
+def _dropout_padded(
+    model: Model[InT, OutT], Xp: Padded, is_train: bool
+) -> Tuple[Padded, Callable]:
+    X = Xp.data
+    mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
+    Y = X * mask
+
+    def backprop(dYp: Padded) -> Padded:
+        return Padded(dYp.data * mask, dYp.size_at_t)
+
+    return Padded(Y, Xp.size_at_t), backprop
 
 
 def _dropout_ragged(

@@ -1,12 +1,11 @@
 from typing import Tuple, Callable
 
-from ..types import Array, Ragged
+from ..types import Floats2d, Ragged
 from ..model import Model
 
 
-# TODO: more specific types?
 InT = Ragged
-OutT = Array
+OutT = Floats2d
 
 
 def MeanPool() -> Model[InT, OutT]:

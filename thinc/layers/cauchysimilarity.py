@@ -1,11 +1,10 @@
 from typing import Tuple, Callable, Optional
 
 from ..model import Model
-from ..types import Array, Floats1d, Floats2d
+from ..types import Floats1d, Floats2d
 from ..util import get_width
 
 
-# TODO: remaining types
 InT = Tuple[Floats2d, Floats2d]
 OutT = Floats1d
 
@@ -23,7 +22,9 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:
     )
 
 
-def forward(model, X1_X2: InT, is_train: bool) -> Tuple[Array, Callable]:
+def forward(
+    model: Model[InT, OutT], X1_X2: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
     W = model.get_param("W")
     diff = X1 - X2
@@ -42,7 +43,9 @@ def forward(model, X1_X2: InT, is_train: bool) -> Tuple[Array, Callable]:
     return sim, backprop
 
 
-def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
@@ -51,10 +54,10 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
     model.set_param("W", W)
 
 
-def inverse(total: Array) -> Tuple[Array, Callable]:
+def inverse(total: Floats1d) -> Tuple[Floats1d, Callable]:
     inv = 1.0 / (1 + total)
 
-    def backward(d_inverse: Array) -> Array:
+    def backward(d_inverse: Floats1d) -> Floats1d:
         return d_inverse * (-1 / (total + 1) ** 2)
 
     return inv, backward

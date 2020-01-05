@@ -1,11 +1,10 @@
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from .noop import noop
 from .chain import chain
 from ..model import Model
 
 
-# TODO: input / output types for model?
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
@@ -15,7 +14,7 @@ def clone(orig: Model[InT, OutT], n: int) -> Model[InT, OutT]:
     `clone(f, 3)(x)` computes f(f'(f''(x))).
     """
     if n == 0:
-        return noop()
+        return cast(Model[InT, OutT], noop())
     layers = [orig]
     for i in range(n - 1):
         layers.append(orig.copy())

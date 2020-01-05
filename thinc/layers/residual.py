@@ -1,15 +1,13 @@
 from typing import Tuple, Callable, Optional, Union, List
 
 from ..model import Model
-from ..types import Array
+from ..types import Array, Ragged, Padded
 
 
-# TODO: fix tpye errors
-InT = Union[Tuple[Array, Array], List[Array], Array]
-OutT = Union[Tuple[Array, Array], List[Array], Array]
+InT = Union[List[Array], Ragged, Padded, Array]
 
 
-def Residual(layer: Model) -> Model[InT, OutT]:
+def Residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
         "residual",
         forward,
@@ -22,29 +20,31 @@ def Residual(layer: Model) -> Model[InT, OutT]:
     )
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y: OutT
-    Y, backprop_layer = model.layers[0](X, is_train)
-    if isinstance(X, list):
-        output = [X[i] + Y[i] for i in range(len(X))]
-    elif isinstance(X, tuple) and isinstance(Y, tuple) and len(X) == 2:
-        # Handle case where we have (data, lengths) tuple
-        output = (X[0] + Y[0], Y[1])  # type: ignore
-    else:
-        output = X + Y
-
-    def backprop(d_output: OutT) -> InT:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
+    def backprop(d_output: InT) -> InT:
         dX = backprop_layer(d_output)
-        if isinstance(d_output, list) or isinstance(d_output, tuple):
+        if isinstance(d_output, list):
             return [d_output[i] + dX[i] for i in range(len(d_output))]
+        elif isinstance(d_output, Ragged):
+            return Ragged(d_output.data + dX.data, dX.lengths)
+        elif isinstance(X, Padded):
+            return Padded(d_output.data + dX.data, dX.lengths)
         else:
             return d_output + dX
 
-    return output, backprop
+    Y, backprop_layer = model.layers[0](X, is_train)
+    if isinstance(X, list):
+        return [X[i] + Y[i] for i in range(len(X))], backprop
+    elif isinstance(X, Ragged):
+        return Ragged(X.data + Y.data, X.lengths), backprop
+    elif isinstance(X, Padded):
+        return Padded(X.data + Y.data, X.size_at_t), backprop
+    else:
+        return X + Y, backprop
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> None:
     model.layers[0].initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))

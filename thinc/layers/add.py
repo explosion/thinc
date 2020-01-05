@@ -6,10 +6,9 @@ from ..util import get_width
 
 
 InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
 
 
-def add(layers: List[Model]) -> Model[InT, OutT]:
+def add(layers: List[Model]) -> Model[InT, InT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
     """
@@ -19,7 +18,7 @@ def add(layers: List[Model]) -> Model[InT, OutT]:
     return Model("add", forward, init=init, dims={"nO": None, "nI": None})
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     if not model.layers:
         return X, lambda dY: dY
     Y, first_callback = model.layers[0](X, is_train=is_train)
@@ -29,7 +28,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         Y += layer_Y
         callbacks.append(layer_callback)
 
-    def backprop(dY: OutT) -> InT:
+    def backprop(dY: InT) -> InT:
         dX = first_callback(dY)
         for callback in callbacks:
             dX += callback(dY)
@@ -39,7 +38,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> None:
     if X is not None:
         X_width = get_width(X)

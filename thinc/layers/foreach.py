@@ -1,12 +1,10 @@
-from typing import Tuple, Callable, Optional, Sequence
+from typing import Any, Tuple, Callable, Optional, Sequence
 
 from ..model import Model
-from ..types import Array
 
 
-# TODO: fix and make more specific?
-InT = Sequence[Array]
-OutT = Sequence[Array]
+InT = Sequence[Any]
+OutT = Sequence[Any]
 
 
 def foreach(layer: Model) -> Model[InT, OutT]:

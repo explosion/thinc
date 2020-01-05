@@ -1,12 +1,12 @@
 from typing import Tuple, Callable, Optional
 
-from ..model import Model, Array, create_init
+from ..model import Model, create_init
+from ..types import Floats2d
 from ..initializers import zero_init
 
 
-# TODO: more specific types?
-InT = Array
-OutT = Array
+InT = Floats2d
+OutT = Floats2d
 
 
 def Softmax(
@@ -16,7 +16,7 @@ def Softmax(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init
 ) -> Model:
-    model: Model[Array, Array] = Model(
+    model: Model[InT, OutT] = Model(
         "softmax",
         forward,
         init=create_init({"W": init_W, "b": init_b}),

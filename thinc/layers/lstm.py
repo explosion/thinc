@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List, Tuple, Callable, cast
 
 from ..model import Model
 from ..backends import Ops
@@ -11,9 +11,7 @@ from .affine import Affine
 from .with_list2padded import with_list2padded
 
 
-# TODO: fix type error
 InT = List[Floats2d]
-OutT = List[Floats2d]
 
 
 def BiLSTM(
@@ -22,9 +20,15 @@ def BiLSTM(
     *,
     depth: int = 1,
     dropout: float = 0.0
-) -> Model[InT, OutT]:
-    return with_list2padded(
-        clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
+) -> Model[InT, InT]:
+    return cast(
+        Model[InT, InT],
+        with_list2padded(
+            clone(
+                bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
+                depth,
+            )
+        ),
     )
 
 
@@ -34,9 +38,12 @@ def LSTM(
     *,
     depth: int = 1,
     dropout: float = 0.0
-) -> Model[InT, OutT]:
-    return with_list2padded(
-        clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
+) -> Model[InT, InT]:
+    return cast(
+        Model[InT, InT],
+        with_list2padded(
+            clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
+        ),
     )
 
 
@@ -58,7 +65,9 @@ def LSTM_step(
     return model
 
 
-def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(
+    model: Model, X: Optional[RNNState] = None, Y: Optional[RNNState] = None
+) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -111,6 +120,6 @@ def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
         d_acts = d_acts.reshape((nB, nO * 4))
-        return d_acts, d_prevcells
+        return cast(Tuple[Floats2d, Floats2d], (d_acts, d_prevcells))
 
     return (new_cells, new_hiddens), backprop_gates
