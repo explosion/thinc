@@ -434,6 +434,8 @@ def get_array_validators(*, ndim, dtype):
 
 
 f1d1 = TypeVar("f1d1", bound=int)
+
+
 class Floats1d(Generic[f1d1], Array):
     """1-dimensional array of floats."""
 
@@ -445,6 +447,8 @@ class Floats1d(Generic[f1d1], Array):
 
 f2d1 = TypeVar("f2d1", bound=int)
 f2d2 = TypeVar("f2d2", bound=int)
+
+
 class Floats2d(Generic[f2d1, f2d2], Array):
     """2-dimensional array of floats."""
 
@@ -457,6 +461,8 @@ class Floats2d(Generic[f2d1, f2d2], Array):
 f3d1 = TypeVar("f3d1", bound=int)
 f3d2 = TypeVar("f3d2", bound=int)
 f3d3 = TypeVar("f3d3", bound=int)
+
+
 class Floats3d(Generic[f3d1, f3d2, f3d3], Array):
     """3-dimensional array of floats."""
 
@@ -465,10 +471,13 @@ class Floats3d(Generic[f3d1, f3d2, f3d3], Array):
         for validator in get_array_validators(ndim=3, dtype=xp.float32):
             yield validator
 
+
 f4d1 = TypeVar("f4d1", bound=int)
 f4d2 = TypeVar("f4d2", bound=int)
 f4d3 = TypeVar("f4d3", bound=int)
 f4d4 = TypeVar("f4d4", bound=int)
+
+
 class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array):
     """4-dimensional array of floats."""
 
@@ -477,7 +486,10 @@ class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array):
         for validator in get_array_validators(ndim=4, dtype=xp.float32):
             yield validator
 
+
 f_ndim = TypeVar("f_ndim", bound=int)
+
+
 class FloatsNd(Generic[f_ndim], Array):
     """N-dimensional array of floats."""
 
@@ -486,7 +498,10 @@ class FloatsNd(Generic[f_ndim], Array):
         for validator in get_array_validators(ndim=None, dtype=xp.float32):
             yield validator
 
+
 i1d1 = TypeVar("i1d1", bound=int)
+
+
 class Ints1d(Generic[i1d1], Array):
     """1-dimensional array of ints."""
 
@@ -495,8 +510,11 @@ class Ints1d(Generic[i1d1], Array):
         for validator in get_array_validators(ndim=1, dtype=xp.int32):
             yield validator
 
+
 i2d1 = TypeVar("i2d1", bound=int)
 i2d2 = TypeVar("i2d2", bound=int)
+
+
 class Ints2d(Generic[i2d1, i2d2], Array):
     """2-dimensional array of ints."""
 
@@ -505,10 +523,13 @@ class Ints2d(Generic[i2d1, i2d2], Array):
         for validator in get_array_validators(ndim=2, dtype=xp.int32):
             yield validator
 
+
 i3d1 = TypeVar("i3d1", bound=int)
 i3d2 = TypeVar("i3d2", bound=int)
 i3d3 = TypeVar("i3d3", bound=int)
 i3d4 = TypeVar("i3d4", bound=int)
+
+
 class Ints3d(Generic[i3d1, i3d2, i3d3], Array):
     """3-dimensional array of ints."""
 
@@ -517,10 +538,13 @@ class Ints3d(Generic[i3d1, i3d2, i3d3], Array):
         for validator in get_array_validators(ndim=3, dtype=xp.int32):
             yield validator
 
+
 i4d1 = TypeVar("i4d1", bound=int)
 i4d2 = TypeVar("i4d2", bound=int)
 i4d3 = TypeVar("i4d3", bound=int)
 i4d4 = TypeVar("i4d4", bound=int)
+
+
 class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array):
     """4-dimensional array of ints."""
 
@@ -531,6 +555,8 @@ class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array):
 
 
 i_ndim = TypeVar("i_ndim", bound=int)
+
+
 class IntsNd(Generic[i_ndim], Array):
     """N-dimensional array of ints."""
 
