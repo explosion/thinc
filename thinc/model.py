@@ -484,9 +484,9 @@ class Model(Generic[InT, OutT]):
         # Serialize references by their index into the flattened tree.
         # This is the main reason we can't accept out-of-tree references:
         # we'd have no way to serialize/deserialize them.
+        node_to_i: Dict[Optional[Model], int]
+        refs: Dict[str, Optional[int]]
         node_to_i = {node: i for i, node in enumerate(nodes)}
-        # We also need an entry 'None', as references can be set to None.
-        node_to_i[None] = None
         for i, layer in enumerate(nodes):
             # Separate attrs that need to be serialized/deserialized with
             # to_/from_bytes.
@@ -497,8 +497,7 @@ class Model(Generic[InT, OutT]):
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
-
-            refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
+            refs = {name: node_to_i.get(ref) for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
