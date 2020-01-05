@@ -129,27 +129,27 @@ class Model(Generic[InT, OutT]):
         return self._shims
 
     @property
-    def param_names(self) -> Tuple[str]:
+    def param_names(self) -> Tuple[str, ...]:
         """Get the names of registered parameter (including unset.)"""
         return tuple(self._params.keys())
 
     @property
-    def grad_names(self) -> Tuple[str]:
+    def grad_names(self) -> Tuple[str, ...]:
         """Get the names of parameters with registered gradients (including unset.)"""
         return tuple([name for name in self.param_names if self.has_grad(name)])
 
     @property
-    def dim_names(self) -> Tuple[str]:
+    def dim_names(self) -> Tuple[str, ...]:
         """Get the names of registered dimensions (including unset.)"""
         return tuple(self._dims.keys())
 
     @property
-    def attr_names(self) -> Tuple[str]:
+    def attr_names(self) -> Tuple[str, ...]:
         """Get the names of attributes."""
         return tuple(self._attrs.keys())
 
     @property
-    def ref_names(self) -> Tuple[str]:
+    def ref_names(self) -> Tuple[str, ...]:
         """Get the names of registered node references (including unset.)"""
         return tuple(self._refs.keys())
 
