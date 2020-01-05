@@ -4,13 +4,14 @@ from ..model import Model
 from ..types import Array
 
 
+# TODO: fix and make more specific
 InputValue = TypeVar("InputValue", bound=Sequence)
-InputType = List[InputValue]
+InT = List[InputValue]
 OutputValue = TypeVar("OutputValue", bound=Sequence)
-OutputType = List[OutputValue]
+OutT = List[OutputValue]
 
 
-def foreach(layer: Model) -> Model:
+def foreach(layer: Model) -> Model[InT, OutT]:
     """Map a layer across list items."""
     return Model(
         f"foreach-{layer.name}",
@@ -21,7 +22,7 @@ def foreach(layer: Model) -> Model:
 
 
 def forward(
-    model: Model, docs: Sequence[Array], is_train: bool
+    model: Model[InT, OutT], docs: Sequence[Array], is_train: bool
 ) -> Tuple[Sequence[Array], Callable]:
     layer = model.layers[0]
     sents = []
@@ -41,7 +42,7 @@ def forward(
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     Xflat = [X[0]] if X else None
     Yflat = [Y[0]] if Y else None

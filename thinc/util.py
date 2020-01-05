@@ -91,13 +91,12 @@ def prefer_gpu(gpu_id: int = 0) -> bool:
 
 
 def require_gpu(gpu_id: int = 0) -> bool:
-    from .model import Model
-    from .backends.cupy_ops import CupyOps
+    from .backends import set_current_ops, CupyOps
 
     if CupyOps.xp is None:
         raise ValueError("GPU is not accessible. Was the library installed correctly?")
-    Model.Ops = CupyOps
-    Model.ops = CupyOps()
+
+    set_current_ops(CupyOps())
     set_active_gpu(gpu_id)
     return True
 

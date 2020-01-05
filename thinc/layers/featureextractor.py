@@ -3,20 +3,21 @@ from ..types import Array, DocType
 from ..model import Model
 
 
-InputType = TypeVar("InputType", bound=List[DocType])
+# TODO: fix and make more specific
+InT = TypeVar("InT", bound=List[DocType])
 OutputValue = TypeVar("OutputValue", bound=Array)
-OutputType = List[OutputValue]
+OutT = List[OutputValue]
 
 
-def FeatureExtractor(columns: List[Union[int, str]]) -> Model:
+def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:
     return Model("extract_features", forward, attrs={"columns": columns})
 
 
 def forward(
-    model: Model, docs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+    model: Model[InT, OutT], docs: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     columns = model.get_attr("columns")
-    features: OutputType = []
+    features: OutT = []
     for doc in docs:
         if hasattr(doc, "to_array"):
             attrs = doc.to_array(columns)
@@ -24,5 +25,5 @@ def forward(
             attrs = doc.doc.to_array(columns)[doc.start : doc.end]
         features.append(model.ops.asarray(attrs, dtype="uint64"))
 
-    backprop: Callable[[OutputType], List] = lambda d_features: []
+    backprop: Callable[[OutT], List] = lambda d_features: []
     return features, backprop

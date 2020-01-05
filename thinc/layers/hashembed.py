@@ -1,12 +1,13 @@
 from typing import Callable, Tuple, Optional, TypeVar
 
 from ..model import Model
-from ..types import Array, Ints2d, Floats2d
+from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+# TODO: fix type error
+InT = TypeVar("InT", bound=Ints2d)
+OutT = TypeVar("OutT", bound=Floats2d)
 
 
 def HashEmbed(
@@ -16,8 +17,8 @@ def HashEmbed(
     seed: Optional[int] = None,
     column: int = 0,
     initializer: Callable = uniform_init,
-) -> Model:
-    model = Model[Ints2d, Floats2d](
+) -> Model[InT, OutT]:
+    model: Model[InT, OutT] = Model(
         "hashembed",
         forward,
         init=create_init(initializer),
@@ -31,7 +32,7 @@ def HashEmbed(
     return model
 
 
-def forward(model: Model, ids: Ints2d, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     vectors = model.get_param("vectors")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
@@ -41,7 +42,7 @@ def forward(model: Model, ids: Ints2d, is_train: bool) -> Tuple[Floats2d, Callab
     keys = model.ops.hash(ids, seed) % nV
     output = vectors[keys].sum(axis=1)
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutT) -> InT:
         keys = model.ops.hash(ids, seed) % nV
         d_vectors = model.ops.allocate(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")
@@ -54,9 +55,7 @@ def forward(model: Model, ids: Ints2d, is_train: bool) -> Tuple[Floats2d, Callab
 
 
 def create_init(initializer: Callable) -> Callable:
-    def init(
-        model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
-    ) -> Model:
+    def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model:
         vectors = model.ops.allocate((model.get_dim("nV"), model.get_dim("nO")))
         initializer(vectors, inplace=True)
         model.set_param("vectors", vectors)

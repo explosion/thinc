@@ -4,19 +4,21 @@ from ..model import Model
 from ..types import Array, Ragged
 
 
-InputTypeArray = TypeVar("InputTypeArray", bound=Array)
+# TODO: How to type the "sub-functions"?
+# TODO: improve this and make array types more specific
+InTArray = TypeVar("InTArray", bound=Array)
 InputLengths = TypeVar("InputLengths", bound=Array)
-InputTypeList = List[InputTypeArray]
-InputTypeRagged = Tuple[InputTypeArray, InputLengths]
-InputType = Union[InputTypeArray, InputTypeList, InputTypeRagged]
-OutputTypeArray = TypeVar("OutputTypeArray", bound=Array)
+InTList = List[InTArray]
+InTRagged = Tuple[InTArray, InputLengths]
+InT = Union[InTArray, InTList, InTRagged]
+OutTArray = TypeVar("OutTArray", bound=Array)
 OutputLengths = TypeVar("OutputLengths", bound=Array)
-OutputTypeList = List[OutputTypeArray]
-OutputTypeRagged = Tuple[OutputTypeArray, OutputLengths]
-OutputType = Union[OutputTypeArray, OutputTypeList, OutputTypeRagged]
+OutTList = List[OutTArray]
+OutTRagged = Tuple[OutTArray, OutputLengths]
+OutT = Union[OutTArray, OutTList, OutTRagged]
 
 
-def Dropout(rate: float = 0.0) -> Model:
+def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
@@ -25,7 +27,7 @@ def Dropout(rate: float = 0.0) -> Model:
 
 
 def forward(
-    model: Model, X: Union[Array, List[Array], Ragged], is_train: bool
+    model: Model[InT, OutT], X: Union[Array, List[Array], Ragged], is_train: bool
 ) -> Tuple[Union[Array, List[Array], Ragged], Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")

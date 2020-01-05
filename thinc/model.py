@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Generic, Sequence, Tuple, TypeVar, Type
+from typing import Generic, Sequence, Tuple, TypeVar
 import numpy
 import contextlib
 import srsly
