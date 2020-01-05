@@ -1,13 +1,13 @@
-from typing import Tuple, Callable, Optional, List, Sequence, TypeVar
+from typing import Any, Tuple, Callable, Optional, Sequence
 
 from ..model import Model
 
 
-InputType = TypeVar("InputType", bound=List[Sequence])
-OutputType = TypeVar("OutputType", bound=List[Sequence])
+InT = Sequence[Any]
+OutT = Sequence[Any]
 
 
-def foreach(layer: Model) -> Model:
+def foreach(layer: Model) -> Model[InT, OutT]:
     """Map a layer across list items."""
     return Model(
         f"foreach-{layer.name}",
@@ -18,20 +18,18 @@ def foreach(layer: Model) -> Model:
 
 
 def forward(
-    model: Model, docs: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+    model: Model[InT, OutT], docs: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     layer = model.layers[0]
     sents = []
-    lengths = []
     for doc in docs:
-        doc_sents = [sent for sent in doc if len(sent)]
-        sents.extend(doc_sents)
-        lengths.append(len(doc_sents))
+        sents.extend([sent for sent in doc if len(sent)])
     assert len(sents)
+    lengths = model.ops.asarray([len(s) for s in sents], dtype="i")
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: OutT) -> InT:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)
@@ -40,7 +38,7 @@ def forward(
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     Xflat = [X[0]] if X else None
     Yflat = [Y[0]] if Y else None

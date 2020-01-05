@@ -8,7 +8,7 @@ from thinc.layers.softmax import Softmax
 from thinc.layers.hashembed import HashEmbed
 from thinc.layers.extractwindow import ExtractWindow
 from thinc.layers.chain import chain
-from thinc.layers.with_flatten import with_flatten
+from thinc.layers.with_list2array import with_list2array
 from thinc.optimizers import Adam
 import ml_datasets
 
@@ -50,7 +50,7 @@ def dev_Y(ancora):
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
-        model = strings2arrays() >> with_flatten(
+        model = strings2arrays() >> with_list2array(
             HashEmbed(width, vector_length)
             >> ExtractWindow(window_size=1)
             >> ReLu(width, width * 3)

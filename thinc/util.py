@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple, Iterator
+from typing import Iterable, Any, Union, Tuple, Iterator, List, cast, Dict, Optional
 import numpy
 import itertools
 import threading
@@ -17,7 +17,7 @@ except ImportError:
     has_torch = False
 
 
-from .types import Array, OpNames
+from .types import Array, Ragged, Padded
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -28,7 +28,7 @@ def fix_random_seed(seed: int = 0) -> None:
         cupy.random.seed(seed)
 
 
-def create_thread_local(attrs):
+def create_thread_local(attrs: Dict[str, Any]):
     obj = threading.local()
     for name, value in attrs.items():
         setattr(obj, name, value)
@@ -53,7 +53,7 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def get_ops(ops: Union[int, OpNames]):  # TODO: return type
+def get_ops(ops: Union[int, str]):  # TODO: return type
     from .backends import NumpyOps, CupyOps
 
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
@@ -64,7 +64,7 @@ def get_ops(ops: Union[int, OpNames]):  # TODO: return type
         raise ValueError(f"Invalid ops (or device) description: {ops}")
 
 
-def set_active_gpu(gpu_id: int):
+def set_active_gpu(gpu_id: int):  # TODO: return type
     import cupy.cuda.device
 
     device = cupy.cuda.device.Device(gpu_id)
@@ -81,7 +81,7 @@ def set_active_gpu(gpu_id: int):
 
 def prefer_gpu(gpu_id: int = 0) -> bool:
     """Use GPU if it's available. Returns True if so, False otherwise."""
-    from .ops import CupyOps
+    from .backends.cupy_ops import CupyOps
 
     if CupyOps.xp is None:
         return False
@@ -91,13 +91,12 @@ def prefer_gpu(gpu_id: int = 0) -> bool:
 
 
 def require_gpu(gpu_id: int = 0) -> bool:
-    from ._classes.model import Model
-    from .ops import CupyOps
+    from .backends import set_current_ops, CupyOps
 
     if CupyOps.xp is None:
         raise ValueError("GPU is not accessible. Was the library installed correctly?")
-    Model.Ops = CupyOps
-    Model.ops = CupyOps()
+
+    set_current_ops(CupyOps())
     set_active_gpu(gpu_id)
     return True
 
@@ -139,7 +138,9 @@ def minibatch(
             yield list(batch)
 
 
-def evaluate_model_on_arrays(model, dev_X: Array, dev_Y: Array, batch_size: int) -> float:
+def evaluate_model_on_arrays(
+    model, dev_X: Array, dev_Y: Array, batch_size: int
+) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
     to cover all situations – many applications will have to implement their
@@ -166,7 +167,7 @@ def copy_array(dst: Array, src: Array) -> None:
         numpy.copyto(dst, src)
 
 
-def to_categorical(y: Array, nb_classes=None):
+def to_categorical(y: Array, nb_classes: Optional[int] = None) -> Array:
     # From keras
     xp = get_array_module(y)
     if xp is cupy:
@@ -187,21 +188,24 @@ def is_ragged(seqs) -> bool:
     return False
 
 
-def get_width(X: Array, dim: int = -1) -> int:
+def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> int:
     """Infer the 'width' of a batch of data, which could be any of:
     * An n-dimensional array: Use the shape
     * A tuple (for a ragged array): Use the shape of the first element.
     * A list of arrays (for sequences): Use the shape of the first element.
     """
-    if hasattr(X, "shape") and hasattr(X, "ndim"):
+    if isinstance(X, Ragged):
+        return get_width(X.data, dim=dim)
+    elif isinstance(X, Padded):
+        return get_width(X.data, dim=dim)
+    elif hasattr(X, "shape") and hasattr(X, "ndim"):
+        X = cast(Array, X)
         if len(X.shape) == 0:
             return 0
         elif len(X.shape) == 1:
             return int(X.max()) + 1
         else:
             return X.shape[dim]
-    elif isinstance(X, tuple) and len(X) == 2:
-        return get_width(X[0], dim=dim)
     elif hasattr(X, "__len__") and hasattr(X, "__getitem__"):
         if len(X) == 0:
             return 0
@@ -212,7 +216,7 @@ def get_width(X: Array, dim: int = -1) -> int:
         raise ValueError(err)
 
 
-def xp2torch(xp_tensor, requires_grad=False):
+def xp2torch(xp_tensor, requires_grad: bool = False):
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
         torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())

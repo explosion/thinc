@@ -1,22 +1,22 @@
-from typing import Callable, Tuple, Optional, TypeVar
+from typing import Callable, Tuple, Optional, cast
 
 from ..model import Model
-from ..types import Array
+from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 from ..util import get_width
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Ints2d
+OutT = Floats2d
 
 
 def Embed(
-    nO: Optional[Array] = None,
-    nV: Optional[Array] = None,
+    nO: Optional[int] = None,
+    nV: Optional[int] = None,
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
-) -> Model:
+) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
     return Model(
         "embed",
@@ -28,9 +28,7 @@ def Embed(
     )
 
 
-def forward(
-    model: Model, ids: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
     vectors = model.get_param("vectors")
     column = model.get_attr("column")
@@ -39,18 +37,19 @@ def forward(
     ids[ids >= nV] = 0
     output = vectors[ids]
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.allocate(vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+        dX = cast(Ints2d, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        return dX
 
     return output, backprop
 
 
 def create_init(initializer: Callable) -> Callable:
     def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+        model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
     ) -> None:
         if Y is not None:
             model.set_dim("nO", get_width(Y))

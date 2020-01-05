@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar
 import numpy
 import contextlib
 import srsly
@@ -40,7 +40,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
     return init
 
 
-class Model:
+class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
@@ -72,6 +72,7 @@ class Model:
         "_dims",
         "_grads",
         "_attrs",
+        "_refs",
         "_layers",
         "_shims",
     ]
@@ -83,11 +84,12 @@ class Model:
         *,
         init: Callable = lambda *a, **k: None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[bool]] = {},
+        params: Dict[str, Optional[Array]] = {},
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
-        attrs: Dict[str, object] = {},
+        attrs: Dict[str, Any] = {},
+        refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
         """Initialize a new model."""
@@ -99,6 +101,7 @@ class Model:
         self._mem = Memory(self.ops)
         self._dims = dict(dims)
         self._attrs = dict(attrs)
+        self._refs = dict(refs)
         self._layers = list(layers)
         self._shims = list(shims)
         self.__class__.global_id += 1
@@ -124,6 +127,31 @@ class Model:
     @property
     def shims(self) -> List[Shim]:
         return self._shims
+
+    @property
+    def param_names(self) -> Tuple[str, ...]:
+        """Get the names of registered parameter (including unset)."""
+        return tuple(self._params.keys())
+
+    @property
+    def grad_names(self) -> Tuple[str, ...]:
+        """Get the names of parameters with registered gradients (including unset)."""
+        return tuple([name for name in self.param_names if self.has_grad(name)])
+
+    @property
+    def dim_names(self) -> Tuple[str, ...]:
+        """Get the names of registered dimensions (including unset)."""
+        return tuple(self._dims.keys())
+
+    @property
+    def attr_names(self) -> Tuple[str, ...]:
+        """Get the names of attributes."""
+        return tuple(self._attrs.keys())
+
+    @property
+    def ref_names(self) -> Tuple[str, ...]:
+        """Get the names of registered node references (including unset)."""
+        return tuple(self._refs.keys())
 
     @classmethod
     @contextlib.contextmanager
@@ -152,7 +180,7 @@ class Model:
             return None
 
     def get_dim(self, name: str) -> int:
-        """Retrieve the value of a dimension of the given name, or None if unset."""
+        """Retrieve the value of a dimension of the given name."""
         if name not in self._dims:
             raise KeyError(f"Can't get dimension '{name}'")
         value = self._dims[name]
@@ -188,14 +216,17 @@ class Model:
             raise KeyError(f"Parameter '{name}' as not been allocated yet")
         return self._mem[key]
 
-    def set_param(self, name: str, value: Array) -> None:
+    def set_param(self, name: str, value: Optional[Array]) -> None:
         """Set a weights parameter's value."""
-        key = (self.id, name)
-        if key not in self._mem:
-            self._mem.add(key, value.shape)
-        data = self._mem.get((self.id, name))
-        copy_array(dst=data, src=value)
-        self._params[name] = True
+        if value is None:
+            self._params[name] = None
+        else:
+            key = (self.id, name)
+            if key not in self._mem:
+                self._mem.add(key, value.shape)
+            data = self._mem[(self.id, name)]
+            copy_array(dst=data, src=value)
+            self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
         """Check whether the model has a gradient of the given name."""
@@ -203,7 +234,7 @@ class Model:
         key = (self.id, grad_name)
         param_key = (self.id, name)
         if key in self._mem:
-            grad = self._mem.get(key)
+            grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
         grad += value
@@ -233,8 +264,12 @@ class Model:
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
         grad_name = f"d_{name}"
-        data = self._mem.get((self.id, grad_name))
-        copy_array(dst=data, src=value)
+        key = (self.id, grad_name)
+        if key not in self._mem:
+            self.inc_grad(name, value)
+        else:
+            data = self._mem[key]
+            copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
@@ -250,12 +285,42 @@ class Model:
         """Set the attribute to the given value."""
         self._attrs[name] = value
 
-    def __call__(self, X: Any, is_train: bool = False) -> Tuple[Any, Callable]:
+    def has_ref(self, name: str) -> Optional[bool]:
+        """Check whether the model has a reference of a given name. If the
+        reference is registered but the value is unset, returns None.
+        """
+        if name not in self._refs:
+            return False
+        elif self._refs[name] is not None:
+            return True
+        else:
+            return None
+
+    def get_ref(self, name: str) -> "Model":
+        """Retrieve the value of a reference of the given name."""
+        if name not in self._refs:
+            raise KeyError(f"Can't get reference '{name}'")
+        value = self._refs[name]
+        if value is None:
+            raise ValueError(f"Cannot get reference '{name}': value unset.")
+        else:
+            return value
+
+    def set_ref(self, name: str, value: Optional["Model"]) -> None:
+        """Set a value for a reference."""
+        if value is None:
+            self._refs[name] = value
+        elif value in self.walk():
+            self._refs[name] = value
+        else:
+            raise ValueError("Cannot add reference to node not in tree.")
+
+    def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
         callback to compute the gradients via backpropagation."""
         return self._func(self, X, is_train=is_train)
 
-    def initialize(self, X: Optional[Any] = None, Y: Optional[Any] = None) -> "Model":
+    def initialize(self, X: Optional[InT] = None, Y: Optional[OutT] = None) -> "Model":
         """Finish initialization of the model, optionally providing a batch of
         example input and output data to perform shape inference."""
         if self._init is not None:
@@ -271,7 +336,7 @@ class Model:
         """
         return self._func(self, X, is_train=True)
 
-    def predict(self, X: Any) -> Any:
+    def predict(self, X: InT) -> OutT:
         """Call the model's `forward` function with `is_train=False`, and return
         only the output, instead of the `(output, callback)` tuple.
         """
@@ -304,21 +369,14 @@ class Model:
             param = params[self.id]
             backup = weights.copy()
             copy_array(dst=weights, src=param)
-        contexts = []
-        for layer in self.layers:
-            contexts.append(next(layer.use_params(params).gen))
-        for shim in self.shims:
-            contexts.append(next(shim.use_params(params).gen))
-        yield
+        with contextlib.ExitStack() as stack:
+            for layer in self.layers:
+                stack.enter_context(layer.use_params(params))
+            for shim in self.shims:
+                stack.enter_context(shim.use_params(params))
+            yield
         if backup is not None:
             copy_array(dst=self._mem.weights, src=backup)
-        for i, context in enumerate(contexts):
-            # This is ridiculous, but apparently it's what you
-            # have to do to make this work across Python 2/3?
-            try:
-                next(context.gen)
-            except StopIteration:
-                pass
 
     def walk(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
@@ -331,14 +389,31 @@ class Model:
             yield node
             queue.extend(node.layers)
 
-    def get_gradients(self) -> Dict[int, Array]:
+    def remove_node(self, node: "Model") -> None:
+        """Remove a node from all layers lists, and then update references.
+        References that no longer point to a node within the tree will be set
+        to `None`. For instance, let's say a node has its grandchild as a reference.
+        If the child is removed, the grandchild reference will be left dangling,
+        so will be set to None.
+        """
+        for child in list(self.walk()):
+            while node in child.layers:
+                child.layers.remove(node)
+        tree = set(self.walk())
+        for node in tree:
+            for name in node.ref_names:
+                ref = node.get_ref(name)
+                if ref is not None and ref not in tree:
+                    node.set_ref(name, None)
+
+    def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
         gradients = {}
         for node in self.walk():
             if hasattr(node, "_mem") and node._mem.gradient.any():
-                gradients[node.id] = [node._mem.weights, node._mem.gradient]
+                gradients[node.id] = (node._mem.weights, node._mem.gradient)
         return gradients
 
     def copy(self) -> "Model":
@@ -347,12 +422,18 @@ class Model:
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
-        copied = Model(
+        params = {}
+        for key, value in self._params.items():
+            params[key] = None if value is None else self.get_param(key)
+        grads = {}
+        for key, value in self._grads.items():
+            grads[key] = None if value is None else self.get_grad(key)
+        copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
             init=self._init,
-            params=copy.deepcopy(self._params),
-            grads=copy.deepcopy(self._grads),
+            params=copy.deepcopy(params),
+            grads=copy.deepcopy(grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
@@ -400,6 +481,13 @@ class Model:
         """
         weights: List[Union[str, Dict[str, Any]]] = []
         nodes = list(self.walk())
+        # Serialize references by their index into the flattened tree.
+        # This is the main reason we can't accept out-of-tree references:
+        # we'd have no way to serialize/deserialize them.
+        node_to_i: Dict[Optional[Model], Optional[int]]
+        node_to_i = {node: i for i, node in enumerate(nodes)}
+        # We also need an entry 'None', as references can be set to None.
+        node_to_i[None] = None
         for i, layer in enumerate(nodes):
             # Separate attrs that need to be serialized/deserialized with
             # to_/from_bytes.
@@ -410,18 +498,22 @@ class Model:
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
+
+            refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
                     "params": [],
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
+                    "shims": [shim.to_bytes() for shim in layer.shims],
+                    "refs": refs,
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
                 if row == 1:
                     continue
-                param = layer._mem.get((id_, name))
+                param = layer._mem[(id_, name)]
                 if not isinstance(layer._mem.weights, numpy.ndarray):
                     param = param.get()
                 weights[-1]["params"].append(  # type: ignore
@@ -450,6 +542,13 @@ class Model:
                 layer.set_dim(dim, value)
             for param in data["params"]:
                 layer.set_param(param["name"], param["value"])
+            for i, shim_bytes in enumerate(data["shims"]):
+                layer.shims[i].from_bytes(shim_bytes)
+            for name, ref_i in data["refs"]:
+                if ref_i is None:
+                    layer.set_ref(name, None)
+                else:
+                    layer.set_ref(name, nodes[ref_i])
         return self
 
     def to_disk(self, path: Union[Path, str]) -> None:

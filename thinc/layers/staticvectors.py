@@ -1,17 +1,18 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, cast
 
-from .types import Array
+from ..types import Array, Floats2d, Ints2d
 from ..model import Model
+from ..backends import Ops
 from ..util import create_thread_local
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Ints2d
+OutT = Floats2d
 
 STATE = create_thread_local({"vectors": {}})
 
 
-def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
+def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
     return Model(
         "static_vectors",
         forward,
@@ -22,9 +23,7 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
     )
 
 
-def forward(
-    model: Model, ids: InputType, is_train: bool
-) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     column = model.get_attr("column")
     W = model.get_param("W")
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
@@ -34,17 +33,15 @@ def forward(
     vectors = model.ops.xp.ascontiguousarray(vectors)
     assert vectors.shape[0] == ids.shape[0]
 
-    def backprop(d_output: OutputType) -> InputType:
+    def backprop(d_output: OutT) -> InT:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+        return cast(InT, model.ops.allocate(ids.shape, dtype=ids.dtype))
 
     output = model.ops.gemm(vectors, W, trans2=True)
     return output, backprop
 
 
-def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
-) -> None:
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
@@ -52,7 +49,7 @@ def init(
     model.set_param("W", W)
 
 
-def _get_vectors(ops, lang: str):
+def _get_vectors(ops: Ops, lang: str) -> Array:
     global STATE
     key = (ops.device, lang)
     if key not in STATE.vectors:

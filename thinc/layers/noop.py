@@ -3,18 +3,18 @@ from typing import Tuple, Callable, TypeVar
 from ..model import Model
 
 
-InputOutputType = TypeVar("InputOutputType")
+InOutT = TypeVar("InOutT")
 
 
-def noop(*layers: Model) -> Model:
+def noop(*layers: Model) -> Model[InOutT, InOutT]:
     """Transform a sequences of layers into a null operation."""
     return Model("noop", forward, layers=layers)
 
 
 def forward(
-    model: Model, X: InputOutputType, is_train: bool
-) -> Tuple[InputOutputType, Callable]:
-    def backprop(dY: InputOutputType) -> InputOutputType:
+    model: Model[InOutT, InOutT], X: InOutT, is_train: bool
+) -> Tuple[InOutT, Callable]:
+    def backprop(dY: InOutT) -> InOutT:
         return dY
 
     return X, backprop

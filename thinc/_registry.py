@@ -14,13 +14,14 @@ class ConfigValidationError(ValueError):
         self,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         errors: List[Dict[str, Any]],
+        message: str = "Config validation error",
     ) -> None:
         """Custom error for validating configs."""
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
             data.append((err_loc, error.get("msg")))
-        result = ["Config validation error", table(data), f"{config}"]
+        result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
@@ -128,11 +129,11 @@ class registry(object):
                 args, kwargs = cls.parse_args(filled[key])
                 try:
                     validation[key] = getter(*args, **kwargs)
-                except TypeError:
-                    # Required arguments are missing etc. We don't need to raise
-                    # here, since this will happen in parse_obj (if validation
-                    # is enabled)
-                    validation[key] = None
+                except TypeError as err:
+                    err_msg = "Can't construct config: calling registry function failed"
+                    raise ConfigValidationError(
+                        {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
+                    )
                 if isinstance(validation[key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
@@ -212,11 +213,12 @@ class registry(object):
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
+            annotation = param.annotation if param.annotation != param.empty else Any
             # If no default value is specified assume that it's required
             if param.default != param.empty:
-                sig_args[param.name] = (param.annotation, param.default)
+                sig_args[param.name] = (annotation, param.default)
             else:
-                sig_args[param.name] = (param.annotation, ...)
+                sig_args[param.name] = (annotation, ...)
         sig_args["__config__"] = _PromiseSchemaConfig
         return create_model("ArgModel", **sig_args)
 

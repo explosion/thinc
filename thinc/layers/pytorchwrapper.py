@@ -1,8 +1,13 @@
 from typing import Callable, Tuple, Any
+
 from ..model import Model
 from ..shims import PyTorchShim
 from ..util import xp2torch, torch2xp
 from ..types import Array
+
+
+InT = Array
+OutT = Array
 
 
 def PyTorchWrapper(pytorch_model: Any) -> Model:
@@ -13,17 +18,16 @@ def PyTorchWrapper(pytorch_model: Any) -> Model:
     return Model("pytorch", forward, shims=[PyTorchShim(pytorch_model)])
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Return the output of the wrapped PyTorch model for the given input,
     along with a callback to handle the backward pass.
     """
     pytorch_model = model.shims[0]
-
     X_torch = xp2torch(X, requires_grad=is_train)
     Y_torch, torch_backprop = pytorch_model((X_torch,), {}, is_train)
     Y = torch2xp(Y_torch)
 
-    def backprop(dY):
+    def backprop(dY: OutT) -> InT:
         dY_torch = xp2torch(dY, requires_grad=is_train)
         dX_torch = torch_backprop((Y_torch,), {"grad_tensors": dY_torch})
         return torch2xp(dX_torch[0].grad)

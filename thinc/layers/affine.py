@@ -1,12 +1,12 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
-from ..types import Array
+from ..types import Floats2d
 from ..initializers import xavier_uniform_init, zero_init
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Floats2d
+OutT = Floats2d
 
 
 def Affine(
@@ -15,9 +15,9 @@ def Affine(
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
-) -> Model:
+) -> Model[InT, OutT]:
     """Multiply inputs by a weights matrix and adds a bias vector."""
-    model = Model(
+    model: Model[InT, OutT] = Model(
         "affine",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -29,13 +29,13 @@ def Affine(
     return model
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b
 
-    def backprop(dY: OutputType) -> InputType:
+    def backprop(dY: OutT) -> InT:
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
