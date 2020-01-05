@@ -39,3 +39,4 @@ tmp/
 .pytest_cache/
 .vscode/
 .mypy_cache
+env3.*/
