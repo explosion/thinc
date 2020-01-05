@@ -6,26 +6,27 @@ from ..types import Padded
 
 
 # TODO: remaining types
-# TODO: does backprop need sgd argument?
 InT = Padded
 OutT = Padded
 
 
-def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model[InT, OutT]:
+def bidirectional(
+    l2r: Model[InT, OutT], r2l: Optional[Model[InT, OutT]] = None
+) -> Model[InT, OutT]:
     """Stitch two RNN models into a bidirectional layer. Expects squared sequences."""
     if r2l is None:
         r2l = l2r.copy()
     return Model(f"bi{l2r.name}", forward, layers=[l2r, r2l])
 
 
-def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     l2r, r2l = model.layers
     X_rev = _reverse(model.ops, X)
     l2r_Z, bp_l2r_Z = l2r(X, is_train)
     r2l_Z, bp_r2l_Z = r2l(X_rev, is_train)
     Z = _concatenate(model.ops, l2r_Z, r2l_Z)
 
-    def backprop(dZ: OutT, sgd=None) -> InT:
+    def backprop(dZ: OutT) -> InT:
         d_l2r_Z, d_r2l_Z = _split(model.ops, dZ)
         dX_l2r = bp_l2r_Z(d_l2r_Z)
         dX_r2l = bp_r2l_Z(d_r2l_Z)
@@ -34,14 +35,12 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     return Z, backprop
 
 
-def _reverse(ops, Xp: Padded) -> Padded:
-    reverse_X = Xp.data[::-1]
-    return Padded(reverse_X, Xp.size_at_t)
+def _reverse(ops: Ops, Xp: Padded) -> Padded:
+    return Padded(Xp.data[::1], Xp.size_at_t)
 
 
-def _concatenate(ops, l2r: Padded, r2l: Padded) -> Padded:
-    concatenated = ops.xp.hstack((l2r.data, r2l.data), axis=-1)
-    return Padded(concatenated, l2r.size_at_t)
+def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
+    return Padded(ops.xp.hstack((l2r.data, r2l.data), axis=-1), l2r.size_at_t)
 
 
 def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
