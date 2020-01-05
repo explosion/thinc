@@ -33,6 +33,54 @@ def test_init_assigns_attributes():
     assert model.layers == []
 
 
+def test_param_names():
+    model = create_model("tmp")
+    assert model.param_names == tuple()
+    model.set_param("param1", None)
+    assert model.param_names == ("param1",)
+    model.set_param("param2", None)
+    assert model.param_names == ("param1", "param2")
+
+
+def test_grad_names():
+    model = create_model("tmp")
+    assert model.grad_names == tuple()
+    model.set_param("param1", model.ops.allocate((4, 4)))
+    model.set_grad("param1", model.ops.allocate((4, 4)) + 1)
+    assert model.grad_names == ("param1",)
+
+
+def test_dim_names():
+    model = Affine(5, 3)
+    assert model.dim_names == ("nO", "nI")
+
+
+def test_attr_names():
+    model = Affine(5, 3)
+    assert model.attr_names == tuple()
+    model.set_attr("hello", "world")
+    assert model.attr_names == ("hello",)
+
+
+def test_model_set_reference():
+    parent = create_model("parent")
+    child = create_model("child")
+    grandchild = create_model("child")
+    parent.layers.append(child)
+    assert parent.ref_names == tuple()
+    parent.set_ref("kid", child)
+    assert parent.ref_names == ("kid",)
+    assert parent.get_ref("kid") is child
+    child.layers.append(grandchild)
+    with pytest.raises(KeyError):
+        parent.get_ref("grandkid")
+    parent.set_ref("grandkid", grandchild)
+    assert parent.get_ref("grandkid") is grandchild
+    parent.remove_node(grandchild)
+    assert grandchild not in child.layers
+    assert not parent.has_ref("grandkind")
+
+
 def test_use_device():
     class_ops = get_current_ops()
     dev_id = id(class_ops)
@@ -45,6 +93,16 @@ def test_use_device():
     new_ops = get_current_ops()
     assert id(new_ops) == dev_id
 
+def test_model_can_save_to_disk(model_with_no_args):
+    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
+    model_with_no_args.to_disk(temp_file)
+
+
+def test_model_can_load_from_disk(model_with_no_args):
+    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
+    model_with_no_args.to_disk(temp_file)
+    m2 = model_with_no_args.from_disk(temp_file)
+    assert model_with_no_args.to_bytes() == m2.to_bytes()
 
 def test_bind_plus():
     with Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
@@ -202,15 +260,3 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
     assert Model._thread_local.operators == {}
-
-
-def test_model_can_save_to_disk(model_with_no_args):
-    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
-    model_with_no_args.to_disk(temp_file)
-
-
-def test_model_can_load_from_disk(model_with_no_args):
-    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
-    model_with_no_args.to_disk(temp_file)
-    m2 = model_with_no_args.from_disk(temp_file)
-    assert model_with_no_args.to_bytes() == m2.to_bytes()
