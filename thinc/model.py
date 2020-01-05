@@ -308,7 +308,12 @@ class Model(Generic[InT, OutT]):
 
     def set_ref(self, name: str, value: Optional["Model"]) -> None:
         """Set a value for a reference."""
-        self._refs[name] = value
+        if value is None:
+            self._refs[name] = value
+        elif value in self.walk():
+            self._refs[name] = value
+        else:
+            raise ValueError("Cannot add reference to node not in tree.")
 
     def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
@@ -385,16 +390,21 @@ class Model(Generic[InT, OutT]):
             queue.extend(node.layers)
 
     def remove_node(self, node: "Model") -> None:
-        """Remove a node from all layers lists, and remove any references.
-        
-        This method works by object identity: it removes the *exact object*
-        you pass in.
+        """Remove a node from all layers lists, and then update references.
+        References that no longer point to a node within the tree will be set
+        to `None`. For instance, let's say a node has its grandchild as a reference.
+        If the child is removed, the grandchild reference will be left dangling,
+        so will be set to None.
         """
-        queue = list(self.walk())
-        for child in queue:
+        for child in list(self.walk()):
             while node in child.layers:
                 child.layers.remove(node)
-            child._refs = {k: v for k, v in child._refs.items() if v is not node}
+        tree = set(self.walk())
+        for node in tree:
+            for name in node.ref_names:
+                ref = node.get_ref(name)
+                if ref is not None and ref not in tree:
+                    node.set_ref(name, None)
 
     def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
@@ -471,6 +481,12 @@ class Model(Generic[InT, OutT]):
         """
         weights: List[Union[str, Dict[str, Any]]] = []
         nodes = list(self.walk())
+        # Serialize references by their index into the flattened tree.
+        # This is the main reason we can't accept out-of-tree references:
+        # we'd have no way to serialize/deserialize them.
+        node_to_i = {node: i for i, node in enumerate(nodes)}
+        # We also need an entry 'None', as references can be set to None.
+        node_to_i[None] = None
         for i, layer in enumerate(nodes):
             # Separate attrs that need to be serialized/deserialized with
             # to_/from_bytes.
@@ -481,12 +497,16 @@ class Model(Generic[InT, OutT]):
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
+
+            refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
                     "params": [],
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
+                    "shims": [shim.to_bytes() for shim in layer.shims],
+                    "refs": refs
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
@@ -521,6 +541,13 @@ class Model(Generic[InT, OutT]):
                 layer.set_dim(dim, value)
             for param in data["params"]:
                 layer.set_param(param["name"], param["value"])
+            for i, shim_bytes in enumerate(data["shims"]):
+                layer.shims[i].from_bytes(shim_bytes)
+            for name, ref_i in data["refs"]:
+                if ref_i is None:
+                    layer.set_ref(name, None)
+                else:
+                    layer.set_ref(name, nodes[ref_i])
         return self
 
     def to_disk(self, path: Union[Path, str]) -> None:
