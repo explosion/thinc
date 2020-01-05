@@ -1,4 +1,7 @@
+from typing import Optional
+
 from ..model import Model
+from ..types import Array
 from ..util import get_width
 from .recurrent import recurrent
 from .bidirectional import bidirectional
@@ -7,19 +10,36 @@ from .affine import Affine
 from .with_list2padded import with_list2padded
 
 
-def BiLSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
+# TODO: finish types
+
+
+def BiLSTM(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    depth: int = 1,
+    dropout: float = 0.0
+):
     return with_list2padded(
         clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
     )
 
 
-def LSTM(nO=None, nI=None, *, depth=1, dropout=0.0):
+def LSTM(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    depth: int = 1,
+    dropout: float = 0.0
+):
     return with_list2padded(
         clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
     )
 
 
-def LSTM_step(nO=None, nI=None, *, dropout=0.0):
+def LSTM_step(
+    nO: Optional[int] = None, nI: Optional[int] = None, *, dropout: float = 0.0
+):
     """Create a step model for an LSTM."""
     if dropout != 0.0:
         msg = (
@@ -35,7 +55,7 @@ def LSTM_step(nO=None, nI=None, *, dropout=0.0):
     return model
 
 
-def init(model, X=None, Y=None):
+def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -47,7 +67,7 @@ def init(model, X=None, Y=None):
     model.layers[0].initialize()
 
 
-def forward(model, prevstate_inputs, is_train):
+def forward(model: Model, prevstate_inputs, is_train: bool):
     (cell_tm1, hidden_tm1), inputs = prevstate_inputs
     weights = model.layers[0]
     nI = inputs.shape[1]

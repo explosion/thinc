@@ -1,4 +1,5 @@
 from typing import Optional, Tuple
+
 from ..backends import Ops
 from ..model import Model
 from ..types import Padded
@@ -13,7 +14,6 @@ def bidirectional(l2r: Model, r2l: Optional[Model] = None) -> Model:
 
 def forward(model: Model, X: Padded, is_train: bool):
     l2r, r2l = model.layers
-
     X_rev = _reverse(model.ops, X)
     l2r_Z, bp_l2r_Z = l2r(X, is_train)
     r2l_Z, bp_r2l_Z = r2l(X_rev, is_train)
