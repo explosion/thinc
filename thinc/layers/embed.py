@@ -1,14 +1,13 @@
 from typing import Callable, Tuple, Optional
 
 from ..model import Model
-from ..types import Array
+from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 from ..util import get_width
 
 
-# TODO: more speific array type
-InT = Array
-OutT = Array
+InT = Ints2d
+OutT = Floats2d
 
 
 def Embed(
