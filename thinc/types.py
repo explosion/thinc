@@ -407,6 +407,7 @@ def validate_array(obj):
 
 
 def validate_array_dims(obj, expected_ndim):
+    # TODO: include validate_array here
     if expected_ndim is not None and obj.ndim != expected_ndim:
         err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
         raise ValueError(err)
@@ -414,6 +415,7 @@ def validate_array_dims(obj, expected_ndim):
 
 
 def validate_array_dtype(obj, expected_dtype):
+    # TODO: include validate_array here
     if obj.dtype != expected_dtype:
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
@@ -555,6 +557,10 @@ class OpNames(str, Enum):
     cpu = "cpu"
     cp = "cupy"
     gpu = "gpu"
+
+
+# This should probably become a dataclass too.
+RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
 
 @dataclass

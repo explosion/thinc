@@ -17,8 +17,8 @@ from ..backends import NumpyOps, CupyOps
 InputKeys = TypeVar("InputKeys", bound=Array)
 InputValues = TypeVar("InputValues", bound=Array)
 InputLengths = TypeVar("InputLengths", bound=Array)
-InputType = Tuple[InputKeys, InputValues, InputLengths]
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Tuple[InputKeys, InputValues, InputLengths]
+OutT = TypeVar("OutT", bound=Array)
 
 
 def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
@@ -35,7 +35,7 @@ def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
     return model
 
 
-def forward(model, keys_values_lengths: InputType, is_train: bool = False) -> Tuple[OutputType, Callable]:
+def forward(model, keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
@@ -45,7 +45,7 @@ def forward(model, keys_values_lengths: InputType, is_train: bool = False) -> Tu
         return _begin_cpu_update(model, keys, values, lengths)
 
 
-def init(model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None) -> None:
+def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")

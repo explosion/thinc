@@ -6,8 +6,10 @@ from ..initializers import uniform_init
 from ..util import get_width
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+# TODO: fix type error
+# TODO: more speific array type
+InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 
 def Embed(
@@ -16,7 +18,7 @@ def Embed(
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
-) -> Model:
+) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
     return Model(
         "embed",
@@ -28,7 +30,7 @@ def Embed(
     )
 
 
-def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
     vectors = model.get_param("vectors")
     column = model.get_attr("column")
@@ -37,7 +39,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     ids[ids >= nV] = 0
     output = vectors[ids]
 
-    def backprop(d_output: Array) -> Array:
+    def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.allocate(vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
@@ -48,7 +50,7 @@ def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
 
 def create_init(initializer: Callable) -> Callable:
     def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
+        model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
     ) -> None:
         if Y is not None:
             model.set_dim("nO", get_width(Y))

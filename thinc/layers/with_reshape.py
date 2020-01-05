@@ -4,8 +4,8 @@ from ..model import Model
 from ..types import Array
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 
 def with_reshape(layer: Model) -> Model:

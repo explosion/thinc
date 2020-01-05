@@ -5,8 +5,8 @@ from ..types import Array
 from ..util import get_width
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 
 def add(layers: List[Model]) -> Model:

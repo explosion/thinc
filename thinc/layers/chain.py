@@ -1,23 +1,30 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar, Any
 
 from ..model import Model
 from ..util import get_width
 from ..types import Ragged, Padded, Array
+from .noop import noop
+
+# TODO: are these bound?
+InT = TypeVar("InT")
+OutT = TypeVar("OutT")
 
 
-InputType = TypeVar("InputType")
-OutputType = TypeVar("OutputType")
-
-
-def chain(*layers: Model) -> Model:
+def chain(*layers: Model) -> Model[InT, OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     """
-    if layers and layers[0]._func is forward:
+    if not layers:
+        return noop()
+    elif len(layers) == 1:
+        return layers[0]
+    elif layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
-
-    model = Model(
+    # Set type constraints for layers
+    layer0: Model[InT, Any] = layers[0]  # noqa: F841
+    layer1: Model[Any, OutT] = layers[-1]  # noqa: F841
+    model = Model[InT, OutT](
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,
@@ -29,7 +36,7 @@ def chain(*layers: Model) -> Model:
     return model
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Apply the layers of `model` in sequence, feeding the output from one
     layer into the next.
     """
@@ -39,7 +46,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
         callbacks.append(inc_layer_grad)
         X = Y
 
-    def backprop(dY: OutputType) -> InputType:
+    def backprop(dY: OutT) -> InT:
         for callback in reversed(callbacks):
             dX = callback(dY)
             dY = dX
@@ -48,9 +55,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
     return Y, backprop
 
 
-def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
-) -> None:
+def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if not model.layers:
         return
     if X is None and Y is None:
