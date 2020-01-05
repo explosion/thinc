@@ -5,7 +5,6 @@ from .chain import chain
 from ..model import Model
 
 
-# TODO: input / output types for model?
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
