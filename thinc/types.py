@@ -434,9 +434,7 @@ def get_array_validators(*, ndim, dtype):
 
 
 f1d1 = TypeVar("f1d1", bound=int)
-
-
-class Floats1d(Generic[f1d1], Array):
+class Floats1d(Array, Generic[f1d1]):
     """1-dimensional array of floats."""
 
     @classmethod
@@ -449,7 +447,7 @@ f2d1 = TypeVar("f2d1", bound=int)
 f2d2 = TypeVar("f2d2", bound=int)
 
 
-class Floats2d(Generic[f2d1, f2d2], Array):
+class Floats2d(Array, Generic[f2d1, f2d2]):
     """2-dimensional array of floats."""
 
     @classmethod
