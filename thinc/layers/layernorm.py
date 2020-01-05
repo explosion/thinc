@@ -20,7 +20,7 @@ def LayerNorm(nO: Optional[int] = None) -> Model:
     )
 
 
-def forward(model: Model, X: Array) -> Tuple[Array, Callable]:
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     N, mu, var = _get_moments(model.ops, X)
     Xhat = (X - mu) * var ** (-1.0 / 2.0)
     Y, backprop_rescale = _begin_update_scale_shift(model, Xhat)
