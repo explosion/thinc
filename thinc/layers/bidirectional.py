@@ -5,7 +5,6 @@ from ..model import Model
 from ..types import Padded
 
 
-# TODO: remaining types
 InT = Padded
 OutT = Padded
 
