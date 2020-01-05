@@ -4,7 +4,6 @@ from ..model import Model
 from ..types import Array
 
 
-# TODO: more specific arrays
 InT = Array
 OutT = Array
 

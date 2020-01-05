@@ -5,7 +5,6 @@ from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 
 
-# TODO: fix type error
 InT = Ints2d
 OutT = Floats2d
 

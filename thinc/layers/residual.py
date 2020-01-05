@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, Union, List, TypeVar
+from typing import Tuple, Callable, Optional, Union, List
 
 from ..model import Model
 from ..types import Array, Ragged, Padded
@@ -21,7 +21,6 @@ def Residual(layer: Model[InT, InT]) -> Model[InT, InT]:
 
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
-
     def backprop(d_output: InT) -> InT:
         dX = backprop_layer(d_output)
         if isinstance(d_output, list):

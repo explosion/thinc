@@ -6,6 +6,7 @@ from .ops import Ops
 
 class Memory:
     """Serve parameters for a single process."""
+
     ops: Ops
     _mem: Array
     _offsets: Dict[Tuple[int, str], Tuple[int, int, Shape]]
@@ -37,7 +38,9 @@ class Memory:
         size = self._sizes[name]
         return self._mem[col, offset : offset + size].reshape(shape)
 
-    def get(self, name: Tuple[int, str], default: Optional[Array]=None) -> Optional[Array]:
+    def get(
+        self, name: Tuple[int, str], default: Optional[Array] = None
+    ) -> Optional[Array]:
         return self[name] if name in self._offsets else default
 
     def set(self, value: Array):
@@ -51,7 +54,9 @@ class Memory:
         blob = self._get_blob(size)
         return blob[0].reshape(shape)
 
-    def add_gradient(self, grad_name: Tuple[int, str], param_name: Tuple[int, str]) -> Array:
+    def add_gradient(
+        self, grad_name: Tuple[int, str], param_name: Tuple[int, str]
+    ) -> Array:
         assert grad_name not in self._offsets, "TODO: error"
         offset, _, shape = self._offsets[param_name]
         size = self._sizes[param_name]

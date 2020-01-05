@@ -1,4 +1,3 @@
-import pytest
 from srsly import cloudpickle as pickle
 from thinc.layers.featureextractor import FeatureExtractor
 

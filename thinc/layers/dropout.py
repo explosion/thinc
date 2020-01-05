@@ -54,7 +54,6 @@ def _dropout_padded(
     return Padded(Y, Xp.size_at_t), backprop
 
 
-
 def _dropout_ragged(
     model: Model, Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:

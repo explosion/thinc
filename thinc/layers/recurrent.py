@@ -1,11 +1,9 @@
-from typing import Optional, Callable, List, Tuple, cast
+from typing import Optional, Callable, List, Tuple
 
 from ..model import Model
 from ..types import Padded, RNNState
 
 
-# TODO: fix type errors
-# TODO: finish types (function return types etc.)
 InT = Padded
 OutT = Padded
 

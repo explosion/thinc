@@ -507,7 +507,7 @@ class Model(Generic[InT, OutT]):
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
                     "shims": [shim.to_bytes() for shim in layer.shims],
-                    "refs": refs
+                    "refs": refs,
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():

@@ -26,7 +26,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     output = model.ops.xp.hstack(Ys, axis=axis)
 
     def backprop(d_output: OutT) -> InT:
-        dX = callbacks[0](d_output[:,  :widths[0]])
+        dX = callbacks[0](d_output[:, : widths[0]])
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dX += bwd(d_output[:, start : start + width])

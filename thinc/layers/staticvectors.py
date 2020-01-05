@@ -1,14 +1,13 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
-from ..types import Array
+from ..types import Array, Floats2d, Ints2d
 from ..model import Model
 from ..backends import Ops
 from ..util import create_thread_local
 
 
-# TODO: more specific types?
-InT = Array
-OutT = Array
+InT = Ints2d
+OutT = Floats2d
 
 STATE = create_thread_local({"vectors": {}})
 
@@ -36,7 +35,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
     def backprop(d_output: OutT) -> InT:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+        return cast(InT, model.ops.allocate(ids.shape, dtype=ids.dtype))
 
     output = model.ops.gemm(vectors, W, trans2=True)
     return output, backprop

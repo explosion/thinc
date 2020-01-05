@@ -93,6 +93,7 @@ def test_use_device():
     new_ops = get_current_ops()
     assert id(new_ops) == dev_id
 
+
 def test_model_can_save_to_disk(model_with_no_args):
     temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
     model_with_no_args.to_disk(temp_file)
@@ -103,6 +104,7 @@ def test_model_can_load_from_disk(model_with_no_args):
     model_with_no_args.to_disk(temp_file)
     m2 = model_with_no_args.from_disk(temp_file)
     assert model_with_no_args.to_bytes() == m2.to_bytes()
+
 
 def test_bind_plus():
     with Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
