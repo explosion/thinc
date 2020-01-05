@@ -130,17 +130,17 @@ class Model(Generic[InT, OutT]):
 
     @property
     def param_names(self) -> Tuple[str, ...]:
-        """Get the names of registered parameter (including unset.)"""
+        """Get the names of registered parameter (including unset)."""
         return tuple(self._params.keys())
 
     @property
     def grad_names(self) -> Tuple[str, ...]:
-        """Get the names of parameters with registered gradients (including unset.)"""
+        """Get the names of parameters with registered gradients (including unset)."""
         return tuple([name for name in self.param_names if self.has_grad(name)])
 
     @property
     def dim_names(self) -> Tuple[str, ...]:
-        """Get the names of registered dimensions (including unset.)"""
+        """Get the names of registered dimensions (including unset)."""
         return tuple(self._dims.keys())
 
     @property
@@ -150,7 +150,7 @@ class Model(Generic[InT, OutT]):
 
     @property
     def ref_names(self) -> Tuple[str, ...]:
-        """Get the names of registered node references (including unset.)"""
+        """Get the names of registered node references (including unset)."""
         return tuple(self._refs.keys())
 
     @classmethod
@@ -180,7 +180,7 @@ class Model(Generic[InT, OutT]):
             return None
 
     def get_dim(self, name: str) -> int:
-        """Retrieve the value of a dimension of the given name, or None if unset."""
+        """Retrieve the value of a dimension of the given name."""
         if name not in self._dims:
             raise KeyError(f"Can't get dimension '{name}'")
         value = self._dims[name]
@@ -297,7 +297,7 @@ class Model(Generic[InT, OutT]):
             return None
 
     def get_ref(self, name: str) -> "Model":
-        """Retrieve the value of a reference of the given name, or None if unset."""
+        """Retrieve the value of a reference of the given name."""
         if name not in self._refs:
             raise KeyError(f"Can't get reference '{name}'")
         value = self._refs[name]
