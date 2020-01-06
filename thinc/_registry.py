@@ -226,3 +226,6 @@ class registry(object):
     def get_return_type(cls, obj: Dict[str, Any]):
         func = cls.get_constructor(obj)
         return inspect.signature(func).return_annotation
+
+
+__all__ = ["registry"]
