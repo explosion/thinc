@@ -17,7 +17,6 @@ from typing import (
 )
 
 import numpy
-from wasabi import msg
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
