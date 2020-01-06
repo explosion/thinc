@@ -44,3 +44,6 @@ def normal_init(data: Array, fan_in: int, inplace: bool = True) -> Array:
         return data
     else:
         return inits
+
+
+__all__ = ["normal_init", "uniform_init", "xavier_uniform_init", "zero_init"]

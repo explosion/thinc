@@ -83,3 +83,6 @@ class Config(dict):
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text)
+
+
+__all__ = ["Config"]

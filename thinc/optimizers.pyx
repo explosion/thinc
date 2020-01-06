@@ -353,3 +353,6 @@ class Optimizer(object):
         cdef weight_t eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
+
+
+__all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

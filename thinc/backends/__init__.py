@@ -25,3 +25,13 @@ def get_current_ops():
 
 def set_current_ops(ops):
     STATE.ops = ops
+
+
+__all__ = [
+    "set_current_ops",
+    "get_current_ops",
+    "use_device",
+    "Ops",
+    "CupyOps",
+    "NumpyOps",
+]

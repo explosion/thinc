@@ -119,3 +119,15 @@ def cyclic_triangular(min_lr: float, max_lr: float, period: int) -> Iterable[flo
         relative = max(0, 1 - x)
         yield min_lr + (max_lr - min_lr) * relative
         it += 1
+
+
+__all__ = [
+    "cyclic_triangular",
+    "warmup_linear",
+    "constant",
+    "constant_then",
+    "decaying",
+    "warmup_linear",
+    "slanted_triangular",
+    "compound",
+]

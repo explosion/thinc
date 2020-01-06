@@ -183,13 +183,6 @@ def to_categorical(y: Array, nb_classes: Optional[int] = None) -> Array:
     return xp.asarray(categorical)
 
 
-def is_ragged(seqs) -> bool:
-    if isinstance(seqs, tuple) and len(seqs) == 2:
-        if len(seqs[0]) == sum(seqs[1]):
-            return True
-    return False
-
-
 def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> int:
     """Infer the 'width' of a batch of data, which could be any of:
     * An n-dimensional array: Use the shape
@@ -235,3 +228,23 @@ def torch2xp(torch_tensor):
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         return torch_tensor.detach().numpy()
+
+
+__all__ = [
+    "fix_random_seed",
+    "create_thread_local",
+    "is_cupy_array",
+    "is_numpy_array",
+    "get_ops",
+    "set_active_gpu",
+    "prefer_gpu",
+    "require_gpu",
+    "copy_array",
+    "get_shuffled_batches",
+    "minibatch",
+    "evaluate_model_on_arrays",
+    "to_categorical",
+    "get_width",
+    "xp2torch",
+    "torch2xp",
+]
