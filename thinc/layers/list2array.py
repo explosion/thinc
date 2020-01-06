@@ -18,6 +18,7 @@ def list2ragged() -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     lengths = model.ops.asarray([len(x) for x in Xs], dtype="i")
+
     def backprop(dY: OutT) -> InT:
         return cast(InT, model.ops.unflatten(dY, lengths))
 

@@ -4,7 +4,7 @@ from thinc.model import Model
 from thinc.util import get_width
 
 
-def MultiSoftmax(out_sizes: Tuple[int, ...], nI: Optional[int]=None):
+def MultiSoftmax(out_sizes: Tuple[int, ...], nI: Optional[int] = None):
     """Neural network layer that predicts several multi-class attributes at once.
     For instance, we might predict one class with 6 variables, and another with 5.
     We predict the 11 neurons required for this, and then softmax them such
@@ -16,7 +16,7 @@ def MultiSoftmax(out_sizes: Tuple[int, ...], nI: Optional[int]=None):
         init=init,
         dims={"nO": sum(out_sizes), "nI": nI},
         attrs={"out_sizes": out_sizes},
-        params={"W": None, "b": None}
+        params={"W": None, "b": None},
     )
 
 
@@ -33,7 +33,7 @@ def forward(model: Model[Floats2d, Floats2d], X: Floats2d, is_train):
     out_sizes = model.get_attr("out_sizes")
     W = model.get_param("W")
     b = model.get_param("b")
-    
+
     def backprop(dY: Floats2d) -> Floats2d:
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         model.inc_grad("b", dY.sum(axis=0))

@@ -23,8 +23,6 @@ def L1_distance(
     return (vec1 - vec2) * loss, (vec2 - vec1) * loss, loss
 
 
-
-
 def cosine_distance(yh, y, ignore_zeros=False):
     xp = get_array_module(yh)
     # Find the zero vectors
