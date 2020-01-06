@@ -1,19 +1,23 @@
 import sys
 from dataclasses import dataclass
-from wasabi import msg
+from enum import Enum
 from typing import (
-    Union,
-    Tuple,
-    Callable,
-    Iterator,
-    Sized,
-    Container,
+    TYPE_CHECKING,
     Any,
-    Optional,
-    List,
+    Callable,
+    Container,
     Generic,
+    Iterator,
+    List,
+    Optional,
+    Sized,
+    Tuple,
     TypeVar,
+    Union,
 )
+
+import numpy
+from wasabi import msg
 
 # Literal shim, thanks Pydantic!
 # From: https://github.com/samuelcolvin/pydantic/blob/v1.3/pydantic/typing.py#L51-L60
@@ -32,8 +36,6 @@ if sys.version_info < (3, 8):
             )
 else:
     from typing import Literal
-from enum import Enum
-import numpy
 
 
 try:
