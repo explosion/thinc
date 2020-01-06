@@ -60,6 +60,8 @@ class DTypes(str, Enum):
 
 
 ndim = TypeVar("ndim", bound=int)
+
+
 class Array(Generic[ndim], Sized, Container):
     T: "Array"
     base: Optional["Array"]
@@ -454,6 +456,8 @@ def get_array_validators(*, ndim, dtype):
 
 
 f1d1 = TypeVar("f1d1", bound=int)
+
+
 class Floats1d(Array, Generic[f1d1]):
     """1-dimensional array of floats."""
 
@@ -463,11 +467,11 @@ class Floats1d(Array, Generic[f1d1]):
             yield validator
 
 
-f2d1 = TypeVar("f2d1", bound=int)
-f2d2 = TypeVar("f2d2", bound=int)
+f2d1 = TypeVar("f2d1")
+f2d2 = TypeVar("f2d2")
 
 
-class Floats2d(Array, Generic[f2d1, f2d2]):
+class Floats2d(Generic[f2d1, f2d2], Array[Literal[2]]):
     """2-dimensional array of floats."""
 
     @classmethod
@@ -481,7 +485,7 @@ f3d2 = TypeVar("f3d2", bound=int)
 f3d3 = TypeVar("f3d3", bound=int)
 
 
-class Floats3d(Generic[f3d1, f3d2, f3d3], Array):
+class Floats3d(Array[Literal[3]], Generic[f3d1, f3d2, f3d3]):
     """3-dimensional array of floats."""
 
     @classmethod
@@ -496,7 +500,7 @@ f4d3 = TypeVar("f4d3", bound=int)
 f4d4 = TypeVar("f4d4", bound=int)
 
 
-class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array):
+class Floats4d(Array[Literal[4]], Generic[f4d1, f4d2, f4d3, f4d4]):
     """4-dimensional array of floats."""
 
     @classmethod
@@ -508,7 +512,7 @@ class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array):
 f_ndim = TypeVar("f_ndim", bound=int)
 
 
-class FloatsNd(Generic[f_ndim], Array):
+class FloatsNd(Array[f_ndim]):
     """N-dimensional array of floats."""
 
     @classmethod
@@ -520,7 +524,7 @@ class FloatsNd(Generic[f_ndim], Array):
 i1d1 = TypeVar("i1d1", bound=int)
 
 
-class Ints1d(Generic[i1d1], Array):
+class Ints1d(Generic[i1d1], Array[Literal[1]]):
     """1-dimensional array of ints."""
 
     @classmethod
@@ -533,7 +537,7 @@ i2d1 = TypeVar("i2d1", bound=int)
 i2d2 = TypeVar("i2d2", bound=int)
 
 
-class Ints2d(Generic[i2d1, i2d2], Array):
+class Ints2d(Generic[i2d1, i2d2], Array[Literal[2]]):
     """2-dimensional array of ints."""
 
     @classmethod
@@ -548,7 +552,7 @@ i3d3 = TypeVar("i3d3", bound=int)
 i3d4 = TypeVar("i3d4", bound=int)
 
 
-class Ints3d(Generic[i3d1, i3d2, i3d3], Array):
+class Ints3d(Generic[i3d1, i3d2, i3d3], Array[Literal[3]]):
     """3-dimensional array of ints."""
 
     @classmethod
@@ -563,7 +567,7 @@ i4d3 = TypeVar("i4d3", bound=int)
 i4d4 = TypeVar("i4d4", bound=int)
 
 
-class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array):
+class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array[Literal[4]]):
     """4-dimensional array of ints."""
 
     @classmethod
@@ -575,7 +579,7 @@ class Ints4d(Generic[i4d1, i4d2, i4d3, i4d4], Array):
 i_ndim = TypeVar("i_ndim", bound=int)
 
 
-class IntsNd(Generic[i_ndim], Array):
+class IntsNd(Array[i_ndim]):
     """N-dimensional array of ints."""
 
     @classmethod
