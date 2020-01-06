@@ -389,6 +389,9 @@ class CupyArray(Array):
     def get(self) -> NumpyArray:
         ...
 
+    def toDlpack(self) -> "CupyArray":
+        ...
+
 
 def validate_array(obj):
     if not isinstance(obj, xp.ndarray):

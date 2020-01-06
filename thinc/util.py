@@ -210,10 +210,10 @@ def get_width(
         raise ValueError(err)
 
 
-def xp2torch(xp_tensor, requires_grad: bool = False):
+def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
-        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
+        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())  # type: ignore
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
     if requires_grad:
@@ -221,7 +221,7 @@ def xp2torch(xp_tensor, requires_grad: bool = False):
     return torch_tensor
 
 
-def torch2xp(torch_tensor):
+def torch2xp(torch_tensor: "torch.Tensor") -> Array:
     """Convert a torch tensor to a numpy or cupy tensor."""
     if torch_tensor.is_cuda:
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
