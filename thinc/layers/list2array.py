@@ -21,4 +21,4 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dY: OutT) -> InT:
         return cast(InT, model.ops.unflatten(dY, lengths))
 
-    return model.ops.flatten(Xs), backprop
+    return cast(OutT, model.ops.flatten(Xs)), backprop
