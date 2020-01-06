@@ -7,6 +7,7 @@ from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .maxout import Maxout
 from .mish import Mish
+from .multisoftmax import MultiSoftmax
 from .relu import ReLu
 from .residual import Residual
 from .softmax import Softmax
