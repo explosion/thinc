@@ -1,15 +1,6 @@
 from dataclasses import dataclass
-from typing import (
-    Union,
-    Tuple,
-    Callable,
-    Iterator,
-    Sized,
-    Container,
-    Any,
-    Optional,
-    List,
-)
+from typing import Union, Tuple, Callable, Iterator, Sized, Container, Any
+from typing import Optional, List
 from enum import Enum
 import numpy
 
