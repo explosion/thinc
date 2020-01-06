@@ -13,6 +13,8 @@ except ImportError:
 
 try:
     import torch
+    import torch.tensor
+    import torch.utils.dlpack
 except ImportError:
     has_torch = False
 
