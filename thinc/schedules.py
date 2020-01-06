@@ -2,7 +2,7 @@
 from typing import Iterable
 import numpy
 
-from ._registry import registry
+from .config import registry
 
 
 @registry.schedules("constant_then.v1")
@@ -129,5 +129,5 @@ __all__ = [
     "decaying",
     "warmup_linear",
     "slanted_triangular",
-    "compound",
+    "compounding",
 ]

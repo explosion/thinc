@@ -15,7 +15,7 @@ import numpy
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
 from .util import get_array_module
-from ._registry import registry
+from .config import registry
 
 
 ctypedef float weight_t
