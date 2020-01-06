@@ -46,7 +46,6 @@ def pydot_visualizer(
         if show_classes:
             label = f"{class_name}|{label}"
         if show_shapes:
-            # TODO: improve?
             output_shape = layer.get_dim("nO") if layer.has_dim("nO") else None
             input_shape = layer.get_dim("nI") if layer.has_dim("nI") else None
             in_label = f"{'?' if input_shape is None else input_shape}"

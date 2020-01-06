@@ -13,7 +13,6 @@ except ImportError:
     xp = numpy
 
 
-# type: ignore
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
 
@@ -527,10 +526,6 @@ class Generator(Iterator):
         return v
 
 
-class NlpType:
-    # TODO:
-    vocab: "spacy.vocab.Vocab"  # type: ignore  # noqa: F821
-    pass
 
 
 class DocType:

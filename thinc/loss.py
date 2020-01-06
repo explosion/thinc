@@ -1,10 +1,12 @@
 from typing import Tuple
 
-from .types import Array
+from .types import Floats2d
 from .util import get_array_module
 
 
-def categorical_crossentropy(scores: Array, labels: Array) -> Tuple[Array, float]:
+def categorical_crossentropy(
+    scores: Floats2d, labels: Floats2d
+) -> Tuple[Floats2d, float]:
     xp = get_array_module(scores)
     target = xp.zeros(scores.shape, dtype="float32")
     loss = 0.0
@@ -15,15 +17,17 @@ def categorical_crossentropy(scores: Array, labels: Array) -> Tuple[Array, float
 
 
 def L1_distance(
-    vec1: Array, vec2: Array, labels: Array, margin: float = 0.2
-) -> Tuple[Array, Array, float]:
+    vec1: Floats2d, vec2: Floats2d, labels: Floats2d, margin: float = 0.2
+) -> Tuple[Floats2d, Floats2d, float]:
     xp = get_array_module(vec1)
     dist = xp.abs(vec1 - vec2).sum(axis=1)
     loss = (dist > margin) - labels
     return (vec1 - vec2) * loss, (vec2 - vec1) * loss, loss
 
 
-def cosine_distance(yh, y, ignore_zeros=False):
+def cosine_distance(
+    yh: Floats2d, y: Floats2d, ignore_zeros: bool = False
+) -> Tuple[float, Floats2d]:
     xp = get_array_module(yh)
     # Find the zero vectors
     if ignore_zeros:
