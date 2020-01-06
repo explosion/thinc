@@ -1,4 +1,3 @@
-from .loss import categorical_crossentropy, L1_distance, cosine_distance
 from .config import Config, registry
 from .initializers import normal_init, uniform_init, xavier_uniform_init, zero_init
 from .loss import categorical_crossentropy, L1_distance, cosine_distance
