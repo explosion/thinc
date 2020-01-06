@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from thinc.util import xp2torch, get_shuffled_batches
+from thinc.api import NumpyOps, xp2torch, get_shuffled_batches
 import tqdm
 import typer
 
@@ -31,8 +31,6 @@ class Net(nn.Module):
 
 
 def load_mnist():
-    from thinc.backends import NumpyOps
-
     ops = NumpyOps()
     mnist_train, mnist_dev, _ = ml_datasets.mnist()
     train_X, train_Y = ops.unzip(mnist_train)

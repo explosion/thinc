@@ -1,6 +1,5 @@
-from thinc.layers import chain, ReLu, Softmax
-from thinc.optimizers import Adam
-from thinc.util import get_shuffled_batches
+from thinc.api import chain, ReLu, Softmax, Adam, NumpyOps, Model
+from thinc.api import to_categorical, get_shuffled_batches
 import ml_datasets
 import tqdm
 import typer
@@ -34,9 +33,6 @@ learn_rate = ${hyper_params:learn_rate}
 
 
 def load_mnist():
-    from thinc.backends import NumpyOps
-    from thinc.util import to_categorical
-
     ops = NumpyOps()
     mnist_train, mnist_dev, _ = ml_datasets.mnist()
     train_X, train_Y = ops.unzip(mnist_train)
@@ -50,7 +46,7 @@ def main(
     n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
 ):
     # Define the model
-    model = chain(
+    model: Model = chain(
         ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
     )
     # Load the data
