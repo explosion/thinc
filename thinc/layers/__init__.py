@@ -1,5 +1,6 @@
 # Weights layers
 from .affine import Affine
+from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .extractwindow import ExtractWindow
