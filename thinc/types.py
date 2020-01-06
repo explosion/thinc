@@ -1,4 +1,6 @@
+import sys
 from dataclasses import dataclass
+from wasabi import msg
 from typing import (
     Union,
     Tuple,
@@ -12,6 +14,24 @@ from typing import (
     Generic,
     TypeVar,
 )
+
+# Literal shim, thanks Pydantic!
+# From: https://github.com/samuelcolvin/pydantic/blob/v1.3/pydantic/typing.py#L51-L60
+if sys.version_info < (3, 8):
+    if TYPE_CHECKING:
+        from typing_extensions import Literal
+    else:  # due to different mypy warnings raised during CI for python 3.7 and 3.8
+        try:
+            from typing_extensions import Literal
+        except ImportError:
+            msg.fail(
+                title="Incompatible System",
+                text="Either Python 3.8 must be used or the "
+                "`typing_extensions` module must be installed",
+                exits=1,
+            )
+else:
+    from typing import Literal
 from enum import Enum
 import numpy
 
