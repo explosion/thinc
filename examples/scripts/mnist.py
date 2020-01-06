@@ -1,6 +1,4 @@
-from thinc.layers import chain, ReLu, Softmax
-from thinc.optimizers import Adam
-from thinc.util import minibatch, to_categorical
+from thinc.api import Model, chain, ReLu, Softmax, Adam, minibatch, to_categorical
 import ml_datasets
 import tqdm
 import typer
@@ -35,7 +33,7 @@ learn_rate = ${hyper_params:learn_rate}
 
 def main(n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10):
     # Define the model
-    model = chain(
+    model: Model = chain(
         ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
     )
 
