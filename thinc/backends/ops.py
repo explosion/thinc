@@ -1,10 +1,12 @@
-from typing import Optional, List, Callable, Tuple, Sequence
+from typing import Callable, Generic, List, Optional, Sequence, Tuple, TypeVar
 
-from ..types import Xp, Array, Shape
+from ..types import Array, Shape, Xp
 from ..util import copy_array, get_array_module
 
+OpsArrayT = TypeVar("OpsArrayT", bound=Array)
 
-class Ops:
+
+class Ops(Generic[OpsArrayT]):
     device: str = "cpu"
     xp: Xp = None
 
@@ -12,7 +14,7 @@ class Ops:
         if xp is not None:
             self.xp = xp
 
-    def seq2col(self, seq: Array, nW: int) -> Array:
+    def seq2col(self, seq: OpsArrayT, nW: int) -> OpsArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -29,7 +31,7 @@ class Ops:
         cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
         return cols.reshape((B, I * (2 * nW + 1)))
 
-    def backprop_seq2col(self, dY: Array, nW: int) -> Array:
+    def backprop_seq2col(self, dY: OpsArrayT, nW: int) -> OpsArrayT:
         # This is a test implementation that only supports nW=1
         assert nW == 1
         nF = nW * 2 + 1
@@ -55,8 +57,8 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
-    ) -> Array:
+        self, X: Sequence[OpsArrayT], dtype: Optional[str] = None, pad: int = 0
+    ) -> OpsArrayT:
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
@@ -73,7 +75,9 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[Array]:
+    def unflatten(
+        self, X: OpsArrayT, lengths: OpsArrayT, pad: int = 0
+    ) -> List[OpsArrayT]:
         unflat = []
         pad = int(pad)
         for length in lengths:
@@ -89,8 +93,8 @@ class Ops:
         return unflat
 
     def pad_sequences(
-        self, seqs_in: Sequence[Array], pad_to: Optional[int] = None
-    ) -> Tuple[Array, Callable]:
+        self, seqs_in: Sequence[OpsArrayT], pad_to: Optional[int] = None
+    ) -> Tuple[OpsArrayT, Callable]:
         lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
@@ -101,7 +105,7 @@ class Ops:
         for arr_i, seq in enumerate(seqs_in):
             arr[arr_i, : seq.shape[0]] = self.asarray(seq)
 
-        def unpad(padded: Array) -> Sequence[Optional[Array]]:
+        def unpad(padded: OpsArrayT) -> Sequence[Optional[OpsArrayT]]:
             unpadded = [None] * len(lengths)
             for i in range(padded.shape[0]):
                 unpadded[i] = padded[i, : lengths[i]]
@@ -109,7 +113,9 @@ class Ops:
 
         return arr, unpad
 
-    def square_sequences(self, seqs: Sequence[Array]) -> Tuple[Array, Array, Callable]:
+    def square_sequences(
+        self, seqs: Sequence[OpsArrayT]
+    ) -> Tuple[OpsArrayT, OpsArrayT, Callable]:
         """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
@@ -137,7 +143,7 @@ class Ops:
                     break
             batch_size_at_t[t] = i
 
-        def unpad(padded: Array) -> Sequence[Optional[Array]]:
+        def unpad(padded: OpsArrayT) -> Sequence[Optional[OpsArrayT]]:
             unpadded = [None] * len(lengths)
             padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
             for i in range(padded.shape[0]):
@@ -146,7 +152,7 @@ class Ops:
 
         return arr, batch_size_at_t, unpad
 
-    def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
+    def get_dropout_mask(self, shape: Shape, drop: float) -> OpsArrayT:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
@@ -155,18 +161,18 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape: Shape, dtype: str = "float32") -> Array:
+    def allocate(self, shape: Shape, dtype: str = "float32") -> OpsArrayT:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
     # TODO: types
-    def unzip(self, data) -> Tuple[Array, Array]:
+    def unzip(self, data) -> Tuple[OpsArrayT, OpsArrayT]:
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
     # TODO: types
-    def asarray(self, data, dtype: Optional[str] = None) -> Array:
+    def asarray(self, data, dtype: Optional[str] = None) -> OpsArrayT:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -180,7 +186,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def sigmoid(self, X: Array, *, inplace=False) -> Array:
+    def sigmoid(self, X: OpsArrayT, *, inplace=False) -> OpsArrayT:
         if inplace:
             self.xp.exp(-X, out=X)
             X += 1.0
@@ -189,14 +195,14 @@ class Ops:
         else:
             return 1.0 / (1.0 + self.xp.exp(-X))
 
-    def dsigmoid(self, Y: Array, *, inplace=False) -> Array:
+    def dsigmoid(self, Y: OpsArrayT, *, inplace=False) -> OpsArrayT:
         if inplace:
             Y *= 1 - Y
             return Y
         else:
             return Y * (1.0 - Y)
 
-    def dtanh(self, Y: Array, *, inplace=False) -> Array:
+    def dtanh(self, Y: OpsArrayT, *, inplace=False) -> OpsArrayT:
         if inplace:
             Y **= 2
             Y *= -1.0
@@ -205,7 +211,9 @@ class Ops:
         else:
             return 1 - Y ** 2
 
-    def softmax(self, x: Array, *, inplace: bool = False, axis: int = -1) -> Array:
+    def softmax(
+        self, x: OpsArrayT, *, inplace: bool = False, axis: int = -1
+    ) -> OpsArrayT:
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -217,8 +225,8 @@ class Ops:
             return new_x
 
     def softmax_sequences(
-        self, Xs, lengths: Array, inplace: bool = False, axis: int = -1
-    ) -> Array:
+        self, Xs, lengths: OpsArrayT, inplace: bool = False, axis: int = -1
+    ) -> OpsArrayT:
         if Xs.ndim >= 3:
             err = f"Softmax currently only supports 2d. Got: {Xs.ndim}"
             raise NotImplementedError(err)
@@ -295,8 +303,8 @@ class Ops:
         copy_array(d_cells, d_prevcells)
 
     def softplus(
-        self, X, threshold: float = 20.0, out: Optional[Array] = None
-    ) -> Array:
+        self, X, threshold: float = 20.0, out: Optional[OpsArrayT] = None
+    ) -> OpsArrayT:
         xp = get_array_module(X)
         log1p_exp = xp.log1p(xp.exp(X))
         indices = X >= threshold
@@ -308,10 +316,10 @@ class Ops:
             return out
 
     def backprop_softplus(
-        self, dY, X, threshold: float = 20.0, out: Optional[Array] = None
-    ) -> Array:
+        self, dY, X, threshold: float = 20.0, out: Optional[OpsArrayT] = None
+    ) -> OpsArrayT:
         xp = get_array_module(X)
-        out_: Array
+        out_: OpsArrayT
         if out is None:
             out_ = xp.zeros(X.shape, dtype="f")
         else:
@@ -376,17 +384,19 @@ class Ops:
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
 
-    def sum_pool(self, X: Array, lengths: Array) -> Array:
+    def sum_pool(self, X: OpsArrayT, lengths: OpsArrayT) -> OpsArrayT:
         Y = self.allocate((lengths.shape[0], X.shape[1]))
         start = 0
+        length: int
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].sum(axis=0)
             start += length
         return Y
 
-    def mean_pool(self, X: Array, lengths: Array) -> Array:
+    def mean_pool(self, X: OpsArrayT, lengths: OpsArrayT) -> OpsArrayT:
         Y = self.allocate((lengths.shape[0], X.shape[1]))
         start = 0
+        length: int
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].mean(axis=0)
             start += length

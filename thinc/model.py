@@ -1,21 +1,35 @@
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Generic, Sequence, Tuple, TypeVar
-import numpy
 import contextlib
-import srsly
-from pathlib import Path
 import copy
+from pathlib import Path
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+    Union,
+)
 
-from .backends import NumpyOps, CupyOps, get_current_ops
-from .optimizers import Optimizer  # noqa: F401
+import numpy
+import srsly
+
+from .backends import CupyOps, NumpyOps, get_current_ops
 from .backends.mem import Memory
+from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import copy_array, get_width, create_thread_local
 from .types import Array
-
+from .util import copy_array, create_thread_local, get_width
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
+ParamT = TypeVar("ParamT", bound=Array)
 
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
@@ -207,16 +221,17 @@ class Model(Generic[InT, OutT]):
         else:
             return None
 
-    def get_param(self, name: str) -> Array:
+    def get_param(self, name: str, type: Type[ParamT] = None) -> ParamT:
         """Retrieve a weights parameter by name."""
         if name not in self._params:
             raise KeyError(f"Unknown param: {name}")
         key = (self.id, name)
         if key not in self._mem:
             raise KeyError(f"Parameter '{name}' as not been allocated yet")
+        memory_t: Memory[ParamT] = self._mem
         return self._mem[key]
 
-    def set_param(self, name: str, value: Optional[Array]) -> None:
+    def set_param(self, name: str, value: Optional[ParamT]) -> None:
         """Set a weights parameter's value."""
         if value is None:
             self._params[name] = None
@@ -422,7 +437,7 @@ class Model(Generic[InT, OutT]):
         layers will also be deep-copied. The copy will receive a distinct `model.id`
         value.
         """
-        params = {}
+        params: Dict[str, Any] = {}
         for key, value in self._params.items():
             params[key] = None if value is None else self.get_param(key)
         grads = {}
@@ -505,7 +520,7 @@ class Model(Generic[InT, OutT]):
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
                     "shims": [shim.to_bytes() for shim in layer.shims],
-                    "refs": refs
+                    "refs": refs,
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():

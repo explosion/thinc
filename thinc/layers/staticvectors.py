@@ -24,7 +24,7 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model:
 
 def forward(model: Model, ids: Array, is_train: bool) -> Tuple[Array, Callable]:
     column = model.get_attr("column")
-    W = model.get_param("W")
+    W: Array = model.get_param("W", Array)
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     if ids.ndim >= 2:
         ids = model.ops.xp.ascontiguousarray(ids[:, column])

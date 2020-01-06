@@ -36,9 +36,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     return Y, backprop
 
 
-def init(
-    model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
@@ -53,8 +51,8 @@ def init(
 
 
 def _begin_update_scale_shift(model: Model, X: Array) -> Tuple[Array, Callable]:
-    G = model.get_param("G")
-    b = model.get_param("b")
+    G = model.get_param("G", Array)
+    b = model.get_param("b", Array)
     Y = X * G
     Y += b
 

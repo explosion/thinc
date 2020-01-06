@@ -28,8 +28,8 @@ def Softmax(
 
 
 def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = model.get_param("W")
-    b = model.get_param("b")
+    W = model.get_param("W", Array)
+    b = model.get_param("b", Array)
 
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b

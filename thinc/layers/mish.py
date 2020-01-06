@@ -37,8 +37,8 @@ def Mish(
 
 
 def forward(model: Model, X: Floats2d, is_train: bool) -> Tuple[Floats2d, Callable]:
-    W = model.get_param("W")
-    b = model.get_param("b")
+    W = model.get_param("W", Array)
+    b = model.get_param("b", Array)
     Y_pre_mish = model.ops.gemm(X, W, trans2=True)
     Y_pre_mish += b
     Y = model.ops.mish(Y_pre_mish)

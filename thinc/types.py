@@ -50,6 +50,8 @@ class DTypes(str, Enum):
 
 ndim = TypeVar("ndim", bound=int)
 
+ArrayT = TypeVar("ArrayT", bound="Array")
+
 
 class Array(Generic[ndim], Sized, Container):
     T: "Array"
@@ -92,316 +94,322 @@ class Array(Generic[ndim], Sized, Container):
         ...
 
     def astype(
-        self,
+        self: ArrayT,
         dtype: DTypes,
         order: str = ...,
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def copy(self, order: str = ...) -> "Array":
+    def copy(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def fill(self, value: Any) -> None:
+    def fill(self: ArrayT, value: Any) -> None:
         ...
 
     # Shape manipulation
-    def reshape(self, shape: Shape, *, order: str = ...) -> "Array":
+    def reshape(self: ArrayT, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
-    def transpose(self, axes: Shape) -> "Array":
+    def transpose(self: ArrayT, axes: Shape) -> ArrayT:
         ...
 
-    def flatten(self, order: str = ...) -> "Array":
+    def flatten(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def ravel(self, order: str = ...) -> "Array":
+    def ravel(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def squeeze(self, axis: Union[int, Shape] = ...) -> "Array":
+    def squeeze(self: ArrayT, axis: Union[int, Shape] = ...) -> ArrayT:
         ...
 
-    def __len__(self) -> int:
+    def __len__(self: ArrayT) -> int:
         ...
 
-    def __getitem__(self, key) -> Any:
+    def __getitem__(self: ArrayT, key) -> Any:
         ...
 
-    def __setitem__(self, key, value):
+    def __setitem__(self: ArrayT, key, value):
         ...
 
-    def __iter__(self) -> Any:
+    def __iter__(self: ArrayT) -> Any:
         ...
 
-    def __contains__(self, key) -> bool:
+    def __contains__(self: ArrayT, key) -> bool:
         ...
 
-    def __index__(self) -> int:
+    def __index__(self: ArrayT) -> int:
         ...
 
-    def __int__(self) -> int:
+    def __int__(self: ArrayT) -> int:
         ...
 
-    def __float__(self) -> float:
+    def __float__(self: ArrayT) -> float:
         ...
 
-    def __complex__(self) -> complex:
+    def __complex__(self: ArrayT) -> complex:
         ...
 
-    def __bool__(self) -> bool:
+    def __bool__(self: ArrayT) -> bool:
         ...
 
-    def __bytes__(self) -> bytes:
+    def __bytes__(self: ArrayT) -> bytes:
         ...
 
-    def __str__(self) -> str:
+    def __str__(self: ArrayT) -> str:
         ...
 
-    def __repr__(self) -> str:
+    def __repr__(self: ArrayT) -> str:
         ...
 
-    def __copy__(self: "Array", order: str = ...) -> "Array":
+    def __copy__(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def __deepcopy__(self: "Array", memo: dict) -> "Array":
+    def __deepcopy__(self: ArrayT, memo: dict) -> ArrayT:
         ...
 
-    def __lt__(self, other):
+    def __lt__(self: ArrayT, other):
         ...
 
-    def __le__(self, other):
+    def __le__(self: ArrayT, other):
         ...
 
-    def __eq__(self, other):
+    def __eq__(self: ArrayT, other):
         ...
 
-    def __ne__(self, other):
+    def __ne__(self: ArrayT, other):
         ...
 
-    def __gt__(self, other):
+    def __gt__(self: ArrayT, other):
         ...
 
-    def __ge__(self, other):
+    def __ge__(self: ArrayT, other):
         ...
 
-    def __add__(self, other):
+    def __add__(self: ArrayT, other):
         ...
 
-    def __radd__(self, other):
+    def __radd__(self: ArrayT, other):
         ...
 
-    def __iadd__(self, other):
+    def __iadd__(self: ArrayT, other):
         ...
 
-    def __sub__(self, other):
+    def __sub__(self: ArrayT, other):
         ...
 
-    def __rsub__(self, other):
+    def __rsub__(self: ArrayT, other):
         ...
 
-    def __isub__(self, other):
+    def __isub__(self: ArrayT, other):
         ...
 
-    def __mul__(self, other):
+    def __mul__(self: ArrayT, other):
         ...
 
-    def __rmul__(self, other):
+    def __rmul__(self: ArrayT, other):
         ...
 
-    def __imul__(self, other):
+    def __imul__(self: ArrayT, other):
         ...
 
-    def __truediv__(self, other):
+    def __truediv__(self: ArrayT, other):
         ...
 
-    def __rtruediv__(self, other):
+    def __rtruediv__(self: ArrayT, other):
         ...
 
-    def __itruediv__(self, other):
+    def __itruediv__(self: ArrayT, other):
         ...
 
-    def __floordiv__(self, other):
+    def __floordiv__(self: ArrayT, other):
         ...
 
-    def __rfloordiv__(self, other):
+    def __rfloordiv__(self: ArrayT, other):
         ...
 
-    def __ifloordiv__(self, other):
+    def __ifloordiv__(self: ArrayT, other):
         ...
 
-    def __mod__(self, other):
+    def __mod__(self: ArrayT, other):
         ...
 
-    def __rmod__(self, other):
+    def __rmod__(self: ArrayT, other):
         ...
 
-    def __imod__(self, other):
+    def __imod__(self: ArrayT, other):
         ...
 
-    def __divmod__(self, other):
+    def __divmod__(self: ArrayT, other):
         ...
 
-    def __rdivmod__(self, other):
+    def __rdivmod__(self: ArrayT, other):
         ...
 
     # NumPy's __pow__ doesn't handle a third argument
-    def __pow__(self, other):
+    def __pow__(self: ArrayT, other):
         ...
 
-    def __rpow__(self, other):
+    def __rpow__(self: ArrayT, other):
         ...
 
-    def __ipow__(self, other):
+    def __ipow__(self: ArrayT, other):
         ...
 
-    def __lshift__(self, other):
+    def __lshift__(self: ArrayT, other):
         ...
 
-    def __rlshift__(self, other):
+    def __rlshift__(self: ArrayT, other):
         ...
 
-    def __ilshift__(self, other):
+    def __ilshift__(self: ArrayT, other):
         ...
 
-    def __rshift__(self, other):
+    def __rshift__(self: ArrayT, other):
         ...
 
-    def __rrshift__(self, other):
+    def __rrshift__(self: ArrayT, other):
         ...
 
-    def __irshift__(self, other):
+    def __irshift__(self: ArrayT, other):
         ...
 
-    def __and__(self, other):
+    def __and__(self: ArrayT, other):
         ...
 
-    def __rand__(self, other):
+    def __rand__(self: ArrayT, other):
         ...
 
-    def __iand__(self, other):
+    def __iand__(self: ArrayT, other):
         ...
 
-    def __xor__(self, other):
+    def __xor__(self: ArrayT, other):
         ...
 
-    def __rxor__(self, other):
+    def __rxor__(self: ArrayT, other):
         ...
 
-    def __ixor__(self, other):
+    def __ixor__(self: ArrayT, other):
         ...
 
-    def __or__(self, other):
+    def __or__(self: ArrayT, other):
         ...
 
-    def __ror__(self, other):
+    def __ror__(self: ArrayT, other):
         ...
 
-    def __ior__(self, other):
+    def __ior__(self: ArrayT, other):
         ...
 
-    def __matmul__(self, other):
+    def __matmul__(self: ArrayT, other):
         ...
 
-    def __rmatmul__(self, other):
+    def __rmatmul__(self: ArrayT, other):
         ...
 
-    def __neg__(self: "Array") -> "Array":
+    def __neg__(self: ArrayT) -> ArrayT:
         ...
 
-    def __pos__(self: "Array") -> "Array":
+    def __pos__(self: ArrayT) -> ArrayT:
         ...
 
-    def __abs__(self: "Array") -> "Array":
+    def __abs__(self: ArrayT) -> ArrayT:
         ...
 
-    def __invert__(self: "Array") -> "Array":
+    def __invert__(self: ArrayT) -> ArrayT:
         ...
 
-    def get(self) -> "Array":
+    def get(self: ArrayT) -> ArrayT:
         ...
 
     def all(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self: ArrayT,
+        axis: int = -1,
+        out: Optional[ArrayT] = None,
+        keepdims: bool = False,
+    ) -> ArrayT:
         ...
 
     def any(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self: ArrayT,
+        axis: int = -1,
+        out: Optional[ArrayT] = None,
+        keepdims: bool = False,
+    ) -> ArrayT:
         ...
 
-    def argmax(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmax(self: ArrayT, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def argmin(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmin(self: ArrayT, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def clip(self, a_min: Any, a_max: Any, out: Optional["Array"]) -> "Array":
+    def clip(self: ArrayT, a_min: Any, a_max: Any, out: Optional[ArrayT]) -> ArrayT:
         ...
 
     def cumsum(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
-    ) -> "Array":
+        out: Optional[ArrayT] = None,
+    ) -> ArrayT:
         ...
 
-    def max(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def max(self: ArrayT, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def mean(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def min(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def min(self: ArrayT, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def nonzero(self) -> "Array":
+    def nonzero(self: ArrayT) -> ArrayT:
         ...
 
     def prod(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def round(self, decimals: int = 0, out: Optional["Array"] = None) -> "Array":
+    def round(self: ArrayT, decimals: int = 0, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def sum(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def tobytes(self, order: str = "C") -> bytes:
+    def tobytes(self: ArrayT, order: str = "C") -> bytes:
         ...
 
-    def tolist(self) -> List[Any]:
+    def tolist(self: ArrayT) -> List[Any]:
         ...
 
     def var(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         ddof: int = 0,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
 

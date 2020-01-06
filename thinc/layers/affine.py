@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model, create_init
-from ..types import Floats2d
+from ..types import Array, Floats2d
 from ..initializers import xavier_uniform_init, zero_init
 
 
@@ -30,8 +30,8 @@ def Affine(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = model.get_param("W")
-    b = model.get_param("b")
+    W = model.get_param("W", Array)
+    b = model.get_param("b", Array)
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b
 

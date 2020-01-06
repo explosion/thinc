@@ -32,7 +32,7 @@ def Embed(
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
-    vectors = model.get_param("vectors")
+    vectors = model.get_param("vectors", Array)
     column = model.get_attr("column")
     if ids.ndim == 2:
         ids = ids[:, column]

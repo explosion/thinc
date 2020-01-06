@@ -38,12 +38,10 @@ def ReLu(
 
 
 def forward(
-        model: Model,
-        X: Floats2d[B, I],
-        is_train: bool
+    model: Model, X: Floats2d[B, I], is_train: bool
 ) -> Tuple[Floats2d[B, O], Callable]:
-    W: Floats2d[O, I] = cast(Floats2d, model.get_param("W"))
-    b: Floats1d[O] = cast(Floats1d, model.get_param("b"))
+    W: Floats2d[O, I] = model.get_param("W", Floats2d[O, I])
+    b: Floats1d[O] = model.get_param("b", Floats1d[O])
     Y: Floats2d[B, O] = model.ops.gemm(X, W, trans2=True)
     Y += b
     model.ops.relu(Y, inplace=True)
