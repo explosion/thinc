@@ -449,11 +449,11 @@ class Model(Generic[InT, OutT]):
                 copied.set_grad(name, self.get_grad(name))
         return copied
 
-    def to_gpu(self, device_num: int) -> None:
+    def to_gpu(self, gpu_id: int) -> None:
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
-        device = cupy.cuda.device.Device(device_num)
+        device = cupy.cuda.device.Device(gpu_id)
         device.use()
         for layer in self.walk():
             layer.ops = CupyOps()

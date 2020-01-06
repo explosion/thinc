@@ -21,7 +21,7 @@ except ImportError:
     has_torch = False
 
 
-from .types import Array, Ragged, Padded, RNNState
+from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -133,7 +133,7 @@ def minibatch(
 
 
 def evaluate_model_on_arrays(
-    model, dev_X: Array, dev_Y: Array, *, batch_size: int
+    model, inputs: Array, labels: Array, *, batch_size: int
 ) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
@@ -142,9 +142,9 @@ def evaluate_model_on_arrays(
     """
     score = 0.0
     total = 0.0
-    for i in range(0, dev_X.shape[0], batch_size):
-        X = dev_X[i : i + batch_size]
-        Y = dev_Y[i : i + batch_size]
+    for i in range(0, inputs.shape[0], batch_size):
+        X = inputs[i : i + batch_size]
+        Y = labels[i : i + batch_size]
         Yh = model.predict(X)
         score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
         total += Yh.shape[0]
@@ -161,25 +161,18 @@ def copy_array(dst: Array, src: Array) -> None:
         numpy.copyto(dst, src)
 
 
-def to_categorical(y: Array, nb_classes: Optional[int] = None) -> Array:
+def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
     # From keras
-    xp = get_array_module(y)
+    xp = get_array_module(Y)
     if xp is cupy:
-        y = y.get()
-    y = numpy.array(y, dtype="int").ravel()
-    if not nb_classes:
-        nb_classes = numpy.max(y) + 1
-    n = y.shape[0]
-    categorical = numpy.zeros((n, nb_classes), dtype="float32")
-    categorical[numpy.arange(n), y] = 1
+        Y = cast(IntsNd, Y.get())
+    Y = numpy.array(Y, dtype="int").ravel()
+    if not n_classes:
+        n_classes = numpy.max(Y) + 1
+    n = Y.shape[0]
+    categorical = numpy.zeros((n, n_classes), dtype="float32")
+    categorical[numpy.arange(n), Y] = 1
     return xp.asarray(categorical)
-
-
-def is_ragged(seqs) -> bool:
-    if isinstance(seqs, tuple) and len(seqs) == 2:
-        if len(seqs[0]) == sum(seqs[1]):
-            return True
-    return False
 
 
 def get_width(

@@ -18,6 +18,7 @@ def constant_then(
 
 @registry.schedules("constant.v1")
 def constant(rate: float) -> Iterable[float]:
+    """Yield a constant rate."""
     while True:
         yield rate
 
@@ -25,12 +26,9 @@ def constant(rate: float) -> Iterable[float]:
 @registry.schedules("decaying.v1")
 def decaying(base_rate: float, decay: float, *, t: int = 0):
     """Yield an infinite series of linearly decaying values,
-    following the schedule:
+    following the schedule: base_rate * 1 / (1 + decay * t)
 
-        base_rate * 1/(1+decay*t)
-
-    Example:
-
+    EXAMPLE:
         >>> learn_rates = decaying(0.001, 1e-4)
         >>> next(learn_rates)
         0.001
@@ -51,10 +49,10 @@ def compounding(
     value by the compound rate.
 
     EXAMPLE:
-      >>> sizes = compounding(1.0, 10.0, 1.5)
-      >>> assert next(sizes) == 1.
-      >>> assert next(sizes) == 1 * 1.5
-      >>> assert next(sizes) == 1.5 * 1.5
+        >>> sizes = compounding(1.0, 10.0, 1.5)
+        >>> assert next(sizes) == 1.
+        >>> assert next(sizes) == 1 * 1.5
+        >>> assert next(sizes) == 1.5 * 1.5
     """
     curr = float(start)
     while True:
