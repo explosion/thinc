@@ -277,20 +277,20 @@ class Model(Generic[InT, OutT]):
         """
         return self._func(self, X, is_train=False)[0]
 
-    def finish_update(self, optimizer: Optimizer) -> None:
+    def finish_update(self, optimizer: Optimizer, **kwargs) -> None:
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
         optimizer(self._mem.weights, self._mem.gradient, key=self.id)
         for shim in self.shims:
-            shim.finish_update(optimizer)
+            shim.finish_update(optimizer, **kwargs)
         seen = set([self.id])
         for node in self.walk():
             if node.id not in seen:
-                node.finish_update(optimizer)
+                node.finish_update(optimizer, **kwargs)
                 seen.add(node.id)
                 for shim in node.shims:
-                    shim.finish_update(optimizer)
+                    shim.finish_update(optimizer, **kwargs)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[int, Array]):

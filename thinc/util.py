@@ -248,8 +248,8 @@ def torch2xp(torch_tensor):
         return torch_tensor.detach().numpy()
 
 
-def xp2tensorflow(xp_tensor, requires_grad=False):
-    """Convert a numpy or cupy tensor to a TensorFlow tensor"""
+def xp2tensorflow(xp_tensor, requires_grad=False, as_variable=False):
+    """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert has_tfdlpack, "tfdlpack is not installed"
     assert has_tensorflow, "Tensorflow is not installed"
 
@@ -258,7 +258,13 @@ def xp2tensorflow(xp_tensor, requires_grad=False):
     else:
         tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
 
-    if requires_grad is False:
+    if as_variable:
+        # tf.Variable() automatically puts in GPU if available.
+        # So we need to control it using the context manager
+        with tf.device(tensorflow_tensor.device):
+            tensorflow_tensor = tf.Variable(tensorflow_tensor, trainable=requires_grad)
+
+    if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
         with tf.device(tensorflow_tensor.device):
