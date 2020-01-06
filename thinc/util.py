@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, List, cast, Dict, Optional
+from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict, Optional
 import numpy
 import itertools
 import threading
@@ -15,6 +15,7 @@ try:
     import torch
     import torch.tensor
     import torch.utils.dlpack
+    has_torch = True
 except ImportError:
     has_torch = False
 
@@ -141,7 +142,7 @@ def minibatch(
 
 
 def evaluate_model_on_arrays(
-    model, dev_X: Array, dev_Y: Array, batch_size: int
+    model, dev_X: Array, dev_Y: Array, *, batch_size: int
 ) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
@@ -190,11 +191,11 @@ def is_ragged(seqs) -> bool:
     return False
 
 
-def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> int:
-    """Infer the 'width' of a batch of data, which could be any of:
-    * An n-dimensional array: Use the shape
-    * A tuple (for a ragged array): Use the shape of the first element.
-    * A list of arrays (for sequences): Use the shape of the first element.
+def get_width(
+    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
+) -> int:
+    """Infer the 'width' of a batch of data, which could be any of: Array,
+    Ragged, Padded or Sequence of Arrays.
     """
     if isinstance(X, Ragged):
         return get_width(X.data, dim=dim)

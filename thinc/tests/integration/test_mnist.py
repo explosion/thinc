@@ -72,7 +72,7 @@ def test_small_end_to_end(
             backprop(Yh - Y)
             model.finish_update(optimizer)
             losses.append(((Yh - Y) ** 2).sum())
-        score = evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size)
+        score = evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size=batch_size)
         scores.append(score)
     assert losses[-1] < losses[0]
     assert scores[-1] > scores[0]
