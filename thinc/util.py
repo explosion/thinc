@@ -57,7 +57,8 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def set_active_gpu(gpu_id: int):  # TODO: return type
+def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":
+    """Set the current GPU device for cupy and torch (if available)."""
     import cupy.cuda.device
 
     device = cupy.cuda.device.Device(gpu_id)
