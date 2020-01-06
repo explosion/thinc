@@ -19,21 +19,9 @@ from typing import (
 import numpy
 from wasabi import msg
 
-# Literal shim, thanks Pydantic!
-# From: https://github.com/samuelcolvin/pydantic/blob/v1.3/pydantic/typing.py#L51-L60
+# Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    if TYPE_CHECKING:
-        from typing_extensions import Literal
-    else:  # due to different mypy warnings raised during CI for python 3.7 and 3.8
-        try:
-            from typing_extensions import Literal
-        except ImportError:
-            msg.fail(
-                title="Incompatible System",
-                text="Either Python 3.8 must be used or the "
-                "`typing_extensions` module must be installed",
-                exits=1,
-            )
+    from typing_extensions import Literal
 else:
     from typing import Literal
 
@@ -469,8 +457,8 @@ class Floats1d(Array, Generic[f1d1]):
             yield validator
 
 
-f2d1 = TypeVar("f2d1")
-f2d2 = TypeVar("f2d2")
+f2d1 = TypeVar("f2d1", bound=int)
+f2d2 = TypeVar("f2d2", bound=int)
 
 
 class Floats2d(Generic[f2d1, f2d2], Array[Literal[2]]):
@@ -487,7 +475,7 @@ f3d2 = TypeVar("f3d2", bound=int)
 f3d3 = TypeVar("f3d3", bound=int)
 
 
-class Floats3d(Array[Literal[3]], Generic[f3d1, f3d2, f3d3]):
+class Floats3d(Generic[f3d1, f3d2, f3d3], Array[Literal[3]]):
     """3-dimensional array of floats."""
 
     @classmethod
@@ -502,7 +490,7 @@ f4d3 = TypeVar("f4d3", bound=int)
 f4d4 = TypeVar("f4d4", bound=int)
 
 
-class Floats4d(Array[Literal[4]], Generic[f4d1, f4d2, f4d3, f4d4]):
+class Floats4d(Generic[f4d1, f4d2, f4d3, f4d4], Array[Literal[4]]):
     """4-dimensional array of floats."""
 
     @classmethod
