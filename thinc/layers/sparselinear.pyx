@@ -14,13 +14,12 @@ from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
 
-# TODO: more specific types?
 InT = Tuple[Array, Array, Array]
 OutT = Array
 
 
 def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
-    model = Model(
+    model: Model[InT, OutT] = Model(
         "sparse_linear",
         forward,
         init=init,

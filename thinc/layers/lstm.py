@@ -57,7 +57,7 @@ def LSTM_step(
             "PyTorchWrapper and the torch.LSTM class."
         )
         raise NotImplementedError(msg)
-    model = Model[RNNState, RNNState](
+    model: Model[RNNState, RNNState] = Model(
         "lstm_step", forward, init=init, layers=[Affine()], dims={"nO": nO, "nI": nI}
     )
     if nO is not None and nI is not None:

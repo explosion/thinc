@@ -21,7 +21,7 @@ except ImportError:
     has_torch = False
 
 
-from .types import Array, Ragged, Padded
+from .types import Array, Ragged, Padded, RNNState
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -55,17 +55,6 @@ def is_numpy_array(arr: Array) -> bool:
         return True
     else:
         return False
-
-
-def get_ops(ops: Union[int, str]):  # TODO: return type
-    from .backends import NumpyOps, CupyOps
-
-    if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
-        return NumpyOps
-    elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
-        return CupyOps
-    else:
-        raise ValueError(f"Invalid ops (or device) description: {ops}")
 
 
 def set_active_gpu(gpu_id: int):  # TODO: return type
@@ -193,7 +182,7 @@ def is_ragged(seqs) -> bool:
 
 
 def get_width(
-    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
+    X: Union[Array, Ragged, Padded, Sequence[Array], RNNState], *, dim: int = -1
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
@@ -244,7 +233,6 @@ __all__ = [
     "create_thread_local",
     "is_cupy_array",
     "is_numpy_array",
-    "get_ops",
     "set_active_gpu",
     "prefer_gpu",
     "require_gpu",

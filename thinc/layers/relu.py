@@ -21,7 +21,7 @@ def ReLu(
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model:
-    model = Model[InT, OutT](
+    model: Model[InT, OutT] = Model(
         "relu",
         forward,
         init=create_init({"W": init_W, "b": init_b}),

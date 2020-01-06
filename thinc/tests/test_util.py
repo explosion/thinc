@@ -1,6 +1,5 @@
 import pytest
-from thinc.backends import NumpyOps, CupyOps
-from thinc.util import get_ops
+from thinc.backends import NumpyOps, CupyOps, get_ops
 
 
 def test_get_ops():

@@ -24,7 +24,7 @@ def chain(*layers: Model) -> Model[InT, OutT]:
     # Set type constraints for layers
     layer0: Model[InT, Any] = layers[0]  # noqa: F841
     layer1: Model[Any, OutT] = layers[-1]  # noqa: F841
-    model = Model[InT, OutT](
+    model: Model[InT, OutT] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,

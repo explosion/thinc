@@ -1,11 +1,22 @@
+from typing import Union
 import contextlib
-from .ops import Ops  # noqa: F401
-from .cupy_ops import CupyOps  # noqa: F401
-from .numpy_ops import NumpyOps  # noqa: F401
-from ..util import create_thread_local, get_ops
+
+from .ops import Ops
+from .cupy_ops import CupyOps
+from .numpy_ops import NumpyOps
+from ..util import create_thread_local
 
 
 STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
+
+
+def get_ops(ops: Union[int, str]) -> Union[NumpyOps, CupyOps]:
+    if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
+        return NumpyOps
+    elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
+        return CupyOps
+    else:
+        raise ValueError(f"Invalid ops (or device) description: {ops}")
 
 
 @contextlib.contextmanager
