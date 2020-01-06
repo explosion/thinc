@@ -22,8 +22,14 @@ from .foreach import foreach
 from .noop import noop
 from .recurrent import recurrent
 from .uniqued import uniqued
+from .siamese import siamese
 
-# Transforms
+# Pooling
+from .maxpool import MaxPool
+from .meanpool import MeanPool
+from .sumpool import SumPool
+
+# Data-type transfers
 from .list2ragged import list2ragged
 from .ragged2list import ragged2list
 from .with_list2array import with_list2array
