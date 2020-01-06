@@ -15,6 +15,7 @@ try:
     import torch
     import torch.tensor
     import torch.utils.dlpack
+
     has_torch = True
 except ImportError:
     has_torch = False
@@ -236,3 +237,23 @@ def torch2xp(torch_tensor):
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         return torch_tensor.detach().numpy()
+
+
+__all__ = [
+    "fix_random_seed",
+    "create_thread_local",
+    "is_cupy_array",
+    "is_numpy_array",
+    "get_ops",
+    "set_active_gpu",
+    "prefer_gpu",
+    "require_gpu",
+    "copy_array",
+    "get_shuffled_batches",
+    "minibatch",
+    "evaluate_model_on_arrays",
+    "to_categorical",
+    "get_width",
+    "xp2torch",
+    "torch2xp",
+]

@@ -2,7 +2,7 @@
 from typing import Iterable
 import numpy
 
-from ._registry import registry
+from .config import registry
 
 
 @registry.schedules("constant_then.v1")
@@ -119,3 +119,15 @@ def cyclic_triangular(min_lr: float, max_lr: float, period: int) -> Iterable[flo
         relative = max(0, 1 - x)
         yield min_lr + (max_lr - min_lr) * relative
         it += 1
+
+
+__all__ = [
+    "cyclic_triangular",
+    "warmup_linear",
+    "constant",
+    "constant_then",
+    "decaying",
+    "warmup_linear",
+    "slanted_triangular",
+    "compounding",
+]

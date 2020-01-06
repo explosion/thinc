@@ -651,3 +651,6 @@ class Model(Generic[InT, OutT]):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
+
+
+__all__ = ["create_init", "Model"]

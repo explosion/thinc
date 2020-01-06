@@ -4,6 +4,7 @@ from .cupy_ops import CupyOps  # noqa: F401
 from .numpy_ops import NumpyOps  # noqa: F401
 from ..util import create_thread_local, get_ops
 
+
 STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
 
 
@@ -25,3 +26,13 @@ def get_current_ops():
 
 def set_current_ops(ops):
     STATE.ops = ops
+
+
+__all__ = [
+    "set_current_ops",
+    "get_current_ops",
+    "use_device",
+    "Ops",
+    "CupyOps",
+    "NumpyOps",
+]

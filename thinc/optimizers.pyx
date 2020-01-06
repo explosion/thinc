@@ -15,7 +15,7 @@ import numpy
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
 from .util import get_array_module
-from ._registry import registry
+from .config import registry
 
 
 ctypedef float weight_t
@@ -353,3 +353,6 @@ class Optimizer(object):
         cdef weight_t eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
+
+
+__all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

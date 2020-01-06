@@ -44,3 +44,6 @@ def cosine_distance(yh, y, ignore_zeros=False):
         losses[zero_indices] = 0
     loss = losses.sum()
     return loss, -d_yh
+
+
+__all__ = ["categorical_crossentropy", "L1_distance", "cosine_distance"]
