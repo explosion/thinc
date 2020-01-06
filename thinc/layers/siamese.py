@@ -10,7 +10,7 @@ InT = Tuple[LayerT, LayerT]
 OutT = Array
 
 
-def Siamese(
+def siamese(
     layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
 ) -> Model[InT, OutT]:
     return Model(
