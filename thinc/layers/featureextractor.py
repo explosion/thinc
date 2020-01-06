@@ -1,10 +1,10 @@
 from typing import List, Union, Callable, Tuple
 
-from ..types import Ints2d, DocType
+from ..types import Ints2d, Doc
 from ..model import Model
 
 
-InT = List[DocType]
+InT = List[Doc]
 OutT = List[Ints2d]
 
 

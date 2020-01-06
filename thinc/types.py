@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, Tuple, Callable, Iterator, Sized, Container, Any
+from typing import Union, Tuple, Iterator, Sized, Container, Any
 from typing import Optional, List
 from enum import Enum
 import numpy
@@ -526,15 +526,24 @@ class Generator(Iterator):
         return v
 
 
+class Doc(Sized, Container):
+    T: "Doc"
+    base: Optional["Doc"]
 
+    @property
+    def doc(self) -> "Doc":
+        ...
 
-class DocType:
-    # TODO:
-    # DocType = "spacy.tokens.Doc"  # type: ignore
-    doc: "DocType"
-    to_array: Callable
-    start: int
-    end: int
+    @property
+    def start(self) -> int:
+        ...
+
+    @property
+    def end(self) -> int:
+        ...
+
+    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+        ...
 
 
 # This should probably become a dataclass too.
