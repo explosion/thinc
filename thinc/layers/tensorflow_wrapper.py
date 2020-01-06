@@ -33,7 +33,7 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y = tensorflow2xp(Y_tensorflow)
 
     def backprop(dY):
-        dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train)
+        dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train, as_variable=is_train)
         dX_tensorflow = tensorflow_backprop((dY_tensorflow,))
         return tensorflow2xp(dX_tensorflow)
 
