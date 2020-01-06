@@ -165,7 +165,7 @@ class NumpyOps(Ops):
         '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef ndarray cols = self.allocate((B, (2 * nW+1) * I), dtype='float32')
+        cdef ndarray cols = self.allocate((B, (2*nW + 1) * I), dtype='float32')
         seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
         return cols
 
