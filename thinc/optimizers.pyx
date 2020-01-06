@@ -8,7 +8,7 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Sequence, Dict, Optional, Union, Any
+from typing import Iterator, Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
@@ -52,7 +52,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Union[Sequence[float], Generator]] = None,
+        schedules: Dict[str, Union[Iterator[float], Generator]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -85,7 +85,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -115,7 +115,7 @@ def SGD(
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -148,7 +148,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
         **_,
     ):
         """
@@ -242,7 +242,7 @@ class Optimizer(object):
         elif self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b2 > 0.:
-            raise NotImplementedError
+            raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.alpha * gradient
         gradient.fill(0.)
@@ -250,13 +250,13 @@ class Optimizer(object):
             weights -= self.L2 * weights
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
             if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype="float32")
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.averages[key] = self.ops.allocate((weights.size,), dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):

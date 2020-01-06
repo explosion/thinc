@@ -20,7 +20,7 @@ def get_ops(ops: Union[int, str]) -> Union[NumpyOps, CupyOps]:
 
 
 @contextlib.contextmanager
-def use_device(device):
+def use_device(device: Union[str, int]):
     """Change the device to execute on for the scope of the block."""
     current_ops = get_current_ops()
     if device == current_ops.device:
@@ -31,11 +31,11 @@ def use_device(device):
         set_current_ops(current_ops)
 
 
-def get_current_ops():
+def get_current_ops() -> Ops:
     return STATE.ops
 
 
-def set_current_ops(ops):
+def set_current_ops(ops: Ops) -> None:
     STATE.ops = ops
 
 
