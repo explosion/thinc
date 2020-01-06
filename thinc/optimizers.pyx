@@ -8,7 +8,7 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Iterator, Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
@@ -19,6 +19,11 @@ from .config import registry
 
 
 ctypedef float weight_t
+
+
+# We need to use the custom Generator type for schedules to work around pydantic
+# not supporting Iterator / Iterable
+ScheduleT = Generator
 
 
 SGD_DEFAULTS = {
@@ -52,7 +57,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Union[Iterator[float], Generator]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -85,7 +90,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -115,7 +120,7 @@ def SGD(
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -148,7 +153,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Union[Iterator[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
         **_,
     ):
         """
