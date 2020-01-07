@@ -96,8 +96,8 @@ class ConfigValidationError(ValueError):
         self,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         errors: List[Dict[str, Any]],
-        element: str,
         message: str = "Config validation error",
+        element: str = "",
     ) -> None:
         """Custom error for validating configs."""
         data = []
