@@ -27,14 +27,18 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     along with a callback to handle the backward pass.
     """
     tensorflow_model = model.shims[0]
-
-    X_tensorflow = xp2tensorflow(X, requires_grad=is_train, as_variable=is_train)
+    X_tensorflow = xp2tensorflow(X, requires_grad=is_train)
     Y_tensorflow, tensorflow_backprop = tensorflow_model((X_tensorflow,), {}, is_train)
     Y = tensorflow2xp(Y_tensorflow)
 
     def backprop(dY):
-        dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train, as_variable=is_train)
-        dX_tensorflow = tensorflow_backprop((dY_tensorflow,))
-        return tensorflow2xp(dX_tensorflow)
+        dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train)
+        dX_tensorflow = tensorflow_backprop((dY_tensorflow,), {})
+        # handling multiple inputs
+        if isinstance(dX_tensorflow, list):
+            dX_tensorflow = [tensorflow2xp(g) for g in dX_tensorflow]
+            return dX_tensorflow
+        else:
+            return tensorflow2xp(dX_tensorflow)
 
     return Y, backprop
