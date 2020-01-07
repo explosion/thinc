@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from thinc.api import NumpyOps, xp2torch, get_shuffled_batches
+from thinc.api import xp2torch, get_shuffled_batches
 import tqdm
 import typer
 
@@ -28,16 +28,6 @@ class Net(nn.Module):
         x = self.fc3(x)
         output = F.log_softmax(x, dim=-1)
         return output
-
-
-def load_mnist():
-    ops = NumpyOps()
-    mnist_train, mnist_dev, _ = ml_datasets.mnist()
-    train_X, train_Y = ops.unzip(mnist_train)
-    dev_X, dev_Y = ops.unzip(mnist_dev)
-    train_Y = train_Y.astype("int64")
-    dev_Y = dev_Y.astype("int64")
-    return (train_X, train_Y), (dev_X, dev_Y)
 
 
 def test(args, model, device, test_loader):
@@ -69,7 +59,7 @@ def main(
     n_epoch: int = 10,
 ):
     torch.set_num_threads(1)
-    (train_X, train_Y), (dev_X, dev_Y) = load_mnist()
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     model = Net(10, 28 * 28, n_hidden)
     optimizer = optim.Adam(model.parameters())
     for epoch in range(n_epoch):
