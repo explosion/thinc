@@ -9,10 +9,14 @@ from .linear import Linear
 from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
+from .parametricattention import ParametricAttention
+from .pytorchwrapper import PyTorchWrapper
 from .relu import ReLu
 from .residual import Residual
 from .softmax import Softmax
-from .lstm import BiLSTM, LSTM
+from .sparselinear import SparseLinear
+from .staticvectors import StaticVectors
+from .lstm import BiLSTM, LSTM, PyTorchBiLSTM
 
 # Combinators
 from .add import add
@@ -41,6 +45,7 @@ from .with_reshape import with_reshape
 
 
 __all__ = [
+    "CauchySimilarity",
     "Linear",
     "Dropout",
     "Embed",
@@ -50,11 +55,16 @@ __all__ = [
     "Maxout",
     "Mish",
     "MultiSoftmax",
+    "ParametricAttention",
+    "PyTorchWrapper",
     "ReLu",
     "Residual",
     "Softmax",
+    "SparseLinear",
+    "StaticVectors",
     "BiLSTM",
     "LSTM",
+    "PyTorchBiLSTM",
     "add",
     "bidirectional",
     "chain",

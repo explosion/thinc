@@ -14,6 +14,8 @@ from .backends import Ops, CupyOps, NumpyOps
 
 from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, ReLu, Residual, Softmax, BiLSTM, LSTM
+from .layers import CauchySimilarity, ParametricAttention, PyTorchWrapper
+from .layers import SparseLinear, StaticVectors, PyTorchBiLSTM
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
 from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
