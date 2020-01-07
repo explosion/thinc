@@ -3,10 +3,9 @@ from typing import Iterable, Union, Sequence
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
-from thinc.config import Config, ConfigValidationError
+from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.optimizers import Adam  # noqa: F401
-from thinc.schedules import warmup_linear  # noqa: F401
+from thinc.api import Config
 
 
 class my_registry(thinc.config.registry):

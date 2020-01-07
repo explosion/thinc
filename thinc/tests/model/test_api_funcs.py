@@ -1,7 +1,26 @@
 import pytest
 import numpy
-from thinc.layers import chain, clone, Linear
-from thinc.model import Model
+from thinc.api import chain, clone, Linear, Model
+
+
+@pytest.fixture(params=[1, 2, 9])
+def nB(request):
+    return request.param
+
+
+@pytest.fixture(params=[1, 6])
+def nI(request):
+    return request.param
+
+
+@pytest.fixture(params=[1, 5, 3])
+def nH(request):
+    return request.param
+
+
+@pytest.fixture(params=[1, 2, 7, 9])
+def nO(request):
+    return request.param
 
 
 @pytest.fixture

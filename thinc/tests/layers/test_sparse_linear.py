@@ -1,9 +1,6 @@
 import numpy
 import pytest
-from thinc.optimizers import SGD
-from thinc.backends import NumpyOps
-from thinc.util import to_categorical
-from thinc.layers.sparselinear import SparseLinear
+from thinc.api import SGD, NumpyOps, to_categorical, SparseLinear
 
 
 @pytest.fixture
