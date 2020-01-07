@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
+from ..config import registry
 from ..types import Floats2d
 from ..initializers import xavier_uniform_init, zero_init
 
@@ -9,7 +10,8 @@ InT = Floats2d
 OutT = Floats2d
 
 
-def Affine(
+@registry.layers("Linear.v0")
+def Linear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
@@ -18,7 +20,7 @@ def Affine(
 ) -> Model[InT, OutT]:
     """Multiply inputs by a weights matrix and adds a bias vector."""
     model: Model[InT, OutT] = Model(
-        "affine",
+        "linear",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},

@@ -1,18 +1,20 @@
 from typing import Tuple, Callable, Optional, Dict
 
 from ..model import Model
-from .dropout import Dropout
-from .layernorm import LayerNorm
-from .chain import chain
+from ..config import registry
 from ..initializers import xavier_uniform_init, zero_init
 from ..types import Floats2d
 from ..util import get_width
+from .dropout import Dropout
+from .layernorm import LayerNorm
+from .chain import chain
 
 
 InT = Floats2d
 OutT = Floats2d
 
 
+@registry.layers("Maxout.v0")
 def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

@@ -2,6 +2,7 @@ from typing import Callable, Tuple, Any
 
 from ..model import Model
 from ..shims import PyTorchShim
+from ..config import registry
 from ..util import xp2torch, torch2xp
 from ..types import Array
 
@@ -10,7 +11,8 @@ InT = Array
 OutT = Array
 
 
-def PyTorchWrapper(pytorch_model: Any) -> Model:
+@registry.layers("PyTorchWrapper.v0")
+def PyTorchWrapper(pytorch_model: Any) -> Model[InT, OutT]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
     optimizer.step() after each batch --- see examples/wrap_pytorch.py

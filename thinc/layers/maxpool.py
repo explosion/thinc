@@ -2,12 +2,14 @@ from typing import Tuple, Callable
 
 from ..types import Floats2d, Ragged
 from ..model import Model
+from ..config import registry
 
 
 InT = Ragged
 OutT = Floats2d
 
 
+@registry.layers("MaxPool.v0")
 def MaxPool() -> Model[InT, OutT]:
     return Model("max_pool", forward)
 

@@ -2,6 +2,7 @@ from typing import Tuple, Callable, Optional
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
+from ..config import registry
 from ..types import Floats2d
 from .chain import chain
 from .layernorm import LayerNorm
@@ -12,6 +13,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
+@registry.layers("ReLu.v0")
 def ReLu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

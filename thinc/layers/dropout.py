@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, List, Union
 
 from ..model import Model
+from ..config import registry
 from ..types import Array, Ragged, Padded
 
 
@@ -8,6 +9,7 @@ InT = Union[Array, List[Array], Ragged, Padded]
 OutT = Union[Array, List[Array], Ragged, Padded]
 
 
+@registry.layers("Dropout.v0")
 def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with

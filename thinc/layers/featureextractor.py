@@ -2,12 +2,14 @@ from typing import List, Union, Callable, Tuple
 
 from ..types import Ints2d, Doc
 from ..model import Model
+from ..config import registry
 
 
 InT = List[Doc]
 OutT = List[Ints2d]
 
 
+@registry.layers("FeatureExtractor.v0")
 def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:
     return Model("extract_features", forward, attrs={"columns": columns})
 

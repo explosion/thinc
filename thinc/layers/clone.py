@@ -3,12 +3,14 @@ from typing import TypeVar, cast
 from .noop import noop
 from .chain import chain
 from ..model import Model
+from ..config import registry
 
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
+@registry.layers("clone.v0")
 def clone(orig: Model[InT, OutT], n: int) -> Model[InT, OutT]:
     """Construct `n` copies of a layer, with distinct weights.  i.e.
     `clone(f, 3)(x)` computes f(f'(f''(x))).

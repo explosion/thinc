@@ -111,7 +111,7 @@ window_size = 1
 @layers = "spacy.ParserLower.v1"
 
 [pipeline.parser.model.upper]
-@layers = "thinc.Affine.v1"
+@layers = "thinc.Linear.v1"
 """
 
 OPTIMIZER_CFG = """

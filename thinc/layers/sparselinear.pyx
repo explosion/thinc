@@ -10,6 +10,7 @@ from typing import Tuple, Callable, Optional
 
 from ..types import Array
 from ..model import Model
+from ..config import registry
 from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
@@ -18,6 +19,7 @@ InT = Tuple[Array, Array, Array]
 OutT = Array
 
 
+@registry.layers("SparseLinear.v0")
 def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
     model: Model[InT, OutT] = Model(
         "sparse_linear",
