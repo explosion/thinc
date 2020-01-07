@@ -1,11 +1,11 @@
-from thinc.api import Affine, Adam
+from thinc.api import Linear, Adam
 import numpy
 
 
 X = numpy.zeros((128, 10), dtype="f")
 dY = numpy.zeros((128, 10), dtype="f")
 
-model = Affine(10, 10)
+model = Linear(10, 10)
 
 # Run the model over some data
 Y = model.predict(X)

@@ -12,7 +12,7 @@ from .util import to_categorical, get_width, xp2torch, torch2xp
 from .backends import get_ops, set_current_ops, get_current_ops, use_device
 from .backends import Ops, CupyOps, NumpyOps
 
-from .layers import Affine, Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm
+from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, ReLu, Residual, Softmax, BiLSTM, LSTM
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop

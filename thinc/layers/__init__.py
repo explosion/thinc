@@ -1,11 +1,11 @@
 # Weights layers
-from .affine import Affine
 from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .extractwindow import ExtractWindow
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
+from .linear import Linear
 from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
@@ -39,7 +39,7 @@ from .with_list2padded import with_list2padded
 from .with_reshape import with_reshape
 
 __all__ = [
-    "Affine",
+    "Linear",
     "Dropout",
     "Embed",
     "ExtractWindow",

@@ -3,7 +3,7 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 from thinc.optimizers import SGD
-from thinc.layers.affine import Affine
+from thinc.layers import Linear
 
 
 np.random.seed(2)
@@ -12,7 +12,7 @@ random.seed(0)
 
 @pytest.fixture
 def model():
-    model = Affine(2, 2)
+    model = Linear(2, 2)
     return model
 
 
@@ -55,7 +55,7 @@ def test_predict_weights(X, expected):
     W = np.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
     bias = np.asarray([0.0, 0.0], dtype="f")
 
-    model = Affine(W.shape[0], W.shape[1])
+    model = Linear(W.shape[0], W.shape[1])
     model.set_param("W", W)
     model.set_param("b", bias)
 
@@ -67,7 +67,7 @@ def test_update():
     W = np.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
     bias = np.asarray([0.0, 0.0], dtype="f")
 
-    model = Affine(2, 2)
+    model = Linear(2, 2)
     model.set_param("W", W)
     model.set_param("b", bias)
     sgd = SGD(1.0, L2=0.0, ops=model.ops, grad_clip=0.0)

@@ -9,7 +9,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-def Affine(
+def Linear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
@@ -18,7 +18,7 @@ def Affine(
 ) -> Model[InT, OutT]:
     """Multiply inputs by a weights matrix and adds a bias vector."""
     model: Model[InT, OutT] = Model(
-        "affine",
+        "linear",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
