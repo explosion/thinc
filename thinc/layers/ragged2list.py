@@ -2,11 +2,11 @@ from typing import Tuple, Callable, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged
+from ..types import Array, Ragged, FloatsNd
 
 
 InT = Ragged
-OutT = List[Array]
+OutT = List[FloatsNd]
 
 
 @registry.layers("ragged2list.v0")
