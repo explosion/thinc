@@ -1,7 +1,6 @@
 """This script is still a work in progress: using Ray to implement parallel
-training. The example is based off one of Ray's tutorials: 
-
-    https://ray.readthedocs.io/en/latest/auto_examples/plot_parameter_server.html
+training. The example is based off one of Ray's tutorials:
+https://ray.readthedocs.io/en/latest/auto_examples/plot_parameter_server.html
 """
 from typing import Optional
 from pathlib import Path
@@ -9,14 +8,20 @@ from collections import defaultdict
 import thinc
 import thinc.config
 from thinc.util import fix_random_seed
+import ml_datasets
+import typer
 
 try:
     import ray
 except ImportError:
+
     class ray:
         @classmethod
         def remote(cls, func):
             return func
+
+
+MNIST = ml_datasets.mnist()
 
 
 @ray.remote
@@ -48,15 +53,16 @@ class DataWorker:
         self.model = model
         fix_random_seed(seed)
         self.data_iterator = iter(get_data_loader(batch_size)[0])
+        self.batch_size = batch_size
 
     def compute_gradients(self, weights):
         set_model_weights(self.model, weights)
         try:
             data, target = next(self.data_iterator)
         except StopIteration:  # When the epoch ends, start a new epoch.
-            self.data_iterator = iter(get_data_loader(batch_size)[0])
+            self.data_iterator = iter(get_data_loader(self.batch_size)[0])
             data, target = next(self.data_iterator)
-        
+
         guesses, backprop = self.model(data, is_train=True)
         backprop((guesses - target) / target.shape[0])
         return get_model_grads(self.model)
@@ -98,24 +104,10 @@ def make_relu_relu_softmax(hidden_width: int, dropout: float):
     return chain(
         ReLu(hidden_width, dropout=dropout),
         ReLu(hidden_width, dropout=dropout),
-        Softmax()
+        Softmax(),
     )
 
-def load_mnist():
-    import ml_datasets
-    from thinc.util import to_categorical
-    from thinc.backends import NumpyOps
-    ops = NumpyOps()
-    # Load the data
-    mnist_train, mnist_dev, _ = ml_datasets.mnist()
-    train_X, train_Y = ops.unzip(mnist_train)
-    train_Y = to_categorical(train_Y, nb_classes=10)
-    dev_X, dev_Y = ops.unzip(mnist_dev)
-    dev_Y = to_categorical(dev_Y, nb_classes=10)
-    return (train_X, train_Y), (dev_X, dev_Y)
 
-
-MNIST = load_mnist()
 def get_data_loader(batch_size):
     from thinc.util import get_shuffled_batches
 
@@ -128,6 +120,7 @@ def get_data_loader(batch_size):
 
 def evaluate(model, batch_size):
     from thinc.util import evaluate_model_on_arrays
+
     dev_X, dev_Y = MNIST[1]
     return evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size)
 
@@ -155,8 +148,9 @@ dropout = 0.2
 @optimizers = "Adam.v1"
 """
 
-def main(config_path: Optional[Path]=None):
-    # You can edit the CONFIG string within the file, or copy it out to 
+
+def main(config_path: Optional[Path] = None):
+    # You can edit the CONFIG string within the file, or copy it out to
     # a separate file and pass in the path.
     config_str = CONFIG if config_path is None else config_path.open().read()
     # The make_from_config function constructs objects for you, whenever
@@ -178,7 +172,7 @@ def main(config_path: Optional[Path]=None):
     ray.init(
         ignore_reinit_error=True,
         object_store_memory=config["ray"]["object_store_memory"],
-        num_cpus=config["ray"]["num_cpus"]
+        num_cpus=config["ray"]["num_cpus"],
     )
     ps = ParameterServer.remote(model, optimizer)
     workers = []
@@ -187,7 +181,9 @@ def main(config_path: Optional[Path]=None):
         # the workers, but to me it makes sense? Otherwise it seems the workers
         # will iterate over the batches in the same order, which seems wrong?
         workers.append(
-            DataWorker.remote(model, batch_size=config["training"]["batch_size"], seed=i)
+            DataWorker.remote(
+                model, batch_size=config["training"]["batch_size"], seed=i
+            )
         )
 
     print("Running synchronous parameter server training.")
@@ -211,5 +207,4 @@ def main(config_path: Optional[Path]=None):
 
 
 if __name__ == "__main__":
-    import typer
     typer.run(main)
