@@ -180,51 +180,54 @@ class Ops:
         return self.asarray(mask, dtype="float32")
 
     def alloc_f1d(
-        self, shape: Tuple[int], *, dtype: Optional[DTypes] = "float32"
+        self, shape: Tuple[int], *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats1d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_f2d(
-        self, shape: Tuple[int, int], *, dtype: Optional[DTypes] = "float32"
+        self, shape: Tuple[int, int], *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats2d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_f3d(
-        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypes] = "float32"
+        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats3d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_f4d(
-        self, shape: Tuple[int, int, int, int], *, dtype: Optional[DTypes] = "float32"
+        self,
+        shape: Tuple[int, int, int, int],
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
     ) -> Floats4d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_f(
-        self, shape: Shape, *, dtype: DTypesFloat = "float32",
+        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32",
     ) -> ArrayTypesFloat:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_i1d(
-        self, shape: Tuple[int], *, dtype: Optional[DTypes] = "int32"
+        self, shape: Tuple[int], *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats1d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_i2d(
-        self, shape: Tuple[int, int], *, dtype: Optional[DTypes] = "int32"
+        self, shape: Tuple[int, int], *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats2d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_i3d(
-        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypes] = "int32"
+        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats3d:
         return self.alloc(shape, dtype=dtype)
 
     def alloc_i4d(
-        self, shape: Tuple[int, int, int, int], *, dtype: Optional[DTypes] = "int32"
+        self, shape: Tuple[int, int, int, int], *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats4d:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc_i(self, shape: Shape, *, dtype: DTypesInt = "int32") -> ArrayTypesInt:
+    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> ArrayTypesInt:
         return self.alloc(shape, dtype=dtype)
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
