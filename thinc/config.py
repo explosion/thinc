@@ -96,13 +96,14 @@ class ConfigValidationError(ValueError):
         self,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         errors: List[Dict[str, Any]],
+        element: str,
         message: str = "Config validation error",
     ) -> None:
         """Custom error for validating configs."""
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
-            data.append((err_loc, error.get("msg")))
+            data.append((element, err_loc, error.get("msg")))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
@@ -192,6 +193,7 @@ class registry(object):
         config: Union[Config, Dict[str, Dict[str, Any]]],
         schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
+        parent: str = "",
     ) -> Tuple[Config, Config]:
         """Build two representations of the config: one where the promises are
         preserved, and a second where the promises are represented by their
@@ -201,9 +203,10 @@ class registry(object):
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
         for key, value in config.items():
+            key_parent = str(parent + "." + key).strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], _ = cls._fill(value, promise_schema, validate)
+                filled[key], _ = cls._fill(value, promise_schema, validate, parent=key_parent)
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
@@ -229,7 +232,7 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key] = cls._fill(value, field_type, validate)
+                filled[key], validation[key] = cls._fill(value, field_type, validate, parent=key_parent)
             else:
                 filled[key] = value
                 validation[key] = value
@@ -239,7 +242,7 @@ class registry(object):
             try:
                 result = schema.parse_obj(validation)
             except ValidationError as e:
-                raise ConfigValidationError(config, e.errors())
+                raise ConfigValidationError(config, e.errors(), element=parent)
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
