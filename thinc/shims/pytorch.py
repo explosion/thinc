@@ -45,7 +45,7 @@ class PyTorchShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer, **kwargs):
+    def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
         if getattr(optimizer, "max_grad_norm", None):

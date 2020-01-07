@@ -40,7 +40,7 @@ class Shim:
     ) -> Tuple[Any, Callable[[Any], Any]]:
         return self(args, kwargs, is_train=True)
 
-    def finish_update(self, optimizer, **kwargs):
+    def finish_update(self, optimizer):
         raise NotImplementedError
 
     @contextlib.contextmanager

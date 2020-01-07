@@ -50,16 +50,16 @@ class TensorFlowShim(Shim):
 
         def backprop(d_args, d_kwargs):
             with tf.GradientTape() as tape:
-                grads = tape.gradient(*d_args, self._model.trainable_variables)
-            return grads
+                self.tensorflow_grads = tape.gradient(*d_args,
+                                                      self._model.trainable_variables)
+            return self.tensorflow_grads
         return output, backprop
 
-    def finish_update(self, optimizer, **kwargs):
-        assert "gradients" in kwargs.keys(), \
-            "provide a keyword argument 'gradients' = grad (calculated from backprop)"
+    def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
-        optimizer.apply_gradients(zip(kwargs["gradients"], self._model.trainable_variables))
+        optimizer.apply_gradients(zip(self.tensorflow_grads["gradients"],
+                                      self._model.trainable_variables))
         self._update_tensorflow_averages(optimizer)
 
     def _create_optimizer(self, sgd):
