@@ -34,7 +34,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 def init(model: Model, X: Optional[Ragged] = None, Y: Optional[Ragged] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y.data))
-    model.set_param("Q", model.ops.allocate((model.get_dim("nO"),)))
+    model.set_param("Q", model.ops.alloc((model.get_dim("nO"),)))
 
 
 def _get_attention(ops, Q, X, lengths):

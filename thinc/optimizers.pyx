@@ -255,20 +255,20 @@ class Optimizer(object):
             weights -= self.L2 * weights
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
             if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype="float32")
+                self.slow_weights[key] = self.ops.alloc((weights.size,), dtype="float32")
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.allocate((weights.size,), dtype="float32")
+                self.averages[key] = self.ops.alloc((weights.size,), dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
+            self.mom1[key] = self.ops.alloc(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.allocate(weights.size)
+            self.mom2[key] = self.ops.alloc(weights.size)
 
         # While we port from PyTorch
         p_data_fp32 = weights
@@ -338,16 +338,16 @@ class Optimizer(object):
     def _lookahead(self, weights, key):
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
             if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.slow_weights[key] = self.ops.alloc((weights.size,), dtype='float32')
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
+            self.mom1[key] = self.ops.alloc(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.allocate(weights.size)
+            self.mom2[key] = self.ops.alloc(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
         fix1 = 1.- (self.b1 ** nr_upd)

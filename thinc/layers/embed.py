@@ -40,10 +40,10 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     output = vectors[ids]
 
     def backprop(d_output: OutT) -> InT:
-        d_vectors: Floats2d = model.ops.allocate_nd(vectors.shape)
+        d_vectors: Floats2d = model.ops.alloc(vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
-        dX: Ints2d = model.ops.allocate_nd(ids.shape, dtype=ids.dtype)
+        dX: Ints2d = model.ops.alloc(ids.shape, dtype=ids.dtype)
         return dX
 
     return output, backprop
@@ -56,7 +56,7 @@ def create_init(initializer: Callable) -> Callable:
         if Y is not None:
             model.set_dim("nO", get_width(Y))
         shape = (model.get_dim("nV"), model.get_dim("nO"))
-        vectors = initializer(model.ops.allocate(shape))
+        vectors = initializer(model.ops.alloc(shape))
         model.set_param("vectors", vectors)
 
     return init

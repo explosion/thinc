@@ -21,8 +21,11 @@ except ImportError:
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
 DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
+DTypesFloat = Literal["f", "float32"]
+DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
 Device = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
 ArrayT = TypeVar("ArrayT", bound="Array")
+
 
 class Array(Generic[ArrayT], Sized, Container):
     T: ArrayT
@@ -510,17 +513,14 @@ class IntsNd(Array):
 
 
 # Union of all int/float array types
+ArrayTypesInt = Union[
+    Ints1d, Ints2d, Ints3d, Ints4d, IntsNd,
+]
+ArrayTypesFloat = Union[
+    Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd,
+]
 ArrayTypes = Union[
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    FloatsNd,
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    IntsNd,
+    ArrayTypesFloat, ArrayTypesInt,
 ]
 
 

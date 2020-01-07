@@ -37,7 +37,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
     def backprop(d_output: OutT) -> InT:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
-        return model.ops.allocate_nd(ids.shape, dtype=ids.dtype)
+        return model.ops.alloc(ids.shape, dtype=ids.dtype)
 
     output = model.ops.gemm(vectors, W, trans2=True)
     return output, backprop
@@ -47,7 +47,7 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
-    W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nM")))
+    W = model.ops.alloc((model.get_dim("nO"), model.get_dim("nM")))
     model.set_param("W", W)
 
 

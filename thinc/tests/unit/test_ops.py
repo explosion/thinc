@@ -26,7 +26,7 @@ def cpu_ops():
 
 def test_hash_gives_distinct_keys(ops):
     shape = (5,)
-    ids = ops.allocate(shape, dtype="uint64")
+    ids = ops.alloc(shape, dtype="uint64")
     keys = ops.hash(ids, 0)
     assert keys.shape == (5, 4)
     assert keys.dtype == "uint32"
@@ -327,7 +327,7 @@ def test_softplus(ops, X):
 def test_backprop_softplus(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
-    zeros = ops.allocate(X.shape)
+    zeros = ops.alloc(X.shape)
     dX = ops.backprop_softplus(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()
@@ -347,7 +347,7 @@ def test_mish(ops, X):
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
-    zeros = ops.allocate(X.shape)
+    zeros = ops.alloc(X.shape)
     dX = ops.backprop_mish(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()

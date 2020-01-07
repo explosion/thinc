@@ -49,8 +49,8 @@ def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = N
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     length = model.get_dim("length")
-    model.set_param("W", model.ops.allocate((nO * length,), dtype="f"))
-    model.set_param("b", model.ops.allocate((nO,), dtype="f"))
+    model.set_param("W", model.ops.alloc((nO * length,), dtype="f"))
+    model.set_param("b", model.ops.alloc((nO,), dtype="f"))
 
 
 def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:
@@ -69,7 +69,7 @@ def _begin_cpu_update(model, uint64_t[::1] keys, float[::1] values, int32_t[::1]
     cdef int length = model.get_dim("length")
     cdef np.ndarray W = model.get_param("W")
     cdef np.ndarray b = model.get_param("b")
-    cdef np.ndarray scores = model.ops.allocate((len(lengths), nO))
+    cdef np.ndarray scores = model.ops.alloc((len(lengths), nO))
     scores += b
     set_scoresC(<float*>scores.data,
         &keys[0], &values[0], &lengths[0],
@@ -90,8 +90,8 @@ class _finish_linear_update:
     def __call__(self, float[:, ::1] d_scores):
         nO = self.model.get_dim("nO")
         length = self.model.get_dim("length")
-        cdef np.ndarray d_weights = self.model.ops.allocate((nO*length,))
-        cdef np.ndarray d_bias = self.model.ops.allocate((nO,))
+        cdef np.ndarray d_weights = self.model.ops.alloc((nO*length,))
+        cdef np.ndarray d_bias = self.model.ops.alloc((nO,))
         cdef uint64_t[::1] keys = self.keys
         cdef float[::1] values = self.values
         cdef int32_t[::1] lengths = self.lengths

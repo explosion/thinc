@@ -45,12 +45,12 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
     def backprop(d_output: OutT) -> InT:
         keys = model.ops.hash(ids, seed) % nV
-        d_vectors = model.ops.allocate_nd(vectors.shape)
+        d_vectors = model.ops.alloc(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")
         for i in range(keys.shape[0]):
             model.ops.scatter_add(d_vectors, keys[i], d_output)
         model.inc_grad("vectors", d_vectors)
-        dX: InT = model.ops.allocate_nd(ids.shape, dtype=ids.dtype)
+        dX: InT = model.ops.alloc(ids.shape, dtype=ids.dtype)
         return dX
 
     return output, backprop
@@ -58,7 +58,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
 def create_init(initializer: Callable) -> Callable:
     def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model:
-        vectors = model.ops.allocate((model.get_dim("nV"), model.get_dim("nO")))
+        vectors = model.ops.alloc((model.get_dim("nV"), model.get_dim("nO")))
         initializer(vectors, inplace=True)
         model.set_param("vectors", vectors)
         return model

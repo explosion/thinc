@@ -55,7 +55,7 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def allocate(self, shape, dtype='float32'):
+    def alloc(self, shape, dtype='float32'):
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
@@ -74,7 +74,7 @@ class NumpyOps(Ops):
             n = y.shape[1]
         cdef np.ndarray out_array
         if out is None:
-            out_array = self.allocate((m, n))
+            out_array = self.alloc((m, n))
         else:
             out_array = self.xp.asarray(out)
         assert out_array.shape[0] == m
@@ -124,7 +124,7 @@ class NumpyOps(Ops):
 
     def mish(self, const float[:, ::1] X, threshold=5, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray Y = self.allocate(tuple(shape), dtype="f")
+        cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
         cpu_mish(<float*>Y.data,
             &X[0, 0], threshold, X.size)
         if out is not None:
@@ -136,7 +136,7 @@ class NumpyOps(Ops):
     def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
             threshold=5, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
-        cdef np.ndarray dX = self.allocate(tuple(shape), dtype="f")
+        cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
         cpu_backprop_mish(<float*>dX.data,
             &dY[0, 0], &X[0, 0], threshold, X.size)
         if out is not None:
@@ -165,7 +165,7 @@ class NumpyOps(Ops):
         '''
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef ndarray cols = self.allocate((B, (2*nW + 1) * I), dtype='float32')
+        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype='float32')
         seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
         return cols
 
@@ -173,13 +173,13 @@ class NumpyOps(Ops):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
-        cdef ndarray dX = self.allocate((B, I), dtype='float32')
+        cdef ndarray dX = self.alloc((B, I), dtype='float32')
         backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
         return dX
 
     def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
         cdef uint64_t* ids = &ids_mv[0]
-        cdef ndarray[uint64_t] output_arr = self.allocate(len(ids_mv), dtype='uint64')
+        cdef ndarray[uint64_t] output_arr = self.alloc(len(ids_mv), dtype='uint64')
         output = <uint64_t*>output_arr.data
         cdef uint64_t key = 0
         for i in range(ids_mv.shape[0]):
@@ -216,7 +216,7 @@ class NumpyOps(Ops):
     def hash(self, const uint64_t[::1] ids, uint32_t seed):
         '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
         # Written to mirror the GPU implementation
-        cdef ndarray[uint32_t, ndim=2] keys = self.allocate((ids.shape[0], 4), dtype='uint32')
+        cdef ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
         cdef int i, j
         cdef unsigned char entropy[16] # 128/8=16
         cdef size_t n_items = len(ids)
@@ -349,7 +349,7 @@ class NumpyOps(Ops):
     def ngrams(self, int n, const uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
         length = max(0, keys_.shape[0]-n)
-        cdef np.ndarray output_ = self.allocate((length,), dtype='uint64')
+        cdef np.ndarray output_ = self.alloc((length,), dtype='uint64')
         output = <uint64_t*>output_.data
         for i in range(keys_.shape[0]-n):
             output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
@@ -358,7 +358,7 @@ class NumpyOps(Ops):
     def position_encode(self, int N, int D, int period=10000, out=None):
         cdef np.ndarray out_
         if out is None:
-            out_ = self.allocate((N, D))
+            out_ = self.alloc((N, D))
         else:
             out_ = out
         assert out_.shape[0] == N
