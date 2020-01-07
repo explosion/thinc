@@ -1,7 +1,9 @@
-from typing import Optional, List, Callable, Tuple, Sequence, Union
+from typing import Optional, List, Callable, Tuple, TypeVar, Sequence, Union, overload
 
-from ..types import Xp, Array, Shape, DTypes
+from ..types import Xp, Array, Shape, DTypes, Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd, IntsNd, ArrayTypes
 from ..util import copy_array, get_array_module
+
+OpsArrayType = TypeVar("OpsArrayType", bound=Array)
 
 
 class Ops:
@@ -22,7 +24,7 @@ class Ops:
         assert nW == 1
         B = seq.shape[0]
         I = seq.shape[1]
-        cols = self.allocate((B, (nW * 2 + 1), I))
+        cols: Floats3d = self.allocate((B, (nW * 2 + 1), I))
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
@@ -98,11 +100,11 @@ class Ops:
     def pad_sequences(
         self, seqs_in: Sequence[Array], pad_to: Optional[int] = None
     ) -> Tuple[Array, Callable]:
-        lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
+        lengths: IntsNd = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
             pad_to = int(lengths.max())
-        arr = self.allocate(
+        arr: IntsNd = self.allocate_nd(
             (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
         )
         for arr_i, seq in enumerate(seqs_in):
@@ -128,7 +130,9 @@ class Ops:
         lengths = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
-        arr = self.allocate((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
+        arr: FloatsNd = self.allocate_nd(
+            (nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype
+        )
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
         extra_dims = tuple(range(2, len(arr.shape)))
@@ -157,12 +161,42 @@ class Ops:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
-            return self.allocate(shape)
+            return self.allocate_nd(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape: Shape, *, dtype: DTypes = "float32") -> Array:
+    @overload
+    def allocate(self, shape: Tuple[int], *, dtype: str = "float32") -> Floats1d:
+        return self.allocate_nd(shape, dtype=dtype)
+
+    @overload
+    def allocate(self, shape: Tuple[int, int], *, dtype: str = "float32") -> Floats2d:
+        return self.allocate_nd(shape, dtype=dtype)
+
+    @overload
+    def allocate(
+        self, shape: Tuple[int, int, int], *, dtype: str = "float32"
+    ) -> Floats3d:
+        return self.allocate_nd(shape, dtype=dtype)
+
+    @overload
+    def allocate(
+        self, shape: Tuple[int, int, int, int], *, dtype: str = "float32"
+    ) -> Floats4d:
+        return self.allocate_nd(shape, dtype=dtype)
+
+    def allocate(
+        self,
+        shape: Union[
+            Tuple[int], Tuple[int, int], Tuple[int, int, int], Tuple[int, int, int, int]
+        ],
+        *,
+        dtype: str = "float32",
+    ) -> ArrayTypes:
+        return self.allocate_nd(shape, dtype=dtype)
+
+    def allocate_nd(self, shape: Shape, *, dtype: str = "float32") -> OpsArrayType:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
@@ -173,10 +207,10 @@ class Ops:
 
     def asarray(
         self,
-        data: Union[Array, Sequence[Array], Sequence[int]],
+        data: Union[OpsArrayType, Sequence[OpsArrayType], Sequence[int]],
         *,
         dtype: Optional[DTypes] = None,
-    ) -> Array:
+    ) -> OpsArrayType:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -190,7 +224,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def sigmoid(self, X: Array, *, inplace: bool = False) -> Array:
+    def sigmoid(self, X: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
         if inplace:
             self.xp.exp(-X, out=X)
             X += 1.0
@@ -199,14 +233,14 @@ class Ops:
         else:
             return 1.0 / (1.0 + self.xp.exp(-X))
 
-    def dsigmoid(self, Y: Array, *, inplace: bool = False) -> Array:
+    def dsigmoid(self, Y: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
         if inplace:
             Y *= 1 - Y
             return Y
         else:
             return Y * (1.0 - Y)
 
-    def dtanh(self, Y: Array, *, inplace: bool = False) -> Array:
+    def dtanh(self, Y: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
         if inplace:
             Y **= 2
             Y *= -1.0
@@ -254,14 +288,18 @@ class Ops:
         dx -= y * sumdx
         return dx
 
-    def clip_low(self, x: Array, value: Array, *, inplace: bool = False) -> Array:
+    def clip_low(
+        self, x: OpsArrayType, value: OpsArrayType, *, inplace: bool = False
+    ) -> OpsArrayType:
         if inplace:
             return self.xp.maximum(x, value, out=x)
         else:
             return self.xp.maximum(x, value)
 
-    def take_which(self, x: Array, which: Array, *, axis: int = -1) -> Array:
-        output = self.allocate(which.shape)
+    def take_which(
+        self, x: OpsArrayType, which: OpsArrayType, *, axis: int = -1
+    ) -> OpsArrayType:
+        output: OpsArrayType = self.allocate_nd(which.shape)
         for i in range(x.shape[axis]):
             output += x[:, :, i] * (which == i)
         return output

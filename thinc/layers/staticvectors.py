@@ -37,7 +37,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
     def backprop(d_output: OutT) -> InT:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
-        return cast(InT, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        return model.ops.allocate_nd(ids.shape, dtype=ids.dtype)
 
     output = model.ops.gemm(vectors, W, trans2=True)
     return output, backprop

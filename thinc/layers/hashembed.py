@@ -45,12 +45,12 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
     def backprop(d_output: OutT) -> InT:
         keys = model.ops.hash(ids, seed) % nV
-        d_vectors = model.ops.allocate(vectors.shape)
+        d_vectors = model.ops.allocate_nd(vectors.shape)
         keys = model.ops.xp.ascontiguousarray(keys.T, dtype="i")
         for i in range(keys.shape[0]):
             model.ops.scatter_add(d_vectors, keys[i], d_output)
         model.inc_grad("vectors", d_vectors)
-        dX: InT = cast(Ints2d, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        dX: InT = model.ops.allocate_nd(ids.shape, dtype=ids.dtype)
         return dX
 
     return output, backprop

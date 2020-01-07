@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Union, Tuple, Iterator, Sized, Container, Any
+from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
 from typing import Optional, List
 import numpy
 import sys
@@ -22,11 +22,11 @@ Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
 DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
 Device = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
+ArrayT = TypeVar("ArrayT", bound="Array")
 
-
-class Array(Sized, Container):
-    T: "Array"
-    base: Optional["Array"]
+class Array(Generic[ArrayT], Sized, Container):
+    T: ArrayT
+    base: Optional[ArrayT]
 
     @property
     def dtype(self) -> Any:
@@ -71,29 +71,29 @@ class Array(Sized, Container):
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def copy(self, order: str = ...) -> "Array":
+    def copy(self, order: str = ...) -> ArrayT:
         ...
 
     def fill(self, value: Any) -> None:
         ...
 
     # Shape manipulation
-    def reshape(self, shape: Shape, *, order: str = ...) -> "Array":
+    def reshape(self, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
-    def transpose(self, axes: Shape) -> "Array":
+    def transpose(self, axes: Shape) -> ArrayT:
         ...
 
-    def flatten(self, order: str = ...) -> "Array":
+    def flatten(self, order: str = ...) -> ArrayT:
         ...
 
-    def ravel(self, order: str = ...) -> "Array":
+    def ravel(self, order: str = ...) -> ArrayT:
         ...
 
-    def squeeze(self, axis: Union[int, Shape] = ...) -> "Array":
+    def squeeze(self, axis: Union[int, Shape] = ...) -> ArrayT:
         ...
 
     def __len__(self) -> int:
@@ -135,10 +135,10 @@ class Array(Sized, Container):
     def __repr__(self) -> str:
         ...
 
-    def __copy__(self: "Array", order: str = ...) -> "Array":
+    def __copy__(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def __deepcopy__(self: "Array", memo: dict) -> "Array":
+    def __deepcopy__(self: ArrayT, memo: dict) -> ArrayT:
         ...
 
     def __lt__(self, other):
@@ -280,85 +280,85 @@ class Array(Sized, Container):
     def __rmatmul__(self, other):
         ...
 
-    def __neg__(self: "Array") -> "Array":
+    def __neg__(self: ArrayT) -> ArrayT:
         ...
 
-    def __pos__(self: "Array") -> "Array":
+    def __pos__(self: ArrayT) -> ArrayT:
         ...
 
-    def __abs__(self: "Array") -> "Array":
+    def __abs__(self: ArrayT) -> ArrayT:
         ...
 
-    def __invert__(self: "Array") -> "Array":
+    def __invert__(self: ArrayT) -> ArrayT:
         ...
 
-    def get(self) -> "Array":
+    def get(self) -> ArrayT:
         ...
 
     def all(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self, axis: int = -1, out: Optional[ArrayT] = None, keepdims: bool = False
+    ) -> ArrayT:
         ...
 
     def any(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self, axis: int = -1, out: Optional[ArrayT] = None, keepdims: bool = False
+    ) -> ArrayT:
         ...
 
-    def argmax(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmax(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def argmin(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmin(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def clip(self, a_min: Any, a_max: Any, out: Optional["Array"]) -> "Array":
+    def clip(self, a_min: Any, a_max: Any, out: Optional[ArrayT]) -> ArrayT:
         ...
 
     def cumsum(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
-    ) -> "Array":
+        out: Optional[ArrayT] = None,
+    ) -> ArrayT:
         ...
 
-    def max(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def max(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def mean(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def min(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def min(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def nonzero(self) -> "Array":
+    def nonzero(self) -> ArrayT:
         ...
 
     def prod(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def round(self, decimals: int = 0, out: Optional["Array"] = None) -> "Array":
+    def round(self, decimals: int = 0, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def sum(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
     def tobytes(self, order: str = "C") -> bytes:
@@ -371,10 +371,10 @@ class Array(Sized, Container):
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         ddof: int = 0,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
 
@@ -507,6 +507,21 @@ class IntsNd(Array):
     def __get_validators__(cls):
         for validator in get_array_validators(ndim=None, dtype=xp.int32):
             yield validator
+
+
+# Union of all int/float array types
+ArrayTypes = Union[
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsNd,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsNd,
+]
 
 
 class Generator(Iterator):
