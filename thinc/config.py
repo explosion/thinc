@@ -103,10 +103,8 @@ class ConfigValidationError(ValueError):
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
-            if element:
-                data.append((element, err_loc, error.get("msg")))
-            else:
-                data.append((err_loc, error.get("msg")))
+            # appending element at the end so it doesn't matter if it's empty
+            data.append((err_loc, error.get("msg", element)))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
