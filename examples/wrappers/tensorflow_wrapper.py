@@ -48,7 +48,7 @@ def main():
         train_generator = thinc.util.get_shuffled_batches(train_X, train_Y, batch_size=batch_size)
         epoch_loss = []
         epoch_accuracy = []
-        for batch_x, batch_y in tqdm(train_generator, total=len(train_X) // batch_size):
+        for batch_x, batch_y in tqdm(train_generator, total=(len(train_X) // batch_size) + 1):
             predictions, backprop = thinc_model.begin_update(batch_x)
             # convert predictions to Tensorflow tensors
             predictions = thinc.util.xp2tensorflow(predictions)
