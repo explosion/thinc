@@ -58,7 +58,7 @@ class TensorFlowShim(Shim):
     def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
-        optimizer.apply_gradients(zip(self.tensorflow_grads["gradients"],
+        optimizer.apply_gradients(zip(self.tensorflow_grads,
                                       self._model.trainable_variables))
         self._update_tensorflow_averages(optimizer)
 
