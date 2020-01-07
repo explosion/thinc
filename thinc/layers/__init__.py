@@ -43,6 +43,7 @@ from .ragged2list import ragged2list
 from .with_list2array import with_list2array
 from .with_list2padded import with_list2padded
 from .with_reshape import with_reshape
+from .with_getitem import with_getitem
 
 
 __all__ = [
@@ -85,4 +86,5 @@ __all__ = [
     "with_list2array",
     "with_list2padded",
     "with_reshape",
+    "with_getitem",
 ]

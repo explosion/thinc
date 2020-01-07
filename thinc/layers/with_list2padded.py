@@ -10,7 +10,7 @@ InT = List[Array]
 
 
 @registry.layers("with_list2padded.v0")
-def with_list2padded(layer: Model) -> Model[InT, InT]:
+def with_list2padded(layer: Model[Padded, Padded]) -> Model[InT, InT]:
     return Model(f"with_list2padded-{layer.name}", forward, init=init, layers=[layer])
 
 

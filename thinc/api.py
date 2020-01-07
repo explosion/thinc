@@ -19,7 +19,7 @@ from .layers import SparseLinear, StaticVectors, PyTorchBiLSTM, FeatureExtractor
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
 from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
-from .layers import with_list2array, with_list2padded, with_reshape
+from .layers import with_list2array, with_list2padded, with_reshape, with_getitem
 
 from .layers import MaxPool, MeanPool, SumPool
 

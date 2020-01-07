@@ -11,9 +11,9 @@ OutT = Ragged
 
 @registry.layers("list2ragged.v0")
 def list2ragged() -> Model[InT, OutT]:
-    """Transform sequences to ragged arrays if necessary. If sequences are
-    already ragged, do nothing. A ragged array is a tuple (data, lengths),
-    where data is the concatenated data.
+    """Transform sequences to ragged arrays if necessary and return the ragged
+    array. If sequences are already ragged, do nothing. A ragged array is a
+    tuple (data, lengths), where data is the concatenated data.
     """
     return Model("list2ragged", forward)
 
