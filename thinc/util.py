@@ -165,7 +165,7 @@ def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:
-        Y = cast(IntsNd, Y.get())
+        Y = Y.get()
     Y = numpy.array(Y, dtype="int").ravel()
     if not n_classes:
         n_classes = numpy.max(Y) + 1

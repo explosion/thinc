@@ -23,7 +23,7 @@ def get_output(input_, W_values, b_values):
 
 def get_input(nr_batch, nr_in):
     ops = NumpyOps()
-    return ops.allocate((nr_batch, nr_in))
+    return ops.alloc_f2d(nr_batch, nr_in)
 
 
 def lengths(lo=1, hi=10):

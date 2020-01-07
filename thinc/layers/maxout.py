@@ -73,10 +73,10 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate(
-            (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
+        W = model.ops.alloc_f3d(
+            model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")
         )
-        b = model.ops.allocate((model.get_dim("nO"), model.get_dim("nP")))
+        b = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nP"))
         if "W" in initializers:
             initializers["W"](W, inplace=True)
         if "b" in initializers:
