@@ -193,7 +193,7 @@ def get_width(
             return int(X.max()) + 1
         else:
             return X.shape[dim]
-    elif hasattr(X, "__len__") and hasattr(X, "__getitem__"):
+    elif isinstance(X, (list, tuple)):
         if len(X) == 0:
             return 0
         else:
