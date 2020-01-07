@@ -56,11 +56,10 @@ def main():
             loss = tf.keras.losses.categorical_crossentropy(y_true=thinc.util.xp2tensorflow(batch_y),
                                                             y_pred=predictions
                                                             )
-            # reference https://deepnotes.io/softmax-crossentropy
             accuracy = tf.keras.metrics.categorical_accuracy(y_true=thinc.util.xp2tensorflow(batch_y),
                                                              y_pred=predictions
                                                              )
-
+            # reference https://deepnotes.io/softmax-crossentropy
             dloss_dpred = predictions - thinc.util.xp2tensorflow(batch_y)
             dX = backprop(dloss_dpred)
             thinc_model.finish_update(optimizer)
