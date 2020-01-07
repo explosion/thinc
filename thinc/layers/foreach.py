@@ -1,12 +1,14 @@
 from typing import Any, Tuple, Callable, Optional, Sequence
 
 from ..model import Model
+from ..config import registry
 
 
 InT = Sequence[Any]
 OutT = Sequence[Any]
 
 
+@registry.layers("foreach.v0")
 def foreach(layer: Model) -> Model[InT, OutT]:
     """Map a layer across list items."""
     return Model(

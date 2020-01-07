@@ -1,6 +1,7 @@
 from typing import Tuple, List, Callable, cast
 
 from ..model import Model
+from ..config import registry
 from ..types import Floats2d
 
 
@@ -8,7 +9,8 @@ InT = List[Floats2d]
 OutT = Floats2d
 
 
-def list2ragged() -> Model[InT, OutT]:
+@registry.layers("list2array.v0")
+def list2array() -> Model[InT, OutT]:
     """Transform sequences to ragged arrays if necessary. If sequences are
     already ragged, do nothing. A ragged array is a tuple (data, lengths),
     where data is the concatenated data.

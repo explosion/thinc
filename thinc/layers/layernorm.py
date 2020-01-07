@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
+from ..config import registry
 from ..types import Floats2d
 from ..backends import Ops
 from ..util import get_width
@@ -9,6 +10,7 @@ from ..util import get_width
 InT = Floats2d
 
 
+@registry.layers("layer_norm.v0")
 def LayerNorm(nO: Optional[int] = None) -> Model[InT, InT]:
     return Model(
         "layernorm",

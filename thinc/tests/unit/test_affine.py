@@ -3,9 +3,7 @@ from mock import MagicMock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
-from thinc.layers.affine import Affine
-from thinc.layers.chain import chain
-from thinc.layers.dropout import Dropout
+from thinc.layers import Linear, chain, Dropout
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -13,19 +11,19 @@ from ..util import get_model, get_shape
 
 @pytest.fixture
 def model():
-    model = Affine()
+    model = Linear()
     return model
 
 
-def test_Affine_default_name(model):
-    assert model.name == "affine"
+def test_linear_default_name(model):
+    assert model.name == "linear"
 
 
-def test_Affine_dimensions_on_data():
+def test_linear_dimensions_on_data():
     X = MagicMock(shape=(5, 10))
     y = MagicMock(shape=(8,))
     y.max = MagicMock()
-    model = Affine()
+    model = Linear()
     model.initialize(X, y)
     assert model.get_dim("nI") is not None
     y.max.assert_called_with()
@@ -64,26 +62,12 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     assert seen_keys == {model.id}
 
 
-# def test_begin_update_not_batch():
-#    model = make_Affine(4, 5)
-#    input_ = model.ops.allocate((6,))
-#    with pytest.raises(ValueError):
-#        model.begin_update(input_)
-
-# @pytest.mark.skip
-# def test_predict_update_dim_mismatch():
-#    model = make_Affine(4, 5)
-#    input_ = model.ops.allocate((10, 9))
-#    with pytest.raises(ValueError):
-#        model.begin_update(input_)
-
-
 @settings(max_examples=100)
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_predict_small(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = Affine(nr_out, nr_in)
+    model = Linear(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 
@@ -104,7 +88,7 @@ def test_predict_small(W_b_input):
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = Affine(nr_out, nr_in)
+    model = Linear(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 

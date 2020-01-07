@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, List
 
 from ..model import Model
+from ..config import registry
 from ..types import Array, Ragged
 
 
@@ -8,6 +9,7 @@ InT = Ragged
 OutT = List[Array]
 
 
+@registry.layers("ragged2list.v0")
 def ragged2list() -> Model[InT, OutT]:
     """Transform sequences from a ragged format into lists."""
     return Model("ragged2list", forward)

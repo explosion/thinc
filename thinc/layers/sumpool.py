@@ -1,6 +1,7 @@
 from typing import Callable, Tuple
 
 from ..model import Model
+from ..config import registry
 from ..types import Array, Ragged
 
 
@@ -8,6 +9,7 @@ InT = Ragged
 OutT = Array
 
 
+@registry.layers("sum_pool.v0")
 def SumPool() -> Model[InT, OutT]:
     return Model("sum_pool", forward)
 

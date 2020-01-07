@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
+from ..config import registry
 from ..types import Array
 from ..util import get_width
 
@@ -8,6 +9,7 @@ from ..util import get_width
 InT = TypeVar("InT", bound=Array)
 
 
+@registry.layers("add.v0")
 def add(layers: List[Model]) -> Model[InT, InT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.

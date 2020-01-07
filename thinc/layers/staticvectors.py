@@ -3,6 +3,7 @@ from typing import Tuple, Callable, Optional, cast
 from ..types import Array, Floats2d, Ints2d
 from ..model import Model
 from ..backends import Ops
+from ..config import registry
 from ..util import create_thread_local
 
 
@@ -12,6 +13,7 @@ OutT = Floats2d
 STATE = create_thread_local({"vectors": {}})
 
 
+@registry.layers("static_vectors.v0")
 def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
     return Model(
         "static_vectors",

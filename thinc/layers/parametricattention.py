@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional
 
 from ..model import Model
+from ..config import registry
 from ..types import Ragged
 from ..util import get_width
 
@@ -9,6 +10,7 @@ InT = Ragged
 OutT = Ragged
 
 
+@registry.layers("parametric_attention.v0")
 def ParametricAttention(nO: Optional[int] = None) -> Model[InT, OutT]:
     """Weight inputs by similarity to a learned vector"""
     return Model("para-attn", forward, init=init, params={"Q": None}, dims={"nO": nO})

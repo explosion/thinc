@@ -1,4 +1,4 @@
-from thinc.api import chain, ReLu, Softmax, Affine, ExtractWindow, Maxout, Model
+from thinc.api import chain, ReLu, Softmax, Linear, ExtractWindow, Maxout, Model
 from thinc.extra.visualizers import pydot_visualizer
 import ml_datasets
 import typer
@@ -17,9 +17,9 @@ def main(
         ExtractWindow(3),
         ReLu(n_hidden, dropout=dropout, normalize=True),
         Maxout(n_hidden * 4),
-        Affine(n_hidden * 2),
+        Linear(n_hidden * 2),
         ReLu(n_hidden, dropout=dropout, normalize=True),
-        Affine(n_hidden),
+        Linear(n_hidden),
         ReLu(n_hidden, dropout=dropout),
         Softmax(),
     )

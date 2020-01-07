@@ -1,12 +1,14 @@
 from typing import Callable, Optional, Tuple
 
 from ..model import Model
+from ..config import registry
 
 
 InT = Tuple
 OutT = Tuple
 
 
+@registry.layers("with_getitem.v0")
 def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
     """Transform data on the way into and out of a layer, by plucking an item
     from a tuple.

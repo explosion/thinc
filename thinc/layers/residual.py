@@ -1,12 +1,14 @@
 from typing import Tuple, Callable, Optional, Union, List
 
 from ..model import Model
+from ..config import registry
 from ..types import Array, Ragged, Padded
 
 
 InT = Union[List[Array], Ragged, Padded, Array]
 
 
+@registry.layers("residual.v0")
 def Residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
         "residual",
