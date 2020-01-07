@@ -52,16 +52,16 @@ def main():
             predictions, backprop = thinc_model.begin_update(batch_x)
             # convert predictions to Tensorflow tensors
             predictions = thinc.util.xp2tensorflow(predictions)
-            # calculate d_loss/d_predictions
-            with tf.GradientTape() as tape:
-                tape.watch(predictions)
-                loss = tf.keras.losses.categorical_crossentropy(y_true=thinc.util.xp2tensorflow(batch_y),
-                                                                y_pred=predictions
-                                                                )
+            # you can use any library to calculate the metrics or write on your own
+            loss = tf.keras.losses.categorical_crossentropy(y_true=thinc.util.xp2tensorflow(batch_y),
+                                                            y_pred=predictions
+                                                            )
+            # reference https://deepnotes.io/softmax-crossentropy
             accuracy = tf.keras.metrics.categorical_accuracy(y_true=thinc.util.xp2tensorflow(batch_y),
                                                              y_pred=predictions
                                                              )
-            dloss_dpred = tape.gradient(loss, predictions)
+
+            dloss_dpred = predictions - thinc.util.xp2tensorflow(batch_y)
             dX = backprop(dloss_dpred)
             thinc_model.finish_update(optimizer)
 
