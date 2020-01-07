@@ -49,8 +49,8 @@ def init(
         model.set_dim("nI", Y_width)
         model.set_dim("nO", Y_width)
     nO = model.get_dim("nO")
-    model.set_param("G", model.ops.alloc((nO,)))
-    model.set_param("b", model.ops.alloc((nO,)))
+    model.set_param("G", model.ops.alloc_f1d(nO))
+    model.set_param("b", model.ops.alloc_f1d(nO))
 
 
 def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Callable]:
