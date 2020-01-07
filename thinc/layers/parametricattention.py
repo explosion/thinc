@@ -1,21 +1,27 @@
 from typing import Tuple, Callable, Optional
 
 from ..model import Model
+from ..config import registry
 from ..types import Ragged
 from ..util import get_width
 
 
-def ParametricAttention(nO: Optional[int] = None) -> Model:
+InT = Ragged
+OutT = Ragged
+
+
+@registry.layers("ParametricAttention.v0")
+def ParametricAttention(nO: Optional[int] = None) -> Model[InT, OutT]:
     """Weight inputs by similarity to a learned vector"""
     return Model("para-attn", forward, init=init, params={"Q": None}, dims={"nO": nO})
 
 
-def forward(model, Xr: Ragged, is_train: bool) -> Tuple[Ragged, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Q = model.get_param("Q")
     attention, bp_attention = _get_attention(model.ops, Q, Xr.data, Xr.lengths)
     output, bp_output = _apply_attention(model.ops, attention, Xr.data, Xr.lengths)
 
-    def backprop(dYr: Ragged) -> Ragged:
+    def backprop(dYr: OutT) -> InT:
         dX, d_attention = bp_output(dYr.data)
         dQ, dX2 = bp_attention(d_attention)
         model.inc_grad("dQ", dQ)

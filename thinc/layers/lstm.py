@@ -1,39 +1,67 @@
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, List, Tuple, Callable, cast
 
 from ..model import Model
+from ..backends import Ops
+from ..config import registry
 from ..util import get_width
 from ..types import Array, RNNState, Floats2d
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
-from .affine import Affine
+from .linear import Linear
+from .noop import noop
 from .with_list2padded import with_list2padded
 
 
-# TODO: Input and output types
+InT = List[Floats2d]
 
 
+@registry.layers("PyTorchBiLSTM.v0")
+def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
+    import torch.nn
+    from .with_list2padded import with_list2padded
+    from .pytorchwrapper import PyTorchWrapper
+
+    if depth == 0:
+        return noop()
+    pytorch_lstm = torch.nn.LSTM(
+        nI, nO // 2, depth, bidirectional=True, dropout=dropout
+    )
+    return with_list2padded(PyTorchWrapper(pytorch_lstm))
+
+
+@registry.layers("BiLSTM.v0")
 def BiLSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
     depth: int = 1,
     dropout: float = 0.0
-) -> Model[List[Floats2d], List[Floats2d]]:
-    return with_list2padded(
-        clone(bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))), depth)
+) -> Model[InT, InT]:
+    return cast(
+        Model[InT, InT],
+        with_list2padded(
+            clone(
+                bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
+                depth,
+            )
+        ),
     )
 
 
+@registry.layers("LSTM.v0")
 def LSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
     depth: int = 1,
     dropout: float = 0.0
-):
-    return with_list2padded(
-        clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
+) -> Model[InT, InT]:
+    return cast(
+        Model[InT, InT],
+        with_list2padded(
+            clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
+        ),
     )
 
 
@@ -47,8 +75,8 @@ def LSTM_step(
             "PyTorchWrapper and the torch.LSTM class."
         )
         raise NotImplementedError(msg)
-    model = Model[RNNState, RNNState](
-        "lstm_step", forward, init=init, layers=[Affine()], dims={"nO": nO, "nI": nI}
+    model: Model[RNNState, RNNState] = Model(
+        "lstm_step", forward, init=init, layers=[Linear()], dims={"nO": nO, "nI": nI}
     )
     if nO is not None and nI is not None:
         model.initialize()
@@ -56,7 +84,7 @@ def LSTM_step(
 
 
 def init(
-    model: Model, X: Optional[List[Array]] = None, Y: Optional[List[Array]] = None
+    model: Model, X: Optional[RNNState] = None, Y: Optional[RNNState] = None
 ) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
@@ -89,7 +117,7 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops, acts: Array, prev_cells: Floats2d):
+def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
@@ -110,6 +138,6 @@ def _gates_forward(ops, acts: Array, prev_cells: Floats2d):
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
         d_acts = d_acts.reshape((nB, nO * 4))
-        return d_acts, d_prevcells
+        return cast(Tuple[Floats2d, Floats2d], (d_acts, d_prevcells))
 
     return (new_cells, new_hiddens), backprop_gates

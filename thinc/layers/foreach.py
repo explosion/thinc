@@ -1,16 +1,14 @@
-from typing import Tuple, Callable, Optional, List, Sequence, TypeVar
+from typing import Any, Tuple, Callable, Optional, Sequence
 
 from ..model import Model
-from ..types import Array
+from ..config import registry
 
 
-# TODO: fix and make more specific
-InputValue = TypeVar("InputValue", bound=Sequence)
-InT = List[InputValue]
-OutputValue = TypeVar("OutputValue", bound=Sequence)
-OutT = List[OutputValue]
+InT = Sequence[Any]
+OutT = Sequence[Any]
 
 
+@registry.layers("foreach.v0")
 def foreach(layer: Model) -> Model[InT, OutT]:
     """Map a layer across list items."""
     return Model(
@@ -22,8 +20,8 @@ def foreach(layer: Model) -> Model[InT, OutT]:
 
 
 def forward(
-    model: Model[InT, OutT], docs: Sequence[Array], is_train: bool
-) -> Tuple[Sequence[Array], Callable]:
+    model: Model[InT, OutT], docs: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     layer = model.layers[0]
     sents = []
     for doc in docs:
@@ -33,7 +31,7 @@ def forward(
     flat, bp_flat = layer(sents, is_train)
     output = layer.ops.unflatten(flat, lengths)
 
-    def backprop(d_output: Sequence[Array]) -> Sequence[Array]:
+    def backprop(d_output: OutT) -> InT:
         d_flat = layer.ops.flatten(d_output)
         d_sents = bp_flat(d_flat)
         return layer.ops.unflatten(d_sents, lengths)

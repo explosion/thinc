@@ -2,15 +2,14 @@ import pytest
 from typing import Iterable, Union, Sequence
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
-import thinc._registry
-from thinc._registry import ConfigValidationError
+import thinc.config
+from thinc.config import Config, ConfigValidationError
 from thinc.types import Generator
-from thinc.config import Config
 from thinc.optimizers import Adam  # noqa: F401
 from thinc.schedules import warmup_linear  # noqa: F401
 
 
-class my_registry(thinc._registry.registry):
+class my_registry(thinc.config.registry):
     cats = catalogue.create("thinc", "tests", "cats", entry_points=False)
 
 
@@ -112,7 +111,7 @@ window_size = 1
 @layers = "spacy.ParserLower.v1"
 
 [pipeline.parser.model.upper]
-@layers = "thinc.Affine.v1"
+@layers = "thinc.Linear.v1"
 """
 
 OPTIMIZER_CFG = """

@@ -1,20 +1,22 @@
 from typing import Tuple, Callable, TypeVar
 
 from ..model import Model
+from ..config import registry
 
 
-InputOutT = TypeVar("InputOutT")
+InOutT = TypeVar("InOutT")
 
 
-def noop(*layers: Model) -> Model:
+@registry.layers("noop.v0")
+def noop(*layers: Model) -> Model[InOutT, InOutT]:
     """Transform a sequences of layers into a null operation."""
     return Model("noop", forward, layers=layers)
 
 
 def forward(
-    model: Model, X: InputOutT, is_train: bool
-) -> Tuple[InputOutT, Callable]:
-    def backprop(dY: InputOutT) -> InputOutT:
+    model: Model[InOutT, InOutT], X: InOutT, is_train: bool
+) -> Tuple[InOutT, Callable]:
+    def backprop(dY: InOutT) -> InOutT:
         return dY
 
     return X, backprop

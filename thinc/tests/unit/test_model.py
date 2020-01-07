@@ -3,14 +3,14 @@ import os
 import pytest
 import threading
 import time
-from thinc.layers.affine import Affine
+from thinc.layers import Linear
 from thinc.backends import NumpyOps, get_current_ops, use_device
 from thinc.model import Model
 
 
 @pytest.fixture
 def model_with_no_args():
-    return Affine()
+    return Linear()
 
 
 def create_model(name):
@@ -22,13 +22,13 @@ def test_Model_defaults_to_cpu(model_with_no_args):
 
 
 def test_models_get_different_ids(model_with_no_args):
-    model1 = Affine()
-    model2 = Affine()
+    model1 = Linear()
+    model2 = Linear()
     assert model1.id != model2.id
 
 
 def test_init_assigns_attributes():
-    model = Affine()
+    model = Linear()
     model._mem
     assert model.layers == []
 
@@ -51,12 +51,12 @@ def test_grad_names():
 
 
 def test_dim_names():
-    model = Affine(5, 3)
+    model = Linear(5, 3)
     assert model.dim_names == ("nO", "nI")
 
 
 def test_attr_names():
-    model = Affine(5, 3)
+    model = Linear(5, 3)
     assert model.attr_names == tuple()
     model.set_attr("hello", "world")
     assert model.attr_names == ("hello",)
@@ -93,6 +93,7 @@ def test_use_device():
     new_ops = get_current_ops()
     assert id(new_ops) == dev_id
 
+
 def test_model_can_save_to_disk(model_with_no_args):
     temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
     model_with_no_args.to_disk(temp_file)
@@ -103,6 +104,7 @@ def test_model_can_load_from_disk(model_with_no_args):
     model_with_no_args.to_disk(temp_file)
     m2 = model_with_no_args.from_disk(temp_file)
     assert model_with_no_args.to_bytes() == m2.to_bytes()
+
 
 def test_bind_plus():
     with Model.define_operators({"+": lambda a, b: (a.name, b.name)}):
@@ -182,8 +184,8 @@ def test_nested_operator_contexts():
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
 def test_all_operators(op):
-    m1 = Affine()
-    m2 = Affine()
+    m1 = Linear()
+    m2 = Linear()
     with Model.define_operators({op: lambda a, b: a.name + b.name}):
         if op == "+":
             value = m1 + m2

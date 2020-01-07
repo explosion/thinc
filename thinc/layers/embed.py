@@ -1,17 +1,17 @@
-from typing import Callable, Tuple, Optional, TypeVar
+from typing import Callable, Tuple, Optional, cast
 
 from ..model import Model
-from ..types import Array
+from ..config import registry
+from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 from ..util import get_width
 
 
-# TODO: fix type error
-# TODO: more speific array type
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Ints2d
+OutT = Floats2d
 
 
+@registry.layers("Embed.v0")
 def Embed(
     nO: Optional[int] = None,
     nV: Optional[int] = None,
@@ -43,7 +43,8 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
         d_vectors = model.ops.allocate(vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
-        return model.ops.allocate(ids.shape, dtype=ids.dtype)
+        dX = cast(Ints2d, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        return dX
 
     return output, backprop
 

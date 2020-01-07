@@ -1,5 +1,11 @@
+from thinc.api import Linear, Adam
+import numpy
 
-model = Affine(10, 10)
+
+X = numpy.zeros((128, 10), dtype="f")
+dY = numpy.zeros((128, 10), dtype="f")
+
+model = Linear(10, 10)
 
 # Run the model over some data
 Y = model.predict(X)
@@ -16,8 +22,7 @@ dX = backprop(dY)
 # actually change the weights. To increment the weights, call model.finish_update(),
 # passing it an optimizer:
 
-optimizer = thinc.optimizers.Adam()
-
+optimizer = Adam()
 model.finish_update(optimizer)
 
 # You can get and set dimensions, parameters and attributes by name:
@@ -28,7 +33,7 @@ assert model.get_attr("hello") == "world"
 
 # You can also retrieve parameter gradients, and increment them explicitly:
 dW = model.get_grad("W")
-model.inc_grad("W", dW*0.1)
+model.inc_grad("W", dW * 0.1)
 
 # Finally, you can serialize models using the model.to_bytes() and model.to_disk()
 # methods, and load them back with .from_bytes() and from_disk().

@@ -1,13 +1,15 @@
 from typing import Callable, Optional, Tuple
 
 from ..model import Model
+from ..config import registry
 
 
 InT = Tuple
 OutT = Tuple
 
 
-def with_getitem(idx: int, layer: Model) -> Model:
+@registry.layers("with_getitem.v0")
+def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
     """Transform data on the way into and out of a layer, by plucking an item
     from a tuple.
     """
@@ -21,7 +23,7 @@ def with_getitem(idx: int, layer: Model) -> Model:
 
 
 def forward(
-    model: Model, items: InT, is_train: bool
+    model: Model[InT, OutT], items: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     idx = model.get_attr("idx")
     Y_i, backprop_item = model.layers[0](items[idx], is_train)
@@ -33,7 +35,9 @@ def forward(
     return items[:idx] + (Y_i,) + items[idx + 1 :], backprop
 
 
-def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None):
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
     idx = model.get_attr("idx")
     X_i = X[idx] if X is not None else X
     Y_i = Y[idx] if Y is not None else Y

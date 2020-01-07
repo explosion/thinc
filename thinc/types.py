@@ -1,18 +1,14 @@
 from dataclasses import dataclass
-from typing import (
-    Union,
-    Tuple,
-    Callable,
-    Iterator,
-    Sized,
-    Container,
-    Any,
-    Optional,
-    List,
-)
-from enum import Enum
+from typing import Union, Tuple, Iterator, Sized, Container, Any
+from typing import Optional, List
 import numpy
+import sys
 
+# Use typing_extensions for Python versions < 3.8
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 try:
     import cupy
@@ -22,19 +18,10 @@ except ImportError:
     xp = numpy
 
 
-# type: ignore
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
-
-
-class DTypes(str, Enum):
-    f = "f"
-    i = "i"
-    float32 = "float32"
-    int32 = "int32"
-    int64 = "int64"
-    uint32 = "uint32"
-    uint64 = "uint64"
+DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
+Device = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
 
 
 class Array(Sized, Container):
@@ -399,6 +386,9 @@ class CupyArray(Array):
     def get(self) -> NumpyArray:
         ...
 
+    def toDlpack(self) -> "CupyArray":
+        ...
+
 
 def validate_array(obj):
     if not isinstance(obj, xp.ndarray):
@@ -407,7 +397,7 @@ def validate_array(obj):
 
 
 def validate_array_dims(obj, expected_ndim):
-    # TODO: include validate_array here
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if expected_ndim is not None and obj.ndim != expected_ndim:
         err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
         raise ValueError(err)
@@ -415,7 +405,7 @@ def validate_array_dims(obj, expected_ndim):
 
 
 def validate_array_dtype(obj, expected_dtype):
-    # TODO: include validate_array here
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if obj.dtype != expected_dtype:
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
@@ -424,7 +414,6 @@ def validate_array_dtype(obj, expected_dtype):
 
 def get_array_validators(*, ndim, dtype):
     return (
-        lambda v: validate_array(v),
         lambda v: validate_array_dims(v, ndim),
         lambda v: validate_array_dtype(v, dtype),
     )
@@ -537,26 +526,24 @@ class Generator(Iterator):
         return v
 
 
-class NlpType:
-    # TODO:
-    vocab: "spacy.vocab.Vocab"  # type: ignore  # noqa: F821
-    pass
+class Doc(Sized, Container):
+    T: "Doc"
+    base: Optional["Doc"]
 
+    @property
+    def doc(self) -> "Doc":
+        ...
 
-class DocType:
-    # TODO:
-    # DocType = "spacy.tokens.Doc"  # type: ignore
-    doc: "DocType"
-    to_array: Callable
-    start: int
-    end: int
+    @property
+    def start(self) -> int:
+        ...
 
+    @property
+    def end(self) -> int:
+        ...
 
-class OpNames(str, Enum):
-    np = "numpy"
-    cpu = "cpu"
-    cp = "cupy"
-    gpu = "gpu"
+    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+        ...
 
 
 # This should probably become a dataclass too.

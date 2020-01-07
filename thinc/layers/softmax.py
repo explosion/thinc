@@ -1,13 +1,16 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
-from ..model import Model, Array, create_init
+from ..model import Model, create_init
+from ..config import registry
+from ..types import Floats2d
 from ..initializers import zero_init
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Floats2d
+OutT = Floats2d
 
 
+@registry.layers("Softmax.v0")
 def Softmax(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
@@ -15,7 +18,7 @@ def Softmax(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init
 ) -> Model:
-    model = Model[Array, Array](
+    model: Model[InT, OutT] = Model(
         "softmax",
         forward,
         init=create_init({"W": init_W, "b": init_b}),
@@ -27,7 +30,7 @@ def Softmax(
     return model
 
 
-def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = model.get_param("W")
     b = model.get_param("b")
 

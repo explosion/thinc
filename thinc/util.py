@@ -1,4 +1,4 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, List, cast
+from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict, Optional
 import numpy
 import itertools
 import threading
@@ -13,11 +13,15 @@ except ImportError:
 
 try:
     import torch
+    import torch.tensor
+    import torch.utils.dlpack
+
+    has_torch = True
 except ImportError:
     has_torch = False
 
 
-from .types import Array, Ragged, Padded, OpNames
+from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
 
 
 def fix_random_seed(seed: int = 0) -> None:
@@ -28,7 +32,7 @@ def fix_random_seed(seed: int = 0) -> None:
         cupy.random.seed(seed)
 
 
-def create_thread_local(attrs):
+def create_thread_local(attrs: Dict[str, Any]):
     obj = threading.local()
     for name, value in attrs.items():
         setattr(obj, name, value)
@@ -53,18 +57,8 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def get_ops(ops: Union[int, OpNames]):  # TODO: return type
-    from .backends import NumpyOps, CupyOps
-
-    if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
-        return NumpyOps
-    elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
-        return CupyOps
-    else:
-        raise ValueError(f"Invalid ops (or device) description: {ops}")
-
-
-def set_active_gpu(gpu_id: int):
+def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":
+    """Set the current GPU device for cupy and torch (if available)."""
     import cupy.cuda.device
 
     device = cupy.cuda.device.Device(gpu_id)
@@ -139,7 +133,7 @@ def minibatch(
 
 
 def evaluate_model_on_arrays(
-    model, dev_X: Array, dev_Y: Array, batch_size: int
+    model, inputs: Array, labels: Array, *, batch_size: int
 ) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
@@ -148,9 +142,9 @@ def evaluate_model_on_arrays(
     """
     score = 0.0
     total = 0.0
-    for i in range(0, dev_X.shape[0], batch_size):
-        X = dev_X[i : i + batch_size]
-        Y = dev_Y[i : i + batch_size]
+    for i in range(0, inputs.shape[0], batch_size):
+        X = inputs[i : i + batch_size]
+        Y = labels[i : i + batch_size]
         Yh = model.predict(X)
         score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
         total += Yh.shape[0]
@@ -167,32 +161,25 @@ def copy_array(dst: Array, src: Array) -> None:
         numpy.copyto(dst, src)
 
 
-def to_categorical(y: Array, nb_classes=None):
+def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
     # From keras
-    xp = get_array_module(y)
+    xp = get_array_module(Y)
     if xp is cupy:
-        y = y.get()
-    y = numpy.array(y, dtype="int").ravel()
-    if not nb_classes:
-        nb_classes = numpy.max(y) + 1
-    n = y.shape[0]
-    categorical = numpy.zeros((n, nb_classes), dtype="float32")
-    categorical[numpy.arange(n), y] = 1
+        Y = cast(IntsNd, Y.get())
+    Y = numpy.array(Y, dtype="int").ravel()
+    if not n_classes:
+        n_classes = numpy.max(Y) + 1
+    n = Y.shape[0]
+    categorical = numpy.zeros((n, n_classes), dtype="float32")
+    categorical[numpy.arange(n), Y] = 1
     return xp.asarray(categorical)
 
 
-def is_ragged(seqs) -> bool:
-    if isinstance(seqs, tuple) and len(seqs) == 2:
-        if len(seqs[0]) == sum(seqs[1]):
-            return True
-    return False
-
-
-def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> int:
-    """Infer the 'width' of a batch of data, which could be any of:
-    * An n-dimensional array: Use the shape
-    * A tuple (for a ragged array): Use the shape of the first element.
-    * A list of arrays (for sequences): Use the shape of the first element.
+def get_width(
+    X: Union[Array, Ragged, Padded, Sequence[Array], RNNState], *, dim: int = -1
+) -> int:
+    """Infer the 'width' of a batch of data, which could be any of: Array,
+    Ragged, Padded or Sequence of Arrays.
     """
     if isinstance(X, Ragged):
         return get_width(X.data, dim=dim)
@@ -216,10 +203,10 @@ def get_width(X: Union[Array, Ragged, Padded, List, Tuple], dim: int = -1) -> in
         raise ValueError(err)
 
 
-def xp2torch(xp_tensor, requires_grad=False):
+def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
-        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())
+        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())  # type: ignore
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
     if requires_grad:
@@ -227,9 +214,28 @@ def xp2torch(xp_tensor, requires_grad=False):
     return torch_tensor
 
 
-def torch2xp(torch_tensor):
+def torch2xp(torch_tensor: "torch.Tensor") -> Array:
     """Convert a torch tensor to a numpy or cupy tensor."""
     if torch_tensor.is_cuda:
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
     else:
         return torch_tensor.detach().numpy()
+
+
+__all__ = [
+    "fix_random_seed",
+    "create_thread_local",
+    "is_cupy_array",
+    "is_numpy_array",
+    "set_active_gpu",
+    "prefer_gpu",
+    "require_gpu",
+    "copy_array",
+    "get_shuffled_batches",
+    "minibatch",
+    "evaluate_model_on_arrays",
+    "to_categorical",
+    "get_width",
+    "xp2torch",
+    "torch2xp",
+]

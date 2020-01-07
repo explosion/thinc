@@ -1,4 +1,4 @@
-from thinc.layers.affine import Affine
+from thinc.layers import Linear
 from thinc.optimizers import SGD
 from thinc.layers.pytorchwrapper import PyTorchWrapper
 import numpy
@@ -31,7 +31,7 @@ def check_learns_zero_output(model, sgd, X, Y):
 
 @pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
 def test_unwrapped(nN=2, nI=3, nO=4):
-    model = Affine(nO, nI)
+    model = Linear(nO, nI)
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
     sgd = SGD(0.001)

@@ -1,21 +1,23 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any
+from typing import Tuple, Callable, Optional, TypeVar, Any, cast
 
 from ..model import Model
+from ..config import registry
 from ..util import get_width
 from ..types import Ragged, Padded, Array
 from .noop import noop
 
-# TODO: are these bound?
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
+@registry.layers("chain.v0")
 def chain(*layers: Model) -> Model[InT, OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     """
     if not layers:
-        return noop()
+        return cast(Model[InT, OutT], noop())
     elif len(layers) == 1:
         return layers[0]
     elif layers[0]._func is forward:
@@ -24,7 +26,7 @@ def chain(*layers: Model) -> Model[InT, OutT]:
     # Set type constraints for layers
     layer0: Model[InT, Any] = layers[0]  # noqa: F841
     layer1: Model[Any, OutT] = layers[-1]  # noqa: F841
-    model = Model[InT, OutT](
+    model: Model[InT, OutT] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,

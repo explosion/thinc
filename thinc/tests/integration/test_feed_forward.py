@@ -1,9 +1,7 @@
 import pytest
 import numpy
 from numpy.testing import assert_allclose
-from thinc.layers.chain import chain
-from thinc.layers.affine import Affine
-from thinc.layers.relu import ReLu
+from thinc.layers import chain, Linear, ReLu
 
 
 @pytest.fixture
@@ -14,7 +12,7 @@ def model1(nH, nI):
 
 @pytest.fixture
 def model2(nO, nH):
-    model = Affine(nO, nH)
+    model = Linear(nO, nH)
     return model
 
 

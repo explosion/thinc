@@ -1,14 +1,15 @@
-from typing import Tuple, Callable, TypeVar
+from typing import Tuple, Callable
 
 from ..model import Model
+from ..config import registry
 from ..types import Array
 
 
-# TODO: more specific arrays
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Array
+OutT = Array
 
 
+@registry.layers("ExtractWindow.v0")
 def ExtractWindow(window_size: int = 1) -> Model[InT, OutT]:
     """For each vector in an input, construct an output vector that contains the
     input and a window of surrounding vectors. This is one step in a convolution.

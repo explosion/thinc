@@ -1,24 +1,22 @@
 import pytest
 import numpy
-from thinc.layers.chain import chain
-from thinc.layers.clone import clone
-from thinc.layers.affine import Affine
+from thinc.layers import chain, clone, Linear
 from thinc.model import Model
 
 
 @pytest.fixture
 def model1(nH, nI):
-    return Affine(nH, nI)
+    return Linear(nH, nI)
 
 
 @pytest.fixture
 def model2(nO, nH):
-    return Affine(nO, nH)
+    return Linear(nO, nH)
 
 
 @pytest.fixture
 def model3(nO):
-    return Affine(nO, nO)
+    return Linear(nO, nO)
 
 
 def test_chain_zero():
@@ -43,7 +41,7 @@ def test_chain_right_branch(model1, model2, model3):
 
 
 def test_clone_changes_predictions(nH, nI):
-    model1 = Affine(nH)
+    model1 = Linear(nH)
     model = clone(model1, 10)
     ones = numpy.ones((10, nI), dtype="f")
     model.initialize(X=ones)
@@ -53,7 +51,7 @@ def test_clone_changes_predictions(nH, nI):
 
 
 def test_clone_gives_distinct_ids(nH, nI):
-    model = clone(Affine(nH), 5)
+    model = clone(Linear(nH), 5)
     assert len(model.layers) == 5
     seen_ids = set()
     for node in model.walk():

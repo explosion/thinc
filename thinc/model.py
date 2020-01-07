@@ -130,17 +130,17 @@ class Model(Generic[InT, OutT]):
 
     @property
     def param_names(self) -> Tuple[str, ...]:
-        """Get the names of registered parameter (including unset.)"""
+        """Get the names of registered parameter (including unset)."""
         return tuple(self._params.keys())
 
     @property
     def grad_names(self) -> Tuple[str, ...]:
-        """Get the names of parameters with registered gradients (including unset.)"""
+        """Get the names of parameters with registered gradients (including unset)."""
         return tuple([name for name in self.param_names if self.has_grad(name)])
 
     @property
     def dim_names(self) -> Tuple[str, ...]:
-        """Get the names of registered dimensions (including unset.)"""
+        """Get the names of registered dimensions (including unset)."""
         return tuple(self._dims.keys())
 
     @property
@@ -150,7 +150,7 @@ class Model(Generic[InT, OutT]):
 
     @property
     def ref_names(self) -> Tuple[str, ...]:
-        """Get the names of registered node references (including unset.)"""
+        """Get the names of registered node references (including unset)."""
         return tuple(self._refs.keys())
 
     @classmethod
@@ -180,7 +180,7 @@ class Model(Generic[InT, OutT]):
             return None
 
     def get_dim(self, name: str) -> int:
-        """Retrieve the value of a dimension of the given name, or None if unset."""
+        """Retrieve the value of a dimension of the given name."""
         if name not in self._dims:
             raise KeyError(f"Can't get dimension '{name}'")
         value = self._dims[name]
@@ -297,7 +297,7 @@ class Model(Generic[InT, OutT]):
             return None
 
     def get_ref(self, name: str) -> "Model":
-        """Retrieve the value of a reference of the given name, or None if unset."""
+        """Retrieve the value of a reference of the given name."""
         if name not in self._refs:
             raise KeyError(f"Can't get reference '{name}'")
         value = self._refs[name]
@@ -449,11 +449,11 @@ class Model(Generic[InT, OutT]):
                 copied.set_grad(name, self.get_grad(name))
         return copied
 
-    def to_gpu(self, device_num: int) -> None:
+    def to_gpu(self, gpu_id: int) -> None:
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
-        device = cupy.cuda.device.Device(device_num)
+        device = cupy.cuda.device.Device(gpu_id)
         device.use()
         for layer in self.walk():
             layer.ops = CupyOps()
@@ -484,6 +484,7 @@ class Model(Generic[InT, OutT]):
         # Serialize references by their index into the flattened tree.
         # This is the main reason we can't accept out-of-tree references:
         # we'd have no way to serialize/deserialize them.
+        node_to_i: Dict[Optional[Model], Optional[int]]
         node_to_i = {node: i for i, node in enumerate(nodes)}
         # We also need an entry 'None', as references can be set to None.
         node_to_i[None] = None
@@ -506,7 +507,7 @@ class Model(Generic[InT, OutT]):
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
                     "shims": [shim.to_bytes() for shim in layer.shims],
-                    "refs": refs
+                    "refs": refs,
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
@@ -650,3 +651,6 @@ class Model(Generic[InT, OutT]):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
+
+
+__all__ = ["create_init", "Model"]
