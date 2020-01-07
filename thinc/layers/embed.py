@@ -11,7 +11,7 @@ InT = Ints2d
 OutT = Floats2d
 
 
-@registry.layers("embed.v0")
+@registry.layers("Embed.v0")
 def Embed(
     nO: Optional[int] = None,
     nV: Optional[int] = None,

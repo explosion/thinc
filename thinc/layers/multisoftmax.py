@@ -1,4 +1,4 @@
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Callable
 
 from ..types import Floats2d
 from ..model import Model
@@ -6,38 +6,33 @@ from ..config import registry
 from ..util import get_width
 
 
-@registry.layers("multi_softmax.v0")
-def MultiSoftmax(out_sizes: Tuple[int, ...], nI: Optional[int] = None):
+InT = Floats2d
+OutT = Floats2d
+
+
+@registry.layers("MultiSoftmax.v0")
+def MultiSoftmax(nOs: Tuple[int, ...], nI: Optional[int] = None) -> Model[InT, OutT]:
     """Neural network layer that predicts several multi-class attributes at once.
     For instance, we might predict one class with 6 variables, and another with 5.
     We predict the 11 neurons required for this, and then softmax them such
-    that columns 0-6 make a probability distribution and coumns 6-11 make another.
+    that columns 0-6 make a probability distribution and columns 6-11 make another.
     """
-    return Model[Floats2d, Floats2d](
+    return Model(
         "multisoftmax",
         forward,
         init=init,
-        dims={"nO": sum(out_sizes), "nI": nI},
-        attrs={"out_sizes": out_sizes},
+        dims={"nO": sum(nOs), "nI": nI},
+        attrs={"nOs": nOs},
         params={"W": None, "b": None},
     )
 
 
-def init(model: Model[Floats2d, Floats2d], X=None, Y=None):
-    if X is not None:
-        model.set_dim("nI", get_width(X))
-    nO = model.get_dim("nO")
-    nI = model.get_dim("nI")
-    model.set_param("W", model.ops.allocate((nO, nI)))
-    model.set_param("b", model.ops.allocate((nO,)))
-
-
-def forward(model: Model[Floats2d, Floats2d], X: Floats2d, is_train):
-    out_sizes = model.get_attr("out_sizes")
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    nOs = model.get_attr("nOs")
     W = model.get_param("W")
     b = model.get_param("b")
 
-    def backprop(dY: Floats2d) -> Floats2d:
+    def backprop(dY: OutT) -> InT:
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         model.inc_grad("b", dY.sum(axis=0))
         return model.ops.gemm(dY, W)
@@ -45,8 +40,18 @@ def forward(model: Model[Floats2d, Floats2d], X: Floats2d, is_train):
     Y = model.ops.gemm(X, W)
     Y += b
     i = 0
-    for out_size in out_sizes:
+    for out_size in nOs:
         model.ops.softmax(Y[:, i : i + out_size], inplace=True)
         i += out_size
-
     return Y, backprop
+
+
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
+    if X is not None:
+        model.set_dim("nI", get_width(X))
+    nO = model.get_dim("nO")
+    nI = model.get_dim("nI")
+    model.set_param("W", model.ops.allocate((nO, nI)))
+    model.set_param("b", model.ops.allocate((nO,)))

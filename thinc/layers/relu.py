@@ -13,7 +13,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("relu.v0")
+@registry.layers("ReLu.v0")
 def ReLu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

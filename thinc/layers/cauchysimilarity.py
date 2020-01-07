@@ -10,7 +10,7 @@ InT = Tuple[Floats2d, Floats2d]
 OutT = Floats1d
 
 
-@registry.layers("cauchy_similarity.v0")
+@registry.layers("CauchySimilarity.v0")
 def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:
     """Compare input vectors according to the Cauchy similarity function proposed by
     Chen (2013). Primarily used within Siamese neural networks.

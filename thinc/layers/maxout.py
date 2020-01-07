@@ -14,7 +14,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("maxout.v0")
+@registry.layers("Maxout.v0")
 def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

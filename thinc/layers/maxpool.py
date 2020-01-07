@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Floats2d
 
 
-@registry.layers("maxpool.v0")
+@registry.layers("MaxPool.v0")
 def MaxPool() -> Model[InT, OutT]:
     return Model("max_pool", forward)
 

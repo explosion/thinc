@@ -10,7 +10,7 @@ InT = Ints2d
 OutT = Floats2d
 
 
-@registry.layers("hash_embed.v0")
+@registry.layers("HashEmbed.v0")
 def HashEmbed(
     nO: int,
     nV: int,

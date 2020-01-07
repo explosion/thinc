@@ -11,7 +11,7 @@ InT = Array
 OutT = Array
 
 
-@registry.layers("pytorch_wrapper.v0")
+@registry.layers("PyTorchWrapper.v0")
 def PyTorchWrapper(pytorch_model: Any) -> Model:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call

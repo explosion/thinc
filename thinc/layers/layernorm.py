@@ -10,7 +10,7 @@ from ..util import get_width
 InT = Floats2d
 
 
-@registry.layers("layer_norm.v0")
+@registry.layers("LayerNorm.v0")
 def LayerNorm(nO: Optional[int] = None) -> Model[InT, InT]:
     return Model(
         "layernorm",

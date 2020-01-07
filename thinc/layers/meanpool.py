@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Floats2d
 
 
-@registry.layers("meanpool.v0")
+@registry.layers("MeanPool.v0")
 def MeanPool() -> Model[InT, OutT]:
     return Model("mean_pool", forward)
 

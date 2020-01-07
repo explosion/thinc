@@ -16,7 +16,7 @@ from .with_list2padded import with_list2padded
 InT = List[Floats2d]
 
 
-@registry.layers("pytorch_bilstm.v0")
+@registry.layers("PyTorchBiLSTM.v0")
 def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     import torch.nn
     from .with_list2padded import with_list2padded
@@ -30,7 +30,7 @@ def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     return with_list2padded(PyTorchWrapper(pytorch_lstm))
 
 
-@registry.layers("bilstm.v0")
+@registry.layers("BiLSTM.v0")
 def BiLSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
@@ -49,7 +49,7 @@ def BiLSTM(
     )
 
 
-@registry.layers("lstm.v0")
+@registry.layers("LSTM.v0")
 def LSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

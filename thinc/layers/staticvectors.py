@@ -13,7 +13,7 @@ OutT = Floats2d
 STATE = create_thread_local({"vectors": {}})
 
 
-@registry.layers("static_vectors.v0")
+@registry.layers("StaticVectors.v0")
 def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
     return Model(
         "static_vectors",

@@ -19,7 +19,7 @@ InT = Tuple[Array, Array, Array]
 OutT = Array
 
 
-@registry.layers("sparse_linear.v0")
+@registry.layers("SparseLinear.v0")
 def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
     model: Model[InT, OutT] = Model(
         "sparse_linear",
