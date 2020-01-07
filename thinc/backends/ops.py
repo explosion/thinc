@@ -1,9 +1,7 @@
 from typing import Optional, List, Callable, Tuple, TypeVar, Sequence, Union, overload
 
-from ..types import Xp, Array, Shape, DTypes, Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd, IntsNd, ArrayTypes
+from ..types import Xp, Array, Shape, DTypes, Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd, IntsNd, ArrayTypes, ArrayT
 from ..util import copy_array, get_array_module
-
-OpsArrayType = TypeVar("OpsArrayType", bound=Array)
 
 
 class Ops:
@@ -14,7 +12,7 @@ class Ops:
         if xp is not None:
             self.xp = xp
 
-    def seq2col(self, seq: Array, nW: int) -> Array:
+    def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -31,7 +29,7 @@ class Ops:
         cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
         return cols.reshape((B, I * (2 * nW + 1)))
 
-    def backprop_seq2col(self, dY: Array, nW: int) -> Array:
+    def backprop_seq2col(self, dY: ArrayT, nW: int) -> Array:
         # This is a test implementation that only supports nW=1
         assert nW == 1
         nF = nW * 2 + 1
@@ -196,7 +194,7 @@ class Ops:
     ) -> ArrayTypes:
         return self.allocate_nd(shape, dtype=dtype)
 
-    def allocate_nd(self, shape: Shape, *, dtype: str = "float32") -> OpsArrayType:
+    def allocate_nd(self, shape: Shape, *, dtype: str = "float32") -> ArrayT:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
@@ -207,10 +205,10 @@ class Ops:
 
     def asarray(
         self,
-        data: Union[OpsArrayType, Sequence[OpsArrayType], Sequence[int]],
+        data: Union[ArrayT, Sequence[ArrayT], Sequence[int]],
         *,
         dtype: Optional[DTypes] = None,
-    ) -> OpsArrayType:
+    ) -> ArrayT:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -224,7 +222,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def sigmoid(self, X: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
+    def sigmoid(self, X: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             self.xp.exp(-X, out=X)
             X += 1.0
@@ -233,14 +231,14 @@ class Ops:
         else:
             return 1.0 / (1.0 + self.xp.exp(-X))
 
-    def dsigmoid(self, Y: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
+    def dsigmoid(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y *= 1 - Y
             return Y
         else:
             return Y * (1.0 - Y)
 
-    def dtanh(self, Y: OpsArrayType, *, inplace: bool = False) -> OpsArrayType:
+    def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
             Y *= -1.0
@@ -288,18 +286,14 @@ class Ops:
         dx -= y * sumdx
         return dx
 
-    def clip_low(
-        self, x: OpsArrayType, value: OpsArrayType, *, inplace: bool = False
-    ) -> OpsArrayType:
+    def clip_low(self, x: ArrayT, value: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             return self.xp.maximum(x, value, out=x)
         else:
             return self.xp.maximum(x, value)
 
-    def take_which(
-        self, x: OpsArrayType, which: OpsArrayType, *, axis: int = -1
-    ) -> OpsArrayType:
-        output: OpsArrayType = self.allocate_nd(which.shape)
+    def take_which(self, x: ArrayT, which: ArrayT, *, axis: int = -1) -> ArrayT:
+        output: ArrayT = self.allocate_nd(which.shape)
         for i in range(x.shape[axis]):
             output += x[:, :, i] * (which == i)
         return output
