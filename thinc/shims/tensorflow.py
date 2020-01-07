@@ -142,8 +142,7 @@ class TensorFlowShim(Shim):
         self._load_weights_from_state_dict(state_dict)
 
     def to_gpu(self, device_num):
-        assert isinstance(device_num, str), "device_num must be string like ''/GPU:0'"
-        with tf.device(device_num):
+        with tf.device("/GPU:{}".format(device_num)):
             self._clone_model()
 
     def to_cpu(self):
