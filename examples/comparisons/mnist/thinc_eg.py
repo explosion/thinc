@@ -1,5 +1,4 @@
-from thinc.api import chain, ReLu, Softmax, Adam, NumpyOps, Model
-from thinc.api import to_categorical, get_shuffled_batches
+from thinc.api import chain, ReLu, Softmax, Adam, Model, get_shuffled_batches
 import ml_datasets
 import tqdm
 import typer
@@ -32,16 +31,6 @@ learn_rate = ${hyper_params:learn_rate}
 """
 
 
-def load_mnist():
-    ops = NumpyOps()
-    mnist_train, mnist_dev, _ = ml_datasets.mnist()
-    train_X, train_Y = ops.unzip(mnist_train)
-    train_Y = to_categorical(train_Y, n_classes=10)
-    dev_X, dev_Y = ops.unzip(mnist_dev)
-    dev_Y = to_categorical(dev_Y, n_classes=10)
-    return (train_X, train_Y), (dev_X, dev_Y)
-
-
 def main(
     n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
 ):
@@ -50,7 +39,7 @@ def main(
         ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
     )
     # Load the data
-    (train_X, train_Y), (dev_X, dev_Y) = load_mnist()
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     # Create the optimizer.
