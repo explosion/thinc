@@ -103,7 +103,10 @@ class ConfigValidationError(ValueError):
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
-            data.append((element, err_loc, error.get("msg")))
+            if element:
+                data.append((element, err_loc, error.get("msg")))
+            else:
+                data.append((err_loc, error.get("msg")))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
@@ -203,7 +206,7 @@ class registry(object):
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
         for key, value in config.items():
-            key_parent = str(parent + "." + key).strip(".")
+            key_parent = f"{parent}.{key}".strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
                 filled[key], _ = cls._fill(value, promise_schema, validate, parent=key_parent)
