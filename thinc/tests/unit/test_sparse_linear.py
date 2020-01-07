@@ -13,7 +13,7 @@ def instances():
     values = numpy.ones(9, dtype="float32")
     X = (keys, values, lengths)
     y = numpy.asarray([0, 2], dtype="int32")
-    return X, to_categorical(y, nb_classes=3)
+    return X, to_categorical(y, n_classes=3)
 
 
 @pytest.fixture

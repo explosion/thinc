@@ -40,9 +40,9 @@ def main(n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10):
     # Load the data
     mnist_train, mnist_dev, _ = ml_datasets.mnist()
     train_X, train_Y = model.ops.unzip(mnist_train)
-    train_Y = to_categorical(train_Y, nb_classes=10)
+    train_Y = to_categorical(train_Y, n_classes=10)
     dev_X, dev_Y = model.ops.unzip(mnist_dev)
-    dev_Y = to_categorical(dev_Y, nb_classes=10)
+    dev_Y = to_categorical(dev_Y, n_classes=10)
 
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])

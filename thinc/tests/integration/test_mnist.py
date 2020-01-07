@@ -16,8 +16,8 @@ def mnist(limit=1000):
     train_data, dev_data, _ = ml_datasets.mnist()
     train_X, train_y = NumpyOps().unzip(train_data)
     dev_X, dev_y = NumpyOps().unzip(dev_data)
-    dev_y = to_categorical(dev_y, nb_classes=10)
-    train_y = to_categorical(train_y, nb_classes=10)
+    dev_y = to_categorical(dev_y, n_classes=10)
+    train_y = to_categorical(train_y, n_classes=10)
     return (train_X[:limit], train_y[:limit]), (dev_X[:limit], dev_y[:limit])
 
 

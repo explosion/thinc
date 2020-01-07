@@ -11,9 +11,9 @@ def load_mnist():
     ops = NumpyOps()
     mnist_train, mnist_dev, _ = ml_datasets.mnist()
     train_X, train_Y = ops.unzip(mnist_train)
-    train_Y = to_categorical(train_Y, nb_classes=10)
+    train_Y = to_categorical(train_Y, n_classes=10)
     dev_X, dev_Y = ops.unzip(mnist_dev)
-    dev_Y = to_categorical(dev_Y, nb_classes=10)
+    dev_Y = to_categorical(dev_Y, n_classes=10)
     return (train_X, train_Y), (dev_X, dev_Y)
 
 
