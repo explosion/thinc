@@ -56,8 +56,6 @@ class NumpyOps(Ops):
             return self.xp.array(data)
 
     def alloc(self, shape, dtype='float32'):
-        if isinstance(shape, int):
-            shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,
