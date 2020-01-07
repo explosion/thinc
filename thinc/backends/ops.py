@@ -39,7 +39,7 @@ class Ops:
         assert nW == 1
         B = seq.shape[0]
         I = seq.shape[1]
-        cols: Floats3d = self.alloc_f3d((B, (nW * 2 + 1), I))
+        cols: Floats3d = self.alloc_f3d(B, (nW * 2 + 1), I)
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
@@ -53,7 +53,7 @@ class Ops:
         B = dY.shape[0]
         I = dY.shape[1] // nF
         # Having trouble getting the kernel to work...
-        dX = self.alloc_f2d((B, I))
+        dX = self.alloc_f2d(B, I)
         dY = dY.reshape((B, nF, I))
         dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
         dX += dY[:, nW]
@@ -151,7 +151,7 @@ class Ops:
         extra_dims = tuple(range(2, len(arr.shape)))
         arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.alloc_i1d((nS,), dtype="i")
+        batch_size_at_t = self.alloc_i1d(nS, dtype="i")
         batch_size_at_t += 1
         i = len(lengths)
         for t in range(nS):
@@ -180,54 +180,63 @@ class Ops:
         return self.asarray(mask, dtype="float32")
 
     def alloc_f1d(
-        self, shape: Tuple[int], *, dtype: Optional[DTypesFloat] = "float32"
+        self, d0: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats1d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0,), dtype=dtype)
 
     def alloc_f2d(
-        self, shape: Tuple[int, int], *, dtype: Optional[DTypesFloat] = "float32"
+        self, d0: int, d1: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats2d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype)
 
     def alloc_f3d(
-        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypesFloat] = "float32"
+        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Floats3d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype)
 
     def alloc_f4d(
         self,
-        shape: Tuple[int, int, int, int],
+        d0: int,
+        d1: int,
+        d2: int,
+        d3: int,
         *,
         dtype: Optional[DTypesFloat] = "float32",
     ) -> Floats4d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
     def alloc_f(
         self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32",
     ) -> ArrayTypesFloat:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc_i1d(
-        self, shape: Tuple[int], *, dtype: Optional[DTypesInt] = "int32"
-    ) -> Floats1d:
-        return self.alloc(shape, dtype=dtype)
+    def alloc_i1d(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Floats1d:
+        return self.alloc((d0,), dtype=dtype)
 
     def alloc_i2d(
-        self, shape: Tuple[int, int], *, dtype: Optional[DTypesInt] = "int32"
+        self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats2d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1), dtype=dtype)
 
     def alloc_i3d(
-        self, shape: Tuple[int, int, int], *, dtype: Optional[DTypesInt] = "int32"
+        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
     ) -> Floats3d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1, d2), dtype=dtype)
 
     def alloc_i4d(
-        self, shape: Tuple[int, int, int, int], *, dtype: Optional[DTypesInt] = "int32"
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        d3: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
     ) -> Floats4d:
-        return self.alloc(shape, dtype=dtype)
+        return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
-    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> ArrayTypesInt:
+    def alloc_i(
+        self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32"
+    ) -> ArrayTypesInt:
         return self.alloc(shape, dtype=dtype)
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
@@ -335,7 +344,7 @@ class Ops:
         return output
 
     def backprop_take(self, dX: Array, which: Array, nP: int) -> Array:
-        dX__bop = self.alloc_f3d((dX.shape[0], dX.shape[1], nP))
+        dX__bop = self.alloc_f3d(dX.shape[0], dX.shape[1], nP)
         for i in range(nP):
             dX__bop[:, :, i] += dX * (which == i)
         return dX__bop
@@ -471,7 +480,7 @@ class Ops:
         return -loss
 
     def sum_pool(self, X: Array, lengths: Array) -> Array:
-        Y = self.alloc_f2d((lengths.shape[0], X.shape[1]))
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].sum(axis=0)
@@ -479,7 +488,7 @@ class Ops:
         return Y
 
     def mean_pool(self, X: Array, lengths: Array) -> Array:
-        Y = self.alloc_f2d((lengths.shape[0], X.shape[1]))
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].mean(axis=0)
@@ -487,7 +496,7 @@ class Ops:
         return Y
 
     def max_pool(self, X: Array, lengths: Array) -> Array:
-        Y = self.alloc_f2d((lengths.shape[0], X.shape[1]))
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].max(axis=0)
@@ -496,7 +505,7 @@ class Ops:
 
     # TODO: types
     def backprop_sum_pool(self, d_sums: Array, lengths) -> Array:
-        dX = self.alloc_f2d((lengths.sum(), d_sums.shape[1]))
+        dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_sums[i]
@@ -505,7 +514,7 @@ class Ops:
 
     # TODO: types
     def backprop_mean_pool(self, d_means: Array, lengths) -> Array:
-        dX = self.alloc_f2d((lengths.sum(), d_means.shape[1]))
+        dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_means[i] / length
@@ -514,7 +523,7 @@ class Ops:
 
     # TODO: types
     def backprop_max_pool(self, d_maxes: Array, which: Array, lengths) -> Array:
-        dX = self.alloc_f2d((lengths.sum(), d_maxes.shape[1]))
+        dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length, which[i]] = d_maxes[i]

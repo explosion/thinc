@@ -73,6 +73,6 @@ class Memory:
         return blob
 
     def _realloc(self, new_size: int):
-        new_mem = self.ops.alloc_f2d((self._mem.shape[0], new_size))
+        new_mem = self.ops.alloc_f2d(self._mem.shape[0], new_size)
         new_mem[:, : self._i + 1] = self._mem[:, : self._i + 1]
         self._mem = new_mem
