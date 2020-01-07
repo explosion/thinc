@@ -3,6 +3,7 @@ from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .extractwindow import ExtractWindow
+from .featureextractor import FeatureExtractor
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
