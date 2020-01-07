@@ -14,6 +14,17 @@ from .with_list2padded import with_list2padded
 InT = List[Floats2d]
 
 
+def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
+    import torch.nn
+    from .with_list2padded import with_list2padded
+    from .pytorchwrapper import PyTorchWrapper
+
+    if depth == 0:
+        return noop()
+    pytorch_lstm = torch.nn.LSTM(nI, nO // 2, depth, bidirectional=True, dropout=dropout)
+    return with_list2padded(PyTorchWrapper(pytorch_lstm))
+
+
 def BiLSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
