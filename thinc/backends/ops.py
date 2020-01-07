@@ -12,6 +12,10 @@ from ..types import (
     Floats3d,
     Floats4d,
     FloatsNd,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
     IntsNd,
     ArrayTypes,
     ArrayTypesInt,
@@ -210,17 +214,17 @@ class Ops:
     ) -> ArrayTypesFloat:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc_i1d(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Floats1d:
+    def alloc_i1d(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Ints1d:
         return self.alloc((d0,), dtype=dtype)
 
     def alloc_i2d(
         self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
-    ) -> Floats2d:
+    ) -> Ints2d:
         return self.alloc((d0, d1), dtype=dtype)
 
     def alloc_i3d(
         self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
-    ) -> Floats3d:
+    ) -> Ints3d:
         return self.alloc((d0, d1, d2), dtype=dtype)
 
     def alloc_i4d(
@@ -231,7 +235,7 @@ class Ops:
         d3: int,
         *,
         dtype: Optional[DTypesInt] = "int32",
-    ) -> Floats4d:
+    ) -> Ints4d:
         return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
     def alloc_i(
