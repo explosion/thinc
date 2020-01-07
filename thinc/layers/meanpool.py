@@ -2,12 +2,14 @@ from typing import Tuple, Callable
 
 from ..types import Floats2d, Ragged
 from ..model import Model
+from ..config import registry
 
 
 InT = Ragged
 OutT = Floats2d
 
 
+@registry.layers("meanpool.v0")
 def MeanPool() -> Model[InT, OutT]:
     return Model("mean_pool", forward)
 

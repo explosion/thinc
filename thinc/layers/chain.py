@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional, TypeVar, Any, cast
 
 from ..model import Model
+from ..config import registry
 from ..util import get_width
 from ..types import Ragged, Padded, Array
 from .noop import noop
@@ -10,6 +11,7 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
+@registry.layers("chain.v0")
 def chain(*layers: Model) -> Model[InT, OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.

@@ -2,6 +2,7 @@ from typing import Optional, Tuple, Callable
 
 from ..backends import Ops
 from ..model import Model
+from ..config import registry
 from ..types import Padded
 
 
@@ -9,6 +10,7 @@ InT = Padded
 OutT = Padded
 
 
+@registry.layers("bidirectional.v0")
 def bidirectional(
     l2r: Model[InT, OutT], r2l: Optional[Model[InT, OutT]] = None
 ) -> Model[InT, OutT]:

@@ -2,6 +2,7 @@ from typing import Tuple, Callable, Optional, TypeVar
 import numpy
 
 from ..model import Model
+from ..config import registry
 from ..types import Array
 
 
@@ -9,6 +10,7 @@ InT = TypeVar("InT", bound=Array)
 OutT = TypeVar("OutT", bound=Array)
 
 
+@registry.layers("uniqued.v0")
 def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
     """Group inputs to a layer, so that the layer only has to compute for the
     unique values. The data is transformed back before output, and the same

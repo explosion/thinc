@@ -2,6 +2,7 @@ from typing import Optional, List, Tuple, Callable, cast
 
 from ..model import Model
 from ..backends import Ops
+from ..config import registry
 from ..util import get_width
 from ..types import Array, RNNState, Floats2d
 from .recurrent import recurrent
@@ -15,6 +16,7 @@ from .with_list2padded import with_list2padded
 InT = List[Floats2d]
 
 
+@registry.layers("pytorch_bilstm.v0")
 def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     import torch.nn
     from .with_list2padded import with_list2padded
@@ -28,6 +30,7 @@ def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     return with_list2padded(PyTorchWrapper(pytorch_lstm))
 
 
+@registry.layers("bilstm.v0")
 def BiLSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
@@ -46,6 +49,7 @@ def BiLSTM(
     )
 
 
+@registry.layers("lstm.v0")
 def LSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

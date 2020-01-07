@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model, Array
+from ..config import registry
 from ..util import get_width
 
 
@@ -10,6 +11,7 @@ InT = Tuple[LayerT, LayerT]
 OutT = Array
 
 
+@registry.layers("siamese.v0")
 def siamese(
     layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
 ) -> Model[InT, OutT]:

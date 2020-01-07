@@ -3,11 +3,13 @@ from typing import Tuple, Callable, List, Optional
 from ..types import Array, Padded
 from ..model import Model
 from ..backends import Ops
+from ..config import registry
 
 
 InT = List[Array]
 
 
+@registry.layers("with_list2padded.v0")
 def with_list2padded(layer: Model) -> Model[InT, InT]:
     return Model(f"with_list2padded-{layer.name}", forward, init=init, layers=[layer])
 

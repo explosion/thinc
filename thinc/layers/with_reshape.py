@@ -1,12 +1,14 @@
 from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
+from ..config import registry
 from ..types import Floats3d, Floats2d
 
 
 InT = Floats3d
 
 
+@registry.layers("with_reshape.v0")
 def with_reshape(layer: Model[Floats2d, Floats2d]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(

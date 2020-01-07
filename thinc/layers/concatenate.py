@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
+from ..config import registry
 from ..types import Floats2d
 from ..util import get_width
 
@@ -9,6 +10,7 @@ InT = TypeVar("InT", bound=Floats2d)
 OutT = TypeVar("OutT", bound=Floats2d)
 
 
+@registry.layers("concatenate.v0")
 def concatenate(layers: List[Model]) -> Model[InT, OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.

@@ -1,6 +1,7 @@
 from typing import Optional, Callable, List, Tuple
 
 from ..model import Model
+from ..config import registry
 from ..types import Padded, RNNState
 
 
@@ -8,6 +9,7 @@ InT = Padded
 OutT = Padded
 
 
+@registry.layers("recurrent.v0")
 def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
     model: Model[Padded, Padded] = Model(
         step_model.name.replace("_step", ""),

@@ -1,11 +1,13 @@
 from typing import Tuple, Callable, TypeVar
 
 from ..model import Model
+from ..config import registry
 
 
 InOutT = TypeVar("InOutT")
 
 
+@registry.layers("noop.v0")
 def noop(*layers: Model) -> Model[InOutT, InOutT]:
     """Transform a sequences of layers into a null operation."""
     return Model("noop", forward, layers=layers)

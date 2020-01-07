@@ -1,6 +1,7 @@
 from typing import Callable, Tuple, Optional, cast
 
 from ..model import Model
+from ..config import registry
 from ..types import Ints2d, Floats2d
 from ..initializers import uniform_init
 
@@ -9,6 +10,7 @@ InT = Ints2d
 OutT = Floats2d
 
 
+@registry.layers("hash_embed.v0")
 def HashEmbed(
     nO: int,
     nV: int,

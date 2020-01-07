@@ -1,9 +1,12 @@
 from typing import Optional, Tuple
-from thinc.types import Floats2d
-from thinc.model import Model
-from thinc.util import get_width
+
+from ..types import Floats2d
+from ..model import Model
+from ..config import registry
+from ..util import get_width
 
 
+@registry.layers("multi_softmax.v0")
 def MultiSoftmax(out_sizes: Tuple[int, ...], nI: Optional[int] = None):
     """Neural network layer that predicts several multi-class attributes at once.
     For instance, we might predict one class with 6 variables, and another with 5.
