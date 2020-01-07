@@ -24,8 +24,8 @@ def test_init(model):
 
 
 def test_predict_bias(model):
-    input_ = model.ops.alloc((1, model.get_dim("nI")))
-    target_scores = model.ops.alloc((1, model.get_dim("nI")))
+    input_ = model.ops.alloc_f2d(1, model.get_dim("nI"))
+    target_scores = model.ops.alloc_f2d(1, model.get_dim("nI"))
     scores = model.predict(input_)
     assert_allclose(scores[0], target_scores[0])
 

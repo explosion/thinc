@@ -17,7 +17,7 @@ class Memory:
         if size < 0:
             raise ValueError(f"TODO error re negative size {size}")
         self.ops = ops
-        self._mem = self.ops.alloc((2, size))
+        self._mem = self.ops.alloc_f2d(2, size)
         self._offsets = {}
         self._sizes = {}
         self._i = 0

@@ -25,8 +25,7 @@ def cpu_ops():
 
 
 def test_hash_gives_distinct_keys(ops):
-    shape = (5,)
-    ids = ops.alloc(shape, dtype="uint64")
+    ids = ops.alloc_f1d(5, dtype="uint64")
     keys = ops.hash(ids, 0)
     assert keys.shape == (5, 4)
     assert keys.dtype == "uint32"

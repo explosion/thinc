@@ -53,5 +53,5 @@ def init(
         model.set_dim("nI", get_width(X))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
-    model.set_param("W", model.ops.alloc((nO, nI)))
-    model.set_param("b", model.ops.alloc((nO,)))
+    model.set_param("W", model.ops.alloc_f2d(nO, nI))
+    model.set_param("b", model.ops.alloc_f1d(nO))

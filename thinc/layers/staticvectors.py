@@ -47,7 +47,7 @@ def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> 
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
-    W = model.ops.alloc((model.get_dim("nO"), model.get_dim("nM")))
+    W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))
     model.set_param("W", W)
 
 

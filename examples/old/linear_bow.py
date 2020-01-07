@@ -7,7 +7,7 @@ import spacy
 def preprocess(ops, keys):
     lengths = ops.asarray([arr.shape[0] for arr in keys])
     keys = ops.xp.concatenate(keys)
-    vals = ops.alloc(keys.shape[0]) + 1
+    vals = ops.alloc_f1d(keys.shape[0]) + 1
     return keys, vals, lengths
 
 

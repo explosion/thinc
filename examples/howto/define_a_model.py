@@ -94,7 +94,7 @@ model = clone(Hidden(0.2), 5)
 # the transformation on the output.
 
 model = with_list2array(Linear(4, 2))
-Xs = [model.ops.alloc((10, 2), dtype="f")]
+Xs = [model.ops.alloc_f2d(10, 2, dtype="f")]
 Ys = model.predict(Xs)
 assert Ys[0].shape == (10, 4)
 
