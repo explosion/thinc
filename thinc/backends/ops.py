@@ -1,6 +1,6 @@
 from typing import Optional, List, Callable, Tuple, Sequence, Union
 
-from ..types import Xp, Array, Shape
+from ..types import Xp, Array, Shape, DTypes
 from ..util import copy_array, get_array_module
 
 
@@ -62,7 +62,7 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
+        self, X: Sequence[Array], dtype: Optional[DTypes] = None, pad: int = 0
     ) -> Array:
         if X is None or len(X) == 0:
             return self.allocate((0,), dtype=dtype or "f")
@@ -162,7 +162,7 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape: Shape, *, dtype: str = "float32") -> Array:
+    def allocate(self, shape: Shape, *, dtype: DTypes = "float32") -> Array:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
@@ -175,7 +175,7 @@ class Ops:
         self,
         data: Union[Array, Sequence[Array], Sequence[int]],
         *,
-        dtype: Optional[str] = None,
+        dtype: Optional[DTypes] = None,
     ) -> Array:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:

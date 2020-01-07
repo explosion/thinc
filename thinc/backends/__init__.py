@@ -4,13 +4,14 @@ import contextlib
 from .ops import Ops
 from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
+from ..types import Device
 from ..util import create_thread_local
 
 
 STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
 
 
-def get_ops(ops: Union[int, str]) -> Union[NumpyOps, CupyOps]:
+def get_ops(ops: Device) -> Union[NumpyOps, CupyOps]:
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
         return NumpyOps
     elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
@@ -20,7 +21,7 @@ def get_ops(ops: Union[int, str]) -> Union[NumpyOps, CupyOps]:
 
 
 @contextlib.contextmanager
-def use_device(device: Union[str, int]):
+def use_device(device: Device):
     """Change the device to execute on for the scope of the block."""
     current_ops = get_current_ops()
     if device == current_ops.device:

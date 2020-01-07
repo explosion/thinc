@@ -1,9 +1,14 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any
 from typing import Optional, List
-from enum import Enum
 import numpy
+import sys
 
+# Use typing_extensions for Python versions < 3.8
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 try:
     import cupy
@@ -15,16 +20,8 @@ except ImportError:
 
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
-
-
-class DTypes(str, Enum):
-    f = "f"
-    i = "i"
-    float32 = "float32"
-    int32 = "int32"
-    int64 = "int64"
-    uint32 = "uint32"
-    uint64 = "uint64"
+DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
+Device = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
 
 
 class Array(Sized, Container):
