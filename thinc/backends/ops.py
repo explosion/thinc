@@ -80,7 +80,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[Array]:
+    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[FloatsNd]:
         unflat = []
         pad = int(pad)
         for length in lengths:

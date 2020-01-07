@@ -132,12 +132,12 @@ def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
     ) -> Tuple[Floats2d, Floats2d]:
         d_cells = d_cells[:size]
         d_hiddens = d_hiddens[:size]
-        d_acts: FloatsNd = ops.allocate_nd(acts.shape)
-        d_prevcells: FloatsNd = ops.allocate_nd(prev_cells.shape)
+        d_acts: Floats2d = ops.allocate_nd(acts.shape)
+        d_prevcells: Floats2d = ops.allocate_nd(prev_cells.shape)
         ops.backprop_lstm(
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
         d_acts = d_acts.reshape((nB, nO * 4))
-        return cast(Tuple[Floats2d, Floats2d], (d_acts, d_prevcells))
+        return d_acts, d_prevcells
 
     return (new_cells, new_hiddens), backprop_gates

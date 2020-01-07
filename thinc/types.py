@@ -81,7 +81,7 @@ class Array(Generic[ArrayT], Sized, Container):
         ...
 
     # Shape manipulation
-    def reshape(self, shape: Shape, *, order: str = ...) -> ArrayT:
+    def reshape(self: ArrayT, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
     def transpose(self, axes: Shape) -> ArrayT:

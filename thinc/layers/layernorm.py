@@ -70,10 +70,7 @@ def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Call
 def _get_moments(ops: Ops, X: Floats2d) -> Tuple[Floats2d, Floats2d, Floats2d]:
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
-    return cast(
-        Tuple[Floats2d, Floats2d, Floats2d],
-        (ops.asarray([X.shape[1]], dtype="f"), mu, var),
-    )
+    return ops.asarray([X.shape[1]], dtype="f"), mu, var
 
 
 def _get_d_moments(
