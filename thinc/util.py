@@ -146,7 +146,7 @@ def minibatch(
 
 
 def evaluate_model_on_arrays(
-    model, inputs: Array, labels: Array, *, batch_size: int
+    model, inputs: Array, labels: Array, batch_size: int
 ) -> float:
     """Helper to evaluate accuracy of a model in the simplest cases, where
     there's one correct output class and the inputs are arrays. Not guaranteed
@@ -177,7 +177,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
 def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
     # From keras
     xp = get_array_module(Y)
-    if xp is cupy:
+    if xp is cupy:  # pragma: no cover
         Y = Y.get()
     Y = numpy.array(Y, dtype="int").ravel()
     if not n_classes:
@@ -224,7 +224,9 @@ def assert_tensorflow_installed() -> None:  # pragma: no cover
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
 
-def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
+def xp2torch(
+    xp_tensor: Array, requires_grad: bool = False
+) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
@@ -236,7 +238,7 @@ def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     return torch_tensor
 
 
-def torch2xp(torch_tensor: "torch.Tensor") -> Array:
+def torch2xp(torch_tensor: "torch.Tensor") -> Array:  # pragma: no cover
     """Convert a torch tensor to a numpy or cupy tensor."""
     if torch_tensor.is_cuda:
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
