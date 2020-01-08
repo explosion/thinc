@@ -12,6 +12,7 @@ from .util import to_categorical, get_width, get_array_module
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow
 from .backends import get_ops, set_current_ops, get_current_ops, use_device
 from .backends import Ops, CupyOps, NumpyOps
+from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, ReLu, Residual, Softmax, BiLSTM, LSTM
