@@ -1,28 +1,33 @@
 from typing import Callable, Tuple, Any
+
 from ..model import Model
-from ..shims import TensorflowShim
-from ..util import xp2tensorflow, tensorflow2xp
+from ..shims import TensorFlowShim
+from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..types import Array
 
 try:
     import tensorflow as tf
-    has_tensorflow = True
 except ImportError:
-    has_tensorflow = False
+    pass
 
 
-def TensorflowWrapper(tensorflow_model: Any) -> Model:
+InT = Array
+OutT = Array
+
+
+def TensorFlowWrapper(tensorflow_model: Any) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
-    To optimize the model, you'll need to create a Tensorflow optimizer and call
-    optimizer.apply_gradients after each batch
+    To optimize the model, you'll need to create a TensorFlow optimizer and call
+    optimizer.apply_gradients after each batch.
     """
-    assert has_tensorflow, "Tensorflow not found!"
-    assert isinstance(tensorflow_model, tf.keras.models.Model), \
-        "tensorflow_model must be an instance of tf.keras.models.Model"
-    return Model("tensorflow", forward, shims=[TensorflowShim(tensorflow_model)])
+    assert_tensorflow_installed()
+    if not isinstance(tensorflow_model, tf.keras.models.Model):
+        err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
+        raise ValueError(err)
+    return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Return the output of the wrapped TensorFlow model for the given input,
     along with a callback to handle the backward pass.
     """
@@ -31,14 +36,9 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y_tensorflow, tensorflow_backprop = tensorflow_model((X_tensorflow,), {}, is_train)
     Y = tensorflow2xp(Y_tensorflow)
 
-    def backprop(dY):
+    def backprop(dY: OutT) -> InT:
         dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train)
         dX_tensorflow = tensorflow_backprop((dY_tensorflow,), {})
-        # handling multiple inputs
-        if isinstance(dX_tensorflow, list):
-            dX_tensorflow = [tensorflow2xp(g) for g in dX_tensorflow]
-            return dX_tensorflow
-        else:
-            return tensorflow2xp(dX_tensorflow)
+        return tensorflow2xp(dX_tensorflow)
 
     return Y, backprop

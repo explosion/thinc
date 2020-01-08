@@ -1,10 +1,8 @@
 import contextlib
 from io import BytesIO
-import numpy as np
-from ..util import tensorflow2xp
+import numpy
 import itertools
 
-from .shim import Shim
 
 try:
     import cupy
@@ -13,24 +11,24 @@ except ImportError:
 
 try:
     import tensorflow as tf
-
-    has_tensorflow = True
 except ImportError:
-    has_tensorflow = False
+    pass
 
 try:
     import h5py
-
-    has_h5py = True
 except ImportError:
-    has_h5py = False
+    pass
 
 
-class TensorflowShim(Shim):
-    """Interface between a Tensorflow model and a Thinc Model. This container is
+from .shim import Shim
+from ..util import tensorflow2xp
+
+
+class TensorFlowShim(Shim):
+    """Interface between a TensorFlow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
 
-    reference for custom training:
+    Reference for custom training:
     https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
     """
 
@@ -121,11 +119,11 @@ class TensorflowShim(Shim):
         for k, v in params.items():
             if hasattr(k, "startswith") and k.startswith(key_prefix):
                 if cupy is None:
-                    assert isinstance(v, np.ndarray)
+                    assert isinstance(v, numpy.ndarray)
                 else:
                     if isinstance(v, cupy.core.core.ndarray):
                         v = cupy.asnumpy(v)
-                    assert isinstance(v, np.ndarray)
+                    assert isinstance(v, numpy.ndarray)
                 state_dict[k.replace(key_prefix, "")] = v
         if state_dict:
             backup = self._create_state_dict()
