@@ -20,6 +20,17 @@ try:
 except ImportError:
     has_torch = False
 
+try:
+    import tfdlpack
+    has_tfdlpack = True
+except ImportError:
+    has_tfdlpack = False
+
+try:
+    import tensorflow as tf
+    has_tensorflow = True
+except ImportError:
+    has_tensorflow = False
 
 from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
 
@@ -202,7 +213,14 @@ def get_width(
         err = "Cannot get width of object: has neither shape nor __getitem__"
         raise ValueError(err)
 
-
+def assert_tensorflow_is_installed():
+   if not has_tfdlpack:
+       msg = "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
+       raise ImportError(msg)
+   if not has_tfd:
+       msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
+      raise ImportError(msg)
+      
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
@@ -222,6 +240,37 @@ def torch2xp(torch_tensor: "torch.Tensor") -> Array:
         return torch_tensor.detach().numpy()
 
 
+def xp2tensorflow(xp_tensor: Array, requires_grad=False, as_variable=False):
+    """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
+    assert_tensorflow_is_installed()
+    if hasattr(xp_tensor, "toDlpack"):
+        tensorflow_tensor = tfdlpack.from_dlpack(xp_tensor.toDlpack())
+    else:
+        tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
+
+    if as_variable:
+        # tf.Variable() automatically puts in GPU if available.
+        # So we need to control it using the context manager
+        with tf.device(tensorflow_tensor.device):
+            tensorflow_tensor = tf.Variable(tensorflow_tensor, trainable=requires_grad)
+
+    if requires_grad is False and as_variable is False:
+        # tf.stop_gradient() automatically puts in GPU if available.
+        # So we need to control it using the context manager
+        with tf.device(tensorflow_tensor.device):
+            tensorflow_tensor = tf.stop_gradient(tensorflow_tensor)
+
+    return tensorflow_tensor
+
+
+def tensorflow2xp(tensorflow_tensor) -> Array:
+    """Convert a Tensorflow tensor to numpy or cupy tensor"""
+    assert_tensorflow_is_installed()
+    if "GPU" in tensorflow_tensor.device:
+        return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
+    else:
+        return tensorflow_tensor.numpy()
+
 __all__ = [
     "fix_random_seed",
     "create_thread_local",
@@ -238,4 +287,6 @@ __all__ = [
     "get_width",
     "xp2torch",
     "torch2xp",
+    "tensorflow2xp",
+    "xp2tensorflow"
 ]
