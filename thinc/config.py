@@ -1,4 +1,4 @@
-from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
+from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
@@ -103,10 +103,15 @@ class ConfigValidationError(ValueError):
         data = []
         for error in errors:
             err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
-            # appending element at the end so it doesn't matter if it's empty
-            data.append((err_loc, error.get("msg"), element))
+            if element:
+                err_loc = f"{element} -> {err_loc}"
+            data.append((err_loc, error.get("msg")))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
+
+
+ARGS_FIELD = "___args___"
+ARGS_FIELD_ALIAS = "A_R_G_S"  # user is unlikely going to use this
 
 
 class EmptySchema(BaseModel):
@@ -118,6 +123,8 @@ class EmptySchema(BaseModel):
 class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
+    # Underscore fields are not allowed in model, so use alias
+    alias_generator = lambda f: ARGS_FIELD if f == ARGS_FIELD_ALIAS else f
 
 
 class registry(object):
@@ -207,7 +214,9 @@ class registry(object):
             key_parent = f"{parent}.{key}".strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], _ = cls._fill(value, promise_schema, validate, parent=key_parent)
+                filled[key], _ = cls._fill(
+                    value, promise_schema, validate, parent=key_parent
+                )
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
@@ -215,7 +224,7 @@ class registry(object):
                 args, kwargs = cls.parse_args(filled[key])
                 try:
                     validation[key] = getter(*args, **kwargs)
-                except TypeError as err:
+                except Exception as err:
                     err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
@@ -233,7 +242,9 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key] = cls._fill(value, field_type, validate, parent=key_parent)
+                filled[key], validation[key] = cls._fill(
+                    value, field_type, validate, parent=key_parent
+                )
             else:
                 filled[key] = value
                 validation[key] = value
@@ -247,7 +258,7 @@ class registry(object):
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
-        validation.update(result.dict())
+        validation.update(result.dict(exclude={ARGS_FIELD_ALIAS}))
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
@@ -261,17 +272,16 @@ class registry(object):
         if not hasattr(obj, "keys"):
             return False
         id_keys = [k for k in obj.keys() if k.startswith("@")]
-        if len(id_keys) != 1:
-            return False
-        else:
+        if len(id_keys):
             return True
+        return False
 
     @classmethod
     def get_constructor(cls, obj: Dict[str, Any]) -> Callable:
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         if len(id_keys) != 1:
-            err = f"A block can only contain one function registry reference. Got: {id_keys}"
-            raise ValueError(err)
+            err_msg = f"A block can only contain one function registry reference. Got: {id_keys}"
+            raise ConfigValidationError(obj, [{"msg": err_msg}])
         else:
             key = id_keys[0]
             value = obj[key]
@@ -283,11 +293,11 @@ class registry(object):
         kwargs = {}
         for key, value in obj.items():
             if not key.startswith("@"):
-                if isinstance(key, int) or key.isdigit():
-                    args.append((int(key), value))
+                if key == ARGS_FIELD:
+                    args = value
                 else:
                     kwargs[key] = value
-        return [value for key, value in sorted(args)], kwargs
+        return args, kwargs
 
     @classmethod
     def make_promise_schema(cls, obj: Dict[str, Any]) -> Type[BaseModel]:
@@ -299,19 +309,18 @@ class registry(object):
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}
         for param in inspect.signature(func).parameters.values():
+            # If no annotation is specified assume it's anything
             annotation = param.annotation if param.annotation != param.empty else Any
             # If no default value is specified assume that it's required
-            if param.default != param.empty:
-                sig_args[param.name] = (annotation, param.default)
+            default = param.default if param.default != param.empty else ...
+            # Handle spread arguments and use their annotation as Sequence[whatever]
+            if param.kind == param.VAR_POSITIONAL:
+                spread_annot = Sequence[annotation]  # type: ignore
+                sig_args[ARGS_FIELD_ALIAS] = (spread_annot, default)
             else:
-                sig_args[param.name] = (annotation, ...)
+                sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
         return create_model("ArgModel", **sig_args)
-
-    @classmethod
-    def get_return_type(cls, obj: Dict[str, Any]):
-        func = cls.get_constructor(obj)
-        return inspect.signature(func).return_annotation
 
 
 __all__ = ["Config", "registry"]
