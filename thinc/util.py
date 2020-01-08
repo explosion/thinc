@@ -248,7 +248,7 @@ def torch2xp(torch_tensor: "torch.Tensor") -> Array:
         return torch_tensor.detach().numpy()
 
 
-def xp2tensorflow(xp_tensor: Array, requires_grad=False, as_variable=False):
+def xp2tensorflow(xp_tensor, requires_grad=False, as_variable=False):
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_is_installed()
     if hasattr(xp_tensor, "toDlpack"):
