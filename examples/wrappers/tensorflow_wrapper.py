@@ -1,18 +1,30 @@
-import ml_datasets
-import thinc
 import tensorflow as tf
+import ml_datasets
+import tqdm
 
+from thinc import prefer_gpu  # noqa: F401
+from thinc.optimizers import Adam
 from thinc.layers.tensorflow_wrapper import TensorFlowWrapper
-from tqdm import tqdm
+from thinc.util import get_shuffled_batches, evaluate_model_on_arrays
+from thinc.util import get_array_module, cupy
 
-try:
-    import cupy as xp
-    has_cupy = True
-except ImportError:
-    import numpy as xp
-    has_cupy = False
+# prefer_gpu()  # This causes the following error
+# File "tensorflow_wrapper.py", line 145, in <module>
+#     main()
+#   File "tensorflow_wrapper.py", line 71, in main
+#     thinc_model = TensorFlowWrapper(create_tf_model())
+#   File "/thinc/thinc/layers/tensorflow_wrapper.py", line 22, in TensorFlowWrapper
+#     return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
+#   File "/thinc/thinc/model.py", line 98, in __init__
+#     self.ops = ops if ops is not None else get_current_ops()
+# AttributeError: 'Model' object attribute 'ops' is read-only
 
-# Tensorflow Hogs the entire GPU so using with cupy will cause OOM errors
+if cupy is not None:
+    xp = get_array_module(cupy.array([1, 2, 3]))  # a sample array to get cupy module
+else:
+    xp = get_array_module()
+
+# Tensorflow hogs the entire GPU so using with cupy will cause OOM errors
 # Thus make the GPU memory to grow in Tensorflow
 gpus = tf.config.experimental.list_physical_devices('GPU')
 if gpus:
@@ -54,7 +66,7 @@ def main():
     epochs = 10
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
 
-    if has_cupy:
+    if cupy is not None:
         train_X = xp.asarray(train_X)
         train_Y = xp.asarray(train_Y)
         dev_X = xp.asarray(dev_X)
@@ -68,15 +80,14 @@ def main():
     thinc_model = TensorFlowWrapper(create_tf_model())
     # this prints the tensorflow model
     print(thinc_model.shims[0])
-    optimizer = thinc.optimizers.Adam(learn_rate=0.001)
+    optimizer = Adam(learn_rate=0.001)
 
     dev_predictions = thinc_model.predict(dev_X[:1000])
     dev_loss = categorical_crossentropy(y_pred=dev_predictions[:1000],
-                                        y_true=dev_Y[:1000]
-                                        )
-    dev_accuracy = thinc.util.evaluate_model_on_arrays(thinc_model, dev_X[:1000],
-                                                       dev_Y[:1000],
-                                                       batch_size=batch_size)
+                                        y_true=dev_Y[:1000])
+    dev_accuracy = evaluate_model_on_arrays(thinc_model, dev_X[:1000],
+                                            dev_Y[:1000],
+                                            batch_size=batch_size)
     print("\nInitial results on a subset of dev set. loss: {}, accuracy: {}\n".format(dev_loss, dev_accuracy))
     # Notice that inital loss is around 2.302 which = ln(0.1).
     # This ensures that our implementation of loss function is correct
@@ -88,20 +99,20 @@ def main():
     all_dev_accuracy = []
     for epoch in range(epochs):
         print("Epoch: {}/{}".format(epoch + 1, epochs))
-        train_generator = thinc.util.get_shuffled_batches(train_X, train_Y, batch_size=batch_size)
+        train_generator = get_shuffled_batches(train_X, train_Y, batch_size=batch_size)
         epoch_loss = []
         epoch_accuracy = []
-        for batch_x, batch_y in tqdm(train_generator, total=(len(train_X) // batch_size) + 1):
+        for batch_x, batch_y in tqdm.tqdm(train_generator, total=(len(train_X) // batch_size) + 1):
             predictions, backprop = thinc_model.begin_update(batch_x)
             loss = categorical_crossentropy(y_true=batch_y,
                                             y_pred=predictions
                                             )
-            accuracy = thinc.util.evaluate_model_on_arrays(thinc_model, batch_x,
-                                                           batch_y,
-                                                           batch_size=batch_size)
-            # reference https://deepnotes.io/softmax-crossentropy
+            accuracy = evaluate_model_on_arrays(thinc_model, batch_x,
+                                                batch_y,
+                                                batch_size=batch_size)
+            # reference: https://deepnotes.io/softmax-crossentropy
             dloss_dpred = predictions - batch_y
-            dX = backprop(dloss_dpred)
+            dX = backprop(dloss_dpred)  # noqa: F841
             thinc_model.finish_update(optimizer)
 
             epoch_loss.append(loss.mean())
@@ -118,9 +129,9 @@ def main():
         dev_loss = categorical_crossentropy(y_pred=dev_predictions,
                                             y_true=dev_Y[:1000]
                                             )
-        dev_accuracy = thinc.util.evaluate_model_on_arrays(thinc_model, dev_X[:1000],
-                                                           dev_Y[:1000],
-                                                           batch_size=batch_size)
+        dev_accuracy = evaluate_model_on_arrays(thinc_model, dev_X[:1000],
+                                                dev_Y[:1000],
+                                                batch_size=batch_size)
         all_dev_loss.append(dev_loss)
         all_dev_accuracy.append(accuracy)
         print("train_loss: {}, train_accuracy: {}, dev_loss: {}, dev_accuracy {}".format(mean_epoch_loss,
@@ -133,9 +144,9 @@ def main():
     dev_loss = categorical_crossentropy(y_pred=dev_predictions,
                                         y_true=dev_Y[:1000]
                                         )
-    dev_accuracy = thinc.util.evaluate_model_on_arrays(thinc_model, dev_X[:1000],
-                                                       dev_Y[:1000],
-                                                       batch_size=batch_size)
+    dev_accuracy = evaluate_model_on_arrays(thinc_model, dev_X[:1000],
+                                            dev_Y[:1000],
+                                            batch_size=batch_size)
     print("\nfinal results on a subset of dev set. loss: {}, accuracy: {}".format(dev_loss, dev_accuracy))
 
 
