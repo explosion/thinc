@@ -386,6 +386,10 @@ class NumpyArray(Array):
 
 
 class CupyArray(Array):
+    @property
+    def ptr(self):
+        ...
+
     def get(self) -> NumpyArray:
         ...
 
