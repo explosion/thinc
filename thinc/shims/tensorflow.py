@@ -13,12 +13,14 @@ except ImportError:
 
 try:
     import tensorflow as tf
+
     has_tensorflow = True
 except ImportError:
     has_tensorflow = False
 
 try:
     import h5py
+
     has_h5py = True
 except ImportError:
     has_h5py = False
@@ -31,6 +33,7 @@ class TensorFlowShim(Shim):
     reference for custom training:
     https://www.tensorflow.org/tutorials/customization/custom_training_walkthrough
     """
+
     def __str__(self):
         return str(self._model.summary())
 
@@ -62,33 +65,34 @@ class TensorFlowShim(Shim):
             else:
                 wrt_tensors = list(args[0])
             wrt_tensors.extend(self._model.trainable_variables)
-            all_gradients = tape.gradient(output, wrt_tensors,
-                                          output_gradients=d_args[0]
-                                          )
-            dX = all_gradients[:len(args)]
+            all_gradients = tape.gradient(
+                output, wrt_tensors, output_gradients=d_args[0]
+            )
+            dX = all_gradients[: len(args)]
             if len(dX) == 1:
                 dX = dX[0]
             self.grads_for_optimization = all_gradients[1:]
             return dX
+
         return output, backprop
 
     def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
-        self._optimizer.apply_gradients(zip(self.grads_for_optimization,
-                                        self._model.trainable_variables))
+        self._optimizer.apply_gradients(
+            zip(self.grads_for_optimization, self._model.trainable_variables)
+        )
         self._update_tensorflow_averages(optimizer)
 
     def _create_optimizer(self, sgd):
         if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = tf.keras.optimizers.Adam(learning_rate=sgd.alpha,
-                                                 beta_1=sgd.b1,
-                                                 beta_2=sgd.b2
-                                                 )
+            optimizer = tf.keras.optimizers.Adam(
+                learning_rate=sgd.alpha, beta_1=sgd.b1, beta_2=sgd.b2
+            )
         elif sgd.b2 == 0:
-            optimizer = tf.keras.optimizers.SGD(learning_rate=sgd.alpha,
-                                                momentum=sgd.b1
-                                                )
+            optimizer = tf.keras.optimizers.SGD(
+                learning_rate=sgd.alpha, momentum=sgd.b1
+            )
         else:
             raise NotImplementedError
         return optimizer
