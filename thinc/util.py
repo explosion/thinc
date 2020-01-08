@@ -216,7 +216,8 @@ def get_width(
         raise ValueError(err)
 
 
-def assert_tensorflow_is_installed():
+def assert_tensorflow_is_installed() -> None:
+    """Raise an ImportError if TensorFlow is not installed."""
     if not has_tfdlpack:
         msg = (
             "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
@@ -227,11 +228,20 @@ def assert_tensorflow_is_installed():
         raise ImportError(msg)
 
 
+def assert_torch_is_installed() -> None:
+    """Raise an ImportError if PyTorch is not installed."""
+    if not has_torch:
+        msg = (
+            "PyTorch support requires torch. Try 'pip install thinc[torch]'"
+        )
+        raise ImportError(msg)
+
+
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
         torch_tensor = torch.utils.dlpack.from_dlpack(
-            xp_tensor.toDlpack()
+            xp_tensor.toDlpack() # type: ignore
         )  # type: ignore
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
