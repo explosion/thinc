@@ -44,7 +44,7 @@ class Shim:
 
     @contextlib.contextmanager
     def use_params(self, params):
-        raise NotImplementedError
+        yield
 
     def to_gpu(self, device_num):
         raise NotImplementedError
