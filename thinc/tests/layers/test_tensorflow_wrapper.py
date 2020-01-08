@@ -125,10 +125,12 @@ def test_tensorflow_wrapper_use_params(
     assert predicted == answer
 
 
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_to_cpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
     model.to_cpu()
 
 
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_to_gpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
     # Raises while failing to import cupy
     with pytest.raises(ModuleNotFoundError):
