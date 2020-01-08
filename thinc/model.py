@@ -213,7 +213,9 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Unknown param: {name}")
         key = (self.id, name)
         if key not in self._mem:
-            raise KeyError(f"Parameter '{name}' as not been allocated yet")
+            raise KeyError(
+                f"Parameter '{name}' has not been allocated yet"
+            )
         return self._mem[key]
 
     def set_param(self, name: str, value: Optional[Array]) -> None:
@@ -258,7 +260,9 @@ class Model(Generic[InT, OutT]):
         grad_name = f"d_{name}"
         key = (self.id, grad_name)
         if key not in self._mem:
-            raise KeyError(f"Gradient '{grad_name}' as not been allocated yet")
+            raise KeyError(
+                f"Gradient '{grad_name}' has not been allocated yet"
+            )
         return self._mem[key]
 
     def set_grad(self, name: str, value: Array) -> None:
