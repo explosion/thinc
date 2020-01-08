@@ -18,7 +18,7 @@ from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, ReLu, Residual, Softmax, BiLSTM, LSTM
 from .layers import CauchySimilarity, ParametricAttention, PyTorchWrapper
 from .layers import SparseLinear, StaticVectors, PyTorchBiLSTM, FeatureExtractor
-from .layers import TensorflowWrapper
+from .layers import TensorFlowWrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
 from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
