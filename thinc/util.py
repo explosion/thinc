@@ -219,8 +219,9 @@ def assert_tensorflow_is_installed():
        raise ImportError(msg)
    if not has_tfd:
        msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
-      raise ImportError(msg)
+       raise ImportError(msg)
       
+
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
@@ -270,6 +271,7 @@ def tensorflow2xp(tensorflow_tensor) -> Array:
         return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
     else:
         return tensorflow_tensor.numpy()
+
 
 __all__ = [
     "fix_random_seed",
