@@ -1,5 +1,22 @@
-from thinc.layers.maxout import Maxout
-from thinc.layers.chain import chain
+import pytest
+import srsly
+from thinc.api import with_list2array, Linear, Maxout, chain
+
+
+@pytest.fixture
+def linear():
+    return Linear(5, 3)
+
+
+def test_pickle_with_flatten(linear):
+    Xs = [linear.ops.alloc_f2d(2, 3), linear.ops.alloc_f2d(4, 3)]
+    model = with_list2array(linear)
+    pickled = srsly.pickle_dumps(model)
+    loaded = srsly.pickle_loads(pickled)
+    Ys = loaded.predict(Xs)
+    assert len(Ys) == 2
+    assert Ys[0].shape == (Xs[0].shape[0], linear.get_dim("nO"))
+    assert Ys[1].shape == (Xs[1].shape[0], linear.get_dim("nO"))
 
 
 def test_simple_model_roundtrip_bytes():

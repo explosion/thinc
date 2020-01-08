@@ -1,5 +1,5 @@
 import numpy
-from thinc.layers.hashembed import HashEmbed
+from thinc.api import HashEmbed
 
 
 def test_init():

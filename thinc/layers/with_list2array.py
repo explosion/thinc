@@ -2,14 +2,14 @@ from typing import Tuple, Callable, List, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Array, FloatsNd
 
 
-InT = List[Array]
+InT = List[FloatsNd]
 
 
 @registry.layers("with_list2array.v0")
-def with_list2array(layer: Model, *, pad: int = 0) -> Model[InT, InT]:
+def with_list2array(layer: Model[Array, Array], *, pad: int = 0) -> Model[InT, InT]:
     return Model(
         f"with_list2array-{layer.name}",
         forward,

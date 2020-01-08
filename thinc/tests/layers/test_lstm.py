@@ -1,9 +1,17 @@
 import numpy
 import timeit
-from thinc.util import minibatch
-from thinc.backends import NumpyOps
-from thinc.layers.lstm import LSTM
+from thinc.api import minibatch, NumpyOps, LSTM
 import pytest
+
+
+@pytest.fixture(params=[1, 6])
+def nI(request):
+    return request.param
+
+
+@pytest.fixture(params=[1, 2, 7, 9])
+def nO(request):
+    return request.param
 
 
 def test_square_sequences():

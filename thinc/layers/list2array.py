@@ -11,9 +11,9 @@ OutT = Floats2d
 
 @registry.layers("list2array.v0")
 def list2array() -> Model[InT, OutT]:
-    """Transform sequences to ragged arrays if necessary. If sequences are
-    already ragged, do nothing. A ragged array is a tuple (data, lengths),
-    where data is the concatenated data.
+    """Transform sequences to ragged arrays if necessary and return the data
+    from the ragged array. If sequences are already ragged, do nothing. A
+    ragged array is a tuple (data, lengths), where data is the concatenated data.
     """
     return Model("list2array", forward)
 

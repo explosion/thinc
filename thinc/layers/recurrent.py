@@ -32,8 +32,8 @@ def init(
     if Xt is not None or Yt is not None:
         model.layers[0].initialize(X=Xt, Y=Yt)
     nO = model.get_dim("nO")
-    model.set_param("initial_cells", model.ops.allocate((nO,)))
-    model.set_param("initial_hiddens", model.ops.allocate((nO,)))
+    model.set_param("initial_cells", model.ops.alloc_f1d(nO))
+    model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))
 
 
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
@@ -44,7 +44,7 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     step_model: Model[RNNState, RNNState] = model.layers[0]
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
-    Y = model.ops.allocate((X.shape[0], X.shape[1], nO))
+    Y = model.ops.alloc_f3d(X.shape[0], X.shape[1], nO)
     backprops: List[Callable] = [lambda a: a] * X.shape[0]
     (cell, hidden) = _get_initial_state(model, X.shape[1], nO)
     for t in range(X.shape[0]):
@@ -59,10 +59,10 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
         dY = dYp.data
         size_at_t = dYp.size_at_t
         d_state = (
-            step_model.ops.allocate((dY.shape[1], nO)),
-            step_model.ops.allocate((dY.shape[1], nO)),
+            step_model.ops.alloc_f2d(dY.shape[1], nO),
+            step_model.ops.alloc_f2d(dY.shape[1], nO),
         )
-        dX = step_model.ops.allocate((dY.shape[0], dY.shape[1], nI))
+        dX = step_model.ops.alloc_f3d(dY.shape[0], dY.shape[1], nI)
         for t in range(dX.shape[0] - 1, -1, -1):
             n = size_at_t[t]
             assert backprops[t] is not None
@@ -75,8 +75,8 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
 
 
 def _get_initial_state(model, n, nO):
-    initial_cells = model.ops.allocate((n, nO))
-    initial_hiddens = model.ops.allocate((n, nO))
+    initial_cells = model.ops.alloc_f2d(n, nO)
+    initial_hiddens = model.ops.alloc_f2d(n, nO)
     initial_cells += model.get_param("initial_cells")
     initial_hiddens += model.get_param("initial_hiddens")
     return (initial_cells, initial_hiddens)

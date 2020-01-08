@@ -10,7 +10,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("softmax.v0")
+@registry.layers("Softmax.v0")
 def Softmax(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

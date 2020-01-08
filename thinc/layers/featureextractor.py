@@ -9,7 +9,7 @@ InT = List[Doc]
 OutT = List[Ints2d]
 
 
-@registry.layers("feature_extractor.v0")
+@registry.layers("FeatureExtractor.v0")
 def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:
     return Model("extract_features", forward, attrs={"columns": columns})
 
