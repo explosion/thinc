@@ -222,7 +222,7 @@ def assert_tensorflow_is_installed():
             "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
         )
         raise ImportError(msg)
-    if not has_tfd:
+    if not has_tensorflow:
         msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
         raise ImportError(msg)
 
