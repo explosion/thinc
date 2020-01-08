@@ -230,9 +230,8 @@ def assert_tensorflow_is_installed():
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
-        torch_tensor = torch.utils.dlpack.from_dlpack(
-            xp_tensor.toDlpack()
-        )  # type: ignore
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
+        torch_tensor = torch.utils.dlpack.from_dlpack(dlpack_tensor)
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
     if requires_grad:
