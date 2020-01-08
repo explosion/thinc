@@ -1,9 +1,6 @@
 import numpy
 import pytest
-from thinc.optimizers import SGD
-from thinc.backends import NumpyOps
-from thinc.util import to_categorical
-from thinc.layers.sparselinear import SparseLinear
+from thinc.api import SGD, NumpyOps, to_categorical, SparseLinear
 
 
 @pytest.fixture
@@ -13,7 +10,7 @@ def instances():
     values = numpy.ones(9, dtype="float32")
     X = (keys, values, lengths)
     y = numpy.asarray([0, 2], dtype="int32")
-    return X, to_categorical(y, nb_classes=3)
+    return X, to_categorical(y, n_classes=3)
 
 
 @pytest.fixture

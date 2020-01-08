@@ -1,8 +1,7 @@
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
-from thinc.backends import NumpyOps
-from thinc.layers.affine import Affine
+from thinc.api import NumpyOps, Linear
 
 
 def get_ops():
@@ -10,7 +9,7 @@ def get_ops():
 
 
 def get_model(W_values, b_values):
-    model = Affine(W_values.shape[0], W_values.shape[1], ops=NumpyOps())
+    model = Linear(W_values.shape[0], W_values.shape[1], ops=NumpyOps())
     model.initialize()
     model.set_param("W", W_values)
     model.set_param("b", b_values)
@@ -23,7 +22,7 @@ def get_output(input_, W_values, b_values):
 
 def get_input(nr_batch, nr_in):
     ops = NumpyOps()
-    return ops.allocate((nr_batch, nr_in))
+    return ops.alloc_f2d(nr_batch, nr_in)
 
 
 def lengths(lo=1, hi=10):

@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
-from typing import Generic, Sequence, Tuple, TypeVar, Type
+from typing import Generic, Sequence, Tuple, TypeVar
 import numpy
 import contextlib
 import srsly
@@ -28,8 +28,8 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
-        b = model.ops.allocate((model.get_dim("nO"),))
+        W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
+        b = model.ops.alloc_f1d(model.get_dim("nO"))
         if "W" in initializers:
             initializers["W"](W, inplace=True)
         if "b" in initializers:
@@ -72,6 +72,7 @@ class Model(Generic[InT, OutT]):
         "_dims",
         "_grads",
         "_attrs",
+        "_refs",
         "_layers",
         "_shims",
     ]
@@ -87,7 +88,8 @@ class Model(Generic[InT, OutT]):
         grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
-        attrs: Dict[str, object] = {},
+        attrs: Dict[str, Any] = {},
+        refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
     ):
         """Initialize a new model."""
@@ -99,6 +101,7 @@ class Model(Generic[InT, OutT]):
         self._mem = Memory(self.ops)
         self._dims = dict(dims)
         self._attrs = dict(attrs)
+        self._refs = dict(refs)
         self._layers = list(layers)
         self._shims = list(shims)
         self.__class__.global_id += 1
@@ -124,6 +127,31 @@ class Model(Generic[InT, OutT]):
     @property
     def shims(self) -> List[Shim]:
         return self._shims
+
+    @property
+    def param_names(self) -> Tuple[str, ...]:
+        """Get the names of registered parameter (including unset)."""
+        return tuple(self._params.keys())
+
+    @property
+    def grad_names(self) -> Tuple[str, ...]:
+        """Get the names of parameters with registered gradients (including unset)."""
+        return tuple([name for name in self.param_names if self.has_grad(name)])
+
+    @property
+    def dim_names(self) -> Tuple[str, ...]:
+        """Get the names of registered dimensions (including unset)."""
+        return tuple(self._dims.keys())
+
+    @property
+    def attr_names(self) -> Tuple[str, ...]:
+        """Get the names of attributes."""
+        return tuple(self._attrs.keys())
+
+    @property
+    def ref_names(self) -> Tuple[str, ...]:
+        """Get the names of registered node references (including unset)."""
+        return tuple(self._refs.keys())
 
     @classmethod
     @contextlib.contextmanager
@@ -152,7 +180,7 @@ class Model(Generic[InT, OutT]):
             return None
 
     def get_dim(self, name: str) -> int:
-        """Retrieve the value of a dimension of the given name, or None if unset."""
+        """Retrieve the value of a dimension of the given name."""
         if name not in self._dims:
             raise KeyError(f"Can't get dimension '{name}'")
         value = self._dims[name]
@@ -188,14 +216,17 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Parameter '{name}' as not been allocated yet")
         return self._mem[key]
 
-    def set_param(self, name: str, value: Array) -> None:
+    def set_param(self, name: str, value: Optional[Array]) -> None:
         """Set a weights parameter's value."""
-        key = (self.id, name)
-        if key not in self._mem:
-            self._mem.add(key, value.shape)
-        data = self._mem[(self.id, name)]
-        copy_array(dst=data, src=value)
-        self._params[name] = True
+        if value is None:
+            self._params[name] = None
+        else:
+            key = (self.id, name)
+            if key not in self._mem:
+                self._mem.add(key, value.shape)
+            data = self._mem[(self.id, name)]
+            copy_array(dst=data, src=value)
+            self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
         """Check whether the model has a gradient of the given name."""
@@ -233,8 +264,12 @@ class Model(Generic[InT, OutT]):
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
         grad_name = f"d_{name}"
-        data = self._mem[(self.id, grad_name)]
-        copy_array(dst=data, src=value)
+        key = (self.id, grad_name)
+        if key not in self._mem:
+            self.inc_grad(name, value)
+        else:
+            data = self._mem[key]
+            copy_array(dst=data, src=value)
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
@@ -249,6 +284,36 @@ class Model(Generic[InT, OutT]):
     def set_attr(self, name: str, value: Any) -> None:
         """Set the attribute to the given value."""
         self._attrs[name] = value
+
+    def has_ref(self, name: str) -> Optional[bool]:
+        """Check whether the model has a reference of a given name. If the
+        reference is registered but the value is unset, returns None.
+        """
+        if name not in self._refs:
+            return False
+        elif self._refs[name] is not None:
+            return True
+        else:
+            return None
+
+    def get_ref(self, name: str) -> "Model":
+        """Retrieve the value of a reference of the given name."""
+        if name not in self._refs:
+            raise KeyError(f"Can't get reference '{name}'")
+        value = self._refs[name]
+        if value is None:
+            raise ValueError(f"Cannot get reference '{name}': value unset.")
+        else:
+            return value
+
+    def set_ref(self, name: str, value: Optional["Model"]) -> None:
+        """Set a value for a reference."""
+        if value is None:
+            self._refs[name] = value
+        elif value in self.walk():
+            self._refs[name] = value
+        else:
+            raise ValueError("Cannot add reference to node not in tree.")
 
     def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
@@ -324,6 +389,23 @@ class Model(Generic[InT, OutT]):
             yield node
             queue.extend(node.layers)
 
+    def remove_node(self, node: "Model") -> None:
+        """Remove a node from all layers lists, and then update references.
+        References that no longer point to a node within the tree will be set
+        to `None`. For instance, let's say a node has its grandchild as a reference.
+        If the child is removed, the grandchild reference will be left dangling,
+        so will be set to None.
+        """
+        for child in list(self.walk()):
+            while node in child.layers:
+                child.layers.remove(node)
+        tree = set(self.walk())
+        for node in tree:
+            for name in node.ref_names:
+                ref = node.get_ref(name)
+                if ref is not None and ref not in tree:
+                    node.set_ref(name, None)
+
     def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
@@ -367,11 +449,11 @@ class Model(Generic[InT, OutT]):
                 copied.set_grad(name, self.get_grad(name))
         return copied
 
-    def to_gpu(self, device_num: int) -> None:
+    def to_gpu(self, gpu_id: int) -> None:
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
-        device = cupy.cuda.device.Device(device_num)
+        device = cupy.cuda.device.Device(gpu_id)
         device.use()
         for layer in self.walk():
             layer.ops = CupyOps()
@@ -399,6 +481,13 @@ class Model(Generic[InT, OutT]):
         """
         weights: List[Union[str, Dict[str, Any]]] = []
         nodes = list(self.walk())
+        # Serialize references by their index into the flattened tree.
+        # This is the main reason we can't accept out-of-tree references:
+        # we'd have no way to serialize/deserialize them.
+        node_to_i: Dict[Optional[Model], Optional[int]]
+        node_to_i = {node: i for i, node in enumerate(nodes)}
+        # We also need an entry 'None', as references can be set to None.
+        node_to_i[None] = None
         for i, layer in enumerate(nodes):
             # Separate attrs that need to be serialized/deserialized with
             # to_/from_bytes.
@@ -409,12 +498,16 @@ class Model(Generic[InT, OutT]):
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
+
+            refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
                     "params": [],
                     "obj_attrs": obj_attrs,
                     "flat_attrs": flat_attrs,
+                    "shims": [shim.to_bytes() for shim in layer.shims],
+                    "refs": refs,
                 }
             )
             for (id_, name), (start, row, shape) in layer._mem._offsets.items():
@@ -449,6 +542,13 @@ class Model(Generic[InT, OutT]):
                 layer.set_dim(dim, value)
             for param in data["params"]:
                 layer.set_param(param["name"], param["value"])
+            for i, shim_bytes in enumerate(data["shims"]):
+                layer.shims[i].from_bytes(shim_bytes)
+            for name, ref_i in data["refs"]:
+                if ref_i is None:
+                    layer.set_ref(name, None)
+                else:
+                    layer.set_ref(name, nodes[ref_i])
         return self
 
     def to_disk(self, path: Union[Path, str]) -> None:
@@ -551,3 +651,6 @@ class Model(Generic[InT, OutT]):
         if "|" not in self._thread_local.operators:
             raise TypeError("Undefined operator: |")
         return self._thread_local.operators["|"](self, other)
+
+
+__all__ = ["create_init", "Model"]

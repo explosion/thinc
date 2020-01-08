@@ -8,17 +8,22 @@ from libc.math cimport exp, sqrt
 from libc.stdlib cimport calloc, malloc, free
 import math
 
-from typing import Sequence, Dict, Optional, Union, Any
+from typing import Dict, Optional, Union, Any
 from collections import defaultdict
 import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
 from .util import get_array_module
-from ._registry import registry
+from .config import registry
 
 
 ctypedef float weight_t
+
+
+# We need to use the custom Generator type for schedules to work around pydantic
+# not supporting Iterator / Iterable
+ScheduleT = Generator
 
 
 SGD_DEFAULTS = {
@@ -52,7 +57,7 @@ def RAdam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         use_averages: bool = True,
-        schedules: Dict[str, Union[Sequence[float], Generator]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
         ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -85,7 +90,7 @@ def Adam(
         lookahead_k: int = 0,
         lookahead_alpha: float = 0.5,
         ops: Optional[Ops] = None,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -115,7 +120,7 @@ def SGD(
         grad_clip: float = SGD_DEFAULTS["grad_clip"],
         L2_is_weight_decay: bool = SGD_DEFAULTS["L2_is_weight_decay"],
         use_averages: bool = True,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -148,7 +153,7 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, Union[Sequence[float], Generator]]] = None,
+        schedules: Optional[Dict[str, ScheduleT]] = None,
         **_,
     ):
         """
@@ -242,7 +247,7 @@ class Optimizer(object):
         elif self.b1 > 0. and self.b2 > 0.:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b2 > 0.:
-            raise NotImplementedError
+            raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.alpha * gradient
         gradient.fill(0.)
@@ -250,20 +255,20 @@ class Optimizer(object):
             weights -= self.L2 * weights
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
             if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.slow_weights[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.averages[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
+            self.mom1[key] = self.ops.alloc_f1d(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.allocate(weights.size)
+            self.mom2[key] = self.ops.alloc_f1d(weights.size)
 
         # While we port from PyTorch
         p_data_fp32 = weights
@@ -333,16 +338,16 @@ class Optimizer(object):
     def _lookahead(self, weights, key):
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
             if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.allocate((weights.size,), dtype='float32')
+                self.slow_weights[key] = self.ops.alloc_f1d(weights.size, dtype='float32')
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
             weights[:] = slow
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         if key not in self.mom1:
-            self.mom1[key] = self.ops.allocate(weights.size)
+            self.mom1[key] = self.ops.alloc_f1d(weights.size)
         if key not in self.mom2:
-            self.mom2[key] = self.ops.allocate(weights.size)
+            self.mom2[key] = self.ops.alloc_f1d(weights.size)
         mom1 = self.mom1[key]
         mom2 = self.mom2[key]
         fix1 = 1.- (self.b1 ** nr_upd)
@@ -353,3 +358,6 @@ class Optimizer(object):
         cdef weight_t eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
+
+
+__all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

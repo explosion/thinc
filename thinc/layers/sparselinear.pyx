@@ -6,23 +6,22 @@ from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
 
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 
 from ..types import Array
 from ..model import Model
+from ..config import registry
 from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
 
-InputKeys = TypeVar("InputKeys", bound=Array)
-InputValues = TypeVar("InputValues", bound=Array)
-InputLengths = TypeVar("InputLengths", bound=Array)
-InputType = Tuple[InputKeys, InputValues, InputLengths]
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Tuple[Array, Array, Array]
+OutT = Array
 
 
-def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
-    model = Model(
+@registry.layers("SparseLinear.v0")
+def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
+    model: Model[InT, OutT] = Model(
         "sparse_linear",
         forward,
         init=init,
@@ -35,7 +34,7 @@ def SparseLinear(nO: Optional[Array] = None, length: int = 2 ** 18) -> Model:
     return model
 
 
-def forward(model, keys_values_lengths: InputType, is_train: bool = False) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
@@ -45,20 +44,20 @@ def forward(model, keys_values_lengths: InputType, is_train: bool = False) -> Tu
         return _begin_cpu_update(model, keys, values, lengths)
 
 
-def init(model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None) -> None:
+def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     length = model.get_dim("length")
-    model.set_param("W", model.ops.allocate((nO * length,), dtype="f"))
-    model.set_param("b", model.ops.allocate((nO,), dtype="f"))
+    model.set_param("W", model.ops.alloc((nO * length,), dtype="f"))
+    model.set_param("b", model.ops.alloc((nO,), dtype="f"))
 
 
-def _begin_gpu_update(model, keys, values, lengths):
+def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:
     xp = get_array_module(keys)
     scores_cpu, callback = _begin_cpu_update(model, keys.get(), values.get(), lengths.get())
 
-    def backprop_gpu_update(d_scores):
+    def backprop_gpu_update(d_scores: Array) -> Tuple[Array, Array, Array]:
         callback(d_scores.get())
         return (keys, values, lengths)
 
@@ -70,7 +69,7 @@ def _begin_cpu_update(model, uint64_t[::1] keys, float[::1] values, int32_t[::1]
     cdef int length = model.get_dim("length")
     cdef np.ndarray W = model.get_param("W")
     cdef np.ndarray b = model.get_param("b")
-    cdef np.ndarray scores = model.ops.allocate((len(lengths), nO))
+    cdef np.ndarray scores = model.ops.alloc((len(lengths), nO))
     scores += b
     set_scoresC(<float*>scores.data,
         &keys[0], &values[0], &lengths[0],
@@ -91,8 +90,8 @@ class _finish_linear_update:
     def __call__(self, float[:, ::1] d_scores):
         nO = self.model.get_dim("nO")
         length = self.model.get_dim("length")
-        cdef np.ndarray d_weights = self.model.ops.allocate((nO*length,))
-        cdef np.ndarray d_bias = self.model.ops.allocate((nO,))
+        cdef np.ndarray d_weights = self.model.ops.alloc((nO*length,))
+        cdef np.ndarray d_bias = self.model.ops.alloc((nO,))
         cdef uint64_t[::1] keys = self.keys
         cdef float[::1] values = self.values
         cdef int32_t[::1] lengths = self.lengths

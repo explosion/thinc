@@ -6,6 +6,7 @@ from .ops import Ops
 
 class Memory:
     """Serve parameters for a single process."""
+
     ops: Ops
     _mem: Array
     _offsets: Dict[Tuple[int, str], Tuple[int, int, Shape]]
@@ -16,7 +17,7 @@ class Memory:
         if size < 0:
             raise ValueError(f"TODO error re negative size {size}")
         self.ops = ops
-        self._mem = self.ops.allocate((2, size))
+        self._mem = self.ops.alloc_f2d(2, size)
         self._offsets = {}
         self._sizes = {}
         self._i = 0
@@ -37,7 +38,9 @@ class Memory:
         size = self._sizes[name]
         return self._mem[col, offset : offset + size].reshape(shape)
 
-    def get(self, name: Tuple[int, str], default: Optional[Array]=None) -> Optional[Array]:
+    def get(
+        self, name: Tuple[int, str], default: Optional[Array] = None
+    ) -> Optional[Array]:
         return self[name] if name in self._offsets else default
 
     def set(self, value: Array):
@@ -51,7 +54,9 @@ class Memory:
         blob = self._get_blob(size)
         return blob[0].reshape(shape)
 
-    def add_gradient(self, grad_name: Tuple[int, str], param_name: Tuple[int, str]) -> Array:
+    def add_gradient(
+        self, grad_name: Tuple[int, str], param_name: Tuple[int, str]
+    ) -> Array:
         assert grad_name not in self._offsets, "TODO: error"
         offset, _, shape = self._offsets[param_name]
         size = self._sizes[param_name]
@@ -68,6 +73,6 @@ class Memory:
         return blob
 
     def _realloc(self, new_size: int):
-        new_mem = self.ops.allocate((self._mem.shape[0], new_size))
+        new_mem = self.ops.alloc_f2d(self._mem.shape[0], new_size)
         new_mem[:, : self._i + 1] = self._mem[:, : self._i + 1]
         self._mem = new_mem

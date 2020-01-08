@@ -1,7 +1,7 @@
 import pytest
 from mock import MagicMock
 from numpy import ndarray
-from thinc.loss import categorical_crossentropy
+from thinc.api import categorical_crossentropy
 
 
 @pytest.mark.parametrize("shape,labels", [([100, 100, 100], [-1, -1, -1])])

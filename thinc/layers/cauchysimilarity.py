@@ -1,16 +1,17 @@
-from typing import Tuple, Callable, TypeVar, Optional
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
-from ..types import Array
+from ..config import registry
+from ..types import Floats1d, Floats2d
 from ..util import get_width
 
 
-InputValue = TypeVar("InputValue", bound=Array)
-InputType = Tuple[InputValue, InputValue]
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Tuple[Floats2d, Floats2d]
+OutT = Floats1d
 
 
-def CauchySimilarity(nI: Optional[int] = None) -> Model:
+@registry.layers("CauchySimilarity.v0")
+def CauchySimilarity(nI: Optional[int] = None) -> Model[InT, OutT]:
     """Compare input vectors according to the Cauchy similarity function proposed by
     Chen (2013). Primarily used within Siamese neural networks.
     """
@@ -23,7 +24,9 @@ def CauchySimilarity(nI: Optional[int] = None) -> Model:
     )
 
 
-def forward(model, X1_X2: InputType, is_train: bool = False) -> Tuple[Array, Callable]:
+def forward(
+    model: Model[InT, OutT], X1_X2: InT, is_train: bool
+) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
     W = model.get_param("W")
     diff = X1 - X2
@@ -31,7 +34,7 @@ def forward(model, X1_X2: InputType, is_train: bool = False) -> Tuple[Array, Cal
     total = (W * square_diff).sum(axis=1)
     sim, bp_sim = inverse(total)
 
-    def backprop(d_sim: OutputType) -> InputType:
+    def backprop(d_sim: OutT) -> InT:
         d_total = bp_sim(d_sim)
         d_total = d_total.reshape((-1, 1))
         model.inc_grad("W", (d_total * square_diff).sum(axis=0))
@@ -43,20 +46,20 @@ def forward(model, X1_X2: InputType, is_train: bool = False) -> Tuple[Array, Cal
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
-    W = model.ops.allocate((model.get_dim("nI"),))
+    W = model.ops.alloc_f1d(model.get_dim("nI"))
     W += 1
     model.set_param("W", W)
 
 
-def inverse(total: Array) -> Tuple[Array, Callable]:
+def inverse(total: Floats1d) -> Tuple[Floats1d, Callable]:
     inv = 1.0 / (1 + total)
 
-    def backward(d_inverse: Array) -> Array:
+    def backward(d_inverse: Floats1d) -> Floats1d:
         return d_inverse * (-1 / (total + 1) ** 2)
 
     return inv, backward

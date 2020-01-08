@@ -1,18 +1,14 @@
 from dataclasses import dataclass
-from typing import (
-    Union,
-    Tuple,
-    Callable,
-    Iterator,
-    Sized,
-    Container,
-    Any,
-    Optional,
-    List,
-)
-from enum import Enum
+from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
+from typing import Optional, List
 import numpy
+import sys
 
+# Use typing_extensions for Python versions < 3.8
+if sys.version_info < (3, 8):
+    from typing_extensions import Literal
+else:
+    from typing import Literal
 
 try:
     import cupy
@@ -22,24 +18,18 @@ except ImportError:
     xp = numpy
 
 
-# type: ignore
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
+DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
+DTypesFloat = Literal["f", "float32"]
+DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
+DeviceTypes = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
+ArrayT = TypeVar("ArrayT", bound="Array")
 
 
-class DTypes(str, Enum):
-    f = "f"
-    i = "i"
-    float32 = "float32"
-    int32 = "int32"
-    int64 = "int64"
-    uint32 = "uint32"
-    uint64 = "uint64"
-
-
-class Array(Sized, Container):
-    T: "Array"
-    base: Optional["Array"]
+class Array(Generic[ArrayT], Sized, Container):
+    T: ArrayT
+    base: Optional[ArrayT]
 
     @property
     def dtype(self) -> Any:
@@ -84,29 +74,29 @@ class Array(Sized, Container):
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def copy(self, order: str = ...) -> "Array":
+    def copy(self, order: str = ...) -> ArrayT:
         ...
 
     def fill(self, value: Any) -> None:
         ...
 
     # Shape manipulation
-    def reshape(self, shape: Shape, *, order: str = ...) -> "Array":
+    def reshape(self: ArrayT, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
-    def transpose(self, axes: Shape) -> "Array":
+    def transpose(self, axes: Shape) -> ArrayT:
         ...
 
-    def flatten(self, order: str = ...) -> "Array":
+    def flatten(self, order: str = ...) -> ArrayT:
         ...
 
-    def ravel(self, order: str = ...) -> "Array":
+    def ravel(self, order: str = ...) -> ArrayT:
         ...
 
-    def squeeze(self, axis: Union[int, Shape] = ...) -> "Array":
+    def squeeze(self, axis: Union[int, Shape] = ...) -> ArrayT:
         ...
 
     def __len__(self) -> int:
@@ -148,10 +138,10 @@ class Array(Sized, Container):
     def __repr__(self) -> str:
         ...
 
-    def __copy__(self: "Array", order: str = ...) -> "Array":
+    def __copy__(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
-    def __deepcopy__(self: "Array", memo: dict) -> "Array":
+    def __deepcopy__(self: ArrayT, memo: dict) -> ArrayT:
         ...
 
     def __lt__(self, other):
@@ -293,85 +283,85 @@ class Array(Sized, Container):
     def __rmatmul__(self, other):
         ...
 
-    def __neg__(self: "Array") -> "Array":
+    def __neg__(self: ArrayT) -> ArrayT:
         ...
 
-    def __pos__(self: "Array") -> "Array":
+    def __pos__(self: ArrayT) -> ArrayT:
         ...
 
-    def __abs__(self: "Array") -> "Array":
+    def __abs__(self: ArrayT) -> ArrayT:
         ...
 
-    def __invert__(self: "Array") -> "Array":
+    def __invert__(self: ArrayT) -> ArrayT:
         ...
 
-    def get(self) -> "Array":
+    def get(self) -> ArrayT:
         ...
 
     def all(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self, axis: int = -1, out: Optional[ArrayT] = None, keepdims: bool = False
+    ) -> ArrayT:
         ...
 
     def any(
-        self, axis: int = -1, out: Optional["Array"] = None, keepdims: bool = False
-    ) -> "Array":
+        self, axis: int = -1, out: Optional[ArrayT] = None, keepdims: bool = False
+    ) -> ArrayT:
         ...
 
-    def argmax(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmax(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def argmin(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def argmin(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def clip(self, a_min: Any, a_max: Any, out: Optional["Array"]) -> "Array":
+    def clip(self, a_min: Any, a_max: Any, out: Optional[ArrayT]) -> ArrayT:
         ...
 
     def cumsum(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
-    ) -> "Array":
+        out: Optional[ArrayT] = None,
+    ) -> ArrayT:
         ...
 
-    def max(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def max(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def mean(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def min(self, axis: int = -1, out: Optional["Array"] = None) -> "Array":
+    def min(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def nonzero(self) -> "Array":
+    def nonzero(self) -> ArrayT:
         ...
 
     def prod(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
-    def round(self, decimals: int = 0, out: Optional["Array"] = None) -> "Array":
+    def round(self, decimals: int = 0, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
     def sum(
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
     def tobytes(self, order: str = "C") -> bytes:
@@ -384,10 +374,10 @@ class Array(Sized, Container):
         self,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
-        out: Optional["Array"] = None,
+        out: Optional[ArrayT] = None,
         ddof: int = 0,
         keepdims: bool = False,
-    ) -> "Array":
+    ) -> ArrayT:
         ...
 
 
@@ -399,6 +389,9 @@ class CupyArray(Array):
     def get(self) -> NumpyArray:
         ...
 
+    def toDlpack(self) -> "CupyArray":
+        ...
+
 
 def validate_array(obj):
     if not isinstance(obj, xp.ndarray):
@@ -407,6 +400,7 @@ def validate_array(obj):
 
 
 def validate_array_dims(obj, expected_ndim):
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if expected_ndim is not None and obj.ndim != expected_ndim:
         err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
         raise ValueError(err)
@@ -414,6 +408,7 @@ def validate_array_dims(obj, expected_ndim):
 
 
 def validate_array_dtype(obj, expected_dtype):
+    obj = validate_array(obj)  # validate her to make sure it's an array
     if obj.dtype != expected_dtype:
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
@@ -422,7 +417,6 @@ def validate_array_dtype(obj, expected_dtype):
 
 def get_array_validators(*, ndim, dtype):
     return (
-        lambda v: validate_array(v),
         lambda v: validate_array_dims(v, ndim),
         lambda v: validate_array_dtype(v, dtype),
     )
@@ -518,6 +512,18 @@ class IntsNd(Array):
             yield validator
 
 
+# Union of all int/float array types
+ArrayTypesInt = Union[
+    Ints1d, Ints2d, Ints3d, Ints4d, IntsNd,
+]
+ArrayTypesFloat = Union[
+    Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd,
+]
+ArrayTypes = Union[
+    ArrayTypesFloat, ArrayTypesInt,
+]
+
+
 class Generator(Iterator):
     """Custom generator type. Used to annotate function arguments that accept
     generators so they can be validated by pydantic (which doesn't support
@@ -535,30 +541,28 @@ class Generator(Iterator):
         return v
 
 
-class NlpType:
-    # TODO:
-    vocab: "spacy.vocab.Vocab"  # type: ignore  # noqa: F821
-    pass
+class Doc(Sized, Container):
+    T: "Doc"
+    base: Optional["Doc"]
 
+    @property
+    def doc(self) -> "Doc":
+        ...
 
-class DocType:
-    # TODO:
-    # DocType = "spacy.tokens.Doc"  # type: ignore
-    doc: "DocType"
-    to_array: Callable
-    start: int
-    end: int
+    @property
+    def start(self) -> int:
+        ...
 
+    @property
+    def end(self) -> int:
+        ...
 
-class OpNames(str, Enum):
-    np = "numpy"
-    cpu = "cpu"
-    cp = "cupy"
-    gpu = "gpu"
+    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+        ...
 
 
 # This should probably become a dataclass too.
-RNN_State = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
+RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
 
 @dataclass
@@ -577,7 +581,3 @@ class Padded:
 
     data: Array
     size_at_t: Array
-
-
-
-

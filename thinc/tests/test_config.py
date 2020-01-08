@@ -1,65 +1,14 @@
 import pytest
-from typing import Iterable, Union, Sequence
+from typing import Iterable, Union, Sequence, Optional
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
-import thinc._registry
-from thinc._registry import ConfigValidationError
+import thinc.config
+from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.config import Config
-from thinc.optimizers import Adam  # noqa: F401
-from thinc.schedules import warmup_linear  # noqa: F401
+from thinc.api import Config
 
+from .util import make_tempdir
 
-class my_registry(thinc._registry.registry):
-    cats = catalogue.create("thinc", "tests", "cats", entry_points=False)
-
-
-class HelloIntsSchema(BaseModel):
-    hello: int
-    world: int
-
-    class Config:
-        extra = "forbid"
-
-
-class DefaultsSchema(BaseModel):
-    required: int
-    optional: str = "default value"
-
-    class Config:
-        extra = "forbid"
-
-
-class ComplexSchema(BaseModel):
-    outer_req: int
-    outer_opt: str = "default value"
-
-    level2_req: HelloIntsSchema
-    level2_opt: DefaultsSchema = DefaultsSchema(required=1)
-
-
-@my_registry.cats.register("catsie.v1")
-def catsie_v1(evil: StrictBool, cute: bool = True) -> str:
-    if evil:
-        return "scratch!"
-    else:
-        return "meow"
-
-
-@my_registry.cats.register("catsie.v2")
-def catsie_v2(evil: StrictBool, cute: bool = True, cute_level: int = 1) -> str:
-    if evil:
-        return "scratch!"
-    else:
-        if cute_level > 2:
-            return "meow <3"
-        return "meow"
-
-
-good_catsie = {"@cats": "catsie.v1", "evil": False, "cute": True}
-ok_catsie = {"@cats": "catsie.v1", "evil": False, "cute": False}
-bad_catsie = {"@cats": "catsie.v1", "evil": True, "cute": True}
-worst_catsie = {"@cats": "catsie.v1", "evil": True, "cute": False}
 
 EXAMPLE_CONFIG = """
 [DEFAULT]
@@ -112,7 +61,7 @@ window_size = 1
 @layers = "spacy.ParserLower.v1"
 
 [pipeline.parser.model.upper]
-@layers = "thinc.Affine.v1"
+@layers = "thinc.Linear.v1"
 """
 
 OPTIMIZER_CFG = """
@@ -128,6 +77,58 @@ initial_rate = 0.1
 warmup_steps = 10000
 total_steps = 100000
 """
+
+
+class my_registry(thinc.config.registry):
+    cats = catalogue.create("thinc", "tests", "cats", entry_points=False)
+
+
+class HelloIntsSchema(BaseModel):
+    hello: int
+    world: int
+
+    class Config:
+        extra = "forbid"
+
+
+class DefaultsSchema(BaseModel):
+    required: int
+    optional: str = "default value"
+
+    class Config:
+        extra = "forbid"
+
+
+class ComplexSchema(BaseModel):
+    outer_req: int
+    outer_opt: str = "default value"
+
+    level2_req: HelloIntsSchema
+    level2_opt: DefaultsSchema = DefaultsSchema(required=1)
+
+
+@my_registry.cats.register("catsie.v1")
+def catsie_v1(evil: StrictBool, cute: bool = True) -> str:
+    if evil:
+        return "scratch!"
+    else:
+        return "meow"
+
+
+@my_registry.cats.register("catsie.v2")
+def catsie_v2(evil: StrictBool, cute: bool = True, cute_level: int = 1) -> str:
+    if evil:
+        return "scratch!"
+    else:
+        if cute_level > 2:
+            return "meow <3"
+        return "meow"
+
+
+good_catsie = {"@cats": "catsie.v1", "evil": False, "cute": True}
+ok_catsie = {"@cats": "catsie.v1", "evil": False, "cute": False}
+bad_catsie = {"@cats": "catsie.v1", "evil": True, "cute": True}
+worst_catsie = {"@cats": "catsie.v1", "evil": True, "cute": False}
 
 
 def test_validate_simple_config():
@@ -174,6 +175,8 @@ def test_is_promise():
     assert my_registry.is_promise(good_catsie)
     assert not my_registry.is_promise({"hello": "world"})
     assert not my_registry.is_promise(1)
+    invalid = {"@complex": "complex.v1", "rate": 1.0, "@cats": "catsie.v1"}
+    assert my_registry.is_promise(invalid)
 
 
 def test_get_constructor():
@@ -227,6 +230,14 @@ def test_create_registry():
         my_registry.create("dogs")
 
 
+def test_registry_methods():
+    with pytest.raises(ValueError):
+        my_registry.get("dfkoofkds", "catsie.v1")
+    my_registry.cats.register("catsie.v123")(None)
+    with pytest.raises(ValueError):
+        my_registry.get("cats", "catsie.v123")
+
+
 def test_make_from_config_no_schema():
     config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": True}}}
     result = my_registry.make_from_config(config)
@@ -278,6 +289,24 @@ def test_optimizer_config():
 def test_config_to_str():
     cfg = Config().from_str(OPTIMIZER_CFG)
     assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+    cfg = Config({"optimizer": {"foo": "bar"}}).from_str(OPTIMIZER_CFG)
+    assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+
+
+def test_config_roundtrip_bytes():
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    cfg_bytes = cfg.to_bytes()
+    new_cfg = Config().from_bytes(cfg_bytes)
+    assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+
+
+def test_config_roundtrip_disk():
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    with make_tempdir() as path:
+        cfg_path = path / "config.cfg"
+        cfg.to_disk(cfg_path)
+        new_cfg = Config().from_disk(cfg_path)
+    assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
 
 
 def test_validation_custom_types():
@@ -304,6 +333,13 @@ def test_validation_custom_types():
     with pytest.raises(ConfigValidationError):
         # top-level object is promise
         my_registry.make_from_config(cfg)
+    with pytest.raises(ConfigValidationError):
+        # top-level object is promise
+        my_registry.fill_config(cfg)
+    cfg = {"@complex": "complex.v1", "rate": 1.0, "@cats": "catsie.v1"}
+    with pytest.raises(ConfigValidationError):
+        # two constructors
+        my_registry.make_from_config({"config": cfg})
 
 
 def test_validation_no_validate():
@@ -329,14 +365,43 @@ def test_validation_fill_defaults():
     assert result["two"]["cute_level"] == 1
 
 
+def test_make_config_positional_args():
+    @my_registry.cats("catsie.v567")
+    def catsie_567(*args: Optional[str], foo: str = "bar"):
+        assert args[0] == "^_^"
+        assert args[1] == "^(*.*)^"
+        assert foo == "baz"
+        return args[0]
+
+    args = ["^_^", "^(*.*)^"]
+    cfg = {"config": {"@cats": "catsie.v567", "foo": "baz", "___args___": args}}
+    filled_cfg = my_registry.make_from_config(cfg)
+    assert filled_cfg["config"] == "^_^"
+
+
+def test_make_config_positional_args_complex():
+    @my_registry.cats("catsie.v890")
+    def catsie_890(*args: Optional[Union[StrictBool, PositiveInt]]):
+        assert args[0] == 123
+        return args[0]
+
+    cfg = {"config": {"@cats": "catsie.v890", "___args___": [123, True, 1, False]}}
+    filled_cfg = my_registry.make_from_config(cfg)
+    assert filled_cfg["config"] == 123
+    cfg = {"config": {"@cats": "catsie.v890", "___args___": [123, "True"]}}
+    with pytest.raises(ConfigValidationError):
+        # "True" is not a valid boolean or positive int
+        my_registry.make_from_config(cfg)
+
+
 def test_validation_generators_iterable():
-    @thinc.registry.optimizers("test_optimizer.v1")
+    @my_registry.optimizers("test_optimizer.v1")
     def test_optimizer_v1(
         rate: float, schedule: Union[float, Sequence[float], Generator]
     ) -> None:
         return None
 
-    @thinc.registry.schedules("test_schedule.v1")
+    @my_registry.schedules("test_schedule.v1")
     def test_schedule_v1(some_value: float = 1.0) -> Iterable[float]:
         while True:
             yield some_value
@@ -354,9 +419,29 @@ def test_validation_generators_iterable():
 def test_validation_unset_type_hints():
     """Test that unset type hints are handled correctly (and treated as Any)."""
 
-    @thinc.registry.optimizers("test_optimizer.v2")
+    @my_registry.optimizers("test_optimizer.v2")
     def test_optimizer_v2(rate, steps: int = 10) -> None:
         return None
 
     config = {"test": {"@optimizers": "test_optimizer.v2", "rate": 0.1, "steps": 20}}
     my_registry.make_from_config(config)
+
+
+def test_validation_bad_function():
+    @my_registry.optimizers("bad.v1")
+    def bad() -> None:
+        raise ValueError("This is an error in the function")
+        return None
+
+    @my_registry.optimizers("good.v1")
+    def good() -> None:
+        return None
+
+    # Bad function
+    config = {"test": {"@optimizers": "bad.v1"}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(config)
+    # Bad function call
+    config = {"test": {"@optimizers": "good.v1", "invalid_arg": 1}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(config)

@@ -1,23 +1,24 @@
-from typing import Callable, TypeVar, Tuple
+from typing import Callable, Tuple
 
-from ..data import Ragged
 from ..model import Model
-from ..types import Array
+from ..config import registry
+from ..types import Array, Ragged
 
 
-InputType = TypeVar("InputType", bound=Ragged)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Ragged
+OutT = Array
 
 
-def SumPool() -> Model:
+@registry.layers("SumPool.v0")
+def SumPool() -> Model[InT, OutT]:
     return Model("sum_pool", forward)
 
 
-def forward(model: Model, Xr: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Y = model.ops.sum_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 
-    def backprop(dY: OutputType) -> InputType:
+    def backprop(dY: OutT) -> InT:
         return Ragged(model.ops.backprop_sum_pool(dY, lengths), lengths)
 
     return Y, backprop

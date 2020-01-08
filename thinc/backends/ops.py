@@ -1,6 +1,27 @@
-from typing import Optional, List, Callable, Tuple, Sequence
+from typing import Optional, List, Callable, Tuple, TypeVar, Sequence, Union, overload
 
-from ..types import Xp, Array, Shape
+from ..types import (
+    Xp,
+    Array,
+    Shape,
+    DTypes,
+    DTypesInt,
+    DTypesFloat,
+    Floats1d,
+    Floats2d,
+    Floats3d,
+    Floats4d,
+    FloatsNd,
+    Ints1d,
+    Ints2d,
+    Ints3d,
+    Ints4d,
+    IntsNd,
+    ArrayTypes,
+    ArrayTypesInt,
+    ArrayTypesFloat,
+    ArrayT,
+)
 from ..util import copy_array, get_array_module
 
 
@@ -12,7 +33,7 @@ class Ops:
         if xp is not None:
             self.xp = xp
 
-    def seq2col(self, seq: Array, nW: int) -> Array:
+    def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -22,28 +43,35 @@ class Ops:
         assert nW == 1
         B = seq.shape[0]
         I = seq.shape[1]
-        cols = self.allocate((B, (nW * 2 + 1), I))
+        cols: Floats3d = self.alloc_f3d(B, (nW * 2 + 1), I)
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
         cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
         return cols.reshape((B, I * (2 * nW + 1)))
 
-    def backprop_seq2col(self, dY: Array, nW: int) -> Array:
+    def backprop_seq2col(self, dY: ArrayT, nW: int) -> Array:
         # This is a test implementation that only supports nW=1
         assert nW == 1
         nF = nW * 2 + 1
         B = dY.shape[0]
         I = dY.shape[1] // nF
         # Having trouble getting the kernel to work...
-        dX = self.allocate((B, I))
+        dX = self.alloc_f2d(B, I)
         dY = dY.reshape((B, nF, I))
         dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
         dX += dY[:, nW]
         dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
         return dX
 
-    def gemm(self, x, y, out=None, trans1=False, trans2=False):
+    def gemm(
+        self,
+        x: Array,
+        y: Array,
+        out: Optional[Array] = None,
+        trans1: bool = False,
+        trans2: bool = False,
+    ) -> Array:
         if trans1:
             x = x.T
         if trans2:
@@ -55,10 +83,10 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[Array], dtype: Optional[str] = None, pad: int = 0
+        self, X: Sequence[Array], dtype: Optional[DTypes] = None, pad: int = 0
     ) -> Array:
         if X is None or len(X) == 0:
-            return self.allocate((0,), dtype=dtype or "f")
+            return self.alloc((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
         X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
@@ -73,7 +101,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[Array]:
+    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[FloatsNd]:
         unflat = []
         pad = int(pad)
         for length in lengths:
@@ -91,11 +119,11 @@ class Ops:
     def pad_sequences(
         self, seqs_in: Sequence[Array], pad_to: Optional[int] = None
     ) -> Tuple[Array, Callable]:
-        lengths = self.asarray([len(seq) for seq in seqs_in], dtype="i")
+        lengths: IntsNd = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
             pad_to = int(lengths.max())
-        arr = self.allocate(
+        arr: IntsNd = self.alloc(
             (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
         )
         for arr_i, seq in enumerate(seqs_in):
@@ -121,13 +149,13 @@ class Ops:
         lengths = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
-        arr = self.allocate((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
+        arr: FloatsNd = self.alloc((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
         extra_dims = tuple(range(2, len(arr.shape)))
         arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.allocate((nS,), dtype="i")
+        batch_size_at_t = self.alloc_i1d(nS, dtype="i")
         batch_size_at_t += 1
         i = len(lengths)
         for t in range(nS):
@@ -150,23 +178,86 @@ class Ops:
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
-            return self.allocate(shape)
+            return self.alloc(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def allocate(self, shape: Shape, dtype: str = "float32") -> Array:
+    def alloc_f1d(
+        self, d0: int, *, dtype: Optional[DTypesFloat] = "float32"
+    ) -> Floats1d:
+        return self.alloc((d0,), dtype=dtype)
+
+    def alloc_f2d(
+        self, d0: int, d1: int, *, dtype: Optional[DTypesFloat] = "float32"
+    ) -> Floats2d:
+        return self.alloc((d0, d1), dtype=dtype)
+
+    def alloc_f3d(
+        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesFloat] = "float32"
+    ) -> Floats3d:
+        return self.alloc((d0, d1, d2), dtype=dtype)
+
+    def alloc_f4d(
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        d3: int,
+        *,
+        dtype: Optional[DTypesFloat] = "float32",
+    ) -> Floats4d:
+        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+
+    def alloc_f(
+        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32",
+    ) -> ArrayTypesFloat:
+        return self.alloc(shape, dtype=dtype)
+
+    def alloc_i1d(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Ints1d:
+        return self.alloc((d0,), dtype=dtype)
+
+    def alloc_i2d(
+        self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
+    ) -> Ints2d:
+        return self.alloc((d0, d1), dtype=dtype)
+
+    def alloc_i3d(
+        self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
+    ) -> Ints3d:
+        return self.alloc((d0, d1, d2), dtype=dtype)
+
+    def alloc_i4d(
+        self,
+        d0: int,
+        d1: int,
+        d2: int,
+        d3: int,
+        *,
+        dtype: Optional[DTypesInt] = "int32",
+    ) -> Ints4d:
+        return self.alloc((d0, d1, d2, d3), dtype=dtype)
+
+    def alloc_i(
+        self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32"
+    ) -> ArrayTypesInt:
+        return self.alloc(shape, dtype=dtype)
+
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
-    # TODO: types
-    def unzip(self, data) -> Tuple[Array, Array]:
+    def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
-    # TODO: types
-    def asarray(self, data, dtype: Optional[str] = None) -> Array:
+    def asarray(
+        self,
+        data: Union[ArrayT, Sequence[ArrayT], Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = None,
+    ) -> ArrayT:
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -174,13 +265,13 @@ class Ops:
                 return self.xp.asarray(data)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
-            return data.numpy()
+            return data.numpy()  # type: ignore
         elif dtype is not None:
             return self.xp.array(data, dtype=dtype)
         else:
             return self.xp.array(data)
 
-    def sigmoid(self, X: Array, *, inplace=False) -> Array:
+    def sigmoid(self, X: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             self.xp.exp(-X, out=X)
             X += 1.0
@@ -189,14 +280,14 @@ class Ops:
         else:
             return 1.0 / (1.0 + self.xp.exp(-X))
 
-    def dsigmoid(self, Y: Array, *, inplace=False) -> Array:
+    def dsigmoid(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y *= 1 - Y
             return Y
         else:
             return Y * (1.0 - Y)
 
-    def dtanh(self, Y: Array, *, inplace=False) -> Array:
+    def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
             Y *= -1.0
@@ -217,7 +308,7 @@ class Ops:
             return new_x
 
     def softmax_sequences(
-        self, Xs, lengths: Array, inplace: bool = False, axis: int = -1
+        self, Xs: Array, lengths: Array, *, inplace: bool = False, axis: int = -1
     ) -> Array:
         if Xs.ndim >= 3:
             err = f"Softmax currently only supports 2d. Got: {Xs.ndim}"
@@ -233,59 +324,59 @@ class Ops:
         else:
             return new_x
 
-    def backprop_softmax(self, Y, dY, axis: int = -1):
+    def backprop_softmax(self, Y: Array, dY: Array, *, axis: int = -1) -> Array:
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
 
-    def backprop_softmax_sequences(self, dy, y, lengths):
+    def backprop_softmax_sequences(self, dy: Array, y: Array, lengths: Array) -> Array:
         dx = y * dy
         sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
         dx -= y * sumdx
         return dx
 
-    def clip_low(self, x, value, inplace: bool = False):
+    def clip_low(self, x: ArrayT, value: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             return self.xp.maximum(x, value, out=x)
         else:
             return self.xp.maximum(x, value)
 
-    def take_which(self, x, which, axis: int = -1):
-        output = self.allocate(which.shape)
+    def take_which(self, x: ArrayT, which: ArrayT, *, axis: int = -1) -> ArrayT:
+        output: ArrayT = self.alloc(which.shape)
         for i in range(x.shape[axis]):
             output += x[:, :, i] * (which == i)
         return output
 
-    def backprop_take(self, dX__bo, which__bo, nP):
-        dX__bop = self.allocate((dX__bo.shape[0], dX__bo.shape[1], nP))
+    def backprop_take(self, dX: Array, which: Array, nP: int) -> Array:
+        dX__bop = self.alloc_f3d(dX.shape[0], dX.shape[1], nP)
         for i in range(nP):
-            dX__bop[:, :, i] += dX__bo * (which__bo == i)
+            dX__bop[:, :, i] += dX * (which == i)
         return dX__bop
 
-    def lstm(self, output, cells, acts, prev):
+    # TODO: types
+    def lstm(self, output, cells, acts, prev) -> None:
         # Activations is: hf, hi, ho, hc
         self.sigmoid(acts[0], inplace=True)
         self.sigmoid(acts[1], inplace=True)
         self.sigmoid(acts[2], inplace=True)
         self.xp.tanh(acts[3], out=acts[3])
-
         cells[:] = acts[0]
         cells *= prev
         cells += acts[1] * acts[3]
         self.xp.tanh(cells, out=output)
         output *= acts[2]
 
-    def backprop_lstm(self, d_cells, d_prev, d_gates, d_output, gates, cells, prev):
+    # TODO: types
+    def backprop_lstm(
+        self, d_cells: Array, d_prev, d_gates, d_output, gates, cells, prev
+    ) -> None:
         (hf, hi, ho, hc) = (0, 1, 2, 3)
-
         cells_tanh = self.xp.tanh(cells)
-
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
         d_gates[ho] = cells_tanh
         d_gates[ho] *= d_output * self.dsigmoid(gates[ho])
         d_prevcells = gates[ho] * d_output * self.dtanh(cells_tanh)
         d_prevcells += d_cells  # Carry gradient from timestep
-
         # Gradient for hf, hi, hc, prev[i]
         # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
         d_gates[hf] = self.dsigmoid(gates[hf]) * d_prevcells * prev
@@ -295,7 +386,7 @@ class Ops:
         copy_array(d_cells, d_prevcells)
 
     def softplus(
-        self, X, threshold: float = 20.0, out: Optional[Array] = None
+        self, X: Array, threshold: float = 20.0, out: Optional[Array] = None
     ) -> Array:
         xp = get_array_module(X)
         log1p_exp = xp.log1p(xp.exp(X))
@@ -308,7 +399,7 @@ class Ops:
             return out
 
     def backprop_softplus(
-        self, dY, X, threshold: float = 20.0, out: Optional[Array] = None
+        self, dY: Array, X: Array, threshold: float = 20.0, out: Optional[Array] = None
     ) -> Array:
         xp = get_array_module(X)
         out_: Array
@@ -322,13 +413,17 @@ class Ops:
         out_[indices] = dY[indices]
         return out_
 
-    def mish(self, X, threshold=20.0, out=None):
+    def mish(
+        self, X: Array, threshold: float = 20.0, out: Optional[Array] = None
+    ) -> Array:
         Xsoft = self.softplus(X, threshold=threshold, out=out)
         Y = self.xp.tanh(Xsoft, out=out)
         Y *= X
         return Y
 
-    def backprop_mish(self, dY, X, threshold=20, out=None):
+    def backprop_mish(
+        self, dY: Array, X: Array, threshold: float = 20.0, out: Optional[Array] = None
+    ):
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
@@ -347,15 +442,27 @@ class Ops:
         out[indices] = dXsub
         return out
 
-    def update_averages(self, ema, weights, t, max_decay=0.9999):
+    def update_averages(
+        self, ema: Array, weights: Array, t: int, max_decay: float = 0.9999
+    ) -> None:
         decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
             decay = max_decay
         ema -= (1 - decay) * (ema - weights)
 
+    # TODO: types
     def adam(
-        self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
-    ):
+        self,
+        weights: Array,
+        gradient: Array,
+        mom1,
+        mom2,
+        beta1: float,
+        beta2: float,
+        eps: float,
+        learn_rate: float,
+        mod_rate: float = 1.0,
+    ) -> None:
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.0 - beta1)
@@ -365,19 +472,19 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
-    def clip_gradient(self, gradient, threshold):
+    def clip_gradient(self, gradient: Array, threshold: float) -> None:
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
-    def logloss(self, y_true, y_pred):
+    def logloss(self, y_true: Array, y_pred: Array) -> float:
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
 
     def sum_pool(self, X: Array, lengths: Array) -> Array:
-        Y = self.allocate((lengths.shape[0], X.shape[1]))
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].sum(axis=0)
@@ -385,39 +492,42 @@ class Ops:
         return Y
 
     def mean_pool(self, X: Array, lengths: Array) -> Array:
-        Y = self.allocate((lengths.shape[0], X.shape[1]))
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].mean(axis=0)
             start += length
         return Y
 
-    def max_pool(self, X, lengths):
-        Y = self.allocate((lengths.shape[0], X.shape[1]))
+    def max_pool(self, X: Array, lengths: Array) -> Array:
+        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y
 
-    def backprop_sum_pool(self, d_sums, lengths):
-        dX = self.allocate((lengths.sum(), d_sums.shape[1]))
+    # TODO: types
+    def backprop_sum_pool(self, d_sums: Array, lengths) -> Array:
+        dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_sums[i]
             start += length
         return dX
 
-    def backprop_mean_pool(self, d_means, lengths):
-        dX = self.allocate((lengths.sum(), d_means.shape[1]))
+    # TODO: types
+    def backprop_mean_pool(self, d_means: Array, lengths) -> Array:
+        dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_means[i] / length
             start += length
         return dX
 
-    def backprop_max_pool(self, d_maxes, which, lengths):
-        dX = self.allocate((lengths.sum(), d_maxes.shape[1]))
+    # TODO: types
+    def backprop_max_pool(self, d_maxes: Array, which: Array, lengths) -> Array:
+        dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length, which[i]] = d_maxes[i]

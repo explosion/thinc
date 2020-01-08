@@ -2,7 +2,7 @@ import pytest
 import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
-from thinc.backends import NumpyOps, CupyOps, Ops
+from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 
 from .. import strategies
 
@@ -25,8 +25,7 @@ def cpu_ops():
 
 
 def test_hash_gives_distinct_keys(ops):
-    shape = (5,)
-    ids = ops.allocate(shape, dtype="uint64")
+    ids = ops.alloc_f1d(5, dtype="uint64")
     keys = ops.hash(ids, 0)
     assert keys.shape == (5, 4)
     assert keys.dtype == "uint32"
@@ -184,20 +183,6 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.0001
 
 
-# @settings(max_examples=MAX_EXAMPLES)
-# @given(X=strategies.arrays_BI())
-# def test_softmax_sequence_sums_to_two(ops, X):
-#    X = ops.asarray(X)
-#    if ops.xp.abs(X).max() >= 30:
-#        return None
-#    half = X.shape[0] // 2
-#    if half >= 1:
-#        lengths = ops.asarray([half, X.shape[0] - half], dtype="i")
-#        y = ops.softmax_sequences(X, lengths)
-#        for col in y.sum(axis=0):
-#            assert 0.99999 <= col <= 2.0001, col
-
-
 @settings(max_examples=MAX_EXAMPLES)
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
@@ -207,39 +192,6 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-# @settings(max_examples=MAX_EXAMPLES)
-# @given(W_b_inputs=strategies.arrays_OI_O_BI())
-# def test_batch_dot_computes_correctly(cpu_ops, W_b_inputs):
-#    W, _, inputs = W_b_inputs
-#    y = cpu_ops.batch_dot(inputs, W)
-#    expected = numpy.tensordot(inputs, W, axes=[[1], [1]])
-#    assert_allclose(y, expected)
-
-
-# @settings(max_examples=MAX_EXAMPLES)
-# @given(arrays_BI_BO=strategies.arrays_BI_BO())
-# def test_batch_outer_computes_correctly(cpu_ops, arrays_BI_BO):
-#    bi, bo = arrays_BI_BO
-#    assert bi.shape[0] == bo.shape[0]
-#    assert len(bi.shape) == len(bo.shape) == 2
-#    expected = numpy.tensordot(bo, bi, axes=[[0], [0]])
-#    assert expected.shape == (bo.shape[1], bi.shape[1])
-#    oi = cpu_ops.batch_outer(bo, bi)
-#    assert_allclose(oi, expected)
-
-
-# @settings(max_examples=MAX_EXAMPLES)
-# @given(W_b_X=strategies.arrays_OI_O_BI())
-# def test_dot_computes_correctly(cpu_ops, W_b_X):
-#    W, b, X = W_b_X
-#    for x in X:
-#        expected = numpy.dot(W, x)
-#        y = cpu_ops.dot(W, x)
-#        assert_allclose(expected, y)
-#
-
-# @settings(max_examples=MAX_EXAMPLES)
-# @given(W_b_X=strategies.arrays_OI_O_BI())
 def test_gemm_computes_correctly(cpu_ops):
     W = numpy.zeros((3, 2), dtype="f")
     X = numpy.zeros((4, 2), dtype="f")
@@ -327,7 +279,7 @@ def test_softplus(ops, X):
 def test_backprop_softplus(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
-    zeros = ops.allocate(X.shape)
+    zeros = ops.alloc(X.shape)
     dX = ops.backprop_softplus(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()
@@ -347,7 +299,20 @@ def test_mish(ops, X):
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
-    zeros = ops.allocate(X.shape)
+    zeros = ops.alloc(X.shape)
     dX = ops.backprop_mish(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()
+
+
+def test_get_ops():
+    Ops = get_ops("numpy")
+    Ops is NumpyOps
+    Ops = get_ops("cpu")
+    assert Ops is NumpyOps
+    Ops = get_ops("cupy")
+    assert Ops is CupyOps
+    Ops = get_ops("gpu")
+    assert Ops is CupyOps
+    with pytest.raises(ValueError):
+        Ops = get_ops("blah")

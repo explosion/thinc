@@ -1,16 +1,27 @@
 import pytest
-from thinc.backends import NumpyOps, CupyOps
-from thinc.util import get_ops
+import numpy
+from thinc.api import get_width, Ragged, Padded
 
 
-def test_get_ops():
-    Ops = get_ops("numpy")
-    Ops is NumpyOps
-    Ops = get_ops("cpu")
-    assert Ops is NumpyOps
-    Ops = get_ops("cupy")
-    assert Ops is CupyOps
-    Ops = get_ops("gpu")
-    assert Ops is CupyOps
+@pytest.mark.parametrize(
+    "obj,width",
+    [
+        (numpy.zeros((1, 2, 3, 4)), 4),
+        (numpy.array(1), 0),
+        (numpy.array([1, 2]), 3),
+        ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
+        (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
+        (Padded(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
+        ([], 0),
+    ],
+)
+def test_get_width(obj, width):
+    assert get_width(obj) == width
+
+
+@pytest.mark.parametrize(
+    "obj", [1234, "foo", {"a": numpy.array(0)}],
+)
+def test_get_width_fail(obj):
     with pytest.raises(ValueError):
-        Ops = get_ops("blah")
+        get_width(obj)

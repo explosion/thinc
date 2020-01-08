@@ -1,4 +1,4 @@
-from thinc.schedules import decaying, compounding, slanted_triangular
+from thinc.api import decaying, compounding, slanted_triangular
 
 
 def test_decaying_rate():

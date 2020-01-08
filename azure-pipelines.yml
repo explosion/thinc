@@ -5,7 +5,6 @@ trigger:
     - '*'
 
 jobs:
-
 - job: 'Test'
   strategy:
     matrix:
@@ -47,6 +46,9 @@ jobs:
       python setup.py sdist --formats=gztar
     displayName: 'Build sdist'
 
+  - script: python -m mypy thinc
+    displayName: 'Run mypy'
+
   - task: DeleteFiles@1
     inputs:
       contents: 'thinc'
@@ -57,5 +59,8 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
-  - script: python -m pytest --pyargs thinc
+  - script: python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
+
+  - bash: bash <(curl -s https://codecov.io/bash)
+    displayName: 'Upload to codecov.io'

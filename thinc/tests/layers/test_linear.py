@@ -3,9 +3,7 @@ from mock import MagicMock
 from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
-from thinc.layers.affine import Affine
-from thinc.layers.chain import chain
-from thinc.layers.dropout import Dropout
+from thinc.api import Linear, chain, Dropout, SGD
 
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
@@ -13,19 +11,19 @@ from ..util import get_model, get_shape
 
 @pytest.fixture
 def model():
-    model = Affine()
+    model = Linear()
     return model
 
 
-def test_Affine_default_name(model):
-    assert model.name == "affine"
+def test_linear_default_name(model):
+    assert model.name == "linear"
 
 
-def test_Affine_dimensions_on_data():
+def test_linear_dimensions_on_data():
     X = MagicMock(shape=(5, 10))
     y = MagicMock(shape=(8,))
     y.max = MagicMock()
-    model = Affine()
+    model = Linear()
     model.initialize(X, y)
     assert model.get_dim("nI") is not None
     y.max.assert_called_with()
@@ -64,26 +62,12 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     assert seen_keys == {model.id}
 
 
-# def test_begin_update_not_batch():
-#    model = make_Affine(4, 5)
-#    input_ = model.ops.allocate((6,))
-#    with pytest.raises(ValueError):
-#        model.begin_update(input_)
-
-# @pytest.mark.skip
-# def test_predict_update_dim_mismatch():
-#    model = make_Affine(4, 5)
-#    input_ = model.ops.allocate((10, 9))
-#    with pytest.raises(ValueError):
-#        model.begin_update(input_)
-
-
 @settings(max_examples=100)
 @given(arrays_OI_O_BI(max_batch=8, max_out=8, max_in=8))
 def test_predict_small(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = Affine(nr_out, nr_in)
+    model = Linear(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 
@@ -104,7 +88,7 @@ def test_predict_small(W_b_input):
 def test_predict_extensive(W_b_input):
     W, b, input_ = W_b_input
     nr_out, nr_in = W.shape
-    model = Affine(nr_out, nr_in)
+    model = Linear(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
 
@@ -142,3 +126,108 @@ def test_dropout_gives_zero_gradients(W_b_input):
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)
     assert all(val == 0.0 for val in grad_BI.flatten())
+
+
+@pytest.fixture
+def model2():
+    model = Linear(2, 2)
+    return model
+
+
+def test_init(model2):
+    assert model2.get_dim("nO") == 2
+    assert model2.get_dim("nI") == 2
+    assert model2.get_param("W") is not None
+    assert model2.get_param("b") is not None
+
+
+def test_predict_bias(model2):
+    input_ = model2.ops.alloc_f2d(1, model2.get_dim("nI"))
+    target_scores = model2.ops.alloc_f2d(1, model2.get_dim("nI"))
+    scores = model2.predict(input_)
+    assert_allclose(scores[0], target_scores[0])
+    # Set bias for class 0
+    model2.get_param("b")[0] = 2.0
+    target_scores[0, 0] = 2.0
+    scores = model2.predict(input_)
+    assert_allclose(scores, target_scores)
+    # Set bias for class 1
+    model2.get_param("b")[1] = 5.0
+    target_scores[0, 1] = 5.0
+    scores = model2.predict(input_)
+    assert_allclose(scores, target_scores)
+
+
+@pytest.mark.parametrize(
+    "X,expected",
+    [
+        (numpy.asarray([0.0, 0.0], dtype="f"), [0.0, 0.0]),
+        (numpy.asarray([1.0, 0.0], dtype="f"), [1.0, 0.0]),
+        (numpy.asarray([0.0, 1.0], dtype="f"), [0.0, 1.0]),
+        (numpy.asarray([1.0, 1.0], dtype="f"), [1.0, 1.0]),
+    ],
+)
+def test_predict_weights(X, expected):
+    W = numpy.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
+    bias = numpy.asarray([0.0, 0.0], dtype="f")
+
+    model = Linear(W.shape[0], W.shape[1])
+    model.set_param("W", W)
+    model.set_param("b", bias)
+
+    scores = model.predict(X.reshape((1, -1)))
+    assert_allclose(scores.ravel(), expected)
+
+
+def test_update():
+    W = numpy.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
+    bias = numpy.asarray([0.0, 0.0], dtype="f")
+
+    model = Linear(2, 2)
+    model.set_param("W", W)
+    model.set_param("b", bias)
+    sgd = SGD(1.0, L2=0.0, ops=model.ops, grad_clip=0.0)
+    sgd.averages = None
+
+    ff = numpy.asarray([[0.0, 0.0]], dtype="f")
+    tf = numpy.asarray([[1.0, 0.0]], dtype="f")
+    ft = numpy.asarray([[0.0, 1.0]], dtype="f")  # noqa: F841
+    tt = numpy.asarray([[1.0, 1.0]], dtype="f")  # noqa: F841
+
+    # ff, i.e. 0, 0
+    scores, finish_update = model.begin_update(ff)
+    assert_allclose(scores[0, 0], scores[0, 1])
+    # Tell it the answer was 'f'
+    gradient = numpy.asarray([[-1.0, 0.0]], dtype="f")
+    finish_update(gradient)
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
+
+    b = model.get_param("b")
+    W = model.get_param("W")
+    assert b[0] == 1.0
+    assert b[1] == 0.0
+    # Unchanged -- input was zeros, so can't get gradient for weights.
+    assert W[0, 0] == 1.0
+    assert W[0, 1] == 0.0
+    assert W[1, 0] == 0.0
+    assert W[1, 1] == 1.0
+
+    # tf, i.e. 1, 0
+    scores, finish_update = model.begin_update(tf)
+    # Tell it the answer was 'T'
+    gradient = numpy.asarray([[0.0, -1.0]], dtype="f")
+    finish_update(gradient)
+    for key, (W, dW) in model.get_gradients().items():
+        sgd(W, dW, key=key)
+    b = model.get_param("b")
+    W = model.get_param("W")
+    assert b[0] == 1.0
+    assert b[1] == 1.0
+    # Gradient for weights should have been outer(gradient, input)
+    # so outer([0, -1.], [1., 0.])
+    # =  [[0., 0.], [-1., 0.]]
+    assert W[0, 0] == 1.0 - 0.0
+    assert W[0, 1] == 0.0 - 0.0
+    assert W[1, 0] == 0.0 - -1.0
+    assert W[1, 1] == 1.0 - 0.0

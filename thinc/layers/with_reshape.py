@@ -1,14 +1,15 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
-from ..types import Array
+from ..config import registry
+from ..types import Floats3d, Floats2d
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = Floats3d
 
 
-def with_reshape(layer: Model) -> Model:
+@registry.layers("with_reshape.v0")
+def with_reshape(layer: Model[Floats2d, Floats2d]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape-{layer.name}",
@@ -19,7 +20,7 @@ def with_reshape(layer: Model) -> Model:
     )
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
     layer = model.layers[0]
     initial_shape = X.shape
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
@@ -30,13 +31,26 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
     Y = Y2d.reshape(final_shape)
 
-    def backprop(dY: Array) -> Array:
-        dY = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
-        return Y2d_backprop(dY).reshape(initial_shape)
+    def backprop(dY: InT) -> InT:
+        reshaped: Floats3d = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
+        return Y2d_backprop(reshaped).reshape(initial_shape)
 
     return Y, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
-    # TODO: write
-    pass
+def init(
+    model: Model[InT, InT], X: Optional[Floats3d] = None, Y: Optional[Floats3d] = None
+) -> None:
+    layer = model.layers[0]
+    if X is None and Y is None:
+        layer.initialize()
+        return
+    X2d: Optional[Floats2d] = None
+    Y2d: Optional[Floats2d] = None
+    if X is not None:
+        X2d = X.reshape((-1, X.shape[-1]))
+    if Y is not None:
+        Y2d = Y.reshape((-1, Y.shape[-1]))
+    layer.initialize(X=X2d, Y=Y2d)
+    model.set_dim("nI", layer.get_dim("nI"))
+    model.set_dim("nO", layer.get_dim("nO"))

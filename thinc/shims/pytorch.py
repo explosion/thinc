@@ -1,8 +1,5 @@
 import contextlib
 from io import BytesIO
-from ..util import torch2xp, xp2torch
-
-from .shim import Shim
 
 try:
     import cupy
@@ -15,6 +12,10 @@ try:
     import torch
 except ImportError:
     has_torch = False
+
+
+from ..util import torch2xp, xp2torch
+from .shim import Shim
 
 
 class PyTorchShim(Shim):

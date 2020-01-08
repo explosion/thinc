@@ -1,15 +1,17 @@
 from typing import Tuple, Callable, List, Optional, TypeVar
 
 from ..model import Model
-from ..types import Array
+from ..config import registry
+from ..types import Floats2d
 from ..util import get_width
 
 
-InputType = TypeVar("InputType", bound=Array)
-OutputType = TypeVar("OutputType", bound=Array)
+InT = TypeVar("InT", bound=Floats2d)
+OutT = TypeVar("OutT", bound=Floats2d)
 
 
-def concatenate(layers: List[Model]) -> Model:
+@registry.layers("concatenate.v0")
+def concatenate(*layers: Model) -> Model[InT, OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
     """
@@ -19,13 +21,14 @@ def concatenate(layers: List[Model]) -> Model:
     return Model("concatenate", forward, init=init, dims={"nO": None, "nI": None})
 
 
-def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    axis: int = model.get_attr("axis")
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     widths = [Y.shape[1] for Y in Ys]
-    output = model.ops.xp.hstack(Ys)
+    output = model.ops.xp.hstack(Ys, axis=axis)
 
-    def backprop(d_output: OutputType) -> InputType:
-        dX = callbacks[0](d_output[: widths[0]])
+    def backprop(d_output: OutT) -> InT:
+        dX = callbacks[0](d_output[:, : widths[0]])
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dX += bwd(d_output[:, start : start + width])
@@ -36,7 +39,7 @@ def forward(model: Model, X: InputType, is_train: bool) -> Tuple[OutputType, Cal
 
 
 def init(
-    model: Model, X: Optional[InputType] = None, Y: Optional[OutputType] = None
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> None:
     if X is not None:
         X_width = get_width(X)

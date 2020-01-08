@@ -1,4 +1,4 @@
-from typing import Any, Optional, Tuple, Callable, Dict
+from typing import Any, Optional, Tuple, Callable, Dict, Union
 import contextlib
 from pathlib import Path
 
@@ -16,7 +16,6 @@ class Shim:
     """
 
     global_id = 0
-
     _model: Any
     _optimizer: Optional[Any]
 
@@ -28,7 +27,7 @@ class Shim:
 
     def __call__(
         self, args: Tuple, kwargs: Dict, is_train: bool
-    ) -> Tuple[Any, Callable[[Any], Any]]:
+    ) -> Tuple[Any, Callable[..., Any]]:
         raise NotImplementedError
 
     def predict(self, args: Tuple, kwargs: Dict) -> Any:
@@ -53,12 +52,12 @@ class Shim:
     def to_cpu(self):
         raise NotImplementedError
 
-    def to_disk(self, path):
+    def to_disk(self, path: Union[str, Path]):
         bytes_data = self.to_bytes()
         with Path(path).open("wb") as file_:
             file_.write(bytes_data)
 
-    def from_disk(self, path) -> "Shim":
+    def from_disk(self, path: Union[str, Path]) -> "Shim":
         with Path(path).open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
