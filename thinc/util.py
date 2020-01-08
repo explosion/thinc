@@ -216,15 +216,12 @@ def get_width(
         raise ValueError(err)
 
 
-def assert_tensorflow_is_installed():
+def assert_tensorflow_installed() -> None:  # pragma: no cover
+    template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
     if not has_tfdlpack:
-        msg = (
-            "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
-        )
-        raise ImportError(msg)
+        raise ImportError(template.format(pkg="tfdlpack"))
     if not has_tensorflow:
-        msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
-        raise ImportError(msg)
+        raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
 
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
@@ -247,32 +244,32 @@ def torch2xp(torch_tensor: "torch.Tensor") -> Array:
         return torch_tensor.detach().numpy()
 
 
-def xp2tensorflow(xp_tensor, requires_grad=False, as_variable=False):
+def xp2tensorflow(
+    xp_tensor: Array, requires_grad: bool = False, as_variable: bool = False
+) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
-    assert_tensorflow_is_installed()
+    assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
-        tensorflow_tensor = tfdlpack.from_dlpack(xp_tensor.toDlpack())
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
+        tensorflow_tensor = tfdlpack.from_dlpack(dlpack_tensor)
     else:
         tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
-
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
         with tf.device(tensorflow_tensor.device):
             tensorflow_tensor = tf.Variable(tensorflow_tensor, trainable=requires_grad)
-
     if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
         with tf.device(tensorflow_tensor.device):
             tensorflow_tensor = tf.stop_gradient(tensorflow_tensor)
-
     return tensorflow_tensor
 
 
-def tensorflow2xp(tensorflow_tensor) -> Array:
-    """Convert a Tensorflow tensor to numpy or cupy tensor"""
-    assert_tensorflow_is_installed()
+def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
+    """Convert a Tensorflow tensor to numpy or cupy tensor."""
+    assert_tensorflow_installed()
     if "GPU" in tensorflow_tensor.device:
         return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
     else:
