@@ -7,7 +7,8 @@ from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
 from .types import Ragged, Padded
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
-from .util import prefer_gpu, get_shuffled_batches, minibatch, evaluate_model_on_arrays
+from .util import prefer_gpu, require_gpu
+from .util import get_shuffled_batches, minibatch, evaluate_model_on_arrays
 from .util import to_categorical, get_width, get_array_module
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow
 from .backends import get_ops, set_current_ops, get_current_ops, use_device
