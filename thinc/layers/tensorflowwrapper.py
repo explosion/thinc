@@ -11,11 +11,7 @@ except ImportError:
     pass
 
 
-InT = Array
-OutT = Array
-
-
-def TensorFlowWrapper(tensorflow_model: Any) -> Model[InT, OutT]:
+def TensorFlowWrapper(tensorflow_model: Any) -> Model:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
     optimizer.apply_gradients after each batch.
@@ -27,7 +23,7 @@ def TensorFlowWrapper(tensorflow_model: Any) -> Model[InT, OutT]:
     return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     """Return the output of the wrapped TensorFlow model for the given input,
     along with a callback to handle the backward pass.
     """
@@ -36,7 +32,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     Y_tensorflow, tensorflow_backprop = tensorflow_model((X_tensorflow,), {}, is_train)
     Y = tensorflow2xp(Y_tensorflow)
 
-    def backprop(dY: OutT) -> InT:
+    def backprop(dY: Array) -> Array:
         dY_tensorflow = xp2tensorflow(dY, requires_grad=is_train)
         dX_tensorflow = tensorflow_backprop((dY_tensorflow,), {})
         return tensorflow2xp(dX_tensorflow)

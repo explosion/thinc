@@ -219,8 +219,11 @@ def get_width(
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
-    if not has_tfdlpack:
-        raise ImportError(template.format(pkg="tfdlpack"))
+    # TODO: This package doesn't install on py36, and it doesn't look
+    #       to actually be required? Should we have a more specific 
+    #       set of conditions for this error?
+    # if not has_tfdlpack:
+    #     raise ImportError(template.format(pkg="tfdlpack"))
     if not has_tensorflow:
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
@@ -258,7 +261,7 @@ def xp2tensorflow(
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
-    if hasattr(xp_tensor, "toDlpack"):
+    if hasattr(xp_tensor, "toDlpack") and has_tfdlpack:
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tensorflow_tensor = tfdlpack.from_dlpack(dlpack_tensor)
     else:
@@ -279,7 +282,7 @@ def xp2tensorflow(
 def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
-    if "GPU" in tensorflow_tensor.device:
+    if "GPU" in tensorflow_tensor.device and has_tfdlpack:
         return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
     else:
         return tensorflow_tensor.numpy()
