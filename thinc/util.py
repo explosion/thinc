@@ -260,7 +260,7 @@ def xp2tensorflow(
     xp_tensor: Array, requires_grad: bool = False, as_variable: bool = False
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
-    assert_tensorflow_installed()
+    assert_tensorflow_is_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tensorflow_tensor = tfdlpack.from_dlpack(dlpack_tensor)
@@ -281,7 +281,7 @@ def xp2tensorflow(
 
 def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
-    assert_tensorflow_installed()
+    assert_tensorflow_is_installed()
     if "GPU" in tensorflow_tensor.device:
         return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
     else:
