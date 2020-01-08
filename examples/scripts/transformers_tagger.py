@@ -1,9 +1,30 @@
 import typer
+from typing import *
 from pathlib import Path
 import thinc.api
 
 
 CONFIG = """
+[common]
+starter = "albert"
+
+[training]
+batch_size = 128
+n_epoch = 10
+
+[model]
+@layers = "output_layer_example.v0"
+
+[model.tokenizer]
+@layers = "transformers_tokenizer.v0"
+name = ${common:starter}
+
+[model.transformer]
+@layers = "transformers_model.v0"
+name = ${common:starter}
+
+[model.output_layer]
+@layers = "output_layer.v0"
 
 """
 
@@ -45,7 +66,8 @@ def transformer_tagger_example(tokenizer, transformer, output_layer):
     )
 
 
-def load_config(path: Optional[Path]): from thinc.api import Config, registry
+def load_config(path: Optional[Path]):
+    from thinc.api import Config, registry
     if path is None:
         config = Config().from_str(CONFIG)
     else:
@@ -57,6 +79,7 @@ def load_config(path: Optional[Path]): from thinc.api import Config, registry
     # functions as well, and build up trees of objects.
     return registry.make_from_config(config)
  
+
 def load_data():
     from thinc.api import to_categorical
     train_data, check_data, nr_class = ml_datasets.ud_ancora_pos_tags()
@@ -69,6 +92,8 @@ def load_data():
 
 
 def main(path: Path=None):
+    thinc.api.require_gpu()
+    thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
     model = C["model"]
     optimizer = C["optimizer"]
