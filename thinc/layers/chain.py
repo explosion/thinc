@@ -15,6 +15,7 @@ OutT = TypeVar("OutT")
 def chain(*layers: Model) -> Model[InT, OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
+    Also supports chaining more than 2 layers.
     """
     if not layers:
         return cast(Model[InT, OutT], noop())
@@ -24,8 +25,8 @@ def chain(*layers: Model) -> Model[InT, OutT]:
         layers[0].layers.extend(layers[1:])
         return layers[0]
     # Set type constraints for layers
-    layer0: Model[InT, Any] = layers[0]  # noqa: F841
-    layer1: Model[Any, OutT] = layers[-1]  # noqa: F841
+    first_layer: Model[InT, Any] = layers[0]  # noqa: F841
+    last_layer: Model[Any, OutT] = layers[-1]  # noqa: F841
     model: Model[InT, OutT] = Model(
         ">>".join(layer.name for layer in layers),
         forward,

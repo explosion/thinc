@@ -10,7 +10,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("linear.v0")
+@registry.layers("Linear.v0")
 def Linear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Array
 
 
-@registry.layers("sum_pool.v0")
+@registry.layers("SumPool.v0")
 def SumPool() -> Model[InT, OutT]:
     return Model("sum_pool", forward)
 

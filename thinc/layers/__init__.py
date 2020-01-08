@@ -3,16 +3,22 @@ from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .extractwindow import ExtractWindow
+from .featureextractor import FeatureExtractor
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
 from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
+from .parametricattention import ParametricAttention
+from .pytorchwrapper import PyTorchWrapper
 from .relu import ReLu
 from .residual import Residual
 from .softmax import Softmax
-from .lstm import BiLSTM, LSTM
+from .sparselinear import SparseLinear
+from .staticvectors import StaticVectors
+from .lstm import BiLSTM, LSTM, PyTorchBiLSTM
+from .tensorflowwrapper import TensorflowWrapper
 
 # Combinators
 from .add import add
@@ -38,9 +44,11 @@ from .ragged2list import ragged2list
 from .with_list2array import with_list2array
 from .with_list2padded import with_list2padded
 from .with_reshape import with_reshape
+from .with_getitem import with_getitem
 
 
 __all__ = [
+    "CauchySimilarity",
     "Linear",
     "Dropout",
     "Embed",
@@ -50,11 +58,17 @@ __all__ = [
     "Maxout",
     "Mish",
     "MultiSoftmax",
+    "ParametricAttention",
+    "PyTorchWrapper",
     "ReLu",
     "Residual",
     "Softmax",
+    "SparseLinear",
+    "StaticVectors",
     "BiLSTM",
     "LSTM",
+    "PyTorchBiLSTM",
+    "TensorflowWrapper",
     "add",
     "bidirectional",
     "chain",
@@ -74,4 +88,5 @@ __all__ = [
     "with_list2array",
     "with_list2padded",
     "with_reshape",
+    "with_getitem",
 ]

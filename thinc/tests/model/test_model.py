@@ -3,9 +3,7 @@ import os
 import pytest
 import threading
 import time
-from thinc.layers import Linear
-from thinc.backends import NumpyOps, get_current_ops, use_device
-from thinc.model import Model
+from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model
 
 
 @pytest.fixture
@@ -45,8 +43,8 @@ def test_param_names():
 def test_grad_names():
     model = create_model("tmp")
     assert model.grad_names == tuple()
-    model.set_param("param1", model.ops.allocate((4, 4)))
-    model.set_grad("param1", model.ops.allocate((4, 4)) + 1)
+    model.set_param("param1", model.ops.alloc_f2d(4, 4))
+    model.set_grad("param1", model.ops.alloc_f2d(4, 4) + 1)
     assert model.grad_names == ("param1",)
 
 

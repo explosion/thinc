@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..config import registry
@@ -32,8 +32,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     Y = Y2d.reshape(final_shape)
 
     def backprop(dY: InT) -> InT:
-        dY = cast(Floats3d, dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32))
-        return Y2d_backprop(dY).reshape(initial_shape)
+        reshaped: Floats3d = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
+        return Y2d_backprop(reshaped).reshape(initial_shape)
 
     return Y, backprop
 
@@ -48,9 +48,9 @@ def init(
     X2d: Optional[Floats2d] = None
     Y2d: Optional[Floats2d] = None
     if X is not None:
-        X2d = cast(Floats2d, X.reshape((-1, X.shape[-1])))
+        X2d = X.reshape((-1, X.shape[-1]))
     if Y is not None:
-        Y2d = cast(Floats2d, Y.reshape((-1, Y.shape[-1])))
+        Y2d = Y.reshape((-1, Y.shape[-1]))
     layer.initialize(X=X2d, Y=Y2d)
     model.set_dim("nI", layer.get_dim("nI"))
     model.set_dim("nO", layer.get_dim("nO"))

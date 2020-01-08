@@ -1,4 +1,15 @@
+import contextlib
+from pathlib import Path
+import tempfile
+import shutil
 from thinc.layers import Linear
+
+
+@contextlib.contextmanager
+def make_tempdir():
+    d = Path(tempfile.mkdtemp())
+    yield d
+    shutil.rmtree(str(d))
 
 
 def get_model(W_b_input, cls=Linear):

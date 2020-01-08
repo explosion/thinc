@@ -1,11 +1,6 @@
 import pytest
-from thinc.model import Model
-from thinc.layers.relu import ReLu
-from thinc.layers.softmax import Softmax
-from thinc.layers.chain import chain
-from thinc.layers.clone import clone
-from thinc.util import get_shuffled_batches, evaluate_model_on_arrays
-from thinc.optimizers import Adam
+from thinc.api import Model, ReLu, Softmax, chain, clone, Adam
+from thinc.api import get_shuffled_batches, evaluate_model_on_arrays
 import ml_datasets
 
 

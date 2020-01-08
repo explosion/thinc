@@ -10,7 +10,7 @@ InT = Ragged
 OutT = Ragged
 
 
-@registry.layers("parametric_attention.v0")
+@registry.layers("ParametricAttention.v0")
 def ParametricAttention(nO: Optional[int] = None) -> Model[InT, OutT]:
     """Weight inputs by similarity to a learned vector"""
     return Model("para-attn", forward, init=init, params={"Q": None}, dims={"nO": nO})
@@ -34,7 +34,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
 def init(model: Model, X: Optional[Ragged] = None, Y: Optional[Ragged] = None) -> None:
     if Y is not None:
         model.set_dim("nO", get_width(Y.data))
-    model.set_param("Q", model.ops.allocate((model.get_dim("nO"),)))
+    model.set_param("Q", model.ops.alloc_f1d(model.get_dim("nO")))
 
 
 def _get_attention(ops, Q, X, lengths):

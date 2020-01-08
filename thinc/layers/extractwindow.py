@@ -9,7 +9,7 @@ InT = Array
 OutT = Array
 
 
-@registry.layers("extract_window.v0")
+@registry.layers("ExtractWindow.v0")
 def ExtractWindow(window_size: int = 1) -> Model[InT, OutT]:
     """For each vector in an input, construct an output vector that contains the
     input and a window of surrounding vectors. This is one step in a convolution.

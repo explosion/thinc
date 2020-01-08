@@ -13,7 +13,7 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("mish.v0")
+@registry.layers("Mish.v0")
 def Mish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

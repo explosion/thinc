@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional, cast
+from typing import Callable, Tuple, Optional
 
 from ..model import Model
 from ..config import registry
@@ -11,7 +11,7 @@ InT = Ints2d
 OutT = Floats2d
 
 
-@registry.layers("embed.v0")
+@registry.layers("Embed.v0")
 def Embed(
     nO: Optional[int] = None,
     nV: Optional[int] = None,
@@ -40,10 +40,10 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     output = vectors[ids]
 
     def backprop(d_output: OutT) -> InT:
-        d_vectors = model.ops.allocate(vectors.shape)
+        d_vectors = model.ops.alloc_f2d(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("vectors", d_vectors)
-        dX = cast(Ints2d, model.ops.allocate(ids.shape, dtype=ids.dtype))
+        dX = model.ops.alloc_i2d(*ids.shape, dtype=ids.dtype)
         return dX
 
     return output, backprop
@@ -56,7 +56,7 @@ def create_init(initializer: Callable) -> Callable:
         if Y is not None:
             model.set_dim("nO", get_width(Y))
         shape = (model.get_dim("nV"), model.get_dim("nO"))
-        vectors = initializer(model.ops.allocate(shape))
+        vectors = initializer(model.ops.alloc_f2d(*shape))
         model.set_param("vectors", vectors)
 
     return init

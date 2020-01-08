@@ -1,15 +1,8 @@
 import pytest
 import random
 from murmurhash import hash_unicode
-from thinc.util import to_categorical
-from thinc.model import Model
-from thinc.layers.relu import ReLu
-from thinc.layers.softmax import Softmax
-from thinc.layers.hashembed import HashEmbed
-from thinc.layers.extractwindow import ExtractWindow
-from thinc.layers.chain import chain
-from thinc.layers.with_list2array import with_list2array
-from thinc.optimizers import Adam
+from thinc.api import to_categorical, Model, ReLu, Softmax, HashEmbed, ExtractWindow
+from thinc.api import chain, with_list2array, Adam
 import ml_datasets
 
 

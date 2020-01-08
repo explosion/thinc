@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..config import registry
@@ -10,7 +10,7 @@ from ..util import get_width
 InT = Floats2d
 
 
-@registry.layers("layer_norm.v0")
+@registry.layers("LayerNorm.v0")
 def LayerNorm(nO: Optional[int] = None) -> Model[InT, InT]:
     return Model(
         "layernorm",
@@ -49,8 +49,8 @@ def init(
         model.set_dim("nI", Y_width)
         model.set_dim("nO", Y_width)
     nO = model.get_dim("nO")
-    model.set_param("G", model.ops.allocate((nO,)))
-    model.set_param("b", model.ops.allocate((nO,)))
+    model.set_param("G", model.ops.alloc_f1d(nO))
+    model.set_param("b", model.ops.alloc_f1d(nO))
 
 
 def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Callable]:
@@ -70,10 +70,7 @@ def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Call
 def _get_moments(ops: Ops, X: Floats2d) -> Tuple[Floats2d, Floats2d, Floats2d]:
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
-    return cast(
-        Tuple[Floats2d, Floats2d, Floats2d],
-        (ops.asarray([X.shape[1]], dtype="f"), mu, var),
-    )
+    return ops.asarray([X.shape[1]], dtype="f"), mu, var
 
 
 def _get_d_moments(
