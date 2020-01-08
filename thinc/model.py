@@ -224,7 +224,7 @@ class Model(Generic[InT, OutT]):
             key = (self.id, name)
             if key not in self._mem:
                 self._mem.add(key, value.shape)
-            self._mem[(self.id, name)] = value
+            self._mem[key] = value
             self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
@@ -345,8 +345,9 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        print("Optimize", self._mem._mem.shape, self._mem._i, self._mem.weights.shape, self._mem.gradient.shape)
-        self._mem.weights, self._mem.gradient = optimizer(self._mem.weights, self._mem.gradient, key=self.id)
+        weights = self._mem.weights
+        gradient = self._mem.gradient
+        self._mem.weights, self._mem.gradient = optimizer(weights, gradient, key=self.id)
         for shim in self.shims:
             shim.finish_update(optimizer)
         seen = set([self.id])

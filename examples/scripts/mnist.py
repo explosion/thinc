@@ -1,4 +1,5 @@
 from thinc.api import Model, chain, ReLu, Softmax, Adam, minibatch
+from thinc.api import set_current_ops, JaxOps
 import ml_datasets
 import tqdm
 import typer
@@ -32,6 +33,7 @@ learn_rate = ${hyper_params:learn_rate}
 
 
 def main(n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10):
+    set_current_ops(JaxOps())
     # Define the model
     model: Model = chain(
         ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()

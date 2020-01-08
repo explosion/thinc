@@ -1,7 +1,7 @@
 from typing import Dict, Optional, Tuple
 from numpy import prod
 from ..types import Array, Shape
-from ..util import is_jax_array
+from ..util import is_jax_array, copy_array
 from .ops import Ops
 
 try:
@@ -30,26 +30,21 @@ class Memory:
 
     @property
     def weights(self) -> Array:
-        return self._mem[0, : self._i]
+        return self._mem[0]
 
     @weights.setter
     def weights(self, value):
-        print("Weights", self._mem.shape, value)
-        if is_jax_array(self._mem):
-            self._mem = jax.ops.index_update(self._mem, jax.ops.index[0], value)
-        else:
-            self._mem[0] = value
+        jax.ops.index_update(self._mem, jax.ops.index[0, :value.size], value)
+        #self._mem[0, :value.size] = value
 
     @property
     def gradient(self) -> Array:
-        return self._mem[1, : self._i]
+        return self._mem[1]
 
     @gradient.setter
     def gradient(self, value):
-        if is_jax_array(self._mem):
-            self._mem = jax.ops.index_update(self._mem, jax.ops.index[1], value)
-        else:
-            self._mem[1] = value
+        jax.ops.index_update(self._mem, jax.ops.index[1, :value.size], value)
+        #self._mem[1, :value.size] = value.size
 
     def __contains__(self, name: Tuple[int, str]) -> bool:
         return name in self._offsets
@@ -59,19 +54,15 @@ class Memory:
         size = self._sizes[name]
         return self._mem[col, offset : offset + size].reshape(shape)
 
-    def __setitem__(self, name: Tuple[int, str], value: Array):
-        offset, col, shape = self._offsets[name]
-        size = self._sizes[name]
-        if is_jax_array(self._mem):
-            index = jax.ops.index[col, offset : offset+size]
-            self._mem = jax.ops.index_update(self._mem, index, value.ravel())
-        else:
-            self._mem[col, offset:offset+size] = value.ravel()
+    def __setitem__(self, name: Tuple[int, str], value) -> None:
+        data = self[name]
+        copy_array(dst=data, src=value)
 
     def get(
         self, name: Tuple[int, str], default: Optional[Array] = None
     ) -> Optional[Array]:
         return self[name] if name in self._offsets else default
+
 
     def add(self, name: Tuple[int, str], shape: Shape):
         assert name not in self._offsets, "TODO: error"
@@ -101,9 +92,10 @@ class Memory:
 
     def _realloc(self, new_size: int):
         new_mem = self.ops.alloc_f2d(self._mem.shape[0], new_size)
-        if is_jax_array(new_mem):
-            index = jax.ops.index[:, :self._i + 1]
-            self._mem = jax.ops.index_update(new_mem, index, self._mem[:, :self._i+1])
-        else:
-            new_mem[:, : self._i + 1] = self._mem[:, : self._i + 1]
-            self._mem = new_mem
+        jax.ops.index_update(new_mem, jax.ops.index[:, :self._i+1], self._mem[:, : self._i + 1])
+        self._mem = new_mem
+        #print("New mem", type(new_mem), new_mem.shape)
+        #if is_jax_array(new_mem):
+        #    index = jax.ops.index[:, :self._i + 1]
+        #    self._mem = jax.ops.index_update(new_mem, index, self._mem[:, :self._i+1])
+        #else:

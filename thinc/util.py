@@ -6,10 +6,8 @@ import random
 
 try:  # pragma: no cover
     import cupy
-    from cupy import get_array_module
 except ImportError:
     cupy = None
-    get_array_module = lambda _: numpy
 
 try:  # pragma: no cover
     import jax
@@ -44,6 +42,10 @@ except ImportError:  # pragma: no cover
 from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
 
 
+def get_array_module(array):
+    return jax.numpy
+
+
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
@@ -69,12 +71,13 @@ def is_cupy_array(arr: Array) -> bool:  # pragma: no cover
         return False
 
 def is_jax_array(arr: Array) -> bool:
-    if jax is None:
-        return False
-    elif isinstance(arr, jax.numpy.ndarray):
-        return True
-    else:
-        return False
+    return True
+    #if jax is None:
+    #    return False
+    #elif isinstance(arr, jax.numpy.ndarray):
+    #    return True
+    #else:
+    #    return False
 
 
 def is_numpy_array(arr: Array) -> bool:
