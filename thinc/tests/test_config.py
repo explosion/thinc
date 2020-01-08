@@ -462,17 +462,15 @@ repeat = 4
 """
 
 
-@thinc.registry.optimizers.register("my_cool_optimizer.v1")
-def make_my_optimizer(learn_rate: List[float], beta1: float):
-    return RAdam(learn_rate, beta1=beta1)
-
-
-@thinc.registry.schedules("my_cool_repetitive_schedule.v1")
-def decaying(base_rate: float, repeat: int) -> List[float]:
-    return repeat * [base_rate]
-
-
 def test_objects_from_config():
+    @thinc.registry.optimizers.register("my_cool_optimizer.v1")
+    def make_my_optimizer(learn_rate: List[float], beta1: float):
+        return RAdam(learn_rate, beta1=beta1)
+
+    @thinc.registry.schedules("my_cool_repetitive_schedule.v1")
+    def decaying(base_rate: float, repeat: int) -> List[float]:
+        return repeat * [base_rate]
+
     config = Config().from_str(TEST_CONFIG)
     loaded = registry.make_from_config(config)
     optimizer = loaded["optimizer"]
