@@ -26,7 +26,7 @@ except ImportError:
     has_h5py = False
 
 
-class TensorFlowShim(Shim):
+class TensorflowShim(Shim):
     """Interface between a Tensorflow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
 
