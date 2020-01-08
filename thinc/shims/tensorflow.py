@@ -1,8 +1,12 @@
 import contextlib
-from io import BytesIO
-import numpy
 import itertools
+from io import BytesIO
 
+import numpy
+
+from ..backends import Ops, get_current_ops
+from ..util import tensorflow2xp
+from .shim import Shim
 
 try:
     import cupy
@@ -18,10 +22,6 @@ try:
     import h5py
 except ImportError:
     pass
-
-
-from .shim import Shim
-from ..util import tensorflow2xp
 
 
 class TensorFlowShim(Shim):
@@ -172,7 +172,8 @@ class TensorFlowShim(Shim):
         self._model.save(path)
 
     def from_disk(self, path):
-        if self.ops.device == "cpu":
+        ops: Ops = get_current_ops()
+        if ops.device == "cpu":
             device = "CPU"
         else:
             device = tf.test.gpu_device_name()
@@ -186,9 +187,10 @@ class TensorFlowShim(Shim):
         return filelike.getvalue()
 
     def from_bytes(self, data):
+        ops: Ops = get_current_ops()
         filelike = BytesIO(data)
         filelike.seek(0)
-        if self.ops.device == "cpu":
+        if ops.device == "cpu":
             device = "CPU"
         else:
             device = tf.test.gpu_device_name()

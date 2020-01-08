@@ -79,5 +79,51 @@ def test_tensorflow_wrapper_train_overfits(
         backprop(d_guesses)
         model.finish_update(optimizer)
     predicted = model.predict(X).argmax()
-
     assert predicted == answer
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_can_copy_model(model: Model[FloatsNd, FloatsNd]):
+    copy: Model[FloatsNd, FloatsNd] = model.copy()
+    assert copy is not None
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+    # Keras doesn't create weights until the model is called or built
+    with pytest.raises(ValueError):
+        model_bytes = model.to_bytes()
+    # After predicting, the model is built
+    model.predict(X)
+    # And can be serialized
+    model_bytes = model.to_bytes()
+    assert model_bytes is not None
+
+
+@pytest.mark.skip("keras load fails with weights mismatch")
+def test_tensorflow_wrapper_from_bytes(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+    # Keras doesn't create weights until the model is called or built
+    with pytest.raises(ValueError):
+        model_bytes = model.to_bytes()
+    # After predicting, the model is built
+    model.predict(X)
+    # And can be serialized
+    model_bytes = model.to_bytes()
+    another_model = model.from_bytes(model_bytes)
+    assert another_model is not None
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_use_params(
+    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
+):
+    optimizer = Adam()
+    for i in range(10):
+        guesses, backprop = model.begin_update(X)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+    with model.use_params(optimizer.averages):
+        predicted = model.predict(X).argmax()
+    assert predicted == answer
+
