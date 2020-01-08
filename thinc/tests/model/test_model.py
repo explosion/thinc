@@ -1,9 +1,10 @@
-import tempfile
-import os
 import pytest
 import threading
 import time
 from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model
+
+
+from ..util import make_tempdir
 
 
 @pytest.fixture
@@ -93,14 +94,14 @@ def test_use_device():
 
 
 def test_model_can_save_to_disk(model_with_no_args):
-    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
-    model_with_no_args.to_disk(temp_file)
+    with make_tempdir() as path:
+        model_with_no_args.to_disk(path / "thinc_model")
 
 
 def test_model_can_load_from_disk(model_with_no_args):
-    temp_file = os.path.join(tempfile.mkdtemp(), "thinc_model")
-    model_with_no_args.to_disk(temp_file)
-    m2 = model_with_no_args.from_disk(temp_file)
+    with make_tempdir() as path:
+        model_with_no_args.to_disk(path / "thinc_model")
+        m2 = model_with_no_args.from_disk(path / "thinc_model")
     assert model_with_no_args.to_bytes() == m2.to_bytes()
 
 
