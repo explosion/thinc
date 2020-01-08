@@ -315,7 +315,7 @@ class registry(object):
             default = param.default if param.default != param.empty else ...
             # Handle spread arguments and use their annotation as Sequence[whatever]
             if param.kind == param.VAR_POSITIONAL:
-                spread_annot = Sequence.copy_with(annotation)  # type: ignore
+                spread_annot = Sequence[annotation]
                 sig_args[ARGS_FIELD_ALIAS] = (spread_annot, default)
             else:
                 sig_args[param.name] = (annotation, default)
