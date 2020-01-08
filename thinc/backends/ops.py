@@ -1,27 +1,9 @@
 from typing import Optional, List, Callable, Tuple, Sequence, Union
 
-from ..types import (
-    Xp,
-    Array,
-    Shape,
-    DTypes,
-    DTypesInt,
-    DTypesFloat,
-    Floats1d,
-    Floats2d,
-    Floats3d,
-    Floats4d,
-    FloatsNd,
-    Ints1d,
-    Ints2d,
-    Ints3d,
-    Ints4d,
-    IntsNd,
-    ArrayTypes,
-    ArrayTypesInt,
-    ArrayTypesFloat,
-    ArrayT,
-)
+from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsNd
+from ..types import ArrayTypesInt, ArrayTypesFloat, ArrayT,
 from ..util import copy_array, get_array_module
 
 
