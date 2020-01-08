@@ -2,7 +2,7 @@ from typing import Callable, Tuple, Any
 
 from ..model import Model
 from ..shims import TensorFlowShim
-from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_is_installed
+from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..types import Array
 
 try:
@@ -20,7 +20,7 @@ def TensorFlowWrapper(tensorflow_model: Any) -> Model[InT, OutT]:
     To optimize the model, you'll need to create a TensorFlow optimizer and call
     optimizer.apply_gradients after each batch.
     """
-    assert_tensorflow_is_installed()
+    assert_tensorflow_installed()
     if not isinstance(tensorflow_model, tf.keras.models.Model):
         err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
         raise ValueError(err)

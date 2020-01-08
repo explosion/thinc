@@ -216,7 +216,7 @@ def get_width(
         raise ValueError(err)
 
 
-def assert_tensorflow_is_installed() -> None:  # pragma: no cover
+def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
     if not has_tfdlpack:
@@ -225,13 +225,10 @@ def assert_tensorflow_is_installed() -> None:  # pragma: no cover
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
 
-def assert_pytorch_is_installed() -> None:
+def assert_pytorch_installed() -> None:  # pragma: no cover
     """Raise an ImportError if PyTorch is not installed."""
     if not has_torch:
-        msg = (
-            "PyTorch support requires torch. Try 'pip install thinc[torch]'"
-        )
-        raise ImportError(msg)
+        raise ImportError("PyTorch support requires torch: pip install thinc[torch]")
 
 
 def xp2torch(
@@ -260,7 +257,7 @@ def xp2tensorflow(
     xp_tensor: Array, requires_grad: bool = False, as_variable: bool = False
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
-    assert_tensorflow_is_installed()
+    assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tensorflow_tensor = tfdlpack.from_dlpack(dlpack_tensor)
@@ -281,7 +278,7 @@ def xp2tensorflow(
 
 def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
-    assert_tensorflow_is_installed()
+    assert_tensorflow_installed()
     if "GPU" in tensorflow_tensor.device:
         return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
     else:
