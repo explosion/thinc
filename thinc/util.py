@@ -6,7 +6,7 @@ import random
 
 try:
     import cupy
-    from cupy import get_array_module
+    from cupy import get_array_module  # pragma: no cover
 except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
@@ -17,17 +17,17 @@ try:
     import torch.utils.dlpack
 
     has_torch = True
-except ImportError:
+except ImportError:  # pragma: no cover
     has_torch = False
 
-try:
+try:  # pragma: no cover
     import tfdlpack
 
     has_tfdlpack = True
 except ImportError:
     has_tfdlpack = False
 
-try:
+try:  # pragma: no cover
     import tensorflow as tf
 
     has_tensorflow = True
@@ -37,7 +37,7 @@ except ImportError:
 from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
 
 
-def fix_random_seed(seed: int = 0) -> None:
+def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
     numpy.random.seed(seed)
@@ -52,7 +52,7 @@ def create_thread_local(attrs: Dict[str, Any]):
     return obj
 
 
-def is_cupy_array(arr: Array) -> bool:
+def is_cupy_array(arr: Array) -> bool:  # pragma: no cover
     """Check whether an array is a cupy array"""
     if cupy is None:
         return False
@@ -70,7 +70,7 @@ def is_numpy_array(arr: Array) -> bool:
         return False
 
 
-def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":
+def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
     import cupy.cuda.device
 
@@ -86,7 +86,7 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":
     return device
 
 
-def prefer_gpu(gpu_id: int = 0) -> bool:
+def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
     from .backends.cupy_ops import CupyOps
 
@@ -97,7 +97,7 @@ def prefer_gpu(gpu_id: int = 0) -> bool:
         return True
 
 
-def require_gpu(gpu_id: int = 0) -> bool:
+def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     from .backends import set_current_ops, CupyOps
 
     if CupyOps.xp is None:
@@ -164,7 +164,7 @@ def evaluate_model_on_arrays(
     return score / total
 
 
-def copy_array(dst: Array, src: Array) -> None:
+def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
     elif is_cupy_array(dst):
