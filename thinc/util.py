@@ -228,7 +228,7 @@ def assert_tensorflow_is_installed() -> None:
         raise ImportError(msg)
 
 
-def assert_torch_is_installed() -> None:
+def assert_pytorch_is_installed() -> None:
     """Raise an ImportError if PyTorch is not installed."""
     if not has_torch:
         msg = (
