@@ -56,5 +56,7 @@ def init(
 ) -> None:
     layer = model.layers[0]
     layer.initialize(X=X, Y=Y)
-    model.set_dim("nI", layer.get_dim("nI"))
-    model.set_dim("nO", layer.get_dim("nO"))
+    if layer.has_dim("nI"):
+        model.set_dim("nI", layer.get_dim("nI"))
+    if layer.has_dim("nO"):
+        model.set_dim("nO", layer.get_dim("nO"))

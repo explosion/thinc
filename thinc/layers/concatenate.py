@@ -22,10 +22,9 @@ def concatenate(*layers: Model) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    axis: int = model.get_attr("axis")
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
     widths = [Y.shape[1] for Y in Ys]
-    output = model.ops.xp.hstack(Ys, axis=axis)
+    output = model.ops.xp.hstack(Ys)
 
     def backprop(d_output: OutT) -> InT:
         dX = callbacks[0](d_output[:, : widths[0]])
