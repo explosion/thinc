@@ -3,9 +3,7 @@ import os
 import pytest
 import threading
 import time
-from thinc.layers import Linear
-from thinc.backends import NumpyOps, get_current_ops, use_device
-from thinc.model import Model
+from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model
 
 
 @pytest.fixture

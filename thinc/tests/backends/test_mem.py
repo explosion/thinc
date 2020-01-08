@@ -1,6 +1,6 @@
 import pytest
 from thinc.backends.mem import Memory
-from thinc.backends import NumpyOps
+from thinc.api import NumpyOps
 
 
 @pytest.fixture
