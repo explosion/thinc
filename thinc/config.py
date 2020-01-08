@@ -214,14 +214,14 @@ class registry(object):
             key_parent = f"{parent}.{key}".strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], _ = cls._fill(
+                filled[key], validation[key] = cls._fill(
                     value, promise_schema, validate, parent=key_parent
                 )
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
-                getter = cls.get_constructor(filled[key])
-                args, kwargs = cls.parse_args(filled[key])
+                getter = cls.get_constructor(validation[key])
+                args, kwargs = cls.parse_args(validation[key])
                 try:
                     validation[key] = getter(*args, **kwargs)
                 except Exception as err:
