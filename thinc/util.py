@@ -216,7 +216,7 @@ def get_width(
         raise ValueError(err)
 
 
-def assert_tensorflow_installed() -> None:  # pragma: no cover
+def assert_tensorflow_is_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
     if not has_tfdlpack:
