@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, cast
+from typing import Tuple, Callable, Optional
 
 from ..types import Array, Floats2d, Ints2d
 from ..model import Model

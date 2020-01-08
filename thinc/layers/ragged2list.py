@@ -2,7 +2,7 @@ from typing import Tuple, Callable, List
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged, FloatsNd
+from ..types import Ragged, FloatsNd
 
 
 InT = Ragged
