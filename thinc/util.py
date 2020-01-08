@@ -22,12 +22,14 @@ except ImportError:
 
 try:
     import tfdlpack
+
     has_tfdlpack = True
 except ImportError:
     has_tfdlpack = False
 
 try:
     import tensorflow as tf
+
     has_tensorflow = True
 except ImportError:
     has_tensorflow = False
@@ -213,19 +215,24 @@ def get_width(
         err = "Cannot get width of object: has neither shape nor __getitem__"
         raise ValueError(err)
 
+
 def assert_tensorflow_is_installed():
-   if not has_tfdlpack:
-       msg = "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
-       raise ImportError(msg)
-   if not has_tfd:
-       msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
-       raise ImportError(msg)
-      
+    if not has_tfdlpack:
+        msg = (
+            "Tensorflow support requires tfdlpack. Try 'pip install thinc[tensorflow]'"
+        )
+        raise ImportError(msg)
+    if not has_tfd:
+        msg = "Tensorflow support requires tensorflow>=2.0.0. Try 'pip install thinc[tensorflow]'"
+        raise ImportError(msg)
+
 
 def xp2torch(xp_tensor: Array, requires_grad: bool = False) -> "torch.Tensor":
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
-        torch_tensor = torch.utils.dlpack.from_dlpack(xp_tensor.toDlpack())  # type: ignore
+        torch_tensor = torch.utils.dlpack.from_dlpack(
+            xp_tensor.toDlpack()
+        )  # type: ignore
     else:
         torch_tensor = torch.from_numpy(xp_tensor)
     if requires_grad:
@@ -290,5 +297,5 @@ __all__ = [
     "xp2torch",
     "torch2xp",
     "tensorflow2xp",
-    "xp2tensorflow"
+    "xp2tensorflow",
 ]
