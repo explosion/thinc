@@ -219,11 +219,6 @@ def get_width(
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
-    # TODO: This package doesn't install on py36, and it doesn't look
-    #       to actually be required? Should we have a more specific 
-    #       set of conditions for this error?
-    # if not has_tfdlpack:
-    #     raise ImportError(template.format(pkg="tfdlpack"))
     if not has_tensorflow:
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
