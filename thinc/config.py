@@ -11,6 +11,13 @@ import inspect
 import io
 
 
+def get_configparser():
+    config = ConfigParser(interpolation=ExtendedInterpolation())
+    # Preserve case of keys: https://stackoverflow.com/a/1611877/6400719
+    config.optionxform = str
+    return config
+
+
 class Config(dict):
     """This class holds the model and training configuration and can load and
     save the TOML-style configuration format from/to a string, file or bytes.
@@ -45,7 +52,7 @@ class Config(dict):
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."
-        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config = get_configparser()
         config.read_string(text)
         for key in list(self.keys()):
             self.pop(key)
@@ -54,7 +61,7 @@ class Config(dict):
 
     def to_str(self) -> str:
         """Write the config to a string."""
-        flattened = ConfigParser(interpolation=ExtendedInterpolation())
+        flattened = get_configparser()
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
             for key, value in node.items():
