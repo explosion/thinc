@@ -102,12 +102,7 @@ def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: Floats
 
 @pytest.mark.skip("keras load fails with weights mismatch")
 def test_tensorflow_wrapper_from_bytes(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
-    # Keras doesn't create weights until the model is called or built
-    with pytest.raises(ValueError):
-        model_bytes = model.to_bytes()
-    # After predicting, the model is built
     model.predict(X)
-    # And can be serialized
     model_bytes = model.to_bytes()
     another_model = model.from_bytes(model_bytes)
     assert another_model is not None
@@ -118,6 +113,8 @@ def test_tensorflow_wrapper_use_params(
     model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
 ):
     optimizer = Adam()
+    with model.use_params(optimizer.averages):
+        assert model.predict(X).argmax() is not None
     for i in range(10):
         guesses, backprop = model.begin_update(X)
         d_guesses = (guesses - Y) / guesses.shape[0]
@@ -127,3 +124,12 @@ def test_tensorflow_wrapper_use_params(
         predicted = model.predict(X).argmax()
     assert predicted == answer
 
+
+def test_tensorflow_wrapper_to_cpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+    model.to_cpu()
+
+
+def test_tensorflow_wrapper_to_gpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+    # Raises while failing to import cupy
+    with pytest.raises(ModuleNotFoundError):
+        model.to_gpu(0)
