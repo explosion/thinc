@@ -12,6 +12,13 @@ except ImportError:
     get_array_module = lambda _: numpy
 
 try:  # pragma: no cover
+    import jax
+    import jax.numpy
+except ImportError:
+    jax = None
+
+
+try:  # pragma: no cover
     import torch
     import torch.tensor
     import torch.utils.dlpack
@@ -57,6 +64,14 @@ def is_cupy_array(arr: Array) -> bool:  # pragma: no cover
     if cupy is None:
         return False
     elif isinstance(arr, cupy.ndarray):
+        return True
+    else:
+        return False
+
+def is_jax_array(arr: Array) -> bool:
+    if jax is None:
+        return False
+    elif isinstance(arr, jax.numpy.ndarray):
         return True
     else:
         return False
@@ -164,14 +179,18 @@ def evaluate_model_on_arrays(
     return score / total
 
 
-def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
-    if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
-        dst[:] = src
-    elif is_cupy_array(dst):
+def copy_array(dst: Array, src: Array) -> Array:  # pragma: no cover
+    if is_cupy_array(dst):
         src = cupy.array(src, copy=False)
         cupy.copyto(dst, src)
-    else:
+    elif is_jax_array(dst):
+        import jax.ops
+        dst = jax.ops.index_update(dst, jax.ops.index[:], src)
+    elif isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         numpy.copyto(dst, src)
+    else:
+        dst[:] = src
+    return dst
 
 
 def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:

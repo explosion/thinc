@@ -31,9 +31,9 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
         b = model.ops.alloc_f1d(model.get_dim("nO"))
         if "W" in initializers:
-            initializers["W"](W, inplace=True)
+            W = initializers["W"](W, inplace=False)
         if "b" in initializers:
-            initializers["b"](b, inplace=True)
+            b = initializers["b"](b, inplace=False)
         model.set_param("W", W)
         model.set_param("b", b)
 
@@ -224,8 +224,7 @@ class Model(Generic[InT, OutT]):
             key = (self.id, name)
             if key not in self._mem:
                 self._mem.add(key, value.shape)
-            data = self._mem[(self.id, name)]
-            copy_array(dst=data, src=value)
+            self._mem[(self.id, name)] = value
             self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
@@ -346,7 +345,8 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        optimizer(self._mem.weights, self._mem.gradient, key=self.id)
+        print("Optimize", self._mem._mem.shape, self._mem._i, self._mem.weights.shape, self._mem.gradient.shape)
+        self._mem.weights, self._mem.gradient = optimizer(self._mem.weights, self._mem.gradient, key=self.id)
         for shim in self.shims:
             shim.finish_update(optimizer)
         seen = set([self.id])

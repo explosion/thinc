@@ -27,7 +27,7 @@ def uniform_init(
     xp = get_array_module(data)
     values = xp.random.uniform(lo, hi, data.shape)
     if inplace:
-        copy_array(data, values)
+        data = copy_array(data, values)
         return data
     else:
         return values.astype(data.dtype)
@@ -42,7 +42,7 @@ def normal_init(data: Array, *, fan_in: int = -1, inplace: bool = False) -> Arra
     inits = xp.random.normal(scale=scale, size=size)
     inits = inits.reshape(data.shape)
     if inplace:
-        copy_array(data, inits)
+        data = copy_array(data, inits)
         return data
     else:
         return inits

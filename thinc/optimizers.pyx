@@ -14,7 +14,7 @@ import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
-from .util import get_array_module
+from .util import get_array_module, copy_array
 from .config import registry
 
 
@@ -228,8 +228,8 @@ class Optimizer(object):
         self.alpha = learn_rate
 
     def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key) -> None:
-        if len(gradient) < 1:
-            return
+        if len(gradient) < 1 or not gradient.any():
+            return weights, gradient
         xp = get_array_module(weights)
         if xp is not self.ops.xp:
             if xp is numpy:
@@ -254,15 +254,12 @@ class Optimizer(object):
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
-            if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
-            slow = self.slow_weights[key]
-            slow += self.lookahead_alpha * (weights - slow)
-            weights[:] = slow
+            weights = self._lookahead(weights, key)
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
+        return weights, gradient
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
@@ -341,7 +338,8 @@ class Optimizer(object):
                 self.slow_weights[key] = self.ops.alloc_f1d(weights.size, dtype='float32')
             slow = self.slow_weights[key]
             slow += self.lookahead_alpha * (weights - slow)
-            weights[:] = slow
+            weights = copy_array(weights, slow)
+        return weights
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         if key not in self.mom1:
