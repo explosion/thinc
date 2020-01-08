@@ -1,11 +1,9 @@
-import tensorflow as tf
 import ml_datasets
 import tqdm
 
 from thinc.api import prefer_gpu  # noqa: F401
 from thinc.api import Adam, TensorflowWrapper
-from thinc.api import get_shuffled_batches, evaluate_model_on_arrays, get_array_module
-from thinc.api import get_current_ops
+from thinc.api import get_shuffled_batches, evaluate_model_on_arrays
 
 
 def create_tf_model(width, depth, *, nO=10, nI=784):
