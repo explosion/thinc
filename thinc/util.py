@@ -4,14 +4,14 @@ import itertools
 import threading
 import random
 
-try:
+try:  # pragma: no cover
     import cupy
-    from cupy import get_array_module  # pragma: no cover
+    from cupy import get_array_module
 except ImportError:
     cupy = None
     get_array_module = lambda _: numpy
 
-try:
+try:  # pragma: no cover
     import torch
     import torch.tensor
     import torch.utils.dlpack
@@ -31,7 +31,7 @@ try:  # pragma: no cover
     import tensorflow as tf
 
     has_tensorflow = True
-except ImportError:
+except ImportError:  # pragma: no cover
     has_tensorflow = False
 
 from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd

@@ -1,9 +1,10 @@
-from thinc.api import Linear, SGD, PyTorchWrapper
+from thinc.api import Linear, SGD, PyTorchWrapper, xp2torch, torch2xp
 import numpy
 import pytest
 
 
 try:
+    import torch
     import torch.nn
 
     has_pytorch = True
@@ -53,3 +54,12 @@ def test_wrapper(nN, nI, nO):
     model.finish_update(sgd)
     assert dX.shape == (nN, nI)
     check_learns_zero_output(model, sgd, X, Y)
+
+
+@pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
+def test_roundtrip_conversion():
+    xp_tensor = numpy.zeros((2, 3), dtype="f")
+    torch_tensor = xp2torch(xp_tensor)
+    assert isinstance(torch_tensor, torch.Tensor)
+    new_xp_tensor = torch2xp(torch_tensor)
+    assert numpy.array_equal(xp_tensor, new_xp_tensor)
