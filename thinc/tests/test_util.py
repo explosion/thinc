@@ -1,6 +1,8 @@
 import pytest
 import numpy
-from thinc.api import get_width, Ragged, Padded
+from thinc.api import get_width, Ragged, Padded, minibatch, get_shuffled_batches
+from thinc.api import Linear, evaluate_model_on_arrays, to_categorical
+from thinc.util import get_array_module, is_numpy_array, fix_random_seed
 
 
 @pytest.mark.parametrize(
@@ -25,3 +27,61 @@ def test_get_width(obj, width):
 def test_get_width_fail(obj):
     with pytest.raises(ValueError):
         get_width(obj)
+
+
+def test_array_module_cpu_gpu_helpers():
+    xp = get_array_module(0)
+    assert hasattr(xp, "ndarray")
+    assert is_numpy_array(numpy.zeros((1, 2)))
+    assert not is_numpy_array((1, 2))
+
+
+def test_minibatch():
+    items = [1, 2, 3, 4, 5, 6]
+    batches = minibatch(items, 3)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    batches = minibatch(items, (i for i in (3, 2, 1)))
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+    items = (i for i in range(1, 7))
+    batches = minibatch(items, 3)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    items = (i for i in range(1, 7))
+    batches = minibatch(items, (i for i in (3, 2, 1, 1)))
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+
+
+def test_get_shuffled_batches():
+    fix_random_seed(0)
+    arr1 = numpy.asarray([1, 2, 3, 4])
+    arr2 = numpy.asarray([5, 6, 7, 8])
+    batches = list(get_shuffled_batches(arr1, arr2, 2))
+    assert len(batches) == 2
+    assert len(batches[0]) == 2
+    assert len(batches[1]) == 2
+
+
+def test_evaluate_model_on_arrays():
+    inputs = numpy.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
+    labels = numpy.asarray([0.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
+    model = Linear(inputs.shape[0], inputs.shape[1])
+    model.initialize(inputs, labels)
+    evaluate_model_on_arrays(model, inputs, labels, 2)
+
+
+@pytest.mark.xfail(reason="¯/_(ツ)_/¯")
+def test_to_categorical():
+    # Test without n_classes
+    one_hot = to_categorical(numpy.asarray([1, 2], dtype="i"))
+    assert one_hot.shape == (2, 3)
+    # From keras
+    # https://github.com/keras-team/keras/blob/master/tests/keras/utils/np_utils_test.py
+    nc = 5
+    shapes = [(1,), (3,), (4, 3), (5, 4, 3), (3, 1), (3, 2, 1)]
+    expected_shapes = [(1, nc), (3, nc), (4, 3, nc), (5, 4, 3, nc), (3, nc), (3, 2, nc)]
+    labels = [numpy.random.randint(0, nc, shape) for shape in shapes]
+    one_hots = [to_categorical(label, nc) for label in labels]
+    for label, one_hot, expected_shape in zip(labels, one_hots, expected_shapes):
+        assert one_hot.shape == expected_shape
+        assert numpy.array_equal(one_hot, one_hot.astype(bool))
+        assert numpy.all(one_hot.sum(axis=-1) == 1)
+        assert numpy.all(numpy.argmax(one_hot, -1).reshape(label.shape) == label)

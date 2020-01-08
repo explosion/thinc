@@ -43,9 +43,6 @@ class Memory:
     ) -> Optional[Array]:
         return self[name] if name in self._offsets else default
 
-    def set(self, value: Array):
-        self._mem[0, : self._i] = value
-
     def add(self, name: Tuple[int, str], shape: Shape):
         assert name not in self._offsets, "TODO: error"
         self._offsets[name] = (self._i, 0, shape)

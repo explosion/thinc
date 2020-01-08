@@ -18,7 +18,7 @@ def zero_init(data: Array, *, inplace: bool = False) -> Array:
         return data
     else:
         xp = get_array_module(data)
-        return xp.zeroslike(data)
+        return xp.zeros_like(data)
 
 
 def uniform_init(
@@ -33,7 +33,9 @@ def uniform_init(
         return values.astype(data.dtype)
 
 
-def normal_init(data: Array, fan_in: int, *, inplace: bool = True) -> Array:
+def normal_init(data: Array, *, fan_in: int = -1, inplace: bool = False) -> Array:
+    if fan_in == -1:
+        fan_in = data.shape[1]
     xp = get_array_module(data)
     scale = xp.sqrt(1.0 / fan_in)
     size = int(xp.prod(data.shape))

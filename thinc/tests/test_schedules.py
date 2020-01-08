@@ -1,4 +1,5 @@
-from thinc.api import decaying, compounding, slanted_triangular
+from thinc.api import decaying, compounding, slanted_triangular, constant_then
+from thinc.api import constant, warmup_linear, cyclic_triangular
 
 
 def test_decaying_rate():
@@ -32,3 +33,31 @@ def test_slanted_triangular_rate():
     assert rate2 < rate1
     rate3 = next(rates)
     assert rate0 < rate3 < rate2
+
+
+def test_constant_then_schedule():
+    rates = constant_then(1.0, 2, [100, 200])
+    assert next(rates) == 1.0
+    assert next(rates) == 1.0
+    assert next(rates) == 100
+    assert next(rates) == 200
+
+
+def test_constant():
+    rates = constant(123)
+    assert next(rates) == 123
+    assert next(rates) == 123
+
+
+def test_warmup_linear():
+    rates = warmup_linear(1.0, 2, 10)
+    expected = [0.0, 0.5, 1.0, 0.875, 0.75, 0.625, 0.5, 0.375, 0.25, 0.125, 0.0]
+    for i in range(11):
+        assert next(rates) == expected[i]
+
+
+def test_cyclic_triangular():
+    rates = cyclic_triangular(0.1, 1.0, 2)
+    expected = [0.55, 1.0, 0.55, 0.1, 0.55, 1.0, 0.55, 0.1, 0.55, 1.0]
+    for i in range(10):
+        assert next(rates) == expected[i]
