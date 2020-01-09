@@ -52,18 +52,23 @@ def test_chain_two(model1, model2):
     model = chain(model1, model2)
     assert len(model.layers) == 2
 
+
+def test_chain_operator_two(model1, model2):
     with Model.define_operators({">>": chain}):
-       model = model1 >> model2
-       assert len(model.layers) == 2
+        model = model1 >> model2
+        assert len(model.layers) == 2
 
 
 def test_chain_three(model1, model2, model3):
     model = chain(model1, model2, model3)
     assert len(model.layers) == 3
 
+
+def test_chain_operator_three(model1, model2, model3):
     with Model.define_operators({">>": chain}):
-       model = model1 >> model2 >> model3
-       assert len(model.layers) == 3
+        model = model1 >> model2 >> model3
+        assert len(model.layers) == 3
+
 
 def test_concatenate_one(model1):
     model = concatenate(model1)
@@ -74,6 +79,8 @@ def test_concatenate_two(model1, model2):
     model = concatenate(model1, model2)
     assert len(model.layers) == 2
 
+
+def test_concatenate_operator_two(model1, model2):
     with Model.define_operators({"|": concatenate}):
         model = model1 | model2
         assert len(model.layers) == 2
@@ -83,6 +90,8 @@ def test_concatenate_three(model1, model2, model3):
     model = concatenate(model1, model2, model3)
     assert len(model.layers) == 3
 
+
+def test_concatenate_operator_three(model1, model2, model3):
     with Model.define_operators({"|": concatenate}):
         model = model1 | model2 | model3
         assert len(model.layers) == 3
