@@ -28,3 +28,4 @@ def my_foo(op: Optional[int]):
    reveal_type(op) # N: Revealed type is 'builtins.int'
 [out]
 
+

@@ -1,4 +1,4 @@
-"""Mypy style test cases for Thinc plugin."""
+"""Mypy style test cases for Thinc."""
 
 import os
 import os.path
@@ -6,37 +6,32 @@ import sys
 import re
 
 import pytest  # type: ignore  # no pytest in typeshed
-
-file_dir = os.path.dirname(os.path.realpath(__file__))
-os.environ["MYPY_TEST_PREFIX"] = file_dir
-os.environ["MYPYPATH"] = os.path.join(os.path.dirname(os.path.dirname(file_dir)), "")
-
-from mypy.test.config import test_temp_dir
-from mypy.test.data import DataDrivenTestCase, DataSuite
-from mypy.test.helpers import assert_string_arrays_equal
+from .mypy_fixture import (
+    DataDrivenTestCase,
+    DataSuite,
+    assert_string_arrays_equal,
+    test_temp_dir,
+)
 from mypy import api
 
-inipath = os.path.abspath(os.path.join(file_dir, "test-data"))
-
+file_dir = os.path.dirname(os.path.realpath(__file__))
 # Locations of test data files such as test case descriptions (.test).
 test_data_prefix = os.path.join(file_dir, "test-data", "unit")
 
 
 class ThincMyPyTests(DataSuite):
     files = ["thinc.test", "basic-types.test"]
-    data_prefix = test_data_prefix
+    data_prefix = os.path.join(file_dir, "mypy")
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
+        assert testcase.input is not None, "test was not properly set up"
         assert testcase.old_cwd is not None, "test was not properly set up"
         mypy_cmdline = [
             "--show-traceback",
             "--no-error-summary",
             # f"--config-file={inipath}/test_mypy.ini",
         ]
-        if sys.version_info[:2] == (3, 5):
-            version = (3, 6)  # Always accept variable annotations.
-        else:
-            version = sys.version_info[:2]
+        version = sys.version_info[:2]
         mypy_cmdline.append(f"--python-version={'.'.join(map(str, version))}")
 
         program_text = "\n".join(testcase.input)
