@@ -18,5 +18,5 @@ def forward(model: Model, X: Floats2d, is_train: bool) -> ModelFwd[Floats2d]:
     return Y, backprop
 
 
-reveal_type(forward(model, example, False))  # N: Revealed type is 'Tuple[thinc.types.Floats2d, def (thinc.types.Floats2d) -> thinc.types.Floats2d]'
+reveal_type(forward(model, example, False))  # N: Revealed type is 'ModelFwd?[Floats2d?]'
 [out]
