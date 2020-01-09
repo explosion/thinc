@@ -266,7 +266,7 @@ def convert_recursive(
     if is_match(obj):
         return convert_item(obj)
     elif isinstance(obj, ArgsKwargs):
-        converted = convert_recursive(is_match, convert_item, obj.items())
+        converted = convert_recursive(is_match, convert_item, list(obj.items()))
         return ArgsKwargs.from_items(converted)
     elif isinstance(obj, dict):
         converted = {}

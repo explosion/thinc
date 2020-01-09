@@ -3,6 +3,8 @@ import numpy
 from thinc.api import get_width, Ragged, Padded, minibatch, get_shuffled_batches
 from thinc.api import Linear, evaluate_model_on_arrays, to_categorical
 from thinc.util import get_array_module, is_numpy_array, fix_random_seed
+from thinc.util import convert_recursive
+from thinc.types import ArgsKwargs
 
 
 @pytest.mark.parametrize(
@@ -85,3 +87,18 @@ def test_to_categorical():
         assert numpy.array_equal(one_hot, one_hot.astype(bool))
         assert numpy.all(one_hot.sum(axis=-1) == 1)
         assert numpy.all(numpy.argmax(one_hot, -1).reshape(label.shape) == label)
+
+
+def test_convert_recursive():
+    is_match = lambda obj: obj == "foo"
+    convert_item = lambda obj: obj.upper()
+    obj = {
+        "a": {("b", "foo"): {"c": "foo", "d": ["foo", {"e": "foo", "f": (1, "foo")}]}}
+    }
+    result = convert_recursive(is_match, convert_item, obj)
+    assert result["a"][("b", "FOO")]["c"] == "FOO"
+    assert result["a"][("b", "FOO")]["d"] == ["FOO", {"e": "FOO", "f": (1, "FOO")}]
+    obj = {"a": ArgsKwargs(("foo", [{"b": "foo"}]), {"a": ["x", "foo"]})}
+    result = convert_recursive(is_match, convert_item, obj)
+    assert result["a"].args == ("FOO", [{"b": "FOO"}])
+    assert result["a"].kwargs == {"a": ["x", "FOO"]}
