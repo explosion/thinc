@@ -84,6 +84,15 @@ def is_torch_array(obj) -> bool:
         return False
 
 
+def is_tensorflow_array(obj) -> bool:
+    if tf is None:
+        return False
+    elif isinstance(obj, tf.Tensor):
+        return True
+    else:
+        return False
+
+
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
     import cupy.cuda.device
