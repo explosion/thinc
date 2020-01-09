@@ -193,6 +193,9 @@ class Model(Generic[InT, OutT]):
         """Set a value for a dimension."""
         if name not in self._dims:
             raise KeyError(f"Cannot set dimension '{name}' for model '{self.name}'.")
+        old_value = self._dims[name]
+        if old_value is not None and old_value != value:
+            raise ValueError(f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}.")
         self._dims[name] = value
 
     def has_param(self, name: str) -> Optional[bool]:
