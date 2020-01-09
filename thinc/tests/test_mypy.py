@@ -31,7 +31,7 @@ class ThincMyPyTests(DataSuite):
         mypy_cmdline = [
             "--show-traceback",
             "--no-error-summary",
-            f"--config-file={inipath}/test_mypy.ini",
+            # f"--config-file={inipath}/test_mypy.ini",
         ]
         if sys.version_info[:2] == (3, 5):
             version = (3, 6)  # Always accept variable annotations.
