@@ -4,7 +4,7 @@ from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import get_width
-from ..types import Array, RNNState, Floats2d, FloatsNd
+from ..types import Array, RNNState, Floats2d, Floats3d, FloatsNd
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
@@ -117,12 +117,12 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
+def _gates_forward(ops: Ops, acts: Floats3d, prev_cells: Floats2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
-    new_cells: FloatsNd = ops.alloc(prev_cells.shape)
-    new_hiddens: FloatsNd = ops.alloc(prev_cells.shape)
+    new_cells = ops.alloc_f2d(*prev_cells.shape)
+    new_hiddens = ops.alloc_f2d(*prev_cells.shape)
 
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
     size = new_cells.shape[0]
@@ -132,7 +132,7 @@ def _gates_forward(ops: Ops, acts: Array, prev_cells: Floats2d):
     ) -> Tuple[Floats2d, Floats2d]:
         d_cells = d_cells[:size]
         d_hiddens = d_hiddens[:size]
-        d_acts: FloatsNd = ops.alloc(acts.shape)
+        d_acts = ops.alloc_f3d(*acts.shape)
         d_prevcells: Floats2d = ops.alloc(prev_cells.shape)
         ops.backprop_lstm(
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
