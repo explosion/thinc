@@ -1,0 +1,18 @@
+[case test_model_types_returned]
+from thinc.model import Model
+from thinc.types import Floats2d
+from thinc.config import registry
+
+
+@registry.layers("Test.v0")
+def Test(nO: int = None, nI: int = None) -> Model[Floats2d, Floats2d]:
+    model: Model[Floats2d, Floats2d] = Model("linear", None, dims={"nO": nO, "nI": nI})
+    if nO is not None and nI is not None:
+        model.initialize()
+    return model
+
+
+model = Test(12)
+reveal_type(model)  # N: Revealed type is 'thinc.model.Model*'
+[out]
+
