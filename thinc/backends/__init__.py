@@ -13,7 +13,7 @@ from ..util import assert_tensorflow_installed, assert_pytorch_installed
 STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
 
 
-def use_pytorch_for_gpu_memory() -> None:
+def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     """Route GPU memory allocation via PyTorch.
 
     This is recommended for using PyTorch and cupy together, as otherwise
@@ -29,7 +29,7 @@ def use_pytorch_for_gpu_memory() -> None:
     cupy.cuda.set_allocator(cupy_pytorch_allocator)
 
 
-def use_tensorflow_for_gpu_memory() -> None:
+def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     """Route GPU memory allocation via TensorFlow.
 
     This is recommended for using TensorFlow and cupy together, as otherwise

@@ -449,7 +449,7 @@ class Model(Generic[InT, OutT]):
                 copied.set_grad(name, self.get_grad(name))
         return copied
 
-    def to_gpu(self, gpu_id: int) -> None:
+    def to_gpu(self, gpu_id: int) -> None:  # pragma: no cover
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
@@ -514,7 +514,7 @@ class Model(Generic[InT, OutT]):
                 if row == 1:
                     continue
                 param = layer._mem[(id_, name)]
-                if not isinstance(layer._mem.weights, numpy.ndarray):
+                if not isinstance(layer._mem.weights, numpy.ndarray):  # pragma: no cover
                     param = param.get()
                 weights[-1]["params"].append(  # type: ignore
                     {"name": name, "offset": start, "shape": shape, "value": param}
