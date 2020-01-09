@@ -131,7 +131,7 @@ class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
     # Underscore fields are not allowed in model, so use alias
-    alias_generator = lambda f: ARGS_FIELD if f == ARGS_FIELD_ALIAS else f
+    fields = {ARGS_FIELD_ALIAS: {"alias": ARGS_FIELD}}
 
 
 class registry(object):
@@ -332,6 +332,9 @@ class registry(object):
             else:
                 sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
+        # NOTE: This will fail if the annotation is a generic alias with an
+        # arbitrary type origin unsupported out-of-the-box by pydantic
+        # Details: https://github.com/samuelcolvin/pydantic/issues/1158
         return create_model("ArgModel", **sig_args)
 
 
