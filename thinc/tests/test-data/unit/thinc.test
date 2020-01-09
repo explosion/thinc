@@ -1,18 +1,22 @@
-[case test_model_types_returned]
-from thinc.model import Model
-from thinc.types import Floats2d
-from thinc.config import registry
+[case test_mypy_model_forward_inference]
+from typing import Union, Callable, Tuple, TypeVar
+from thinc.model import Model, ModelFwd
+from thinc.layers import Linear
+from thinc.types import Floats2d, Array
+from thinc.backends import get_current_ops, Ops
+
+ops: Ops = get_current_ops()
+
+example = ops.alloc_f2d(1, 12)
+Y = ops.alloc_f2d(1, 1)
+model = Linear(12)
+
+def forward(model: Model, X: Floats2d, is_train: bool) -> ModelFwd[Floats2d]:
+    def backprop(dY: Floats2d) -> Floats2d:
+        pass
+
+    return Y, backprop
 
 
-@registry.layers("Test.v0")
-def Test(nO: int = None, nI: int = None) -> Model[Floats2d, Floats2d]:
-    model: Model[Floats2d, Floats2d] = Model("linear", None, dims={"nO": nO, "nI": nI})
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model
-
-
-model = Test(12)
-reveal_type(model)  # N: Revealed type is 'thinc.model.Model*'
+reveal_type(forward(model, example, False))  # N: Revealed type is 'Tuple[thinc.types.Floats2d, def (thinc.types.Floats2d) -> thinc.types.Floats2d]'
 [out]
-

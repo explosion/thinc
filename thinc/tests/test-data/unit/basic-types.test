@@ -1,0 +1,30 @@
+
+[case test_mypy_control_flow_types]
+from typing import Union, Optional
+from thinc.types import Literal, Array
+from thinc.backends import get_current_ops, Ops
+ops: Ops = get_current_ops()
+
+class Floats(Array):
+    ndim: Literal[2] = 2
+
+array = ops.alloc_f2d(4, 5)
+
+def str_or_int(arr) -> Union[str, int]:
+    if arr.ndim == 2:
+        return "hi"
+    else:
+        return 0
+
+reveal_type(str_or_int(array))  # N: Revealed type is 'Union[builtins.str, builtins.int]'
+[out]
+
+[case test_mypy_control_flow_type_discrimination]
+from typing import Optional
+
+def my_foo(op: Optional[int]):
+   reveal_type(op) # N: Revealed type is 'Union[builtins.int, None]'
+   assert op is not None
+   reveal_type(op) # N: Revealed type is 'builtins.int'
+[out]
+

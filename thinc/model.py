@@ -17,6 +17,10 @@ from .types import Array
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
+ModelDim = TypeVar("ModelDim", bound=Array)
+ModelBwd = Callable[[ModelDim], ModelDim]
+ModelFwd = Tuple[ModelDim, ModelBwd[ModelDim]]
+
 
 def create_init(initializers: Dict[str, Callable]) -> Callable:
     """Create an init function, given a dictionary of parameter initializers."""

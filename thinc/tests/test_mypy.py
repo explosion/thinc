@@ -23,7 +23,7 @@ test_data_prefix = os.path.join(file_dir, "test-data", "unit")
 
 
 class ThincMyPyTests(DataSuite):
-    files = ["thinc.test"]
+    files = ["thinc.test", "basic-types.test"]
     data_prefix = test_data_prefix
 
     def run_case(self, testcase: DataDrivenTestCase) -> None:
