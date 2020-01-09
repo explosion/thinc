@@ -1,20 +1,14 @@
 import pytest
 import random
 from murmurhash import hash_unicode
-from thinc.api import to_categorical, Model, ReLu, Softmax, HashEmbed, ExtractWindow
+from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow
 from thinc.api import chain, with_list2array, Adam
 import ml_datasets
 
 
 @pytest.fixture(scope="module")
 def ancora():
-    train_data, check_data, nr_class = ml_datasets.ud_ancora_pos_tags()
-    train_X, train_y = zip(*train_data)
-    dev_X, dev_y = zip(*check_data)
-    nb_tag = max(max(y) for y in train_y) + 1
-    train_y = [to_categorical(y, nb_tag) for y in train_y]
-    dev_y = [to_categorical(y, nb_tag) for y in dev_y]
-    return (train_X[:100], train_y[:100]), (dev_X, dev_y)
+    return ml_datasets.ud_ancora_pos_tags()
 
 
 @pytest.fixture(scope="module")
