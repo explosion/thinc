@@ -34,7 +34,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, RNNState, IntsNd, FloatsNd
+from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, IntsNd, FloatsNd
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -52,19 +52,33 @@ def create_thread_local(attrs: Dict[str, Any]):
     return obj
 
 
-def is_cupy_array(arr: Array) -> bool:  # pragma: no cover
-    """Check whether an array is a cupy array"""
+def is_xp_array(obj: Any) -> bool:
+    """Check whether an object is a numpy or cupy array."""
+    return is_numpy_array(obj) or is_cupy_array(obj)
+
+
+def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
+    """Check whether an object is a cupy array"""
     if cupy is None:
         return False
-    elif isinstance(arr, cupy.ndarray):
+    elif isinstance(obj, cupy.ndarray):
         return True
     else:
         return False
 
 
-def is_numpy_array(arr: Array) -> bool:
-    """Check whether an array is a numpy array"""
-    if isinstance(arr, numpy.ndarray):
+def is_numpy_array(obj: Any) -> bool:
+    """Check whether an object is a numpy array"""
+    if isinstance(obj, numpy.ndarray):
+        return True
+    else:
+        return False
+
+
+def is_torch_array(obj) -> bool:
+    if torch is None:
+        return False
+    elif isinstance(obj, torch.Tensor):
         return True
     else:
         return False
@@ -229,6 +243,34 @@ def assert_pytorch_installed() -> None:  # pragma: no cover
     """Raise an ImportError if PyTorch is not installed."""
     if not has_torch:
         raise ImportError("PyTorch support requires torch: pip install thinc[torch]")
+
+
+# I think it seems reasonable to leave this untyped?
+def convert_recursive(is_match, convert_item, obj):
+    """Either convert a single value if it matches a given function, or
+    recursively walk over potentially nested lists, tuples and dicts applying
+    the conversion, and returns the same type.
+    
+    Also supports the ArgsKwargs dataclass.
+    """
+    if is_match(obj):
+        return convert_item(obj)
+    elif isinstance(obj, ArgsKwargs):
+        converted = convert_recursive(is_match, convert_item, obj.items())
+        return ArgsKwargs.from_items(converted)
+    elif isinstance(obj, dict):
+        converted = {}
+        for key, value in obj.items():
+            key = convert_recursive(is_match, convert_item, key)
+            value = convert_recursive(is_match, convert_item, value)
+            converted[key] = value
+        return converted
+    elif isinstance(obj, list):
+        return [convert_recursive(is_match, convert_item, item) for item in obj]
+    elif isinstance(obj, tuple):
+        return tuple(convert_recursive(is_match, convert_item, item) for item in obj)
+    else:
+        return obj
 
 
 def xp2torch(
