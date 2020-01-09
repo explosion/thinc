@@ -585,9 +585,9 @@ class Padded:
     length of the batch at each timestep, so you can do data[:, :size_at_t[t]] to
     shrink the batch.
     """
-
     data: Array3d
     size_at_t: Ints1d
+    unpad: Callable[[Floats3d], List[Floats2d]]
 
 
 @dataclass
