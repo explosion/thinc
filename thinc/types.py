@@ -526,6 +526,9 @@ ArrayTypesFloat = Union[
 ArrayTypes = Union[
     ArrayTypesFloat, ArrayTypesInt,
 ]
+Array1d = Union[Ints1d, Floats1d]
+Array2d = Union[Ints2d, Floats2d]
+Array3d = Union[Ints3d, Floats3d]
 
 
 class Generator(Iterator):
@@ -571,8 +574,8 @@ RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
 @dataclass
 class Ragged:
-    data: Array
-    lengths: Array
+    data: Array2d
+    lengths: Ints1d
 
 
 @dataclass
@@ -583,8 +586,8 @@ class Padded:
     shrink the batch.
     """
 
-    data: Array
-    size_at_t: Array
+    data: Array3d
+    size_at_t: Ints1d
 
 
 @dataclass
