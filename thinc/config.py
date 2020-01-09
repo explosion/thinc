@@ -11,6 +11,13 @@ import inspect
 import io
 
 
+def get_configparser():
+    config = ConfigParser(interpolation=ExtendedInterpolation())
+    # Preserve case of keys: https://stackoverflow.com/a/1611877/6400719
+    config.optionxform = str
+    return config
+
+
 class Config(dict):
     """This class holds the model and training configuration and can load and
     save the TOML-style configuration format from/to a string, file or bytes.
@@ -45,7 +52,7 @@ class Config(dict):
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."
-        config = ConfigParser(interpolation=ExtendedInterpolation())
+        config = get_configparser()
         config.read_string(text)
         for key in list(self.keys()):
             self.pop(key)
@@ -54,7 +61,7 @@ class Config(dict):
 
     def to_str(self) -> str:
         """Write the config to a string."""
-        flattened = ConfigParser(interpolation=ExtendedInterpolation())
+        flattened = get_configparser()
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
             for key, value in node.items():
@@ -110,8 +117,8 @@ class ConfigValidationError(ValueError):
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
-ARGS_FIELD = "___args___"
-ARGS_FIELD_ALIAS = "A_R_G_S"  # user is unlikely going to use this
+ARGS_FIELD = "*"
+ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"  # user is unlikely going to use this
 
 
 class EmptySchema(BaseModel):
@@ -124,7 +131,7 @@ class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
     # Underscore fields are not allowed in model, so use alias
-    alias_generator = lambda f: ARGS_FIELD if f == ARGS_FIELD_ALIAS else f
+    fields = {ARGS_FIELD_ALIAS: {"alias": ARGS_FIELD}}
 
 
 class registry(object):
@@ -245,6 +252,11 @@ class registry(object):
                 filled[key], validation[key] = cls._fill(
                     value, field_type, validate, parent=key_parent
                 )
+                if key == ARGS_FIELD and isinstance(validation[key], dict):
+                    # If the value of variable positional args is a dict (e.g.
+                    # created via config blocks), only use its values
+                    filled[key] = list(filled[key].values())
+                    validation[key] = list(validation[key].values())
             else:
                 filled[key] = value
                 validation[key] = value
@@ -320,6 +332,9 @@ class registry(object):
             else:
                 sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
+        # NOTE: This will fail if the annotation is a generic alias with an
+        # arbitrary type origin unsupported out-of-the-box by pydantic
+        # Details: https://github.com/samuelcolvin/pydantic/issues/1158
         return create_model("ArgModel", **sig_args)
 
 

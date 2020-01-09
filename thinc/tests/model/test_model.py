@@ -2,7 +2,7 @@ import pytest
 import threading
 import time
 from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model
-
+import numpy
 
 from ..util import make_tempdir
 
@@ -16,7 +16,7 @@ def create_model(name):
     return Model(name, lambda X: (X, lambda dY: dY))
 
 
-def test_Model_defaults_to_cpu(model_with_no_args):
+def test_model_defaults_to_cpu(model_with_no_args):
     assert isinstance(model_with_no_args.ops, NumpyOps)
 
 
@@ -30,6 +30,66 @@ def test_init_assigns_attributes():
     model = Linear()
     model._mem
     assert model.layers == []
+
+
+def test_model_init():
+    model_a = create_model("a")
+    model = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 10, "nO": None},
+        params={"W": numpy.zeros((10,)), "b": None},
+        grads={"W": numpy.zeros((10,)), "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+    )
+    model.layers.append(model_a)
+    assert model.has_param("W")
+    assert model.get_param("W").shape == (10,)
+    assert model.has_param("b") is None
+    with pytest.raises(KeyError):
+        model.get_param("b")
+    with pytest.raises(KeyError):
+        model.get_param("X")
+    model.set_param("X", numpy.zeros((10,)))
+    assert model.has_param("X")
+    assert model.get_param("X").shape == (10,)
+    assert model.has_grad("W") is None
+    assert model.get_grad("W").shape == (10,)
+    assert not model.has_grad("xyz")
+    with pytest.raises(KeyError):
+        model.get_grad("b")
+    assert model.has_grad("W") is None
+    model.set_param("W", model.ops.alloc_f1d(10))
+    model.set_grad("W", model.ops.alloc_f1d(10))
+    assert model.has_dim("nI")
+    assert model.get_dim("nI") == 10
+    with pytest.raises(KeyError):
+        model.get_dim("xyz")
+    with pytest.raises(ValueError):
+        model.get_dim("nO")
+    with pytest.raises(KeyError):
+        model.set_dim("xyz", 20)
+    assert model.has_ref("a")
+    assert model.get_ref("a").name == "a"
+    assert not model.has_ref("xyz")
+    with pytest.raises(KeyError):
+        model.get_ref("xyz")
+    assert model.has_ref("b") is None
+    with pytest.raises(ValueError):
+        model.get_ref("b")
+    model.set_ref("c", model_a)
+    assert model.has_ref("c")
+    assert model.get_ref("c").name == "a"
+    with pytest.raises(ValueError):
+        model.set_ref("c", create_model("c"))
+    assert model.has_attr("foo")
+    assert not model.has_attr("bar")
+    assert model.get_attr("foo") == "bar"
+    with pytest.raises(KeyError):
+        model.get_attr("bar")
+    model.set_attr("bar", "baz")
+    assert model.has_attr("bar")
 
 
 def test_param_names():

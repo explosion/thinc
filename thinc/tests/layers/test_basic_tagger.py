@@ -1,44 +1,13 @@
 import pytest
 import random
-from murmurhash import hash_unicode
-from thinc.api import to_categorical, Model, ReLu, Softmax, HashEmbed, ExtractWindow
-from thinc.api import chain, with_list2array, Adam
+from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow
+from thinc.api import chain, with_list2array, Adam, strings2arrays
 import ml_datasets
 
 
 @pytest.fixture(scope="module")
 def ancora():
-    train_data, check_data, nr_class = ml_datasets.ud_ancora_pos_tags()
-    train_X, train_y = zip(*train_data)
-    dev_X, dev_y = zip(*check_data)
-    nb_tag = max(max(y) for y in train_y) + 1
-    train_y = [to_categorical(y, nb_tag) for y in train_y]
-    dev_y = [to_categorical(y, nb_tag) for y in dev_y]
-    return (train_X[:100], train_y[:100]), (dev_X, dev_y)
-
-
-@pytest.fixture(scope="module")
-def train_X(ancora):
-    (train_X, train_y), (dev_X, dev_y) = ancora
-    return train_X
-
-
-@pytest.fixture(scope="module")
-def train_Y(ancora):
-    (train_X, train_y), (dev_X, dev_y) = ancora
-    return train_y
-
-
-@pytest.fixture(scope="module")
-def dev_X(ancora):
-    (train_X, train_y), (dev_X, dev_y) = ancora
-    return dev_X
-
-
-@pytest.fixture(scope="module")
-def dev_Y(ancora):
-    (train_X, train_y), (dev_X, dev_y) = ancora
-    return dev_y
+    return ml_datasets.ud_ancora_pos_tags()
 
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
@@ -51,16 +20,6 @@ def create_embed_relu_relu_softmax(depth, width, vector_length):
             >> Softmax(17, width)
         )
     return model
-
-
-def strings2arrays():
-    def strings2arrays_forward(model, Xs, is_train):
-        hashes = [[hash_unicode(word) for word in X] for X in Xs]
-        arrays = [model.ops.asarray(h, dtype="uint64") for h in hashes]
-        arrays = [array.reshape((-1, 1)) for array in arrays]
-        return arrays, lambda dX: dX
-
-    return Model("strings2arrays", strings2arrays_forward)
 
 
 @pytest.fixture(params=[create_embed_relu_relu_softmax])
@@ -92,9 +51,8 @@ def get_shuffled_batches(Xs, Ys, batch_size):
 @pytest.mark.parametrize(
     ("depth", "width", "vector_width", "nb_epoch"), [(2, 32, 16, 5)]
 )
-def test_small_end_to_end(
-    depth, width, vector_width, nb_epoch, create_model, train_X, train_Y, dev_X, dev_Y
-):
+def test_small_end_to_end(depth, width, vector_width, nb_epoch, create_model, ancora):
+    (train_X, train_Y), (dev_X, dev_Y) = ancora
     batch_size = 8
     model = create_model(depth, width, vector_width).initialize()
     optimizer = Adam(0.001)
