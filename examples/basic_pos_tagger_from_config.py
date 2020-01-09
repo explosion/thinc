@@ -42,12 +42,12 @@ nV = ${hyper_params:vector_width}
 window_size = 1
 
 [model.*.with_list2array.*.model.*.relu1]
-@layers = "Relu.v0"
+@layers = "ReLu.v0"
 nO = ${hyper_params:width}
 nV = 48
 
 [model.*.with_list2array.*.model.*.relu2]
-@layers = "Relu.v0"
+@layers = "ReLu.v0"
 nO = ${hyper_params:width}
 nV = ${hyper_params:vector_width}
 
