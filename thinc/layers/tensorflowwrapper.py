@@ -3,8 +3,8 @@ from typing import Callable, Tuple, Any
 from ..model import Model
 from ..shims import TensorFlowShim
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
-from ..util import is_tensorflow_array
-from ..types import Array
+from ..util import is_tensorflow_array, convert_recursive, is_xp_array
+from ..types import Array, ArgsKwargs
 
 try:
     import tensorflow as tf
@@ -50,28 +50,36 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 # leave the duplication -- I think the abstraction could get pretty messy,
 # and then may need to be undone, as there can always be different specifics.
 
+
 def _convert_inputs(model, X, is_train):
     xp2tensorflow_ = lambda x: xp2tensorflow(x, requires_grad=is_train)
     converted = convert_recursive(is_xp_array, xp2tensorflow_, X)
     if isinstance(converted, ArgsKwargs):
+
         def reverse_conversion(dXtf):
             return convert_recursive(is_tensorflow_array, tensorflow2xp, dXtf)
+
         return converted, reverse_conversion
     elif isinstance(converted, dict):
+
         def reverse_conversion(dXtf):
             dX = convert_recursive(is_tensorflow_array, tensorflow2xp, dXtf)
             return dX.kwargs
+
         return ArgsKwargs(args=tuple(), kwargs=converted), reverse_conversion
     elif isinstance(converted, (tuple, list)):
+
         def reverse_conversion(dXtf):
             dX = convert_recursive(is_tensorflow_array, tensorflow2xp, dXtf)
             return dX.args
- 
+
         return ArgsKwargs(args=converted, kwargs={}), reverse_conversion
     else:
+
         def reverse_conversion(dXtf):
             dX = convert_recursive(is_tensorflow_array, tensorflow2xp, dXtf)
             return dX.args[0]
+
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 

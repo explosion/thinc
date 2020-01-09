@@ -4,7 +4,7 @@ from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import get_width
-from ..types import Array, RNNState, Floats2d, Floats3d, FloatsNd
+from ..types import RNNState, Floats2d, Floats3d
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone

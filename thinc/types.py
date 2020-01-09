@@ -596,6 +596,7 @@ class ArgsKwargs:
 
         f(*args, **kwargs)
     """
+
     args: Tuple[Any, ...]
     kwargs: Dict[str, Any]
 

@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, List, Optional
 
-from ..types import Array, Padded, Array2d
+from ..types import Padded, Array2d
 from ..model import Model
 from ..backends import Ops
 from ..config import registry

@@ -1,10 +1,10 @@
 from typing import Optional, List, Callable, Tuple, Sequence, Union, cast
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsNd
 from ..types import ArrayTypesInt, ArrayTypesFloat, ArrayT
-from ..types import Array1d, Array2d, Array3d
+from ..types import Array2d, Array3d
 from ..util import copy_array, get_array_module
 
 
@@ -120,7 +120,9 @@ class Ops:
 
         return arr, unpad
 
-    def square_sequences(self, seqs: Sequence[Array2d]) -> Tuple[Array3d, Ints1d, Callable]:
+    def square_sequences(
+        self, seqs: Sequence[Array2d]
+    ) -> Tuple[Array3d, Ints1d, Callable]:
         """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
@@ -312,7 +314,9 @@ class Ops:
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
 
-    def backprop_softmax_sequences(self, dY: Floats2d, Y: Floats2d, lengths: Ints1d) -> Floats2d:
+    def backprop_softmax_sequences(
+        self, dY: Floats2d, Y: Floats2d, lengths: Ints1d
+    ) -> Floats2d:
         dX = Y * dY
         sum_dX = self.backprop_sum_pool(self.sum_pool(dX, lengths), lengths)
         dX -= Y * sum_dX
@@ -336,7 +340,9 @@ class Ops:
             dX__bop[:, :, i] += dX * (which == i)
         return dX__bop
 
-    def lstm(self, output: Floats2d, cells: Floats2d, acts: Floats3d, prev: Floats2d) -> None:
+    def lstm(
+        self, output: Floats2d, cells: Floats2d, acts: Floats3d, prev: Floats2d
+    ) -> None:
         # Activations is: hf, hi, ho, hc
         self.sigmoid(acts[0], inplace=True)
         self.sigmoid(acts[1], inplace=True)
@@ -350,7 +356,14 @@ class Ops:
 
     # TODO: types
     def backprop_lstm(
-            self, d_cells: Floats2d, d_prev: Floats2d, d_gates: Floats3d, d_output: Floats2d, gates: Floats3d, cells: Floats2d, prev: Floats2d
+        self,
+        d_cells: Floats2d,
+        d_prev: Floats2d,
+        d_gates: Floats3d,
+        d_output: Floats2d,
+        gates: Floats3d,
+        cells: Floats2d,
+        prev: Floats2d,
     ) -> None:
         (hf, hi, ho, hc) = (0, 1, 2, 3)
         cells_tanh = self.xp.tanh(cells)
@@ -381,7 +394,11 @@ class Ops:
             return out
 
     def backprop_softplus(
-        self, dY: Floats2d, X: Floats2d, threshold: float = 20.0, out: Optional[Floats2d] = None
+        self,
+        dY: Floats2d,
+        X: Floats2d,
+        threshold: float = 20.0,
+        out: Optional[Floats2d] = None,
     ) -> Array:
         xp = get_array_module(X)
         out_: Array
@@ -404,7 +421,11 @@ class Ops:
         return Y
 
     def backprop_mish(
-        self, dY: Floats2d, X: Floats2d, threshold: float = 20.0, out: Optional[Floats2d] = None
+        self,
+        dY: Floats2d,
+        X: Floats2d,
+        threshold: float = 20.0,
+        out: Optional[Floats2d] = None,
     ):
         xp = get_array_module(X)
         indices = X < threshold
@@ -505,7 +526,9 @@ class Ops:
             start += length
         return dX
 
-    def backprop_max_pool(self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d) -> Floats2d:
+    def backprop_max_pool(
+        self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
+    ) -> Floats2d:
         dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):

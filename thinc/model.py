@@ -182,10 +182,11 @@ class Model(Generic[InT, OutT]):
     def get_dim(self, name: str) -> int:
         """Retrieve the value of a dimension of the given name."""
         if name not in self._dims:
-            raise KeyError(f"Cannot get dimension '{name}' for model '{self.name}'.")
+            raise KeyError(f"Cannot get dimension '{name}' for model '{self.name}'")
         value = self._dims[name]
         if value is None:
-            raise ValueError(f"Cannot get dimension '{name}' for model '{self.name}': value unset.")
+            err = f"Cannot get dimension '{name}' for model '{self.name}': value unset"
+            raise ValueError(err)
         else:
             return value
 
@@ -195,7 +196,8 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Cannot set dimension '{name}' for model '{self.name}'.")
         old_value = self._dims[name]
         if old_value is not None and old_value != value:
-            raise ValueError(f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}.")
+            err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
+            raise ValueError(err)
         self._dims[name] = value
 
     def has_param(self, name: str) -> Optional[bool]:
@@ -216,7 +218,9 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Unknown param: '{name}' for model '{self.name}'.")
         key = (self.id, name)
         if key not in self._mem:
-            raise KeyError(f"Parameter '{name}' for model '{self.name}' has not been allocated yet.")
+            raise KeyError(
+                f"Parameter '{name}' for model '{self.name}' has not been allocated yet."
+            )
         return self._mem[key]
 
     def set_param(self, name: str, value: Optional[Array]) -> None:
@@ -231,7 +235,9 @@ class Model(Generic[InT, OutT]):
             try:
                 copy_array(dst=data, src=value)
             except ValueError as e:
-                raise ValueError(f"Cannot set param '{name}' for model '{self.name}': {e}.")
+                raise ValueError(
+                    f"Cannot set param '{name}' for model '{self.name}': {e}."
+                )
             self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
@@ -264,7 +270,8 @@ class Model(Generic[InT, OutT]):
         grad_name = f"d_{name}"
         key = (self.id, grad_name)
         if key not in self._mem:
-            raise KeyError(f"Gradient '{grad_name}' has not been allocated yet for model '{self.name}'.")
+            err = f"Gradient '{grad_name}' has not been allocated yet for model '{self.name}'"
+            raise KeyError(err)
         return self._mem[key]
 
     def set_grad(self, name: str, value: Array) -> None:
@@ -278,8 +285,8 @@ class Model(Generic[InT, OutT]):
             try:
                 copy_array(dst=data, src=value)
             except ValueError as e:
-                raise ValueError(f"Cannot set grad '{grad_name}' for model '{self.name}': {e}.")
-
+                err = f"Cannot set grad '{grad_name}' for model '{self.name}': {e}"
+                raise ValueError(err)
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
@@ -312,7 +319,10 @@ class Model(Generic[InT, OutT]):
             raise KeyError(f"Cannot get reference '{name} for model '{self.name}'.")
         value = self._refs[name]
         if value is None:
-            raise ValueError(f"Cannot get reference '{name}' for model '{self.name}': value unset.")
+            err = f"Cannot get reference '{name}' for model '{self.name}': value unset."
+            raise ValueError(
+                err
+            )
         else:
             return value
 
@@ -524,7 +534,9 @@ class Model(Generic[InT, OutT]):
                 if row == 1:
                     continue
                 param = layer._mem[(id_, name)]
-                if not isinstance(layer._mem.weights, numpy.ndarray):  # pragma: no cover
+                if not isinstance(
+                    layer._mem.weights, numpy.ndarray
+                ):  # pragma: no cover
                     param = param.get()
                 weights[-1]["params"].append(  # type: ignore
                     {"name": name, "offset": start, "shape": shape, "value": param}
