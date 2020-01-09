@@ -34,6 +34,11 @@ def PyTorchWrapper(
         Xtorch, get_dX = convert_inputs(X)
         Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
         Y, get_dYtorch = convert_outputs(Ytorch)
+
+    To allow maximum flexibility, the PyTorchShim expects ArgsKwargs objects
+    on the way into the forward and backward passed. The ArgsKwargs objects
+    will be passed straight into the model in the forward pass, and straight
+    into `torch.autograd.backward` during the backward pass.
     """
     return Model(
         "pytorch",
@@ -98,6 +103,6 @@ def _convert_outputs(model, Ytorch, is_train):
 
     def reverse_conversion(dY):
         dYtorch = convert_recursive(is_xp_array, xp2torch, dY)
-        return dYtorch
+        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
 
     return Y, reverse_conversion
