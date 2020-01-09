@@ -50,8 +50,7 @@ class PyTorchShim(Shim):
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
         
-        def backprop(output_grads):
-            output, grads = output_grads
+        def backprop(grads):
             torch.autograd.backward(output, grad_tensors=grads)
             return convert_recursive(
                 lambda x: hasattr(x, "grad"),
