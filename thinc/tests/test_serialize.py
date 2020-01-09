@@ -74,7 +74,7 @@ def test_multi_model_load_missing_dims():
     b += 2
     data = model.to_bytes()
 
-    model2 = chain(Maxout(5), Maxout())
+    model2 = chain(Maxout(5, nP=None), Maxout(nP=None))
     model2 = model2.from_bytes(data)
     assert model2.layers[0].get_param("b")[0, 0] == 1
     assert model2.layers[1].get_param("b")[0, 0] == 2
