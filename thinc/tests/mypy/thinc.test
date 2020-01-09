@@ -1,9 +1,13 @@
 [case test_mypy_model_forward_inference]
 from typing import Union, Callable, Tuple, TypeVar
-from thinc.model import Model, ModelFwd
+from thinc.model import Model
 from thinc.layers import Linear
 from thinc.types import Floats2d, Array
 from thinc.backends import get_current_ops, Ops
+
+ModelDim = TypeVar("ModelDim", bound=Array)
+ModelBwd = Callable[[ModelDim], ModelDim]
+ModelFwd = Tuple[ModelDim, ModelBwd[ModelDim]]
 
 ops: Ops = get_current_ops()
 

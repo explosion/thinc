@@ -61,6 +61,7 @@ class ThincMyPyTests(DataSuite):
                 output.append(line.rstrip("\r\n"))
         # Remove temp file.
         os.remove(program_path)
+        assert testcase.output is not None, "test was not properly set up"
         assert_string_arrays_equal(
             testcase.output,
             output,
