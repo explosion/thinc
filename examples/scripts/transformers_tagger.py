@@ -1,8 +1,16 @@
-import typer
+from dataclasses import dataclass
 from typing import *
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
+from thinc.model import Model
+from thinc.api import chain
+from thinc.layers.pytorchwrapper import PyTorchWrapper
+from thinc.layers.ragged2list import ragged2list
+from thinc.layers.softmax import Softmax
+from thinc.layers.chain import chain
+from thinc.types import Padded, Ragged, Floats2d, Array
+from thinc.util import evaluate_model_on_arrays
 
 
 CONFIG = """
@@ -26,6 +34,13 @@ name = ${common:starter}
 [model.output_layer]
 @layers = "output_layer.v0"
 """
+
+def padded2ragged() -> Model[Padded, Ragged]:
+    ...
+
+
+def with_array(layer: Model[Array, Array]) -> Model:
+    ...
 
 
 @dataclass
@@ -66,11 +81,9 @@ def _tokenizer_forward(model, texts, is_train):
 
 @thinc.api.registry.layers("transformers_model.v0")
 def transformers_model(name) -> Model[List[TokensPlus], Padded]:
-    transformer = AutoModel.from_pretrained(name))
-    return adjust_transformer_inputs(PyTorchWrapper(transformer))
+    transformer = AutoModel.from_pretrained(name)
+    return PyTorchWrapper(transformer)
 
-
-def adjust_transformer_inputs(
 
 
 @thinc.api.registry.layers("output_layer_example.v0")
@@ -85,15 +98,22 @@ def output_layer_example() -> Model[Padded, List[Floats2d]]:
 @thinc.api.registry.layers("transformer_tagger_example.v0")
 def transformer_tagger_example(
     tokenizer: Model[List[str], List[TokensPlus]],
-    transformer: Model[List[TokensPlus], Padded],
+    transformer: Model[List[Array], Padded],
     output_layer: Model[Padded, List[Floats2d]]
-):
-    return chain(
+) -> Model[List[str], List[Floats2d]]:
+    model = thinc.layers.chain.chain(
         tokenizer,
         transformer,
         output_layer
     )
+    print(reveal_type(model))
+    reveal_locals()
+    return model
 
+_dummy_tokenizer = cast(Model[List[str], List[TokensPlus]], None)
+_dummy_transformer = cast(Model[List[Array], Padded], None)
+_dummy_output = cast(Model[Padded, List[Floats2d]], None)
+_dummy_model = transformer_tagger_example(_dummy_tokenizer, _dummy_transformer, _dummy_output)
 
 def load_config(path: Optional[Path]):
     from thinc.api import Config, registry
@@ -120,7 +140,7 @@ def load_data():
     return (train_X, train_y), (dev_X, dev_y)
 
 
-def main(path: Path=None):
+def main(path: Optional[Path]=None):
     thinc.api.require_gpu()
     thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
@@ -132,14 +152,14 @@ def main(path: Path=None):
     (train_X, train_Y), (dev_X, dev_Y) = load_data()
 
     for epoch in range(cfg["n_epoch"]):
-        for inputs, truths in get_shuffled_batches(train_X, train_Y, cfg["batch_size"]):
+        for inputs, truths in thinc.api.get_shuffled_batches(train_X, train_Y, cfg["batch_size"]):
             guesses, backprop = model(inputs, is_train=True)
             loss, d_guesses = calculate_loss(guesses, truths)
             backprop(d_guesses)
             model.finish_update(optimizer)
             optimizer.step_schedules()
-        print(epoch, evaluate(model, dev_X, dev_Y))
+        print(epoch, evaluate_model_on_arrays(model, dev_X, dev_Y, 128))
 
 
 if __name__ == "__main__":
-    typer.run(main)
+    main()
