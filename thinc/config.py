@@ -332,6 +332,9 @@ class registry(object):
             else:
                 sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
+        # NOTE: This will fail if the annotation is a generic alias with an
+        # arbitrary type origin unsupported out-of-the-box by pydantic
+        # Details: https://github.com/samuelcolvin/pydantic/issues/1158
         return create_model("ArgModel", **sig_args)
 
 
