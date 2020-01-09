@@ -117,8 +117,8 @@ class ConfigValidationError(ValueError):
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
-ARGS_FIELD = "___args___"
-ARGS_FIELD_ALIAS = "A_R_G_S"  # user is unlikely going to use this
+ARGS_FIELD = "*"
+ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"  # user is unlikely going to use this
 
 
 class EmptySchema(BaseModel):
@@ -252,6 +252,11 @@ class registry(object):
                 filled[key], validation[key] = cls._fill(
                     value, field_type, validate, parent=key_parent
                 )
+                if key == ARGS_FIELD and isinstance(validation[key], dict):
+                    # If the value of variable positional args is a dict (e.g.
+                    # created via config blocks), only use its values
+                    filled[key] = list(filled[key].values())
+                    validation[key] = list(validation[key].values())
             else:
                 filled[key] = value
                 validation[key] = value
