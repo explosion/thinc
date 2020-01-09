@@ -117,27 +117,18 @@ class PyTorchShim(Shim):
     def to_cpu(self):
         self._model.cpu()
 
-    def to_disk(self, path):
-        torch.save(self._model.state_dict(), str(path))
-
-    def from_disk(self, path):
-        if self.ops.device == "cpu":
-            map_location = "cpu"
-        else:
-            device_id = torch.cuda.current_device()
-            map_location = "cuda:%d" % device_id
-        self._model.load_state_dict(torch.load(path, map_location=map_location))
-        self._model.to(map_location)
-        return self
-
     def to_bytes(self):
         filelike = BytesIO()
         torch.save(self._model.state_dict(), filelike)
         filelike.seek(0)
-        return filelike.getvalue()
+        weights_bytes = filelike.getvalue()
+        msg = {"config": self.cfg, "state": weights_bytes}
+        return srsly.msgpack_dumps(msg)
 
-    def from_bytes(self, data):
-        filelike = BytesIO(data)
+    def from_bytes(self, bytes_data):
+        msg = srsly.msgpack_loads(bytes_data)
+        self.cfg = msg["config"]
+        filelike = BytesIO(msg["state"])
         filelike.seek(0)
         if self.ops.device == "cpu":
             map_location = "cpu"
