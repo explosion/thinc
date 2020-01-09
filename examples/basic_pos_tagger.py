@@ -1,21 +1,9 @@
-from typing import Sequence
 import random
-from murmurhash import hash_unicode
-from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow
-from thinc.api import chain, with_list2array, Adam, fix_random_seed
+from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow, chain
+from thinc.api import with_list2array, strings2arrays, Adam, fix_random_seed
 from wasabi import msg
 import ml_datasets
 import typer
-
-
-def strings2arrays():
-    def strings2arrays_forward(model: Model, Xs: Sequence[str], is_train: bool):
-        hashes = [[hash_unicode(word) for word in X] for X in Xs]
-        arrays = [model.ops.asarray(h, dtype="uint64") for h in hashes]
-        arrays = [array.reshape((-1, 1)) for array in arrays]
-        return arrays, lambda dX: dX
-
-    return Model("strings2arrays", strings2arrays_forward)
 
 
 def main(
