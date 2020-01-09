@@ -1,4 +1,5 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict, Optional
+from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
+from typing import Optional, Callable
 import numpy
 import itertools
 import threading
@@ -75,7 +76,7 @@ def is_numpy_array(obj: Any) -> bool:
         return False
 
 
-def is_torch_array(obj) -> bool:
+def is_torch_array(obj: Any) -> bool:  # pragma: no cover
     if torch is None:
         return False
     elif isinstance(obj, torch.Tensor):
@@ -84,7 +85,7 @@ def is_torch_array(obj) -> bool:
         return False
 
 
-def is_tensorflow_array(obj) -> bool:
+def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if tf is None:
         return False
     elif isinstance(obj, tf.Tensor):
@@ -254,13 +255,13 @@ def assert_pytorch_installed() -> None:  # pragma: no cover
         raise ImportError("PyTorch support requires torch: pip install thinc[torch]")
 
 
-# I think it seems reasonable to leave this untyped?
-def convert_recursive(is_match, convert_item, obj):
+def convert_recursive(
+    is_match: Callable[[Any], bool], convert_item: Callable[[Any], Any], obj: Any
+) -> Any:
     """Either convert a single value if it matches a given function, or
     recursively walk over potentially nested lists, tuples and dicts applying
-    the conversion, and returns the same type.
-    
-    Also supports the ArgsKwargs dataclass.
+    the conversion, and returns the same type. Also supports the ArgsKwargs
+    dataclass.
     """
     if is_match(obj):
         return convert_item(obj)
