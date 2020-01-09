@@ -320,9 +320,7 @@ class Model(Generic[InT, OutT]):
         value = self._refs[name]
         if value is None:
             err = f"Cannot get reference '{name}' for model '{self.name}': value unset."
-            raise ValueError(
-                err
-            )
+            raise ValueError(err)
         else:
             return value
 
