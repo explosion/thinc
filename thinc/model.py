@@ -225,7 +225,10 @@ class Model(Generic[InT, OutT]):
             if key not in self._mem:
                 self._mem.add(key, value.shape)
             data = self._mem[(self.id, name)]
-            copy_array(dst=data, src=value)
+            try:
+                copy_array(dst=data, src=value)
+            except ValueError as e:
+                raise ValueError(f"Cannot set param '{name}' for model '{self.name}': {e}.")
             self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
@@ -269,7 +272,11 @@ class Model(Generic[InT, OutT]):
             self.inc_grad(name, value)
         else:
             data = self._mem[key]
-            copy_array(dst=data, src=value)
+            try:
+                copy_array(dst=data, src=value)
+            except ValueError as e:
+                raise ValueError(f"Cannot set grad '{grad_name}' for model '{self.name}': {e}.")
+
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
