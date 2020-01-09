@@ -18,7 +18,7 @@ OutT = Floats2d
 def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
-    nP: int = 3,
+    nP: Optional[int] = 3,
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,

@@ -24,7 +24,7 @@ def HashEmbed(
         forward,
         init=create_init(initializer),
         params={"vectors": None},
-        dims={"nO": nO, "nV": nV},
+        dims={"nO": nO, "nV": nV, "nI": None},
         attrs={"seed": seed, "column": column},
     )
     if seed is None:
