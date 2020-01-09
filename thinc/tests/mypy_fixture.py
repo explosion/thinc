@@ -1,4 +1,10 @@
-"""Utilities for processing .test files containing test case descriptions."""
+"""Inlined version of mypy test fixture. The one from the official package
+has some rough edges and requires things like a conftest.py in our root, so
+we inline the fixture to avoid that.
+
+Mostly from: https://github.com/python/mypy/blob/387a9119a9422a9671fe0f18d3f0f3636aed24f1/mypy/test/data.py
+Also from: https://github.com/python/mypy/blob/387a9119a9422a9671fe0f18d3f0f3636aed24f1/mypy/test/config.py
+"""
 
 import os
 import os.path
@@ -778,4 +784,3 @@ def clean_up(a: List[str]) -> List[str]:
         ss = re.sub(" +$", "", ss)
         res.append(re.sub("\\r$", "", ss))
     return res
-
