@@ -1,5 +1,4 @@
-from typing import Callable, Tuple, Any, Optional
-from functools import partial
+from typing import Callable, Tuple, Optional
 
 from ..model import Model
 from ..shims import PyTorchShim
@@ -12,16 +11,17 @@ from ..types import Array, ArgsKwargs
 InT = Array
 OutT = Array
 
+
 @registry.layers("PyTorchWrapper.v0")
 def PyTorchWrapper(
-        pytorch_model,
-        convert_inputs=None,
-        convert_outputs=None,
-        gradient_map: Optional[Tuple[int, ...]]=None
+    pytorch_model,
+    convert_inputs=None,
+    convert_outputs=None,
+    gradient_map: Optional[Tuple[int, ...]] = None,
 ) -> Model[InT, OutT]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
-    optimizer.step() after each batch --- see examples/wrap_pytorch.py
+    optimizer.step() after each batch. See examples/wrap_pytorch.py
 
     Your PyTorch model's forward method can take arbitrary args and kwargs,
     but must return either a single tensor as output or a tuple. You may find the
@@ -43,11 +43,8 @@ def PyTorchWrapper(
     return Model(
         "pytorch",
         forward,
-        attrs={
-            "convert_inputs": convert_inputs,
-            "convert_outputs": convert_outputs,
-        },
-        shims=[PyTorchShim(pytorch_model)]
+        attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
+        shims=[PyTorchShim(pytorch_model)],
     )
 
 
@@ -57,7 +54,7 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """
     convert_inputs = model.get_attr("convert_inputs") or _convert_inputs
     convert_outputs = model.get_attr("convert_outputs") or _convert_outputs
-    
+
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
     Y, get_dYtorch = convert_outputs(model, Ytorch, is_train)
@@ -67,34 +64,42 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
         dXtorch = torch_backprop(dYtorch)
         dX = get_dX(dXtorch)
         return dX
-    
+
     return Y, backprop
 
 
 # Default conversion functions
 
+
 def _convert_inputs(model, X, is_train):
     xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train)
     converted = convert_recursive(is_xp_array, xp2torch_, X)
     if isinstance(converted, ArgsKwargs):
+
         def reverse_conversion(dXtorch):
             return convert_recursive(is_torch_array, torch2xp, dXtorch)
+
         return converted, reverse_conversion
     elif isinstance(converted, dict):
+
         def reverse_conversion(dXtorch):
             dX = convert_recursive(is_torch_array, torch2xp, dXtorch)
             return dX.kwargs
+
         return ArgsKwargs(args=tuple(), kwargs=converted), reverse_conversion
     elif isinstance(converted, (tuple, list)):
+
         def reverse_conversion(dXtorch):
             dX = convert_recursive(is_torch_array, torch2xp, dXtorch)
             return dX.args
- 
+
         return ArgsKwargs(args=converted, kwargs={}), reverse_conversion
     else:
+
         def reverse_conversion(dXtorch):
             dX = convert_recursive(is_torch_array, torch2xp, dXtorch)
             return dX.args[0]
+
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 
