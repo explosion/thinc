@@ -1,6 +1,6 @@
 import pytest
 import numpy
-from thinc.api import chain, clone, Linear, Model
+from thinc.api import chain, clone, concatenate, Linear, Model
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -51,6 +51,26 @@ def test_chain_one(model1):
 def test_chain_two(model1, model2):
     model = chain(model1, model2)
     assert len(model.layers) == 2
+
+
+def test_chain_three(model1, model2, model3):
+   model = chain(model1, model2, model3)
+   assert len(model.layers) == 3
+
+
+def test_concatenate_one(model1):
+    model = concatenate(model1)
+    assert isinstance(model, Model)
+
+
+def test_concatenate_two(model1, model2):
+    model = concatenate(model1, model2)
+    assert len(model.layers) == 2
+
+
+def test_concatenate_three(model1, model2, model3):
+    model = concatenate(model1, model2, model3)
+    assert len(model.layers) == 3
 
 
 def test_chain_right_branch(model1, model2, model3):
