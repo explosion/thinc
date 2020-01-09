@@ -60,5 +60,4 @@ def init(
             layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X)
-        print("concatenated set layer", layer.name, "with nI", layer.get_dim("nI"), "and nO", layer.get_dim("nO"))
     model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
