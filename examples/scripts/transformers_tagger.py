@@ -1,19 +1,19 @@
 import typer
 from typing import *
 from pathlib import Path
+from transformers import AutoTokenizer, AutoModel
 import thinc.api
 
 
 CONFIG = """
 [common]
-starter = "albert"
+starter = "albert-base-v2"
 
 [training]
 batch_size = 128
 n_epoch = 10
 
 [model]
-@layers = "output_layer_example.v0"
 
 [model.tokenizer]
 @layers = "transformers_tokenizer.v0"
@@ -25,40 +25,69 @@ name = ${common:starter}
 
 [model.output_layer]
 @layers = "output_layer.v0"
-
 """
 
-@thinc.api.registry.layers("transformers_tokenizer.v0")
-def transformers_tokenizer(name):
-    from transformers import AutoTokenizer
 
-    tokenizer = AutoTokenizer.from_pretrained(name)
-    return wrap_transformers_tokenizer(tokenizer)
+@dataclass
+class TokensPlus:
+    """Dataclass to hold the output of the Huggingface 'encode_plus' method."""
+    input_ids: List[int]
+    token_type_ids: List[int]
+    attention_mask: List[int]
+    overflowing_tokens: List[int]
+    num_truncated_tokens: int
+    special_tokens_mask: List[int]
+
+
+@thinc.api.registry.layers("transformers_tokenizer.v0")
+def transformers_tokenizer(name: str) -> Model[List[str], List[TokensPlus]]:
+    return Model(
+        "tokenizer",
+        _tokenizer_forward,
+        attrs={"tokenizer":  AutoTokenizer.from_pretrained(name)}
+    )
+
+
+def _tokenizer_forward(model, texts, is_train):
+    tokenizer = model.get_attr("tokenizer")
+    tokens = []
+    for text in texts:
+        info_dict = tokenizer.encode_plus(
+            text,
+            add_special_tokens=True,
+            return_token_type_ids=True,
+            return_attention_mask=True,
+            return_overflowing_tokens=True,
+            return_special_tokens_mask=True
+        )
+        tokens.append(TokensPlus(**info_dict))
+    return tokens, lambda d_tokens: d_tokens
 
 
 @thinc.api.registry.layers("transformers_model.v0")
-def transformers_model(name):
-    from transformers import AutoModel
-
-    transformer = AutoModel.from_pretrained(name)
-    return wrap_transformers_model(transformer)
+def transformers_model(name) -> Model[List[TokensPlus], Padded]:
+    transformer = AutoModel.from_pretrained(name))
+    return adjust_transformer_inputs(PyTorchWrapper(transformer))
 
 
-def wrap_transformers_model(model):
-    raise NotImplementedError
-
-
-def wrap_transformers_tokenizer(tokenizer):
-    raise NotImplementedError
+def adjust_transformer_inputs(
 
 
 @thinc.api.registry.layers("output_layer_example.v0")
-def output_layer_example():
-    return Softmax()
+def output_layer_example() -> Model[Padded, List[Floats2d]]:
+    return chain(
+        padded2ragged(),
+        with_array(Softmax()),
+        ragged2list()
+    )
 
 
 @thinc.api.registry.layers("transformer_tagger_example.v0")
-def transformer_tagger_example(tokenizer, transformer, output_layer):
+def transformer_tagger_example(
+    tokenizer: Model[List[str], List[TokensPlus]],
+    transformer: Model[List[TokensPlus], Padded],
+    output_layer: Model[Padded, List[Floats2d]]
+):
     return chain(
         tokenizer,
         transformer,
