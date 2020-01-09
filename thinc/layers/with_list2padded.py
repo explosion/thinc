@@ -19,14 +19,14 @@ def forward(model: Model[InT, InT], Xs: InT, is_train: bool) -> Tuple[InT, Calla
     # the number of batch items that are still active at timestep t.
     # We undo this transformation
     X_data, size_at_t, unpad = model.ops.square_sequences(Xs)
-    Yp, backprop_layer = model.layers[0](Padded(X_data, size_at_t), is_train)
+    Yp, backprop_layer = model.layers[0](Padded(*model.ops.square_sequences(Xs)))
 
     def backprop(dYs: InT) -> InT:
         dY_data, size_at_t, unpad = model.ops.square_sequences(dYs)
-        dYp = backprop_layer(Padded(dY_data, size_at_t))
-        return unpad(dYp.data)
+        dYp = backprop_layer(Padded(*model.ops.square_sequenes(dYs)))
+        return dYp.unpad(dYp.data)
 
-    return unpad(Yp.data), backprop
+    return Yp.unpad(Yp.data), backprop
 
 
 def init(
