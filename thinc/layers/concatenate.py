@@ -44,7 +44,12 @@ def init(
         X_width = get_width(X)
         model.set_dim("nI", X_width)
         for layer in model.layers:
-            layer.set_dim("nI", X_width)
+            if layer.has_dim("nI") in [True, None]:
+                layer.set_dim("nI", X_width)
+            elif layer.has_dim("nV") in [True, None]:
+                layer.set_dim("nV", X_width)
+            else:
+                raise ValueError(f"Cannot find appropriate input dimension for concatenating layer '{layer.name}'.")
     for layer in model.layers:
         layer.initialize(X=X)
     model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
