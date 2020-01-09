@@ -4,11 +4,7 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
-from thinc.api import chain
-from thinc.layers.pytorchwrapper import PyTorchWrapper
-from thinc.layers.ragged2list import ragged2list
-from thinc.layers.softmax import Softmax
-from thinc.layers.chain import chain
+from thinc.api import PyTorchWrapper, ragged2list, Softmax, chain
 from thinc.types import Padded, Ragged, Floats2d, Array
 from thinc.util import evaluate_model_on_arrays
 
@@ -36,11 +32,32 @@ name = ${common:starter}
 """
 
 def padded2ragged() -> Model[Padded, Ragged]:
-    ...
+    def _forward(model, X, is_train):
+        seqs = X.unpad(X.data)
+        ragged = Ragged(
+            model.ops.flatten(seqs)
+            model.ops.astype([len(seq) for seq in seqs], dtype="i")
+        )
+
+        def backprop(d_ragged):
+            d_seqs = model.ops.unflatten(d_ragged.data, d_ragged.lengths)
+            return Padded(*model.ops.square_sequences(d_seqs))
+
+        return ragged, backprop
+
+    return Model("padded2ragged", _forward)
 
 
-def with_array(layer: Model[Array, Array]) -> Model:
-    ...
+def with_ragged2array(layer: Model[Array, Array]) -> Model[Ragged, Ragged]:
+    def _forward(model, Xr: Ragged, is_train):
+        Y, backprop_layer = model.layers[0](Xr.data, is_train)
+
+        def backprop(dYr):
+            return Ragged(backprop_layer(dYr.data), dYr.lengths)
+        
+        return Ragged(Y, Xr.lengths)
+
+    return Model("with_ragged2array", _forward, layers=[layer])
 
 
 @dataclass
@@ -90,7 +107,7 @@ def transformers_model(name) -> Model[List[TokensPlus], Padded]:
 def output_layer_example() -> Model[Padded, List[Floats2d]]:
     return chain(
         padded2ragged(),
-        with_array(Softmax()),
+        with_ragged2array(Softmax()),
         ragged2list()
     )
 
@@ -101,19 +118,12 @@ def transformer_tagger_example(
     transformer: Model[List[Array], Padded],
     output_layer: Model[Padded, List[Floats2d]]
 ) -> Model[List[str], List[Floats2d]]:
-    model = thinc.layers.chain.chain(
+    return chain(
         tokenizer,
         transformer,
         output_layer
     )
-    print(reveal_type(model))
-    reveal_locals()
-    return model
 
-_dummy_tokenizer = cast(Model[List[str], List[TokensPlus]], None)
-_dummy_transformer = cast(Model[List[Array], Padded], None)
-_dummy_output = cast(Model[Padded, List[Floats2d]], None)
-_dummy_model = transformer_tagger_example(_dummy_tokenizer, _dummy_transformer, _dummy_output)
 
 def load_config(path: Optional[Path]):
     from thinc.api import Config, registry
