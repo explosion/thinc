@@ -1,6 +1,6 @@
 import pytest
 import srsly
-from thinc.api import with_list2array, Linear, Maxout, chain
+from thinc.api import with_list2array, Linear, Maxout, chain, Model
 
 
 @pytest.fixture
@@ -28,6 +28,26 @@ def test_simple_model_roundtrip_bytes():
     b -= 1
     model = model.from_bytes(data)
     assert model.get_param("b")[0, 0] == 1
+
+
+def test_simple_model_roundtrip_bytes_serializable_attrs():
+    class SerializableAttr:
+        value = "foo"
+
+        def to_bytes(self):
+            return self.value.encode("utf8")
+
+        def from_bytes(self, data):
+            self.value = f"{data.decode('utf8')} from bytes"
+
+    attr = SerializableAttr()
+    assert attr.value == "foo"
+    assert attr.to_bytes() == b"foo"
+    model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
+    model_bytes = model.to_bytes()
+    model = model.from_bytes(model_bytes)
+    assert model.has_attr("test")
+    assert model.get_attr("test").value == "foo from bytes"
 
 
 def test_multi_model_roundtrip_bytes():
