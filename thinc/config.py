@@ -131,7 +131,7 @@ class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
     # Underscore fields are not allowed in model, so use alias
-    alias_generator = lambda f: ARGS_FIELD if f == ARGS_FIELD_ALIAS else f
+    fields = {ARGS_FIELD_ALIAS: {"alias": ARGS_FIELD}}
 
 
 class registry(object):
