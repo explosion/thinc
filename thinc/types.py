@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable, Protocol, Callable
+from typing import Optional, List, Dict, Sequence, Iterable, Callable
 import numpy
 import sys
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal
+    from typing_extensions import Literal, Protocol
 else:
-    from typing import Literal
+    from typing import Literal, Protocol
 
 try:
     import cupy
