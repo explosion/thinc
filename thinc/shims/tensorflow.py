@@ -24,6 +24,11 @@ except ImportError:
     pass
 
 
+from .shim import Shim
+from ..util import tensorflow2xp
+from ..types import ArgsKwargs
+
+
 class TensorFlowShim(Shim):
     """Interface between a TensorFlow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
@@ -41,36 +46,34 @@ class TensorFlowShim(Shim):
         else:
             return self.predict(args, kwargs)
 
-    def predict(self, args, kwargs):
+    def predict(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(0)
-        y_var = self._model(*args, **kwargs)
+        Y = self._model(*X.args, **X.kwargs)
         tf.keras.backend.set_learning_phase(1)
-        return y_var, lambda d_args, d_kwargs: d_args
+        return Y
 
-    def begin_update(self, args, kwargs):
+    def begin_update(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(1)
         tape = tf.GradientTape()
         tape.__enter__()
-        tape.watch(args[0])  # watch the input layers
-        output = self._model(*args, **kwargs)
+        tape.watch(X.args)  # watch the input layers
+        output = self._model(*X.args, **X.kwargs)
 
-        def backprop(d_args, d_kwargs):
+        def backprop(d_output):
             # d_args[0] contains derivative of loss wrt output (d_loss/d_output)
             tape.__exit__(None, None, None)
             # We need to handle a tuple of inputs
-            if len(args) == 1:
-                wrt_tensors = [args[0]]  # add the input layer also for d_loss/d_input
+            if len(X.args) == 1:
+                wrt_tensors = [X[0]]  # add the input layer also for d_loss/d_input
             else:
-                wrt_tensors = list(args[0])
+                wrt_tensors = list(X.args[0])
             wrt_tensors.extend(self._model.trainable_variables)
             all_gradients = tape.gradient(
-                output, wrt_tensors, output_gradients=d_args[0]
+                output, wrt_tensors, output_gradients=d_output[0]
             )
-            dX = all_gradients[: len(args)]
-            if len(dX) == 1:
-                dX = dX[0]
+            dX = all_gradients[: len(X.args)]
             self.grads_for_optimization = all_gradients[1:]
-            return dX
+            return ArgsKwargs(args=tuple(dX), kwargs={})
 
         return output, backprop
 

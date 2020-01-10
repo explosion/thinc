@@ -41,6 +41,7 @@ from .sumpool import SumPool
 from .list2array import list2array
 from .list2ragged import list2ragged
 from .ragged2list import ragged2list
+from .strings2arrays import strings2arrays
 from .with_list2array import with_list2array
 from .with_list2padded import with_list2padded
 from .with_reshape import with_reshape

@@ -84,7 +84,8 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             break
     for layer in model.layers[:-1]:
         layer.initialize(X=X)
-        X = layer.predict(X)
+        if X is not None:
+            X = layer.predict(X)
     model.layers[-1].initialize(X=X, Y=Y)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))

@@ -16,28 +16,26 @@ class Shim:
     """
 
     global_id = 0
+    cfg: Dict
     _model: Any
     _optimizer: Optional[Any]
 
-    def __init__(self, model: Any):
+    def __init__(self, model: Any, config=None):
         Shim.global_id += 1
         self.id = Shim.global_id
+        self.cfg = dict(config) if config is not None else {}
         self._model = model
         self._optimizer = None
 
-    def __call__(
-        self, args: Tuple, kwargs: Dict, is_train: bool
-    ) -> Tuple[Any, Callable[..., Any]]:
+    def __call__(self, inputs, is_train: bool) -> Tuple[Any, Callable[..., Any]]:
         raise NotImplementedError
 
-    def predict(self, args: Tuple, kwargs: Dict) -> Any:
-        Y, backprop = self(args, kwargs, is_train=False)
+    def predict(self, fwd_args: Any) -> Any:
+        Y, backprop = self(fwd_args, is_train=False)
         return Y
 
-    def begin_update(
-        self, args: Tuple, kwargs: Dict
-    ) -> Tuple[Any, Callable[[Any], Any]]:
-        return self(args, kwargs, is_train=True)
+    def begin_update(self, fwd_args: Any) -> Tuple[Any, Callable[..., Any]]:
+        return self(fwd_args, is_train=True)
 
     def finish_update(self, optimizer):
         raise NotImplementedError

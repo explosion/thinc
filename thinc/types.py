@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List
+from typing import Optional, List, Dict, Sequence, Iterable, Callable
 import numpy
 import sys
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal
+    from typing_extensions import Literal, Protocol
 else:
-    from typing import Literal
+    from typing import Literal, Protocol
 
 try:
     import cupy
@@ -517,15 +517,12 @@ class IntsNd(Array):
 
 
 # Union of all int/float array types
-ArrayTypesInt = Union[
-    Ints1d, Ints2d, Ints3d, Ints4d, IntsNd,
-]
-ArrayTypesFloat = Union[
-    Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd,
-]
-ArrayTypes = Union[
-    ArrayTypesFloat, ArrayTypesInt,
-]
+ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
+ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
+ArrayTypes = Union[ArrayTypesFloat, ArrayTypesInt]
+Array1d = Union[Ints1d, Floats1d]
+Array2d = Union[Ints2d, Floats2d]
+Array3d = Union[Ints3d, Floats3d]
 
 
 class Generator(Iterator):
@@ -565,14 +562,24 @@ class Doc(Sized, Container):
         ...
 
 
+InFunc = TypeVar("InFunc")
+
+
+class Decorator(Protocol):
+    """Protocol to mark a function as returning its child with identical signature."""
+
+    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
+        ...
+
+
 # This should probably become a dataclass too.
 RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
 
 @dataclass
 class Ragged:
-    data: Array
-    lengths: Array
+    data: Array2d
+    lengths: Ints1d
 
 
 @dataclass
@@ -583,5 +590,48 @@ class Padded:
     shrink the batch.
     """
 
-    data: Array
-    size_at_t: Array
+    data: Array3d
+    size_at_t: Ints1d
+
+
+@dataclass
+class ArgsKwargs:
+    """A tuple of (args, kwargs) that can be spread into some function f:
+
+        f(*args, **kwargs)
+    """
+
+    args: Tuple[Any, ...]
+    kwargs: Dict[str, Any]
+
+    @classmethod
+    def from_items(cls, items: Sequence[Tuple[Union[int, str], Any]]) -> "ArgsKwargs":
+        """Create an ArgsKwargs object from a sequence of (key, value) tuples,
+        such as produced by argskwargs.items(). Each key should be either a string
+        or an integer. Items with int keys are added to the args list, and
+        items with string keys are added to the kwargs list. The args list is
+        determined by sequence order, not the value of the integer.
+        """
+        args = []
+        kwargs = {}
+        for key, value in items:
+            if isinstance(key, int):
+                args.append(value)
+            else:
+                kwargs[key] = value
+        return cls(args=tuple(args), kwargs=kwargs)
+
+    def keys(self) -> Iterable[Union[int, str]]:
+        """Yield indices from self.args, followed by keys from self.kwargs."""
+        yield from range(len(self.args))
+        yield from self.kwargs.keys()
+
+    def values(self) -> Iterable[Any]:
+        """Yield elements of from self.args, followed by values from self.kwargs."""
+        yield from self.args
+        yield from self.kwargs.values()
+
+    def items(self) -> Iterable[Tuple[Union[int, str], Any]]:
+        """Yield enumerate(self.args), followed by self.kwargs.items()"""
+        yield from enumerate(self.args)
+        yield from self.kwargs.items()

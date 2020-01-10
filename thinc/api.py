@@ -5,7 +5,7 @@ from .model import create_init, Model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
-from .types import Ragged, Padded
+from .types import Ragged, Padded, ArgsKwargs
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu
 from .util import get_shuffled_batches, minibatch, evaluate_model_on_arrays
@@ -24,6 +24,7 @@ from .layers import TensorFlowWrapper
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
 from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
 from .layers import with_list2array, with_list2padded, with_reshape, with_getitem
+from .layers import strings2arrays
 
 from .layers import MaxPool, MeanPool, SumPool
 

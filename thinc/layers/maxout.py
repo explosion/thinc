@@ -18,7 +18,7 @@ OutT = Floats2d
 def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
-    nP: int = 3,
+    nP: Optional[int] = 3,
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
@@ -55,9 +55,9 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
     def backprop(d_best: OutT) -> InT:
         dY = model.ops.backprop_maxout(d_best, which, nP)
+        model.inc_grad("b", dY.sum(axis=0))
         dY = dY.reshape((dY.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
-        model.inc_grad("b", dY.sum(axis=0))
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
     return best, backprop

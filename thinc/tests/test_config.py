@@ -1,18 +1,17 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional
+from typing import Iterable, Union, Sequence, Optional, List
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config
+from thinc.api import Config, registry, RAdam
+import numpy
 
 from .util import make_tempdir
 
 
 EXAMPLE_CONFIG = """
-[DEFAULT]
-
 [optimizer]
 @optimizers = "Adam.v1"
 beta1 = 0.9
@@ -21,8 +20,9 @@ use_averages = true
 
 [optimizer.learn_rate]
 @schedules = "warmup_linear.v1"
-start = 0.1
-steps = 10000
+initial_rate = 0.1
+warmup_steps = 10000
+total_steps = 100000
 
 [pipeline]
 
@@ -274,14 +274,16 @@ def test_make_from_config_schema():
 def test_read_config():
     byte_string = EXAMPLE_CONFIG.encode("utf8")
     cfg = Config().from_bytes(byte_string)
-    assert cfg["optimizer"]["learn_rate"]["start"] == 0.1
+
+    assert cfg["optimizer"]["beta1"] == 0.9
+    assert cfg["optimizer"]["learn_rate"]["initial_rate"] == 0.1
     assert cfg["pipeline"]["parser"]["factory"] == "parser"
     assert cfg["pipeline"]["parser"]["model"]["tok2vec"]["width"] == 128
 
 
 def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
-    result = my_registry.make_from_config(cfg)
+    result = my_registry.make_from_config(cfg, validate=True)
     optimizer = result["optimizer"]
     assert optimizer.b1 == 0.9
 
@@ -374,7 +376,7 @@ def test_make_config_positional_args():
         return args[0]
 
     args = ["^_^", "^(*.*)^"]
-    cfg = {"config": {"@cats": "catsie.v567", "foo": "baz", "___args___": args}}
+    cfg = {"config": {"@cats": "catsie.v567", "foo": "baz", "*": args}}
     filled_cfg = my_registry.make_from_config(cfg)
     assert filled_cfg["config"] == "^_^"
 
@@ -385,13 +387,34 @@ def test_make_config_positional_args_complex():
         assert args[0] == 123
         return args[0]
 
-    cfg = {"config": {"@cats": "catsie.v890", "___args___": [123, True, 1, False]}}
+    cfg = {"config": {"@cats": "catsie.v890", "*": [123, True, 1, False]}}
     filled_cfg = my_registry.make_from_config(cfg)
     assert filled_cfg["config"] == 123
-    cfg = {"config": {"@cats": "catsie.v890", "___args___": [123, "True"]}}
+    cfg = {"config": {"@cats": "catsie.v890", "*": [123, "True"]}}
     with pytest.raises(ConfigValidationError):
         # "True" is not a valid boolean or positive int
         my_registry.make_from_config(cfg)
+
+
+def test_make_config_positional_args_dicts():
+    cfg = {
+        "hyper_params": {"n_hidden": 512, "dropout": 0.2, "learn_rate": 0.001},
+        "model": {
+            "@layers": "chain.v0",
+            "*": {
+                "relu1": {"@layers": "ReLu.v0", "nO": 512, "dropout": 0.2},
+                "relu2": {"@layers": "ReLu.v0", "nO": 512, "dropout": 0.2},
+                "softmax": {"@layers": "Softmax.v0"},
+            },
+        },
+        "optimizer": {"@optimizers": "Adam.v1", "learn_rate": 0.001},
+    }
+    loaded = my_registry.make_from_config(cfg)
+    model = loaded["model"]
+    X = numpy.ones((784, 1), dtype="f")
+    model.initialize(X=X, Y=numpy.zeros((784, 1), dtype="f"))
+    model.begin_update(X)
+    model.finish_update(loaded["optimizer"])
 
 
 def test_validation_generators_iterable():
@@ -445,3 +468,30 @@ def test_validation_bad_function():
     config = {"test": {"@optimizers": "good.v1", "invalid_arg": 1}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(config)
+
+
+def test_objects_from_config():
+    config = {
+        "optimizer": {
+            "@optimizers": "my_cool_optimizer.v1",
+            "beta1": 0.2,
+            "learn_rate": {
+                "@schedules": "my_cool_repetitive_schedule.v1",
+                "base_rate": 0.001,
+                "repeat": 4,
+            },
+        }
+    }
+
+    @thinc.registry.optimizers.register("my_cool_optimizer.v1")
+    def make_my_optimizer(learn_rate: List[float], beta1: float):
+        return RAdam(learn_rate, beta1=beta1)
+
+    @thinc.registry.schedules("my_cool_repetitive_schedule.v1")
+    def decaying(base_rate: float, repeat: int) -> List[float]:
+        return repeat * [base_rate]
+
+    loaded = registry.make_from_config(config)
+    optimizer = loaded["optimizer"]
+    assert optimizer.b1 == 0.2
+    assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]

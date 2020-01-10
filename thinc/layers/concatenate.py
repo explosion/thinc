@@ -1,9 +1,10 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
 from ..types import Floats2d
 from ..util import get_width
+from .noop import noop
 
 
 InT = TypeVar("InT", bound=Floats2d)
@@ -14,11 +15,23 @@ OutT = TypeVar("OutT", bound=Floats2d)
 def concatenate(*layers: Model) -> Model[InT, OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
+    Also supports chaining more than 2 layers.
     """
-    if layers and layers[0].name == "concatenate":
+    if not layers:
+        return cast(Model[InT, OutT], noop())
+    elif len(layers) == 1:
+        return layers[0]
+    elif layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
-    return Model("concatenate", forward, init=init, dims={"nO": None, "nI": None})
+
+    return Model(
+        "|".join(layer.name for layer in layers),
+        forward,
+        init=init,
+        dims={"nO": None, "nI": None},
+        layers=layers,
+    )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
