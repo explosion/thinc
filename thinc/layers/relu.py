@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
@@ -22,7 +22,7 @@ def ReLu(
     init_b: Callable = zero_init,
     dropout: Optional[float] = None,
     normalize: bool = False,
-) -> Model:
+) -> Model[InT, OutT]:
     model: Model[InT, OutT] = Model(
         "relu",
         forward,
@@ -33,7 +33,7 @@ def ReLu(
     if normalize:
         model = chain(model, LayerNorm())
     if dropout is not None:
-        model = chain(model, Dropout(dropout))
+        model = chain(model, cast(Model[Floats2d, Floats2d], Dropout(dropout)))
     if nO is not None and nI is not None:
         model.initialize()
     return model

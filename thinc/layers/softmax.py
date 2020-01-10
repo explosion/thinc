@@ -17,7 +17,7 @@ def Softmax(
     *,
     init_W: Callable = zero_init,
     init_b: Callable = zero_init
-) -> Model:
+) -> Model[InT, OutT]:
     model: Model[InT, OutT] = Model(
         "softmax",
         forward,
