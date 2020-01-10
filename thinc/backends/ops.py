@@ -195,7 +195,7 @@ class Ops:
         return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
     def alloc_f(
-        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32",
+        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> ArrayTypesFloat:
         return self.alloc(shape, dtype=dtype)
 
