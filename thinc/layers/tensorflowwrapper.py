@@ -26,7 +26,7 @@ def TensorFlowWrapper(
     if not isinstance(tensorflow_model, tf.keras.models.Model):
         err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
         raise ValueError(err)
-    # Building a keras model checks for errors like not specifying an input_shape
+    # Building a TF model checks for errors like not specifying an input_shape
     # which can cause other errors in methods like from_disk and from_bytes.
     if build_model:
         tensorflow_model.build()
