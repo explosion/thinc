@@ -249,6 +249,14 @@ class Model(Generic[InT, OutT]):
             grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
+
+        if grad.shape != value.shape:
+            raise ValueError(
+                f"Cannot add a value to the gradient of parameter '{name}' for model '{self.name}' "
+                f"as the shapes should match, but found {grad.shape} for the original gradient, and "
+                f"{value.shape} for the value that should be added."
+            )
+
         grad += value
         self._grads[grad_name] = True
 
