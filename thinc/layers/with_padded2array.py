@@ -22,15 +22,12 @@ def with_padded2array(layer: Model[ValT, ValT]) -> Model[Padded, Padded]:
     cost of shuffling the memory around more. The latter approach will sometimes
     be faster on CPU, while this approach is usually faster on GPU.
     """
-    return Model(
-        f"with_padded2array-{layer.name}",
-        forward,
-        init=init,
-        layers=[layer],
-    )
+    return Model(f"with_padded2array-{layer.name}", forward, init=init, layers=[layer])
 
 
-def forward(model: Model[Padded, Padded], Xp: Padded, is_train: bool) -> Tuple[Padded, Callable]:
+def forward(
+    model: Model[Padded, Padded], Xp: Padded, is_train: bool
+) -> Tuple[Padded, Callable]:
     layer: Model[ValT, ValT] = model.layers[0]
     X = Xp.data.reshape((-1, Xp.data.shape[2]))
     Y2d, get_dX = layer(X, is_train)
@@ -51,5 +48,5 @@ def init(
     layer: Model[Array2d, Array2d] = model.layers[0]
     layer.initialize(
         X=X.data.reshape((-1, X.data.shape[2])) if X is not None else None,
-        Y=Y.data.reshape((-1, Y.data.shape[2])) if Y is not None else None
+        Y=Y.data.reshape((-1, Y.data.shape[2])) if Y is not None else None,
     )

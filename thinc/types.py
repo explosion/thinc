@@ -590,6 +590,7 @@ class Padded:
     shrink the batch. The lengths array indicates the length of each row b,
     and the indices indicates the original ordering.
     """
+
     data: Array3d
     size_at_t: Ints1d
     lengths: List[int]

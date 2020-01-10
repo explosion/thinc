@@ -45,7 +45,7 @@ def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
         ops.xp.hstack((l2r.data, r2l.data), axis=-1),
         l2r.size_at_t,
         l2r.lengths,
-        l2r.indices
+        l2r.indices,
     )
 
 
@@ -55,7 +55,7 @@ def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
     X_r2l = Xp.data[..., half:]
     return (
         Padded(X_l2r, Xp.size_at_t, Xp.lengths, Xp.indices),
-        Padded(X_r2l, Xp.size_at_t, Xp.lengths, Xp.indices)
+        Padded(X_r2l, Xp.size_at_t, Xp.lengths, Xp.indices),
     )
 
 
