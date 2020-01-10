@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from typing import Any, Callable, Tuple
 
 from ..model import Model
 from ..shims import TensorFlowShim
@@ -15,7 +15,9 @@ InT = Array
 OutT = Array
 
 
-def TensorFlowWrapper(tensorflow_model, build_model: bool = True) -> Model:
+def TensorFlowWrapper(
+    tensorflow_model: Any, build_model: bool = True
+) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
     optimizer.apply_gradients after each batch.
