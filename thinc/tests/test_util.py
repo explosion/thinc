@@ -23,9 +23,7 @@ def test_get_width(obj, width):
     assert get_width(obj) == width
 
 
-@pytest.mark.parametrize(
-    "obj", [1234, "foo", {"a": numpy.array(0)}],
-)
+@pytest.mark.parametrize("obj", [1234, "foo", {"a": numpy.array(0)}])
 def test_get_width_fail(obj):
     with pytest.raises(ValueError):
         get_width(obj)
