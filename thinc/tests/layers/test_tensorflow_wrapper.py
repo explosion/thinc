@@ -1,5 +1,6 @@
 import numpy
 import pytest
+from ..util import make_tempdir
 
 from thinc.api import TensorFlowWrapper, tensorflow2xp, xp2tensorflow
 from thinc.backends import Ops, get_current_ops
@@ -114,6 +115,22 @@ def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: Floats
     # And can be serialized
     model_bytes = model.to_bytes()
     assert model_bytes is not None
+
+
+@pytest.mark.skip("keras load fails with weights mismatch")
+def test_tensorflow_wrapper_to_from_disk(
+    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
+):
+    optimizer = Adam()
+    guesses, backprop = model(X, is_train=True)
+    backprop((guesses - Y) / guesses.shape[0])
+    model.finish_update(optimizer)
+    model.predict(X)
+    with make_tempdir() as tmp_path:
+        model_file = tmp_path / "model.h5"
+        model.to_disk(model_file)
+        another_model = model.from_disk(model_file)
+        assert another_model is not None
 
 
 @pytest.mark.skip("keras load fails with weights mismatch")
