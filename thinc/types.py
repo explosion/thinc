@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable
+from typing import Optional, List, Dict, Sequence, Iterable, Callable
 import numpy
 import sys
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal
+    from typing_extensions import Literal, Protocol
 else:
-    from typing import Literal
+    from typing import Literal, Protocol
 
 try:
     import cupy
@@ -559,6 +559,16 @@ class Doc(Sized, Container):
         ...
 
     def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+        ...
+
+
+InFunc = TypeVar("InFunc")
+
+
+class Decorator(Protocol):
+    """Protocol to mark a function as returning its child with identical signature."""
+
+    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
 
 
