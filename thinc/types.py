@@ -517,15 +517,9 @@ class IntsNd(Array):
 
 
 # Union of all int/float array types
-ArrayTypesInt = Union[
-    Ints1d, Ints2d, Ints3d, Ints4d, IntsNd,
-]
-ArrayTypesFloat = Union[
-    Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd,
-]
-ArrayTypes = Union[
-    ArrayTypesFloat, ArrayTypesInt,
-]
+ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
+ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
+ArrayTypes = Union[ArrayTypesFloat, ArrayTypesInt]
 Array1d = Union[Ints1d, Floats1d]
 Array2d = Union[Ints2d, Floats2d]
 Array3d = Union[Ints3d, Floats3d]
