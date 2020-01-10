@@ -57,7 +57,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         dY = model.ops.backprop_maxout(d_best, which, nP)
         dY = dY.reshape((dY.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
-        model.inc_grad("b", dY.sum(axis=0))
+        model.inc_grad("b", dY.sum(axis=0).reshape((nO, nP)))
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
     return best, backprop
