@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable, Protocol
+from typing import Optional, List, Dict, Sequence, Iterable, Protocol, Callable
 import numpy
 import sys
 
