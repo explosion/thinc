@@ -15,7 +15,9 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-def TensorFlowWrapper(tensorflow_model: Any) -> Model:
+def TensorFlowWrapper(
+    tensorflow_model: tf.keras.models.Model, build_model: bool = True
+) -> Model:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
     optimizer.apply_gradients after each batch.
@@ -24,6 +26,10 @@ def TensorFlowWrapper(tensorflow_model: Any) -> Model:
     if not isinstance(tensorflow_model, tf.keras.models.Model):
         err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
         raise ValueError(err)
+    # Building a keras model checks for errors like not specifying an input_shape
+    # which can cause other errors in methods like from_disk and from_bytes.
+    if build_model:
+        tensorflow_model.build()
     return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
 
 
