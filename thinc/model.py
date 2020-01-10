@@ -249,7 +249,12 @@ class Model(Generic[InT, OutT]):
             grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
-        grad += value
+        try:
+            grad += value
+        except ValueError as e:
+            raise ValueError(
+                f"Cannot add a value to the gradient of parameter '{name}' for model '{self.name}': {e}."
+            )
         self._grads[grad_name] = True
 
     def has_grad(self, name: str) -> Optional[bool]:
