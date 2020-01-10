@@ -29,7 +29,7 @@ def forward(model: Model, X, is_train: bool) -> Tuple:
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
     elif isinstance(X, Ragged):
-        return _dropout_ragged(model, X, is_train) 
+        return _dropout_ragged(model, X, is_train)
     elif isinstance(X, Padded):
         return _dropout_padded(model, X, is_train)
     elif isinstance(X, list):
@@ -38,7 +38,9 @@ def forward(model: Model, X, is_train: bool) -> Tuple:
         return _dropout_array(model, X, is_train)
 
 
-def _dropout_array(model: Model[ArrayT, ArrayT], X: ArrayT, is_train: bool) -> Tuple[ArrayT, Callable]:
+def _dropout_array(
+    model: Model[ArrayT, ArrayT], X: ArrayT, is_train: bool
+) -> Tuple[ArrayT, Callable]:
     rate = model.get_attr("rate")
     mask = model.ops.get_dropout_mask(X.shape, rate)
 

@@ -102,16 +102,17 @@ Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
 OutT = TypeVar("OutT")
 
+
 def chain(
     l1: Model[InT, Mid1T],
     l2: Model[Mid1T, Mid2T],
-    l3: Optional[Model[Mid2T, Mid3T]]=None,
-    l4: Optional[Model[Mid3T, Mid4T]]=None,
-    l5: Optional[Model[Mid4T, Mid5T]]=None,
-    l6: Optional[Model[Mid5T, Mid6T]]=None,
-    l7: Optional[Model[Mid6T, Mid7T]]=None,
-    l8: Optional[Model[Mid7T, Mid8T]]=None,
-    l9: Optional[Model[Mid8T, Mid9T]]=None,
+    l3: Optional[Model[Mid2T, Mid3T]] = None,
+    l4: Optional[Model[Mid3T, Mid4T]] = None,
+    l5: Optional[Model[Mid4T, Mid5T]] = None,
+    l6: Optional[Model[Mid5T, Mid6T]] = None,
+    l7: Optional[Model[Mid6T, Mid7T]] = None,
+    l8: Optional[Model[Mid7T, Mid8T]] = None,
+    l9: Optional[Model[Mid8T, Mid9T]] = None,
     *etc: Model
 ) -> Model:
     if l3 is None:
