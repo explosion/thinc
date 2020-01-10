@@ -1,10 +1,10 @@
-from typing import Optional, List, Callable, Tuple, Sequence, Union, cast
+from typing import Optional, List, Tuple, Sequence, Union, cast
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsNd
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d
 from ..types import ArrayTypesInt, ArrayTypesFloat, ArrayT
-from ..types import Array2d, Array3d
+from ..types import Array2d, Padded
 from ..util import copy_array, get_array_module
 
 
@@ -99,35 +99,8 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad_sequences(
-        self, seqs_in: Sequence[Array2d], pad_to: Optional[int] = None
-    ) -> Tuple[Array3d, Callable]:
-        lengths: IntsNd = self.asarray([len(seq) for seq in seqs_in], dtype="i")
-        nB = len(seqs_in)
-        if pad_to is None:
-            pad_to = int(lengths.max())
-        arr: Floats3d = self.alloc_f3d(
-            nB, int(pad_to), seqs_in[0].shape[1], dtype="float32"
-        )
-        for arr_i, seq in enumerate(seqs_in):
-            arr[arr_i, : seq.shape[0]] = self.asarray(seq)
-
-        def unpad(padded: Floats3d) -> Sequence[Floats2d]:
-            unpadded = [None] * len(lengths)
-            for i in range(padded.shape[0]):
-                unpadded[i] = padded[i, : lengths[i]]
-            return cast(Sequence[Floats2d], unpadded)
-
-        return arr, unpad
-
-    def square_sequences(
-        self, seqs: Sequence[Array2d]
-    ) -> Tuple[Array3d, Ints1d, Callable]:
-        """Sort a batch of sequence by decreasing length, pad, and transpose
-        so that the outer dimension is the timestep. Return the padded batch,
-        along with an array indicating the actual length at each step, and a callback
-        to reverse the transformation.
-        """
+    def list2padded(self, seqs: List[Array2d]) -> Padded:
+        """Pack a sequence of 2d arrays into a Padded datatype."""
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
@@ -137,8 +110,7 @@ class Ops:
         arr: Floats3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
-        extra_dims = tuple(range(2, len(arr.shape)))
-        arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
+        arr = self.xp.ascontiguousarray(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t = self.alloc_i1d(nS, dtype="i")
         batch_size_at_t += 1
@@ -149,15 +121,17 @@ class Ops:
                 if i == 0:
                     break
             batch_size_at_t[t] = i
+        return Padded(arr, batch_size_at_t, lengths, indices)
 
-        def unpad(padded: Array3d) -> Sequence[Array2d]:
-            unpadded = [None] * len(lengths)
-            padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
-            for i in range(padded.shape[0]):
-                unpadded[indices[i]] = padded[i, : lengths[i]]
-            return cast(Sequence[Floats2d], unpadded)
-
-        return arr, batch_size_at_t, unpad
+    def padded2list(self, padded: Padded) -> List[Array2d]:
+        indices = padded.indices
+        data = padded.data
+        lengths = padded.lengths
+        unpadded = [None] * len(lengths)
+        data = self.xp.ascontiguousarray(data.transpose((1, 0, 2)))
+        for i in range(data.shape[0]):
+            unpadded[indices[i]] = data[i, : lengths[i]]
+        return cast(List[Array2d], unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
         if drop is None or drop <= 0:
