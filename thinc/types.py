@@ -8,12 +8,11 @@ import sys
 if sys.version_info < (3, 8):
     from typing_extensions import Literal, Final, Protocol
 else:
-    from typing import Literal, Final, Protocol  # noqa
-else:
-    from typing import Literal, Protocol
+    from typing import Literal, Final, Protocol  # noqa: F401
 
 try:
     import cupy
+
     xp = cupy
 except ImportError:
     xp = numpy
