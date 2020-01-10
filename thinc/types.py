@@ -1,18 +1,19 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable
+from typing import Optional, List, Dict, Sequence, Iterable, Callable
 import numpy
 import sys
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal, Final
+    from typing_extensions import Literal, Final, Protocol
 else:
-    from typing import Literal, Final  # noqa
+    from typing import Literal, Final, Protocol  # noqa
+else:
+    from typing import Literal, Protocol
 
 try:
     import cupy
-
     xp = cupy
 except ImportError:
     xp = numpy
@@ -517,15 +518,12 @@ class IntsNd(Array):
 
 
 # Union of all int/float array types
-ArrayTypesInt = Union[
-    Ints1d, Ints2d, Ints3d, Ints4d, IntsNd,
-]
-ArrayTypesFloat = Union[
-    Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd,
-]
-ArrayTypes = Union[
-    ArrayTypesFloat, ArrayTypesInt,
-]
+ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
+ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
+ArrayTypes = Union[ArrayTypesFloat, ArrayTypesInt]
+Array1d = Union[Ints1d, Floats1d]
+Array2d = Union[Ints2d, Floats2d]
+Array3d = Union[Ints3d, Floats3d]
 
 
 class Generator(Iterator):
@@ -565,14 +563,24 @@ class Doc(Sized, Container):
         ...
 
 
+InFunc = TypeVar("InFunc")
+
+
+class Decorator(Protocol):
+    """Protocol to mark a function as returning its child with identical signature."""
+
+    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
+        ...
+
+
 # This should probably become a dataclass too.
 RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
 
 
 @dataclass
 class Ragged:
-    data: Array
-    lengths: Array
+    data: Array2d
+    lengths: Ints1d
 
 
 @dataclass
@@ -583,8 +591,8 @@ class Padded:
     shrink the batch.
     """
 
-    data: Array
-    size_at_t: Array
+    data: Array3d
+    size_at_t: Ints1d
 
 
 @dataclass
@@ -593,6 +601,7 @@ class ArgsKwargs:
 
         f(*args, **kwargs)
     """
+
     args: Tuple[Any, ...]
     kwargs: Dict[str, Any]
 

@@ -1,5 +1,6 @@
 import contextlib
 from io import BytesIO
+import srsly
 
 try:
     import cupy
@@ -14,7 +15,7 @@ except ImportError:
     has_torch = False
 
 from typing import Any
-from ..util import torch2xp, xp2torch, convert_recursive, is_torch_array, is_xp_array
+from ..util import torch2xp, xp2torch, convert_recursive
 from .shim import Shim
 from ..types import ArgsKwargs
 
@@ -49,13 +50,11 @@ class PyTorchShim(Shim):
         """
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
-        
+
         def backprop(grads):
-            torch.autograd.backward(output, grad_tensors=grads)
+            torch.autograd.backward(*grads.args, **grads.kwargs)
             return convert_recursive(
-                lambda x: hasattr(x, "grad"),
-                lambda x: x.grad,
-                inputs
+                lambda x: hasattr(x, "grad"), lambda x: x.grad, inputs
             )
 
         return output, backprop

@@ -1,9 +1,10 @@
-from typing import Optional, List, Callable, Tuple, Sequence, Union
+from typing import Optional, List, Callable, Tuple, Sequence, Union, cast
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsNd
 from ..types import ArrayTypesInt, ArrayTypesFloat, ArrayT
+from ..types import Array2d, Array3d
 from ..util import copy_array, get_array_module
 
 
@@ -48,12 +49,12 @@ class Ops:
 
     def gemm(
         self,
-        x: Array,
-        y: Array,
-        out: Optional[Array] = None,
+        x: Floats2d,
+        y: Floats2d,
+        out: Optional[Floats2d] = None,
         trans1: bool = False,
         trans2: bool = False,
-    ) -> Array:
+    ) -> Floats2d:
         if trans1:
             x = x.T
         if trans2:
@@ -65,8 +66,8 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[Array], dtype: Optional[DTypes] = None, pad: int = 0
-    ) -> Array:
+        self, X: Sequence[ArrayT], dtype: Optional[DTypes] = None, pad: int = 0
+    ) -> ArrayT:
         if X is None or len(X) == 0:
             return self.alloc((0,), dtype=dtype or "f")
         xp = get_array_module(X[0])
@@ -83,7 +84,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: Array, lengths: Array, pad: int = 0) -> List[FloatsNd]:
+    def unflatten(self, X: ArrayT, lengths: Ints1d, pad: int = 0) -> List[ArrayT]:
         unflat = []
         pad = int(pad)
         for length in lengths:
@@ -99,27 +100,29 @@ class Ops:
         return unflat
 
     def pad_sequences(
-        self, seqs_in: Sequence[Array], pad_to: Optional[int] = None
-    ) -> Tuple[Array, Callable]:
+        self, seqs_in: Sequence[Array2d], pad_to: Optional[int] = None
+    ) -> Tuple[Array3d, Callable]:
         lengths: IntsNd = self.asarray([len(seq) for seq in seqs_in], dtype="i")
         nB = len(seqs_in)
         if pad_to is None:
             pad_to = int(lengths.max())
-        arr: IntsNd = self.alloc(
-            (nB, int(pad_to)) + seqs_in[0].shape[1:], dtype=seqs_in[0].dtype
+        arr: Floats3d = self.alloc_f3d(
+            nB, int(pad_to), seqs_in[0].shape[1], dtype="float32"
         )
         for arr_i, seq in enumerate(seqs_in):
             arr[arr_i, : seq.shape[0]] = self.asarray(seq)
 
-        def unpad(padded: Array) -> Sequence[Optional[Array]]:
+        def unpad(padded: Floats3d) -> Sequence[Floats2d]:
             unpadded = [None] * len(lengths)
             for i in range(padded.shape[0]):
                 unpadded[i] = padded[i, : lengths[i]]
-            return unpadded
+            return cast(Sequence[Floats2d], unpadded)
 
         return arr, unpad
 
-    def square_sequences(self, seqs: Sequence[Array]) -> Tuple[Array, Array, Callable]:
+    def square_sequences(
+        self, seqs: Sequence[Array2d]
+    ) -> Tuple[Array3d, Ints1d, Callable]:
         """Sort a batch of sequence by decreasing length, pad, and transpose
         so that the outer dimension is the timestep. Return the padded batch,
         along with an array indicating the actual length at each step, and a callback
@@ -131,7 +134,7 @@ class Ops:
         lengths = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
-        arr: FloatsNd = self.alloc((nB, nS) + seqs[0].shape[1:], dtype=seqs[0].dtype)
+        arr: Floats3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
         extra_dims = tuple(range(2, len(arr.shape)))
@@ -147,12 +150,12 @@ class Ops:
                     break
             batch_size_at_t[t] = i
 
-        def unpad(padded: Array) -> Sequence[Optional[Array]]:
+        def unpad(padded: Array3d) -> Sequence[Array2d]:
             unpadded = [None] * len(lengths)
             padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
             for i in range(padded.shape[0]):
                 unpadded[indices[i]] = padded[i, : lengths[i]]
-            return unpadded
+            return cast(Sequence[Floats2d], unpadded)
 
         return arr, batch_size_at_t, unpad
 
@@ -192,7 +195,7 @@ class Ops:
         return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
     def alloc_f(
-        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32",
+        self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> ArrayTypesFloat:
         return self.alloc(shape, dtype=dtype)
 
@@ -290,8 +293,8 @@ class Ops:
             return new_x
 
     def softmax_sequences(
-        self, Xs: Array, lengths: Array, *, inplace: bool = False, axis: int = -1
-    ) -> Array:
+        self, Xs: Floats2d, lengths: Ints1d, *, inplace: bool = False, axis: int = -1
+    ) -> Floats2d:
         if Xs.ndim >= 3:
             err = f"Softmax currently only supports 2d. Got: {Xs.ndim}"
             raise NotImplementedError(err)
@@ -311,11 +314,13 @@ class Ops:
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
 
-    def backprop_softmax_sequences(self, dy: Array, y: Array, lengths: Array) -> Array:
-        dx = y * dy
-        sumdx = self.backprop_sum_pool(self.sum_pool(dx, lengths), lengths)
-        dx -= y * sumdx
-        return dx
+    def backprop_softmax_sequences(
+        self, dY: Floats2d, Y: Floats2d, lengths: Ints1d
+    ) -> Floats2d:
+        dX = Y * dY
+        sum_dX = self.backprop_sum_pool(self.sum_pool(dX, lengths), lengths)
+        dX -= Y * sum_dX
+        return dX
 
     def clip_low(self, x: ArrayT, value: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
@@ -335,8 +340,9 @@ class Ops:
             dX__bop[:, :, i] += dX * (which == i)
         return dX__bop
 
-    # TODO: types
-    def lstm(self, output, cells, acts, prev) -> None:
+    def lstm(
+        self, output: Floats2d, cells: Floats2d, acts: Floats3d, prev: Floats2d
+    ) -> None:
         # Activations is: hf, hi, ho, hc
         self.sigmoid(acts[0], inplace=True)
         self.sigmoid(acts[1], inplace=True)
@@ -350,7 +356,14 @@ class Ops:
 
     # TODO: types
     def backprop_lstm(
-        self, d_cells: Array, d_prev, d_gates, d_output, gates, cells, prev
+        self,
+        d_cells: Floats2d,
+        d_prev: Floats2d,
+        d_gates: Floats3d,
+        d_output: Floats2d,
+        gates: Floats3d,
+        cells: Floats2d,
+        prev: Floats2d,
     ) -> None:
         (hf, hi, ho, hc) = (0, 1, 2, 3)
         cells_tanh = self.xp.tanh(cells)
@@ -368,7 +381,7 @@ class Ops:
         copy_array(d_cells, d_prevcells)
 
     def softplus(
-        self, X: Array, threshold: float = 20.0, out: Optional[Array] = None
+        self, X: Floats2d, threshold: float = 20.0, out: Optional[Floats2d] = None
     ) -> Array:
         xp = get_array_module(X)
         log1p_exp = xp.log1p(xp.exp(X))
@@ -381,7 +394,11 @@ class Ops:
             return out
 
     def backprop_softplus(
-        self, dY: Array, X: Array, threshold: float = 20.0, out: Optional[Array] = None
+        self,
+        dY: Floats2d,
+        X: Floats2d,
+        threshold: float = 20.0,
+        out: Optional[Floats2d] = None,
     ) -> Array:
         xp = get_array_module(X)
         out_: Array
@@ -396,15 +413,19 @@ class Ops:
         return out_
 
     def mish(
-        self, X: Array, threshold: float = 20.0, out: Optional[Array] = None
-    ) -> Array:
+        self, X: Floats2d, threshold: float = 20.0, out: Optional[Floats2d] = None
+    ) -> Floats2d:
         Xsoft = self.softplus(X, threshold=threshold, out=out)
         Y = self.xp.tanh(Xsoft, out=out)
         Y *= X
         return Y
 
     def backprop_mish(
-        self, dY: Array, X: Array, threshold: float = 20.0, out: Optional[Array] = None
+        self,
+        dY: Floats2d,
+        X: Floats2d,
+        threshold: float = 20.0,
+        out: Optional[Floats2d] = None,
     ):
         xp = get_array_module(X)
         indices = X < threshold
@@ -435,10 +456,10 @@ class Ops:
     # TODO: types
     def adam(
         self,
-        weights: Array,
-        gradient: Array,
-        mom1,
-        mom2,
+        weights: Floats1d,
+        gradient: Floats1d,
+        mom1: Floats1d,
+        mom2: Floats1d,
         beta1: float,
         beta2: float,
         eps: float,
@@ -454,18 +475,18 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
-    def clip_gradient(self, gradient: Array, threshold: float) -> None:
+    def clip_gradient(self, gradient: Floats1d, threshold: float) -> None:
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
 
-    def logloss(self, y_true: Array, y_pred: Array) -> float:
+    def logloss(self, y_true: Array, y_pred: Array):
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
 
-    def sum_pool(self, X: Array, lengths: Array) -> Array:
+    def sum_pool(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -473,7 +494,7 @@ class Ops:
             start += length
         return Y
 
-    def mean_pool(self, X: Array, lengths: Array) -> Array:
+    def mean_pool(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -481,7 +502,7 @@ class Ops:
             start += length
         return Y
 
-    def max_pool(self, X: Array, lengths: Array) -> Array:
+    def max_pool(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -489,8 +510,7 @@ class Ops:
             start += length
         return Y
 
-    # TODO: types
-    def backprop_sum_pool(self, d_sums: Array, lengths) -> Array:
+    def backprop_sum_pool(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -498,8 +518,7 @@ class Ops:
             start += length
         return dX
 
-    # TODO: types
-    def backprop_mean_pool(self, d_means: Array, lengths) -> Array:
+    def backprop_mean_pool(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
         dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -507,8 +526,9 @@ class Ops:
             start += length
         return dX
 
-    # TODO: types
-    def backprop_max_pool(self, d_maxes: Array, which: Array, lengths) -> Array:
+    def backprop_max_pool(
+        self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
+    ) -> Floats2d:
         dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):

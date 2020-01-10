@@ -1,5 +1,6 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
+from .types import Decorator
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
@@ -135,16 +136,18 @@ class _PromiseSchemaConfig:
 
 
 class registry(object):
-    optimizers = catalogue.create("thinc", "optimizers", entry_points=True)
-    schedules = catalogue.create("thinc", "schedules", entry_points=True)
-    layers = catalogue.create("thinc", "layers", entry_points=True)
+    optimizers: Decorator = catalogue.create("thinc", "optimizers", entry_points=True)
+    schedules: Decorator = catalogue.create("thinc", "schedules", entry_points=True)
+    layers: Decorator = catalogue.create("thinc", "layers", entry_points=True)
 
     @classmethod
     def create(cls, registry_name: str, entry_points: bool = False) -> None:
         """Create a new custom registry."""
         if hasattr(cls, registry_name):
             raise ValueError(f"Registry '{registry_name}' already exists")
-        reg = catalogue.create("thinc", registry_name, entry_points=entry_points)
+        reg: Decorator = catalogue.create(
+            "thinc", registry_name, entry_points=entry_points
+        )
         setattr(cls, registry_name, reg)
 
     @classmethod
