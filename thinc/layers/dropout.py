@@ -1,16 +1,16 @@
-from typing import Tuple, Callable, List, Union
+from typing import Tuple, Callable, List, Union, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
 from ..types import Array, Ragged, Padded
 
 
-InT = Union[Array, List[Array], Ragged, Padded]
-OutT = Union[Array, List[Array], Ragged, Padded]
+InT = TypeVar("InT")
+ArrayT = TypeVar("ArrayT", bound=Array)
 
 
 @registry.layers("Dropout.v0")
-def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
+def Dropout(rate: float = 0.0) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
@@ -18,33 +18,38 @@ def Dropout(rate: float = 0.0) -> Model[InT, OutT]:
     return Model("dropout", forward, attrs={"rate": rate, "is_enabled": True})
 
 
-def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+# We're getting type hell here, I think because of the instance checks?
+# It's sort of painful, because I think this confused the types of other
+# layers that are trying to use dropout.
+# I've relaxed the types for now, but it'd be good to understand what's wrong
+# here.
+def forward(model: Model, X, is_train: bool) -> Tuple:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
     elif isinstance(X, Ragged):
-        return _dropout_ragged(model, X, is_train)  # type: ignore
+        return _dropout_ragged(model, X, is_train) 
     elif isinstance(X, Padded):
-        return _dropout_padded(model, X, is_train)  # type: ignore
+        return _dropout_padded(model, X, is_train)
     elif isinstance(X, list):
         return _dropout_lists(model, X, is_train)
     else:
         return _dropout_array(model, X, is_train)
 
 
-def _dropout_array(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def _dropout_array(model: Model[ArrayT, ArrayT], X: ArrayT, is_train: bool) -> Tuple[ArrayT, Callable]:
     rate = model.get_attr("rate")
     mask = model.ops.get_dropout_mask(X.shape, rate)
 
-    def backprop(dY: Array) -> Array:
+    def backprop(dY: ArrayT) -> ArrayT:
         return dY * mask
 
     return X * mask, backprop
 
 
 def _dropout_padded(
-    model: Model[InT, OutT], Xp: Padded, is_train: bool
+    model: Model, Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
     mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
@@ -71,13 +76,13 @@ def _dropout_ragged(
 
 
 def _dropout_lists(
-    model: Model, Xs: List[Array], is_train: bool
-) -> Tuple[List[Array], Callable]:
+    model: Model[ArrayT, ArrayT], Xs: List[ArrayT], is_train: bool
+) -> Tuple[List[ArrayT], Callable]:
     rate = model.get_attr("rate")
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 
-    def backprop(dYs: List[Array]) -> List[Array]:
+    def backprop(dYs: List[ArrayT]) -> List[ArrayT]:
         return [dY * mask for dY, mask in zip(dYs, masks)]
 
     return Ys, backprop
