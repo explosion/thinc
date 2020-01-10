@@ -111,7 +111,7 @@ def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
 
     # You can override the model build at construction, but then
     # you must specify the input shape another way.
-    model = TensorFlowWrapper(
+    model: Model[FloatsNd, FloatsNd] = TensorFlowWrapper(
         tf.keras.Sequential([tf.keras.layers.Dense(12)]), build_model=False
     )
     # Can't de/serialize without an input_shape
@@ -173,11 +173,6 @@ def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: Floats
 def test_tensorflow_wrapper_to_from_disk(
     model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
 ):
-    optimizer = Adam()
-    guesses, backprop = model(X, is_train=True)
-    backprop((guesses - Y) / guesses.shape[0])
-    model.finish_update(optimizer)
-    model.predict(X)
     with make_tempdir() as tmp_path:
         model_file = tmp_path / "model.h5"
         model.to_disk(model_file)
