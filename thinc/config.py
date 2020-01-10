@@ -145,7 +145,9 @@ class registry(object):
         """Create a new custom registry."""
         if hasattr(cls, registry_name):
             raise ValueError(f"Registry '{registry_name}' already exists")
-        reg: Decorator = catalogue.create("thinc", registry_name, entry_points=entry_points)
+        reg: Decorator = catalogue.create(
+            "thinc", registry_name, entry_points=entry_points
+        )
         setattr(cls, registry_name, reg)
 
     @classmethod
