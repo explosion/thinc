@@ -71,7 +71,9 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
 # Default conversion functions
 
 
-def _convert_inputs(model: Model, X: Any, is_train: bool) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
+def _convert_inputs(
+    model: Model, X: Any, is_train: bool
+) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
     xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train)
     converted = convert_recursive(is_xp_array, xp2torch_, X)
     if isinstance(converted, ArgsKwargs):
