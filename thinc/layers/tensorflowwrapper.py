@@ -1,10 +1,10 @@
-from typing import Callable, Tuple, Any, TypeVar
+from typing import Callable, Tuple, TypeVar
 
 from ..model import Model
 from ..shims import TensorFlowShim
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
-from ..types import Array, ArgsKwargs
+from ..types import ArgsKwargs
 
 try:
     import tensorflow as tf
@@ -31,7 +31,7 @@ def TensorFlowWrapper(tensorflow_model, build_model: bool = True) -> Model:
     return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
 
 
-def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
+def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Return the output of the wrapped TensorFlow model for the given input,
     along with a callback to handle the backward pass.
     """
