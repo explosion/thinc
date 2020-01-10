@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, cast
+from typing import Tuple, Callable, Optional, TypeVar, Any, cast, Union
 
 from ..model import Model
 from ..config import registry
@@ -92,10 +92,6 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
 # you can have a type-checked condition on *optional* args, and these *will*
 # get read by mypy. Hence the trickery below.
 
-InT = TypeVar("InT")
-OutT = TypeVar("OutT")
-Mid1T = TypeVar("Mid1T")
-Mid2T = TypeVar("Mid2T")
 Mid3T = TypeVar("Mid3T")
 Mid4T = TypeVar("Mid4T")
 Mid5T = TypeVar("Mid5T")
@@ -103,7 +99,6 @@ Mid6T = TypeVar("Mid6T")
 Mid7T = TypeVar("Mid7T")
 Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
-
 
 def chain(
     l1: Model[InT, Mid1T],
@@ -116,20 +111,20 @@ def chain(
     l8: Optional[Model[Mid7T, Mid8T]] = None,
     l9: Optional[Model[Mid8T, Mid9T]] = None,
     *etc: Model
-) -> Model:
+) -> Model[InT, Any]:
     if l3 is None:
-        return cast(Model[InT, Mid2T], chains(l1, l2))
+        return chains(l1, l2)
     elif l4 is None:
-        return cast(Model[InT, Mid3T], chains(l1, l2, l3))
+        return chains(l1, l2, l3)
     elif l5 is None:
-        return cast(Model[InT, Mid4T], chains(l1, l2, l3, l4))
+        return chains(l1, l2, l3, l4)
     elif l6 is None:
-        return cast(Model[InT, Mid5T], chains(l1, l2, l3, l4, l5))
+        return chains(l1, l2, l3, l4, l5)
     elif l7 is None:
-        return cast(Model[InT, Mid6T], chains(l1, l2, l3, l4, l5, l6))
+        return chains(l1, l2, l3, l4, l5, l6)
     elif l8 is None:
-        return cast(Model[InT, Mid7T], chains(l1, l2, l3, l4, l5, l6, l7))
+        return chains(l1, l2, l3, l4, l5, l6, l7)
     elif l9 is None:
-        return cast(Model[InT, Mid8T], chains(l1, l2, l3, l4, l5, l6, l7, l8))
+        return chains(l1, l2, l3, l4, l5, l6, l7, l8)
     else:
-        return cast(Model[InT, Mid9T], chains(l1, l2, l3, l4, l5, l6, l7, l8, *etc))
+        return chains(l1, l2, l3, l4, l5, l6, l7, l8, *etc)
