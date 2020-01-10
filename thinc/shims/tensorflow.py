@@ -1,10 +1,12 @@
 import contextlib
 import itertools
 from io import BytesIO
+from typing import List
 
 import numpy
 
 from ..backends import Ops, get_current_ops
+from ..types import ArgsKwargs
 from ..util import tensorflow2xp
 from .shim import Shim
 
@@ -24,11 +26,6 @@ except ImportError:
     pass
 
 
-from .shim import Shim
-from ..util import tensorflow2xp
-from ..types import ArgsKwargs
-
-
 class TensorFlowShim(Shim):
     """Interface between a TensorFlow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
@@ -38,13 +35,19 @@ class TensorFlowShim(Shim):
     """
 
     def __str__(self):
-        return str(self._model.summary())
+        lines: List[str] = []
 
-    def __call__(self, args, kwargs, is_train):
+        def accumulate(line: str):
+            lines.append(line)
+
+        self._model.summary(print_fn=accumulate)
+        return "\n".join(lines)
+
+    def __call__(self, X: ArgsKwargs, is_train: bool):
         if is_train:
-            return self.begin_update(args, kwargs)
+            return self.begin_update(X)
         else:
-            return self.predict(args, kwargs)
+            return self.predict(X)
 
     def predict(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(0)
@@ -64,7 +67,7 @@ class TensorFlowShim(Shim):
             tape.__exit__(None, None, None)
             # We need to handle a tuple of inputs
             if len(X.args) == 1:
-                wrt_tensors = [X[0]]  # add the input layer also for d_loss/d_input
+                wrt_tensors = [X.args[0]]  # add the input layer also for d_loss/d_input
             else:
                 wrt_tensors = list(X.args[0])
             wrt_tensors.extend(self._model.trainable_variables)

@@ -1,16 +1,10 @@
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Callable, Tuple, Any, TypeVar
 
 from ..model import Model
 from ..shims import TensorFlowShim
-from ..types import ArgsKwargs, Array
-from ..util import (
-    assert_tensorflow_installed,
-    convert_recursive,
-    is_tensorflow_array,
-    is_xp_array,
-    tensorflow2xp,
-    xp2tensorflow,
-)
+from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
+from ..util import is_tensorflow_array, convert_recursive, is_xp_array
+from ..types import Array, ArgsKwargs
 
 try:
     import tensorflow as tf
@@ -39,7 +33,10 @@ def forward(model: Model, X: Array, is_train: bool) -> Tuple[Array, Callable]:
     """
     tensorflow_model = model.shims[0]
     X_tensorflow, get_dX = _convert_inputs(model, X, is_train)
-    Y_tensorflow, tensorflow_backprop = tensorflow_model(X_tensorflow, is_train)
+    if is_train:
+        Y_tensorflow, tensorflow_backprop = tensorflow_model(X_tensorflow, is_train)
+    else:
+        Y_tensorflow = tensorflow_model(X_tensorflow, is_train)
     Y, get_dY_tensorflow = _convert_outputs(model, Y_tensorflow, is_train)
 
     def backprop(dY: OutT) -> InT:

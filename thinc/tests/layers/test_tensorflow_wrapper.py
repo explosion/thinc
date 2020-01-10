@@ -74,7 +74,7 @@ def test_tensorflow_wrapper_train_overfits(
 ):
     optimizer = Adam()
     for i in range(100):
-        guesses, backprop = model.begin_update(X)
+        guesses, backprop = model(X, is_train=True)
         d_guesses = (guesses - Y) / guesses.shape[0]
         backprop(d_guesses)
         model.finish_update(optimizer)
@@ -86,6 +86,22 @@ def test_tensorflow_wrapper_train_overfits(
 def test_tensorflow_wrapper_can_copy_model(model: Model[FloatsNd, FloatsNd]):
     copy: Model[FloatsNd, FloatsNd] = model.copy()
     assert copy is not None
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_print_summary(
+    model: Model[FloatsNd, FloatsNd], X: FloatsNd
+):
+    # Cannot print a keras summary until shapes are known
+    model.predict(X)
+    summary = str(model.shims[0])
+    # Summary includes the layers of our model
+    assert "layer_normalization" in summary
+    assert "dense" in summary
+    # And counts of params
+    assert "Total params" in summary
+    assert "Trainable params" in summary
+    assert "Non-trainable params" in summary
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
