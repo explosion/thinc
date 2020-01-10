@@ -1,18 +1,18 @@
-from typing import Callable, Tuple, TypeVar
+from typing import Callable, Tuple
 
 from ..model import Model
 from ..shims import TensorFlowShim
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
-from ..types import ArgsKwargs
+from ..types import Array, ArgsKwargs
 
 try:
     import tensorflow as tf
 except ImportError:
     pass
 
-InT = TypeVar("InT")
-OutT = TypeVar("OutT")
+InT = Array
+OutT = Array
 
 
 def TensorFlowWrapper(tensorflow_model, build_model: bool = True) -> Model:
