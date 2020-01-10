@@ -13,11 +13,12 @@ Mid2T = TypeVar("Mid2T")
 # This implementation is named 'chains' because we have a type-shennanigans
 # function 'chain' below.
 @registry.layers("chain.v0")
-def chains(layer1: Model[InT, Mid1T], *layers: Model) -> Model[InT, Any]:
+def chains(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
     """
+    layers = (layer1, layer2) + layers
     if layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
@@ -28,7 +29,7 @@ def chains(layer1: Model[InT, Mid1T], *layers: Model) -> Model[InT, Any]:
         dims={"nO": None, "nI": None},
         layers=layers,
     )
-    if layers and layers[0].has_dim("nI") and layers[-1].has_dim("nO"):
+    if layers[0].has_dim("nI") and layers[-1].has_dim("nO"):
         model.initialize()
     return model
 
@@ -113,18 +114,18 @@ def chain(
     *etc: Model
 ) -> Model[InT, Any]:
     if l3 is None:
-        return chains(l1, l2)
+        return chain(l1, l2)
     elif l4 is None:
-        return chains(l1, l2, l3)
+        return chain(l1, l2, l3)
     elif l5 is None:
-        return chains(l1, l2, l3, l4)
+        return chain(l1, l2, l3, l4)
     elif l6 is None:
-        return chains(l1, l2, l3, l4, l5)
+        return chain(l1, l2, l3, l4, l5)
     elif l7 is None:
-        return chains(l1, l2, l3, l4, l5, l6)
+        return chain(l1, l2, l3, l4, l5, l6)
     elif l8 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7)
+        return chain(l1, l2, l3, l4, l5, l6, l7)
     elif l9 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8)
+        return chain(l1, l2, l3, l4, l5, l6, l7, l8)
     else:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8, *etc)
+        return chain(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)
