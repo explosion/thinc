@@ -15,9 +15,7 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-def TensorFlowWrapper(
-    tensorflow_model: tf.keras.models.Model, build_model: bool = True
-) -> Model:
+def TensorFlowWrapper(tensorflow_model, build_model: bool = True) -> Model:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
     optimizer.apply_gradients after each batch.
