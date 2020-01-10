@@ -1,12 +1,14 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, Protocol, cast, overload
-from typing import Union
+from typing import Tuple, Callable, Optional, TypeVar, Any, cast
 
 from ..model import Model
 from ..config import registry
 from ..util import get_width
 from ..types import Ragged, Padded, Array
-from .noop import noop
 
+InT = TypeVar("InT")
+OutT = TypeVar("OutT")
+Mid1T = TypeVar("Mid1T")
+Mid2T = TypeVar("Mid2T")
 
 # This implementation is named 'chains' because we have a type-shennanigans
 # function 'chain' below.
@@ -91,6 +93,7 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
 # get read by mypy. Hence the trickery below.
 
 InT = TypeVar("InT")
+OutT = TypeVar("OutT")
 Mid1T = TypeVar("Mid1T")
 Mid2T = TypeVar("Mid2T")
 Mid3T = TypeVar("Mid3T")
@@ -100,7 +103,6 @@ Mid6T = TypeVar("Mid6T")
 Mid7T = TypeVar("Mid7T")
 Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
-OutT = TypeVar("OutT")
 
 
 def chain(
