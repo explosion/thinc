@@ -17,6 +17,8 @@ def clone(orig: Model[InT, OutT], n: int) -> Model[InT, OutT]:
     """
     if n == 0:
         return cast(Model[InT, OutT], noop())
+    elif n == 1:
+        return orig
     layers: List[Model] = [orig]
     for i in range(n - 1):
         layers.append(orig.copy())
