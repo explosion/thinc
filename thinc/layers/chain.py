@@ -10,9 +10,17 @@ OutT = TypeVar("OutT")
 Mid1T = TypeVar("Mid1T")
 Mid2T = TypeVar("Mid2T")
 
+# TODO: Unhack this when we can
+# We currently have an issue with Pydantic when arguments have generic types.
+# https://github.com/samuelcolvin/pydantic/issues/1158
+# For now we work around the issue by applying the decorator to this blander
+# version of the function.
+@registry.layers("chain.v0")
+def chain_no_types(*layer: Model) -> Model:
+    return chains(*layer)
+
 # This implementation is named 'chains' because we have a type-shennanigans
 # function 'chain' below.
-@registry.layers("chain.v0")
 def chains(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
@@ -101,6 +109,7 @@ Mid7T = TypeVar("Mid7T")
 Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
 
+
 def chain(
     l1: Model[InT, Mid1T],
     l2: Model[Mid1T, Mid2T],
@@ -114,18 +123,18 @@ def chain(
     *etc: Model
 ) -> Model[InT, Any]:
     if l3 is None:
-        return chain(l1, l2)
+        return chains(l1, l2)
     elif l4 is None:
-        return chain(l1, l2, l3)
+        return chains(l1, l2, l3)
     elif l5 is None:
-        return chain(l1, l2, l3, l4)
+        return chains(l1, l2, l3, l4)
     elif l6 is None:
-        return chain(l1, l2, l3, l4, l5)
+        return chains(l1, l2, l3, l4, l5)
     elif l7 is None:
-        return chain(l1, l2, l3, l4, l5, l6)
+        return chains(l1, l2, l3, l4, l5, l6)
     elif l8 is None:
-        return chain(l1, l2, l3, l4, l5, l6, l7)
+        return chains(l1, l2, l3, l4, l5, l6, l7)
     elif l9 is None:
-        return chain(l1, l2, l3, l4, l5, l6, l7, l8)
+        return chains(l1, l2, l3, l4, l5, l6, l7, l8)
     else:
-        return chain(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)
+        return chains(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)
