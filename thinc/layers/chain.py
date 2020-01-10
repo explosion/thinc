@@ -17,11 +17,10 @@ Mid2T = TypeVar("Mid2T")
 # version of the function.
 @registry.layers("chain.v0")
 def chain_no_types(*layer: Model) -> Model:
-    return chains(*layer)
+    return chain(*layer)
 
-# This implementation is named 'chains' because we have a type-shennanigans
-# function 'chain' below.
-def chains(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
+
+def chain(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
@@ -110,8 +109,8 @@ Mid7T = TypeVar("Mid7T")
 Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
 
-
-def chain(
+# TODO: remove this if using plain chain + mypy plugin is enough
+def xchain(
     l1: Model[InT, Mid1T],
     l2: Model[Mid1T, Mid2T],
     l3: Optional[Model[Mid2T, Mid3T]] = None,
