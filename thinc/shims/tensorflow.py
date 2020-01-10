@@ -59,13 +59,13 @@ class TensorFlowShim(Shim):
             # d_args[0] contains derivative of loss wrt output (d_loss/d_output)
             tape.__exit__(None, None, None)
             # We need to handle a tuple of inputs
-            if len(args) == 1:
-                wrt_tensors = [args[0]]  # add the input layer also for d_loss/d_input
+            if len(X.args) == 1:
+                wrt_tensors = [X[0]]  # add the input layer also for d_loss/d_input
             else:
-                wrt_tensors = list(args[0])
+                wrt_tensors = list(X.args[0])
             wrt_tensors.extend(self._model.trainable_variables)
             all_gradients = tape.gradient(
-                output, wrt_tensors, output_gradients=d_args[0]
+                output, wrt_tensors, output_gradients=d_output[0]
             )
             dX = all_gradients[: len(X.args)]
             self.grads_for_optimization = all_gradients[1:]
