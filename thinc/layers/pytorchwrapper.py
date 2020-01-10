@@ -108,6 +108,6 @@ def _convert_outputs(model, Ytorch, is_train):
 
     def reverse_conversion(dY):
         dYtorch = convert_recursive(is_xp_array, xp2torch, dY)
-        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
+        return ArgsKwargs(args=((Ytorch,),), kwargs={"grad_tensors": dYtorch})
 
     return Y, reverse_conversion
