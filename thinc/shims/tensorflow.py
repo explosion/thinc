@@ -178,6 +178,7 @@ class TensorFlowShim(Shim):
         self._model.save(path)
 
     def from_disk(self, path):
+        tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
         if ops.device == "cpu":
             device = "CPU"
@@ -193,6 +194,7 @@ class TensorFlowShim(Shim):
         return filelike.getvalue()
 
     def from_bytes(self, data):
+        tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
         filelike = BytesIO(data)
         filelike.seek(0)
