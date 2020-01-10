@@ -5,7 +5,7 @@ from .model import create_init, Model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
-from .types import Ragged, Padded
+from .types import Ragged, Padded, ArgsKwargs
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu
 from .util import get_shuffled_batches, minibatch, evaluate_model_on_arrays
