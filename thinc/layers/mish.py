@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
@@ -34,9 +34,9 @@ def Mish(
         params={"W": None, "b": None},
     )
     if normalize is not None:
-        model = chain(model, LayerNorm())
+        model = chain(model, cast(Model[InT, OutT], LayerNorm()))
     if dropout is not None:
-        model = chain(model, Dropout(dropout))
+        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     if nO is not None and nI is not None:
         model.initialize()
     return model

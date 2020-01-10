@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, Dict
+from typing import Tuple, Callable, Optional, Dict, cast
 
 from ..model import Model
 from ..config import registry
@@ -35,7 +35,7 @@ def Maxout(
     if normalize:
         model = chain(model, LayerNorm())
     if dropout is not None:
-        model = chain(model, Dropout(dropout))
+        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     if nO is not None and nI is not None:
         model.initialize()
     return model
