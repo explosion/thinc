@@ -1,4 +1,4 @@
-from typing import TypeVar, cast
+from typing import TypeVar, cast, List
 
 from .noop import noop
 from .chain import chain
@@ -17,7 +17,7 @@ def clone(orig: Model[InT, OutT], n: int) -> Model[InT, OutT]:
     """
     if n == 0:
         return cast(Model[InT, OutT], noop())
-    layers = [orig]
+    layers: List[Model] = [orig]
     for i in range(n - 1):
         layers.append(orig.copy())
-    return chain(*layers)
+    return cast(Model[InT, OutT], chain(*layers))
