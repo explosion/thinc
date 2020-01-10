@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable
+from typing import Optional, List, Dict, Sequence, Iterable, Protocol
 import numpy
 import sys
 
@@ -565,6 +565,14 @@ class Doc(Sized, Container):
         ...
 
     def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+        ...
+
+
+InFunc = TypeVar("InFunc")
+
+class Decorator(Protocol):
+    """Protocol to mark a function as returning its child with identical signature."""
+    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
 
 
