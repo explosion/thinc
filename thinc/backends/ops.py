@@ -66,10 +66,11 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[ArrayT], dtype: Optional[DTypes] = None, pad: int = 0
+        self, X: Sequence[ArrayT], dtype: Optional[DTypes] = None, pad: int = 0,
+        ndim_if_empty: int=2
     ) -> ArrayT:
         if X is None or len(X) == 0:
-            return self.alloc((0,), dtype=dtype or "f")
+            return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
         X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
