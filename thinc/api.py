@@ -23,7 +23,7 @@ from .layers import TensorFlowWrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
 from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
-from .layers import with_array, with_reshape, with_getitem
+from .layers import with_array, with_padded, with_reshape, with_getitem
 from .layers import strings2arrays
 
 from .layers import MaxPool, MeanPool, SumPool
