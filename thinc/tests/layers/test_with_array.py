@@ -4,7 +4,7 @@ from thinc.api import Model, with_array
 from thinc.types import Padded, Ragged
 
 
-@pytest.fixture(params=[[], [(10, 2)], [(5, 3), (1, 3)], [(2, 3), (0, 3), (1,3)]])
+@pytest.fixture(params=[[], [(10, 2)], [(5, 3), (1, 3)], [(2, 3), (0, 3), (1, 3)]])
 def shapes(request):
     return request.param
 
@@ -12,6 +12,7 @@ def shapes(request):
 @pytest.fixture(params=["f", "i"])
 def dtype(request):
     return request.param
+
 
 @pytest.fixture
 def list_input(shapes, dtype):
@@ -41,6 +42,7 @@ def array_input(model, ragged_input):
 @pytest.fixture(params=[0, 1, 2, 3])
 def selection(request):
     return request.param
+
 
 @pytest.fixture
 def inputs(list_input, ragged_input, padded_input, array_input, selection):
@@ -83,7 +85,6 @@ def assert_paddeds_match(X, Y):
     return True
 
 
-
 @pytest.fixture
 def model():
     """
@@ -95,7 +96,8 @@ def model():
 
 def _trim_dim_forward(model, X, is_train):
     def backprop(dY):
-        return model.ops.allocate((dY.shape[0], dY.shape[1]+1))
+        return model.ops.allocate((dY.shape[0], dY.shape[1] + 1))
+
     return X[:, :-1], backprop
 
 
