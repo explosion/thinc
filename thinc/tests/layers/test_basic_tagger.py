@@ -12,7 +12,7 @@ def ancora():
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
-        model = strings2arrays() >> with_list2array(
+        model = strings2arrays() >> with_array(
             HashEmbed(width, vector_length)
             >> ExtractWindow(window_size=1)
             >> ReLu(width, width * 3)

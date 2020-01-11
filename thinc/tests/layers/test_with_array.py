@@ -25,11 +25,6 @@ def list_input(shapes, dtype):
 
 
 @pytest.fixture
-def ops():
-    return NumpyOps()
-
-
-@pytest.fixture
 def ragged_input(ops, list_input):
     lengths = numpy.array([len(x) for x in list_input], dtype="i")
     if not list_input:

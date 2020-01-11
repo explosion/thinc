@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, cast, Union
+from typing import Tuple, Callable, Optional, TypeVar, Any
 
 from ..model import Model
 from ..config import registry
