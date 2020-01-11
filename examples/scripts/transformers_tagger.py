@@ -1,13 +1,14 @@
 from dataclasses import dataclass
-from typing import *
+from typing import List, Optional
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
 from thinc.api import PyTorchWrapper, Softmax, chain
-from thinc.api import with_array, with_padded
-from thinc.types import Padded, Ragged, Array2d, Array
+from thinc.api import with_array, padded2list, list2padded
+from thinc.types import Padded, Array2d, Array
 from thinc.util import evaluate_model_on_arrays
+import ml_datasets
 
 
 CONFIG = """
@@ -32,26 +33,11 @@ name = ${common:starter}
 @layers = "output_layer.v0"
 """
 
-def padded2ragged() -> Model[Padded, Ragged]:
-    def _forward(model, X, is_train):
-        seqs = X.unpad(X.data)
-        ragged = Ragged(
-            model.ops.flatten(seqs)
-            model.ops.astype([len(seq) for seq in seqs], dtype="i")
-        )
-
-        def backprop(d_ragged):
-            d_seqs = model.ops.unflatten(d_ragged.data, d_ragged.lengths)
-            return Padded(*model.ops.square_sequences(d_seqs))
-
-        return ragged, backprop
-
-    return Model("padded2ragged", _forward)
-
 
 @dataclass
 class TokensPlus:
     """Dataclass to hold the output of the Huggingface 'encode_plus' method."""
+
     input_ids: List[int]
     token_type_ids: List[int]
     attention_mask: List[int]
@@ -65,7 +51,7 @@ def transformers_tokenizer(name: str) -> Model[List[str], List[TokensPlus]]:
     return Model(
         "tokenizer",
         _tokenizer_forward,
-        attrs={"tokenizer":  AutoTokenizer.from_pretrained(name)}
+        attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
     )
 
 
@@ -79,7 +65,7 @@ def _tokenizer_forward(model, texts, is_train):
             return_token_type_ids=True,
             return_attention_mask=True,
             return_overflowing_tokens=True,
-            return_special_tokens_mask=True
+            return_special_tokens_mask=True,
         )
         tokens.append(TokensPlus(**info_dict))
     return tokens, lambda d_tokens: d_tokens
@@ -91,30 +77,23 @@ def transformers_model(name) -> Model[List[TokensPlus], Padded]:
     return PyTorchWrapper(transformer)
 
 
-
 @thinc.api.registry.layers("output_layer_example.v0")
-def output_layer_example() -> Model[Padded, List[Floats2d]]:
-    return chain(
-        with_array(Softmax()),
-        padded2list()
-    )
+def output_layer_example() -> Model[Padded, List[Array2d]]:
+    return chain(with_array(Softmax()), padded2list())
 
 
 @thinc.api.registry.layers("transformer_tagger_example.v0")
 def transformer_tagger_example(
     tokenizer: Model[List[str], List[TokensPlus]],
-    transformer: Model[List[Array], Padded],
-    output_layer: Model[Padded, List[Floats2d]]
-) -> Model[List[str], List[Floats2d]]:
-    return chain(
-        tokenizer,
-        transformer,
-        output_layer
-    )
+    transformer: Model[List[TokensPlus], Padded],
+    output_layer: Model[Padded, List[Array2d]],
+) -> Model[List[str], List[Array2d]]:
+    return chain(tokenizer, transformer, output_layer)
 
 
 def load_config(path: Optional[Path]):
     from thinc.api import Config, registry
+
     if path is None:
         config = Config().from_str(CONFIG)
     else:
@@ -125,10 +104,11 @@ def load_config(path: Optional[Path]):
     # registry to fetch the "Adam.v1" function. You can register your own
     # functions as well, and build up trees of objects.
     return registry.make_from_config(config)
- 
+
 
 def load_data():
     from thinc.api import to_categorical
+
     train_data, check_data, nr_class = ml_datasets.ud_ancora_pos_tags()
     train_X, train_y = zip(*train_data)
     dev_X, dev_y = zip(*check_data)
@@ -138,7 +118,7 @@ def load_data():
     return (train_X, train_y), (dev_X, dev_y)
 
 
-def main(path: Optional[Path]=None):
+def main(path: Optional[Path] = None):
     thinc.api.require_gpu()
     thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
@@ -146,11 +126,13 @@ def main(path: Optional[Path]=None):
     optimizer = C["optimizer"]
     calculate_loss = C["loss"]
     cfg = C["training"]
-    
+
     (train_X, train_Y), (dev_X, dev_Y) = load_data()
 
     for epoch in range(cfg["n_epoch"]):
-        for inputs, truths in thinc.api.get_shuffled_batches(train_X, train_Y, cfg["batch_size"]):
+        for inputs, truths in thinc.api.get_shuffled_batches(
+            train_X, train_Y, cfg["batch_size"]
+        ):
             guesses, backprop = model(inputs, is_train=True)
             loss, d_guesses = calculate_loss(guesses, truths)
             backprop(d_guesses)
