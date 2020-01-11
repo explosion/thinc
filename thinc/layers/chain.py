@@ -79,10 +79,13 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
         return
     # Try to set nO on each layer, where available.
     nO = None
-    if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
+    if Y is not None and isinstance(Y, (Ragged, Padded, list)):
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")
+    # TODO: This sort of doesn't work currently -- we only get Y passed through
+    # for the last layer, but maybe we need it for the second last (e.g. if we
+    # have a transform at the end. Not sure what to do.
     for layer in reversed(model.layers):
         if nO is not None and layer.has_dim("nO") is None:
             layer.set_dim("nO", nO)
