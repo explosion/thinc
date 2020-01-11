@@ -5,7 +5,6 @@ from ..util import make_tempdir
 from thinc.api import TensorFlowWrapper, tensorflow2xp, xp2tensorflow
 from thinc.backends import Ops, get_current_ops
 from thinc.model import Model
-from thinc.layers import Linear
 from thinc.optimizers import Adam
 from thinc.types import ArrayNd
 from thinc.util import has_tensorflow, to_categorical
