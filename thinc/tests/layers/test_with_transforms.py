@@ -1,6 +1,7 @@
 import pytest
 import numpy
-from thinc.api import NumpyOps, Model, with_array, with_padded, with_list
+from thinc.api import NumpyOps, Model
+from thinc.api import with_array, with_padded, with_list, with_ragged
 from thinc.types import Padded, Ragged
 
 
@@ -49,12 +50,15 @@ def padded_data_input(padded_input):
     return (x.data, x.size_at_t, x.lengths, x.indices)
 
 
-def get_array_model():
-    """
-    As an example operation, lets just trim the last dimension. That
-    should catch stuff that confuses the input and output.
-    """
+@pytest.fixture
+def ragged_data_input(ragged_input):
+    return (ragged_input.data, ragged_input.lengths)
 
+
+# As an example operation, lets just trim the last dimension. That
+# should catch stuff that confuses the input and output.
+
+def get_array_model():
     def _trim_array_forward(model, X, is_train):
         def backprop(dY):
             return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
@@ -95,6 +99,19 @@ def get_padded_model():
     return with_padded(Model("trimpadded", _trim_padded_forward))
 
 
+def get_ragged_model():
+
+    def _trim_ragged_forward(model, Xr, is_train):
+        def backprop(dYr):
+            dY = dYr.data
+            dX = model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
+            return Ragged(dX, dYr.lengths)
+
+        return Ragged(Xr.data[:, :-1], Xr.lengths), backprop
+
+    return with_ragged(Model("trimragged", _trim_ragged_forward))
+
+
 def get_checker(inputs):
     if isinstance(inputs, Ragged):
         return assert_raggeds_match
@@ -102,8 +119,10 @@ def get_checker(inputs):
         return assert_paddeds_match
     elif isinstance(inputs, list):
         return assert_lists_match
-    elif isinstance(inputs, tuple):
+    elif isinstance(inputs, tuple) and len(inputs) == 4:
         return assert_padded_data_match
+    elif isinstance(inputs, tuple) and len(inputs) == 2:
+        return assert_ragged_data_match
     else:
         return assert_arrays_match
 
@@ -124,9 +143,8 @@ def test_with_list_initialize(ragged_input, padded_input, list_input):
         check_initialize(get_list_model(), inputs)
 
 
-@pytest.mark.xfail
-def test_with_ragged_initialize(ragged_input, padded_input, list_input):
-    for inputs in (ragged_input, padded_input, list_input):
+def test_with_ragged_initialize(ragged_input, padded_input, list_input, ragged_data_input):
+    for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
         check_initialize(get_ragged_model(), inputs)
 
 
@@ -150,9 +168,9 @@ def test_with_padded_forward(ragged_input, padded_input, list_input, padded_data
         model = get_padded_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
-@pytest.mark.xfail
-def test_with_ragged_forward(ragged_input, padded_input, list_input):
-    for inputs in (ragged_input, padded_input, list_input):
+
+def test_with_ragged_forward(ragged_input, padded_input, list_input, ragged_data_input):
+    for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
         checker = get_checker(inputs)
         model = get_ragged_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
@@ -172,9 +190,8 @@ def test_with_list_backward(ragged_input, padded_input, list_input):
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
-@pytest.mark.xfail
-def test_with_ragged_backward(ragged_input, padded_input, list_input):
-    for inputs in (ragged_input, padded_input, list_input):
+def test_with_ragged_backward(ragged_input, padded_input, list_input, ragged_data_input):
+    for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
         checker = get_checker(inputs)
         model = get_ragged_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
@@ -254,3 +271,6 @@ def assert_paddeds_match(X, Y):
 
 def assert_padded_data_match(X, Y):
     return assert_paddeds_match(Padded(*X), Padded(*Y))
+
+def assert_ragged_data_match(X, Y):
+    return assert_raggeds_match(Ragged(*X), Ragged(*Y))
