@@ -1,14 +1,16 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, cast, Union
+from typing import Tuple, Callable, Optional, TypeVar, Any
 
 from ..model import Model
 from ..config import registry
 from ..util import get_width
 from ..types import Ragged, Padded, Array
 
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 Mid1T = TypeVar("Mid1T")
 Mid2T = TypeVar("Mid2T")
+
 
 # TODO: Unhack this when we can
 # We currently have an issue with Pydantic when arguments have generic types.
@@ -19,9 +21,12 @@ Mid2T = TypeVar("Mid2T")
 def chain_no_types(*layer: Model) -> Model:
     return chains(*layer)
 
+
 # This implementation is named 'chains' because we have a type-shennanigans
 # function 'chain' below.
-def chains(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
+def chains(
+    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model
+) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
