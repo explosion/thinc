@@ -1,3 +1,4 @@
+import random
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Callable
 from pathlib import Path
@@ -5,7 +6,7 @@ from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, padded2list
-from thinc.api import torch2xp, xp2torch
+from thinc.api import torch2xp, xp2torch, categorical_crossentropy
 from thinc.types import Padded, Array1d, Array2d, Array, ArgsKwargs
 from thinc.util import evaluate_model_on_arrays
 import ml_datasets
@@ -13,13 +14,17 @@ import ml_datasets
 
 CONFIG = """
 [common]
-starter = "albert-base-v2"
+starter = "distilbert-base-uncased"
 
 [training]
 batch_size = 128
 n_epoch = 10
 
+[optimizer]
+@optimizers = "Adam.v1"
+
 [model]
+@layers = "transformer_tagger_example.v0"
 
 [model.tokenizer]
 @layers = "transformers_tokenizer.v0"
@@ -30,7 +35,7 @@ name = ${common:starter}
 name = ${common:starter}
 
 [model.output_layer]
-@layers = "output_layer.v0"
+@layers = "output_layer_example.v0"
 """
 
 
@@ -41,18 +46,26 @@ class TokensPlus:
     input_ids: List[int]
     token_type_ids: List[int]
     attention_mask: List[int]
-    overflowing_tokens: List[int]
-    num_truncated_tokens: int
-    special_tokens_mask: List[int]
+    overflowing_tokens: Optional[List[int]]=None
+    num_truncated_tokens: Optional[int]=None
+    special_tokens_mask: Optional[List[int]]=None
 
 
+#@thinc.api.registry.layers("transformer_tagger_example.v0")
+#def transformer_tagger_example(
+#    tokenizer: Model[List[str], List[TokensPlus]],
+#    transformer: Model[List[TokensPlus], Padded],
+#    output_layer: Model[Padded, List[Array2d]],
+#) -> Model[List[str], List[Array2d]]:
+#    return chain(tokenizer, transformer, output_layer)
 @thinc.api.registry.layers("transformer_tagger_example.v0")
 def transformer_tagger_example(
-    tokenizer: Model[List[str], List[TokensPlus]],
-    transformer: Model[List[TokensPlus], Padded],
-    output_layer: Model[Padded, List[Array2d]],
-) -> Model[List[str], List[Array2d]]:
+    tokenizer: Model,
+    transformer: Model,
+    output_layer: Model,
+) -> Model:
     return chain(tokenizer, transformer, output_layer)
+
 
 
 @thinc.api.registry.layers("transformers_tokenizer.v0")
@@ -91,14 +104,18 @@ def transformers_model(name) -> Model[List[TokensPlus], Padded]:
 
 @thinc.api.registry.layers("output_layer_example.v0")
 def output_layer_example() -> Model[Padded, List[Array2d]]:
-    return chain(with_array(Softmax()), padded2list())
+    # TODO: Having trouble with the shape inference, because the output
+    # layer is padded2list.
+    n_classes = 17
+    return chain(with_array(Softmax(n_classes)), padded2list())
 
 
 def convert_transformer_input(model: Model, Xs: List[TokensPlus], is_train: bool) -> Tuple[ArgsKwargs, Callable]:
     inputs = {
         "input_ids": _pad_and_convert(model.ops, [x.input_ids for x in Xs]),
-        "token_type_ids": _pad_and_convert(model.ops, [x.token_type_ids for x in Xs]),
         "attention_mask": _pad_and_convert(model.ops, [x.attention_mask for x in Xs])
+        # Not passed for distilbert
+        #"token_type_ids": _pad_and_convert(model.ops, [x.token_type_ids for x in Xs]),
     }
     return ArgsKwargs(args=(), kwargs=inputs), lambda d_inputs: d_inputs
 
@@ -107,13 +124,16 @@ def _pad_and_convert(ops: thinc.api.Ops, X: List[List[int]], dtype="int64"):
     arrays1d: List[Array1d] = [ops.asarray(x, dtype=dtype) for x in X]
     padded = ops.list2padded([x.reshape((-1, 1)) for x in arrays1d])
     array2d = padded.data.reshape((padded.data.shape[0], padded.data.shape[1]))
+    array2d = ops.asarray(array2d, dtype=dtype)
     return xp2torch(array2d, requires_grad=False)
 
 
-def convert_transformer_output(model: Model, Ytorch: Tuple, is_train: bool) -> Tuple[Tuple, Callable]:
-    Yxp = tuple(torch2xp(y) for y in Ytorch)
+def convert_transformer_output(model: Model, torch_outs: Tuple, is_train: bool) -> Tuple[Padded, Callable]:
+    Yxp = xp2torch(torch_outs[0])
+    # TODO: We need the other padding info here. Maybe should make a wrapper?
+    Yp = Padded()
 
-    def backprop(dYxp: Tuple[Array]):
+    def backprop(dYxp: Padded) -> ArgsKwargs:
         dYtorch = tuple(xp2torch(dy, requires_grad=True) for dy in dYxp)
         return ArgsKwargs(args=((Ytorch,),), kwargs={"grad_tensors": dYtorch})
 
@@ -135,33 +155,27 @@ def load_config(path: Optional[Path]):
     return registry.make_from_config(config)
 
 
-def load_data():
-    from thinc.api import to_categorical
-
-    train_data, check_data, nr_class = ml_datasets.ud_ancora_pos_tags()
-    train_X, train_y = zip(*train_data)
-    dev_X, dev_y = zip(*check_data)
-    nb_tag = max(max(y) for y in train_y) + 1
-    train_y = [to_categorical(y, nb_tag) for y in train_y]
-    dev_y = [to_categorical(y, nb_tag) for y in dev_y]
-    return (train_X, train_y), (dev_X, dev_y)
-
-
 def main(path: Optional[Path] = None):
     thinc.api.require_gpu()
     thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
     model = C["model"]
     optimizer = C["optimizer"]
-    calculate_loss = C["loss"]
+    calculate_loss = categorical_crossentropy
     cfg = C["training"]
 
-    (train_X, train_Y), (dev_X, dev_Y) = load_data()
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
+    # Pass in a small batch of data, to fill in missing shapes.
+    model.initialize(X=train_X[:5], Y=train_Y[:5])
+    train_data: List[Tuple[Array2d, Array2d]]
+    dev_data:   List[Tuple[Array2d, Array2d]]
+    train_data = list(zip(train_X, train_Y))
+    train_data = list(zip(dev_X, dev_Y))
 
     for epoch in range(cfg["n_epoch"]):
-        for inputs, truths in thinc.api.get_shuffled_batches(
-            train_X, train_Y, cfg["batch_size"]
-        ):
+        random.shuffle(train_data)
+        for batch in thinc.api.minibatch(train_data, cfg["batch_size"]):
+            inputs, truths = zip(*batch)
             guesses, backprop = model(inputs, is_train=True)
             loss, d_guesses = calculate_loss(guesses, truths)
             backprop(d_guesses)
