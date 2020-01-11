@@ -4,6 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Array2d, Padded, Ragged
 
+
 ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Array2d])
 

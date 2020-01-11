@@ -1,14 +1,14 @@
 from typing import Tuple, Callable, Optional
 
-from ..types import Array, Floats2d, Ints2d
+from ..types import Array, Array2d
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import create_thread_local
 
 
-InT = Ints2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 STATE = create_thread_local({"vectors": {}})
 

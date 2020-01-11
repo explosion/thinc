@@ -1,10 +1,11 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d, Array3d, Ints1d
+from ..types import Padded, Ragged, Array1d, Array2d, Array3d
 from ..model import Model
 from ..config import registry
 
-PaddedData = Tuple[Array3d, Ints1d, List[int], List[int]]
+
+PaddedData = Tuple[Array3d, Array1d, List[int], List[int]]
 ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], PaddedData])
 

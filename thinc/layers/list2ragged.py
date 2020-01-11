@@ -2,10 +2,10 @@ from typing import Tuple, List, Callable, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ragged
+from ..types import Array2d, Ragged
 
 
-InT = List[Floats2d]
+InT = List[Array2d]
 OutT = Ragged
 
 

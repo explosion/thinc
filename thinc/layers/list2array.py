@@ -2,11 +2,11 @@ from typing import Tuple, List, Callable, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d
+from ..types import Array2d
 
 
-InT = List[Floats2d]
-OutT = Floats2d
+InT = List[Array2d]
+OutT = Array2d
 
 
 @registry.layers("list2array.v0")
