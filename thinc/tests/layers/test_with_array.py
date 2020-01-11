@@ -13,13 +13,16 @@ def shapes(request):
 def dtype(request):
     return request.param
 
+
 @pytest.fixture
 def ops():
     return NumpyOps()
 
+
 @pytest.fixture
 def list_input(shapes, dtype):
     return [numpy.zeros(shape, dtype="f") for shape in shapes]
+
 
 @pytest.fixture
 def ops():
@@ -56,6 +59,7 @@ def get_array_model():
     As an example operation, lets just trim the last dimension. That
     should catch stuff that confuses the input and output.
     """
+
     def _trim_array_forward(model, X, is_train):
         def backprop(dY):
             return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
@@ -66,20 +70,19 @@ def get_array_model():
 
 
 def get_padded_model():
-
     def _trim_padded_forward(model, Xp, is_train):
         def backprop(dYp):
             dY = dYp.data
             dX = model.ops.alloc_f3d(dY.shape[0], dY.shape[1], dY.shape[2] + 1)
             return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
-        assert isinstance(Xp, Padded) 
+        assert isinstance(Xp, Padded)
         X = Xp.data
-        X = X.reshape((X.shape[0]*X.shape[1], X.shape[2]))
+        X = X.reshape((X.shape[0] * X.shape[1], X.shape[2]))
         X = X[:, :-1]
         X = X.reshape((Xp.data.shape[0], Xp.data.shape[1], X.shape[1]))
         return Padded(X, Xp.size_at_t, Xp.lengths, Xp.indices), backprop
-    
+
     return with_padded(Model("trimpadded", _trim_padded_forward))
 
 
@@ -101,7 +104,9 @@ def test_with_array_initialize(ragged_input, padded_input, list_input, array_inp
         check_initialize(get_array_model(), inputs)
 
 
-def test_with_padded_initialize(ragged_input, padded_input, list_input, padded_data_input):
+def test_with_padded_initialize(
+    ragged_input, padded_input, list_input, padded_data_input
+):
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
         check_initialize(get_padded_model(), inputs)
 
@@ -127,7 +132,9 @@ def test_with_array_backward(ragged_input, padded_input, list_input, array_input
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
-def test_with_padded_backward(ragged_input, padded_input, list_input, padded_data_input):
+def test_with_padded_backward(
+    ragged_input, padded_input, list_input, padded_data_input
+):
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
         checker = get_checker(inputs)
         model = get_padded_model()

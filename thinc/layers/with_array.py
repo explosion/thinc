@@ -56,7 +56,7 @@ def _get_array(model, X: SeqT) -> Array2d:
     if isinstance(X, Ragged):
         return X.data
     elif isinstance(X, Padded):
-        return X.data.reshape((X.data.shape[0]*X.data.shape[1], X.data.shape[2]))
+        return X.data.reshape((X.data.shape[0] * X.data.shape[1], X.data.shape[2]))
     elif not isinstance(X, (list, tuple)):
         return cast(Array2d, X)
     else:
@@ -96,12 +96,14 @@ def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
-    X = Xp.data.reshape((Xp.data.shape[0]*Xp.data.shape[1], Xp.data.shape[2]))
+    X = Xp.data.reshape((Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]))
     Y2d, get_dX = layer(X, is_train)
     Y = Y2d.reshape((Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]))
 
     def backprop(dYp: Padded) -> Padded:
-        dY = dYp.data.reshape((dYp.data.shape[0]*dYp.data.shape[1], dYp.data.shape[2]))
+        dY = dYp.data.reshape(
+            (dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2])
+        )
         dX2d = get_dX(dY)
         dX = dX2d.reshape((dYp.data.shape[0], dYp.data.shape[1], dX2d.data.shape[1]))
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)

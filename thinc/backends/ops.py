@@ -63,8 +63,11 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[ArrayT], dtype: Optional[DTypes] = None, pad: int = 0,
-        ndim_if_empty: int=2
+        self,
+        X: Sequence[ArrayT],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
     ) -> ArrayT:
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
