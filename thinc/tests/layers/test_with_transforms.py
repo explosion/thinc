@@ -1,6 +1,6 @@
 import pytest
 import numpy
-from thinc.api import NumpyOps, Model, with_array, with_padded
+from thinc.api import NumpyOps, Model, with_array, with_padded, with_list
 from thinc.types import Padded, Ragged
 
 
@@ -64,6 +64,20 @@ def get_array_model():
     return with_array(Model("trimarray", _trim_array_forward))
 
 
+def get_list_model():
+
+    def _trim_list_forward(model, Xs, is_train):
+        def backprop(dYs):
+            dXs = []
+            for dY in dYs:
+                dXs.append(model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1))
+            return dXs
+        Ys = [X[:, :-1] for X in Xs]
+        return Ys, backprop
+
+    return with_list(Model("trimlist", _trim_list_forward))
+
+
 def get_padded_model():
     def _trim_padded_forward(model, Xp, is_train):
         def backprop(dYp):
@@ -105,11 +119,28 @@ def test_with_padded_initialize(
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
         check_initialize(get_padded_model(), inputs)
 
+def test_with_list_initialize(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        check_initialize(get_list_model(), inputs)
+
+
+@pytest.mark.xfail
+def test_with_ragged_initialize(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        check_initialize(get_ragged_model(), inputs)
+
 
 def test_with_array_forward(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
         checker = get_checker(inputs)
         model = get_array_model()
+        check_transform_produces_correct_output_type_forward(model, inputs, checker)
+
+
+def test_with_list_forward(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        checker = get_checker(inputs)
+        model = get_list_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
 
@@ -119,11 +150,33 @@ def test_with_padded_forward(ragged_input, padded_input, list_input, padded_data
         model = get_padded_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
+@pytest.mark.xfail
+def test_with_ragged_forward(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        checker = get_checker(inputs)
+        model = get_ragged_model()
+        check_transform_produces_correct_output_type_forward(model, inputs, checker)
+
 
 def test_with_array_backward(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
         checker = get_checker(inputs)
         model = get_array_model()
+        check_transform_produces_correct_output_type_backward(model, inputs, checker)
+
+
+def test_with_list_backward(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        checker = get_checker(inputs)
+        model = get_list_model()
+        check_transform_produces_correct_output_type_backward(model, inputs, checker)
+
+
+@pytest.mark.xfail
+def test_with_ragged_backward(ragged_input, padded_input, list_input):
+    for inputs in (ragged_input, padded_input, list_input):
+        checker = get_checker(inputs)
+        model = get_ragged_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
