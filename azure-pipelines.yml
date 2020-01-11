@@ -59,7 +59,9 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
-  - script: python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
+  - script: |
+      pip install tensorflow
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 
   - bash: bash <(curl -s https://codecov.io/bash)

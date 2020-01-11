@@ -1,14 +1,16 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any, cast, Union
+from typing import Tuple, Callable, Optional, TypeVar, Any
 
 from ..model import Model
 from ..config import registry
 from ..util import get_width
 from ..types import Ragged, Padded, Array
 
+
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 Mid1T = TypeVar("Mid1T")
 Mid2T = TypeVar("Mid2T")
+
 
 # TODO: Unhack this when we can
 # We currently have an issue with Pydantic when arguments have generic types.
@@ -20,7 +22,9 @@ def chain_no_types(*layer: Model) -> Model:
     return chain(*layer)
 
 
-def chain(layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model) -> Model[InT, Any]:
+def chain(
+    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model
+) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
@@ -109,6 +113,7 @@ Mid7T = TypeVar("Mid7T")
 Mid8T = TypeVar("Mid8T")
 Mid9T = TypeVar("Mid9T")
 
+
 # TODO: remove this if using plain chain + mypy plugin is enough
 def xchain(
     l1: Model[InT, Mid1T],
@@ -123,18 +128,18 @@ def xchain(
     *etc: Model
 ) -> Model[InT, Any]:
     if l3 is None:
-        return chains(l1, l2)
+        return chain(l1, l2)
     elif l4 is None:
-        return chains(l1, l2, l3)
+        return chain(l1, l2, l3)
     elif l5 is None:
-        return chains(l1, l2, l3, l4)
+        return chain(l1, l2, l3, l4)
     elif l6 is None:
-        return chains(l1, l2, l3, l4, l5)
+        return chain(l1, l2, l3, l4, l5)
     elif l7 is None:
-        return chains(l1, l2, l3, l4, l5, l6)
+        return chain(l1, l2, l3, l4, l5, l6)
     elif l8 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7)
+        return chain(l1, l2, l3, l4, l5, l6, l7)
     elif l9 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8)
+        return chain(l1, l2, l3, l4, l5, l6, l7, l8)
     else:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)
+        return chain(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)

@@ -22,20 +22,13 @@ except ImportError:  # pragma: no cover
     has_torch = False
 
 try:  # pragma: no cover
-    import tfdlpack
-
-    has_tfdlpack = True
-except ImportError:
-    has_tfdlpack = False
-
-try:  # pragma: no cover
     import tensorflow as tf
 
     has_tensorflow = True
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, IntsNd, FloatsNd
+from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, ArrayNd
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -198,7 +191,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
+def to_categorical(Y: ArrayNd, n_classes: Optional[int] = None) -> ArrayNd:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover
@@ -243,8 +236,6 @@ def get_width(
 def assert_tensorflow_installed() -> None:  # pragma: no cover
     """Raise an ImportError if TensorFlow is not installed."""
     template = "TensorFlow support requires {pkg}: pip install thinc[tensorflow]"
-    if not has_tfdlpack:
-        raise ImportError(template.format(pkg="tfdlpack"))
     if not has_tensorflow:
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
@@ -310,11 +301,7 @@ def xp2tensorflow(
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
-    if hasattr(xp_tensor, "toDlpack"):
-        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
-        tensorflow_tensor = tfdlpack.from_dlpack(dlpack_tensor)
-    else:
-        tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
+    tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
@@ -331,10 +318,7 @@ def xp2tensorflow(
 def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
-    if "GPU" in tensorflow_tensor.device:
-        return cupy.fromDlpack(tfdlpack.to_dlpack(tensorflow_tensor))
-    else:
-        return tensorflow_tensor.numpy()
+    return tensorflow_tensor.numpy()
 
 
 __all__ = [

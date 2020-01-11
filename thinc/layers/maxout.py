@@ -3,15 +3,15 @@ from typing import Tuple, Callable, Optional, Dict, cast
 from ..model import Model
 from ..config import registry
 from ..initializers import xavier_uniform_init, zero_init
-from ..types import Floats2d
+from ..types import Array2d
 from ..util import get_width
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 
 
-InT = Floats2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("Maxout.v0")

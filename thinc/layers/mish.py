@@ -3,14 +3,14 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
-from ..types import Floats2d
+from ..types import Array2d
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 
 
-InT = Floats2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("Mish.v0")

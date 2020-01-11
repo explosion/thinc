@@ -40,12 +40,12 @@ def model3(nO):
 
 def test_chain_zero():
     with pytest.raises(TypeError):
-        model = chain()
+        chain()
 
 
 def test_chain_one(model1):
     with pytest.raises(TypeError):
-        model = chain(model1)
+        chain(model1)
 
 
 def test_chain_two(model1, model2):
