@@ -10,9 +10,9 @@ ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], PaddedData])
 
 
-@registry.layers("with_list2padded.v0")
+@registry.layers("with_padded.v0")
 def with_padded(layer: Model[Padded, Padded]) -> Model[SeqT, SeqT]:
-    return Model(f"with_list2padded-{layer.name}", forward, init=init, layers=[layer])
+    return Model(f"with_padded-{layer.name}", forward, init=init, layers=[layer])
 
 
 def forward(
