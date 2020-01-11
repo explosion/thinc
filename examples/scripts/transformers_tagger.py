@@ -1,12 +1,12 @@
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import List, Optional, Tuple, Callable
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
-from thinc.api import PyTorchWrapper, Softmax, chain
-from thinc.api import with_array, padded2list, list2padded
-from thinc.types import Padded, Array2d, Array
+from thinc.api import PyTorchWrapper, Softmax, chain, with_array, padded2list
+from thinc.api import torch2xp, xp2torch
+from thinc.types import Padded, Array1d, Array2d, Array, ArgsKwargs
 from thinc.util import evaluate_model_on_arrays
 import ml_datasets
 
@@ -46,6 +46,15 @@ class TokensPlus:
     special_tokens_mask: List[int]
 
 
+@thinc.api.registry.layers("transformer_tagger_example.v0")
+def transformer_tagger_example(
+    tokenizer: Model[List[str], List[TokensPlus]],
+    transformer: Model[List[TokensPlus], Padded],
+    output_layer: Model[Padded, List[Array2d]],
+) -> Model[List[str], List[Array2d]]:
+    return chain(tokenizer, transformer, output_layer)
+
+
 @thinc.api.registry.layers("transformers_tokenizer.v0")
 def transformers_tokenizer(name: str) -> Model[List[str], List[TokensPlus]]:
     return Model(
@@ -73,8 +82,11 @@ def _tokenizer_forward(model, texts, is_train):
 
 @thinc.api.registry.layers("transformers_model.v0")
 def transformers_model(name) -> Model[List[TokensPlus], Padded]:
-    transformer = AutoModel.from_pretrained(name)
-    return PyTorchWrapper(transformer)
+    return PyTorchWrapper(
+        AutoModel.from_pretrained(name),
+        convert_inputs=convert_transformer_input,
+        convert_outputs=convert_transformer_output
+    )
 
 
 @thinc.api.registry.layers("output_layer_example.v0")
@@ -82,13 +94,30 @@ def output_layer_example() -> Model[Padded, List[Array2d]]:
     return chain(with_array(Softmax()), padded2list())
 
 
-@thinc.api.registry.layers("transformer_tagger_example.v0")
-def transformer_tagger_example(
-    tokenizer: Model[List[str], List[TokensPlus]],
-    transformer: Model[List[TokensPlus], Padded],
-    output_layer: Model[Padded, List[Array2d]],
-) -> Model[List[str], List[Array2d]]:
-    return chain(tokenizer, transformer, output_layer)
+def convert_transformer_input(model: Model, Xs: List[TokensPlus], is_train: bool) -> Tuple[ArgsKwargs, Callable]:
+    inputs = {
+        "input_ids": _pad_and_convert(model.ops, [x.input_ids for x in Xs]),
+        "token_type_ids": _pad_and_convert(model.ops, [x.token_type_ids for x in Xs]),
+        "attention_mask": _pad_and_convert(model.ops, [x.attention_mask for x in Xs])
+    }
+    return ArgsKwargs(args=(), kwargs=inputs), lambda d_inputs: d_inputs
+
+
+def _pad_and_convert(ops: thinc.api.Ops, X: List[List[int]], dtype="int64"):
+    arrays1d: List[Array1d] = [ops.asarray(x, dtype=dtype) for x in X]
+    padded = ops.list2padded([x.reshape((-1, 1)) for x in arrays1d])
+    array2d = padded.data.reshape((padded.data.shape[0], padded.data.shape[1]))
+    return xp2torch(array2d, requires_grad=False)
+
+
+def convert_transformer_output(model: Model, Ytorch: Tuple, is_train: bool) -> Tuple[Tuple, Callable]:
+    Yxp = tuple(torch2xp(y) for y in Ytorch)
+
+    def backprop(dYxp: Tuple[Array]):
+        dYtorch = tuple(xp2torch(dy, requires_grad=True) for dy in dYxp)
+        return ArgsKwargs(args=((Ytorch,),), kwargs={"grad_tensors": dYtorch})
+
+    return Yxp, backprop
 
 
 def load_config(path: Optional[Path]):
