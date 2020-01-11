@@ -2,10 +2,10 @@ from typing import Tuple, Callable, List, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, FloatsNd
+from ..types import Array, ArrayNd
 
 
-InT = List[FloatsNd]
+InT = List[ArrayNd]
 
 
 @registry.layers("with_list2array.v0")

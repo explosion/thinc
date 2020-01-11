@@ -2,13 +2,13 @@ from typing import Tuple, Callable, Optional, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d
+from ..types import Array2d
 from ..util import get_width
 from .noop import noop
 
 
-InT = TypeVar("InT", bound=Floats2d)
-OutT = TypeVar("OutT", bound=Floats2d)
+InT = TypeVar("InT", bound=Array2d)
+OutT = TypeVar("OutT", bound=Array2d)
 
 
 @registry.layers("concatenate.v0")

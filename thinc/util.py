@@ -28,7 +28,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, IntsNd, FloatsNd
+from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, ArrayNd
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -191,7 +191,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: IntsNd, n_classes: Optional[int] = None) -> FloatsNd:
+def to_categorical(Y: ArrayNd, n_classes: Optional[int] = None) -> ArrayNd:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover

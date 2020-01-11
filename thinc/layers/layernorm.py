@@ -2,12 +2,12 @@ from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d
+from ..types import Array2d
 from ..backends import Ops
 from ..util import get_width
 
 
-InT = Floats2d
+InT = Array2d
 
 
 @registry.layers("LayerNorm.v0")
@@ -67,15 +67,15 @@ def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Call
     return Y, finish_update_scale_shift
 
 
-def _get_moments(ops: Ops, X: Floats2d) -> Tuple[Floats2d, Floats2d, Floats2d]:
+def _get_moments(ops: Ops, X: Array2d) -> Tuple[Array2d, Array2d, Array2d]:
     mu = X.mean(axis=1, keepdims=True)
     var = X.var(axis=1, keepdims=True) + 1e-08
     return ops.asarray([X.shape[1]], dtype="f"), mu, var
 
 
 def _get_d_moments(
-    ops: Ops, dy: Floats2d, X: Floats2d, mu: Floats2d
-) -> Tuple[Floats2d, Floats2d, Floats2d]:
+    ops: Ops, dy: Array2d, X: Array2d, mu: Array2d
+) -> Tuple[Array2d, Array2d, Array2d]:
     dist = X - mu
     return (
         dist,

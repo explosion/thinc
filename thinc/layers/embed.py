@@ -2,13 +2,13 @@ from typing import Callable, Tuple, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d, Floats2d
+from ..types import Array2d
 from ..initializers import uniform_init
 from ..util import get_width
 
 
-InT = Ints2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("Embed.v0")

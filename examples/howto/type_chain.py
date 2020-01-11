@@ -1,11 +1,11 @@
-from thinc.api import chain, ReLu, MaxPool, Softmax, chain
+from thinc.api import chain, ReLu, MaxPool, Softmax
 
-# This example should be run with mypy. This is an example of type-level checking 
+# This example should be run with mypy. This is an example of type-level checking
 # for network validity.
 #
 # We first define an invalid network.
-# It's invalid because MaxPool expects Floats3d as input, while ReLu produces
-# Floats2d as output. chain has type-logic to verify input and output types
+# It's invalid because MaxPool expects Array3d as input, while ReLu produces
+# Array2d as output. chain has type-logic to verify input and output types
 # line up.
 #
 # You should see the error an error,
