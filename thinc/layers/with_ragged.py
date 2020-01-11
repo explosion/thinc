@@ -88,7 +88,7 @@ def _padded_forward(
 
     def backprop(dYp: Padded):
         return list2padded(
-            unflatten(get_dXr(Ragged(flatten(padded2list(dYp)), lengths)), lengths)
+            unflatten(get_dXr(Ragged(flatten(padded2list(dYp)), lengths)).data, lengths)
         )
 
     return list2padded(unflatten(Yr.data, Yr.lengths)), backprop
