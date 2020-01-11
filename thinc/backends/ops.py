@@ -101,6 +101,8 @@ class Ops:
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
+        if not seqs:
+            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
