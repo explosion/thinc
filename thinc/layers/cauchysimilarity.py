@@ -2,12 +2,12 @@ from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats1d, Floats2d
+from ..types import Array1d, Array2d
 from ..util import get_width
 
 
-InT = Tuple[Floats2d, Floats2d]
-OutT = Floats1d
+InT = Tuple[Array2d, Array2d]
+OutT = Array1d
 
 
 @registry.layers("CauchySimilarity.v0")
@@ -56,10 +56,10 @@ def init(
     model.set_param("W", W)
 
 
-def inverse(total: Floats1d) -> Tuple[Floats1d, Callable]:
+def inverse(total: Array1d) -> Tuple[Array1d, Callable]:
     inv = 1.0 / (1 + total)
 
-    def backward(d_inverse: Floats1d) -> Floats1d:
+    def backward(d_inverse: Array1d) -> Array1d:
         return d_inverse * (-1 / (total + 1) ** 2)
 
     return inv, backward

@@ -3,11 +3,11 @@ from murmurhash import hash_unicode
 
 from ..model import Model
 from ..config import registry
-from ..types import Ints2d
+from ..types import Array2d
 
 
 InT = Sequence[str]
-OutT = List[Ints2d]
+OutT = List[Array2d]
 
 
 @registry.layers("strings2arrays.v0")

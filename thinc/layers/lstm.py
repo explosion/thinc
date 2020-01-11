@@ -4,7 +4,7 @@ from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import get_width
-from ..types import RNNState, Floats2d, Floats3d
+from ..types import RNNState, Array2d, Array3d
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
@@ -13,7 +13,7 @@ from .noop import noop
 from .with_list2padded import with_list2padded
 
 
-InT = List[Floats2d]
+InT = List[Array2d]
 
 
 @registry.layers("PyTorchBiLSTM.v0")
@@ -117,7 +117,7 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops: Ops, acts: Floats3d, prev_cells: Floats2d):
+def _gates_forward(ops: Ops, acts: Array3d, prev_cells: Array2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
@@ -127,17 +127,15 @@ def _gates_forward(ops: Ops, acts: Floats3d, prev_cells: Floats2d):
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
     size = new_cells.shape[0]
 
-    def backprop_gates(
-        d_cells: Floats2d, d_hiddens: Floats2d
-    ) -> Tuple[Floats2d, Floats2d]:
+    def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array2d, Array2d]:
         d_cells = d_cells[:size]
         d_hiddens = d_hiddens[:size]
         d_acts = ops.alloc_f3d(*acts.shape)
-        d_prevcells: Floats2d = ops.alloc(prev_cells.shape)
+        d_prevcells: Array2d = ops.alloc(prev_cells.shape)
         ops.backprop_lstm(
             d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
         )
-        d_reshaped: Floats2d = d_acts.reshape((nB, nO * 4))
+        d_reshaped: Array2d = d_acts.reshape((nB, nO * 4))
         return d_reshaped, d_prevcells
 
     return (new_cells, new_hiddens), backprop_gates

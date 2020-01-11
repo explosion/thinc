@@ -1,13 +1,13 @@
 from typing import Optional, Tuple, Callable
 
-from ..types import Floats2d
+from ..types import Array2d
 from ..model import Model
 from ..config import registry
 from ..util import get_width
 
 
-InT = Floats2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("MultiSoftmax.v0")
