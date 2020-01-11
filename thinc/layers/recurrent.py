@@ -41,6 +41,8 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
     size_at_t = Xp.size_at_t
+    lengths = Xp.lengths
+    indices = Xp.indices
     step_model: Model[RNNState, RNNState] = model.layers[0]
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
@@ -58,6 +60,8 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dYp: OutT) -> InT:
         dY = dYp.data
         size_at_t = dYp.size_at_t
+        lengths = dYp.lengths
+        indices = dYp.indices
         d_state = (
             step_model.ops.alloc_f2d(dY.shape[1], nO),
             step_model.ops.alloc_f2d(dY.shape[1], nO),
@@ -69,9 +73,9 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
             d_state, dX[t, :n] = backprops[t]((d_state, dY[t]))
         model.inc_grad("initial_cells", d_state[0].sum(axis=0))
         model.inc_grad("initial_hiddens", d_state[1].sum(axis=0))
-        return Padded(dX, size_at_t)
+        return Padded(dX, size_at_t, lengths, indices)
 
-    return Padded(Y, size_at_t), backprop
+    return Padded(Y, size_at_t, lengths, indices), backprop
 
 
 def _get_initial_state(model, n, nO):

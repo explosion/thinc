@@ -2,14 +2,14 @@ from typing import Tuple, Callable, Optional
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats3d, Floats2d
+from ..types import Array3d, Array2d
 
 
-InT = Floats3d
+InT = Array3d
 
 
 @registry.layers("with_reshape.v0")
-def with_reshape(layer: Model[Floats2d, Floats2d]) -> Model[InT, InT]:
+def with_reshape(layer: Model[Array2d, Array2d]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(
         f"with_reshape-{layer.name}",
@@ -32,21 +32,21 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     Y = Y2d.reshape(final_shape)
 
     def backprop(dY: InT) -> InT:
-        reshaped: Floats3d = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
+        reshaped: Array3d = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
         return Y2d_backprop(reshaped).reshape(initial_shape)
 
     return Y, backprop
 
 
 def init(
-    model: Model[InT, InT], X: Optional[Floats3d] = None, Y: Optional[Floats3d] = None
+    model: Model[InT, InT], X: Optional[Array3d] = None, Y: Optional[Array3d] = None
 ) -> None:
     layer = model.layers[0]
     if X is None and Y is None:
         layer.initialize()
         return
-    X2d: Optional[Floats2d] = None
-    Y2d: Optional[Floats2d] = None
+    X2d: Optional[Array2d] = None
+    Y2d: Optional[Array2d] = None
     if X is not None:
         X2d = X.reshape((-1, X.shape[-1]))
     if Y is not None:

@@ -30,7 +30,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
         elif isinstance(d_output, Ragged):
             return Ragged(d_output.data + dX.data, dX.lengths)
         elif isinstance(X, Padded):
-            return Padded(d_output.data + dX.data, dX.lengths)
+            dX.data += d_output.data
+            return dX
         else:
             return d_output + dX
 
@@ -40,7 +41,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     elif isinstance(X, Ragged):
         return Ragged(X.data + Y.data, X.lengths), backprop
     elif isinstance(X, Padded):
-        return Padded(X.data + Y.data, X.size_at_t), backprop
+        Y.data += X.data
+        return Y
     else:
         return X + Y, backprop
 

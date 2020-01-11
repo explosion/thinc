@@ -26,35 +26,35 @@ learn_rate = 0.001
 [model.*.strings2arrays]
 @layers = "strings2arrays.v0"
 
-[model.*.with_list2array]
-@layers = "with_list2array.v0"
+[model.*.with_array]
+@layers = "with_array.v0"
 
-[model.*.with_list2array.*.model]
+[model.*.with_array.layer]
 @layers = "chain.v0"
 
-[model.*.with_list2array.*.model.*.hashembed]
+[model.*.with_array.layer.*.hashembed]
 @layers = "HashEmbed.v0"
 nO = ${hyper_params:width}
 nV = ${hyper_params:vector_width}
 
-[model.*.with_list2array.*.model.*.extractwindow]
+[model.*.with_array.layer.*.extractwindow]
 @layers = "ExtractWindow.v0"
 window_size = 1
 
-[model.*.with_list2array.*.model.*.relu1]
+[model.*.with_array.layer.*.relu1]
 @layers = "ReLu.v0"
 nO = ${hyper_params:width}
-nV = 48
+nI = 48
 
-[model.*.with_list2array.*.model.*.relu2]
+[model.*.with_array.layer.*.relu2]
 @layers = "ReLu.v0"
 nO = ${hyper_params:width}
-nV = ${hyper_params:vector_width}
+nI = ${hyper_params:vector_width}
 
-[model.*.with_list2array.*.model.*.softmax]
+[model.*.with_array.layer.*.softmax]
 @layers = "Softmax.v0"
 nO = 17
-nV = ${hyper_params:vector_width}
+nI = ${hyper_params:vector_width}
 
 [optimizer]
 @optimizers = "Adam.v1"

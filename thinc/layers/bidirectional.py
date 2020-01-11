@@ -37,19 +37,27 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def _reverse(ops: Ops, Xp: Padded) -> Padded:
-    return Padded(Xp.data[::1], Xp.size_at_t)
+    return Padded(Xp.data[::1], Xp.size_at_t, Xp.lengths, Xp.indices)
 
 
 def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
-    return Padded(ops.xp.hstack((l2r.data, r2l.data), axis=-1), l2r.size_at_t)
+    return Padded(
+        ops.xp.hstack((l2r.data, r2l.data), axis=-1),
+        l2r.size_at_t,
+        l2r.lengths,
+        l2r.indices,
+    )
 
 
 def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
     half = Xp.data.shape[-1] // 2
     X_l2r = Xp.data[..., :half]
     X_r2l = Xp.data[..., half:]
-    return (Padded(X_l2r, Xp.size_at_t), Padded(X_r2l, Xp.size_at_t))
+    return (
+        Padded(X_l2r, Xp.size_at_t, Xp.lengths, Xp.indices),
+        Padded(X_r2l, Xp.size_at_t, Xp.lengths, Xp.indices),
+    )
 
 
 def _sum(Xp: Padded, Yp: Padded) -> Padded:
-    return Padded(Xp.data + Yp.data, Xp.size_at_t)
+    return Padded(Xp.data + Yp.data, Xp.size_at_t, Xp.lengths, Xp.indices)

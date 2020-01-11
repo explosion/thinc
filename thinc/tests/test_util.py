@@ -15,7 +15,7 @@ from thinc.types import ArgsKwargs
         (numpy.array([1, 2]), 3),
         ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
         (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
-        (Padded(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
+        (Padded(numpy.zeros((2, 1, 2)), numpy.zeros(2), [1, 0], [0, 1]), 2),
         ([], 0),
     ],
 )
@@ -23,9 +23,7 @@ def test_get_width(obj, width):
     assert get_width(obj) == width
 
 
-@pytest.mark.parametrize(
-    "obj", [1234, "foo", {"a": numpy.array(0)}],
-)
+@pytest.mark.parametrize("obj", [1234, "foo", {"a": numpy.array(0)}])
 def test_get_width_fail(obj):
     with pytest.raises(ValueError):
         get_width(obj)
