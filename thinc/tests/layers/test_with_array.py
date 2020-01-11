@@ -96,7 +96,7 @@ def model():
 
 def _trim_dim_forward(model, X, is_train):
     def backprop(dY):
-        return model.ops.allocate((dY.shape[0], dY.shape[1] + 1))
+        return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
 
     return X[:, :-1], backprop
 
@@ -112,6 +112,14 @@ def get_checker(inputs):
         return assert_arrays_match
 
 
+def test_with_array_initialize(model, inputs):
+    # Just check that these run and don't hit errors. I guess we should add a
+    # spy and check that model.layers[0].initialize gets called, but shrug?
+    model.initialize()
+    model.initialize(X=inputs)
+    model.initialize(X=inputs, Y=model.predict(inputs))
+
+
 def test_with_array_produces_correct_output_type_forward(model, inputs):
     checker = get_checker(inputs)
     # It's pretty redundant to check these three assertions, so if the tests
@@ -122,3 +130,12 @@ def test_with_array_produces_correct_output_type_forward(model, inputs):
     assert checker(inputs, outputs)
     outputs, _ = model(inputs, is_train=False)
     assert checker(inputs, outputs)
+
+
+def test_with_array_produces_correct_output_type_backward(model, inputs):
+    checker = get_checker(inputs)
+    # It's pretty redundant to check these three assertions, so if the tests
+    # get slow this could be removed. I think it should be fine though?
+    outputs, backprop = model.begin_update(inputs)
+    d_inputs = backprop(outputs)
+    assert checker(inputs, d_inputs)
