@@ -7,7 +7,7 @@ from thinc.backends import Ops, get_current_ops
 from thinc.model import Model
 from thinc.layers import Linear
 from thinc.optimizers import Adam
-from thinc.types import FloatsNd
+from thinc.types import ArrayNd
 from thinc.util import has_tensorflow, to_categorical
 
 
@@ -32,13 +32,13 @@ def answer() -> int:
 
 
 @pytest.fixture
-def X(input_size: int) -> FloatsNd:
+def X(input_size: int) -> ArrayNd:
     ops: Ops = get_current_ops()
     return ops.alloc(shape=(1, input_size))
 
 
 @pytest.fixture
-def Y(answer: int, n_classes: int) -> FloatsNd:
+def Y(answer: int, n_classes: int) -> ArrayNd:
     ops: Ops = get_current_ops()
     return to_categorical(ops.asarray([answer]), n_classes=n_classes)
 
@@ -60,7 +60,7 @@ def tf_model(n_hidden: int, input_size: int):
 
 
 @pytest.fixture
-def model(tf_model) -> Model[FloatsNd, FloatsNd]:
+def model(tf_model) -> Model[ArrayNd, ArrayNd]:
     return TensorFlowWrapper(tf_model)
 
 
@@ -87,7 +87,7 @@ def test_tensorflow_wrapper_construction_requires_keras_model(tf_model):
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_built_model(
-    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd
+    model: Model[ArrayNd, ArrayNd], X: ArrayNd, Y: ArrayNd
 ):
     # built models are validated more and can perform useful operations:
     assert model.predict(X) is not None
@@ -100,7 +100,7 @@ def test_tensorflow_wrapper_built_model(
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
-    tf_model, X: FloatsNd, Y: FloatsNd
+    tf_model, X: ArrayNd, Y: ArrayNd
 ):
     import tensorflow as tf
 
@@ -111,7 +111,7 @@ def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
 
     # You can override the model build at construction, but then
     # you must specify the input shape another way.
-    model: Model[FloatsNd, FloatsNd] = TensorFlowWrapper(
+    model: Model[ArrayNd, ArrayNd] = TensorFlowWrapper(
         tf.keras.Sequential([tf.keras.layers.Dense(12)]), build_model=False
     )
     # Can't de/serialize without an input_shape
@@ -124,13 +124,13 @@ def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_predict(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+def test_tensorflow_wrapper_predict(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     model.predict(X)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_train_overfits(
-    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
+    model: Model[ArrayNd, ArrayNd], X: ArrayNd, Y: ArrayNd, answer: int
 ):
     optimizer = Adam()
     for i in range(100):
@@ -143,15 +143,13 @@ def test_tensorflow_wrapper_train_overfits(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_can_copy_model(model: Model[FloatsNd, FloatsNd]):
-    copy: Model[FloatsNd, FloatsNd] = model.copy()
+def test_tensorflow_wrapper_can_copy_model(model: Model[ArrayNd, ArrayNd]):
+    copy: Model[ArrayNd, ArrayNd] = model.copy()
     assert copy is not None
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_print_summary(
-    model: Model[FloatsNd, FloatsNd], X: FloatsNd
-):
+def test_tensorflow_wrapper_print_summary(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     summary = str(model.shims[0])
     # Summary includes the layers of our model
     assert "layer_normalization" in summary
@@ -163,7 +161,7 @@ def test_tensorflow_wrapper_print_summary(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+def test_tensorflow_wrapper_to_bytes(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     # And can be serialized
     model_bytes = model.to_bytes()
     assert model_bytes is not None
@@ -171,7 +169,7 @@ def test_tensorflow_wrapper_to_bytes(model: Model[FloatsNd, FloatsNd], X: Floats
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_to_from_disk(
-    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
+    model: Model[ArrayNd, ArrayNd], X: ArrayNd, Y: ArrayNd, answer: int
 ):
     with make_tempdir() as tmp_path:
         model_file = tmp_path / "model.h5"
@@ -181,7 +179,7 @@ def test_tensorflow_wrapper_to_from_disk(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_from_bytes(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+def test_tensorflow_wrapper_from_bytes(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     model.predict(X)
     model_bytes = model.to_bytes()
     another_model = model.from_bytes(model_bytes)
@@ -190,7 +188,7 @@ def test_tensorflow_wrapper_from_bytes(model: Model[FloatsNd, FloatsNd], X: Floa
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_use_params(
-    model: Model[FloatsNd, FloatsNd], X: FloatsNd, Y: FloatsNd, answer: int
+    model: Model[ArrayNd, ArrayNd], X: ArrayNd, Y: ArrayNd, answer: int
 ):
     optimizer = Adam()
     with model.use_params(optimizer.averages):
@@ -206,12 +204,12 @@ def test_tensorflow_wrapper_use_params(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_to_cpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+def test_tensorflow_wrapper_to_cpu(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     model.to_cpu()
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_to_gpu(model: Model[FloatsNd, FloatsNd], X: FloatsNd):
+def test_tensorflow_wrapper_to_gpu(model: Model[ArrayNd, ArrayNd], X: ArrayNd):
     # Raises while failing to import cupy
     with pytest.raises(ModuleNotFoundError):
         model.to_gpu(0)
