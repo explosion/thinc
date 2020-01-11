@@ -91,5 +91,6 @@ __all__ = [
     "with_reshape",
     "with_getitem",
     "with_array",
+    "with_list",
     "with_padded",
 ]
