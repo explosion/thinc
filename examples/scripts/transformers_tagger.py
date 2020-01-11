@@ -4,8 +4,9 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
-from thinc.api import PyTorchWrapper, ragged2list, Softmax, chain
-from thinc.types import Padded, Ragged, Floats2d, Array
+from thinc.api import PyTorchWrapper, Softmax, chain
+from thinc.api import with_array, with_padded
+from thinc.types import Padded, Ragged, Array2d, Array
 from thinc.util import evaluate_model_on_arrays
 
 
@@ -46,18 +47,6 @@ def padded2ragged() -> Model[Padded, Ragged]:
         return ragged, backprop
 
     return Model("padded2ragged", _forward)
-
-
-def with_ragged2array(layer: Model[Array, Array]) -> Model[Ragged, Ragged]:
-    def _forward(model, Xr: Ragged, is_train):
-        Y, backprop_layer = model.layers[0](Xr.data, is_train)
-
-        def backprop(dYr):
-            return Ragged(backprop_layer(dYr.data), dYr.lengths)
-        
-        return Ragged(Y, Xr.lengths)
-
-    return Model("with_ragged2array", _forward, layers=[layer])
 
 
 @dataclass
@@ -106,9 +95,8 @@ def transformers_model(name) -> Model[List[TokensPlus], Padded]:
 @thinc.api.registry.layers("output_layer_example.v0")
 def output_layer_example() -> Model[Padded, List[Floats2d]]:
     return chain(
-        padded2ragged(),
-        with_ragged2array(Softmax()),
-        ragged2list()
+        with_array(Softmax()),
+        padded2list()
     )
 
 
