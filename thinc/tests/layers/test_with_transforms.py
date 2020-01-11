@@ -58,6 +58,7 @@ def ragged_data_input(ragged_input):
 # As an example operation, lets just trim the last dimension. That
 # should catch stuff that confuses the input and output.
 
+
 def get_array_model():
     def _trim_array_forward(model, X, is_train):
         def backprop(dY):
@@ -69,13 +70,13 @@ def get_array_model():
 
 
 def get_list_model():
-
     def _trim_list_forward(model, Xs, is_train):
         def backprop(dYs):
             dXs = []
             for dY in dYs:
                 dXs.append(model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1))
             return dXs
+
         Ys = [X[:, :-1] for X in Xs]
         return Ys, backprop
 
@@ -100,7 +101,6 @@ def get_padded_model():
 
 
 def get_ragged_model():
-
     def _trim_ragged_forward(model, Xr, is_train):
         def backprop(dYr):
             dY = dYr.data
@@ -138,12 +138,15 @@ def test_with_padded_initialize(
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
         check_initialize(get_padded_model(), inputs)
 
+
 def test_with_list_initialize(ragged_input, padded_input, list_input):
     for inputs in (ragged_input, padded_input, list_input):
         check_initialize(get_list_model(), inputs)
 
 
-def test_with_ragged_initialize(ragged_input, padded_input, list_input, ragged_data_input):
+def test_with_ragged_initialize(
+    ragged_input, padded_input, list_input, ragged_data_input
+):
     for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
         check_initialize(get_ragged_model(), inputs)
 
@@ -190,7 +193,9 @@ def test_with_list_backward(ragged_input, padded_input, list_input):
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
-def test_with_ragged_backward(ragged_input, padded_input, list_input, ragged_data_input):
+def test_with_ragged_backward(
+    ragged_input, padded_input, list_input, ragged_data_input
+):
     for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
         checker = get_checker(inputs)
         model = get_ragged_model()
@@ -271,6 +276,7 @@ def assert_paddeds_match(X, Y):
 
 def assert_padded_data_match(X, Y):
     return assert_paddeds_match(Padded(*X), Padded(*Y))
+
 
 def assert_ragged_data_match(X, Y):
     return assert_raggeds_match(Ragged(*X), Ragged(*Y))
