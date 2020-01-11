@@ -1,12 +1,12 @@
 from typing import Tuple, Callable
 
-from ..types import Floats2d, Ragged
+from ..types import Array2d, Ragged
 from ..model import Model
 from ..config import registry
 
 
 InT = Ragged
-OutT = Floats2d
+OutT = Array2d
 
 
 @registry.layers("MaxPool.v0")
@@ -15,7 +15,7 @@ def MaxPool() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y: Floats2d
+    Y: Array2d
     Y, which = model.ops.max_pool(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

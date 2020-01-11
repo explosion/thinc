@@ -413,116 +413,66 @@ def validate_array_dims(obj, expected_ndim):
 
 def validate_array_dtype(obj, expected_dtype):
     obj = validate_array(obj)  # validate her to make sure it's an array
-    if obj.dtype != expected_dtype:
+    if expected_dtype is not None and obj.dtype != expected_dtype:
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
     return obj
 
 
-def get_array_validators(*, ndim, dtype):
+def get_array_validators(*, ndim=None, dtype=None):
     return (
         lambda v: validate_array_dims(v, ndim),
         lambda v: validate_array_dtype(v, dtype),
     )
 
 
-class Floats1d(Array):
-    """1-dimensional array of floats."""
+class Array1d(Array):
+    """1-dimensional array."""
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=1, dtype=xp.float32):
+        for validator in get_array_validators(ndim=1):
             yield validator
 
 
-class Floats2d(Array):
-    """2-dimensional array of floats."""
+class Array2d(Array):
+    """2-dimensional array."""
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=2, dtype=xp.float32):
+        for validator in get_array_validators(ndim=2):
             yield validator
 
 
-class Floats3d(Array):
-    """3-dimensional array of floats."""
+class Array3d(Array):
+    """3-dimensional array."""
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=3, dtype=xp.float32):
+        for validator in get_array_validators(ndim=3):
             yield validator
 
 
-class Floats4d(Array):
-    """4-dimensional array of floats."""
+class Array4d(Array):
+    """4-dimensional array."""
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=4, dtype=xp.float32):
+        for validator in get_array_validators(ndim=4):
             yield validator
 
 
-class FloatsNd(Array):
-    """N-dimensional array of floats."""
+class ArrayNd(Array):
+    """N-dimensional array."""
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=None, dtype=xp.float32):
-            yield validator
-
-
-class Ints1d(Array):
-    """1-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=1, dtype=xp.int32):
-            yield validator
-
-
-class Ints2d(Array):
-    """2-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=2, dtype=xp.int32):
-            yield validator
-
-
-class Ints3d(Array):
-    """3-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=3, dtype=xp.int32):
-            yield validator
-
-
-class Ints4d(Array):
-    """4-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=4, dtype=xp.int32):
-            yield validator
-
-
-class IntsNd(Array):
-    """N-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=None, dtype=xp.int32):
+        for validator in get_array_validators(ndim=None):
             yield validator
 
 
 # Union of all int/float array types
-ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
-ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
-ArrayTypes = Union[ArrayTypesFloat, ArrayTypesInt]
-Array1d = Union[Ints1d, Floats1d]
-Array2d = Union[Ints2d, Floats2d]
-Array3d = Union[Ints3d, Floats3d]
+ArrayTypes = Union[Array1d, Array2d, Array3d, Array4d, ArrayNd]
 
 
 class Generator(Iterator):
@@ -573,13 +523,13 @@ class Decorator(Protocol):
 
 
 # This should probably become a dataclass too.
-RNNState = Tuple[Tuple[Floats2d, Floats2d], Floats2d]
+RNNState = Tuple[Tuple[Array2d, Array2d], Array2d]
 
 
 @dataclass
 class Ragged:
     data: Array2d
-    lengths: Ints1d
+    lengths: Array1d
 
 
 @dataclass
@@ -592,7 +542,7 @@ class Padded:
     """
 
     data: Array3d
-    size_at_t: Ints1d
+    size_at_t: Array1d
     lengths: List[int]
     indices: List[int]
 

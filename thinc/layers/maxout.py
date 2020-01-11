@@ -1,17 +1,17 @@
-from typing import Tuple, Callable, Optional, Dict
+from typing import Tuple, Callable, Optional, Dict, cast
 
 from ..model import Model
 from ..config import registry
 from ..initializers import xavier_uniform_init, zero_init
-from ..types import Floats2d
+from ..types import Array2d
 from ..util import get_width
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 
 
-InT = Floats2d
-OutT = Floats2d
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("Maxout.v0")
@@ -35,7 +35,7 @@ def Maxout(
     if normalize:
         model = chain(model, LayerNorm())
     if dropout is not None:
-        model = chain(model, Dropout(dropout))
+        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     if nO is not None and nI is not None:
         model.initialize()
     return model
