@@ -10,7 +10,7 @@ from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
 from .noop import noop
-from .with_list2padded import with_list2padded
+from .with_padded import with_padded
 
 
 InT = List[Array2d]
@@ -19,7 +19,7 @@ InT = List[Array2d]
 @registry.layers("PyTorchBiLSTM.v0")
 def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     import torch.nn
-    from .with_list2padded import with_list2padded
+    from .with_padded import with_padded
     from .pytorchwrapper import PyTorchWrapper
 
     if depth == 0:
@@ -27,7 +27,7 @@ def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     pytorch_lstm = torch.nn.LSTM(
         nI, nO // 2, depth, bidirectional=True, dropout=dropout
     )
-    return with_list2padded(PyTorchWrapper(pytorch_lstm))
+    return with_padded(PyTorchWrapper(pytorch_lstm))
 
 
 @registry.layers("BiLSTM.v0")
@@ -40,7 +40,7 @@ def BiLSTM(
 ) -> Model[InT, InT]:
     return cast(
         Model[InT, InT],
-        with_list2padded(
+        with_padded(
             clone(
                 bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
                 depth,
@@ -59,9 +59,7 @@ def LSTM(
 ) -> Model[InT, InT]:
     return cast(
         Model[InT, InT],
-        with_list2padded(
-            clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)
-        ),
+        with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)),
     )
 
 

@@ -44,8 +44,10 @@ from .list2array import list2array
 from .list2ragged import list2ragged
 from .ragged2list import ragged2list
 from .strings2arrays import strings2arrays
-from .with_list2array import with_list2array
-from .with_list2padded import with_list2padded
+from .with_array import with_array
+from .with_padded import with_padded
+from .with_list import with_list
+from .with_ragged import with_ragged
 from .with_reshape import with_reshape
 from .with_getitem import with_getitem
 
@@ -88,8 +90,10 @@ __all__ = [
     "list2array",
     "list2ragged",
     "ragged2list",
-    "with_list2array",
-    "with_list2padded",
     "with_reshape",
     "with_getitem",
+    "with_array",
+    "with_list",
+    "with_ragged",
+    "with_padded",
 ]

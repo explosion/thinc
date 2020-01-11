@@ -14,10 +14,12 @@ def nO(request):
     return request.param
 
 
-def test_square_sequences():
+def test_list2padded():
     ops = NumpyOps()
     seqs = [numpy.zeros((5, 4)), numpy.zeros((8, 4)), numpy.zeros((2, 4))]
-    arr, size_at_t, unpad = ops.square_sequences(seqs)
+    padded = ops.list2padded(seqs)
+    arr = padded.data
+    size_at_t = padded.size_at_t
     assert arr.shape == (8, 3, 4)
     assert size_at_t[0] == 3
     assert size_at_t[1] == 3
@@ -27,7 +29,7 @@ def test_square_sequences():
     assert size_at_t[5] == 1
     assert size_at_t[6] == 1
     assert size_at_t[7] == 1
-    unpadded = unpad(arr)
+    unpadded = ops.padded2list(padded)
     assert unpadded[0].shape == (5, 4)
     assert unpadded[1].shape == (8, 4)
     assert unpadded[2].shape == (2, 4)

@@ -58,9 +58,9 @@ def _dropout_padded(
     Y = X * mask
 
     def backprop(dYp: Padded) -> Padded:
-        return Padded(dYp.data * mask, dYp.size_at_t)
+        return Padded(dYp.data * mask, dYp.size_at_t, dYp.lengths, dYp.indices)
 
-    return Padded(Y, Xp.size_at_t), backprop
+    return Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices), backprop
 
 
 def _dropout_ragged(
