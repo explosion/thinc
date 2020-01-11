@@ -1,6 +1,6 @@
 import pytest
 import numpy
-from thinc.api import Model, with_array
+from thinc.api import NumpyOps, Model, with_array, with_padded
 from thinc.types import Padded, Ragged
 
 
@@ -13,40 +13,152 @@ def shapes(request):
 def dtype(request):
     return request.param
 
+@pytest.fixture
+def ops():
+    return NumpyOps()
 
 @pytest.fixture
 def list_input(shapes, dtype):
     return [numpy.zeros(shape, dtype="f") for shape in shapes]
 
+@pytest.fixture
+def ops():
+    return NumpyOps()
+
 
 @pytest.fixture
-def ragged_input(model, list_input):
+def ragged_input(ops, list_input):
     lengths = numpy.array([len(x) for x in list_input], dtype="i")
     if not list_input:
-        return Ragged(model.ops.alloc_f2d(0, 0), lengths)
+        return Ragged(ops.alloc_f2d(0, 0), lengths)
     else:
-        return Ragged(model.ops.flatten(list_input), lengths)
+        return Ragged(ops.flatten(list_input), lengths)
 
 
 @pytest.fixture
-def padded_input(model, list_input):
-    return model.ops.list2padded(list_input)
+def padded_input(ops, list_input):
+    return ops.list2padded(list_input)
 
 
 @pytest.fixture
-def array_input(model, ragged_input):
+def array_input(ragged_input):
     return ragged_input.data
 
 
-# Is there a better way to have a parameterize over a set of fixtures?
-@pytest.fixture(params=[0, 1, 2, 3])
-def selection(request):
-    return request.param
-
-
 @pytest.fixture
-def inputs(list_input, ragged_input, padded_input, array_input, selection):
-    return [list_input, ragged_input, padded_input, array_input][selection]
+def padded_data_input(padded_input):
+    x = padded_input
+    return (x.data, x.size_at_t, x.lengths, x.indices)
+
+
+def get_array_model():
+    """
+    As an example operation, lets just trim the last dimension. That
+    should catch stuff that confuses the input and output.
+    """
+    def _trim_array_forward(model, X, is_train):
+        def backprop(dY):
+            return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
+
+        return X[:, :-1], backprop
+
+    return with_array(Model("trimarray", _trim_array_forward))
+
+
+def get_padded_model():
+
+    def _trim_padded_forward(model, Xp, is_train):
+        def backprop(dYp):
+            dY = dYp.data
+            dX = model.ops.alloc_f3d(dY.shape[0], dY.shape[1], dY.shape[2] + 1)
+            return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
+
+        assert isinstance(Xp, Padded) 
+        X = Xp.data
+        X = X.reshape((X.shape[0]*X.shape[1], X.shape[2]))
+        X = X[:, :-1]
+        X = X.reshape((Xp.data.shape[0], Xp.data.shape[1], X.shape[1]))
+        return Padded(X, Xp.size_at_t, Xp.lengths, Xp.indices), backprop
+    
+    return with_padded(Model("trimpadded", _trim_padded_forward))
+
+
+def get_checker(inputs):
+    if isinstance(inputs, Ragged):
+        return assert_raggeds_match
+    elif isinstance(inputs, Padded):
+        return assert_paddeds_match
+    elif isinstance(inputs, list):
+        return assert_lists_match
+    elif isinstance(inputs, tuple):
+        return assert_padded_data_match
+    else:
+        return assert_arrays_match
+
+
+def test_with_array_initialize(ragged_input, padded_input, list_input, array_input):
+    for inputs in (ragged_input, padded_input, list_input, array_input):
+        check_initialize(get_array_model(), inputs)
+
+
+def test_with_padded_initialize(ragged_input, padded_input, list_input, padded_data_input):
+    for inputs in (ragged_input, padded_input, list_input, padded_data_input):
+        check_initialize(get_padded_model(), inputs)
+
+
+def test_with_array_forward(ragged_input, padded_input, list_input, array_input):
+    for inputs in (ragged_input, padded_input, list_input, array_input):
+        checker = get_checker(inputs)
+        model = get_array_model()
+        check_transform_produces_correct_output_type_forward(model, inputs, checker)
+
+
+def test_with_padded_forward(ragged_input, padded_input, list_input, padded_data_input):
+    for inputs in (ragged_input, padded_input, list_input, padded_data_input):
+        checker = get_checker(inputs)
+        model = get_padded_model()
+        check_transform_produces_correct_output_type_forward(model, inputs, checker)
+
+
+def test_with_array_backward(ragged_input, padded_input, list_input, array_input):
+    for inputs in (ragged_input, padded_input, list_input, array_input):
+        checker = get_checker(inputs)
+        model = get_array_model()
+        check_transform_produces_correct_output_type_backward(model, inputs, checker)
+
+
+def test_with_padded_backward(ragged_input, padded_input, list_input, padded_data_input):
+    for inputs in (ragged_input, padded_input, list_input, padded_data_input):
+        checker = get_checker(inputs)
+        model = get_padded_model()
+        check_transform_produces_correct_output_type_backward(model, inputs, checker)
+
+
+def check_initialize(model, inputs):
+    # Just check that these run and don't hit errors. I guess we should add a
+    # spy and check that model.layers[0].initialize gets called, but shrug?
+    model.initialize()
+    model.initialize(X=inputs)
+    model.initialize(X=inputs, Y=model.predict(inputs))
+
+
+def check_transform_produces_correct_output_type_forward(model, inputs, checker):
+    # It's pretty redundant to check these three assertions, so if the tests
+    # get slow this could be removed. I think it should be fine though?
+    outputs = model.predict(inputs)
+    assert checker(inputs, outputs)
+    outputs, _ = model(inputs, is_train=True)
+    assert checker(inputs, outputs)
+    outputs, _ = model(inputs, is_train=False)
+    assert checker(inputs, outputs)
+
+
+def check_transform_produces_correct_output_type_backward(model, inputs, checker):
+    # It's pretty redundant to check these three assertions, so if the tests
+    # get slow this could be removed. I think it should be fine though?
+    outputs, backprop = model.begin_update(inputs)
+    d_inputs = backprop(outputs)
+    assert checker(inputs, d_inputs)
 
 
 def assert_arrays_match(X, Y):
@@ -85,57 +197,5 @@ def assert_paddeds_match(X, Y):
     return True
 
 
-@pytest.fixture
-def model():
-    """
-    As an example operation, lets just trim the last dimension. That
-    should catch stuff that confuses the input and output.
-    """
-    return with_array(Model("trimdim", _trim_dim_forward))
-
-
-def _trim_dim_forward(model, X, is_train):
-    def backprop(dY):
-        return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
-
-    return X[:, :-1], backprop
-
-
-def get_checker(inputs):
-    if isinstance(inputs, Ragged):
-        return assert_raggeds_match
-    elif isinstance(inputs, Padded):
-        return assert_paddeds_match
-    elif isinstance(inputs, list):
-        return assert_lists_match
-    else:
-        return assert_arrays_match
-
-
-def test_with_array_initialize(model, inputs):
-    # Just check that these run and don't hit errors. I guess we should add a
-    # spy and check that model.layers[0].initialize gets called, but shrug?
-    model.initialize()
-    model.initialize(X=inputs)
-    model.initialize(X=inputs, Y=model.predict(inputs))
-
-
-def test_with_array_produces_correct_output_type_forward(model, inputs):
-    checker = get_checker(inputs)
-    # It's pretty redundant to check these three assertions, so if the tests
-    # get slow this could be removed. I think it should be fine though?
-    outputs = model.predict(inputs)
-    assert checker(inputs, outputs)
-    outputs, _ = model(inputs, is_train=True)
-    assert checker(inputs, outputs)
-    outputs, _ = model(inputs, is_train=False)
-    assert checker(inputs, outputs)
-
-
-def test_with_array_produces_correct_output_type_backward(model, inputs):
-    checker = get_checker(inputs)
-    # It's pretty redundant to check these three assertions, so if the tests
-    # get slow this could be removed. I think it should be fine though?
-    outputs, backprop = model.begin_update(inputs)
-    d_inputs = backprop(outputs)
-    assert checker(inputs, d_inputs)
+def assert_padded_data_match(X, Y):
+    return assert_paddeds_match(Padded(*X), Padded(*Y))
