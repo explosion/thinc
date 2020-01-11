@@ -64,7 +64,7 @@ def test_seq2col_window_one_small(ops):
     assert_allclose(cols[3], [4.0, 5.0, 0.0])
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
 def test_maxout(ops, X):
     X = ops.asarray(X)
@@ -77,7 +77,7 @@ def test_maxout(ops, X):
     # We could check that using the 'which', we get the right results?
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_seq2col_window_one(ops, X):
     X = ops.asarray(X)
@@ -99,7 +99,7 @@ def test_backprop_seq2col_window_one_small(ops):
     assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_seq2col_window_one(ops, X):
     if X.shape[1] % 3:
@@ -158,7 +158,7 @@ def test_backprop_seq2col_window_two(ops):
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
     X = ops.asarray(X)
@@ -175,7 +175,7 @@ def test_backprop_sum_pool(ops, X):
         start += length
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softmax_sums_to_one(ops, X):
     y = ops.softmax(ops.asarray(X))
@@ -183,7 +183,7 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.0001
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
     X = ops.asarray(X)
@@ -202,7 +202,7 @@ def test_gemm_computes_correctly(cpu_ops):
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
     expected = X * (X > 0.0)
@@ -210,7 +210,7 @@ def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
     assert_allclose(expected, y)
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
 def test_take_which_computes_correctly(cpu_ops, X):
     which = numpy.argmax(X, axis=-1)
@@ -220,7 +220,7 @@ def test_take_which_computes_correctly(cpu_ops, X):
             assert best[i, j] == max(X[i, j])
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_flatten_unflatten_roundtrip(cpu_ops, X):
     flat = cpu_ops.flatten([x for x in X])
@@ -264,7 +264,7 @@ def test_max_pool(ops):
         start += length
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softplus(ops, X):
     X = ops.asarray(X)
@@ -274,7 +274,7 @@ def test_softplus(ops, X):
     assert not (Y == 0).any()
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_softplus(ops, X):
     X = ops.asarray(X)
@@ -285,7 +285,7 @@ def test_backprop_softplus(ops, X):
     assert (dX == 0).all()
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_mish(ops, X):
     X = ops.asarray(X)
@@ -294,7 +294,7 @@ def test_mish(ops, X):
     assert not ops.xp.isnan(Y).any()
 
 
-@settings(max_examples=MAX_EXAMPLES)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
