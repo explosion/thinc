@@ -1,6 +1,6 @@
 import pytest
 import srsly
-from thinc.api import with_list2array, Linear, Maxout, chain, Model
+from thinc.api import with_array, Linear, Maxout, chain, Model
 
 
 @pytest.fixture
@@ -10,7 +10,7 @@ def linear():
 
 def test_pickle_with_flatten(linear):
     Xs = [linear.ops.alloc_f2d(2, 3), linear.ops.alloc_f2d(4, 3)]
-    model = with_list2array(linear)
+    model = with_array(linear)
     pickled = srsly.pickle_dumps(model)
     loaded = srsly.pickle_loads(pickled)
     Ys = loaded.predict(Xs)
