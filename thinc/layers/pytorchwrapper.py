@@ -5,11 +5,7 @@ from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array, ArgsKwargs
-
-
-InT = Array
-OutT = Array
+from ..types import ArgsKwargs
 
 
 @registry.layers("PyTorchWrapper.v0")
@@ -18,7 +14,7 @@ def PyTorchWrapper(
     convert_inputs=None,
     convert_outputs=None,
     gradient_map: Optional[Tuple[int, ...]] = None,
-) -> Model[InT, OutT]:
+) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
     optimizer.step() after each batch. See examples/wrap_pytorch.py
@@ -48,7 +44,7 @@ def PyTorchWrapper(
     )
 
 
-def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
+def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
     """Return the output of the wrapped PyTorch model for the given input,
     along with a callback to handle the backward pass.
     """
@@ -57,9 +53,9 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
 
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
-    Y, get_dYtorch = convert_outputs(model, Ytorch, is_train)
+    Y, get_dYtorch = convert_outputs(model, (X, Ytorch), is_train)
 
-    def backprop(dY: OutT) -> InT:
+    def backprop(dY: Any) -> Any:
         dYtorch = get_dYtorch(dY)
         dXtorch = torch_backprop(dYtorch)
         dX = get_dX(dXtorch)
@@ -105,7 +101,8 @@ def _convert_inputs(
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 
-def _convert_outputs(model: Model, Ytorch: Any, is_train: bool):
+def _convert_outputs(model: Model, X_Ytorch: Tuple[Any, Any], is_train: bool):
+    _, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
     def reverse_conversion(dY: Any) -> ArgsKwargs:

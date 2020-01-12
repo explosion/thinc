@@ -14,30 +14,42 @@ except ImportError:
     pass
 
 try:
-    from cupy.cuda.memory import MemoryPointer as MemoryPointerT
+    from cupy.cuda.memory import MemoryPointer
+    from cupy.cuda.memory import UnownedMemory
 except ImportError:
-    MemoryPointerT = Any
+    pass
 
 
-def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointerT:
+
+def cupy_tensorflow_allocator(size_in_bytes: int):
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via TensorFlow. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    size_in_bytes = max(1024, size_in_bytes)
     tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
     # We convert to cupy via dlpack, so that we can get a memory pointer.
     cupy_array = cast(CupyArray, tensorflow2xp(tensor))
-    # Now return the array's memory pointer.
-    return cupy_array.ptr
+    address = int(cupy_array.data)
+    # cupy has a neat class to help us here. Otherwise it will try to free.
+    memory = UnownedMemory(address, size_in_bytes, cupy_array)
+    # Now return a new memory pointer.
+    return MemoryPointer(memory, 0)
 
 
-def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointerT:
+def cupy_pytorch_allocator(size_in_bytes: int):
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via PyTorch. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    # Cupy was having trouble with very small allocations?
+    size_in_bytes = max(1024, size_in_bytes)
     torch_tensor = torch.zeros((size_in_bytes // 4,))
-    cupy_tensor = cast(CupyArray, torch2xp(torch_tensor))
-    return cupy_tensor.data
+    # cupy has a neat class to help us here. Otherwise it will try to free.
+    # I think this is a private API? It's not in the types.
+    address = torch_tensor.data_ptr() # type: ignore
+    memory = UnownedMemory(address, size_in_bytes, torch_tensor)
+    # Now return a new memory pointer.
+    return MemoryPointer(memory, 0)

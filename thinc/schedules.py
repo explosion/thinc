@@ -24,7 +24,7 @@ def constant(rate: float) -> Iterable[float]:
 
 
 @registry.schedules("decaying.v1")
-def decaying(base_rate: float, decay: float, *, t: int = 0):
+def decaying(base_rate: float, decay: float, *, t: int = 0) -> Iterable[float]:
     """Yield an infinite series of linearly decaying values,
     following the schedule: base_rate * 1 / (1 + decay * t)
 
