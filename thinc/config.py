@@ -183,7 +183,7 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        _, resolved = cls._fill(config, schema, validate)
+        _, _, resolved = cls._fill(config, schema, validate)
         return resolved
 
     @classmethod
@@ -206,7 +206,7 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        filled, _ = cls._fill(config, schema, validate)
+        filled, _, _ = cls._fill(config, schema, validate)
         return filled
 
     @classmethod
@@ -216,19 +216,23 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
         parent: str = "",
-    ) -> Tuple[Config, Config]:
-        """Build two representations of the config: one where the promises are
-        preserved, and a second where the promises are represented by their
-        return types. Use the validation representation to get default
-        values via pydantic. The defaults are filled into both representations.
+    ) -> Tuple[Config, Config, Config]:
+        """Build three representations of the config:
+        1. All promises are preserved (just like config user would provide).
+        2. Promises are replaced by their return values. This is the validation
+           copy and will be parsed by pydantic. It lets us include hacks to
+           work around problems (e.g. handling of generators).
+        3. Final copy with promises replaced by their return values. This is
+           what registry.make_from_config returns.
         """
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
+        final: Dict[str, Any] = {}
         for key, value in config.items():
             key_parent = f"{parent}.{key}".strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], validation[key] = cls._fill(
+                filled[key], validation[key], final[key] = cls._fill(
                     value, promise_schema, validate, parent=key_parent
                 )
                 # Call the function and populate the field value. We can't just
@@ -237,12 +241,14 @@ class registry(object):
                 getter = cls.get_constructor(validation[key])
                 args, kwargs = cls.parse_args(validation[key])
                 try:
-                    validation[key] = getter(*args, **kwargs)
+                    getter_result = getter(*args, **kwargs)
                 except Exception as err:
                     err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
                     )
+                validation[key] = getter_result
+                final[key] = getter_result
                 if isinstance(validation[key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
@@ -256,7 +262,7 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key] = cls._fill(
+                filled[key], validation[key], final[key] = cls._fill(
                     value, field_type, validate, parent=key_parent
                 )
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
@@ -264,9 +270,11 @@ class registry(object):
                     # created via config blocks), only use its values
                     filled[key] = list(filled[key].values())
                     validation[key] = list(validation[key].values())
+                    final[key] = list(final[key].values())
             else:
                 filled[key] = value
                 validation[key] = value
+                final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
         if validate:
@@ -281,7 +289,13 @@ class registry(object):
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
-        return Config(filled), Config(validation)
+            # Update final config with parsed value, but not if it's a generator
+            # (because we had to replace that to validate it correctly)
+            if key not in final or (
+                value != final[key] and not isinstance(final[key], GeneratorType)
+            ):
+                final[key] = value
+        return Config(filled), Config(validation), Config(final)
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
