@@ -10,11 +10,12 @@ InT = TypeVar("InT", bound=Array)
 
 
 @registry.layers("add.v0")
-def add(layer1: Model, layer2: Model, *layers: Model) -> Model[InT, InT]:
+def add(*layers: Model) -> Model[InT, InT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
     """
-    layers = (layer1, layer2) + layers
+    if len(layers) < 2:  # we need variable arguments for the config
+        raise TypeError("The 'add' combinator needs at least 2 layers")
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]
