@@ -1,3 +1,7 @@
+"""
+PyTorch version: https://github.com/pytorch/examples/blob/master/mnist/main.py
+TensorFlow version: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/mnist/mnist.py
+"""
 from thinc.api import Model, chain, ReLu, Softmax, Adam, minibatch
 from thinc.api import evaluate_model_on_arrays
 import ml_datasets
