@@ -341,7 +341,7 @@ class Model(Generic[InT, OutT]):
         else:
             raise ValueError("Cannot add reference to node not in tree.")
 
-    def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
+    def __call__(self, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
         callback to compute the gradients via backpropagation."""
         return self._func(self, X, is_train=is_train)
