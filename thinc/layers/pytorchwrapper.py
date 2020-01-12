@@ -128,7 +128,6 @@ def convert_pytorch_default_inputs(
 
 
 def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool):
-    print(type(X_Ytorch))
     X, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
@@ -147,9 +146,9 @@ def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
     lengths = Xp.lengths
     indices = Xp.indices
 
-    def convert_from_torch_backward(dX_dH: Tuple) -> Padded:
-        dX = cast(Array3d, torch2xp(dX_dH[0]))
-        return Padded(dX, size_at_t, lengths, indices)
+    def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Padded:
+        dX = torch2xp(d_inputs.args[0])
+        return Padded(dX, size_at_t, lengths, indices) # type: ignore
 
     output = ArgsKwargs(args=(xp2torch(Xp.data, requires_grad=True), None), kwargs={})
     return output, convert_from_torch_backward
