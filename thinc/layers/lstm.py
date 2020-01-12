@@ -31,11 +31,11 @@ def LSTM(
         model = with_padded(
             clone(
                 bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
-                depth,
+                depth
             )
         )
     else:
-        model = with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)),
+        model = with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth))
     return cast(Model[Padded, Padded], model)
 
 
