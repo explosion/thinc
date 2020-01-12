@@ -2,6 +2,7 @@ import pytest
 from mock import MagicMock
 import numpy
 from thinc.api import categorical_crossentropy, L1_distance, cosine_distance
+from thinc import registry
 
 
 @pytest.mark.parametrize("shape,labels", [([100, 100, 100], [-1, -1, -1])])
@@ -27,3 +28,18 @@ def test_cosine_distance():
     assert len(loss) == 2
     vec2 = numpy.asarray([[0, 0, 0]])
     cosine_distance(vec1, vec2, ignore_zeros=True)
+
+
+@pytest.mark.parametrize(
+    "name,kwargs",
+    [
+        ("categorical_crossentropy.v0", {}),
+        ("L1_distance.v0", {"margin": 0.5}),
+        ("cosine_distance.v0", {"ignore_zeros": True}),
+    ],
+)
+def test_loss_from_config(name, kwargs):
+    """Test that losses are loaded and configured correctly from registry
+    (as partials)."""
+    cfg = {"test": {"@losses": name, **kwargs}}
+    registry.make_from_config(cfg)["test"]

@@ -136,9 +136,13 @@ class _PromiseSchemaConfig:
 
 
 class registry(object):
+    # fmt: off
     optimizers: Decorator = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules: Decorator = catalogue.create("thinc", "schedules", entry_points=True)
     layers: Decorator = catalogue.create("thinc", "layers", entry_points=True)
+    losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
+    initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
+    # fmt: on
 
     @classmethod
     def create(cls, registry_name: str, entry_points: bool = False) -> None:

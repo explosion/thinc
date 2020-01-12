@@ -7,6 +7,7 @@ from thinc.config import ConfigValidationError
 from thinc.types import Generator
 from thinc.api import Config, registry, RAdam
 import numpy
+import inspect
 
 from .util import make_tempdir
 
@@ -495,3 +496,25 @@ def test_objects_from_config():
     optimizer = loaded["optimizer"]
     assert optimizer.b1 == 0.2
     assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]
+
+
+def test_partials_from_config():
+    """Test that functions registered with partial applications are handled
+    correctly (e.g. losses)."""
+    cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
+    func = registry.make_from_config(cfg)["test"]
+    assert hasattr(func, "__call__")
+    # The partial will still have margin as an arg, just with default
+    assert len(inspect.signature(func).parameters) == 4
+    # Make sure returned partial function has correct value set
+    assert inspect.signature(func).parameters["margin"].default == 0.5
+    # Actually call the function and verify
+    loss = func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    assert len(loss) == 3
+    # Make sure validation still works
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
+    with pytest.raises(ConfigValidationError):
+        registry.make_from_config(bad_cfg)
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
+    with pytest.raises(ConfigValidationError):
+        registry.make_from_config(bad_cfg)
