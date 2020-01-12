@@ -1,6 +1,6 @@
 import pytest
 import numpy
-from thinc.api import chain, clone, concatenate, Linear, Model
+from thinc.api import chain, clone, concatenate, noop, Linear, Model
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -121,3 +121,19 @@ def test_clone_gives_distinct_ids(nH, nI):
         assert node.id not in seen_ids
         seen_ids.add(node.id)
     assert len(seen_ids) == 6
+
+
+def test_clone_noop():
+    model = clone(Linear(), 0)
+    assert len(model.layers) == 0
+    assert model.name == "noop"
+
+
+def test_noop():
+    data = numpy.asarray([1, 2, 3], dtype="f")
+    model = noop(Linear(), Linear())
+    model.initialize(data, data)
+    Y, backprop = model(data)
+    assert numpy.array_equal(Y, data)
+    dX = backprop(Y)
+    assert numpy.array_equal(dX, data)
