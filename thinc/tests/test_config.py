@@ -1,12 +1,14 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional, List
+from typing import Iterable, Union, Sequence, Optional, List, Callable
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, registry, RAdam
+from thinc.api import Config, RAdam
+from thinc.util import partial
 import numpy
+import inspect
 
 from .util import make_tempdir
 
@@ -491,7 +493,54 @@ def test_objects_from_config():
     def decaying(base_rate: float, repeat: int) -> List[float]:
         return repeat * [base_rate]
 
-    loaded = registry.make_from_config(config)
+    loaded = my_registry.make_from_config(config)
     optimizer = loaded["optimizer"]
     assert optimizer.b1 == 0.2
     assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]
+
+
+def test_partials_from_config():
+    """Test that functions registered with partial applications are handled
+    correctly (e.g. losses)."""
+    cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
+    func = my_registry.make_from_config(cfg)["test"]
+    assert hasattr(func, "__call__")
+    # The partial will still have margin as an arg, just with default
+    assert len(inspect.signature(func).parameters) == 4
+    # Make sure returned partial function has correct value set
+    assert inspect.signature(func).parameters["margin"].default == 0.5
+    # Actually call the function and verify
+    loss = func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    assert len(loss) == 3
+    # Make sure validation still works
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(bad_cfg)
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(bad_cfg)
+
+
+def test_partials_from_config_nested():
+    """Test that partial functions are passed correctly to other registered
+    functions that consume them (e.g. initializers -> layers)."""
+
+    def test_initializer(a: int, b: int = 1) -> int:
+        return a * b
+
+    @my_registry.initializers("test_initializer.v1")
+    def configure_test_initializer(b: int = 1) -> Callable[[int], int]:
+        return partial(test_initializer, b=b)
+
+    @my_registry.layers("test_layer.v1")
+    def test_layer(init: Callable[[int], int], c: int = 1) -> Callable[[int], int]:
+        return lambda x: x + init(c)
+
+    cfg = {
+        "@layers": "test_layer.v1",
+        "c": 5,
+        "init": {"@initializers": "test_initializer.v1", "b": 10},
+    }
+    func = my_registry.make_from_config({"test": cfg})["test"]
+    assert func(1) == 51
+    assert func(100) == 150

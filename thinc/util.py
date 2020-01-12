@@ -1,9 +1,10 @@
 from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
-from typing import Optional, Callable
+from typing import Optional, Callable, TypeVar
 import numpy
 import itertools
 import threading
 import random
+import functools
 
 try:  # pragma: no cover
     import cupy
@@ -319,6 +320,19 @@ def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
     return tensorflow_tensor.numpy()
+
+
+# This is how functools.partials seems to do it, too, to retain the return type
+PartialT = TypeVar("PartialT")
+
+
+def partial(func: Callable[..., PartialT], *args: Any, **kwargs: Any) -> Callable[..., PartialT]:
+    """Wrapper around functools.partial that retains docstrings and can include
+    other workarounds if needed.
+    """
+    partial_func = functools.partial(func, *args, **kwargs)
+    partial_func.__doc__ = func.__doc__
+    return partial_func
 
 
 __all__ = [
