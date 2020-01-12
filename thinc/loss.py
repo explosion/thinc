@@ -1,4 +1,4 @@
-from typing import Tuple, List, cast
+from typing import Tuple, List, cast, Callable
 
 from .types import Array2d, Array
 from .util import get_array_module, to_categorical
@@ -35,9 +35,7 @@ def sequence_categorical_crossentropy(
 
 
 @registry.losses("categorical_crossentropy.v0")
-def configure_categorical_crossentropy() -> Callable[
-    [Array2d, Array2d], Tuple[Array2d, float]
-]:
+def configure_categorical_crossentropy() -> Callable[[Array2d, Array2d], Array2d]:
     return categorical_crossentropy
 
 
@@ -53,7 +51,7 @@ def L1_distance(
 @registry.losses("L1_distance.v0")
 def configure_L1_distance(
     *, margin: float = 0.2
-) -> Callable[[Array2d, Array2d, Array2d], Tuple[Array2d, Array2d, float]]:
+) -> Callable[[Tuple[Array2d, Array2d]], Tuple[Array2d, Array2d]]:
     return partial(L1_distance, margin=margin)
 
 def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Array2d:
@@ -81,7 +79,7 @@ def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Arra
 @registry.losses("cosine_distance.v0")
 def configure_cosine_distance(
     *, ignore_zeros: bool = False
-) -> Callable[[Array2d, Array2d], Tuple[float, Array2d]]:
+) -> Callable[[Array2d, Array2d], Array2d]:
     return partial(cosine_distance, ignore_zeros=ignore_zeros)
 
 
