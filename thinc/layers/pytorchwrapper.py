@@ -53,7 +53,7 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
 
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
-    Y, get_dYtorch = convert_outputs(model, Ytorch, is_train)
+    Y, get_dYtorch = convert_outputs(model, (X, Ytorch), is_train)
 
     def backprop(dY: Any) -> Any:
         dYtorch = get_dYtorch(dY)
@@ -101,7 +101,8 @@ def _convert_inputs(
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 
-def _convert_outputs(model: Model, Ytorch: Any, is_train: bool):
+def _convert_outputs(model: Model, X_Ytorch: Tuple[Any, Any], is_train: bool):
+    _, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
     def reverse_conversion(dY: Any) -> ArgsKwargs:
