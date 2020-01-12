@@ -3,35 +3,23 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded, Array
+from ..types import Ragged, Padded
 
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
-Mid1T = TypeVar("Mid1T")
-Mid2T = TypeVar("Mid2T")
-
-
-# TODO: Unhack this when we can
-# We currently have an issue with Pydantic when arguments have generic types.
-# https://github.com/samuelcolvin/pydantic/issues/1158
-# For now we work around the issue by applying the decorator to this blander
-# version of the function.
-@registry.layers("chain.v0")
-def chain_no_types(*layer: Model) -> Model:
-    return chains(*layer)
 
 
 # This implementation is named 'chains' because we have a type-shennanigans
 # function 'chain' below.
-def chains(
-    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model
-) -> Model[InT, Any]:
+@registry.layers("chain.v0")
+def chains(*layers: Model) -> Model[InT, Any]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
     """
-    layers = (layer1, layer2) + layers
+    if len(layers) < 2:  # we need variable arguments for the config
+        raise TypeError("The 'chain' combinator needs at least 2 layers")
     if layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
@@ -67,8 +55,6 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
-    if not model.layers:
-        return
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
@@ -82,7 +68,7 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
     # if a layer doesn't expose a nO dim, then its output is assumed to be
     # the same as its input.
     nO = None
-    if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
+    if Y is not None and isinstance(Y, (Ragged, Padded, model.ops.xp.ndarray, list)):
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")
@@ -93,11 +79,10 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             nO = layer.get_dim("nI")
         else:
             break
-    seen_nO = False
     for i, layer in enumerate(model.layers):
         if layer.has_dim("nO") is None:
             # If we're the last layer with an nO, use Y.
-            if all(lyr.has_dim("nO") is False for lyr in model.layers[i+1:]):
+            if all(lyr.has_dim("nO") is False for lyr in model.layers[i + 1 :]):
                 layer.initialize(X=X, Y=Y)
             else:
                 layer.initialize(X=X)
@@ -118,6 +103,8 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
 # you can have a type-checked condition on *optional* args, and these *will*
 # get read by mypy. Hence the trickery below.
 
+Mid1T = TypeVar("Mid1T")
+Mid2T = TypeVar("Mid2T")
 Mid3T = TypeVar("Mid3T")
 Mid4T = TypeVar("Mid4T")
 Mid5T = TypeVar("Mid5T")
@@ -138,7 +125,7 @@ def chain(
     l8: Optional[Model[Mid7T, Mid8T]] = None,
     l9: Optional[Model[Mid8T, Mid9T]] = None,
     *etc: Model
-) -> Model[InT, Any]:
+) -> Model[InT, Any]:  # pragma: no cover
     if l3 is None:
         return chains(l1, l2)
     elif l4 is None:

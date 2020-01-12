@@ -1,7 +1,8 @@
 import pytest
 import numpy
 from thinc.api import chain, clone, concatenate, noop, add
-from thinc.api import Linear, Model
+from thinc.api import Linear, Dropout, Model
+from thinc.layers.chain import chains
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -71,6 +72,35 @@ def test_chain_operator_three(model1, model2, model3):
         assert len(model.layers) == 3
 
 
+def test_chain_right_branch(model1, model2, model3):
+    merge1 = chain(model1, model2)
+    merge2 = chain(merge1, model3)
+    assert len(merge2.layers) == 3
+
+
+def test_chain():
+    data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
+    model = chain(Linear(1), Dropout(), Linear(1))
+    model.initialize(data, data)
+    Y, backprop = model(data, is_train=True)
+    backprop(Y)
+    # Layers with and without nO/nI
+    model = chain(Linear(1), Dropout(), Linear(1, 1))
+    model.initialize(data, data)
+    # Setting dim on model
+    model = chain(Linear(1), Dropout(), Linear(1))
+    model.set_dim("nO", 1)
+    model.initialize(data, None)
+    model = chain(Linear(1, 1), Dropout(), Linear(1, 1))
+    model.set_dim("nI", 1)
+    model.initialize(None, data)
+    # Not enough arguments
+    with pytest.raises(TypeError):
+        chain(Linear())
+    with pytest.raises(TypeError):
+        chains()
+
+
 def test_concatenate_one(model1):
     model = concatenate(model1)
     assert isinstance(model, Model)
@@ -96,12 +126,6 @@ def test_concatenate_operator_three(model1, model2, model3):
     with Model.define_operators({"|": concatenate}):
         model = model1 | model2 | model3
         assert len(model.layers) == 3
-
-
-def test_chain_right_branch(model1, model2, model3):
-    merge1 = chain(model1, model2)
-    merge2 = chain(merge1, model3)
-    assert len(merge2.layers) == 3
 
 
 def test_clone_changes_predictions(nH, nI):
