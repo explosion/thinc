@@ -121,7 +121,7 @@ class Ops:
             # could be tricky?
             # I don't know how to do the numpy indexing for multi-dimensions
             # anyway. Need to construct the slice object maybe?
-            output[i, :arr.shape[0]] = arr
+            output[i, : arr.shape[0]] = arr
         return output
 
     def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:

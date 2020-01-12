@@ -83,9 +83,7 @@ def test_tensorflow_wrapper_construction_requires_keras_model(tf_model):
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_built_model(
-    model: Model[Array, Array], X: Array, Y: Array
-):
+def test_tensorflow_wrapper_built_model(model: Model[Array, Array], X: Array, Y: Array):
     # built models are validated more and can perform useful operations:
     assert model.predict(X) is not None
     # Can print a keras summary

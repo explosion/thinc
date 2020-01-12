@@ -10,12 +10,16 @@ def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
     else:
         target = cast(Array2d, labels)
     if scores.shape != target.shape:
-        raise ValueError(f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}")
+        raise ValueError(
+            f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}"
+        )
     difference = scores - target
     return difference / scores.shape[0]
 
 
-def sequence_categorical_crossentropy(scores: List[Array2d], labels: List[Array]) -> List[Array2d]:
+def sequence_categorical_crossentropy(
+    scores: List[Array2d], labels: List[Array]
+) -> List[Array2d]:
     if not scores:
         return []
     if len(scores) != len(labels):
@@ -35,9 +39,7 @@ def L1_distance(
     return (vec1 - vec2) * loss, (vec2 - vec1) * loss
 
 
-def cosine_distance(
-    yh: Array2d, y: Array2d, ignore_zeros: bool = False
-) -> Array2d:
+def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Array2d:
     xp = get_array_module(yh)
     # Find the zero vectors
     if ignore_zeros:

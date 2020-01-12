@@ -12,10 +12,10 @@ else:
 
 try:
     import cupy
+
     get_array_module = cupy.get_array_module
 except ImportError:
     get_array_module = lambda obj: numpy
-
 
 
 Xp = Union["numpy", "cupy"]  # type: ignore
@@ -516,8 +516,10 @@ class Doc(Sized, Container):
 
 InFunc = TypeVar("InFunc")
 
+
 class Decorator(Protocol):
     """Protocol to mark a function as returning its child with identical signature."""
+
     def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
 
@@ -540,6 +542,7 @@ class Padded:
     shrink the batch. The lengths array indicates the length of each row b,
     and the indices indicates the original ordering.
     """
+
     data: Array3d
     size_at_t: Array1d
     lengths: List[int]
