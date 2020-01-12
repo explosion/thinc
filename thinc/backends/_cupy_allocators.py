@@ -28,11 +28,13 @@ def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointer:
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    size_in_bytes = max(1024, size_in_bytes)
     tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
     # We convert to cupy via dlpack, so that we can get a memory pointer.
     cupy_array = cast(CupyArray, tensorflow2xp(tensor))
+    address = int(cupy_array.data)
     # cupy has a neat class to help us here. Otherwise it will try to free.
-    memory = UnownedMemory(cupy_array.data.ptr, size_in_bytes, cupy_array)
+    memory = UnownedMemory(address, size_in_bytes, cupy_array)
     # Now return a new memory pointer.
     return MemoryPointer(memory, 0)
 
@@ -43,10 +45,11 @@ def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointer:
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    # Cupy was having trouble with very small allocations?
     size_in_bytes = max(1024, size_in_bytes)
     torch_tensor = torch.zeros((size_in_bytes // 4,))
     # cupy has a neat class to help us here. Otherwise it will try to free.
     address = torch_tensor.data_ptr()
-    memory = UnownedMemory(address, size_in_bytes, torch_tensor, device_id=0)
+    memory = UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
     return MemoryPointer(memory, 0)
