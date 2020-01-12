@@ -100,7 +100,7 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             if all(lyr.has_dim("nO") is False for lyr in model.layers[i+1:]):
                 layer.initialize(X=X, Y=Y)
             else:
-                raise ValueError("Cannot infer output size of layer: {layer.name}")
+                layer.initialize(X=X)
         else:
             layer.initialize(X=X)
         if X is not None:
