@@ -1,4 +1,5 @@
 import random
+import tqdm
 import torch
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Callable
@@ -18,8 +19,9 @@ CONFIG = """
 starter = "distilbert-base-uncased"
 
 [training]
-batch_size = 128
+batch_size = 5
 n_epoch = 10
+batch_per_update = 4
 
 [optimizer]
 @optimizers = "Adam.v1"
@@ -168,13 +170,17 @@ def main(path: Optional[Path] = None):
     loss: float
     for epoch in range(cfg["n_epoch"]):
         random.shuffle(train_data)
-        for batch in thinc.api.minibatch(train_data, cfg["batch_size"]):
+        batch_count = 0
+        for batch in thinc.api.minibatch(tqdm.tqdm(train_data), cfg["batch_size"]):
             inputs, truths = zip(*batch)
             guesses, backprop = model(inputs, is_train=True)
             d_guesses = calculate_loss(guesses, truths)
             backprop(d_guesses)
-            model.finish_update(optimizer)
-            optimizer.step_schedules()
+            batch_count += 1
+            if batch_count == 4:
+                model.finish_update(optimizer)
+                optimizer.step_schedules()
+                batch_count = 0
         print(epoch, evaluate_model_on_arrays(model, dev_X, dev_Y, 128))
 
 
