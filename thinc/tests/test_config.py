@@ -1,5 +1,6 @@
 import pytest
 from typing import Iterable, Union, Sequence, Optional, List, Callable
+from types import GeneratorType
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
@@ -135,7 +136,7 @@ worst_catsie = {"@cats": "catsie.v1", "evil": True, "cute": False}
 
 def test_validate_simple_config():
     simple_config = {"hello": 1, "world": 2}
-    f, v = my_registry._fill(simple_config, HelloIntsSchema)
+    f, _, v = my_registry._fill(simple_config, HelloIntsSchema)
     assert f == simple_config
     assert v == simple_config
 
@@ -143,28 +144,28 @@ def test_validate_simple_config():
 def test_invalidate_simple_config():
     invalid_config = {"hello": 1, "world": "hi!"}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, HelloIntsSchema)
+        my_registry._fill(invalid_config, HelloIntsSchema)
 
 
 def test_invalidate_extra_args():
     invalid_config = {"hello": 1, "world": 2, "extra": 3}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, HelloIntsSchema)
+        my_registry._fill(invalid_config, HelloIntsSchema)
 
 
 def test_fill_defaults_simple_config():
     valid_config = {"required": 1}
-    filled, v = my_registry._fill(valid_config, DefaultsSchema)
+    filled, _, v = my_registry._fill(valid_config, DefaultsSchema)
     assert filled["required"] == 1
     assert filled["optional"] == "default value"
     invalid_config = {"optional": "some value"}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, DefaultsSchema)
+        my_registry._fill(invalid_config, DefaultsSchema)
 
 
 def test_fill_recursive_config():
     valid_config = {"outer_req": 1, "level2_req": {"hello": 4, "world": 7}}
-    filled, validation = my_registry._fill(valid_config, ComplexSchema)
+    filled, _, validation = my_registry._fill(valid_config, ComplexSchema)
     assert filled["outer_req"] == 1
     assert filled["outer_opt"] == "default value"
     assert filled["level2_req"]["hello"] == 4
@@ -200,24 +201,24 @@ def test_make_promise_schema():
 
 def test_validate_promise():
     config = {"required": 1, "optional": good_catsie}
-    filled, validated = my_registry._fill(config, DefaultsSchema)
+    filled, _, validated = my_registry._fill(config, DefaultsSchema)
     assert filled == config
     assert validated == {"required": 1, "optional": "meow"}
 
 
 def test_fill_validate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
-    filled, validated = my_registry._fill(config, DefaultsSchema)
+    filled, _, validated = my_registry._fill(config, DefaultsSchema)
     assert filled["optional"]["cute"] is True
 
 
 def test_fill_invalidate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
     with pytest.raises(ConfigValidationError):
-        filled, validated = my_registry._fill(config, HelloIntsSchema)
+        my_registry._fill(config, HelloIntsSchema)
     config["optional"]["whiskers"] = True
     with pytest.raises(ConfigValidationError):
-        filled, validated = my_registry._fill(config, DefaultsSchema)
+        my_registry._fill(config, DefaultsSchema)
 
 
 def test_create_registry():
@@ -544,3 +545,17 @@ def test_partials_from_config_nested():
     func = my_registry.make_from_config({"test": cfg})["test"]
     assert func(1) == 51
     assert func(100) == 150
+
+
+def test_validate_generator():
+    """Test that generator replacement for validation in config doesn't
+    actually replace the returned value."""
+
+    @my_registry.schedules("test_schedule.v2")
+    def test_schedule():
+        while True:
+            yield 10
+
+    cfg = {"test": {"@schedules": "test_schedule.v2"}}
+    result = my_registry.make_from_config(cfg)["test"]
+    assert isinstance(result, GeneratorType)
