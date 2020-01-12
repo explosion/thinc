@@ -20,7 +20,7 @@ def Mish(
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
-    dropout: Optional[float],
+    dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
     """Dense layer with mish activation.
