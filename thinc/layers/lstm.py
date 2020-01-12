@@ -17,7 +17,7 @@ InT = List[Array2d]
 
 
 @registry.layers("PyTorchBiLSTM.v0")
-def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
+def PyTorchBiLSTM(nO: int, nI: int, *, depth: int = 1, dropout: float = 0.0):
     import torch.nn
     from .with_padded import with_padded
     from .pytorchwrapper import PyTorchWrapper
@@ -27,7 +27,7 @@ def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
     pytorch_lstm = torch.nn.LSTM(
         nI, nO // 2, depth, bidirectional=True, dropout=dropout
     )
-    return with_padded(PyTorchWrapper(pytorch_lstm))
+    return with_padded(PyTorchWrapper(pytorch_lstm))  # type: ignore
 
 
 @registry.layers("BiLSTM.v0")
