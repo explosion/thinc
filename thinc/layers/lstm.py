@@ -3,7 +3,7 @@ from typing import Optional, List, Tuple, Callable, cast
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
-from ..util import get_width
+from ..util import get_width, has_torch
 from ..types import RNNState, Array2d, Array3d, Padded
 from .recurrent import recurrent
 from .bidirectional import bidirectional
@@ -11,15 +11,50 @@ from .clone import clone
 from .linear import Linear
 from .noop import noop
 from .with_padded import with_padded
-from .util import has_torch
 
 
 InT = List[Array2d]
 
 
-@registry.layers("PyTorchBiLSTM.v0")
-def PyTorchBiLSTM(
-    nO: int, nI: int, *, depth: int = 1, dropout: float = 0.0
+@registry.layers("LSTM.v0")
+def LSTM(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    bi: bool = False,
+    depth: int = 1,
+    dropout: float = 0.0,
+    prefer_pytorch: bool = True,
+    require_pytorch: bool = False
+) -> Model[Padded, Padded]:
+    if (prefer_pytorch and has_torch) or require_pytorch:
+        return PyTorchLSTM(
+            nO,
+            nI,
+            depth=depth,
+            dropout=dropout,
+            bi=True
+        )
+    if bi:
+        model = with_padded(
+            clone(
+                bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
+                depth,
+            )
+        )
+    else:
+        model = with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)),
+    return cast(Model[Padded, Padded], model)
+
+
+@registry.layers("PyTorchLSTM.v0")
+def PyTorchLSTM(
+    nO: int,
+    nI: int,
+    *,
+    bi: bool = False,
+    depth: int = 1,
+    dropout: float = 0.0
 ) -> Model[Padded, Padded]:
     import torch.nn
     from .with_padded import with_padded
@@ -30,45 +65,8 @@ def PyTorchBiLSTM(
 
     return with_padded(
         PyTorchRNNWrapper(
-            torch.nn.LSTM(nI, nO // 2, depth, bidirectional=True, dropout=dropout)
+            torch.nn.LSTM(nI, nO // 2, depth, bi=True, dropout=dropout)
         )
-    )
-
-
-@registry.layers("BiLSTM.v0")
-def BiLSTM(
-    nO: Optional[int] = None,
-    nI: Optional[int] = None,
-    *,
-    depth: int = 1,
-    dropout: float = 0.0,
-    prefer_pytorch: bool = True,
-    require_pytorch: bool = False
-) -> Model[InT, InT]:
-    if (prefer_pytorch and has_torch) or require_pytorch:
-        return PyTorchBiLSTM(nO, nI, depth=depth, dropout=dropout)
-    return cast(
-        Model[InT, InT],
-        with_padded(
-            clone(
-                bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
-                depth,
-            )
-        ),
-    )
-
-
-@registry.layers("LSTM.v0")
-def LSTM(
-    nO: Optional[int] = None,
-    nI: Optional[int] = None,
-    *,
-    depth: int = 1,
-    dropout: float = 0.0
-) -> Model[InT, InT]:
-    return cast(
-        Model[InT, InT],
-        with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth)),
     )
 
 
