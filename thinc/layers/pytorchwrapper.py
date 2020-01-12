@@ -1,23 +1,41 @@
-from typing import Callable, Tuple, Optional, Any
+from typing import Callable, Tuple, Optional, Any, cast
 
 from ..model import Model
 from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array, ArgsKwargs, Padded
+from ..types import Array, Array3d, ArgsKwargs, Padded
 
 
 InT = Array
 OutT = Array
 
 
+@registry.layers("PyTorchRNNWrapper.v0")
+def PyTorchRNNWrapper(
+    pytorch_model,
+    convert_inputs: Optional[Callable] = None,
+    convert_outputs: Optional[Callable] = None,
+) -> Model[Padded, Padded]:
+    """Wrap a PyTorch RNN model for use in Thinc."""
+    if convert_inputs is None:
+        convert_inputs = convert_rnn_inputs
+    if convert_outputs is None:
+        convert_outputs = convert_rnn_outputs
+    return cast(
+        Model[Padded, Padded],
+        PyTorchWrapper(
+            pytorch_model,
+            convert_inputs=convert_inputs,
+            convert_outputs=convert_outputs,
+        ),
+    )
+
+
 @registry.layers("PyTorchWrapper.v0")
 def PyTorchWrapper(
-    pytorch_model,
-    convert_inputs=None,
-    convert_outputs=None,
-    gradient_map: Optional[Tuple[int, ...]] = None,
+    pytorch_model, convert_inputs=None, convert_outputs=None
 ) -> Model[InT, OutT]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
@@ -43,7 +61,7 @@ def PyTorchWrapper(
     if convert_inputs is None:
         convert_inputs = convert_pytorch_default_inputs
     if convert_outputs is None:
-        convert_inputs = convert_pytorch_default_outputs
+        convert_outputs = convert_pytorch_default_outputs
     return Model(
         "pytorch",
         forward,
@@ -61,7 +79,7 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
 
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
-    Y, get_dYtorch = convert_outputs(model, Ytorch, is_train)
+    Y, get_dYtorch = convert_outputs(model, (X, Ytorch), is_train)
 
     def backprop(dY: OutT) -> InT:
         dYtorch = get_dYtorch(dY)
@@ -109,7 +127,9 @@ def convert_pytorch_default_inputs(
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 
-def convert_pytorch_default_outputs(model: Model, Ytorch: Any, is_train: bool):
+def convert_pytorch_default_outputs(model: Model, X_Ytorch: Any, is_train: bool):
+    print(type(X_Ytorch))
+    X, Ytorch = X_Ytorch
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
     def reverse_conversion(dY: Any) -> ArgsKwargs:
@@ -122,23 +142,26 @@ def convert_pytorch_default_outputs(model: Model, Ytorch: Any, is_train: bool):
 # BiLSTM conversion functions
 
 
-def convert_pytorch_bilstm_inputs(model: Model, Xp: Padded, is_train: bool):
+def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
     size_at_t = Xp.size_at_t
     lengths = Xp.lengths
     indices = Xp.indices
 
     def convert_from_torch_backward(dX_dH: Tuple) -> Padded:
-        return Padded(torch2xp(dX_dH[0]), size_at_t, lengths, indices)
+        dX = cast(Array3d, torch2xp(dX_dH[0]))
+        return Padded(dX, size_at_t, lengths, indices)
 
     output = ArgsKwargs(args=(xp2torch(Xp.data, requires_grad=True), None), kwargs={})
     return output, convert_from_torch_backward
 
 
-def convert_pytorch_bilstm_outputs(model: Model, inputs_outputs: Tuple, is_train):
+def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
     Xp, (Ytorch, _) = inputs_outputs
 
-    def convert_for_torch_backward(dY: Padded) -> ArgsKwargs:
-        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": xp2torch(dY)})
+    def convert_for_torch_backward(dYp: Padded) -> ArgsKwargs:
+        dYtorch = xp2torch(dYp.data, requires_grad=True)
+        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
 
-    output = Padded(torch2xp(Ytorch), Xp.size_at_t, Xp.lengths, Xp.indices)
-    return output, convert_for_torch_backward
+    Y = cast(Array3d, torch2xp(Ytorch))
+    Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
+    return Yp, convert_for_torch_backward
