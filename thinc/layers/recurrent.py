@@ -24,18 +24,6 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
     return model
 
 
-def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
-    Xt = X.data[0] if X is not None else None
-    Yt = Y.data[0] if Y is not None else None
-    if Xt is not None or Yt is not None:
-        model.layers[0].initialize(X=Xt, Y=Yt)
-    nO = model.get_dim("nO")
-    model.set_param("initial_cells", model.ops.alloc_f1d(nO))
-    model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))
-
-
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
@@ -84,3 +72,17 @@ def _get_initial_state(model, n, nO):
     initial_cells += model.get_param("initial_cells")
     initial_hiddens += model.get_param("initial_hiddens")
     return (initial_cells, initial_hiddens)
+
+
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
+    Xt = X.data[0] if X is not None else None
+    Yt = Y.data[0] if Y is not None else None
+    if Xt is not None or Yt is not None:
+        model.layers[0].initialize(X=Xt, Y=Yt)
+    if not model.has_dim("nO"):
+        model.set_dim("nO", model.layers[0].get_dim("nO"))
+    nO = model.get_dim("nO")
+    model.set_param("initial_cells", model.ops.alloc_f1d(nO))
+    model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))

@@ -24,7 +24,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dYr: OutT) -> InT:
         dX, d_attention = bp_output(dYr.data)
         dQ, dX2 = bp_attention(d_attention)
-        model.inc_grad("dQ", dQ)
+        model.inc_grad("Q", dQ.ravel())
         dX += dX2
         return Ragged(dX, dYr.lengths)
 

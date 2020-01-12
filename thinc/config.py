@@ -344,6 +344,10 @@ class registry(object):
         for param in inspect.signature(func).parameters.values():
             # If no annotation is specified assume it's anything
             annotation = param.annotation if param.annotation != param.empty else Any
+            # TODO: Bad hack to work around generic types in pydantic (until next release)
+            # Details: https://github.com/samuelcolvin/pydantic/issues/1158
+            if str(annotation).startswith("thinc.model.Model["):
+                annotation = Callable
             # If no default value is specified assume that it's required
             default = param.default if param.default != param.empty else ...
             # Handle spread arguments and use their annotation as Sequence[whatever]
@@ -353,9 +357,6 @@ class registry(object):
             else:
                 sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
-        # NOTE: This will fail if the annotation is a generic alias with an
-        # arbitrary type origin unsupported out-of-the-box by pydantic
-        # Details: https://github.com/samuelcolvin/pydantic/issues/1158
         return create_model("ArgModel", **sig_args)
 
 
