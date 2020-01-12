@@ -4,30 +4,35 @@ from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import get_width
-from ..types import RNNState, Array2d, Array3d
+from ..types import RNNState, Array2d, Array3d, Padded
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
 from .noop import noop
 from .with_padded import with_padded
+from .util import has_torch
 
 
 InT = List[Array2d]
 
 
 @registry.layers("PyTorchBiLSTM.v0")
-def PyTorchBiLSTM(nO, nI, depth, dropout=0.0):
+def PyTorchBiLSTM(
+    nO: int, nI: int, *, depth: int = 1, dropout: float = 0.0
+) -> Model[Padded, Padded]:
     import torch.nn
     from .with_padded import with_padded
-    from .pytorchwrapper import PyTorchWrapper
+    from .pytorchwrapper import PyTorchRNNWrapper
 
     if depth == 0:
-        return noop()
-    pytorch_lstm = torch.nn.LSTM(
-        nI, nO // 2, depth, bidirectional=True, dropout=dropout
+        return noop()  # type: ignore
+
+    return with_padded(
+        PyTorchRNNWrapper(
+            torch.nn.LSTM(nI, nO // 2, depth, bidirectional=True, dropout=dropout)
+        )
     )
-    return with_padded(PyTorchWrapper(pytorch_lstm))
 
 
 @registry.layers("BiLSTM.v0")
@@ -36,8 +41,12 @@ def BiLSTM(
     nI: Optional[int] = None,
     *,
     depth: int = 1,
-    dropout: float = 0.0
+    dropout: float = 0.0,
+    prefer_pytorch: bool = True,
+    require_pytorch: bool = False
 ) -> Model[InT, InT]:
+    if (prefer_pytorch and has_torch) or require_pytorch:
+        return PyTorchBiLSTM(nO, nI, depth=depth, dropout=dropout)
     return cast(
         Model[InT, InT],
         with_padded(
