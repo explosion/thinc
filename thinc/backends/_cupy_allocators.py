@@ -17,8 +17,7 @@ try:
     from cupy.cuda.memory import MemoryPointer
     from cupy.cuda.memory import UnownedMemory
 except ImportError:
-    class MemoryPointer:
-        pass
+    pass
 
 
 
@@ -49,7 +48,8 @@ def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointer:
     size_in_bytes = max(1024, size_in_bytes)
     torch_tensor = torch.zeros((size_in_bytes // 4,))
     # cupy has a neat class to help us here. Otherwise it will try to free.
-    address = torch_tensor.data_ptr()
+    # I think this is a private API? It's not in the types.
+    address = torch_tensor.data_ptr() # type: ignore
     memory = UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
     return MemoryPointer(memory, 0)
