@@ -18,7 +18,7 @@ from .relu import ReLu
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
-from .lstm import BiLSTM, LSTM, PyTorchBiLSTM
+from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper
 
 # Combinators
@@ -69,9 +69,8 @@ __all__ = [
     "Softmax",
     "SparseLinear",
     "StaticVectors",
-    "BiLSTM",
     "LSTM",
-    "PyTorchBiLSTM",
+    "PyTorchLSTM",
     "TensorFlowWrapper",
     "add",
     "bidirectional",
