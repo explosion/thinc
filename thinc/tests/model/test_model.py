@@ -62,6 +62,8 @@ def test_model_init():
     assert model.has_grad("W") is None
     model.set_param("W", model.ops.alloc_f1d(10))
     model.set_grad("W", model.ops.alloc_f1d(10))
+    with pytest.raises(ValueError):
+        model.inc_grad("W", numpy.zeros((5, 0)))
     assert model.has_dim("nI")
     assert model.get_dim("nI") == 10
     with pytest.raises(KeyError):
@@ -70,6 +72,8 @@ def test_model_init():
         model.get_dim("nO")
     with pytest.raises(KeyError):
         model.set_dim("xyz", 20)
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20)
     assert model.has_ref("a")
     assert model.get_ref("a").name == "a"
     assert not model.has_ref("xyz")
