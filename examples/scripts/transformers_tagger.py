@@ -37,6 +37,12 @@ batch_per_update = 4
 [optimizer]
 @optimizers = "Adam.v1"
 
+[optimizer.schedules.learn_rate]
+@schedules = "warmup_linear.v1"
+initial_rate = 0.001
+warmup_steps = 3000
+total_steps = 10000
+
 [model]
 @layers = "transformer_tagger_example.v0"
 
@@ -145,6 +151,18 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
     return tokvecs, backprop
 
 
+def evaluate_sequences(model, Xs: List[Array2d], Ys: List[Array2d], batch_size: int) -> float:
+    correct = 0.0
+    total = 0.0
+    for batch in thinc.api.minibatch(zip(Xs, Ys), size=batch_size):
+        X, Y = zip(*batch)
+        Yh = model.predict(X)
+        for yh, y in zip(Yh, Y):
+            correct += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
+            total += y.shape[0]
+    return correct / total
+
+
 def load_config(path: Optional[Path]):
     from thinc.api import Config, registry
 
@@ -152,6 +170,7 @@ def load_config(path: Optional[Path]):
         config = Config().from_str(CONFIG)
     else:
         config = Config().from_disk(path)
+    print(config["optimizer"]["schedules"])
     # The make_from_config function constructs objects for you, whenever
     # you have blocks with an @ key. For instance, in the optimizer block,
     # we write @optimizers = "Adam.v1". This tells Thinc to use the optimizers
@@ -162,7 +181,8 @@ def load_config(path: Optional[Path]):
 
 def main(path: Optional[Path] = None):
     if thinc.api.prefer_gpu():
-        thinc.api.use_pytorch_for_gpu_memory()
+        print("Using gpu!")
+        #thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
     model = C["model"]
     optimizer = C["optimizer"]
@@ -170,6 +190,10 @@ def main(path: Optional[Path] = None):
     cfg = C["training"]
 
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
+    # Convert the outputs to cupy (if we're using that)
+    print(type(dev_Y[0]))
+    train_Y = list(map(model.ops.asarray, train_Y))
+    dev_Y = list(map(model.ops.asarray, dev_Y))
     # Pass in a small batch of data, to fill in missing shapes.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     train_data: List[Tuple[Array2d, Array2d]]
@@ -182,7 +206,8 @@ def main(path: Optional[Path] = None):
     for epoch in range(cfg["n_epoch"]):
         random.shuffle(train_data)
         batch_count = 0
-        for batch in thinc.api.minibatch(tqdm.tqdm(train_data), cfg["batch_size"]):
+        train_data = tqdm.tqdm(train_data, leave=False)
+        for batch in thinc.api.minibatch(train_data, cfg["batch_size"]):
             inputs, truths = zip(*batch)
             guesses, backprop = model(inputs, is_train=True)
             d_guesses = calculate_loss(guesses, truths)
@@ -192,7 +217,8 @@ def main(path: Optional[Path] = None):
                 model.finish_update(optimizer)
                 optimizer.step_schedules()
                 batch_count = 0
-        print(epoch, evaluate_model_on_arrays(model, dev_X, dev_Y, 128))
+        score = evaluate_sequences(model, dev_X, dev_Y, 128)
+        print(epoch, score)
 
 
 if __name__ == "__main__":
