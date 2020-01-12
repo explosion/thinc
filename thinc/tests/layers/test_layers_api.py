@@ -68,6 +68,7 @@ TEST_CASES = [
     # List to list
     ("BiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     ("LSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
+    # ("PyTorchBiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     # Other
     # fmt: off
     ("CauchySimilarity.v0", {}, (array2d, array2d), array1d),
