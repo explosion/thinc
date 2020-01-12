@@ -21,6 +21,7 @@ array2dint = numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 ragged = Ragged(array2d, numpy.asarray([1, 1], dtype="i"))
 doc = FakeDoc()
 span = FakeSpan()
+width = array2d.shape[1]
 
 
 def assert_data_match(Y, out_data):
@@ -66,8 +67,10 @@ TEST_CASES = [
     ("MeanPool.v0", {}, ragged, array2d),
     ("SumPool.v0", {}, ragged, array2d),
     # List to list
-    ("BiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
-    ("LSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
+    ("LSTM.v0", {"bi": False}, [array2d, array2d], [array2d, array2d]),
+    ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
+    ("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d]),
+    ("PyTorchLSTM.v0", {"bi": True, "nO": width*2, "nI": width}, [array2d, array2d], [array2d, array2d]),
     # ("PyTorchBiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     # Other
     # fmt: off
@@ -86,7 +89,7 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     filled = registry.fill_config({"config": cfg})
     model = registry.make_from_config(filled)["config"]
     model.initialize(in_data, out_data)
-    Y, backprop = model(in_data)
+    Y, backprop = model(in_data, is_train=True)
     assert_data_match(Y, out_data)
     dX = backprop(Y)
     assert_data_match(dX, in_data)
