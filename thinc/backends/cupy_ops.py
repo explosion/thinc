@@ -30,16 +30,19 @@ class CupyOps(Ops):
             return out
 
     def asarray(self, X, dtype=None):
+        # This is sort of frustrating, but we can't easily otherwise pass
+        # forward "unset".
+        dtype = {"dtype": dtype} if dtype is not None else {}
         if isinstance(X, cupy.ndarray):
             return self.xp.asarray(X, dtype=dtype)
         elif hasattr(X, "data_ptr"):
             # Handles PyTorch Tensors
             pointer = cupy.cuda.MemoryPointer(X.data_ptr())
             shape = X.stride()
-            array = self.xp.ndarray(shape, memptr=pointer, dtype=dtype)
+            array = self.xp.ndarray(shape, memptr=pointer, **dtype)
             return array
         else:
-            return self.xp.array(X, dtype=dtype)
+            return self.xp.array(X, **dtype)
 
     def maxout(self, X):
         return _custom_kernels.maxout(X)
