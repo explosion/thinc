@@ -21,7 +21,7 @@ except ImportError:
 
 
 
-def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointer:
+def cupy_tensorflow_allocator(size_in_bytes: int):
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via TensorFlow. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
@@ -38,7 +38,7 @@ def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointer:
     return MemoryPointer(memory, 0)
 
 
-def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointer:
+def cupy_pytorch_allocator(size_in_bytes: int):
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via PyTorch. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
