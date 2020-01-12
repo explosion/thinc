@@ -1,4 +1,4 @@
-# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False
+# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False, binding=True
 from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
