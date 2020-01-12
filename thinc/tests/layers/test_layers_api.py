@@ -52,15 +52,16 @@ TEST_CASES = [
     ("LayerNorm.v0", {}, array2d, array2d),
     ("Linear.v0", {}, array2d, array2d),
     ("Maxout.v0", {}, array2d, array2d),
+    ("Maxout.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
+    ("Maxout.v0", {"nO": 4, "nI": 4}, array2d, array2d),
     ("Mish.v0", {}, array2d, array2d),
     ("Mish.v0", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Mish.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("MultiSoftmax.v0", {"nOs": (1, 3)}, array2d, array2d),
     ("ReLu.v0", {}, array2d, array2d),
+    ("ReLu.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Softmax.v0", {}, array2d, array2d),
     ("Softmax.v0", {"nO": 4, "nI": 4}, array2d, array2d),
-    # Currently doesn't work because of shape inference in chain:
-    # ("Mish.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
-    # ("ReLu.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
