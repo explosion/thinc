@@ -1,6 +1,7 @@
 import pytest
 import numpy
-from thinc.api import chain, clone, concatenate, noop, Linear, Model
+from thinc.api import chain, clone, concatenate, noop, add
+from thinc.api import Linear, Model
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -129,6 +130,12 @@ def test_clone_noop():
     assert model.name == "noop"
 
 
+def test_concatenate_noop():
+    model = concatenate()
+    assert len(model.layers) == 0
+    assert model.name == "noop"
+
+
 def test_noop():
     data = numpy.asarray([1, 2, 3], dtype="f")
     model = noop(Linear(), Linear())
@@ -137,3 +144,43 @@ def test_noop():
     assert numpy.array_equal(Y, data)
     dX = backprop(Y)
     assert numpy.array_equal(dX, data)
+
+
+def test_add():
+    data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
+    model = add(Linear(), Linear())
+    model.initialize(data, data)
+    Y, backprop = model(data)
+    Y2 = sum(layer.predict(data) for layer in model.layers)
+    assert numpy.array_equal(Y, Y2)
+    dX = backprop(Y)
+    assert dX.shape == data.shape
+    # Test that nesting works
+    model2 = add(model, Linear())
+    assert len(model2.layers) == 3
+    model.initialize(data, data)
+    Y = model2.predict(data)
+    Y2 = sum(layer.predict(data) for layer in model2.layers)
+    assert numpy.array_equal(Y, Y2)
+
+
+def test_add_edge_cases():
+    data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
+    with pytest.raises(TypeError):
+        add()
+    model = add(Linear(), Linear())
+    model._layers = []
+    Y, backprop = model(data)
+    assert numpy.array_equal(data, Y)
+    dX = backprop(Y)
+    assert numpy.array_equal(dX, data)
+
+
+def test_concatenate():
+    data = numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="f")
+    model = concatenate(Linear(), Linear())
+    model.initialize(data, data)
+    Y, backprop = model(data)
+    assert Y.shape[1] == sum([layer.predict(data).shape[1] for layer in model.layers])
+    dX = backprop(Y)
+    assert dX.shape == data.shape
