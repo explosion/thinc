@@ -13,7 +13,7 @@ InT = Array2d
 @registry.layers("LayerNorm.v0")
 def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
     return Model(
-        "layernorm", forward, init=init, dims={"nI": nI}, params={"G": None, "b": None},
+        "layernorm", forward, init=init, dims={"nI": nI}, params={"G": None, "b": None}
     )
 
 
