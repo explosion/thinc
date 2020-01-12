@@ -97,7 +97,7 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
     for i, layer in enumerate(model.layers):
         if layer.has_dim("nO") is None:
             # If we're the last layer with an nO, use Y.
-            if all(lyr.has_dim("nO") is False for lyr in model.layers[i+1:]):
+            if all(lyr.has_dim("nO") is False for lyr in model.layers[i + 1 :]):
                 layer.initialize(X=X, Y=Y)
             else:
                 layer.initialize(X=X)
