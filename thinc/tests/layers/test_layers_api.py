@@ -86,7 +86,7 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     filled = registry.fill_config({"config": cfg})
     model = registry.make_from_config(filled)["config"]
     model.initialize(in_data, out_data)
-    Y, backprop = model(in_data)
+    Y, backprop = model(in_data, is_train=True)
     assert_data_match(Y, out_data)
     dX = backprop(Y)
     assert_data_match(dX, in_data)
