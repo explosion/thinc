@@ -1,7 +1,8 @@
-# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False, binding=True
+# cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False
 from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
+cimport cython
 
 from typing import Tuple, Callable, Optional
 
@@ -16,8 +17,11 @@ InT = Tuple[Array, Array, Array]
 OutT = Array
 
 
+@cython.binding(True)
 @registry.layers("SparseLinear.v0")
-def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18) -> Model[InT, OutT]:
+def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
+    # NB: We can't have generic return type annotation if we want function to
+    # be bound (and inspectable): https://github.com/cython/cython/issues/2753
     model: Model[InT, OutT] = Model(
         "sparse_linear",
         forward,
