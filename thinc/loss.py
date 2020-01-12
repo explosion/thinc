@@ -5,7 +5,6 @@ from .util import get_array_module, to_categorical
 
 
 def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
-    xp = get_array_module(scores)
     if labels.ndim != scores.ndim:
         target = to_categorical(labels, n_classes=scores.shape[-1])
     else:
@@ -13,7 +12,6 @@ def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
     if scores.shape != target.shape:
         raise ValueError(f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}")
     difference = scores - target
-    loss = (difference**2).sum()
     return difference / scores.shape[0]
 
 

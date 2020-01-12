@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded, Array
+from ..types import Ragged, Padded
 
 
 InT = TypeVar("InT")

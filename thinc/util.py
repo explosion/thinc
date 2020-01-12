@@ -28,7 +28,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, ArrayNd, Array2d
+from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover

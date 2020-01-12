@@ -5,7 +5,7 @@ from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array, ArgsKwargs
+from ..types import ArgsKwargs
 
 
 @registry.layers("PyTorchWrapper.v0")
