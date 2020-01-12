@@ -25,28 +25,18 @@ def LSTM(
     depth: int = 1,
     dropout: float = 0.0
 ) -> Model[Padded, Padded]:
+    if bi and nO is not None:
+        nO //= 2
+
+    model = recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))
     if bi:
-        if nO is not None:
-            nO //= 2
-        model = with_padded(
-            clone(
-                bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
-                depth
-            )
-        )
-    else:
-        model = with_padded(clone(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout)), depth))
-    return cast(Model[Padded, Padded], model)
+        model = bidirectional(model)
+    return clone(model, depth)
 
 
 @registry.layers("PyTorchLSTM.v0")
 def PyTorchLSTM(
-    nO: int,
-    nI: int,
-    *,
-    bi: bool = False,
-    depth: int = 1,
-    dropout: float = 0.0
+    nO: int, nI: int, *, bi: bool = False, depth: int = 1, dropout: float = 0.0
 ) -> Model[Padded, Padded]:
     import torch.nn
     from .with_padded import with_padded
