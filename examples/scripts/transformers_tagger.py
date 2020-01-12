@@ -55,9 +55,9 @@ class TokensPlus:
 
 #@thinc.api.registry.layers("transformer_tagger_example.v0")
 #def transformer_tagger_example(
-#    tokenizer: Model[List[str], List[TokensPlus]],
-#    transformer: Model[List[TokensPlus], Padded],
-#    output_layer: Model[Padded, List[Array2d]],
+#    tokenizer: Model[List[str], TokensPlus],
+#    transformer: Model[TokensPlus, List[Array2d]],
+#    output_layer: Model[List[Array2d], List[Array2d]],
 #) -> Model[List[str], List[Array2d]]:
 #    return chain(tokenizer, transformer, output_layer)
 @thinc.api.registry.layers("transformer_tagger_example.v0")
