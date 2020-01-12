@@ -27,7 +27,6 @@ from .bidirectional import bidirectional
 from .chain import chain
 from .clone import clone
 from .concatenate import concatenate
-from .foreach import foreach
 from .noop import noop
 from .recurrent import recurrent
 from .residual import residual
@@ -78,7 +77,6 @@ __all__ = [
     "chain",
     "clone",
     "concatenate",
-    "foreach",
     "noop",
     "recurrent",
     "residual",
