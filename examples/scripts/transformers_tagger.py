@@ -1,4 +1,5 @@
 import random
+import torch
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Callable
 from pathlib import Path
@@ -6,8 +7,8 @@ from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, padded2list
-from thinc.api import torch2xp, xp2torch, categorical_crossentropy
-from thinc.types import Padded, Array1d, Array2d, Array, ArgsKwargs
+from thinc.api import torch2xp, xp2torch, sequence_categorical_crossentropy
+from thinc.types import Padded, Array1d, Array2d, Array, ArgsKwargs, Ragged
 from thinc.util import evaluate_model_on_arrays
 import ml_datasets
 
@@ -46,7 +47,7 @@ class TokensPlus:
     input_ids: torch.Tensor
     token_type_ids: torch.Tensor
     attention_mask: torch.Tensor
-    input_len: int
+    input_len: List[int]
     overflowing_tokens: Optional[torch.Tensor]=None
     num_truncated_tokens: Optional[torch.Tensor]=None
     special_tokens_mask: Optional[torch.Tensor]=None
@@ -70,7 +71,7 @@ def transformer_tagger_example(
 
 
 @thinc.api.registry.layers("transformers_tokenizer.v0")
-def transformers_tokenizer(name: str) -> Model[List[str], List[TokensPlus]]:
+def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
     return Model(
         "tokenizer",
         _tokenizer_forward,
@@ -78,10 +79,10 @@ def transformers_tokenizer(name: str) -> Model[List[str], List[TokensPlus]]:
     )
 
 
-def _tokenizer_forward(model, texts, is_train) -> Tuple[TokensPlus, Callable]:
+def _tokenizer_forward(model, texts: List[List[str]], is_train) -> Tuple[TokensPlus, Callable]:
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
-        texts,
+        [(text, None) for text in texts],
         add_special_tokens=True,
         return_token_type_ids=True,
         return_attention_masks=True,
@@ -101,31 +102,38 @@ def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
 
 
 @thinc.api.registry.layers("output_layer_example.v0")
-def output_layer_example() -> Model[Ragged, List[Array2d]]:
-    return chain(with_array(Softmax()))
+def output_layer_example() -> Model:
+    return with_array(Softmax())
 
 
-def convert_transformer_input(model, tokens: List[TokensPlus], is_train):
-    input_ids = [x.input_ids for x in tokens]
-    attn_mask = [x.attention_mask for x in tokens]
+def convert_transformer_inputs(model, tokens: TokensPlus, is_train):
     kwargs={
-        "input_ids": [torch.tensor(x, dtype="int64") for x in input_ids],
-        "attention_mask": [torch.tensor(x) for x in attn_mask]
+        "input_ids": tokens.input_ids,
+        "attention_mask": tokens.attention_mask
     }
-    return ArgsKwargs(args={}, kwargs=kwargs), lambda dX: []
+    return ArgsKwargs(args=(), kwargs=kwargs), lambda dX: []
 
 
-def convert_transformer_output(model, torches, is_train):
-    tokvecs = torches[0]
-    # TODO: Unpad
+def convert_transformer_outputs(model, inputs_outputs, is_train):
+    layer_inputs, torch_outputs = inputs_outputs
+    torch_tokvecs: torch.Tensor = torch_outputs[0]
+    # Free the memory as soon as we can
+    torch_outputs = None
+    lengths = list(layer_inputs.input_len)
+    tokvecs: List[Array2d] = model.ops.unpad(torch2xp(torch_tokvecs), lengths)
+    # Remove the BOS and EOS markers.
+    tokvecs = [arr[1:-1] for arr in tokvecs]
 
-    def backprop(d_tokvecs):
-        # TODO: Repad
-        args = (tokvecs,)
-        kwargs = {"grad_tensors": xp2torch(d_tokvecs)}
-        return ArgsKwargs(args=args, kwargs=kwargs)
+    def backprop(d_tokvecs: List[Array2d]) -> ArgsKwargs:
+        # Restore entries for bos and eos markers.
+        row = model.ops.alloc_f2d(1, d_tokvecs[0].shape[1])
+        d_tokvecs = [model.ops.xp.vstack((row, arr, row)) for arr in d_tokvecs]
+        return ArgsKwargs(
+            args=(torch_tokvecs,),
+            kwargs={"grad_tensors": xp2torch(model.ops.pad(d_tokvecs))}
+        )
 
-    return torch2xp(tokvecs), backprop
+    return tokvecs, backprop
 
 
 def load_config(path: Optional[Path]):
@@ -144,12 +152,12 @@ def load_config(path: Optional[Path]):
 
 
 def main(path: Optional[Path] = None):
-    thinc.api.require_gpu()
-    thinc.api.use_pytorch_for_gpu_memory()
+    if thinc.api.prefer_gpu():
+        thinc.api.use_pytorch_for_gpu_memory()
     C = load_config(path)
     model = C["model"]
     optimizer = C["optimizer"]
-    calculate_loss = categorical_crossentropy
+    calculate_loss = sequence_categorical_crossentropy
     cfg = C["training"]
 
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
@@ -160,12 +168,14 @@ def main(path: Optional[Path] = None):
     train_data = list(zip(train_X, train_Y))
     train_data = list(zip(dev_X, dev_Y))
 
+    d_guesses: List[Array2d]
+    loss: float
     for epoch in range(cfg["n_epoch"]):
         random.shuffle(train_data)
         for batch in thinc.api.minibatch(train_data, cfg["batch_size"]):
             inputs, truths = zip(*batch)
             guesses, backprop = model(inputs, is_train=True)
-            loss, d_guesses = calculate_loss(guesses, truths)
+            d_guesses = calculate_loss(guesses, truths)
             backprop(d_guesses)
             model.finish_update(optimizer)
             optimizer.step_schedules()
