@@ -22,7 +22,7 @@ from .layers import SparseLinear, StaticVectors, FeatureExtractor
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper
 
-from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
+from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import recurrent, residual, uniqued, siamese, list2ragged, ragged2list
 from .layers import with_array, with_padded, with_list, with_ragged
 from .layers import with_reshape, with_getitem, strings2arrays
