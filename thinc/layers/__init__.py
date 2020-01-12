@@ -15,7 +15,6 @@ from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper
 from .relu import ReLu
-from .residual import Residual
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
@@ -31,6 +30,7 @@ from .concatenate import concatenate
 from .foreach import foreach
 from .noop import noop
 from .recurrent import recurrent
+from .residual import residual
 from .uniqued import uniqued
 from .siamese import siamese
 
@@ -66,7 +66,6 @@ __all__ = [
     "ParametricAttention",
     "PyTorchWrapper",
     "ReLu",
-    "Residual",
     "Softmax",
     "SparseLinear",
     "StaticVectors",
@@ -82,6 +81,7 @@ __all__ = [
     "foreach",
     "noop",
     "recurrent",
+    "residual",
     "uniqued",
     "siamese",
     "MaxPool",
