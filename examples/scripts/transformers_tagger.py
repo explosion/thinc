@@ -9,20 +9,20 @@ its call stack. If a block is wider than its child, time is being spent there.
 You should see that very little time is being spent within Thinc, indicating
 that the computation is delegated to PyTorch efficiently.
 """
-import random
-import tqdm
-import torch
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Callable
+import random
+import torch
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
-import thinc.api
-from thinc.model import Model
-from thinc.api import PyTorchWrapper, Softmax, chain, with_array
+import thinc
+from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
 from thinc.api import torch2xp, xp2torch, sequence_categorical_crossentropy
+from thinc.api import minibatch, prefer_gpu, use_pytorch_for_gpu_memory
 from thinc.types import Array2d, ArgsKwargs
-from thinc.util import evaluate_model_on_arrays
 import ml_datasets
+import tqdm
+import typer
 
 
 CONFIG = """
@@ -73,21 +73,16 @@ class TokensPlus:
     special_tokens_mask: Optional[torch.Tensor] = None
 
 
-# @thinc.api.registry.layers("transformer_tagger_example.v0")
-# def transformer_tagger_example(
-#    tokenizer: Model[List[str], TokensPlus],
-#    transformer: Model[TokensPlus, List[Array2d]],
-#    output_layer: Model[List[Array2d], List[Array2d]],
-# ) -> Model[List[str], List[Array2d]]:
-#    return chain(tokenizer, transformer, output_layer)
-@thinc.api.registry.layers("transformer_tagger_example.v0")
+@thinc.registry.layers("transformer_tagger_example.v0")
 def transformer_tagger_example(
-    tokenizer: Model, transformer: Model, output_layer: Model
-) -> Model:
+    tokenizer: Model[List[str], TokensPlus],
+    transformer: Model[TokensPlus, List[Array2d]],
+    output_layer: Model[List[Array2d], List[Array2d]],
+) -> Model[List[str], List[Array2d]]:
     return chain(tokenizer, transformer, output_layer)
 
 
-@thinc.api.registry.layers("transformers_tokenizer.v0")
+@thinc.registry.layers("transformers_tokenizer.v0")
 def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
     return Model(
         "tokenizer",
@@ -97,7 +92,7 @@ def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]
 
 
 def _tokenizer_forward(
-    model, texts: List[List[str]], is_train
+    model, texts: List[List[str]], is_train: bool
 ) -> Tuple[TokensPlus, Callable]:
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
@@ -111,7 +106,7 @@ def _tokenizer_forward(
     return TokensPlus(**token_data), lambda d_tokens: d_tokens
 
 
-@thinc.api.registry.layers("transformers_model.v0")
+@thinc.registry.layers("transformers_model.v0")
 def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
@@ -120,7 +115,7 @@ def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
     )
 
 
-@thinc.api.registry.layers("output_layer_example.v0")
+@thinc.registry.layers("output_layer_example.v0")
 def output_layer_example() -> Model:
     return with_array(Softmax())
 
@@ -129,7 +124,7 @@ def convert_transformer_inputs(model, tokens: TokensPlus, is_train):
     kwargs = {
         "input_ids": tokens.input_ids,
         "attention_mask": tokens.attention_mask,
-        "token_type_ids": tokens.token_type_ids
+        "token_type_ids": tokens.token_type_ids,
     }
     return ArgsKwargs(args=(), kwargs=kwargs), lambda dX: []
 
@@ -156,10 +151,12 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
     return tokvecs, backprop
 
 
-def evaluate_sequences(model, Xs: List[Array2d], Ys: List[Array2d], batch_size: int) -> float:
+def evaluate_sequences(
+    model, Xs: List[Array2d], Ys: List[Array2d], batch_size: int
+) -> float:
     correct = 0.0
     total = 0.0
-    for batch in thinc.api.minibatch(zip(Xs, Ys), size=batch_size):
+    for batch in minibatch(zip(Xs, Ys), size=batch_size):
         X, Y = zip(*batch)
         Yh = model.predict(X)
         for yh, y in zip(Yh, Y):
@@ -168,26 +165,21 @@ def evaluate_sequences(model, Xs: List[Array2d], Ys: List[Array2d], batch_size: 
     return correct / total
 
 
-def load_config(path: Optional[Path]):
-    from thinc.api import Config, registry
-
+def main(path: Optional[Path] = None):
+    if prefer_gpu():
+        print("Using gpu!")
+        use_pytorch_for_gpu_memory()
+    # You can edit the CONFIG string within the file, or copy it out to
+    # a separate file and pass in the path.
     if path is None:
         config = Config().from_str(CONFIG)
     else:
         config = Config().from_disk(path)
-    # The make_from_config function constructs objects for you, whenever
-    # you have blocks with an @ key. For instance, in the optimizer block,
-    # we write @optimizers = "Adam.v1". This tells Thinc to use the optimizers
-    # registry to fetch the "Adam.v1" function. You can register your own
-    # functions as well, and build up trees of objects.
-    return registry.make_from_config(config)
-
-
-def main(path: Optional[Path] = None):
-    if thinc.api.prefer_gpu():
-        print("Using gpu!")
-        thinc.api.use_pytorch_for_gpu_memory()
-    C = load_config(path)
+    # make_from_config constructs objects whenever you have blocks with an @ key.
+    # In the optimizer block we write @optimizers = "Adam.v1". This tells Thinc
+    # to use registry.optimizers to fetch the "Adam.v1" function. You can
+    # register your own functions as well and build up trees of objects.
+    C = thinc.registry.make_from_config(config)
     model = C["model"]
     optimizer = C["optimizer"]
     calculate_loss = sequence_categorical_crossentropy
@@ -197,17 +189,14 @@ def main(path: Optional[Path] = None):
     # Convert the outputs to cupy (if we're using that)
     train_Y = list(map(model.ops.asarray, train_Y))
     dev_Y = list(map(model.ops.asarray, dev_Y))
-    # Pass in a small batch of data, to fill in missing shapes.
+    # Pass in a small batch of data, to fill in missing shapes
     model.initialize(X=train_X[:5], Y=train_Y[:5])
-    train_data: List[Tuple[Array2d, Array2d]]
-    d_guesses: List[Array2d]
-    loss: float
     for epoch in range(cfg["n_epoch"]):
-        train_data = list(zip(train_X, train_Y))
+        train_data: List[Tuple[Array2d, Array2d]] = list(zip(train_X, train_Y))
         random.shuffle(train_data)
         batch_count = 0
         train_data = tqdm.tqdm(train_data, leave=False)
-        for batch in thinc.api.minibatch(train_data, cfg["batch_size"]):
+        for batch in minibatch(train_data, cfg["batch_size"]):
             inputs, truths = zip(*batch)
             guesses, backprop = model(inputs, is_train=True)
             backprop(calculate_loss(guesses, truths))
@@ -221,4 +210,4 @@ def main(path: Optional[Path] = None):
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
