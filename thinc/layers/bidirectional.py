@@ -50,7 +50,7 @@ def _reverse(ops: Ops, Xp: Padded) -> Padded:
 
 def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
     return Padded(
-        ops.xp.hstack((l2r.data, r2l.data), axis=-1),
+        ops.xp.concatenate((l2r.data, r2l.data), axis=-1),
         l2r.size_at_t,
         l2r.lengths,
         l2r.indices,
