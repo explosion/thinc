@@ -13,7 +13,7 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper
+from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import ReLu
 from .softmax import Softmax
 from .sparselinear import SparseLinear
@@ -65,6 +65,7 @@ __all__ = [
     "MultiSoftmax",
     "ParametricAttention",
     "PyTorchWrapper",
+    "PyTorchRNNWrapper",
     "ReLu",
     "Softmax",
     "SparseLinear",

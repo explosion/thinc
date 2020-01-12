@@ -23,19 +23,11 @@ def LSTM(
     *,
     bi: bool = False,
     depth: int = 1,
-    dropout: float = 0.0,
-    prefer_pytorch: bool = True,
-    require_pytorch: bool = False
+    dropout: float = 0.0
 ) -> Model[Padded, Padded]:
-    if (prefer_pytorch and has_torch) or require_pytorch:
-        return PyTorchLSTM(
-            nO,
-            nI,
-            depth=depth,
-            dropout=dropout,
-            bi=True
-        )
     if bi:
+        if nO is not None:
+            nO //= 2
         model = with_padded(
             clone(
                 bidirectional(recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))),
@@ -65,7 +57,7 @@ def PyTorchLSTM(
 
     return with_padded(
         PyTorchRNNWrapper(
-            torch.nn.LSTM(nI, nO // 2, depth, bi=True, dropout=dropout)
+            torch.nn.LSTM(nI, nO // 2, depth, bidirectional=bi, dropout=dropout)
         )
     )
 

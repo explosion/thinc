@@ -16,9 +16,10 @@ from .backends import Ops, CupyOps, NumpyOps
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
-from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, BiLSTM, LSTM
-from .layers import CauchySimilarity, ParametricAttention, PyTorchWrapper
-from .layers import SparseLinear, StaticVectors, PyTorchBiLSTM, FeatureExtractor
+from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
+from .layers import CauchySimilarity, ParametricAttention
+from .layers import SparseLinear, StaticVectors, FeatureExtractor
+from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
