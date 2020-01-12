@@ -5,7 +5,7 @@ from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array, ArgsKwargs
+from ..types import Array, ArgsKwargs, Padded
 
 
 InT = Array
@@ -40,6 +40,10 @@ def PyTorchWrapper(
     will be passed straight into the model in the forward pass, and straight
     into `torch.autograd.backward` during the backward pass.
     """
+    if convert_inputs is None:
+        convert_inputs = convert_pytorch_default_inputs
+    if convert_outputs is None:
+        convert_inputs = convert_pytorch_default_outputs
     return Model(
         "pytorch",
         forward,
@@ -52,8 +56,8 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Return the output of the wrapped PyTorch model for the given input,
     along with a callback to handle the backward pass.
     """
-    convert_inputs = model.get_attr("convert_inputs") or _convert_inputs
-    convert_outputs = model.get_attr("convert_outputs") or _convert_outputs
+    convert_inputs = model.get_attr("convert_inputs")
+    convert_outputs = model.get_attr("convert_outputs")
 
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)
@@ -71,7 +75,7 @@ def forward(model: Model, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
 # Default conversion functions
 
 
-def _convert_inputs(
+def convert_pytorch_default_inputs(
     model: Model, X: Any, is_train: bool
 ) -> Tuple[ArgsKwargs, Callable[[ArgsKwargs], Any]]:
     xp2torch_ = lambda x: xp2torch(x, requires_grad=is_train)
@@ -105,7 +109,7 @@ def _convert_inputs(
         return ArgsKwargs(args=(converted,), kwargs={}), reverse_conversion
 
 
-def _convert_outputs(model: Model, Ytorch: Any, is_train: bool):
+def convert_pytorch_default_outputs(model: Model, Ytorch: Any, is_train: bool):
     Y = convert_recursive(is_torch_array, torch2xp, Ytorch)
 
     def reverse_conversion(dY: Any) -> ArgsKwargs:
@@ -113,3 +117,28 @@ def _convert_outputs(model: Model, Ytorch: Any, is_train: bool):
         return ArgsKwargs(args=((Ytorch,),), kwargs={"grad_tensors": dYtorch})
 
     return Y, reverse_conversion
+
+
+# BiLSTM conversion functions
+
+
+def convert_pytorch_bilstm_inputs(model: Model, Xp: Padded, is_train: bool):
+    size_at_t = Xp.size_at_t
+    lengths = Xp.lengths
+    indices = Xp.indices
+
+    def convert_from_torch_backward(dX_dH: Tuple) -> Padded:
+        return Padded(torch2xp(dX_dH[0]), size_at_t, lengths, indices)
+
+    output = ArgsKwargs(args=(xp2torch(Xp.data, requires_grad=True), None), kwargs={})
+    return output, convert_from_torch_backward
+
+
+def convert_pytorch_bilstm_outputs(model: Model, inputs_outputs: Tuple, is_train):
+    Xp, (Ytorch, _) = inputs_outputs
+
+    def convert_for_torch_backward(dY: Padded) -> ArgsKwargs:
+        return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": xp2torch(dY)})
+
+    output = Padded(torch2xp(Ytorch), Xp.size_at_t, Xp.lengths, Xp.indices)
+    return output, convert_for_torch_backward
