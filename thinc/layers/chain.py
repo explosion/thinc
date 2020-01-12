@@ -78,6 +78,9 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return
     # Try to set nO on each layer, where available.
+    # Shape inference is tricky, especially for the output. The policy is:
+    # if a layer doesn't expose a nO dim, then its output is assumed to be
+    # the same as its input.
     nO = None
     if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
         nO = get_width(Y)
@@ -90,15 +93,23 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             nO = layer.get_dim("nI")
         else:
             break
-    for layer in model.layers[:-1]:
-        layer.initialize(X=X)
+    seen_nO = False
+    for i, layer in enumerate(model.layers):
+        if layer.has_dim("nO") is None:
+            # If we're the last layer with an nO, use Y.
+            if all(lyr.has_dim("nO") is False for lyr in model.layers[i+1:]):
+                layer.initialize(X=X, Y=Y)
+            else:
+                layer.initialize(X=X)
+        else:
+            layer.initialize(X=X)
         if X is not None:
             X = layer.predict(X)
-    model.layers[-1].initialize(X=X, Y=Y)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
-    if model.layers[-1].has_dim("nO"):
-        model.set_dim("nO", model.layers[-1].get_dim("nO"))
+    layers_with_nO = [lyr for lyr in model.layers if lyr.has_dim("nO")]
+    if layers_with_nO:
+        model.set_dim("nO", layers_with_nO[-1].get_dim("nO"))
 
 
 # Unfortunately mypy doesn't support type-level checking on the cardinality
