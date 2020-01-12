@@ -29,7 +29,7 @@ def forward(
     Y_i, backprop_item = model.layers[0](items[idx], is_train)
 
     def backprop(d_output: OutT) -> InT:
-        dY_i = backprop(d_output[idx])
+        dY_i = backprop_item(d_output[idx])
         return d_output[:idx] + (dY_i,) + items[idx + 1 :]
 
     return items[:idx] + (Y_i,) + items[idx + 1 :], backprop
