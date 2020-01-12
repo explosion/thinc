@@ -14,12 +14,15 @@ except ImportError:
     pass
 
 try:
-    from cupy.cuda.memory import MemoryPointer as MemoryPointerT
+    from cupy.cuda.memory import MemoryPointer
+    from cupy.cuda.memory import UnownedMemory
 except ImportError:
-    MemoryPointerT = Any
+    class MemoryPointer:
+        pass
 
 
-def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointerT:
+
+def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointer:
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via TensorFlow. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
@@ -28,16 +31,22 @@ def cupy_tensorflow_allocator(size_in_bytes: int) -> MemoryPointerT:
     tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
     # We convert to cupy via dlpack, so that we can get a memory pointer.
     cupy_array = cast(CupyArray, tensorflow2xp(tensor))
-    # Now return the array's memory pointer.
-    return cupy_array.ptr
+    # cupy has a neat class to help us here. Otherwise it will try to free.
+    memory = UnownedMemory(cupy_array.data.ptr, size_in_bytes, cupy_array)
+    # Now return a new memory pointer.
+    return MemoryPointer(memory, 0)
 
 
-def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointerT:
+def cupy_pytorch_allocator(size_in_bytes: int) -> MemoryPointer:
     """Function that can be passed into cupy.cuda.set_allocator, to have cupy
     allocate memory via PyTorch. This is important when using the two libraries
     together, as otherwise OOM errors can occur when there's available memory
     sitting in the other library's pool.
     """
+    size_in_bytes = max(1024, size_in_bytes)
     torch_tensor = torch.zeros((size_in_bytes // 4,))
-    cupy_tensor = cast(CupyArray, torch2xp(torch_tensor))
-    return cupy_tensor.data
+    # cupy has a neat class to help us here. Otherwise it will try to free.
+    address = torch_tensor.data_ptr()
+    memory = UnownedMemory(address, size_in_bytes, torch_tensor, device_id=0)
+    # Now return a new memory pointer.
+    return MemoryPointer(memory, 0)
