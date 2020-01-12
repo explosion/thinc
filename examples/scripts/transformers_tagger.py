@@ -6,9 +6,9 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc.api
 from thinc.model import Model
-from thinc.api import PyTorchWrapper, Softmax, chain, with_array, padded2list
+from thinc.api import PyTorchWrapper, Softmax, chain, with_array
 from thinc.api import torch2xp, xp2torch, sequence_categorical_crossentropy
-from thinc.types import Padded, Array1d, Array2d, Array, ArgsKwargs, Ragged
+from thinc.types import Array2d, ArgsKwargs
 from thinc.util import evaluate_model_on_arrays
 import ml_datasets
 
@@ -48,26 +48,23 @@ class TokensPlus:
     token_type_ids: torch.Tensor
     attention_mask: torch.Tensor
     input_len: List[int]
-    overflowing_tokens: Optional[torch.Tensor]=None
-    num_truncated_tokens: Optional[torch.Tensor]=None
-    special_tokens_mask: Optional[torch.Tensor]=None
+    overflowing_tokens: Optional[torch.Tensor] = None
+    num_truncated_tokens: Optional[torch.Tensor] = None
+    special_tokens_mask: Optional[torch.Tensor] = None
 
 
-#@thinc.api.registry.layers("transformer_tagger_example.v0")
-#def transformer_tagger_example(
+# @thinc.api.registry.layers("transformer_tagger_example.v0")
+# def transformer_tagger_example(
 #    tokenizer: Model[List[str], TokensPlus],
 #    transformer: Model[TokensPlus, List[Array2d]],
 #    output_layer: Model[List[Array2d], List[Array2d]],
-#) -> Model[List[str], List[Array2d]]:
+# ) -> Model[List[str], List[Array2d]]:
 #    return chain(tokenizer, transformer, output_layer)
 @thinc.api.registry.layers("transformer_tagger_example.v0")
 def transformer_tagger_example(
-    tokenizer: Model,
-    transformer: Model,
-    output_layer: Model,
+    tokenizer: Model, transformer: Model, output_layer: Model
 ) -> Model:
     return chain(tokenizer, transformer, output_layer)
-
 
 
 @thinc.api.registry.layers("transformers_tokenizer.v0")
@@ -79,7 +76,9 @@ def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]
     )
 
 
-def _tokenizer_forward(model, texts: List[List[str]], is_train) -> Tuple[TokensPlus, Callable]:
+def _tokenizer_forward(
+    model, texts: List[List[str]], is_train
+) -> Tuple[TokensPlus, Callable]:
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
         [(text, None) for text in texts],
@@ -87,8 +86,8 @@ def _tokenizer_forward(model, texts: List[List[str]], is_train) -> Tuple[TokensP
         return_token_type_ids=True,
         return_attention_masks=True,
         return_input_lengths=True,
-        return_tensors="pt"
-    ) 
+        return_tensors="pt",
+    )
     return TokensPlus(**token_data), lambda d_tokens: d_tokens
 
 
@@ -97,7 +96,7 @@ def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
         convert_inputs=convert_transformer_inputs,
-        convert_outputs=convert_transformer_outputs
+        convert_outputs=convert_transformer_outputs,
     )
 
 
@@ -107,10 +106,7 @@ def output_layer_example() -> Model:
 
 
 def convert_transformer_inputs(model, tokens: TokensPlus, is_train):
-    kwargs={
-        "input_ids": tokens.input_ids,
-        "attention_mask": tokens.attention_mask
-    }
+    kwargs = {"input_ids": tokens.input_ids, "attention_mask": tokens.attention_mask}
     return ArgsKwargs(args=(), kwargs=kwargs), lambda dX: []
 
 
@@ -130,7 +126,7 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
         d_tokvecs = [model.ops.xp.vstack((row, arr, row)) for arr in d_tokvecs]
         return ArgsKwargs(
             args=(torch_tokvecs,),
-            kwargs={"grad_tensors": xp2torch(model.ops.pad(d_tokvecs))}
+            kwargs={"grad_tensors": xp2torch(model.ops.pad(d_tokvecs))},
         )
 
     return tokvecs, backprop
@@ -164,7 +160,7 @@ def main(path: Optional[Path] = None):
     # Pass in a small batch of data, to fill in missing shapes.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     train_data: List[Tuple[Array2d, Array2d]]
-    dev_data:   List[Tuple[Array2d, Array2d]]
+    dev_data: List[Tuple[Array2d, Array2d]]
     train_data = list(zip(train_X, train_Y))
     train_data = list(zip(dev_X, dev_Y))
 
