@@ -5,7 +5,7 @@ import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, registry, RAdam
+from thinc.api import Config, RAdam
 import numpy
 import inspect
 
@@ -492,7 +492,7 @@ def test_objects_from_config():
     def decaying(base_rate: float, repeat: int) -> List[float]:
         return repeat * [base_rate]
 
-    loaded = registry.make_from_config(config)
+    loaded = my_registry.make_from_config(config)
     optimizer = loaded["optimizer"]
     assert optimizer.b1 == 0.2
     assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]
@@ -502,7 +502,7 @@ def test_partials_from_config():
     """Test that functions registered with partial applications are handled
     correctly (e.g. losses)."""
     cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
-    func = registry.make_from_config(cfg)["test"]
+    func = my_registry.make_from_config(cfg)["test"]
     assert hasattr(func, "__call__")
     # The partial will still have margin as an arg, just with default
     assert len(inspect.signature(func).parameters) == 4
