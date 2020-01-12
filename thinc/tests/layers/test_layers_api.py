@@ -69,8 +69,18 @@ TEST_CASES = [
     # List to list
     ("LSTM.v0", {"bi": False}, [array2d, array2d], [array2d, array2d]),
     ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": True, "nO": width*2, "nI": width}, [array2d, array2d], [array2d, array2d]),
+    (
+        "PyTorchLSTM.v0",
+        {"bi": False, "nO": width, "nI": width},
+        [array2d, array2d],
+        [array2d, array2d],
+    ),
+    (
+        "PyTorchLSTM.v0",
+        {"bi": True, "nO": width * 2, "nI": width},
+        [array2d, array2d],
+        [array2d, array2d],
+    ),
     # ("PyTorchBiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     # Other
     # fmt: off
