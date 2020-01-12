@@ -148,7 +148,7 @@ def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
 
     def convert_from_torch_backward(d_inputs: ArgsKwargs) -> Padded:
         dX = torch2xp(d_inputs.args[0])
-        return Padded(dX, size_at_t, lengths, indices) # type: ignore
+        return Padded(dX, size_at_t, lengths, indices)  # type: ignore
 
     output = ArgsKwargs(args=(xp2torch(Xp.data, requires_grad=True), None), kwargs={})
     return output, convert_from_torch_backward
