@@ -6,7 +6,7 @@ import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, RAdam
+from thinc.api import Config, RAdam, Model
 from thinc.util import partial
 import numpy
 import inspect
@@ -559,3 +559,20 @@ def test_validate_generator():
     cfg = {"test": {"@schedules": "test_schedule.v2"}}
     result = my_registry.make_from_config(cfg)["test"]
     assert isinstance(result, GeneratorType)
+
+
+def test_handle_generic_model_type():
+    """Test that validation can handle checks against arbitrary generic
+    types in function argument annotations."""
+    # TODO: Unhack and extend once this is implemented in pydantic
+    #  https://github.com/samuelcolvin/pydantic/issues/1158
+
+    @my_registry.layers("my_transform.v0")
+    def my_transform(model: Model[int, int]):
+        model.name = "transformed_model"
+        return model
+
+    cfg = {"@layers": "my_transform.v0", "model": {"@layers": "Linear.v0"}}
+    model = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(model, Model)
+    assert model.name == "transformed_model"

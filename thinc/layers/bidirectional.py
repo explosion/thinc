@@ -17,7 +17,7 @@ def bidirectional(
     """Stitch two RNN models into a bidirectional layer. Expects squared sequences."""
     if r2l is None:
         r2l = l2r.copy()
-    return Model(f"bi{l2r.name}", forward, layers=[l2r, r2l])
+    return Model(f"bi{l2r.name}", forward, layers=[l2r, r2l], init=init)
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
@@ -36,13 +36,21 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     return Z, backprop
 
 
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
+    (Y1, Y2) = _split(model.ops, Y) if Y is not None else (None, None)
+    model.layers[0].initialize(X=X, Y=Y1)
+    model.layers[1].initialize(X=X, Y=Y2)
+
+
 def _reverse(ops: Ops, Xp: Padded) -> Padded:
     return Padded(Xp.data[::1], Xp.size_at_t, Xp.lengths, Xp.indices)
 
 
 def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
     return Padded(
-        ops.xp.hstack((l2r.data, r2l.data), axis=-1),
+        ops.xp.concatenate((l2r.data, r2l.data), axis=-1),
         l2r.size_at_t,
         l2r.lengths,
         l2r.indices,

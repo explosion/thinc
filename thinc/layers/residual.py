@@ -8,8 +8,8 @@ from ..types import Array, Ragged, Padded
 InT = Union[List[Array], Ragged, Padded, Array]
 
 
-@registry.layers("Residual.v0")
-def Residual(layer: Model[InT, InT]) -> Model[InT, InT]:
+@registry.layers("residual.v0")
+def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
         "residual",
         forward,

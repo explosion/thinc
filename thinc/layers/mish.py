@@ -20,7 +20,7 @@ def Mish(
     *,
     init_W: Callable = xavier_uniform_init,
     init_b: Callable = zero_init,
-    dropout: Optional[float],
+    dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
     """Dense layer with mish activation.
@@ -33,7 +33,7 @@ def Mish(
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    if normalize is not None:
+    if normalize:
         model = chain(model, cast(Model[InT, OutT], LayerNorm()))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
