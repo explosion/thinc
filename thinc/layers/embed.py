@@ -37,6 +37,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     nV = model.get_dim("nV")
     vectors = model.get_param("E")
     column = model.get_attr("column")
+    input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
     ids[ids >= nV] = 0
@@ -45,8 +46,8 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.alloc_f2d(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
-        model.inc_grad("vectors", d_vectors)
-        dX = model.ops.alloc_i2d(*ids.shape, dtype=ids.dtype)
+        model.inc_grad("E", d_vectors)
+        dX = model.ops.alloc(input_shape, dtype=ids.dtype)
         return dX
 
     return output, backprop

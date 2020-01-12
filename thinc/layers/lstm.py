@@ -126,8 +126,8 @@ def _gates_forward(ops: Ops, acts: Array3d, prev_cells: Array2d):
     size = new_cells.shape[0]
 
     def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array2d, Array2d]:
-        d_cells = d_cells[:size]
-        d_hiddens = d_hiddens[:size]
+        d_cells = ops.xp.ascontiguousarray(d_cells[:size])
+        d_hiddens = ops.xp.ascontiguousarray(d_hiddens[:size])
         d_acts = ops.alloc_f3d(*acts.shape)
         d_prevcells: Array2d = ops.alloc(prev_cells.shape)
         ops.backprop_lstm(

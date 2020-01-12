@@ -33,7 +33,7 @@ def Mish(
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    if normalize is not None:
+    if normalize:
         model = chain(model, cast(Model[InT, OutT], LayerNorm()))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
