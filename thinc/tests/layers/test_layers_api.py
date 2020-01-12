@@ -1,4 +1,4 @@
-from thinc.api import registry
+from thinc.api import registry, with_padded
 from thinc.types import Ragged
 import numpy
 import pytest
@@ -98,6 +98,8 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     cfg = {"@layers": name, **kwargs}
     filled = registry.fill_config({"config": cfg})
     model = registry.make_from_config(filled)["config"]
+    if "LSTM" in name:
+        model = with_padded(model)
     model.initialize(in_data, out_data)
     Y, backprop = model(in_data, is_train=True)
     assert_data_match(Y, out_data)
