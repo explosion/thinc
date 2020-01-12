@@ -1,11 +1,12 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional, List
+from typing import Iterable, Union, Sequence, Optional, List, Callable
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
 from thinc.api import Config, RAdam
+from thinc.util import partial
 import numpy
 import inspect
 
@@ -514,7 +515,32 @@ def test_partials_from_config():
     # Make sure validation still works
     bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
     with pytest.raises(ConfigValidationError):
-        registry.make_from_config(bad_cfg)
+        my_registry.make_from_config(bad_cfg)
     bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
     with pytest.raises(ConfigValidationError):
-        registry.make_from_config(bad_cfg)
+        my_registry.make_from_config(bad_cfg)
+
+
+def test_partials_from_config_nested():
+    """Test that partial functions are passed correctly to other registered
+    functions that consume them (e.g. initializers -> layers)."""
+
+    def test_initializer(a: int, b: int = 1) -> int:
+        return a * b
+
+    @my_registry.initializers("test_initializer.v1")
+    def configure_test_initializer(b: int = 1) -> Callable[[int], int]:
+        return partial(test_initializer, b=b)
+
+    @my_registry.layers("test_layer.v1")
+    def test_layer(init: Callable[[int], int], c: int = 1) -> Callable[[int], int]:
+        return lambda x: x + init(c)
+
+    cfg = {
+        "@layers": "test_layer.v1",
+        "c": 5,
+        "init": {"@initializers": "test_initializer.v1", "b": 10},
+    }
+    func = my_registry.make_from_config({"test": cfg})["test"]
+    assert func(1) == 51
+    assert func(100) == 150
