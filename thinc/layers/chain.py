@@ -93,7 +93,6 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             nO = layer.get_dim("nI")
         else:
             break
-    seen_nO = False
     for i, layer in enumerate(model.layers):
         if layer.has_dim("nO") is None:
             # If we're the last layer with an nO, use Y.
