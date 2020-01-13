@@ -105,8 +105,10 @@ class Model(Generic[InT, OutT]):
         self._refs = dict(refs)
         self._layers = list(layers)
         self._shims = list(shims)
-        self.__class__.global_id += 1
-        self.id = self.__class__.global_id
+        # Take care to increment the base class here! It needs to be unique
+        # across all models.
+        Model.global_id += 1
+        self.id = Model.global_id
         self._params = {}
         self._grads = {}
         for name, value in params.items():
