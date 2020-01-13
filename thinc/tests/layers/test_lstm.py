@@ -1,6 +1,6 @@
 import numpy
 import timeit
-from thinc.api import minibatch, NumpyOps, LSTM, with_padded
+from thinc.api import minibatch, NumpyOps, LSTM, PyTorchLSTM, with_padded
 import pytest
 
 
@@ -133,3 +133,12 @@ def test_benchmark_LSTM_fwd():
         "--- %i samples in %s seconds (%f samples/s, %.7f s/sample) ---"
         % (n_samples, end - start, n_samples / (end - start), (end - start) / n_samples)
     )
+
+
+def test_lstm_init():
+    model = with_padded(LSTM(2, bi=True))
+    model.initialize()
+    with pytest.raises(NotImplementedError):
+        with_padded(LSTM(2, dropout=0.2))
+    model = with_padded(PyTorchLSTM(2, 2, depth=0))
+    assert model.name.endswith("noop")
