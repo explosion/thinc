@@ -555,8 +555,19 @@ def test_validate_generator():
         while True:
             yield 10
 
-    cfg = {"test": {"@schedules": "test_schedule.v2"}}
-    result = my_registry.make_from_config(cfg)["test"]
+    cfg = {"@schedules": "test_schedule.v2"}
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v2")
+    def test_optimizer(rate: Generator) -> Generator:
+        return rate
+
+    cfg = {
+        "@optimizers": "test_optimizer.v2",
+        "rate": {"@schedules": "test_schedule.v2"},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(result, GeneratorType)
 
 

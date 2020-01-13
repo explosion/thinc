@@ -238,8 +238,8 @@ class registry(object):
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
-                getter = cls.get_constructor(validation[key])
-                args, kwargs = cls.parse_args(validation[key])
+                getter = cls.get_constructor(final[key])
+                args, kwargs = cls.parse_args(final[key])
                 try:
                     getter_result = getter(*args, **kwargs)
                 except Exception as err:
