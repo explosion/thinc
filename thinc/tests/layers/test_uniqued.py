@@ -19,9 +19,9 @@ def lists_of_integers(draw, columns=2, lo=0, hi=ROWS):
     # should be between a min and max value.
     int_list = draw(lists(integers(min_value=lo, max_value=hi)))
     # Now we can use this int list to make an array, and it'll be the arrays
-    # that our functions receive. 
+    # that our functions receive.
     # We trim the list, so we're of length divisible by columns.
-    int_list = int_list[len(int_list) % columns:]
+    int_list = int_list[len(int_list) % columns :]
     # And make the array and reshape it.
     array = numpy.array(int_list, dtype="uint64")
     return array.reshape((-1, columns))
@@ -54,6 +54,6 @@ def test_uniqued_doesnt_change_result(model, X):
     assert_allclose(dX, dXu)
     if X.size:
         # Check that different inputs do give different results
-        Z, bp_Z = model(X+1, is_train=True)
+        Z, bp_Z = model(X + 1, is_train=True)
         with pytest.raises(AssertionError):
             assert_allclose(Y, Z)
