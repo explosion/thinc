@@ -183,7 +183,7 @@ def minibatch_by_words(pairs, max_words):
         yield batch
 
 
-def main(path: Optional[Path] = None, out_dir: Optional[Path]=None):
+def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     if prefer_gpu():
         print("Using gpu!")
         use_pytorch_for_gpu_memory()
@@ -220,7 +220,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path]=None):
         for outer_batch in minibatch(train_data, cfg["batch_size"]):
             # For the physical batch size, what we care about is the number
             # of words (considering padding too). We also want to sort by
-            # length, for efficiency. 
+            # length, for efficiency.
             outer_batch.sort(key=lambda xy: len(xy[0]), reverse=True)
             for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
                 inputs, truths = zip(*batch)
@@ -231,7 +231,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path]=None):
             model.finish_update(optimizer)
             optimizer.step_schedules()
         # You might want to evaluate more often than once per epoch; that's up
-        # to you. 
+        # to you.
         score = evaluate_sequences(model, dev_X, dev_Y, 128)
         print(epoch, score)
         if out_dir:
