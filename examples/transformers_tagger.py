@@ -26,37 +26,24 @@ import typer
 
 
 CONFIG = """
-[common]
+[model]
+@layers = "TransformersTagger.v0"
 starter = "bert-base-multilingual-cased"
-
-[training]
-batch_size = 128
-words_per_subbatch = 3000
-n_epoch = 10
 
 [optimizer]
 @optimizers = "RAdam.v1"
 learn_rate = 2e-5
 
-#[optimizer.schedules.learn_rate]
-#@schedules = "warmup_linear.v1"
-#initial_rate = 0.01
-#warmup_steps = 3000
-#total_steps = 6000
+[optimizer.schedules.learn_rate]
+@schedules = "warmup_linear.v1"
+initial_rate = 0.01
+warmup_steps = 3000
+total_steps = 6000
 
-[model]
-@layers = "transformer_tagger_example.v0"
-
-[model.tokenizer]
-@layers = "transformers_tokenizer.v0"
-name = ${common:starter}
-
-[model.transformer]
-@layers = "transformers_model.v0"
-name = ${common:starter}
-
-[model.output_layer]
-@layers = "output_layer_example.v0"
+[training]
+batch_size = 128
+words_per_subbatch = 3000
+n_epoch = 10
 """
 
 
@@ -73,17 +60,17 @@ class TokensPlus:
     special_tokens_mask: Optional[torch.Tensor] = None
 
 
-@thinc.registry.layers("transformer_tagger_example.v0")
-def transformer_tagger_example(
-    tokenizer: Model[List[str], TokensPlus],
-    transformer: Model[TokensPlus, List[Array2d]],
-    output_layer: Model[List[Array2d], List[Array2d]],
-) -> Model[List[str], List[Array2d]]:
-    return chain(tokenizer, transformer, output_layer)
+@thinc.registry.layers("TransformersTagger.v0")
+def TransformersTagger(starter: str, n_tags: int=17) -> Model[List[str], List[Array2d]]:
+    return chain(
+        TransformersTokenizer(starter),
+        Transformer(starter),
+        with_array(Softmax(n_tags))
+    )
 
 
 @thinc.registry.layers("transformers_tokenizer.v0")
-def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
+def TransformersTokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
     return Model(
         "tokenizer",
         _tokenizer_forward,
@@ -91,9 +78,7 @@ def transformers_tokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]
     )
 
 
-def _tokenizer_forward(
-    model, texts: List[List[str]], is_train: bool
-) -> Tuple[TokensPlus, Callable]:
+def _tokenizer_forward(model, texts: List[List[str]], is_train: bool): 
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
         [(text, None) for text in texts],
@@ -107,17 +92,12 @@ def _tokenizer_forward(
 
 
 @thinc.registry.layers("transformers_model.v0")
-def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
+def Transformer(name) -> Model[List[TokensPlus], List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
         convert_inputs=convert_transformer_inputs,
         convert_outputs=convert_transformer_outputs,
     )
-
-
-@thinc.registry.layers("output_layer_example.v0")
-def output_layer_example(n_tags=17) -> Model:
-    return with_array(Softmax(n_tags))
 
 
 def convert_transformer_inputs(model, tokens: TokensPlus, is_train):
