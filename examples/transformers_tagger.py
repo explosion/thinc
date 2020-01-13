@@ -61,11 +61,13 @@ class TokensPlus:
 
 
 @thinc.registry.layers("TransformersTagger.v0")
-def TransformersTagger(starter: str, n_tags: int=17) -> Model[List[str], List[Array2d]]:
+def TransformersTagger(
+    starter: str, n_tags: int = 17
+) -> Model[List[str], List[Array2d]]:
     return chain(
         TransformersTokenizer(starter),
         Transformer(starter),
-        with_array(Softmax(n_tags))
+        with_array(Softmax(n_tags)),
     )
 
 
@@ -78,7 +80,7 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]
     )
 
 
-def _tokenizer_forward(model, texts: List[List[str]], is_train: bool): 
+def _tokenizer_forward(model, texts: List[List[str]], is_train: bool):
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
         [(text, None) for text in texts],
