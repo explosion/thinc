@@ -286,16 +286,33 @@ class registry(object):
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
         validation.update(result.dict(exclude={ARGS_FIELD_ALIAS}))
+        filled, final = cls._update_from_parsed(validation, filled, final)
+        return Config(filled), Config(validation), Config(final)
+
+    @classmethod
+    def _update_from_parsed(
+        cls, validation: Dict[str, Any], filled: Dict[str, Any], final: Dict[str, Any]
+    ):
+        """Update the final result with the parsed config like converted
+        values recursively.
+        """
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
-            # Update final config with parsed value, but not if it's a generator
-            # (because we had to replace that to validate it correctly)
-            if key not in final or (
-                value != final[key] and not isinstance(final[key], GeneratorType)
-            ):
+            if key not in final:
                 final[key] = value
-        return Config(filled), Config(validation), Config(final)
+            if isinstance(value, dict):
+                filled[key], final[key] = cls._update_from_parsed(
+                    value, filled[key], final[key]
+                )
+            # Update final config with parsed value if they're not equal (in
+            # value and in type) but not if it's a generator because we had to
+            # replace that to validate it correctly
+            elif (
+                value != final[key] or not isinstance(type(value), type(final[key]))
+            ) and not isinstance(final[key], GeneratorType):
+                final[key] = value
+        return filled, final
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
