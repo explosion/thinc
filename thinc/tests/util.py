@@ -2,7 +2,7 @@ import contextlib
 from pathlib import Path
 import tempfile
 import shutil
-from thinc.layers import Linear
+from thinc.api import Linear, Ragged, Padded
 
 
 @contextlib.contextmanager
@@ -24,3 +24,62 @@ def get_model(W_b_input, cls=Linear):
 def get_shape(W_b_input):
     W, b, input_ = W_b_input
     return input_.shape[0], W.shape[0], W.shape[1]
+
+
+def get_data_checker(inputs):
+    if isinstance(inputs, Ragged):
+        return assert_raggeds_match
+    elif isinstance(inputs, Padded):
+        return assert_paddeds_match
+    elif isinstance(inputs, list):
+        return assert_lists_match
+    elif isinstance(inputs, tuple) and len(inputs) == 4:
+        return assert_padded_data_match
+    elif isinstance(inputs, tuple) and len(inputs) == 2:
+        return assert_ragged_data_match
+    else:
+        return assert_arrays_match
+
+
+def assert_arrays_match(X, Y):
+    assert X.dtype == Y.dtype
+    # Transformations are allowed to change last dimension, but not batch size.
+    assert X.shape[0] == Y.shape[0]
+    return True
+
+
+def assert_lists_match(X, Y):
+    assert isinstance(X, list)
+    assert isinstance(Y, list)
+    assert len(X) == len(Y)
+    for x, y in zip(X, Y):
+        assert_arrays_match(x, y)
+    return True
+
+
+def assert_raggeds_match(X, Y):
+    assert isinstance(X, Ragged)
+    assert isinstance(Y, Ragged)
+    assert_arrays_match(X.lengths, Y.lengths)
+    assert_arrays_match(X.data, Y.data)
+    return True
+
+
+def assert_paddeds_match(X, Y):
+    assert isinstance(X, Padded)
+    assert isinstance(Y, Padded)
+    assert_arrays_match(X.size_at_t, Y.size_at_t)
+    assert X.lengths == Y.lengths
+    assert X.indices == Y.indices
+    assert X.data.dtype == Y.data.dtype
+    assert X.data.shape[1] == Y.data.shape[1]
+    assert X.data.shape[0] == Y.data.shape[0]
+    return True
+
+
+def assert_padded_data_match(X, Y):
+    return assert_paddeds_match(Padded(*X), Padded(*Y))
+
+
+def assert_ragged_data_match(X, Y):
+    return assert_raggeds_match(Ragged(*X), Ragged(*Y))

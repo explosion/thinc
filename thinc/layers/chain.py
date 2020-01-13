@@ -20,9 +20,6 @@ def chains(*layers: Model) -> Model[InT, Any]:
     """
     if len(layers) < 2:  # we need variable arguments for the config
         raise TypeError("The 'chain' combinator needs at least 2 layers")
-    if layers[0]._func is forward:
-        layers[0].layers.extend(layers[1:])
-        return layers[0]
     model: Model[InT, Any] = Model(
         ">>".join(layer.name for layer in layers),
         forward,

@@ -562,7 +562,7 @@ class Model(Generic[InT, OutT]):
                 layer.set_param(param["name"], param["value"])
             for i, shim_bytes in enumerate(data["shims"]):
                 layer.shims[i].from_bytes(shim_bytes)
-            for name, ref_i in data["refs"]:
+            for name, ref_i in data["refs"].items():
                 if ref_i is None:
                     layer.set_ref(name, None)
                 else:
@@ -610,7 +610,7 @@ class Model(Generic[InT, OutT]):
             raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
-    def __div__(self, other: Any) -> "Model":
+    def __div__(self, other: Any) -> "Model":  # pragma: no cover
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
