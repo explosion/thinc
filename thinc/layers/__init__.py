@@ -23,9 +23,9 @@ from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper
 
 # Combinators
-from .add import add
+from .add_module import add
 from .bidirectional import bidirectional
-from .chain import chain
+from .chain_module import chain
 from .clone import clone
 from .concatenate import concatenate
 from .noop import noop

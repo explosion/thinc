@@ -2,7 +2,7 @@ import pytest
 import numpy
 from thinc.api import clone, concatenate, noop, add
 from thinc.api import Linear, Dropout, Model
-from thinc.layers.chain import chain
+from thinc.layers import chain
 
 
 @pytest.fixture(params=[1, 2, 9])
