@@ -60,7 +60,8 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
-      pip install tensorflow torch
+      pip install tensorflow
+      pip install torch
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 
