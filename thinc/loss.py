@@ -1,11 +1,8 @@
 from typing import Tuple, List, cast, Callable
 
 from .types import Array2d, Array
-from .util import get_array_module, to_categorical
-
+from .util import get_array_module, to_categorical, partial
 from .config import registry
-from .types import Array2d
-from .util import get_array_module, partial
 
 
 def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
@@ -53,6 +50,7 @@ def configure_L1_distance(
     *, margin: float = 0.2
 ) -> Callable[[Tuple[Array2d, Array2d]], Tuple[Array2d, Array2d]]:
     return partial(L1_distance, margin=margin)
+
 
 def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Array2d:
     xp = get_array_module(yh)

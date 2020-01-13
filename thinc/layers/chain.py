@@ -30,9 +30,6 @@ def chain(
     Also supports chaining more than 2 layers.
     """
     layers = (layer1, layer2) + layers
-    if layers[0]._func is forward:
-        layers[0].layers.extend(layers[1:])
-        return layers[0]
     model: Model[InT, Any] = Model(
         ">>".join(layer.name for layer in layers),
         forward,

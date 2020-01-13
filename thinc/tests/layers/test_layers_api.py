@@ -58,6 +58,7 @@ TEST_CASES_SAME_TYPED = [
     ("HashEmbed.v0", {"nO": 1, "nV": 2}, array2d, array2d),
     ("LayerNorm.v0", {}, array2d, array2d),
     ("Linear.v0", {}, array2d, array2d),
+    ("Logistic.v0", {}, array2d, array2d),
     ("Maxout.v0", {}, array2d, array2d),
     ("Maxout.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Maxout.v0", {"nO": 4, "nI": 4}, array2d, array2d),

@@ -5,6 +5,7 @@ import contextlib
 import srsly
 from pathlib import Path
 import copy
+import functools
 
 from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
@@ -369,13 +370,13 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        optimizer(self._mem.weights, self._mem.gradient, key=self.id)
-        for shim in self.shims:
-            shim.finish_update(optimizer)
-        seen = set([self.id])
+        seen: Set[int] = set()
         for node in self.walk():
             if node.id not in seen:
-                node.finish_update(optimizer)
+                # Kind of ugly to use the _mem.weights -- would make more sense
+                # to call node.finish_update. Maybe we could pass in a set
+                # of visited?
+                optimizer(node._mem.weights, node._mem.gradient, key=node.id)
                 seen.add(node.id)
                 for shim in node.shims:
                     shim.finish_update(optimizer)
@@ -512,23 +513,15 @@ class Model(Generic[InT, OutT]):
         # We also need an entry 'None', as references can be set to None.
         node_to_i[None] = None
         for i, layer in enumerate(nodes):
-            # Separate attrs that need to be serialized/deserialized with
-            # to_/from_bytes.
-            obj_attrs = {}
-            flat_attrs = {}
+            attrs = {}
             for name, value in layer._attrs.items():
-                if hasattr(value, "to_bytes"):
-                    obj_attrs[name] = value.to_bytes()
-                else:
-                    flat_attrs[name] = value
-
+                attrs[name] = serialize_attr(value, value, name, self)
             refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
                     "params": [],
-                    "obj_attrs": obj_attrs,
-                    "flat_attrs": flat_attrs,
+                    "attrs": attrs,
                     "shims": [shim.to_bytes() for shim in layer.shims],
                     "refs": refs,
                 }
@@ -559,17 +552,17 @@ class Model(Generic[InT, OutT]):
         if len(msg["weights"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure.")
         for layer, data in zip(nodes, msg["weights"]):
-            for attr, value in data["flat_attrs"].items():
-                layer.set_attr(attr, value)
-            for attr, value in data["obj_attrs"].items():
-                layer.get_attr(attr).from_bytes(value)
+            for attr, value in data["attrs"].items():
+                default_value = layer.get_attr(attr)
+                loaded_value = deserialize_attr(default_value, value, attr, self)
+                layer.set_attr(attr, loaded_value)
             for dim, value in data["dims"].items():
                 layer.set_dim(dim, value)
             for param in data["params"]:
                 layer.set_param(param["name"], param["value"])
             for i, shim_bytes in enumerate(data["shims"]):
                 layer.shims[i].from_bytes(shim_bytes)
-            for name, ref_i in data["refs"]:
+            for name, ref_i in data["refs"].items():
                 if ref_i is None:
                     layer.set_ref(name, None)
                 else:
@@ -617,7 +610,7 @@ class Model(Generic[InT, OutT]):
             raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
-    def __div__(self, other: Any) -> "Model":
+    def __div__(self, other: Any) -> "Model":  # pragma: no cover
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
@@ -678,4 +671,22 @@ class Model(Generic[InT, OutT]):
         return self._thread_local.operators["|"](self, other)
 
 
-__all__ = ["create_init", "Model"]
+@functools.singledispatch
+def serialize_attr(_: Any, value: Any, name: str, model: Model) -> bytes:
+    """Serialize an attribute value (defaults to msgpack). You can register
+    custom serializers using the @serialize_attr.register decorator with the
+    type to serialize, e.g.: @serialize_attr.register(MyCustomObject).
+    """
+    return srsly.msgpack_dumps(value)
+
+
+@functools.singledispatch
+def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
+    """Deserialize an attribute value (defaults to msgpack). You can register
+    custom deserializers using the @deserialize_attr.register decorator with the
+    type to deserialize, e.g.: @deserialize_attr.register(MyCustomObject).
+    """
+    return srsly.msgpack_loads(value)
+
+
+__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]

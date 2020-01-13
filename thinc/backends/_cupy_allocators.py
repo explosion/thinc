@@ -1,7 +1,6 @@
-from typing import Any, cast
+from typing import cast
 from ..types import CupyArray
 from ..util import tensorflow2xp
-from ..util import torch2xp
 
 try:
     import tensorflow
@@ -18,7 +17,6 @@ try:
     from cupy.cuda.memory import UnownedMemory
 except ImportError:
     pass
-
 
 
 def cupy_tensorflow_allocator(size_in_bytes: int):
@@ -49,7 +47,7 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     torch_tensor = torch.zeros((size_in_bytes // 4,))
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
-    address = torch_tensor.data_ptr() # type: ignore
+    address = torch_tensor.data_ptr()  # type: ignore
     memory = UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
     return MemoryPointer(memory, 0)
