@@ -9,8 +9,8 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("logistic.v0")
-def logistic() -> Model[InT, OutT]:
+@registry.layers("Logistic.v0")
+def Logistic() -> Model[InT, OutT]:
     return Model("logistic", forward)
 
 
