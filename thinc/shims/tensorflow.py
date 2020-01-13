@@ -22,7 +22,7 @@ except ImportError:
 
 try:
     import h5py
-except ImportError:
+except ImportError:  # pragma: no cover
     pass
 
 
@@ -127,7 +127,7 @@ class TensorFlowShim(Shim):
                 if cupy is None:
                     assert isinstance(v, numpy.ndarray)
                 else:
-                    if isinstance(v, cupy.core.core.ndarray):
+                    if isinstance(v, cupy.core.core.ndarray):  # pragma: no cover
                         v = cupy.asnumpy(v)
                     assert isinstance(v, numpy.ndarray)
                 state_dict[k.replace(key_prefix, "")] = v
@@ -166,12 +166,12 @@ class TensorFlowShim(Shim):
         self._model = tf.keras.models.model_from_json(model_json_config)
         self._load_weights_from_state_dict(state_dict)
 
-    def to_gpu(self, device_num):
+    def to_gpu(self, device_num):  # pragma: no cover
         with tf.device("/GPU:{}".format(device_num)):
             self._clone_model()
 
     def to_cpu(self):
-        with tf.device("/CPU"):
+        with tf.device("/CPU"):  # pragma: no cover
             self._clone_model()
 
     def to_disk(self, path):

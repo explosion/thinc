@@ -1,23 +1,19 @@
+from typing import Any
 import contextlib
 from io import BytesIO
 import srsly
 
 try:
-    import cupy
-except ImportError:
-    cupy = None
-
-try:
     import torch.autograd
     import torch.optim
     import torch
-except ImportError:
-    has_torch = False
+except ImportError:  # pragma: no cover
+    pass
 
-from typing import Any
 from ..util import torch2xp, xp2torch, convert_recursive
-from .shim import Shim
+from ..backends import get_current_ops
 from ..types import ArgsKwargs
+from .shim import Shim
 
 
 class PyTorchShim(Shim):
@@ -109,10 +105,10 @@ class PyTorchShim(Shim):
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
 
-    def to_gpu(self, device_num):
+    def to_gpu(self, device_num):  # pragma: no cover
         self._model.cuda(device_num)
 
-    def to_cpu(self):
+    def to_cpu(self):  # pragma: no cover
         self._model.cpu()
 
     def to_bytes(self):
@@ -124,13 +120,14 @@ class PyTorchShim(Shim):
         return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data):
+        ops = get_current_ops()
         msg = srsly.msgpack_loads(bytes_data)
         self.cfg = msg["config"]
         filelike = BytesIO(msg["state"])
         filelike.seek(0)
-        if self.ops.device == "cpu":
+        if ops.device == "cpu":
             map_location = "cpu"
-        else:
+        else:  # pragma: no cover
             device_id = torch.cuda.current_device()
             map_location = "cuda:%d" % device_id
         self._model.load_state_dict(torch.load(filelike, map_location=map_location))

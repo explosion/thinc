@@ -1,7 +1,9 @@
-from thinc.api import Linear, SGD, PyTorchWrapper, xp2torch, torch2xp
+from thinc.api import Linear, SGD, PyTorchWrapper, xp2torch, torch2xp, ArgsKwargs
 from thinc.util import has_torch
 import numpy
 import pytest
+
+from ..util import make_tempdir
 
 
 def check_learns_zero_output(model, sgd, X, Y):
@@ -49,6 +51,7 @@ def test_wrapper(nN, nI, nO):
     model.finish_update(sgd)
     assert dX.shape == (nN, nI)
     check_learns_zero_output(model, sgd, X, Y)
+    assert isinstance(model.predict(X), numpy.ndarray)
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
@@ -60,3 +63,60 @@ def test_roundtrip_conversion():
     assert isinstance(torch_tensor, torch.Tensor)
     new_xp_tensor = torch2xp(torch_tensor)
     assert numpy.array_equal(xp_tensor, new_xp_tensor)
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+def test_wrapper_roundtrip():
+    import torch.nn
+
+    model = PyTorchWrapper(torch.nn.Linear(2, 3))
+    model_bytes = model.to_bytes()
+    PyTorchWrapper(torch.nn.Linear(2, 3)).from_bytes(model_bytes)
+    with make_tempdir() as path:
+        model_path = path / "model"
+        model.to_disk(model_path)
+        new_model = PyTorchWrapper(torch.nn.Linear(2, 3)).from_bytes(model_bytes)
+        new_model.from_disk(model_path)
+
+
+array = numpy.zeros((2, 3), dtype="f")
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize(
+    "data,n_args,kwargs_keys",
+    [
+        (array, 1, []),
+        ([array, array], 2, []),
+        ((array, array), 2, []),
+        ({"a": array, "b": array}, 0, ["a", "b"]),
+        (ArgsKwargs((array, array), {"c": array}), 2, ["c"]),
+    ],
+)
+def test_convert_inputs(data, n_args, kwargs_keys):
+    import torch.nn
+
+    model = PyTorchWrapper(torch.nn.Linear(3, 4))
+    convert_inputs = model.get_attr("convert_inputs")
+    Y, backprop = convert_inputs(model, data, is_train=True)
+    assert isinstance(Y, ArgsKwargs)
+    assert len(Y.args) == n_args
+    assert list(Y.kwargs.keys()) == kwargs_keys
+    assert all(isinstance(arg, torch.Tensor) for arg in Y.args)
+    assert all(isinstance(arg, torch.Tensor) for arg in Y.kwargs.values())
+    dX = backprop(Y)
+    input_type = type(data) if not isinstance(data, list) else tuple
+    assert isinstance(dX, input_type)
+    if isinstance(data, dict):
+        assert list(dX.keys()) == kwargs_keys
+        assert all(isinstance(arr, numpy.ndarray) for arr in dX.values())
+    elif isinstance(data, (list, tuple)):
+        assert isinstance(dX, tuple)
+        assert all(isinstance(arr, numpy.ndarray) for arr in dX)
+    elif isinstance(data, ArgsKwargs):
+        assert len(dX.args) == n_args
+        assert list(dX.kwargs.keys()) == kwargs_keys
+        assert all(isinstance(arg, numpy.ndarray) for arg in dX.args)
+        assert all(isinstance(arg, numpy.ndarray) for arg in dX.kwargs.values())
+    elif not isinstance(data, numpy.ndarray):
+        pytest.fail(f"Bad data type: {dX}")
