@@ -48,6 +48,7 @@ def test_wrapper(nN, nI, nO):
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
     Y = numpy.zeros((nN, nO), dtype="f")
     Yh, get_dX = model.begin_update(X)
+    assert isinstance(Yh, numpy.ndarray)
     assert Yh.shape == (nN, nO)
     dYh = (Yh - Y) / Yh.shape[0]
     dX = get_dX(dYh)

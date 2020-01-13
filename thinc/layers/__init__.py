@@ -41,7 +41,9 @@ from .sumpool import SumPool
 # Data-type transfers
 from .list2array import list2array
 from .list2ragged import list2ragged
+from .list2padded import list2padded
 from .ragged2list import ragged2list
+from .padded2list import padded2list
 from .strings2arrays import strings2arrays
 from .with_array import with_array
 from .with_padded import with_padded
@@ -87,7 +89,9 @@ __all__ = [
     "SumPool",
     "list2array",
     "list2ragged",
+    "list2padded",
     "ragged2list",
+    "padded2list",
     "with_reshape",
     "with_getitem",
     "with_array",

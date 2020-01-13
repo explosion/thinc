@@ -100,6 +100,36 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
+    def pad(self, seqs: List[Array]) -> Array:
+        if not seqs:
+            raise ValueError("Cannot pad empty sequence")
+        if len(set(seq.ndim for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different ndims")
+        if len(set(seq.dtype for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different dtypes")
+        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences that differ on other dimensions")
+        shape = [len(seqs)]
+        # Find the maximum dimension along each axis. That's what we'll pad to.
+        dim_sizes = zip(*[seq.shape for seq in seqs])
+        shape.extend(max(sizes) for sizes in dim_sizes)
+        # Now copy the data into our new buffer.
+        output: Array = self.alloc(tuple(shape), dtype=seqs[0].dtype)
+        for i, arr in enumerate(seqs):
+            # TODO: It would be nice to generalize this to work along different
+            # dimensions. We'd have to handle that in the unpad, though, which
+            # could be tricky?
+            # I don't know how to do the numpy indexing for multi-dimensions
+            # anyway. Need to construct the slice object maybe?
+            output[i, : arr.shape[0]] = arr
+        return output
+
+    def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
+        output = []
+        for i, length in enumerate(lengths):
+            output.append(padded[i, :length])
+        return output
+
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
