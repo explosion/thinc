@@ -1,8 +1,8 @@
 import pytest
 import numpy
-from thinc.api import chain, clone, concatenate, noop, add
+from thinc.api import clone, concatenate, noop, add
 from thinc.api import Linear, Dropout, Model
-from thinc.layers.chain import chains
+from thinc.layers.chain import chain
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -98,7 +98,7 @@ def test_chain():
     with pytest.raises(TypeError):
         chain(Linear())
     with pytest.raises(TypeError):
-        chains()
+        chain()
 
 
 def test_concatenate_one(model1):
