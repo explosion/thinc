@@ -1,5 +1,6 @@
 import pytest
 import numpy
+from functools import partial
 from numpy.testing import assert_allclose
 from thinc.api import chain, Linear, ReLu
 

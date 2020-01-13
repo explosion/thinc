@@ -67,15 +67,21 @@ def test_chain_three(model1, model2, model3):
 
 
 def test_chain_operator_three(model1, model2, model3):
+    # Previously we 'flattened' these nested calls. We might opt to do so
+    # again, especially for the operators. 
     with Model.define_operators({">>": chain}):
         model = model1 >> model2 >> model3
-        assert len(model.layers) == 3
+        assert len(model.layers) == 2
+        assert len(model.layers[0].layers) == 2
 
 
 def test_chain_right_branch(model1, model2, model3):
+    # Previously we 'flattened' these nested calls. We might opt to do so
+    # again, especially for the operators. 
     merge1 = chain(model1, model2)
     merge2 = chain(merge1, model3)
-    assert len(merge2.layers) == 3
+    assert len(merge1.layers) == 2
+    assert len(merge2.layers) == 2
 
 
 def test_chain():
