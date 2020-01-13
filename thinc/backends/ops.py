@@ -1,7 +1,7 @@
-from typing import Optional, List, Callable, Tuple, Sequence, Union, cast
+from typing import Optional, List, Tuple, Sequence, Union, cast
 
-from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import Array1d, Array2d, Array3d, Array4d, ArrayNd, ArrayTypes, ArrayT
+from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
+from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
 from ..util import copy_array, get_array_module
 
 
@@ -63,10 +63,14 @@ class Ops:
             return out
 
     def flatten(
-        self, X: Sequence[ArrayT], dtype: Optional[DTypes] = None, pad: int = 0
+        self,
+        X: Sequence[ArrayT],
+        dtype: Optional[DTypes] = None,
+        pad: int = 0,
+        ndim_if_empty: int = 2,
     ) -> ArrayT:
         if X is None or len(X) == 0:
-            return self.alloc((0,), dtype=dtype or "f")
+            return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
         X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
@@ -96,35 +100,40 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad_sequences(
-        self, seqs_in: Sequence[Array2d], pad_to: Optional[int] = None
-    ) -> Tuple[Array3d, Callable]:
-        lengths: ArrayNd = self.asarray([len(seq) for seq in seqs_in], dtype="i")
-        nB = len(seqs_in)
-        if pad_to is None:
-            pad_to = int(lengths.max())
-        arr: Array3d = self.alloc_f3d(
-            nB, int(pad_to), seqs_in[0].shape[1], dtype="float32"
-        )
-        for arr_i, seq in enumerate(seqs_in):
-            arr[arr_i, : seq.shape[0]] = self.asarray(seq)
+    def pad(self, seqs: List[Array]) -> Array:
+        if not seqs:
+            raise ValueError("Cannot pad empty sequence")
+        if len(set(seq.ndim for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different ndims")
+        if len(set(seq.dtype for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different dtypes")
+        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences that differ on other dimensions")
+        shape = [len(seqs)]
+        # Find the maximum dimension along each axis. That's what we'll pad to.
+        dim_sizes = zip(*[seq.shape for seq in seqs])
+        shape.extend(max(sizes) for sizes in dim_sizes)
+        # Now copy the data into our new buffer.
+        output: Array = self.alloc(tuple(shape), dtype=seqs[0].dtype)
+        for i, arr in enumerate(seqs):
+            # TODO: It would be nice to generalize this to work along different
+            # dimensions. We'd have to handle that in the unpad, though, which
+            # could be tricky?
+            # I don't know how to do the numpy indexing for multi-dimensions
+            # anyway. Need to construct the slice object maybe?
+            output[i, : arr.shape[0]] = arr
+        return output
 
-        def unpad(padded: Array3d) -> Sequence[Array2d]:
-            unpadded = [None] * len(lengths)
-            for i in range(padded.shape[0]):
-                unpadded[i] = padded[i, : lengths[i]]
-            return cast(Sequence[Array2d], unpadded)
+    def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
+        output = []
+        for i, length in enumerate(lengths):
+            output.append(padded[i, :length])
+        return output
 
-        return arr, unpad
-
-    def square_sequences(
-        self, seqs: Sequence[Array2d]
-    ) -> Tuple[Array3d, Array1d, Callable]:
-        """Sort a batch of sequence by decreasing length, pad, and transpose
-        so that the outer dimension is the timestep. Return the padded batch,
-        along with an array indicating the actual length at each step, and a callback
-        to reverse the transformation.
-        """
+    def list2padded(self, seqs: List[Array2d]) -> Padded:
+        """Pack a sequence of 2d arrays into a Padded datatype."""
+        if not seqs:
+            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
@@ -134,8 +143,7 @@ class Ops:
         arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
-        extra_dims = tuple(range(2, len(arr.shape)))
-        arr = self.xp.ascontiguousarray(arr.transpose((1, 0) + extra_dims))
+        arr = self.xp.ascontiguousarray(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t = self.alloc_i1d(nS, dtype="i")
         batch_size_at_t += 1
@@ -146,15 +154,17 @@ class Ops:
                 if i == 0:
                     break
             batch_size_at_t[t] = i
+        return Padded(arr, batch_size_at_t, lengths, indices)
 
-        def unpad(padded: Array3d) -> Sequence[Array2d]:
-            unpadded = [None] * len(lengths)
-            padded = self.xp.ascontiguousarray(padded.transpose((1, 0) + extra_dims))
-            for i in range(padded.shape[0]):
-                unpadded[indices[i]] = padded[i, : lengths[i]]
-            return cast(Sequence[Array2d], unpadded)
-
-        return arr, batch_size_at_t, unpad
+    def padded2list(self, padded: Padded) -> List[Array2d]:
+        indices = padded.indices
+        data = padded.data
+        lengths = padded.lengths
+        unpadded = [None] * len(lengths)
+        data = self.xp.ascontiguousarray(data.transpose((1, 0, 2)))
+        for i in range(data.shape[0]):
+            unpadded[indices[i]] = data[i, : lengths[i]]
+        return cast(List[Array2d], unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
         if drop is None or drop <= 0:

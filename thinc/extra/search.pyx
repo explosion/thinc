@@ -1,7 +1,4 @@
-# cython: profile=True
-# cython: experimental_cpp_class_def=True
-# cython: cdivision=True
-# cython: infer_types=True
+# cython: profile=True, experimental_cpp_class_def=True, cdivision=True, infer_types=True
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport log, exp

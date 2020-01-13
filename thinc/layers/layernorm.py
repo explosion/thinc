@@ -11,13 +11,9 @@ InT = Array2d
 
 
 @registry.layers("LayerNorm.v0")
-def LayerNorm(nO: Optional[int] = None) -> Model[InT, InT]:
+def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
     return Model(
-        "layernorm",
-        forward,
-        init=init,
-        dims={"nO": nO, "nI": nO},
-        params={"G": None, "b": None},
+        "layernorm", forward, init=init, dims={"nI": nI}, params={"G": None, "b": None}
     )
 
 
@@ -43,14 +39,12 @@ def init(
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
-        model.set_dim("nO", X_width)
     if Y is not None:
         Y_width = get_width(Y)
         model.set_dim("nI", Y_width)
-        model.set_dim("nO", Y_width)
-    nO = model.get_dim("nO")
-    model.set_param("G", model.ops.alloc_f1d(nO))
-    model.set_param("b", model.ops.alloc_f1d(nO))
+    nI = model.get_dim("nI")
+    model.set_param("G", model.ops.alloc_f1d(nI))
+    model.set_param("b", model.ops.alloc_f1d(nI))
 
 
 def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Callable]:

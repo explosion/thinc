@@ -1,6 +1,7 @@
 import numpy
 import timeit
-from thinc.api import minibatch, NumpyOps, LSTM
+from thinc.api import minibatch, NumpyOps, LSTM, PyTorchLSTM, with_padded
+from thinc.util import has_torch
 import pytest
 
 
@@ -14,10 +15,12 @@ def nO(request):
     return request.param
 
 
-def test_square_sequences():
+def test_list2padded():
     ops = NumpyOps()
     seqs = [numpy.zeros((5, 4)), numpy.zeros((8, 4)), numpy.zeros((2, 4))]
-    arr, size_at_t, unpad = ops.square_sequences(seqs)
+    padded = ops.list2padded(seqs)
+    arr = padded.data
+    size_at_t = padded.size_at_t
     assert arr.shape == (8, 3, 4)
     assert size_at_t[0] == 3
     assert size_at_t[1] == 3
@@ -27,7 +30,7 @@ def test_square_sequences():
     assert size_at_t[5] == 1
     assert size_at_t[6] == 1
     assert size_at_t[7] == 1
-    unpadded = unpad(arr)
+    unpadded = ops.padded2list(padded)
     assert unpadded[0].shape == (5, 4)
     assert unpadded[1].shape == (8, 4)
     assert unpadded[2].shape == (2, 4)
@@ -35,7 +38,7 @@ def test_square_sequences():
 
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
-    model = LSTM(nO, nI)
+    model = with_padded(LSTM(nO, nI))
     for node in model.walk():
         # Check no unallocated params.
         assert node.has_param("W") is not None
@@ -61,7 +64,7 @@ def test_LSTM_init_with_sizes(nO, nI):
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
-    model = LSTM(nO, nI)
+    model = with_padded(LSTM(nO, nI))
 
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
     ys, backprop_ys = model([X], is_train=False)
@@ -72,7 +75,7 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
 def test_LSTM_learns():
     nO = 2
     nI = 2
-    model = LSTM(nO, nI)
+    model = with_padded(LSTM(nO, nI))
 
     def sgd(weights, gradient, key=None):
         weights -= 0.001 * gradient
@@ -120,7 +123,7 @@ def test_benchmark_LSTM_fwd():
                 for seq_len in batch_lengths
             ]
         batches.append(batch)
-    model = LSTM(nO, nI)
+    model = with_padded(LSTM(nO, nI))
     start = timeit.default_timer()
     for Xs in batches:
         ys, bp_ys = model.begin_update(list(Xs))
@@ -131,3 +134,16 @@ def test_benchmark_LSTM_fwd():
         "--- %i samples in %s seconds (%f samples/s, %.7f s/sample) ---"
         % (n_samples, end - start, n_samples / (end - start), (end - start) / n_samples)
     )
+
+
+def test_lstm_init():
+    model = with_padded(LSTM(2, bi=True))
+    model.initialize()
+    with pytest.raises(NotImplementedError):
+        with_padded(LSTM(2, dropout=0.2))
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+def test_pytorch_lstm_init():
+    model = with_padded(PyTorchLSTM(2, 2, depth=0))
+    assert model.name.endswith("noop")

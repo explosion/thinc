@@ -1,5 +1,5 @@
 from thinc.api import Model, Linear, ReLu, Softmax, Dropout, Embed, Maxout, MaxPool
-from thinc.api import LayerNorm, MeanPool, Residual, chain, clone, concatenate
+from thinc.api import LayerNorm, MeanPool, residual, chain, clone, concatenate
 from thinc.api import with_list2array, add, zero_init, xavier_uniform_init
 import numpy
 
@@ -118,7 +118,7 @@ with Model.define_operators({">>": chain, "|": concatenate, "+": add, "**": clon
             >> Dropout(0.2)
         )
         >> (MaxPool() | MeanPool())
-        >> Residual(ReLu() >> Dropout(0.2)) ** 2
+        >> residual(ReLu() >> Dropout(0.2)) ** 2
         >> Softmax()
     )
 

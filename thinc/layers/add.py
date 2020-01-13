@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, List, Optional, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
@@ -10,14 +10,18 @@ InT = TypeVar("InT", bound=Array)
 
 
 @registry.layers("add.v0")
-def add(layers: List[Model]) -> Model[InT, InT]:
+def add(*layers: Model) -> Model[InT, InT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
     """
+    if len(layers) < 2:  # we need variable arguments for the config
+        raise TypeError("The 'add' combinator needs at least 2 layers")
     if layers and layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]
-    return Model("add", forward, init=init, dims={"nO": None, "nI": None})
+    return Model(
+        "add", forward, init=init, dims={"nO": None, "nI": None}, layers=layers
+    )
 
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
@@ -48,5 +52,5 @@ def init(
         for layer in model.layers:
             layer.set_dim("nI", X_width)
     for layer in model.layers:
-        layer.initialize(X=X)
-    model.set_dim("nO", sum(layer.get_dim("nO") for layer in model._layers))
+        layer.initialize(X=X, Y=Y)
+    model.set_dim("nO", model.layers[0].get_dim("nO"))

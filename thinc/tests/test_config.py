@@ -1,12 +1,15 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional, List
+from typing import Iterable, Union, Sequence, Optional, List, Callable, Dict
+from types import GeneratorType
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, registry, RAdam
+from thinc.api import Config, RAdam, Model
+from thinc.util import partial
 import numpy
+import inspect
 
 from .util import make_tempdir
 
@@ -133,7 +136,7 @@ worst_catsie = {"@cats": "catsie.v1", "evil": True, "cute": False}
 
 def test_validate_simple_config():
     simple_config = {"hello": 1, "world": 2}
-    f, v = my_registry._fill(simple_config, HelloIntsSchema)
+    f, _, v = my_registry._fill(simple_config, HelloIntsSchema)
     assert f == simple_config
     assert v == simple_config
 
@@ -141,28 +144,28 @@ def test_validate_simple_config():
 def test_invalidate_simple_config():
     invalid_config = {"hello": 1, "world": "hi!"}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, HelloIntsSchema)
+        my_registry._fill(invalid_config, HelloIntsSchema)
 
 
 def test_invalidate_extra_args():
     invalid_config = {"hello": 1, "world": 2, "extra": 3}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, HelloIntsSchema)
+        my_registry._fill(invalid_config, HelloIntsSchema)
 
 
 def test_fill_defaults_simple_config():
     valid_config = {"required": 1}
-    filled, v = my_registry._fill(valid_config, DefaultsSchema)
+    filled, _, v = my_registry._fill(valid_config, DefaultsSchema)
     assert filled["required"] == 1
     assert filled["optional"] == "default value"
     invalid_config = {"optional": "some value"}
     with pytest.raises(ConfigValidationError):
-        f, v = my_registry._fill(invalid_config, DefaultsSchema)
+        my_registry._fill(invalid_config, DefaultsSchema)
 
 
 def test_fill_recursive_config():
     valid_config = {"outer_req": 1, "level2_req": {"hello": 4, "world": 7}}
-    filled, validation = my_registry._fill(valid_config, ComplexSchema)
+    filled, _, validation = my_registry._fill(valid_config, ComplexSchema)
     assert filled["outer_req"] == 1
     assert filled["outer_opt"] == "default value"
     assert filled["level2_req"]["hello"] == 4
@@ -198,24 +201,24 @@ def test_make_promise_schema():
 
 def test_validate_promise():
     config = {"required": 1, "optional": good_catsie}
-    filled, validated = my_registry._fill(config, DefaultsSchema)
+    filled, _, validated = my_registry._fill(config, DefaultsSchema)
     assert filled == config
     assert validated == {"required": 1, "optional": "meow"}
 
 
 def test_fill_validate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
-    filled, validated = my_registry._fill(config, DefaultsSchema)
+    filled, _, validated = my_registry._fill(config, DefaultsSchema)
     assert filled["optional"]["cute"] is True
 
 
 def test_fill_invalidate_promise():
     config = {"required": 1, "optional": {"@cats": "catsie.v1", "evil": False}}
     with pytest.raises(ConfigValidationError):
-        filled, validated = my_registry._fill(config, HelloIntsSchema)
+        my_registry._fill(config, HelloIntsSchema)
     config["optional"]["whiskers"] = True
     with pytest.raises(ConfigValidationError):
-        filled, validated = my_registry._fill(config, DefaultsSchema)
+        my_registry._fill(config, DefaultsSchema)
 
 
 def test_create_registry():
@@ -269,6 +272,19 @@ def test_make_from_config_schema():
     with pytest.raises(ConfigValidationError):
         # "three" is required in subschema
         my_registry.make_from_config(config, schema=TestBaseSchema)
+
+
+def test_make_from_config_schema_coerced():
+    class TestBaseSchema(BaseModel):
+        test1: str
+        test2: bool
+        test3: float
+
+    config = {"test1": 123, "test2": 1, "test3": 5}
+    result = my_registry.make_from_config(config, schema=TestBaseSchema)
+    assert result["test1"] == "123"
+    assert result["test2"] is True
+    assert result["test3"] == 5.0
 
 
 def test_read_config():
@@ -491,7 +507,117 @@ def test_objects_from_config():
     def decaying(base_rate: float, repeat: int) -> List[float]:
         return repeat * [base_rate]
 
-    loaded = registry.make_from_config(config)
+    loaded = my_registry.make_from_config(config)
     optimizer = loaded["optimizer"]
     assert optimizer.b1 == 0.2
     assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]
+
+
+def test_partials_from_config():
+    """Test that functions registered with partial applications are handled
+    correctly (e.g. losses)."""
+    cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
+    func = my_registry.make_from_config(cfg)["test"]
+    assert hasattr(func, "__call__")
+    # The partial will still have margin as an arg, just with default
+    assert len(inspect.signature(func).parameters) == 4
+    # Make sure returned partial function has correct value set
+    assert inspect.signature(func).parameters["margin"].default == 0.5
+    # Actually call the function and verify
+    func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    # Make sure validation still works
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(bad_cfg)
+    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
+    with pytest.raises(ConfigValidationError):
+        my_registry.make_from_config(bad_cfg)
+
+
+def test_partials_from_config_nested():
+    """Test that partial functions are passed correctly to other registered
+    functions that consume them (e.g. initializers -> layers)."""
+
+    def test_initializer(a: int, b: int = 1) -> int:
+        return a * b
+
+    @my_registry.initializers("test_initializer.v1")
+    def configure_test_initializer(b: int = 1) -> Callable[[int], int]:
+        return partial(test_initializer, b=b)
+
+    @my_registry.layers("test_layer.v1")
+    def test_layer(init: Callable[[int], int], c: int = 1) -> Callable[[int], int]:
+        return lambda x: x + init(c)
+
+    cfg = {
+        "@layers": "test_layer.v1",
+        "c": 5,
+        "init": {"@initializers": "test_initializer.v1", "b": 10},
+    }
+    func = my_registry.make_from_config({"test": cfg})["test"]
+    assert func(1) == 51
+    assert func(100) == 150
+
+
+def test_validate_generator():
+    """Test that generator replacement for validation in config doesn't
+    actually replace the returned value."""
+
+    @my_registry.schedules("test_schedule.v2")
+    def test_schedule():
+        while True:
+            yield 10
+
+    cfg = {"@schedules": "test_schedule.v2"}
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v2")
+    def test_optimizer2(rate: Generator) -> Generator:
+        return rate
+
+    cfg = {
+        "@optimizers": "test_optimizer.v2",
+        "rate": {"@schedules": "test_schedule.v2"},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v3")
+    def test_optimizer3(schedules: Dict[str, Generator]) -> Generator:
+        return schedules["rate"]
+
+    cfg = {
+        "@optimizers": "test_optimizer.v3",
+        "schedules": {"rate": {"@schedules": "test_schedule.v2"}},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v4")
+    def test_optimizer4(*schedules: Generator) -> Generator:
+        return schedules[0]
+
+    cfg = {
+        "@optimizers": "test_optimizer.v4",
+        "*": {"a": {"@schedules": "test_schedule.v2"}},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+
+def test_handle_generic_model_type():
+    """Test that validation can handle checks against arbitrary generic
+    types in function argument annotations."""
+    # TODO: Unhack and extend once this is implemented in pydantic
+    #  https://github.com/samuelcolvin/pydantic/issues/1158
+
+    @my_registry.layers("my_transform.v0")
+    def my_transform(model: Model[int, int]):
+        model.name = "transformed_model"
+        return model
+
+    cfg = {"@layers": "my_transform.v0", "model": {"@layers": "Linear.v0"}}
+    model = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(model, Model)
+    assert model.name == "transformed_model"

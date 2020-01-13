@@ -234,10 +234,9 @@ class Model(Generic[InT, OutT]):
             data = self._mem[(self.id, name)]
             try:
                 copy_array(dst=data, src=value)
-            except ValueError as e:
-                raise ValueError(
-                    f"Cannot set param '{name}' for model '{self.name}': {e}."
-                )
+            except ValueError as e:  # pragma: no cover
+                err = f"Cannot set param '{name}' for model '{self.name}': {e}"
+                raise ValueError(err)
             self._params[name] = True
 
     def inc_grad(self, name: str, value: Array) -> None:
@@ -249,14 +248,12 @@ class Model(Generic[InT, OutT]):
             grad = self._mem[key]
         else:
             grad = self._mem.add_gradient(key, param_key)
-
         if grad.shape != value.shape:
             raise ValueError(
-                f"Cannot add a value to the gradient of parameter '{name}' for model '{self.name}' "
-                f"as the shapes should match, but found {grad.shape} for the original gradient, and "
-                f"{value.shape} for the value that should be added."
+                f"Shape mismatch: Cannot add a value to the gradient of param "
+                f"'{name}' for model '{self.name}'. Got: {grad.shape} for "
+                f"original gradient and {value.shape} for value to be added"
             )
-
         grad += value
         self._grads[grad_name] = True
 
@@ -292,7 +289,7 @@ class Model(Generic[InT, OutT]):
             data = self._mem[key]
             try:
                 copy_array(dst=data, src=value)
-            except ValueError as e:
+            except ValueError as e:  # pragma: no cover
                 err = f"Cannot set grad '{grad_name}' for model '{self.name}': {e}"
                 raise ValueError(err)
 
@@ -341,7 +338,7 @@ class Model(Generic[InT, OutT]):
         else:
             raise ValueError("Cannot add reference to node not in tree.")
 
-    def __call__(self, X: InT, is_train: bool = False) -> Tuple[OutT, Callable]:
+    def __call__(self, X: InT, is_train: bool) -> Tuple[OutT, Callable]:
         """Call the model's `forward` function, returning the output and a
         callback to compute the gradients via backpropagation."""
         return self._func(self, X, is_train=is_train)

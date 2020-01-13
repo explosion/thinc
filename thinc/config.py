@@ -136,9 +136,13 @@ class _PromiseSchemaConfig:
 
 
 class registry(object):
+    # fmt: off
     optimizers: Decorator = catalogue.create("thinc", "optimizers", entry_points=True)
     schedules: Decorator = catalogue.create("thinc", "schedules", entry_points=True)
     layers: Decorator = catalogue.create("thinc", "layers", entry_points=True)
+    losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
+    initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
+    # fmt: on
 
     @classmethod
     def create(cls, registry_name: str, entry_points: bool = False) -> None:
@@ -179,7 +183,7 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        _, resolved = cls._fill(config, schema, validate)
+        _, _, resolved = cls._fill(config, schema, validate)
         return resolved
 
     @classmethod
@@ -202,7 +206,7 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        filled, _ = cls._fill(config, schema, validate)
+        filled, _, _ = cls._fill(config, schema, validate)
         return filled
 
     @classmethod
@@ -212,33 +216,39 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         validate: bool = True,
         parent: str = "",
-    ) -> Tuple[Config, Config]:
-        """Build two representations of the config: one where the promises are
-        preserved, and a second where the promises are represented by their
-        return types. Use the validation representation to get default
-        values via pydantic. The defaults are filled into both representations.
+    ) -> Tuple[Config, Config, Config]:
+        """Build three representations of the config:
+        1. All promises are preserved (just like config user would provide).
+        2. Promises are replaced by their return values. This is the validation
+           copy and will be parsed by pydantic. It lets us include hacks to
+           work around problems (e.g. handling of generators).
+        3. Final copy with promises replaced by their return values. This is
+           what registry.make_from_config returns.
         """
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
+        final: Dict[str, Any] = {}
         for key, value in config.items():
             key_parent = f"{parent}.{key}".strip(".")
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], validation[key] = cls._fill(
+                filled[key], validation[key], final[key] = cls._fill(
                     value, promise_schema, validate, parent=key_parent
                 )
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
                 # for generics / more complex custom types
-                getter = cls.get_constructor(validation[key])
-                args, kwargs = cls.parse_args(validation[key])
+                getter = cls.get_constructor(final[key])
+                args, kwargs = cls.parse_args(final[key])
                 try:
-                    validation[key] = getter(*args, **kwargs)
+                    getter_result = getter(*args, **kwargs)
                 except Exception as err:
                     err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
                     )
+                validation[key] = getter_result
+                final[key] = getter_result
                 if isinstance(validation[key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
@@ -252,7 +262,7 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key] = cls._fill(
+                filled[key], validation[key], final[key] = cls._fill(
                     value, field_type, validate, parent=key_parent
                 )
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
@@ -260,9 +270,11 @@ class registry(object):
                     # created via config blocks), only use its values
                     filled[key] = list(filled[key].values())
                     validation[key] = list(validation[key].values())
+                    final[key] = list(final[key].values())
             else:
                 filled[key] = value
                 validation[key] = value
+                final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
         if validate:
@@ -274,10 +286,35 @@ class registry(object):
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
         validation.update(result.dict(exclude={ARGS_FIELD_ALIAS}))
+        filled, final = cls._update_from_parsed(validation, filled, final)
+        return Config(filled), Config(validation), Config(final)
+
+    @classmethod
+    def _update_from_parsed(
+        cls, validation: Dict[str, Any], filled: Dict[str, Any], final: Dict[str, Any]
+    ):
+        """Update the final result with the parsed config like converted
+        values recursively.
+        """
         for key, value in validation.items():
             if key not in filled:
                 filled[key] = value
-        return Config(filled), Config(validation)
+            if key not in final:
+                final[key] = value
+            if isinstance(value, dict):
+                filled[key], final[key] = cls._update_from_parsed(
+                    value, filled[key], final[key]
+                )
+            # Update final config with parsed value if they're not equal (in
+            # value and in type) but not if it's a generator because we had to
+            # replace that to validate it correctly
+            elif key == ARGS_FIELD:
+                continue  # don't substitute if list of positional args
+            elif (
+                value != final[key] or not isinstance(type(value), type(final[key]))
+            ) and not isinstance(final[key], GeneratorType):
+                final[key] = value
+        return filled, final
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
@@ -326,6 +363,10 @@ class registry(object):
         for param in inspect.signature(func).parameters.values():
             # If no annotation is specified assume it's anything
             annotation = param.annotation if param.annotation != param.empty else Any
+            # TODO: Bad hack to work around generic types in pydantic (until next release)
+            # Details: https://github.com/samuelcolvin/pydantic/issues/1158
+            if str(annotation).startswith("thinc.model.Model["):
+                annotation = Callable
             # If no default value is specified assume that it's required
             default = param.default if param.default != param.empty else ...
             # Handle spread arguments and use their annotation as Sequence[whatever]
@@ -335,9 +376,6 @@ class registry(object):
             else:
                 sig_args[param.name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
-        # NOTE: This will fail if the annotation is a generic alias with an
-        # arbitrary type origin unsupported out-of-the-box by pydantic
-        # Details: https://github.com/samuelcolvin/pydantic/issues/1158
         return create_model("ArgModel", **sig_args)
 
 

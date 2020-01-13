@@ -40,3 +40,4 @@ tmp/
 .vscode/
 .mypy_cache
 env3.*/
+coverage.xml

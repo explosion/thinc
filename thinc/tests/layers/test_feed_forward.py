@@ -79,6 +79,17 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
     assert model.get_dim("nO") == model2.get_dim("nO")
 
 
+def test_infer_output_shape():
+    model = ReLu(dropout=0.2)
+    X = model.ops.alloc_f2d(4, 5)
+    Y = model.ops.alloc_f2d(4, 2)
+    assert model.has_dim("nI") is None
+    assert model.has_dim("nO") is None
+    model.initialize(X=X, Y=Y)
+    assert model.get_dim("nI") == 5
+    assert model.get_dim("nO") == 2
+
+
 def test_predict_and_begin_update_match(model, model1, model2, input_data):
     model = chain(model1, model2)
     via_predict = model.predict(input_data)

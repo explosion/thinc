@@ -24,23 +24,13 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
     return model
 
 
-def init(
-    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
-    Xt = X.data[0] if X is not None else None
-    Yt = Y.data[0] if Y is not None else None
-    if Xt is not None or Yt is not None:
-        model.layers[0].initialize(X=Xt, Y=Yt)
-    nO = model.get_dim("nO")
-    model.set_param("initial_cells", model.ops.alloc_f1d(nO))
-    model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))
-
-
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
     size_at_t = Xp.size_at_t
+    lengths = Xp.lengths
+    indices = Xp.indices
     step_model: Model[RNNState, RNNState] = model.layers[0]
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
@@ -58,6 +48,8 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dYp: OutT) -> InT:
         dY = dYp.data
         size_at_t = dYp.size_at_t
+        lengths = dYp.lengths
+        indices = dYp.indices
         d_state = (
             step_model.ops.alloc_f2d(dY.shape[1], nO),
             step_model.ops.alloc_f2d(dY.shape[1], nO),
@@ -69,9 +61,9 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
             d_state, dX[t, :n] = backprops[t]((d_state, dY[t]))
         model.inc_grad("initial_cells", d_state[0].sum(axis=0))
         model.inc_grad("initial_hiddens", d_state[1].sum(axis=0))
-        return Padded(dX, size_at_t)
+        return Padded(dX, size_at_t, lengths, indices)
 
-    return Padded(Y, size_at_t), backprop
+    return Padded(Y, size_at_t, lengths, indices), backprop
 
 
 def _get_initial_state(model, n, nO):
@@ -80,3 +72,17 @@ def _get_initial_state(model, n, nO):
     initial_cells += model.get_param("initial_cells")
     initial_hiddens += model.get_param("initial_hiddens")
     return (initial_cells, initial_hiddens)
+
+
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> None:
+    Xt = X.data[0] if X is not None else None
+    Yt = Y.data[0] if Y is not None else None
+    if Xt is not None or Yt is not None:
+        model.layers[0].initialize(X=Xt, Y=Yt)
+    if not model.has_dim("nO"):
+        model.set_dim("nO", model.layers[0].get_dim("nO"))
+    nO = model.get_dim("nO")
+    model.set_param("initial_cells", model.ops.alloc_f1d(nO))
+    model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))

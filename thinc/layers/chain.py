@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded, Array
+from ..types import Ragged, Padded
 
 
 InT = TypeVar("InT")
@@ -29,7 +29,8 @@ def chain(
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
     """
-    layers = (layer1, layer2) + layers
+    if len(layers) < 2:  # we need variable arguments for the config
+        raise TypeError("The 'chain' combinator needs at least 2 layers")
     if layers[0]._func is forward:
         layers[0].layers.extend(layers[1:])
         return layers[0]
@@ -65,8 +66,6 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 
 def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
-    if not model.layers:
-        return
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
@@ -76,11 +75,17 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return
     # Try to set nO on each layer, where available.
+    # Shape inference is tricky, especially for the output. The policy is:
+    # if a layer doesn't expose a nO dim, then its output is assumed to be
+    # the same as its input.
     nO = None
-    if Y is not None and isinstance(Y, (Ragged, Padded, Array, list)):
+    if Y is not None and isinstance(Y, (Ragged, Padded, model.ops.xp.ndarray, list)):
         nO = get_width(Y)
     elif model.has_dim("nO"):
         nO = model.get_dim("nO")
+    # TODO: This sort of doesn't work currently -- we only get Y passed through
+    # for the last layer, but maybe we need it for the second last (e.g. if we
+    # have a transform at the end. Not sure what to do.
     for layer in reversed(model.layers):
         if nO is not None and layer.has_dim("nO") is None:
             layer.set_dim("nO", nO)
@@ -88,15 +93,22 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
             nO = layer.get_dim("nI")
         else:
             break
-    for layer in model.layers[:-1]:
-        layer.initialize(X=X)
+    for i, layer in enumerate(model.layers):
+        if layer.has_dim("nO") is None:
+            # If we're the last layer with an nO, use Y.
+            if all(lyr.has_dim("nO") is False for lyr in model.layers[i + 1 :]):
+                layer.initialize(X=X, Y=Y)
+            else:
+                layer.initialize(X=X)
+        else:
+            layer.initialize(X=X)
         if X is not None:
             X = layer.predict(X)
-    model.layers[-1].initialize(X=X, Y=Y)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
-    if model.layers[-1].has_dim("nO"):
-        model.set_dim("nO", model.layers[-1].get_dim("nO"))
+    layers_with_nO = [lyr for lyr in model.layers if lyr.has_dim("nO")]
+    if layers_with_nO:
+        model.set_dim("nO", layers_with_nO[-1].get_dim("nO"))
 
 
 # Unfortunately mypy doesn't support type-level checking on the cardinality
@@ -105,6 +117,8 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
 # you can have a type-checked condition on *optional* args, and these *will*
 # get read by mypy. Hence the trickery below.
 
+Mid1T = TypeVar("Mid1T")
+Mid2T = TypeVar("Mid2T")
 Mid3T = TypeVar("Mid3T")
 Mid4T = TypeVar("Mid4T")
 Mid5T = TypeVar("Mid5T")
@@ -126,7 +140,7 @@ def xchain(
     l8: Optional[Model[Mid7T, Mid8T]] = None,
     l9: Optional[Model[Mid8T, Mid9T]] = None,
     *etc: Model
-) -> Model[InT, Any]:
+) -> Model[InT, Any]:  # pragma: no cover
     if l3 is None:
         return chain(l1, l2)
     elif l4 is None:

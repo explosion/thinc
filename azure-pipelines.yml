@@ -61,6 +61,7 @@ jobs:
 
   - script: |
       pip install tensorflow
+      pip install torch -f -https://download.pytorch.org/whl/torch_stable.html
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 

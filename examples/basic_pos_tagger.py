@@ -1,6 +1,6 @@
 import random
 from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow, chain
-from thinc.api import with_list2array, strings2arrays, Adam, fix_random_seed
+from thinc.api import with_array, strings2arrays, Adam, fix_random_seed
 from wasabi import msg
 import ml_datasets
 import typer
@@ -17,7 +17,7 @@ def main(
     (train_X, train_y), (dev_X, dev_y) = ml_datasets.ud_ancora_pos_tags()
 
     with Model.define_operators({">>": chain}):
-        model = strings2arrays() >> with_list2array(
+        model = strings2arrays() >> with_array(
             HashEmbed(width, vector_width)
             >> ExtractWindow(window_size=1)
             >> ReLu(width, width * 3)

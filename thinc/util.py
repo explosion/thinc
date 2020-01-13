@@ -1,9 +1,10 @@
 from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
-from typing import Optional, Callable
+from typing import Optional, Callable, TypeVar
 import numpy
 import itertools
 import threading
 import random
+import functools
 
 try:  # pragma: no cover
     import cupy
@@ -28,7 +29,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, ArrayNd
+from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -79,7 +80,7 @@ def is_torch_array(obj: Any) -> bool:  # pragma: no cover
 
 
 def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
-    if tf is None:
+    if not has_tensorflow:
         return False
     elif isinstance(obj, tf.Tensor):
         return True
@@ -191,7 +192,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: ArrayNd, n_classes: Optional[int] = None) -> ArrayNd:
+def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover
@@ -319,6 +320,21 @@ def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
     return tensorflow_tensor.numpy()
+
+
+# This is how functools.partials seems to do it, too, to retain the return type
+PartialT = TypeVar("PartialT")
+
+
+def partial(
+    func: Callable[..., PartialT], *args: Any, **kwargs: Any
+) -> Callable[..., PartialT]:
+    """Wrapper around functools.partial that retains docstrings and can include
+    other workarounds if needed.
+    """
+    partial_func = functools.partial(func, *args, **kwargs)
+    partial_func.__doc__ = func.__doc__
+    return partial_func
 
 
 __all__ = [

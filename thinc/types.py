@@ -13,9 +13,9 @@ else:
 try:
     import cupy
 
-    xp = cupy
+    get_array_module = cupy.get_array_module
 except ImportError:
-    xp = numpy
+    get_array_module = lambda obj: numpy
 
 
 Xp = Union["numpy", "cupy"]  # type: ignore
@@ -398,6 +398,7 @@ class CupyArray(Array):
 
 
 def validate_array(obj):
+    xp = get_array_module(obj)
     if not isinstance(obj, xp.ndarray):
         raise TypeError("not a valid numpy or cupy array")
     return obj
@@ -414,6 +415,7 @@ def validate_array_dims(obj, expected_ndim):
 def validate_array_dtype(obj, expected_dtype):
     obj = validate_array(obj)  # validate her to make sure it's an array
     if expected_dtype is not None and obj.dtype != expected_dtype:
+        xp = get_array_module(obj)
         err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
         raise ValueError(err)
     return obj
@@ -537,11 +539,14 @@ class Padded:
     """A batch of padded sequences, sorted by decreasing length. The data array
     is of shape (step, batch, ...). The auxiliary array size_at_t indicates the
     length of the batch at each timestep, so you can do data[:, :size_at_t[t]] to
-    shrink the batch.
+    shrink the batch. The lengths array indicates the length of each row b,
+    and the indices indicates the original ordering.
     """
 
     data: Array3d
     size_at_t: Array1d
+    lengths: List[int]
+    indices: List[int]
 
 
 @dataclass

@@ -1,7 +1,7 @@
 import pytest
 import random
 from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow
-from thinc.api import chain, with_list2array, Adam, strings2arrays
+from thinc.api import chain, with_array, Adam, strings2arrays
 import ml_datasets
 
 
@@ -12,7 +12,7 @@ def ancora():
 
 def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
-        model = strings2arrays() >> with_list2array(
+        model = strings2arrays() >> with_array(
             HashEmbed(width, vector_length)
             >> ExtractWindow(window_size=1)
             >> ReLu(width, width * 3)

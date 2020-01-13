@@ -1,6 +1,7 @@
 from .config import Config, registry
 from .initializers import normal_init, uniform_init, xavier_uniform_init, zero_init
 from .loss import categorical_crossentropy, L1_distance, cosine_distance
+from .loss import sequence_categorical_crossentropy
 from .model import create_init, Model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
@@ -16,15 +17,17 @@ from .backends import Ops, CupyOps, NumpyOps
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
-from .layers import Maxout, Mish, MultiSoftmax, ReLu, Residual, Softmax, BiLSTM, LSTM
-from .layers import CauchySimilarity, ParametricAttention, PyTorchWrapper
-from .layers import SparseLinear, StaticVectors, PyTorchBiLSTM, FeatureExtractor
+from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
+from .layers import CauchySimilarity, ParametricAttention
+from .layers import SparseLinear, StaticVectors, FeatureExtractor
+from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper
 
-from .layers import add, bidirectional, chain, clone, concatenate, foreach, noop
-from .layers import recurrent, uniqued, siamese, list2ragged, ragged2list
-from .layers import with_list2array, with_list2padded, with_reshape, with_getitem
-from .layers import strings2arrays
+from .layers import add, bidirectional, chain, clone, concatenate, noop
+from .layers import recurrent, residual, uniqued, siamese, list2ragged, ragged2list
+from .layers import with_array, with_padded, with_list, with_ragged
+from .layers import with_reshape, with_getitem, strings2arrays
+from .layers import list2ragged, ragged2list, list2padded, padded2list
 
 from .layers import MaxPool, MeanPool, SumPool
 

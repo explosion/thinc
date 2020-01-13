@@ -1,31 +1,60 @@
-from typing import Tuple
+from typing import Tuple, List, cast, Callable
 
+from .types import Array2d, Array
+from .util import get_array_module, to_categorical
+
+from .config import registry
 from .types import Array2d
-from .util import get_array_module
+from .util import get_array_module, partial
 
 
-def categorical_crossentropy(scores: Array2d, labels: Array2d) -> Tuple[Array2d, float]:
-    xp = get_array_module(scores)
-    target = xp.zeros(scores.shape, dtype="float32")
-    loss = 0.0
-    for i in range(len(labels)):
-        target[i, int(labels[i])] = 1.0
-        loss += (1.0 - scores[i, int(labels[i])]) ** 2
-    return scores - target, loss
+def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
+    if labels.ndim != scores.ndim:
+        target = to_categorical(labels, n_classes=scores.shape[-1])
+    else:
+        target = cast(Array2d, labels)
+    if scores.shape != target.shape:
+        raise ValueError(
+            f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}"
+        )
+    difference = scores - target
+    return difference / scores.shape[0]
+
+
+def sequence_categorical_crossentropy(
+    scores: List[Array2d], labels: List[Array]
+) -> List[Array2d]:
+    if not scores:
+        return []
+    if len(scores) != len(labels):
+        raise ValueError("Scores and labels must be same length.")
+    d_scores = []
+    for yh, y in zip(scores, labels):
+        d_scores.append(categorical_crossentropy(yh, y))
+    return d_scores
+
+
+@registry.losses("categorical_crossentropy.v0")
+def configure_categorical_crossentropy() -> Callable[[Array2d, Array2d], Array2d]:
+    return categorical_crossentropy
 
 
 def L1_distance(
     vec1: Array2d, vec2: Array2d, labels: Array2d, margin: float = 0.2
-) -> Tuple[Array2d, Array2d, float]:
+) -> Tuple[Array2d, Array2d]:
     xp = get_array_module(vec1)
     dist = xp.abs(vec1 - vec2).sum(axis=1)
     loss = (dist > margin) - labels
-    return (vec1 - vec2) * loss, (vec2 - vec1) * loss, loss
+    return (vec1 - vec2) * loss, (vec2 - vec1) * loss
 
 
-def cosine_distance(
-    yh: Array2d, y: Array2d, ignore_zeros: bool = False
-) -> Tuple[float, Array2d]:
+@registry.losses("L1_distance.v0")
+def configure_L1_distance(
+    *, margin: float = 0.2
+) -> Callable[[Tuple[Array2d, Array2d]], Tuple[Array2d, Array2d]]:
+    return partial(L1_distance, margin=margin)
+
+def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Array2d:
     xp = get_array_module(yh)
     # Find the zero vectors
     if ignore_zeros:
@@ -44,8 +73,14 @@ def cosine_distance(
         # If the target was a zero vector, don't count it in the loss.
         d_yh[zero_indices] = 0
         losses[zero_indices] = 0
-    loss = losses.sum()
-    return loss, -d_yh
+    return -d_yh
+
+
+@registry.losses("cosine_distance.v0")
+def configure_cosine_distance(
+    *, ignore_zeros: bool = False
+) -> Callable[[Array2d, Array2d], Array2d]:
+    return partial(cosine_distance, ignore_zeros=ignore_zeros)
 
 
 __all__ = ["categorical_crossentropy", "L1_distance", "cosine_distance"]
