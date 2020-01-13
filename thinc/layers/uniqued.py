@@ -31,8 +31,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     column = model.get_attr("column")
     layer = model.layers[0]
     keys = X[:, column]
-    if not isinstance(keys, numpy.ndarray):
-        keys = keys.get()
+    if not isinstance(keys, numpy.ndarray): 
+        keys = keys.get() # pragma: no cover
     uniq_keys, ind, inv, counts = numpy.unique(
         keys, return_index=True, return_inverse=True, return_counts=True
     )
@@ -58,6 +58,6 @@ def init(
     layer = model.layers[0]
     layer.initialize(X=X, Y=Y)
     if layer.has_dim("nI"):
-        model.set_dim("nI", layer.get_dim("nI"))
+        model.set_dim("nI", layer.get_dim("nI")) # pragma: no cover
     if layer.has_dim("nO"):
         model.set_dim("nO", layer.get_dim("nO"))
