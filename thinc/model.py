@@ -369,13 +369,13 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        optimizer(self._mem.weights, self._mem.gradient, key=self.id)
-        for shim in self.shims:
-            shim.finish_update(optimizer)
-        seen = set([self.id])
+        seen = set()
         for node in self.walk():
             if node.id not in seen:
-                node.finish_update(optimizer)
+                # Kind of ugly to use the _mem.weights -- would make more sense
+                # to call node.finish_update. Maybe we could pass in a set
+                # of visited?
+                optimizer(node._mem.weights, node._mem.gradient, key=node.id)
                 seen.add(node.id)
                 for shim in node.shims:
                     shim.finish_update(optimizer)
