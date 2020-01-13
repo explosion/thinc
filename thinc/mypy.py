@@ -1,8 +1,8 @@
-from mypy.checker import TypeChecker
 from mypy.errorcodes import ErrorCode
 from mypy.options import Options
-from mypy.plugin import FunctionContext, Plugin
+from mypy.plugin import FunctionContext, Plugin, CheckerPluginInterface
 from mypy.types import Instance, Type
+from mypy.nodes import Expression
 
 thinc_model_fullname = "thinc.model.Model"
 
@@ -22,26 +22,38 @@ class ThincPlugin(Plugin):
 
 
 def chain_callback(ctx: FunctionContext) -> Type:
-    api: TypeChecker = ctx.api
-    layer1_args, layer2_args, layers_args = ctx.args
-    layer1_types, layer2_types, layers_types = ctx.arg_types
-    if (
-        layer1_types[0].type.fullname != thinc_model_fullname
-        or layer2_types[0].type.fullname != thinc_model_fullname
+    api = ctx.api
+    l1_args, l2_args, layers_args = ctx.args
+    l1_types, l2_types, layers_types = ctx.arg_types
+    l1_type_instance = l1_types[0]
+    l2_type_instance = l2_types[0]
+    l1_arg = l1_args[0]
+    l2_arg = l2_args[0]
+    if not (
+        isinstance(l1_type_instance, Instance)
+        and isinstance(l2_type_instance, Instance)
+        and isinstance(ctx.default_return_type, Instance)
     ):
         return ctx.default_return_type
-    arg_in_type = layer1_types[0].args[0]
-    arg_out_type = layer2_types[0].args[1]
+    if (
+        l1_type_instance.type.fullname != thinc_model_fullname
+        or l2_type_instance.type.fullname != thinc_model_fullname
+    ):
+        return ctx.default_return_type
+    arg_in_type = l1_type_instance.args[0]
+    arg_out_type = l2_type_instance.args[1]
     chain_check_2_layers(
-        l1_arg=layer1_args[0],
-        l1_type=layer1_types[0],
-        l2_arg=layer2_args[0],
-        l2_type=layer2_types[0],
+        l1_arg=l1_arg,
+        l1_type=l1_type_instance,
+        l2_arg=l2_arg,
+        l2_type=l2_type_instance,
         api=api,
     )
-    last_arg = layer2_args[0]
-    last_type = layer2_types[0]
+    last_arg = l2_arg
+    last_type = l2_type_instance
     for arg, type_ in zip(layers_args, layers_types):
+        if not isinstance(type_, Instance):
+            continue
         chain_check_2_layers(
             l1_arg=last_arg, l1_type=last_type, l2_arg=arg, l2_type=type_, api=api
         )
@@ -53,21 +65,21 @@ def chain_callback(ctx: FunctionContext) -> Type:
 
 def chain_check_2_layers(
     *,
-    l1_arg: Instance,
+    l1_arg: Expression,
     l1_type: Instance,
-    l2_arg: Instance,
+    l2_arg: Expression,
     l2_type: Instance,
-    api: TypeChecker
+    api: CheckerPluginInterface
 ):
     if l1_type.args[1] != l2_type.args[0]:
         api.fail(
             "Layer mismatch, output not compatible with next layer",
-            context=l1_arg,
+            l1_arg,
             code=error_layer_output,
         )
         api.fail(
             "Layer mismatch, input not compatible with previous layer",
-            context=l2_arg,
+            l2_arg,
             code=error_layer_input,
         )
 
