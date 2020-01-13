@@ -12,9 +12,6 @@ from .linear import Linear
 from .noop import noop
 
 
-InT = List[Array2d]
-
-
 @registry.layers("LSTM.v0")
 def LSTM(
     nO: Optional[int] = None,
