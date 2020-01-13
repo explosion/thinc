@@ -9,5 +9,4 @@ def test_issue208():
     layer3 = Linear(nO=5, nI=12)
     with Model.define_operators({">>": chain}):
         model = layer1 >> layer2 >> layer3
-    assert len(model.layers) == 2
-    model.set_dim("nO", 5)
+    assert model.get_dim("nO") == 5
