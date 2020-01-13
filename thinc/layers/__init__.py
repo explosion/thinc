@@ -9,6 +9,7 @@ from .featureextractor import FeatureExtractor
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
+from .logistic import Logistic
 from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax

@@ -1,0 +1,20 @@
+coverage:
+  status:
+    project:
+      default:
+        target: 0
+        threshold: 100
+        only_pulls: true
+    patch:
+      default:
+        target: 0
+        threshold: 100
+        only_pulls: true
+  ignore:
+    - "**/tests/*"
+    - "thinc/types.py"
+    - "thinc/backends/cupy_ops.py"
+    - "thinc/backends/_custom_kernels.py"
+    - "thinc/backends/_cupy_allocators.py"
+    - "thinc/backends/_cupy_tensorflow_memory_pool.py"
+    - "thinc/layers/staticvectors.py"

@@ -3,7 +3,7 @@ import contextlib
 from pathlib import Path
 
 
-class Shim:
+class Shim:  # pragma: no cover
     """Define a basic interface for external models. Users can create subclasses
     of 'shim' to wrap external libraries. We provide shims for PyTorch.
 
