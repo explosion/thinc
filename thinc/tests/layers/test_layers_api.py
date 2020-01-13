@@ -1,5 +1,5 @@
-from thinc.api import registry, with_padded
-from thinc.types import Ragged
+from thinc.api import registry, with_padded, Dropout
+from thinc.types import Ragged, Padded
 from thinc.util import has_torch
 import numpy
 import pytest
@@ -19,7 +19,9 @@ class FakeSpan:
 array1d = numpy.asarray([1, 2, 3], dtype="f")
 array2d = numpy.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
 array2dint = numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
+array3d = numpy.zeros((3, 3, 3), dtype="f")
 ragged = Ragged(array2d, numpy.asarray([1, 1], dtype="i"))
+padded = Padded(array3d, array1d, [1, 2, 3, 4], [1, 2, 3, 4])
 doc = FakeDoc()
 span = FakeSpan()
 width = array2d.shape[1]
@@ -34,6 +36,12 @@ def assert_data_match(Y, out_data):
         assert isinstance(Y, Ragged)
         assert out_data.data.ndim == Y.data.ndim
         assert out_data.lengths.ndim == Y.lengths.ndim
+    elif isinstance(out_data, Padded):
+        assert isinstance(Y, Padded)
+        assert out_data.data.ndim == Y.data.ndim
+        assert out_data.size_at_t.ndim == Y.size_at_t.ndim
+        assert len(out_data.lengths) == len(Y.lengths)
+        assert len(out_data.indices) == len(Y.indices)
     elif isinstance(out_data, (list, tuple)):
         assert isinstance(Y, (list, tuple))
         assert all(isinstance(x, numpy.ndarray) for x in Y)
@@ -114,3 +122,13 @@ def test_layers_with_residual(name, kwargs, in_data, out_data):
     assert_data_match(Y, out_data)
     dX = backprop(Y)
     assert_data_match(dX, in_data)
+
+
+@pytest.mark.parametrize("data", [array2d, ragged, padded, [array2d, array2d]])
+def test_dropout(data):
+    model = Dropout(0.2)
+    model.initialize(data, data)
+    Y, backprop = model(data, is_train=False)
+    assert_data_match(Y, data)
+    dX = backprop(Y)
+    assert_data_match(dX, data)
