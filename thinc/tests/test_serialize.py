@@ -1,6 +1,6 @@
 import pytest
 import srsly
-from thinc.api import with_array, Linear, Maxout, chain, Model
+from thinc.api import with_array, Linear, Maxout, chain, Model, Shim
 from thinc.api import serialize_attr, deserialize_attr
 
 
@@ -11,6 +11,18 @@ def linear():
 
 class SerializableAttr:
     value = "foo"
+
+    def to_bytes(self):
+        return self.value.encode("utf8")
+
+    def from_bytes(self, data):
+        self.value = f"{data.decode('utf8')} from bytes"
+        return self
+
+
+class SerializableShim(Shim):
+    name = "testshim"
+    value = "shimdata"
 
     def to_bytes(self):
         return self.value.encode("utf8")
@@ -93,6 +105,20 @@ def test_multi_model_load_missing_dims():
     model2 = model2.from_bytes(data)
     assert model2.layers[0].get_param("b")[0, 0] == 1
     assert model2.layers[1].get_param("b")[0, 0] == 2
+
+
+def test_serialize_model_shims():
+    test_shim = SerializableShim(None)
+    shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
+    model = chain(Linear(2, 3), shim_model, Maxout(2, 3))
+    assert model.layers[1].shims[0].value == "shimdata"
+    model_bytes = model.to_bytes()
+    with pytest.raises(ValueError):
+        Linear(2, 3).from_bytes(model_bytes)
+    test_shim = SerializableShim(None)
+    shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
+    new_model = chain(Linear(2, 3), shim_model, Maxout(2, 3)).from_bytes(model_bytes)
+    assert new_model.layers[1].shims[0].value == "shimdata from bytes"
 
 
 def test_serialize_attrs():

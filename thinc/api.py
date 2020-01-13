@@ -3,6 +3,7 @@ from .initializers import normal_init, uniform_init, xavier_uniform_init, zero_i
 from .loss import categorical_crossentropy, L1_distance, cosine_distance
 from .loss import sequence_categorical_crossentropy
 from .model import create_init, Model, serialize_attr, deserialize_attr
+from .shims import Shim, PyTorchShim, TensorFlowShim
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
