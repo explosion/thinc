@@ -680,19 +680,13 @@ class Model(Generic[InT, OutT]):
 
 
 @functools.singledispatch
-def serialize_attr(value: Any, name: str, model: Model) -> bytes:
-    if hasattr(value, "to_bytes"):
-        return value.to_bytes()
+def serialize_attr(_, value: Any, name: str, model: Model) -> bytes:
     return srsly.msgpack_dumps(value)
 
 
 @functools.singledispatch
-def deserialize_attr(value: Any, name: str, model: Model) -> None:
-    attr = model.get_attr(name)
-    if hasattr(attr, "from_bytes"):
-        attr.from_bytes(value)
-    else:
-        model.set_attr(name, srsly.msgpack_loads(value))
+def deserialize_attr(_, value: Any, name: str, model: Model) -> Any:
+    return srsly.msgpack_loads(value)
 
 
 __all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]
