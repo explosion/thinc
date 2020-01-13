@@ -26,7 +26,7 @@ from .layers import TensorFlowWrapper
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import recurrent, residual, uniqued, siamese, list2ragged, ragged2list
 from .layers import with_array, with_padded, with_list, with_ragged
-from .layers import with_reshape, with_getitem, strings2arrays
+from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list
 
 from .layers import MaxPool, MeanPool, SumPool
