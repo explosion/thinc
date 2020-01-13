@@ -517,7 +517,10 @@ class Model(Generic[InT, OutT]):
         for i, layer in enumerate(nodes):
             attrs = {}
             for name, value in layer._attrs.items():
-                attrs[name] = serialize_attr(value, value, name, self)
+                try:
+                    attrs[name] = serialize_attr(value, value, name, self)
+                except TypeError:
+                    continue
             invalid_refs = {k: v for k, v in layer._refs.items() if v not in node_to_i}
             if invalid_refs:
                 raise ValueError(f"Cannot get references: {invalid_refs}")

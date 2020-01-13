@@ -59,9 +59,6 @@ def test_simple_model_roundtrip_bytes_serializable_attrs():
     assert attr.value == "foo"
     assert attr.to_bytes() == b"foo"
     model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
-    with pytest.raises(TypeError):
-        # SerializableAttr can't be serialized with msgpack
-        model.to_bytes()
 
     @serialize_attr.register(SerializableAttr)
     def serialize_attr_custom(_, value, name, model):
