@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded
+from ..types import Ragged, Padded, Reduced_OutT
 
 
 InT = TypeVar("InT")
@@ -23,8 +23,8 @@ def chain_no_types(*layer: Model) -> Model:
 
 
 def chain(
-    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, Any], *layers: Model
-) -> Model[InT, Any]:
+    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, OutT], *layers: Model
+) -> Model[InT, Reduced_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
