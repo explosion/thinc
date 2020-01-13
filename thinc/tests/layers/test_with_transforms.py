@@ -289,7 +289,7 @@ def test_with_getitem():
     )
     model = with_getitem(1, Linear())
     model.initialize(data, data)
-    Y, backprop = model(data)
+    Y, backprop = model.begin_update(data)
     assert len(Y) == len(data)
     assert numpy.array_equal(Y[0], data[0])  # the other item stayed the same
     assert not numpy.array_equal(Y[1], data[1])
