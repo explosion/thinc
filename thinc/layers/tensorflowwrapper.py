@@ -1,4 +1,4 @@
-from typing import Any, Callable, Tuple, TypeVar
+from typing import Any, Callable, Tuple, TypeVar, Optional
 
 from ..model import Model
 from ..shims import TensorFlowShim
@@ -8,15 +8,19 @@ from ..types import ArgsKwargs
 
 try:
     import tensorflow as tf
-except ImportError:
+except ImportError:  # pragma: no cover
     pass
+
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
 def TensorFlowWrapper(
-    tensorflow_model: Any, build_model: bool = True
+    tensorflow_model: Any,
+    build_model: bool = True,
+    convert_inputs: Optional[Callable] = None,
+    convert_outputs: Optional[Callable] = None,
 ) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
@@ -30,20 +34,31 @@ def TensorFlowWrapper(
     # which can cause other errors in methods like from_disk and from_bytes.
     if build_model:
         tensorflow_model.build()
-    return Model("tensorflow", forward, shims=[TensorFlowShim(tensorflow_model)])
+    if convert_inputs is None:
+        convert_inputs = _convert_inputs
+    if convert_outputs is None:
+        convert_outputs = _convert_outputs
+    return Model(
+        "tensorflow",
+        forward,
+        shims=[TensorFlowShim(tensorflow_model)],
+        attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
+    )
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     """Return the output of the wrapped TensorFlow model for the given input,
     along with a callback to handle the backward pass.
     """
+    convert_inputs = model.get_attr("convert_inputs")
+    convert_outputs = model.get_attr("convert_outputs")
     tensorflow_model = model.shims[0]
-    X_tensorflow, get_dX = _convert_inputs(model, X, is_train)
+    X_tensorflow, get_dX = convert_inputs(model, X, is_train)
     if is_train:
         Y_tensorflow, tensorflow_backprop = tensorflow_model(X_tensorflow, is_train)
     else:
         Y_tensorflow = tensorflow_model(X_tensorflow, is_train)
-    Y, get_dY_tensorflow = _convert_outputs(model, Y_tensorflow, is_train)
+    Y, get_dY_tensorflow = convert_outputs(model, Y_tensorflow, is_train)
 
     def backprop(dY: OutT) -> InT:
         dY_tensorflow = get_dY_tensorflow(dY)

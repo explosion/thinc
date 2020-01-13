@@ -3,7 +3,7 @@ from thinc.util import has_torch
 import numpy
 import pytest
 
-from ..util import make_tempdir
+from ..util import make_tempdir, check_input_converters
 
 
 def check_learns_zero_output(model, sgd, X, Y):
@@ -79,18 +79,17 @@ def test_wrapper_roundtrip():
         new_model.from_disk(model_path)
 
 
-array = numpy.zeros((2, 3), dtype="f")
-
-
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize(
     "data,n_args,kwargs_keys",
     [
-        (array, 1, []),
-        ([array, array], 2, []),
-        ((array, array), 2, []),
-        ({"a": array, "b": array}, 0, ["a", "b"]),
-        (ArgsKwargs((array, array), {"c": array}), 2, ["c"]),
+        # fmt: off
+        (numpy.zeros((2, 3), dtype="f"), 1, []),
+        ([numpy.zeros((2, 3), dtype="f"), numpy.zeros((2, 3), dtype="f")], 2, []),
+        ((numpy.zeros((2, 3), dtype="f"), numpy.zeros((2, 3), dtype="f")), 2, []),
+        ({"a": numpy.zeros((2, 3), dtype="f"), "b": numpy.zeros((2, 3), dtype="f")}, 0, ["a", "b"]),
+        (ArgsKwargs((numpy.zeros((2, 3), dtype="f"), numpy.zeros((2, 3), dtype="f")), {"c": numpy.zeros((2, 3), dtype="f")}), 2, ["c"]),
+        # fmt: on
     ],
 )
 def test_convert_inputs(data, n_args, kwargs_keys):
@@ -99,24 +98,4 @@ def test_convert_inputs(data, n_args, kwargs_keys):
     model = PyTorchWrapper(torch.nn.Linear(3, 4))
     convert_inputs = model.get_attr("convert_inputs")
     Y, backprop = convert_inputs(model, data, is_train=True)
-    assert isinstance(Y, ArgsKwargs)
-    assert len(Y.args) == n_args
-    assert list(Y.kwargs.keys()) == kwargs_keys
-    assert all(isinstance(arg, torch.Tensor) for arg in Y.args)
-    assert all(isinstance(arg, torch.Tensor) for arg in Y.kwargs.values())
-    dX = backprop(Y)
-    input_type = type(data) if not isinstance(data, list) else tuple
-    assert isinstance(dX, input_type)
-    if isinstance(data, dict):
-        assert list(dX.keys()) == kwargs_keys
-        assert all(isinstance(arr, numpy.ndarray) for arr in dX.values())
-    elif isinstance(data, (list, tuple)):
-        assert isinstance(dX, tuple)
-        assert all(isinstance(arr, numpy.ndarray) for arr in dX)
-    elif isinstance(data, ArgsKwargs):
-        assert len(dX.args) == n_args
-        assert list(dX.kwargs.keys()) == kwargs_keys
-        assert all(isinstance(arg, numpy.ndarray) for arg in dX.args)
-        assert all(isinstance(arg, numpy.ndarray) for arg in dX.kwargs.values())
-    elif not isinstance(data, numpy.ndarray):
-        pytest.fail(f"Bad data type: {dX}")
+    check_input_converters(Y, backprop, data, n_args, kwargs_keys, torch.Tensor)

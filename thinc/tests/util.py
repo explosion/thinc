@@ -2,7 +2,9 @@ import contextlib
 from pathlib import Path
 import tempfile
 import shutil
-from thinc.api import Linear, Ragged, Padded
+from thinc.api import Linear, Ragged, Padded, ArgsKwargs
+import numpy
+import pytest
 
 
 @contextlib.contextmanager
@@ -83,3 +85,27 @@ def assert_padded_data_match(X, Y):
 
 def assert_ragged_data_match(X, Y):
     return assert_raggeds_match(Ragged(*X), Ragged(*Y))
+
+
+def check_input_converters(Y, backprop, data, n_args, kwargs_keys, type_):
+    assert isinstance(Y, ArgsKwargs)
+    assert len(Y.args) == n_args
+    assert list(Y.kwargs.keys()) == kwargs_keys
+    assert all(isinstance(arg, type_) for arg in Y.args)
+    assert all(isinstance(arg, type_) for arg in Y.kwargs.values())
+    dX = backprop(Y)
+    input_type = type(data) if not isinstance(data, list) else tuple
+    assert isinstance(dX, input_type)
+    if isinstance(data, dict):
+        assert list(dX.keys()) == kwargs_keys
+        assert all(isinstance(arr, numpy.ndarray) for arr in dX.values())
+    elif isinstance(data, (list, tuple)):
+        assert isinstance(dX, tuple)
+        assert all(isinstance(arr, numpy.ndarray) for arr in dX)
+    elif isinstance(data, ArgsKwargs):
+        assert len(dX.args) == n_args
+        assert list(dX.kwargs.keys()) == kwargs_keys
+        assert all(isinstance(arg, numpy.ndarray) for arg in dX.args)
+        assert all(isinstance(arg, numpy.ndarray) for arg in dX.kwargs.values())
+    elif not isinstance(data, numpy.ndarray):
+        pytest.fail(f"Bad data type: {dX}")
