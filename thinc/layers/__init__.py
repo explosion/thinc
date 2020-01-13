@@ -13,12 +13,12 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper
+from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import ReLu
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
-from .lstm import BiLSTM, LSTM, PyTorchBiLSTM
+from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper
 
 # Combinators
@@ -27,7 +27,6 @@ from .bidirectional import bidirectional
 from .chain import chain
 from .clone import clone
 from .concatenate import concatenate
-from .foreach import foreach
 from .noop import noop
 from .recurrent import recurrent
 from .residual import residual
@@ -67,20 +66,19 @@ __all__ = [
     "MultiSoftmax",
     "ParametricAttention",
     "PyTorchWrapper",
+    "PyTorchRNNWrapper",
     "ReLu",
     "Softmax",
     "SparseLinear",
     "StaticVectors",
-    "BiLSTM",
     "LSTM",
-    "PyTorchBiLSTM",
+    "PyTorchLSTM",
     "TensorFlowWrapper",
     "add",
     "bidirectional",
     "chain",
     "clone",
     "concatenate",
-    "foreach",
     "noop",
     "recurrent",
     "residual",

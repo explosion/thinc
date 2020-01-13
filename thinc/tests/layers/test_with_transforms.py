@@ -1,7 +1,7 @@
 import pytest
 import numpy
-from thinc.api import NumpyOps, Model
-from thinc.api import with_array, with_padded, with_list, with_ragged
+from thinc.api import NumpyOps, Model, Linear
+from thinc.api import with_array, with_padded, with_list, with_ragged, with_getitem
 from thinc.types import Padded, Ragged
 
 
@@ -127,6 +127,77 @@ def get_checker(inputs):
         return assert_arrays_match
 
 
+def check_initialize(model, inputs):
+    # Just check that these run and don't hit errors. I guess we should add a
+    # spy and check that model.layers[0].initialize gets called, but shrug?
+    model.initialize()
+    model.initialize(X=inputs)
+    model.initialize(X=inputs, Y=model.predict(inputs))
+
+
+def check_transform_produces_correct_output_type_forward(model, inputs, checker):
+    # It's pretty redundant to check these three assertions, so if the tests
+    # get slow this could be removed. I think it should be fine though?
+    outputs = model.predict(inputs)
+    assert checker(inputs, outputs)
+    outputs, _ = model(inputs, is_train=True)
+    assert checker(inputs, outputs)
+    outputs, _ = model(inputs, is_train=False)
+    assert checker(inputs, outputs)
+
+
+def check_transform_produces_correct_output_type_backward(model, inputs, checker):
+    # It's pretty redundant to check these three assertions, so if the tests
+    # get slow this could be removed. I think it should be fine though?
+    outputs, backprop = model.begin_update(inputs)
+    d_inputs = backprop(outputs)
+    assert checker(inputs, d_inputs)
+
+
+def assert_arrays_match(X, Y):
+    assert X.dtype == Y.dtype
+    # Transformations are allowed to change last dimension, but not batch size.
+    assert X.shape[0] == Y.shape[0]
+    return True
+
+
+def assert_lists_match(X, Y):
+    assert isinstance(X, list)
+    assert isinstance(Y, list)
+    assert len(X) == len(Y)
+    for x, y in zip(X, Y):
+        assert_arrays_match(x, y)
+    return True
+
+
+def assert_raggeds_match(X, Y):
+    assert isinstance(X, Ragged)
+    assert isinstance(Y, Ragged)
+    assert_arrays_match(X.lengths, Y.lengths)
+    assert_arrays_match(X.data, Y.data)
+    return True
+
+
+def assert_paddeds_match(X, Y):
+    assert isinstance(X, Padded)
+    assert isinstance(Y, Padded)
+    assert_arrays_match(X.size_at_t, Y.size_at_t)
+    assert X.lengths == Y.lengths
+    assert X.indices == Y.indices
+    assert X.data.dtype == Y.data.dtype
+    assert X.data.shape[1] == Y.data.shape[1]
+    assert X.data.shape[0] == Y.data.shape[0]
+    return True
+
+
+def assert_padded_data_match(X, Y):
+    return assert_paddeds_match(Padded(*X), Padded(*Y))
+
+
+def assert_ragged_data_match(X, Y):
+    return assert_raggeds_match(Ragged(*X), Ragged(*Y))
+
+
 def test_with_array_initialize(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
         check_initialize(get_array_model(), inputs)
@@ -211,72 +282,17 @@ def test_with_padded_backward(
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
-def check_initialize(model, inputs):
-    # Just check that these run and don't hit errors. I guess we should add a
-    # spy and check that model.layers[0].initialize gets called, but shrug?
-    model.initialize()
-    model.initialize(X=inputs)
-    model.initialize(X=inputs, Y=model.predict(inputs))
-
-
-def check_transform_produces_correct_output_type_forward(model, inputs, checker):
-    # It's pretty redundant to check these three assertions, so if the tests
-    # get slow this could be removed. I think it should be fine though?
-    outputs = model.predict(inputs)
-    assert checker(inputs, outputs)
-    outputs, _ = model(inputs, is_train=True)
-    assert checker(inputs, outputs)
-    outputs, _ = model(inputs, is_train=False)
-    assert checker(inputs, outputs)
-
-
-def check_transform_produces_correct_output_type_backward(model, inputs, checker):
-    # It's pretty redundant to check these three assertions, so if the tests
-    # get slow this could be removed. I think it should be fine though?
-    outputs, backprop = model.begin_update(inputs)
-    d_inputs = backprop(outputs)
-    assert checker(inputs, d_inputs)
-
-
-def assert_arrays_match(X, Y):
-    assert X.dtype == Y.dtype
-    # Transformations are allowed to change last dimension, but not batch size.
-    assert X.shape[0] == Y.shape[0]
-    return True
-
-
-def assert_lists_match(X, Y):
-    assert isinstance(X, list)
-    assert isinstance(Y, list)
-    assert len(X) == len(Y)
-    for x, y in zip(X, Y):
-        assert_arrays_match(x, y)
-    return True
-
-
-def assert_raggeds_match(X, Y):
-    assert isinstance(X, Ragged)
-    assert isinstance(Y, Ragged)
-    assert_arrays_match(X.lengths, Y.lengths)
-    assert_arrays_match(X.data, Y.data)
-    return True
-
-
-def assert_paddeds_match(X, Y):
-    assert isinstance(X, Padded)
-    assert isinstance(Y, Padded)
-    assert_arrays_match(X.size_at_t, Y.size_at_t)
-    assert X.lengths == Y.lengths
-    assert X.indices == Y.indices
-    assert X.data.dtype == Y.data.dtype
-    assert X.data.shape[1] == Y.data.shape[1]
-    assert X.data.shape[0] == Y.data.shape[0]
-    return True
-
-
-def assert_padded_data_match(X, Y):
-    return assert_paddeds_match(Padded(*X), Padded(*Y))
-
-
-def assert_ragged_data_match(X, Y):
-    return assert_raggeds_match(Ragged(*X), Ragged(*Y))
+def test_with_getitem():
+    data = (
+        numpy.asarray([[1, 2, 3, 4]], dtype="f"),
+        numpy.asarray([[5, 6, 7, 8]], dtype="f"),
+    )
+    model = with_getitem(1, Linear())
+    model.initialize(data, data)
+    Y, backprop = model.begin_update(data)
+    assert len(Y) == len(data)
+    assert numpy.array_equal(Y[0], data[0])  # the other item stayed the same
+    assert not numpy.array_equal(Y[1], data[1])
+    dX = backprop(Y)
+    assert numpy.array_equal(dX[0], data[0])
+    assert not numpy.array_equal(dX[1], data[1])

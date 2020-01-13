@@ -326,7 +326,9 @@ def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
 PartialT = TypeVar("PartialT")
 
 
-def partial(func: Callable[..., PartialT], *args: Any, **kwargs: Any) -> Callable[..., PartialT]:
+def partial(
+    func: Callable[..., PartialT], *args: Any, **kwargs: Any
+) -> Callable[..., PartialT]:
     """Wrapper around functools.partial that retains docstrings and can include
     other workarounds if needed.
     """

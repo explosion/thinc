@@ -52,5 +52,7 @@ def init(
     if Y is not None:
         Y2d = Y.reshape((-1, Y.shape[-1]))
     layer.initialize(X=X2d, Y=Y2d)
-    model.set_dim("nI", layer.get_dim("nI"))
-    model.set_dim("nO", layer.get_dim("nO"))
+    if layer.has_dim("nI"):
+        model.set_dim("nI", layer.get_dim("nI"))
+    if layer.has_dim("nO"):
+        model.set_dim("nO", layer.get_dim("nO"))
