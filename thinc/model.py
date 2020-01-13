@@ -5,6 +5,7 @@ import contextlib
 import srsly
 from pathlib import Path
 import copy
+import functools
 
 from .backends import NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
@@ -678,4 +679,20 @@ class Model(Generic[InT, OutT]):
         return self._thread_local.operators["|"](self, other)
 
 
-__all__ = ["create_init", "Model"]
+@functools.singledispatch
+def serialize_attr(value: Any, name: str, model: Model) -> bytes:
+    if hasattr(value, "to_bytes"):
+        return value.to_bytes()
+    return srsly.msgpack_dumps(value)
+
+
+@functools.singledispatch
+def deserialize_attr(value: Any, name: str, model: Model) -> None:
+    attr = model.get_attr(name)
+    if hasattr(attr, "from_bytes"):
+        attr.from_bytes(value)
+    else:
+        model.set_attr(name, srsly.msgpack_loads(value))
+
+
+__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]

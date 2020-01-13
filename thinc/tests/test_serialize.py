@@ -1,11 +1,26 @@
 import pytest
 import srsly
 from thinc.api import with_array, Linear, Maxout, chain, Model
+from thinc.api import serialize_attr, deserialize_attr
 
 
 @pytest.fixture
 def linear():
     return Linear(5, 3)
+
+
+@pytest.fixture
+def serializable_attr():
+    class SerializableAttr:
+        value = "foo"
+
+        def to_bytes(self):
+            return self.value.encode("utf8")
+
+        def from_bytes(self, data):
+            self.value = f"{data.decode('utf8')} from bytes"
+
+    return SerializableAttr()
 
 
 def test_pickle_with_flatten(linear):
@@ -30,17 +45,8 @@ def test_simple_model_roundtrip_bytes():
     assert model.get_param("b")[0, 0] == 1
 
 
-def test_simple_model_roundtrip_bytes_serializable_attrs():
-    class SerializableAttr:
-        value = "foo"
-
-        def to_bytes(self):
-            return self.value.encode("utf8")
-
-        def from_bytes(self, data):
-            self.value = f"{data.decode('utf8')} from bytes"
-
-    attr = SerializableAttr()
+def test_simple_model_roundtrip_bytes_serializable_attrs(serializable_attr):
+    attr = serializable_attr
     assert attr.value == "foo"
     assert attr.to_bytes() == b"foo"
     model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
@@ -78,3 +84,21 @@ def test_multi_model_load_missing_dims():
     model2 = model2.from_bytes(data)
     assert model2.layers[0].get_param("b")[0, 0] == 1
     assert model2.layers[1].get_param("b")[0, 0] == 2
+
+
+def test_serialize_attrs(serializable_attr):
+    fwd = lambda X: (X, lambda dY: dY)
+    # Test msgpack-serializable attrs
+    model1 = Model("test", fwd, attrs={"test": "foo"})
+    bytes_attr = serialize_attr("foo", "test", model1)
+    assert bytes_attr == srsly.msgpack_dumps("foo")
+    model2 = Model("test", fwd, attrs={"test": ""})
+    deserialize_attr(bytes_attr, "test", model2)
+    assert model2.get_attr("test") == "foo"
+    # Test objects with to_bytes/from_bytes
+    model3 = Model("test", fwd, attrs={"test": serializable_attr})
+    bytes_attr = serialize_attr(serializable_attr, "test", model3)
+    assert bytes_attr == b"foo"
+    model4 = Model("test", fwd, attrs={"test": serializable_attr})
+    deserialize_attr(bytes_attr, "test", model4)
+    model4.get_attr("test").value == "foo from bytes"
