@@ -1,16 +1,15 @@
-from typing import Optional, List, Tuple, Callable, cast
+from typing import Optional, List, Tuple, Callable
 
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
-from ..util import get_width, has_torch
+from ..util import get_width
 from ..types import RNNState, Array2d, Array3d, Padded
 from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
 from .noop import noop
-from .with_padded import with_padded
 
 
 InT = List[Array2d]
@@ -27,7 +26,6 @@ def LSTM(
 ) -> Model[Padded, Padded]:
     if bi and nO is not None:
         nO //= 2
-
     model = recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))
     if bi:
         model = bidirectional(model)
@@ -44,7 +42,6 @@ def PyTorchLSTM(
 
     if depth == 0:
         return noop()  # type: ignore
-
     return with_padded(
         PyTorchRNNWrapper(
             torch.nn.LSTM(nI, nO // 2, depth, bidirectional=bi, dropout=dropout)
@@ -91,7 +88,6 @@ def forward(
     weights = model.layers[0]
     nI = inputs.shape[1]
     X = model.ops.xp.hstack((inputs, hidden_tm1))
-
     acts, bp_acts = weights(X, is_train)
     (cells, hiddens), bp_gates = _gates_forward(model.ops, acts, cell_tm1)
 
@@ -110,7 +106,6 @@ def _gates_forward(ops: Ops, acts: Array3d, prev_cells: Array2d):
     acts = acts.reshape((nB, nO, 4))
     new_cells = ops.alloc_f2d(*prev_cells.shape)
     new_hiddens = ops.alloc_f2d(*prev_cells.shape)
-
     ops.lstm(new_hiddens, new_cells, acts, prev_cells)
     size = new_cells.shape[0]
 
