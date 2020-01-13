@@ -517,7 +517,7 @@ class Model(Generic[InT, OutT]):
             obj_attrs = {}
             flat_attrs = {}
             for name, value in layer._attrs.items():
-                if hasattr(value, "to_bytes"):
+                if type(value) not in (str, int, float, bool) and hasattr(value, "to_bytes"):
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
@@ -569,7 +569,7 @@ class Model(Generic[InT, OutT]):
                 layer.set_param(param["name"], param["value"])
             for i, shim_bytes in enumerate(data["shims"]):
                 layer.shims[i].from_bytes(shim_bytes)
-            for name, ref_i in data["refs"]:
+            for name, ref_i in data["refs"].items():
                 if ref_i is None:
                     layer.set_ref(name, None)
                 else:
