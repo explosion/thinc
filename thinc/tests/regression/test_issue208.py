@@ -1,5 +1,4 @@
-from functools import partial
-from thinc.api import Model, chain, Linear
+from thinc.api import chain, Linear
 
 
 def test_issue208():

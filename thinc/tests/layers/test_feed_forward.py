@@ -106,6 +106,7 @@ def test_predict_and_begin_update_match(model, model1, model2, input_data):
 
 def test_init_functions_are_called():
     init_was_called = {}
+
     def register_init(name, model, X=None, Y=None):
         init_was_called[name] = True
 
@@ -116,7 +117,7 @@ def test_init_functions_are_called():
     layer2._init = partial(register_init, "two")
     layer3._init = partial(register_init, "three")
     # This is the nesting we'll get from operators.
-    model = chain(layer1, chain(layer2, layer3)) 
+    model = chain(layer1, chain(layer2, layer3))
     assert not init_was_called
     model.initialize()
     assert init_was_called["one"]

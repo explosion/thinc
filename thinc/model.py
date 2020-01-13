@@ -517,7 +517,9 @@ class Model(Generic[InT, OutT]):
             obj_attrs = {}
             flat_attrs = {}
             for name, value in layer._attrs.items():
-                if type(value) not in (str, int, float, bool) and hasattr(value, "to_bytes"):
+                if type(value) not in (str, int, float, bool) and hasattr(
+                    value, "to_bytes"
+                ):
                     obj_attrs[name] = value.to_bytes()
                 else:
                     flat_attrs[name] = value
