@@ -31,7 +31,7 @@ def PyTorchRNNWrapper(
 
 @registry.layers("PyTorchWrapper.v0")
 def PyTorchWrapper(
-    pytorch_model, convert_inputs=None, convert_outputs=None,
+    pytorch_model, convert_inputs=None, convert_outputs=None
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
