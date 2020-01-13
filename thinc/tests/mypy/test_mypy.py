@@ -22,6 +22,9 @@ cases = [
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
 def test_mypy_results(config_filename, python_filename, output_filename):
+    # To debug output text files
+    print(f"Running from: {os.getcwd()}")
+    print(f"Current directory contains: {os.listdir()}")
     full_config_filename = f"thinc/tests/mypy/configs/{config_filename}"
     full_filename = f"thinc/tests/mypy/modules/{python_filename}"
     full_output_filename = f"thinc/tests/mypy/outputs/{output_filename}"
