@@ -31,18 +31,19 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     column = model.get_attr("column")
     layer = model.layers[0]
     keys = X[:, column]
-    keys = layer.ops.xp.ascontiguousarray(keys)
     if not isinstance(keys, numpy.ndarray):
         keys = keys.get()
     uniq_keys, ind, inv, counts = numpy.unique(
         keys, return_index=True, return_inverse=True, return_counts=True
     )
-    X_uniq = layer.ops.xp.ascontiguousarray(X[ind])
+    counts = counts.reshape((-1, 1))
+    X_uniq = X[ind]
     Y_uniq, bp_Y_uniq = layer(X_uniq, is_train)
     Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
+    uniq_shape = tuple(Y_uniq.shape)
 
     def backprop(dY: OutT) -> InT:
-        dY_uniq = layer.ops.alloc(Y_uniq.shape, dtype="f")
+        dY_uniq = layer.ops.alloc(uniq_shape, dtype="f")
         layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"
