@@ -1,0 +1,4 @@
+4: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
+7: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
+10: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
+13: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
