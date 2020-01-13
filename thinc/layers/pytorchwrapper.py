@@ -5,7 +5,7 @@ from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array, Array3d, ArgsKwargs, Padded
+from ..types import Array3d, ArgsKwargs, Padded
 
 
 @registry.layers("PyTorchRNNWrapper.v0")
@@ -31,9 +31,7 @@ def PyTorchRNNWrapper(
 
 @registry.layers("PyTorchWrapper.v0")
 def PyTorchWrapper(
-    pytorch_model,
-    convert_inputs=None,
-    convert_outputs=None,
+    pytorch_model, convert_inputs=None, convert_outputs=None,
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
