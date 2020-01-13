@@ -8,14 +8,18 @@ from .config import registry
 def categorical_crossentropy(scores: Array2d, labels: Array) -> Array2d:
     if labels.ndim != scores.ndim:
         target = to_categorical(labels, n_classes=scores.shape[-1])
-    else:
+    else:  # pragma: no cover
         target = cast(Array2d, labels)
-    if scores.shape != target.shape:
-        raise ValueError(
-            f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}"
-        )
+    if scores.shape != target.shape:  # pragma: no cover
+        err = f"Cannot calculate loss: mismatched shapes. {scores.shape} vs {target.shape}"
+        raise ValueError(err)
     difference = scores - target
     return difference / scores.shape[0]
+
+
+@registry.losses("categorical_crossentropy.v0")
+def configure_categorical_crossentropy() -> Callable[[Array2d, Array2d], Array2d]:
+    return categorical_crossentropy
 
 
 def sequence_categorical_crossentropy(
@@ -23,7 +27,7 @@ def sequence_categorical_crossentropy(
 ) -> List[Array2d]:
     if not scores:
         return []
-    if len(scores) != len(labels):
+    if len(scores) != len(labels):  # pragma: no cover
         raise ValueError("Scores and labels must be same length.")
     d_scores = []
     for yh, y in zip(scores, labels):
@@ -31,9 +35,11 @@ def sequence_categorical_crossentropy(
     return d_scores
 
 
-@registry.losses("categorical_crossentropy.v0")
-def configure_categorical_crossentropy() -> Callable[[Array2d, Array2d], Array2d]:
-    return categorical_crossentropy
+@registry.losses("sequence_categorical_crossentropy.v0")
+def configure_sequence_categorical_crossentropy() -> Callable[
+    [List[Array2d], List[Array]], List[Array2d]
+]:
+    return sequence_categorical_crossentropy
 
 
 def L1_distance(
