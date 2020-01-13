@@ -511,7 +511,7 @@ def test_partials_from_config():
     # Make sure returned partial function has correct value set
     assert inspect.signature(func).parameters["margin"].default == 0.5
     # Actually call the function and verify
-    loss = func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
     # Make sure validation still works
     bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
     with pytest.raises(ConfigValidationError):
