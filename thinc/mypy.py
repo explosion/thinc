@@ -1,8 +1,8 @@
 from mypy.errorcodes import ErrorCode
 from mypy.options import Options
 from mypy.plugin import FunctionContext, Plugin, CheckerPluginInterface
-from mypy.types import Instance, Type
-from mypy.nodes import Expression
+from mypy.types import Instance, Type, CallableType, TypeVarType
+from mypy.nodes import Expression, CallExpr, NameExpr, FuncDef
 
 thinc_model_fullname = "thinc.model.Model"
 
@@ -16,46 +16,57 @@ class ThincPlugin(Plugin):
         super().__init__(options)
 
     def get_function_hook(self, fullname: str):
-        if fullname == "thinc.layers.chain.chain":
-            return chain_callback
-        return None
+        return function_hook
 
 
-def chain_callback(ctx: FunctionContext) -> Type:
-    api = ctx.api
+def function_hook(ctx: FunctionContext) -> Type:
+    try:
+        return get_reducers_type(ctx)
+    except AssertionError:
+        # Add more function callbacks here
+        return ctx.default_return_type
+
+
+def get_reducers_type(ctx: FunctionContext) -> Type:
+    assert len(ctx.args) == 3
+    assert isinstance(ctx.context, CallExpr)
+    assert isinstance(ctx.context.callee, NameExpr)
+    assert isinstance(ctx.context.callee.node, FuncDef)
+    assert isinstance(ctx.context.callee.node.type, CallableType)
+    assert isinstance(ctx.context.callee.node.type.ret_type, Instance)
+    assert ctx.context.callee.node.type.ret_type.args
+    assert len(ctx.context.callee.node.type.ret_type.args) == 2
+    out_type = ctx.context.callee.node.type.ret_type.args[1]
+    assert isinstance(out_type, TypeVarType)
+    assert out_type.fullname
+    if not out_type.fullname == "thinc.types.Reduced_OutT":
+        return ctx.default_return_type
     l1_args, l2_args, layers_args = ctx.args
     l1_types, l2_types, layers_types = ctx.arg_types
     l1_type_instance = l1_types[0]
     l2_type_instance = l2_types[0]
     l1_arg = l1_args[0]
     l2_arg = l2_args[0]
-    if not (
-        isinstance(l1_type_instance, Instance)
-        and isinstance(l2_type_instance, Instance)
-        and isinstance(ctx.default_return_type, Instance)
-    ):
-        return ctx.default_return_type
-    if (
-        l1_type_instance.type.fullname != thinc_model_fullname
-        or l2_type_instance.type.fullname != thinc_model_fullname
-    ):
-        return ctx.default_return_type
+    assert isinstance(l1_type_instance, Instance)
+    assert isinstance(l2_type_instance, Instance)
+    assert isinstance(ctx.default_return_type, Instance)
+    assert l1_type_instance.type.fullname == thinc_model_fullname
+    assert l2_type_instance.type.fullname == thinc_model_fullname
     arg_in_type = l1_type_instance.args[0]
     arg_out_type = l2_type_instance.args[1]
-    chain_check_2_layers(
+    reduce_2_layers(
         l1_arg=l1_arg,
         l1_type=l1_type_instance,
         l2_arg=l2_arg,
         l2_type=l2_type_instance,
-        api=api,
+        api=ctx.api,
     )
     last_arg = l2_arg
     last_type = l2_type_instance
     for arg, type_ in zip(layers_args, layers_types):
-        if not isinstance(type_, Instance):
-            continue
-        chain_check_2_layers(
-            l1_arg=last_arg, l1_type=last_type, l2_arg=arg, l2_type=type_, api=api
+        assert isinstance(type_, Instance)
+        reduce_2_layers(
+            l1_arg=last_arg, l1_type=last_type, l2_arg=arg, l2_type=type_, api=ctx.api,
         )
         last_arg = arg
         last_type = type_
@@ -63,7 +74,7 @@ def chain_callback(ctx: FunctionContext) -> Type:
     return Instance(ctx.default_return_type.type, [arg_in_type, arg_out_type])
 
 
-def chain_check_2_layers(
+def reduce_2_layers(
     *,
     l1_arg: Expression,
     l1_type: Instance,
