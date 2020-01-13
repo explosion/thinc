@@ -619,7 +619,7 @@ class Model(Generic[InT, OutT]):
             raise TypeError("Undefined operator: @")
         return self._thread_local.operators["@"](self, other)
 
-    def __div__(self, other: Any) -> "Model":
+    def __div__(self, other: Any) -> "Model":  # pragma: no cover
         """Apply the function bound to the '/' operator."""
         if "/" not in self._thread_local.operators:
             raise TypeError("Undefined operator: /")
