@@ -308,6 +308,8 @@ class registry(object):
             # Update final config with parsed value if they're not equal (in
             # value and in type) but not if it's a generator because we had to
             # replace that to validate it correctly
+            elif key == ARGS_FIELD:
+                continue  # don't substitute if list of positional args
             elif (
                 value != final[key] or not isinstance(type(value), type(final[key]))
             ) and not isinstance(final[key], GeneratorType):

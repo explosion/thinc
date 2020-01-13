@@ -573,7 +573,7 @@ def test_validate_generator():
     assert isinstance(result, GeneratorType)
 
     @my_registry.optimizers("test_optimizer.v2")
-    def test_optimizer(rate: Generator) -> Generator:
+    def test_optimizer2(rate: Generator) -> Generator:
         return rate
 
     cfg = {
@@ -584,12 +584,23 @@ def test_validate_generator():
     assert isinstance(result, GeneratorType)
 
     @my_registry.optimizers("test_optimizer.v3")
-    def test_optimizer2(schedules: Dict[str, Generator]) -> Generator:
+    def test_optimizer3(schedules: Dict[str, Generator]) -> Generator:
         return schedules["rate"]
 
     cfg = {
         "@optimizers": "test_optimizer.v3",
         "schedules": {"rate": {"@schedules": "test_schedule.v2"}},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v4")
+    def test_optimizer4(*schedules: Generator) -> Generator:
+        return schedules[0]
+
+    cfg = {
+        "@optimizers": "test_optimizer.v4",
+        "*": {"a": {"@schedules": "test_schedule.v2"}},
     }
     result = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(result, GeneratorType)
