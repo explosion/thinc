@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple, Callable
+from typing import Optional, Tuple, Callable
 
 from ..model import Model
 from ..backends import Ops
