@@ -15,7 +15,6 @@ class SerializableAttr:
     def to_bytes(self):
         return self.value.encode("utf8")
 
-    @classmethod
     def from_bytes(self, data):
         self.value = f"{data.decode('utf8')} from bytes"
         return self
@@ -48,6 +47,18 @@ def test_simple_model_roundtrip_bytes_serializable_attrs():
     assert attr.value == "foo"
     assert attr.to_bytes() == b"foo"
     model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
+    with pytest.raises(TypeError):
+        # SerializableAttr can't be serialized with msgpack
+        model.to_bytes()
+
+    @serialize_attr.register(SerializableAttr)
+    def serialize_attr_custom(_, value, name, model):
+        return value.to_bytes()
+
+    @deserialize_attr.register(SerializableAttr)
+    def deserialize_attr_custom(_, value, name, model):
+        return SerializableAttr().from_bytes(value)
+
     model_bytes = model.to_bytes()
     model = model.from_bytes(model_bytes)
     assert model.has_attr("test")

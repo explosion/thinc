@@ -513,23 +513,15 @@ class Model(Generic[InT, OutT]):
         # We also need an entry 'None', as references can be set to None.
         node_to_i[None] = None
         for i, layer in enumerate(nodes):
-            # Separate attrs that need to be serialized/deserialized with
-            # to_/from_bytes.
-            obj_attrs = {}
-            flat_attrs = {}
+            attrs = {}
             for name, value in layer._attrs.items():
-                if hasattr(value, "to_bytes"):
-                    obj_attrs[name] = value.to_bytes()
-                else:
-                    flat_attrs[name] = value
-
+                attrs[name] = serialize_attr(value, value, name, self)
             refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
                     "dims": layer._dims,
                     "params": [],
-                    "obj_attrs": obj_attrs,
-                    "flat_attrs": flat_attrs,
+                    "attrs": attrs,
                     "shims": [shim.to_bytes() for shim in layer.shims],
                     "refs": refs,
                 }
@@ -560,10 +552,10 @@ class Model(Generic[InT, OutT]):
         if len(msg["weights"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure.")
         for layer, data in zip(nodes, msg["weights"]):
-            for attr, value in data["flat_attrs"].items():
-                layer.set_attr(attr, value)
-            for attr, value in data["obj_attrs"].items():
-                layer.get_attr(attr).from_bytes(value)
+            for attr, value in data["attrs"].items():
+                default_value = layer.get_attr(attr)
+                loaded_value = deserialize_attr(default_value, value, attr, self)
+                layer.set_attr(attr, loaded_value)
             for dim, value in data["dims"].items():
                 layer.set_dim(dim, value)
             for param in data["params"]:
@@ -680,12 +672,20 @@ class Model(Generic[InT, OutT]):
 
 
 @functools.singledispatch
-def serialize_attr(_, value: Any, name: str, model: Model) -> bytes:
+def serialize_attr(_: Any, value: Any, name: str, model: Model) -> bytes:
+    """Serialize an attribute value (defaults to msgpack). You can register
+    custom serializers using the @serialize_attr.register decorator with the
+    type to serialize, e.g.: @serialize_attr.register(MyCustomObject).
+    """
     return srsly.msgpack_dumps(value)
 
 
 @functools.singledispatch
-def deserialize_attr(_, value: Any, name: str, model: Model) -> Any:
+def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
+    """Deserialize an attribute value (defaults to msgpack). You can register
+    custom deserializers using the @deserialize_attr.register decorator with the
+    type to deserialize, e.g.: @deserialize_attr.register(MyCustomObject).
+    """
     return srsly.msgpack_loads(value)
 
 
