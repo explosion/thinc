@@ -39,7 +39,7 @@ def assert_data_match(Y, out_data):
         pytest.fail(f"wrong output of {type(Y)}: {Y}")
 
 
-TEST_CASES = [
+TEST_CASES_SAME_TYPED = [
     # Array to array
     ("Dropout.v0", {}, array2d, array2d),
     ("Embed.v0", {}, array2dint, array2d),
@@ -59,15 +59,19 @@ TEST_CASES = [
     ("ReLu.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Softmax.v0", {}, array2d, array2d),
     ("Softmax.v0", {"nO": 4, "nI": 4}, array2d, array2d),
+    # List to list
+    ("BiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
+    ("LSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
+]
+
+TEST_CASES = [
+    *TEST_CASES_SAME_TYPED,
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
     ("MaxPool.v0", {}, ragged, array2d),
     ("MeanPool.v0", {}, ragged, array2d),
     ("SumPool.v0", {}, ragged, array2d),
-    # List to list
-    ("BiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
-    ("LSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     # ("PyTorchBiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
     # Other
     # fmt: off
@@ -83,6 +87,19 @@ TEST_CASES = [
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
 def test_layers_from_config(name, kwargs, in_data, out_data):
     cfg = {"@layers": name, **kwargs}
+    filled = registry.fill_config({"config": cfg})
+    model = registry.make_from_config(filled)["config"]
+    model.initialize(in_data, out_data)
+    Y, backprop = model(in_data, is_train=True)
+    assert_data_match(Y, out_data)
+    dX = backprop(Y)
+    assert_data_match(dX, in_data)
+
+
+@pytest.mark.xfail
+@pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SAME_TYPED)
+def test_layers_with_residual(name, kwargs, in_data, out_data):
+    cfg = {"@layers": "residual.v0", "layer": {"@layers": name, **kwargs}}
     filled = registry.fill_config({"config": cfg})
     model = registry.make_from_config(filled)["config"]
     model.initialize(in_data, out_data)
