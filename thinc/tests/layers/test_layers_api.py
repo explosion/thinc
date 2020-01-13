@@ -60,9 +60,13 @@ TEST_CASES_SAME_TYPED = [
     ("ReLu.v0", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Softmax.v0", {}, array2d, array2d),
     ("Softmax.v0", {"nO": 4, "nI": 4}, array2d, array2d),
+    # fmt: off
     # List to list
-    ("BiLSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
-    ("LSTM.v0", {}, [array2d, array2d], [array2d, array2d]),
+    ("LSTM.v0", {"bi": False}, [array2d, array2d], [array2d, array2d]),
+    ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
+    ("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d]),
+    ("PyTorchLSTM.v0", {"bi": True, "nO": width * 2, "nI": width}, [array2d, array2d], [array2d, array2d]),
+    # fmt: on
 ]
 
 TEST_CASES = [
@@ -74,11 +78,6 @@ TEST_CASES = [
     ("MeanPool.v0", {}, ragged, array2d),
     ("SumPool.v0", {}, ragged, array2d),
     # fmt: off
-    # List to list
-    ("LSTM.v0", {"bi": False}, [array2d, array2d], [array2d, array2d]),
-    ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": True, "nO": width * 2, "nI": width}, [array2d, array2d], [array2d, array2d]),
     # Other
     ("CauchySimilarity.v0", {}, (array2d, array2d), array1d),
     ("FeatureExtractor.v0", {"columns": [1, 2]}, [doc, doc, doc], [array2d, array2d, array2d]),
