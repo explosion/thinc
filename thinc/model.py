@@ -369,7 +369,7 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        seen = set()
+        seen: Set[int] = set()
         for node in self.walk():
             if node.id not in seen:
                 # Kind of ugly to use the _mem.weights -- would make more sense
