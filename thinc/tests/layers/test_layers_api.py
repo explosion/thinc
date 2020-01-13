@@ -1,5 +1,6 @@
 from thinc.api import registry, with_padded
 from thinc.types import Ragged
+from thinc.util import has_torch
 import numpy
 import pytest
 
@@ -64,8 +65,8 @@ TEST_CASES_SAME_TYPED = [
     # List to list
     ("LSTM.v0", {"bi": False}, [array2d, array2d], [array2d, array2d]),
     ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d]),
-    ("PyTorchLSTM.v0", {"bi": True, "nO": width * 2, "nI": width}, [array2d, array2d], [array2d, array2d]),
+    pytest.param("PyTorchLSTM.v0", {"bi": False, "nO": width, "nI": width}, [array2d, array2d], [array2d, array2d], marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
+    pytest.param("PyTorchLSTM.v0", {"bi": True, "nO": width * 2, "nI": width}, [array2d, array2d], [array2d, array2d], marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
     # fmt: on
 ]
 

@@ -1,15 +1,7 @@
 from thinc.api import Linear, SGD, PyTorchWrapper, xp2torch, torch2xp
+from thinc.util import has_torch
 import numpy
 import pytest
-
-
-try:
-    import torch
-    import torch.nn
-
-    has_pytorch = True
-except ImportError:
-    has_pytorch = False
 
 
 def check_learns_zero_output(model, sgd, X, Y):
@@ -28,7 +20,7 @@ def check_learns_zero_output(model, sgd, X, Y):
         prev = total
 
 
-@pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_unwrapped(nN, nI, nO):
     model = Linear(nO, nI)
@@ -39,9 +31,11 @@ def test_unwrapped(nN, nI, nO):
     check_learns_zero_output(model, sgd, X, Y)
 
 
-@pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_wrapper(nN, nI, nO):
+    import torch.nn
+
     model = PyTorchWrapper(torch.nn.Linear(nI, nO))
     sgd = SGD(0.001)
     X = numpy.zeros((nN, nI), dtype="f")
@@ -57,8 +51,10 @@ def test_wrapper(nN, nI, nO):
     check_learns_zero_output(model, sgd, X, Y)
 
 
-@pytest.mark.skipif(not has_pytorch, reason="needs PyTorch")
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 def test_roundtrip_conversion():
+    import torch
+
     xp_tensor = numpy.zeros((2, 3), dtype="f")
     torch_tensor = xp2torch(xp_tensor)
     assert isinstance(torch_tensor, torch.Tensor)

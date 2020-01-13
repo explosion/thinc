@@ -1,6 +1,7 @@
 import numpy
 import timeit
 from thinc.api import minibatch, NumpyOps, LSTM, PyTorchLSTM, with_padded
+from thinc.util import has_torch
 import pytest
 
 
@@ -140,5 +141,9 @@ def test_lstm_init():
     model.initialize()
     with pytest.raises(NotImplementedError):
         with_padded(LSTM(2, dropout=0.2))
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+def test_pytorch_lstm_init():
     model = with_padded(PyTorchLSTM(2, 2, depth=0))
     assert model.name.endswith("noop")
