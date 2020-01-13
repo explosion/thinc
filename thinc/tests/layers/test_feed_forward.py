@@ -103,6 +103,26 @@ def test_predict_and_begin_update_match(model, model1, model2, input_data):
     assert_allclose(via_update, expected, atol=1e-2, rtol=1e-4)
 
 
+def test_init_functions_are_called():
+    init_was_called = {}
+    def register_init(name, model, X=None, Y=None):
+        init_was_called[name] = True
+
+    layer1 = Linear(5)
+    layer2 = Linear(5)
+    layer3 = Linear(5)
+    layer1._init = partial(register_init, "one")
+    layer2._init = partial(register_init, "two")
+    layer3._init = partial(register_init, "three")
+    # This is the nesting we'll get from operators.
+    model = chain(layer1, chain(layer2, layer3)) 
+    assert not init_was_called
+    model.initialize()
+    assert init_was_called["one"]
+    assert init_was_called["two"]
+    assert init_was_called["three"]
+
+
 class GradientSpy(object):
     def __init__(self):
         self.weights = None
