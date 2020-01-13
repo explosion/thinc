@@ -1,7 +1,7 @@
 import pytest
 import threading
 import time
-from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model
+from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
 import numpy
 
 from ..util import make_tempdir
@@ -33,6 +33,9 @@ def test_init_assigns_attributes():
 
 
 def test_model_init():
+    class MyShim(Shim):
+        name = "testshim"
+
     model_a = create_model("a")
     model = Model(
         "test",
@@ -42,8 +45,9 @@ def test_model_init():
         grads={"W": numpy.zeros((10,)), "b": None},
         refs={"a": model_a, "b": None},
         attrs={"foo": "bar"},
+        shims=[MyShim(None)],
+        layers=[model_a, model_a],
     )
-    model.layers.append(model_a)
     assert model.has_param("W")
     assert model.get_param("W").shape == (10,)
     assert model.has_param("b") is None
@@ -54,12 +58,14 @@ def test_model_init():
     model.set_param("X", numpy.zeros((10,)))
     assert model.has_param("X")
     assert model.get_param("X").shape == (10,)
+    with model.use_params({model.id: numpy.ones((20,))}):
+        assert numpy.array_equal(model.get_param("X"), numpy.ones((10,)))
+    assert numpy.array_equal(model.get_param("X"), numpy.zeros((10,)))
     assert model.has_grad("W") is None
     assert model.get_grad("W").shape == (10,)
     assert not model.has_grad("xyz")
     with pytest.raises(KeyError):
         model.get_grad("b")
-    assert model.has_grad("W") is None
     model.set_param("W", model.ops.alloc_f1d(10))
     model.set_grad("W", model.ops.alloc_f1d(10))
     with pytest.raises(ValueError):
@@ -94,6 +100,9 @@ def test_model_init():
         model.get_attr("bar")
     model.set_attr("bar", "baz")
     assert model.has_attr("bar")
+    model._grads["d_W"] = None
+    model_copy = model.copy()
+    assert model_copy.name == "test"
 
 
 def test_param_names():

@@ -107,7 +107,7 @@ def test_multi_model_load_missing_dims():
     assert model2.layers[1].get_param("b")[0, 0] == 2
 
 
-def test_serialize_model_shims():
+def test_serialize_model_shims_roundtrip_bytes():
     test_shim = SerializableShim(None)
     shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
     model = chain(Linear(2, 3), shim_model, Maxout(2, 3))
@@ -119,6 +119,22 @@ def test_serialize_model_shims():
     shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
     new_model = chain(Linear(2, 3), shim_model, Maxout(2, 3)).from_bytes(model_bytes)
     assert new_model.layers[1].shims[0].value == "shimdata from bytes"
+
+
+def test_serialize_refs_roundtrip_bytes():
+    fwd = lambda X: (X, lambda dY: dY)
+    model_a = Model("a", fwd)
+    model = Model("test", fwd, refs={"a": model_a, "b": None})
+    with pytest.raises(ValueError):  # ref not in nodes
+        model.to_bytes()
+    model = Model("test", fwd, refs={"a": model_a, "b": None}, layers=[model_a])
+    assert model.ref_names == ("a", "b")
+    model_bytes = model.to_bytes()
+    with pytest.raises(ValueError):
+        Model("test", fwd).from_bytes(model_bytes)
+    new_model = Model("test", fwd, layers=[model_a])
+    new_model.from_bytes(model_bytes)
+    assert new_model.ref_names == ("a", "b")
 
 
 def test_serialize_attrs():

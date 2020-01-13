@@ -486,7 +486,7 @@ class Model(Generic[InT, OutT]):
                 layer._mem.ops = layer.ops
         return device
 
-    def to_cpu(self) -> None:
+    def to_cpu(self) -> None:  # pragma: no cover
         """Copy the model to CPU."""
         for layer in self.walk():
             layer.ops = NumpyOps()
@@ -516,6 +516,9 @@ class Model(Generic[InT, OutT]):
             attrs = {}
             for name, value in layer._attrs.items():
                 attrs[name] = serialize_attr(value, value, name, self)
+            invalid_refs = {k: v for k, v in layer._refs.items() if v not in node_to_i}
+            if invalid_refs:
+                raise ValueError(f"Cannot get references: {invalid_refs}")
             refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
             weights.append(
                 {
