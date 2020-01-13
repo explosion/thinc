@@ -5,13 +5,11 @@ from thinc.api import with_array, with_padded, with_list, with_ragged, with_geti
 from thinc.types import Padded, Ragged
 
 
+from ..util import get_data_checker
+
+
 @pytest.fixture(params=[[], [(10, 2)], [(5, 3), (1, 3)], [(2, 3), (0, 3), (1, 3)]])
 def shapes(request):
-    return request.param
-
-
-@pytest.fixture(params=["f", "i"])
-def dtype(request):
     return request.param
 
 
@@ -21,7 +19,7 @@ def ops():
 
 
 @pytest.fixture
-def list_input(shapes, dtype):
+def list_input(shapes):
     return [numpy.zeros(shape, dtype="f") for shape in shapes]
 
 
@@ -112,21 +110,6 @@ def get_ragged_model():
     return with_ragged(Model("trimragged", _trim_ragged_forward))
 
 
-def get_checker(inputs):
-    if isinstance(inputs, Ragged):
-        return assert_raggeds_match
-    elif isinstance(inputs, Padded):
-        return assert_paddeds_match
-    elif isinstance(inputs, list):
-        return assert_lists_match
-    elif isinstance(inputs, tuple) and len(inputs) == 4:
-        return assert_padded_data_match
-    elif isinstance(inputs, tuple) and len(inputs) == 2:
-        return assert_ragged_data_match
-    else:
-        return assert_arrays_match
-
-
 def check_initialize(model, inputs):
     # Just check that these run and don't hit errors. I guess we should add a
     # spy and check that model.layers[0].initialize gets called, but shrug?
@@ -152,50 +135,6 @@ def check_transform_produces_correct_output_type_backward(model, inputs, checker
     outputs, backprop = model.begin_update(inputs)
     d_inputs = backprop(outputs)
     assert checker(inputs, d_inputs)
-
-
-def assert_arrays_match(X, Y):
-    assert X.dtype == Y.dtype
-    # Transformations are allowed to change last dimension, but not batch size.
-    assert X.shape[0] == Y.shape[0]
-    return True
-
-
-def assert_lists_match(X, Y):
-    assert isinstance(X, list)
-    assert isinstance(Y, list)
-    assert len(X) == len(Y)
-    for x, y in zip(X, Y):
-        assert_arrays_match(x, y)
-    return True
-
-
-def assert_raggeds_match(X, Y):
-    assert isinstance(X, Ragged)
-    assert isinstance(Y, Ragged)
-    assert_arrays_match(X.lengths, Y.lengths)
-    assert_arrays_match(X.data, Y.data)
-    return True
-
-
-def assert_paddeds_match(X, Y):
-    assert isinstance(X, Padded)
-    assert isinstance(Y, Padded)
-    assert_arrays_match(X.size_at_t, Y.size_at_t)
-    assert X.lengths == Y.lengths
-    assert X.indices == Y.indices
-    assert X.data.dtype == Y.data.dtype
-    assert X.data.shape[1] == Y.data.shape[1]
-    assert X.data.shape[0] == Y.data.shape[0]
-    return True
-
-
-def assert_padded_data_match(X, Y):
-    return assert_paddeds_match(Padded(*X), Padded(*Y))
-
-
-def assert_ragged_data_match(X, Y):
-    return assert_raggeds_match(Ragged(*X), Ragged(*Y))
 
 
 def test_with_array_initialize(ragged_input, padded_input, list_input, array_input):
@@ -224,42 +163,42 @@ def test_with_ragged_initialize(
 
 def test_with_array_forward(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_array_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
 
 def test_with_list_forward(ragged_input, padded_input, list_input):
     for inputs in (ragged_input, padded_input, list_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_list_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
 
 def test_with_padded_forward(ragged_input, padded_input, list_input, padded_data_input):
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_padded_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
 
 def test_with_ragged_forward(ragged_input, padded_input, list_input, ragged_data_input):
     for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_ragged_model()
         check_transform_produces_correct_output_type_forward(model, inputs, checker)
 
 
 def test_with_array_backward(ragged_input, padded_input, list_input, array_input):
     for inputs in (ragged_input, padded_input, list_input, array_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_array_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
 
 def test_with_list_backward(ragged_input, padded_input, list_input):
     for inputs in (ragged_input, padded_input, list_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_list_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
@@ -268,7 +207,7 @@ def test_with_ragged_backward(
     ragged_input, padded_input, list_input, ragged_data_input
 ):
     for inputs in (ragged_input, padded_input, list_input, ragged_data_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_ragged_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
@@ -277,7 +216,7 @@ def test_with_padded_backward(
     ragged_input, padded_input, list_input, padded_data_input
 ):
     for inputs in (ragged_input, padded_input, list_input, padded_data_input):
-        checker = get_checker(inputs)
+        checker = get_data_checker(inputs)
         model = get_padded_model()
         check_transform_produces_correct_output_type_backward(model, inputs, checker)
 
