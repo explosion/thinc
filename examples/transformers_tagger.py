@@ -30,19 +30,19 @@ CONFIG = """
 starter = "bert-base-multilingual-cased"
 
 [training]
-batch_size = 20
+batch_size = 128
+words_per_subbatch = 3000
 n_epoch = 10
-batch_per_update = 4
 
 [optimizer]
-@optimizers = "Adam.v1"
+@optimizers = "RAdam.v1"
 learn_rate = 2e-5
 
 #[optimizer.schedules.learn_rate]
 #@schedules = "warmup_linear.v1"
-#initial_rate = 0.001
+#initial_rate = 0.01
 #warmup_steps = 3000
-#total_steps = 10000
+#total_steps = 6000
 
 [model]
 @layers = "transformer_tagger_example.v0"
@@ -116,8 +116,8 @@ def transformers_model(name) -> Model[List[TokensPlus], List[Array2d]]:
 
 
 @thinc.registry.layers("output_layer_example.v0")
-def output_layer_example() -> Model:
-    return with_array(Softmax())
+def output_layer_example(n_tags=17) -> Model:
+    return with_array(Softmax(n_tags))
 
 
 def convert_transformer_inputs(model, tokens: TokensPlus, is_train):
@@ -165,7 +165,25 @@ def evaluate_sequences(
     return correct / total
 
 
-def main(path: Optional[Path] = None):
+def minibatch_by_words(pairs, max_words):
+    """Group pairs of sequences into minibatches under max_words in size,
+    considering padding. The size of a padded batch is the length of its
+    longest sequence multiplied by the number of elements in the batch.
+    """
+    batch = []
+    for X, Y in pairs:
+        batch.append((X, Y))
+        n_words = max(len(xy[0]) for xy in batch) * len(batch)
+        if n_words >= max_words:
+            # We went *over* the cap, so don't emit the batch with this
+            # example -- move that example into the next one.
+            yield batch[:-1]
+            batch = [(X, Y)]
+    if batch:
+        yield batch
+
+
+def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     if prefer_gpu():
         print("Using gpu!")
         use_pytorch_for_gpu_memory()
@@ -194,19 +212,30 @@ def main(path: Optional[Path] = None):
     for epoch in range(cfg["n_epoch"]):
         train_data: List[Tuple[Array2d, Array2d]] = list(zip(train_X, train_Y))
         random.shuffle(train_data)
-        batch_count = 0
         train_data = tqdm.tqdm(train_data, leave=False)
-        for batch in minibatch(train_data, cfg["batch_size"]):
-            inputs, truths = zip(*batch)
-            guesses, backprop = model(inputs, is_train=True)
-            backprop(calculate_loss(guesses, truths))
-            batch_count += 1
-            if batch_count == 4:
-                model.finish_update(optimizer)
-                optimizer.step_schedules()
-                batch_count = 0
+        # Transformers often learn best with large batch sizes -- larger than
+        # fits in GPU memory. But you don't have to backprop the whole batch
+        # at once. Here we consider the "logical" batch size (number of examples
+        # per update) separately from the physical batch size.
+        for outer_batch in minibatch(train_data, cfg["batch_size"]):
+            # For the physical batch size, what we care about is the number
+            # of words (considering padding too). We also want to sort by
+            # length, for efficiency.
+            outer_batch.sort(key=lambda xy: len(xy[0]), reverse=True)
+            for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
+                inputs, truths = zip(*batch)
+                guesses, backprop = model(inputs, is_train=True)
+                backprop(calculate_loss(guesses, truths))
+            # At the end of the batch, we call the optimizer with the accumulated
+            # gradients, and advance the learning rate schedules.
+            model.finish_update(optimizer)
+            optimizer.step_schedules()
+        # You might want to evaluate more often than once per epoch; that's up
+        # to you.
         score = evaluate_sequences(model, dev_X, dev_Y, 128)
         print(epoch, score)
+        if out_dir:
+            model.to_disk(out_dir / f"{epoch}.bin")
 
 
 if __name__ == "__main__":
