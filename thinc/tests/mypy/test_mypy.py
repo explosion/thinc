@@ -6,9 +6,6 @@ import pytest
 
 from mypy import api as mypy_api
 
-# This ensures mypy can find the test files, no matter where tests are run from:
-os.chdir(Path(__file__).parent.parent.parent.parent)
-
 # You can change the following variable to True during development to overwrite expected output with generated output
 GENERATE = False
 
@@ -22,6 +19,8 @@ cases = [
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
 def test_mypy_results(config_filename, python_filename, output_filename):
+    # This ensures mypy can find the test files, no matter where tests are run from:
+    os.chdir(Path(__file__).parent.parent.parent.parent)
     # To debug output text files
     print(f"Running from: {os.getcwd()}")
     print(f"Current directory contains: {os.listdir()}")
