@@ -1,5 +1,5 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional, List, Callable
+from typing import Iterable, Union, Sequence, Optional, List, Callable, Dict
 from types import GeneratorType
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
@@ -274,6 +274,19 @@ def test_make_from_config_schema():
         my_registry.make_from_config(config, schema=TestBaseSchema)
 
 
+def test_make_from_config_schema_coerced():
+    class TestBaseSchema(BaseModel):
+        test1: str
+        test2: bool
+        test3: float
+
+    config = {"test1": 123, "test2": 1, "test3": 5}
+    result = my_registry.make_from_config(config, schema=TestBaseSchema)
+    assert result["test1"] == "123"
+    assert result["test2"] is True
+    assert result["test3"] == 5.0
+
+
 def test_read_config():
     byte_string = EXAMPLE_CONFIG.encode("utf8")
     cfg = Config().from_bytes(byte_string)
@@ -511,7 +524,7 @@ def test_partials_from_config():
     # Make sure returned partial function has correct value set
     assert inspect.signature(func).parameters["margin"].default == 0.5
     # Actually call the function and verify
-    loss = func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
     # Make sure validation still works
     bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
     with pytest.raises(ConfigValidationError):
@@ -555,8 +568,30 @@ def test_validate_generator():
         while True:
             yield 10
 
-    cfg = {"test": {"@schedules": "test_schedule.v2"}}
-    result = my_registry.make_from_config(cfg)["test"]
+    cfg = {"@schedules": "test_schedule.v2"}
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v2")
+    def test_optimizer(rate: Generator) -> Generator:
+        return rate
+
+    cfg = {
+        "@optimizers": "test_optimizer.v2",
+        "rate": {"@schedules": "test_schedule.v2"},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
+
+    @my_registry.optimizers("test_optimizer.v3")
+    def test_optimizer2(schedules: Dict[str, Generator]) -> Generator:
+        return schedules["rate"]
+
+    cfg = {
+        "@optimizers": "test_optimizer.v3",
+        "schedules": {"rate": {"@schedules": "test_schedule.v2"}},
+    }
+    result = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(result, GeneratorType)
 
 
