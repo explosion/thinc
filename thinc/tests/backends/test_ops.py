@@ -9,21 +9,16 @@ from .. import strategies
 
 MAX_EXAMPLES = 10
 
-OPS_CLASSES = [NumpyOps]
+VANILLA_OPS = Ops(numpy)
+NUMPY_OPS = NumpyOps()
+CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
+XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
-    OPS_CLASSES.append(CupyOps)
+    XP_OPS.append(CupyOps())
+ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 
-@pytest.fixture(params=OPS_CLASSES)
-def ops(request):
-    return request.param()
-
-
-@pytest.fixture
-def cpu_ops():
-    return NumpyOps()
-
-
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_hash_gives_distinct_keys(ops):
     ids = ops.alloc_f1d(5, dtype="uint64")
     keys = ops.hash(ids, 0)
@@ -34,6 +29,7 @@ def test_hash_gives_distinct_keys(ops):
             assert keys[i, j] != 0
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_get_dropout_empty(ops):
     shape = (2, 2)
     drop = 0.0
@@ -44,6 +40,7 @@ def test_get_dropout_empty(ops):
         assert mask[mask != 1.0].all()
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_get_dropout_not_empty(ops):
     shape = (200, 200)
     drop = 0.5
@@ -53,6 +50,7 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
@@ -64,6 +62,7 @@ def test_seq2col_window_one_small(ops):
     assert_allclose(cols[3], [4.0, 5.0, 0.0])
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
 def test_maxout(ops, X):
@@ -77,6 +76,7 @@ def test_maxout(ops, X):
     # We could check that using the 'which', we get the right results?
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_seq2col_window_one(ops, X):
@@ -88,6 +88,7 @@ def test_seq2col_window_one(ops, X):
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 def test_backprop_seq2col_window_one_small(ops):
     cols = ops.asarray(
         [[0.0, 0.0, 0.0], [-1.0, 0.0, 1.0], [2.0, 0.0, 0.0]], dtype="float32"
@@ -99,6 +100,7 @@ def test_backprop_seq2col_window_one_small(ops):
     assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_seq2col_window_one(ops, X):
@@ -120,6 +122,7 @@ def test_backprop_seq2col_window_one(ops, X):
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_seq2col_window_two(ops):
     seq = ops.asarray([[1.0], [2.0], [3.0], [4]], dtype="float32")
     cols = ops.seq2col(seq, 2)
@@ -131,6 +134,7 @@ def test_seq2col_window_two(ops):
     assert_allclose(cols[3], [2.0, 3.0, 4.0, 0.0, 0.0])
 
 
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_backprop_seq2col_window_two(ops):
     cols = ops.asarray(
         [
@@ -158,6 +162,7 @@ def test_backprop_seq2col_window_two(ops):
     ops.xp.testing.assert_allclose(seq, expected, atol=0.001, rtol=0.001)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_sum_pool(ops, X):
@@ -175,6 +180,7 @@ def test_backprop_sum_pool(ops, X):
         start += length
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softmax_sums_to_one(ops, X):
@@ -183,6 +189,7 @@ def test_softmax_sums_to_one(ops, X):
         assert 0.99999 <= row.sum() <= 1.0001
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
@@ -192,6 +199,7 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
+@pytest.mark.parametrize("cpu_ops", CPU_OPS)
 def test_gemm_computes_correctly(cpu_ops):
     W = numpy.zeros((3, 2), dtype="f")
     X = numpy.zeros((4, 2), dtype="f")
@@ -200,16 +208,27 @@ def test_gemm_computes_correctly(cpu_ops):
     Y = cpu_ops.gemm(X, W, trans2=True)
     expected = numpy.dot(X, W.T)
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
+    W = numpy.zeros((2, 3), dtype="f")
+    X = numpy.zeros((2, 4), dtype="f")
+    W += numpy.random.uniform(size=W.size).reshape(W.shape)
+    X += numpy.random.uniform(size=X.size).reshape(X.shape)
+    Y = cpu_ops.gemm(X, W, trans1=True)
+    expected = numpy.dot(X.T, W)
+    assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
+    cpu_ops.gemm(X, W, trans1=True, out=Y)
 
 
+@pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
     expected = X * (X > 0.0)
     y = cpu_ops.clip_low(X, 0.0)
     assert_allclose(expected, y)
+    cpu_ops.clip_low(X, 0.0, inplace=True)
 
 
+@pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BOP())
 def test_take_which_computes_correctly(cpu_ops, X):
@@ -220,6 +239,7 @@ def test_take_which_computes_correctly(cpu_ops, X):
             assert best[i, j] == max(X[i, j])
 
 
+@pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_flatten_unflatten_roundtrip(cpu_ops, X):
@@ -227,8 +247,13 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
     assert flat.ndim == 1
     unflat = cpu_ops.unflatten(flat, [len(x) for x in X])
     assert_allclose(X, unflat)
+    flat2 = cpu_ops.flatten([x for x in X], pad=1, dtype="f")
+    assert len(flat2) > len(flat)
+    unflat2 = cpu_ops.unflatten(flat2, [len(x) for x in X], pad=1)
+    assert_allclose(X, unflat2)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 def test_sum_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += 1
@@ -237,6 +262,10 @@ def test_sum_pool(ops):
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
 
+@pytest.mark.parametrize(
+    "ops",
+    [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))],
+)
 def test_max_pool_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
     X += ops.xp.random.uniform(-1, 1, X.shape)
@@ -249,6 +278,10 @@ def test_max_pool_sm(ops):
         start += length
 
 
+@pytest.mark.parametrize(
+    "ops",
+    [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))],
+)
 def test_max_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
@@ -264,6 +297,7 @@ def test_max_pool(ops):
         start += length
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_softplus(ops, X):
@@ -272,8 +306,10 @@ def test_softplus(ops, X):
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
     assert not (Y == 0).any()
+    ops.softplus(X, out=X)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_softplus(ops, X):
@@ -283,8 +319,10 @@ def test_backprop_softplus(ops, X):
     dX = ops.backprop_softplus(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()
+    ops.backprop_softplus(zeros, X, out=X)
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_mish(ops, X):
@@ -294,6 +332,7 @@ def test_mish(ops, X):
     assert not ops.xp.isnan(Y).any()
 
 
+@pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
@@ -316,3 +355,5 @@ def test_get_ops():
     assert Ops is CupyOps
     with pytest.raises(ValueError):
         Ops = get_ops("blah")
+    ops = Ops(numpy)
+    assert ops.xp == numpy
