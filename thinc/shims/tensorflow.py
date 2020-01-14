@@ -166,13 +166,13 @@ class TensorFlowShim(Shim):
         self._model = tf.keras.models.model_from_json(model_json_config)
         self._load_weights_from_state_dict(state_dict)
 
-    def to_gpu(self, device_num):  # pragma: no cover
-        with tf.device("/GPU:{}".format(device_num)):
-            self._clone_model()
-
-    def to_cpu(self):
-        with tf.device("/CPU"):  # pragma: no cover
-            self._clone_model()
+    def to_device(self, device):  # pragma: no cover
+        if device == "cpu":
+            with tf.device("/CPU"):  # pragma: no cover
+                self._clone_model()
+        else:
+            with tf.device("/GPU:{}".format(device)):
+                self._clone_model()
 
     def to_disk(self, path):
         self._model.save(path)
