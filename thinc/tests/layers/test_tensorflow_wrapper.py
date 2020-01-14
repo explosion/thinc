@@ -161,7 +161,7 @@ def test_tensorflow_wrapper_accepts_optimizer(
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_serialize_model_subclass(
-    X: Array, Y: Array, input_size: int
+    X: Array, Y: Array, input_size: int, n_classes: int, answer: int
 ):
     import tensorflow as tf
 
@@ -173,7 +173,9 @@ def test_tensorflow_wrapper_serialize_model_subclass(
             self.in_dense = tf.keras.layers.Dense(
                 12, name="in_dense", input_shape=input_shape
             )
-            self.out_dense = tf.keras.layers.Dense(12, name="out_dense")
+            self.out_dense = tf.keras.layers.Dense(
+                n_classes, name="out_dense", activation="softmax"
+            )
 
         def call(self, inputs):
             x = self.in_dense(inputs)
@@ -182,11 +184,21 @@ def test_tensorflow_wrapper_serialize_model_subclass(
     model: Model[Array, Array] = TensorFlowWrapper(
         CustomKerasModel(), input_shape=input_shape
     )
+    # Train the model to predict the right single answer
+    optimizer = Adam()
+    for i in range(50):
+        guesses, backprop = model(X, is_train=True)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+    predicted = model.predict(X).argmax()
+    assert predicted == answer
 
-    model.predict(X)
-    model_bytes = model.to_bytes()
-    another_model = model.from_bytes(model_bytes)
-    assert another_model is not None
+    # Save then Load the model from bytes
+    model.from_bytes(model.to_bytes())
+
+    # The from_bytes model gets the same answer
+    assert model.predict(X).argmax() == answer
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")

@@ -1,9 +1,12 @@
 from typing import List, Optional, Dict
 import contextlib
 import itertools
+import os
 from io import BytesIO
 import numpy
 import copy
+import shutil
+import tempfile
 
 try:
     import cupy
@@ -51,7 +54,7 @@ class TensorFlowShim(Shim):
 
     def predict(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(0)
-        Y = self._model(*X.args, **X.kwargs)
+        Y = self._model.predict(*X.args, **X.kwargs)
         tf.keras.backend.set_learning_phase(1)
         return Y
 
@@ -188,19 +191,51 @@ class TensorFlowShim(Shim):
 
     def to_bytes(self):
         filelike = BytesIO()
-        with h5py.File(filelike, "w") as f:
-            self._model.save(f, save_format="h5")
-        return filelike.getvalue()
+        try:
+            with h5py.File(filelike, "w") as f:
+                self._model.save(f, save_format="h5")
+            return filelike.getvalue()
+        except NotImplementedError:
+            # Export as SavedModel and read in all the files/bytes
+            model_folder = tempfile.mkdtemp()
+            self._model.save(model_folder, save_format="tf")
+            bytes_data: Dict[str, bytes] = {}
+            for root, dirs, files in os.walk(model_folder):
+                for fname in files:
+                    file_path = os.path.join(root, fname)
+                    rel_path = os.path.relpath(file_path, model_folder)
+                    with open(file_path, "rb") as in_file:
+                        bytes_data[rel_path] = in_file.read()
+            shutil.rmtree(model_folder)
+            return bytes_data
 
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
-        filelike = BytesIO(data)
-        filelike.seek(0)
         if ops.device == "cpu":
             device = "CPU"
         else:  # pragma: no cover
             device = tf.test.gpu_device_name()
-        with h5py.File(filelike, "r") as f:
-            with tf.device(device):
-                self._model = tf.keras.models.load_model(f)
+
+        # Not an index of file/bytes for a SavedModel folder
+        if not isinstance(data, dict):
+            filelike = BytesIO(data)
+            filelike.seek(0)
+            with h5py.File(filelike, "r") as f:
+                with tf.device(device):
+                    self._model = tf.keras.models.load_model(f)
+                return
+
+        # Export as SavedModel and read in all the files/bytes
+        model_folder = tempfile.mkdtemp()
+        bytes_data: Dict[str, bytes] = data
+        for file_relname, file_bytes in bytes_data.items():
+            file_full = os.path.join(model_folder, file_relname)
+            file_path = os.path.dirname(file_full)
+            if not os.path.exists(file_path):
+                os.mkdir(file_path)
+            with open(file_full, "wb") as f:
+                f.write(file_bytes)
+        with tf.device(device):
+            self._model = tf.keras.models.load_model(model_folder)
+        shutil.rmtree(model_folder)
