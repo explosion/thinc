@@ -42,7 +42,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
         return Ragged(X.data + Y.data, X.lengths), backprop
     elif isinstance(X, Padded):
         Y.data += X.data
-        return Y
+        return Y, backprop
     else:
         return X + Y, backprop
 
