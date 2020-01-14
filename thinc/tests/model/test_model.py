@@ -92,6 +92,8 @@ def test_model_init():
         model.get_attr("bar")
     model.set_attr("bar", "baz")
     assert model.has_attr("bar")
+    model_copy = model.copy()
+    assert model_copy.name == "test"
 
 
 def test_param_names():
