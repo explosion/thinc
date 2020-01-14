@@ -4,7 +4,7 @@ from ..model import Model
 from ..shims import TensorFlowShim
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
-from ..types import ArgsKwargs
+from ..types import ArgsKwargs, Array
 
 try:
     import tensorflow as tf
@@ -23,6 +23,7 @@ def TensorFlowWrapper(
     convert_outputs: Optional[Callable] = None,
     optimizer: Optional[Any] = None,
     model_class: Type[Model] = Model,
+    input_shape: Optional[Tuple[int, ...]] = None,
     model_name: str = "tensorflow",
 ) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
@@ -36,7 +37,7 @@ def TensorFlowWrapper(
     # Building a TF model checks for errors like not specifying an input_shape
     # which can cause other errors in methods like from_disk and from_bytes.
     if build_model:
-        tensorflow_model.build()
+        tensorflow_model.build(input_shape=input_shape)
     if convert_inputs is None:
         convert_inputs = _convert_inputs
     if convert_outputs is None:

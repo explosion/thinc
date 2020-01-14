@@ -160,6 +160,35 @@ def test_tensorflow_wrapper_accepts_optimizer(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_serialize_model_subclass(
+    X: Array, Y: Array, input_size: int
+):
+    import tensorflow as tf
+
+    input_shape = (1, input_size)
+
+    class CustomKerasModel(tf.keras.Model):
+        def __init__(self, **kwargs):
+            super(CustomKerasModel, self).__init__(**kwargs)
+            self.in_dense = tf.keras.layers.Dense(
+                12, name="in_dense", input_shape=input_shape
+            )
+            self.out_dense = tf.keras.layers.Dense(12, name="out_dense")
+
+        def call(self, inputs):
+            x = self.in_dense(inputs)
+            return self.out_dense(x)
+
+    model: Model[Array, Array] = TensorFlowWrapper(
+        CustomKerasModel(), input_shape=input_shape
+    )
+
+    model.predict(X)
+    model_bytes = model.to_bytes()
+    another_model = model.from_bytes(model_bytes)
+    assert another_model is not None
+
+
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_can_copy_model(model: Model[Array, Array]):
     copy: Model[Array, Array] = model.copy()
