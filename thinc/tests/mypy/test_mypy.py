@@ -1,6 +1,7 @@
 import os
 import re
 from pathlib import Path
+import shutil
 
 import pytest
 
@@ -18,32 +19,35 @@ cases = [
 
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
-def test_mypy_results(config_filename, python_filename, output_filename):
-    # This ensures mypy can find the test files, no matter where tests are run from:
-    os.chdir(Path(__file__).parent.parent.parent.parent)
-    # To debug output text files
-    print(f"Running from: {os.getcwd()}")
-    print(f"Current directory contains: {os.listdir()}")
-    full_config_filename = f"thinc/tests/mypy/configs/{config_filename}"
-    full_filename = f"thinc/tests/mypy/modules/{python_filename}"
-    full_output_filename = f"thinc/tests/mypy/outputs/{output_filename}"
+def test_mypy_results(config_filename, python_filename, output_filename, tmpdir):
+    os.chdir(tmpdir)
+    root_dir = Path(__file__).parent
+    tmpdir_path = Path(tmpdir)
+
+    full_config_path: Path = root_dir / f"configs/{config_filename}"
+    full_module_path: Path = root_dir / f"modules/{python_filename}"
+    full_output_path: Path = root_dir / f"outputs/{output_filename}"
+
+    full_tmp_config_path: Path = tmpdir_path / config_filename
+    full_tmp_module_path: Path = tmpdir_path / python_filename
+
+    shutil.copy(str(full_config_path), tmpdir)
+    shutil.copy(str(full_module_path), tmpdir)
 
     expected_out = ""
     expected_err = ""
-    expected_returncode = 0 if output_filename is None else 1
-    if full_output_filename is not None:
-        with open(full_output_filename, "r") as f:
-            expected_out = f.read()
+    expected_returncode = 1
+    expected_out = full_output_path.read_text()
 
     # Specifying a different cache dir for each configuration dramatically speeds up subsequent execution
     # It also prevents cache-invalidation-related bugs in the tests
-    cache_dir = f".mypy_cache/test-{config_filename[:-4]}"
+    cache_dir = tmpdir_path / f".mypy_cache/test-{config_filename[:-4]}"
     command = [
-        full_filename,
+        str(full_tmp_module_path),
         "--config-file",
-        full_config_filename,
+        str(full_tmp_config_path),
         "--cache-dir",
-        cache_dir,
+        str(cache_dir),
         "--show-error-codes",
     ]
     print(
@@ -58,8 +62,7 @@ def test_mypy_results(config_filename, python_filename, output_filename):
     actual_out = re.sub(r"\n\s*\n", r"\n", actual_out)
 
     if GENERATE and output_filename is not None:
-        with open(full_output_filename, "w") as f:
-            f.write(actual_out)
+        full_output_path.write_text(actual_out)
     else:
         assert actual_out == expected_out, actual_out
 
