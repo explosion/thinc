@@ -411,7 +411,7 @@ class Model(Generic[InT, OutT]):
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
-            shims=copy.deepcopy(self.shims),
+            shims=[shim.copy() for shim in self.shims]
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
