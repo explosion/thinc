@@ -1,4 +1,5 @@
 from typing import Any, Optional, Tuple, Callable, Dict, Union
+import copy
 import contextlib
 from pathlib import Path
 
@@ -43,6 +44,9 @@ class Shim:  # pragma: no cover
     @contextlib.contextmanager
     def use_params(self, params):
         yield
+
+    def copy(self):
+        return copy.deepcopy(self)
 
     def to_device(self, device: str):
         raise NotImplementedError
