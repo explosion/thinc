@@ -39,9 +39,11 @@ def PyTorchLSTM(
 
     if depth == 0:
         return noop()  # type: ignore
+    if bi:
+        nO = nO // 2
     return with_padded(
         PyTorchRNNWrapper(
-            torch.nn.LSTM(nI, nO // 2, depth, bidirectional=bi, dropout=dropout)
+            torch.nn.LSTM(nI, nO, depth, bidirectional=bi, dropout=dropout)
         )
     )
 
