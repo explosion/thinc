@@ -51,15 +51,12 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     def sgd(data, gradient, key=None, **kwargs):
         seen_keys.add(key)
         assert data.shape == gradient.shape
-        assert data.ndim == 1
-        assert gradient.ndim == 1
-        assert model._mem._i == (nr_out * nr_in) + nr_out
-        assert data.shape[0] == (nr_out * nr_in) + nr_out, data.shape[0]
+        return data, gradient
 
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)  # noqa: F841
     model.finish_update(sgd)
-    assert seen_keys == {model.id}
+    assert seen_keys == {(model.id, "W"), (model.id, "b")}
 
 
 @settings(max_examples=100)
@@ -195,13 +192,15 @@ def test_update():
     tt = numpy.asarray([[1.0, 1.0]], dtype="f")  # noqa: F841
 
     # ff, i.e. 0, 0
-    scores, finish_update = model.begin_update(ff)
+    scores, backprop = model.begin_update(ff)
     assert_allclose(scores[0, 0], scores[0, 1])
     # Tell it the answer was 'f'
     gradient = numpy.asarray([[-1.0, 0.0]], dtype="f")
-    finish_update(gradient)
-    for key, (W, dW) in model.get_gradients().items():
-        sgd(W, dW, key=key)
+    backprop(gradient)
+    for key, (param, d_param) in model.get_gradients().items():
+        param, d_param = sgd(param, d_param, key=key)
+        model.set_param(key[1], param)
+        model.set_grad(key[1], d_param)
 
     b = model.get_param("b")
     W = model.get_param("W")

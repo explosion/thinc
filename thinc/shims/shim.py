@@ -1,4 +1,5 @@
 from typing import Any, Optional, Tuple, Callable, Dict, Union
+import copy
 import contextlib
 from pathlib import Path
 
@@ -44,10 +45,10 @@ class Shim:  # pragma: no cover
     def use_params(self, params):
         yield
 
-    def to_gpu(self, device_num):
-        raise NotImplementedError
+    def copy(self):
+        return copy.deepcopy(self)
 
-    def to_cpu(self):
+    def to_device(self, device: str):
         raise NotImplementedError
 
     def to_disk(self, path: Union[str, Path]):

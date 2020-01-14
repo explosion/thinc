@@ -105,11 +105,11 @@ class PyTorchShim(Shim):
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
 
-    def to_gpu(self, device_num):  # pragma: no cover
-        self._model.cuda(device_num)
-
-    def to_cpu(self):  # pragma: no cover
-        self._model.cpu()
+    def to_device(self, device):  # pragma: no cover
+        if device == "cpu":
+            self._model.cpu()
+        else:
+            self._model.cuda(device)
 
     def to_bytes(self):
         filelike = BytesIO()
