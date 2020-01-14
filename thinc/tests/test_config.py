@@ -1,5 +1,5 @@
 import pytest
-from typing import Iterable, Union, Sequence, Optional, List, Callable, Dict
+from typing import Iterable, Union, Optional, List, Callable, Dict
 from types import GeneratorType
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
@@ -74,7 +74,7 @@ beta1 = 0.9
 beta2 = 0.999
 use_averages = true
 
-[optimizer.schedules.learn_rate]
+[optimizer.learn_rate]
 @schedules = "warmup_linear.v1"
 initial_rate = 0.1
 warmup_steps = 10000
@@ -436,7 +436,7 @@ def test_make_config_positional_args_dicts():
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
     def test_optimizer_v1(
-        rate: float, schedule: Union[float, Sequence[float], Generator]
+        rate: float,
     ) -> None:
         return None
 
@@ -449,7 +449,6 @@ def test_validation_generators_iterable():
         "optimizer": {
             "@optimizers": "test_optimizer.v1",
             "rate": 0.1,
-            "schedule": {"@schedules": "test_schedule.v1", "some_value": 1.0},
         }
     }
     my_registry.make_from_config(config)
@@ -510,7 +509,8 @@ def test_objects_from_config():
     loaded = my_registry.make_from_config(config)
     optimizer = loaded["optimizer"]
     assert optimizer.b1 == 0.2
-    assert optimizer.learn_rate == [0.001, 0.001, 0.001, 0.001]
+    assert "learn_rate" in optimizer.schedules
+    assert optimizer.learn_rate == 0.001
 
 
 def test_partials_from_config():
@@ -597,13 +597,6 @@ def test_validate_generator():
     @my_registry.optimizers("test_optimizer.v4")
     def test_optimizer4(*schedules: Generator) -> Generator:
         return schedules[0]
-
-    cfg = {
-        "@optimizers": "test_optimizer.v4",
-        "*": {"a": {"@schedules": "test_schedule.v2"}},
-    }
-    result = my_registry.make_from_config({"test": cfg})["test"]
-    assert isinstance(result, GeneratorType)
 
 
 def test_handle_generic_model_type():
