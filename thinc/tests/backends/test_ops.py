@@ -263,8 +263,7 @@ def test_sum_pool(ops):
 
 
 @pytest.mark.parametrize(
-    "ops",
-    [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))],
+    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
 )
 def test_max_pool_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
@@ -279,8 +278,7 @@ def test_max_pool_sm(ops):
 
 
 @pytest.mark.parametrize(
-    "ops",
-    [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))],
+    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
 )
 def test_max_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")

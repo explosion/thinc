@@ -74,9 +74,14 @@ TEST_CASES_SUMMABLE = [
 
 TEST_CASES = [
     *TEST_CASES_SUMMABLE,
-    pytest.param("PyTorchLSTM.v0", {"bi": True, "nO": width * 2, "nI": width}, [array2d, array2d], [array2d, array2d], marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
+    pytest.param(
+        "PyTorchLSTM.v0",
+        {"bi": True, "nO": width * 2, "nI": width},
+        [array2d, array2d],
+        [array2d, array2d],
+        marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch"),
+    ),
     ("LSTM.v0", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
