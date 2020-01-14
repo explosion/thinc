@@ -42,7 +42,6 @@ def test_model_init():
         lambda X: (X, lambda dY: dY),
         dims={"nI": 10, "nO": None},
         params={"W": numpy.zeros((10,)), "b": None},
-        grads={"W": numpy.zeros((10,)), "b": None},
         refs={"a": model_a, "b": None},
         attrs={"foo": "bar"},
         shims=[MyShim(None)],
@@ -100,20 +99,6 @@ def test_model_init():
         model.get_attr("bar")
     model.set_attr("bar", "baz")
     assert model.has_attr("bar")
-
-
-@pytest.mark.xfail
-def test_model_copy_grads():
-    model = Model(
-        "test",
-        lambda X: (X, lambda dY: dY),
-        params={"W": numpy.zeros((10,)), "b": None},
-        grads={"W": numpy.zeros((10,)), "b": None},
-    )
-    model.set_param("W", model.ops.alloc_f1d(10))
-    model.set_grad("W", model.ops.alloc_f1d(10))
-    model_copy = model.copy()
-    assert model_copy.name == "test"
 
 
 def test_param_names():
