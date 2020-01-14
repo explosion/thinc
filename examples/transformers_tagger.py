@@ -1,16 +1,6 @@
-"""Train a transformer tagging model, using Huggingface's Transformers.
-
-Tip: You can profile your program with
-
-    py-spy record -o profile.svg --native --rate 20 -- python examples/scripts/transformers_tagger.py
-
-The width of each block indicates the time spent within that function or within
-its call stack. If a block is wider than its child, time is being spent there.
-You should see that very little time is being spent within Thinc, indicating
-that the computation is delegated to PyTorch efficiently.
-"""
+"""Train a transformer tagging model, using Huggingface's Transformers."""
 from dataclasses import dataclass
-from typing import List, Optional, Tuple, Callable
+from typing import List, Optional, Tuple
 import random
 import torch
 from pathlib import Path
