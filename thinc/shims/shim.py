@@ -44,10 +44,7 @@ class Shim:  # pragma: no cover
     def use_params(self, params):
         yield
 
-    def to_gpu(self, device_num):
-        raise NotImplementedError
-
-    def to_cpu(self):
+    def to_device(self, device: str):
         raise NotImplementedError
 
     def to_disk(self, path: Union[str, Path]):
