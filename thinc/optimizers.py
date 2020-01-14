@@ -127,6 +127,7 @@ class Optimizer(object):
     mom2: Dict[KeyT, Array]
     slow_weights: Dict[KeyT, Array]
     averages: Optional[Dict[KeyT, Array]]
+    schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
     grad_clip: float
