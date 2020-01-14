@@ -139,7 +139,7 @@ class GradientSpy(object):
 # gradient check. I suspect the test is the problem, not the code.
 @pytest.mark.skip
 # This is the actual definition -- it's just annoying to see tonnes of skips.
-#def test_gradient(model, input_data, nB, nH, nI, nO):
+# def test_gradient(model, input_data, nB, nH, nI, nO):
 def test_gradient():
     truth = numpy.zeros((nB, nO), dtype="float32")
     truth[0] = 1.0
@@ -149,7 +149,7 @@ def test_gradient():
 
     for layer in model.layers:
         for name in layer.param_names:
-            agrad = layer.get_grad(name).ravel() # Should have grads for all params.
+            agrad = layer.get_grad(name).ravel()  # Should have grads for all params.
             predict = get_predict(layer, name, input_data)
             ngrad = get_numeric_gradient(predict, agrad.size, truth)
             assert_allclose(agrad, ngrad, atol=0.2, rtol=0.2)
@@ -161,6 +161,7 @@ def get_predict(layer, param_name, inputs):
     before and after. So we need to get a callback that gives an output
     given a change to one weight.
     """
+
     def predict(i, epsilon):
         param = layer.get_param(param_name)
         shape = param.shape
@@ -173,7 +174,7 @@ def get_predict(layer, param_name, inputs):
         return outputs.reshape(shape)
 
     return predict
- 
+
 
 def get_numeric_gradient(predict, n, target):
     gradient = numpy.zeros(n)
