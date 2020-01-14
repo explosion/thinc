@@ -1,14 +1,8 @@
+from typing import List, Optional, Dict
 import contextlib
 import itertools
 from io import BytesIO
-from typing import List
-
 import numpy
-
-from ..backends import Ops, get_current_ops
-from ..types import ArgsKwargs
-from ..util import tensorflow2xp
-from .shim import Shim
 
 try:
     import cupy
@@ -17,13 +11,18 @@ except ImportError:
 
 try:
     import tensorflow as tf
-except ImportError:
+except ImportError:  # pragma: no cover
     pass
 
 try:
     import h5py
 except ImportError:  # pragma: no cover
     pass
+
+from ..backends import Ops, get_current_ops
+from ..types import ArgsKwargs, Array
+from ..util import tensorflow2xp
+from .shim import Shim
 
 
 class TensorFlowShim(Shim):
@@ -101,7 +100,11 @@ class TensorFlowShim(Shim):
             raise NotImplementedError
         return optimizer
 
-    def _load_weights_from_state_dict(self, state_dict):
+    def _load_weights_from_state_dict(
+        self, state_dict: Optional[Dict[str, Array]] = None
+    ):
+        if state_dict is None:
+            state_dict = self._create_state_dict()
         for layer in self._model.layers:
             current_layer_weights = []
             for weight in layer.weights:
@@ -126,8 +129,8 @@ class TensorFlowShim(Shim):
             if hasattr(k, "startswith") and k.startswith(key_prefix):
                 if cupy is None:
                     assert isinstance(v, numpy.ndarray)
-                else:
-                    if isinstance(v, cupy.core.core.ndarray):  # pragma: no cover
+                else:  # pragma: no cover
+                    if isinstance(v, cupy.core.core.ndarray):
                         v = cupy.asnumpy(v)
                     assert isinstance(v, numpy.ndarray)
                 state_dict[k.replace(key_prefix, "")] = v
@@ -160,32 +163,18 @@ class TensorFlowShim(Shim):
         But the tf.keras.models.clone_model changes the names of tf.Variables.
         This method even preserves that
         """
-        state_dict = self._create_state_dict()
         model_json_config = self._model.to_json()
         tf.keras.backend.clear_session()
         self._model = tf.keras.models.model_from_json(model_json_config)
-        self._load_weights_from_state_dict(state_dict)
+        self._load_weights_from_state_dict()
 
     def to_gpu(self, device_num):  # pragma: no cover
         with tf.device("/GPU:{}".format(device_num)):
             self._clone_model()
 
     def to_cpu(self):
-        with tf.device("/CPU"):  # pragma: no cover
+        with tf.device("/CPU"):
             self._clone_model()
-
-    def to_disk(self, path):
-        self._model.save(path)
-
-    def from_disk(self, path):
-        tf.keras.backend.clear_session()
-        ops: Ops = get_current_ops()
-        if ops.device == "cpu":
-            device = "CPU"
-        else:
-            device = tf.test.gpu_device_name()
-        with tf.device(device):
-            self._model = tf.keras.models.load_model(path)
 
     def to_bytes(self):
         filelike = BytesIO()
@@ -200,7 +189,7 @@ class TensorFlowShim(Shim):
         filelike.seek(0)
         if ops.device == "cpu":
             device = "CPU"
-        else:
+        else:  # pragma: no cover
             device = tf.test.gpu_device_name()
         with h5py.File(filelike, "r") as f:
             with tf.device(device):

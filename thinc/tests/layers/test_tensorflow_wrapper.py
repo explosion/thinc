@@ -74,7 +74,7 @@ def test_tensorflow_wrapper_roundtrip_conversion():
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_construction_requires_keras_model(tf_model):
+def test_tensorflow_wrapper_construction_requires_keras_model():
     import tensorflow as tf
 
     keras_model = tf.keras.Sequential([tf.keras.layers.Dense(12, input_shape=(12,))])
@@ -198,7 +198,8 @@ def test_tensorflow_wrapper_use_params(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
-def test_tensorflow_wrapper_to_cpu(model: Model[Array, Array], X: Array):
+def test_tensorflow_wrapper_to_cpu(tf_model):
+    model = TensorFlowWrapper(tf_model)
     model.to_cpu()
 
 
