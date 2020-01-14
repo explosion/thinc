@@ -15,9 +15,6 @@ from .util import get_array_module
 from .config import registry
 
 
-ctypedef float weight_t
-
-
 # We need to use the custom Generator type for schedules to work around pydantic
 # not supporting Iterator / Iterable
 ScheduleT = Generator
@@ -350,10 +347,10 @@ class Optimizer(object):
         mom2 = self.mom2[key]
         fix1 = 1.- (self.b1 ** nr_upd)
         fix2 = 1.- (self.b2 ** nr_upd)
-        cdef weight_t lr = self.learn_rate * numpy.sqrt(fix2) / fix1
-        cdef weight_t b1 = self.b1
-        cdef weight_t b2 = self.b2
-        cdef weight_t eps = self.eps
+        lr = self.learn_rate * numpy.sqrt(fix2) / fix1
+        b1 = self.b1
+        b2 = self.b2
+        eps = self.eps
         self.ops.adam(
             weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
 
