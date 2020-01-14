@@ -502,7 +502,7 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
-    def clip_gradient(self, gradient: Array1d, threshold: float) -> None:
+    def clip_gradient(self, gradient: Array, threshold: float) -> None:
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
