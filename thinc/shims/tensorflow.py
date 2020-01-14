@@ -3,6 +3,7 @@ import contextlib
 import itertools
 from io import BytesIO
 import numpy
+import copy
 
 try:
     import cupy
