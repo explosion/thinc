@@ -138,7 +138,9 @@ class GradientSpy(object):
 # I don't know how to get this working properly after the refactor. It's a numeric
 # gradient check. I suspect the test is the problem, not the code.
 @pytest.mark.skip
-def test_gradient(model, input_data, nB, nH, nI, nO):
+# This is the actual definition -- it's just annoying to see tonnes of skips.
+#def test_gradient(model, input_data, nB, nH, nI, nO):
+def test_gradient():
     truth = numpy.zeros((nB, nO), dtype="float32")
     truth[0] = 1.0
 
@@ -147,16 +149,13 @@ def test_gradient(model, input_data, nB, nH, nI, nO):
 
     for layer in model.layers:
         for name in layer.param_names:
-            print(name, layer.get_param(name).shape)
-    for layer in model.layers:
-        for name in layer.param_names:
             agrad = layer.get_grad(name).ravel() # Should have grads for all params.
             predict = get_predict(layer, name, input_data)
             ngrad = get_numeric_gradient(predict, agrad.size, truth)
             assert_allclose(agrad, ngrad, atol=0.2, rtol=0.2)
 
 
-def get_predict(model, layer, param_name, inputs):
+def get_predict(layer, param_name, inputs):
     """Helper for gradient check. To do the numeric gradient check, we have
     to be able to wiggle one value in a parameter, and check the prediction
     before and after. So we need to get a callback that gives an output
@@ -168,7 +167,7 @@ def get_predict(model, layer, param_name, inputs):
         param = param.ravel()
         param[i] += epsilon
         layer.set_param(param_name, param.reshape(shape))
-        outputs = model.predict(inputs)
+        outputs = layer.predict(inputs)
         param[i] -= epsilon
         layer.set_param(param_name, param.reshape(shape))
         return outputs.reshape(shape)
