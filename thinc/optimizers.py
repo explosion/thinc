@@ -1,6 +1,6 @@
 import math
 
-from typing import Dict, Optional, Union, Any, Tuple, List, cast, Iterable
+from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 import numpy
 
@@ -15,8 +15,8 @@ from .config import registry
 ScheduleT = Generator
 
 KeyT = Tuple[int, str]
-FloatOrSeq = Union[float, Generator, Iterable[float]]
-IntOrSeq = Union[float, Generator, Iterable[float]]
+FloatOrSeq = Union[float, List[float], Generator]
+IntOrSeq = Union[int, List[int], Generator]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 1e-6,
@@ -48,8 +48,7 @@ def RAdam(
     lookahead_k: int = 0,
     lookahead_alpha: FloatOrSeq = 0.5,
     use_averages: bool = True,
-    schedules: Optional[Dict[str, ScheduleT]] = None,
-    ops: Optional[Ops] = None,
+    ops: Optional[Ops] = None
 ):
     return Optimizer(
         learn_rate,
@@ -59,12 +58,10 @@ def RAdam(
         grad_clip=grad_clip,
         L2_is_weight_decay=True,
         L2=weight_decay,
-        schedules=schedules,
         lookahead_k=lookahead_k,
         lookahead_alpha=lookahead_alpha,
         use_averages=True,
         use_radam=True,
-        use_lars=False,
         ops=ops,
     )
 
@@ -82,8 +79,7 @@ def Adam(
     use_averages: bool = True,
     lookahead_k: int = 0,
     lookahead_alpha: FloatOrSeq = 0.5,
-    ops: Optional[Ops] = None,
-    schedules: Optional[Dict[str, ScheduleT]] = None,
+    ops: Optional[Ops] = None
 ):
     return Optimizer(
         learn_rate,
@@ -93,13 +89,10 @@ def Adam(
         eps=eps,
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
-        schedules=schedules,
         use_averages=True,
-        decay_steps=0,
         lookahead_k=lookahead_k,
         lookahead_alpha=lookahead_alpha,
         use_radam=False,
-        use_lars=False,
         ops=ops,
     )
 
@@ -112,15 +105,13 @@ def SGD(
     L2: FloatOrSeq = SGD_DEFAULTS["L2"],
     grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
-    use_averages: bool = True,
-    schedules: Optional[Dict[str, ScheduleT]] = None,
+    use_averages: bool = True
 ):
     return Optimizer(
         learn_rate,
         L2=L2,
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
-        schedules=schedules,
         beta1=0.0,
         beta2=0.0,
         ops=ops,
@@ -165,8 +156,6 @@ class Optimizer(object):
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
-        schedules: Optional[Dict[str, ScheduleT]] = None,
-        **_,
     ):
         """
         Initialize an optimizer.
@@ -184,15 +173,8 @@ class Optimizer(object):
         use_radam (bool): Whether to use the RAdam optimizer.
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
             weight decay term, in the style of the AdamW optimizer.
-        schedules (dict): Dictionary mapping hyper-parameter names to value
-            iterables. On each call to optimizer.step_schedules(), the named
-            hyper-parameters are replaced with the next item from the generator.
         """
         self.ops = ops if ops is not None else get_current_ops()
-        if schedules is None:
-            self.schedules = {}
-        else:
-            self.schedules = dict(schedules)
         self.mom1 = {}
         self.mom2 = {}
         self.slow_weights = {}  # For lookahead
@@ -200,6 +182,7 @@ class Optimizer(object):
             self.averages = {}
         else:
             self.averages = None
+        self.schedules = {}
         self.nr_update = defaultdict(int)
         self.last_seen = defaultdict(int)
         self._set_attr_or_schedule("grad_clip", grad_clip)
@@ -218,6 +201,8 @@ class Optimizer(object):
         if isinstance(value, (float, bool, int)):
             setattr(self, name, value)
         else:
+            if isinstance(value, list):
+                value = iter(value)
             self.schedules[name] = value
             setattr(self, name, next(value))
 
