@@ -235,7 +235,7 @@ def test_tensorflow_wrapper_convert_inputs(data, n_args, kwargs_keys):
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_thinc_model_subclass(tf_model):
     class CustomModel(Model):
-        def fn() -> int:
+        def fn(self) -> int:
             return 1337
 
     model = TensorFlowWrapper(tf_model, model_class=CustomModel)
