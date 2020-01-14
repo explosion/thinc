@@ -2,7 +2,7 @@ from mypy.errorcodes import ErrorCode
 from mypy.options import Options
 from mypy.plugin import FunctionContext, Plugin, CheckerPluginInterface
 from mypy.types import Instance, Type, CallableType, TypeVarType
-from mypy.nodes import Expression, CallExpr, NameExpr, FuncDef
+from mypy.nodes import Expression, CallExpr, NameExpr, FuncDef, Decorator
 
 thinc_model_fullname = "thinc.model.Model"
 
@@ -31,7 +31,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
     assert len(ctx.args) == 3
     assert isinstance(ctx.context, CallExpr)
     assert isinstance(ctx.context.callee, NameExpr)
-    assert isinstance(ctx.context.callee.node, FuncDef)
+    assert isinstance(ctx.context.callee.node, (FuncDef, Decorator))
     assert isinstance(ctx.context.callee.node.type, CallableType)
     assert isinstance(ctx.context.callee.node.type.ret_type, Instance)
     assert ctx.context.callee.node.type.ret_type.args

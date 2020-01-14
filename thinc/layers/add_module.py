@@ -11,10 +11,6 @@ InT = TypeVar("InT", bound=Array)
 
 
 @registry.layers("add.v0")
-def registry_add(*layer: Model) -> Model:
-    return add(*layer)
-
-
 def add(layer1: Model[InT, InT], layer2: Model[InT, InT], *layers: Model) -> Model[InT, Reduced_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
