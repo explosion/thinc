@@ -3,6 +3,7 @@ import contextlib
 import itertools
 from io import BytesIO
 import numpy
+import copy
 
 try:
     import cupy
@@ -168,13 +169,22 @@ class TensorFlowShim(Shim):
         self._model = tf.keras.models.model_from_json(model_json_config)
         self._load_weights_from_state_dict()
 
-    def to_gpu(self, device_num):  # pragma: no cover
-        with tf.device("/GPU:{}".format(device_num)):
-            self._clone_model()
+    def copy(self):
+        model_json_config = self._model.to_json()
+        self._model = None
+        tf.keras.backend.clear_session()
+        copied = copy.deepcopy(self)
+        copied._model = tf.keras.models.model_from_json(model_json_config)
+        copied._load_weights_from_state_dict()
+        return copied
 
-    def to_cpu(self):
-        with tf.device("/CPU"):
-            self._clone_model()
+    def to_device(self, device):  # pragma: no cover
+        if device == "cpu":
+            with tf.device("/CPU"):  # pragma: no cover
+                self._clone_model()
+        else:
+            with tf.device("/GPU:{}".format(device)):
+                self._clone_model()
 
     def to_bytes(self):
         filelike = BytesIO()

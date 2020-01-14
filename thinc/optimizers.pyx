@@ -224,9 +224,9 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, int key) -> None:
+    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, key):
         if len(gradient) < 1:
-            return
+            return weights, gradient
         xp = get_array_module(weights)
         if xp is not self.ops.xp:
             if xp is numpy:
@@ -258,8 +258,9 @@ class Optimizer(object):
             weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
+                self.averages[key] = self.ops.alloc(weights.shape, dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
+        return weights, gradient
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
         if key not in self.mom1:
