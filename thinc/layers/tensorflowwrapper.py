@@ -21,6 +21,7 @@ def TensorFlowWrapper(
     build_model: bool = True,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
+    optimizer: Optional[Any] = None,
     model_class: Type[Model] = Model,
     model_name: str = "tensorflow",
 ) -> Model[InT, OutT]:
@@ -43,7 +44,7 @@ def TensorFlowWrapper(
     return model_class(
         model_name,
         forward,
-        shims=[TensorFlowShim(tensorflow_model)],
+        shims=[TensorFlowShim(tensorflow_model, optimizer=optimizer)],
         attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
     )
 

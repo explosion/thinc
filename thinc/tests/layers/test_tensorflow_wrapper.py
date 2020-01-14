@@ -136,6 +136,31 @@ def test_tensorflow_wrapper_train_overfits(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_accepts_optimizer(
+    model: Model[Array, Array], tf_model, X: Array, Y: Array, answer: int
+):
+    # Update the optimizer weights
+    optimizer = Adam()
+    for i in range(10):
+        guesses, backprop = model(X, is_train=True)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+
+    # Pass the existing optimizer to a new wrapper shim
+    wrapped: Model[Array, Array] = TensorFlowWrapper(
+        tf_model, optimizer=model.shims[0]._optimizer
+    )
+    assert model.shims[0]._optimizer is not None
+    assert wrapped.shims[0]._optimizer is not None
+    weights_model = model.shims[0]._optimizer.get_weights()
+    weights_wrapped = wrapped.shims[0]._optimizer.get_weights()
+    for w1, w2 in zip(weights_model, weights_wrapped):
+        assert numpy.array_equal(w1, w2)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_can_copy_model(model: Model[Array, Array]):
     copy: Model[Array, Array] = model.copy()
     assert copy is not None

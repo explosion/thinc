@@ -21,12 +21,12 @@ class Shim:  # pragma: no cover
     _model: Any
     _optimizer: Optional[Any]
 
-    def __init__(self, model: Any, config=None):
+    def __init__(self, model: Any, config=None, optimizer: Any = None):
         Shim.global_id += 1
         self.id = Shim.global_id
         self.cfg = dict(config) if config is not None else {}
         self._model = model
-        self._optimizer = None
+        self._optimizer = optimizer
 
     def __call__(self, inputs, is_train: bool) -> Tuple[Any, Callable[..., Any]]:
         raise NotImplementedError
