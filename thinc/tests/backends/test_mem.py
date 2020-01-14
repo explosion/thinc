@@ -1,6 +1,8 @@
 import pytest
 from thinc.backends.mem import Memory
+from thinc.backends._param_server import ParamServer
 from thinc.api import NumpyOps
+import numpy
 
 
 @pytest.fixture
@@ -65,13 +67,25 @@ def test_get_first_gradient(ops):
 def test_get_existing_gradient(ops):
     params = Memory(ops, size=10)
     params.add("b", (5,))
+    assert "b" in params
     db = params.add_gradient("d_b", "b")
     db += 1
     db = params.get("d_b")
     assert db[0] == 1
+    assert numpy.array_equal(params.weights, numpy.zeros((5,), dtype="f"))
+    assert numpy.array_equal(params.gradient, numpy.ones((5,), dtype="f"))
 
 
 def test_get_gradient_absent_parameter(ops):
     params = Memory(ops, size=10)
     d_b = params.get("d_b")
     assert d_b is None
+
+
+def test_param_server_init():
+    array = numpy.zeros((5,), dtype="f")
+    params = {("a", 1): array, ("b", 2): array}
+    grads = {("a", 1): array, ("c", 3): array}
+    ps = ParamServer(params, grads)
+    assert ps.param_keys == (("a", 1), ("b", 2))
+    assert ps.grad_keys == (("a", 1),)

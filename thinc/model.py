@@ -429,7 +429,7 @@ class Model(Generic[InT, OutT]):
         """Transfer the model to CPU."""
         self._to_ops(NumpyOps())
 
-    def _to_ops(self, ops: Ops) -> None:
+    def _to_ops(self, ops: Ops) -> None:  # pragma: no cover
         """Common method for to_cpu/to_gpu."""
         for node in self.walk():
             node.ops = ops
