@@ -26,12 +26,6 @@ def test_models_get_different_ids(model_with_no_args):
     assert model1.id != model2.id
 
 
-def test_init_assigns_attributes():
-    model = Linear()
-    model._mem
-    assert model.layers == []
-
-
 def test_model_init():
     class MyShim(Shim):
         name = "testshim"
@@ -57,11 +51,10 @@ def test_model_init():
     model.set_param("X", numpy.zeros((10,)))
     assert model.has_param("X")
     assert model.get_param("X").shape == (10,)
-    with model.use_params({model.id: numpy.ones((20,))}):
+    with model.use_params({(model.id, "X"): numpy.ones((10,))}):
         assert numpy.array_equal(model.get_param("X"), numpy.ones((10,)))
     assert numpy.array_equal(model.get_param("X"), numpy.zeros((10,)))
-    assert model.has_grad("W") is None
-    assert model.get_grad("W").shape == (10,)
+    assert not model.has_grad("W")
     assert not model.has_grad("xyz")
     with pytest.raises(KeyError):
         model.get_grad("b")
