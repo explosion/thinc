@@ -223,9 +223,8 @@ class Model(Generic[InT, OutT]):
             self._params.set_param(self.id, name, value)
             self._has_params[name] = True
 
-    def has_grad(self, name: str) -> Optional[bool]:
+    def has_grad(self, name: str) -> bool:
         """Check whether the model has a non-zero gradient for a parameter.
-        Returns None if the gradient is allocated but currently 0.
         """
         return self._params.has_grad(self.id, name)
 
@@ -325,8 +324,8 @@ class Model(Generic[InT, OutT]):
                     param, grad = optimizer(param, grad, key=(node.id, name))
                     node.set_param(name, param)
                     node.set_grad(name, grad)
-                for shim in node.shims:
-                    shim.finish_update(optimizer)
+            for shim in node.shims:
+                shim.finish_update(optimizer)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], Array]):
