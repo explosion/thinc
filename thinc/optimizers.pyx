@@ -258,7 +258,7 @@ class Optimizer(object):
             weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
-                self.averages[key] = self.ops.alloc_f1d(weights.size, dtype="float32")
+                self.averages[key] = self.ops.alloc(weights.shape, dtype="float32")
             self.ops.update_averages(self.averages[key], weights, nr_upd)
         return weights, gradient
 
