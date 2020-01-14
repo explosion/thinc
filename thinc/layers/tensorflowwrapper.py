@@ -1,4 +1,4 @@
-from typing import Any, Callable, Tuple, TypeVar, Optional
+from typing import Any, Callable, Optional, Tuple, Type, TypeVar
 
 from ..model import Model
 from ..shims import TensorFlowShim
@@ -21,6 +21,8 @@ def TensorFlowWrapper(
     build_model: bool = True,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
+    model_class: Type[Model] = Model,
+    model_name: str = "tensorflow",
 ) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a TensorFlow optimizer and call
@@ -38,8 +40,8 @@ def TensorFlowWrapper(
         convert_inputs = _convert_inputs
     if convert_outputs is None:
         convert_outputs = _convert_outputs
-    return Model(
-        "tensorflow",
+    return model_class(
+        model_name,
         forward,
         shims=[TensorFlowShim(tensorflow_model)],
         attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},

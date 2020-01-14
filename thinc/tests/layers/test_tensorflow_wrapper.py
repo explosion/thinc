@@ -222,7 +222,7 @@ def test_tensorflow_wrapper_to_gpu(model: Model[Array, Array], X: Array):
         # fmt: on
     ],
 )
-def test_convert_inputs(data, n_args, kwargs_keys):
+def test_tensorflow_wrapper_convert_inputs(data, n_args, kwargs_keys):
     import tensorflow as tf
 
     keras_model = tf.keras.Sequential([tf.keras.layers.Dense(12, input_shape=(12,))])
@@ -230,3 +230,20 @@ def test_convert_inputs(data, n_args, kwargs_keys):
     convert_inputs = model.get_attr("convert_inputs")
     Y, backprop = convert_inputs(model, data, is_train=True)
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, tf.Tensor)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_thinc_model_subclass(tf_model):
+    class CustomModel(Model):
+        def fn(self) -> int:
+            return 1337
+
+    model = TensorFlowWrapper(tf_model, model_class=CustomModel)
+    assert isinstance(model, CustomModel)
+    assert model.fn() == 1337
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_thinc_set_model_name(tf_model):
+    model = TensorFlowWrapper(tf_model, model_name="cool")
+    assert model.name == "cool"
