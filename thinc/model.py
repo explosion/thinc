@@ -486,6 +486,9 @@ class Model(Generic[InT, OutT]):
             if hasattr(layer, "_mem"):
                 layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
                 layer._mem.ops = layer.ops
+            for shim in layer.shims:
+                if hasattr(shim, "to_gpu"):
+                    shim.to_gpu(gpu_id)
         return device
 
     def to_cpu(self) -> None:  # pragma: no cover
@@ -496,6 +499,9 @@ class Model(Generic[InT, OutT]):
                 if hasattr(layer._mem._mem, "get"):
                     layer._mem._mem = layer._mem._mem.get()
                 layer._mem.ops = layer.ops
+            for shim in layer.shims:
+                if hasattr(shim, "to_cpu"):
+                    shim.to_cpu()
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
