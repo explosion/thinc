@@ -1,10 +1,19 @@
-from typing import Any, Callable, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
 
+import numpy as np
+
+from ..config import registry
 from ..model import Model
 from ..shims import TensorFlowShim
-from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
-from ..util import is_tensorflow_array, convert_recursive, is_xp_array
 from ..types import ArgsKwargs, Array
+from ..util import (
+    assert_tensorflow_installed,
+    convert_recursive,
+    is_tensorflow_array,
+    is_xp_array,
+    tensorflow2xp,
+    xp2tensorflow,
+)
 
 try:
     import tensorflow as tf
@@ -14,6 +23,40 @@ except ImportError:  # pragma: no cover
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
+
+
+InFunc = TypeVar("InFunc")
+XType = TypeVar("XType", bound=Array)
+YType = TypeVar("YType", bound=Array)
+
+
+def keras_subclass(
+    name: str, X: XType, Y: YType, save_optimizer: bool = True
+) -> Callable[[InFunc], InFunc]:
+    """Decorate a custom keras subclassed model with enough information to
+    serialize and deserialize it reliably in the face of the many restrictions
+    on keras subclassed models.
+
+    name (str): The unique namespace string to use to represent this model class.
+    X (Any): A sample X input for performing a forward pass on the network.
+    Y (Any): A sample Y input for performing a backward pass on the network.
+
+    RETURNS (Callable): The decorated class.
+    """
+
+    def call_fn(clazz):
+        clazz.save_optimizer = property(lambda inst: save_optimizer)
+        clazz.catalogue_name = property(lambda inst: name)
+        clazz.eg_x = property(lambda inst: X)
+        clazz.eg_y = property(lambda inst: Y)
+
+        @registry.keras(name)
+        def create_component(**kwargs):
+            return clazz(**kwargs)
+
+        return clazz
+
+    return call_fn
 
 
 def TensorFlowWrapper(
@@ -34,6 +77,28 @@ def TensorFlowWrapper(
     if not isinstance(tensorflow_model, tf.keras.models.Model):
         err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
         raise ValueError(err)
+
+    # Determine if the model is Sequential/Functional
+    is_subclass = False
+    try:
+        tensorflow_model.to_json()
+    except NotImplementedError:
+        is_subclass = True
+
+    if is_subclass:
+        for prop_name in ["catalogue_name", "eg_x", "eg_y"]:
+            if not hasattr(tensorflow_model, prop_name):
+                raise ValueError(
+                    "Keras subclassed models are not whole-model serializable by "
+                    "Tensorflow. To work around this, you must decorate your keras "
+                    "model subclasses with the 'keras_subclass' decorator. The decorator "
+                    "requires a single X/Y input of fake-data that can be used to initialize "
+                    "your subclass model properly when loading the saved version."
+                )
+        # Attach the input shape if it's not provided
+        if input_shape is None:
+            input_shape = np.asarray(tensorflow_model.eg_x).shape
+
     # Building a TF model checks for errors like not specifying an input_shape
     # which can cause other errors in methods like from_disk and from_bytes.
     if build_model:

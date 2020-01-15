@@ -1,12 +1,19 @@
-from typing import List, Optional, Dict
 import contextlib
+import copy
 import itertools
 import os
-from io import BytesIO
-import numpy
-import copy
 import shutil
 import tempfile
+from io import BytesIO
+from typing import Any, Callable, Dict, List, Optional, TypeVar
+
+import numpy
+
+from ..backends import Ops, get_current_ops
+from ..config import registry
+from ..types import ArgsKwargs, Array
+from ..util import tensorflow2xp
+from .shim import Shim
 
 try:
     import cupy
@@ -22,11 +29,6 @@ try:
     import h5py
 except ImportError:  # pragma: no cover
     pass
-
-from ..backends import Ops, get_current_ops
-from ..types import ArgsKwargs, Array
-from ..util import tensorflow2xp
-from .shim import Shim
 
 
 class TensorFlowShim(Shim):
@@ -196,18 +198,14 @@ class TensorFlowShim(Shim):
                 self._model.save(f, save_format="h5")
             return filelike.getvalue()
         except NotImplementedError:
-            # Export as SavedModel and read in all the files/bytes
-            model_folder = tempfile.mkdtemp()
-            self._model.save(model_folder, save_format="tf")
-            bytes_data: Dict[str, bytes] = {}
-            for root, dirs, files in os.walk(model_folder):
-                for fname in files:
-                    file_path = os.path.join(root, fname)
-                    rel_path = os.path.relpath(file_path, model_folder)
-                    with open(file_path, "rb") as in_file:
-                        bytes_data[rel_path] = in_file.read()
-            shutil.rmtree(model_folder)
-            return bytes_data
+            if not hasattr(self._model, "catalogue_name"):
+                raise ValueError(
+                    "Couldn't serialize to h5, and model has no factory "
+                    "function for component serialization."
+                )
+            # Check the factory function and throw ValueError if it doesn't exist
+            registry.get("keras", self._model.catalogue_name)
+            return (self._model.catalogue_name, self._model.get_weights())
 
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
@@ -217,8 +215,8 @@ class TensorFlowShim(Shim):
         else:  # pragma: no cover
             device = tf.test.gpu_device_name()
 
-        # Not an index of file/bytes for a SavedModel folder
-        if not isinstance(data, dict):
+        # Plain bytes
+        if isinstance(data, (str, bytes)):
             filelike = BytesIO(data)
             filelike.seek(0)
             with h5py.File(filelike, "r") as f:
@@ -226,16 +224,11 @@ class TensorFlowShim(Shim):
                     self._model = tf.keras.models.load_model(f)
                 return
 
-        # Export as SavedModel and read in all the files/bytes
-        model_folder = tempfile.mkdtemp()
-        bytes_data: Dict[str, bytes] = data
-        for file_relname, file_bytes in bytes_data.items():
-            file_full = os.path.join(model_folder, file_relname)
-            file_path = os.path.dirname(file_full)
-            if not os.path.exists(file_path):
-                os.mkdir(file_path)
-            with open(file_full, "wb") as f:
-                f.write(file_bytes)
+        catalogue_name, model_weights = data
+        model_fn = registry.get("keras", catalogue_name)
         with tf.device(device):
-            self._model = tf.keras.models.load_model(model_folder)
-        shutil.rmtree(model_folder)
+            self._model = model_fn()
+        # Calling predict creates layers and weights for subclassed models
+        self._model.predict(self._model.eg_x)
+        # Once the weights are created we can overwrite them.
+        self._model.set_weights(model_weights)

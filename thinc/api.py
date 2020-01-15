@@ -22,7 +22,7 @@ from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import SparseLinear, StaticVectors, FeatureExtractor
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
-from .layers import TensorFlowWrapper
+from .layers import TensorFlowWrapper, keras_subclass
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import recurrent, residual, uniqued, siamese, list2ragged, ragged2list

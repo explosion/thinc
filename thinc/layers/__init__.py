@@ -20,7 +20,7 @@ from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
 from .lstm import LSTM, PyTorchLSTM
-from .tensorflowwrapper import TensorFlowWrapper
+from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 
 # Combinators
 from .add import add

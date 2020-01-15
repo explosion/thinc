@@ -142,7 +142,7 @@ class registry(object):
     layers: Decorator = catalogue.create("thinc", "layers", entry_points=True)
     losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
     initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
-    components: Decorator = catalogue.create("thinc", "components", entry_points=True)
+    keras: Decorator = catalogue.create("thinc", "keras", entry_points=True)
     # fmt: on
 
     @classmethod
