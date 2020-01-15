@@ -175,40 +175,6 @@ class NumpyOps(Ops):
         backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
         return dX
 
-    def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
-        cdef uint64_t* ids = &ids_mv[0]
-        cdef ndarray[uint64_t] output_arr = self.alloc(len(ids_mv), dtype='uint64')
-        output = <uint64_t*>output_arr.data
-        cdef uint64_t key = 0
-        for i in range(ids_mv.shape[0]):
-            if ids[i] == 0:
-                output[i] = 0
-            else:
-                mapped = <uint64_t>mapping.get(ids[i])
-                if mapped != 0:
-                    output[i] = mapped
-                else:
-                    output[i] = value
-                    if value != 0:
-                        mapping.set(ids[i], <void*>value)
-                        value += 1
-        return output_arr
-
-    def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
-        cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
-        cdef ndarray contig_starts = self.xp.ascontiguousarray(_starts, dtype='int32')
-
-        cdef const float* to_add = <const weight_t*>contig_to_add.data
-        cdef float* whole_array = <weight_t*>contig_array.data
-        cdef const int* starts = <const int*>contig_starts.data
-        cdef int n_slice = len(_starts)
-        cdef int length = _to_add.size
-        cdef int stride = length / _to_add.shape[0]
-        for start in starts[:n_slice]:
-            workon = &whole_array[start * stride]
-            for i in range(length):
-                workon[i] += to_add[i]
-
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, const uint64_t[::1] ids, uint32_t seed):
@@ -310,10 +276,6 @@ class NumpyOps(Ops):
             &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
-
-    def add_sum(self, np.ndarray out, np.ndarray to_sum):
-        VecVec.batch_add_i(<float*>out.data,
-            <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
 
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
         if out.dtype == 'float32' \

@@ -598,3 +598,20 @@ class Ops:
         return self.asarray(
             numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed)
         )
+
+    def ngrams(self, n: int, keys):
+        from .numpy_ops import NumpyOps
+
+        numpy_ops = NumpyOps()
+        return self.asarray(
+            numpy_ops.ngrams(n, numpy_ops.asarray(keys, dtype="uint64"))
+        )
+
+    def position_encode(self, N: int, D: int, period: int = 10000, out=None):
+        from .numpy_ops import NumpyOps
+
+        numpy_ops = NumpyOps()
+        return self.asarray(numpy_ops.position_encode(N, D, period, out))
+
+    def scatter_add(self, out: Array, ids: Array, inputs: Array):
+        return self.xp.add.at(out, ids, inputs)

@@ -19,6 +19,15 @@ if CupyOps.xp is not None:
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 
+@pytest.mark.parametrize("op", [NumpyOps, CupyOps, JaxOps])
+def test_ops_consistency(op):
+    """Test that specific ops don't define any methods that are not on the
+    Ops base class."""
+    attrs = [m for m in dir(op) if not m.startswith("__")]
+    for attr in attrs:
+        assert hasattr(Ops, attr)
+
+
 @pytest.mark.parametrize("ops", XP_OPS)
 def test_hash_gives_distinct_keys(ops):
     ids = ops.alloc_f1d(5, dtype="uint64")
