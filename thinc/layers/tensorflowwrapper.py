@@ -30,7 +30,9 @@ XType = TypeVar("XType", bound=Array)
 YType = TypeVar("YType", bound=Array)
 
 
-def keras_subclass(name: str, X: XType, Y: YType) -> Callable[[InFunc], InFunc]:
+def keras_subclass(
+    name: str, X: XType, Y: YType, args: Dict[str, Any]
+) -> Callable[[InFunc], InFunc]:
     """Decorate a custom keras subclassed model with enough information to
     serialize and deserialize it reliably in the face of the many restrictions
     on keras subclassed models.
@@ -38,6 +40,7 @@ def keras_subclass(name: str, X: XType, Y: YType) -> Callable[[InFunc], InFunc]:
     name (str): The unique namespace string to use to represent this model class.
     X (Any): A sample X input for performing a forward pass on the network.
     Y (Any): A sample Y input for performing a backward pass on the network.
+    args: Additional arguments are passed to the class constructor
 
     RETURNS (Callable): The decorated class.
     """
@@ -48,8 +51,8 @@ def keras_subclass(name: str, X: XType, Y: YType) -> Callable[[InFunc], InFunc]:
         clazz.eg_y = property(lambda inst: Y)
 
         @registry.keras(name)
-        def create_component(**kwargs):
-            return clazz(**kwargs)
+        def create_component(**call_kwargs):
+            return clazz(**{**args, **call_kwargs})
 
         return clazz
 
