@@ -3,7 +3,7 @@ from typing import Callable
 from .backends import Ops
 from .config import registry
 from .types import Array, Shape
-from .util import copy_array, partial
+from .util import partial
 
 
 def xavier_uniform_init(ops: Ops, shape: Shape) -> Array:

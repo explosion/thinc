@@ -5,7 +5,6 @@ import srsly
 from pathlib import Path
 import copy
 import functools
-import catalogue
 
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
