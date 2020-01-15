@@ -675,7 +675,7 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
 def _jax_flatten_model(model):  # pragma: ignore
     """A Jax flattener for Thinc models. Registering this (and the paired
     unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
-    
+
     The model must have an attr "registered_constructor" that can rebuild the
     model object via the layers registry, with no arguments. You should use a
     constructor that doesn't allocate any parameters and works reasonably quickly.
