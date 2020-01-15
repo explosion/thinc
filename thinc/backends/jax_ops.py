@@ -1,7 +1,7 @@
 from .ops import Ops
 import numpy
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d
-from typing import Sequence, Optional, List
+from typing import Sequence, Optional, List, Tuple
 
 try:
     import jax
@@ -131,21 +131,14 @@ class JaxOps(Ops):
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> None:
-        mom1 *= beta1
-        mom2 *= beta2
-        mom1 += gradient * (1.0 - beta1)
-        mom2 += gradient * gradient * (1.0 - beta2)
-        # Here we assume learn rate is calculated by the caller.
-        # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
-        weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
-        gradient.fill(0)
-
+    ) -> Tuple[Array, Array, Array, Array]:
+        return adam(weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate)
+    
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = self.xp
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
-            gradient *= threshold / grad_norm
+            gradient = gradient * (threshold / grad_norm)
         return gradient
 
     def logloss(self, y_true: Array, y_pred: Array):
@@ -298,6 +291,26 @@ def backprop_maxout(dY, which, P):
         for o in range(dY.shape[1]):
             dX[b, o, which[b, o]] = dY[b, o]
     return dX
+
+@jax.jit
+def adam(
+    weights: Array1d,
+    gradient: Array1d,
+    mom1: Array1d,
+    mom2: Array1d,
+    beta1: float,
+    beta2: float,
+    eps: float,
+    learn_rate: float
+) -> Tuple[Array, Array, Array, Array]:
+    mom1 *= beta1
+    mom2 *= beta2
+    mom1 += gradient * (1.0 - beta1)
+    mom2 += gradient * gradient * (1.0 - beta2)
+    # Here we assume learn rate is calculated by the caller.
+    # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
+    weights -= learn_rate * mom1 / (1.0 + eps)
+    return weights, gradient, mom1, mom2
 
 
 JaxOps.xp.random = JaxRandom()
