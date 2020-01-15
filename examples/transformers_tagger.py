@@ -37,17 +37,59 @@ n_epoch = 10
 """
 
 
-@dataclass
-class TokensPlus:
-    """Dataclass to hold the output of the Huggingface 'batch_encode_plus' method."""
+def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
+    if prefer_gpu():
+        print("Using gpu!")
+        use_pytorch_for_gpu_memory()
+    # You can edit the CONFIG string within the file, or copy it out to
+    # a separate file and pass in the path.
+    if path is None:
+        config = Config().from_str(CONFIG)
+    else:
+        config = Config().from_disk(path)
+    # make_from_config constructs objects whenever you have blocks with an @ key.
+    # In the optimizer block we write @optimizers = "Adam.v1". This tells Thinc
+    # to use registry.optimizers to fetch the "Adam.v1" function. You can
+    # register your own functions as well and build up trees of objects.
+    C = thinc.registry.make_from_config(config)
+    model = C["model"]
+    optimizer = C["optimizer"]
+    calculate_loss = sequence_categorical_crossentropy
+    cfg = C["training"]
 
-    input_ids: torch.Tensor
-    token_type_ids: torch.Tensor
-    attention_mask: torch.Tensor
-    input_len: List[int]
-    overflowing_tokens: Optional[torch.Tensor] = None
-    num_truncated_tokens: Optional[torch.Tensor] = None
-    special_tokens_mask: Optional[torch.Tensor] = None
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
+    # Convert the outputs to cupy (if we're using that)
+    train_Y = list(map(model.ops.asarray, train_Y))
+    dev_Y = list(map(model.ops.asarray, dev_Y))
+    # Pass in a small batch of data, to fill in missing shapes
+    model.initialize(X=train_X[:5], Y=train_Y[:5])
+    for epoch in range(cfg["n_epoch"]):
+        train_data: List[Tuple[Array2d, Array2d]] = list(zip(train_X, train_Y))
+        random.shuffle(train_data)
+        train_data = tqdm.tqdm(train_data, leave=False)
+        # Transformers often learn best with large batch sizes -- larger than
+        # fits in GPU memory. But you don't have to backprop the whole batch
+        # at once. Here we consider the "logical" batch size (number of examples
+        # per update) separately from the physical batch size.
+        for outer_batch in minibatch(train_data, cfg["batch_size"]):
+            # For the physical batch size, what we care about is the number
+            # of words (considering padding too). We also want to sort by
+            # length, for efficiency.
+            outer_batch.sort(key=lambda xy: len(xy[0]), reverse=True)
+            for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
+                inputs, truths = zip(*batch)
+                guesses, backprop = model(inputs, is_train=True)
+                backprop(calculate_loss(guesses, truths))
+            # At the end of the batch, we call the optimizer with the accumulated
+            # gradients, and advance the learning rate schedules.
+            model.finish_update(optimizer)
+            optimizer.step_schedules()
+        # You might want to evaluate more often than once per epoch; that's up
+        # to you.
+        score = evaluate_sequences(model, dev_X, dev_Y, 128)
+        print(epoch, score)
+        if out_dir:
+            model.to_disk(out_dir / f"{epoch}.bin")
 
 
 @thinc.registry.layers("TransformersTagger.v0")
@@ -59,6 +101,19 @@ def TransformersTagger(
         Transformer(starter),
         with_array(Softmax(n_tags)),
     )
+
+
+@dataclass
+class TokensPlus:
+    """Dataclass to hold the output of the Huggingface 'batch_encode_plus' method."""
+
+    input_ids: torch.Tensor
+    token_type_ids: torch.Tensor
+    attention_mask: torch.Tensor
+    input_len: List[int]
+    overflowing_tokens: Optional[torch.Tensor] = None
+    num_truncated_tokens: Optional[torch.Tensor] = None
+    special_tokens_mask: Optional[torch.Tensor] = None
 
 
 @thinc.registry.layers("transformers_tokenizer.v0")
@@ -153,61 +208,6 @@ def minibatch_by_words(pairs, max_words):
             batch = [(X, Y)]
     if batch:
         yield batch
-
-
-def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
-    if prefer_gpu():
-        print("Using gpu!")
-        use_pytorch_for_gpu_memory()
-    # You can edit the CONFIG string within the file, or copy it out to
-    # a separate file and pass in the path.
-    if path is None:
-        config = Config().from_str(CONFIG)
-    else:
-        config = Config().from_disk(path)
-    # make_from_config constructs objects whenever you have blocks with an @ key.
-    # In the optimizer block we write @optimizers = "Adam.v1". This tells Thinc
-    # to use registry.optimizers to fetch the "Adam.v1" function. You can
-    # register your own functions as well and build up trees of objects.
-    C = thinc.registry.make_from_config(config)
-    model = C["model"]
-    optimizer = C["optimizer"]
-    calculate_loss = sequence_categorical_crossentropy
-    cfg = C["training"]
-
-    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
-    # Convert the outputs to cupy (if we're using that)
-    train_Y = list(map(model.ops.asarray, train_Y))
-    dev_Y = list(map(model.ops.asarray, dev_Y))
-    # Pass in a small batch of data, to fill in missing shapes
-    model.initialize(X=train_X[:5], Y=train_Y[:5])
-    for epoch in range(cfg["n_epoch"]):
-        train_data: List[Tuple[Array2d, Array2d]] = list(zip(train_X, train_Y))
-        random.shuffle(train_data)
-        train_data = tqdm.tqdm(train_data, leave=False)
-        # Transformers often learn best with large batch sizes -- larger than
-        # fits in GPU memory. But you don't have to backprop the whole batch
-        # at once. Here we consider the "logical" batch size (number of examples
-        # per update) separately from the physical batch size.
-        for outer_batch in minibatch(train_data, cfg["batch_size"]):
-            # For the physical batch size, what we care about is the number
-            # of words (considering padding too). We also want to sort by
-            # length, for efficiency.
-            outer_batch.sort(key=lambda xy: len(xy[0]), reverse=True)
-            for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
-                inputs, truths = zip(*batch)
-                guesses, backprop = model(inputs, is_train=True)
-                backprop(calculate_loss(guesses, truths))
-            # At the end of the batch, we call the optimizer with the accumulated
-            # gradients, and advance the learning rate schedules.
-            model.finish_update(optimizer)
-            optimizer.step_schedules()
-        # You might want to evaluate more often than once per epoch; that's up
-        # to you.
-        score = evaluate_sequences(model, dev_X, dev_Y, 128)
-        print(epoch, score)
-        if out_dir:
-            model.to_disk(out_dir / f"{epoch}.bin")
 
 
 if __name__ == "__main__":
