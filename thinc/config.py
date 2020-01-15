@@ -1,6 +1,5 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
-from .types import Decorator
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
@@ -10,6 +9,8 @@ import srsly
 import catalogue
 import inspect
 import io
+
+from .types import Decorator
 
 
 def get_configparser():

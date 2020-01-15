@@ -435,9 +435,7 @@ def test_make_config_positional_args_dicts():
 
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(
-        rate: float,
-    ) -> None:
+    def test_optimizer_v1(rate: float,) -> None:
         return None
 
     @my_registry.schedules("test_schedule.v1")
@@ -445,12 +443,7 @@ def test_validation_generators_iterable():
         while True:
             yield some_value
 
-    config = {
-        "optimizer": {
-            "@optimizers": "test_optimizer.v1",
-            "rate": 0.1,
-        }
-    }
+    config = {"optimizer": {"@optimizers": "test_optimizer.v1", "rate": 0.1}}
     my_registry.make_from_config(config)
 
 
