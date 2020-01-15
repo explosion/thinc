@@ -325,7 +325,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    param, grad = optimizer(param, grad, key=(node.id, name))
+                    param, grad = optimizer((node.id, name), param, grad)
                     node.set_param(name, param)
                     node.set_grad(name, grad)
             for shim in node.shims:
@@ -500,7 +500,6 @@ class Model(Generic[InT, OutT]):
             msg["nodes"].append(
                 {
                     "index": i,
-                    "id": node.id,
                     "name": node.name,
                     "dims": dims,
                     "refs": refs,
@@ -718,4 +717,36 @@ except ImportError:
     pass
 
 
-__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]
+_ModelT = TypeVar("_ModelT", bound=Model)
+
+
+def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _ModelT:
+    """Walk over the model's nodes, changing the value of attributes using the
+    provided mapping, which maps node names to attr names to attr values.
+    """
+    for node in model.walk():
+        if node.name in mapping:
+            attrs = mapping[node.name]
+            for attr, value in attrs.items():
+                if node.has_attr(attr):
+                    node.set_attr(attr, value)
+    return model
+
+
+def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> _ModelT:
+    """Walk over the model's nodes, setting the dropout rate. Dropout nodes are
+    identified by name. You can configure the name-to-attribute mapping using
+    the `attrs` dict.
+    """
+    mapping = {name: {attr: drop} for name, attr in attrs.items()}
+    return change_attr_values(model, mapping)
+
+
+__all__ = [
+    "create_init",
+    "Model",
+    "serialize_attr",
+    "deserialize_attr",
+    "change_attr_values",
+    "set_dropout_rate",
+]

@@ -1,8 +1,9 @@
 import pytest
 import threading
 import time
-from thinc.api import Linear, get_current_ops, use_device, Model, Shim
 from thinc.api import CupyOps
+from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
+from thinc.api import change_attr_values, set_dropout_rate
 import numpy
 
 from ..util import make_tempdir
@@ -168,6 +169,23 @@ def test_model_can_load_from_disk(model_with_no_args):
         model_with_no_args.to_disk(path / "thinc_model")
         m2 = model_with_no_args.from_disk(path / "thinc_model")
     assert model_with_no_args.to_bytes() == m2.to_bytes()
+
+
+def test_change_attr_values(model_with_no_args):
+    model = model_with_no_args
+    model.name = "target"
+    model.set_attr("has_var", False)
+    change_attr_values(model, {"target": {"has_var": True, "error": True}})
+    assert model.get_attr("has_var") is True
+    assert not model.has_attr("error")
+
+
+def test_set_dropout(model_with_no_args):
+    model = model_with_no_args
+    model.name = "dropout"
+    model.set_attr("rate", 0.0)
+    set_dropout_rate(model, 0.2)
+    assert model.get_attr("rate") == 0.2
 
 
 def test_bind_plus():

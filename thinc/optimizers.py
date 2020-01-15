@@ -45,8 +45,6 @@ def RAdam(
     eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
     weight_decay: FloatOrSeq = ADAM_DEFAULTS["L2"],
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
-    lookahead_k: int = 0,
-    lookahead_alpha: FloatOrSeq = 0.5,
     use_averages: bool = True,
     ops: Optional[Ops] = None,
 ):
@@ -58,8 +56,6 @@ def RAdam(
         grad_clip=grad_clip,
         L2_is_weight_decay=True,
         L2=weight_decay,
-        lookahead_k=lookahead_k,
-        lookahead_alpha=lookahead_alpha,
         use_averages=True,
         use_radam=True,
         ops=ops,
@@ -77,8 +73,6 @@ def Adam(
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
-    lookahead_k: int = 0,
-    lookahead_alpha: FloatOrSeq = 0.5,
     ops: Optional[Ops] = None,
 ):
     return Optimizer(
@@ -90,8 +84,6 @@ def Adam(
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
         use_averages=True,
-        lookahead_k=lookahead_k,
-        lookahead_alpha=lookahead_alpha,
         use_radam=False,
         ops=ops,
     )
@@ -101,11 +93,11 @@ def Adam(
 def SGD(
     learn_rate: FloatOrSeq,
     *,
-    ops: Optional[Ops] = None,
     L2: FloatOrSeq = SGD_DEFAULTS["L2"],
     grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
+    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -125,7 +117,6 @@ class Optimizer(object):
 
     mom1: Dict[KeyT, Array]
     mom2: Dict[KeyT, Array]
-    slow_weights: Dict[KeyT, Array]
     averages: Optional[Dict[KeyT, Array]]
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
@@ -136,8 +127,6 @@ class Optimizer(object):
     b2: float
     eps: float
     L2: float
-    lookahead_k: int
-    lookahead_alpha: float
     use_radam: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[Array]]]
@@ -152,8 +141,6 @@ class Optimizer(object):
         beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
         eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
         grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
-        lookahead_k: int = 0,
-        lookahead_alpha: FloatOrSeq = 0.5,
         use_averages: bool = True,
         use_radam: bool = False,
         L2_is_weight_decay: bool = True,
@@ -168,8 +155,6 @@ class Optimizer(object):
         beta2 (float): Second-order momentum.
         eps (float): Epsilon term for Adam etc.
         grad_clip (float): Gradient clipping.
-        lookahead_k (int): K parameter for lookahead.
-        lookahead_alpha (float): Alpha parameter for lookahead.
         use_averages (bool): Whether to track moving averages of the parameters.
         use_radam (bool): Whether to use the RAdam optimizer.
         L2_is_weight_decay (bool): Whether to interpret the L2 parameter as a
@@ -178,7 +163,6 @@ class Optimizer(object):
         self.ops = ops if ops is not None else get_current_ops()
         self.mom1 = {}
         self.mom2 = {}
-        self.slow_weights = {}  # For lookahead
         if use_averages:
             self.averages = {}
         else:
@@ -192,8 +176,6 @@ class Optimizer(object):
         self._set_attr_or_schedule("b2", beta2)
         self._set_attr_or_schedule("eps", eps)
         self._set_attr_or_schedule("L2", L2)
-        self._set_attr_or_schedule("lookahead_alpha", lookahead_alpha)
-        self._set_attr_or_schedule("lookahead_k", lookahead_k)
         self.use_radam = use_radam
         self.L2_is_weight_decay = L2_is_weight_decay
         self._radam_buffer = [[None, None, None] for _ in range(10)]
@@ -205,15 +187,19 @@ class Optimizer(object):
             if isinstance(value, list):
                 value = iter(value)
             self.schedules[name] = value
-            setattr(self, name, next(value))
+            try:
+                setattr(self, name, next(value))
+            except (StopIteration, TypeError) as e:
+                err = f"Invalid schedule for '{name}' ({type(value)})\n{e}"
+                raise ValueError(err)
 
-    def to_gpu(self):
+    def to_gpu(self):  # pragma: no cover
         self.ops = CupyOps()
         for params in (self.mom1, self.mom2, self.averages):
             for key, value in params.items():
                 params[key] = self.ops.xp.asarray(value, dtype=value.dtype)
 
-    def to_cpu(self):
+    def to_cpu(self):  # pragma: no cover
         self.ops = NumpyOps()
         for params in (self.mom1, self.mom2, self.averages):
             for key, value in params.items():
@@ -222,7 +208,11 @@ class Optimizer(object):
 
     def step_schedules(self):
         for key, schedule in self.schedules.items():
-            setattr(self, key, next(schedule))
+            try:
+                value = next(schedule)
+            except StopIteration:  # schedule exhausted, use last value
+                value = getattr(self, key)
+            setattr(self, key, value)
 
     @property
     def learn_rate(self) -> float:
@@ -232,11 +222,21 @@ class Optimizer(object):
     def learn_rate(self, learn_rate):
         self.alpha = learn_rate
 
-    def __call__(self, weights: Array, gradient: Array, *, lr_scale: float = 1.0, key):
+    def __call__(
+        self,
+        key: Tuple[int, str],
+        weights: Array,
+        gradient: Array,
+        *,
+        lr_scale: float = 1.0,
+    ):
+        """Call the optimizer with weights and a gradient. The key is the
+        identifier for the parameter, usually the node ID and parameter name.
+        """
         if len(gradient) < 1:
             return weights, gradient
         xp = get_array_module(weights)
-        if xp is not self.ops.xp:
+        if xp is not self.ops.xp:  # pragma: no cover
             if xp is numpy:
                 self.ops = NumpyOps()
             else:
@@ -251,21 +251,13 @@ class Optimizer(object):
             self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0.0 and self.b2 > 0.0:
             self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
-        elif self.b2 > 0.0:
+        elif self.b2 > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.alpha * gradient
         gradient *= 0.0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
-        if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
-            if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.alloc_f1d(
-                    weights.size, dtype="float32"
-                )
-            slow = self.slow_weights[key]
-            slow += self.lookahead_alpha * (weights - slow)
-            weights[:] = slow
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = self.ops.alloc(weights.shape, dtype="float32")
@@ -342,16 +334,6 @@ class Optimizer(object):
             if group["weight_decay"] != 0:
                 p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
             p_data_fp32 += -step_size * group["lr"] * exp_avg
-
-    def _lookahead(self, weights, key):
-        if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
-            if key not in self.slow_weights:
-                self.slow_weights[key] = self.ops.alloc_f1d(
-                    weights.size, dtype="float32"
-                )
-            slow = self.slow_weights[key]
-            slow += self.lookahead_alpha * (weights - slow)
-            weights[:] = slow
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         weights_1D = weights.reshape((weights.size,))
