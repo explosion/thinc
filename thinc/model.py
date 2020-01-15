@@ -411,7 +411,7 @@ class Model(Generic[InT, OutT]):
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
-            shims=[shim.copy() for shim in self.shims]
+            shims=[shim.copy() for shim in self.shims],
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
@@ -659,4 +659,36 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]
+_ModelT = TypeVar("_ModelT", bound=Model)
+
+
+def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _ModelT:
+    """Walk over the model's nodes, changing the value of attributes using the
+    provided mapping, which maps node names to attr names to attr values.
+    """
+    for node in model.walk():
+        if node.name in mapping:
+            attrs = mapping[node.name]
+            for attr, value in attrs.items():
+                if node.has_attr(attr):
+                    node.set_attr(attr, value)
+    return model
+
+
+def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> _ModelT:
+    """Walk over the model's nodes, setting the dropout rate. Dropout nodes are
+    identified by name. You can configure the name-to-attribute mapping using
+    the `attrs` dict.
+    """
+    mapping = {name: {attr: drop} for name, attr in attrs.items()}
+    return change_attr_values(model, mapping)
+
+
+__all__ = [
+    "create_init",
+    "Model",
+    "serialize_attr",
+    "deserialize_attr",
+    "change_attr_values",
+    "set_dropout_rate",
+]

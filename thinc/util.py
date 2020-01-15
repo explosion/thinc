@@ -338,14 +338,6 @@ def partial(
 
 
 # The model has type Model, but we can't import that here because that would result in a circular dependency
-def set_dropout_rate(model, drop: float, rate_defs: Dict[str, str] = {}):
-    if not rate_defs:
-        rate_defs = {"dropout": "rate"}
-    for m in model.walk():
-        if m.name in rate_defs.keys():
-            attr_name = rate_defs[m.name]
-            m.set_attr(attr_name, drop)
-
 
 __all__ = [
     "fix_random_seed",
