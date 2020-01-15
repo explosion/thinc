@@ -31,7 +31,11 @@ YType = TypeVar("YType", bound=Array)
 
 
 def keras_subclass(
-    name: str, X: XType, Y: YType, args: Dict[str, Any]
+    name: str,
+    X: XType,
+    Y: YType,
+    input_shape: Tuple[int, ...],
+    args: Optional[Dict[str, Any]] = None,
 ) -> Callable[[InFunc], InFunc]:
     """Decorate a custom keras subclassed model with enough information to
     serialize and deserialize it reliably in the face of the many restrictions
@@ -40,6 +44,7 @@ def keras_subclass(
     name (str): The unique namespace string to use to represent this model class.
     X (Any): A sample X input for performing a forward pass on the network.
     Y (Any): A sample Y input for performing a backward pass on the network.
+    input_shape (Tuple[int, ...]): A set of input shapes for building the network. 
     args: Additional arguments are passed to the class constructor
 
     RETURNS (Callable): The decorated class.
@@ -47,12 +52,16 @@ def keras_subclass(
 
     def call_fn(clazz):
         clazz.catalogue_name = property(lambda inst: name)
+        clazz.eg_shape = property(lambda inst: input_shape)
         clazz.eg_x = property(lambda inst: X)
         clazz.eg_y = property(lambda inst: Y)
 
         @registry.keras(name)
         def create_component(**call_kwargs):
-            return clazz(**{**args, **call_kwargs})
+            input_args = call_kwargs
+            if args is not None:
+                input_args = {**args, **call_kwargs}
+            return clazz(**input_args)
 
         return clazz
 
@@ -86,7 +95,7 @@ def TensorFlowWrapper(
         is_subclass = True
 
     if is_subclass:
-        for prop_name in ["catalogue_name", "eg_x", "eg_y"]:
+        for prop_name in ["catalogue_name", "eg_x", "eg_y", "eg_shape"]:
             if not hasattr(tensorflow_model, prop_name):
                 raise ValueError(
                     "Keras subclassed models are not whole-model serializable by "
@@ -97,7 +106,7 @@ def TensorFlowWrapper(
                 )
         # Attach the input shape if it's not provided
         if input_shape is None:
-            input_shape = np.asarray(tensorflow_model.eg_x).shape
+            input_shape = tensorflow_model.eg_shape
 
     # Building a TF model checks for errors like not specifying an input_shape
     # which can cause other errors in methods like from_disk and from_bytes.

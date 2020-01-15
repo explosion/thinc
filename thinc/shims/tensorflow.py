@@ -205,7 +205,7 @@ class TensorFlowShim(Shim):
                 )
             # Check the factory function and throw ValueError if it doesn't exist
             registry.get("keras", self._model.catalogue_name)
-            return (self._model.catalogue_name, self._model.get_weights())
+            return self._model.catalogue_name, self._model.get_weights()
 
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
@@ -227,8 +227,13 @@ class TensorFlowShim(Shim):
         catalogue_name, model_weights = data
         model_fn = registry.get("keras", catalogue_name)
         with tf.device(device):
-            self._model = model_fn()
+            new_model = model_fn()
         # Calling predict creates layers and weights for subclassed models
-        self._model.predict(self._model.eg_x)
+        # TODO: compile args?
+        new_model.compile(optimizer="adam", loss="mse")
+        new_model.build(new_model.eg_shape)
+        new_model.predict(new_model.eg_x)
         # Once the weights are created we can overwrite them.
-        self._model.set_weights(model_weights)
+        new_model.set_weights(model_weights)
+
+        self._model = new_model
