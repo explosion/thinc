@@ -17,6 +17,10 @@ class JaxRandom:
         key = jax.random.PRNGKey(0)
         return jax.random.uniform(key, minval=0.0, maxval=1.0, shape=shape, dtype="f")
 
+    def normal(self, scale, size):
+        key = jax.random.PRNGKey(0)
+        return jax.random.normal(key, shape=(size,)).astype("float32")
+
 
 class JaxOps(Ops):
     xp = jax.numpy

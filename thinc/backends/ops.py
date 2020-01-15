@@ -313,11 +313,11 @@ class Ops:
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
         new_x /= new_x.sum(axis=axis, keepdims=True)
-        if inplace:
-            copy_array(x, new_x)
-            return x
-        else:
-            return new_x
+        return new_x
+        #if inplace:
+        #    copy_array(x, new_x)
+        #    return x
+        #else:
 
     def softmax_sequences(
         self, Xs: Array2d, lengths: Array1d, *, inplace: bool = False, axis: int = -1
@@ -330,11 +330,12 @@ class Ops:
         new_x = self.xp.exp(Xs)
         summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
         new_x /= summed
-        if inplace:
-            copy_array(Xs, new_x)
-            return Xs
-        else:
-            return new_x
+        return new_x
+        #if inplace:
+        #    copy_array(Xs, new_x)
+        #    return Xs
+        #else:
+        #    return new_x
 
     def backprop_softmax(self, Y: Array, dY: Array, *, axis: int = -1) -> Array:
         dX = Y * dY
@@ -405,6 +406,7 @@ class Ops:
         d_gates[hi] = self.dsigmoid(gates[1]) * d_prevcells * gates[hc]
         d_gates[hc] = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
         d_prev[:] = d_prevcells * gates[hf]
+        # TODO: Make work for Jax?
         copy_array(d_cells, d_prevcells)
 
     def softplus(
@@ -438,6 +440,30 @@ class Ops:
         indices = X >= threshold
         out_[indices] = dY[indices]
         return out_
+
+    def maxout(self, X):
+        which = X.argmax(axis=-1)
+        return X.max(axis=-1), which
+
+    def backprop_maxout(self, dY, which, P):
+        dX = self.alloc((dY.shape[0], dY.shape[1], P), dtype='float32')
+        for b in range(dY.shape[0]):
+            for o in range(dY.shape[1]):
+                dX[b, o, which[b, o]] = dY[b, o]
+        return dX
+
+    def relu(self, X, inplace=False):
+        if not inplace:
+            return X * (X > 0)
+        else:
+            X *= X > 0
+            return X
+
+    def backprop_relu(self, delta_, signal_out, inplace=False):
+        if not inplace:
+            return delta_ * (signal_out > 0)
+        delta_ *= signal_out > 0
+        return delta_
 
     def mish(
         self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None

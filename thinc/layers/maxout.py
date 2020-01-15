@@ -78,6 +78,6 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         )
         b_shape = (model.get_dim("nO"), model.get_dim("nP"))
         model.set_param("W", initializers.get("W", zero_init)(model.ops, W_shape))
-        model.set_param("b", initializers.get("b", zero_init)(model.ops, b))
+        model.set_param("b", initializers.get("b", zero_init)(model.ops, b_shape))
 
     return init

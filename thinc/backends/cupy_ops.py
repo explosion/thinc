@@ -8,6 +8,7 @@ except ImportError:
     cupy = None
 
 
+from ..types import Array, Array2d, Array3d
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
@@ -125,3 +126,30 @@ class CupyOps(Ops):
     def position_encode(self, *args, **kwargs):
         positions = NumpyOps().position_encode(*args, **kwargs)
         return self.asarray(positions)
+
+    def backprop_lstm(
+        self,
+        d_cells: Array2d,
+        d_prev: Array2d,
+        d_gates: Array3d,
+        d_output: Array2d,
+        gates: Array3d,
+        cells: Array2d,
+        prev: Array2d,
+    ) -> None:
+        (hf, hi, ho, hc) = (0, 1, 2, 3)
+        cells_tanh = self.xp.tanh(cells)
+        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
+        d_gates[ho] = cells_tanh
+        d_gates[ho] *= d_output * self.dsigmoid(gates[ho])
+        d_prevcells = gates[ho] * d_output * self.dtanh(cells_tanh)
+        d_prevcells += d_cells  # Carry gradient from timestep
+        # Gradient for hf, hi, hc, prev[i]
+        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
+        d_gates[hf] = self.dsigmoid(gates[hf]) * d_prevcells * prev
+        d_gates[hi] = self.dsigmoid(gates[1]) * d_prevcells * gates[hc]
+        d_gates[hc] = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
+        d_prev[:] = d_prevcells * gates[hf]
+        copy_array(d_cells, d_prevcells)
+
+

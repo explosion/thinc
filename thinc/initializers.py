@@ -12,48 +12,48 @@ def xavier_uniform_init(ops: Ops, shape: Shape) -> Array:
 
 
 @registry.initializers("xavier_uniform_init.v0")
-def configure_xavier_uniform_init(*, inplace: bool = False) -> Callable[[Shape], Array]:
-    return partial(xavier_uniform_init, inplace=inplace)
+def configure_xavier_uniform_init() -> Callable[[Shape], Array]:
+    return partial(xavier_uniform_init)
 
 
 def zero_init(ops: Ops, shape: Shape) -> Array:
-    return ops.alloc(*shape)
+    return ops.alloc(shape)
 
 
 @registry.initializers("zero_init.v0")
-def configure_zero_init(*, inplace: bool = False) -> Callable[[Array], Array]:
-    return partial(zero_init, inplace=inplace)
+def configure_zero_init() -> Callable[[Array], Array]:
+    return partial(zero_init)
 
 
 def uniform_init(
         ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1
 ) -> Array:
     values = ops.xp.random.uniform(lo, hi, shape)
-    return values.astype(data.dtype)
+    return values.astype("float32")
 
 
 @registry.initializers("uniform_init.v0")
 def configure_uniform_init(
-    *, lo: float = -0.1, hi: float = 0.1, inplace: bool = False
+    *, lo: float = -0.1, hi: float = 0.1
 ) -> Callable[[Array], Array]:
-    return partial(uniform_init, lo=lo, hi=hi, inplace=inplace)
+    return partial(uniform_init, lo=lo, hi=hi)
 
 
-def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1, inplace: bool = False) -> Array:
+def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> Array:
     if fan_in == -1:
         fan_in = shape[1]
     scale = ops.xp.sqrt(1.0 / fan_in)
-    size = int(ops.xp.prod(data.shape))
+    size = int(ops.xp.prod(shape))
     inits = ops.xp.random.normal(scale=scale, size=size).astype("float32")
-    inits = inits.reshape(data.shape)
+    inits = inits.reshape(shape)
     return inits
 
 
 @registry.initializers("normal_init.v0")
 def configure_normal_init(
-    *, fan_in: int = -1, inplace: bool = False
+    *, fan_in: int = -1
 ) -> Callable[[Array], Array]:
-    return partial(normal_init, fan_in=fan_in, inplace=inplace)
+    return partial(normal_init, fan_in=fan_in)
 
 
 __all__ = ["normal_init", "uniform_init", "xavier_uniform_init", "zero_init"]

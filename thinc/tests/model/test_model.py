@@ -2,6 +2,7 @@ import pytest
 import threading
 import time
 from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
+from thinc.api import CupyOps
 import numpy
 
 from ..util import make_tempdir
@@ -17,7 +18,7 @@ def create_model(name):
 
 
 def test_model_defaults_to_cpu(model_with_no_args):
-    assert isinstance(model_with_no_args.ops, NumpyOps)
+    assert not isinstance(model_with_no_args.ops, CupyOps)
 
 
 def test_models_get_different_ids(model_with_no_args):
