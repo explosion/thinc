@@ -4,7 +4,7 @@ import contextlib
 from .ops import Ops
 from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
-from .jax_ops import NumpyOps
+from .jax_ops import JaxOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..types import DeviceTypes
@@ -84,4 +84,5 @@ __all__ = [
     "Ops",
     "CupyOps",
     "NumpyOps",
+    "JaxOps"
 ]
