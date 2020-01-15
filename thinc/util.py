@@ -337,8 +337,6 @@ def partial(
     return partial_func
 
 
-# The model has type Model, but we can't import that here because that would result in a circular dependency
-
 __all__ = [
     "fix_random_seed",
     "create_thread_local",
