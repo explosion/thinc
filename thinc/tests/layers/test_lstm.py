@@ -77,7 +77,7 @@ def test_LSTM_learns():
     nI = 2
     model = with_padded(LSTM(nO, nI))
 
-    def sgd(weights, gradient, key=None):
+    def sgd(key, weights, gradient):
         weights -= 0.001 * gradient
         gradient.fill(0.0)
         return weights, gradient

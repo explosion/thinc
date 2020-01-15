@@ -321,7 +321,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    param, grad = optimizer(param, grad, key=(node.id, name))
+                    param, grad = optimizer((node.id, name), param, grad)
                     node.set_param(name, param)
                     node.set_grad(name, grad)
             for shim in node.shims:
