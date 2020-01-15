@@ -33,7 +33,7 @@ def Maxout(
         params={"W": None, "b": None},
     )
     if normalize:
-        model = chain(model, LayerNorm())
+        model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     if nO is not None and nI is not None:
