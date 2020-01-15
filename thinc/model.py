@@ -36,7 +36,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
         if "b" in initializers:
             b = initializers["b"](model.ops, b_shape)
         else:
-            b = model.ops.alloc_f1d["b"](*b_shape)
+            b = model.ops.alloc_f1d(*b_shape)
         model.set_param("W", W)
         model.set_param("b", b)
 
