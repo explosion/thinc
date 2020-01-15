@@ -43,9 +43,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = model.get_param("W")
     b = model.get_param("b")
 
-    Y = model.ops.gemm(X, W, trans2=True)
-    Y += b
-    model.ops.relu(Y, inplace=True)
+    Y = model.ops.affine(X, W, b)
+    Y = model.ops.relu(Y)
 
     def backprop(dY: OutT) -> InT:
         dY = model.ops.backprop_relu(dY, Y)
