@@ -335,14 +335,15 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
-             float[::1] mom2, const float beta1, const float beta2, float eps,
+    def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,
+             np.ndarray mom2, const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
-        _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
+        _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
-        VecVec.add_i(&weights[0],
-            &gradient[0], -learn_rate, weights.shape[0])
-        memset(&gradient[0], 0, gradient.size * sizeof(float))
+        VecVec.add_i(<float*>weights.data,
+            <float*>gradient.data, -learn_rate, weights.shape[0])
+        memset(<float*>gradient.data, 0, gradient.size * sizeof(float))
+        return weights, gradient, mom1, mom2
 
     def ngrams(self, int n, const uint64_t[::1] keys_):
         keys = <uint64_t*>&keys_[0]
