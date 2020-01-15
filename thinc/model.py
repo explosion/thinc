@@ -480,7 +480,6 @@ class Model(Generic[InT, OutT]):
             msg["nodes"].append(
                 {
                     "index": i,
-                    "id": node.id,
                     "name": node.name,
                     "dims": dims,
                     "refs": refs,
