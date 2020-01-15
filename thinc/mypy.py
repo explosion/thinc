@@ -66,7 +66,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
     for arg, type_ in zip(layers_args, layers_types):
         assert isinstance(type_, Instance)
         reduce_2_layers(
-            l1_arg=last_arg, l1_type=last_type, l2_arg=arg, l2_type=type_, api=ctx.api,
+            l1_arg=last_arg, l1_type=last_type, l2_arg=arg, l2_type=type_, api=ctx.api
         )
         last_arg = arg
         last_type = type_
