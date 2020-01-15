@@ -27,12 +27,16 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
-        b = model.ops.alloc_f1d(model.get_dim("nO"))
+        W_shape = (model.get_dim("nO"), model.get_dim("nI"))
+        b_shape = (model.get_dim("nO"),)
         if "W" in initializers:
-            initializers["W"](W, inplace=True)
+            W = initializers["W"](model.ops, W_shape)
+        else:
+            W = model.ops.alloc_f2d(*W_shape)
         if "b" in initializers:
-            initializers["b"](b, inplace=True)
+            b = initializers["b"](model.ops, b_shape)
+        else:
+            b = model.ops.alloc_f1d["b"](*b_shape)
         model.set_param("W", W)
         model.set_param("b", b)
 
@@ -449,6 +453,22 @@ class Model(Generic[InT, OutT]):
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
+        return srsly.msgpack_dumps(self.to_dict())
+
+    def to_disk(self, path: Union[Path, str]) -> None:
+        """Serialize the model to disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
+        path = Path(path)
+        with path.open("wb") as file_:
+            file_.write(self.to_bytes())
+
+    def to_dict(self) -> Dict:
+        """Serialize the model to a dict representation.
+
+        Serialization should round-trip identically, i.e. the same dict should
+        result from loading and serializing a model.
+        """
         # We separate out like this to make it easier to read the data in chunks.
         # The shims might have large weights, while the nodes data will be
         # small. The attrs are probably not very large, but could be.
@@ -505,8 +525,8 @@ class Model(Generic[InT, OutT]):
                 else:
                     params[name] = None
             msg["params"].append(params)
-        return srsly.msgpack_dumps(msg)
-
+        return msg
+ 
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
         serialized using msgpack, so you should be able to call msgpack.loads()
@@ -515,7 +535,18 @@ class Model(Generic[InT, OutT]):
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        msg = srsly.msgpack_loads(bytes_data)
+        return self.from_dict(srsly.msgpack_loads(bytes_data))
+
+    def from_disk(self, path: Union[Path, str]) -> "Model":
+        """Deserialize the model from disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
+        path = Path(path)
+        with path.open("rb") as file_:
+            bytes_data = file_.read()
+        return self.from_bytes(bytes_data)
+
+    def from_dict(self, msg: Dict) -> "Model":
         nodes = list(self.walk())
         if len(msg["nodes"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure.")
@@ -530,7 +561,7 @@ class Model(Generic[InT, OutT]):
                 else:
                     node.set_ref(ref, nodes[ref_index])
             for attr, value in msg["attrs"][i].items():
-                default_value = node.get_attr(attr)
+                default_value = node.get_attr(attr) if node.has_attr(attr) else None
                 loaded_value = deserialize_attr(default_value, value, attr, node)
                 node.set_attr(attr, loaded_value)
             for param_name, value in msg["params"][i].items():
@@ -539,22 +570,6 @@ class Model(Generic[InT, OutT]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
 
-    def to_disk(self, path: Union[Path, str]) -> None:
-        """Serialize the model to disk. Most models will serialize to a single
-        file, which should just be the bytes contents of model.to_bytes().
-        """
-        path = Path(path)
-        with path.open("wb") as file_:
-            file_.write(self.to_bytes())
-
-    def from_disk(self, path: Union[Path, str]) -> "Model":
-        """Deserialize the model from disk. Most models will serialize to a single
-        file, which should just be the bytes contents of model.to_bytes().
-        """
-        path = Path(path)
-        with path.open("rb") as file_:
-            bytes_data = file_.read()
-        return self.from_bytes(bytes_data)
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
