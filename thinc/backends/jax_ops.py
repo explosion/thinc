@@ -1,6 +1,7 @@
 from .ops import Ops
 import numpy
-from ..types import *
+from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d
+from typing import Sequence, Optional, List
 
 try:
     import jax
@@ -46,16 +47,15 @@ class JaxOps(Ops):
     ) -> ArrayT:
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
-        xp = get_array_module(X[0])
         X = [x for x in X if x.size != 0]
         if int(pad) >= 1:
             return flatten_with_padding(X, pad)
         else:
             result = self.xp.concatenate(X)
 
-        result = xp.concatenate(X)
+        result = self.xp.concatenate(X)
         if dtype is not None:
-            result = xp.asarray(result, dtype=dtype)
+            result = self.xp.asarray(result, dtype=dtype)
         return result
 
     def unflatten(self, X: ArrayT, lengths: Array1d, pad: int = 0) -> List[ArrayT]:
@@ -95,7 +95,7 @@ class JaxOps(Ops):
         threshold: float = 20.0,
         out: Optional[Array2d] = None,
     ):
-        xp = get_array_module(X)
+        xp = self.xp
         indices = X < threshold
         Xsub = X[indices]
         dYsub = dY[indices]
@@ -106,11 +106,9 @@ class JaxOps(Ops):
         delta += xp.exp(2.0 * Xsub)
         delta += 2.0
         dXsub = dYsub * ((xp.exp(Xsub) * omega) / (delta ** 2))
-        if out is None:
-            out = xp.zeros(dY.shape, dtype="f")
         # Gradient when above threshold will ignore softplus.
-        out[:] = dY + dY * self.dtanh(X)
-        out[indices] = dXsub
+        out = dY + dY * self.dtanh(X)
+        out = index_update(out, index[indices], dXsub)
         return out
 
     def update_averages(
@@ -144,10 +142,11 @@ class JaxOps(Ops):
         gradient.fill(0)
 
     def clip_gradient(self, gradient: Array, threshold: float) -> None:
-        xp = get_array_module(gradient)
+        xp = self.xp
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+        return gradient
 
     def logloss(self, y_true: Array, y_pred: Array):
         log_yp = self.xp.log(y_pred + 1e-8)
@@ -244,6 +243,7 @@ def seq2col_one(seq):
 
 @jax.jit
 def backprop_seq2col_one(dY):
+    xp = jax.numpy
     nW = 1
     nF = nW * 2 + 1
     B = dY.shape[0]
