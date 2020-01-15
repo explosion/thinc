@@ -7,7 +7,7 @@ from ..types import Array2d
 from ..util import get_width
 from .dropout import Dropout
 from .layernorm import LayerNorm
-from .chain import chain
+from .chain_module import chain
 
 
 InT = Array2d

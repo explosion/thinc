@@ -4,7 +4,7 @@ from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
-from .chain import chain
+from .chain_module import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 
