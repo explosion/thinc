@@ -235,27 +235,22 @@ class Optimizer(object):
         """
         if len(gradient) < 1:
             return weights, gradient
-        xp = get_array_module(weights)
-        if xp is not self.ops.xp:  # pragma: no cover
-            if xp is numpy:
-                self.ops = NumpyOps()
-            else:
-                self.ops = CupyOps()
+        xp = self.ops.xp
         self.nr_update[key] += 1
         nr_upd = self.nr_update[key]
         if self.L2 != 0 and not self.L2_is_weight_decay:
             gradient += self.L2 * weights
         if self.grad_clip:
-            self.ops.clip_gradient(gradient, self.grad_clip)
+            gradient = self.ops.clip_gradient(gradient, self.grad_clip)
         if self.use_radam:
-            self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
+            weights, gradient = self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b1 > 0.0 and self.b2 > 0.0:
-            self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
+            weights, gradient = self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b2 > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.alpha * gradient
-        gradient *= 0.0
+        gradient = gradient * 0.0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
         if self.averages is not None:
@@ -334,6 +329,7 @@ class Optimizer(object):
             if group["weight_decay"] != 0:
                 p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
             p_data_fp32 += -step_size * group["lr"] * exp_avg
+        return p_data_fp32, gradient
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         weights_1D = weights.reshape((weights.size,))
@@ -350,7 +346,11 @@ class Optimizer(object):
         b1 = self.b1
         b2 = self.b2
         eps = self.eps
-        self.ops.adam(weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale)
+        weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(weights_1D, gradient_1D,
+            mom1, mom2, b1, b2, eps, lr * lr_scale)
+        self.mom1[key] = mom1
+        self.mom2[key] = mom2
+        return weights_1D.reshape(weights.shape), gradient_1D.reshape(weights.shape)
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]
