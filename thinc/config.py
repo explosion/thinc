@@ -273,7 +273,8 @@ class registry(object):
                     final[key] = list(final[key].values())
             else:
                 filled[key] = value
-                validation[key] = value
+                # TODO: unhack this fix to prevent pydantic from consuming generator
+                validation[key] = value if not isinstance(value, GeneratorType) else []
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
