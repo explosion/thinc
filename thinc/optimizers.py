@@ -93,11 +93,11 @@ def Adam(
 def SGD(
     learn_rate: FloatOrSeq,
     *,
-    ops: Optional[Ops] = None,
     L2: FloatOrSeq = SGD_DEFAULTS["L2"],
     grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
     use_averages: bool = True,
+    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
