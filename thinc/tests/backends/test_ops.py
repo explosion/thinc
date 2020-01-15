@@ -85,7 +85,7 @@ def test_seq2col_window_one(ops, X):
     base_ops = Ops()
     base_ops.xp = ops.xp
     baseX = base_ops.alloc(X.shape) + X
-    target = base_ops.seq2col(base_ops.asarray(X), nW=1)
+    target = base_ops.seq2col(base_ops.asarray(baseX), nW=1)
     predicted = ops.seq2col(X, nW=1)
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
