@@ -378,14 +378,6 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
-    def set_dropout_rate(self, drop: float, rate_defs: Dict[str, str] = None):
-        if not rate_defs:
-            rate_defs = {"dropout": "rate"}
-        for m in self.walk():
-            if m.name in rate_defs.keys():
-                attr_name = rate_defs[m.name]
-                m.set_attr(attr_name, drop)
-
     def get_gradients(self) -> Dict[Tuple[int, str], Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
