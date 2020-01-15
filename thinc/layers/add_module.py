@@ -2,9 +2,8 @@ from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Array, Reduced_OutT
 from ..util import get_width
-from thinc.types import Reduced_OutT
 
 
 InT = TypeVar("InT", bound=Array)
