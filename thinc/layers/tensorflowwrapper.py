@@ -30,9 +30,7 @@ XType = TypeVar("XType", bound=Array)
 YType = TypeVar("YType", bound=Array)
 
 
-def keras_subclass(
-    name: str, X: XType, Y: YType, save_optimizer: bool = True
-) -> Callable[[InFunc], InFunc]:
+def keras_subclass(name: str, X: XType, Y: YType) -> Callable[[InFunc], InFunc]:
     """Decorate a custom keras subclassed model with enough information to
     serialize and deserialize it reliably in the face of the many restrictions
     on keras subclassed models.
@@ -45,7 +43,6 @@ def keras_subclass(
     """
 
     def call_fn(clazz):
-        clazz.save_optimizer = property(lambda inst: save_optimizer)
         clazz.catalogue_name = property(lambda inst: name)
         clazz.eg_x = property(lambda inst: X)
         clazz.eg_y = property(lambda inst: Y)
