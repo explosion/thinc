@@ -1,12 +1,16 @@
 import numpy
 import pytest
+from typing import TypeVar, Callable
 
 from thinc.api import TensorFlowWrapper, tensorflow2xp, xp2tensorflow, Linear
 from thinc.api import Ops, get_current_ops, Model, Adam, ArgsKwargs
 from thinc.types import Array
+from thinc.config import registry
 from thinc.util import has_tensorflow, to_categorical
 
 from ..util import make_tempdir, check_input_converters
+
+InFunc = TypeVar("InFunc")
 
 
 @pytest.fixture
@@ -159,6 +163,97 @@ def test_tensorflow_wrapper_accepts_optimizer(
         assert numpy.array_equal(w1, w2)
 
 
+XType = TypeVar("XType", bound=Array)
+YType = TypeVar("YType", bound=Array)
+
+
+def component(
+    name: str, X: XType, Y: YType, initialize: bool = True
+) -> Callable[[InFunc], InFunc]:
+    """Register a self-contained componentized model that has enough
+    metadata to perform sanity testing and shape inference/validation,
+    render model visualizations, and __call__ with no configuration.
+
+    name (str): The name to register under the namespace.
+    X (Any): Optional function to register (if not used as decorator).
+    RETURNS (Callable): The decorator.
+    """
+
+    def call_fn(func):
+        if not hasattr(func, "__init__"):
+            raise ValueError("decorator expects a class with an __init__ function")
+        orig_init = func.__init__
+        func.catalogue_name = property(lambda inst: name)
+        func.eg_x = property(lambda inst: X)
+        func.eg_y = property(lambda inst: Y)
+
+        def __init__(self, *args, **kws):
+            orig_init(self, *args, **kws)  # Call the original __init__
+
+        func.__init__ = __init__  # Set the class' __init__ to the new one
+
+        @registry.components(name)
+        def create_component(**kwargs):
+            return func(**kwargs)
+
+        return func
+
+    return call_fn
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+def test_tensorflow_wrapper_serialize_model_subclass_catalogue(
+    X: Array, Y: Array, input_size: int, n_classes: int, answer: int
+):
+    import tensorflow as tf
+
+    input_shape = (1, input_size)
+    ops: Ops = get_current_ops()
+
+    @component(
+        "foo.v0",
+        X=ops.alloc_f2d(*input_shape),
+        Y=to_categorical(ops.asarray([1]), n_classes=n_classes),
+    )
+    class CustomKerasModel(tf.keras.Model):
+        def __init__(self, **kwargs):
+            super(CustomKerasModel, self).__init__(**kwargs)
+            self.in_dense = tf.keras.layers.Dense(
+                12, name="in_dense", input_shape=input_shape
+            )
+            self.out_dense = tf.keras.layers.Dense(
+                n_classes, name="out_dense", activation="softmax"
+            )
+
+        def call(self, inputs) -> tf.Tensor:
+            x = self.in_dense(inputs)
+            return self.out_dense(x)
+
+    m = registry.get("components", "foo.v0")
+
+    b = CustomKerasModel()
+    a = m()
+
+    model: Model[Array, Array] = TensorFlowWrapper(
+        CustomKerasModel(), input_shape=input_shape
+    )
+    # Train the model to predict the right single answer
+    optimizer = Adam()
+    for i in range(50):
+        guesses, backprop = model(X, is_train=True)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+    predicted = model.predict(X).argmax()
+    assert predicted == answer
+
+    # Save then Load the model from bytes
+    model.from_bytes(model.to_bytes())
+
+    # The from_bytes model gets the same answer
+    assert model.predict(X).argmax() == answer
+
+
 @pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
 def test_tensorflow_wrapper_serialize_model_subclass(
     X: Array, Y: Array, input_size: int, n_classes: int, answer: int
@@ -177,7 +272,7 @@ def test_tensorflow_wrapper_serialize_model_subclass(
                 n_classes, name="out_dense", activation="softmax"
             )
 
-        def call(self, inputs):
+        def call(self, inputs) -> tf.Tensor:
             x = self.in_dense(inputs)
             return self.out_dense(x)
 
