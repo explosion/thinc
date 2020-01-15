@@ -151,5 +151,3 @@ class CupyOps(Ops):
         d_gates[hc] = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
         d_prev[:] = d_prevcells * gates[hf]
         copy_array(d_cells, d_prevcells)
-
-

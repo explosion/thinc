@@ -8,10 +8,10 @@ try:
     import jax.random
     import jax.tree_util
     from jax.ops import index_update, index
+
     has_jax = True
 except ImportError:
     has_jax = False
-
 
 
 class JaxOps(Ops):
@@ -36,7 +36,7 @@ class JaxOps(Ops):
 
     def affine(self, X, W, b):
         return affine(X, W, b)
-    
+
     def flatten(
         self,
         X: Sequence[ArrayT],
@@ -60,7 +60,7 @@ class JaxOps(Ops):
 
     def unflatten(self, X: ArrayT, lengths: Array1d, pad: int = 0) -> List[ArrayT]:
         return unflatten(X, lengths, pad)
-   
+
     def maxout(self, X):
         return maxout(X)
 
@@ -204,8 +204,10 @@ class JaxOps(Ops):
             start += length
         return dX
 
+
 class JaxRandom:
     """Perform randomization functions for Jax."""
+
     def shuffle(self, array):
         key = jax.random.PRNGKey(0)
         return jax.random.shuffle(key, array)
@@ -222,6 +224,7 @@ class JaxRandom:
 def jit_static_argnums(*nums):
     def wrapper(func):
         return jax.jit(func, static_argnums=nums)
+
     return wrapper
 
 
@@ -235,8 +238,9 @@ def seq2col_one(seq):
     # Copy left contexts. The last words aren't the left-context for anything.
     cols = index_update(cols, index[nW:, :nW], seq[:-nW].reshape((-1, nW, I)))
     cols = index_update(cols, index[:, nW], seq)
-    cols = index_update(cols, index[:-nW, nW+1:], seq[nW:].reshape((-1, nW, I)))
+    cols = index_update(cols, index[:-nW, nW + 1 :], seq[nW:].reshape((-1, nW, I)))
     return cols.reshape((B, I * (2 * nW + 1)))
+
 
 @jax.jit
 def backprop_seq2col_one(dY):
@@ -267,6 +271,7 @@ def flatten_with_padding(X, pad):
     padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
     return xp.concatenate(padded)
 
+
 @jit_static_argnums(1)
 def unflatten(X, lengths, pad):
     unflat = []
@@ -278,7 +283,8 @@ def unflatten(X, lengths, pad):
     if pad >= 1:
         X = X[pad:]
     return unflat
- 
+
+
 @jax.jit
 def maxout(X):
     which = X.argmax(axis=-1)
@@ -287,7 +293,7 @@ def maxout(X):
 
 @jit_static_argnums(2)
 def backprop_maxout(dY, which, P):
-    dX = jax.numpy.zeros((dY.shape[0], dY.shape[1], P), dtype='float32')
+    dX = jax.numpy.zeros((dY.shape[0], dY.shape[1], P), dtype="float32")
     for b in range(dY.shape[0]):
         for o in range(dY.shape[1]):
             dX[b, o, which[b, o]] = dY[b, o]
@@ -299,7 +305,5 @@ JaxOps.xp.testing = numpy.testing
 
 if has_jax:
     jax.tree_util.register_pytree_node(
-        JaxOps,
-        lambda ops: ([], None),
-        lambda info, values: JaxOps()
+        JaxOps, lambda ops: ([], None), lambda info, values: JaxOps()
     )

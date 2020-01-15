@@ -73,9 +73,7 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W_shape = (
-            model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")
-        )
+        W_shape = (model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI"))
         b_shape = (model.get_dim("nO"), model.get_dim("nP"))
         model.set_param("W", initializers.get("W", zero_init)(model.ops, W_shape))
         model.set_param("b", initializers.get("b", zero_init)(model.ops, b_shape))

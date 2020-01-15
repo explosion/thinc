@@ -447,7 +447,7 @@ class Ops:
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY, which, P):
-        dX = self.alloc((dY.shape[0], dY.shape[1], P), dtype='float32')
+        dX = self.alloc((dY.shape[0], dY.shape[1], P), dtype="float32")
         for b in range(dY.shape[0]):
             for o in range(dY.shape[1]):
                 dX[b, o, which[b, o]] = dY[b, o]
@@ -592,5 +592,8 @@ class Ops:
 
     def hash(self, ids, seed):
         from .numpy_ops import NumpyOps
+
         numpy_ops = NumpyOps()
-        return self.asarray(numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed))
+        return self.asarray(
+            numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed)
+        )

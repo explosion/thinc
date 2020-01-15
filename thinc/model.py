@@ -416,7 +416,7 @@ class Model(Generic[InT, OutT]):
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
-            shims=[shim.copy() for shim in self.shims]
+            shims=[shim.copy() for shim in self.shims],
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
@@ -527,7 +527,7 @@ class Model(Generic[InT, OutT]):
                     params[name] = None
             msg["params"].append(params)
         return msg
- 
+
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
         serialized using msgpack, so you should be able to call msgpack.loads()
@@ -570,7 +570,6 @@ class Model(Generic[InT, OutT]):
             for i, shim_bytes in enumerate(msg["shims"][i]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
-
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
@@ -675,7 +674,7 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-def _jax_flatten_model(model): # pragma: ignore
+def _jax_flatten_model(model):  # pragma: ignore
     """A Jax flattener for Thinc models. Registering this (and the paired
     unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
     
@@ -698,7 +697,7 @@ def _jax_flatten_model(model): # pragma: ignore
     return param_values, (registry_name, param_keys, msg)
 
 
-def _jax_unflatten_model(info, param_values): # pragma: ignore
+def _jax_unflatten_model(info, param_values):  # pragma: ignore
     """The Jax unflattener, paired with jax_flatten_model"""
     # This is pretty ugly. But I don't know where I can put this function
     # that has access to the registry object without causing import circles?
@@ -714,6 +713,7 @@ def _jax_unflatten_model(info, param_values): # pragma: ignore
 
 try:
     import jax.tree_util
+
     jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
 except ImportError:
     pass

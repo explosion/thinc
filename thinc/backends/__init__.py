@@ -84,5 +84,5 @@ __all__ = [
     "Ops",
     "CupyOps",
     "NumpyOps",
-    "JaxOps"
+    "JaxOps",
 ]

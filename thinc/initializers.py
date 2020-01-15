@@ -25,9 +25,7 @@ def configure_zero_init() -> Callable[[Array], Array]:
     return partial(zero_init)
 
 
-def uniform_init(
-        ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1
-) -> Array:
+def uniform_init(ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1) -> Array:
     values = ops.xp.random.uniform(lo, hi, shape)
     return values.astype("float32")
 
@@ -50,9 +48,7 @@ def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> Array:
 
 
 @registry.initializers("normal_init.v0")
-def configure_normal_init(
-    *, fan_in: int = -1
-) -> Callable[[Array], Array]:
+def configure_normal_init(*, fan_in: int = -1) -> Callable[[Array], Array]:
     return partial(normal_init, fan_in=fan_in)
 
 

@@ -255,7 +255,7 @@ class Optimizer(object):
             raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.alpha * gradient
-        gradient *= 0.
+        gradient *= 0.0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
         if self.lookahead_k and self.nr_update[key] % self.lookahead_k == 0:
