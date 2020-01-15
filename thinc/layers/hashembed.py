@@ -59,9 +59,8 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 
 def create_init(initializer: Callable) -> Callable:
     def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model:
-        vectors = model.ops.alloc_f2d(model.get_dim("nV"), model.get_dim("nO"))
-        initializer(vectors, inplace=True)
-        model.set_param("E", vectors)
+        shape = (model.get_dim("nV"), model.get_dim("nO"))
+        model.set_param("E", initializer(model.ops, shape))
         return model
 
     return init

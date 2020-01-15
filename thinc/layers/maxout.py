@@ -73,15 +73,11 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
-        W = model.ops.alloc_f3d(
+        W_shape = (
             model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")
         )
-        b = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nP"))
-        if "W" in initializers:
-            initializers["W"](W, inplace=True)
-        if "b" in initializers:
-            initializers["b"](b, inplace=True)
-        model.set_param("W", W)
-        model.set_param("b", b)
+        b_shape = (model.get_dim("nO"), model.get_dim("nP"))
+        model.set_param("W", initializers.get("W", zero_init)(model.ops, W_shape))
+        model.set_param("b", initializers.get("b", zero_init)(model.ops, b))
 
     return init
