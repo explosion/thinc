@@ -9,7 +9,7 @@ import functools
 try:  # pragma: no cover
     import cupy
     from cupy import get_array_module
-except ImportError:
+except (ImportError, AttributeError):
     cupy = None
     get_array_module = lambda _: numpy
 
