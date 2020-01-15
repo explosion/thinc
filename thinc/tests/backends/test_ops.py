@@ -2,7 +2,7 @@ import pytest
 import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops
+from thinc.api import NumpyOps, CupyOps, Ops, get_ops, JaxOps
 
 from .. import strategies
 
@@ -11,6 +11,7 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
+JAX_OPS = JaxOps()
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
@@ -50,11 +51,11 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
-@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("ops", [JAX_OPS])
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
-    if not isinstance(cols, numpy.ndarray):
+    if hasattr(cols, "get"):
         cols = cols.get()
     assert_allclose(cols[0], [0.0, 1.0, 3.0])
     assert_allclose(cols[1], [1.0, 3.0, 4.0])
@@ -83,7 +84,8 @@ def test_seq2col_window_one(ops, X):
     X = ops.asarray(X)
     base_ops = Ops()
     base_ops.xp = ops.xp
-    target = base_ops.seq2col(X, nW=1)
+    baseX = base_ops.alloc(X.shape) + X
+    target = base_ops.seq2col(base_ops.asarray(X), nW=1)
     predicted = ops.seq2col(X, nW=1)
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
