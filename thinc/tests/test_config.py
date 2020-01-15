@@ -412,6 +412,38 @@ def test_make_config_positional_args_complex():
         my_registry.make_from_config(cfg)
 
 
+def test_positional_args_to_from_string():
+    cfg = """[a]\nb = 1\n* = ["foo","bar"]"""
+    assert Config().from_str(cfg).to_str() == cfg
+    cfg = """[a]\nb = 1\n\n[a.*.foo]\ntest = 1\n\n[a.*.bar]\ntest = 2"""
+    assert Config().from_str(cfg).to_str() == cfg
+
+    @my_registry.cats("catsie.v666")
+    def catsie_666(*args, meow=False):
+        return args
+
+    cfg = """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]"""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    assert filled == """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]\nmeow = false"""
+    assert my_registry.make_from_config(Config().from_str(cfg)) == {"a": ("foo", "bar")}
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\nx = 1"""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    assert filled == """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\nx = 1"""
+    assert my_registry.make_from_config(Config().from_str(cfg)) == {"a": ({"x": 1},)}
+
+    @my_registry.cats("catsie.v777")
+    def catsie_777(y: int = 1):
+        return "meow" * y
+
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\n@cats = "catsie.v777\""""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    expected = """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 1"""
+    assert filled == expected
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 3"""
+    result = my_registry.make_from_config(Config().from_str(cfg))
+    assert result == {"a": ("meowmeowmeow",)}
+
+
 def test_make_config_positional_args_dicts():
     cfg = {
         "hyper_params": {"n_hidden": 512, "dropout": 0.2, "learn_rate": 0.001},

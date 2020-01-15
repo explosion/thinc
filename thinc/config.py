@@ -269,7 +269,6 @@ class registry(object):
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
                     # If the value of variable positional args is a dict (e.g.
                     # created via config blocks), only use its values
-                    filled[key] = list(filled[key].values())
                     validation[key] = list(validation[key].values())
                     final[key] = list(final[key].values())
             else:
