@@ -1,16 +1,13 @@
+from typing import Dict, List, Optional
+import catalogue
 import contextlib
 import copy
 import itertools
-import os
-import shutil
-import tempfile
 from io import BytesIO
-from typing import Any, Callable, Dict, List, Optional, TypeVar
 
 import numpy
 
 from ..backends import Ops, get_current_ops
-from ..config import registry
 from ..types import ArgsKwargs, Array
 from ..util import tensorflow2xp
 from .shim import Shim
@@ -29,6 +26,8 @@ try:
     import h5py
 except ImportError:  # pragma: no cover
     pass
+
+keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 
 
 class TensorFlowShim(Shim):
@@ -204,7 +203,7 @@ class TensorFlowShim(Shim):
                     "function for component serialization."
                 )
             # Check the factory function and throw ValueError if it doesn't exist
-            registry.get("keras", self._model.catalogue_name)
+            keras_model_fns.get(self._model.catalogue_name)
             return self._model.catalogue_name, self._model.get_weights()
 
     def from_bytes(self, data):
@@ -225,7 +224,7 @@ class TensorFlowShim(Shim):
                 return
 
         catalogue_name, model_weights = data
-        model_fn = registry.get("keras", catalogue_name)
+        model_fn = keras_model_fns.get(catalogue_name)
         with tf.device(device):
             new_model = model_fn()
         # Calling predict creates layers and weights for subclassed models

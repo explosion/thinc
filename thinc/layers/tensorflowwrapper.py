@@ -1,30 +1,18 @@
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TypeVar
+from typing import Any, Callable, Dict, Optional, Tuple, Type, TypeVar
 
-import numpy as np
-
-from ..config import registry
 from ..model import Model
-from ..shims import TensorFlowShim
-from ..types import ArgsKwargs, Array
-from ..util import (
-    assert_tensorflow_installed,
-    convert_recursive,
-    is_tensorflow_array,
-    is_xp_array,
-    tensorflow2xp,
-    xp2tensorflow,
-)
+from ..shims import TensorFlowShim, keras_model_fns
+from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
+from ..util import is_tensorflow_array, convert_recursive, is_xp_array
+from ..types import Array, ArgsKwargs
 
 try:
     import tensorflow as tf
 except ImportError:  # pragma: no cover
     pass
 
-
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
-
-
 InFunc = TypeVar("InFunc")
 XType = TypeVar("XType", bound=Array)
 YType = TypeVar("YType", bound=Array)
@@ -56,7 +44,7 @@ def keras_subclass(
         clazz.eg_x = property(lambda inst: X)
         clazz.eg_y = property(lambda inst: Y)
 
-        @registry.keras(name)
+        @keras_model_fns(name)
         def create_component(**call_kwargs):
             input_args = call_kwargs
             if args is not None:
@@ -99,7 +87,7 @@ def TensorFlowWrapper(
             if not hasattr(tensorflow_model, prop_name):
                 raise ValueError(
                     "Keras subclassed models are not whole-model serializable by "
-                    "Tensorflow. To work around this, you must decorate your keras "
+                    "TensorFlow. To work around this, you must decorate your keras "
                     "model subclasses with the 'keras_subclass' decorator. The decorator "
                     "requires a single X/Y input of fake-data that can be used to initialize "
                     "your subclass model properly when loading the saved version."
