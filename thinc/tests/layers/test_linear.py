@@ -48,7 +48,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 
     seen_keys = set()
 
-    def sgd(data, gradient, key=None, **kwargs):
+    def sgd(key, data, gradient, **kwargs):
         seen_keys.add(key)
         assert data.shape == gradient.shape
         return data, gradient
@@ -198,7 +198,7 @@ def test_update():
     gradient = numpy.asarray([[-1.0, 0.0]], dtype="f")
     backprop(gradient)
     for key, (param, d_param) in model.get_gradients().items():
-        param, d_param = sgd(param, d_param, key=key)
+        param, d_param = sgd(key, param, d_param)
         model.set_param(key[1], param)
         model.set_grad(key[1], d_param)
 
@@ -218,7 +218,7 @@ def test_update():
     gradient = numpy.asarray([[0.0, -1.0]], dtype="f")
     finish_update(gradient)
     for key, (W, dW) in model.get_gradients().items():
-        sgd(W, dW, key=key)
+        sgd(key, W, dW)
     b = model.get_param("b")
     W = model.get_param("W")
     assert b[0] == 1.0
