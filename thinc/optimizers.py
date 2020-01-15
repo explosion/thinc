@@ -48,7 +48,7 @@ def RAdam(
     lookahead_k: int = 0,
     lookahead_alpha: FloatOrSeq = 0.5,
     use_averages: bool = True,
-    ops: Optional[Ops] = None
+    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -79,7 +79,7 @@ def Adam(
     use_averages: bool = True,
     lookahead_k: int = 0,
     lookahead_alpha: FloatOrSeq = 0.5,
-    ops: Optional[Ops] = None
+    ops: Optional[Ops] = None,
 ):
     return Optimizer(
         learn_rate,
@@ -105,7 +105,7 @@ def SGD(
     L2: FloatOrSeq = SGD_DEFAULTS["L2"],
     grad_clip: FloatOrSeq = SGD_DEFAULTS["grad_clip"],
     L2_is_weight_decay: bool = cast(bool, SGD_DEFAULTS["L2_is_weight_decay"]),
-    use_averages: bool = True
+    use_averages: bool = True,
 ):
     return Optimizer(
         learn_rate,
@@ -354,6 +354,8 @@ class Optimizer(object):
             weights[:] = slow
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
+        weights_1D = weights.reshape((weights.size,))
+        gradient_1D = gradient.reshape((gradient.size,))
         if key not in self.mom1:
             self.mom1[key] = self.ops.alloc_f1d(weights.size)
         if key not in self.mom2:
@@ -366,7 +368,7 @@ class Optimizer(object):
         b1 = self.b1
         b2 = self.b2
         eps = self.eps
-        self.ops.adam(weights, gradient, mom1, mom2, b1, b2, eps, lr * lr_scale)
+        self.ops.adam(weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale)
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

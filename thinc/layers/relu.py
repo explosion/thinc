@@ -4,7 +4,7 @@ from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
-from .chain import chain
+from .chain_module import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 
@@ -31,7 +31,7 @@ def ReLu(
         params={"W": None, "b": None},
     )
     if normalize:
-        model = chain(model, LayerNorm())
+        model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[Array2d, Array2d], Dropout(dropout)))
     if nO is not None and nI is not None:
