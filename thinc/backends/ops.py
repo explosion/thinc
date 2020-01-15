@@ -280,9 +280,14 @@ class Ops:
             return Y * (1.0 - Y)
 
     def cosine(self, X: Array, Y: ArrayT) -> float:
-        Xnorm = self.get_norm(X)
-        Ynorm = self.get_norm(Y)
-        return self.xp.dot(X, Y.T) / (Xnorm * Ynorm)
+        # Add a small constant to avoid 0 vectors
+        X = X + 1e-8
+        Y = Y + 1e-8
+        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
+        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
+        mul_norms = normX * normY
+        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
+        return cosine
 
     def cosine_abs_loss(self, X: Array, Y: ArrayT, ignore_zeros: bool = False) -> float:
         cosine = self.cosine(X, Y)
@@ -502,7 +507,7 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
-    def clip_gradient(self, gradient: Array1d, threshold: float) -> None:
+    def clip_gradient(self, gradient: Array, threshold: float) -> None:
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:

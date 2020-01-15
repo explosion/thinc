@@ -7,7 +7,7 @@ from ..types import Array2d
 from ..util import get_width
 from .dropout import Dropout
 from .layernorm import LayerNorm
-from .chain import chain
+from .chain_module import chain
 
 
 InT = Array2d
@@ -33,7 +33,7 @@ def Maxout(
         params={"W": None, "b": None},
     )
     if normalize:
-        model = chain(model, LayerNorm())
+        model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     if nO is not None and nI is not None:

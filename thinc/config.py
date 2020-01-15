@@ -1,6 +1,5 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
-from .types import Decorator
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
@@ -10,6 +9,8 @@ import srsly
 import catalogue
 import inspect
 import io
+
+from .types import Decorator
 
 
 def get_configparser():
@@ -268,12 +269,12 @@ class registry(object):
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
                     # If the value of variable positional args is a dict (e.g.
                     # created via config blocks), only use its values
-                    filled[key] = list(filled[key].values())
                     validation[key] = list(validation[key].values())
                     final[key] = list(final[key].values())
             else:
                 filled[key] = value
-                validation[key] = value
+                # TODO: unhack this fix to prevent pydantic from consuming generator
+                validation[key] = value if not isinstance(value, GeneratorType) else []
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled

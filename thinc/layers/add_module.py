@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Array, Reduced_OutT
 from ..util import get_width
 
 
@@ -10,13 +10,14 @@ InT = TypeVar("InT", bound=Array)
 
 
 @registry.layers("add.v0")
-def add(*layers: Model) -> Model[InT, InT]:
+def add(
+    layer1: Model[InT, InT], layer2: Model[InT, InT], *layers: Model
+) -> Model[InT, Reduced_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
     """
-    if len(layers) < 2:  # we need variable arguments for the config
-        raise TypeError("The 'add' combinator needs at least 2 layers")
-    if layers and layers[0].name == "add":
+    layers = (layer1, layer2) + layers
+    if layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]
     return Model(

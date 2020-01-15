@@ -3,23 +3,33 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded
+from ..types import Ragged, Padded, Reduced_OutT
 
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
+Mid1T = TypeVar("Mid1T")
+Mid2T = TypeVar("Mid2T")
 
 
-# This implementation is named 'chains' because we have a type-shennanigans
-# function 'chain' below.
+# TODO: Unhack this when we can
+# We currently have an issue with Pydantic when arguments have generic types.
+# https://github.com/samuelcolvin/pydantic/issues/1158
+# For now we work around the issue by applying the decorator to this blander
+# version of the function.
 @registry.layers("chain.v0")
-def chains(*layers: Model) -> Model[InT, Any]:
+def chain_no_types(*layer: Model) -> Model:
+    return chain(*layer)
+
+
+def chain(
+    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, OutT], *layers: Model
+) -> Model[InT, Reduced_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
     """
-    if len(layers) < 2:  # we need variable arguments for the config
-        raise TypeError("The 'chain' combinator needs at least 2 layers")
+    layers = (layer1, layer2) + layers
     model: Model[InT, Any] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
@@ -95,50 +105,3 @@ def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Non
     layers_with_nO = [lyr for lyr in model.layers if lyr.has_dim("nO")]
     if layers_with_nO:
         model.set_dim("nO", layers_with_nO[-1].get_dim("nO"))
-
-
-# Unfortunately mypy doesn't support type-level checking on the cardinality
-# of variadic arguments: in other words, if you have an *args, you can't have
-# a type-checked condition on len(args). But we *can* get sneaky:
-# you can have a type-checked condition on *optional* args, and these *will*
-# get read by mypy. Hence the trickery below.
-
-Mid1T = TypeVar("Mid1T")
-Mid2T = TypeVar("Mid2T")
-Mid3T = TypeVar("Mid3T")
-Mid4T = TypeVar("Mid4T")
-Mid5T = TypeVar("Mid5T")
-Mid6T = TypeVar("Mid6T")
-Mid7T = TypeVar("Mid7T")
-Mid8T = TypeVar("Mid8T")
-Mid9T = TypeVar("Mid9T")
-
-
-def chain(
-    l1: Model[InT, Mid1T],
-    l2: Model[Mid1T, Mid2T],
-    l3: Optional[Model[Mid2T, Mid3T]] = None,
-    l4: Optional[Model[Mid3T, Mid4T]] = None,
-    l5: Optional[Model[Mid4T, Mid5T]] = None,
-    l6: Optional[Model[Mid5T, Mid6T]] = None,
-    l7: Optional[Model[Mid6T, Mid7T]] = None,
-    l8: Optional[Model[Mid7T, Mid8T]] = None,
-    l9: Optional[Model[Mid8T, Mid9T]] = None,
-    *etc: Model
-) -> Model[InT, Any]:  # pragma: no cover
-    if l3 is None:
-        return chains(l1, l2)
-    elif l4 is None:
-        return chains(l1, l2, l3)
-    elif l5 is None:
-        return chains(l1, l2, l3, l4)
-    elif l6 is None:
-        return chains(l1, l2, l3, l4, l5)
-    elif l7 is None:
-        return chains(l1, l2, l3, l4, l5, l6)
-    elif l8 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7)
-    elif l9 is None:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8)
-    else:
-        return chains(l1, l2, l3, l4, l5, l6, l7, l8, l9, *etc)
