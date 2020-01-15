@@ -529,11 +529,12 @@ class Ops:
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
 
-    def clip_gradient(self, gradient: Array, threshold: float) -> None:
+    def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+        return gradient
 
     def logloss(self, y_true: Array, y_pred: Array):
         log_yp = self.xp.log(y_pred + 1e-8)
