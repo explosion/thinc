@@ -62,6 +62,11 @@ class Ops:
             self.xp.dot(x, y, out=out)
             return out
 
+    def affine(self, X, W, b):
+        Y = self.gemm(X, W, trans2=True)
+        Y += b
+        return Y
+
     def flatten(
         self,
         X: Sequence[ArrayT],
@@ -319,10 +324,6 @@ class Ops:
         new_x = self.xp.exp(shifted)
         new_x /= new_x.sum(axis=axis, keepdims=True)
         return new_x
-        #if inplace:
-        #    copy_array(x, new_x)
-        #    return x
-        #else:
 
     def softmax_sequences(
         self, Xs: Array2d, lengths: Array1d, *, inplace: bool = False, axis: int = -1
@@ -336,11 +337,6 @@ class Ops:
         summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
         new_x /= summed
         return new_x
-        #if inplace:
-        #    copy_array(Xs, new_x)
-        #    return Xs
-        #else:
-        #    return new_x
 
     def backprop_softmax(self, Y: Array, dY: Array, *, axis: int = -1) -> Array:
         dX = Y * dY
@@ -593,3 +589,8 @@ class Ops:
             dX[start : start + length, which[i]] = d_maxes[i]
             start += length
         return dX
+
+    def hash(self, ids, seed):
+        from .numpy_ops import NumpyOps
+        numpy_ops = NumpyOps()
+        return self.asarray(numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed))
