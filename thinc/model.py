@@ -9,7 +9,7 @@ import functools
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import get_width, create_thread_local
+from .util import get_width, create_thread_local, convert_recursive, is_xp_array
 from .types import Array
 
 
@@ -453,6 +453,8 @@ class Model(Generic[InT, OutT]):
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
+        msg = self.to_dict()
+        msg = convert_recursive(is_xp_array, self.ops.to_numpy, msg)
         return srsly.msgpack_dumps(self.to_dict())
 
     def to_disk(self, path: Union[Path, str]) -> None:
