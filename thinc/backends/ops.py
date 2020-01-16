@@ -501,7 +501,6 @@ class Ops:
             decay = max_decay
         ema -= (1 - decay) * (ema - weights)
 
-    # TODO: types
     def adam(
         self,
         weights: Array1d,
@@ -513,7 +512,7 @@ class Ops:
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> None:
+    ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.0 - beta1)
@@ -522,6 +521,7 @@ class Ops:
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
+        return weights, gradient, mom1, mom2
 
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = get_array_module(gradient)
