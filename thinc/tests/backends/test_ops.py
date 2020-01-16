@@ -2,7 +2,8 @@ import pytest
 import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops, JaxOps
+from thinc.api import NumpyOps, CupyOps, Ops, get_ops
+from thinc.api import JaxOps, has_jax
 import inspect
 
 from .. import strategies
@@ -12,8 +13,9 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
-JAX_OPS = JaxOps()
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
+if has_jax:
+    CPU_OPS.append(JaxOps())
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
@@ -71,7 +73,7 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
-@pytest.mark.parametrize("ops", [JAX_OPS])
+@pytest.mark.parametrize("ops", CPU_OPS)
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
@@ -216,7 +218,7 @@ def test_softmax_sums_to_one(ops, X):
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
     X = ops.asarray(X)
-    ops.softmax(X, inplace=True)
+    X = ops.softmax(X, inplace=True)
     for row in X:
         assert 0.99999 <= row.sum() <= 1.00001
 
@@ -238,16 +240,6 @@ def test_gemm_computes_correctly(cpu_ops):
     expected = numpy.dot(X.T, W)
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
     cpu_ops.gemm(X, W, trans1=True, out=Y)
-
-
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
-    expected = X * (X > 0.0)
-    y = cpu_ops.clip_low(X, 0.0)
-    assert_allclose(expected, y)
-    cpu_ops.clip_low(X, 0.0, inplace=True)
 
 
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)

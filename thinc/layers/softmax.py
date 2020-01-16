@@ -34,9 +34,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = model.get_param("W")
     b = model.get_param("b")
 
-    Y = model.ops.gemm(X, W, trans2=True)
-    Y += b
-    model.ops.softmax(Y, inplace=True)
+    Y = model.ops.affine(X, W, b)
+    Y = model.ops.softmax(Y)
 
     def backprop(dY: InT) -> OutT:
         model.inc_grad("b", dY.sum(axis=0))

@@ -353,12 +353,6 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def clip_low(self, x: ArrayT, value: ArrayT, *, inplace: bool = False) -> ArrayT:
-        if inplace:
-            return self.xp.maximum(x, value, out=x)
-        else:
-            return self.xp.maximum(x, value)
-
     def take_which(self, x: ArrayT, which: ArrayT, *, axis: int = -1) -> ArrayT:
         output: ArrayT = self.alloc(which.shape)
         for i in range(x.shape[axis]):
@@ -521,7 +515,7 @@ class Ops:
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> Tuple[Array, Array, Array, Array]:
+    ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.0 - beta1)
