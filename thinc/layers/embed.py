@@ -40,7 +40,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
-    ids[ids >= nV] = 0
+    ids = model.ops.xp.where(ids >= nV, 0, ids).astype("i")
     output = vectors[ids]
 
     def backprop(d_output: OutT) -> InT:
