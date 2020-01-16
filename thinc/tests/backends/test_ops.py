@@ -12,7 +12,7 @@ MAX_EXAMPLES = 10
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
 JAX_OPS = JaxOps()
-CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
+CPU_OPS = [NUMPY_OPS, VANILLA_OPS, JAX_OPS]
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
@@ -196,7 +196,7 @@ def test_softmax_sums_to_one(ops, X):
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
     X = ops.asarray(X)
-    ops.softmax(X, inplace=True)
+    X = ops.softmax(X, inplace=True)
     for row in X:
         assert 0.99999 <= row.sum() <= 1.00001
 
@@ -218,16 +218,6 @@ def test_gemm_computes_correctly(cpu_ops):
     expected = numpy.dot(X.T, W)
     assert_allclose(expected, Y, atol=1e-4, rtol=1e-4)
     cpu_ops.gemm(X, W, trans1=True, out=Y)
-
-
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
-    expected = X * (X > 0.0)
-    y = cpu_ops.clip_low(X, 0.0)
-    assert_allclose(expected, y)
-    cpu_ops.clip_low(X, 0.0, inplace=True)
 
 
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
