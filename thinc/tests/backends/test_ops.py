@@ -3,7 +3,7 @@ import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import has_jax
+from thinc.api import JaxOps, has_jax
 
 from .. import strategies
 
@@ -53,7 +53,7 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
-@pytest.mark.parametrize("ops", [JAX_OPS])
+@pytest.mark.parametrize("ops", CPU_OPS)
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
