@@ -22,7 +22,7 @@ def Linear(
     model: Model[InT, OutT] = Model(
         "linear",
         forward,
-        init=CreateInit({"W": init_W, "b": init_b}).init,
+        init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
