@@ -75,8 +75,8 @@ def cosine_distance(yh: Array2d, y: Array2d, ignore_zeros: bool = False) -> Arra
     losses = xp.abs(cosine - 1)
     if ignore_zeros:
         # If the target was a zero vector, don't count it in the loss.
-        d_yh[zero_indices] = 0
-        losses[zero_indices] = 0
+        d_yh = xp.where(zero_indices, 0, d_yh)
+        losses = xp.where(zero_indices, 0, losses)
     return -d_yh
 
 
