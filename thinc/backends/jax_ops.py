@@ -157,7 +157,7 @@ class JaxOps(Ops):
     def mean_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
         return mean_pool(X, lengths)
 
-    def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def max_pool(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
         return max_pool(X, lengths)
 
     def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
@@ -285,8 +285,8 @@ class JaxOps(Ops):
     def lstm(
         self, acts: Array3d, prevcells: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        gates, hiddens = lstm(acts, prevcells)
-        return gates, hiddens
+        hiddens, cells, gates = lstm(acts, prevcells)
+        return hiddens, cells, gates
 
     def backprop_lstm(
         self,
@@ -296,7 +296,7 @@ class JaxOps(Ops):
         cells: Array2d,
         prevcells: Array2d,
     ) -> Tuple[Array3d, Array2d]:
-        d_acts, d_prevcells = backprop_lstm(d_cells, d_hiddens, gates, cells, prev)
+        d_acts, d_prevcells = backprop_lstm(d_cells, d_hiddens, gates, cells, prevcells)
         return d_acts, d_prevcells
 
 
@@ -609,10 +609,10 @@ def lstm(acts: Array3d, prev: Array2d) -> Tuple[Array2d, Array2d, Array3d]:
     hc = xp.tanh(hc)
 
     cells = (hf * prev) + (hi * hc)
-    output = xp.tanh(cells) * ho
-    acts = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    acts = acts.reshape((acts.shape[0], acts.shape[1], 4))
-    return output, cells, acts
+    hiddens = xp.tanh(cells) * ho
+    gates = xp.concatenate((hf, hi, ho, hc), axis=-1)
+    gates = acts.reshape((acts.shape[0], acts.shape[1], 4))
+    return hiddens, cells, acts
 
 
 @jax_jit()
