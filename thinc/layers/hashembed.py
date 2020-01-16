@@ -22,7 +22,7 @@ def HashEmbed(
     model: Model[InT, OutT] = Model(
         "hashembed",
         forward,
-        init=CreateInit(initializer).init,
+        init=create_init(initializer),
         params={"E": None},
         dims={"nO": nO, "nV": nV, "nI": None},
         attrs={"seed": seed, "column": column},
