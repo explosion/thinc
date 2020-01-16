@@ -516,12 +516,13 @@ class Doc(Sized, Container):
 
 
 InFunc = TypeVar("InFunc")
+Wrapper = Callable[[InFunc], InFunc]
 
 
 class Decorator(Protocol):
     """Protocol to mark a function as returning its child with identical signature."""
 
-    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
+    def __call__(self, name: str) -> Wrapper:
         ...
 
 
