@@ -119,16 +119,12 @@ class NumpyOps(Ops):
             &dY[0, 0], &which[0, 0], B, O, P)
         return dX
 
-    def mish(self, const float[:, ::1] X, threshold=20.0, out=None):
+    def mish(self, const float[:, ::1] X, threshold=20.0):
         shape = [X.shape[i] for i in range(X.ndim)]
         cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
         cpu_mish(<float*>Y.data,
             &X[0, 0], threshold, X.size)
-        if out is not None:
-            out[:] = Y
-            return out
-        else:
-            return Y
+        return Y
 
     def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
             threshold=20.0, out=None):
@@ -142,18 +138,45 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def lstm(self, float[:, ::1] output, float[:, ::1] cells,
-            float[:, :, ::1] acts, float[:, ::1] prev):
-        cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
-            &acts[0, 0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
-        return output
+    def lstm(self, np.ndarray acts, np.ndarray prevcells):
+        cdef np.ndarray hiddens, cells, gates_and_acts
+        hiddens = self.alloc_f2d(prevcells.shape[0], prevcells.shape[1])
+        cells = self.alloc_f2d(prevcells.shape[0], prevcells.shape[1])
+        gates_and_acts = self.as_contig(acts)
 
-    def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
-            float[:, :, ::1] d_gates, float[:, ::1] d_output,
-            float[:, :, ::1] gates, float[:, ::1] cells, float[:, ::1] prev):
-        cpu_lstm_gates_bwd(&d_cells[0, 0], &d_prev[0, 0], &d_gates[0, 0, 0],
-            &d_output[0, 0], &gates[0, 0, 0], &cells[0, 0], &prev[0, 0],
+        cdef float[:, ::1] prevcells_ = self.as_contig(prevcells, dtype="f")
+
+        cpu_lstm_gates_fwd(
+            <float*>hiddens.data,
+            <float*>cells.data,
+            <float*>gates_and_acts.data,
+            &prevcells_[0, 0],
+            cells.shape[0],
+            cells.shape[1]
+        )
+        return hiddens, cells, gates_and_acts
+
+    def backprop_lstm(
+            self, 
+            np.ndarray d_cells, 
+            np.ndarray d_hiddens, 
+            np.ndarray gates, 
+            np.ndarray cells, 
+            np.ndarray prevcells
+    ):
+        cdef const float[:, ::1] d_cells_, d_hiddens_, cells_, prevcells_
+        d_cells_ = self.as_contig(d_cells, dtype="f")
+        d_hiddens_ = self.as_contig(d_hiddens, dtype="f")
+        gates_ = self.as_contig(gates, dtype="f")
+        cells_ = self.as_contig(cells, dtype="f")
+        prevcells_ = self.as_contig(prevcells, dtype="f")
+        cdef np.ndarray gates_and_d_acts = self.as_contig(gates, dtype="f")
+        cdef np.ndarray d_prevcells = self.alloc_f2d(d_cells.shape[0], d_cells.shape[1])
+        cpu_lstm_gates_bwd(<float*>gates_and_d_acts.data, <float*>d_prevcells.data,
+            &d_cells_[0, 0], &d_hiddens_[0, 0], 
+            &cells_[0, 0], &prevcells_[0, 0],
             cells.shape[0], cells.shape[1])
+        return gates_and_d_acts, d_prevcells 
 
     def seq2col(self, const float[:, ::1] seq, int nW):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
@@ -645,33 +668,39 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
-        const float* prev, int B, int N) nogil:
+cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells, float* gates_and_acts,
+        const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i, b
+    gates = gates_and_acts
+    acts = gates_and_acts
     for b in range(B):
         for i in range(N):
-            hf = sigmoid(gates[i*4+0])
-            hi = sigmoid(gates[i*4+1])
-            ho = sigmoid(gates[i*4+2])
-            hc = tanhf(gates[i*4+3])
-            cells[i] = hf * prev[i] + hi * hc
-            output[i] = tanhf(cells[i]) * ho
+            hf = sigmoid(acts[i*4+0])
+            hi = sigmoid(acts[i*4+1])
+            ho = sigmoid(acts[i*4+2])
+            hc = tanhf(acts[i*4+3])
+            cells[i] = hf * prevcells[i] + hi * hc
+            hiddens[i] = tanhf(cells[i]) * ho
             gates[i*4+0] = hf
             gates[i*4+1] = hi
             gates[i*4+2] = ho
             gates[i*4+3] = hc
-        output += N
-        gates += N*4
-        prev += N
+        hiddens += N
         cells += N
+        gates += N*4
+        acts += N*4
+        prevcells += N
 
 
-cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
-        const float* d_output, const float* gates, const float* cells,
-        const float* prev, int B, int N) nogil:
+cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev, 
+        const float* d_cells, const float* d_hiddens,
+        const float* cells, const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
     cdef int i, b
+    # These are aliased: we're writing the output over the top of the input
+    gates = gates_and_d_acts
+    d_acts = gates_and_d_acts
     for b in range(B):
         for i in range(N):
             hf = gates[i*4+0]
@@ -680,7 +709,7 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
             hc = gates[i*4+3]
             c  = cells[i]
             ct = tanhf(cells[i])
-            dh = d_output[i]
+            dh = d_hiddens[i]
             # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
             dho = ct     * dh * dsigmoid(ho)
             dc  = ho     * dh * dtanh(ct)
@@ -688,21 +717,22 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
 
             # Gradient for hf, hi, hc, prev[i]
             # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-            dhf   = dsigmoid(hf) * dc * prev[i]
+            dhf   = dsigmoid(hf) * dc * prevcells[i]
             dhi   = dsigmoid(hi) * dc * hc
             dhc   = dtanh(hc)    * dc * hi
             dprev =                dc * hf
 
-            d_gates[i*4+0] = dhf
-            d_gates[i*4+1] = dhi
-            d_gates[i*4+2] = dho
-            d_gates[i*4+3] = dhc
-            d_cells[i] = dc
+            d_acts[i*4+0] = dhf
+            d_acts[i*4+1] = dhi
+            d_acts[i*4+2] = dho
+            d_acts[i*4+3] = dhc
             d_prev[i] = dprev
+            # Wtf why was I writing to this. Is it necessary??
+            #d_cells[i] = dc
         d_cells += N
         d_prev += N
-        d_output += N
-        d_gates += N*4
+        d_hiddens += N
+        d_acts += N*4
         gates += N*4
         cells += N
-        prev += N
+        prevcells += N

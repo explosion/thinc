@@ -277,19 +277,21 @@ class JaxOps(Ops):
         return dX
 
     def lstm(
-        self, acts: Array3d, prev: Array2d
+        self, acts: Array3d, prevcells: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        return lstm(acts, prev)
+        gates, hiddens = lstm(acts, prevcells)
+        return gates, hiddens
 
     def backprop_lstm(
         self,
         d_cells: Array2d,
-        d_output: Array2d,
-        acts: Array3d,
+        d_hiddens: Array2d,
+        gates: Array3d,
         cells: Array2d,
-        prev: Array2d,
+        prevcells: Array2d,
     ) -> Tuple[Array3d, Array2d]:
-        return backprop_lstm(d_cells, d_output, acts, cells, prev)
+        d_acts, d_prevcells = backprop_lstm(d_cells, d_hiddens, gates, cells, prev)
+        return d_acts, d_prevcells
 
 
 class JaxRandom:

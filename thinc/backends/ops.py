@@ -425,7 +425,7 @@ class Ops:
         return dY
 
     def mish(
-        self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
+        self, X: Array2d, threshold: float = 20.0
     ) -> Array2d:
         Y = self.alloc_f2d(*X.shape, dtype=X.dtype)
         tmp = X * self.xp.tanh(self.xp.log(1. + self.xp.exp(X)))

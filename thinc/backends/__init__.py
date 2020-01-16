@@ -12,7 +12,8 @@ from ..util import create_thread_local
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 
 
-STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
+#STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
+STATE = create_thread_local({"Ops": Ops, "ops": Ops()})
 
 
 def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover

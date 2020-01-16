@@ -66,8 +66,8 @@ class CupyOps(Ops):
         dY *= Y > 0
         return dY
 
-    def mish(self, X, threshold=20.0, out=None):
-        return _custom_kernels.mish(X, threshold=threshold, out=out)
+    def mish(self, X, threshold=20.0):
+        return _custom_kernels.mish(X, threshold=threshold, out=None)
 
     def backprop_mish(self, dY, X, threshold=20.0, out=None):
         return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
