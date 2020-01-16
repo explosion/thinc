@@ -91,8 +91,8 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("ExtractWindow.v0", {}, array2d, array2d),
-    ("Embed.v0", {}, array2dint, array2d),
-    ("Embed.v0", {"nO": 4}, array2dint, array2d),
+    ("Embed.v0", {"nV": 1}, array2dint, array2d),
+    ("Embed.v0", {"nO": 4, "nV": 1}, array2dint, array2d),
     ("HashEmbed.v0", {"nO": 1, "nV": 2}, array2d, array2d),
     ("MultiSoftmax.v0", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v0", {}, (array2d, array2d), array1d),
