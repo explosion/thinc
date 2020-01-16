@@ -294,7 +294,9 @@ class Ops:
         cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
         return cosine
 
-    def cosine_abs_loss(self, X: Array, Y: ArrayT, ignore_zeros: bool = False) -> float:
+    def cosine_abs_loss(
+        self, X: Array, Y: ArrayT, *, ignore_zeros: bool = False
+    ) -> float:
         cosine = self.cosine(X, Y)
         losses = self.xp.abs(cosine - 1)
         if ignore_zeros:
@@ -304,7 +306,7 @@ class Ops:
         loss = losses.sum()
         return loss
 
-    def get_norm(self, X: Array):
+    def get_norm(self, X: Array) -> Array:
         norms = self.xp.linalg.norm(X, axis=1)
         norms[norms == 0] = 1
         return norms
@@ -383,7 +385,6 @@ class Ops:
         self.xp.tanh(cells, out=output)
         output *= acts[2]
 
-    # TODO: types
     def backprop_lstm(
         self,
         d_cells: Array2d,
@@ -442,10 +443,12 @@ class Ops:
         out_[indices] = dY[indices]
         return out_
 
+    # TODO: types
     def maxout(self, X):
         which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
+    # TODO: types
     def backprop_maxout(self, dY, which, P):
         dX = self.alloc((dY.shape[0], dY.shape[1], P), dtype="float32")
         for b in range(dY.shape[0]):
@@ -453,14 +456,14 @@ class Ops:
                 dX[b, o, which[b, o]] = dY[b, o]
         return dX
 
-    def relu(self, X, inplace=False):
+    def relu(self, X: Array, inplace: bool = False) -> Array:
         if not inplace:
             return X * (X > 0)
         else:
             X *= X > 0
             return X
 
-    def backprop_relu(self, dY, Y, inplace=False):
+    def backprop_relu(self, dY: Array, Y: Array, inplace: bool = False) -> Array:
         if not inplace:
             return dY * (Y > 0)
         dY *= Y > 0
@@ -507,7 +510,6 @@ class Ops:
             decay = max_decay
         ema -= (1 - decay) * (ema - weights)
 
-    # TODO: types
     def adam(
         self,
         weights: Array1d,
@@ -592,7 +594,8 @@ class Ops:
             start += length
         return dX
 
-    def hash(self, ids, seed):
+    def hash(self, ids: Array, seed: Array) -> Array:
+        # TODO: fix
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
@@ -600,7 +603,8 @@ class Ops:
             numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed)
         )
 
-    def ngrams(self, n: int, keys):
+    def ngrams(self, n: int, keys: Array) -> Array:
+        # TODO: fix
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
@@ -608,11 +612,14 @@ class Ops:
             numpy_ops.ngrams(n, numpy_ops.asarray(keys, dtype="uint64"))
         )
 
-    def position_encode(self, N: int, D: int, period: int = 10000, out=None):
+    def position_encode(
+        self, N: int, D: int, period: int = 10000, out: Optional[Array] = None
+    ) -> Array:
+        # TODO: fix
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
         return self.asarray(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(self, out: Array, ids: Array, inputs: Array):
+    def scatter_add(self, out: Array, ids: Array, inputs: Array) -> Array:
         return self.xp.add.at(out, ids, inputs)

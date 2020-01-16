@@ -119,7 +119,6 @@ class JaxOps(Ops):
             decay = max_decay
         ema -= (1 - decay) * (ema - weights)
 
-    # TODO: types
     def adam(
         self,
         weights: Array1d,

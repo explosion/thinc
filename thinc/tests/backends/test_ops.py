@@ -31,9 +31,12 @@ def test_ops_consistency(op):
         if hasattr(method, "__call__"):
             sig = inspect.signature(method)
             params = [p for p in sig.parameters][1:]
-            default_sig = inspect.signature(getattr(Ops, attr))
-            default_params = [p for p in default_sig.parameters][1:]
-            assert params == default_params, attr
+            base_sig = inspect.signature(getattr(Ops, attr))
+            base_params = [p for p in base_sig.parameters][1:]
+            assert params == base_params, attr
+            defaults = [p.default for p in sig.parameters.values()][1:]
+            base_defaults = [p.default for p in base_sig.parameters.values()][1:]
+            assert defaults == base_defaults, attr
 
 
 @pytest.mark.parametrize("ops", XP_OPS)

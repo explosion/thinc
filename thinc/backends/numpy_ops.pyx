@@ -55,7 +55,7 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape, dtype='float32'):
+    def alloc(self, shape, dtype="float32"):
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, const float[:, ::1] x, const float[:, ::1] y, out=None, trans1=False, trans2=False):
@@ -119,7 +119,7 @@ class NumpyOps(Ops):
             &dY[0, 0], &which[0, 0], B, O, P)
         return dX
 
-    def mish(self, const float[:, ::1] X, threshold=5, out=None):
+    def mish(self, const float[:, ::1] X, threshold=20.0, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
         cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
         cpu_mish(<float*>Y.data,
@@ -131,7 +131,7 @@ class NumpyOps(Ops):
             return Y
 
     def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
-            threshold=5, out=None):
+            threshold=20.0, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
         cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
         cpu_backprop_mish(<float*>dX.data,
