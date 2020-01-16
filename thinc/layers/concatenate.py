@@ -41,9 +41,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     for lyr in model.layers:
         Y, cb = lyr(X, is_train=is_train)
         callbacks.append(cb)
-        #Y_stack = Y.reshape(sum(lengths), Y[0].shape[1])
-        Y_stack = model.ops.xp.concatenate(Y, axis=0)
-        Ys.append(Y_stack)
+        Ys.append(model.ops.xp.concatenate(Y, axis=0))
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
     output = model.ops.asarray(model.ops.unflatten(output, lengths))
