@@ -57,7 +57,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     return output, backprop
 
 
-class CreateInit(object):
+class create_init:
     """Create an init function, given a dictionary of parameter initializers."""
 
     def __init__(self, initializer: Callable):
