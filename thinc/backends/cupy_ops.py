@@ -21,6 +21,12 @@ class CupyOps(Ops):
     device = "gpu"
     xp = cupy
 
+    def to_numpy(self, data):
+        if isinstance(data, numpy.ndarray):
+            return data
+        else:
+            return data.get()
+
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
             x = x.T
