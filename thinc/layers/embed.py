@@ -23,7 +23,7 @@ def Embed(
     model: Model[InT, OutT] = Model(
         "embed",
         forward,
-        init=CreateInit(initializer).init,
+        init=create_init(initializer).init,
         dims={"nO": nO, "nV": nV},
         attrs={"column": column},
         params={"E": None},
