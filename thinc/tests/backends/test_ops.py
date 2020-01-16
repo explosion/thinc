@@ -2,7 +2,8 @@ import pytest
 import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
-from thinc.api import NumpyOps, CupyOps, Ops, get_ops, JaxOps
+from thinc.api import NumpyOps, CupyOps, Ops, get_ops
+from thinc.api import has_jax
 
 from .. import strategies
 
@@ -11,8 +12,9 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
-JAX_OPS = JaxOps()
-CPU_OPS = [NUMPY_OPS, VANILLA_OPS, JAX_OPS]
+CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
+if has_jax:
+    CPU_OPS.append(JaxOps())
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
