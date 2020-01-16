@@ -74,11 +74,11 @@ class JaxOps(Ops):
             X *= X > 0
             return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=False):
+    def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
-            return delta_ * (signal_out > 0)
-        delta_ *= signal_out > 0
-        return delta_
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
 
     def mish(
         self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
@@ -132,8 +132,10 @@ class JaxOps(Ops):
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Array, Array, Array, Array]:
-        return adam(weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate)
-    
+        return adam(
+            weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate
+        )
+
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = self.xp
         grad_norm = xp.linalg.norm(gradient)
@@ -292,6 +294,7 @@ def backprop_maxout(dY, which, P):
             dX[b, o, which[b, o]] = dY[b, o]
     return dX
 
+
 @jax.jit
 def adam(
     weights: Array1d,
@@ -301,7 +304,7 @@ def adam(
     beta1: float,
     beta2: float,
     eps: float,
-    learn_rate: float
+    learn_rate: float,
 ) -> Tuple[Array, Array, Array, Array]:
     mom1 *= beta1
     mom2 *= beta2

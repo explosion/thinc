@@ -460,11 +460,11 @@ class Ops:
             X *= X > 0
             return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=False):
+    def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
-            return delta_ * (signal_out > 0)
-        delta_ *= signal_out > 0
-        return delta_
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
 
     def mish(
         self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
@@ -519,7 +519,7 @@ class Ops:
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> None:
+    ) -> Tuple[Array, Array, Array, Array]:
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.0 - beta1)
@@ -528,6 +528,7 @@ class Ops:
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
         gradient.fill(0)
+        return weights, gradient, mom1, mom2
 
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = get_array_module(gradient)
