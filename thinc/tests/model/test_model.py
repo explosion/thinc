@@ -2,6 +2,7 @@ import pytest
 import threading
 import time
 from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
+from thinc.api import change_attr_values, set_dropout_rate
 import numpy
 
 from ..util import make_tempdir
@@ -26,12 +27,6 @@ def test_models_get_different_ids(model_with_no_args):
     assert model1.id != model2.id
 
 
-def test_init_assigns_attributes():
-    model = Linear()
-    model._mem
-    assert model.layers == []
-
-
 def test_model_init():
     class MyShim(Shim):
         name = "testshim"
@@ -42,7 +37,6 @@ def test_model_init():
         lambda X: (X, lambda dY: dY),
         dims={"nI": 10, "nO": None},
         params={"W": numpy.zeros((10,)), "b": None},
-        grads={"W": numpy.zeros((10,)), "b": None},
         refs={"a": model_a, "b": None},
         attrs={"foo": "bar"},
         shims=[MyShim(None)],
@@ -58,11 +52,10 @@ def test_model_init():
     model.set_param("X", numpy.zeros((10,)))
     assert model.has_param("X")
     assert model.get_param("X").shape == (10,)
-    with model.use_params({model.id: numpy.ones((20,))}):
+    with model.use_params({(model.id, "X"): numpy.ones((10,))}):
         assert numpy.array_equal(model.get_param("X"), numpy.ones((10,)))
     assert numpy.array_equal(model.get_param("X"), numpy.zeros((10,)))
-    assert model.has_grad("W") is None
-    assert model.get_grad("W").shape == (10,)
+    assert not model.has_grad("W")
     assert not model.has_grad("xyz")
     with pytest.raises(KeyError):
         model.get_grad("b")
@@ -100,18 +93,6 @@ def test_model_init():
         model.get_attr("bar")
     model.set_attr("bar", "baz")
     assert model.has_attr("bar")
-
-
-@pytest.mark.xfail
-def test_model_copy_grads():
-    model = Model(
-        "test",
-        lambda X: (X, lambda dY: dY),
-        params={"W": numpy.zeros((10,)), "b": None},
-        grads={"W": numpy.zeros((10,)), "b": None},
-    )
-    model.set_param("W", model.ops.alloc_f1d(10))
-    model.set_grad("W", model.ops.alloc_f1d(10))
     model_copy = model.copy()
     assert model_copy.name == "test"
 
@@ -187,6 +168,23 @@ def test_model_can_load_from_disk(model_with_no_args):
         model_with_no_args.to_disk(path / "thinc_model")
         m2 = model_with_no_args.from_disk(path / "thinc_model")
     assert model_with_no_args.to_bytes() == m2.to_bytes()
+
+
+def test_change_attr_values(model_with_no_args):
+    model = model_with_no_args
+    model.name = "target"
+    model.set_attr("has_var", False)
+    change_attr_values(model, {"target": {"has_var": True, "error": True}})
+    assert model.get_attr("has_var") is True
+    assert not model.has_attr("error")
+
+
+def test_set_dropout(model_with_no_args):
+    model = model_with_no_args
+    model.name = "dropout"
+    model.set_attr("rate", 0.0)
+    set_dropout_rate(model, 0.2)
+    assert model.get_attr("rate") == 0.2
 
 
 def test_bind_plus():

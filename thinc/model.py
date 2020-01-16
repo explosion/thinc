@@ -1,17 +1,15 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
 from typing import Generic, Sequence, Tuple, TypeVar
-import numpy
 import contextlib
 import srsly
 from pathlib import Path
 import copy
 import functools
 
-from .backends import NumpyOps, CupyOps, get_current_ops
+from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
-from .backends.mem import Memory
 from .shims import Shim
-from .util import copy_array, get_width, create_thread_local
+from .util import get_width, create_thread_local
 from .types import Array
 
 
@@ -48,17 +46,16 @@ class Model(Generic[InT, OutT]):
     _thread_local = create_thread_local({"operators": {}})
 
     name: str
-    ops: Union[NumpyOps, CupyOps]
+    ops: Union[NumpyOps, CupyOps]  # TODO: This is wrong, should be Ops
     id: int
     _func: Callable
     _init: Callable
-    _mem: Memory
-    _params: Dict[str, Optional[bool]]
+    _params: ParamServer
     _dims: Dict[str, Optional[int]]
-    _grads: Dict[str, Optional[bool]]
     _layers: List["Model"]
     _shims: List[Shim]
     _attrs: Dict[str, Any]
+    _has_params: Dict[str, Optional[bool]]
 
     # This "locks" the class, so we get an error if you try to assign to
     # an unexpected variable.
@@ -68,14 +65,13 @@ class Model(Generic[InT, OutT]):
         "ops",
         "_func",
         "_init",
-        "_mem",
         "_params",
         "_dims",
-        "_grads",
         "_attrs",
         "_refs",
         "_layers",
         "_shims",
+        "_has_params",
     ]
 
     def __init__(
@@ -86,7 +82,6 @@ class Model(Generic[InT, OutT]):
         init: Callable = lambda *a, **k: None,
         dims: Dict[str, Optional[int]] = {},
         params: Dict[str, Optional[Array]] = {},
-        grads: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
         attrs: Dict[str, Any] = {},
@@ -99,7 +94,7 @@ class Model(Generic[InT, OutT]):
         setattr(self, "_func", forward)
         setattr(self, "_init", init)
         self.ops = ops if ops is not None else get_current_ops()
-        self._mem = Memory(self.ops)
+        self._params = ParamServer()
         self._dims = dict(dims)
         self._attrs = dict(attrs)
         self._refs = dict(refs)
@@ -109,16 +104,11 @@ class Model(Generic[InT, OutT]):
         # across all models.
         Model.global_id += 1
         self.id = Model.global_id
-        self._params = {}
-        self._grads = {}
+        self._has_params = {}
         for name, value in params.items():
-            self._params[name] = None
+            self._has_params[name] = None
             if value is not None:
                 self.set_param(name, value)
-        for name, value in grads.items():
-            self._grads[name] = None
-            if value is not None:
-                self.set_grad(name, value)
 
     @property
     def layers(self) -> List["Model"]:
@@ -134,7 +124,7 @@ class Model(Generic[InT, OutT]):
     @property
     def param_names(self) -> Tuple[str, ...]:
         """Get the names of registered parameter (including unset)."""
-        return tuple(self._params.keys())
+        return tuple(self._has_params.keys())
 
     @property
     def grad_names(self) -> Tuple[str, ...]:
@@ -208,93 +198,47 @@ class Model(Generic[InT, OutT]):
 
         Returns None if the parameter is registered but currently unset.
         """
-        if name not in self._params:
+        if name not in self._has_params:
             return False
-        elif self._params[name] is not None:
+        elif self._has_params[name] is not None:
             return True
         else:
             return None
 
     def get_param(self, name: str) -> Array:
         """Retrieve a weights parameter by name."""
-        if name not in self._params:
+        if name not in self._has_params:
             raise KeyError(f"Unknown param: '{name}' for model '{self.name}'.")
-        key = (self.id, name)
-        if key not in self._mem:
+        if not self._params.has_param(self.id, name):
             raise KeyError(
                 f"Parameter '{name}' for model '{self.name}' has not been allocated yet."
             )
-        return self._mem[key]
+        return self._params.get_param(self.id, name)
 
     def set_param(self, name: str, value: Optional[Array]) -> None:
         """Set a weights parameter's value."""
         if value is None:
-            self._params[name] = None
+            self._has_params[name] = None
         else:
-            key = (self.id, name)
-            if key not in self._mem:
-                self._mem.add(key, value.shape)
-            data = self._mem[(self.id, name)]
-            try:
-                copy_array(dst=data, src=value)
-            except ValueError as e:  # pragma: no cover
-                err = f"Cannot set param '{name}' for model '{self.name}': {e}"
-                raise ValueError(err)
-            self._params[name] = True
+            self._params.set_param(self.id, name, value)
+            self._has_params[name] = True
 
-    def inc_grad(self, name: str, value: Array) -> None:
-        """Check whether the model has a gradient of the given name."""
-        grad_name = f"d_{name}"
-        key = (self.id, grad_name)
-        param_key = (self.id, name)
-        if key in self._mem:
-            grad = self._mem[key]
-        else:
-            grad = self._mem.add_gradient(key, param_key)
-        if grad.shape != value.shape:
-            raise ValueError(
-                f"Shape mismatch: Cannot add a value to the gradient of param "
-                f"'{name}' for model '{self.name}'. Got: {grad.shape} for "
-                f"original gradient and {value.shape} for value to be added"
-            )
-        grad += value
-        self._grads[grad_name] = True
-
-    def has_grad(self, name: str) -> Optional[bool]:
+    def has_grad(self, name: str) -> bool:
         """Check whether the model has a non-zero gradient for a parameter.
-        Returns None if the gradient is allocated but currently 0.
         """
-        grad_name = f"d_{name}"
-        key = (self.id, grad_name)
-        if key not in self._mem:
-            return False
-        elif not self._mem[key].any():
-            return None
-        else:
-            return True
+        return self._params.has_grad(self.id, name)
 
     def get_grad(self, name: str) -> Array:
         """Get a gradient from the model."""
-        grad_name = f"d_{name}"
-        key = (self.id, grad_name)
-        if key not in self._mem:
-            err = f"Gradient '{grad_name}' has not been allocated yet for model '{self.name}'"
-            raise KeyError(err)
-        return self._mem[key]
+        return self._params.get_grad(self.id, name)
 
     def set_grad(self, name: str, value: Array) -> None:
         """Set a gradient value for the model."""
-        grad_name = f"d_{name}"
-        key = (self.id, grad_name)
-        if key not in self._mem:
-            self.inc_grad(name, value)
-        else:
-            data = self._mem[key]
-            try:
-                copy_array(dst=data, src=value)
-            except ValueError as e:  # pragma: no cover
-                err = f"Cannot set grad '{grad_name}' for model '{self.name}': {e}"
-                raise ValueError(err)
+        self._params.set_grad(self.id, name, value)
+
+    def inc_grad(self, name: str, value: Array) -> None:
+        """Check whether the model has a gradient of the given name."""
+        self._params.inc_grad(self.id, name, value)
 
     def has_attr(self, name: str) -> bool:
         """Check whether the model has the given attribute."""
@@ -372,37 +316,39 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        seen: Set[int] = set()
         for node in self.walk():
-            if node.id not in seen:
-                # Kind of ugly to use the _mem.weights -- would make more sense
-                # to call node.finish_update. Maybe we could pass in a set
-                # of visited?
-                optimizer(node._mem.weights, node._mem.gradient, key=node.id)
-                seen.add(node.id)
-                for shim in node.shims:
-                    shim.finish_update(optimizer)
+            for name in node.param_names:
+                if node.has_grad(name):
+                    param = node.get_param(name)
+                    grad = node.get_grad(name)
+                    param, grad = optimizer((node.id, name), param, grad)
+                    node.set_param(name, param)
+                    node.set_grad(name, grad)
+            for shim in node.shims:
+                shim.finish_update(optimizer)
 
     @contextlib.contextmanager
-    def use_params(self, params: Dict[int, Array]):
+    def use_params(self, params: Dict[Tuple[int, str], Array]):
         """Context manager to temporarily set the model's parameters to
         specified values. The params are a dictionary keyed by model IDs, whose
         values are arrays of weight values.
         """
-        backup = None
-        weights = self._mem.weights
-        if self.id in params:
-            param = params[self.id]
-            backup = weights.copy()
-            copy_array(dst=weights, src=param)
+        backup = {}
+        for name in self.param_names:
+            key = (self.id, name)
+            if key in params:
+                backup[name] = self.get_param(name)
+                self.set_param(name, params[key])
+
         with contextlib.ExitStack() as stack:
             for layer in self.layers:
                 stack.enter_context(layer.use_params(params))
             for shim in self.shims:
                 stack.enter_context(shim.use_params(params))
             yield
-        if backup is not None:
-            copy_array(dst=self._mem.weights, src=backup)
+        if backup:
+            for name, param in backup.items():
+                self.set_param(name, param)
 
     def walk(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
@@ -432,14 +378,16 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
-    def get_gradients(self) -> Dict[int, Tuple[Array, Array]]:
+    def get_gradients(self) -> Dict[Tuple[int, str], Tuple[Array, Array]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
         gradients = {}
         for node in self.walk():
-            if hasattr(node, "_mem") and node._mem.gradient.any():
-                gradients[node.id] = (node._mem.weights, node._mem.gradient)
+            for name in node.grad_names:
+                param = node.get_param(name)
+                grad = node.get_grad(name)
+                gradients[(node.id, name)] = (param, grad)
         return gradients
 
     def copy(self) -> "Model":
@@ -449,30 +397,24 @@ class Model(Generic[InT, OutT]):
         value.
         """
         params = {}
-        for key, value in self._params.items():
-            params[key] = None if value is None else self.get_param(key)
         grads = {}
-        for key, value in self._grads.items():
-            grads[key] = None if value is None else self.get_grad(key)
+        for name in self.param_names:
+            params[name] = self.get_param(name) if self.has_param(name) else None
+        for name in self.grad_names:
+            grads[name] = self.get_grad(name)
+
         copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
             init=self._init,
             params=copy.deepcopy(params),
-            grads=copy.deepcopy(grads),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
+            shims=[shim.copy() for shim in self.shims],
         )
-        # The `_params` and `_grads` dicts don't hold the actual values --
-        # those are within the `model._mem` object. So we need to call `set_param`
-        # on the copy.
-        for name, is_allocated in self._params.items():
-            if is_allocated:
-                copied.set_param(name, self.get_param(name))
-        for name, is_allocated in self._grads.items():
-            if is_allocated:
-                copied.set_grad(name, self.get_grad(name))
+        for name in self.grad_names:
+            copied.set_grad(name, self.get_grad(name).copy())
         return copied
 
     def to_gpu(self, gpu_id: int) -> None:  # pragma: no cover
@@ -480,28 +422,24 @@ class Model(Generic[InT, OutT]):
         import cupy.cuda.device
 
         device = cupy.cuda.device.Device(gpu_id)
-        device.use()
-        for layer in self.walk():
-            layer.ops = CupyOps()
-            if hasattr(layer, "_mem"):
-                layer._mem._mem = self.ops.xp.asarray(layer._mem._mem)
-                layer._mem.ops = layer.ops
-            for shim in layer.shims:
-                if hasattr(shim, "to_gpu"):
-                    shim.to_gpu(gpu_id)
-        return device
+        with device.use():
+            self._to_ops(CupyOps())
 
     def to_cpu(self) -> None:  # pragma: no cover
-        """Copy the model to CPU."""
-        for layer in self.walk():
-            layer.ops = NumpyOps()
-            if hasattr(layer, "_mem"):
-                if hasattr(layer._mem._mem, "get"):
-                    layer._mem._mem = layer._mem._mem.get()
-                layer._mem.ops = layer.ops
-            for shim in layer.shims:
-                if hasattr(shim, "to_cpu"):
-                    shim.to_cpu()
+        """Transfer the model to CPU."""
+        self._to_ops(NumpyOps())
+
+    def _to_ops(self, ops: Ops) -> None:  # pragma: no cover
+        """Common method for to_cpu/to_gpu."""
+        for node in self.walk():
+            node.ops = ops
+            for name in node.param_names:
+                if node.has_param(name):
+                    node.set_param(name, ops.asarray(node.get_param(name)))
+                if node.has_grad(name):
+                    node.set_grad(name, ops.asarray(node.get_grad(name)))
+            for shim in node.shims:
+                shim.to_device(ops.device)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -511,47 +449,62 @@ class Model(Generic[InT, OutT]):
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        weights: List[Union[str, Dict[str, Any]]] = []
+        # We separate out like this to make it easier to read the data in chunks.
+        # The shims might have large weights, while the nodes data will be
+        # small. The attrs are probably not very large, but could be.
+        # The lists are aligned, and refer to the order of self.walk().
+        msg: Dict[str, List] = {"nodes": [], "attrs": [], "params": [], "shims": []}
         nodes = list(self.walk())
         # Serialize references by their index into the flattened tree.
         # This is the main reason we can't accept out-of-tree references:
         # we'd have no way to serialize/deserialize them.
-        node_to_i: Dict[Optional[Model], Optional[int]]
-        node_to_i = {node: i for i, node in enumerate(nodes)}
-        # We also need an entry 'None', as references can be set to None.
-        node_to_i[None] = None
-        for i, layer in enumerate(nodes):
-            attrs = {}
-            for name, value in layer._attrs.items():
-                try:
-                    attrs[name] = serialize_attr(value, value, name, self)
-                except TypeError:
-                    continue
-            invalid_refs = {k: v for k, v in layer._refs.items() if v not in node_to_i}
+        node_to_i: Dict[int, Optional[int]]
+        node_to_i = {node.id: i for i, node in enumerate(nodes)}
+        for i, node in enumerate(nodes):
+            refs: Dict[str, Optional[int]] = {}
+            invalid_refs: List[str] = []
+            for name in node.ref_names:
+                if not node.has_ref(name):
+                    refs[name] = None
+                else:
+                    ref = node.get_ref(name)
+                    if ref.id in node_to_i:
+                        refs[name] = node_to_i[ref.id]
+                    else:
+                        invalid_refs.append(name)
             if invalid_refs:
                 raise ValueError(f"Cannot get references: {invalid_refs}")
-            refs = {name: node_to_i[ref] for name, ref in layer._refs.items()}
-            weights.append(
+            dims = {}
+            for dim in node.dim_names:
+                dims[dim] = node.get_dim(dim) if node.has_dim(dim) else None
+            msg["nodes"].append(
                 {
-                    "dims": layer._dims,
-                    "params": [],
-                    "attrs": attrs,
-                    "shims": [shim.to_bytes() for shim in layer.shims],
+                    "index": i,
+                    "name": node.name,
+                    "dims": dims,
                     "refs": refs,
                 }
             )
-            for (id_, name), (start, row, shape) in layer._mem._offsets.items():
-                if row == 1:
+        for node in nodes:
+            attrs = {}
+            for name in node.attr_names:
+                value = node.get_attr(name)
+                try:
+                    attrs[name] = serialize_attr(value, value, name, node)
+                except TypeError:
                     continue
-                param = layer._mem[(id_, name)]
-                if not isinstance(
-                    layer._mem.weights, numpy.ndarray
-                ):  # pragma: no cover
-                    param = param.get()
-                weights[-1]["params"].append(  # type: ignore
-                    {"name": name, "offset": start, "shape": shape, "value": param}
-                )
-        return srsly.msgpack_dumps({"weights": weights})
+            msg["attrs"].append(attrs)
+        for node in nodes:
+            msg["shims"].append([shim.to_bytes() for shim in node.shims])
+        for node in nodes:
+            params: Dict[str, Optional[Array]] = {}
+            for name in node.param_names:
+                if node.has_param(name):
+                    params[name] = node.get_param(name)
+                else:
+                    params[name] = None
+            msg["params"].append(params)
+        return srsly.msgpack_dumps(msg)
 
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
@@ -563,24 +516,27 @@ class Model(Generic[InT, OutT]):
         """
         msg = srsly.msgpack_loads(bytes_data)
         nodes = list(self.walk())
-        if len(msg["weights"]) != len(nodes):
+        if len(msg["nodes"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure.")
-        for layer, data in zip(nodes, msg["weights"]):
-            for attr, value in data["attrs"].items():
-                default_value = layer.get_attr(attr)
-                loaded_value = deserialize_attr(default_value, value, attr, self)
-                layer.set_attr(attr, loaded_value)
-            for dim, value in data["dims"].items():
-                layer.set_dim(dim, value)
-            for param in data["params"]:
-                layer.set_param(param["name"], param["value"])
-            for i, shim_bytes in enumerate(data["shims"]):
-                layer.shims[i].from_bytes(shim_bytes)
-            for name, ref_i in data["refs"].items():
-                if ref_i is None:
-                    layer.set_ref(name, None)
+        for i, node in enumerate(nodes):
+            info = msg["nodes"][i]
+            node.name = info["name"]
+            for dim, value in info["dims"].items():
+                if value is not None:
+                    node.set_dim(dim, value)
+            for ref, ref_index in info["refs"].items():
+                if ref_index is None:
+                    node.set_ref(ref, None)
                 else:
-                    layer.set_ref(name, nodes[ref_i])
+                    node.set_ref(ref, nodes[ref_index])
+            for attr, value in msg["attrs"][i].items():
+                default_value = node.get_attr(attr)
+                loaded_value = deserialize_attr(default_value, value, attr, node)
+                node.set_attr(attr, loaded_value)
+            for param_name, value in msg["params"][i].items():
+                node.set_param(param_name, value)
+            for i, shim_bytes in enumerate(msg["shims"][i]):
+                node.shims[i].from_bytes(shim_bytes)
         return self
 
     def to_disk(self, path: Union[Path, str]) -> None:
@@ -703,4 +659,36 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]
+_ModelT = TypeVar("_ModelT", bound=Model)
+
+
+def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _ModelT:
+    """Walk over the model's nodes, changing the value of attributes using the
+    provided mapping, which maps node names to attr names to attr values.
+    """
+    for node in model.walk():
+        if node.name in mapping:
+            attrs = mapping[node.name]
+            for attr, value in attrs.items():
+                if node.has_attr(attr):
+                    node.set_attr(attr, value)
+    return model
+
+
+def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> _ModelT:
+    """Walk over the model's nodes, setting the dropout rate. Dropout nodes are
+    identified by name. You can configure the name-to-attribute mapping using
+    the `attrs` dict.
+    """
+    mapping = {name: {attr: drop} for name, attr in attrs.items()}
+    return change_attr_values(model, mapping)
+
+
+__all__ = [
+    "create_init",
+    "Model",
+    "serialize_attr",
+    "deserialize_attr",
+    "change_attr_values",
+    "set_dropout_rate",
+]

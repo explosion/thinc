@@ -5,6 +5,7 @@ from .ops import Ops
 from .cupy_ops import CupyOps
 from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
+from ._param_server import ParamServer
 from ..types import DeviceTypes
 from ..util import create_thread_local
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
@@ -78,6 +79,7 @@ __all__ = [
     "set_current_ops",
     "get_current_ops",
     "use_device",
+    "ParamServer",
     "Ops",
     "CupyOps",
     "NumpyOps",

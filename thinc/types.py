@@ -25,6 +25,7 @@ DTypesFloat = Literal["f", "float32"]
 DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
 DeviceTypes = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
 ArrayT = TypeVar("ArrayT", bound="Array")
+Reduced_OutT = TypeVar("Reduced_OutT")
 
 
 class Array(Generic[ArrayT], Sized, Container):
