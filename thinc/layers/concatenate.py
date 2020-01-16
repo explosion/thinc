@@ -36,6 +36,15 @@ def concatenate(*layers: Model) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
+    if isinstance(Ys[0], list):
+        return _list_forward(model, X, Ys, callbacks, is_train)
+    else:
+        return _array_forward(model, X, Ys, callbacks, is_train)
+
+
+def _array_forward(
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
 
@@ -45,6 +54,31 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.xp.ascontiguousarray(d_output[:, start : start + width])
+            dX += bwd(dY)
+            start += width
+        return dX
+
+    return output, backprop
+
+
+def _list_forward(
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
+    lengths = model.ops.asarray([len(x) for x in X], dtype="i")
+    Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
+    widths = [Y.shape[1] for Y in Ys]
+    output = model.ops.xp.hstack(Ys)
+    output = model.ops.unflatten(output, lengths)
+
+    def backprop(d_output: OutT) -> InT:
+        d_output = model.ops.xp.concatenate(d_output, axis=0)
+        dY = model.ops.xp.ascontiguousarray(d_output[:, : widths[0]])
+        dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
+        dX = callbacks[0](dY)
+        start = widths[0]
+        for bwd, width in zip(callbacks[1:], widths[1:]):
+            dY = model.ops.xp.ascontiguousarray(d_output[:, start : start + width])
+            dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
             dX += bwd(dY)
             start += width
         return dX
