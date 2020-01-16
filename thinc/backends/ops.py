@@ -1,4 +1,5 @@
 from typing import Optional, List, Tuple, Sequence, Union, cast
+import numpy
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
@@ -7,7 +8,7 @@ from ..util import copy_array, get_array_module
 
 class Ops:
     device: str = "cpu"
-    xp: Xp = None
+    xp: Xp = numpy
 
     def __init__(self, xp: Optional[Xp] = None) -> None:
         if xp is not None:
@@ -268,8 +269,9 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def as_contig(self, data: ArrayT):
-        return self.ops.xp.ascontiguousarray(data)
+    def as_contig(self, data: ArrayT, dtype: Optional[DTypes]=None) -> ArrayT:
+        kwargs = {"dtype": dtype} if dtype is not None else {}
+        return self.xp.ascontiguousarray(data, **kwargs)
 
     def sigmoid(self, X: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
@@ -356,89 +358,45 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def take_which(self, x: ArrayT, which: ArrayT, *, axis: int = -1) -> ArrayT:
-        output: ArrayT = self.alloc(which.shape)
-        for i in range(x.shape[axis]):
-            output += x[:, :, i] * (which == i)
-        return output
-
-    def backprop_take(self, dX: Array, which: Array, nP: int) -> Array:
-        dX__bop = self.alloc_f3d(dX.shape[0], dX.shape[1], nP)
-        for i in range(nP):
-            dX__bop[:, :, i] += dX * (which == i)
-        return dX__bop
-
     def lstm(
-        self, output: Array2d, cells: Array2d, acts: Array3d, prev: Array2d
-    ) -> None:
+        self, acts: Array3d, prevcells: Array2d
+    ) -> Tuple[Array2d, Array2d, Array3d]:
+        gates = self.as_contig(acts.transpose((2, 0, 1)))
         # Activations is: hf, hi, ho, hc
-        self.sigmoid(acts[0], inplace=True)
-        self.sigmoid(acts[1], inplace=True)
-        self.sigmoid(acts[2], inplace=True)
-        self.xp.tanh(acts[3], out=acts[3])
-        cells[:] = acts[0]
-        cells *= prev
-        cells += acts[1] * acts[3]
-        self.xp.tanh(cells, out=output)
-        output *= acts[2]
+        self.sigmoid(gates[0], inplace=True)
+        self.sigmoid(gates[1], inplace=True)
+        self.sigmoid(gates[2], inplace=True)
+        self.xp.tanh(gates[3], out=gates[3])
+        cells = gates[0] * prevcells
+        cells += gates[1] * gates[3]
+        hiddens = self.xp.tanh(cells)
+        hiddens *= gates[2]
+        return hiddens, cells, gates
 
     def backprop_lstm(
         self,
         d_cells: Array2d,
-        d_prev: Array2d,
-        d_gates: Array3d,
-        d_output: Array2d,
+        d_hiddens: Array2d,
         gates: Array3d,
         cells: Array2d,
-        prev: Array2d,
-    ) -> None:
+        prevcells: Array2d,
+    ) -> Tuple[Array3d, Array2d]:
         (hf, hi, ho, hc) = (0, 1, 2, 3)
         cells_tanh = self.xp.tanh(cells)
         # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        d_gates[ho] = cells_tanh
-        d_gates[ho] *= d_output * self.dsigmoid(gates[ho])
-        d_prevcells = gates[ho] * d_output * self.dtanh(cells_tanh)
+        d_ho = cells_tanh
+        d_ho *= d_hiddens * self.dsigmoid(gates[ho])
+        d_prevcells = gates[ho] * d_hiddens * self.dtanh(cells_tanh)
         d_prevcells += d_cells  # Carry gradient from timestep
         # Gradient for hf, hi, hc, prev[i]
         # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        d_gates[hf] = self.dsigmoid(gates[hf]) * d_prevcells * prev
-        d_gates[hi] = self.dsigmoid(gates[1]) * d_prevcells * gates[hc]
-        d_gates[hc] = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
-        d_prev[:] = d_prevcells * gates[hf]
-        # TODO: Make work for Jax?
-        copy_array(d_cells, d_prevcells)
-
-    def softplus(
-        self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
-    ) -> Array:
-        xp = get_array_module(X)
-        log1p_exp = xp.log1p(xp.exp(X))
-        indices = X >= threshold
-        log1p_exp[indices] = X[indices]
-        if out is None:
-            return log1p_exp
-        else:
-            out[:] = log1p_exp
-            return out
-
-    def backprop_softplus(
-        self,
-        dY: Array2d,
-        X: Array2d,
-        threshold: float = 20.0,
-        out: Optional[Array2d] = None,
-    ) -> Array:
-        xp = get_array_module(X)
-        out_: Array
-        if out is None:
-            out_ = xp.zeros(X.shape, dtype="f")
-        else:
-            out_ = out
-        out_[:] = 1 - 1 / (1 + xp.exp(X))
-        out_ *= dY
-        indices = X >= threshold
-        out_[indices] = dY[indices]
-        return out_
+        d_hf = self.dsigmoid(gates[hf]) * d_prevcells * prevcells
+        d_hi = self.dsigmoid(gates[hi]) * d_prevcells * gates[hc]
+        d_hc = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
+        d_prevcells *= gates[hf]
+        copy_array(d_cells, d_prevcells) # TOOD: Wtf is this?
+        d_acts = self.xp.concatenate((d_hf, d_hi, d_ho, d_hc), axis=-1)
+        return d_acts, d_prevcells
 
     # TODO: types
     def maxout(self, X):
@@ -469,9 +427,14 @@ class Ops:
     def mish(
         self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
     ) -> Array2d:
-        Xsoft = self.softplus(X, threshold=threshold, out=out)
-        Y = self.xp.tanh(Xsoft, out=out)
-        Y *= X
+        Y = self.alloc_f2d(*X.shape, dtype=X.dtype)
+        tmp = X * self.xp.tanh(self.xp.log(1. + self.xp.exp(X)))
+        for i in range(X.shape[0]):
+            for j in range(X.shape[1]):
+                if X[i, j] >= threshold:
+                    Y[i, j] = X[i, j]
+                else:
+                    Y[i, j] = tmp[i, j]
         return Y
 
     def backprop_mish(
