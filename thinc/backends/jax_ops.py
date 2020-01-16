@@ -353,3 +353,5 @@ if has_jax:
     jax.tree_util.register_pytree_node(
         JaxOps, lambda ops: ([], None), lambda info, values: JaxOps()
     )
+
+__all__ = ["JaxOps", "has_jax"]
