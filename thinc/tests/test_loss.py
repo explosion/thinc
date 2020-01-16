@@ -22,7 +22,7 @@ def test_loss():
 def test_L1_distance():
     vec1 = numpy.asarray([[2]])
     vec2 = numpy.asarray([[3]])
-    labels = [-1, -2, -3]
+    labels = numpy.asarray([-1, -2, -3], dtype="i")
     d_vecs = L1_distance(vec1, vec2, labels)
     assert len(d_vecs) == 2
 
