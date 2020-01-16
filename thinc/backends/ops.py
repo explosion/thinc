@@ -522,11 +522,13 @@ class Ops:
 
     def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
+        which = self.alloc_i2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
+            which[i] = X[start : start+length].argmax(axis=0)
             Y[i] = X[start : start + length].max(axis=0)
             start += length
-        return Y
+        return Y, which
 
     def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
         dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
