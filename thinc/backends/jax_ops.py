@@ -92,8 +92,8 @@ class JaxOps(Ops):
     def relu(self, X, inplace=False):
         return relu(X)
 
-    def backprop_relu(self, delta, signal_out, inplace=False):
-        return backprop_relu(delta, signal_out)
+    def backprop_relu(self, dY, Y, inplace=False):
+        return backprop_relu(dY, Y)
 
     def update_averages(
         self, ema: Array, weights: Array, t: int, max_decay: float = 0.9999
