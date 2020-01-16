@@ -22,6 +22,12 @@ class JaxOps(Ops):
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)
 
+    def to_numpy(self, data):
+        if isinstance(data, numpy.ndarray):
+            return data
+        else:
+            return jax.device_get(data)
+
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
