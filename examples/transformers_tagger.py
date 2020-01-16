@@ -33,7 +33,7 @@ total_steps = 6000
 
 [training]
 batch_size = 128
-words_per_subbatch = 3000
+words_per_subbatch = 2000
 n_epoch = 10
 """
 
@@ -192,7 +192,7 @@ def evaluate_sequences(
         for yh, y in zip(Yh, Y):
             correct += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
             total += y.shape[0]
-    return correct / total
+    return float(correct / total)
 
 
 def minibatch_by_words(pairs, max_words):
