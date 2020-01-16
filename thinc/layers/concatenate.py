@@ -44,14 +44,17 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         Ys.append(model.ops.xp.concatenate(Y, axis=0))
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
-    output = model.ops.asarray(model.ops.unflatten(output, lengths))
+    output = model.ops.unflatten(output, lengths)
 
     def backprop(d_output: OutT) -> InT:
+        d_output = model.ops.xp.concatenate(d_output, axis=0)
         dY = model.ops.xp.ascontiguousarray(d_output[:, : widths[0]])
+        dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
         dX = callbacks[0](dY)
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.xp.ascontiguousarray(d_output[:, start : start + width])
+            dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
             dX += bwd(dY)
             start += width
         return dX
