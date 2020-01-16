@@ -3,7 +3,7 @@ import numpy
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d
 from typing import Sequence, Optional, List, Tuple
 
-try:
+try:  # pragma: no cover
     import jax
     import jax.ops
     import jax.random
@@ -11,7 +11,7 @@ try:
     from jax.ops import index_update, index
 
     has_jax = True
-except ImportError:
+except ImportError:  # pragma: no cover
     has_jax = False
 
 
@@ -26,13 +26,13 @@ class JaxOps(Ops):
         """
         if nW == 1:
             return seq2col_one(seq)
-        else:
+        else:  # pragma: no cover
             raise ValueError("Currently only nW=1 supported.")
 
     def backprop_seq2col(self, dY: ArrayT, nW: int) -> Array:
         if nW == 1:
             return backprop_seq2col_one(dY)
-        else:
+        else:  # pragma: no cover
             raise ValueError("Currently only nW=1 supported.")
 
     def gemm(
