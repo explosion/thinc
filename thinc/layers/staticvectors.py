@@ -30,9 +30,9 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     W = model.get_param("W")
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     if ids.ndim >= 2:
-        ids = model.ops.xp.ascontiguousarray(ids[:, column])
+        ids = model.ops.as_contig(ids[:, column])
     vectors = vector_table[ids * (ids < vector_table.shape[0])]
-    vectors = model.ops.xp.ascontiguousarray(vectors)
+    vectors = model.ops.as_contig(vectors)
     assert vectors.shape[0] == ids.shape[0]
 
     def backprop(d_output: OutT) -> InT:

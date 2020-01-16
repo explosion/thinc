@@ -40,11 +40,11 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     output = model.ops.xp.hstack(Ys)
 
     def backprop(d_output: OutT) -> InT:
-        dY = model.ops.xp.ascontiguousarray(d_output[:, : widths[0]])
+        dY = model.ops.as_contig(d_output[:, : widths[0]])
         dX = callbacks[0](dY)
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
-            dY = model.ops.xp.ascontiguousarray(d_output[:, start : start + width])
+            dY = model.ops.as_contig(d_output[:, start : start + width])
             dX += bwd(dY)
             start += width
         return dX
