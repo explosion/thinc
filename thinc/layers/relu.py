@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..model import Model, CreateInit
+from ..model import Model, create_init
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
