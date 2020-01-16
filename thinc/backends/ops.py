@@ -14,6 +14,12 @@ class Ops:
         if xp is not None:
             self.xp = xp
 
+    def to_numpy(self, data):
+        if isinstance(data, numpy.ndarray):
+            return data
+        else:
+            raise ValueError("Cannot convert non-numpy from base Ops class.")
+
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
@@ -489,7 +495,6 @@ class Ops:
         # Here we assume learn rate is calculated by the caller.
         # cdef weight_t a_t = learn_rate * sqrt(1-beta2**hp.t) / (1-beta1**hp.t);
         weights -= learn_rate * (mom1 / (mod_rate * self.xp.sqrt(mom2) + eps))
-        gradient.fill(0)
         return weights, gradient, mom1, mom2
 
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
