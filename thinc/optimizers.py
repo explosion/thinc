@@ -19,7 +19,7 @@ FloatOrSeq = Union[float, List[float], Generator]
 IntOrSeq = Union[int, List[int], Generator]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
-    "L2": 1e-6,
+    "L2": 0.0,
     "L2_is_weight_decay": True,
     "grad_clip": 1.0,
 }
@@ -265,8 +265,8 @@ class Optimizer(object):
         if key not in self.mom2:
             self.mom2[key] = self.ops.alloc_f1d(weights.size)
 
-        # While we port from PyTorch
-        p_data_fp32 = weights
+        # While we port from the pytorch implementation, keep some of the same
+        # naming
         state = {
             "step": self.nr_update[key],
             "exp_avg": self.mom1[key],
@@ -322,14 +322,14 @@ class Optimizer(object):
         # more conservative since it's an approximated value
         if N_sma >= 5:
             if group["weight_decay"] != 0:
-                p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
+                weights += -group["weight_decay"] * group["lr"] * weights
             denom = xp.sqrt(exp_avg_sq) + group["eps"]
-            p_data_fp32 += -step_size * group["lr"] * (exp_avg / denom)
+            weights += -step_size * group["lr"] * (exp_avg / denom)
         elif step_size > 0:
             if group["weight_decay"] != 0:
-                p_data_fp32 += -group["weight_decay"] * group["lr"] * p_data_fp32
-            p_data_fp32 += -step_size * group["lr"] * exp_avg
-        return p_data_fp32, gradient
+                weights += -group["weight_decay"] * group["lr"] * weights
+            weights += -step_size * group["lr"] * exp_avg
+        return weights, grad
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
         weights_1D = weights.reshape((weights.size,))
