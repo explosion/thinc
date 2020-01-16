@@ -265,9 +265,7 @@ def test_sum_pool(ops):
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
 
-@pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
-)
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_max_pool_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
     X += ops.xp.random.uniform(-1, 1, X.shape)
@@ -280,9 +278,7 @@ def test_max_pool_sm(ops):
         start += length
 
 
-@pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
-)
+@pytest.mark.parametrize("ops", XP_OPS)
 def test_max_pool(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
