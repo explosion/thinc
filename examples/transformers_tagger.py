@@ -87,7 +87,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
         # You might want to evaluate more often than once per epoch; that's up
         # to you.
         score = evaluate_sequences(model, dev_X, dev_Y, 128)
-        print(epoch, score)
+        print(epoch, f"{score:.3f}")
         if out_dir:
             model.to_disk(out_dir / f"{epoch}.bin")
 
