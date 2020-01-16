@@ -76,7 +76,8 @@ class JaxOps(Ops):
         if not len(lengths):
             return []
         elif not X.size:
-            return [0] * lengths.shape[0]
+            empty_shape = (0,) + tuple(X.shape[1:])
+            return [self.alloc(empty_shape) for _ in lengths]
         elif pad == 0:
             return unflatten_no_padding(X, self.asarray(lengths))
         else:
@@ -114,7 +115,7 @@ class JaxOps(Ops):
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> Tuple[Array, Array, Array, Array]:
+    ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
         return adam(weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate)
     
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
@@ -284,7 +285,7 @@ def update_averages(ema, weights, decay):
 @jax.jit
 def logloss(y_true: Array, y_pred: Array):
     log_yp = jax.numpy.log(y_pred + 1e-8)
-    loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
+    loss = (y_true * log_yp) + (1 - y_true) * jax.numpy.log((1 - y_pred) + 1e-8)
     return -loss
 
 @jax.jit
