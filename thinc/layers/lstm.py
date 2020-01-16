@@ -99,24 +99,21 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops: Ops, acts: Array3d, prev_cells: Array2d):
+def _gates_forward(ops: Ops, acts: Array3d, prevcells: Array2d):
     nB = acts.shape[0]
     nO = acts.shape[1] // 4
     acts = acts.reshape((nB, nO, 4))
-    new_cells = ops.alloc_f2d(*prev_cells.shape)
-    new_hiddens = ops.alloc_f2d(*prev_cells.shape)
-    ops.lstm(new_hiddens, new_cells, acts, prev_cells)
-    size = new_cells.shape[0]
+    # Need 'gates' here, the transformed acts, for backward pass.
+    hiddens, cells, gates = ops.lstm(acts, prevcells)
+    size = cells.shape[0]
 
-    def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array2d, Array2d]:
-        d_cells = ops.as_contig(d_cells[:size])
+    def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array3d, Array2d]:
+        d_cells = ops.as_contig(d_cells[:size]) # Wtf?
         d_hiddens = ops.as_contig(d_hiddens[:size])
-        d_acts = ops.alloc_f3d(*acts.shape)
-        d_prevcells: Array2d = ops.alloc(prev_cells.shape)
-        ops.backprop_lstm(
-            d_cells, d_prevcells, d_acts, d_hiddens, acts, new_cells, prev_cells
+        d_acts, d_prevcells = ops.backprop_lstm(
+            d_cells, d_hiddens, gates, cells, prevcells
         )
-        d_reshaped: Array2d = d_acts.reshape((nB, nO * 4))
-        return d_reshaped, d_prevcells
+        d_acts = d_acts.reshape((nB, nO * 4))
+        return d_acts, d_prevcells
 
-    return (new_cells, new_hiddens), backprop_gates
+    return (cells, hiddens), backprop_gates
