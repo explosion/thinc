@@ -244,17 +244,6 @@ def test_gemm_computes_correctly(cpu_ops):
 
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BOP())
-def test_take_which_computes_correctly(cpu_ops, X):
-    which = numpy.argmax(X, axis=-1)
-    best = cpu_ops.take_which(X, which)
-    for i in range(best.shape[0]):
-        for j in range(best.shape[1]):
-            assert best[i, j] == max(X[i, j])
-
-
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
 def test_flatten_unflatten_roundtrip(cpu_ops, X):
     flat = cpu_ops.flatten([x for x in X])
@@ -307,31 +296,6 @@ def test_max_pool(ops):
         truth = m[start : start + length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
-
-
-@pytest.mark.parametrize("ops", ALL_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_softplus(ops, X):
-    X = ops.asarray(X)
-    Y = ops.softplus(X)
-    assert Y.shape == X.shape
-    assert not ops.xp.isnan(Y).any()
-    assert not (Y == 0).any()
-    ops.softplus(X, out=X)
-
-
-@pytest.mark.parametrize("ops", ALL_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_backprop_softplus(ops, X):
-    X = ops.asarray(X)
-    # Test zero gradients result in 0 dX
-    zeros = ops.alloc(X.shape)
-    dX = ops.backprop_softplus(zeros, X)
-    assert dX.shape == X.shape
-    assert (dX == 0).all()
-    ops.backprop_softplus(zeros, X, out=X)
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
