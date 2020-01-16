@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional
 
-from ..model import Model, CreateInit
+from ..model import Model, create_init
 from ..config import registry
 from ..types import Array2d
 from ..initializers import zero_init
