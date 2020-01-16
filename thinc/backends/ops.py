@@ -351,12 +351,6 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def clip_low(self, x: ArrayT, value: ArrayT, *, inplace: bool = False) -> ArrayT:
-        if inplace:
-            return self.xp.maximum(x, value, out=x)
-        else:
-            return self.xp.maximum(x, value)
-
     def take_which(self, x: ArrayT, which: ArrayT, *, axis: int = -1) -> ArrayT:
         output: ArrayT = self.alloc(which.shape)
         for i in range(x.shape[axis]):
