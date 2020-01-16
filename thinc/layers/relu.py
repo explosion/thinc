@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..model import Model, create_init
+from ..model import Model, CreateInit
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
@@ -26,7 +26,7 @@ def ReLu(
     model: Model[InT, OutT] = Model(
         "relu",
         forward,
-        init=create_init({"W": init_W, "b": init_b}),
+        init=CreateInit({"W": init_W, "b": init_b}).init,
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )

@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional
 
-from ..model import Model, create_init
+from ..model import Model, CreateInit
 from ..config import registry
 from ..types import Array2d
 from ..initializers import zero_init
@@ -21,7 +21,7 @@ def Softmax(
     model: Model[InT, OutT] = Model(
         "softmax",
         forward,
-        init=create_init({"W": init_W, "b": init_b}),
+        init=CreateInit({"W": init_W, "b": init_b}).init,
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )

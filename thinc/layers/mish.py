@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..model import Model, create_init
+from ..model import Model, CreateInit
 from ..initializers import xavier_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
@@ -29,7 +29,7 @@ def Mish(
     model: Model[InT, OutT] = Model(
         "mish",
         forward,
-        init=create_init({"W": init_W, "b": init_b}),
+        init=CreateInit({"W": init_W, "b": init_b}).init,
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
