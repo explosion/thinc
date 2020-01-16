@@ -519,10 +519,11 @@ InFunc = TypeVar("InFunc")
 Wrapper = Callable[[InFunc], InFunc]
 
 
+InFunc = TypeVar("InFunc")
 class Decorator(Protocol):
     """Protocol to mark a function as returning its child with identical signature."""
 
-    def __call__(self, name: str) -> Wrapper:
+    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
 
 
