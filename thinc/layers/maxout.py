@@ -63,7 +63,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     return best, backprop
 
 
-class CreateInit(object):
+class create_init:
     """Create an init function, given a dictionary of parameter initializers."""
 
     def __init__(self, initializers: Dict[str, Callable]):
