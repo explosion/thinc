@@ -589,7 +589,7 @@ class Ops:
     def scatter_add(self, out: Array, ids: Array, inputs: Array) -> Array:
         return self.xp.add.at(out, ids, inputs)
 
-    def insert_into(self, Xs, shape):
+    def insert_into(self, shape, Xs):
         """Maybe don't need this? Just a quicky to get Jax working."""
         output = self.alloc(shape, dtype=Xs[0].dtype)
         for i, x in enumerate(Xs):
