@@ -299,6 +299,12 @@ class JaxOps(Ops):
         d_acts, d_prevcells = backprop_lstm(d_cells, d_hiddens, gates, cells, prevcells)
         return d_acts, d_prevcells
 
+    def insert_into(self, shape, Xs):
+        output = self.alloc(shape, dtype=Xs[0].dtype)
+        for i, x in enumerate(Xs):
+            output = index_update(output, index[i, :x.shape[0]], x)
+        return output
+
 
 class JaxRandom:
     """Perform randomization functions for Jax."""
