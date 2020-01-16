@@ -1,42 +1,29 @@
 import random
-from typing import Optional
+from typing import Optional, List
 from pathlib import Path
 import thinc
-from thinc.api import Config, fix_random_seed
+from thinc.api import fix_random_seed, Adam, Model, Config
+from thinc.layers import chain, list2ragged, with_array, MeanPool, Softmax
+from thinc.layers import Embed
+from thinc.types import Array2d
 from wasabi import msg
 import typer
 import numpy as np
 import csv
 from ml_datasets import loaders
-from ml_datasets.util import get_file
-from ml_datasets._registry import register_loader
 from syntok.tokenizer import Tokenizer
 
 
-# Partial config with some parameters for Embed and Softmax unspecified
 CONFIG = """
 [hyper_params]
 width = 64
 
 [model]
-@layers = "chain.v0"
+@layers = "EmbedPoolTextcat.v0"
 
-[model.*.list2ragged]
-@layers = "list2ragged.v0"
-
-[model.*.with_array]
-@layers = "with_array.v0"
-
-[model.*.with_array.layer]
+[model.embed]
 @layers = "Embed.v0"
 nO = ${hyper_params:width}
-
-[model.*.meanpool]
-@layers = "MeanPool.v0"
-
-[model.*.softmax]
-@layers = "Softmax.v0"
-nI = ${hyper_params:width}
 
 [optimizer]
 @optimizers = "Adam.v1"
@@ -47,15 +34,16 @@ batch_size = 8
 n_iter = 10
 """
 
+
 def main(
     config_path: Optional[Path] = None,
     n_examples: Optional[int] = 2000,
-    dataset: Optional[str] = "dbpedia_ontology",
+    dataset: Optional[str] = "dbpedia",
 ):
     fix_random_seed(0)
 
     # Load data
-    supported_datasets = ["dbpedia_ontology", "imdb"]
+    supported_datasets = ["dbpedia", "imdb"]
     if dataset not in supported_datasets:
         msg.fail("Supported datasets:" + ", ".join(supported_datasets), exits=1)
     msg.text(f"Loading dataset '{dataset}'...")
@@ -104,15 +92,14 @@ def main(
     else:
         config = Config().from_disk(config_path)
 
-    # Set the remaining config parameters based on the loaded dataset
-    config["model"]["*"]["with_array"]["layer"]["nV"] = len(vocab)
-    config["model"]["*"]["softmax"]["nO"] = nr_class
-
     # Load the config
     loaded_config = thinc.registry.make_from_config(config)
 
     # Here we have the model and optimizer, built for us by the registry.
     model = loaded_config["model"]
+    model.get_ref("embed").set_dim("nV", len(vocab))
+    model.initialize(X=train_X, Y=train_y)
+
     optimizer = loaded_config["optimizer"]
 
     # Get training parameters from config
@@ -141,6 +128,18 @@ def main(
         msg.row((n, f"{loss:.2f}", f"{score:.3f}"), widths=row_widths)
 
 
+@thinc.registry.layers("EmbedPoolTextcat.v0")
+def EmbedPoolTextcat(embed: Model[Array2d, Array2d]) -> Model[List[Array2d], Array2d]:
+    model = chain(
+        list2ragged(),
+        with_array(embed),
+        MeanPool(),
+        Softmax()
+    )
+    model.set_ref("embed", embed)
+    return model
+
+
 def evaluate_textcat(model, dev_X, dev_Y, batch_size):
     correct = 0.0
     total = 0.0
@@ -156,34 +155,6 @@ def evaluate_textcat(model, dev_X, dev_Y, batch_size):
 def tokenize_texts(texts):
     tok = Tokenizer()
     return [[token.value for token in tok.tokenize(text)] for text in texts]
-
-
-# Dataset loader for DBPedia Ontology from https://course.fast.ai/datasets
-DBPEDIA_ONTOLOGY_URL = "https://s3.amazonaws.com/fast-ai-nlp/dbpedia_csv.tgz"
-
-
-@register_loader("dbpedia_ontology")
-def dbpedia_ontology(loc=None, limit=0):
-    if loc is None:
-        loc = get_file("dbpedia_csv", DBPEDIA_ONTOLOGY_URL, untar=True, unzip=True)
-    train_loc = Path(loc) / "train.csv"
-    test_loc = Path(loc) / "test.csv"
-    return read_dbpedia_ontology(train_loc, limit=limit), read_dbpedia_ontology(test_loc, limit=limit)
-
-
-def read_dbpedia_ontology(data_file, limit=0):
-    examples = []
-    with open(data_file, newline='') as f:
-        reader = csv.reader(f)
-        for row in reader:
-            label = row[0]
-            title = row[1]
-            text = row[2]
-            examples.append((title + "\n" + text, label))
-    random.shuffle(examples)
-    if limit >= 1:
-        examples = examples[:limit]
-    return examples
 
 
 if __name__ == "__main__":
