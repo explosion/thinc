@@ -16,7 +16,7 @@ except ImportError:
 
 
 class JaxOps(Ops):
-    xp = jax.numpy
+    xp = jax.numpy if has_jax else None
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
