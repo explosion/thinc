@@ -1,8 +1,4 @@
-# TODO: This example currently doesn't work due to how pydantic validates
-# generics in fields (layers expecting varialbe arguments annotated as
-# Model[InT, OutT]). The example also needs to be rewritten to define the model
-# in a custom registered function instead of only in the config. This is
-# closer to the recommended best practice.
+# pip install thinc ml_datasets typer
 from typing import Optional
 from pathlib import Path
 import random

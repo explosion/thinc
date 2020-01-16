@@ -1,4 +1,5 @@
 """Train a transformer tagging model, using Huggingface's Transformers."""
+# pip install thinc ml_datasets typer tqdm transformers torch
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 import random

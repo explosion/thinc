@@ -2,6 +2,7 @@
 training. The example is based off one of Ray's tutorials:
 https://ray.readthedocs.io/en/latest/auto_examples/plot_parameter_server.html
 """
+# pip install thinc ml_datasets typer
 from typing import Optional
 from pathlib import Path
 from collections import defaultdict

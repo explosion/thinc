@@ -1,3 +1,4 @@
+# pip install thinc ml_datasets typer
 import random
 from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow, chain
 from thinc.api import with_array, strings2arrays, Adam, fix_random_seed
