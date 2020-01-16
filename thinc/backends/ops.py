@@ -268,6 +268,9 @@ class Ops:
         else:
             return self.xp.array(data)
 
+    def as_contig(self, data: ArrayT):
+        return self.ops.xp.ascontiguousarray(data)
+
     def sigmoid(self, X: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             self.xp.exp(-X, out=X)

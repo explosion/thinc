@@ -18,6 +18,9 @@ except ImportError:
 class JaxOps(Ops):
     xp = jax.numpy if has_jax else None
 
+    def as_contig(self, data: ArrayT):
+        return data
+
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
