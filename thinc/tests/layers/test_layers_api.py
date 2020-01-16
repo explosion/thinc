@@ -1,4 +1,4 @@
-from thinc.api import registry, with_padded, Dropout
+from thinc.api import registry, with_padded, Dropout, get_current_ops
 from thinc.types import Ragged, Padded
 from thinc.util import has_torch
 import numpy
@@ -15,12 +15,13 @@ class FakeSpan:
     start = 0
     end = -1
 
+OPS = get_current_ops()
 
-array1d = numpy.asarray([1, 2, 3], dtype="f")
-array2d = numpy.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
-array2dint = numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
-array3d = numpy.zeros((3, 3, 3), dtype="f")
-ragged = Ragged(array2d, numpy.asarray([1, 1], dtype="i"))
+array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
+array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
+array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
+array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
+ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
 padded = Padded(array3d, array1d, [1, 2, 3, 4], [1, 2, 3, 4])
 doc = FakeDoc()
 span = FakeSpan()
@@ -29,8 +30,8 @@ width = array2d.shape[1]
 
 def assert_data_match(Y, out_data):
     assert type(Y) == type(out_data)
-    if isinstance(out_data, numpy.ndarray):
-        assert isinstance(Y, numpy.ndarray)
+    if isinstance(out_data, OPS.xp.ndarray):
+        assert isinstance(Y, OPS.xp.ndarray)
         assert out_data.ndim == Y.ndim
     elif isinstance(out_data, Ragged):
         assert isinstance(Y, Ragged)
