@@ -34,7 +34,7 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     step_model: Model[RNNState, RNNState] = model.layers[0]
     nI = step_model.get_dim("nI")
     nO = step_model.get_dim("nO")
-    Y = model.ops.alloc_f3d(X.shape[0], X.shape[1], nO)
+    Yts = []
     backprops: List[Callable] = [lambda a: a] * X.shape[0]
     (cell, hidden) = _get_initial_state(model, X.shape[1], nO)
     for t in range(X.shape[0]):
@@ -43,7 +43,9 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
         # off the end.
         n = size_at_t[t]
         inputs = ((cell[:n], hidden[:n]), X[t, :n])
-        ((cell, hidden), Y[t, :n]), backprops[t] = step_model(inputs, is_train)
+        ((cell, hidden), Yt), backprops[t] = step_model(inputs, is_train)
+        Yts.append(Yt)
+    Y = model.ops.insert_into((len(Yts), X.shape[1], Yts[0].shape[-1]), Yts)
 
     def backprop(dYp: OutT) -> InT:
         dY = dYp.data
