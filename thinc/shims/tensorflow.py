@@ -226,7 +226,11 @@ class TensorFlowShim(Shim):
         catalogue_name, model_weights = data
         model_fn = keras_model_fns.get(catalogue_name)
         with tf.device(device):
-            new_model = model_fn()
+            if hasattr(self._model, "eg_args"):
+                ak: ArgsKwargs = self._model.eg_args
+                new_model = model_fn(*ak.args, **ak.kwargs)
+            else:
+                new_model = model_fn()
         # Calling predict creates layers and weights for subclassed models
         # TODO: compile args?
         new_model.compile(optimizer="adam", loss="mse")

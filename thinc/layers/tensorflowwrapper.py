@@ -1,5 +1,7 @@
 from typing import Any, Callable, Dict, Optional, Tuple, Type, TypeVar
 
+import srsly
+
 from ..model import Model
 from ..shims import TensorFlowShim, keras_model_fns
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
@@ -45,11 +47,30 @@ def keras_subclass(
         clazz.eg_y = property(lambda inst: Y)
 
         @keras_model_fns(name)
-        def create_component(**call_kwargs):
+        def create_component(*call_args, **call_kwargs):
             input_args = call_kwargs
             if args is not None:
                 input_args = {**args, **call_kwargs}
-            return clazz(**input_args)
+            return clazz(*call_args, **input_args)
+
+        # Capture construction args and store them on the instance
+        wrapped_init = clazz.__init__
+
+        def __init__(self, *args, **kwargs):
+            wrapped_init(self, *args, **kwargs)
+            try:
+                srsly.json_dumps(args)
+                srsly.json_dumps(kwargs)
+            except BaseException as _err:
+                raise ValueError(
+                    "In order to serialize Keras Subclass models, the constructor "
+                    "arguments must be serializable. This allows thinc to recreate "
+                    "the code-based model with the same configuration.\n"
+                    f"The encountered error is: {_err}"
+                )
+            self.eg_args = ArgsKwargs(args, kwargs)
+
+        clazz.__init__ = __init__
 
         return clazz
 
@@ -79,7 +100,7 @@ def TensorFlowWrapper(
     is_subclass = False
     try:
         tensorflow_model.to_json()
-    except NotImplementedError:
+    except (AttributeError, NotImplementedError):
         is_subclass = True
 
     if is_subclass:

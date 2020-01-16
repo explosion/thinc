@@ -2,7 +2,7 @@ import numpy
 import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, Ops, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
-from thinc.types import Array
+from thinc.types import Array, Array1d, Array2d
 from thinc.util import has_tensorflow, to_categorical
 
 from ..util import check_input_converters, make_tempdir
@@ -159,7 +159,7 @@ def test_tensorflow_wrapper_accepts_optimizer(
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_serialize_model_subclass_catalogue(
+def test_tensorflow_wrapper_serialize_model_subclass(
     X: Array, Y: Array, input_size: int, n_classes: int, answer: int
 ):
     import tensorflow as tf
@@ -230,6 +230,44 @@ def test_tensorflow_wrapper_keras_subclass_decorator(
 
     # Can wrap an decorated keras subclass model
     assert isinstance(TensorFlowWrapper(TestModel()), Model)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_keras_subclass_decorator_capture_args_kwargs(
+    X: Array, Y: Array, input_size: int, n_classes: int, answer: int
+):
+    import tensorflow as tf
+
+    @keras_subclass(
+        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
+    )
+    class TestModel(tf.keras.Model):
+        def __init__(self, custom: bool = False, **kwargs):
+            super().__init__(self)
+            # This is to force the mode to pass the captured arguments
+            # or fail.
+            assert custom is True
+            assert kwargs.get("other", None) is not None
+
+        def call(self, inputs):
+            return inputs
+
+    # Can wrap an decorated keras subclass model
+    model: Model[Array2d, Array1d] = TensorFlowWrapper(TestModel(True, other=1337))
+
+    assert hasattr(model.shims[0]._model, "eg_args")
+    args_kwargs: ArgsKwargs = model.shims[0]._model.eg_args
+    assert True in args_kwargs.args
+    assert "other" in args_kwargs.kwargs
+
+    # Raises an error if the args/kwargs is not serializable
+    obj: dict = {}
+    obj["key"] = obj
+    with pytest.raises(ValueError):
+        TensorFlowWrapper(TestModel(True, other=obj))
+
+    # Provides the same arguments when copying a capture model
+    model = model.from_bytes(model.to_bytes())
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
