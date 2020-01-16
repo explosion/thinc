@@ -17,26 +17,30 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-def create_init(initializers: Dict[str, Callable]) -> Callable:
+class create_init:
     """Create an init function, given a dictionary of parameter initializers."""
 
-    def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-    ) -> None:
+    def __init__(self, initializers: Dict[str, Callable]):
+        self.initializers = initializers
+
+    def __call__(self, model, X: Optional[Array] = None, Y: Optional[Array] = None
+             ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))
         if Y is not None:
             model.set_dim("nO", get_width(Y))
         W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
         b = model.ops.alloc_f1d(model.get_dim("nO"))
-        if "W" in initializers:
-            initializers["W"](W, inplace=True)
-        if "b" in initializers:
-            initializers["b"](b, inplace=True)
+        if "W" in self.initializers:
+            self.initializers["W"](W, inplace=True)
+        if "b" in self.initializers:
+            self.initializers["b"](b, inplace=True)
         model.set_param("W", W)
         model.set_param("b", b)
 
-    return init
+
+def empty_init(*a, **k):
+    return None
 
 
 class Model(Generic[InT, OutT]):
@@ -79,7 +83,7 @@ class Model(Generic[InT, OutT]):
         name: str,
         forward: Callable,
         *,
-        init: Callable = lambda *a, **k: None,
+        init: Callable = empty_init,
         dims: Dict[str, Optional[int]] = {},
         params: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],

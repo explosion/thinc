@@ -53,14 +53,16 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     return output, backprop
 
 
-def create_init(initializer: Callable) -> Callable:
-    def init(
-        model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+class create_init:
+    """Create an init function, given a dictionary of parameter initializers."""
+
+    def __init__(self, initializer: Callable):
+        self.initializer = initializer
+
+    def __call__(self, model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
     ) -> None:
         if Y is not None:
             model.set_dim("nO", get_width(Y))
         shape = (model.get_dim("nV"), model.get_dim("nO"))
-        vectors = initializer(model.ops.alloc_f2d(*shape))
+        vectors = self.initializer(model.ops.alloc_f2d(*shape))
         model.set_param("E", vectors)
-
-    return init

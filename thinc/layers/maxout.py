@@ -63,11 +63,13 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     return best, backprop
 
 
-def create_init(initializers: Dict[str, Callable]) -> Callable:
+class create_init:
     """Create an init function, given a dictionary of parameter initializers."""
 
-    def init(
-        model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    def __init__(self, initializers: Dict[str, Callable]):
+        self.initializers = initializers
+
+    def __call__(self, model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
     ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))
@@ -77,11 +79,9 @@ def create_init(initializers: Dict[str, Callable]) -> Callable:
             model.get_dim("nO"), model.get_dim("nP"), model.get_dim("nI")
         )
         b = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nP"))
-        if "W" in initializers:
-            initializers["W"](W, inplace=True)
-        if "b" in initializers:
-            initializers["b"](b, inplace=True)
+        if "W" in self.initializers:
+            self.initializers["W"](W, inplace=True)
+        if "b" in self.initializers:
+            self.initializers["b"](b, inplace=True)
         model.set_param("W", W)
         model.set_param("b", b)
-
-    return init
