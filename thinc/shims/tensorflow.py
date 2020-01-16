@@ -232,8 +232,7 @@ class TensorFlowShim(Shim):
             else:
                 new_model = model_fn()
         # Calling predict creates layers and weights for subclassed models
-        # TODO: compile args?
-        new_model.compile(optimizer="adam", loss="mse")
+        new_model.compile(**new_model.eg_compile)
         new_model.build(new_model.eg_shape)
         new_model.predict(new_model.eg_x)
         # Once the weights are created we can overwrite them.

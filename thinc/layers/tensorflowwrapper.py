@@ -25,7 +25,7 @@ def keras_subclass(
     X: XType,
     Y: YType,
     input_shape: Tuple[int, ...],
-    args: Optional[Dict[str, Any]] = None,
+    compile_args: Optional[Dict[str, Any]] = None,
 ) -> Callable[[InFunc], InFunc]:
     """Decorate a custom keras subclassed model with enough information to
     serialize and deserialize it reliably in the face of the many restrictions
@@ -34,24 +34,29 @@ def keras_subclass(
     name (str): The unique namespace string to use to represent this model class.
     X (Any): A sample X input for performing a forward pass on the network.
     Y (Any): A sample Y input for performing a backward pass on the network.
-    input_shape (Tuple[int, ...]): A set of input shapes for building the network. 
-    args: Additional arguments are passed to the class constructor
+    input_shape (Tuple[int, ...]): A set of input shapes for building the network.
+    compile: Arguments to pass directly to the keras `model.compile` call.
 
     RETURNS (Callable): The decorated class.
     """
 
+    compile_defaults = {"optimizer": "adam", "loss": "mse"}
+    if compile_args is None:
+        compile_args = compile_defaults
+    else:
+        compile_args = {**compile_defaults, **compile_args}
+
     def call_fn(clazz):
+
         clazz.catalogue_name = property(lambda inst: name)
         clazz.eg_shape = property(lambda inst: input_shape)
+        clazz.eg_compile = property(lambda inst: compile_args)
         clazz.eg_x = property(lambda inst: X)
         clazz.eg_y = property(lambda inst: Y)
 
         @keras_model_fns(name)
         def create_component(*call_args, **call_kwargs):
-            input_args = call_kwargs
-            if args is not None:
-                input_args = {**args, **call_kwargs}
-            return clazz(*call_args, **input_args)
+            return clazz(*call_args, **call_kwargs)
 
         # Capture construction args and store them on the instance
         wrapped_init = clazz.__init__
