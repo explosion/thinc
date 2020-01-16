@@ -29,7 +29,7 @@ def Mish(
     model: Model[InT, OutT] = Model(
         "mish",
         forward,
-        init=CreateInit({"W": init_W, "b": init_b}).init,
+        init=create_init({"W": init_W, "b": init_b}),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
