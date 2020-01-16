@@ -122,6 +122,7 @@ class CupyOps(Ops):
             "adam",
         )(gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2)
         gradient.fill(0)
+        return weights, gradient, mom1, mom2
 
     def position_encode(self, *args, **kwargs):
         positions = NumpyOps().position_encode(*args, **kwargs)
