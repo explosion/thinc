@@ -689,7 +689,7 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> 
 
 
 __all__ = [
-    "CreateInit",
+    "create_init",
     "Model",
     "serialize_attr",
     "deserialize_attr",
