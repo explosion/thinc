@@ -531,7 +531,9 @@ class Model(Generic[InT, OutT]):
         Serialization should round-trip identically, i.e. the same bytes should
         result from loading and serializing a model.
         """
-        return self.from_dict(srsly.msgpack_loads(bytes_data))
+        msg = srsly.msgpack_loads(bytes_data)
+        msg = convert_recursive(is_xp_array, self.ops.asarray, msg)
+        return self.from_dict(msg)
 
     def from_disk(self, path: Union[Path, str]) -> "Model":
         """Deserialize the model from disk. Most models will serialize to a single
