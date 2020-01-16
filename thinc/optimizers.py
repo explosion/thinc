@@ -6,7 +6,6 @@ import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
-from .util import get_array_module
 from .config import registry
 
 
@@ -243,7 +242,9 @@ class Optimizer(object):
         if self.grad_clip:
             gradient = self.ops.clip_gradient(gradient, self.grad_clip)
         if self.use_radam:
-            weights, gradient = self._radam(xp, weights, gradient, lr_scale, key, nr_upd)
+            weights, gradient = self._radam(
+                xp, weights, gradient, lr_scale, key, nr_upd
+            )
         elif self.b1 > 0.0 and self.b2 > 0.0:
             weights, gradient = self._adam(xp, weights, gradient, lr_scale, key, nr_upd)
         elif self.b2 > 0.0:  # pragma: no cover
@@ -346,8 +347,9 @@ class Optimizer(object):
         b1 = self.b1
         b2 = self.b2
         eps = self.eps
-        weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(weights_1D, gradient_1D,
-            mom1, mom2, b1, b2, eps, lr * lr_scale)
+        weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(
+            weights_1D, gradient_1D, mom1, mom2, b1, b2, eps, lr * lr_scale
+        )
         self.mom1[key] = mom1
         self.mom2[key] = mom2
         return weights_1D.reshape(weights.shape), gradient_1D.reshape(weights.shape)

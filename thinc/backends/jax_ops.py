@@ -94,7 +94,7 @@ class JaxOps(Ops):
 
     def backprop_relu(self, delta, signal_out, inplace=False):
         return backprop_relu(delta, signal_out)
-    
+
     def update_averages(
         self, ema: Array, weights: Array, t: int, max_decay: float = 0.9999
     ) -> None:
@@ -102,7 +102,7 @@ class JaxOps(Ops):
         if decay > max_decay:
             decay = max_decay
         return update_averages(ema, weights, decay)
-    
+
     # TODO: types
     def adam(
         self,
@@ -116,8 +116,10 @@ class JaxOps(Ops):
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
-        return adam(weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate)
-    
+        return adam(
+            weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate
+        )
+
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
         xp = self.xp
         grad_norm = xp.linalg.norm(gradient)
@@ -127,7 +129,7 @@ class JaxOps(Ops):
 
     def logloss(self, y_true: Array, y_pred: Array):
         return logloss
-    
+
     def sum_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
         return sum_pool(X, lengths)
 
@@ -205,13 +207,16 @@ def backprop_seq2col_one(dY):
 def affine(X, W, b):
     return X @ W.T + b
 
+
 @jax.jit
 def relu(X):
     return X * (X > 0)
 
+
 @jax.jit
 def backprop_relu(delta, signal_out):
     return delta * (signal_out > 0)
+
 
 @jit_static_argnums(1)
 def flatten_with_padding(X, pad):
@@ -229,9 +234,10 @@ def unflatten_no_padding(X, lengths):
     start = 0
     unflat = []
     for length in lengths:
-        unflat.append(X[start:start+length])
+        unflat.append(X[start : start + length])
         start += length
     return unflat
+
 
 def unflatten_with_padding(X, lengths, pad):
     # Couldn't get the JIT version right here yet.
@@ -258,6 +264,7 @@ def backprop_maxout(dY, which, P):
             dX[b, o, which[b, o]] = dY[b, o]
     return dX
 
+
 @jax.jit
 def adam(
     weights: Array1d,
@@ -267,7 +274,7 @@ def adam(
     beta1: float,
     beta2: float,
     eps: float,
-    learn_rate: float
+    learn_rate: float,
 ) -> Tuple[Array, Array, Array, Array]:
     mom1 *= beta1
     mom2 *= beta2
@@ -278,9 +285,11 @@ def adam(
     weights -= learn_rate * mom1 / (1.0 + eps)
     return weights, gradient, mom1, mom2
 
+
 @jax.jit
 def update_averages(ema, weights, decay):
     return ema - (1 - decay) * (ema - weights)
+
 
 @jax.jit
 def logloss(y_true: Array, y_pred: Array):
@@ -288,21 +297,27 @@ def logloss(y_true: Array, y_pred: Array):
     loss = (y_true * log_yp) + (1 - y_true) * jax.numpy.log((1 - y_pred) + 1e-8)
     return -loss
 
+
 @jax.jit
 def sum_pool(X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
-        Y = jax.ops.index_update(Y, jax.ops.index[i], X[start : start + length].sum(axis=0))
+        Y = jax.ops.index_update(
+            Y, jax.ops.index[i], X[start : start + length].sum(axis=0)
+        )
         start += length
     return Y
+
 
 @jax.jit
 def mean_pool(X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
-        Y = jax.ops.index_update(Y, jax.ops.index[i], X[start : start + length].mean(axis=0))
+        Y = jax.ops.index_update(
+            Y, jax.ops.index[i], X[start : start + length].mean(axis=0)
+        )
         start += length
     return Y
 
@@ -312,9 +327,12 @@ def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
-        Y = jax.ops.index_update(Y, jax.ops.index[i], X[start : start + length].max(axis=0))
+        Y = jax.ops.index_update(
+            Y, jax.ops.index[i], X[start : start + length].max(axis=0)
+        )
         start += length
     return Y
+
 
 @jax.jit
 def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
@@ -325,6 +343,7 @@ def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
         start += length
     return dX
 
+
 @jax.jit
 def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
     dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
@@ -334,17 +353,15 @@ def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
         start += length
     return dX
 
+
 @jax.jit
-def backprop_max_pool(
-    d_maxes: Array2d, which: Array2d, lengths: Array1d
-) -> Array2d:
+def backprop_max_pool(d_maxes: Array2d, which: Array2d, lengths: Array1d) -> Array2d:
     dX = numpy.jax.zeros((lengths.sum(), d_maxes.shape[1]))
     start = 0
     for i, length in enumerate(lengths):
         dX = index_update(dX, index[start : start + length, which[i]], d_maxes[i])
         start += length
     return dX
-
 
 
 JaxOps.xp.random = JaxRandom()
