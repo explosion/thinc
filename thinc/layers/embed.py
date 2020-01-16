@@ -14,7 +14,7 @@ OutT = Array2d
 @registry.layers("Embed.v0")
 def Embed(
     nO: Optional[int] = None,
-    nV: int = 1,
+    nV: Optional[int] = None,
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
@@ -28,7 +28,7 @@ def Embed(
         attrs={"column": column},
         params={"E": None},
     )
-    if nO is not None:
+    if nO is not None and nV is not None:
         model.initialize()
     return model
 
