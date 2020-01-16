@@ -275,7 +275,7 @@ class Ops:
         else:
             return self.xp.array(data)
 
-    def as_contig(self, data: ArrayT, dtype: Optional[DTypes]=None) -> ArrayT:
+    def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
@@ -400,7 +400,7 @@ class Ops:
         d_hi = self.dsigmoid(gates[hi]) * d_prevcells * gates[hc]
         d_hc = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
         d_prevcells *= gates[hf]
-        copy_array(d_cells, d_prevcells) # TOOD: Wtf is this?
+        copy_array(d_cells, d_prevcells)  # TOOD: Wtf is this?
         d_acts = self.xp.concatenate((d_hf, d_hi, d_ho, d_hc), axis=-1)
         return d_acts, d_prevcells
 
@@ -430,11 +430,9 @@ class Ops:
         dY *= Y > 0
         return dY
 
-    def mish(
-        self, X: Array2d, threshold: float = 20.0
-    ) -> Array2d:
+    def mish(self, X: Array2d, threshold: float = 20.0) -> Array2d:
         Y = self.alloc_f2d(*X.shape, dtype=X.dtype)
-        tmp = X * self.xp.tanh(self.xp.log(1. + self.xp.exp(X)))
+        tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
         for i in range(X.shape[0]):
             for j in range(X.shape[1]):
                 if X[i, j] >= threshold:
@@ -530,7 +528,7 @@ class Ops:
         which = self.alloc_i2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            which[i] = X[start : start+length].argmax(axis=0)
+            which[i] = X[start : start + length].argmax(axis=0)
             Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y, which

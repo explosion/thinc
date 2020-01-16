@@ -15,6 +15,7 @@ class FakeSpan:
     start = 0
     end = -1
 
+
 OPS = get_current_ops()
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")

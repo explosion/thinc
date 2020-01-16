@@ -5,12 +5,14 @@ import thinc.api
 from thinc.api import has_jax
 from thinc.backends import jax_jit
 
+
 @contextlib.contextmanager
 def with_current_ops(ops):
     prev = thinc.api.get_current_ops()
     thinc.api.set_current_ops(ops)
     yield
     thinc.api.set_current_ops(prev)
+
 
 def get_batch(ops, nB, nO, nI):
     X = ops.xp.zeros((nB, nI), dtype="f")

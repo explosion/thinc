@@ -500,7 +500,7 @@ class Model(Generic[InT, OutT]):
             for dim in node.dim_names:
                 dims[dim] = node.get_dim(dim) if node.has_dim(dim) else None
             msg["nodes"].append(
-                {"index": i, "name": node.name, "dims": dims, "refs": refs,}
+                {"index": i, "name": node.name, "dims": dims, "refs": refs}
             )
         for node in nodes:
             attrs = {}

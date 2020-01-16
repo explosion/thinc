@@ -2,6 +2,7 @@ try:
     import cupy
     import cupy.cuda
     from cupy.cuda.compiler import compile_with_cache  # noqa: F401
+
     has_cupy = True
 
     # We no longer have to set up the memory pool, fortunately.

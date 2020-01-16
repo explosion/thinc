@@ -597,9 +597,7 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def lstm(
-    acts: Array3d, prev: Array2d
-) -> Tuple[Array2d, Array2d, Array3d]:
+def lstm(acts: Array3d, prev: Array2d) -> Tuple[Array2d, Array2d, Array3d]:
     xp = jax.numpy
     hf = acts[:, :, 0]
     hi = acts[:, :, 1]
@@ -619,11 +617,7 @@ def lstm(
 
 @jax_jit()
 def backprop_lstm(
-    d_cells: Array2d,
-    d_output: Array2d,
-    acts: Array3d,
-    cells: Array2d,
-    prev: Array2d,
+    d_cells: Array2d, d_output: Array2d, acts: Array3d, cells: Array2d, prev: Array2d
 ) -> Tuple[Array3d, Array2d]:
     xp = jax.numpy
     hf = acts[:, :, 0]

@@ -520,6 +520,8 @@ Wrapper = Callable[[InFunc], InFunc]
 
 
 InFunc = TypeVar("InFunc")
+
+
 class Decorator(Protocol):
     """Protocol to mark a function as returning its child with identical signature."""
 

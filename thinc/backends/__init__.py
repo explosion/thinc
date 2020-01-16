@@ -12,7 +12,7 @@ from ..util import create_thread_local
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 
 
-#STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
+# STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
 STATE = create_thread_local({"Ops": Ops, "ops": Ops()})
 
 
@@ -88,5 +88,5 @@ __all__ = [
     "NumpyOps",
     "JaxOps",
     "has_jax",
-    "has_cupy"
+    "has_cupy",
 ]

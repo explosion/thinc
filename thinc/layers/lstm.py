@@ -108,7 +108,7 @@ def _gates_forward(ops: Ops, acts: Array3d, prevcells: Array2d):
     size = cells.shape[0]
 
     def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array3d, Array2d]:
-        d_cells = ops.as_contig(d_cells[:size]) # Wtf?
+        d_cells = ops.as_contig(d_cells[:size])  # Wtf?
         d_hiddens = ops.as_contig(d_hiddens[:size])
         d_acts, d_prevcells = ops.backprop_lstm(
             d_cells, d_hiddens, gates, cells, prevcells

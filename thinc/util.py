@@ -8,14 +8,16 @@ import functools
 
 try:  # pragma: no cover
     import cupy
+
     has_cupy = True
 except ImportError:
     cupy = None
     has_cupy = False
 
-try: # pragma: no cover
+try:  # pragma: no cover
     import jax
     import jax.numpy
+
     has_jax = True
 except ImportError:
     jax = None
