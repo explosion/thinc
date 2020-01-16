@@ -522,7 +522,8 @@ class Model(Generic[InT, OutT]):
             info = msg["nodes"][i]
             node.name = info["name"]
             for dim, value in info["dims"].items():
-                node.set_dim(dim, value)
+                if value is not None:
+                    node.set_dim(dim, value)
             for ref, ref_index in info["refs"].items():
                 if ref_index is None:
                     node.set_ref(ref, None)
