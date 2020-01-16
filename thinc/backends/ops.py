@@ -523,7 +523,7 @@ class Ops:
             start += length
         return Y
 
-    def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def max_pool(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         which = self.alloc_i2d(lengths.shape[0], X.shape[1])
         start = 0
