@@ -42,7 +42,7 @@ from .sumpool import SumPool
 # Data-type transfers
 from .list2array import list2array
 from .list2ragged import list2ragged
-from .list2padded import list2padded
+from .list2padded_module import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
 from .strings2arrays import strings2arrays
