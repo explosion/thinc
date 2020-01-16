@@ -48,6 +48,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     """
     callbacks = []
     for layer in model.layers:
+        print(layer.name)
         Y, inc_layer_grad = layer(X, is_train=is_train)
         callbacks.append(inc_layer_grad)
         X = Y

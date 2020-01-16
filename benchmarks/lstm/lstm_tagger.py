@@ -84,24 +84,31 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
         Ys.append(to_categorical(Y.astype("i")))
     return Xs, Ys
 
-def run_forward(model, Xs):
+def run_forward(model, batches):
     Ys = []
-    for batch in minibatch(Xs, size=128):
+    i = 0
+    for batch in batches:
         Ys.append(model.predict(batch))
     return Ys
 
 def main():
-    thinc.api.set_current_ops(thinc.api.JaxOps())
+    #thinc.api.set_current_ops(thinc.api.JaxOps())
     numpy.random.seed(0)
     C = registry.make_from_config(Config().from_str(CONFIG))
     model = C["model"]
     X, Y = get_dummy_data(**C["data"])
     print("Begin init", len(X))
     model.initialize(X=X[:5])
+    print("Copy data to jax")
+    X = [model.ops.asarray(x) for x in X]
+    print("Minibatch and pad")
+    X = [model.layers[0].predict(batch) for batch in minibatch(X, size=128)]
+    model.layers.pop(0)
+    print("Start")
     start_time = timer()
     Ys = run_forward(model, X)
     end_time = timer()
-    print("Predicted", sum(len(x) for x in X), end_time-start_time)
+    print("Predicted", sum(sum(x.lengths) for x in X), end_time-start_time)
     print("Ys[0]", Ys[0].data.mean(), Ys[0].data.var())
 
 
