@@ -58,8 +58,7 @@ class NumpyOps(Ops):
     def alloc(self, shape, dtype='float32'):
         return self.xp.zeros(shape, dtype=dtype)
 
-    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,
-             out=None):
+    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, out=None, trans1=False, trans2=False):
         cdef int m
         if trans1:
             m = x.shape[1]
@@ -99,26 +98,26 @@ class NumpyOps(Ops):
                 dX_ptr[i] = 0.
         return dX
 
-    def maxout(self, const float[:, :, ::1] py_cands):
+    def maxout(self, const float[:, :, ::1] X):
         cdef Pool mem = Pool()
-        cdef int B = py_cands.shape[0]
-        cdef int O = py_cands.shape[1]
-        cdef int P = py_cands.shape[2]
+        cdef int B = X.shape[0]
+        cdef int O = X.shape[1]
+        cdef int P = X.shape[2]
 
         cdef ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
         cdef ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
         cpu_maxout(<float*>best.data, <int*>which.data,
-            &py_cands[0, 0, 0], B, O, P)
+            &X[0, 0, 0], B, O, P)
         return best, which
 
-    def backprop_maxout(self, const float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
-        cdef int B = dX__bo.shape[0]
-        cdef int O = dX__bo.shape[1]
+    def backprop_maxout(self, const float[:, ::1] dY, int[:, ::1] which, int P):
+        cdef int B = dY.shape[0]
+        cdef int O = dY.shape[1]
 
-        cdef np.ndarray dX__bop = numpy.zeros((B, O, P), dtype='float32')
-        cpu_backprop_maxout(<float*>dX__bop.data,
-            &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
-        return dX__bop
+        cdef np.ndarray dX = numpy.zeros((B, O, P), dtype='float32')
+        cpu_backprop_maxout(<float*>dX.data,
+            &dY[0, 0], &which[0, 0], B, O, P)
+        return dX
 
     def mish(self, const float[:, ::1] X, threshold=5, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
@@ -144,9 +143,9 @@ class NumpyOps(Ops):
             return dX
 
     def lstm(self, float[:, ::1] output, float[:, ::1] cells,
-            float[:, :, ::1] gates, float[:, ::1] prev):
+            float[:, :, ::1] acts, float[:, ::1] prev):
         cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
-            &gates[0, 0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
+            &acts[0, 0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
         return output
 
     def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
@@ -157,13 +156,14 @@ class NumpyOps(Ops):
             cells.shape[0], cells.shape[1])
 
     def seq2col(self, const float[:, ::1] seq, int nW):
-        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
-        The new sequence is constructed by concatenating nW preceding and succeeding
-        vectors onto each column in the sequence, to extract a window of features.
-        '''
+        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
+        sequence. The new sequence is constructed by concatenating nW preceding
+        and succeeding vectors onto each column in the sequence, to extract a
+         window of features.
+        """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype='float32')
+        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
         seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
         return cols
 
@@ -174,40 +174,6 @@ class NumpyOps(Ops):
         cdef ndarray dX = self.alloc((B, I), dtype='float32')
         backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
         return dX
-
-    def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
-        cdef uint64_t* ids = &ids_mv[0]
-        cdef ndarray[uint64_t] output_arr = self.alloc(len(ids_mv), dtype='uint64')
-        output = <uint64_t*>output_arr.data
-        cdef uint64_t key = 0
-        for i in range(ids_mv.shape[0]):
-            if ids[i] == 0:
-                output[i] = 0
-            else:
-                mapped = <uint64_t>mapping.get(ids[i])
-                if mapped != 0:
-                    output[i] = mapped
-                else:
-                    output[i] = value
-                    if value != 0:
-                        mapping.set(ids[i], <void*>value)
-                        value += 1
-        return output_arr
-
-    def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
-        cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
-        cdef ndarray contig_starts = self.xp.ascontiguousarray(_starts, dtype='int32')
-
-        cdef const float* to_add = <const weight_t*>contig_to_add.data
-        cdef float* whole_array = <weight_t*>contig_array.data
-        cdef const int* starts = <const int*>contig_starts.data
-        cdef int n_slice = len(_starts)
-        cdef int length = _to_add.size
-        cdef int stride = length / _to_add.shape[0]
-        for start in starts[:n_slice]:
-            workon = &whole_array[start * stride]
-            for i in range(length):
-                workon[i] += to_add[i]
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -311,10 +277,6 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def add_sum(self, np.ndarray out, np.ndarray to_sum):
-        VecVec.batch_add_i(<float*>out.data,
-            <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
-
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
         if out.dtype == 'float32' \
         and ids.dtype == 'int32' \
@@ -345,13 +307,13 @@ class NumpyOps(Ops):
         memset(<float*>gradient.data, 0, gradient.size * sizeof(float))
         return weights, gradient, mom1, mom2
 
-    def ngrams(self, int n, const uint64_t[::1] keys_):
-        keys = <uint64_t*>&keys_[0]
-        length = max(0, keys_.shape[0]-n)
-        cdef np.ndarray output_ = self.alloc((length,), dtype='uint64')
+    def ngrams(self, int n, const uint64_t[::1] keys):
+        keys_ = <uint64_t*>&keys[0]
+        length = max(0, keys.shape[0]-n)
+        cdef np.ndarray output_ = self.alloc((length,), dtype="uint64")
         output = <uint64_t*>output_.data
-        for i in range(keys_.shape[0]-n):
-            output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
+        for i in range(keys.shape[0]-n):
+            output[i] = hash64(&keys_[i], n*sizeof(keys_[0]), 0)
         return output_
 
     def position_encode(self, int N, int D, int period=10000, out=None):

@@ -92,6 +92,12 @@ class JaxOps(Ops):
     def relu(self, X, inplace=False):
         return relu(X)
 
+    def backprop_relu(self, dY, Y, inplace=False):
+        if not inplace:
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
+
     def backprop_relu(self, delta, signal_out, inplace=False):
         return backprop_relu(delta, signal_out)
 

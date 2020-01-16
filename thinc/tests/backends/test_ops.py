@@ -4,6 +4,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import JaxOps, has_jax
+import inspect
 
 from .. import strategies
 
@@ -19,6 +20,22 @@ XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
+
+
+@pytest.mark.parametrize("op", [NumpyOps, CupyOps, JaxOps])
+def test_ops_consistency(op):
+    """Test that specific ops don't define any methods that are not on the
+    Ops base class and that all ops methods define the exact same arguments."""
+    attrs = [m for m in dir(op) if not m.startswith("__")]
+    for attr in attrs:
+        assert hasattr(Ops, attr)
+        method = getattr(op, attr)
+        if hasattr(method, "__call__"):
+            sig = inspect.signature(method)
+            params = [p for p in sig.parameters][1:]
+            default_sig = inspect.signature(getattr(Ops, attr))
+            default_params = [p for p in default_sig.parameters][1:]
+            assert params == default_params, attr
 
 
 @pytest.mark.parametrize("ops", XP_OPS)

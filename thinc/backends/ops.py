@@ -454,11 +454,11 @@ class Ops:
             X *= X > 0
             return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=False):
+    def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
-            return delta_ * (signal_out > 0)
-        delta_ *= signal_out > 0
-        return delta_
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
 
     def mish(
         self, X: Array2d, threshold: float = 20.0, out: Optional[Array2d] = None
@@ -592,3 +592,20 @@ class Ops:
         return self.asarray(
             numpy_ops.hash(numpy_ops.asarray(ids, dtype="uint64"), seed)
         )
+
+    def ngrams(self, n: int, keys):
+        from .numpy_ops import NumpyOps
+
+        numpy_ops = NumpyOps()
+        return self.asarray(
+            numpy_ops.ngrams(n, numpy_ops.asarray(keys, dtype="uint64"))
+        )
+
+    def position_encode(self, N: int, D: int, period: int = 10000, out=None):
+        from .numpy_ops import NumpyOps
+
+        numpy_ops = NumpyOps()
+        return self.asarray(numpy_ops.position_encode(N, D, period, out))
+
+    def scatter_add(self, out: Array, ids: Array, inputs: Array):
+        return self.xp.add.at(out, ids, inputs)

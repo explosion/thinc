@@ -32,20 +32,20 @@ class CupyOps(Ops):
             self.xp.dot(x, y, out=out)
             return out
 
-    def asarray(self, X, dtype=None):
+    def asarray(self, data, dtype=None):
         # This is sort of frustrating, but we can't easily otherwise pass
         # forward "unset".
         dtype = {"dtype": dtype} if dtype is not None else {}
-        if isinstance(X, cupy.ndarray):
-            return self.xp.asarray(X, dtype=dtype)
-        elif hasattr(X, "data_ptr"):
+        if isinstance(data, cupy.ndarray):
+            return self.xp.asarray(data, dtype=dtype)
+        elif hasattr(data, "data_ptr"):
             # Handles PyTorch Tensors
-            pointer = cupy.cuda.MemoryPointer(X.data_ptr())
-            shape = X.stride()
+            pointer = cupy.cuda.MemoryPointer(data.data_ptr())
+            shape = data.stride()
             array = self.xp.ndarray(shape, memptr=pointer, **dtype)
             return array
         else:
-            return self.xp.array(X, **dtype)
+            return self.xp.array(data, **dtype)
 
     def maxout(self, X):
         return _custom_kernels.maxout(X)
@@ -60,11 +60,11 @@ class CupyOps(Ops):
             X *= X > 0
             return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=False):
+    def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
-            return delta_ * (signal_out > 0)
-        delta_ *= signal_out > 0
-        return delta_
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
 
     def mish(self, X, threshold=5, out=None):
         return _custom_kernels.mish(X, threshold=threshold, out=out)
@@ -126,8 +126,8 @@ class CupyOps(Ops):
         gradient.fill(0)
         return weights, gradient, mom1, mom2
 
-    def position_encode(self, *args, **kwargs):
-        positions = NumpyOps().position_encode(*args, **kwargs)
+    def position_encode(self, N, D, period=10000, out=None):
+        positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)
 
     def backprop_lstm(
