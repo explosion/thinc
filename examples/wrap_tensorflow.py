@@ -1,3 +1,4 @@
+# pip install thinc ml_datasets tqdm typer tensorflow
 import ml_datasets
 import tqdm
 from thinc.api import Adam, TensorFlowWrapper, prefer_gpu

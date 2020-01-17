@@ -265,6 +265,9 @@ class Optimizer(object):
         return weights, gradient
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
+        weights = weights.reshape((weights.size,))
+        grad = grad.reshape((grad.size,))
+ 
         if key not in self.mom1:
             self.mom1[key] = self.ops.alloc_f1d(weights.size)
         if key not in self.mom2:

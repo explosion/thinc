@@ -52,7 +52,7 @@ def main(
     else:
         config = Config().from_disk(config_path)
     print(config)
-    fix_random_seed()
+    fix_random_seed(0)
     print(f"Loading dataset '{dataset.value}'")
     dataset_loader = ml_datasets.loaders.get(dataset.value)
     train_data, dev_data = dataset_loader(limit=n_examples)

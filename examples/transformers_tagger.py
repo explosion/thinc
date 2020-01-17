@@ -1,6 +1,7 @@
 """Train a transformer tagging model, using Huggingface's Transformers."""
+# pip install thinc ml_datasets typer tqdm transformers torch
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 import random
 import torch
 from pathlib import Path
@@ -32,7 +33,7 @@ total_steps = 6000
 
 [training]
 batch_size = 128
-words_per_subbatch = 3000
+words_per_subbatch = 2000
 n_epoch = 10
 """
 
@@ -95,7 +96,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
 @thinc.registry.layers("TransformersTagger.v0")
 def TransformersTagger(
     starter: str, n_tags: int = 17
-) -> Model[List[str], List[Array2d]]:
+) -> Model[List[List[str]], List[Array2d]]:
     return chain(
         TransformersTokenizer(starter),
         Transformer(starter),
@@ -117,7 +118,7 @@ class TokensPlus:
 
 
 @thinc.registry.layers("transformers_tokenizer.v0")
-def TransformersTokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
+def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
     return Model(
         "tokenizer",
         _tokenizer_forward,
@@ -125,7 +126,9 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]
     )
 
 
-def _tokenizer_forward(model, texts: List[List[str]], is_train: bool):
+def _tokenizer_forward(
+    model, texts: List[List[str]], is_train: bool
+) -> Tuple[TokensPlus, Callable]:
     tokenizer = model.get_attr("tokenizer")
     token_data = tokenizer.batch_encode_plus(
         [(text, None) for text in texts],
@@ -139,7 +142,7 @@ def _tokenizer_forward(model, texts: List[List[str]], is_train: bool):
 
 
 @thinc.registry.layers("transformers_model.v0")
-def Transformer(name) -> Model[List[TokensPlus], List[Array2d]]:
+def Transformer(name: str) -> Model[TokensPlus, List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
         convert_inputs=convert_transformer_inputs,
@@ -189,7 +192,7 @@ def evaluate_sequences(
         for yh, y in zip(Yh, Y):
             correct += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
             total += y.shape[0]
-    return correct / total
+    return float(correct / total)
 
 
 def minibatch_by_words(pairs, max_words):

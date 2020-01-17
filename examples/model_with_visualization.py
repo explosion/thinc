@@ -1,8 +1,10 @@
+# pip install thinc ml_datasets typer pydot svgwrite
 from typing import Dict, Union, Optional
 from pathlib import Path
 from thinc.api import chain, ReLu, Softmax, Linear, ExtractWindow, Maxout, Model
 import ml_datasets
 import typer
+import pydot
 
 
 def pydot_visualizer(
@@ -18,15 +20,8 @@ def pydot_visualizer(
     file_format: str = "svg",
 ):
     """Convert a Thinc model to a PyDot / Graphviz visualization. Requires
-    GraphViz and PyDot to be installed.
+    pydot, svgwrite and GraphViz (via apt-get, brew etc.) to be installed.
     """
-    try:
-        import pydot
-    except ImportError:
-        raise ImportError(
-            "pydot and svgwrite are required: pip install pydot svgwrite\n"
-            "Also make sure you have GraphViz installed (via apt-get, brew etc.)"
-        )
     dot = pydot.Dot()
     dot.set("rankdir", rankdir)
     dot.set("concentrate", True)

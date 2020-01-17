@@ -1,3 +1,4 @@
+# pip install thinc ml_datasets tqdm typer
 from typing import Optional
 from pathlib import Path
 from thinc.api import minibatch, evaluate_model_on_arrays, Config
