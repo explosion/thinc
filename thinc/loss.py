@@ -13,8 +13,10 @@ TruthT = TypeVar("TruthT")
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):
     """Base class for classes computing the loss / gradient. The class can
-    be initialized with general settings if needed. It provides get_loss and
-    get_grad as separate methods to allow calculating them separately."""
+    be initialized with settings if needed. It provides get_loss and
+    get_grad as separate methods to allow calculating them separately. It
+    also provides a __call__ method that returns a tuple of both.
+    """
 
     def __init__(self, **kwargs: Any) -> None:
         ...
