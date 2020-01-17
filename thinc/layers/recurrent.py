@@ -3,7 +3,7 @@ from typing import Optional, Callable, List, Tuple
 from ..model import Model
 from ..config import registry
 from ..types import Padded, RNNState
-
+from ..backends import jax_jit
 
 InT = Padded
 OutT = Padded
@@ -25,6 +25,7 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    from ..backends import jax_ops
     # Expect padded batches, sorted by decreasing length. The size_at_t array
     # records the number of batch items that are still active at timestep t.
     X = Xp.data
@@ -37,15 +38,24 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     Yts = []
     backprops: List[Callable] = [lambda a: a] * X.shape[0]
     (cell, hidden) = _get_initial_state(model, X.shape[1], nO)
-    for t in range(X.shape[0]):
-        # At each timestep t, we finish some of the sequences. The sequences
-        # are arranged longest to shortest, so we can drop the finished ones
-        # off the end.
-        n = size_at_t[t]
-        inputs = ((cell[:n], hidden[:n]), X[t, :n])
-        ((cell, hidden), Yt), backprops[t] = step_model(inputs, is_train)
-        Yts.append(Yt)
-    Y = model.ops.insert_into((len(Yts), X.shape[1], Yts[0].shape[-1]), Yts)
+    W = model.layers[0].layers[0].get_param("W")
+    b = model.layers[0].layers[0].get_param("b")
+    gates = model.ops.xp.zeros((10, X.shape[1], nO, 4), dtype="f")
+    Y = model.ops.xp.zeros((10, X.shape[1], nO), dtype="f")
+    Y_chunks = []
+    gates_chunks = []
+    for i in range(0, X.shape[0], 10):
+        (cell, hidden), chunk = jax_ops.recurrent_lstm(X[i:i+10], W, b, cell, hidden, 10, Y, gates)
+        Y_chunks.append(chunk[0])
+        gates_chunks.append(chunk[1])
+    Y = model.ops.xp.hstack(Y_chunks)
+    gates = model.ops.xp.hstack(gates_chunks)
+    #_jax_lstm_forward(W, b, X, cell, hidden)
+    #for t in range(X.shape[0]):
+    #    inputs = ((cell, hidden), X[t])
+    #    ((cell, hidden), Yt), backprops[t] = step_model(inputs, is_train)
+    #    Yts.append(Yt)
+    #Y = model.ops.xp.concatenate(Yts, axis=0).reshape((len(Yts), X.shape[1], -1))
 
     def backprop(dYp: OutT) -> InT:
         dY = dYp.data

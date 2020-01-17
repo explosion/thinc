@@ -40,8 +40,9 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
-    ids = model.ops.xp.where(ids >= nV, 0, ids).astype("i")
-    output = vectors[ids]
+    #ids = model.ops.xp.where(ids >= nV, 0, ids).astype("i")
+    ids *= ids < nV
+    output = vectors[ids.astype("i")]
 
     def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.alloc_f2d(*vectors.shape)

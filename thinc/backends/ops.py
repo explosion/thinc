@@ -146,6 +146,12 @@ class Ops:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
+        elif len(seqs) == 1:
+            data = seqs[0].reshape((seqs[0].shape[0], 1, seqs[0].shape[1:]))
+            size_at_t = self.asarray([1] * data.shape[0], dtype="i")
+            lengths = self.asarray([data.shape[0]], dtype="i")
+            indices = self.asarray([0], dtype="i")
+            return Padded(data, size_at_t, lengths, indices)
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
@@ -589,7 +595,7 @@ class Ops:
     def scatter_add(self, out: Array, ids: Array, inputs: Array) -> Array:
         return self.xp.add.at(out, ids, inputs)
 
-    def insert_into(self, Xs, shape):
+    def insert_into(self, shape, Xs):
         """Maybe don't need this? Just a quicky to get Jax working."""
         output = self.alloc(shape, dtype=Xs[0].dtype)
         for i, x in enumerate(Xs):

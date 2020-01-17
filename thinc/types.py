@@ -547,8 +547,8 @@ class Padded:
 
     data: Array3d
     size_at_t: Array1d
-    lengths: List[int]
-    indices: List[int]
+    lengths: Array1d
+    indices: Array1d
 
 
 @dataclass

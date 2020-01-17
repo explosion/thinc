@@ -138,23 +138,22 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def lstm(self, np.ndarray acts, np.ndarray prevcells):
-        cdef np.ndarray hiddens, cells, gates_and_acts
-        hiddens = self.alloc_f2d(prevcells.shape[0], prevcells.shape[1])
-        cells = self.alloc_f2d(prevcells.shape[0], prevcells.shape[1])
-        gates_and_acts = self.as_contig(acts)
-
-        cdef float[:, ::1] prevcells_ = self.as_contig(prevcells, dtype="f")
-
+    def lstm(self, np.ndarray W, np.ndarray b, np.ndarray cell_tm1, np.ndarray hidden_tm1, np.ndarray inputs):
+        cdef np.ndarray X, acts, hiddens, cells
+        X = self.xp.hstack((inputs, hidden_tm1))
+        acts = self.gemm(X, W, trans2=True)
+        acts += b
+        cdef int nB = X.shape[0]
+        cdef int nO = cell_tm1.shape[1]
         cpu_lstm_gates_fwd(
-            <float*>hiddens.data,
-            <float*>cells.data,
-            <float*>gates_and_acts.data,
-            &prevcells_[0, 0],
-            cells.shape[0],
-            cells.shape[1]
+            <float*>X.data, # Write (hiddens, cells) into this
+            <float*>acts.data, # Write gates into this
+            <float*>cell_tm1.data,
+            nB, nO
         )
-        return hiddens, cells, gates_and_acts
+        hiddens = X[:, :nO]
+        cells = X[:, nO:]
+        return hiddens, cells, acts
 
     def backprop_lstm(
             self, 
@@ -668,7 +667,7 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells, float* gates_and_acts,
+cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
         const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i, b
@@ -680,14 +679,13 @@ cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells, float* gates_and_acts
             hi = sigmoid(acts[i*4+1])
             ho = sigmoid(acts[i*4+2])
             hc = tanhf(acts[i*4+3])
-            cells[i] = hf * prevcells[i] + hi * hc
-            hiddens[i] = tanhf(cells[i]) * ho
+            hiddens_cells[i*2] = tanhf(hiddens_cells[i*2]) * ho
+            hiddens_cells[i*2+1] = hf * prevcells[i] + hi * hc
             gates[i*4+0] = hf
             gates[i*4+1] = hi
             gates[i*4+2] = ho
             gates[i*4+3] = hc
-        hiddens += N
-        cells += N
+        hiddens_cells += N
         gates += N*4
         acts += N*4
         prevcells += N
