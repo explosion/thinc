@@ -23,8 +23,9 @@ class create_init:
     def __init__(self, initializers: Dict[str, Callable]):
         self.initializers = initializers
 
-    def __call__(self, model, X: Optional[Array] = None, Y: Optional[Array] = None
-             ) -> None:
+    def __call__(
+        self, model, X: Optional[Array] = None, Y: Optional[Array] = None
+    ) -> None:
         if X is not None:
             model.set_dim("nI", get_width(X))
         if Y is not None:
