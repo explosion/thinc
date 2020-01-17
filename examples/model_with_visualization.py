@@ -71,12 +71,12 @@ def main(
     # Define the model
     model: Model = chain(
         ExtractWindow(3),
-        ReLu(n_hidden, dropout=dropout, normalize=True),
-        Maxout(n_hidden * 4),
-        Linear(n_hidden * 2),
-        ReLu(n_hidden, dropout=dropout, normalize=True),
-        Linear(n_hidden),
-        ReLu(n_hidden, dropout=dropout),
+        ReLu(nO=n_hidden, dropout=dropout, normalize=True),
+        Maxout(nO=n_hidden * 4),
+        Linear(nO=n_hidden * 2),
+        ReLu(nO=n_hidden, dropout=dropout, normalize=True),
+        Linear(nO=n_hidden),
+        ReLu(nO=n_hidden, dropout=dropout),
         Softmax(),
     )
     # Load the data

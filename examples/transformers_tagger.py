@@ -100,7 +100,7 @@ def TransformersTagger(
     return chain(
         TransformersTokenizer(starter),
         Transformer(starter),
-        with_array(Softmax(n_tags)),
+        with_array(Softmax(nO=n_tags)),
     )
 
 

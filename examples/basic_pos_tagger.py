@@ -63,11 +63,11 @@ def create_model(width: int = 32, vector_width: int = 16):
     # Option 1: Create the model and optimizer by composing the functions
     with Model.define_operators({">>": chain}):
         model = strings2arrays() >> with_array(
-            HashEmbed(width, vector_width)
+            HashEmbed(nO=width, nV=vector_width)
             >> ExtractWindow(window_size=1)
-            >> ReLu(width, width * 3)
-            >> ReLu(width, width)
-            >> Softmax(17, width)
+            >> ReLu(nO=width, nI=width * 3)
+            >> ReLu(nO=width, nI=width)
+            >> Softmax(nO=17, nI=width)
         )
     optimizer = Adam(0.001)
     return model, optimizer

@@ -16,7 +16,9 @@ def main(
 ):
     # Define the model
     model: Model = chain(
-        ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
+        ReLu(nO=n_hidden, dropout=dropout),
+        ReLu(nO=n_hidden, dropout=dropout),
+        Softmax(),
     )
     # Load the data
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
