@@ -85,10 +85,10 @@ def forward(
 ) -> Tuple[RNNState, Callable]:
     (cell_tm1, hidden_tm1), inputs = prevstate_inputs
     weights = model.layers[0]
+    W = weights.get_param("W")
+    b = weights.get_param("b")
     nI = inputs.shape[1]
-    X = model.ops.xp.hstack((inputs, hidden_tm1))
-    acts, bp_acts = weights(X, is_train)
-    (cells, hiddens), bp_gates = _gates_forward(model.ops, acts, cell_tm1)
+    hiddens, cells, gates = model.ops.lstm(W, b, cell_tm1, hidden_tm1, inputs)
 
     def backprop(d_state_d_hiddens: RNNState) -> RNNState:
         (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
@@ -99,21 +99,13 @@ def forward(
     return ((cells, hiddens), hiddens), backprop
 
 
-def _gates_forward(ops: Ops, acts: Array3d, prevcells: Array2d):
-    nB = acts.shape[0]
-    nO = acts.shape[1] // 4
-    acts = acts.reshape((nB, nO, 4))
-    # Need 'gates' here, the transformed acts, for backward pass.
-    hiddens, cells, gates = ops.lstm(acts, prevcells)
-    size = cells.shape[0]
-
-    def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array3d, Array2d]:
-        d_cells = ops.as_contig(d_cells[:size])  # Wtf?
-        d_hiddens = ops.as_contig(d_hiddens[:size])
-        d_acts, d_prevcells = ops.backprop_lstm(
-            d_cells, d_hiddens, gates, cells, prevcells
-        )
-        d_acts = d_acts.reshape((nB, nO * 4))
-        return d_acts, d_prevcells
-
-    return (cells, hiddens), backprop_gates
+"""
+def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array3d, Array2d]:
+    d_cells = ops.as_contig(d_cells[:size])  # Wtf?
+    d_hiddens = ops.as_contig(d_hiddens[:size])
+    d_acts, d_prevcells = ops.backprop_lstm(
+        d_cells, d_hiddens, gates, cells, prevcells
+    )
+    d_acts = d_acts.reshape((nB, nO * 4))
+    return d_acts, d_prevcells
+"""

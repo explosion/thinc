@@ -175,6 +175,12 @@ class JaxOps(Ops):
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
+        elif len(seqs) == 1:
+            data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
+            size_at_t = self.asarray([1] * data.shape[0], dtype="i")
+            lengths = self.asarray([data.shape[0]], dtype="i")
+            indices = self.asarray([0], dtype="i")
+            return Padded(data, size_at_t, lengths, indices)
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
         indices = [i for length, i in lengths_indices]
@@ -195,6 +201,8 @@ class JaxOps(Ops):
                 if i == 0:
                     break
             batch_size_at_t = index_update(batch_size_at_t, index[t], i)
+        lengths = self.asarray(lengths, dtype="i")
+        indices = self.asarray(indices, dtype="i")
         return Padded(arr, batch_size_at_t, lengths, indices)
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -283,9 +291,10 @@ class JaxOps(Ops):
         return dX
 
     def lstm(
-        self, acts: Array3d, prevcells: Array2d
+            self, W: Array2d, b: Array1d, cell_tm1: Array2d,
+            hidden_tm1: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        hiddens, cells, gates = lstm(acts, prevcells)
+        hiddens, cells, gates = lstm(W, b, cell_tm1, hidden_tm1, inputs)
         return hiddens, cells, gates
 
     def backprop_lstm(
@@ -603,22 +612,43 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def lstm(acts: Array3d, prev: Array2d) -> Tuple[Array2d, Array2d, Array3d]:
-    xp = jax.numpy
-    hf = acts[:, :, 0]
-    hi = acts[:, :, 1]
-    ho = acts[:, :, 2]
-    hc = acts[:, :, 3]
-    hf = sigmoid(hf)
-    hi = sigmoid(hi)
-    ho = sigmoid(ho)
-    hc = xp.tanh(hc)
+def recurrent_lstm(X, W, b, cell, hidden, n, Y, gates):
+    import jax.lax
+    nO = hidden.shape[1]
+    state = ((W, b, hidden, cell, X), (Y, gates))
+    state = jax.lax.fori_loop(0, n, _lstm_stepper, state)
+    (W, b, hidden, cell, X), (Y, gates) = state 
+    gates = jax.numpy.hstack(gates)
+    return (hidden, cell), (Y, gates)
 
-    cells = (hf * prev) + (hi * hc)
+@jax_jit()
+def _lstm_stepper(t, state):
+    (W, b, hidden, cell, X), (Y, gates) = state 
+    next_hiddens, next_cells, next_gates = lstm(W, b, cell, hidden, X[t])
+    Y = index_update(Y, index[t], next_hiddens)
+    gates = index_update(gates, index[t], next_gates)
+    return (W, b, next_hiddens, next_cells, X), (Y, gates)
+
+@jax_jit()
+def lstm(W, b, cell_tm1, hidden_tm1, inputs):
+    xp = jax.numpy
+    X = xp.hstack((inputs, hidden_tm1))
+    acts = xp.dot(X, W.T) + b
+    nB = acts.shape[0]
+    nO = acts.shape[1] // 4
+    acts = acts.reshape((nB, nO, 4))
+    hf, hi, ho, hc = xp.split(acts, 4, axis=-1)
+    # Need 'gates' here, the transformed acts, for backward pass.
+    hf = sigmoid(hf.reshape((nB, nO)))
+    hi = sigmoid(hi.reshape((nB, nO)))
+    ho = sigmoid(ho.reshape((nB, nO)))
+    hc = xp.tanh(hc.reshape((nB, nO)))
+
+    cells = (hf * cell_tm1) + (hi * hc)
     hiddens = xp.tanh(cells) * ho
     gates = xp.concatenate((hf, hi, ho, hc), axis=-1)
     gates = acts.reshape((acts.shape[0], acts.shape[1], 4))
-    return hiddens, cells, acts
+    return hiddens, cells, gates #(hf, hi, ho, hc)
 
 
 @jax_jit()
