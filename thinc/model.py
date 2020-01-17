@@ -514,6 +514,8 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = srsly.msgpack_loads(bytes_data)
+        if not "nodes" in msg.keys():
+            raise ValueError("Trying to read a Model that was created with an incompatible version of Thinc.")
         nodes = list(self.walk())
         if len(msg["nodes"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure.")
