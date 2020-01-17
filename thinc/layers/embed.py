@@ -6,7 +6,6 @@ from ..types import Array2d
 from ..initializers import uniform_init
 from ..util import get_width
 
-from jax.ops import index_update, index
 
 InT = Array2d
 OutT = Array2d
@@ -41,7 +40,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
-    ids = (ids * (ids >= nV)).astype("i")
+    ids = model.ops.xp.where(ids >= nV, 0, ids).astype("i")
     output = vectors[ids]
 
     def backprop(d_output: OutT) -> InT:

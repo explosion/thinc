@@ -42,7 +42,7 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
         # are arranged longest to shortest, so we can drop the finished ones
         # off the end.
         n = size_at_t[t]
-        inputs = ((cell, hidden), X[t])
+        inputs = ((cell[:n], hidden[:n]), X[t, :n])
         ((cell, hidden), Yt), backprops[t] = step_model(inputs, is_train)
         Yts.append(Yt)
     Y = model.ops.insert_into((len(Yts), X.shape[1], Yts[0].shape[-1]), Yts)

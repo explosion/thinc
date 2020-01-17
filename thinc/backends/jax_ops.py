@@ -60,7 +60,7 @@ class JaxOps(Ops):
         return self.xp.dot(x, y)
 
     def affine(self, X, W, b):
-        return X @ W.T + b
+        return affine(X, W, b)
 
     def flatten(
         self,
@@ -373,7 +373,7 @@ def backprop_relu(delta, signal_out):
     return delta * (signal_out > 0)
 
 
-#@jax_jit(1)
+@jax_jit(1)
 def flatten_with_padding(X, pad):
     xp = jax.numpy
     padded = []
@@ -602,7 +602,7 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
     return dX
 
 
-@jax.jit
+@jax_jit()
 def lstm(acts: Array3d, prev: Array2d) -> Tuple[Array2d, Array2d, Array3d]:
     xp = jax.numpy
     hf = acts[:, :, 0]
