@@ -10,7 +10,7 @@ from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
 from .noop import noop
-from .initializers import xavier_uniform, zero_init
+from ..initializers import xavier_uniform_init, zero_init
 
 
 @registry.layers("LSTM.v0")
@@ -21,7 +21,7 @@ def LSTM(
     bi: bool = False,
     depth: int = 1,
     dropout: float = 0.0,
-    init_W=xavier_uniform,
+    init_W=xavier_uniform_init,
     init_b=zero_init
 ) -> Model[Padded, Padded]:
     if dropout != 0.0:
@@ -75,10 +75,10 @@ def init(
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
-    model.set_param("W", init_W((nO*4, nO+nI)))
-    model.set_param("b", init_b((nO*4,)))
-    model.set_param("h", zero_init((nO,)))
-    model.set_param("c", zero_init((nO,)))
+    model.set_param("W", init_W(model.ops, (nO*4, nO+nI)))
+    model.set_param("b", init_b(model.ops, (nO*4,)))
+    model.set_param("h", zero_init(model.ops, (nO,)))
+    model.set_param("c", zero_init(model.ops, (nO,)))
 
 
 def forward(
