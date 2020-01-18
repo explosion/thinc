@@ -1,15 +1,16 @@
 from typing import Optional, Tuple, Callable
+from functools import partial
 
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
 from ..util import get_width
 from ..types import RNNState, Array2d, Array3d, Padded
-from .recurrent import recurrent
 from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
 from .noop import noop
+from .initializers import xavier_uniform, zero_init
 
 
 @registry.layers("LSTM.v0")
@@ -19,11 +20,27 @@ def LSTM(
     *,
     bi: bool = False,
     depth: int = 1,
-    dropout: float = 0.0
+    dropout: float = 0.0,
+    init_W=xavier_uniform,
+    init_b=zero_init
 ) -> Model[Padded, Padded]:
+    if dropout != 0.0:
+        msg = (
+            "LSTM dropout not implemented yet. In the meantime, use the "
+            "PyTorchWrapper and the torch.LSTM class."
+        )
+        raise NotImplementedError(msg)
+
     if bi and nO is not None:
         nO //= 2
-    model = recurrent(LSTM_step(nO=nO, nI=nI, dropout=dropout))
+    model: Model[Padded, Padded] = Model(
+        "lstm",
+        forward,
+        dims={"nO": nO, "nI": nI},
+        params={"W": None, "b": None, "c": None, "h": None},
+        init=partial(init, init_W, init_b)
+    )
+
     if bi:
         model = bidirectional(model)
     return clone(model, depth)
@@ -48,26 +65,9 @@ def PyTorchLSTM(
     )
 
 
-def LSTM_step(
-    nO: Optional[int] = None, nI: Optional[int] = None, *, dropout: float = 0.0
-) -> Model[RNNState, RNNState]:
-    """Create a step model for an LSTM."""
-    if dropout != 0.0:
-        msg = (
-            "LSTM dropout not implemented yet. In the meantime, use the "
-            "PyTorchWrapper and the torch.LSTM class."
-        )
-        raise NotImplementedError(msg)
-    model: Model[RNNState, RNNState] = Model(
-        "lstm_step", forward, init=init, layers=[Linear()], dims={"nO": nO, "nI": nI}
-    )
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model
-
-
 def init(
-    model: Model, X: Optional[RNNState] = None, Y: Optional[RNNState] = None
+        init_W: Callable, init_b: Callable, model: Model,
+        X: Optional[Padded] = None, Y: Optional[Padded] = None
 ) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
@@ -75,28 +75,32 @@ def init(
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
-    model.layers[0].set_dim("nO", nO * 4)
-    model.layers[0].set_dim("nI", nO + nI)
-    model.layers[0].initialize()
+    model.set_param("W", init_W((nO*4, nO+nI)))
+    model.set_param("b", init_b((nO*4,)))
+    model.set_param("h", zero_init((nO,)))
+    model.set_param("c", zero_init((nO,)))
 
 
 def forward(
-    model: Model[RNNState, RNNState], prevstate_inputs: RNNState, is_train: bool
-) -> Tuple[RNNState, Callable]:
-    (cell_tm1, hidden_tm1), inputs = prevstate_inputs
-    weights = model.layers[0]
-    W = weights.get_param("W")
-    b = weights.get_param("b")
-    nI = inputs.shape[1]
-    hiddens, cells, gates = model.ops.lstm(W, b, cell_tm1, hidden_tm1, inputs)
+    model: Model[Array3d, Array3d], Xp: Padded, is_train: bool
+) -> Tuple[Padded, Callable]:
+    X = Xp.data
+    W = model.get_param("W")
+    b = model.get_param("b")
+    h = model.get_param("h")
+    c = model.get_param("c")
+    # Initialize hiddens and cells
+    hiddens = model.ops.alloc_f2d(X.shape[1], h.shape[0])
+    cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
+    hiddens += h
+    cells += c
+    Y, cells, gates = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
+    Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
-    def backprop(d_state_d_hiddens: RNNState) -> RNNState:
-        (d_cells, d_hiddens), d_hiddens = d_state_d_hiddens
-        d_acts, d_cell_tm1 = bp_gates(d_cells, d_hiddens)
-        dX = bp_acts(d_acts)
-        return (d_cell_tm1, dX[:, nI:]), dX[:, :nI]
+    def backprop(dYp: Padded) -> Padded:
+        raise NotImplementedError
 
-    return ((cells, hiddens), hiddens), backprop
+    return Yp, backprop
 
 
 """
