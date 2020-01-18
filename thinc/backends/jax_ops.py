@@ -290,9 +290,15 @@ class JaxOps(Ops):
         dX -= Y * sum_dX
         return dX
 
+    def recurrent_lstm(
+        self, W: Array2d, b: Array1d, cells: Array2d,
+        hiddens: Array2d, inputs: Array2d
+    ) -> Tuple[Array2d, Array2d, Array3d]:
+        return recurrent_lstm(W, b, cells, hiddens, inputs)
+
     def lstm(
-            self, W: Array2d, b: Array1d, cell_tm1: Array2d,
-            hidden_tm1: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, cell_tm1: Array2d,
+        hidden_tm1: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
         hiddens, cells, gates = lstm(W, b, cell_tm1, hidden_tm1, inputs)
         return hiddens, cells, gates
@@ -612,13 +618,16 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def recurrent_lstm(X, W, b, cell, hidden, n, Y, gates):
-    import jax.lax
+def recurrent_lstm(W, b, cell, hidden, X):
+    xp = jax.numpy
+    nL, nB, nI = X.shape
     nO = hidden.shape[1]
+    # Preallocate these so we can pass them through for loop.
+    Y = xp.zeros((nL, nB, nO), dtype="f")
+    gates = xp.zeros((nL, nB, nO, 4), dtype="f")
     state = ((W, b, hidden, cell, X), (Y, gates))
-    state = jax.lax.fori_loop(0, n, _lstm_stepper, state)
+    state = jax.lax.fori_loop(0, X.shape[0], _lstm_stepper, state)
     (W, b, hidden, cell, X), (Y, gates) = state 
-    gates = jax.numpy.hstack(gates)
     return (hidden, cell), (Y, gates)
 
 @jax_jit()
