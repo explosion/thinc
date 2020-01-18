@@ -29,7 +29,6 @@ from .chain_module import chain
 from .clone import clone
 from .concatenate import concatenate
 from .noop import noop
-from .recurrent import recurrent
 from .residual import residual
 from .uniqued import uniqued
 from .siamese import siamese
@@ -81,7 +80,6 @@ __all__ = [
     "clone",
     "concatenate",
     "noop",
-    "recurrent",
     "residual",
     "uniqued",
     "siamese",
