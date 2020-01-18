@@ -138,11 +138,14 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def lstm(self, np.ndarray W, np.ndarray b, np.ndarray cell_tm1, np.ndarray hidden_tm1, np.ndarray inputs):
+    def lstm(self, np.ndarray W, np.ndarray b,
+            np.ndarray hidden_tm1, np.ndarray cell_tm1, np.ndarray inputs):
         cdef np.ndarray X, acts, hiddens, cells
         X = self.xp.hstack((inputs, hidden_tm1))
         acts = self.gemm(X, W, trans2=True)
+        acts = self.xp.zeros((X.shape[0], hidden_tm1.shape[1] * 4), dtype="f")
         acts += b
+        acts = acts.reshape((acts.shape[0], -1, 4))
         cdef int nB = X.shape[0]
         cdef int nO = cell_tm1.shape[1]
         cpu_lstm_gates_fwd(
@@ -675,9 +678,13 @@ cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
     acts = gates_and_acts
     for b in range(B):
         for i in range(N):
-            hf = sigmoid(acts[i*4+0])
-            hi = sigmoid(acts[i*4+1])
-            ho = sigmoid(acts[i*4+2])
+            acts[i*4+0] = sigmoid(acts[i*4+0])
+            acts[i*4+1] = sigmoid(acts[i*4+1])
+            acts[i*4+2] = sigmoid(acts[i*4+2])
+        for i in range(N):
+            hf = acts[i*4+0]
+            hi = acts[i*4+1]
+            ho = acts[i*4+2]
             hc = tanhf(acts[i*4+3])
             hiddens_cells[i*2] = tanhf(hiddens_cells[i*2]) * ho
             hiddens_cells[i*2+1] = hf * prevcells[i] + hi * hc

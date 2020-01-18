@@ -1,3 +1,4 @@
+from functools import partial
 from .ops import Ops
 import numpy
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
@@ -173,18 +174,22 @@ class JaxOps(Ops):
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
+        lengths: Array1d
+        batch_size_at_t: Array1d 
+        indices: Array1d
         if not seqs:
-            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
+            empty = self.alloc_i1d(0)
+            return Padded(self.alloc_f3d(0, 0, 0), empty, empty, empty)
         elif len(seqs) == 1:
             data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
-            size_at_t = self.asarray([1] * data.shape[0], dtype="i")
+            batch_size_at_t = self.asarray([1] * data.shape[0], dtype="i")
             lengths = self.asarray([data.shape[0]], dtype="i")
             indices = self.asarray([0], dtype="i")
-            return Padded(data, size_at_t, lengths, indices)
+            return Padded(data, batch_size_at_t, lengths, indices)
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
-        indices = [i for length, i in lengths_indices]
-        lengths = [length for length, i in lengths_indices]
+        indices_ = [i for length, i in lengths_indices]
+        lengths_ = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
         arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
@@ -192,17 +197,18 @@ class JaxOps(Ops):
             arr = index_update(arr, index[arr_i, :length], self.asarray(seqs[seqs_i]))
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.alloc_i1d(nS, dtype="i")
-        batch_size_at_t += 1
-        i = len(lengths)
+        batch_size_at_t_ = numpy.zeros((nS,), dtype="i")
+        batch_size_at_t_ += 1
+        i = len(lengths_)
         for t in range(nS):
-            if t == lengths[i - 1]:
+            if t == lengths_[i - 1]:
                 i -= 1
                 if i == 0:
                     break
-            batch_size_at_t = index_update(batch_size_at_t, index[t], i)
-        lengths = self.asarray(lengths, dtype="i")
-        indices = self.asarray(indices, dtype="i")
+            batch_size_at_t_[t] = i
+        batch_size_at_t = self.asarray(batch_size_at_t_, dtype="i")
+        lengths = self.asarray(lengths_, dtype="i")
+        indices = self.asarray(indices_, dtype="i")
         return Padded(arr, batch_size_at_t, lengths, indices)
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -290,9 +296,15 @@ class JaxOps(Ops):
         dX -= Y * sum_dX
         return dX
 
+    def recurrent_lstm(
+        self, W: Array2d, b: Array1d, cells: Array2d,
+        hiddens: Array2d, inputs: Array2d
+    ) -> Tuple[Array2d, Array2d, Array3d]:
+        return recurrent_lstm(W, b, cells, hiddens, inputs)
+
     def lstm(
-            self, W: Array2d, b: Array1d, cell_tm1: Array2d,
-            hidden_tm1: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, hidden_tm1: Array2d,
+        cell_tm1: Array2d, inputs: Array3d
     ) -> Tuple[Array2d, Array2d, Array3d]:
         hiddens, cells, gates = lstm(W, b, cell_tm1, hidden_tm1, inputs)
         return hiddens, cells, gates
@@ -612,25 +624,34 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def recurrent_lstm(X, W, b, cell, hidden, n, Y, gates):
-    import jax.lax
+def recurrent_lstm(W, b, cell, hidden, X):
+    xp = jax.numpy
+    nL, nB, nI = X.shape
     nO = hidden.shape[1]
+    # Preallocate these so we can pass them through for loop.
+    Y = xp.zeros((nL, nB, nO), dtype="f")
+    gates = xp.zeros((nL, nB, nO, 4), dtype="f")
     state = ((W, b, hidden, cell, X), (Y, gates))
-    state = jax.lax.fori_loop(0, n, _lstm_stepper, state)
+    state = jax.lax.fori_loop(0, X.shape[0], _lstm_stepper, state)
     (W, b, hidden, cell, X), (Y, gates) = state 
-    gates = jax.numpy.hstack(gates)
-    return (hidden, cell), (Y, gates)
+    return Y, cell, gates
+
 
 @jax_jit()
 def _lstm_stepper(t, state):
     (W, b, hidden, cell, X), (Y, gates) = state 
-    next_hiddens, next_cells, next_gates = lstm(W, b, cell, hidden, X[t])
+    next_hiddens, next_cells, next_gates = lstm(W, b, hidden, cell, X[t])
     Y = index_update(Y, index[t], next_hiddens)
     gates = index_update(gates, index[t], next_gates)
     return (W, b, next_hiddens, next_cells, X), (Y, gates)
 
 @jax_jit()
-def lstm(W, b, cell_tm1, hidden_tm1, inputs):
+def lstm(W, b, hidden_tm1, cell_tm1, inputs):
+    # Support usage where the inputs are 1d
+    shapes = (hidden_tm1.shape, cell_tm1.shape, hidden_tm1.shape + (4,))
+    cell_tm1 = cell_tm1.reshape((-1, cell_tm1.shape[-1]))
+    hidden_tm1 = cell_tm1.reshape((-1, hidden_tm1.shape[-1]))
+    inputs = inputs.reshape((-1, inputs.shape[-1]))
     xp = jax.numpy
     X = xp.hstack((inputs, hidden_tm1))
     acts = xp.dot(X, W.T) + b
@@ -647,7 +668,9 @@ def lstm(W, b, cell_tm1, hidden_tm1, inputs):
     cells = (hf * cell_tm1) + (hi * hc)
     hiddens = xp.tanh(cells) * ho
     gates = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    gates = acts.reshape((acts.shape[0], acts.shape[1], 4))
+    hiddens = hiddens.reshape(shapes[0])
+    cells = cells.reshape(shapes[1])
+    gates = gates.reshape(shapes[2])
     return hiddens, cells, gates #(hf, hi, ho, hc)
 
 

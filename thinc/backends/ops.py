@@ -145,34 +145,34 @@ class Ops:
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
-            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
+            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), self.alloc_i1d(0), self.alloc_i1d(0))
         elif len(seqs) == 1:
-            data = seqs[0].reshape((seqs[0].shape[0], 1, seqs[0].shape[1:]))
-            size_at_t = self.asarray([1] * data.shape[0], dtype="i")
-            lengths = self.asarray([data.shape[0]], dtype="i")
-            indices = self.asarray([0], dtype="i")
+            data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
+            size_at_t: Array1d = self.asarray([1] * data.shape[0], dtype="i")
+            lengths: Array1d = self.asarray([data.shape[0]], dtype="i")
+            indices: Array1d = self.asarray([0], dtype="i")
             return Padded(data, size_at_t, lengths, indices)
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
-        indices = [i for length, i in lengths_indices]
-        lengths = [length for length, i in lengths_indices]
+        indices_ = [i for length, i in lengths_indices]
+        lengths_ = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
         arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
         for arr_i, (length, seqs_i) in enumerate(lengths_indices):
             arr[arr_i, :length] = self.asarray(seqs[seqs_i])
-        arr = self.xp.ascontiguousarray(arr.transpose((1, 0, 2)))
+        arr = self.as_contig(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.alloc_i1d(nS, dtype="i")
-        batch_size_at_t += 1
-        i = len(lengths)
+        batch_size_at_t_ = numpy.zeros(nS, dtype="i")
+        batch_size_at_t_ += 1
+        i = len(lengths_)
         for t in range(nS):
-            if t == lengths[i - 1]:
+            if t == lengths_[i - 1]:
                 i -= 1
                 if i == 0:
                     break
-            batch_size_at_t[t] = i
-        return Padded(arr, batch_size_at_t, lengths, indices)
+            batch_size_at_t_[t] = i
+        return Padded(arr, self.asarray(batch_size_at_t_), self.asarray(lengths_), self.asarray(indices_))
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
         indices = padded.indices
@@ -370,16 +370,39 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def lstm(
-        self, acts: Array3d, prevcells: Array2d
+    def recurrent_lstm(
+        self, W: Array2d, b: Array1d, cells: Array2d,
+        hiddens: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
+        nL, nB, nI = inputs.shape
+        nO = cells.shape[1]
+        # Preallocate these so we can pass them through for loop.
+        Y = self.alloc_f3d(nL, nB, nO)
+        gates = self.alloc_f4d(nL, nB, nO, 4)
+        # Run the loop
+        for t in range(inputs.shape[0]):
+            hiddens, cells, gates[t] = self.lstm(W, b, hiddens, cells, inputs[t])
+            Y[t] = hiddens
+        return Y, cells, gates
+
+    def lstm(
+            self, W: Array2d, b: Array1d, hidden_tm1: Array2d, cell_tm1: Array2d, inputs: Array3d
+    ) -> Tuple[Array2d, Array2d, Array3d]:
+        xp = self.xp
+        X = xp.hstack((inputs, hidden_tm1))
+        acts = self.gemm(X, W, trans2=True)
+        acts += b
+        nB = acts.shape[0]
+        nO = acts.shape[1] // 4
+        acts = acts.reshape((nB, nO, 4))
+ 
         gates = self.as_contig(acts.transpose((2, 0, 1)))
         # Activations is: hf, hi, ho, hc
         self.sigmoid(gates[0], inplace=True)
         self.sigmoid(gates[1], inplace=True)
         self.sigmoid(gates[2], inplace=True)
         self.xp.tanh(gates[3], out=gates[3])
-        cells = gates[0] * prevcells
+        cells = gates[0] * cell_tm1
         cells += gates[1] * gates[3]
         hiddens = self.xp.tanh(cells)
         hiddens *= gates[2]

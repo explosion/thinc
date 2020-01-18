@@ -23,7 +23,7 @@ array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
 array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
 ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
-padded = Padded(array3d, array1d, [1, 2, 3, 4], [1, 2, 3, 4])
+padded = Padded(array3d, array1d, OPS.asarray([1, 2, 3, 4]), OPS.asarray([1, 2, 3, 4]))
 doc = FakeDoc()
 span = FakeSpan()
 width = array2d.shape[1]
