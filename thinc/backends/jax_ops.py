@@ -173,18 +173,22 @@ class JaxOps(Ops):
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
+        lengths: Array1d
+        batch_size_at_t: Array1d 
+        indices: Array1d
         if not seqs:
-            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), [], [])
+            empty = self.alloc_i1d(0)
+            return Padded(self.alloc_f3d(0, 0, 0), empty, empty, empty)
         elif len(seqs) == 1:
             data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
-            size_at_t = self.asarray([1] * data.shape[0], dtype="i")
+            batch_size_at_t = self.asarray([1] * data.shape[0], dtype="i")
             lengths = self.asarray([data.shape[0]], dtype="i")
             indices = self.asarray([0], dtype="i")
-            return Padded(data, size_at_t, lengths, indices)
+            return Padded(data, batch_size_at_t, lengths, indices)
         lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
         lengths_indices.sort(reverse=True)
-        indices = [i for length, i in lengths_indices]
-        lengths = [length for length, i in lengths_indices]
+        indices_ = [i for length, i in lengths_indices]
+        lengths_ = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
         arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
@@ -192,17 +196,18 @@ class JaxOps(Ops):
             arr = index_update(arr, index[arr_i, :length], self.asarray(seqs[seqs_i]))
         arr = self.as_contig(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t = self.alloc_i1d(nS, dtype="i")
-        batch_size_at_t += 1
-        i = len(lengths)
+        batch_size_at_t_ = numpy.zeros((nS,), dtype="i")
+        batch_size_at_t_ += 1
+        i = len(lengths_)
         for t in range(nS):
             if t == lengths[i - 1]:
                 i -= 1
                 if i == 0:
                     break
-            batch_size_at_t = index_update(batch_size_at_t, index[t], i)
-        lengths = self.asarray(lengths, dtype="i")
-        indices = self.asarray(indices, dtype="i")
+            batch_size_at_t_ = index_update(batch_size_at_t, index[t], i)
+        batch_size_at_t = self.asarray(batch_size_at_t_, dtype="i")
+        lengths = self.asarray(lengths_, dtype="i")
+        indices = self.asarray(indices_, dtype="i")
         return Padded(arr, batch_size_at_t, lengths, indices)
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -297,8 +302,8 @@ class JaxOps(Ops):
         return recurrent_lstm(W, b, cells, hiddens, inputs)
 
     def lstm(
-        self, W: Array2d, b: Array1d, cell_tm1: Array2d,
-        hidden_tm1: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, hidden_tm1: Array2d,
+        cell_tm1: Array2d, inputs: Array3d
     ) -> Tuple[Array2d, Array2d, Array3d]:
         hiddens, cells, gates = lstm(W, b, cell_tm1, hidden_tm1, inputs)
         return hiddens, cells, gates
