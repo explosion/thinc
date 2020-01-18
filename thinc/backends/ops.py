@@ -370,9 +370,42 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
+    def recurrent_lstm(self, W, b, hidden, cell, inputs):
+        nL, nB, nI = inputs.shape
+        nO = cell.shape[1]
+        # Preallocate these so we can pass them through for loop.
+        Y = self.alloc_f3d(nL, nB, nO)
+        gates = self.alloc_f4d(nL, nB, nO, 4)
+        # Run the loop
+        for t in range(inputs.shape[0]):
+            hidden, cell, gates[t] = self.lstm(W, b, hidden, cell, inputs[t])
+            Y[t] = hidden
+        return (hidden, cell), (Y, gates)
+
     def lstm(
-        self, acts: Array3d, prevcells: Array2d
+            self, W: Array2d, b: Array1d, hidden_tm1: Array2d, cell_tm1: Array2d, inputs: Array3d
     ) -> Tuple[Array2d, Array2d, Array3d]:
+        xp = self.xp
+        X = xp.hstack((inputs, hidden_tm1))
+        acts = xp.dot(X, W.T) + b
+        nB = acts.shape[0]
+        nO = acts.shape[1] // 4
+        acts = acts.reshape((nB, nO, 4))
+        hf, hi, ho, hc = xp.split(acts, 4, axis=-1)
+        # Need 'gates' here, the transformed acts, for backward pass.
+        hf = sigmoid(hf.reshape((nB, nO)))
+        hi = sigmoid(hi.reshape((nB, nO)))
+        ho = sigmoid(ho.reshape((nB, nO)))
+        hc = xp.tanh(hc.reshape((nB, nO)))
+
+        cells = (hf * cell_tm1) + (hi * hc)
+        hiddens = xp.tanh(cells) * ho
+        gates = xp.concatenate((hf, hi, ho, hc), axis=-1)
+        gates = acts.reshape((acts.shape[0], acts.shape[1], 4))
+        return hiddens, cells, gates  # (hf, hi, ho, hc)
+
+
+
         gates = self.as_contig(acts.transpose((2, 0, 1)))
         # Activations is: hf, hi, ho, hc
         self.sigmoid(gates[0], inplace=True)
