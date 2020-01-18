@@ -370,17 +370,20 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def recurrent_lstm(self, W, b, hidden, cell, inputs):
+    def recurrent_lstm(
+        self, W: Array2d, b: Array1d, cells: Array2d,
+        hiddens: Array2d, inputs: Array2d
+    ) -> Tuple[Array2d, Array2d, Array3d]:
         nL, nB, nI = inputs.shape
-        nO = cell.shape[1]
+        nO = cells.shape[1]
         # Preallocate these so we can pass them through for loop.
         Y = self.alloc_f3d(nL, nB, nO)
         gates = self.alloc_f4d(nL, nB, nO, 4)
         # Run the loop
         for t in range(inputs.shape[0]):
-            hidden, cell, gates[t] = self.lstm(W, b, hidden, cell, inputs[t])
-            Y[t] = hidden
-        return (hidden, cell), (Y, gates)
+            hiddens, cells, gates[t] = self.lstm(W, b, hiddens, cells, inputs[t])
+            Y[t] = hiddens
+        return Y, cells, gates
 
     def lstm(
             self, W: Array2d, b: Array1d, hidden_tm1: Array2d, cell_tm1: Array2d, inputs: Array3d
