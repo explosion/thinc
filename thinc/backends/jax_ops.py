@@ -200,11 +200,11 @@ class JaxOps(Ops):
         batch_size_at_t_ += 1
         i = len(lengths_)
         for t in range(nS):
-            if t == lengths[i - 1]:
+            if t == lengths_[i - 1]:
                 i -= 1
                 if i == 0:
                     break
-            batch_size_at_t_ = index_update(batch_size_at_t, index[t], i)
+            batch_size_at_t_[t] = i
         batch_size_at_t = self.asarray(batch_size_at_t_, dtype="i")
         lengths = self.asarray(lengths_, dtype="i")
         indices = self.asarray(indices_, dtype="i")
@@ -633,7 +633,7 @@ def recurrent_lstm(W, b, cell, hidden, X):
     state = ((W, b, hidden, cell, X), (Y, gates))
     state = jax.lax.fori_loop(0, X.shape[0], _lstm_stepper, state)
     (W, b, hidden, cell, X), (Y, gates) = state 
-    return (hidden, cell), (Y, gates)
+    return Y, cell, gates
 
 @jax_jit()
 def _lstm_stepper(t, state):
