@@ -5,7 +5,7 @@ from ..model import Model
 from ..config import registry
 
 
-PaddedData = Tuple[Array3d, Array1d, List[int], List[int]]
+PaddedData = Tuple[Array3d, Array1d, Array1d, Array1d]
 ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], PaddedData])
 
