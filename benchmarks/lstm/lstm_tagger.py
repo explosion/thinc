@@ -30,7 +30,7 @@ n_samples = 20000
 n_tags = 20
 n_vocab = 10000
 length_mean = 40
-length_variance = 1
+length_variance = 5
 
 [common]
 width = 300
