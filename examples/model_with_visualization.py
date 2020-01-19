@@ -1,7 +1,7 @@
 # pip install thinc ml_datasets typer pydot svgwrite
 from typing import Dict, Union, Optional
 from pathlib import Path
-from thinc.api import chain, ReLu, Softmax, Linear, ExtractWindow, Maxout, Model
+from thinc.api import chain, ReLu, Softmax, Linear, expand_window, Maxout, Model
 import ml_datasets
 import typer
 import pydot
@@ -70,7 +70,7 @@ def main(
 ):
     # Define the model
     model: Model = chain(
-        ExtractWindow(3),
+        expand_window(3),
         ReLu(nO=n_hidden, dropout=dropout, normalize=True),
         Maxout(nO=n_hidden * 4),
         Linear(nO=n_hidden * 2),

@@ -9,12 +9,12 @@ InT = Array
 OutT = Array
 
 
-@registry.layers("ExtractWindow.v0")
-def ExtractWindow(window_size: int = 1) -> Model[InT, OutT]:
+@registry.layers("expand_window.v0")
+def expand_window(window_size: int = 1) -> Model[InT, OutT]:
     """For each vector in an input, construct an output vector that contains the
     input and a window of surrounding vectors. This is one step in a convolution.
     """
-    return Model("extract_window", forward, attrs={"window_size": window_size})
+    return Model("expand_window", forward, attrs={"window_size": window_size})
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:

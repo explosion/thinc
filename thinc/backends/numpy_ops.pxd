@@ -9,20 +9,19 @@ cdef void cpu_maxout(float* best__bo, int* which__bo,
 cdef void cpu_backprop_maxout(float* dX__bop,
         const float* dX__bo, const int* which__bo, int B, int O, int P) nogil
 
-cdef void cpu_mean_pool(float* means__bo,
+cdef void cpu_reduce_mean(float* means__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil
 
-cdef void cpu_backprop_mean_pool(float* dX__to,
+cdef void cpu_backprop_reduce_mean(float* dX__to,
         const float* d_means__bo, const int* lengths__b,
         int B, int T, int O) nogil
 
-cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
+cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil
 
 
-cdef void cpu_backprop_max_pool(float* dX__to,
+cdef void cpu_backprop_reduce_max(float* dX__to,
         const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
         int B, int T, int O) nogil
-

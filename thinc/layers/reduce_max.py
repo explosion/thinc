@@ -9,16 +9,17 @@ InT = Ragged
 OutT = Array2d
 
 
-@registry.layers("MeanPool.v0")
-def MeanPool() -> Model[InT, OutT]:
-    return Model("mean_pool", forward)
+@registry.layers("reduce_max.v0")
+def reduce_max() -> Model[InT, OutT]:
+    return Model("reduce_max", forward)
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y = model.ops.mean_pool(Xr.data, Xr.lengths)
+    Y: Array2d
+    Y, which = model.ops.reduce_max(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:
-        return Ragged(model.ops.backprop_mean_pool(dY, lengths), lengths)
+        return Ragged(model.ops.backprop_reduce_max(dY, which, lengths), lengths)
 
     return Y, backprop

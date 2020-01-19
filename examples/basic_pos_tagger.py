@@ -3,7 +3,7 @@ from typing import Optional
 from pathlib import Path
 import random
 import thinc
-from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow, chain
+from thinc.api import Model, ReLu, Softmax, HashEmbed, expand_window, chain
 from thinc.api import with_array, strings2arrays, Adam, fix_random_seed, Config
 from wasabi import msg
 import ml_datasets
@@ -34,8 +34,8 @@ learn_rate = 0.001
 nO = ${hyper_params:width}
 nV = ${hyper_params:vector_width}
 
-[model.*.with_array.layer.*.extractwindow]
-@layers = "ExtractWindow.v0"
+[model.*.with_array.layer.*.expand_window]
+@layers = "expand_window.v0"
 window_size = 1
 
 [model.*.with_array.layer.*.relu1]
@@ -64,7 +64,7 @@ def create_model(width: int = 32, vector_width: int = 16):
     with Model.define_operators({">>": chain}):
         model = strings2arrays() >> with_array(
             HashEmbed(nO=width, nV=vector_width)
-            >> ExtractWindow(window_size=1)
+            >> expand_window(window_size=1)
             >> ReLu(nO=width, nI=width * 3)
             >> ReLu(nO=width, nI=width)
             >> Softmax(nO=17, nI=width)

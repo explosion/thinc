@@ -21,13 +21,13 @@ model.predict(True)
 # for network validity.
 #
 # We first define an invalid network.
-# It's invalid because MaxPool expects Array3d as input, while ReLu produces
+# It's invalid because reduce_max expects Array3d as input, while ReLu produces
 # Array2d as output. chain has type-logic to verify input and output types
 # line up.
 #
 # You should see the error an error,
 # examples/howto/type_chain.py:10: error: Cannot infer type argument 2 of "chain"
-bad_model = chain(ReLu(10), MaxPool(), Softmax())
+bad_model = chain(ReLu(10), reduce_max(), Softmax())
 
 # Now let's try it with a network that does work, just to be sure.
 good_model = chain(ReLu(10), ReLu(10), Softmax())

@@ -287,7 +287,7 @@ with Model.define_operators({'>>': chain, '**': clone, '|': concatenate}):
         >> memoize(
             CharLSTM(char_width)
             | (normalize >> str2int >> Embed(word_width)))
-        >> ExtractWindow(nW=2)
+        >> expand_window(nW=2)
         >> BatchNorm(ReLu(hidden_width)) ** 3
         >> Softmax()
     )

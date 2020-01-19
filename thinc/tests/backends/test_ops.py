@@ -165,12 +165,12 @@ def test_backprop_seq2col_window_two(ops):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
-def test_backprop_sum_pool(ops, X):
+def test_backprop_reduce_sum(ops, X):
     X = ops.asarray(X)
     if ops.xp.abs(X).max() >= 5:
         return None
     lengths = ops.asarray([3] * len(X), dtype="i")
-    out = ops.backprop_sum_pool(X, lengths)
+    out = ops.backprop_reduce_sum(X, lengths)
     assert out.shape == (sum(lengths), X.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -254,22 +254,22 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
-def test_sum_pool(ops):
+def test_reduce_sum(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += 1
     lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
-    output = ops.sum_pool(m, lengths)
+    output = ops.reduce_sum(m, lengths)
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
 
 @pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
+    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.reduce_max"))]
 )
-def test_max_pool_sm(ops):
+def test_reduce_max_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
     X += ops.xp.random.uniform(-1, 1, X.shape)
     lengths = ops.xp.array([2, 2, 2], dtype="i")
-    maxes, which = ops.max_pool(X, lengths)
+    maxes, which = ops.reduce_max(X, lengths)
     start = 0
     for i, length in enumerate(lengths):
         truth = X[start : start + length].max(axis=0)
@@ -278,16 +278,16 @@ def test_max_pool_sm(ops):
 
 
 @pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
+    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.reduce_max"))]
 )
-def test_max_pool(ops):
+def test_reduce_max(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
     lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
     # m[4, 0] = 1
     # m[0, 1] = 2
     # m[1, 3] = 3
-    maxes, which = ops.max_pool(m, lengths)
+    maxes, which = ops.reduce_max(m, lengths)
     start = 0
     for i, length in enumerate(lengths):
         truth = m[start : start + length].max(axis=0)
