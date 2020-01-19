@@ -515,11 +515,14 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = srsly.msgpack_loads(bytes_data)
-        if not "nodes" in msg.keys():
-            raise ValueError("Trying to read a Model that was created with an incompatible version of Thinc.")
+        if "nodes" not in msg.keys():
+            err = "Trying to read a Model that was created with an incompatible version of Thinc"
+            raise ValueError(
+                err
+            )
         nodes = list(self.walk())
         if len(msg["nodes"]) != len(nodes):
-            raise ValueError("Cannot deserialize model: mismatched structure.")
+            raise ValueError("Cannot deserialize model: mismatched structure")
         for i, node in enumerate(nodes):
             info = msg["nodes"][i]
             node.name = info["name"]

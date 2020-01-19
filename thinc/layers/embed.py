@@ -59,7 +59,8 @@ class create_init:
     def __init__(self, initializer: Callable):
         self.initializer = initializer
 
-    def __call__(self, model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+    def __call__(
+        self, model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
     ) -> None:
         if Y is not None:
             model.set_dim("nO", get_width(Y))

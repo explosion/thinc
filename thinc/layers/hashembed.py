@@ -63,7 +63,9 @@ class create_init:
     def __init__(self, initializer: Callable):
         self.initializer = initializer
 
-    def __call__(self, model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model:
+    def __call__(
+        self, model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None
+    ) -> Model:
         vectors = model.ops.alloc_f2d(model.get_dim("nV"), model.get_dim("nO"))
         self.initializer(vectors, inplace=True)
         model.set_param("E", vectors)
