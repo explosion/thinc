@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, cast
 from functools import partial
 
 from ..model import Model
@@ -6,7 +6,7 @@ from ..backends import Ops
 from ..backends.jax_ops import jax_jit
 from ..config import registry
 from ..util import get_width
-from ..types import RNNState, Array2d, Array3d, Padded
+from ..types import Array1d, Array2d, Array3d, Padded
 from .bidirectional import bidirectional
 from .clone import clone
 from .linear import Linear
@@ -87,10 +87,10 @@ def forward(
     model: Model[Array3d, Array3d], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
-    W = model.get_param("W")
-    b = model.get_param("b")
-    h = model.get_param("h")
-    c = model.get_param("c")
+    W = cast(Array2d, model.get_param("W"))
+    b = cast(Array1d, model.get_param("b"))
+    h = cast(Array1d, model.get_param("h"))
+    c = cast(Array1d, model.get_param("c"))
     # Initialize hiddens and cells
     hiddens = model.ops.alloc_f2d(X.shape[1], h.shape[0])
     cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
