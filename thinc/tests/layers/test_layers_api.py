@@ -100,6 +100,7 @@ TEST_CASES = [
     ("FeatureExtractor.v0", {"columns": [1, 2]}, [span, span], [array2d, array2d]),
     ("ParametricAttention.v0", {}, ragged, ragged),
     ("SparseLinear.v0", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
+    ("remap_ids.v0", {"dtype": "f"}, ["a", 1, 5.0], array2d)
     # fmt: on
 ]
 
