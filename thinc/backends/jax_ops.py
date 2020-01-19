@@ -296,9 +296,14 @@ class JaxOps(Ops):
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, cells: Array2d, hiddens: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, h_init: Array2d, c_init: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        return recurrent_lstm_forward(W, b, cells, hiddens, inputs)
+        return recurrent_lstm_forward(W, b, hiddens, cells, inputs)
+
+    def recurrent_lstm_backward(self, dY, fwd_state, params):
+        dCt = model.ops.alloc_f2d(dY.shape[1], dY.shape[2])
+        dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
+        return dX, (dW, db, dY[0], dC0)
 
     def lstm(
         self,
@@ -624,6 +629,8 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 """
+LSTM Notation (kind of involved, but made it a lot easier to write)
+
 X: Inputs
 Y: Outputs (aka hiddens)
 C: Cells
@@ -657,7 +664,6 @@ have the initial hiddens and initial cells. So:
     At3: The activations at 'd...'
     Gt3: The gates at 'd...'
 """
-
 
 @jax_jit()
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
