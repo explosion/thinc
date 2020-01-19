@@ -624,7 +624,7 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def recurrent_lstm(W, b, c0, h0, X):
+def recurrent_lstm_forward(W, b, c0, h0, X):
     """
     X: Inputs
     Y: Outputs (aka hiddens)
@@ -644,46 +644,16 @@ def recurrent_lstm(W, b, c0, h0, X):
     Y = index_update(Y, index[0], h0)
     C = index_update(C, index[0], c0)
     state = ((W, b, X), (Y, C, G))
-    state = jax.lax.fori_loop(0, X.shape[0], _lstm_stepper, state)
+    state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
     (W, b, X), (Y, C, G) = state 
-    # Return from the first, to remove the initial state state. We do need the
+    # Return 1:, to remove the initial state. We do need the
     # C[0] though, for the backprop.
     return Y[1:], C, G
 
 
 @jax_jit()
-def _lstm_stepper(t, state):
-    (W, b, X), (Y, C, G) = state 
-    yt, ct, gt = lstm(W, b, Y[t], C[t], X[t])
-    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
-    Y = index_update(Y, index[t+1], yt)
-    C = index_update(C, index[t+1], ct)
-    G = index_update(G, index[t], gt)
-    return (W, b, X), (Y, C, G)
-
-
-@jax_jit()
-def lstm(W, b, Yt1, Ct1, Xt):
-    xp = jax.numpy
-    nB, nO = Yt1.shape[0]
-    nI = Xt.shape[0]
-    At = xp.dot(xp.hstack((Xt, Yt1)), W.T) + b
-    At = At.reshape((nB, nO, 4))
-    hf, hi, ho, hc = xp.split(At, 4, axis=-1)
-    # Need 'gates' here, the transformed acts, for backward pass.
-    hf = sigmoid(hf.reshape((nB, nO)))
-    hi = sigmoid(hi.reshape((nB, nO)))
-    ho = sigmoid(ho.reshape((nB, nO)))
-    hc = xp.tanh(hc.reshape((nB, nO)))
-
-    Ct = (hf * Ct1) + (hi * hc)
-    Yt = xp.tanh(Ct) * ho
-    Gt = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    return Yt, Ct, Gt
-
-
-@jax_jit()
-def backprop_recurrent_lstm(dY, dC, dG, W, b, G, C, X):
+def backprop_recurrent_lstm(dY, dC, dG, fwd_vars):
+    W, b, G, C, X = fwd_vars
     xp = jax.numpy
     nL, nB, nI = X.shape
     nO = hidden.shape[1]
@@ -692,19 +662,19 @@ def backprop_recurrent_lstm(dY, dC, dG, W, b, G, C, X):
     dW = xp.zeros(W.shape, dtype="f")
     db = xp.zeros(b.shape, dtype="f")
     state = (
-        (dW, db, dX),
-        (dY, dC),
-        (G, C, X),
-        (W, b)
+        (dW, db, dX), # The gradi-outs (what we're accumulating)
+        (dY, dC),     # The gradi-ins  (Updated each step)
+        (G, C, X),    # Forward state  (unchanging)
+        (W, b)        # Params         (unchanging)
     )
-    state = jax.lax.fori_loop(X.shape[0]-1, -1, _backprop_lstm_stepper, state)
+    state = jax.lax.fori_loop(X.shape[0]-1, -1, backprop_lstm_stepper, state)
     (dW, db, dX), (dY, dC), (G, C, X), (W, b) = state
  
     return dW, db, dX
 
 
 @jax_jit()
-def _backprop_lstm_stepper(t, state):
+def backprop_lstm_stepper(t, state):
     (dW, db, dX), (dY, dCt1), (G, C, X), (W, b) = state
     # TODO: I thnk I'm missing a d_hiddens + dY[t] here? I think I'm ignoring
     # the sequence grads.
@@ -718,30 +688,97 @@ def _backprop_lstm_stepper(t, state):
 
 
 @jax_jit()
-def backprop_lstm(
-    d_cells,
-    d_hiddens,
-    gates,
-    cells,
-    prevcells,
-) -> Tuple[Array3d, Array2d]:
+def lstm_stepper_forward(t, state):
+    (W, b, X), (Y, C, G) = state 
+    nL, nB, nI = X.shape
+    nO = Y.shape[2]
+    # Get the activations for this timestep.
+    At = forward_lstm_weights(X[t], Y[t], W, b) 
+    (Yt_next, Ct_next), Gt = forward_lstm_gates(At, Y[t], C[t], X[t])
+    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
+    Y = index_update(Y, index[t+1], Yt_next)
+    C = index_update(C, index[t+1], Ct_next)
+    G = index_update(G, index[t], Gt)
+    return (W, b, X), (Y, C, G)
+
+
+@jax_jit()
+def forward_lstm_weights(Xt, Yt1, W, b):
     xp = jax.numpy
-    hf = gates[:, :, 0]
-    hi = gates[:, :, 1]
-    ho = gates[:, :, 2]
-    hc = gates[:, :, 3]
-    # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-    d_ho = xp.tanh(cells) * d_output * dsigmoid(ho)
-    d_prevcells = ho * d_output * dtanh(xp.tanh(cells))
-    d_prevcells += d_cells  # Carry gradient from timestep
-    # Gradient for hf, hi, hc, prev[i]
-    # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-    d_hf = dsigmoid(hf) * d_prevcells * prev
-    d_hi = dsigmoid(hi) * d_prevcells * hc
-    d_hc = dtanh(hc) * d_prevcells * hi
-    d_prev = d_prevcells * hf
-    d_acts = xp.concatenate((d_hf, d_hi, d_ho, d_hc), axis=-1)
-    return d_acts, d_prevcells
+    St = xp.hstack((Xt, Yt1))
+    At = xp.dot(St, W.T) + b
+    return At
+
+
+@jax_jit()
+def backward_lstm_weights(dAt, fwd_state):
+    St, W, b = fwd_state
+    xp = jax.numpy
+    dW = dAt.T @ St
+    db = dAt.sum(axis=0)
+    dSt = dAt @ W
+    dXt, dYt1 = xp.split(dSt, 2)
+    return dXt, dYt1, dW, db
+
+
+@jax_jit()
+def forward_lstm_gates(At, Yt1, Ct1):
+    xp = jax.numpy
+    # Dimensions:
+    # 
+    # nL: Sequence length
+    # nB: Batch size
+    # nO: Output size
+    # nI: Input size
+    # 
+    # The batch is (nL, nB, ...)
+    #
+    nB, nO = Yt1.shape[0]
+    # Variables:
+    # 
+    # At: Activations for this timestep, i.e. output of hstack(Xt, Yt1)@W+b
+    # Yt1: Previous hidden-layer output (i.e. Y_{t-1}
+    # Ct1: Previous cells (i.e. C_{t-1}
+    # Xt: Current inputs.
+    # hf, hi, ho, hc: Forget, input, output, cell gates.
+    At_hf, At_hi, At_ho, At_hc = xp.split(At, 4, axis=-1)
+    # Number the steps here, to refer back for backward pass.
+    # 1. Activations
+    hf = sigmoid(At_hf) # 1a
+    hi = sigmoid(At_hi) # 1b
+    ho = sigmoid(At_ho) # 1c
+    hc = xp.tanh(At_hc) # 1d
+
+    Ct = (hf * Ct1) + (hi * hc) # 2a + 2b
+    Yt = xp.tanh(Ct) * ho # 3a, 3b
+    # We don't need the gradient for this, it's just for backprop calculation.
+    Gt = xp.concatenate((hf, hi, ho, hc), axis=-1)
+    return (Yt, Ct), Gt
+
+
+@jax_jit()
+def backprop_lstm_once(
+        dYt: Array2d, dCt: Array2d, Gt: Array2d, Ct: Array2d, Ct1: Array2d
+) -> Tuple[Array3d, Array2d]:
+    # See above, the lstm_once function, for notation.
+    # dYt is the gradient for this timestep's output, dCt is the gradient
+    # for this timestep's cells.
+    xp = jax.numpy
+    hf, hi, ho, hc = xp.split(Gt, 4, axis=-1)
+    # Gradient for At_ho and Ct in  = sigmoid(At_ho) * tanh(Ct)
+    d_At_ho = xp.tanh(Ct) * dYt * dsigmoid(ho) # 1c, 3b
+    dCt1 = ho * dYt * dtanh(xp.tanh(Ct)) # 3a
+    dCt1 += dCt  # Carry gradient from timestep
+    # Gradient for hf, hi, hc, Ct1
+    # in Ct = sigmoid(At_hf) * Ct1 + sigmoid(At_hi) * tanh(At_hc)
+    d_At_hf = dsigmoid(hf) * dCt1 * Ct1 # 2a, 2b, 1a
+    d_At_hi = dsigmoid(hi) * dCt1 * hc  # 2a, 2b, 1d
+    d_At_hc = dtanh(hc) * dCt1 * hi     #  
+    dYt1 = dCt1 * hf
+    dAt = xp.concatenate((d_At_hf, d_At_hi, d_At_ho, d_At_hc), axis=-1)
+    return dAt, dYt1, dCt1
+
+
 
 JaxOps.xp.random = JaxRandom()
 JaxOps.xp.testing = numpy.testing
