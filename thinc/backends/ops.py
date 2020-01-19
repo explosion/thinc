@@ -328,7 +328,7 @@ class Ops:
         # This loses almost no fidelity, and helps the numerical stability.
         Xs = self.xp.clip(Xs, -20.0, 20.0)
         new_x = self.xp.exp(Xs)
-        summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
+        summed = self.backprop_reduce_sum(self.reduce_sum(new_x, lengths), lengths)
         new_x /= summed
         if inplace:
             copy_array(Xs, new_x)
@@ -345,7 +345,7 @@ class Ops:
         self, dY: Array2d, Y: Array2d, lengths: Array1d
     ) -> Array2d:
         dX = Y * dY
-        sum_dX = self.backprop_sum_pool(self.sum_pool(dX, lengths), lengths)
+        sum_dX = self.backprop_reduce_sum(self.reduce_sum(dX, lengths), lengths)
         dX -= Y * sum_dX
         return dX
 
@@ -513,7 +513,7 @@ class Ops:
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
 
-    def sum_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def reduce_sum(self, X: Array2d, lengths: Array1d) -> Array2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -521,7 +521,7 @@ class Ops:
             start += length
         return Y
 
-    def mean_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def reduce_mean(self, X: Array2d, lengths: Array1d) -> Array2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -529,7 +529,7 @@ class Ops:
             start += length
         return Y
 
-    def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def reduce_max(self, X: Array2d, lengths: Array1d) -> Array2d:
         Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -537,7 +537,7 @@ class Ops:
             start += length
         return Y
 
-    def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
+    def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
         dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -545,7 +545,7 @@ class Ops:
             start += length
         return dX
 
-    def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
+    def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
         dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
         start = 0
         for i, length in enumerate(lengths):
@@ -553,7 +553,7 @@ class Ops:
             start += length
         return dX
 
-    def backprop_max_pool(
+    def backprop_reduce_max(
         self, d_maxes: Array2d, which: Array2d, lengths: Array1d
     ) -> Array2d:
         dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])

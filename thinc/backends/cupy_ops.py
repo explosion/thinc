@@ -85,23 +85,23 @@ class CupyOps(Ops):
     def backprop_seq2col(self, dY, nW):
         return _custom_kernels.backprop_seq2col(dY, nW)
 
-    def mean_pool(self, X, lengths):
-        return _custom_kernels.mean_pool(X, lengths)
+    def reduce_mean(self, X, lengths):
+        return _custom_kernels.reduce_mean(X, lengths)
 
-    def backprop_mean_pool(self, d_means, lengths):
-        return _custom_kernels.backprop_mean_pool(d_means, lengths)
+    def backprop_reduce_mean(self, d_means, lengths):
+        return _custom_kernels.backprop_reduce_mean(d_means, lengths)
 
-    def max_pool(self, X, lengths):
-        return _custom_kernels.max_pool(X, lengths)
+    def reduce_max(self, X, lengths):
+        return _custom_kernels.reduce_max(X, lengths)
 
-    def backprop_max_pool(self, d_maxes, which, lengths):
-        return _custom_kernels.backprop_max_pool(d_maxes, which, lengths)
+    def backprop_reduce_max(self, d_maxes, which, lengths):
+        return _custom_kernels.backprop_reduce_max(d_maxes, which, lengths)
 
-    def sum_pool(self, X, lengths):
-        return _custom_kernels.sum_pool(X, lengths)
+    def reduce_sum(self, X, lengths):
+        return _custom_kernels.reduce_sum(X, lengths)
 
-    def backprop_sum_pool(self, d_sums, lengths):
-        return _custom_kernels.backprop_sum_pool(d_sums, lengths)
+    def backprop_reduce_sum(self, d_sums, lengths):
+        return _custom_kernels.backprop_reduce_sum(d_sums, lengths)
 
     def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)

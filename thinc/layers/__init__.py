@@ -4,7 +4,7 @@
 from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
-from .extractwindow import ExtractWindow
+from .expand_window import expand_window
 from .featureextractor import FeatureExtractor
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
@@ -35,9 +35,9 @@ from .uniqued import uniqued
 from .siamese import siamese
 
 # Pooling
-from .maxpool import MaxPool
-from .meanpool import MeanPool
-from .sumpool import SumPool
+from .reduce_max import reduce_max
+from .reduce_mean import reduce_mean
+from .reduce_sum import reduce_sum
 
 # Data-type transfers
 from .list2array import list2array
@@ -59,7 +59,7 @@ __all__ = [
     "Linear",
     "Dropout",
     "Embed",
-    "ExtractWindow",
+    "expand_window",
     "HashEmbed",
     "LayerNorm",
     "Maxout",
@@ -85,9 +85,9 @@ __all__ = [
     "residual",
     "uniqued",
     "siamese",
-    "MaxPool",
-    "MeanPool",
-    "SumPool",
+    "reduce_max",
+    "reduce_mean",
+    "reduce_sum",
     "list2array",
     "list2ragged",
     "list2padded",

@@ -2,7 +2,7 @@
 // https://devblogs.nvidia.com/cuda-pro-tip-write-flexible-kernels-grid-stride-loops/
 // This pattern ensures that all of the loop values are visited once, no matter
 // what grid parameters are used for the function.
-	
+
 extern "C" __global__
 void seq2col(float* output,
     const float* X, int nW, int B, int I)
@@ -32,7 +32,7 @@ void seq2col(float* output,
     // __ __ __ __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c
     // __ __ __ 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __
     // 1a 1b 1c 2a 2b 2c 3a 3b 3c __ __ __ __ __ __
-    
+
     // * x_start=-6, x_end=9 : (0-2) * 3, (0+2+1) * 3
     // * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     // * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
@@ -114,11 +114,11 @@ void mish(float* Y, const float* X, float threshold, int N)
 	else
             Y[i] = X[i] * tanhf(logf(one + expf(X[i])));
     }
-} 
+}
 
 
 extern "C" __global__
-void sum_pool(float* output,
+void reduce_sum(float* output,
     const float* X, const int* lengths, int B, int T, int O)
 {
     // Compute sums of a batch of concatenated sequences
@@ -138,7 +138,7 @@ void sum_pool(float* output,
         for (int i=0; i < length; ++i) // Iterate over rows
         {
 	    const float* X_t = &X[(t+i)*O];
-            for (int j=0; j < O; ++j) 
+            for (int j=0; j < O; ++j)
             {
               output_b[j] += X_t[j];
             }
@@ -148,7 +148,7 @@ void sum_pool(float* output,
 
 
 extern "C" __global__
-void max_pool(float* maxes, int* which,
+void reduce_max(float* maxes, int* which,
     const float* X, const int* lengths, int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -241,7 +241,7 @@ void backprop_maxout(float* dX,
             dX_b[(i*P)+which_b[i]] = dY_b[i];
     }
 }
- 
+
 
 extern "C" __global__
 void backprop_mish(float* dX,
@@ -268,9 +268,9 @@ void backprop_mish(float* dX,
 	}
     }
 }
- 
+
 extern "C" __global__
-void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
+void backprop_reduce_sum(float* dX, const float* d_sum, const int* lengths,
     int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -278,18 +278,18 @@ void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
     int seq_start = 0;
     int b = 0;
     for (int t = _loop_start; t < T; t += _loop_stride)
-    { 
+    {
         // Find the sequence item we're working on
         while ((b < B) && (seq_start+lengths[b]) < t)
         {
            seq_start += lengths[b];
            b += 1;
         }
-            
+
         float* dX_t = &dX[t * O];
         const float* d_sum_b = &d_sum[b * O];
 
-        for (int i=0; i < O; ++i) 
+        for (int i=0; i < O; ++i)
         {
             dX_t[i] = d_sum_b[i];
         }
@@ -298,7 +298,7 @@ void backprop_sum_pool(float* dX, const float* d_sum, const int* lengths,
 
 
 extern "C" __global__
-void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
+void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
     int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -306,19 +306,19 @@ void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
     int seq_start = 0;
     int b = 0;
     for (int t = _loop_start; t < T; t += _loop_stride)
-    { 
+    {
         // Find the sequence item we're working on
         while ((b < B) && (seq_start+lengths[b]) < t)
         {
            seq_start += lengths[b];
            b += 1;
         }
-            
+
         float* dX_t = &dX[t * O];
         const float* d_mean_b = &d_mean[b * O];
         int lengths_b = lengths[b];
 
-        for (int i=0; i < O; ++i) 
+        for (int i=0; i < O; ++i)
         {
             dX_t[i] = d_mean_b[i] / lengths_b;
         }
@@ -327,7 +327,7 @@ void backprop_mean_pool(float* dX, const float* d_mean, const int* lengths,
 
 
 extern "C" __global__
-void backprop_max_pool(float* dX,
+void backprop_reduce_max(float* dX,
     const float* d_maxes, const int* which, const int* lengths, int B, int T, int O)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;

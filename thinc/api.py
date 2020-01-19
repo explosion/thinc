@@ -18,7 +18,7 @@ from .backends import get_ops, set_current_ops, get_current_ops, use_device
 from .backends import Ops, CupyOps, NumpyOps
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
-from .layers import Dropout, Embed, ExtractWindow, HashEmbed, LayerNorm, Linear
+from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import SparseLinear, StaticVectors, FeatureExtractor
@@ -31,7 +31,7 @@ from .layers import with_array, with_padded, with_list, with_ragged
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list
 
-from .layers import MaxPool, MeanPool, SumPool
+from .layers import reduce_max, reduce_mean, reduce_sum
 
 
 __all__ = list(locals().keys())

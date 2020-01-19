@@ -4,7 +4,7 @@ from enum import Enum
 from pathlib import Path
 import thinc
 from thinc.api import fix_random_seed, Model, Config, chain, list2ragged
-from thinc.api import with_array, MeanPool, Softmax
+from thinc.api import with_array, reduce_mean, Softmax
 from thinc.types import Array2d
 from wasabi import msg
 import typer
@@ -119,7 +119,7 @@ def main(
 
 @thinc.registry.layers("EmbedPoolTextcat.v0")
 def EmbedPoolTextcat(embed: Model[Array2d, Array2d]) -> Model[List[Array2d], Array2d]:
-    model = chain(list2ragged(), with_array(embed), MeanPool(), Softmax())
+    model = chain(list2ragged(), with_array(embed), reduce_mean(), Softmax())
     model.set_ref("embed", embed)
     return model
 

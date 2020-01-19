@@ -85,12 +85,12 @@ TEST_CASES = [
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
-    ("MaxPool.v0", {}, ragged, array2d),
-    ("MeanPool.v0", {}, ragged, array2d),
-    ("SumPool.v0", {}, ragged, array2d),
+    ("reduce_max.v0", {}, ragged, array2d),
+    ("reduce_mean.v0", {}, ragged, array2d),
+    ("reduce_sum.v0", {}, ragged, array2d),
     # fmt: off
     # Other
-    ("ExtractWindow.v0", {}, array2d, array2d),
+    ("expand_window.v0", {}, array2d, array2d),
     ("Embed.v0", {"nV": 1}, array2dint, array2d),
     ("Embed.v0", {"nO": 4, "nV": 1}, array2dint, array2d),
     ("HashEmbed.v0", {"nO": 1, "nV": 2}, array2d, array2d),
