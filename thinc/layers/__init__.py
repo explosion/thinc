@@ -102,4 +102,5 @@ __all__ = [
     "with_ragged",
     "with_padded",
     "with_flatten",
+    "remap_ids",
 ]
