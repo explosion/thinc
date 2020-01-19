@@ -1,7 +1,7 @@
 from .config import Config, registry
 from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
-from .loss import categorical_crossentropy, L1_distance, cosine_distance
-from .loss import sequence_categorical_crossentropy
+from .loss import CategoricalCrossentropy, L1Distance, CosineDistance
+from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values
 from .shims import Shim, PyTorchShim, TensorFlowShim
