@@ -44,7 +44,7 @@ nO = ${common:width}
 nV = ${data:n_vocab}
 
 [model.encode]
-@layers = "PyTorchLSTM.v0"
+@layers = "LSTM.v0"
 nO = ${common:width}
 nI = ${common:width}
 depth = 2
@@ -86,14 +86,14 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
         Ys.append(to_categorical(Y.astype("i")))
     return Xs, Ys
 
+jax.tree_util.register_pytree_node(
+    Padded,
+    lambda pad: ((pad.data, pad.size_at_t, pad.lengths, pad.indices), None),
+    lambda info, values: Padded(*values)
+)
+
 def run_forward(model, Xs):
     Ys = []
-
-    jax.tree_util.register_pytree_node(
-        Padded,
-        lambda pad: ((pad.data, pad.size_at_t, pad.lengths, pad.indices), None),
-        lambda info, values: Padded(*values)
-    )
     for batch in Xs:
         Ys.append(model.predict(batch))
     for Y in Ys:
@@ -102,7 +102,7 @@ def run_forward(model, Xs):
     return Ys
 
 def main():
-    #thinc.api.set_current_ops(thinc.api.JaxOps())
+    thinc.api.set_current_ops(thinc.api.JaxOps())
     numpy.random.seed(0)
     C = registry.make_from_config(Config().from_str(CONFIG))
     model = C["model"]
