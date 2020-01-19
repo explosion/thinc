@@ -9,7 +9,7 @@ import functools
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import get_width, create_thread_local
+from .util import create_thread_local, partial
 from .types import Array
 
 
@@ -17,30 +17,8 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-class create_init:
-    """Create an init function, given a dictionary of parameter initializers."""
-
-    def __init__(self, initializers: Dict[str, Callable]):
-        self.initializers = initializers
-
-    def __call__(self, model, X: Optional[Array] = None, Y: Optional[Array] = None
-             ) -> None:
-        if X is not None:
-            model.set_dim("nI", get_width(X))
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
-        b = model.ops.alloc_f1d(model.get_dim("nO"))
-        if "W" in self.initializers:
-            self.initializers["W"](W, inplace=True)
-        if "b" in self.initializers:
-            self.initializers["b"](b, inplace=True)
-        model.set_param("W", W)
-        model.set_param("b", b)
-
-
-def empty_init(*a, **k):
-    return None
+def empty_init(model: "Model", *args, **kwargs) -> "Model":
+    return model
 
 
 class Model(Generic[InT, OutT]):
@@ -83,7 +61,7 @@ class Model(Generic[InT, OutT]):
         name: str,
         forward: Callable,
         *,
-        init: Callable = empty_init,
+        init: Optional[Callable] = None,
         dims: Dict[str, Optional[int]] = {},
         params: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
@@ -94,6 +72,8 @@ class Model(Generic[InT, OutT]):
     ):
         """Initialize a new model."""
         self.name = name
+        if init is None:
+            init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
         setattr(self, "_init", init)
@@ -684,7 +664,6 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> 
 
 
 __all__ = [
-    "create_init",
     "Model",
     "serialize_attr",
     "deserialize_attr",

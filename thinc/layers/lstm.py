@@ -68,7 +68,7 @@ def LSTM_step(
 
 def init(
     model: Model, X: Optional[RNNState] = None, Y: Optional[RNNState] = None
-) -> None:
+) -> Model:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
@@ -78,6 +78,7 @@ def init(
     model.layers[0].set_dim("nO", nO * 4)
     model.layers[0].set_dim("nI", nO + nI)
     model.layers[0].initialize()
+    return model
 
 
 def forward(

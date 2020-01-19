@@ -7,19 +7,18 @@ from .types import Array, Shape
 from .util import partial
 
 # TODO: Harmonize naming with Keras, and fill in missing entries
-# https://keras.io/initializers/
-# What we call 'xavier uniform' should be Glorot uniform
-# (it's named after Xavier Glorot). We should also have He normal/uniform
+# https://keras.io/initializers/ We should also have He normal/uniform
 # and probably lecun normal/uniform.
 
-def xavier_uniform_init(ops: Ops, shape: Shape) -> Array:
+
+def glorot_uniform_init(ops: Ops, shape: Shape) -> Array:
     scale = ops.xp.sqrt(6.0 / (shape[0] + shape[1]))
     return ops.asarray(numpy.random.uniform(-scale, scale, shape), dtype="f")
 
 
-@registry.initializers("xavier_uniform_init.v0")
-def configure_xavier_uniform_init() -> Callable[[Shape], Array]:
-    return partial(xavier_uniform_init)
+@registry.initializers("glorot_uniform_init.v0")
+def configure_glorot_uniform_init() -> Callable[[Shape], Array]:
+    return partial(glorot_uniform_init)
 
 
 def zero_init(ops: Ops, shape: Shape) -> Array:
@@ -58,4 +57,4 @@ def configure_normal_init(*, fan_in: int = -1) -> Callable[[Array], Array]:
     return partial(normal_init, fan_in=fan_in)
 
 
-__all__ = ["normal_init", "uniform_init", "xavier_uniform_init", "zero_init"]
+__all__ = ["normal_init", "uniform_init", "glorot_uniform_init", "zero_init"]
