@@ -138,48 +138,6 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def lstm(self, np.ndarray W, np.ndarray b,
-            np.ndarray hidden_tm1, np.ndarray cell_tm1, np.ndarray inputs):
-        cdef np.ndarray X, acts, hiddens, cells
-        X = self.xp.hstack((inputs, hidden_tm1))
-        acts = self.gemm(X, W, trans2=True)
-        acts = self.xp.zeros((X.shape[0], hidden_tm1.shape[1] * 4), dtype="f")
-        acts += b
-        acts = acts.reshape((acts.shape[0], -1, 4))
-        cdef int nB = X.shape[0]
-        cdef int nO = cell_tm1.shape[1]
-        cpu_lstm_gates_fwd(
-            <float*>X.data, # Write (hiddens, cells) into this
-            <float*>acts.data, # Write gates into this
-            <float*>cell_tm1.data,
-            nB, nO
-        )
-        hiddens = X[:, :nO]
-        cells = X[:, nO:]
-        return hiddens, cells, acts
-
-    def backprop_lstm(
-            self, 
-            np.ndarray d_cells, 
-            np.ndarray d_hiddens, 
-            np.ndarray gates, 
-            np.ndarray cells, 
-            np.ndarray prevcells
-    ):
-        cdef const float[:, ::1] d_cells_, d_hiddens_, cells_, prevcells_
-        d_cells_ = self.as_contig(d_cells, dtype="f")
-        d_hiddens_ = self.as_contig(d_hiddens, dtype="f")
-        gates_ = self.as_contig(gates, dtype="f")
-        cells_ = self.as_contig(cells, dtype="f")
-        prevcells_ = self.as_contig(prevcells, dtype="f")
-        cdef np.ndarray gates_and_d_acts = self.as_contig(gates, dtype="f")
-        cdef np.ndarray d_prevcells = self.alloc_f2d(d_cells.shape[0], d_cells.shape[1])
-        cpu_lstm_gates_bwd(<float*>gates_and_d_acts.data, <float*>d_prevcells.data,
-            &d_cells_[0, 0], &d_hiddens_[0, 0], 
-            &cells_[0, 0], &prevcells_[0, 0],
-            cells.shape[0], cells.shape[1])
-        return gates_and_d_acts, d_prevcells 
-
     def seq2col(self, const float[:, ::1] seq, int nW):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
