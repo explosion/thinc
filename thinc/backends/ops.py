@@ -145,7 +145,12 @@ class Ops:
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
-            return Padded(self.alloc_f3d(0, 0, 0), self.alloc_i1d(0), self.alloc_i1d(0), self.alloc_i1d(0))
+            return Padded(
+                self.alloc_f3d(0, 0, 0),
+                self.alloc_i1d(0),
+                self.alloc_i1d(0),
+                self.alloc_i1d(0),
+            )
         elif len(seqs) == 1:
             data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
             size_at_t: Array1d = self.asarray([1] * data.shape[0], dtype="i")
@@ -172,7 +177,12 @@ class Ops:
                 if i == 0:
                     break
             batch_size_at_t_[t] = i
-        return Padded(arr, self.asarray(batch_size_at_t_), self.asarray(lengths_), self.asarray(indices_))
+        return Padded(
+            arr,
+            self.asarray(batch_size_at_t_),
+            self.asarray(lengths_),
+            self.asarray(indices_),
+        )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
         indices = padded.indices
@@ -573,7 +583,7 @@ class Ops:
         """Maybe don't need this? Just a quicky to get Jax working."""
         output = self.alloc(shape, dtype=Xs[0].dtype)
         for i, x in enumerate(Xs):
-            output[i, :x.shape[0]] = x
+            output[i, : x.shape[0]] = x
         return output
 
 
@@ -619,6 +629,7 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
+
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
     xp = get_array_module(W)
     nL, nB, nI = X.shape
@@ -649,8 +660,8 @@ def lstm_stepper_forward(t, state):
     # The offsets here are a bit unintuitive, because Y and C are 1-offset.
     Ct2 = C[t]
     Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
-    Y[t+1] = Yt3
-    C[t+1] = Yt3
+    Y[t + 1] = Yt3
+    C[t + 1] = Yt3
     G[t] = Gt3
     return (W, b, X), (Y, C, G)
 
@@ -671,7 +682,7 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
         (G, C, S),  # Forward state  (Read-only)
         (W, b),  # Params         (Read-only)
     )
-    for t in range(nL-1, -1, -1):
+    for t in range(nL - 1, -1, -1):
         state = backprop_lstm_stepper(t, state)
     (dW, db, dX), (dY, dCt), (G, C, S), (W, b) = state
     return dW, db, dX, dY, dCt
@@ -700,7 +711,6 @@ def lstm_weights_forward(Xt3, Yt2, W, b):
 
 
 def backprop_lstm_weights(dAt3, fwd_state):
-    xp = get_array_module(dAt3)
     St3, W, b = fwd_state
     dW = dAt3.T @ St3
     db = dAt3.sum(axis=0)

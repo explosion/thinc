@@ -37,7 +37,7 @@ def LSTM(
         dims={"nO": nO, "nI": nI},
         attrs={"registry_name": "LSTM.v0"},
         params={"W": None, "b": None, "c": None, "h": None},
-        init=partial(init, init_W, init_b)
+        init=partial(init, init_W, init_b),
     )
 
     if bi:
@@ -65,8 +65,11 @@ def PyTorchLSTM(
 
 
 def init(
-        init_W: Callable, init_b: Callable, model: Model,
-        X: Optional[Padded] = None, Y: Optional[Padded] = None
+    init_W: Callable,
+    init_b: Callable,
+    model: Model,
+    X: Optional[Padded] = None,
+    Y: Optional[Padded] = None,
 ) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
@@ -74,8 +77,8 @@ def init(
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
-    model.set_param("W", init_W(model.ops, (nO*4, nO+nI)))
-    model.set_param("b", init_b(model.ops, (nO*4,)))
+    model.set_param("W", init_W(model.ops, (nO * 4, nO + nI)))
+    model.set_param("b", init_b(model.ops, (nO * 4,)))
     model.set_param("h", zero_init(model.ops, (nO,)))
     model.set_param("c", zero_init(model.ops, (nO,)))
 
@@ -97,8 +100,9 @@ def forward(
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
-        dX, (dW, db, d_h, d_c)  = model.ops.recurrent_lstm_backward(
-            dYp.data, fwd_state, (W, b))
+        dX, (dW, db, d_h, d_c) = model.ops.recurrent_lstm_backward(
+            dYp.data, fwd_state, (W, b)
+        )
         model.inc_grad("W", dW)
         model.inc_grad("b", db)
         model.inc_grad("h", d_h)

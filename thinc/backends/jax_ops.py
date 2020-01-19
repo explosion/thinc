@@ -646,6 +646,7 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
+
 @jax_jit()
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
     xp = jax.numpy

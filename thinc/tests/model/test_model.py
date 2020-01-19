@@ -2,7 +2,7 @@ import pytest
 import threading
 import time
 from thinc.api import CupyOps
-from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
+from thinc.api import Linear, get_current_ops, use_device, Model, Shim
 from thinc.api import change_attr_values, set_dropout_rate
 import numpy
 
