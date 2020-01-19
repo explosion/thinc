@@ -44,7 +44,7 @@ def init(
     layer = model.layers[0]
     if X is None and Y is None:
         layer.initialize()
-        return
+        return model
     X2d: Optional[Array2d] = None
     Y2d: Optional[Array2d] = None
     if X is not None:
