@@ -540,21 +540,22 @@ def test_objects_from_config():
 
 def test_partials_from_config():
     """Test that functions registered with partial applications are handled
-    correctly (e.g. losses)."""
-    cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
+    correctly (e.g. initializers)."""
+    name = "xavier_uniform_init.v0"
+    cfg = {"test": {"@initializers": name, "inplace": True}}
     func = my_registry.make_from_config(cfg)["test"]
     assert hasattr(func, "__call__")
-    # The partial will still have margin as an arg, just with default
-    assert len(inspect.signature(func).parameters) == 4
+    # The partial will still have inplace as an arg, just with default
+    assert len(inspect.signature(func).parameters) == 2
     # Make sure returned partial function has correct value set
-    assert inspect.signature(func).parameters["margin"].default == 0.5
+    assert inspect.signature(func).parameters["inplace"].default is True
     # Actually call the function and verify
-    func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    func(numpy.asarray([[1]]))
     # Make sure validation still works
-    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
+    bad_cfg = {"test": {"@initializers": name, "inplace": [0.5]}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
-    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
+    bad_cfg = {"test": {"@initializers": name, "inplace": False, "other": 10}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
 
