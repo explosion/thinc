@@ -783,7 +783,7 @@ def lstm_gates_forward(At3, Ct2):
     return Yt3, Ct3, Gt3
 
 
-#@jax_jit()
+@jax_jit()
 def backprop_lstm_gates(
     dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
 ) -> Tuple[Array3d, Array2d]:
