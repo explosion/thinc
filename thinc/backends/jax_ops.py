@@ -298,32 +298,12 @@ class JaxOps(Ops):
     def recurrent_lstm(
         self, W: Array2d, b: Array1d, h_init: Array2d, c_init: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        return recurrent_lstm_forward(W, b, hiddens, cells, inputs)
+        return recurrent_lstm_forward(W, b, h_init, c_init, inputs)
 
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = model.ops.alloc_f2d(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0], dC0)
-
-    def lstm(
-        self,
-        W: Array2d,
-        b: Array1d,
-        hidden_tm1: Array2d,
-        cell_tm1: Array2d,
-        inputs: Array3d,
-    ) -> Tuple[Array2d, Array2d, Array3d]:
-        raise NotImplementedError
-
-    def backprop_lstm(
-        self,
-        d_cells: Array2d,
-        d_hiddens: Array2d,
-        gates: Array3d,
-        cells: Array2d,
-        prevcells: Array2d,
-    ) -> Tuple[Array3d, Array2d]:
-        raise NotImplementedError
 
     def insert_into(self, shape, Xs):
         output = self.alloc(shape, dtype=Xs[0].dtype)
@@ -684,7 +664,7 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X):
     # Recall that Y and C are both offset by 1. Y[1] is the output for
     # X[1], while Y[0] was used as an input for Y[1]. We use
     # the S values to backprop the weights, so we need X the previous Ys.
-    S = xp.hstack((X, Y[:-1]), axis=-1)
+    S = xp.concatenate((X, Y[:-1]), axis=-1)
     return Y[1:], (G, C, S)
 
 
@@ -695,7 +675,7 @@ def lstm_stepper_forward(t, state):
     At3 = lstm_weights_forward(X[t], Y[t], W, b)
     # The offsets here are a bit unintuitive, because Y and C are 1-offset.
     Ct2 = C[t]
-    (Yt3, Ct3), Gt3 = lstm_gates_forward(At3, Ct2)
+    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
     Y = index_update(Y, index[t + 1], Yt3)
     C = index_update(C, index[t + 1], Ct3)
     G = index_update(G, index[t], Gt3)
@@ -719,14 +699,15 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
         (G, C, S),  # Forward state  (Read-only)
         (W, b),  # Params         (Read-only)
     )
-    state = jax.lax.fori_loop(nL - 1, -1, backprop_lstm_stepper, state)
+    state = jax.lax.fori_loop(0, nL, backprop_lstm_stepper, state)
     (dW, db, dX), (dY, dCt), (G, C, S), (W, b) = state
     return dW, db, dX, dY, dCt
 
 
 @jax_jit()
-def backprop_lstm_stepper(t, state):
+def backprop_lstm_stepper(i, state):
     (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
+    t = S.shape[0] - i
     # Recall, we're at step 3, Y and C are offset by 1. See above.
     dYt3 = dY[t + 1]
     Ct3 = C[t + 1]
