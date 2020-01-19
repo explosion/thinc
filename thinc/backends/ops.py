@@ -299,11 +299,6 @@ class Ops:
         loss = losses.sum()
         return loss
 
-    def get_norm(self, X: Array):
-        norms = self.xp.linalg.norm(X, axis=1)
-        norms[norms == 0] = 1
-        return norms
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2

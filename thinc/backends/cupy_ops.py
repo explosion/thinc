@@ -34,7 +34,7 @@ class CupyOps(Ops):
         # forward "unset".
         dtype = {"dtype": dtype} if dtype is not None else {}
         if isinstance(X, cupy.ndarray):
-            return self.xp.asarray(X, dtype=dtype)
+            return self.xp.asarray(X, **dtype)
         elif hasattr(X, "data_ptr"):
             # Handles PyTorch Tensors
             pointer = cupy.cuda.MemoryPointer(X.data_ptr())
