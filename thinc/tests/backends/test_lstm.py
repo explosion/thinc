@@ -25,6 +25,7 @@ def assert_arrays_equal(arrays1, arrays2):
         assert arr1.shape == arr2.shape
         numpy.testing.assert_allclose(arr1, arr2, rtol=0.001, atol=0.001)
 
+# See thinc/backends/jax_ops for notation
 
 @given(
     Xt3=ndarrays_of_shape((nB, nI), dtype="f"),
