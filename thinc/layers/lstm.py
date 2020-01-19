@@ -3,6 +3,7 @@ from functools import partial
 
 from ..model import Model
 from ..backends import Ops
+from ..backends.jax_ops import jax_jit
 from ..config import registry
 from ..util import get_width
 from ..types import RNNState, Array2d, Array3d, Padded
@@ -37,6 +38,7 @@ def LSTM(
         "lstm",
         forward,
         dims={"nO": nO, "nI": nI},
+        attrs={"registry_name": "LSTM.v0"},
         params={"W": None, "b": None, "c": None, "h": None},
         init=partial(init, init_W, init_b)
     )
@@ -94,11 +96,16 @@ def forward(
     cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
     hiddens += h
     cells += c
-    Y, cells, gates = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
+    (Y, cells, gates), get_grads = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
-        raise NotImplementedError
+        dW, db, d_h, d_c, dX = get_grads(dYp.data)
+        model.inc_grad("W", dW)
+        model.inc_grad("b", db)
+        model.inc_grad("h", d_h)
+        model.inc_grad("c", d_c)
+        return Padded(X, dYp.size_at_t, dYp.lengths, dYp.indices)
 
     return Yp, backprop
 
