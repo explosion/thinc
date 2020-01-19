@@ -100,4 +100,5 @@ __all__ = [
     "with_list",
     "with_ragged",
     "with_padded",
+    "remap_ids",
 ]
