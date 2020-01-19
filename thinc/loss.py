@@ -11,7 +11,7 @@ GuessT = TypeVar("GuessT")
 TruthT = TypeVar("TruthT")
 
 
-class Loss(Generic[GuessT, TruthT, GradT, LossT]):
+class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
     """Base class for classes computing the loss / gradient. The class can
     be initialized with settings if needed. It provides get_loss and
     get_grad as separate methods to allow calculating them separately. It

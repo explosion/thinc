@@ -52,3 +52,7 @@ def test_loss_from_config(name, kwargs, args):
     if isinstance(loss, (list, tuple)):
         loss = loss[0]
     assert loss.ndim == 2
+    with pytest.raises(NotImplementedError):
+        func.get_loss(*args)
+    with pytest.raises(NotImplementedError):
+        func(*args)
