@@ -296,9 +296,10 @@ class JaxOps(Ops):
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, h_init: Array2d, c_init: Array2d, inputs: Array2d
-    ) -> Tuple[Array2d, Array2d, Array3d]:
-        return recurrent_lstm_forward(W, b, h_init, c_init, inputs)
+        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d
+    ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
+        Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
+        return Y, (G, C, S)
 
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = model.ops.alloc_f2d(dY.shape[1], dY.shape[2])
