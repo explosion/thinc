@@ -3,7 +3,7 @@ import numpy
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..util import copy_array, get_array_module
+from ..util import get_array_module
 
 
 class Ops:
@@ -644,7 +644,6 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X):
 
 def lstm_stepper_forward(t, state):
     (W, b, X), (Y, C, G) = state
-    xp = get_array_module(W)
     # Get the activations for this timestep.
     At3 = lstm_weights_forward(X[t], Y[t], W, b)
     # The offsets here are a bit unintuitive, because Y and C are 1-offset.
@@ -680,7 +679,6 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
 
 def backprop_lstm_stepper(t, state):
     (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
-    xp = get_array_module(dY)
     # Recall, we're at step 3, Y and C are offset by 1. See above.
     dYt3 = dY[t + 1]
     Ct3 = C[t + 1]

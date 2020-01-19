@@ -302,7 +302,7 @@ class JaxOps(Ops):
         return Y, (G, C, S)
 
     def recurrent_lstm_backward(self, dY, fwd_state, params):
-        dCt = model.ops.alloc_f2d(dY.shape[1], dY.shape[2])
+        dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0], dC0)
 
@@ -733,7 +733,6 @@ def lstm_weights_forward(Xt3, Yt2, W, b):
 @jax_jit()
 def backprop_lstm_weights(dAt3, fwd_state):
     St3, W, b = fwd_state
-    xp = jax.numpy
     dW = dAt3.T @ St3
     db = dAt3.sum(axis=0)
     dSt3 = dAt3 @ W

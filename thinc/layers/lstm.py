@@ -2,14 +2,11 @@ from typing import Optional, Tuple, Callable, cast
 from functools import partial
 
 from ..model import Model
-from ..backends import Ops
-from ..backends.jax_ops import jax_jit
 from ..config import registry
 from ..util import get_width
 from ..types import Array1d, Array2d, Array3d, Padded
 from .bidirectional import bidirectional
 from .clone import clone
-from .linear import Linear
 from .noop import noop
 from ..initializers import xavier_uniform_init, zero_init
 

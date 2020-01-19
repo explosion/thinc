@@ -10,12 +10,11 @@ except ImportError:
     cupy = None
     has_cupy = False
 
-
-from ..types import Array2d, Array3d
+import numpy
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
-from ..util import get_array_module, copy_array
+from ..util import get_array_module
 
 
 class CupyOps(Ops):
