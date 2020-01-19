@@ -19,16 +19,13 @@ def Softmax(
     init_W: Callable = zero_init,
     init_b: Callable = zero_init
 ) -> Model[InT, OutT]:
-    model: Model[InT, OutT] = Model(
+    return Model(
         "softmax",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:

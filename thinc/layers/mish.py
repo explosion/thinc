@@ -38,8 +38,6 @@ def Mish(
         model = chain(model, cast(Model[InT, OutT], LayerNorm(nI=nO)))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
-    if nO is not None and nI is not None:
-        model.initialize()
     return model
 
 

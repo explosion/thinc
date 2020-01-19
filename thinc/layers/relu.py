@@ -35,8 +35,6 @@ def ReLu(
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[Array2d, Array2d], Dropout(dropout)))
-    if nO is not None and nI is not None:
-        model.initialize()
     return model
 
 

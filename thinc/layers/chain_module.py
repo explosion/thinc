@@ -37,8 +37,6 @@ def chain(
         dims={"nO": None, "nI": None},
         layers=layers,
     )
-    if layers[0].has_dim("nI") and layers[-1].has_dim("nO"):
-        model.initialize()
     return model
 
 

@@ -30,8 +30,6 @@ def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
         dims={"nO": nO, "length": length},
         ops=NumpyOps()
     )
-    if nO is not None:
-        model.initialize()
     return model
 
 

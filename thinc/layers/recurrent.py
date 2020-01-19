@@ -11,7 +11,7 @@ OutT = Padded
 
 @registry.layers("recurrent.v0")
 def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
-    model: Model[Padded, Padded] = Model(
+    return Model(
         step_model.name.replace("_step", ""),
         forward,
         init=init,
@@ -19,9 +19,6 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
         dims={"nO": step_model.get_dim("nO") if step_model.has_dim("nO") else None},
         layers=[step_model],
     )
-    if model.has_dim("nO"):
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
