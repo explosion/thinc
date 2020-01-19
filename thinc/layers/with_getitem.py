@@ -37,8 +37,9 @@ def forward(
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     idx = model.get_attr("idx")
     X_i = X[idx] if X is not None else X
     Y_i = Y[idx] if Y is not None else Y
     model.layers[0].initialize(X=X_i, Y=Y_i)
+    return model

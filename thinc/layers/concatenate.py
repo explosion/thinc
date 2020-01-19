@@ -88,7 +88,7 @@ def _list_forward(
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
@@ -97,3 +97,4 @@ def init(
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
+    return model

@@ -33,11 +33,12 @@ def forward(
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> None:
+) -> Model[SeqT, SeqT]:
     model.layers[0].initialize(
         X=_get_ragged(model, X) if X is not None else None,
         Y=_get_ragged(model, Y) if Y is not None else None,
     )
+    return model
 
 
 def _is_ragged_data(seq):

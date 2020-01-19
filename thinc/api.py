@@ -1,8 +1,8 @@
 from .config import Config, registry
-from .initializers import normal_init, uniform_init, xavier_uniform_init, zero_init
+from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
 from .loss import CategoricalCrossentropy, L1Distance, CosineDistance
 from .loss import SequenceCategoricalCrossentropy
-from .model import create_init, Model, serialize_attr, deserialize_attr
+from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values
 from .shims import Shim, PyTorchShim, TensorFlowShim
 from .optimizers import Adam, RAdam, SGD, Optimizer

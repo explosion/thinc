@@ -46,7 +46,7 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 
 def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
-) -> None:
+) -> Model[InT, InT]:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
@@ -55,3 +55,4 @@ def init(
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))
+    return model

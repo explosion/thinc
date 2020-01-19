@@ -76,7 +76,7 @@ def _get_initial_state(model, n, nO):
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     Xt = X.data[0] if X is not None else None
     Yt = Y.data[0] if Y is not None else None
     if Xt is not None or Yt is not None:
@@ -86,3 +86,4 @@ def init(
     nO = model.get_dim("nO")
     model.set_param("initial_cells", model.ops.alloc_f1d(nO))
     model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))
+    return model

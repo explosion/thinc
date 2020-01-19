@@ -6,7 +6,7 @@ import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, RAdam, Model
+from thinc.api import Config, RAdam, Model, NumpyOps
 from thinc.util import partial
 import numpy
 import inspect
@@ -541,21 +541,21 @@ def test_objects_from_config():
 def test_partials_from_config():
     """Test that functions registered with partial applications are handled
     correctly (e.g. initializers)."""
-    name = "xavier_uniform_init.v0"
-    cfg = {"test": {"@initializers": name, "inplace": True}}
+    name = "uniform_init.v0"
+    cfg = {"test": {"@initializers": name, "lo": -0.2}}
     func = my_registry.make_from_config(cfg)["test"]
     assert hasattr(func, "__call__")
-    # The partial will still have inplace as an arg, just with default
-    assert len(inspect.signature(func).parameters) == 2
+    # The partial will still have lo as an arg, just with default
+    assert len(inspect.signature(func).parameters) == 4
     # Make sure returned partial function has correct value set
-    assert inspect.signature(func).parameters["inplace"].default is True
+    assert inspect.signature(func).parameters["lo"].default == -0.2
     # Actually call the function and verify
-    func(numpy.asarray([[1]]))
+    func(NumpyOps(), (2, 3))
     # Make sure validation still works
-    bad_cfg = {"test": {"@initializers": name, "inplace": [0.5]}}
+    bad_cfg = {"test": {"@initializers": name, "lo": [0.5]}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
-    bad_cfg = {"test": {"@initializers": name, "inplace": False, "other": 10}}
+    bad_cfg = {"test": {"@initializers": name, "lo": -0.2, "other": 10}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
 
