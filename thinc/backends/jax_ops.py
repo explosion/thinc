@@ -789,7 +789,7 @@ def backprop_lstm_gates(
     d_ho = dYt3 * tanhCt3
     d_tanhCt3 = dYt3 * ho
     # 3a: tanhCt3 = tanh(Ct3)
-    dCt3 = d_tanhCt3 * dtanh(tanhCt3)
+    dCt3 += d_tanhCt3 * dtanh(tanhCt3)
     # 2b: Ct3 += hi * hc
     d_hi = dCt3 * hc
     d_hc = dCt3 * hi
