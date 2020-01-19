@@ -674,9 +674,11 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X):
     state = ((W, b, X), (Y, C, G))
     state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
     (W, b, X), (Y, C, G) = state 
-    # Return 1:, to remove the initial state. We do need the
-    # C[0] though, for the backprop.
-    return Y[1:], C, G
+    # Recall that Y and C are both offset by 1. Y[1] is the output for
+    # X[1], while Y[0] was used as an input for Y[1]. We use
+    # the S values to backprop the weights, so we need X the previous Ys.
+    S = xp.hstack((X, Y[:-1]), axis=-1)
+    return Y[1:], (G, C, S)
 
 
 @jax_jit()
@@ -697,7 +699,7 @@ def lstm_stepper_forward(t, state):
 
 @jax_jit()
 def backprop_recurrent_lstm(dY, dCt, fwd_vars):
-    (G, C, X), (W, b) = fwd_vars
+    (G, C, S), (W, b) = fwd_vars
     xp = jax.numpy
     nL, nB, nI = X.shape
     nO = hidden.shape[1]
@@ -706,10 +708,10 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
     dW = xp.zeros(W.shape, dtype="f")
     db = xp.zeros(b.shape, dtype="f")
     state = (
-        (dW, db, dX), # The gradi-outs (what we're accumulating)
-        (dY, dCt),     # The gradi-ins  (Updated each step)
-        (G, C, X),    # Forward state  (unchanging)
-        (W, b)        # Params         (unchanging)
+        (dW, db, dX), # The gradi-outs (Write-only)
+        (dY, dCt),     # The gradi-ins  (Read and write)
+        (G, C, S),    # Forward state  (Read-only)
+        (W, b)        # Params         (Read-only)
     )
     state = jax.lax.fori_loop(X.shape[0]-1, -1, backprop_lstm_stepper, state)
     (dW, db, dX), (dY, dCt), (G, C, X), (W, b) = state
@@ -719,30 +721,36 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
 @jax_jit()
 def backprop_lstm_stepper(t, state):
     (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
-    # TODO: I think I'm ignoring the sequence grads here?
-    (dAt2, dYt2, dCt2) = backprop_lstm_gates(dCt3, dY[t+1], G[t], C[t+1], C[t])
-    dX3, dY_prev, dW3, db3 = backprop_lstm_weights(dAt, (S[t], W, b))
+    # Recall, we're at step 3, Y and C are offset by 1. See above.
+    dYt3 = dY[t+1]
+    Ct3 = C[t+1]
+    St3 = S[t]
+    Gt3 = G[t]
+    Ct2 = C[t]
+    dAt3, dCt2 = backprop_lstm_gates(dCt3, dYt3, Gt3, Ct3, Ct2)
+    dXt3, dYt2, dW3, db3 = backprop_lstm_weights(dAt3, (St3, W, b))
     dX = index_update(dX, index[t], dX3)
-    return (dW+dW3, db+db3, dX), (dY, dC), (G, C, X), (W, b)
+    dY = index_update(dY, index[t], dYt2)
+    return (dW+dW3, db+db3, dX), (dY, dCt2), (G, C, X), (W, b)
 
 
 @jax_jit()
-def forward_lstm_weights(Xt, Yt1, W, b):
+def forward_lstm_weights(Xt3, Yt2, W, b):
     xp = jax.numpy
-    St = xp.hstack((Xt, Yt1))
-    At = xp.dot(St, W.T) + b
-    return At
+    St3 = xp.hstack((Xt3, Yt2))
+    At3 = xp.dot(St3, W.T) + b
+    return At3
 
 
 @jax_jit()
-def backward_lstm_weights(dAt, fwd_state):
-    St, W, b = fwd_state
+def backward_lstm_weights(dAt3, fwd_state):
+    St3, W, b = fwd_state
     xp = jax.numpy
-    dW = dAt.T @ St
-    db = dAt.sum(axis=0)
-    dSt = dAt @ W
-    dXt, dY1 = xp.split(dSt, 2)
-    return dXt, dYt1, dW, db
+    dW = dAt3.T @ St
+    db = dAt3.sum(axis=0)
+    dSt3 = dAt3 @ W
+    dXt3, dYt2 = xp.split(dSt3, 2)
+    return dXt3, dYt2, dW, db
 
 
 @jax_jit()
