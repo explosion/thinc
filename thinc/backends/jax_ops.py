@@ -738,7 +738,7 @@ def backprop_lstm_stepper(t, state):
 def lstm_weights_forward(Xt3, Yt2, W, b):
     xp = jax.numpy
     St3 = xp.hstack((Xt3, Yt2))
-    At3 = xp.dot(St3, W.T) + b
+    At3 = St3 @ W.T + b
     return At3
 
 
@@ -749,7 +749,10 @@ def backprop_lstm_weights(dAt3, fwd_state):
     dW = dAt3.T @ St3
     db = dAt3.sum(axis=0)
     dSt3 = dAt3 @ W
-    dXt3, dYt2 = xp.split(dSt3, 2)
+    nO = W.shape[0] // 4
+    nI = St3.shape[1] - nO
+    dXt3 = dSt3[:, :nI]
+    dYt2 = dSt3[:, nI:]
     return dXt3, dYt2, dW, db
 
 
@@ -771,10 +774,10 @@ def lstm_gates_forward(At3, Ct2):
     Yt3 = tanhCt3 * ho  # 3b
     # We don't need the gradient for this, it's just for backprop calculation.
     Gt3 = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    return (Yt3, Ct3), Gt3
+    return Yt3, Ct3, Gt3
 
 
-@jax_jit()
+#@jax_jit()
 def backprop_lstm_gates(
     dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
 ) -> Tuple[Array3d, Array2d]:
