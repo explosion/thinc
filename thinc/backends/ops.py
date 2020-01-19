@@ -371,67 +371,17 @@ class Ops:
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, cells: Array2d,
-        hiddens: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, h_init: Array2d, c_init: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        nL, nB, nI = inputs.shape
-        nO = cells.shape[1]
-        # Preallocate these so we can pass them through for loop.
-        Y = self.alloc_f3d(nL, nB, nO)
-        gates = self.alloc_f4d(nL, nB, nO, 4)
-        # Run the loop
-        for t in range(inputs.shape[0]):
-            hiddens, cells, gates[t] = self.lstm(W, b, hiddens, cells, inputs[t])
-            Y[t] = hiddens
-        return Y, cells, gates
+        return recurrent_lstm_forward(W, b, h_init, c_init, inputs)
 
-    def lstm(
-            self, W: Array2d, b: Array1d, hidden_tm1: Array2d, cell_tm1: Array2d, inputs: Array3d
-    ) -> Tuple[Array2d, Array2d, Array3d]:
-        xp = self.xp
-        X = xp.hstack((inputs, hidden_tm1))
-        acts = self.gemm(X, W, trans2=True)
-        acts += b
-        nB = acts.shape[0]
-        nO = acts.shape[1] // 4
-        acts = acts.reshape((nB, nO, 4))
- 
-        gates = self.as_contig(acts.transpose((2, 0, 1)))
-        # Activations is: hf, hi, ho, hc
-        self.sigmoid(gates[0], inplace=True)
-        self.sigmoid(gates[1], inplace=True)
-        self.sigmoid(gates[2], inplace=True)
-        self.xp.tanh(gates[3], out=gates[3])
-        cells = gates[0] * cell_tm1
-        cells += gates[1] * gates[3]
-        hiddens = self.xp.tanh(cells)
-        hiddens *= gates[2]
-        return hiddens, cells, gates
-
-    def backprop_lstm(
-        self,
-        d_cells: Array2d,
-        d_hiddens: Array2d,
-        gates: Array3d,
-        cells: Array2d,
-        prevcells: Array2d,
-    ) -> Tuple[Array3d, Array2d]:
-        (hf, hi, ho, hc) = (0, 1, 2, 3)
-        cells_tanh = self.xp.tanh(cells)
-        # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-        d_ho = cells_tanh
-        d_ho *= d_hiddens * self.dsigmoid(gates[ho])
-        d_prevcells = gates[ho] * d_hiddens * self.dtanh(cells_tanh)
-        d_prevcells += d_cells  # Carry gradient from timestep
-        # Gradient for hf, hi, hc, prev[i]
-        # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-        d_hf = self.dsigmoid(gates[hf]) * d_prevcells * prevcells
-        d_hi = self.dsigmoid(gates[hi]) * d_prevcells * gates[hc]
-        d_hc = self.dtanh(gates[hc]) * d_prevcells * gates[hi]
-        d_prevcells *= gates[hf]
-        copy_array(d_cells, d_prevcells)  # TOOD: Wtf is this?
-        d_acts = self.xp.concatenate((d_hf, d_hi, d_ho, d_hc), axis=-1)
-        return d_acts, d_prevcells
+    def recurrent_lstm_backward(self, dY, fwd_state, params):
+        dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
+        empty_row = self.alloc((1,) + dY.shape[1:], dtype="f")
+        # Offset dY by 1
+        dY = self.xp.vstack((empty_row, dY))
+        dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
+        return dX, (dW, db, dY[0], dC0)
 
     # TODO: types
     def maxout(self, X):
@@ -624,3 +574,199 @@ class Ops:
         for i, x in enumerate(Xs):
             output[i, :x.shape[0]] = x
         return output
+
+
+# This code is intentionally almost-duplicate with the Jax one. It's kind
+# of hard to condition on jax vs not jax without messing up the jax JIT,
+# and we'll want to have a more specialised implementation for non-Jax
+# versions. But for now this has been tested and works, so we'll just leave
+# it as a reference implementation.
+"""
+LSTM Notation (kind of involved, but made it a lot easier to write)
+
+X: Inputs
+Y: Outputs (aka hiddens)
+C: Cells
+G: Gates (Output of non-linearity, i.e. lstm_gates(X @ W.T)
+A: Activations (X @ W.T, before non-linearity)
+
+Imagine we have the input:
+batch = [
+    ["apple", "banana", "cantaloupe", "date", "elderberry"],
+    ["aardvark", "bat", "capybara", "dingo", "elephant"]
+]
+
+The input variable X will have one vector per word, so X[0, 1] will be banana's
+vector, X[0, 1, 0] will be a float, the first element of that vector.
+
+We're computing an output variable Y of shape (nL, nB, nO), so that Y[0, 1] is
+the output variable of banana.
+
+A problem with variables for RNNs is keeping the timesteps straight. It's hard
+to distinguish the current, previous, and next timesteps. To solve this problem,
+we follow the convention that **we are at timestep 3**.
+
+Additionally, the variables for Y and C are offset by one, as the 0th elements
+have the initial hiddens and initial cells. So:
+
+    t=3
+    Xt3: The input vectors for 'dingo' and 'date', i.e. X[t]
+    Yt3: The output vectors for 'dingo' and 'date', i.e. Y[t+1] (Y is offset.)
+    Ct2: The cells calculated at 'c...', that are the input for 'd...'
+    Ct3: The cells calculated at 'd...', that are the input for 'e...'
+    At3: The activations at 'd...'
+    Gt3: The gates at 'd...'
+"""
+
+def recurrent_lstm_forward(W, b, c_init, h_init, X):
+    xp = get_array_module(W)
+    nL, nB, nI = X.shape
+    nO = h_init.shape[1]
+    # Preallocate these so we can pass them through for loop.
+    Y = xp.zeros((nL + 1, nB, nO), dtype="f")
+    G = xp.zeros((nL, nB, nO * 4), dtype="f")
+    C = xp.zeros((nL + 1, nB, nO), dtype="f")
+    # Set initial hidden and cell states. The Y and C will be shifted 1,
+    # so that we can have fewer arrays.
+    Y[0] = h_init
+    C[0] = c_init
+    state = ((W, b, X), (Y, C, G))
+    for i in range(X.shape[0]):
+        state = lstm_stepper_forward(i, state)
+    (W, b, X), (Y, C, G) = state
+    # Recall that Y and C are both offset by 1. Y[1] is the output for
+    # X[1], while Y[0] was used as an input for Y[1]. We use
+    # the S values to backprop the weights, so we need X the previous Ys.
+    S = xp.concatenate((X, Y[:-1]), axis=-1)
+    return Y[1:], (G, C, S)
+
+
+def lstm_stepper_forward(t, state):
+    (W, b, X), (Y, C, G) = state
+    xp = get_array_module(W)
+    # Get the activations for this timestep.
+    At3 = lstm_weights_forward(X[t], Y[t], W, b)
+    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
+    Ct2 = C[t]
+    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
+    Y[t+1] = Yt3
+    C[t+1] = Yt3
+    G[t] = Gt3
+    return (W, b, X), (Y, C, G)
+
+
+def backprop_recurrent_lstm(dY, dCt, fwd_vars):
+    xp = get_array_module(dY)
+    (G, C, S), (W, b) = fwd_vars
+    nL = S.shape[0]
+    nB = dY.shape[1]
+    nI = S.shape[2] - dY.shape[2]
+    # Preallocate these so we can pass them through for loop.
+    dX = xp.zeros((nL, nB, nI), dtype="f")
+    dW = xp.zeros(W.shape, dtype="f")
+    db = xp.zeros(b.shape, dtype="f")
+    state = (
+        (dW, db, dX),  # The gradi-outs (Write-only)
+        (dY, dCt),  # The gradi-ins  (Read and write)
+        (G, C, S),  # Forward state  (Read-only)
+        (W, b),  # Params         (Read-only)
+    )
+    for t in range(nL-1, -1, -1):
+        state = backprop_lstm_stepper(t, state)
+    (dW, db, dX), (dY, dCt), (G, C, S), (W, b) = state
+    return dW, db, dX, dY, dCt
+
+
+def backprop_lstm_stepper(t, state):
+    (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
+    xp = get_array_module(dY)
+    # Recall, we're at step 3, Y and C are offset by 1. See above.
+    dYt3 = dY[t + 1]
+    Ct3 = C[t + 1]
+    St3 = S[t]
+    Gt3 = G[t]
+    Ct2 = C[t]
+    dAt3, dCt2 = backprop_lstm_gates(dCt3, dYt3, Gt3, Ct3, Ct2)
+    dXt3, dYt2, dW3, db3 = backprop_lstm_weights(dAt3, (St3, W, b))
+    dX[t] = dXt3
+    dY[t] = dYt2
+    return (dW + dW3, db + db3, dX), (dY, dCt2), (G, C, S), (W, b)
+
+
+def lstm_weights_forward(Xt3, Yt2, W, b):
+    xp = get_array_module(Yt2)
+    St3 = xp.hstack((Xt3, Yt2))
+    At3 = St3 @ W.T + b
+    return At3
+
+
+def backprop_lstm_weights(dAt3, fwd_state):
+    xp = get_array_module(dAt3)
+    St3, W, b = fwd_state
+    dW = dAt3.T @ St3
+    db = dAt3.sum(axis=0)
+    dSt3 = dAt3 @ W
+    nO = W.shape[0] // 4
+    nI = St3.shape[1] - nO
+    dXt3 = dSt3[:, :nI]
+    dYt2 = dSt3[:, nI:]
+    return dXt3, dYt2, dW, db
+
+
+def lstm_gates_forward(At3, Ct2):
+    xp = get_array_module(At3)
+    # hf, hi, ho, hc: Forget, input, output, cell gates.
+    At3_hf, At3_hi, At3_ho, At3_hc = xp.split(At3, 4, axis=-1)
+    # Number the steps here, to refer back for backward pass.
+    # 1. Activations
+    hf = sigmoid(At3_hf)  # 1a
+    hi = sigmoid(At3_hi)  # 1b
+    ho = sigmoid(At3_ho)  # 1c
+    hc = xp.tanh(At3_hc)  # 1d
+
+    Ct3 = hf * Ct2  # 2a
+    Ct3 += hi * hc  # 2b
+    tanhCt3 = xp.tanh(Ct3)  # 3a
+    Yt3 = tanhCt3 * ho  # 3b
+    # We don't need the gradient for this, it's just for backprop calculation.
+    Gt3 = xp.concatenate((hf, hi, ho, hc), axis=-1)
+    return Yt3, Ct3, Gt3
+
+
+def backprop_lstm_gates(
+    dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
+) -> Tuple[Array3d, Array2d]:
+    # See above for notation. Step numbering refers to forward_lstm_gates
+    xp = get_array_module(dYt3)
+    hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
+    tanhCt3 = xp.tanh(Ct3)
+    # 3b: Yt3 = tanhCt3 * ho
+    d_ho = dYt3 * tanhCt3
+    d_tanhCt3 = dYt3 * ho
+    # 3a: tanhCt3 = tanh(Ct3)
+    dCt3 += d_tanhCt3 * dtanh(tanhCt3)
+    # 2b: Ct3 += hi * hc
+    d_hi = dCt3 * hc
+    d_hc = dCt3 * hi
+    # 2a: Ct3 = hf * Ct2
+    d_hf = dCt3 * Ct2
+    dCt2 = dCt3 * hf
+    d_At3_hc = d_hc * dtanh(hc)  # 1d
+    d_At3_ho = d_ho * dsigmoid(ho)  # 1c
+    d_At3_hi = d_hi * dsigmoid(hi)  # 1b
+    d_At3_hf = d_hf * dsigmoid(hf)  # 1a
+    dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
+    return dAt3, dCt2
+
+
+def sigmoid(X):
+    xp = get_array_module(X)
+    return 1.0 / (1.0 + xp.exp(-X))
+
+
+def dsigmoid(Y: ArrayT) -> ArrayT:
+    return Y * (1.0 - Y)
+
+
+def dtanh(Y: ArrayT) -> ArrayT:
+    return 1 - Y ** 2
