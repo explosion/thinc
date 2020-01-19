@@ -96,11 +96,12 @@ def forward(
     cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
     hiddens += h
     cells += c
-    (Y, cells, gates), get_grads = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
+    Y, fwd_state = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
-        dW, db, d_h, d_c, dX = get_grads(dYp.data)
+        dX, (dW, db, d_h, d_c)  = model.ops.recurrent_lstm_backward(
+            dYp.data, fwd_state, (W, b))
         model.inc_grad("W", dW)
         model.inc_grad("b", db)
         model.inc_grad("h", d_h)
@@ -108,15 +109,3 @@ def forward(
         return Padded(X, dYp.size_at_t, dYp.lengths, dYp.indices)
 
     return Yp, backprop
-
-
-"""
-def backprop_gates(d_cells: Array2d, d_hiddens: Array2d) -> Tuple[Array3d, Array2d]:
-    d_cells = ops.as_contig(d_cells[:size])  # Wtf?
-    d_hiddens = ops.as_contig(d_hiddens[:size])
-    d_acts, d_prevcells = ops.backprop_lstm(
-        d_cells, d_hiddens, gates, cells, prevcells
-    )
-    d_acts = d_acts.reshape((nB, nO * 4))
-    return d_acts, d_prevcells
-"""
