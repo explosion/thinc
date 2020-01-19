@@ -624,65 +624,112 @@ def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Arr
 
 
 @jax_jit()
-def recurrent_lstm(W, b, cell, hidden, X):
+def recurrent_lstm(W, b, c0, h0, X):
+    """
+    X: Inputs
+    Y: Outputs (aka hiddens)
+    C: Cells
+    G: Gates (Output of non-linearity, i.e. lstm_gates(X @ W.T)
+    A: Activations (X @ W.T, before non-linearity)
+    """
     xp = jax.numpy
     nL, nB, nI = X.shape
     nO = hidden.shape[1]
     # Preallocate these so we can pass them through for loop.
-    Y = xp.zeros((nL, nB, nO), dtype="f")
-    gates = xp.zeros((nL, nB, nO, 4), dtype="f")
-    state = ((W, b, hidden, cell, X), (Y, gates))
+    Y = xp.zeros((nL+1, nB, nO), dtype="f")
+    G = xp.zeros((nL, nB, nO, 4), dtype="f")
+    C = xp.zeros((nL+1, nB, nO), dtype="f")
+    # Set initial hidden and cell states. The Y and C will be shifted 1,
+    # so that we can have fewer arrays.
+    Y = index_update(Y, index[0], h0)
+    C = index_update(C, index[0], c0)
+    state = ((W, b, X), (Y, C, G))
     state = jax.lax.fori_loop(0, X.shape[0], _lstm_stepper, state)
-    (W, b, hidden, cell, X), (Y, gates) = state 
-    return Y, cell, gates
+    (W, b, X), (Y, C, G) = state 
+    # Return from the first, to remove the initial state state. We do need the
+    # C[0] though, for the backprop.
+    return Y[1:], C, G
 
 
 @jax_jit()
 def _lstm_stepper(t, state):
-    (W, b, hidden, cell, X), (Y, gates) = state 
-    next_hiddens, next_cells, next_gates = lstm(W, b, hidden, cell, X[t])
-    Y = index_update(Y, index[t], next_hiddens)
-    gates = index_update(gates, index[t], next_gates)
-    return (W, b, next_hiddens, next_cells, X), (Y, gates)
+    (W, b, X), (Y, C, G) = state 
+    yt, ct, gt = lstm(W, b, Y[t], C[t], X[t])
+    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
+    Y = index_update(Y, index[t+1], yt)
+    C = index_update(C, index[t+1], ct)
+    G = index_update(G, index[t], gt)
+    return (W, b, X), (Y, C, G)
+
 
 @jax_jit()
-def lstm(W, b, hidden_tm1, cell_tm1, inputs):
-    # Support usage where the inputs are 1d
-    shapes = (hidden_tm1.shape, cell_tm1.shape, hidden_tm1.shape + (4,))
-    cell_tm1 = cell_tm1.reshape((-1, cell_tm1.shape[-1]))
-    hidden_tm1 = cell_tm1.reshape((-1, hidden_tm1.shape[-1]))
-    inputs = inputs.reshape((-1, inputs.shape[-1]))
+def lstm(W, b, Yt1, Ct1, Xt):
     xp = jax.numpy
-    X = xp.hstack((inputs, hidden_tm1))
-    acts = xp.dot(X, W.T) + b
-    nB = acts.shape[0]
-    nO = acts.shape[1] // 4
-    acts = acts.reshape((nB, nO, 4))
-    hf, hi, ho, hc = xp.split(acts, 4, axis=-1)
+    nB, nO = Yt1.shape[0]
+    nI = Xt.shape[0]
+    At = xp.dot(xp.hstack((Xt, Yt1)), W.T) + b
+    At = At.reshape((nB, nO, 4))
+    hf, hi, ho, hc = xp.split(At, 4, axis=-1)
     # Need 'gates' here, the transformed acts, for backward pass.
     hf = sigmoid(hf.reshape((nB, nO)))
     hi = sigmoid(hi.reshape((nB, nO)))
     ho = sigmoid(ho.reshape((nB, nO)))
     hc = xp.tanh(hc.reshape((nB, nO)))
 
-    cells = (hf * cell_tm1) + (hi * hc)
-    hiddens = xp.tanh(cells) * ho
-    gates = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    hiddens = hiddens.reshape(shapes[0])
-    cells = cells.reshape(shapes[1])
-    gates = gates.reshape(shapes[2])
-    return hiddens, cells, gates #(hf, hi, ho, hc)
+    Ct = (hf * Ct1) + (hi * hc)
+    Yt = xp.tanh(Ct) * ho
+    Gt = xp.concatenate((hf, hi, ho, hc), axis=-1)
+    return Yt, Ct, Gt
+
+
+@jax_jit()
+def backprop_recurrent_lstm(dY, dC, dG, W, b, G, C, X):
+    xp = jax.numpy
+    nL, nB, nI = X.shape
+    nO = hidden.shape[1]
+    # Preallocate these so we can pass them through for loop.
+    dX = xp.zeros((nL, nB, nI), dtype="f")
+    dW = xp.zeros(W.shape, dtype="f")
+    db = xp.zeros(b.shape, dtype="f")
+    state = (
+        (dW, db, dX),
+        (dY, dC),
+        (G, C, X),
+        (W, b)
+    )
+    state = jax.lax.fori_loop(X.shape[0]-1, -1, _backprop_lstm_stepper, state)
+    (dW, db, dX), (dY, dC), (G, C, X), (W, b) = state
+ 
+    return dW, db, dX
+
+
+@jax_jit()
+def _backprop_lstm_stepper(t, state):
+    (dW, db, dX), (dY, dCt1), (G, C, X), (W, b) = state
+    # TODO: I thnk I'm missing a d_hiddens + dY[t] here? I think I'm ignoring
+    # the sequence grads.
+    # TODO: Check this is right with the state nums.
+    (dAt, dCt) = backprop_lstm(dCt1, dY[t+1], G[t], C[t+1], C[t])
+    dXt, dYt = (dAt @ W).split(nO, axis=-1)
+    dW += dAt.T @ X[t]
+    db += dAt.sum(axis=0)
+    dX = index_update(dX, index[t], dXt)
+    return (dW, db, dX), (dY, dC), (G, C, X), (W, b)
 
 
 @jax_jit()
 def backprop_lstm(
-    d_cells: Array2d, d_output: Array2d, acts: Array3d, cells: Array2d, prev: Array2d
+    d_cells,
+    d_hiddens,
+    gates,
+    cells,
+    prevcells,
 ) -> Tuple[Array3d, Array2d]:
     xp = jax.numpy
-    hf = acts[:, :, 0]
-    hi = acts[:, :, 1]
-    ho = acts[:, :, 2]
-    hc = acts[:, :, 3]
+    hf = gates[:, :, 0]
+    hi = gates[:, :, 1]
+    ho = gates[:, :, 2]
+    hc = gates[:, :, 3]
     # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
     d_ho = xp.tanh(cells) * d_output * dsigmoid(ho)
     d_prevcells = ho * d_output * dtanh(xp.tanh(cells))
@@ -694,9 +741,7 @@ def backprop_lstm(
     d_hc = dtanh(hc) * d_prevcells * hi
     d_prev = d_prevcells * hf
     d_acts = xp.concatenate((d_hf, d_hi, d_ho, d_hc), axis=-1)
-    d_acts = d_acts.reshape((d_acts.shape[0], d_acts.shape[1], 4))
-    return d_acts, d_prev
-
+    return d_acts, d_prevcells
 
 JaxOps.xp.random = JaxRandom()
 JaxOps.xp.testing = numpy.testing
