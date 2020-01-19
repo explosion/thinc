@@ -84,7 +84,7 @@ def configure_SequenceCategoricalCrossentropy() -> SequenceCategoricalCrossentro
 
 
 class L1Distance(Loss):
-    def __init__(self, margin: float = 0.2):
+    def __init__(self, *, margin: float = 0.2):
         self.margin = margin
 
     def __call__(
@@ -111,7 +111,7 @@ def configure_L1Distance(*, margin: float = 0.2) -> L1Distance:
 
 
 class CosineDistance(Loss):
-    def __init__(self, ignore_zeros: bool = False):
+    def __init__(self, *, ignore_zeros: bool = False):
         self.ignore_zeros = bool
 
     def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
