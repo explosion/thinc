@@ -36,6 +36,7 @@ def test_list2padded():
     assert unpadded[2].shape == (2, 4)
 
 
+@pytest.mark.xfail
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
     model = with_padded(LSTM(nO, nI)).initialize()
@@ -61,6 +62,7 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert initial_cells.shape == (nO,)
 
 
+@pytest.mark.xfail
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
@@ -71,6 +73,7 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
 
+@pytest.mark.xfail
 def test_LSTM_learns():
     nO = 2
     nI = 2
