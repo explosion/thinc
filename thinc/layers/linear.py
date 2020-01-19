@@ -20,16 +20,13 @@ def Linear(
     init_b: Callable = zero_init,
 ) -> Model[InT, OutT]:
     """Multiply inputs by a weights matrix and adds a bias vector."""
-    model: Model[InT, OutT] = Model(
+    return Model(
         "linear",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    if nO is not None and nI is not None:
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:

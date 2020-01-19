@@ -20,7 +20,7 @@ def Embed(
     initializer: Callable = uniform_init,
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
-    model: Model[InT, OutT] = Model(
+    return Model(
         "embed",
         forward,
         init=partial(init, initializer),
@@ -28,9 +28,6 @@ def Embed(
         attrs={"column": column},
         params={"E": None},
     )
-    if nO is not None and nV is not None:
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:

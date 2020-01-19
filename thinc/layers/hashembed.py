@@ -30,7 +30,6 @@ def HashEmbed(
     )
     if seed is None:
         model.set_attr("seed", model.id)
-    model.initialize()
     return model
 
 

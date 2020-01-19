@@ -34,7 +34,7 @@ class SerializableShim(Shim):
 
 def test_pickle_with_flatten(linear):
     Xs = [linear.ops.alloc_f2d(2, 3), linear.ops.alloc_f2d(4, 3)]
-    model = with_array(linear)
+    model = with_array(linear).initialize()
     pickled = srsly.pickle_dumps(model)
     loaded = srsly.pickle_loads(pickled)
     Ys = loaded.predict(Xs)
@@ -44,7 +44,7 @@ def test_pickle_with_flatten(linear):
 
 
 def test_simple_model_roundtrip_bytes():
-    model = Maxout(5, 10, nP=2)
+    model = Maxout(5, 10, nP=2).initialize()
     b = model.get_param("b")
     b += 1
     data = model.to_bytes()
@@ -59,6 +59,7 @@ def test_simple_model_roundtrip_bytes_serializable_attrs():
     assert attr.value == "foo"
     assert attr.to_bytes() == b"foo"
     model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
+    model.initialize()
 
     @serialize_attr.register(SerializableAttr)
     def serialize_attr_custom(_, value, name, model):
@@ -75,7 +76,7 @@ def test_simple_model_roundtrip_bytes_serializable_attrs():
 
 
 def test_multi_model_roundtrip_bytes():
-    model = chain(Maxout(5, 10, nP=2), Maxout(2, 3))
+    model = chain(Maxout(5, 10, nP=2), Maxout(2, 3)).initialize()
     b = model.layers[0].get_param("b")
     b += 1
     b = model.layers[1].get_param("b")
@@ -91,7 +92,7 @@ def test_multi_model_roundtrip_bytes():
 
 
 def test_multi_model_load_missing_dims():
-    model = chain(Maxout(5, 10, nP=2), Maxout(2, 3))
+    model = chain(Maxout(5, 10, nP=2), Maxout(2, 3)).initialize()
     b = model.layers[0].get_param("b")
     b += 1
     b = model.layers[1].get_param("b")
@@ -108,6 +109,7 @@ def test_serialize_model_shims_roundtrip_bytes():
     test_shim = SerializableShim(None)
     shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
     model = chain(Linear(2, 3), shim_model, Maxout(2, 3))
+    model.initialize()
     assert model.layers[1].shims[0].value == "shimdata"
     model_bytes = model.to_bytes()
     with pytest.raises(ValueError):
@@ -121,7 +123,7 @@ def test_serialize_model_shims_roundtrip_bytes():
 def test_serialize_refs_roundtrip_bytes():
     fwd = lambda X: (X, lambda dY: dY)
     model_a = Model("a", fwd)
-    model = Model("test", fwd, refs={"a": model_a, "b": None})
+    model = Model("test", fwd, refs={"a": model_a, "b": None}).initialize()
     with pytest.raises(ValueError):  # ref not in nodes
         model.to_bytes()
     model = Model("test", fwd, refs={"a": model_a, "b": None}, layers=[model_a])
@@ -138,7 +140,7 @@ def test_serialize_attrs():
     fwd = lambda X: (X, lambda dY: dY)
 
     attrs = {"test": "foo"}
-    model1 = Model("test", fwd, attrs=attrs)
+    model1 = Model("test", fwd, attrs=attrs).initialize()
     bytes_attr = serialize_attr(model1.get_attr("test"), attrs["test"], "test", model1)
     assert bytes_attr == srsly.msgpack_dumps("foo")
     model2 = Model("test", fwd, attrs={"test": ""})

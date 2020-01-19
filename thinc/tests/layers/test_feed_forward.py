@@ -27,13 +27,13 @@ def nO(request):
 
 @pytest.fixture
 def model1(nH, nI):
-    model = ReLu(nH, nI)
+    model = ReLu(nH, nI).initialize()
     return model
 
 
 @pytest.fixture
 def model2(nO, nH):
-    model = Linear(nO, nH)
+    model = Linear(nO, nH).initialize()
     return model
 
 
@@ -49,7 +49,7 @@ def gradient_data(nB, nO):
 
 @pytest.fixture
 def model(model1, model2):
-    return chain(model1, model2)
+    return chain(model1, model2).initialize()
 
 
 def get_expected_predict(input_data, Ws, bs):

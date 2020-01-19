@@ -21,7 +21,7 @@ def sgd():
 def test_basic(instances, sgd):
     X, y = instances
     nr_class = 3
-    model = SparseLinear(nr_class)
+    model = SparseLinear(nr_class).initialize()
     yh, backprop = model.begin_update(X)
     loss1 = ((yh - y) ** 2).sum()
     backprop(yh - y)
@@ -32,7 +32,7 @@ def test_basic(instances, sgd):
 
 
 def test_init():
-    model = SparseLinear(3)
+    model = SparseLinear(3).initialize()
     keys = numpy.ones((5,), dtype="uint64")
     values = numpy.ones((5,), dtype="f")
     lengths = numpy.zeros((2,), dtype="int32")

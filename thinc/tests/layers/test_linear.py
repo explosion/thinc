@@ -127,7 +127,7 @@ def test_dropout_gives_zero_gradients(W_b_input):
 
 @pytest.fixture
 def model2():
-    model = Linear(2, 2)
+    model = Linear(2, 2).initialize()
     return model
 
 

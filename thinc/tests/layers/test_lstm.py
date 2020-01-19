@@ -38,7 +38,7 @@ def test_list2padded():
 
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
-    model = with_padded(LSTM(nO, nI))
+    model = with_padded(LSTM(nO, nI)).initialize()
     for node in model.walk():
         # Check no unallocated params.
         assert node.has_param("W") is not None
@@ -64,9 +64,8 @@ def test_LSTM_init_with_sizes(nO, nI):
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
-    model = with_padded(LSTM(nO, nI))
-
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
+    model = with_padded(LSTM(nO, nI)).initialize(X=X)
     ys, backprop_ys = model([X], is_train=False)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
@@ -75,7 +74,6 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
 def test_LSTM_learns():
     nO = 2
     nI = 2
-    model = with_padded(LSTM(nO, nI))
 
     def sgd(key, weights, gradient):
         weights -= 0.001 * gradient
@@ -84,6 +82,7 @@ def test_LSTM_learns():
 
     X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype="f")
     Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype="f")
+    model = with_padded(LSTM(nO, nI)).initialize(X, Y)
     Yhs, bp_Yhs = model.begin_update([X])
     loss1 = ((Yhs[0] - Y) ** 2).sum()
     Yhs, bp_Yhs = model.begin_update([X])
@@ -124,7 +123,7 @@ def test_benchmark_LSTM_fwd():
                 for seq_len in batch_lengths
             ]
         batches.append(batch)
-    model = with_padded(LSTM(nO, nI))
+    model = with_padded(LSTM(nO, nI)).initialize()
     start = timeit.default_timer()
     for Xs in batches:
         ys, bp_ys = model.begin_update(list(Xs))
@@ -138,7 +137,7 @@ def test_benchmark_LSTM_fwd():
 
 
 def test_lstm_init():
-    model = with_padded(LSTM(2, bi=True))
+    model = with_padded(LSTM(2, bi=True)).initialize()
     model.initialize()
     with pytest.raises(NotImplementedError):
         with_padded(LSTM(2, dropout=0.2))
@@ -146,5 +145,5 @@ def test_lstm_init():
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 def test_pytorch_lstm_init():
-    model = with_padded(PyTorchLSTM(2, 2, depth=0))
+    model = with_padded(PyTorchLSTM(2, 2, depth=0)).initialize()
     assert model.name.endswith("noop")
