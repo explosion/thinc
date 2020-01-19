@@ -1,4 +1,3 @@
-from functools import partial
 from .ops import Ops
 import numpy
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
@@ -175,7 +174,7 @@ class JaxOps(Ops):
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         lengths: Array1d
-        batch_size_at_t: Array1d 
+        batch_size_at_t: Array1d
         indices: Array1d
         if not seqs:
             empty = self.alloc_i1d(0)
@@ -297,17 +296,19 @@ class JaxOps(Ops):
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, cells: Array2d,
-        hiddens: Array2d, inputs: Array2d
+        self, W: Array2d, b: Array1d, cells: Array2d, hiddens: Array2d, inputs: Array2d
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        return recurrent_lstm(W, b, cells, hiddens, inputs)
+        return recurrent_lstm_forward(W, b, cells, hiddens, inputs)
 
     def lstm(
-        self, W: Array2d, b: Array1d, hidden_tm1: Array2d,
-        cell_tm1: Array2d, inputs: Array3d
+        self,
+        W: Array2d,
+        b: Array1d,
+        hidden_tm1: Array2d,
+        cell_tm1: Array2d,
+        inputs: Array3d,
     ) -> Tuple[Array2d, Array2d, Array3d]:
-        hiddens, cells, gates = lstm(W, b, cell_tm1, hidden_tm1, inputs)
-        return hiddens, cells, gates
+        raise NotImplementedError
 
     def backprop_lstm(
         self,
@@ -317,13 +318,12 @@ class JaxOps(Ops):
         cells: Array2d,
         prevcells: Array2d,
     ) -> Tuple[Array3d, Array2d]:
-        d_acts, d_prevcells = backprop_lstm(d_cells, d_hiddens, gates, cells, prevcells)
-        return d_acts, d_prevcells
+        raise NotImplementedError
 
     def insert_into(self, shape, Xs):
         output = self.alloc(shape, dtype=Xs[0].dtype)
         for i, x in enumerate(Xs):
-            output = index_update(output, index[i, :x.shape[0]], x)
+            output = index_update(output, index[i, : x.shape[0]], x)
         return output
 
 
@@ -658,22 +658,23 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
+
 @jax_jit()
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
     xp = jax.numpy
     nL, nB, nI = X.shape
-    nO = hidden.shape[1]
+    nO = h_init.shape[1]
     # Preallocate these so we can pass them through for loop.
-    Y = xp.zeros((nL+1, nB, nO), dtype="f")
+    Y = xp.zeros((nL + 1, nB, nO), dtype="f")
     G = xp.zeros((nL, nB, nO * 4), dtype="f")
-    C = xp.zeros((nL+1, nB, nO), dtype="f")
+    C = xp.zeros((nL + 1, nB, nO), dtype="f")
     # Set initial hidden and cell states. The Y and C will be shifted 1,
     # so that we can have fewer arrays.
     Y = index_update(Y, index[0], h_init)
     C = index_update(C, index[0], c_init)
     state = ((W, b, X), (Y, C, G))
     state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
-    (W, b, X), (Y, C, G) = state 
+    (W, b, X), (Y, C, G) = state
     # Recall that Y and C are both offset by 1. Y[1] is the output for
     # X[1], while Y[0] was used as an input for Y[1]. We use
     # the S values to backprop the weights, so we need X the previous Ys.
@@ -683,16 +684,14 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X):
 
 @jax_jit()
 def lstm_stepper_forward(t, state):
-    (W, b, X), (Y, C, G) = state 
-    nL, nB, nI = X.shape
-    nO = Y.shape[2]
+    (W, b, X), (Y, C, G) = state
     # Get the activations for this timestep.
-    At3 = forward_lstm_weights(X[t], Y[t], W, b) 
+    At3 = lstm_weights_forward(X[t], Y[t], W, b)
     # The offsets here are a bit unintuitive, because Y and C are 1-offset.
     Ct2 = C[t]
-    (Yt3, Ct3), Gt3 = forward_lstm_gates(At3, Ct2)
-    Y = index_update(Y, index[t+1], Yt3)
-    C = index_update(C, index[t+1], Ct3)
+    (Yt3, Ct3), Gt3 = lstm_gates_forward(At3, Ct2)
+    Y = index_update(Y, index[t + 1], Yt3)
+    C = index_update(C, index[t + 1], Ct3)
     G = index_update(G, index[t], Gt3)
     return (W, b, X), (Y, C, G)
 
@@ -701,20 +700,21 @@ def lstm_stepper_forward(t, state):
 def backprop_recurrent_lstm(dY, dCt, fwd_vars):
     (G, C, S), (W, b) = fwd_vars
     xp = jax.numpy
-    nL, nB, nI = X.shape
-    nO = hidden.shape[1]
+    nL = dY.shape[0]
+    nB = dY.shape[1]
+    nI = S.shape[2] - dY.shape[2]
     # Preallocate these so we can pass them through for loop.
     dX = xp.zeros((nL, nB, nI), dtype="f")
     dW = xp.zeros(W.shape, dtype="f")
     db = xp.zeros(b.shape, dtype="f")
     state = (
-        (dW, db, dX), # The gradi-outs (Write-only)
-        (dY, dCt),     # The gradi-ins  (Read and write)
-        (G, C, S),    # Forward state  (Read-only)
-        (W, b)        # Params         (Read-only)
+        (dW, db, dX),  # The gradi-outs (Write-only)
+        (dY, dCt),  # The gradi-ins  (Read and write)
+        (G, C, S),  # Forward state  (Read-only)
+        (W, b),  # Params         (Read-only)
     )
-    state = jax.lax.fori_loop(X.shape[0]-1, -1, backprop_lstm_stepper, state)
-    (dW, db, dX), (dY, dCt), (G, C, X), (W, b) = state
+    state = jax.lax.fori_loop(nL - 1, -1, backprop_lstm_stepper, state)
+    (dW, db, dX), (dY, dCt), (G, C, S), (W, b) = state
     return dW, db, dX, dY, dCt
 
 
@@ -722,20 +722,20 @@ def backprop_recurrent_lstm(dY, dCt, fwd_vars):
 def backprop_lstm_stepper(t, state):
     (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
     # Recall, we're at step 3, Y and C are offset by 1. See above.
-    dYt3 = dY[t+1]
-    Ct3 = C[t+1]
+    dYt3 = dY[t + 1]
+    Ct3 = C[t + 1]
     St3 = S[t]
     Gt3 = G[t]
     Ct2 = C[t]
     dAt3, dCt2 = backprop_lstm_gates(dCt3, dYt3, Gt3, Ct3, Ct2)
     dXt3, dYt2, dW3, db3 = backprop_lstm_weights(dAt3, (St3, W, b))
-    dX = index_update(dX, index[t], dX3)
+    dX = index_update(dX, index[t], dXt3)
     dY = index_update(dY, index[t], dYt2)
-    return (dW+dW3, db+db3, dX), (dY, dCt2), (G, C, X), (W, b)
+    return (dW + dW3, db + db3, dX), (dY, dCt2), (G, C, S), (W, b)
 
 
 @jax_jit()
-def forward_lstm_weights(Xt3, Yt2, W, b):
+def lstm_weights_forward(Xt3, Yt2, W, b):
     xp = jax.numpy
     St3 = xp.hstack((Xt3, Yt2))
     At3 = xp.dot(St3, W.T) + b
@@ -743,10 +743,10 @@ def forward_lstm_weights(Xt3, Yt2, W, b):
 
 
 @jax_jit()
-def backward_lstm_weights(dAt3, fwd_state):
+def backprop_lstm_weights(dAt3, fwd_state):
     St3, W, b = fwd_state
     xp = jax.numpy
-    dW = dAt3.T @ St
+    dW = dAt3.T @ St3
     db = dAt3.sum(axis=0)
     dSt3 = dAt3 @ W
     dXt3, dYt2 = xp.split(dSt3, 2)
@@ -754,21 +754,21 @@ def backward_lstm_weights(dAt3, fwd_state):
 
 
 @jax_jit()
-def forward_lstm_gates(At3, Ct2):
+def lstm_gates_forward(At3, Ct2):
     xp = jax.numpy
     # hf, hi, ho, hc: Forget, input, output, cell gates.
     At3_hf, At3_hi, At3_ho, At3_hc = xp.split(At3, 4, axis=-1)
     # Number the steps here, to refer back for backward pass.
     # 1. Activations
-    hf = sigmoid(At3_hf) # 1a
-    hi = sigmoid(At3_hi) # 1b
-    ho = sigmoid(At3_ho) # 1c
-    hc = xp.tanh(At3_hc) # 1d
+    hf = sigmoid(At3_hf)  # 1a
+    hi = sigmoid(At3_hi)  # 1b
+    ho = sigmoid(At3_ho)  # 1c
+    hc = xp.tanh(At3_hc)  # 1d
 
-    Ct3 = hf * Ct2 # 2a
-    Ct3 += hi * hc # 2b
-    tanhCt3 = tanh(Ct3) # 3a
-    Yt3 = tanhCt3 * ho # 3b
+    Ct3 = hf * Ct2  # 2a
+    Ct3 += hi * hc  # 2b
+    tanhCt3 = xp.tanh(Ct3)  # 3a
+    Yt3 = tanhCt3 * ho  # 3b
     # We don't need the gradient for this, it's just for backprop calculation.
     Gt3 = xp.concatenate((hf, hi, ho, hc), axis=-1)
     return (Yt3, Ct3), Gt3
@@ -776,27 +776,27 @@ def forward_lstm_gates(At3, Ct2):
 
 @jax_jit()
 def backprop_lstm_gates(
-        dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
+    dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
 ) -> Tuple[Array3d, Array2d]:
     # See above for notation. Step numbering refers to forward_lstm_gates
     xp = jax.numpy
     hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
     tanhCt3 = xp.tanh(Ct3)
     # 3b: Yt3 = tanhCt3 * ho
-    d_ho = dYt3 * tanh_Ct3 
-    d_tanhCt3 = dYt3 * ho 
+    d_ho = dYt3 * tanhCt3
+    d_tanhCt3 = dYt3 * ho
     # 3a: tanhCt3 = tanh(Ct3)
-    dCt3 = d_tanhCt3 * dtanh(xp.tanh(Ct3))
+    dCt3 = d_tanhCt3 * dtanh(tanhCt3)
     # 2b: Ct3 += hi * hc
-    d_hi = dCt3 * hc 
+    d_hi = dCt3 * hc
     d_hc = dCt3 * hi
     # 2a: Ct3 = hf * Ct2
     d_hf = dCt3 * Ct2
     dCt2 = dCt3 * hf
-    d_At3_hc = d_hc * dtanh(xp.tanh(At3_hc))    # 1d
-    d_At3_ho = d_ho * dsigmoid(sigmoid(At3_ho)) # 1c
-    d_At3_hi = d_hi * dsigmoid(sigmoid(At3_hi)) # 1b
-    d_At3_hc = d_hc * dsigmoid(sigmoid(At3_hc)) # 1a
+    d_At3_hc = d_hc * dtanh(hc)  # 1d
+    d_At3_ho = d_ho * dsigmoid(ho)  # 1c
+    d_At3_hi = d_hi * dsigmoid(hi)  # 1b
+    d_At3_hf = d_hf * dsigmoid(hf)  # 1a
     dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
     return dAt3, dCt2
 
