@@ -8,7 +8,7 @@ from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
-from thinc.api import torch2xp, xp2torch, sequence_categorical_crossentropy
+from thinc.api import torch2xp, xp2torch, SequenceCategoricalCrossentropy
 from thinc.api import minibatch, prefer_gpu, use_pytorch_for_gpu_memory
 from thinc.types import Array2d, ArgsKwargs
 import ml_datasets
@@ -55,7 +55,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     C = thinc.registry.make_from_config(config)
     model = C["model"]
     optimizer = C["optimizer"]
-    calculate_loss = sequence_categorical_crossentropy
+    calculate_loss = SequenceCategoricalCrossentropy()
     cfg = C["training"]
 
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
@@ -80,7 +80,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
             for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
                 inputs, truths = zip(*batch)
                 guesses, backprop = model(inputs, is_train=True)
-                backprop(calculate_loss(guesses, truths))
+                backprop(calculate_loss.get_grad(guesses, truths))
             # At the end of the batch, we call the optimizer with the accumulated
             # gradients, and advance the learning rate schedules.
             model.finish_update(optimizer)
