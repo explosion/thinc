@@ -15,6 +15,7 @@ cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
 from ..util import copy_array, get_array_module
+from ..types import DeviceTypes
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -36,8 +37,15 @@ cdef extern from "math.h":
 
 
 class NumpyOps(Ops):
-    device = 'cpu'
+    name = "numpy"
     xp = numpy
+
+    def __init__(
+        self, device_type: DeviceTypes = "cpu", device_id: int = -1, settings = {}
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
@@ -55,11 +63,10 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape, dtype='float32'):
+    def alloc(self, shape, dtype="float32"):
         return self.xp.zeros(shape, dtype=dtype)
 
-    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,
-             out=None):
+    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, out=None, trans1=False, trans2=False):
         cdef int m
         if trans1:
             m = x.shape[1]
@@ -99,40 +106,36 @@ class NumpyOps(Ops):
                 dX_ptr[i] = 0.
         return dX
 
-    def maxout(self, const float[:, :, ::1] py_cands):
+    def maxout(self, const float[:, :, ::1] X):
         cdef Pool mem = Pool()
-        cdef int B = py_cands.shape[0]
-        cdef int O = py_cands.shape[1]
-        cdef int P = py_cands.shape[2]
+        cdef int B = X.shape[0]
+        cdef int O = X.shape[1]
+        cdef int P = X.shape[2]
 
         cdef ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
         cdef ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
         cpu_maxout(<float*>best.data, <int*>which.data,
-            &py_cands[0, 0, 0], B, O, P)
+            &X[0, 0, 0], B, O, P)
         return best, which
 
-    def backprop_maxout(self, const float[:, ::1] dX__bo, int[:, ::1] which__bo, int P):
-        cdef int B = dX__bo.shape[0]
-        cdef int O = dX__bo.shape[1]
+    def backprop_maxout(self, const float[:, ::1] dY, int[:, ::1] which, int P):
+        cdef int B = dY.shape[0]
+        cdef int O = dY.shape[1]
 
-        cdef np.ndarray dX__bop = numpy.zeros((B, O, P), dtype='float32')
-        cpu_backprop_maxout(<float*>dX__bop.data,
-            &dX__bo[0, 0], &which__bo[0, 0], B, O, P)
-        return dX__bop
+        cdef np.ndarray dX = numpy.zeros((B, O, P), dtype='float32')
+        cpu_backprop_maxout(<float*>dX.data,
+            &dY[0, 0], &which[0, 0], B, O, P)
+        return dX
 
-    def mish(self, const float[:, ::1] X, threshold=5, out=None):
+    def mish(self, const float[:, ::1] X, threshold=20.0):
         shape = [X.shape[i] for i in range(X.ndim)]
         cdef np.ndarray Y = self.alloc(tuple(shape), dtype="f")
         cpu_mish(<float*>Y.data,
             &X[0, 0], threshold, X.size)
-        if out is not None:
-            out[:] = Y
-            return out
-        else:
-            return Y
+        return Y
 
     def backprop_mish(self, const float[:, ::1] dY, const float[:, ::1] X,
-            threshold=5, out=None):
+            threshold=20.0, out=None):
         shape = [X.shape[i] for i in range(X.ndim)]
         cdef np.ndarray dX = self.alloc(tuple(shape), dtype="f")
         cpu_backprop_mish(<float*>dX.data,
@@ -143,27 +146,15 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def lstm(self, float[:, ::1] output, float[:, ::1] cells,
-            float[:, :, ::1] gates, float[:, ::1] prev):
-        cpu_lstm_gates_fwd(&output[0, 0], &cells[0, 0],
-            &gates[0, 0, 0], &prev[0, 0], cells.shape[0], cells.shape[1])
-        return output
-
-    def backprop_lstm(self, float[:, ::1] d_cells, float[:, ::1] d_prev,
-            float[:, :, ::1] d_gates, float[:, ::1] d_output,
-            float[:, :, ::1] gates, float[:, ::1] cells, float[:, ::1] prev):
-        cpu_lstm_gates_bwd(&d_cells[0, 0], &d_prev[0, 0], &d_gates[0, 0, 0],
-            &d_output[0, 0], &gates[0, 0, 0], &cells[0, 0], &prev[0, 0],
-            cells.shape[0], cells.shape[1])
-
     def seq2col(self, const float[:, ::1] seq, int nW):
-        '''Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
-        The new sequence is constructed by concatenating nW preceding and succeeding
-        vectors onto each column in the sequence, to extract a window of features.
-        '''
+        """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
+        sequence. The new sequence is constructed by concatenating nW preceding
+        and succeeding vectors onto each column in the sequence, to extract a
+         window of features.
+        """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype='float32')
+        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
         seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
         return cols
 
@@ -174,40 +165,6 @@ class NumpyOps(Ops):
         cdef ndarray dX = self.alloc((B, I), dtype='float32')
         backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
         return dX
-
-    def remap_ids(self, PreshMap mapping, uint64_t[::1] ids_mv, uint64_t value=0):
-        cdef uint64_t* ids = &ids_mv[0]
-        cdef ndarray[uint64_t] output_arr = self.alloc(len(ids_mv), dtype='uint64')
-        output = <uint64_t*>output_arr.data
-        cdef uint64_t key = 0
-        for i in range(ids_mv.shape[0]):
-            if ids[i] == 0:
-                output[i] = 0
-            else:
-                mapped = <uint64_t>mapping.get(ids[i])
-                if mapped != 0:
-                    output[i] = mapped
-                else:
-                    output[i] = value
-                    if value != 0:
-                        mapping.set(ids[i], <void*>value)
-                        value += 1
-        return output_arr
-
-    def increment_slices(self, ndarray contig_array, ndarray _to_add, _starts):
-        cdef ndarray contig_to_add = self.xp.ascontiguousarray(_to_add, dtype='float32')
-        cdef ndarray contig_starts = self.xp.ascontiguousarray(_starts, dtype='int32')
-
-        cdef const float* to_add = <const weight_t*>contig_to_add.data
-        cdef float* whole_array = <weight_t*>contig_array.data
-        cdef const int* starts = <const int*>contig_starts.data
-        cdef int n_slice = len(_starts)
-        cdef int length = _to_add.size
-        cdef int stride = length / _to_add.shape[0]
-        for start in starts[:n_slice]:
-            workon = &whole_array[start * stride]
-            for i in range(length):
-                workon[i] += to_add[i]
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
@@ -311,10 +268,6 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def add_sum(self, np.ndarray out, np.ndarray to_sum):
-        VecVec.batch_add_i(<float*>out.data,
-            <const float*>to_sum.data, 1., to_sum.shape[1], to_sum.shape[0])
-
     def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
         if out.dtype == 'float32' \
         and ids.dtype == 'int32' \
@@ -335,22 +288,23 @@ class NumpyOps(Ops):
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
-    def adam(self, float[::1] weights, float[::1] gradient, float[::1] mom1,
-             float[::1] mom2, const float beta1, const float beta2, float eps,
+    def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,
+             np.ndarray mom2, const float beta1, const float beta2, float eps,
             float learn_rate, float mod_rate=1.):
-        _adam_momentum(&gradient[0], &mom1[0], &mom2[0],
+        _adam_momentum(<float*>gradient.data, <float*>mom1.data, <float*>mom2.data,
             weights.shape[0], beta1, beta2, eps, learn_rate)
-        VecVec.add_i(&weights[0],
-            &gradient[0], -learn_rate, weights.shape[0])
-        memset(&gradient[0], 0, gradient.size * sizeof(float))
+        VecVec.add_i(<float*>weights.data,
+            <float*>gradient.data, -learn_rate, weights.shape[0])
+        memset(<float*>gradient.data, 0, gradient.size * sizeof(float))
+        return weights, gradient, mom1, mom2
 
-    def ngrams(self, int n, const uint64_t[::1] keys_):
-        keys = <uint64_t*>&keys_[0]
-        length = max(0, keys_.shape[0]-n)
-        cdef np.ndarray output_ = self.alloc((length,), dtype='uint64')
+    def ngrams(self, int n, const uint64_t[::1] keys):
+        keys_ = <uint64_t*>&keys[0]
+        length = max(0, keys.shape[0]-n)
+        cdef np.ndarray output_ = self.alloc((length,), dtype="uint64")
         output = <uint64_t*>output_.data
-        for i in range(keys_.shape[0]-n):
-            output[i] = hash64(&keys[i], n*sizeof(keys[0]), 0)
+        for i in range(keys.shape[0]-n):
+            output[i] = hash64(&keys_[i], n*sizeof(keys_[0]), 0)
         return output_
 
     def position_encode(self, int N, int D, int period=10000, out=None):
@@ -682,33 +636,42 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* output, float* cells, float* gates,
-        const float* prev, int B, int N) nogil:
+cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
+        const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i, b
+    gates = gates_and_acts
+    acts = gates_and_acts
     for b in range(B):
         for i in range(N):
-            hf = sigmoid(gates[i*4+0])
-            hi = sigmoid(gates[i*4+1])
-            ho = sigmoid(gates[i*4+2])
-            hc = tanhf(gates[i*4+3])
-            cells[i] = hf * prev[i] + hi * hc
-            output[i] = tanhf(cells[i]) * ho
+            acts[i*4+0] = sigmoid(acts[i*4+0])
+            acts[i*4+1] = sigmoid(acts[i*4+1])
+            acts[i*4+2] = sigmoid(acts[i*4+2])
+        for i in range(N):
+            hf = acts[i*4+0]
+            hi = acts[i*4+1]
+            ho = acts[i*4+2]
+            hc = tanhf(acts[i*4+3])
+            hiddens_cells[i*2] = tanhf(hiddens_cells[i*2]) * ho
+            hiddens_cells[i*2+1] = hf * prevcells[i] + hi * hc
             gates[i*4+0] = hf
             gates[i*4+1] = hi
             gates[i*4+2] = ho
             gates[i*4+3] = hc
-        output += N
+        hiddens_cells += N
         gates += N*4
-        prev += N
-        cells += N
+        acts += N*4
+        prevcells += N
 
 
-cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
-        const float* d_output, const float* gates, const float* cells,
-        const float* prev, int B, int N) nogil:
+cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
+        const float* d_cells, const float* d_hiddens,
+        const float* cells, const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
     cdef int i, b
+    # These are aliased: we're writing the output over the top of the input
+    gates = gates_and_d_acts
+    d_acts = gates_and_d_acts
     for b in range(B):
         for i in range(N):
             hf = gates[i*4+0]
@@ -717,7 +680,7 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
             hc = gates[i*4+3]
             c  = cells[i]
             ct = tanhf(cells[i])
-            dh = d_output[i]
+            dh = d_hiddens[i]
             # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
             dho = ct     * dh * dsigmoid(ho)
             dc  = ho     * dh * dtanh(ct)
@@ -725,21 +688,22 @@ cdef void cpu_lstm_gates_bwd(float* d_cells, float* d_prev, float* d_gates,
 
             # Gradient for hf, hi, hc, prev[i]
             # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-            dhf   = dsigmoid(hf) * dc * prev[i]
+            dhf   = dsigmoid(hf) * dc * prevcells[i]
             dhi   = dsigmoid(hi) * dc * hc
             dhc   = dtanh(hc)    * dc * hi
             dprev =                dc * hf
 
-            d_gates[i*4+0] = dhf
-            d_gates[i*4+1] = dhi
-            d_gates[i*4+2] = dho
-            d_gates[i*4+3] = dhc
-            d_cells[i] = dc
+            d_acts[i*4+0] = dhf
+            d_acts[i*4+1] = dhi
+            d_acts[i*4+2] = dho
+            d_acts[i*4+3] = dhc
             d_prev[i] = dprev
+            # Wtf why was I writing to this. Is it necessary??
+            #d_cells[i] = dc
         d_cells += N
         d_prev += N
-        d_output += N
-        d_gates += N*4
+        d_hiddens += N
+        d_acts += N*4
         gates += N*4
         cells += N
-        prev += N
+        prevcells += N

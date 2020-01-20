@@ -151,7 +151,9 @@ def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_block
     return out
 
 
-def backprop_reduce_sum(d_sum, lengths, out=None, threads_per_block=128, num_blocks=128):
+def backprop_reduce_sum(
+    d_sum, lengths, out=None, threads_per_block=128, num_blocks=128
+):
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]

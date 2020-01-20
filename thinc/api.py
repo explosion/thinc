@@ -14,8 +14,8 @@ from .util import prefer_gpu, require_gpu
 from .util import get_shuffled_batches, minibatch, evaluate_model_on_arrays
 from .util import to_categorical, get_width, get_array_module
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow
-from .backends import get_ops, set_current_ops, get_current_ops, use_device
-from .backends import Ops, CupyOps, NumpyOps
+from .backends import get_ops, set_current_ops, get_current_ops, use_ops
+from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
@@ -26,7 +26,7 @@ from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
-from .layers import recurrent, residual, uniqued, siamese, list2ragged, ragged2list
+from .layers import residual, uniqued, siamese, list2ragged, ragged2list
 from .layers import with_array, with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
