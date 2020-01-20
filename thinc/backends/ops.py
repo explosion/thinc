@@ -121,19 +121,15 @@ class Ops:
             raise ValueError("Cannot pad sequences with different dtypes")
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
-        shape = [len(seqs)]
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        dim_sizes = zip(*[seq.shape for seq in seqs])
-        shape.extend(max(sizes) for sizes in dim_sizes)
-        # Now copy the data into our new buffer.
-        output: Array = self.alloc(tuple(shape), dtype=seqs[0].dtype)
+        shapes = [tuple(s.shape) for s in seqs]
+        dim_sizes = zip(*[shape for shape in shapes])
+        max_dims = [max(sizes) for sizes in dim_sizes]
+        final_shape = (len(seqs),) + tuple(max_dims)
+        output = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            # TODO: It would be nice to generalize this to work along different
-            # dimensions. We'd have to handle that in the unpad, though, which
-            # could be tricky?
-            # I don't know how to do the numpy indexing for multi-dimensions
-            # anyway. Need to construct the slice object maybe?
-            output[i, : arr.shape[0]] = arr
+            region = [i] + [slice(0, dim) for dim in arr.shape]
+            output[region] = arr
         return output
 
     def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
@@ -163,10 +159,7 @@ class Ops:
         lengths_ = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
-        arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
-        for arr_i, (length, seqs_i) in enumerate(lengths_indices):
-            arr[arr_i, :length] = self.asarray(seqs[seqs_i])
-        arr = self.as_contig(arr.transpose((1, 0, 2)))
+        arr: Array3d = self.pad(seqs)
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t_ = numpy.zeros(nS, dtype="i")
         batch_size_at_t_ += 1

@@ -171,6 +171,26 @@ class JaxOps(Ops):
     ) -> Array2d:
         return backprop_reduce_max(d_maxes, which, lengths)
 
+    def pad(self, seqs: List[Array]) -> Array:
+        if not seqs:
+            raise ValueError("Cannot pad empty sequence")
+        if len(set(seq.ndim for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different ndims")
+        if len(set(seq.dtype for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences with different dtypes")
+        if len(set(seq.shape[1:] for seq in seqs)) != 1:
+            raise ValueError("Cannot pad sequences that differ on other dimensions")
+        # Find the maximum dimension along each axis. That's what we'll pad to.
+        shapes = [tuple(s.shape) for s in seqs]
+        dim_sizes = zip(*[shape for shape in shapes])
+        max_dims = [max(sizes) for sizes in dim_sizes]
+        final_shape = (len(seqs),) + tuple(max_dims)
+        output = self.alloc(final_shape, dtype=seqs[0].dtype)
+        for i, arr in enumerate(seqs):
+            region = [i] + [slice(0, dim) for dim in arr.shape]
+            output = index_update(output, index[region], arr)
+        return output
+
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         lengths: Array1d
@@ -191,10 +211,7 @@ class JaxOps(Ops):
         lengths_ = [length for length, i in lengths_indices]
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
-        arr: Array3d = self.alloc_f3d(nB, nS, seqs[0].shape[1])
-        for arr_i, (length, seqs_i) in enumerate(lengths_indices):
-            arr = index_update(arr, index[arr_i, :length], self.asarray(seqs[seqs_i]))
-        arr = self.as_contig(arr.transpose((1, 0, 2)))
+        arr: Array3d = self.pad(seqs)
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t_ = numpy.zeros((nS,), dtype="i")
         batch_size_at_t_ += 1
