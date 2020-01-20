@@ -160,6 +160,7 @@ class Ops:
         nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
         arr: Array3d = self.pad(seqs)
+        arr = arr.transpose((1, 0, 2))
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t_ = numpy.zeros(nS, dtype="i")
         batch_size_at_t_ += 1
