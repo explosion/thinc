@@ -19,9 +19,11 @@ cases = [
 
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
-def test_mypy_results(config_filename, python_filename, output_filename, tmpdir):
+def test_mypy_results(config_filename, python_filename, output_filename, tmpdir, monkeypatch):
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
+    thinc_root_dir = Path(__file__).parent.parent.parent.parent
+    monkeypatch.setenv("MYPYPATH", str(thinc_root_dir))
     tmpdir_path = Path(tmpdir)
 
     full_config_path: Path = root_dir / f"configs/{config_filename}"
