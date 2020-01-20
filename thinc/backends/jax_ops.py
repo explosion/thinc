@@ -324,7 +324,12 @@ class JaxRandom:
         return jax.random.normal(key, shape=(size,)).astype("float32")
 
 
-def jax_jit(*static_args) -> Wrapper:
+def jax_jit(*static_args: int) -> Wrapper:
+    """Apply jax.jit to the decorated function, if Jax is installed. Otherwise,
+    do nothing. The decorator takes a variable-length sequence of positional
+    arguments, which are passed as a tuple to jax.jit as the 'static_argnums'
+    keyword argument.
+    """
     def wrapper(func: Callable) -> Callable:
         return jax.jit(func, static_argnums=static_args) if has_jax else func
 
@@ -787,12 +792,11 @@ def backprop_lstm_gates(
     return dAt3, dCt2
 
 
-JaxOps.xp.random = JaxRandom()
-JaxOps.xp.testing = numpy.testing
-
 if has_jax:
+    JaxOps.xp.random = JaxRandom()
+    JaxOps.xp.testing = numpy.testing
     jax.tree_util.register_pytree_node(
         JaxOps, lambda ops: ([], None), lambda info, values: JaxOps()
     )
 
-__all__ = ["JaxOps", "has_jax"]
+__all__ = ["JaxOps", "has_jax", "jax_jit"]
