@@ -29,7 +29,6 @@ from .chain_module import chain
 from .clone import clone
 from .concatenate import concatenate
 from .noop import noop
-from .recurrent import recurrent
 from .residual import residual
 from .uniqued import uniqued
 from .siamese import siamese
@@ -42,7 +41,7 @@ from .reduce_sum import reduce_sum
 # Data-type transfers
 from .list2array import list2array
 from .list2ragged import list2ragged
-from .list2padded import list2padded
+from .list2padded_module import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
 from .remap_ids import remap_ids
@@ -83,7 +82,6 @@ __all__ = [
     "clone",
     "concatenate",
     "noop",
-    "recurrent",
     "residual",
     "uniqued",
     "siamese",

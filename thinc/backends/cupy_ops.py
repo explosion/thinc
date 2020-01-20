@@ -1,22 +1,38 @@
+from typing import Dict, Any
+import numpy
+
 try:
     import cupy
     import cupy.cuda
     from cupy.cuda.compiler import compile_with_cache  # noqa: F401
 
+    has_cupy = True
+
     # We no longer have to set up the memory pool, fortunately.
 except ImportError:
     cupy = None
+    has_cupy = False
 
-import numpy
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..util import get_array_module
+from ..types import DeviceTypes
 
 
 class CupyOps(Ops):
-    device = "gpu"
+    name = "cupy"
     xp = cupy
+
+    def __init__(
+        self,
+        device_type: DeviceTypes = "gpu",
+        device_id: int = 0,
+        settings: Dict[str, Any] = {},
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
     def to_numpy(self, data):
         if isinstance(data, numpy.ndarray):
@@ -35,20 +51,21 @@ class CupyOps(Ops):
             self.xp.dot(x, y, out=out)
             return out
 
-    def asarray(self, X, dtype=None):
+    def asarray(self, data, dtype=None):
         # This is sort of frustrating, but we can't easily otherwise pass
         # forward "unset".
         dtype = {"dtype": dtype} if dtype is not None else {}
-        if isinstance(X, cupy.ndarray):
-            return self.xp.asarray(X, **dtype)
-        elif hasattr(X, "data_ptr"):
+        if isinstance(data, cupy.ndarray):
+            return self.xp.asarray(data, **dtype)
+        elif hasattr(data, "data_ptr"):
             # Handles PyTorch Tensors
-            pointer = cupy.cuda.MemoryPointer(X.data_ptr())
-            shape = X.stride()
+            pointer = cupy.cuda.MemoryPointer(data.data_ptr())
+            shape = data.stride()
             array = self.xp.ndarray(shape, memptr=pointer, **dtype)
             return array
         else:
-            return self.xp.array(X, **dtype)
+            result = self.xp.array(data, **dtype)
+            return result
 
     def maxout(self, X):
         return _custom_kernels.maxout(X)
@@ -63,16 +80,16 @@ class CupyOps(Ops):
             X *= X > 0
             return X
 
-    def backprop_relu(self, delta_, signal_out, inplace=False):
+    def backprop_relu(self, dY, Y, inplace=False):
         if not inplace:
-            return delta_ * (signal_out > 0)
-        delta_ *= signal_out > 0
-        return delta_
+            return dY * (Y > 0)
+        dY *= Y > 0
+        return dY
 
-    def mish(self, X, threshold=5, out=None):
-        return _custom_kernels.mish(X, threshold=threshold, out=out)
+    def mish(self, X, threshold=20.0):
+        return _custom_kernels.mish(X, threshold=threshold, out=None)
 
-    def backprop_mish(self, dY, X, threshold=5, out=None):
+    def backprop_mish(self, dY, X, threshold=20.0, out=None):
         return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
@@ -127,7 +144,8 @@ class CupyOps(Ops):
             "adam",
         )(gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2)
         gradient.fill(0)
+        return weights, gradient, mom1, mom2
 
-    def position_encode(self, *args, **kwargs):
-        positions = NumpyOps().position_encode(*args, **kwargs)
+    def position_encode(self, N, D, period=10000, out=None):
+        positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)

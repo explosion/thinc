@@ -15,7 +15,15 @@ from thinc.types import ArgsKwargs
         (numpy.array([1, 2]), 3),
         ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
         (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
-        (Padded(numpy.zeros((2, 1, 2)), numpy.zeros(2), [1, 0], [0, 1]), 2),
+        (
+            Padded(
+                numpy.zeros((2, 1, 2)),
+                numpy.zeros(2),
+                numpy.array([1, 0]),
+                numpy.array([0, 1]),
+            ),
+            2,
+        ),
         ([], 0),
     ],
 )

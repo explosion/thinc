@@ -36,7 +36,6 @@ def test_list2padded():
     assert unpadded[2].shape == (2, 4)
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
     model = with_padded(LSTM(nO, nI)).initialize()
@@ -62,7 +61,6 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert initial_cells.shape == (nO,)
 
 
-@pytest.mark.xfail
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
@@ -73,27 +71,30 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
 
-@pytest.mark.xfail
 def test_LSTM_learns():
     nO = 2
     nI = 2
 
     def sgd(key, weights, gradient):
         weights -= 0.001 * gradient
-        gradient.fill(0.0)
-        return weights, gradient
+        return weights, gradient * 0
 
-    X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype="f")
-    Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype="f")
-    model = with_padded(LSTM(nO, nI)).initialize(X, Y)
-    Yhs, bp_Yhs = model.begin_update([X])
-    loss1 = ((Yhs[0] - Y) ** 2).sum()
-    Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
+    model = with_padded(LSTM(nO, nI))
+    X = [[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]
+    Y = [[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]]
+    X = [model.ops.asarray(x).reshape((1, -1)) for x in X]
+    Y = [model.ops.asarray(y).reshape((1, -1)) for y in Y]
+    model = model.initialize(X, Y)
+    Yhs, bp_Yhs = model.begin_update(X)
+    loss1 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
+    Yhs, bp_Yhs = model.begin_update(X)
+    dYhs = [yh - y for yh, y in zip(Yhs, Y)]
+    dXs = bp_Yhs(dYhs)
     model.finish_update(sgd)
-    Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y])  # noqa: F841
-    loss2 = ((Yhs[0] - Y) ** 2).sum()
+    Yhs, bp_Yhs = model.begin_update(X)
+    dYhs = [yh - y for yh, y in zip(Yhs, Y)]
+    dXs = bp_Yhs(dYhs)  # noqa: F841
+    loss2 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
     assert loss1 > loss2, (loss1, loss2)
 
 
@@ -140,7 +141,7 @@ def test_benchmark_LSTM_fwd():
 
 
 def test_lstm_init():
-    model = with_padded(LSTM(2, bi=True)).initialize()
+    model = with_padded(LSTM(2, 2, bi=True)).initialize()
     model.initialize()
     with pytest.raises(NotImplementedError):
         with_padded(LSTM(2, dropout=0.2))
