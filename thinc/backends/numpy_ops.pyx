@@ -1,5 +1,5 @@
 # cython: cdivision=True, infer_types=True, profile=True
-from typing import Optional
+from typing import Optional, Dict, Any
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.stdlib cimport calloc, malloc, free
@@ -42,7 +42,10 @@ class NumpyOps(Ops):
     xp = numpy
 
     def __init__(
-        self, device_type: DeviceTypes = "cpu", device_id: int = -1, settings = {}
+        self,
+        device_type: DeviceTypes = "cpu",
+        device_id: int = -1,
+        settings: Dict[str, Any] = {},
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
