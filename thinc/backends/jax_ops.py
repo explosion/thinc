@@ -1,4 +1,4 @@
-from .ops import Ops
+from .ops import Ops 
 import numpy
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
 from ..types import Padded
@@ -193,40 +193,18 @@ class JaxOps(Ops):
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
-        lengths: Array1d
-        batch_size_at_t: Array1d
-        indices: Array1d
-        if not seqs:
-            empty = self.alloc_i1d(0)
-            return Padded(self.alloc_f3d(0, 0, 0), empty, empty, empty)
-        elif len(seqs) == 1:
-            data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
-            batch_size_at_t = self.asarray([1] * data.shape[0], dtype="i")
-            lengths = self.asarray([data.shape[0]], dtype="i")
-            indices = self.asarray([0], dtype="i")
-            return Padded(data, batch_size_at_t, lengths, indices)
-        lengths_indices = [(len(seq), i) for i, seq in enumerate(seqs)]
-        lengths_indices.sort(reverse=True)
-        indices_ = [i for length, i in lengths_indices]
-        lengths_ = [length for length, i in lengths_indices]
-        nB = len(seqs)
-        nS = max([len(seq) for seq in seqs])
-        arr: Array3d = self.pad(seqs)
-        arr = arr.transpose((1, 0, 2))
-        # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t_ = numpy.zeros((nS,), dtype="i")
-        batch_size_at_t_ += 1
-        i = len(lengths_)
-        for t in range(nS):
-            if t == lengths_[i - 1]:
-                i -= 1
-                if i == 0:
-                    break
-            batch_size_at_t_[t] = i
-        batch_size_at_t = self.asarray(batch_size_at_t_, dtype="i")
-        lengths = self.asarray(lengths_, dtype="i")
-        indices = self.asarray(indices_, dtype="i")
-        return Padded(arr, batch_size_at_t, lengths, indices)
+        # I don't know why this is so slow, but it's *terrible*. Try going
+        # via numpy?
+        from .numpy_ops import NumpyOps
+        numpy_ops = NumpyOps()
+        numpy_seqs = [numpy_ops.asarray(seq) for seq in seqs]
+        numpy_padded = numpy_ops.list2padded(numpy_seqs)
+        return Padded(
+            self.asarray(numpy_padded.data),
+            self.asarray(numpy_padded.size_at_t),
+            self.asarray(numpy_padded.lengths),
+            self.asarray(numpy_padded.indices)
+        )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
         indices = padded.indices
@@ -309,9 +287,11 @@ class JaxOps(Ops):
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d
+        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d,
+        is_train: bool=True
     ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
-        Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
+
+        Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
 
     def recurrent_lstm_backward(self, dY, fwd_state, params):
@@ -664,9 +644,46 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
+#@jax_jit()
+#def recurrent_lstm_predict(W, b, c_init, h_init, X):
+#    xp = jax.numpy
+#    nL, nB, nI = X.shape
+#    nO = h_init.shape[1]
+#    # Preallocate these so we can pass them through for loop.
+#    Y = xp.zeros((nL + 1, nB, nO), dtype="f")
+#    Gt = xp.zeros((nB, nO * 4), dtype="f")
+#    Ct = xp.zeros((nB, nO), dtype="f")
+#    # Set initial hidden and cell states. The Y and C will be shifted 1,
+#    # so that we can have fewer arrays.
+#    Y = index_update(Y, index[0], h_init)
+#    C = index_update(Ct, index[0], c_init)
+#    state = ((W, b, X), (Y, C, G))
+#    state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
+#    (W, b, X), (Y, C, G) = state
+#    # Recall that Y and C are both offset by 1. Y[1] is the output for
+#    # X[1], while Y[0] was used as an input for Y[1]. We use
+#    # the S values to backprop the weights, so we need X the previous Ys.
+#    S = xp.concatenate((X, Y[:-1]), axis=-1)
+#    return Y[1:], (G, C, S)
+
 
 @jax_jit()
-def recurrent_lstm_forward(W, b, c_init, h_init, X):
+def lstm_stepper_forward(t, state):
+    (W, b, X), (Y, C, G) = state
+    # Get the activations for this timestep.
+    At3 = lstm_weights_forward(X[t], Y[t], W, b)
+    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
+    Ct2 = C[t]
+    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
+    Y = index_update(Y, index[t + 1], Yt3)
+    C = index_update(C, index[t + 1], Ct3)
+    G = index_update(G, index[t], Gt3)
+    return (W, b, X), (Y, C, G)
+
+
+
+@jax_jit(5)
+def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
     xp = jax.numpy
     nL, nB, nI = X.shape
     nO = h_init.shape[1]
@@ -685,7 +702,11 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X):
     # X[1], while Y[0] was used as an input for Y[1]. We use
     # the S values to backprop the weights, so we need X the previous Ys.
     S = xp.concatenate((X, Y[:-1]), axis=-1)
-    return Y[1:], (G, C, S)
+    if is_train:
+        return Y[1:], (G, C, S)
+    else:
+        null = xp.zeros((0,0,0))
+        return Y, (null, null, null)
 
 
 @jax_jit()
