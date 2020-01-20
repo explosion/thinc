@@ -2,7 +2,6 @@ import math
 
 from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
-import numpy
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
 from .types import Array, Generator
