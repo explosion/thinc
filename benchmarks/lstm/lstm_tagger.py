@@ -26,11 +26,11 @@ import jax.tree_util
 
 CONFIG = """
 [data]
-n_samples = 20000
+n_samples = 100000
 n_tags = 20
 n_vocab = 10000
 length_mean = 40
-length_variance = 5
+length_variance = 1
 
 [common]
 width = 300
@@ -47,7 +47,7 @@ nV = ${data:n_vocab}
 @layers = "LSTM.v0"
 nO = ${common:width}
 nI = ${common:width}
-depth = 2
+depth = 1
 
 [model.predict]
 @layers = "Softmax.v0"
@@ -76,7 +76,8 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     Xs = []
     Ys = []
     for _ in range(n_samples):
-        length = numpy.random.normal(size=1, scale=length_variance) + length_mean
+        #length = numpy.random.normal(size=1, scale=length_variance) + length_mean
+        length = length_mean
         shape = (max(1, int(length)),)
         X = numpy.random.uniform(0, n_vocab-1, shape)
         Y = numpy.random.uniform(0, n_tags-1, shape)
@@ -93,13 +94,11 @@ jax.tree_util.register_pytree_node(
 )
 
 def run_forward(model, Xs):
-    Ys = []
+    total = 0.
     for batch in Xs:
-        Ys.append(model.predict(batch))
-    for Y in Ys:
-        if hasattr(Y.data, "block_until_ready"):
-            Y.data.block_until_ready()
-    return Ys
+        Y = model.predict(batch)
+        total += Y.data.sum()
+    return float(total)
 
 def set_backend(name, gpu_id):
     global CONFIG
@@ -119,6 +118,7 @@ def main(jax: bool=False, pytorch: bool=False, gpu_id: int=-1):
     thinc.api.fix_random_seed(0)
     if gpu_id >= 0:
         thinc.api.require_gpu(gpu_id)
+        print("Set GPU", gpu_id)
     backends = {"jax": jax, "pytorch": pytorch}
     for name, use_backend in backends.items():
         if not use_backend:
@@ -128,15 +128,18 @@ def main(jax: bool=False, pytorch: bool=False, gpu_id: int=-1):
         C = registry.make_from_config(Config().from_str(CONFIG))
         model = C["model"]
         X, Y = get_dummy_data(**C["data"])
+        print("Copy to device")
+        X = [model.ops.asarray(x) for x in X]
+        Y = [model.ops.asarray(y) for y in Y]
         print("Begin init", len(X))
         model.initialize(X=X[:5])
         print("Pre-batch")
         n_words = sum(len(x) for x in X)
-        X = [model.layers[0].predict(batch) for batch in minibatch(X, size=128)]
+        X = [model.layers[0].predict(batch) for batch in minibatch(X, size=16)]
         model.layers.pop(0)
         print("Start")
         start_time = timer()
-        Ys = run_forward(model, X)
+        total = run_forward(model, X)
         end_time = timer()
         print(name, n_words, end_time-start_time)
 
