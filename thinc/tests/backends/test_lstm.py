@@ -1,12 +1,14 @@
 from thinc.backends.jax_ops import lstm_weights_forward, backprop_lstm_weights
 from thinc.backends.jax_ops import lstm_gates_forward, backprop_lstm_gates
 import numpy.testing
+import pytest
 
 from hypothesis import given, settings
 from ..strategies import ndarrays_of_shape
 
 try:
     import jax
+    has_jax = True
 except ImportError:
     has_jax = False
 
