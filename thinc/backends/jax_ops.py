@@ -171,7 +171,7 @@ class JaxOps(Ops):
     ) -> Array2d:
         return backprop_reduce_max(d_maxes, which, lengths)
 
-    def pad(self, seqs: List[Array]) -> Array:
+    def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -181,14 +181,13 @@ class JaxOps(Ops):
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        shapes = [tuple(s.shape) for s in seqs]
-        dim_sizes = zip(*[shape for shape in shapes])
-        max_dims = [max(sizes) for sizes in dim_sizes]
-        final_shape = (len(seqs),) + tuple(max_dims)
+        length = max(len(seq) for seq in seqs)
+        # Round the length
+        length = (length + (round_to-1)) // round_to * round_to
+        final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            region = [i] + [slice(0, dim) for dim in arr.shape]
-            output = index_update(output, index[region], arr)
+            output[i, :arr.shape[0]] = arr
         return output
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
@@ -290,7 +289,6 @@ class JaxOps(Ops):
         self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d,
         is_train: bool=True
     ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
-
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
 
@@ -686,23 +684,28 @@ def lstm_stepper_forward(t, state):
 def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
     xp = jax.numpy
     nL, nB, nI = X.shape
-    nO = h_init.shape[1]
+    nO = h_init.shape[0]
     # Preallocate these so we can pass them through for loop.
     Y = xp.zeros((nL + 1, nB, nO), dtype="f")
-    G = xp.zeros((nL, nB, nO * 4), dtype="f")
-    C = xp.zeros((nL + 1, nB, nO), dtype="f")
-    # Set initial hidden and cell states. The Y and C will be shifted 1,
-    # so that we can have fewer arrays.
-    Y = index_update(Y, index[0], h_init)
-    C = index_update(C, index[0], c_init)
+    if is_train:
+        G = xp.zeros((nL, nB, nO * 4), dtype="f")
+        C = xp.zeros((nL + 1, nB, nO), dtype="f")
+        # Set initial hidden and cell states. The Y and C will be shifted 1,
+        # so that we can have fewer arrays.
+        Y = index_update(Y, index[0], h_init)
+        C = index_update(C, index[0], c_init)
+    else:
+        G = xp.zeros((nB, nO * 4), dtype="f")
+        C = xp.zeros((nB, nO), dtype="f")
+        C += c_init
     state = ((W, b, X), (Y, C, G))
     state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
     (W, b, X), (Y, C, G) = state
     # Recall that Y and C are both offset by 1. Y[1] is the output for
     # X[1], while Y[0] was used as an input for Y[1]. We use
     # the S values to backprop the weights, so we need X the previous Ys.
-    S = xp.concatenate((X, Y[:-1]), axis=-1)
     if is_train:
+        S = xp.concatenate((X, Y[:-1]), axis=-1)
         return Y[1:], (G, C, S)
     else:
         null = xp.zeros((0,0,0))
@@ -712,22 +715,26 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
 @jax_jit()
 def lstm_stepper_forward(t, state):
     (W, b, X), (Y, C, G) = state
+    is_train = G.ndim >= 3
     # Get the activations for this timestep.
     At3 = lstm_weights_forward(X[t], Y[t], W, b)
     # The offsets here are a bit unintuitive, because Y and C are 1-offset.
-    Ct2 = C[t]
+    Ct2 = C[t] if is_train else C
     Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
     Y = index_update(Y, index[t + 1], Yt3)
-    C = index_update(C, index[t + 1], Ct3)
-    G = index_update(G, index[t], Gt3)
-    return (W, b, X), (Y, C, G)
+    if is_train:
+        C = index_update(C, index[t + 1], Ct3)
+        G = index_update(G, index[t], Gt3)
+        return (W, b, X), (Y, C, G)
+    else:
+        return (W, b, X), (Y, Ct3, Gt3)
 
 
 @jax_jit()
 def backprop_recurrent_lstm(dY, dCt, fwd_vars):
     (G, C, S), (W, b) = fwd_vars
     xp = jax.numpy
-    nL = dY.shape[0]
+    nL = S.shape[0]
     nB = dY.shape[1]
     nI = S.shape[2] - dY.shape[2]
     # Preallocate these so we can pass them through for loop.

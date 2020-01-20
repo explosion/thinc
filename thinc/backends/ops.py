@@ -112,7 +112,9 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[Array], round_to=10) -> Array:
+
+    def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
+        # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -123,7 +125,8 @@ class Ops:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
         length = max(len(seq) for seq in seqs)
-        # Round the length
+        # Round the length to nearest bucket -- helps on GPU, to make similar
+        # array sizes.
         length = (length + (round_to-1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output = self.alloc(final_shape, dtype=seqs[0].dtype)
@@ -622,7 +625,7 @@ have the initial hiddens and initial cells. So:
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
     xp = get_array_module(W)
     nL, nB, nI = X.shape
-    nO = h_init.shape[1]
+    nO = h_init.shape[0]
     # Preallocate these so we can pass them through for loop.
     Y = xp.zeros((nL + 1, nB, nO), dtype="f")
     G = xp.zeros((nL, nB, nO * 4), dtype="f")

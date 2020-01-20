@@ -51,7 +51,8 @@ class CupyOps(Ops):
             array = self.xp.ndarray(shape, memptr=pointer, **dtype)
             return array
         else:
-            return self.xp.array(data, **dtype)
+            result = self.xp.array(data, **dtype)
+            return result
 
     def maxout(self, X):
         return _custom_kernels.maxout(X)
