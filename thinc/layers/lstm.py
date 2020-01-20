@@ -91,12 +91,7 @@ def forward(
     b = cast(Array1d, model.get_param("b"))
     h = cast(Array1d, model.get_param("h"))
     c = cast(Array1d, model.get_param("c"))
-    # Initialize hiddens and cells
-    hiddens = model.ops.alloc_f2d(X.shape[1], h.shape[0])
-    cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
-    hiddens += h
-    cells += c
-    Y, fwd_state = model.ops.recurrent_lstm(W, b, hiddens, cells, X, is_train)
+    Y, fwd_state = model.ops.recurrent_lstm(W, b, h, c, X, is_train)
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
