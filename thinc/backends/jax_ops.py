@@ -185,7 +185,7 @@ class JaxOps(Ops):
         # Round the length
         length = (length + (round_to-1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
-        output = self.alloc(final_shape, dtype=seqs[0].dtype)
+        output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             output[i, :arr.shape[0]] = arr
         return output
