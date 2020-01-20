@@ -642,43 +642,6 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
-#@jax_jit()
-#def recurrent_lstm_predict(W, b, c_init, h_init, X):
-#    xp = jax.numpy
-#    nL, nB, nI = X.shape
-#    nO = h_init.shape[1]
-#    # Preallocate these so we can pass them through for loop.
-#    Y = xp.zeros((nL + 1, nB, nO), dtype="f")
-#    Gt = xp.zeros((nB, nO * 4), dtype="f")
-#    Ct = xp.zeros((nB, nO), dtype="f")
-#    # Set initial hidden and cell states. The Y and C will be shifted 1,
-#    # so that we can have fewer arrays.
-#    Y = index_update(Y, index[0], h_init)
-#    C = index_update(Ct, index[0], c_init)
-#    state = ((W, b, X), (Y, C, G))
-#    state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
-#    (W, b, X), (Y, C, G) = state
-#    # Recall that Y and C are both offset by 1. Y[1] is the output for
-#    # X[1], while Y[0] was used as an input for Y[1]. We use
-#    # the S values to backprop the weights, so we need X the previous Ys.
-#    S = xp.concatenate((X, Y[:-1]), axis=-1)
-#    return Y[1:], (G, C, S)
-
-
-@jax_jit()
-def lstm_stepper_forward(t, state):
-    (W, b, X), (Y, C, G) = state
-    # Get the activations for this timestep.
-    At3 = lstm_weights_forward(X[t], Y[t], W, b)
-    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
-    Ct2 = C[t]
-    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
-    Y = index_update(Y, index[t + 1], Yt3)
-    C = index_update(C, index[t + 1], Ct3)
-    G = index_update(G, index[t], Gt3)
-    return (W, b, X), (Y, C, G)
-
-
 
 @jax_jit(5)
 def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
