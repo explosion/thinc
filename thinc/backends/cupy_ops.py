@@ -7,7 +7,7 @@ try:
 except ImportError:
     cupy = None
 
-
+import numpy
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
@@ -17,6 +17,12 @@ from ..util import get_array_module
 class CupyOps(Ops):
     device = "gpu"
     xp = cupy
+
+    def to_numpy(self, data):
+        if isinstance(data, numpy.ndarray):
+            return data
+        else:
+            return data.get()
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if trans1:
