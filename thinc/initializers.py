@@ -46,8 +46,8 @@ def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> Array:
     if fan_in == -1:
         fan_in = shape[1]
     scale = ops.xp.sqrt(1.0 / fan_in)
-    size = int(ops.xp.prod(shape))
-    inits = numpy.random.normal(scale=scale, size=size).astype("float32")
+    size = int(ops.xp.prod(ops.xp.asarray(shape)))
+    inits = ops.xp.random.normal(scale=scale, size=size).astype("float32")
     inits = inits.reshape(shape)
     return ops.asarray(inits)
 
