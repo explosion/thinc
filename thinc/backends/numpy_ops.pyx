@@ -41,7 +41,7 @@ class NumpyOps(Ops):
     xp = numpy
 
     def __init__(
-        self, device_type: DeviceTypes = "cpu", device_id: int = -1, **settings
+        self, device_type: DeviceTypes = "cpu", device_id: int = -1, settings = {}
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id

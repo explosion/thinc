@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple, Sequence, Union, cast
+from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
 import numpy
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
@@ -12,7 +12,10 @@ class Ops:
     xp: Xp = numpy
 
     def __init__(
-        self, device_type: DeviceTypes = "cpu", device_id: int = -1, **settings
+        self,
+        device_type: DeviceTypes = "cpu",
+        device_id: int = -1,
+        settings: Dict[str, Any] = {},
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
