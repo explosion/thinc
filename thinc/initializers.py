@@ -13,7 +13,7 @@ from .util import partial
 
 def glorot_uniform_init(ops: Ops, shape: Shape) -> Array:
     scale = ops.xp.sqrt(6.0 / (shape[0] + shape[1]))
-    return ops.asarray(numpy.random.uniform(-scale, scale, shape), dtype="f")
+    return ops.asarray(ops.xp.random.uniform(-scale, scale, shape), dtype="f")
 
 
 @registry.initializers("glorot_uniform_init.v0")
@@ -31,7 +31,7 @@ def configure_zero_init() -> Callable[[Array], Array]:
 
 
 def uniform_init(ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1) -> Array:
-    values = numpy.random.uniform(lo, hi, shape)
+    values = ops.xp.random.uniform(lo, hi, shape)
     return ops.asarray(values.astype("float32"))
 
 
