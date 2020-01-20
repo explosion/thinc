@@ -125,7 +125,7 @@ class PyTorchShim(Shim):
         self.cfg = msg["config"]
         filelike = BytesIO(msg["state"])
         filelike.seek(0)
-        if ops.device == "cpu":
+        if ops.device_type == "cpu":
             map_location = "cpu"
         else:  # pragma: no cover
             device_id = torch.cuda.current_device()

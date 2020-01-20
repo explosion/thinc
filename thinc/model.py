@@ -9,7 +9,8 @@ import functools
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import create_thread_local, partial
+from .util import create_thread_local, convert_recursive, is_xp_array
+from .util import partial
 from .types import Array
 
 
@@ -423,7 +424,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     node.set_grad(name, ops.asarray(node.get_grad(name)))
             for shim in node.shims:
-                shim.to_device(ops.device)
+                shim.to_device(ops.device_type)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -431,6 +432,24 @@ class Model(Generic[InT, OutT]):
         on the data and get back a dictionary with the contents.
 
         Serialization should round-trip identically, i.e. the same bytes should
+        result from loading and serializing a model.
+        """
+        msg = self.to_dict()
+        msg = convert_recursive(is_xp_array, self.ops.to_numpy, msg)
+        return srsly.msgpack_dumps(self.to_dict())
+
+    def to_disk(self, path: Union[Path, str]) -> None:
+        """Serialize the model to disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
+        path = Path(path)
+        with path.open("wb") as file_:
+            file_.write(self.to_bytes())
+
+    def to_dict(self) -> Dict:
+        """Serialize the model to a dict representation.
+
+        Serialization should round-trip identically, i.e. the same dict should
         result from loading and serializing a model.
         """
         # We separate out like this to make it easier to read the data in chunks.
@@ -483,7 +502,7 @@ class Model(Generic[InT, OutT]):
                 else:
                     params[name] = None
             msg["params"].append(params)
-        return srsly.msgpack_dumps(msg)
+        return msg
 
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
@@ -494,11 +513,22 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = srsly.msgpack_loads(bytes_data)
-        if "nodes" not in msg.keys():
+        msg = convert_recursive(is_xp_array, self.ops.asarray, msg)
+        return self.from_dict(msg)
+
+    def from_disk(self, path: Union[Path, str]) -> "Model":
+        """Deserialize the model from disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
+        path = Path(path)
+        with path.open("rb") as file_:
+            bytes_data = file_.read()
+        return self.from_bytes(bytes_data)
+
+    def from_dict(self, msg: Dict) -> "Model":
+        if "nodes" not in msg.keys():  # pragma: no cover
             err = "Trying to read a Model that was created with an incompatible version of Thinc"
-            raise ValueError(
-                err
-            )
+            raise ValueError(err)
         nodes = list(self.walk())
         if len(msg["nodes"]) != len(nodes):
             raise ValueError("Cannot deserialize model: mismatched structure")
@@ -514,7 +544,7 @@ class Model(Generic[InT, OutT]):
                 else:
                     node.set_ref(ref, nodes[ref_index])
             for attr, value in msg["attrs"][i].items():
-                default_value = node.get_attr(attr)
+                default_value = node.get_attr(attr) if node.has_attr(attr) else None
                 loaded_value = deserialize_attr(default_value, value, attr, node)
                 node.set_attr(attr, loaded_value)
             for param_name, value in msg["params"][i].items():
@@ -522,23 +552,6 @@ class Model(Generic[InT, OutT]):
             for i, shim_bytes in enumerate(msg["shims"][i]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
-
-    def to_disk(self, path: Union[Path, str]) -> None:
-        """Serialize the model to disk. Most models will serialize to a single
-        file, which should just be the bytes contents of model.to_bytes().
-        """
-        path = Path(path)
-        with path.open("wb") as file_:
-            file_.write(self.to_bytes())
-
-    def from_disk(self, path: Union[Path, str]) -> "Model":
-        """Deserialize the model from disk. Most models will serialize to a single
-        file, which should just be the bytes contents of model.to_bytes().
-        """
-        path = Path(path)
-        with path.open("rb") as file_:
-            bytes_data = file_.read()
-        return self.from_bytes(bytes_data)
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
@@ -641,6 +654,51 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     type to deserialize, e.g.: @deserialize_attr.register(MyCustomObject).
     """
     return srsly.msgpack_loads(value)
+
+
+def _jax_flatten_model(model):  # pragma: ignore
+    """A Jax flattener for Thinc models. Registering this (and the paired
+    unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
+
+    The model must have an attr "registered_constructor" that can rebuild the
+    model object via the layers registry, with no arguments. You should use a
+    constructor that doesn't allocate any parameters and works reasonably quickly.
+    """
+    registry_name = model.get_attr("registry_name")
+    msg = model.to_dict()
+    params = msg.pop("params")
+    param_values = []
+    param_keys = []
+    for i, param_info in enumerate(params):
+        for name, value in param_info.items():
+            param_values.append(value)
+            param_keys.append((i, name))
+    # param_values needs to be a flat list of leaf types, e.g. arrays. Notably,
+    # strings are not leaves!
+    # The aux data can be anything, but I think it shouldn't be variables?
+    return param_values, (registry_name, param_keys, msg)
+
+
+def _jax_unflatten_model(info, param_values):  # pragma: ignore
+    """The Jax unflattener, paired with jax_flatten_model"""
+    # This is pretty ugly. But I don't know where I can put this function
+    # that has access to the registry object without causing import circles?
+    from .config import registry
+
+    registry_name, param_keys, msg = info
+    model = registry.layers.get(registry_name)()
+    msg["params"] = [{} for _ in range(len(msg["nodes"]))]
+    for (i, name), value in zip(param_keys, param_values):
+        msg["params"][i][name] = value
+    return model.from_dict(msg)
+
+
+try:  # pragma: no cover
+    import jax.tree_util
+
+    jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
+except ImportError:  # pragma: no cover
+    pass
 
 
 _ModelT = TypeVar("_ModelT", bound=Model)

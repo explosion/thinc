@@ -37,8 +37,8 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
-    ids[ids >= nV] = 0
-    output = vectors[ids]
+    ids *= ids < nV
+    output = vectors[ids.astype("i")]
 
     def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.alloc_f2d(*vectors.shape)

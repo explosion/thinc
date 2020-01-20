@@ -93,17 +93,6 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
             model.to_disk(out_dir / f"{epoch}.bin")
 
 
-@thinc.registry.layers("TransformersTagger.v0")
-def TransformersTagger(
-    starter: str, n_tags: int = 17
-) -> Model[List[List[str]], List[Array2d]]:
-    return chain(
-        TransformersTokenizer(starter),
-        Transformer(starter),
-        with_array(Softmax(nO=n_tags)),
-    )
-
-
 @dataclass
 class TokensPlus:
     """Dataclass to hold the output of the Huggingface 'batch_encode_plus' method."""
@@ -117,28 +106,36 @@ class TokensPlus:
     special_tokens_mask: Optional[torch.Tensor] = None
 
 
+@thinc.registry.layers("TransformersTagger.v0")
+def TransformersTagger(
+    starter: str, n_tags: int = 17
+) -> Model[List[List[str]], List[Array2d]]:
+    return chain(
+        TransformersTokenizer(starter),
+        Transformer(starter),
+        with_array(Softmax(nO=n_tags)),
+    )
+
+
 @thinc.registry.layers("transformers_tokenizer.v0")
 def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
+    def forward(
+        model, texts: List[List[str]], is_train: bool
+    ) -> Tuple[TokensPlus, Callable]:
+        tokenizer = model.get_attr("tokenizer")
+        token_data = tokenizer.batch_encode_plus(
+            [(text, None) for text in texts],
+            add_special_tokens=True,
+            return_token_type_ids=True,
+            return_attention_masks=True,
+            return_input_lengths=True,
+            return_tensors="pt",
+        )
+        return TokensPlus(**token_data), lambda d_tokens: []
+
     return Model(
-        "tokenizer",
-        _tokenizer_forward,
-        attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
+        "tokenizer", forward, attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
     )
-
-
-def _tokenizer_forward(
-    model, texts: List[List[str]], is_train: bool
-) -> Tuple[TokensPlus, Callable]:
-    tokenizer = model.get_attr("tokenizer")
-    token_data = tokenizer.batch_encode_plus(
-        [(text, None) for text in texts],
-        add_special_tokens=True,
-        return_token_type_ids=True,
-        return_attention_masks=True,
-        return_input_lengths=True,
-        return_tensors="pt",
-    )
-    return TokensPlus(**token_data), lambda d_tokens: d_tokens
 
 
 @thinc.registry.layers("transformers_model.v0")

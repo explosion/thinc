@@ -72,12 +72,12 @@ def _list_forward(
 
     def backprop(d_output: OutT) -> InT:
         d_output = model.ops.xp.concatenate(d_output, axis=0)
-        dY = model.ops.xp.ascontiguousarray(d_output[:, : widths[0]])
+        dY = model.ops.as_contig(d_output[:, : widths[0]])
         dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
         dX = callbacks[0](dY)
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
-            dY = model.ops.xp.ascontiguousarray(d_output[:, start : start + width])
+            dY = model.ops.as_contig(d_output[:, start : start + width])
             dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
             dX += bwd(dY)
             start += width
@@ -96,5 +96,6 @@ def init(
             layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
-    model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
+    if None not in [layer.has_dim("nO") for layer in model.layers]:
+        model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
     return model

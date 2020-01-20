@@ -33,7 +33,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     keys = X[:, column]
     if not isinstance(keys, numpy.ndarray):
         keys = keys.get()  # pragma: no cover
-    uniq_keys, ind, inv, counts = numpy.unique(
+    uniq_keys, ind, inv, counts = layer.ops.xp.unique(
         keys, return_index=True, return_inverse=True, return_counts=True
     )
     counts = counts.reshape((-1, 1))
