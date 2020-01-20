@@ -3,7 +3,7 @@ import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import JaxOps, has_jax
+from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
 import inspect
 
 from .. import strategies
@@ -317,15 +317,26 @@ def test_backprop_mish(ops, X):
 
 
 def test_get_ops():
-    Ops = get_ops("numpy")
-    Ops is NumpyOps
-    Ops = get_ops("cpu")
-    assert Ops is NumpyOps
-    Ops = get_ops("cupy")
-    assert Ops is CupyOps
-    Ops = get_ops("gpu")
-    assert Ops is CupyOps
+    assert isinstance(get_ops("numpy"), NumpyOps)
+    assert isinstance(get_ops("cupy"), CupyOps)
+    assert isinstance(get_ops("jax"), JaxOps)
     with pytest.raises(ValueError):
-        Ops = get_ops("blah")
+        get_ops("blah")
     ops = Ops(numpy)
     assert ops.xp == numpy
+
+
+def test_use_ops():
+    class_ops = get_current_ops()
+    assert class_ops.name == "numpy"
+    with use_ops("numpy"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "numpy"
+    with use_ops("cupy"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "cupy"
+    with use_ops("jax"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "jax"
+    new_ops = get_current_ops()
+    assert new_ops.name == "numpy"

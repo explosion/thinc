@@ -11,17 +11,14 @@ Predicted 39018 13.174870599992573 Ys[0] 0.05000001 5.551115e-17
 
 So PyTorch is 3x faster currently.
 """
+from typing import List
 import typer
-from timeit import default_timer as timer
 import numpy.random
 from timeit import default_timer as timer
-from typing import List, cast
+from thinc.api import Model, Config, registry, chain, list2padded, with_array
+from thinc.api import to_categorical, minibatch, set_current_ops, JaxOps
+from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
-import thinc.api
-from thinc.api import Model, Config, registry, Embed, LSTM, Softmax
-from thinc.api import chain, list2padded, with_array, to_categorical
-from thinc.api import minibatch
-from thinc.backends import jax_jit
 import jax.tree_util
 
 CONFIG = """
@@ -54,17 +51,18 @@ depth = 1
 nO = ${data:n_tags}
 """
 
+
 @registry.layers("LSTMTagger.v0")
 def build_tagger(
-        embed: Model[Array2d, Array2d],
-        encode: Model[Padded, Padded],
-        predict: Model[Array2d, Array2d]
+    embed: Model[Array2d, Array2d],
+    encode: Model[Padded, Padded],
+    predict: Model[Array2d, Array2d],
 ) -> Model[List[Array2d], Padded]:
     model = chain(
         list2padded(),
         with_array(embed),
         encode,
-        #with_array(predict),
+        # with_array(predict),
     )
     model.set_ref("embed", embed)
     model.set_ref("encode", encode)
@@ -76,48 +74,51 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     Xs = []
     Ys = []
     for _ in range(n_samples):
-        #length = numpy.random.normal(size=1, scale=length_variance) + length_mean
+        # length = numpy.random.normal(size=1, scale=length_variance) + length_mean
         length = length_mean
         shape = (max(1, int(length)),)
-        X = numpy.random.uniform(0, n_vocab-1, shape)
-        Y = numpy.random.uniform(0, n_tags-1, shape)
+        X = numpy.random.uniform(0, n_vocab - 1, shape)
+        Y = numpy.random.uniform(0, n_tags - 1, shape)
         assert X.size, length
         assert Y.size, length
         Xs.append(X.reshape((-1, 1)).astype("i"))
         Ys.append(to_categorical(Y.astype("i")))
     return Xs, Ys
 
+
 jax.tree_util.register_pytree_node(
     Padded,
     lambda pad: ((pad.data, pad.size_at_t, pad.lengths, pad.indices), None),
-    lambda info, values: Padded(*values)
+    lambda info, values: Padded(*values),
 )
 
+
 def run_forward(model, Xs):
-    total = 0.
+    total = 0.0
     for batch in Xs:
         Y = model.predict(batch)
         total += Y.data.sum()
     return float(total)
 
+
 def set_backend(name, gpu_id):
     global CONFIG
     if name == "jax":
-        thinc.api.set_current_ops(thinc.api.JaxOps())
+        set_current_ops(JaxOps())
         CONFIG = CONFIG.replace("PyTorch", "")
     else:
         if gpu_id == -1:
-            thinc.api.set_current_ops(thinc.api.NumpyOps())
+            set_current_ops(NumpyOps())
         else:
-            thinc.api.set_current_ops(thinc.api.CupyOps())
+            set_current_ops(CupyOps())
         CONFIG = CONFIG.replace("LSTM.v0", "PyTorchLSTM.v0")
 
 
-def main(jax: bool=False, pytorch: bool=False, gpu_id: int=-1):
+def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
     global CONFIG
-    thinc.api.fix_random_seed(0)
+    fix_random_seed(0)
     if gpu_id >= 0:
-        thinc.api.require_gpu(gpu_id)
+        require_gpu(gpu_id)
         print("Set GPU", gpu_id)
     backends = {"jax": jax, "pytorch": pytorch}
     for name, use_backend in backends.items():
@@ -139,9 +140,8 @@ def main(jax: bool=False, pytorch: bool=False, gpu_id: int=-1):
         model.layers.pop(0)
         print("Start")
         start_time = timer()
-        total = run_forward(model, X)
         end_time = timer()
-        print(name, n_words, end_time-start_time)
+        print(name, n_words, end_time - start_time)
 
 
 if __name__ == "__main__":

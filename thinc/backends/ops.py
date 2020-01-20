@@ -3,22 +3,26 @@ import numpy
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
+from ..types import DeviceTypes
 from ..util import get_array_module
 
 
 class Ops:
-    device: str = "cpu"
+    name: str = "base"
     xp: Xp = numpy
 
-    def __init__(self, xp: Optional[Xp] = None) -> None:
-        if xp is not None:
-            self.xp = xp
+    def __init__(
+        self, device_type: DeviceTypes = "cpu", device_id: int = -1, **settings
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
-    def to_numpy(self, data):
+    def to_numpy(self, data):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
             return data
         else:
-            raise ValueError("Cannot convert non-numpy from base Ops class.")
+            raise ValueError("Cannot convert non-numpy from base Ops class")
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
@@ -112,7 +116,6 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-
     def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
         # TODO: This should be generalized to handle different ranks
         if not seqs:
@@ -127,11 +130,11 @@ class Ops:
         length = max(len(seq) for seq in seqs)
         # Round the length to nearest bucket -- helps on GPU, to make similar
         # array sizes.
-        length = (length + (round_to-1)) // round_to * round_to
+        length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            output[i, :arr.shape[0]] = arr
+            output[i, : arr.shape[0]] = arr
         return output
 
     def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
@@ -159,7 +162,6 @@ class Ops:
         lengths_indices.sort(reverse=True)
         indices_ = [i for length, i in lengths_indices]
         lengths_ = [length for length, i in lengths_indices]
-        nB = len(seqs)
         nS = max([len(seq) for seq in seqs])
         arr: Array3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
@@ -372,8 +374,13 @@ class Ops:
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d,
-        is_train: bool=True
+        self,
+        W: Array2d,
+        b: Array1d,
+        h_init: Array1d,
+        c_init: Array1d,
+        inputs: Array3d,
+        is_train: bool = True,
     ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)

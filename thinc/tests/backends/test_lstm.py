@@ -8,6 +8,7 @@ from ..strategies import ndarrays_of_shape
 
 try:
     import jax
+
     has_jax = True
 except ImportError:
     has_jax = False

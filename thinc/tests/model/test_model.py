@@ -2,8 +2,7 @@ import pytest
 import threading
 import time
 from thinc.api import CupyOps
-from thinc.api import Linear, get_current_ops, use_device, Model, Shim
-from thinc.api import change_attr_values, set_dropout_rate
+from thinc.api import Linear, Model, Shim, change_attr_values, set_dropout_rate
 import numpy
 
 from ..util import make_tempdir
@@ -144,19 +143,6 @@ def test_model_set_reference():
     parent.remove_node(grandchild)
     assert grandchild not in child.layers
     assert not parent.has_ref("grandkind")
-
-
-def test_use_device():
-    class_ops = get_current_ops()
-    dev_id = id(class_ops)
-    with use_device(class_ops.device):
-        new_ops = get_current_ops()
-        assert id(new_ops) == dev_id
-    with use_device("gpu"):
-        new_ops = get_current_ops()
-        assert id(new_ops) != dev_id
-    new_ops = get_current_ops()
-    assert id(new_ops) == dev_id
 
 
 def test_model_can_save_to_disk(model_with_no_args):

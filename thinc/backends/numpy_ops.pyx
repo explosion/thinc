@@ -15,6 +15,7 @@ cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
 from ..util import copy_array, get_array_module
+from ..types import DeviceTypes
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -36,8 +37,15 @@ cdef extern from "math.h":
 
 
 class NumpyOps(Ops):
-    device = 'cpu'
+    name = "numpy"
     xp = numpy
+
+    def __init__(
+        self, device_type: DeviceTypes = "cpu", device_id: int = -1, **settings
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
@@ -656,7 +664,7 @@ cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
         prevcells += N
 
 
-cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev, 
+cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
         const float* d_cells, const float* d_hiddens,
         const float* cells, const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev

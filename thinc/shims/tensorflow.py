@@ -197,7 +197,7 @@ class TensorFlowShim(Shim):
         ops: Ops = get_current_ops()
         filelike = BytesIO(data)
         filelike.seek(0)
-        if ops.device == "cpu":
+        if ops.device_type == "cpu":
             device = "CPU"
         else:  # pragma: no cover
             device = tf.test.gpu_device_name()

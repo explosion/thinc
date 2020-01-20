@@ -23,7 +23,8 @@ Shape = Tuple[int, ...]
 DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
 DTypesFloat = Literal["f", "float32"]
 DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
-DeviceTypes = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
+OpsNames = Literal["numpy", "cupy", "jax"]
+DeviceTypes = Literal["cpu", "gpu", "tpu"]
 ArrayT = TypeVar("ArrayT", bound="Array")
 Reduced_OutT = TypeVar("Reduced_OutT")
 

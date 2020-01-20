@@ -1,8 +1,10 @@
-from .ops import Ops 
-import numpy
-from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
-from ..types import Padded
 from typing import Sequence, Optional, List, Tuple, Callable, cast
+import numpy
+
+from .ops import Ops
+from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
+from ..types import Padded, DeviceTypes
+
 
 try:  # pragma: no cover
     import jax
@@ -17,7 +19,15 @@ except ImportError:  # pragma: no cover
 
 
 class JaxOps(Ops):
+    name = "jax"
     xp = jax.numpy if has_jax else None
+
+    def __init__(
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **settings
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)
@@ -183,11 +193,11 @@ class JaxOps(Ops):
         # Find the maximum dimension along each axis. That's what we'll pad to.
         length = max(len(seq) for seq in seqs)
         # Round the length
-        length = (length + (round_to-1)) // round_to * round_to
+        length = (length + (round_to - 1)) // round_to * round_to
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            output[i, :arr.shape[0]] = arr
+            output[i, : arr.shape[0]] = arr
         return output
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
@@ -195,6 +205,7 @@ class JaxOps(Ops):
         # I don't know why this is so slow, but it's *terrible*. Try going
         # via numpy?
         from .numpy_ops import NumpyOps
+
         numpy_ops = NumpyOps()
         numpy_seqs = [numpy_ops.asarray(seq) for seq in seqs]
         numpy_padded = numpy_ops.list2padded(numpy_seqs)
@@ -202,7 +213,7 @@ class JaxOps(Ops):
             self.asarray(numpy_padded.data),
             self.asarray(numpy_padded.size_at_t),
             self.asarray(numpy_padded.lengths),
-            self.asarray(numpy_padded.indices)
+            self.asarray(numpy_padded.indices),
         )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -286,8 +297,13 @@ class JaxOps(Ops):
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d,
-        is_train: bool=True
+        self,
+        W: Array2d,
+        b: Array1d,
+        h_init: Array1d,
+        c_init: Array1d,
+        inputs: Array3d,
+        is_train: bool = True,
     ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
@@ -326,6 +342,7 @@ def jax_jit(*static_args: int) -> Wrapper:
     arguments, which are passed as a tuple to jax.jit as the 'static_argnums'
     keyword argument.
     """
+
     def wrapper(func: Callable) -> Callable:
         return jax.jit(func, static_argnums=static_args) if has_jax else func
 
@@ -671,7 +688,7 @@ def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
         S = xp.concatenate((X, Y[:-1]), axis=-1)
         return Y[1:], (G, C, S)
     else:
-        null = xp.zeros((0,0,0))
+        null = xp.zeros((0, 0, 0))
         return Y, (null, null, null)
 
 

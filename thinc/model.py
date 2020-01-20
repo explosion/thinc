@@ -424,7 +424,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     node.set_grad(name, ops.asarray(node.get_grad(name)))
             for shim in node.shims:
-                shim.to_device(ops.device)
+                shim.to_device(ops.device_type)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -526,7 +526,7 @@ class Model(Generic[InT, OutT]):
         return self.from_bytes(bytes_data)
 
     def from_dict(self, msg: Dict) -> "Model":
-        if "nodes" not in msg.keys():
+        if "nodes" not in msg.keys():  # pragma: no cover
             err = "Trying to read a Model that was created with an incompatible version of Thinc"
             raise ValueError(err)
         nodes = list(self.walk())
@@ -693,11 +693,11 @@ def _jax_unflatten_model(info, param_values):  # pragma: ignore
     return model.from_dict(msg)
 
 
-try:
+try:  # pragma: no cover
     import jax.tree_util
 
     jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
-except ImportError:
+except ImportError:  # pragma: no cover
     pass
 
 

@@ -56,7 +56,7 @@ def init(
 
 def _get_vectors(ops: Ops, lang: str) -> Array:
     global STATE
-    key = (ops.device, lang)
+    key = (ops.device_type, lang)
     if key not in STATE.vectors:
         nlp = load_spacy(lang)
         STATE.vectors[key] = ops.asarray(nlp.vocab.vectors.data)

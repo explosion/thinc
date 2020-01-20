@@ -1,3 +1,5 @@
+import numpy
+
 try:
     import cupy
     import cupy.cuda
@@ -10,16 +12,23 @@ except ImportError:
     cupy = None
     has_cupy = False
 
-import numpy
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..util import get_array_module
+from ..types import DeviceTypes
 
 
 class CupyOps(Ops):
-    device = "gpu"
+    name = "cupy"
     xp = cupy
+
+    def __init__(
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **settings
+    ) -> None:
+        self.device_type = device_type
+        self.device_id = device_id
+        self.settings = settings
 
     def to_numpy(self, data):
         if isinstance(data, numpy.ndarray):

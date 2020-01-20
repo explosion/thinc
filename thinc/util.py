@@ -19,7 +19,7 @@ try:  # pragma: no cover
     import jax.numpy
 
     has_jax = True
-except ImportError:
+except ImportError:  # pragma: no cover
     jax = None
     has_jax = False
 
@@ -42,7 +42,7 @@ except ImportError:  # pragma: no cover
 from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
 
 
-def get_array_module(arr):
+def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
         return cupy
     elif is_jax_array(arr):
