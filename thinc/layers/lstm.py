@@ -8,7 +8,7 @@ from ..types import Array1d, Array2d, Array3d, Padded
 from .bidirectional import bidirectional
 from .clone import clone
 from .noop import noop
-from ..initializers import xavier_uniform_init, zero_init
+from ..initializers import glorot_uniform_init, zero_init
 
 
 @registry.layers("LSTM.v0")
@@ -19,7 +19,7 @@ def LSTM(
     bi: bool = False,
     depth: int = 1,
     dropout: float = 0.0,
-    init_W=xavier_uniform_init,
+    init_W=glorot_uniform_init,
     init_b=zero_init
 ) -> Model[Padded, Padded]:
     if dropout != 0.0:

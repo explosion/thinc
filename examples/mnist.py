@@ -2,6 +2,7 @@
 PyTorch version: https://github.com/pytorch/examples/blob/master/mnist/main.py
 TensorFlow version: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/mnist/mnist.py
 """
+# pip install thinc ml_datasets typer
 from thinc.api import Model, chain, ReLu, Softmax, Adam, minibatch
 from thinc.api import evaluate_model_on_arrays
 import ml_datasets
@@ -15,7 +16,9 @@ def main(
 ):
     # Define the model
     model: Model = chain(
-        ReLu(n_hidden, dropout=dropout), ReLu(n_hidden, dropout=dropout), Softmax()
+        ReLu(nO=n_hidden, dropout=dropout),
+        ReLu(nO=n_hidden, dropout=dropout),
+        Softmax(),
     )
     # Load the data
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()

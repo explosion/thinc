@@ -4,6 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Array2d
 from ..initializers import uniform_init
+from ..util import partial
 
 
 InT = Array2d
@@ -22,14 +23,13 @@ def HashEmbed(
     model: Model[InT, OutT] = Model(
         "hashembed",
         forward,
-        init=create_init(initializer),
+        init=partial(init, initializer),
         params={"E": None},
         dims={"nO": nO, "nV": nV, "nI": None},
         attrs={"seed": seed, "column": column},
     )
     if seed is None:
         model.set_attr("seed", model.id)
-    model.initialize()
     return model
 
 
@@ -57,10 +57,12 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     return output, backprop
 
 
-def create_init(initializer: Callable) -> Callable:
-    def init(model: Model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model:
-        shape = (model.get_dim("nV"), model.get_dim("nO"))
-        model.set_param("E", initializer(model.ops, shape))
-        return model
-
-    return init
+def init(
+    initializer: Callable,
+    model: Model[InT, OutT],
+    X: Optional[InT] = None,
+    Y: Optional[OutT] = None,
+) -> Model[InT, OutT]:
+    E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
+    model.set_param("E", E)
+    return model

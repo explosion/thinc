@@ -178,7 +178,7 @@ class NumpyOps(Ops):
             dest += 16
         return keys
 
-    def mean_pool(self, const float[:, ::1] X, int[::1] lengths):
+    def reduce_mean(self, const float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -186,11 +186,11 @@ class NumpyOps(Ops):
         cdef Pool mem = Pool()
         means = <float*>mem.alloc(B * O, sizeof(float))
 
-        cpu_mean_pool(means,
+        cpu_reduce_mean(means,
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(means, (B, O))
 
-    def sum_pool(self, const float[:, ::1] X, int[::1] lengths):
+    def reduce_sum(self, const float[:, ::1] X, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -198,11 +198,11 @@ class NumpyOps(Ops):
         cdef Pool mem = Pool()
         sums = <float*>mem.alloc(B * O, sizeof(float))
 
-        cpu_sum_pool(sums,
+        cpu_reduce_sum(sums,
             &X[0, 0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(sums, (B, O))
 
-    def backprop_mean_pool(self, const float[:, ::1] d_means, int[::1] lengths):
+    def backprop_reduce_mean(self, const float[:, ::1] d_means, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_means.shape[1]
         cdef int T = 0
@@ -211,12 +211,12 @@ class NumpyOps(Ops):
         cdef Pool mem = Pool()
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
-        cpu_backprop_mean_pool(dX,
+        cpu_backprop_reduce_mean(dX,
             &d_means[0,0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def backprop_sum_pool(self, const float[:, ::1] d_sums, int[::1] lengths):
+    def backprop_reduce_sum(self, const float[:, ::1] d_sums, int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_sums.shape[1]
         cdef int T = 0
@@ -225,11 +225,11 @@ class NumpyOps(Ops):
         cdef Pool mem = Pool()
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
-        cpu_backprop_sum_pool(dX,
+        cpu_backprop_reduce_sum(dX,
             &d_sums[0,0], &lengths[0], B, T, O)
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def max_pool(self, const float[:, ::1] X, const int[::1] lengths):
+    def reduce_max(self, const float[:, ::1] X, const int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = X.shape[1]
         cdef int T = X.shape[0]
@@ -238,14 +238,14 @@ class NumpyOps(Ops):
         maxes = <float*>mem.alloc(B * O, sizeof(float))
         which = <int*>mem.alloc(B * O, sizeof(int))
 
-        cpu_max_pool(maxes, which,
+        cpu_reduce_max(maxes, which,
             &X[0, 0], &lengths[0], B, T, O)
 
         cdef ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
         cdef ndarray py_which = cpu_ints_ptr2array(which, (B, O))
         return py_best, py_which
 
-    def backprop_max_pool(self, const float[:, ::1] d_maxes,
+    def backprop_reduce_max(self, const float[:, ::1] d_maxes,
             const int[:, ::1] which, const int[::1] lengths):
         cdef int B = lengths.shape[0]
         cdef int O = d_maxes.shape[1]
@@ -255,7 +255,7 @@ class NumpyOps(Ops):
         cdef Pool mem = Pool()
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
-        cpu_backprop_max_pool(dX,
+        cpu_backprop_reduce_max(dX,
             &d_maxes[0,0], &which[0, 0], &lengths[0], B, T, O)
 
         return cpu_floats_ptr2array(dX, (T, O))
@@ -533,7 +533,7 @@ cdef cpu_ints_ptr2array(int* ptr, shape):
     return py_out
 
 
-cdef void cpu_mean_pool(float* means__bo,
+cdef void cpu_reduce_mean(float* means__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil:
     '''Compute means of a batch of concatenated sequences, using the lengths.'''
@@ -547,7 +547,7 @@ cdef void cpu_mean_pool(float* means__bo,
         means__bo += O
 
 
-cdef void cpu_backprop_mean_pool(float* dX__to,
+cdef void cpu_backprop_reduce_mean(float* dX__to,
         const float* d_means__bo, const int* lengths__b,
         int B, int T, int O) nogil:
     cdef float scale = 0.
@@ -560,7 +560,7 @@ cdef void cpu_backprop_mean_pool(float* dX__to,
         d_means__bo += O
 
 
-cdef void cpu_sum_pool(float* sums__bo,
+cdef void cpu_reduce_sum(float* sums__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil:
     '''Compute sums of a batch of concatenated sequences, using the lengths.'''
@@ -572,7 +572,7 @@ cdef void cpu_sum_pool(float* sums__bo,
         sums__bo += O
 
 
-cdef void cpu_backprop_sum_pool(float* dX__to,
+cdef void cpu_backprop_reduce_sum(float* dX__to,
         const float* d_sums__bo, const int* lengths__b,
         int B, int T, int O) nogil:
     for length in lengths__b[:B]:
@@ -583,7 +583,7 @@ cdef void cpu_backprop_sum_pool(float* dX__to,
         d_sums__bo += O
 
 
-cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
+cdef void cpu_reduce_max(float* maxes__bo, int* which__bo,
         const float* X__to, const int* lengths__b,
         int B, int T, int O) nogil:
     '''Compute maxes of a batch of concatenated sequences, using the lengths.'''
@@ -602,7 +602,7 @@ cdef void cpu_max_pool(float* maxes__bo, int* which__bo,
         which__bo += O
 
 
-cdef void cpu_backprop_max_pool(float* dX__to,
+cdef void cpu_backprop_reduce_max(float* dX__to,
         const float* d_maxes__bo, const int* which__bo, const int* lengths__b,
         int B, int T, int O) nogil:
     cdef int length, i, j

@@ -20,6 +20,7 @@ def get_model(W_b_input, cls=Linear):
     model = cls(nr_out, nr_in)
     model.set_param("W", W)
     model.set_param("b", b)
+    model.initialize()
     return model
 
 

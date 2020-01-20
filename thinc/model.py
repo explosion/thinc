@@ -9,7 +9,8 @@ import functools
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import get_width, create_thread_local, convert_recursive, is_xp_array
+from .util import create_thread_local, convert_recursive, is_xp_array
+from .util import partial
 from .types import Array
 
 
@@ -17,30 +18,8 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-def create_init(initializers: Dict[str, Callable]) -> Callable:
-    """Create an init function, given a dictionary of parameter initializers."""
-
-    def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-    ) -> None:
-        if X is not None:
-            model.set_dim("nI", get_width(X))
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        W_shape = (model.get_dim("nO"), model.get_dim("nI"))
-        b_shape = (model.get_dim("nO"),)
-        if "W" in initializers:
-            W = initializers["W"](model.ops, W_shape)
-        else:
-            W = model.ops.alloc_f2d(*W_shape)
-        if "b" in initializers:
-            b = initializers["b"](model.ops, b_shape)
-        else:
-            b = model.ops.alloc_f1d(*b_shape)
-        model.set_param("W", W)
-        model.set_param("b", b)
-
-    return init
+def empty_init(model: "Model", *args, **kwargs) -> "Model":
+    return model
 
 
 class Model(Generic[InT, OutT]):
@@ -83,7 +62,7 @@ class Model(Generic[InT, OutT]):
         name: str,
         forward: Callable,
         *,
-        init: Callable = lambda *a, **k: None,
+        init: Optional[Callable] = None,
         dims: Dict[str, Optional[int]] = {},
         params: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
@@ -94,6 +73,8 @@ class Model(Generic[InT, OutT]):
     ):
         """Initialize a new model."""
         self.name = name
+        if init is None:
+            init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
         setattr(self, "_init", init)
@@ -545,14 +526,18 @@ class Model(Generic[InT, OutT]):
         return self.from_bytes(bytes_data)
 
     def from_dict(self, msg: Dict) -> "Model":
+        if "nodes" not in msg.keys():
+            err = "Trying to read a Model that was created with an incompatible version of Thinc"
+            raise ValueError(err)
         nodes = list(self.walk())
         if len(msg["nodes"]) != len(nodes):
-            raise ValueError("Cannot deserialize model: mismatched structure.")
+            raise ValueError("Cannot deserialize model: mismatched structure")
         for i, node in enumerate(nodes):
             info = msg["nodes"][i]
             node.name = info["name"]
             for dim, value in info["dims"].items():
-                node.set_dim(dim, value)
+                if value is not None:
+                    node.set_dim(dim, value)
             for ref, ref_index in info["refs"].items():
                 if ref_index is None:
                     node.set_ref(ref, None)
@@ -742,7 +727,6 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> 
 
 
 __all__ = [
-    "create_init",
     "Model",
     "serialize_attr",
     "deserialize_attr",

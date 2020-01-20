@@ -43,12 +43,15 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     return output, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> Model[InT, OutT]:
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
     W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))
     model.set_param("W", W)
+    return model
 
 
 def _get_vectors(ops: Ops, lang: str) -> Array:

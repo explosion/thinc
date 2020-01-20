@@ -41,3 +41,4 @@ tmp/
 .mypy_cache
 env3.*/
 coverage.xml
+.ipynb_checkpoints/

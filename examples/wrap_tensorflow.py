@@ -1,6 +1,7 @@
+# pip install thinc ml_datasets tqdm typer tensorflow
 import ml_datasets
 import tqdm
-from thinc.api import Adam, TensorFlowWrapper, prefer_gpu
+from thinc.api import Adam, TensorFlowWrapper, prefer_gpu, Model
 from thinc.api import get_shuffled_batches, evaluate_model_on_arrays
 from wasabi import msg
 import typer
@@ -31,7 +32,7 @@ def main(
 ):
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     print(train_X.shape[0], "train samples", dev_X.shape[0], "test samples")
-    model = TensorFlowWrapper(create_tf_model(width, depth))
+    model: Model = TensorFlowWrapper(create_tf_model(width, depth))
     optimizer = Adam(learn_rate=learn_rate)
 
     n_batches = (len(train_X) // batch_size) + 1

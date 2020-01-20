@@ -87,14 +87,14 @@ TEST_CASES = [
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
-    ("MaxPool.v0", {}, ragged, array2d),
-    ("MeanPool.v0", {}, ragged, array2d),
-    ("SumPool.v0", {}, ragged, array2d),
+    ("reduce_max.v0", {}, ragged, array2d),
+    ("reduce_mean.v0", {}, ragged, array2d),
+    ("reduce_sum.v0", {}, ragged, array2d),
     # fmt: off
     # Other
-    ("ExtractWindow.v0", {}, array2d, array2d),
-    ("Embed.v0", {}, array2dint, array2d),
-    ("Embed.v0", {"nO": 4}, array2dint, array2d),
+    ("expand_window.v0", {}, array2d, array2d),
+    ("Embed.v0", {"nV": 1}, array2dint, array2d),
+    ("Embed.v0", {"nO": 4, "nV": 1}, array2dint, array2d),
     ("HashEmbed.v0", {"nO": 1, "nV": 2}, array2d, array2d),
     ("MultiSoftmax.v0", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v0", {}, (array2d, array2d), array1d),
@@ -102,6 +102,7 @@ TEST_CASES = [
     ("FeatureExtractor.v0", {"columns": [1, 2]}, [span, span], [array2d, array2d]),
     ("ParametricAttention.v0", {}, ragged, ragged),
     ("SparseLinear.v0", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
+    ("remap_ids.v0", {"dtype": "f"}, ["a", 1, 5.0], array2d)
     # fmt: on
 ]
 

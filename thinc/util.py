@@ -10,7 +10,7 @@ try:  # pragma: no cover
     import cupy
 
     has_cupy = True
-except ImportError:
+except (ImportError, AttributeError):
     cupy = None
     has_cupy = False
 

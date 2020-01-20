@@ -151,25 +151,25 @@ class JaxOps(Ops):
     def logloss(self, y_true: Array, y_pred: Array):
         return logloss
 
-    def sum_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
-        return sum_pool(X, lengths)
+    def reduce_sum(self, X: Array2d, lengths: Array1d) -> Array2d:
+        return reduce_sum(X, lengths)
 
-    def mean_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
-        return mean_pool(X, lengths)
+    def reduce_mean(self, X: Array2d, lengths: Array1d) -> Array2d:
+        return reduce_mean(X, lengths)
 
-    def max_pool(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
-        return max_pool(X, lengths)
+    def reduce_max(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
+        return reduce_max(X, lengths)
 
-    def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
-        return backprop_sum_pool(d_sums, lengths)
+    def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
+        return backprop_reduce_sum(d_sums, lengths)
 
-    def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
-        return backprop_mean_pool(d_means, lengths)
+    def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
+        return backprop_reduce_mean(d_means, lengths)
 
-    def backprop_max_pool(
+    def backprop_reduce_max(
         self, d_maxes: Array2d, which: Array2d, lengths: Array1d
     ) -> Array2d:
-        return backprop_max_pool(d_maxes, which, lengths)
+        return backprop_reduce_max(d_maxes, which, lengths)
 
     def list2padded(self, seqs: List[Array2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
@@ -248,11 +248,6 @@ class JaxOps(Ops):
         loss = losses.sum()
         return loss
 
-    def get_norm(self, X: Array) -> Array:
-        norms = self.xp.linalg.norm(X, axis=1)
-        norms[norms == 0] = 1
-        return norms
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
@@ -278,7 +273,7 @@ class JaxOps(Ops):
         # This loses almost no fidelity, and helps the numerical stability.
         Xs = self.xp.clip(Xs, -20.0, 20.0)
         new_x = self.xp.exp(Xs)
-        summed = self.backprop_sum_pool(self.sum_pool(new_x, lengths), lengths)
+        summed = self.backprop_reduce_sum(self.reduce_sum(new_x, lengths), lengths)
         new_x /= summed
         return new_x
 
@@ -291,7 +286,7 @@ class JaxOps(Ops):
         self, dY: Array2d, Y: Array2d, lengths: Array1d
     ) -> Array2d:
         dX = Y * dY
-        sum_dX = self.backprop_sum_pool(self.sum_pool(dX, lengths), lengths)
+        sum_dX = self.backprop_reduce_sum(self.reduce_sum(dX, lengths), lengths)
         dX -= Y * sum_dX
         return dX
 
@@ -304,7 +299,7 @@ class JaxOps(Ops):
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
-        return dX, (dW, db, dY[0], dC0)
+        return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
 
     def insert_into(self, shape, Xs):
         output = self.alloc(shape, dtype=Xs[0].dtype)
@@ -461,7 +456,7 @@ def logloss(y_true: Array, y_pred: Array):
 
 
 @jax_jit()
-def sum_pool(X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_sum(X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -473,7 +468,7 @@ def sum_pool(X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def mean_pool(X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_mean(X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -485,7 +480,7 @@ def mean_pool(X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_max(self, X: Array2d, lengths: Array1d) -> Array2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -497,7 +492,7 @@ def max_pool(self, X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
     dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -507,7 +502,7 @@ def backprop_sum_pool(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
     dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -517,7 +512,7 @@ def backprop_mean_pool(self, d_means: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_max_pool(d_maxes: Array2d, which: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_max(d_maxes: Array2d, which: Array2d, lengths: Array1d) -> Array2d:
     dX = numpy.jax.zeros((lengths.sum(), d_maxes.shape[1]))
     start = 0
     for i, length in enumerate(lengths):
@@ -589,7 +584,7 @@ def softmax_sequences(Xs: Array2d, lengths: Array1d, axis: int) -> Array2d:
     # This loses almost no fidelity, and helps the numerical stability.
     Xs = xp.clip(Xs, -20.0, 20.0)
     new_x = xp.exp(Xs)
-    summed = backprop_sum_pool(sum_pool(new_x, lengths), lengths)
+    summed = backprop_reduce_sum(reduce_sum(new_x, lengths), lengths)
     new_x /= summed
     return new_x
 
@@ -604,7 +599,7 @@ def backprop_softmax(Y: Array, dY: Array, axis: int) -> Array:
 @jax_jit(2)
 def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Array2d:
     dX = Y * dY
-    sum_dX = backprop_sum_pool(sum_pool(dX, lengths), lengths)
+    sum_dX = backprop_reduce_sum(reduce_sum(dX, lengths), lengths)
     dX -= Y * sum_dX
     return dX
 
