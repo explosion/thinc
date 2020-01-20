@@ -84,13 +84,13 @@ def init(
         curr_input = layer.predict(curr_input)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
-    try:
-        nO = get_width(curr_input)
-    except ValueError:
-        if model.layers[-1].has_dim("nO"):
-            nO = model.layers[-1].get_dim("nO")
-        else:
-            nO = None
-    if nO is not None:
+    if model.has_dim("nO") is None:
+        try:
+            nO = get_width(curr_input)
+        except ValueError:
+            if model.layers[-1].has_dim("nO"):
+                nO = model.layers[-1].get_dim("nO")
+            else:
+                nO = None
         model.set_dim("nO", nO)
     return model
