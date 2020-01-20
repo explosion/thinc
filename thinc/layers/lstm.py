@@ -96,7 +96,7 @@ def forward(
     cells = model.ops.alloc_f2d(X.shape[1], c.shape[0])
     hiddens += h
     cells += c
-    Y, fwd_state = model.ops.recurrent_lstm(W, b, hiddens, cells, X)
+    Y, fwd_state = model.ops.recurrent_lstm(W, b, hiddens, cells, X, is_train)
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
