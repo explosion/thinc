@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded, Reduced_OutT
+from ..types import Reduced_OutT
 
 
 InT = TypeVar("InT")
@@ -86,11 +86,11 @@ def init(
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
         try:
-            nO = get_width(curr_input)
+            nO = get_width(curr_input)  # type: ignore
         except ValueError:
             if model.layers[-1].has_dim("nO"):
                 nO = model.layers[-1].get_dim("nO")
             else:
-                nO = None
+                nO = None  # type: ignore
         model.set_dim("nO", nO)
     return model
