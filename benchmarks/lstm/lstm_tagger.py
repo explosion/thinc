@@ -101,26 +101,45 @@ def run_forward(model, Xs):
             Y.data.block_until_ready()
     return Ys
 
-def main():
-    thinc.api.set_current_ops(thinc.api.JaxOps())
-    numpy.random.seed(0)
-    C = registry.make_from_config(Config().from_str(CONFIG))
-    model = C["model"]
-    X, Y = get_dummy_data(**C["data"])
-    print("Begin init", len(X))
-    model.initialize(X=X[:5])
-    print("Pre-batch")
-    n_words = sum(len(x) for x in X)
-    X = [model.layers[0].predict(batch) for batch in minibatch(X, size=128)]
-    model.layers.pop(0)
-    print("Start")
-    start_time = timer()
-    Ys = run_forward(model, X)
-    end_time = timer()
-    print("Predicted", n_words, end_time-start_time)
-    print("Ys[0]", Ys[0].data.mean(), Ys[0].data.var())
-    print("Ys[-1]", Ys[-1].data.mean(), Ys[-1].data.var())
+def set_backend(name, gpu_id):
+    global CONFIG
+    if name == "jax":
+        thinc.api.set_current_ops(thinc.api.JaxOps())
+        CONFIG = CONFIG.replace("PyTorch", "")
+    else:
+        if gpu_id == -1:
+            thinc.api.set_current_ops(thinc.api.NumpyOps())
+        else:
+            thinc.api.set_current_ops(thinc.api.CupyOps())
+        CONFIG = CONFIG.replace("LSTM.v0", "PyTorchLSTM.v0")
+
+
+def main(jax: bool=False, pytorch: bool=False, gpu_id: int=-1):
+    global CONFIG
+    thinc.api.fix_random_seed(0)
+    if gpu_id >= 0:
+        thinc.api.require_gpu(gpu_id)
+    backends = {"jax": jax, "pytorch": pytorch}
+    for name, use_backend in backends.items():
+        if not use_backend:
+            print(f"Skipping {name}")
+            continue
+        set_backend(name, gpu_id)
+        C = registry.make_from_config(Config().from_str(CONFIG))
+        model = C["model"]
+        X, Y = get_dummy_data(**C["data"])
+        print("Begin init", len(X))
+        model.initialize(X=X[:5])
+        print("Pre-batch")
+        n_words = sum(len(x) for x in X)
+        X = [model.layers[0].predict(batch) for batch in minibatch(X, size=128)]
+        model.layers.pop(0)
+        print("Start")
+        start_time = timer()
+        Ys = run_forward(model, X)
+        end_time = timer()
+        print(name, n_words, end_time-start_time)
 
 
 if __name__ == "__main__":
-    main()
+    typer.run(main)
