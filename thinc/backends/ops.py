@@ -112,7 +112,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[Array]) -> Array:
+    def pad(self, seqs: List[Array], round_to=10) -> Array:
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -122,14 +122,13 @@ class Ops:
         if len(set(seq.shape[1:] for seq in seqs)) != 1:
             raise ValueError("Cannot pad sequences that differ on other dimensions")
         # Find the maximum dimension along each axis. That's what we'll pad to.
-        shapes = [tuple(s.shape) for s in seqs]
-        dim_sizes = zip(*[shape for shape in shapes])
-        max_dims = [max(sizes) for sizes in dim_sizes]
-        final_shape = (len(seqs),) + tuple(max_dims)
+        length = max(len(seq) for seq in seqs)
+        # Round the length
+        length = (length + (round_to-1)) // round_to * round_to
+        final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            region = [i] + [slice(0, dim) for dim in arr.shape]
-            output[region] = arr
+            output[i, :arr.shape[0]] = arr
         return output
 
     def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
@@ -370,7 +369,8 @@ class Ops:
         return dX
 
     def recurrent_lstm(
-        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d
+        self, W: Array2d, b: Array1d, h_init: Array1d, c_init: Array1d, inputs: Array3d,
+        is_train: bool=True
     ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)
