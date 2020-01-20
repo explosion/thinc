@@ -1,7 +1,7 @@
 from mypy.errorcodes import ErrorCode
 from mypy.options import Options
 from mypy.plugin import FunctionContext, Plugin, CheckerPluginInterface
-from mypy.types import Instance, Type, CallableType, TypeVarType
+from mypy.types import Instance, Type, CallableType, TypeVarType, AnyType
 from mypy.nodes import Expression, CallExpr, NameExpr, FuncDef, Decorator
 
 thinc_model_fullname = "thinc.model.Model"
@@ -82,7 +82,11 @@ def reduce_2_layers(
     l2_type: Instance,
     api: CheckerPluginInterface
 ):
-    if l1_type.args[1] != l2_type.args[0]:
+    if (
+        not isinstance(l1_type.args[1], AnyType)
+        and not isinstance(l2_type.args[0], AnyType)
+        and l1_type.args[1] != l2_type.args[0]
+    ):
         api.fail(
             "Layer mismatch, output not compatible with next layer",
             l1_arg,
