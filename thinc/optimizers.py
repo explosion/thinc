@@ -349,7 +349,7 @@ class Optimizer(object):
         mom2 = self.mom2[key]
         fix1 = 1.0 - (self.b1 ** nr_upd)
         fix2 = 1.0 - (self.b2 ** nr_upd)
-        lr = self.learn_rate * numpy.sqrt(fix2) / fix1
+        lr = self.learn_rate * xp.sqrt(fix2) / fix1
         b1 = self.b1
         b2 = self.b2
         eps = self.eps

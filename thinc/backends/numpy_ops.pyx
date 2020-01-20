@@ -1,4 +1,8 @@
 # cython: cdivision=True, infer_types=True, profile=True
+from typing import Optional
+
+from ..types import ArrayT, DTypes, Shape
+
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.stdlib cimport calloc, malloc, free
@@ -55,7 +59,7 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape, dtype='float32'):
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, const float[:, ::1] x, const float[:, ::1] y, trans1=False, trans2=False,

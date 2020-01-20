@@ -344,7 +344,7 @@ def test_backprop_mish(ops, X):
 
 def test_get_ops():
     Ops = get_ops("numpy")
-    Ops is NumpyOps
+    assert Ops is NumpyOps
     Ops = get_ops("cpu")
     assert Ops is NumpyOps
     Ops = get_ops("cupy")

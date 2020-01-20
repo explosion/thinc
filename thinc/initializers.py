@@ -1,5 +1,4 @@
 from typing import Callable
-import numpy.random
 
 from .backends import Ops
 from .config import registry

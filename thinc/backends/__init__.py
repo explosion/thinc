@@ -48,9 +48,9 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 def get_ops(ops: DeviceTypes) -> Union[NumpyOps, CupyOps]:
     if ops in ("numpy", "cpu") or (isinstance(ops, int) and ops < 0):
-        return NumpyOps
+        return NumpyOps()
     elif ops in ("cupy", "gpu") or (isinstance(ops, int) and ops >= 0):
-        return CupyOps
+        return CupyOps()
     else:
         raise ValueError(f"Invalid ops (or device) description: {ops}")
 
