@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Ragged, Padded, Reduced_OutT
+from ..types import Reduced_OutT
 
 
 InT = TypeVar("InT")
@@ -70,39 +70,27 @@ def init(
         if model.layers[-1].has_dim("nO"):
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return model
+
     # Try to set nO on each layer, where available.
     # Shape inference is tricky, especially for the output. The policy is:
-    # if a layer doesn't expose a nO dim, then its output is assumed to be
-    # the same as its input.
-    nO = None
-    if Y is not None and isinstance(Y, (Ragged, Padded, model.ops.xp.ndarray, list)):
-        nO = get_width(Y)
-    elif model.has_dim("nO"):
-        nO = model.get_dim("nO")
-    # TODO: This sort of doesn't work currently -- we only get Y passed through
-    # for the last layer, but maybe we need it for the second last (e.g. if we
-    # have a transform at the end. Not sure what to do.
-    for layer in reversed(model.layers):
-        if nO is not None and layer.has_dim("nO") is None:
-            layer.set_dim("nO", nO)
-        if layer.has_dim("nI"):
-            nO = layer.get_dim("nI")
-        else:
-            break
-    for i, layer in enumerate(model.layers):
+    # if a layer has an unset nO, we use the final Y (if provided). For other
+    # layers, Y=None.
+    curr_input = X
+    for layer in model.layers:
         if layer.has_dim("nO") is None:
-            # If we're the last layer with an nO, use Y.
-            if all(lyr.has_dim("nO") is False for lyr in model.layers[i + 1 :]):
-                layer.initialize(X=X, Y=Y)
-            else:
-                layer.initialize(X=X)
+            layer.initialize(X=curr_input, Y=Y)
         else:
-            layer.initialize(X=X)
-        if X is not None:
-            X = layer.predict(X)
+            layer.initialize(X=curr_input)
+        curr_input = layer.predict(curr_input)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
-    layers_with_nO = [lyr for lyr in model.layers if lyr.has_dim("nO")]
-    if layers_with_nO:
-        model.set_dim("nO", layers_with_nO[-1].get_dim("nO"))
+    if model.has_dim("nO") is None:
+        try:
+            nO = get_width(curr_input)  # type: ignore
+        except ValueError:
+            if model.layers[-1].has_dim("nO"):
+                nO = model.layers[-1].get_dim("nO")
+            else:
+                nO = None  # type: ignore
+        model.set_dim("nO", nO)
     return model
