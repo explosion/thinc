@@ -4,7 +4,6 @@ typer
 torch
 tensorflow
 transformers
-ray
 pydot
 svgwrite
 syntok
