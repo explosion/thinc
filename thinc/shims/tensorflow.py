@@ -209,7 +209,7 @@ class TensorFlowShim(Shim):
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
-        if ops.device == "cpu":
+        if ops.device_type == "cpu":
             device = "CPU"
         else:  # pragma: no cover
             device = tf.test.gpu_device_name()

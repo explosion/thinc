@@ -1,8 +1,10 @@
+# pip install thinc ml_datasets typer pydot svgwrite
 from typing import Dict, Union, Optional
 from pathlib import Path
-from thinc.api import chain, ReLu, Softmax, Linear, ExtractWindow, Maxout, Model
+from thinc.api import chain, ReLu, Softmax, Linear, expand_window, Maxout, Model
 import ml_datasets
 import typer
+import pydot
 
 
 def pydot_visualizer(
@@ -18,15 +20,8 @@ def pydot_visualizer(
     file_format: str = "svg",
 ):
     """Convert a Thinc model to a PyDot / Graphviz visualization. Requires
-    GraphViz and PyDot to be installed.
+    pydot, svgwrite and GraphViz (via apt-get, brew etc.) to be installed.
     """
-    try:
-        import pydot
-    except ImportError:
-        raise ImportError(
-            "pydot and svgwrite are required: pip install pydot svgwrite\n"
-            "Also make sure you have GraphViz installed (via apt-get, brew etc.)"
-        )
     dot = pydot.Dot()
     dot.set("rankdir", rankdir)
     dot.set("concentrate", True)
@@ -75,13 +70,13 @@ def main(
 ):
     # Define the model
     model: Model = chain(
-        ExtractWindow(3),
-        ReLu(n_hidden, dropout=dropout, normalize=True),
-        Maxout(n_hidden * 4),
-        Linear(n_hidden * 2),
-        ReLu(n_hidden, dropout=dropout, normalize=True),
-        Linear(n_hidden),
-        ReLu(n_hidden, dropout=dropout),
+        expand_window(3),
+        ReLu(nO=n_hidden, dropout=dropout, normalize=True),
+        Maxout(nO=n_hidden * 4),
+        Linear(nO=n_hidden * 2),
+        ReLu(nO=n_hidden, dropout=dropout, normalize=True),
+        Linear(nO=n_hidden),
+        ReLu(nO=n_hidden, dropout=dropout),
         Softmax(),
     )
     # Load the data

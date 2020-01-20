@@ -11,7 +11,7 @@ OutT = Padded
 
 @registry.layers("recurrent.v0")
 def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
-    model: Model[Padded, Padded] = Model(
+    return Model(
         step_model.name.replace("_step", ""),
         forward,
         init=init,
@@ -19,9 +19,6 @@ def recurrent(step_model: Model[RNNState, RNNState]) -> Model[InT, OutT]:
         dims={"nO": step_model.get_dim("nO") if step_model.has_dim("nO") else None},
         layers=[step_model],
     )
-    if model.has_dim("nO"):
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
@@ -76,7 +73,7 @@ def _get_initial_state(model, n, nO):
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     Xt = X.data[0] if X is not None else None
     Yt = Y.data[0] if Y is not None else None
     if Xt is not None or Yt is not None:
@@ -86,3 +83,4 @@ def init(
     nO = model.get_dim("nO")
     model.set_param("initial_cells", model.ops.alloc_f1d(nO))
     model.set_param("initial_hiddens", model.ops.alloc_f1d(nO))
+    return model

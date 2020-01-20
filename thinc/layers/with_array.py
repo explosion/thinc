@@ -43,13 +43,13 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> None:
+) -> Model[SeqT, SeqT]:
     layer: Model[Array2d, Array2d] = model.layers[0]
-
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
         Y=_get_array(model, Y) if Y is not None else Y,
     )
+    return model
 
 
 def _get_array(model, X: SeqT) -> Array2d:

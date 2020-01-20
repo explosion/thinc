@@ -47,13 +47,14 @@ def forward(
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     if X is not None:
         model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
     W = model.ops.alloc_f1d(model.get_dim("nI"))
     W += 1
     model.set_param("W", W)
+    return model
 
 
 def inverse(total: Array1d) -> Tuple[Array1d, Callable]:

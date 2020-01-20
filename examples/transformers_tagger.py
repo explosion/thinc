@@ -1,13 +1,14 @@
 """Train a transformer tagging model, using Huggingface's Transformers."""
+# pip install thinc ml_datasets typer tqdm transformers torch
 from dataclasses import dataclass
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Callable
 import random
 import torch
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
-from thinc.api import torch2xp, xp2torch, sequence_categorical_crossentropy
+from thinc.api import torch2xp, xp2torch, SequenceCategoricalCrossentropy
 from thinc.api import minibatch, prefer_gpu, use_pytorch_for_gpu_memory
 from thinc.types import Array2d, ArgsKwargs
 import ml_datasets
@@ -32,7 +33,7 @@ total_steps = 6000
 
 [training]
 batch_size = 128
-words_per_subbatch = 3000
+words_per_subbatch = 2000
 n_epoch = 10
 """
 
@@ -54,7 +55,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     C = thinc.registry.make_from_config(config)
     model = C["model"]
     optimizer = C["optimizer"]
-    calculate_loss = sequence_categorical_crossentropy
+    calculate_loss = SequenceCategoricalCrossentropy()
     cfg = C["training"]
 
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
@@ -79,7 +80,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
             for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
                 inputs, truths = zip(*batch)
                 guesses, backprop = model(inputs, is_train=True)
-                backprop(calculate_loss(guesses, truths))
+                backprop(calculate_loss.get_grad(guesses, truths))
             # At the end of the batch, we call the optimizer with the accumulated
             # gradients, and advance the learning rate schedules.
             model.finish_update(optimizer)
@@ -87,20 +88,9 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
         # You might want to evaluate more often than once per epoch; that's up
         # to you.
         score = evaluate_sequences(model, dev_X, dev_Y, 128)
-        print(epoch, score)
+        print(epoch, f"{score:.3f}")
         if out_dir:
             model.to_disk(out_dir / f"{epoch}.bin")
-
-
-@thinc.registry.layers("TransformersTagger.v0")
-def TransformersTagger(
-    starter: str, n_tags: int = 17
-) -> Model[List[str], List[Array2d]]:
-    return chain(
-        TransformersTokenizer(starter),
-        Transformer(starter),
-        with_array(Softmax(n_tags)),
-    )
 
 
 @dataclass
@@ -116,30 +106,40 @@ class TokensPlus:
     special_tokens_mask: Optional[torch.Tensor] = None
 
 
+@thinc.registry.layers("TransformersTagger.v0")
+def TransformersTagger(
+    starter: str, n_tags: int = 17
+) -> Model[List[List[str]], List[Array2d]]:
+    return chain(
+        TransformersTokenizer(starter),
+        Transformer(starter),
+        with_array(Softmax(nO=n_tags)),
+    )
+
+
 @thinc.registry.layers("transformers_tokenizer.v0")
-def TransformersTokenizer(name: str) -> Model[List[List[str]], List[TokensPlus]]:
+def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
+    def forward(
+        model, texts: List[List[str]], is_train: bool
+    ) -> Tuple[TokensPlus, Callable]:
+        tokenizer = model.get_attr("tokenizer")
+        token_data = tokenizer.batch_encode_plus(
+            [(text, None) for text in texts],
+            add_special_tokens=True,
+            return_token_type_ids=True,
+            return_attention_masks=True,
+            return_input_lengths=True,
+            return_tensors="pt",
+        )
+        return TokensPlus(**token_data), lambda d_tokens: []
+
     return Model(
-        "tokenizer",
-        _tokenizer_forward,
-        attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
+        "tokenizer", forward, attrs={"tokenizer": AutoTokenizer.from_pretrained(name)},
     )
-
-
-def _tokenizer_forward(model, texts: List[List[str]], is_train: bool):
-    tokenizer = model.get_attr("tokenizer")
-    token_data = tokenizer.batch_encode_plus(
-        [(text, None) for text in texts],
-        add_special_tokens=True,
-        return_token_type_ids=True,
-        return_attention_masks=True,
-        return_input_lengths=True,
-        return_tensors="pt",
-    )
-    return TokensPlus(**token_data), lambda d_tokens: d_tokens
 
 
 @thinc.registry.layers("transformers_model.v0")
-def Transformer(name) -> Model[List[TokensPlus], List[Array2d]]:
+def Transformer(name: str) -> Model[TokensPlus, List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
         convert_inputs=convert_transformer_inputs,
@@ -189,7 +189,7 @@ def evaluate_sequences(
         for yh, y in zip(Yh, Y):
             correct += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
             total += y.shape[0]
-    return correct / total
+    return float(correct / total)
 
 
 def minibatch_by_words(pairs, max_words):

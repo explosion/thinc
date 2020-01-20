@@ -43,15 +43,15 @@ KERNELS["hash"] = compile_mmh(MMH_SRC)
 seq2col_kernel = KERNELS["seq2col"]
 maxout_kernel = KERNELS["maxout"]
 mish_kernel = KERNELS["mish"]
-sum_pool_kernel = KERNELS["sum_pool"]
-max_pool_kernel = KERNELS["max_pool"]
+reduce_sum_kernel = KERNELS["reduce_sum"]
+reduce_max_kernel = KERNELS["reduce_max"]
 
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_maxout_kernel = KERNELS["backprop_maxout"]
 backprop_mish_kernel = KERNELS["backprop_mish"]
-backprop_sum_pool_kernel = KERNELS["backprop_sum_pool"]
-backprop_mean_pool_kernel = KERNELS["backprop_mean_pool"]
-backprop_max_pool_kernel = KERNELS["backprop_max_pool"]
+backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
+backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
+backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
 hash_data_kernel = compile_mmh(MMH_SRC)
 
 
@@ -83,28 +83,28 @@ def mish(X, out=None, threshold=5, threads_per_block=128, num_blocks=128):
     return out
 
 
-def sum_pool(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_sum(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    sum_pool_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
+    reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     return out
 
 
-def mean_pool(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         out = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    sum_pool_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
+    reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
     out /= lengths.reshape((-1, 1))
     return out
 
 
-def max_pool(X, lengths, out=None, threads_per_block=128, num_blocks=128):
+def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     if out is None:
         maxes = cupy.zeros((len(lengths), X.shape[1]), dtype="f")
         which = cupy.zeros((len(lengths), X.shape[1]), dtype="i")
@@ -113,7 +113,7 @@ def max_pool(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     B = len(lengths)
     T = X.shape[0]
     O = X.shape[1]
-    max_pool_kernel(
+    reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
     )
     return maxes, which
@@ -151,20 +151,22 @@ def backprop_mish(dY, X, out=None, threshold=5, threads_per_block=128, num_block
     return out
 
 
-def backprop_sum_pool(d_sum, lengths, out=None, threads_per_block=128, num_blocks=128):
+def backprop_reduce_sum(
+    d_sum, lengths, out=None, threads_per_block=128, num_blocks=128
+):
     B = len(lengths)
     T = int(lengths.sum())
     O = d_sum.shape[1]
     if out is None:
         out = cupy.zeros((T, O), dtype="f")
 
-    backprop_sum_pool_kernel(
+    backprop_reduce_sum_kernel(
         (num_blocks,), (threads_per_block,), (out, d_sum, lengths, B, T, O)
     )
     return out
 
 
-def backprop_mean_pool(
+def backprop_reduce_mean(
     d_mean, lengths, out=None, threads_per_block=128, num_blocks=128
 ):
     B = len(lengths)
@@ -173,13 +175,13 @@ def backprop_mean_pool(
     if out is None:
         out = cupy.zeros((T, O), dtype="f")
 
-    backprop_mean_pool_kernel(
+    backprop_reduce_mean_kernel(
         (num_blocks,), (threads_per_block,), (out, d_mean, lengths, B, T, O)
     )
     return out
 
 
-def backprop_max_pool(
+def backprop_reduce_max(
     d_maxes, which, lengths, out=None, threads_per_block=128, num_blocks=128
 ):
     B = len(lengths)
@@ -188,7 +190,7 @@ def backprop_max_pool(
     if out is None:
         out = cupy.zeros((T, O), dtype="f")
 
-    backprop_max_pool_kernel(
+    backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
     )
     return out

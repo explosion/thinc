@@ -30,8 +30,6 @@ def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
         dims={"nO": nO, "length": length},
         ops=NumpyOps()
     )
-    if nO is not None:
-        model.initialize()
     return model
 
 
@@ -45,13 +43,14 @@ def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -
         return _begin_cpu_update(model, keys, values, lengths)
 
 
-def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model[InT, OutT]:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     length = model.get_dim("length")
     model.set_param("W", model.ops.alloc((nO * length,), dtype="f"))
     model.set_param("b", model.ops.alloc((nO,), dtype="f"))
+    return model
 
 
 def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:

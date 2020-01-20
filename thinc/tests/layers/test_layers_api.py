@@ -1,4 +1,4 @@
-from thinc.api import registry, with_padded, Dropout
+from thinc.api import registry, with_padded, Dropout, get_current_ops
 from thinc.types import Ragged, Padded
 from thinc.util import has_torch
 import numpy
@@ -16,12 +16,14 @@ class FakeSpan:
     end = -1
 
 
-array1d = numpy.asarray([1, 2, 3], dtype="f")
-array2d = numpy.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
-array2dint = numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
-array3d = numpy.zeros((3, 3, 3), dtype="f")
-ragged = Ragged(array2d, numpy.asarray([1, 1], dtype="i"))
-padded = Padded(array3d, array1d, [1, 2, 3, 4], [1, 2, 3, 4])
+OPS = get_current_ops()
+
+array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
+array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
+array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
+array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
+ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
+padded = Padded(array3d, array1d, OPS.asarray([1, 2, 3, 4]), OPS.asarray([1, 2, 3, 4]))
 doc = FakeDoc()
 span = FakeSpan()
 width = array2d.shape[1]
@@ -29,8 +31,8 @@ width = array2d.shape[1]
 
 def assert_data_match(Y, out_data):
     assert type(Y) == type(out_data)
-    if isinstance(out_data, numpy.ndarray):
-        assert isinstance(Y, numpy.ndarray)
+    if isinstance(out_data, OPS.xp.ndarray):
+        assert isinstance(Y, OPS.xp.ndarray)
         assert out_data.ndim == Y.ndim
     elif isinstance(out_data, Ragged):
         assert isinstance(Y, Ragged)
@@ -85,14 +87,14 @@ TEST_CASES = [
     # Currently doesn't work because it requires spaCy:
     # ("StaticVectors.v0", array2d, array2d),
     # Ragged to array
-    ("MaxPool.v0", {}, ragged, array2d),
-    ("MeanPool.v0", {}, ragged, array2d),
-    ("SumPool.v0", {}, ragged, array2d),
+    ("reduce_max.v0", {}, ragged, array2d),
+    ("reduce_mean.v0", {}, ragged, array2d),
+    ("reduce_sum.v0", {}, ragged, array2d),
     # fmt: off
     # Other
-    ("ExtractWindow.v0", {}, array2d, array2d),
-    ("Embed.v0", {}, array2dint, array2d),
-    ("Embed.v0", {"nO": 4}, array2dint, array2d),
+    ("expand_window.v0", {}, array2d, array2d),
+    ("Embed.v0", {"nV": 1}, array2dint, array2d),
+    ("Embed.v0", {"nO": 4, "nV": 1}, array2dint, array2d),
     ("HashEmbed.v0", {"nO": 1, "nV": 2}, array2d, array2d),
     ("MultiSoftmax.v0", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v0", {}, (array2d, array2d), array1d),
@@ -100,6 +102,7 @@ TEST_CASES = [
     ("FeatureExtractor.v0", {"columns": [1, 2]}, [span, span], [array2d, array2d]),
     ("ParametricAttention.v0", {}, ragged, ragged),
     ("SparseLinear.v0", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
+    ("remap_ids.v0", {"dtype": "f"}, ["a", 1, 5.0], array2d)
     # fmt: on
 ]
 

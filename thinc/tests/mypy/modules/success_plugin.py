@@ -1,6 +1,6 @@
 from typing import Any, TypeVar
 
-from thinc.api import chain, ReLu, MaxPool, Softmax, add, Model
+from thinc.api import chain, ReLu, reduce_max, Softmax, add, Model
 
 good_model = chain(ReLu(10), ReLu(10), Softmax())
 reveal_type(good_model)

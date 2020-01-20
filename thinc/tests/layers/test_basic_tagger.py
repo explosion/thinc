@@ -1,6 +1,6 @@
 import pytest
 import random
-from thinc.api import Model, ReLu, Softmax, HashEmbed, ExtractWindow
+from thinc.api import Model, ReLu, Softmax, HashEmbed, expand_window
 from thinc.api import chain, with_array, Adam, strings2arrays
 import ml_datasets
 
@@ -14,7 +14,7 @@ def create_embed_relu_relu_softmax(depth, width, vector_length):
     with Model.define_operators({">>": chain}):
         model = strings2arrays() >> with_array(
             HashEmbed(width, vector_length)
-            >> ExtractWindow(window_size=1)
+            >> expand_window(window_size=1)
             >> ReLu(width, width * 3)
             >> ReLu(width, width)
             >> Softmax(17, width)

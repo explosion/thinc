@@ -8,10 +8,20 @@ import functools
 
 try:  # pragma: no cover
     import cupy
-    from cupy import get_array_module
-except ImportError:
+
+    has_cupy = True
+except (ImportError, AttributeError):
     cupy = None
-    get_array_module = lambda _: numpy
+    has_cupy = False
+
+try:  # pragma: no cover
+    import jax
+    import jax.numpy
+
+    has_jax = True
+except ImportError:  # pragma: no cover
+    jax = None
+    has_jax = False
 
 try:  # pragma: no cover
     import torch
@@ -32,6 +42,15 @@ except ImportError:  # pragma: no cover
 from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
 
 
+def get_array_module(arr):  # pragma: no cover
+    if is_cupy_array(arr):
+        return cupy
+    elif is_jax_array(arr):
+        return jax.numpy
+    else:
+        return numpy
+
+
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
@@ -49,14 +68,27 @@ def create_thread_local(attrs: Dict[str, Any]):
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj)
+    return is_numpy_array(obj) or is_cupy_array(obj) or is_jax_array(obj)
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
     """Check whether an object is a cupy array"""
-    if cupy is None:
+    if not has_cupy:
         return False
     elif isinstance(obj, cupy.ndarray):
+        return True
+    else:
+        return False
+
+
+def is_jax_array(obj: Any) -> bool:  # pragma: no cover
+    """Check whether an object is a jax.numpy array"""
+    if not has_jax:
+        return False
+    elif isinstance(obj, numpy.ndarray):
+        # Numpy arrays evaluate as True for instance of jax.numpy.ndarray :(
+        return False
+    elif isinstance(obj, jax.numpy.ndarray):
         return True
     else:
         return False
@@ -130,9 +162,8 @@ def get_shuffled_batches(
     X: Array, Y: Array, batch_size
 ) -> Iterable[Tuple[Array, Array]]:
     """Iterate over paired batches from two arrays, shuffling the indices."""
-    xp = get_array_module(X)
-    indices = xp.arange(X.shape[0], dtype="i")
-    xp.random.shuffle(indices)
+    indices = numpy.arange(X.shape[0], dtype="i")
+    numpy.random.shuffle(indices)
     for index_batch in minibatch(indices, size=batch_size):
         yield X[index_batch], Y[index_batch]
 

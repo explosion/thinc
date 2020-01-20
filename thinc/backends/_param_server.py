@@ -44,7 +44,11 @@ class ParamServer:
         self._grads[(model_id, name)] = value
 
     def inc_grad(self, model_id: int, param_name: str, value: Array) -> None:
-        if not self.has_grad(model_id, param_name):
-            self._grads[(model_id, param_name)] = value.copy()
+        if not self.has_grad(model_id, param_name):  # pragma: no cover
+            # Adjustment for Jax
+            if hasattr(value, "copy"):
+                self._grads[(model_id, param_name)] = value.copy()
+            else:
+                self._grads[(model_id, param_name)] = value
         else:
             self._grads[(model_id, param_name)] += value
