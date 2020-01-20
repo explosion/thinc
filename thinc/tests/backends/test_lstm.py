@@ -1,10 +1,14 @@
 from thinc.backends.jax_ops import lstm_weights_forward, backprop_lstm_weights
 from thinc.backends.jax_ops import lstm_gates_forward, backprop_lstm_gates
-import jax
 import numpy.testing
 
 from hypothesis import given, settings
 from ..strategies import ndarrays_of_shape
+
+try:
+    import jax
+except ImportError:
+    has_jax = False
 
 MAX_EXAMPLES = 20
 
@@ -28,6 +32,7 @@ def assert_arrays_equal(arrays1, arrays2):
 # See thinc/backends/jax_ops for notation
 
 
+@pytest.mark.skipif(not has_jax, reason="needs Jax")
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(
     Xt3=ndarrays_of_shape((nB, nI), dtype="f"),
@@ -44,6 +49,7 @@ def test_lstm_weights_gradients(Xt3, Yt2, W, b, dAt3):
     assert_arrays_equal(our_grads, jax_grads)
 
 
+@pytest.mark.skipif(not has_jax, reason="needs Jax")
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(
     At3=ndarrays_of_shape((nB, nO * 4), dtype="f"),
