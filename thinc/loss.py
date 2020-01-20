@@ -131,15 +131,32 @@ class CosineDistance(Loss):
         mul_norms = norm_yh * norm_y
         cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
         d_yh = (y / mul_norms) - (cosine * (yh / norm_yh ** 2))
-        losses = xp.abs(cosine - 1)
         if self.ignore_zeros:
             # If the target was a zero vector, don't count it in the loss.
             d_yh[zero_indices] = 0
-            losses[zero_indices] = 0
         return -d_yh
 
+    def cosine(self, guesses: Array2d, truths: Array2d) -> float:
+        xp = get_array_module(guesses)
+        # Add a small constant to avoid 0 vectors
+        yh = guesses + 1e-8
+        y = truths + 1e-8
+        norm_yh = xp.linalg.norm(yh, axis=1, keepdims=True)
+        norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
+        mul_norms = norm_yh * norm_y
+        cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
+        return cosine
+
     def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
-        raise NotImplementedError
+        xp = get_array_module(guesses)
+        cosine = self.cosine(guesses, truths)
+        losses = xp.abs(cosine - 1)
+        if self.ignore_zeros:
+            # If the target was a zero vector, don't count it in the loss.
+            zero_indices = xp.abs(truths).sum(axis=1) == 0
+            losses[zero_indices] = 0
+        loss = losses.sum()
+        return loss
 
 
 @registry.losses("CosineDistance.v0")

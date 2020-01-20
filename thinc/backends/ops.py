@@ -279,26 +279,6 @@ class Ops:
         else:
             return Y * (1.0 - Y)
 
-    def cosine(self, X: Array, Y: ArrayT) -> float:
-        # Add a small constant to avoid 0 vectors
-        X = X + 1e-8
-        Y = Y + 1e-8
-        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
-        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
-        mul_norms = normX * normY
-        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
-    def cosine_abs_loss(self, X: Array, Y: ArrayT, ignore_zeros: bool = False) -> float:
-        cosine = self.cosine(X, Y)
-        losses = self.xp.abs(cosine - 1)
-        if ignore_zeros:
-            # If the target was a zero vector, don't count it in the loss.
-            zero_indices = self.xp.abs(Y).sum(axis=1) == 0
-            losses[zero_indices] = 0
-        loss = losses.sum()
-        return loss
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
