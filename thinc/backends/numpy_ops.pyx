@@ -1,4 +1,5 @@
 # cython: cdivision=True, infer_types=True, profile=True
+from typing import Optional, Dict, Any
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.stdlib cimport calloc, malloc, free
@@ -15,7 +16,7 @@ cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes
+from ..types import DeviceTypes, ArrayT, DTypes, Shape
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -41,7 +42,10 @@ class NumpyOps(Ops):
     xp = numpy
 
     def __init__(
-        self, device_type: DeviceTypes = "cpu", device_id: int = -1, settings = {}
+        self,
+        device_type: DeviceTypes = "cpu",
+        device_id: int = -1,
+        settings: Dict[str, Any] = {},
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
@@ -63,7 +67,7 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape, dtype="float32"):
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, const float[:, ::1] x, const float[:, ::1] y, out=None, trans1=False, trans2=False):
