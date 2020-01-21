@@ -4,6 +4,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
+from thinc.api import fix_random_seed
 import inspect
 
 from .. import strategies
