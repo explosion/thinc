@@ -16,7 +16,7 @@ import typer
 import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
-from thinc.api import to_categorical, minibatch, set_current_ops, JaxOps
+from thinc.api import to_categorical, set_current_ops, JaxOps
 from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
 import jax.tree_util
@@ -136,7 +136,7 @@ def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
         model.initialize(X=X[:5])
         print("Pre-batch")
         n_words = sum(len(x) for x in X)
-        X = [model.layers[0].predict(batch) for batch in minibatch(X, size=16)]
+        X = [model.layers[0].predict(batch) for batch in model.ops.minibatch(16, X)]
         model.layers.pop(0)
         print("Start")
         start_time = timer()

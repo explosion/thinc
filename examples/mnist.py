@@ -27,7 +27,7 @@ def main(
     optimizer = Adam(0.001)
     for i in range(n_iter):
         batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
-        for X, Y in tqdm(batches, leave=False, total=len(train_X) / batch_size):
+        for X, Y in tqdm(batches, leave=False):
             Yh, backprop = model.begin_update(X)
             backprop(Yh - Y)
             model.finish_update(optimizer)
@@ -36,7 +36,7 @@ def main(
         total = 0
         for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
             Yh = model.predict(X)
-            correct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
+            correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]
         score = correct / total
         msg.row((i, f"{score:.3f}"), widths=(3, 5))
