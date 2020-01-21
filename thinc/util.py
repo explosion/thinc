@@ -39,7 +39,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
+from .types import Array, Ragged, Padded, ArgsKwargs, Array2d
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -119,6 +119,17 @@ def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     else:
         return False
 
+
+def to_numpy(data):  # pragma: no cover
+    if isinstance(data, numpy.ndarray):
+        return data
+    elif has_cupy and isinstance(data, cupy.ndarray):
+        return data.get()
+    elif has_jax and isinstance(data, jax.numpy.ndarray):
+        return jax.device_get(data)
+    else:
+        return numpy.array(data)
+ 
 
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
@@ -238,7 +249,7 @@ def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
 
 
 def get_width(
-    X: Union[Array, Ragged, Padded, Sequence[Array], RNNState], *, dim: int = -1
+    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
