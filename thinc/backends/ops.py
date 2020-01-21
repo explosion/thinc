@@ -38,10 +38,6 @@ class Ops:
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
-        Sequences must support 1-dimensional "advanced indexing":
-        sequence[[0, 1, 2]] should produce a slice of the sequence 0:2.
-        Indexes may be numpy arrays, and they may be out-of-order.
-
         The `size` argument may be either an integer, or a sequence of integers.
         If a sequence, a new size is drawn before every output.
 
@@ -76,9 +72,9 @@ class Ops:
         sequence: Batchable,
         *others: Batchable,
         shuffle: bool = False,
-    ) -> list:
+    ) -> List[list]:
         """Minibatch one or more sequences of data, and yield
-        tuples with one batch per sequence. See ops.minibatch.
+        lists with one batch per sequence. See ops.minibatch.
         """
         sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
