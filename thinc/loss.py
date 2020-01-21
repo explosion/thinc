@@ -185,7 +185,6 @@ class CosineDistance(Loss):
             # If the target was a zero vector, don't count it in the loss.
             zero_indices = xp.abs(truths).sum(axis=1) == 0
             losses[zero_indices] = 0
-        print("losses", losses)
         if self.normalize:
             losses = losses / guesses.shape[0]
         loss = losses.sum()
