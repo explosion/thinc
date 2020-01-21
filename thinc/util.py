@@ -1,7 +1,5 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
-from typing import Optional, Callable, TypeVar
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 import numpy
-import itertools
 import threading
 import random
 import functools
@@ -333,9 +331,6 @@ __all__ = [
     "prefer_gpu",
     "require_gpu",
     "copy_array",
-    "get_shuffled_batches",
-    "minibatch",
-    "evaluate_model_on_arrays",
     "to_categorical",
     "get_width",
     "xp2torch",

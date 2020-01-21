@@ -28,8 +28,14 @@ class Ops:
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
-    def minibatch(self, size: Union[int, Generator], sequence: Batchable,
-            shuffle: bool=False, buffer: int=1):
+    def minibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *,
+        shuffle: bool = False,
+        buffer: int = 1,
+    ):
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
@@ -57,7 +63,7 @@ class Ops:
         queue = []
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
-            idx_batch = indices[i : i+batch_size]
+            idx_batch = indices[i : i + batch_size]
             subseq = sequence[idx_batch]
             if is_xp_array(subseq):
                 subseq = self.as_contig(cast(Array, subseq))
@@ -68,8 +74,14 @@ class Ops:
             i += batch_size
         yield from queue
 
-    def multibatch(self, size: Union[int, Generator], sequence: Batchable, *others: Batchable,
-            shuffle: bool=False, buffer: int=1):
+    def multibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *others: Batchable,
+        shuffle: bool = False,
+        buffer: int = 1,
+    ):
         """Minibatch one or more sequences of data, and yield
         tuples with one batch per sequence. See ops.minibatch.
         """
@@ -83,7 +95,7 @@ class Ops:
         queue = []
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
-            idx_batch = indices[i : i+batch_size]
+            idx_batch = indices[i : i + batch_size]
             subseqs = []
             for sequence in sequences:
                 subseq = sequence[idx_batch]
