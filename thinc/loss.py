@@ -78,8 +78,6 @@ class SequenceCategoricalCrossentropy(Loss):
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(self, guesses: List[Array2d], truths: List[Array]) -> List[Array2d]:
-        if guesses is None:
-            return []
         if len(guesses) != len(truths):  # pragma: no cover
             raise ValueError("Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length.")
         d_scores = []

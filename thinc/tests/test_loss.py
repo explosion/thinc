@@ -107,7 +107,7 @@ def test_sequence_categorical_crossentropy(guesses, labels):
 
 
 def test_L2():
-    # L2 loss = 2²+4²=20 (or normalized: 5)
+    # L2 loss = 2²+4²=20 (or normalized: 1²+2²=5)
     vec1 = numpy.asarray([[1, 2], [8, 9]])
     vec2 = numpy.asarray([[1, 2], [10, 5]])
     d_vecs = L2Distance().get_grad(vec1, vec2)
