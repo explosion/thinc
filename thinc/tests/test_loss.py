@@ -28,17 +28,24 @@ def test_loss():
     assert d_scores[0].shape == scores0.shape
     assert SequenceCategoricalCrossentropy().get_grad([], []) == []
 
-def test_equality():
-    pass
+
+@pytest.mark.parametrize(
+    "dist",
+    [
+        CategoricalCrossentropy(),
+        CosineDistance(ignore_zeros=True),
+        L2Distance(),
+    ],
+)
+@pytest.mark.parametrize("vect", [scores0, guesses1, guesses2])
+def test_equality(dist, vect):
+    assert int(dist.get_grad(vect, vect)[0][0]) == pytest.approx(0, eps)
+    assert dist.get_loss(vect, vect) == pytest.approx(0, eps)
 
 
 @pytest.mark.parametrize(
     "guesses, labels",
-    [
-        (guesses1, labels1),
-        (guesses1, labels1_full),
-        (guesses1, labels1),
-    ],
+    [(guesses1, labels1), (guesses1, labels1_full), (guesses1, labels1)],
 )
 def test_categorical_crossentropy(guesses, labels):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
@@ -105,7 +112,9 @@ def test_L2():
     vec2 = numpy.asarray([[1, 2], [10, 5]])
     d_vecs = L2Distance().get_grad(vec1, vec2)
     assert d_vecs.shape == vec1.shape
-    numpy.testing.assert_allclose(d_vecs[0], numpy.zeros(d_vecs[0].shape), rtol=eps, atol=eps)
+    numpy.testing.assert_allclose(
+        d_vecs[0], numpy.zeros(d_vecs[0].shape), rtol=eps, atol=eps
+    )
 
     loss_not_normalized = L2Distance(normalize=False).get_loss(vec1, vec2)
     assert loss_not_normalized == pytest.approx(20, eps)
@@ -162,7 +171,11 @@ def test_cosine_unmatched():
         ("CategoricalCrossentropy.v0", {}, (scores0, labels0)),
         ("SequenceCategoricalCrossentropy.v0", {}, ([scores0], [labels0])),
         ("L2Distance.v0", {}, (scores0, scores0)),
-        ("CosineDistance.v0", {"normalize": True, "ignore_zeros": True}, (scores0, scores0)),
+        (
+            "CosineDistance.v0",
+            {"normalize": True, "ignore_zeros": True},
+            (scores0, scores0),
+        ),
     ],
 )
 def test_loss_from_config(name, kwargs, args):
