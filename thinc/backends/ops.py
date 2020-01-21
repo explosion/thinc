@@ -4,7 +4,7 @@ import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes, Generator, Padded, Batchable
+from ..types import DeviceTypes, Generator, Padded, Batchable, Objects
 from ..util import get_array_module, is_xp_array
 
 
@@ -55,6 +55,9 @@ class Ops:
         sequence.
         """
         sizes = itertools.repeat(size) if isinstance(size, int) else size
+        is_list = isinstance(sequence, list)
+        if isinstance(sequence, list):  # need condition here for type checking
+            sequence = Objects(sequence)
         indices = numpy.arange(len(sequence))
         if shuffle:
             numpy.random.shuffle(indices)
@@ -67,6 +70,8 @@ class Ops:
             subseq = sequence[idx_batch]
             if is_xp_array(subseq):
                 subseq = self.as_contig(cast(Array, subseq))
+            if is_list and isinstance(subseq, Objects):
+                subseq = subseq.data
             queue.append(subseq)
             if len(queue) >= buffer:
                 yield from queue
@@ -85,6 +90,10 @@ class Ops:
         """Minibatch one or more sequences of data, and yield
         tuples with one batch per sequence. See ops.minibatch.
         """
+        is_list = isinstance(sequence, list)
+        if isinstance(sequence, list):  # need condition here for type checking
+            sequence = Objects(sequence)
+            others = tuple(Objects(sq) if isinstance(sq, list) else sq for sq in others)
         sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
         indices = numpy.arange(len(sequence))
@@ -101,6 +110,8 @@ class Ops:
                 subseq = sequence[idx_batch]
                 if is_xp_array(subseq):
                     subseq = self.as_contig(cast(Array, subseq))
+                if is_list and isinstance(subseq, Objects):
+                    subseq = subseq.data
                 subseqs.append(subseq)
             queue.append(tuple(subseqs))
             if len(queue) >= buffer:
