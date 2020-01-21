@@ -1,10 +1,10 @@
 from .config import Config, registry
 from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
-from .loss import CategoricalCrossentropy, L1Distance, CosineDistance
+from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
 from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values
-from .shims import Shim, PyTorchShim, TensorFlowShim
+from .shims import Shim, PyTorchShim, TensorFlowShim, keras_model_fns
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
@@ -22,7 +22,7 @@ from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import SparseLinear, StaticVectors, FeatureExtractor
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
-from .layers import TensorFlowWrapper
+from .layers import TensorFlowWrapper, keras_subclass
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list

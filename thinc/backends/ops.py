@@ -405,28 +405,6 @@ class Ops:
         else:
             return Y * (1.0 - Y)
 
-    def cosine(self, X: Array, Y: ArrayT) -> float:
-        # Add a small constant to avoid 0 vectors
-        X = X + 1e-8
-        Y = Y + 1e-8
-        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
-        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
-        mul_norms = normX * normY
-        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
-    def cosine_abs_loss(
-        self, X: Array, Y: ArrayT, *, ignore_zeros: bool = False
-    ) -> float:
-        cosine = self.cosine(X, Y)
-        losses = self.xp.abs(cosine - 1)
-        if ignore_zeros:
-            # If the target was a zero vector, don't count it in the loss.
-            zero_indices = self.xp.abs(Y).sum(axis=1) == 0
-            losses[zero_indices] = 0
-        loss = losses.sum()
-        return loss
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
@@ -481,6 +459,7 @@ class Ops:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)
 
+    # TODO: types
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         empty_row = self.alloc((1,) + dY.shape[1:], dtype="f")
@@ -532,7 +511,7 @@ class Ops:
         X: Array2d,
         threshold: float = 20.0,
         out: Optional[Array2d] = None,
-    ):
+    ) -> Array2d:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]

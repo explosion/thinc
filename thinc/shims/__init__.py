@@ -1,3 +1,3 @@
 from .shim import Shim
 from .pytorch import PyTorchShim
-from .tensorflow import TensorFlowShim
+from .tensorflow import keras_model_fns, TensorFlowShim
