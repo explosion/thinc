@@ -595,11 +595,11 @@ class Padded:
 
 T = TypeVar("T", bound=Sequence)
 @dataclass
-class Pairs(Sequence, Generic[T]):
+class Pairs(Generic[T]):
     one: T
     two: T
 
-    def __getitem__(self, index) -> Pair[T]:
+    def __getitem__(self, index) -> "Pairs[T]":
         return Pairs(self.one[index], self.two[index])
 
 
