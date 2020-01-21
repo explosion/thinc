@@ -59,7 +59,8 @@ class CategoricalCrossentropy(Loss):
         return difference
 
     def get_loss(self, guesses: Array2d, truths: Array) -> float:
-        raise NotImplementedError
+        d_truth = self.get_grad(guesses, truths)
+        return (d_truth ** 2).sum()
 
 
 @registry.losses("CategoricalCrossentropy.v0")
