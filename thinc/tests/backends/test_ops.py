@@ -351,6 +351,10 @@ def test_minibatch():
     assert list(batches) == [[1, 2, 3], [4, 5, 6]]
     batches = ops.minibatch((i for i in (3, 2, 1)), items)
     assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+    batches = list(ops.minibatch(3, numpy.asarray(items)))
+    assert isinstance(batches[0], numpy.ndarray)
+    assert numpy.array_equal(batches[0], numpy.asarray([1, 2, 3]))
+    assert numpy.array_equal(batches[1], numpy.asarray([4, 5, 6]))
     batches = list(ops.minibatch((i for i in (3, 2, 1)), items, shuffle=True))
     assert batches != [[1, 2, 3], [4, 5], [6]]
     assert len(batches[0]) == 3
