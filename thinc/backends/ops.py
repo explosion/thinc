@@ -34,8 +34,7 @@ class Ops:
         sequence: Batchable,
         *,
         shuffle: bool = False,
-        buffer: int = 1,
-    ):
+    ) -> list:
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
@@ -45,10 +44,6 @@ class Ops:
 
         The `size` argument may be either an integer, or a sequence of integers.
         If a sequence, a new size is drawn before every output.
-
-        An internal queue of `buffer` items is accumulated before being each
-        output. Buffering is useful for some devices, to allow the
-        network to run asynchronously without blocking on every batch.
 
         If shuffle is True, shuffled batches are produced by first generating
         an index array, shuffling it, and then using it to slice into the
@@ -62,7 +57,6 @@ class Ops:
         if shuffle:
             numpy.random.shuffle(indices)
         i = 0
-        # Support buffering a number of items.
         queue = []
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
@@ -73,11 +67,8 @@ class Ops:
             if is_list and isinstance(subseq, Objects):
                 subseq = subseq.data
             queue.append(subseq)
-            if len(queue) >= buffer:
-                yield from queue
-                queue = []
             i += batch_size
-        yield from queue
+        return queue
 
     def multibatch(
         self,
@@ -85,8 +76,7 @@ class Ops:
         sequence: Batchable,
         *others: Batchable,
         shuffle: bool = False,
-        buffer: int = 1,
-    ):
+    ) -> list:
         """Minibatch one or more sequences of data, and yield
         tuples with one batch per sequence. See ops.minibatch.
         """
@@ -100,7 +90,6 @@ class Ops:
         if shuffle:
             numpy.random.shuffle(indices)
         i = 0
-        # Support buffering a number of items.
         queue = []
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
@@ -114,11 +103,8 @@ class Ops:
                     subseq = subseq.data
                 subseqs.append(subseq)
             queue.append(tuple(subseqs))
-            if len(queue) >= buffer:
-                yield from queue
-                queue = []
             i += batch_size
-        yield from queue
+        return queue
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
