@@ -32,19 +32,31 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
+    def __init__(self, *, normalize: bool = True):
+        self.normalize = normalize
+
     def __call__(self, guesses: Array2d, truths: Array) -> Tuple[Array2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(self, guesses: Array2d, truths: Array) -> Array2d:
         if truths.ndim != guesses.ndim:
+            # transform categorical values to one-hot encoding
             target = to_categorical(truths, n_classes=guesses.shape[-1])
         else:  # pragma: no cover
             target = cast(Array2d, truths)
         if guesses.shape != target.shape:  # pragma: no cover
-            err = f"Cannot calculate loss: mismatched shapes: {guesses.shape} vs {target.shape}."
+            err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
+            raise ValueError(err)
+        if guesses.any() > 1 or guesses.any() < 0:  # pragma: no cover
+            err = f"Cannot calculate CategoricalCrossentropy loss with guesses outside the [0,1] interval."
+            raise ValueError(err)
+        if target.any() > 1 or target.any() < 0:  # pragma: no cover
+            err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
             raise ValueError(err)
         difference = guesses - target
-        return difference / guesses.shape[0]
+        if self.normalize:
+            difference = difference / guesses.shape[0]
+        return difference
 
     def get_loss(self, guesses: Array2d, truths: Array) -> float:
         raise NotImplementedError
@@ -84,6 +96,9 @@ def configure_SequenceCategoricalCrossentropy() -> SequenceCategoricalCrossentro
 
 
 class L2Distance(Loss):
+    def __init__(self, *, normalize: bool = True):
+        self.normalize = normalize
+
     def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
@@ -91,14 +106,15 @@ class L2Distance(Loss):
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
-
-        return guesses - truths
+        difference = guesses - truths
+        if self.normalize:
+            difference = difference / guesses.shape[0]
+        return difference
 
     def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
-
         d_truth = self.get_grad(guesses, truths)
         return (d_truth ** 2).sum()
 
@@ -109,7 +125,8 @@ def configure_L2Distance() -> L2Distance:
 
 
 class CosineDistance(Loss):
-    def __init__(self, *, ignore_zeros: bool = False):
+    def __init__(self, *, normalize: bool = True, ignore_zeros: bool = False):
+        self.normalize = normalize
         self.ignore_zeros = ignore_zeros
 
     def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
@@ -152,6 +169,8 @@ class CosineDistance(Loss):
         if self.ignore_zeros:
             # If the target was a zero vector, don't count it in the loss.
             d_yh[zero_indices] = 0
+        if self.normalize:
+            d_yh = d_yh / guesses.shape[0]
         return -d_yh
 
     def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
@@ -167,13 +186,15 @@ class CosineDistance(Loss):
             zero_indices = xp.abs(truths).sum(axis=1) == 0
             losses[zero_indices] = 0
         print("losses", losses)
+        if self.normalize:
+            losses = losses / guesses.shape[0]
         loss = losses.sum()
         return loss
 
 
 @registry.losses("CosineDistance.v0")
-def configure_CosineDistance(*, ignore_zeros: bool = False) -> CosineDistance:
-    return CosineDistance(ignore_zeros=ignore_zeros)
+def configure_CosineDistance(*, normalize, ignore_zeros: bool = False) -> CosineDistance:
+    return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
 
 
 __all__ = ["SequenceCategoricalCrossentropy", "CategoricalCrossentropy", "L2Distance", "CosineDistance"]
