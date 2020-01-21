@@ -340,3 +340,29 @@ def test_use_ops():
         assert new_ops.name == "jax"
     new_ops = get_current_ops()
     assert new_ops.name == "numpy"
+
+
+@pytest.mark.xfail
+def test_minibatch():
+    items = [1, 2, 3, 4, 5, 6]
+    batches = minibatch(items, 3)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    batches = minibatch(items, (i for i in (3, 2, 1)))
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+    items = (i for i in range(1, 7))
+    batches = minibatch(items, 3)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    items = (i for i in range(1, 7))
+    batches = minibatch(items, (i for i in (3, 2, 1, 1)))
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+
+
+@pytest.mark.xfail
+def test_get_shuffled_batches():
+    fix_random_seed(0)
+    arr1 = numpy.asarray([1, 2, 3, 4])
+    arr2 = numpy.asarray([5, 6, 7, 8])
+    batches = list(get_shuffled_batches(arr1, arr2, 2))
+    assert len(batches) == 2
+    assert len(batches[0]) == 2
+    assert len(batches[1]) == 2
