@@ -28,7 +28,29 @@ class Ops:
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
-    def minibatch(self, items, size, *, shuffle=False, buffer=1):
+    def minibatch(self, size: Union[int, Iterator[int]], *sequences: Batchable,
+            shuffle: bool=False, buffer: int=1):
+        """Iterate slices from one or more sequences, optionally shuffled. Slices
+        may be either views or copies of the underlying data.
+
+        Sequences must support 1-dimensional "advanced indexing":
+        sequence[[0, 1, 2]] should produce a slice of the sequence 0:2. 
+        Indexes may be numpy arrays, and they may be out-of-order.
+
+        If multiple sequences are provided, each output from the generator
+        will be a tuple with one batch per sequence.
+
+        The `size` argument may be either an integer, or a sequence of integers.
+        If a sequence, a new size is drawn before every output.
+
+        An internal queue of `buffer` items is accumulated before being each
+        output. Buffering is useful for some devices, to allow the
+        network to run asynchronously without blocking on every batch.
+
+        If shuffle is True, shuffled batches are produced by first generating
+        an index array, shuffling it, and then using it to slice into the
+        sequences.
+        """
         sizes = itertools.repeat(size) if isinstance(size, int) else size
         indices = numpy.arange(len(items))
         if shuffle:
@@ -39,10 +61,13 @@ class Ops:
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
             idx_batch = indices[i : i+batch_size]
-            batch = items[idx_batch]
-            if is_xp_array(batch):
-                batch = self.as_contig(batch)
-            queue.append(batch)
+            subseqs = []
+            for sequence in sequences:
+                subseq = sequence[idx_batch]
+                if is_xp_array(batch):
+                    subseq = self.as_contig(subseq)
+                subseqs.append(subseq)
+            queue.append(tuple(subseqs))
             if len(queue) >= buffer:
                 yield from queue
                 queue = []
