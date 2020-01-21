@@ -30,7 +30,7 @@ class Ops:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
     def minibatch(self, size: Union[int, Generator], sequence: Batchable,
-            shuffle: bool=False, buffer: int=1) -> Generator:
+            shuffle: bool=False, buffer: int=1):
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
@@ -49,7 +49,6 @@ class Ops:
         an index array, shuffling it, and then using it to slice into the
         sequence.
         """
-        sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
         indices = numpy.arange(len(sequence))
         if shuffle:
@@ -60,13 +59,10 @@ class Ops:
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
             idx_batch = indices[i : i+batch_size]
-            subseqs = []
-            for sequence in sequences:
-                subseq = sequence[idx_batch]
-                if is_xp_array(subseq):
-                    subseq = self.as_contig(cast(Array, subseq))
-                subseqs.append(subseq)
-            queue.append(tuple(subseqs))
+            subseq = sequence[idx_batch]
+            if is_xp_array(subseq):
+                subseq = self.as_contig(cast(Array, subseq))
+            queue.append(subseq)
             if len(queue) >= buffer:
                 yield from queue
                 queue = []
@@ -74,7 +70,7 @@ class Ops:
         yield from queue
 
     def multibatch(self, size: Union[int, Generator], sequence: Batchable, *others: Batchable,
-            shuffle: bool=False, buffer: int=1) -> Generator:
+            shuffle: bool=False, buffer: int=1):
         """Minibatch one or more sequences of data, and yield
         tuples with one batch per sequence. See ops.minibatch.
         """
