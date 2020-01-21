@@ -29,17 +29,14 @@ class Ops:
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
-    def minibatch(self, size: Union[int, Generator], sequence: Batchable, *others: Batchable,
-            shuffle: bool=False, buffer: int=1):
-        """Iterate slices from one or more sequences, optionally shuffled. Slices
+    def minibatch(self, size: Union[int, Generator], sequence: Batchable,
+            shuffle: bool=False, buffer: int=1) -> Generator:
+        """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
         Sequences must support 1-dimensional "advanced indexing":
         sequence[[0, 1, 2]] should produce a slice of the sequence 0:2. 
         Indexes may be numpy arrays, and they may be out-of-order.
-
-        If multiple sequences are provided, each output from the generator
-        will be a tuple with one batch per sequence.
 
         The `size` argument may be either an integer, or a sequence of integers.
         If a sequence, a new size is drawn before every output.
@@ -50,7 +47,36 @@ class Ops:
 
         If shuffle is True, shuffled batches are produced by first generating
         an index array, shuffling it, and then using it to slice into the
-        sequences.
+        sequence.
+        """
+        sequences = (sequence,) + tuple(others)
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(sequence))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        # Support buffering a number of items.
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i+batch_size]
+            subseqs = []
+            for sequence in sequences:
+                subseq = sequence[idx_batch]
+                if is_xp_array(subseq):
+                    subseq = self.as_contig(cast(Array, subseq))
+                subseqs.append(subseq)
+            queue.append(tuple(subseqs))
+            if len(queue) >= buffer:
+                yield from queue
+                queue = []
+            i += batch_size
+        yield from queue
+
+    def multibatch(self, size: Union[int, Generator], sequence: Batchable, *others: Batchable,
+            shuffle: bool=False, buffer: int=1) -> Generator:
+        """Minibatch one or more sequences of data, and yield
+        tuples with one batch per sequence. See ops.minibatch.
         """
         sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
