@@ -191,9 +191,6 @@ def test_plus_chain():
         assert m.name == "a"
 
 
-# TODO: This currently causes a n AttributeError in the first thread. The error
-# isn't raised in the test (because threading) but it's written to stdout.
-@pytest.mark.skip(reason="need to fix error")
 def test_overload_operators_in_subthread():
     """Test we can create a model in a child thread with overloaded operators."""
     # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.

@@ -5,6 +5,7 @@ import srsly
 from pathlib import Path
 import copy
 import functools
+import threading
 
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
@@ -22,11 +23,18 @@ def empty_init(model: "Model", *args, **kwargs) -> "Model":
     return model
 
 
+class ModelThreadState(threading.local):
+    operators: Dict[str, Callable[["Model", "Model"], "Model"]]
+
+    def __init__(self):
+        self.operators = {}
+
+
 class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
-    _thread_local = create_thread_local({"operators": {}})
+    _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
 
     name: str
     ops: Union[NumpyOps, CupyOps]  # TODO: This is wrong, should be Ops
