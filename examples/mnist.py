@@ -3,11 +3,10 @@ PyTorch version: https://github.com/pytorch/examples/blob/master/mnist/main.py
 TensorFlow version: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/mnist/mnist.py
 """
 # pip install thinc ml_datasets typer
-from thinc.api import Model, chain, ReLu, Softmax, Adam, minibatch, Pairs
-from thinc.api import evaluate_model_on_arrays
+from thinc.api import Model, chain, ReLu, Softmax, Adam
 import ml_datasets
 from wasabi import msg
-import tqdm
+from tqdm import tqdm
 import typer
 
 
@@ -27,7 +26,8 @@ def main(
     # Create the optimizer.
     optimizer = Adam(0.001)
     for i in range(n_iter):
-        for X, Y in model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True):
+        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+        for X, Y in tqdm(batches, leave=False, total=len(train_X) / batch_size):
             Yh, backprop = model.begin_update(X)
             backprop(Yh - Y)
             model.finish_update(optimizer)
@@ -36,7 +36,7 @@ def main(
         total = 0
         for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
             Yh = model.predict(X)
-            corrct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
+            correct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
             total += Yh.shape[0]
         score = correct / total
         msg.row((i, f"{score:.3f}"), widths=(3, 5))
