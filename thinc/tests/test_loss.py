@@ -58,6 +58,9 @@ def test_categorical_crossentropy(guesses, labels):
     assert d_scores[3][1] == pytest.approx(0, eps)
     assert d_scores[3][2] == pytest.approx(-0.25, eps)
 
+    loss = CategoricalCrossentropy(normalize=True).get_loss(guesses, labels)
+    assert loss == pytest.approx(0.239375, eps)
+
 
 @pytest.mark.parametrize(
     "guesses, labels",
@@ -90,6 +93,10 @@ def test_sequence_categorical_crossentropy(guesses, labels):
     # Test the second batch
     assert d_scores2[0][0] == pytest.approx(0.2, eps)
     assert d_scores2[0][1] == pytest.approx(-0.7, eps)
+
+    losses = SequenceCategoricalCrossentropy(normalize=True).get_loss(guesses, labels)
+    assert losses[0] == pytest.approx(0.239375, eps)
+    assert losses[1] == pytest.approx(0.529999, eps)
 
 
 def test_L2():

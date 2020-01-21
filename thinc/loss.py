@@ -88,7 +88,10 @@ class SequenceCategoricalCrossentropy(Loss):
         return d_scores
 
     def get_loss(self, guesses: List[Array2d], truths: List[Array]) -> List[float]:
-        raise NotImplementedError
+        losses = []
+        for yh, y in zip(guesses, truths):
+            losses.append(self.cc.get_loss(yh, y))
+        return losses
 
 
 @registry.losses("SequenceCategoricalCrossentropy.v0")
