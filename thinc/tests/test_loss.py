@@ -4,28 +4,49 @@ from thinc.api import CategoricalCrossentropy, SequenceCategoricalCrossentropy
 from thinc.api import L2Distance, CosineDistance
 from thinc import registry
 
+# some simple arrays
+scores0 = numpy.zeros((3, 3), dtype="f")
+labels0 = numpy.asarray([0, 1, 1], dtype="i")
 
-scores = numpy.zeros((3, 3), dtype="f")
-labels = numpy.asarray([0, 1, 1], dtype="i")
+# a few more diverse ones to test realistic values
+guesses1 = numpy.asarray([[0.1, 0.5, 0.6], [0.4, 0.6, 0.3], [1, 1, 1], [0, 0, 0]])
+labels1 = numpy.asarray([2, 1, 0, 2])
+labels1_full = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
+
+guesses2 = numpy.asarray([[0.2, 0.3]])
+labels2 = numpy.asarray([1])
 
 eps = 0.0001
 
 
 def test_loss():
-    d_scores = CategoricalCrossentropy().get_grad(scores, labels)
+    d_scores = CategoricalCrossentropy().get_grad(scores0, labels0)
     assert d_scores.dtype == "float32"
-    assert d_scores.shape == scores.shape
-    d_scores = SequenceCategoricalCrossentropy().get_grad([scores], [labels])
+    assert d_scores.shape == scores0.shape
+    d_scores = SequenceCategoricalCrossentropy().get_grad([scores0], [labels0])
     assert d_scores[0].dtype == "float32"
-    assert d_scores[0].shape == scores.shape
+    assert d_scores[0].shape == scores0.shape
     assert SequenceCategoricalCrossentropy().get_grad([], []) == []
 
+def test_equality():
+    pass
 
-def test_categorical_crossentropy():
-    guesses = numpy.asarray([[0.1, 0.5, 0.6], [0.4, 0.6, 0.3], [1, 1, 1], [0, 0, 0]])
-    labels = numpy.asarray([2, 1, 0, 2])
-    d_scores = CategoricalCrossentropy().get_grad(guesses, labels)
+
+@pytest.mark.parametrize(
+    "guesses, labels",
+    [
+        (guesses1, labels1),
+        (guesses1, labels1_full),
+        (guesses1, labels1),
+    ],
+)
+def test_categorical_crossentropy(guesses, labels):
+    d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
     assert d_scores.shape == guesses.shape
+
+    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
+    assert d_scores[1][0] == pytest.approx(0.1, eps)
+    assert d_scores[1][1] == pytest.approx(-0.1, eps)
 
     # The third vector predicted all labels, but only the first one was correct
     assert d_scores[2][0] == pytest.approx(0, eps)
@@ -38,21 +59,37 @@ def test_categorical_crossentropy():
     assert d_scores[3][2] == pytest.approx(-0.25, eps)
 
 
-def test_categorical_crossentropy_onehot():
-    guesses = numpy.asarray([[0.1, 0.5, 0.6], [0.4, 0.6, 0.3], [1, 1, 1], [0, 0, 0]])
-    labels = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
-    d_scores = CategoricalCrossentropy().get_grad(guesses, labels)
-    assert d_scores.shape == guesses.shape
+@pytest.mark.parametrize(
+    "guesses, labels",
+    [
+        ([guesses1, guesses2], [labels1, labels2]),
+        ([guesses1, guesses2], [labels1_full, labels2]),
+    ],
+)
+def test_sequence_categorical_crossentropy(guesses, labels):
+    d_scores = SequenceCategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
+    d_scores1 = d_scores[0]
+    d_scores2 = d_scores[1]
+    assert d_scores1.shape == guesses1.shape
+    assert d_scores2.shape == guesses2.shape
+
+    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
+    assert d_scores1[1][0] == pytest.approx(0.1, eps)
+    assert d_scores1[1][1] == pytest.approx(-0.1, eps)
 
     # The third vector predicted all labels, but only the first one was correct
-    assert d_scores[2][0] == pytest.approx(0, eps)
-    assert d_scores[2][1] == pytest.approx(0.25, eps)
-    assert d_scores[2][2] == pytest.approx(0.25, eps)
+    assert d_scores1[2][0] == pytest.approx(0, eps)
+    assert d_scores1[2][1] == pytest.approx(0.25, eps)
+    assert d_scores1[2][2] == pytest.approx(0.25, eps)
 
     # The fourth vector predicted no labels but should have predicted the last one
-    assert d_scores[3][0] == pytest.approx(0, eps)
-    assert d_scores[3][1] == pytest.approx(0, eps)
-    assert d_scores[3][2] == pytest.approx(-0.25, eps)
+    assert d_scores1[3][0] == pytest.approx(0, eps)
+    assert d_scores1[3][1] == pytest.approx(0, eps)
+    assert d_scores1[3][2] == pytest.approx(-0.25, eps)
+
+    # Test the second batch
+    assert d_scores2[0][0] == pytest.approx(0.2, eps)
+    assert d_scores2[0][1] == pytest.approx(-0.7, eps)
 
 
 def test_L2():
@@ -115,10 +152,10 @@ def test_cosine_unmatched():
 @pytest.mark.parametrize(
     "name,kwargs,args",
     [
-        ("CategoricalCrossentropy.v0", {}, (scores, labels)),
-        #("SequenceCategoricalCrossentropy.v0", {}, ([scores], [labels])),
-        ("L2Distance.v0", {}, (scores, scores)),
-        ("CosineDistance.v0", {"normalize": True, "ignore_zeros": True}, (scores, scores)),
+        ("CategoricalCrossentropy.v0", {}, (scores0, labels0)),
+        ("SequenceCategoricalCrossentropy.v0", {}, ([scores0], [labels0])),
+        ("L2Distance.v0", {}, (scores0, scores0)),
+        ("CosineDistance.v0", {"normalize": True, "ignore_zeros": True}, (scores0, scores0)),
     ],
 )
 def test_loss_from_config(name, kwargs, args):

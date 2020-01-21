@@ -64,13 +64,13 @@ class CategoricalCrossentropy(Loss):
 
 
 @registry.losses("CategoricalCrossentropy.v0")
-def configure_CategoricalCrossentropy() -> CategoricalCrossentropy:
-    return CategoricalCrossentropy()
+def configure_CategoricalCrossentropy(*, normalize: bool = True) -> CategoricalCrossentropy:
+    return CategoricalCrossentropy(normalize=normalize)
 
 
 class SequenceCategoricalCrossentropy(Loss):
-    def __init__(self):
-        self.cc = CategoricalCrossentropy()
+    def __init__(self, *, normalize: bool = True):
+        self.cc = CategoricalCrossentropy(normalize=normalize)
 
     def __call__(
         self, guesses: List[Array2d], truths: List[Array]
@@ -78,10 +78,10 @@ class SequenceCategoricalCrossentropy(Loss):
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(self, guesses: List[Array2d], truths: List[Array]) -> List[Array2d]:
-        if not guesses:
+        if guesses is None:
             return []
         if len(guesses) != len(truths):  # pragma: no cover
-            raise ValueError("Scores and labels must be same length")
+            raise ValueError("Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length.")
         d_scores = []
         for yh, y in zip(guesses, truths):
             d_scores.append(self.cc.get_grad(yh, y))
@@ -92,8 +92,8 @@ class SequenceCategoricalCrossentropy(Loss):
 
 
 @registry.losses("SequenceCategoricalCrossentropy.v0")
-def configure_SequenceCategoricalCrossentropy() -> SequenceCategoricalCrossentropy:
-    return SequenceCategoricalCrossentropy()
+def configure_SequenceCategoricalCrossentropy(*, normalize: bool = True) -> SequenceCategoricalCrossentropy:
+    return SequenceCategoricalCrossentropy(normalize=normalize)
 
 
 class L2Distance(Loss):
@@ -121,8 +121,8 @@ class L2Distance(Loss):
 
 
 @registry.losses("L2Distance.v0")
-def configure_L2Distance() -> L2Distance:
-    return L2Distance()
+def configure_L2Distance(*, normalize: bool = True, ) -> L2Distance:
+    return L2Distance(normalize=normalize)
 
 
 class CosineDistance(Loss):
@@ -193,7 +193,7 @@ class CosineDistance(Loss):
 
 
 @registry.losses("CosineDistance.v0")
-def configure_CosineDistance(*, normalize, ignore_zeros: bool = False) -> CosineDistance:
+def configure_CosineDistance(*, normalize: bool = True, ignore_zeros: bool = False) -> CosineDistance:
     return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
 
 
