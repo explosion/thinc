@@ -4,7 +4,7 @@ import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes, Generator, Padded, Batchable, Objects
+from ..types import DeviceTypes, Generator, Padded, Batchable
 from ..util import get_array_module, is_xp_array
 
 
@@ -50,9 +50,6 @@ class Ops:
         sequence.
         """
         sizes = itertools.repeat(size) if isinstance(size, int) else size
-        is_list = isinstance(sequence, list)
-        if isinstance(sequence, list):  # need condition here for type checking
-            sequence = Objects(sequence)
         indices = numpy.arange(len(sequence))
         if shuffle:
             numpy.random.shuffle(indices)
@@ -61,11 +58,14 @@ class Ops:
         while i < indices.shape[0]:  # type: ignore
             batch_size = next(sizes)
             idx_batch = indices[i : i + batch_size]
-            subseq = sequence[idx_batch]
+            if isinstance(sequence, list):
+                subseq = [sequence[i] for i in idx_batch]
+            elif isinstance(sequence, tuple):
+                subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+            else:
+                subseq = sequence[idx_batch]  # type: ignore
             if is_xp_array(subseq):
-                subseq = self.as_contig(cast(Array, subseq))
-            if is_list and isinstance(subseq, Objects):
-                subseq = subseq.data
+                subseq = self.as_contig(cast(Array, subseq))  # type: ignore
             queue.append(subseq)
             i += batch_size
         return queue
@@ -80,10 +80,6 @@ class Ops:
         """Minibatch one or more sequences of data, and yield
         tuples with one batch per sequence. See ops.minibatch.
         """
-        is_list = isinstance(sequence, list)
-        if isinstance(sequence, list):  # need condition here for type checking
-            sequence = Objects(sequence)
-            others = tuple(Objects(sq) if isinstance(sq, list) else sq for sq in others)
         sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
         indices = numpy.arange(len(sequence))
@@ -96,13 +92,16 @@ class Ops:
             idx_batch = indices[i : i + batch_size]
             subseqs = []
             for sequence in sequences:
-                subseq = sequence[idx_batch]
+                if isinstance(sequence, list):
+                    subseq = [sequence[i] for i in idx_batch]
+                elif isinstance(sequence, tuple):
+                    subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+                else:
+                    subseq = sequence[idx_batch]  # type: ignore
                 if is_xp_array(subseq):
-                    subseq = self.as_contig(cast(Array, subseq))
-                if is_list and isinstance(subseq, Objects):
-                    subseq = subseq.data
+                    subseq = self.as_contig(cast(Array, subseq))  # type: ignore
                 subseqs.append(subseq)
-            queue.append(tuple(subseqs))
+            queue.append(subseqs)
             i += batch_size
         return queue
 

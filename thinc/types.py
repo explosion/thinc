@@ -27,7 +27,7 @@ OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 ArrayT = TypeVar("ArrayT", bound="Array")
 Reduced_OutT = TypeVar("Reduced_OutT")
-Batchable = Union["Pairs", "Ragged", "Padded", "Array", "Objects", "Arrays", List]
+Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
 
 
 class Array(Generic[ArrayT], Sized, Container):
@@ -526,48 +526,6 @@ class Decorator(Protocol):
 
     def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
-
-
-ItemType = TypeVar("ItemType", bound=Array)
-
-
-@dataclass
-class Arrays(Generic[ItemType]):
-    """A batch of irregularly-shaped arrays. Basically just provides
-    numpy-style __getitem__.
-    """
-
-    data: List[ItemType]
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, index) -> "Arrays[ItemType]":
-        if isinstance(index, int):
-            return Arrays(self.data[index : index + 1])
-        elif isinstance(index, slice):
-            return Arrays(self.data[index])
-        else:
-            return Arrays([self.data[i] for i in index])
-
-
-_O = TypeVar("_O")
-
-
-@dataclass
-class Objects(Generic[_O]):
-    data: List[_O]
-
-    def __len__(self) -> int:
-        return len(self.data)
-
-    def __getitem__(self, index) -> "Objects[_O]":
-        if isinstance(index, int):
-            return Objects(self.data[index : index + 1])
-        elif isinstance(index, slice):
-            return Objects(self.data[index])
-        else:
-            return Objects([self.data[i] for i in index])
 
 
 @dataclass
