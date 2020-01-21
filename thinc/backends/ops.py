@@ -1,10 +1,11 @@
 from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
 import numpy
 
-from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
+from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
 from ..types import DeviceTypes
 from ..util import get_array_module
+from ..batching import Padded
 
 
 class Ops:
@@ -26,6 +27,27 @@ class Ops:
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
+
+    def minibatch(self, items, size, *, shuffle=False, buffer=1):
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(items))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        # Support buffering a number of items.
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i+batch_size]
+            batch = items[idx_batch]
+            if is_xp_array(batch):
+                batch = self.as_contig(batch)
+            queue.append(batch)
+            if len(queue) >= buffer:
+                yield from queue
+                queue = []
+            i += batch_size
+        yield from queue
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
