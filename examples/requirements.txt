@@ -1,9 +1,0 @@
-ml_datasets
-tqdm
-typer
-torch
-tensorflow
-transformers
-pydot
-svgwrite
-syntok
