@@ -30,6 +30,42 @@ except ImportError:  # pragma: no cover
 keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 
 
+def maybe_handshake_model(keras_model):
+    """Call the required predict/compile/build APIs to initialize a model if it
+    is a subclass of tf.keras.Model. This is required to be able to call set_weights
+    on subclassed layers."""
+    try:
+        keras_model.get_config()
+        return keras_model
+    except (AttributeError, NotImplementedError):
+        # Subclassed models don't implement get_config
+        pass
+
+    for prop_name in ["catalogue_name", "eg_x", "eg_y", "eg_shape"]:
+        if not hasattr(keras_model, prop_name):
+            raise ValueError(
+                "Keras subclassed models are not whole-model serializable by "
+                "TensorFlow. To work around this, you must decorate your keras "
+                "model subclasses with the 'keras_subclass' decorator. The decorator "
+                "requires a single X/Y input of fake-data that can be used to initialize "
+                "your subclass model properly when loading the saved version."
+            )
+
+    ops: Ops = get_current_ops()
+    if ops.device_type == "cpu":
+        device = "CPU"
+    else:  # pragma: no cover
+        device = tf.test.gpu_device_name()
+
+    with tf.device(device):
+        # Calling predict creates layers and weights for subclassed models
+        keras_model.compile(**keras_model.eg_compile)
+        keras_model.build(keras_model.eg_shape)
+        keras_model.predict(keras_model.eg_x)
+    return keras_model
+
+
+class TrackableBackprop(object):
 class TensorFlowShim(Shim):
     """Interface between a TensorFlow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
@@ -222,20 +258,15 @@ class TensorFlowShim(Shim):
                 with tf.device(device):
                     self._model = tf.keras.models.load_model(f)
                 return
-
+        # We only have to create the model if it doesn't already exist.
         catalogue_name, model_weights = data
-        model_fn = keras_model_fns.get(catalogue_name)
-        with tf.device(device):
-            if hasattr(self._model, "eg_args"):
-                ak: ArgsKwargs = self._model.eg_args
-                new_model = model_fn(*ak.args, **ak.kwargs)
-            else:
-                new_model = model_fn()
-        # Calling predict creates layers and weights for subclassed models
-        new_model.compile(**new_model.eg_compile)
-        new_model.build(new_model.eg_shape)
-        new_model.predict(new_model.eg_x)
-        # Once the weights are created we can overwrite them.
-        new_model.set_weights(model_weights)
-
-        self._model = new_model
+        if self._model is None:
+            model_fn = keras_model_fns.get(catalogue_name)
+            with tf.device(device):
+                if hasattr(self._model, "eg_args"):
+                    ak: ArgsKwargs = self._model.eg_args
+                    new_model = model_fn(*ak.args, **ak.kwargs)
+                else:
+                    new_model = model_fn()
+            self._model_initialized = maybe_handshake_model(new_model)
+        self._model.set_weights(model_weights)

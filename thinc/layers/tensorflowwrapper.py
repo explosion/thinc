@@ -3,7 +3,7 @@ from typing import Any, Callable, Dict, Optional, Tuple, Type, TypeVar
 import srsly
 
 from ..model import Model
-from ..shims import TensorFlowShim, keras_model_fns
+from ..shims import TensorFlowShim, keras_model_fns, maybe_handshake_model
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
 from ..types import Array, ArgsKwargs
@@ -100,32 +100,7 @@ def TensorFlowWrapper(
     if not isinstance(tensorflow_model, tf.keras.models.Model):
         err = f"Expected tf.keras.models.Model, got: {type(tensorflow_model)}"
         raise ValueError(err)
-
-    # Determine if the model is Sequential/Functional
-    is_subclass = False
-    try:
-        tensorflow_model.to_json()
-    except (AttributeError, NotImplementedError):
-        is_subclass = True
-
-    if is_subclass:
-        for prop_name in ["catalogue_name", "eg_x", "eg_y", "eg_shape"]:
-            if not hasattr(tensorflow_model, prop_name):
-                raise ValueError(
-                    "Keras subclassed models are not whole-model serializable by "
-                    "TensorFlow. To work around this, you must decorate your keras "
-                    "model subclasses with the 'keras_subclass' decorator. The decorator "
-                    "requires a single X/Y input of fake-data that can be used to initialize "
-                    "your subclass model properly when loading the saved version."
-                )
-        # Attach the input shape if it's not provided
-        if input_shape is None:
-            input_shape = tensorflow_model.eg_shape
-
-    # Building a TF model checks for errors like not specifying an input_shape
-    # which can cause other errors in methods like from_disk and from_bytes.
-    if build_model:
-        tensorflow_model.build(input_shape=input_shape)
+    tensorflow_model = maybe_handshake_model(tensorflow_model)
     if convert_inputs is None:
         convert_inputs = _convert_inputs
     if convert_outputs is None:

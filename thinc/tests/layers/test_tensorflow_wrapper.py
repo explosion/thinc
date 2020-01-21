@@ -93,29 +93,6 @@ def test_tensorflow_wrapper_built_model(model: Model[Array, Array], X: Array, Y:
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
-    tf_model, X: Array, Y: Array
-):
-    import tensorflow as tf
-
-    # input_shape is needed to de/serialize keras models properly
-    # so we throw an error as soon as we can detect that case.
-    with pytest.raises(ValueError):
-        TensorFlowWrapper(tf.keras.Sequential([tf.keras.layers.Dense(12)]))
-    # You can override the model build at construction, but then
-    # you must specify the input shape another way.
-    model: Model[Array, Array] = TensorFlowWrapper(
-        tf.keras.Sequential([tf.keras.layers.Dense(12)]), build_model=False
-    )
-    # Can't de/serialize without an input_shape
-    with pytest.raises(ValueError):
-        model.from_bytes(model.to_bytes())
-    # Can't print a keras summary
-    with pytest.raises(ValueError):
-        str(model.shims[0])
-
-
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_predict(model: Model[Array, Array], X: Array):
     model.predict(X)
 
