@@ -157,21 +157,3 @@ class Pairs(Generic[_P]):
 
 
 Batchable = Union[Pairs, Ragged, Padded, Array, Objects, Arrays, List]
-_B = TypeVar("_B", bound=Batchable)
-
-
-def minibatch(
-        items: Batchable, size: Union[int, Iterator[int]], *, shuffle: bool=False,
-        buffer: int=0, ops=None
-) -> Iterable[_B]:
-    """Iterate over batches of items. `size` may be an iterator,
-    so that batch-size can vary on each step.
-    """
-    from .backends import get_current_ops
-    from .util import is_xp_array
-    if len(items) == 0:
-        return
-    if isinstance(items, list):
-        items = Arrays(items) if is_xp_array(items[0]) else Objects(items)
-    ops = ops if ops is not None else get_current_ops()
-    yield from ops.minibatch(items, size, shuffle=shuffle, buffer=buffer)
