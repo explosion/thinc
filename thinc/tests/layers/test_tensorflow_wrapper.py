@@ -1,12 +1,11 @@
 import numpy
 import pytest
-
-from thinc.api import TensorFlowWrapper, tensorflow2xp, xp2tensorflow, Linear
-from thinc.api import Ops, get_current_ops, Model, Adam, ArgsKwargs
-from thinc.types import Array
+from thinc.api import Adam, ArgsKwargs, Linear, Model, Ops, TensorFlowWrapper
+from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
+from thinc.types import Array, Array1d, Array2d
 from thinc.util import has_tensorflow, to_categorical
 
-from ..util import make_tempdir, check_input_converters
+from ..util import check_input_converters, make_tempdir
 
 
 @pytest.fixture
@@ -116,12 +115,12 @@ def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
         str(model.shims[0])
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_predict(model: Model[Array, Array], X: Array):
     model.predict(X)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_train_overfits(
     model: Model[Array, Array], X: Array, Y: Array, answer: int
 ):
@@ -135,13 +134,177 @@ def test_tensorflow_wrapper_train_overfits(
     assert predicted == answer
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_accepts_optimizer(
+    model: Model[Array, Array], tf_model, X: Array, Y: Array, answer: int
+):
+    # Update the optimizer weights
+    optimizer = Adam()
+    for i in range(10):
+        guesses, backprop = model(X, is_train=True)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+
+    # Pass the existing optimizer to a new wrapper shim
+    wrapped: Model[Array, Array] = TensorFlowWrapper(
+        tf_model, optimizer=model.shims[0]._optimizer
+    )
+    assert model.shims[0]._optimizer is not None
+    assert wrapped.shims[0]._optimizer is not None
+    weights_model = model.shims[0]._optimizer.get_weights()
+    weights_wrapped = wrapped.shims[0]._optimizer.get_weights()
+    for w1, w2 in zip(weights_model, weights_wrapped):
+        assert numpy.array_equal(w1, w2)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_serialize_model_subclass(
+    X: Array, Y: Array, input_size: int, n_classes: int, answer: int
+):
+    import tensorflow as tf
+
+    input_shape = (1, input_size)
+    ops: Ops = get_current_ops()
+
+    @keras_subclass(
+        "foo.v0",
+        X=ops.alloc_f2d(*input_shape),
+        Y=to_categorical(ops.asarray([1]), n_classes=n_classes),
+        input_shape=input_shape,
+    )
+    class CustomKerasModel(tf.keras.Model):
+        def __init__(self, **kwargs):
+            super(CustomKerasModel, self).__init__(**kwargs)
+            self.in_dense = tf.keras.layers.Dense(
+                12, name="in_dense", input_shape=input_shape
+            )
+            self.out_dense = tf.keras.layers.Dense(
+                n_classes, name="out_dense", activation="softmax"
+            )
+
+        def call(self, inputs) -> tf.Tensor:
+            x = self.in_dense(inputs)
+            return self.out_dense(x)
+
+    model: Model[Array, Array] = TensorFlowWrapper(
+        CustomKerasModel(), input_shape=input_shape
+    )
+    # Train the model to predict the right single answer
+    optimizer = Adam()
+    for i in range(50):
+        guesses, backprop = model(X, is_train=True)
+        d_guesses = (guesses - Y) / guesses.shape[0]
+        backprop(d_guesses)
+        model.finish_update(optimizer)
+    predicted = model.predict(X).argmax()
+    assert predicted == answer
+
+    # Save then Load the model from bytes
+    model.from_bytes(model.to_bytes())
+
+    # The from_bytes model gets the same answer
+    assert model.predict(X).argmax() == answer
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
+    import tensorflow as tf
+
+    class UndecoratedModel(tf.keras.Model):
+        def call(self, inputs):
+            return inputs
+
+    # Can't wrap an undecorated keras subclass model
+    with pytest.raises(ValueError):
+        TensorFlowWrapper(UndecoratedModel())
+
+    @keras_subclass(
+        "TestModel",
+        X=numpy.array([0.0, 0.0]),
+        Y=numpy.array([0.5]),
+        input_shape=(2,),
+        compile_args={"loss": "binary_crossentropy"},
+    )
+    class TestModel(tf.keras.Model):
+        def call(self, inputs):
+            return inputs
+
+    model = TensorFlowWrapper(TestModel())
+    model = model.from_bytes(model.to_bytes())
+
+    assert model.shims[0]._model.loss == "binary_crossentropy"
+    assert isinstance(model, Model)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_keras_subclass_decorator():
+    import tensorflow as tf
+
+    class UndecoratedModel(tf.keras.Model):
+        def call(self, inputs):
+            return inputs
+
+    # Can't wrap an undecorated keras subclass model
+    with pytest.raises(ValueError):
+        TensorFlowWrapper(UndecoratedModel())
+
+    @keras_subclass(
+        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
+    )
+    class TestModel(tf.keras.Model):
+        def call(self, inputs):
+            return inputs
+
+    # Can wrap an decorated keras subclass model
+    assert isinstance(TensorFlowWrapper(TestModel()), Model)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_keras_subclass_decorator_capture_args_kwargs(
+    X: Array, Y: Array, input_size: int, n_classes: int, answer: int
+):
+    import tensorflow as tf
+
+    @keras_subclass(
+        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
+    )
+    class TestModel(tf.keras.Model):
+        def __init__(self, custom: bool = False, **kwargs):
+            super().__init__(self)
+            # This is to force the mode to pass the captured arguments
+            # or fail.
+            assert custom is True
+            assert kwargs.get("other", None) is not None
+
+        def call(self, inputs):
+            return inputs
+
+    # Can wrap an decorated keras subclass model
+    model: Model[Array2d, Array1d] = TensorFlowWrapper(TestModel(True, other=1337))
+
+    assert hasattr(model.shims[0]._model, "eg_args")
+    args_kwargs: ArgsKwargs = model.shims[0]._model.eg_args
+    assert True in args_kwargs.args
+    assert "other" in args_kwargs.kwargs
+
+    # Raises an error if the args/kwargs is not serializable
+    obj: dict = {}
+    obj["key"] = obj
+    with pytest.raises(ValueError):
+        TensorFlowWrapper(TestModel(True, other=obj))
+
+    # Provides the same arguments when copying a capture model
+    model = model.from_bytes(model.to_bytes())
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_can_copy_model(model: Model[Array, Array]):
     copy: Model[Array, Array] = model.copy()
     assert copy is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_print_summary(model: Model[Array, Array], X: Array):
     summary = str(model.shims[0])
     # Summary includes the layers of our model
@@ -153,7 +316,7 @@ def test_tensorflow_wrapper_print_summary(model: Model[Array, Array], X: Array):
     assert "Non-trainable params" in summary
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_bytes(model: Model[Array, Array], X: Array):
     # And can be serialized
     model_bytes = model.to_bytes()
@@ -161,7 +324,7 @@ def test_tensorflow_wrapper_to_bytes(model: Model[Array, Array], X: Array):
     model.from_bytes(model_bytes)
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_from_disk(
     model: Model[Array, Array], X: Array, Y: Array, answer: int
 ):
@@ -172,7 +335,7 @@ def test_tensorflow_wrapper_to_from_disk(
         assert another_model is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_from_bytes(model: Model[Array, Array], X: Array):
     model.predict(X)
     model_bytes = model.to_bytes()
@@ -180,7 +343,7 @@ def test_tensorflow_wrapper_from_bytes(model: Model[Array, Array], X: Array):
     assert another_model is not None
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_use_params(
     model: Model[Array, Array], X: Array, Y: Array, answer: int
 ):
@@ -197,13 +360,13 @@ def test_tensorflow_wrapper_use_params(
     assert predicted == answer
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_cpu(tf_model):
     model = TensorFlowWrapper(tf_model)
     model.to_cpu()
 
 
-@pytest.mark.skipif(not has_tensorflow, reason="needs Tensorflow")
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_to_gpu(model: Model[Array, Array], X: Array):
     # Raises while failing to import cupy
     with pytest.raises(ImportError):

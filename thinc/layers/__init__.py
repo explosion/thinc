@@ -20,12 +20,12 @@ from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
 from .lstm import LSTM, PyTorchLSTM
-from .tensorflowwrapper import TensorFlowWrapper
+from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 
 # Combinators
-from .add_module import add
+from .add import add
 from .bidirectional import bidirectional
-from .chain_module import chain
+from .chain import chain
 from .clone import clone
 from .concatenate import concatenate
 from .noop import noop
@@ -41,7 +41,7 @@ from .reduce_sum import reduce_sum
 # Data-type transfers
 from .list2array import list2array
 from .list2ragged import list2ragged
-from .list2padded_module import list2padded
+from .list2padded import list2padded
 from .ragged2list import ragged2list
 from .padded2list import padded2list
 from .remap_ids import remap_ids

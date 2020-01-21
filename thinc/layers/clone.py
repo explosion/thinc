@@ -1,7 +1,7 @@
 from typing import TypeVar, cast, List
 
 from .noop import noop
-from .chain_module import chain
+from .chain import chain
 from ..model import Model
 from ..config import registry
 

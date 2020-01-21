@@ -1,6 +1,6 @@
 from typing import List
 
-from thinc.layers import ReLu, Softmax, chain
+from thinc.layers import ReLu, Softmax, chain, reduce_max
 from thinc.model import Model
 
 # Define Custom X/Y types

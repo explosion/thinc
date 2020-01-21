@@ -366,6 +366,7 @@ class Ops:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)
 
+    # TODO: types
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         empty_row = self.alloc((1,) + dY.shape[1:], dtype="f")
@@ -417,7 +418,7 @@ class Ops:
         X: Array2d,
         threshold: float = 20.0,
         out: Optional[Array2d] = None,
-    ):
+    ) -> Array2d:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]
