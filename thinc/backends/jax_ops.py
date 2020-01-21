@@ -3,8 +3,7 @@ import numpy
 
 from .ops import Ops
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
-from ..types import DeviceTypes
-from ..batching import Padded
+from ..types import DeviceTypes, Padded
 
 
 try:  # pragma: no cover

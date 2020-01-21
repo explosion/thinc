@@ -4,9 +4,8 @@ import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes, Generator
+from ..types import DeviceTypes, Generator, Padded, Batchable
 from ..util import get_array_module, is_xp_array
-from ..batching import Padded, Batchable
 
 
 class Ops:
@@ -35,7 +34,7 @@ class Ops:
         may be either views or copies of the underlying data.
 
         Sequences must support 1-dimensional "advanced indexing":
-        sequence[[0, 1, 2]] should produce a slice of the sequence 0:2. 
+        sequence[[0, 1, 2]] should produce a slice of the sequence 0:2.
         Indexes may be numpy arrays, and they may be out-of-order.
 
         The `size` argument may be either an integer, or a sequence of integers.

@@ -39,8 +39,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Array2d, ArgsKwargs
-from .batching import Ragged, Padded
+from .types import Array, Array2d, ArgsKwargs, Ragged, Padded
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -130,7 +129,7 @@ def to_numpy(data):  # pragma: no cover
         return jax.device_get(data)
     else:
         return numpy.array(data)
- 
+
 
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""

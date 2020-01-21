@@ -27,6 +27,7 @@ OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 ArrayT = TypeVar("ArrayT", bound="Array")
 Reduced_OutT = TypeVar("Reduced_OutT")
+Batchable = Union["Pairs", "Ragged", "Padded", "Array", "Objects", "Arrays", List]
 
 
 class Array(Generic[ArrayT], Sized, Container):
@@ -528,11 +529,14 @@ class Decorator(Protocol):
 
 
 ItemType = TypeVar("ItemType", bound=Array)
+
+
 @dataclass
 class Arrays(Generic[ItemType]):
     """A batch of irregularly-shaped arrays. Basically just provides
-    numpy-style __getitem__. 
+    numpy-style __getitem__.
     """
+
     data: List[ItemType]
 
     def __len__(self) -> int:
@@ -540,7 +544,7 @@ class Arrays(Generic[ItemType]):
 
     def __getitem__(self, index) -> "Arrays[ItemType]":
         if isinstance(index, int):
-            return Arrays(self.data[index:index+1])
+            return Arrays(self.data[index : index + 1])
         elif isinstance(index, slice):
             return Arrays(self.data[index])
         else:
@@ -548,16 +552,18 @@ class Arrays(Generic[ItemType]):
 
 
 _O = TypeVar("_O")
+
+
 @dataclass
 class Objects(Generic[_O]):
     data: List[_O]
-    
+
     def __len__(self) -> int:
         return len(self.data)
 
     def __getitem__(self, index) -> "Objects[_O]":
         if isinstance(index, int):
-            return Objects(self.data[index:index+1])
+            return Objects(self.data[index : index + 1])
         elif isinstance(index, slice):
             return Objects(self.data[index])
         else:
@@ -585,17 +591,17 @@ class Padded:
         if isinstance(index, int):
             # Slice to keep the dimensionality
             return Padded(
-                self.data[:, index : index+1],
-                self.lengths[index : index+1],
-                self.lengths[index : index+1],
-                self.indices[index : index+1]
+                self.data[:, index : index + 1],
+                self.lengths[index : index + 1],
+                self.lengths[index : index + 1],
+                self.indices[index : index + 1],
             )
         elif isinstance(index, slice):
             return Padded(
                 self.data[:, index],
                 self.lengths[index],
                 self.lengths[index],
-                self.indices[index]
+                self.indices[index],
             )
         else:
             # If we get a sequence of indices, we need to be careful that
@@ -606,7 +612,7 @@ class Padded:
                 self.data[sorted_index],
                 self.size_at_t[sorted_index],
                 self.lengths[sorted_index],
-                self.indices[index] # Use original, to maintain order.
+                self.indices[index],  # Use original, to maintain order.
             )
 
 
@@ -620,15 +626,17 @@ class Ragged:
     it returns a Ragged object with the accompanying sequence data. For instance,
     you can write ragged[1:4] to get a Ragged object with sequences 1, 2 and 3.
     """
+
     data: Array2d
     lengths: Array1d
-    _cumsums: Optional[Array1d]=None
+    _cumsums: Optional[Array1d] = None
 
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
     def __getitem__(self, index: Union[int, slice, Array]) -> "Ragged":
-        from .util import get_array_module, is_xp_array
+        from .util import get_array_module  # prevent circular imports
+
         if isinstance(index, tuple):
             raise IndexError("Ragged arrays do not support 2d indexing.")
         starts = self._get_starts()
@@ -636,11 +644,11 @@ class Ragged:
         if isinstance(index, int):
             s = starts[index]
             e = ends[index]
-            return Ragged(self.data[s:e], self.lengths[index:index+1])
+            return Ragged(self.data[s:e], self.lengths[index : index + 1])
         elif isinstance(index, slice):
             lengths = self.lengths[index]
             cumsums = self._get_cumsums()
-            start = cumsums[index.start-1] if index.start >= 1 else 0
+            start = cumsums[index.start - 1] if index.start >= 1 else 0
             end = start + lengths.sum()
             return Ragged(self.data[start:end], lengths)
         else:
@@ -656,6 +664,7 @@ class Ragged:
 
     def _get_starts(self) -> Array1d:
         from .util import get_array_module
+
         cumsums = self._get_cumsums()
         xp = get_array_module(cumsums)
         zero = xp.array([0], dtype="i")
@@ -665,8 +674,9 @@ class Ragged:
         return self._get_cumsums()
 
 
-
 _P = TypeVar("_P", bound=Sequence)
+
+
 @dataclass
 class Pairs(Generic[_P]):
     one: _P
@@ -677,9 +687,6 @@ class Pairs(Generic[_P]):
 
     def __len__(self) -> int:
         return len(self.one)
-
-
-Batchable = Union[Pairs, Ragged, Padded, Array, Objects, Arrays, List]
 
 
 @dataclass
