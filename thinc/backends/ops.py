@@ -1,11 +1,12 @@
 from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
 import numpy
+import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes
-from ..util import get_array_module
-from ..batching import Padded
+from ..types import DeviceTypes, Generator
+from ..util import get_array_module, is_xp_array
+from ..batching import Padded, Batchable
 
 
 class Ops:
@@ -28,7 +29,7 @@ class Ops:
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
 
-    def minibatch(self, size: Union[int, Iterator[int]], *sequences: Batchable,
+    def minibatch(self, size: Union[int, Generator], sequence: Batchable, *others: Batchable,
             shuffle: bool=False, buffer: int=1):
         """Iterate slices from one or more sequences, optionally shuffled. Slices
         may be either views or copies of the underlying data.
@@ -51,8 +52,9 @@ class Ops:
         an index array, shuffling it, and then using it to slice into the
         sequences.
         """
+        sequences = (sequence,) + tuple(others)
         sizes = itertools.repeat(size) if isinstance(size, int) else size
-        indices = numpy.arange(len(items))
+        indices = numpy.arange(len(sequence))
         if shuffle:
             numpy.random.shuffle(indices)
         i = 0
@@ -64,8 +66,8 @@ class Ops:
             subseqs = []
             for sequence in sequences:
                 subseq = sequence[idx_batch]
-                if is_xp_array(batch):
-                    subseq = self.as_contig(subseq)
+                if is_xp_array(subseq):
+                    subseq = self.as_contig(cast(Array, subseq))
                 subseqs.append(subseq)
             queue.append(tuple(subseqs))
             if len(queue) >= buffer:
