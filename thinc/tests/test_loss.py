@@ -45,7 +45,7 @@ def test_equality(dist, vect):
 
 @pytest.mark.parametrize(
     "guesses, labels",
-    [(guesses1, labels1), (guesses1, labels1_full), (guesses1, labels1)],
+    [(guesses1, labels1), (guesses1, labels1_full)],
 )
 def test_categorical_crossentropy(guesses, labels):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
