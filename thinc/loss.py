@@ -41,7 +41,7 @@ class CategoricalCrossentropy(Loss):
         else:  # pragma: no cover
             target = cast(Array2d, truths)
         if guesses.shape != target.shape:  # pragma: no cover
-            err = f"Cannot calculate loss: mismatched shapes. {guesses.shape} vs {target.shape}"
+            err = f"Cannot calculate loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
         difference = guesses - target
         return difference / guesses.shape[0]
@@ -83,41 +83,59 @@ def configure_SequenceCategoricalCrossentropy() -> SequenceCategoricalCrossentro
     return SequenceCategoricalCrossentropy()
 
 
-class L1Distance(Loss):
-    def __init__(self, *, margin: float = 0.2):
-        self.margin = margin
-
-    def __call__(
-        self, guesses: Tuple[Array2d, Array2d], truths: Array2d
-    ) -> Tuple[Tuple[Array2d, Array2d], float]:
-        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
-
-    def get_grad(
-        self, guesses: Tuple[Array2d, Array2d], truths: Array2d
-    ) -> Tuple[Array2d, Array2d]:
-        vec1, vec2 = guesses
-        xp = get_array_module(vec1)
-        dist = xp.abs(vec1 - vec2).sum(axis=1)
-        loss = (dist > self.margin) - truths
-        return (vec1 - vec2) * loss, (vec2 - vec1) * loss
-
-    def get_loss(self, guesses: Tuple[Array2d, Array2d], truths: Array2d) -> float:
-        raise NotImplementedError
-
-
-@registry.losses("L1Distance.v0")
-def configure_L1Distance(*, margin: float = 0.2) -> L1Distance:
-    return L1Distance(margin=margin)
-
-
-class CosineDistance(Loss):
-    def __init__(self, *, ignore_zeros: bool = False):
-        self.ignore_zeros = bool
-
+class L2Distance(Loss):
     def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(self, guesses: Array2d, truths: Array2d) -> Array2d:
+        if guesses.shape != truths.shape:  # pragma: no cover
+            err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
+            raise ValueError(err)
+
+        return guesses - truths
+
+    def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
+        if guesses.shape != truths.shape:  # pragma: no cover
+            err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
+            raise ValueError(err)
+
+        d_truth = self.get_grad(guesses, truths)
+        return (d_truth ** 2).sum()
+
+
+@registry.losses("L2Distance.v0")
+def configure_L2Distance() -> L2Distance:
+    return L2Distance()
+
+
+class CosineDistance(Loss):
+    def __init__(self, *, ignore_zeros: bool = False):
+        self.ignore_zeros = ignore_zeros
+
+    def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
+        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
+
+    def get_similarity(self, guesses: Array2d, truths: Array2d) -> float:
+        if guesses.shape != truths.shape:  # pragma: no cover
+            err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
+            raise ValueError(err)
+
+        xp = get_array_module(guesses)
+        # Add a small constant to avoid 0 vectors
+        yh = guesses + 1e-8
+        y = truths + 1e-8
+        norm_yh = xp.linalg.norm(yh, axis=1, keepdims=True)
+        norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
+        mul_norms = norm_yh * norm_y
+        cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
+        return cosine
+
+    def get_grad(self, guesses: Array2d, truths: Array2d) -> Array2d:
+        if guesses.shape != truths.shape:  # pragma: no cover
+            err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
+            raise ValueError(err)
+
+        # Note: not using get_distance() here to avoid duplicating certain calculations
         xp = get_array_module(guesses)
         # Find the zero vectors
         if self.ignore_zeros:
@@ -136,25 +154,19 @@ class CosineDistance(Loss):
             d_yh[zero_indices] = 0
         return -d_yh
 
-    def cosine(self, guesses: Array2d, truths: Array2d) -> float:
-        xp = get_array_module(guesses)
-        # Add a small constant to avoid 0 vectors
-        yh = guesses + 1e-8
-        y = truths + 1e-8
-        norm_yh = xp.linalg.norm(yh, axis=1, keepdims=True)
-        norm_y = xp.linalg.norm(y, axis=1, keepdims=True)
-        mul_norms = norm_yh * norm_y
-        cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
     def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
+        if guesses.shape != truths.shape:  # pragma: no cover
+            err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
+            raise ValueError(err)
+
         xp = get_array_module(guesses)
-        cosine = self.cosine(guesses, truths)
+        cosine = self.get_similarity(guesses, truths)
         losses = xp.abs(cosine - 1)
         if self.ignore_zeros:
             # If the target was a zero vector, don't count it in the loss.
             zero_indices = xp.abs(truths).sum(axis=1) == 0
             losses[zero_indices] = 0
+        print("losses", losses)
         loss = losses.sum()
         return loss
 
@@ -164,4 +176,4 @@ def configure_CosineDistance(*, ignore_zeros: bool = False) -> CosineDistance:
     return CosineDistance(ignore_zeros=ignore_zeros)
 
 
-__all__ = ["CategoricalCrossentropy", "L1Distance", "CosineDistance"]
+__all__ = ["SequenceCategoricalCrossentropy", "CategoricalCrossentropy", "L2Distance", "CosineDistance"]

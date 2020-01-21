@@ -369,6 +369,7 @@ def partial(
 
 
 __all__ = [
+    "get_array_module",
     "fix_random_seed",
     "create_thread_local",
     "is_cupy_array",
