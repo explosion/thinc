@@ -64,7 +64,7 @@ def test_small_end_to_end(
         total = 0
         for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
             Yh = model.predict(X)
-            corrct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
+            correct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
             total += Yh.shape[0]
         score = correct / total
         scores.append(score)
