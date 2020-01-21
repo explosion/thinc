@@ -593,6 +593,16 @@ class Padded:
     indices: Array1d
 
 
+T = TypeVar("T", bound=Sequence)
+@dataclass
+class Pairs(Sequence, Generic[T]):
+    one: T
+    two: T
+
+    def __getitem__(self, index) -> Pair[T]:
+        return Pairs(self.one[index], self.two[index])
+
+
 @dataclass
 class ArgsKwargs:
     """A tuple of (args, kwargs) that can be spread into some function f:
