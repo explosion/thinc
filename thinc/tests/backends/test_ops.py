@@ -374,4 +374,4 @@ def test_multibatch():
     assert len(batches[0]) == 2
     assert len(batches[1]) == 2
     batches = list(ops.multibatch(2, [1, 2, 3, 4], [5, 6, 7, 8]))
-    assert batches == [([1, 2], [5, 6]), ([3, 4], [7, 8])]
+    assert batches == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
