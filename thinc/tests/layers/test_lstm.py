@@ -1,6 +1,6 @@
 import numpy
 import timeit
-from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded
+from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
 from thinc.util import has_torch
 import pytest
 
@@ -72,6 +72,8 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
 
 
 def test_LSTM_learns():
+    fix_random_seed(0)
+
     nO = 2
     nI = 2
 
