@@ -27,14 +27,14 @@ def main(
     # Create the optimizer.
     optimizer = Adam(0.001)
     for i in range(n_iter):
-        for X, Y in model.ops.minibatch(batch_size, train_X, train_Y, shuffle=True):
+        for X, Y in model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True):
             Yh, backprop = model.begin_update(X)
             backprop(Yh - Y)
             model.finish_update(optimizer)
         # Evaluate and print progress
         correct = 0
         total = 0
-        for X, Y in model.ops.minibatch(batch_size, dev_X, dev_Y):
+        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
             Yh = model.predict(X)
             corrct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
             total += Yh.shape[0]
