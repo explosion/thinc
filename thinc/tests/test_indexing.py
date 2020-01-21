@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from numpy.testing import assert_allclose
-from thinc.types import Ragged
+from thinc.types import Ragged, Pairs
 
 
 @pytest.fixture
@@ -38,6 +38,15 @@ def test_ragged_slice_index(ragged, start=0, end=2):
 
 def test_ragged_array_index(ragged):
     arr = numpy.array([2, 1, 4], dtype="i")
-    print(arr)
     r = ragged[arr]
     assert r.data.shape[0] == ragged.lengths[arr].sum()
+
+
+def test_pairs_arrays():
+    one = numpy.zeros((128, 45), dtype="f")
+    two = numpy.zeros((128, 12), dtype="f")
+    pairs = Pairs(one, two)
+    assert pairs[:2].one.shape == (2, 45)
+    assert pairs[0].two.shape == (12,)
+    assert pairs[-1:].one.shape == (1, 45)
+    assert pairs[-1:].two.shape == (1, 12)
