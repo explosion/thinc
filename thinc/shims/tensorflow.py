@@ -241,9 +241,9 @@ class TensorFlowShim(Shim):
                     "Couldn't serialize to h5, and model has no factory "
                     "function for component serialization."
                 )
-            # Check the factory function and throw ValueError if it doesn't exist
-            keras_model_fns.get(self._model.catalogue_name)
-            return self._model.catalogue_name, self._model.get_weights()
+        # Check the factory function and throw ValueError if it doesn't exist
+        keras_model_fns.get(self._model.catalogue_name)
+        return self._model.catalogue_name, self._model.get_weights()
 
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
