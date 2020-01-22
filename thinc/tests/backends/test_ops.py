@@ -360,6 +360,10 @@ def test_minibatch():
     assert len(batches[0]) == 3
     assert len(batches[1]) == 2
     assert len(batches[2]) == 1
+    with pytest.raises(ValueError):
+        ops.minibatch(10, (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.minibatch(10, True)
 
 
 def test_multibatch():
@@ -375,3 +379,7 @@ def test_multibatch():
     assert len(batches[1]) == 2
     batches = list(ops.multibatch(2, [1, 2, 3, 4], [5, 6, 7, 8]))
     assert batches == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
+    with pytest.raises(ValueError):
+        ops.multibatch(10, (i for i in range(100)), (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.multibatch(10, arr1, (i for i in range(100)), arr2)

@@ -1,10 +1,11 @@
 from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
+from typing import Iterator
 import numpy
 import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes, Generator, Padded, Batchable
+from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array
 
 
@@ -34,7 +35,8 @@ class Ops:
         sequence: Batchable,
         *,
         shuffle: bool = False,
-    ) -> list:
+        buffer: int = 1,
+    ) -> SizedGenerator:
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
 
@@ -44,27 +46,36 @@ class Ops:
         If shuffle is True, shuffled batches are produced by first generating
         an index array, shuffling it, and then using it to slice into the
         sequence.
+
+        An internal queue of `buffer` items is accumulated before being each
+        output. Buffering is useful for some devices, to allow the
+        network to run asynchronously without blocking on every batch.
         """
-        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        if not hasattr(sequence, "__len__"):
+            err = f"Can't minibatch data. Expected sequence, got {type(sequence)}"
+            raise ValueError(err)
+        sizes = self._get_batch_sizes(
+            len(sequence), itertools.repeat(size) if isinstance(size, int) else size
+        )
         indices = numpy.arange(len(sequence))
-        if shuffle:
-            numpy.random.shuffle(indices)
-        i = 0
-        queue = []
-        while i < indices.shape[0]:  # type: ignore
-            batch_size = next(sizes)
-            idx_batch = indices[i : i + batch_size]
-            if isinstance(sequence, list):
-                subseq = [sequence[i] for i in idx_batch]
-            elif isinstance(sequence, tuple):
-                subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
-            else:
-                subseq = sequence[idx_batch]  # type: ignore
-            if is_xp_array(subseq):
-                subseq = self.as_contig(cast(Array, subseq))  # type: ignore
-            queue.append(subseq)
-            i += batch_size
-        return queue
+
+        # This is a bit convoluted, but it's a time where convenience makes
+        # trickery worthwhile: instead of being an actual generator, we
+        # return our SizedGenerator object, which provides a __len__.
+        def _iter_items():
+            if shuffle:
+                numpy.random.shuffle(indices)
+            queue = []
+            i = 0
+            for size in sizes:
+                queue.append(self._get_batch(sequence, indices[i : i + size]))
+                if len(queue) >= buffer:
+                    yield from queue
+                    queue = []
+                i += size
+            yield from queue
+
+        return SizedGenerator(_iter_items, len(sizes))
 
     def multibatch(
         self,
@@ -72,34 +83,59 @@ class Ops:
         sequence: Batchable,
         *others: Batchable,
         shuffle: bool = False,
-    ) -> List[list]:
+        buffer: int = 1,
+    ) -> SizedGenerator:
         """Minibatch one or more sequences of data, and yield
         lists with one batch per sequence. See ops.minibatch.
         """
+        # You'd think we could just do this by calling into minibatch and zip...
+        # But the shuffling makes it really hard.
         sequences = (sequence,) + tuple(others)
-        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        if not all(hasattr(seq, "__len__") for seq in sequences):
+            values = ", ".join([f"{type(seq)}" for seq in sequences])
+            err = f"Can't multibatch data. Expected sequences, got {values}"
+            raise ValueError(err)
+        sizes = self._get_batch_sizes(
+            len(sequence), itertools.repeat(size) if isinstance(size, int) else size
+        )
         indices = numpy.arange(len(sequence))
-        if shuffle:
-            numpy.random.shuffle(indices)
+
+        def _iter_items():
+            if shuffle:
+                numpy.random.shuffle(indices)
+            queue = []
+            i = 0
+            for size in sizes:
+                idx_batch = indices[i : i + size]
+                queue.append([])
+                for sequence in sequences:
+                    queue[-1].append(self._get_batch(sequence, idx_batch))
+                if len(queue) >= buffer:
+                    yield from queue
+                    queue = []
+                i += size
+            yield from queue
+
+        return SizedGenerator(_iter_items, len(sizes))
+
+    def _get_batch(self, sequence, indices):
+        if isinstance(sequence, list):
+            subseq = [sequence[i] for i in indices]
+        elif isinstance(sequence, tuple):
+            subseq = tuple(sequence[i] for i in indices)  # type: ignore
+        else:
+            subseq = sequence[indices]  # type: ignore
+        if is_xp_array(subseq):
+            subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+        return subseq
+
+    def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
+        output = []
         i = 0
-        queue = []
-        while i < indices.shape[0]:  # type: ignore
-            batch_size = next(sizes)
-            idx_batch = indices[i : i + batch_size]
-            subseqs = []
-            for sequence in sequences:
-                if isinstance(sequence, list):
-                    subseq = [sequence[i] for i in idx_batch]
-                elif isinstance(sequence, tuple):
-                    subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
-                else:
-                    subseq = sequence[idx_batch]  # type: ignore
-                if is_xp_array(subseq):
-                    subseq = self.as_contig(cast(Array, subseq))  # type: ignore
-                subseqs.append(subseq)
-            queue.append(subseqs)
-            i += batch_size
-        return queue
+        while i < length:
+            output.append(next(sizes))
+            i += output[-1]
+        return output
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
