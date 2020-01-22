@@ -246,7 +246,6 @@ class TensorFlowShim(Shim):
         return self._model.catalogue_name, self._model.get_weights()
 
     def from_bytes(self, data):
-        tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
         if ops.device_type == "cpu":
             device = "CPU"
@@ -255,6 +254,7 @@ class TensorFlowShim(Shim):
 
         # Plain bytes
         if isinstance(data, (str, bytes)):
+            tf.keras.backend.clear_session()
             filelike = BytesIO(data)
             filelike.seek(0)
             with h5py.File(filelike, "r") as f:
@@ -265,6 +265,7 @@ class TensorFlowShim(Shim):
         catalogue_name, model_weights = data
         if self._model is None:
             model_fn = keras_model_fns.get(catalogue_name)
+            tf.keras.backend.clear_session()
             with tf.device(device):
                 if hasattr(self._model, "eg_args"):
                     ak: ArgsKwargs = self._model.eg_args
