@@ -94,8 +94,10 @@ class TensorFlowShim(Shim):
             return self.predict(X)
 
     def predict(self, X: ArgsKwargs):
+        old_phase = tf.keras.backend.learning_phase()
         tf.keras.backend.set_learning_phase(0)
         Y = self._model(*X.args, **X.kwargs)
+        tf.keras.backend.set_learning_phase(old_phase)
         return Y
 
     def begin_update(self, X: ArgsKwargs):
