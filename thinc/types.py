@@ -534,6 +534,7 @@ class SizedGenerator:
     """A generator that has a __len__ and can repeatedly call the generator
     function.
     """
+
     get_items: Callable[[], Generator]
     length: int
 
