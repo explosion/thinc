@@ -46,6 +46,10 @@ class Ops:
         If shuffle is True, shuffled batches are produced by first generating
         an index array, shuffling it, and then using it to slice into the
         sequence.
+
+        An internal queue of `buffer` items is accumulated before being each
+        output. Buffering is useful for some devices, to allow the
+        network to run asynchronously without blocking on every batch.
         """
         if not hasattr(sequence, "__len__"):
             err = f"Can't minibatch data. Expected sequence, got {type(sequence)}"
