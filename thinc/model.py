@@ -5,6 +5,7 @@ import srsly
 from pathlib import Path
 import copy
 import functools
+import threading
 
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
@@ -22,11 +23,19 @@ def empty_init(model: "Model", *args, **kwargs) -> "Model":
     return model
 
 
+class ModelThreadState(threading.local):
+    operators: Dict[str, Callable[["Model", "Model"], "Model"]]
+
+    def __init__(self):
+        self.operators = {}
+
+
 class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
-    _thread_local = create_thread_local({"operators": {}})
+    global_id_lock: threading.Lock = threading.Lock()
+    _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
 
     name: str
     ops: Union[NumpyOps, CupyOps]  # TODO: This is wrong, should be Ops
@@ -87,7 +96,8 @@ class Model(Generic[InT, OutT]):
         self._shims = list(shims)
         # Take care to increment the base class here! It needs to be unique
         # across all models.
-        Model.global_id += 1
+        with Model.global_id_lock:
+            Model.global_id += 1
         self.id = Model.global_id
         self._has_params = {}
         for name, value in params.items():

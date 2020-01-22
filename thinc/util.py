@@ -1,4 +1,4 @@
-from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar, Type
 import numpy
 import threading
 import random
@@ -57,8 +57,10 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
         cupy.random.seed(seed)
 
 
-def create_thread_local(attrs: Dict[str, Any]):
-    obj = threading.local()
+def create_thread_local(
+    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
+):
+    obj = local_class()
     for name, value in attrs.items():
         setattr(obj, name, value)
     return obj
