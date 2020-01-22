@@ -32,7 +32,6 @@ class CupyOps(Ops):
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def to_numpy(self, data):
         if isinstance(data, numpy.ndarray):

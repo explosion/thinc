@@ -16,13 +16,15 @@ cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes, ArrayT, DTypes, Shape
+from ..types import DeviceTypes, ArrayT, DTypes, Shape, TypedDict
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
-cimport blis
-cimport blis.cy
-import blis.py
+try:
+    import blis.py
+    has_blis = True
+except ImportError:
+    has_blis = False
 
 
 ctypedef float weight_t
@@ -37,6 +39,11 @@ cdef extern from "math.h":
     float cosf(float x) nogil
 
 
+
+class Settings(TypedDict):
+    use_blis: bool
+
+
 class NumpyOps(Ops):
     name = "numpy"
     xp = numpy
@@ -45,11 +52,13 @@ class NumpyOps(Ops):
         self,
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
-        settings: Dict[str, Any] = {},
+        settings: Settings = {"use_blis": False},
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
+        self.use_blis = settings.get("use_blis", False)
+        if self.use_blis is True and not has_blis:
+            raise ValueError("BLIS support requires blis: pip install blis")
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
@@ -70,26 +79,14 @@ class NumpyOps(Ops):
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
         return self.xp.zeros(shape, dtype=dtype)
 
-    def gemm(self, const float[:, ::1] x, const float[:, ::1] y, out=None, trans1=False, trans2=False):
-        cdef int m
-        if trans1:
-            m = x.shape[1]
-        else:
-            m = x.shape[0]
-        cdef int n
-        if trans2:
-            n = y.shape[0]
-        else:
-            n = y.shape[1]
-        cdef np.ndarray out_array
-        if out is None:
-            out_array = self.alloc((m, n))
-        else:
-            out_array = self.xp.asarray(out)
-        assert out_array.shape[0] == m
-        assert out_array.shape[1] == n
-        blis.py.gemm(x, y, out=out_array, trans1=trans1, trans2=trans2)
-        return out_array
+    def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
+        if not self.use_blis:  # delegate to base Ops
+            return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+        x = self.as_contig(x)
+        y = self.as_contig(y)
+        if out is not None:
+            out = self.as_contig(out)
+        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
 
     def relu(self, ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()

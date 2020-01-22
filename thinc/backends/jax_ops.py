@@ -30,7 +30,6 @@ class JaxOps(Ops):
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)
