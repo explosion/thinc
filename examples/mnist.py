@@ -11,7 +11,7 @@ import typer
 
 
 def main(
-    n_hidden: int = 32, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
+    n_hidden: int = 256, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128
 ):
     # Define the model
     model: Model = chain(
@@ -23,18 +23,19 @@ def main(
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     # Set any missing shapes for the model.
     model.initialize(X=train_X[:5], Y=train_Y[:5])
+    train_data = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+    dev_data = model.ops.multibatch(batch_size, dev_X, dev_Y)
     # Create the optimizer.
     optimizer = Adam(0.001)
     for i in range(n_iter):
-        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
-        for X, Y in tqdm(batches, leave=False):
+        for X, Y in tqdm(train_data, leave=False):
             Yh, backprop = model.begin_update(X)
             backprop(Yh - Y)
             model.finish_update(optimizer)
         # Evaluate and print progress
         correct = 0
         total = 0
-        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+        for X, Y in dev_data:
             Yh = model.predict(X)
             correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]

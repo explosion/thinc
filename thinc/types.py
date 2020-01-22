@@ -529,6 +529,21 @@ class Decorator(Protocol):
 
 
 @dataclass
+class SizedGenerator:
+    """A generator that has a __len__ and can repeatedly call the generator
+    function.
+    """
+    get_items: Callable[[], Generator]
+    length: int
+
+    def __len__(self):
+        return self.length
+
+    def __iter__(self):
+        yield from self.get_items()
+
+
+@dataclass
 class Padded:
     """A batch of padded sequences, sorted by decreasing length. The data array
     is of shape (step, batch, ...). The auxiliary array size_at_t indicates the
