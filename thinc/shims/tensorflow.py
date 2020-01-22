@@ -30,7 +30,7 @@ except ImportError:  # pragma: no cover
 keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 
 
-def maybe_handshake_model(keras_model):
+def maybe_handshake_model(keras_model, optimizer=None):
     """Call the required predict/compile/build APIs to initialize a model if it
     is a subclass of tf.keras.Model. This is required to be able to call set_weights
     on subclassed layers."""
@@ -57,11 +57,16 @@ def maybe_handshake_model(keras_model):
     else:  # pragma: no cover
         device = tf.test.gpu_device_name()
 
+    compile_args = keras_model.eg_compile
+    if optimizer is not None:
+        compile_args = {**compile_args, "optimizer": optimizer}
+
     with tf.device(device):
         # Calling predict creates layers and weights for subclassed models
-        keras_model.compile(**keras_model.eg_compile)
+        keras_model.compile(**compile_args)
         keras_model.build(keras_model.eg_shape)
         keras_model.predict(keras_model.eg_x)
+        keras_model._make_train_function()
     return keras_model
 
 
@@ -91,8 +96,7 @@ class TensorFlowShim(Shim):
 
     def predict(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(0)
-        Y = self._model.predict(*X.args, **X.kwargs)
-        tf.keras.backend.set_learning_phase(1)
+        Y = self._model(*X.args, **X.kwargs)
         return Y
 
     def begin_update(self, X: ArgsKwargs):

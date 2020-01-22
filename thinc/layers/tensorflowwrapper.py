@@ -84,12 +84,10 @@ def keras_subclass(
 
 def TensorFlowWrapper(
     tensorflow_model: Any,
-    build_model: bool = True,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
     optimizer: Optional[Any] = None,
     model_class: Type[Model] = Model,
-    input_shape: Optional[Tuple[int, ...]] = None,
     model_name: str = "tensorflow",
 ) -> Model[InT, OutT]:
     """Wrap a TensorFlow model, so that it has the same API as Thinc models.
