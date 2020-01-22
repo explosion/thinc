@@ -129,8 +129,8 @@ class CupyOps(Ops):
     def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)
 
-    def scatter_add(self, out, ids, inputs):
-        self.xp.scatter_add(out, ids, inputs)
+    def scatter_add(self, table, indices, values):
+        self.xp.scatter_add(table, indices, values)
 
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0

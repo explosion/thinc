@@ -72,7 +72,7 @@ class JaxOps(Ops):
             y = y.T
         return self.xp.dot(x, y)
 
-    def affine(self, X, W, b):
+    def affine(self, X: Array2d, W: Array2d, b: Array2d) -> Array2d:
         return affine(X, W, b)
 
     def flatten(
@@ -289,7 +289,12 @@ class JaxOps(Ops):
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
 
-    def recurrent_lstm_backward(self, dY, fwd_state, params):
+    def backprop_recurrent_lstm(
+        self,
+        dY: Array3d,
+        fwd_state: Tuple[Array3d, Array3d, Array3d],
+        params: Tuple[Array2d, Array1d],
+    ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))

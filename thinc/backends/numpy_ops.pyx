@@ -173,7 +173,7 @@ class NumpyOps(Ops):
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def hash(self, const uint64_t[::1] ids, uint32_t seed):
-        '''Hash a sequence of 64-bit keys into a table with 4 32-bit keys'''
+        """Hash a sequence of 64-bit keys into a table with 4 32-bit keys."""
         # Written to mirror the GPU implementation
         cdef ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
         cdef int i, j
@@ -272,23 +272,23 @@ class NumpyOps(Ops):
 
         return cpu_floats_ptr2array(dX, (T, O))
 
-    def scatter_add(self, np.ndarray out, np.ndarray ids, np.ndarray inputs):
-        if out.dtype == 'float32' \
-        and ids.dtype == 'int32' \
-        and inputs.dtype == 'float32' \
-        and out.flags.c_contiguous \
-        and ids.flags.c_contiguous \
-        and inputs.flags.c_contiguous \
-        and ids.ndim == 1 \
-        and out.ndim == 2 \
-        and inputs.ndim == 2 \
-        and inputs.shape[0] == ids.shape[0] \
-        and inputs.shape[1] == out.shape[1]:
-            cpu_scatter_add(<float*>out.data,
-                <int*>ids.data, <float*>inputs.data,
-                ids.shape[0], out.shape[1])
+    def scatter_add(self, np.ndarray table, np.ndarray indices, np.ndarray values):
+        if table.dtype == 'float32' \
+        and indices.dtype == 'int32' \
+        and values.dtype == 'float32' \
+        and table.flags.c_contiguous \
+        and indices.flags.c_contiguous \
+        and values.flags.c_contiguous \
+        and indices.ndim == 1 \
+        and table.ndim == 2 \
+        and values.ndim == 2 \
+        and values.shape[0] == indices.shape[0] \
+        and values.shape[1] == table.shape[1]:
+            cpu_scatter_add(<float*>table.data,
+                <int*>indices.data, <float*>values.data,
+                indices.shape[0], table.shape[1])
         else:
-            self.xp.add.at(out, ids, inputs)
+            self.xp.add.at(table, indices, values)
 
     @cython.boundscheck(False)
     @cython.wraparound(False)

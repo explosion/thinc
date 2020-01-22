@@ -40,6 +40,12 @@ def test_ops_consistency(op):
             defaults = [p.default for p in sig.parameters.values()][1:]
             base_defaults = [p.default for p in base_sig.parameters.values()][1:]
             assert defaults == base_defaults, attr
+            # If args are type annotated, their types should be the same
+            annots = [p.annotation for p in sig.parameters.values()][1:]
+            base_annots = [p.annotation for p in base_sig.parameters.values()][1:]
+            for i, (p1, p2) in enumerate(zip(annots, base_annots)):
+                if p1 != inspect.Parameter.empty and p2 != inspect.Parameter.empty:
+                    assert p1 == p2, attr
 
 
 @pytest.mark.parametrize("ops", XP_OPS)

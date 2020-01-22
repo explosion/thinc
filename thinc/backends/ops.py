@@ -155,6 +155,10 @@ class Ops:
         return cols.reshape((B, I * (2 * nW + 1)))
 
     def backprop_seq2col(self, dY: ArrayT, nW: int) -> Array:
+        """The reverse/backward operation of the `seq2col` function: calculate
+        the gradient of the original `(M, N)` sequence, as a function of the
+        gradient of the output `(M, N*(nW*2+1))` sequence.
+        """
         # This is a test implementation that only supports nW=1
         assert nW == 1
         nF = nW * 2 + 1
@@ -176,6 +180,9 @@ class Ops:
         trans1: bool = False,
         trans2: bool = False,
     ) -> Array2d:
+        """Perform General Matrix Multiplication (GeMM) and optionally store
+        the result in the specified output variable.
+        """
         if trans1:
             x = x.T
         if trans2:
@@ -186,7 +193,11 @@ class Ops:
             self.xp.dot(x, y, out=out)
             return out
 
+    # TODO: type without type errors :(
     def affine(self, X, W, b):
+        """Apply a weights layer and a bias to some inputs, i.e.
+        Y = X @ W.T + b
+        """
         Y = self.gemm(X, W, trans2=True)
         Y += b
         return Y
@@ -198,6 +209,7 @@ class Ops:
         pad: int = 0,
         ndim_if_empty: int = 2,
     ) -> ArrayT:
+        """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
@@ -215,6 +227,9 @@ class Ops:
         return result
 
     def unflatten(self, X: ArrayT, lengths: Array1d, pad: int = 0) -> List[ArrayT]:
+        """The reverse/backward operation of the `flatten` function: unflatten
+        a large array into a list of arrays according to the given lengths.
+        """
         unflat = []
         pad = int(pad)
         for length in lengths:
@@ -230,6 +245,10 @@ class Ops:
         return unflat
 
     def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
+        """Perform padding on a list of arrays so that they each have the same
+        length, by taking the maximum dimension across each axis. This only
+        works on non-empty sequences with the same `ndim` and `dtype`.
+        """
         # TODO: This should be generalized to handle different ranks
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
@@ -251,6 +270,9 @@ class Ops:
         return output
 
     def unpad(self, padded: Array, lengths: List[int]) -> List[Array]:
+        """The reverse/backward operation of the `pad` function: transform an
+        array back into a list of arrays, each with their original length.
+        """
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
@@ -296,6 +318,7 @@ class Ops:
         )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
+        """Unpack a Padded datatype to a list of 2-dimensional arrays."""
         indices = padded.indices
         data = padded.data
         lengths = padded.lengths
@@ -306,6 +329,11 @@ class Ops:
         return cast(List[Array2d], unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
+        """Create a random mask for applying dropout, with a certain percent of
+        the mask (defined by `drop`) will contain zeros. The neurons at those
+        positions will be deactivated during training, resulting in a more
+        robust network and less overfitting.
+        """
         if drop is None or drop <= 0:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
@@ -375,11 +403,15 @@ class Ops:
         return self.alloc(shape, dtype=dtype)
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
+        """Allocate an array of a certain shape."""
         if isinstance(shape, int):
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
     def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
+        """Unzip a tuple of two arrays, transform them with `asarray` and return
+        them as two separate arrays.
+        """
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
@@ -389,6 +421,7 @@ class Ops:
         *,
         dtype: Optional[DTypes] = None,
     ) -> ArrayT:
+        """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:
                 return self.xp.asarray(data, dtype=dtype)
@@ -403,6 +436,10 @@ class Ops:
             return self.xp.array(data)
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
+        """Allow the backend to make a contiguous copy of an array.
+        Implementations of `Ops` do not have to make a copy or make it
+        contiguous if that would not improve efficiency for the execution engine.
+        """
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
@@ -476,23 +513,25 @@ class Ops:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)
 
-    # TODO: types
-    def recurrent_lstm_backward(self, dY, fwd_state, params):
+    def backprop_recurrent_lstm(
+        self,
+        dY: Array3d,
+        fwd_state: Tuple[Array3d, Array3d, Array3d],
+        params: Tuple[Array2d, Array1d],
+    ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
-        empty_row = self.alloc((1,) + dY.shape[1:], dtype="f")
+        empty_row = self.alloc_f3d(1, dY.shape[1], dY.shape[2])
         # Offset dY by 1
         dY = self.xp.vstack((empty_row, dY))
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
 
-    # TODO: types
-    def maxout(self, X):
+    def maxout(self, X: Array3d) -> Tuple[Array2d, Array2d]:
         which = X.argmax(axis=-1)
         return X.max(axis=-1), which
 
-    # TODO: types
-    def backprop_maxout(self, dY, which, P):
-        dX = self.alloc((dY.shape[0], dY.shape[1], P), dtype="float32")
+    def backprop_maxout(self, dY: Array2d, which: Array2d, P: int) -> Array3d:
+        dX = self.alloc_f3d(dY.shape[0], dY.shape[1], P)
         for b in range(dY.shape[0]):
             for o in range(dY.shape[1]):
                 dX[b, o, which[b, o]] = dY[b, o]
@@ -550,6 +589,7 @@ class Ops:
     def update_averages(
         self, ema: Array, weights: Array, t: int, max_decay: float = 0.9999
     ) -> None:
+        # Internals for optimizer
         decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
             decay = max_decay
@@ -567,6 +607,7 @@ class Ops:
         learn_rate: float,
         mod_rate: float = 1.0,
     ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
+        # Internals for optimizer
         mom1 *= beta1
         mom2 *= beta2
         mom1 += gradient * (1.0 - beta1)
@@ -577,13 +618,15 @@ class Ops:
         return weights, gradient, mom1, mom2
 
     def clip_gradient(self, gradient: Array, threshold: float) -> Array:
+        # Internals for optimizer
         xp = get_array_module(gradient)
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
         return gradient
 
-    def logloss(self, y_true: Array, y_pred: Array):
+    def logloss(self, y_true: Array, y_pred: Array) -> float:
+        # Currently not used
         log_yp = self.xp.log(y_pred + 1e-8)
         loss = (y_true * log_yp) + (1 - y_true) * self.xp.log((1 - y_pred) + 1e-8)
         return -loss
@@ -640,8 +683,10 @@ class Ops:
             start += length
         return dX
 
-    def hash(self, ids: Array, seed: Array) -> Array:
-        # TODO: fix
+    def hash(self, ids: Array, seed: int) -> Array:
+        """Hash a sequence of 64-bit keys into a table with 4 32-bit keys, using
+        murmurhash3.
+        """
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
@@ -650,7 +695,6 @@ class Ops:
         )
 
     def ngrams(self, n: int, keys: Array) -> Array:
-        # TODO: fix
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
@@ -661,14 +705,14 @@ class Ops:
     def position_encode(
         self, N: int, D: int, period: int = 10000, out: Optional[Array] = None
     ) -> Array:
-        # TODO: fix
+        # Currently internals only
         from .numpy_ops import NumpyOps
 
         numpy_ops = NumpyOps()
         return self.asarray(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(self, out: Array, ids: Array, inputs: Array) -> Array:
-        return self.xp.add.at(out, ids, inputs)
+    def scatter_add(self, table: Array, indices: Array, values: Array) -> Array:
+        return self.xp.add.at(table, indices, values)
 
     def insert_into(self, shape, Xs):
         """Maybe don't need this? Just a quicky to get Jax working."""
