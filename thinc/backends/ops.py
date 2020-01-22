@@ -1,10 +1,11 @@
 from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
 import numpy
+import itertools
 
-from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
+from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes
-from ..util import get_array_module
+from ..types import DeviceTypes, Generator, Padded, Batchable
+from ..util import get_array_module, is_xp_array
 
 
 class Ops:
@@ -26,6 +27,79 @@ class Ops:
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
+
+    def minibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *,
+        shuffle: bool = False,
+    ) -> list:
+        """Iterate slices from a sequence, optionally shuffled. Slices
+        may be either views or copies of the underlying data.
+
+        The `size` argument may be either an integer, or a sequence of integers.
+        If a sequence, a new size is drawn before every output.
+
+        If shuffle is True, shuffled batches are produced by first generating
+        an index array, shuffling it, and then using it to slice into the
+        sequence.
+        """
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(sequence))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i + batch_size]
+            if isinstance(sequence, list):
+                subseq = [sequence[i] for i in idx_batch]
+            elif isinstance(sequence, tuple):
+                subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+            else:
+                subseq = sequence[idx_batch]  # type: ignore
+            if is_xp_array(subseq):
+                subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+            queue.append(subseq)
+            i += batch_size
+        return queue
+
+    def multibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *others: Batchable,
+        shuffle: bool = False,
+    ) -> List[list]:
+        """Minibatch one or more sequences of data, and yield
+        lists with one batch per sequence. See ops.minibatch.
+        """
+        sequences = (sequence,) + tuple(others)
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(sequence))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i + batch_size]
+            subseqs = []
+            for sequence in sequences:
+                if isinstance(sequence, list):
+                    subseq = [sequence[i] for i in idx_batch]
+                elif isinstance(sequence, tuple):
+                    subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+                else:
+                    subseq = sequence[idx_batch]  # type: ignore
+                if is_xp_array(subseq):
+                    subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+                subseqs.append(subseq)
+            queue.append(subseqs)
+            i += batch_size
+        return queue
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))

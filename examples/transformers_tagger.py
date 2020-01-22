@@ -2,14 +2,13 @@
 # pip install thinc ml_datasets typer tqdm transformers torch
 from dataclasses import dataclass
 from typing import List, Optional, Tuple, Callable
-import random
 import torch
 from pathlib import Path
 from transformers import AutoTokenizer, AutoModel
 import thinc
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
 from thinc.api import torch2xp, xp2torch, SequenceCategoricalCrossentropy
-from thinc.api import minibatch, prefer_gpu, use_pytorch_for_gpu_memory
+from thinc.api import prefer_gpu, use_pytorch_for_gpu_memory
 from thinc.types import Array2d, ArgsKwargs
 import ml_datasets
 import tqdm
@@ -23,9 +22,8 @@ starter = "bert-base-multilingual-cased"
 
 [optimizer]
 @optimizers = "RAdam.v1"
-learn_rate = 2e-5
 
-[optimizer.schedules.learn_rate]
+[optimizer.learn_rate]
 @schedules = "warmup_linear.v1"
 initial_rate = 0.01
 warmup_steps = 3000
@@ -65,18 +63,16 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     # Pass in a small batch of data, to fill in missing shapes
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     for epoch in range(cfg["n_epoch"]):
-        train_data: List[Tuple[Array2d, Array2d]] = list(zip(train_X, train_Y))
-        random.shuffle(train_data)
-        train_data = tqdm.tqdm(train_data, leave=False)
         # Transformers often learn best with large batch sizes -- larger than
         # fits in GPU memory. But you don't have to backprop the whole batch
         # at once. Here we consider the "logical" batch size (number of examples
         # per update) separately from the physical batch size.
-        for outer_batch in minibatch(train_data, cfg["batch_size"]):
+        batch_size = cfg["batch_size"]
+        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+        for outer_batch in tqdm.tqdm(batches, leave=False):
             # For the physical batch size, what we care about is the number
             # of words (considering padding too). We also want to sort by
             # length, for efficiency.
-            outer_batch.sort(key=lambda xy: len(xy[0]), reverse=True)
             for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
                 inputs, truths = zip(*batch)
                 guesses, backprop = model(inputs, is_train=True)
@@ -183,8 +179,7 @@ def evaluate_sequences(
 ) -> float:
     correct = 0.0
     total = 0.0
-    for batch in minibatch(zip(Xs, Ys), size=batch_size):
-        X, Y = zip(*batch)
+    for X, Y in model.ops.multibatch(batch_size, Xs, Ys):
         Yh = model.predict(X)
         for yh, y in zip(Yh, Y):
             correct += (y.argmax(axis=1) == yh.argmax(axis=1)).sum()
@@ -197,6 +192,8 @@ def minibatch_by_words(pairs, max_words):
     considering padding. The size of a padded batch is the length of its
     longest sequence multiplied by the number of elements in the batch.
     """
+    pairs = list(zip(*pairs))
+    pairs.sort(key=lambda xy: len(xy[0]), reverse=True)
     batch = []
     for X, Y in pairs:
         batch.append((X, Y))

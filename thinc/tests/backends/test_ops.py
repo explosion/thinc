@@ -4,6 +4,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
+from thinc.api import fix_random_seed
 import inspect
 
 from .. import strategies
@@ -340,3 +341,37 @@ def test_use_ops():
         assert new_ops.name == "jax"
     new_ops = get_current_ops()
     assert new_ops.name == "numpy"
+
+
+def test_minibatch():
+    fix_random_seed(0)
+    ops = get_current_ops()
+    items = [1, 2, 3, 4, 5, 6]
+    batches = ops.minibatch(3, items)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    batches = ops.minibatch((i for i in (3, 2, 1)), items)
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+    batches = list(ops.minibatch(3, numpy.asarray(items)))
+    assert isinstance(batches[0], numpy.ndarray)
+    assert numpy.array_equal(batches[0], numpy.asarray([1, 2, 3]))
+    assert numpy.array_equal(batches[1], numpy.asarray([4, 5, 6]))
+    batches = list(ops.minibatch((i for i in (3, 2, 1)), items, shuffle=True))
+    assert batches != [[1, 2, 3], [4, 5], [6]]
+    assert len(batches[0]) == 3
+    assert len(batches[1]) == 2
+    assert len(batches[2]) == 1
+
+
+def test_multibatch():
+    fix_random_seed(0)
+    ops = get_current_ops()
+    arr1 = numpy.asarray([1, 2, 3, 4])
+    arr2 = numpy.asarray([5, 6, 7, 8])
+    batches = list(ops.multibatch(2, arr1, arr2))
+    assert numpy.concatenate(batches).tolist() == [[1, 2], [5, 6], [3, 4], [7, 8]]
+    batches = list(ops.multibatch(2, arr1, arr2, shuffle=True))
+    assert len(batches) == 2
+    assert len(batches[0]) == 2
+    assert len(batches[1]) == 2
+    batches = list(ops.multibatch(2, [1, 2, 3, 4], [5, 6, 7, 8]))
+    assert batches == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
