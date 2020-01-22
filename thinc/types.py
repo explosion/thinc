@@ -637,6 +637,10 @@ _P = TypeVar("_P", bound=Sequence)
 
 @dataclass
 class Pairs(Generic[_P]):
+    """Dataclass for pairs of sequences that allows indexing into the sequences
+    while keeping them aligned.
+    """
+
     one: _P
     two: _P
 
