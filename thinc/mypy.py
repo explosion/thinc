@@ -37,6 +37,7 @@ def function_hook(ctx: FunctionContext) -> Type:
 def get_reducers_type(ctx: FunctionContext) -> Type:
     assert isinstance(ctx.context, CallExpr)
     assert isinstance(ctx.api, TypeChecker)
+    assert isinstance(ctx.default_return_type, Instance)
     assert isinstance(ctx.context.callee, NameExpr)
     assert isinstance(ctx.context.callee.node, (FuncDef, Decorator))
     assert isinstance(ctx.context.callee.node.type, CallableType)
@@ -49,7 +50,10 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
     if out_type.fullname not in {intoin_outtoout_out_fullname, chained_out_fullname}:
         return ctx.default_return_type
     args = list(itertools.chain(*ctx.args))
-    arg_types = list(itertools.chain(*ctx.arg_types))
+    arg_types = []
+    for arg_type in itertools.chain(*ctx.arg_types):
+        assert isinstance(arg_type, Instance)
+        arg_types.append(arg_type)
     arg_pairs = list(zip(args[:-1], args[1:]))
     arg_types_pairs = list(zip(arg_types[:-1], arg_types[1:]))
     if out_type.fullname == chained_out_fullname:
@@ -76,6 +80,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
         return Instance(
             ctx.default_return_type.type, [arg_types[0].args[0], arg_types[0].args[1]]
         )
+    assert False, "Thinc mypy plugin error: it should return before this point"
 
 
 def check_chained(
