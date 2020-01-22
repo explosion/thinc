@@ -70,7 +70,6 @@ def maybe_handshake_model(keras_model, optimizer=None):
     return keras_model
 
 
-class TrackableBackprop(object):
 class TensorFlowShim(Shim):
     """Interface between a TensorFlow model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
