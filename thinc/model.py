@@ -34,6 +34,7 @@ class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
+    global_id_lock: threading.Lock = threading.Lock()
     _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
 
     name: str
@@ -95,7 +96,8 @@ class Model(Generic[InT, OutT]):
         self._shims = list(shims)
         # Take care to increment the base class here! It needs to be unique
         # across all models.
-        Model.global_id += 1
+        with Model.global_id_lock:
+            Model.global_id += 1
         self.id = Model.global_id
         self._has_params = {}
         for name, value in params.items():
