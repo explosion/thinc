@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Chained_OutT
+from ..types import XY_YZ_OutT
 
 
 InT = TypeVar("InT")
@@ -23,7 +23,7 @@ def chain_no_types(*layer: Model) -> Model:
 
 def chain(
     layer1: Model[InT, MidT], layer2: Model[MidT, OutT], *layers: Model
-) -> Model[InT, Chained_OutT]:
+) -> Model[InT, XY_YZ_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.

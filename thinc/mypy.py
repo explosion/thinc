@@ -10,8 +10,8 @@ from mypy.checker import TypeChecker
 from mypy.subtypes import is_subtype
 
 thinc_model_fullname = "thinc.model.Model"
-chained_out_fullname = "thinc.types.Chained_OutT"
-intoin_outtoout_out_fullname = "thinc.types.InToIn_OutToOut_OutT"
+chained_out_fullname = "thinc.types.XY_YZ_OutT"
+intoin_outtoout_out_fullname = "thinc.types.XY_XY_OutT"
 
 
 def plugin(version: str):

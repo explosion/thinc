@@ -26,8 +26,8 @@ DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
 OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 ArrayT = TypeVar("ArrayT", bound="Array")
-Chained_OutT = TypeVar("Chained_OutT")
-InToIn_OutToOut_OutT = TypeVar("InToIn_OutToOut_OutT")
+XY_YZ_OutT = TypeVar("XY_YZ_OutT")
+XY_XY_OutT = TypeVar("XY_XY_OutT")
 Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
 
 
