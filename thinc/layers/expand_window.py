@@ -2,11 +2,11 @@ from typing import Tuple, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Array2d
 
 
-InT = Array
-OutT = Array
+InT = Array2d
+OutT = Array2d
 
 
 @registry.layers("expand_window.v0")
