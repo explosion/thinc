@@ -35,7 +35,7 @@ class Ops:
         sequence: Batchable,
         *,
         shuffle: bool = False,
-        buffer: int=1
+        buffer: int = 1,
     ) -> SizedGenerator:
         """Iterate slices from a sequence, optionally shuffled. Slices
         may be either views or copies of the underlying data.
@@ -47,11 +47,14 @@ class Ops:
         an index array, shuffling it, and then using it to slice into the
         sequence.
         """
+        if not hasattr(sequence, "__len__"):
+            err = f"Can't minibatch data. Expected sequence, got {type(sequence)}"
+            raise ValueError(err)
         sizes = self._get_batch_sizes(
-            len(sequence),
-            itertools.repeat(size) if isinstance(size, int) else size
+            len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
         indices = numpy.arange(len(sequence))
+
         # This is a bit convoluted, but it's a time where convenience makes
         # trickery worthwhile: instead of being an actual generator, we
         # return our SizedGenerator object, which provides a __len__.
@@ -61,7 +64,7 @@ class Ops:
             queue = []
             i = 0
             for size in sizes:
-                queue.append(self._get_batch(sequence, indices[i:i+size]))
+                queue.append(self._get_batch(sequence, indices[i : i + size]))
                 if len(queue) >= buffer:
                     yield from queue
                     queue = []
@@ -76,27 +79,30 @@ class Ops:
         sequence: Batchable,
         *others: Batchable,
         shuffle: bool = False,
-        buffer: int = 1
+        buffer: int = 1,
     ) -> SizedGenerator:
         """Minibatch one or more sequences of data, and yield
         lists with one batch per sequence. See ops.minibatch.
         """
         # You'd think we could just do this by calling into minibatch and zip...
         # But the shuffling makes it really hard.
+        sequences = (sequence,) + tuple(others)
+        if not all(hasattr(seq, "__len__") for seq in sequences):
+            values = ", ".join([f"{type(seq)}" for seq in sequences])
+            err = f"Can't multibatch data. Expected sequences, got {values}"
+            raise ValueError(err)
         sizes = self._get_batch_sizes(
-            len(sequence),
-            itertools.repeat(size) if isinstance(size, int) else size
+            len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
         indices = numpy.arange(len(sequence))
-        sequences = (sequence,) + tuple(others)
-        
+
         def _iter_items():
             if shuffle:
                 numpy.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:
-                idx_batch = indices[i : i+size]
+                idx_batch = indices[i : i + size]
                 queue.append([])
                 for sequence in sequences:
                     queue[-1].append(self._get_batch(sequence, idx_batch))
