@@ -1,10 +1,11 @@
 from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
 import numpy
+import itertools
 
-from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat, Padded
+from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
 from ..types import Array1d, Array2d, Array3d, Array4d, ArrayTypes, ArrayT
-from ..types import DeviceTypes
-from ..util import get_array_module
+from ..types import DeviceTypes, Generator, Padded, Batchable
+from ..util import get_array_module, is_xp_array
 
 
 class Ops:
@@ -26,6 +27,79 @@ class Ops:
             return data
         else:
             raise ValueError("Cannot convert non-numpy from base Ops class")
+
+    def minibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *,
+        shuffle: bool = False,
+    ) -> list:
+        """Iterate slices from a sequence, optionally shuffled. Slices
+        may be either views or copies of the underlying data.
+
+        The `size` argument may be either an integer, or a sequence of integers.
+        If a sequence, a new size is drawn before every output.
+
+        If shuffle is True, shuffled batches are produced by first generating
+        an index array, shuffling it, and then using it to slice into the
+        sequence.
+        """
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(sequence))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i + batch_size]
+            if isinstance(sequence, list):
+                subseq = [sequence[i] for i in idx_batch]
+            elif isinstance(sequence, tuple):
+                subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+            else:
+                subseq = sequence[idx_batch]  # type: ignore
+            if is_xp_array(subseq):
+                subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+            queue.append(subseq)
+            i += batch_size
+        return queue
+
+    def multibatch(
+        self,
+        size: Union[int, Generator],
+        sequence: Batchable,
+        *others: Batchable,
+        shuffle: bool = False,
+    ) -> List[list]:
+        """Minibatch one or more sequences of data, and yield
+        lists with one batch per sequence. See ops.minibatch.
+        """
+        sequences = (sequence,) + tuple(others)
+        sizes = itertools.repeat(size) if isinstance(size, int) else size
+        indices = numpy.arange(len(sequence))
+        if shuffle:
+            numpy.random.shuffle(indices)
+        i = 0
+        queue = []
+        while i < indices.shape[0]:  # type: ignore
+            batch_size = next(sizes)
+            idx_batch = indices[i : i + batch_size]
+            subseqs = []
+            for sequence in sequences:
+                if isinstance(sequence, list):
+                    subseq = [sequence[i] for i in idx_batch]
+                elif isinstance(sequence, tuple):
+                    subseq = tuple(sequence[i] for i in idx_batch)  # type: ignore
+                else:
+                    subseq = sequence[idx_batch]  # type: ignore
+                if is_xp_array(subseq):
+                    subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+                subseqs.append(subseq)
+            queue.append(subseqs)
+            i += batch_size
+        return queue
 
     def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
@@ -312,28 +386,6 @@ class Ops:
         else:
             return Y * (1.0 - Y)
 
-    def cosine(self, X: Array, Y: ArrayT) -> float:
-        # Add a small constant to avoid 0 vectors
-        X = X + 1e-8
-        Y = Y + 1e-8
-        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
-        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
-        mul_norms = normX * normY
-        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
-    def cosine_abs_loss(
-        self, X: Array, Y: ArrayT, *, ignore_zeros: bool = False
-    ) -> float:
-        cosine = self.cosine(X, Y)
-        losses = self.xp.abs(cosine - 1)
-        if ignore_zeros:
-            # If the target was a zero vector, don't count it in the loss.
-            zero_indices = self.xp.abs(Y).sum(axis=1) == 0
-            losses[zero_indices] = 0
-        loss = losses.sum()
-        return loss
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
@@ -388,6 +440,7 @@ class Ops:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
         return Y, (G, C, S)
 
+    # TODO: types
     def recurrent_lstm_backward(self, dY, fwd_state, params):
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         empty_row = self.alloc((1,) + dY.shape[1:], dtype="f")
@@ -439,7 +492,7 @@ class Ops:
         X: Array2d,
         threshold: float = 20.0,
         out: Optional[Array2d] = None,
-    ):
+    ) -> Array2d:
         xp = get_array_module(X)
         indices = X < threshold
         Xsub = X[indices]

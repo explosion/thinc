@@ -1,9 +1,16 @@
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+import catalogue
 import contextlib
+import copy
 import itertools
 from io import BytesIO
+
 import numpy
-import copy
+
+from ..backends import Ops, get_current_ops
+from ..types import ArgsKwargs, Array
+from ..util import tensorflow2xp
+from .shim import Shim
 
 try:
     import cupy
@@ -20,10 +27,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..backends import Ops, get_current_ops
-from ..types import ArgsKwargs, Array
-from ..util import tensorflow2xp
-from .shim import Shim
+keras_model_fns = catalogue.create("thinc", "keras", entry_points=True)
 
 
 class TensorFlowShim(Shim):
@@ -51,7 +55,7 @@ class TensorFlowShim(Shim):
 
     def predict(self, X: ArgsKwargs):
         tf.keras.backend.set_learning_phase(0)
-        Y = self._model(*X.args, **X.kwargs)
+        Y = self._model.predict(*X.args, **X.kwargs)
         tf.keras.backend.set_learning_phase(1)
         return Y
 
@@ -188,19 +192,50 @@ class TensorFlowShim(Shim):
 
     def to_bytes(self):
         filelike = BytesIO()
-        with h5py.File(filelike, "w") as f:
-            self._model.save(f, save_format="h5")
-        return filelike.getvalue()
+        try:
+            with h5py.File(filelike, "w") as f:
+                self._model.save(f, save_format="h5")
+            return filelike.getvalue()
+        except NotImplementedError:
+            if not hasattr(self._model, "catalogue_name"):
+                raise ValueError(
+                    "Couldn't serialize to h5, and model has no factory "
+                    "function for component serialization."
+                )
+            # Check the factory function and throw ValueError if it doesn't exist
+            keras_model_fns.get(self._model.catalogue_name)
+            return self._model.catalogue_name, self._model.get_weights()
 
     def from_bytes(self, data):
         tf.keras.backend.clear_session()
         ops: Ops = get_current_ops()
-        filelike = BytesIO(data)
-        filelike.seek(0)
         if ops.device_type == "cpu":
             device = "CPU"
         else:  # pragma: no cover
             device = tf.test.gpu_device_name()
-        with h5py.File(filelike, "r") as f:
-            with tf.device(device):
-                self._model = tf.keras.models.load_model(f)
+
+        # Plain bytes
+        if isinstance(data, (str, bytes)):
+            filelike = BytesIO(data)
+            filelike.seek(0)
+            with h5py.File(filelike, "r") as f:
+                with tf.device(device):
+                    self._model = tf.keras.models.load_model(f)
+                return
+
+        catalogue_name, model_weights = data
+        model_fn = keras_model_fns.get(catalogue_name)
+        with tf.device(device):
+            if hasattr(self._model, "eg_args"):
+                ak: ArgsKwargs = self._model.eg_args
+                new_model = model_fn(*ak.args, **ak.kwargs)
+            else:
+                new_model = model_fn()
+        # Calling predict creates layers and weights for subclassed models
+        new_model.compile(**new_model.eg_compile)
+        new_model.build(new_model.eg_shape)
+        new_model.predict(new_model.eg_x)
+        # Once the weights are created we can overwrite them.
+        new_model.set_weights(model_weights)
+
+        self._model = new_model

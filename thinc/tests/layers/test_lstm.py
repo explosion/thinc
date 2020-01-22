@@ -1,6 +1,6 @@
 import numpy
 import timeit
-from thinc.api import minibatch, NumpyOps, LSTM, PyTorchLSTM, with_padded
+from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
 from thinc.util import has_torch
 import pytest
 
@@ -72,6 +72,8 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
 
 
 def test_LSTM_learns():
+    fix_random_seed(0)
+
     nO = 2
     nI = 2
 
@@ -109,7 +111,8 @@ def test_benchmark_LSTM_fwd():
     lengths = numpy.maximum(lengths, 1)
     batches = []
     uniform_lengths = False
-    for batch_lengths in minibatch(lengths, batch_size):
+    model = with_padded(LSTM(nO, nI)).initialize()
+    for batch_lengths in model.ops.minibatch(batch_size, lengths):
         batch_lengths = list(batch_lengths)
         if uniform_lengths:
             seq_len = max(batch_lengths)
@@ -127,7 +130,6 @@ def test_benchmark_LSTM_fwd():
                 for seq_len in batch_lengths
             ]
         batches.append(batch)
-    model = with_padded(LSTM(nO, nI)).initialize()
     start = timeit.default_timer()
     for Xs in batches:
         ys, bp_ys = model.begin_update(list(Xs))

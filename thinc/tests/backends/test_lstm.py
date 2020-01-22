@@ -36,6 +36,7 @@ def assert_arrays_equal(arrays1, arrays2):
 
 
 @pytest.mark.skipif(not has_jax, reason="needs Jax")
+@pytest.mark.filterwarnings("ignore")
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(
     Xt3=ndarrays_of_shape((nB, nI), dtype="f"),

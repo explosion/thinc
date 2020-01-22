@@ -3,7 +3,7 @@ import numpy
 
 from .ops import Ops
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
-from ..types import Padded, DeviceTypes
+from ..types import DeviceTypes, Padded
 
 
 try:  # pragma: no cover
@@ -35,7 +35,7 @@ class JaxOps(Ops):
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)
 
-    def to_numpy(self, data):
+    def to_numpy(self, data):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
             return data
         else:
@@ -112,7 +112,7 @@ class JaxOps(Ops):
     def backprop_maxout(self, dY, which, P):
         return backprop_maxout(dY, which, P)
 
-    def mish(self, X, threshold=20.0):
+    def mish(self, X: Array2d, threshold: float = 20.0) -> Array2d:
         return mish(X, threshold)
 
     def backprop_mish(
@@ -121,13 +121,13 @@ class JaxOps(Ops):
         X: Array2d,
         threshold: float = 20.0,
         out: Optional[Array2d] = None,
-    ):
+    ) -> Array2d:
         return backprop_mish(dY, X, threshold)
 
-    def relu(self, X, inplace=False):
+    def relu(self, X: Array, inplace: bool = False) -> Array:
         return relu(X)
 
-    def backprop_relu(self, dY, Y, inplace=False):
+    def backprop_relu(self, dY: Array, Y: Array, inplace: bool = False) -> Array:
         return backprop_relu(dY, Y)
 
     def update_averages(
@@ -234,28 +234,6 @@ class JaxOps(Ops):
 
     def dsigmoid(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         return Y * (1.0 - Y)
-
-    def cosine(self, X: Array, Y: ArrayT) -> float:
-        # Add a small constant to avoid 0 vectors
-        X = X + 1e-8
-        Y = Y + 1e-8
-        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
-        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
-        mul_norms = normX * normY
-        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
-    def cosine_abs_loss(
-        self, X: Array, Y: ArrayT, *, ignore_zeros: bool = False
-    ) -> float:
-        cosine = self.cosine(X, Y)
-        losses = self.xp.abs(cosine - 1)
-        if ignore_zeros:
-            # If the target was a zero vector, don't count it in the loss.
-            zero_indices = self.xp.abs(Y).sum(axis=1) == 0
-            losses[zero_indices] = 0
-        loss = losses.sum()
-        return loss
 
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
@@ -569,19 +547,6 @@ def sigmoid(X):
 @jax_jit()
 def dsigmoid(Y: ArrayT) -> ArrayT:
     return Y * (1.0 - Y)
-
-
-@jax_jit()
-def cosine(X: Array, Y: ArrayT) -> float:
-    xp = jax.numpy
-    # Add a small constant to avoid 0 vectors
-    X = X + 1e-8
-    Y = Y + 1e-8
-    normX = xp.linalg.norm(X, axis=1, keepdims=True)
-    normY = xp.linalg.norm(Y, axis=1, keepdims=True)
-    mul_norms = normX * normY
-    cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-    return cosine
 
 
 @jax_jit()

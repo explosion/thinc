@@ -5,7 +5,7 @@ from ..initializers import glorot_uniform_init, zero_init
 from ..config import registry
 from ..types import Array2d
 from ..util import get_width, partial
-from .chain_module import chain
+from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 

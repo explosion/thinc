@@ -1,7 +1,5 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
-from typing import Optional, Callable, TypeVar
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 import numpy
-import itertools
 import threading
 import random
 import functools
@@ -39,7 +37,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
+from .types import Array, Array2d, ArgsKwargs, Ragged, Padded
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -120,6 +118,17 @@ def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
         return False
 
 
+def to_numpy(data):  # pragma: no cover
+    if isinstance(data, numpy.ndarray):
+        return data
+    elif has_cupy and isinstance(data, cupy.ndarray):
+        return data.get()
+    elif has_jax and isinstance(data, jax.numpy.ndarray):
+        return jax.device_get(data)
+    else:
+        return numpy.array(data)
+
+
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     """Set the current GPU device for cupy and torch (if available)."""
     import cupy.cuda.device
@@ -158,61 +167,6 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     return True
 
 
-def get_shuffled_batches(
-    X: Array, Y: Array, batch_size
-) -> Iterable[Tuple[Array, Array]]:
-    """Iterate over paired batches from two arrays, shuffling the indices."""
-    indices = numpy.arange(X.shape[0], dtype="i")
-    numpy.random.shuffle(indices)
-    for index_batch in minibatch(indices, size=batch_size):
-        yield X[index_batch], Y[index_batch]
-
-
-def minibatch(
-    items: Iterable[Any], size: Union[int, Iterator[int]] = 8
-) -> Iterable[Any]:
-    """Iterate over batches of items. `size` may be an iterator,
-    so that batch-size can vary on each step.
-    """
-    if isinstance(size, int):
-        size_ = itertools.repeat(size)
-    else:
-        size_ = size
-    if hasattr(items, "__len__") and hasattr(items, "__getitem__"):
-        i = 0
-        while i < len(items):  # type: ignore
-            batch_size = next(size_)
-            yield items[i : i + batch_size]  # type: ignore
-            i += batch_size
-    else:
-        items = iter(items)
-        while True:
-            batch_size = next(size_)
-            batch = list(itertools.islice(items, int(batch_size)))
-            if len(batch) == 0:
-                break
-            yield list(batch)
-
-
-def evaluate_model_on_arrays(
-    model, inputs: Array, labels: Array, batch_size: int
-) -> float:
-    """Helper to evaluate accuracy of a model in the simplest cases, where
-    there's one correct output class and the inputs are arrays. Not guaranteed
-    to cover all situations – many applications will have to implement their
-    own evaluation methods.
-    """
-    score = 0.0
-    total = 0.0
-    for i in range(0, inputs.shape[0], batch_size):
-        X = inputs[i : i + batch_size]
-        Y = labels[i : i + batch_size]
-        Yh = model.predict(X)
-        score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
-        total += Yh.shape[0]
-    return score / total
-
-
 def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
@@ -238,7 +192,7 @@ def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
 
 
 def get_width(
-    X: Union[Array, Ragged, Padded, Sequence[Array], RNNState], *, dim: int = -1
+    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
@@ -369,6 +323,7 @@ def partial(
 
 
 __all__ = [
+    "get_array_module",
     "fix_random_seed",
     "create_thread_local",
     "is_cupy_array",
@@ -377,9 +332,6 @@ __all__ = [
     "prefer_gpu",
     "require_gpu",
     "copy_array",
-    "get_shuffled_batches",
-    "minibatch",
-    "evaluate_model_on_arrays",
     "to_categorical",
     "get_width",
     "xp2torch",
