@@ -28,7 +28,7 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 def test_ops_consistency(op):
     """Test that specific ops don't define any methods that are not on the
     Ops base class and that all ops methods define the exact same arguments."""
-    attrs = [m for m in dir(op) if not m.startswith("__")]
+    attrs = [m for m in dir(op) if not m.startswith("_")]
     for attr in attrs:
         assert hasattr(Ops, attr)
         method = getattr(op, attr)
