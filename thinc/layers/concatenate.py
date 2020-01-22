@@ -5,6 +5,7 @@ from ..config import registry
 from ..types import Array2d
 from ..util import get_width
 from .noop import noop
+from ..types import XY_XY_OutT
 
 
 InT = TypeVar("InT", bound=Array2d)
@@ -12,13 +13,13 @@ OutT = TypeVar("OutT", bound=Array2d)
 
 
 @registry.layers("concatenate.v0")
-def concatenate(*layers: Model) -> Model[InT, OutT]:
+def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
     Also supports chaining more than 2 layers.
     """
     if not layers:
-        return cast(Model[InT, OutT], noop())
+        return cast(Model[InT, XY_XY_OutT], noop())
     elif len(layers) == 1:
         return layers[0]
     elif layers[0]._func is forward:

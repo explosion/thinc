@@ -2,17 +2,18 @@ from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Reduced_OutT
+from ..types import Array, XY_XY_OutT
 from ..util import get_width
 
 
 InT = TypeVar("InT", bound=Array)
+OutT = TypeVar("OutT", bound=Array)
 
 
 @registry.layers("add.v0")
 def add(
-    layer1: Model[InT, InT], layer2: Model[InT, InT], *layers: Model
-) -> Model[InT, Reduced_OutT]:
+    layer1: Model[InT, OutT], layer2: Model[InT, OutT], *layers: Model
+) -> Model[InT, XY_XY_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     added, i.e. `add(f, g)(x)` computes `f(x) + g(x)`.
     """
