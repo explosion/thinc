@@ -1,11 +1,11 @@
-from typing import Tuple, Callable, Optional, Union, List
+from typing import Tuple, Callable, Optional, Union, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged, Padded
+from ..types import Array, Array2d, Ragged, Padded
 
 
-InT = Union[List[Array], Ragged, Padded, Array]
+InT = TypeVar("InT", List[Array], Ragged, Padded, Array, Array2d)
 
 
 @registry.layers("residual.v0")
