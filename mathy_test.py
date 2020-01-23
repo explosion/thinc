@@ -40,7 +40,9 @@ from thinc.api import (
     ReLu,
 )
 from thinc.types import Array2d, Array1d, Padded
+from thinc.api import fix_random_seed
 
+fix_random_seed(1234)
 
 parser = ExpressionParser()
 Example = Array2d
@@ -166,14 +168,14 @@ def evaluate_model(model, *, print_problems: bool = False, texts, X, Y):
             correct_count += 1
             print_fn = msg.good
         if print_problems:
-            print_fn(f"Text[{text}] Answer[{y_answer}] Guess[{y_guess}]")
+            print_fn(f"Answer[{y_answer}] Guess[{y_guess}] Text: {text}", spaced=False)
     return correct_count / len(X)
 
 
 if __name__ == "__main__":
     batch_size = 12
-    num_iters = 50
-    train_size = 5000
+    num_iters = 12
+    train_size = 50000
     test_size = 128
     ops: Ops = get_current_ops()
     seen_texts: Set[str] = set()
@@ -183,13 +185,9 @@ if __name__ == "__main__":
     with msg.loading(f"Generating eval dataset with {test_size} examples..."):
         (eval_texts, eval_X, eval_y) = generate_dataset(test_size, seen_texts)
     msg.loading(f"Eval set created with {test_size} examples.")
-    model = CountLikeTerms(256)
+    model = CountLikeTerms(512)
     model.initialize(train_X[:2], train_y[:2])
     optimizer = Adam()
-
-    from thinc.api import fix_random_seed
-
-    fix_random_seed(0)
     for n in range(num_iters):
         loss = 0.0
         batches = model.ops.multibatch(batch_size, train_X, train_y, shuffle=True)
