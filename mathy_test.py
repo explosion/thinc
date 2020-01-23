@@ -181,10 +181,10 @@ if __name__ == "__main__":
     seen_texts: Set[str] = set()
     with msg.loading(f"Generating train dataset with {train_size} examples..."):
         (train_texts, train_X, train_y) = generate_dataset(train_size, seen_texts)
-    msg.loading(f"Train set created with {train_size} examples.")
+    msg.good(f"Train set created with {train_size} examples.")
     with msg.loading(f"Generating eval dataset with {test_size} examples..."):
         (eval_texts, eval_X, eval_y) = generate_dataset(test_size, seen_texts)
-    msg.loading(f"Eval set created with {test_size} examples.")
+    msg.good(f"Eval set created with {test_size} examples.")
     model = CountLikeTerms(512)
     model.initialize(train_X[:2], train_y[:2])
     optimizer = Adam()
