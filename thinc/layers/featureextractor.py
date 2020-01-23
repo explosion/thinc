@@ -1,4 +1,4 @@
-from typing import List, Union, Callable, Tuple
+from typing import List, Union, Callable, Tuple, cast
 
 from ..types import Array2d, Doc
 from ..model import Model
@@ -24,7 +24,7 @@ def forward(
             attrs = doc.to_array(columns)
         else:
             attrs = doc.doc.to_array(columns)[doc.start : doc.end]
-        features.append(model.ops.asarray(attrs, dtype="uint64"))
+        features.append(cast(Array2d, model.ops.asarray(attrs, dtype="uint64")))
 
     backprop: Callable[[OutT], List] = lambda d_features: []
     return features, backprop

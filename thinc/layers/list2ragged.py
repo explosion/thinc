@@ -2,7 +2,7 @@ from typing import Tuple, List, Callable, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Ragged
+from ..types import Array2d, Array1d, Ragged
 
 
 InT = List[Array2d]
@@ -22,5 +22,5 @@ def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Cal
     def backprop(dYr: OutT) -> InT:
         return cast(InT, model.ops.unflatten(dYr.data, dYr.lengths))
 
-    lengths = model.ops.asarray([len(x) for x in Xs], dtype="i")
+    lengths: Array1d = model.ops.asarray([len(x) for x in Xs], dtype="i")
     return Ragged(model.ops.flatten(Xs), lengths), backprop

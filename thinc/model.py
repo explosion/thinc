@@ -38,7 +38,7 @@ class Model(Generic[InT, OutT]):
     _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
 
     name: str
-    ops: Union[NumpyOps, CupyOps]  # TODO: This is wrong, should be Ops
+    ops: Ops
     id: int
     _func: Callable
     _init: Callable

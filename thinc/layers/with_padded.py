@@ -56,8 +56,8 @@ def _get_padded(model: Model, seq: SeqT) -> Padded:
     elif _is_padded_data(seq):
         return Padded(*seq)  # type: ignore
     elif is_xp_array(seq):
-        size_at_t = model.ops.asarray([seq.shape[1]] * seq.shape[0], dtype="i")
-        lengths = model.ops.asarray([seq.shape[0]] * seq.shape[1], dtype="i")
+        size_at_t: Array1d = model.ops.asarray([seq.shape[1]] * seq.shape[0], dtype="i")
+        lengths: Array1d = model.ops.asarray([seq.shape[0]] * seq.shape[1], dtype="i")
         indices = model.ops.xp.arange(seq.shape[1])
         return Padded(cast(Array3d, seq), size_at_t, lengths, indices)
     else:

@@ -43,7 +43,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     uniq_shape = tuple(Y_uniq.shape)
 
     def backprop(dY: OutT) -> InT:
-        dY_uniq = layer.ops.alloc(uniq_shape, dtype="f")
+        dY_uniq: Array = layer.ops.alloc(uniq_shape, dtype="f")
         layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"
