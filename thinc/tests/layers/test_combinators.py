@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from thinc.api import clone, concatenate, noop, add
-from thinc.api import Linear, Dropout, Model
+from thinc.api import Linear, Dropout, Model, NumpyOps
 from thinc.layers import chain
 
 
@@ -84,9 +84,11 @@ def test_chain_right_branch(model1, model2, model3):
     assert len(merge2.layers) == 2
 
 
-def test_chain():
+@pytest.mark.parametrize("ops", [NumpyOps(), NumpyOps(settings={"use_blis": True})])
+def test_chain(ops):
     data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
     model = chain(Linear(1), Dropout(), Linear(1))
+    model.ops = ops
     model.initialize(data, data)
     Y, backprop = model(data, is_train=True)
     backprop(Y)
