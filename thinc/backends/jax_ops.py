@@ -1,4 +1,4 @@
-from typing import Sequence, Optional, List, Tuple, Callable, Dict, Any, cast
+from typing import Sequence, Optional, List, Tuple, Callable, cast
 import numpy
 
 from .ops import Ops
@@ -23,14 +23,10 @@ class JaxOps(Ops):
     xp = jax.numpy if has_jax else None
 
     def __init__(
-        self,
-        device_type: DeviceTypes = "gpu",
-        device_id: int = 0,
-        settings: Dict[str, Any] = {},
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)

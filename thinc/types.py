@@ -6,9 +6,9 @@ import sys
 
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
-    from typing_extensions import Literal, Protocol, TypedDict  # noqa: F401
+    from typing_extensions import Literal, Protocol
 else:
-    from typing import Literal, Protocol, TypedDict  # noqa: F401
+    from typing import Literal, Protocol
 
 try:
     import cupy

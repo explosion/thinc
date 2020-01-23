@@ -1,5 +1,5 @@
 # cython: cdivision=True, infer_types=True, profile=True
-from typing import Optional, Dict, Any
+from typing import Optional
 from collections.abc import Sized
 import numpy
 
@@ -15,7 +15,7 @@ from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
 
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes, ArrayT, DTypes, Shape, TypedDict
+from ..types import DeviceTypes, ArrayT, DTypes, Shape
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -38,11 +38,6 @@ cdef extern from "math.h":
     float cosf(float x) nogil
 
 
-
-class Settings(TypedDict):
-    use_blis: bool
-
-
 class NumpyOps(Ops):
     name = "numpy"
     xp = numpy
@@ -51,17 +46,14 @@ class NumpyOps(Ops):
         self,
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
-        settings: Settings = {"use_blis": False},
+        *,
+        use_blis: bool = False
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
-        if self._use_blis is True and not has_blis:
+        self.use_blis = use_blis
+        if self.use_blis and not has_blis:
             raise ValueError("BLIS support requires blis: pip install blis")
-
-    @property
-    def _use_blis(self):
-        return self.settings.get("use_blis", False)
 
     def asarray(self, data, dtype=None):
         if isinstance(data, self.xp.ndarray):
@@ -83,7 +75,7 @@ class NumpyOps(Ops):
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
-        if not self._use_blis:  # delegate to base Ops
+        if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
         x = self.as_contig(x)
         y = self.as_contig(y)

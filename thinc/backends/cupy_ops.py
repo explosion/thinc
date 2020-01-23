@@ -1,4 +1,3 @@
-from typing import Dict, Any
 import numpy
 
 try:
@@ -25,14 +24,10 @@ class CupyOps(Ops):
     xp = cupy
 
     def __init__(
-        self,
-        device_type: DeviceTypes = "gpu",
-        device_id: int = 0,
-        settings: Dict[str, Any] = {},
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def to_numpy(self, data):
         if isinstance(data, numpy.ndarray):

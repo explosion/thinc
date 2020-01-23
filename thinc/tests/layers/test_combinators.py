@@ -84,7 +84,7 @@ def test_chain_right_branch(model1, model2, model3):
     assert len(merge2.layers) == 2
 
 
-@pytest.mark.parametrize("ops", [NumpyOps(), NumpyOps(settings={"use_blis": True})])
+@pytest.mark.parametrize("ops", [NumpyOps(), NumpyOps(use_blis=True)])
 def test_chain(ops):
     data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
     model = chain(Linear(1), Dropout(), Linear(1))

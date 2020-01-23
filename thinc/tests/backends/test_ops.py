@@ -14,7 +14,7 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
-BLIS_OPS = NumpyOps(settings={"use_blis": True})
+BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 if has_jax:
     CPU_OPS.append(JaxOps())
