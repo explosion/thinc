@@ -80,7 +80,8 @@ def init(
             layer.initialize(X=curr_input, Y=Y)
         else:
             layer.initialize(X=curr_input)
-        curr_input = layer.predict(curr_input)
+        if curr_input is not None:
+            curr_input = layer.predict(curr_input)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:

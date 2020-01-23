@@ -1,4 +1,4 @@
-from typing import Optional, List, Tuple, Sequence, Union, Dict, Any, cast
+from typing import Optional, List, Tuple, Sequence, Union, cast
 from typing import Iterator
 import numpy
 import itertools
@@ -17,11 +17,10 @@ class Ops:
         self,
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
-        settings: Dict[str, Any] = {},
+        **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def to_numpy(self, data):  # pragma: no cover
         if isinstance(data, numpy.ndarray):

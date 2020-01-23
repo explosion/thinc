@@ -14,6 +14,7 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
+BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 if has_jax:
     CPU_OPS.append(JaxOps())
@@ -27,7 +28,7 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 def test_ops_consistency(op):
     """Test that specific ops don't define any methods that are not on the
     Ops base class and that all ops methods define the exact same arguments."""
-    attrs = [m for m in dir(op) if not m.startswith("__")]
+    attrs = [m for m in dir(op) if not m.startswith("_")]
     for attr in attrs:
         assert hasattr(Ops, attr)
         method = getattr(op, attr)
@@ -253,7 +254,7 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
+@pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
 def test_gemm_computes_correctly(cpu_ops):
     W = numpy.zeros((3, 2), dtype="f")
     X = numpy.zeros((4, 2), dtype="f")
