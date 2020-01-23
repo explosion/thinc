@@ -1,4 +1,5 @@
 import contextlib
+import threading
 
 from .ops import Ops
 from .cupy_ops import CupyOps, has_cupy
@@ -11,7 +12,16 @@ from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..types import OpsNames
 
 
-STATE = create_thread_local({"Ops": NumpyOps, "ops": NumpyOps()})
+GLOBAL_STATE = {"Ops": NumpyOps, "ops": NumpyOps()}
+
+
+def get_thread_state():
+    """Get a thread-specific state variable that inherits from a global
+    state when it's created."""
+    thread: threading.Thread = threading.current_thread()
+    if not hasattr(thread, "__local"):
+        thread.__local = create_thread_local(GLOBAL_STATE)
+    return thread.__local
 
 
 def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
@@ -66,12 +76,12 @@ def use_ops(name: OpsNames, **kwargs):
 
 def get_current_ops() -> Ops:
     """Get the current backend object."""
-    return STATE.ops
+    return get_thread_state().ops
 
 
 def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
-    STATE.ops = ops
+    get_thread_state().ops = ops
 
 
 __all__ = [

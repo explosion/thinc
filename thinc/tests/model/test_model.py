@@ -191,9 +191,6 @@ def test_plus_chain():
         assert m.name == "a"
 
 
-# TODO: This currently causes a n AttributeError in the first thread. The error
-# isn't raised in the test (because threading) but it's written to stdout.
-@pytest.mark.skip(reason="need to fix error")
 def test_overload_operators_in_subthread():
     """Test we can create a model in a child thread with overloaded operators."""
     # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.
@@ -333,3 +330,26 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
     assert Model._thread_local.operators == {}
+
+
+def test_unique_id_multithreading():
+    """Create a bunch of threads and assert they all get unique IDs"""
+
+    list_of_ids = []
+
+    def get_model_id(id_list, index):
+        id_list.append(create_model(name=f"worker{index}").id)
+
+    counter = 0
+    while len(list_of_ids) < 1000:
+        workers = []
+        for i in range(50):
+            w = threading.Thread(target=get_model_id, args=(list_of_ids, counter))
+            workers.append(w)
+            counter += 1
+        for w in workers:
+            w.start()
+        for w in workers:
+            w.join()
+
+    assert len(list_of_ids) == len(list(set(list_of_ids)))

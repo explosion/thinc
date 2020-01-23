@@ -1,6 +1,5 @@
 import pytest
 from thinc.api import Model, ReLu, Softmax, chain, clone, Adam
-from thinc.api import get_shuffled_batches, evaluate_model_on_arrays
 import ml_datasets
 
 
@@ -56,12 +55,18 @@ def test_small_end_to_end(
     losses = []
     scores = []
     for i in range(nb_epoch):
-        for X, Y in get_shuffled_batches(train_X, train_Y, batch_size):
+        for X, Y in model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True):
             Yh, backprop = model.begin_update(X)
             backprop(Yh - Y)
             model.finish_update(optimizer)
             losses.append(((Yh - Y) ** 2).sum())
-        score = evaluate_model_on_arrays(model, dev_X, dev_Y, batch_size=batch_size)
+        correct = 0
+        total = 0
+        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+            Yh = model.predict(X)
+            correct += (Yh.argmax(axis=0) == Y.argmax(axis=0)).sum()
+            total += Yh.shape[0]
+        score = correct / total
         scores.append(score)
     assert losses[-1] < losses[0]
     assert scores[-1] > scores[0]

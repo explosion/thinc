@@ -1,9 +1,9 @@
-from typing import Sequence, Optional, List, Tuple, Callable, Dict, Any, cast
+from typing import Sequence, Optional, List, Tuple, Callable, cast
 import numpy
 
 from .ops import Ops
 from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
-from ..types import Padded, DeviceTypes
+from ..types import DeviceTypes, Padded
 
 
 try:  # pragma: no cover
@@ -23,14 +23,10 @@ class JaxOps(Ops):
     xp = jax.numpy if has_jax else None
 
     def __init__(
-        self,
-        device_type: DeviceTypes = "gpu",
-        device_id: int = 0,
-        settings: Dict[str, Any] = {},
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
         return data if dtype is None else data.astype(dtype)
@@ -72,7 +68,7 @@ class JaxOps(Ops):
             y = y.T
         return self.xp.dot(x, y)
 
-    def affine(self, X, W, b):
+    def affine(self, X: Array2d, W: Array2d, b: Array2d) -> Array2d:
         return affine(X, W, b)
 
     def flatten(
@@ -235,28 +231,6 @@ class JaxOps(Ops):
     def dsigmoid(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         return Y * (1.0 - Y)
 
-    def cosine(self, X: Array, Y: ArrayT) -> float:
-        # Add a small constant to avoid 0 vectors
-        X = X + 1e-8
-        Y = Y + 1e-8
-        normX = self.xp.linalg.norm(X, axis=1, keepdims=True)
-        normY = self.xp.linalg.norm(Y, axis=1, keepdims=True)
-        mul_norms = normX * normY
-        cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-        return cosine
-
-    def cosine_abs_loss(
-        self, X: Array, Y: ArrayT, *, ignore_zeros: bool = False
-    ) -> float:
-        cosine = self.cosine(X, Y)
-        losses = self.xp.abs(cosine - 1)
-        if ignore_zeros:
-            # If the target was a zero vector, don't count it in the loss.
-            zero_indices = self.xp.abs(Y).sum(axis=1) == 0
-            losses[zero_indices] = 0
-        loss = losses.sum()
-        return loss
-
     def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
         if inplace:
             Y **= 2
@@ -311,7 +285,12 @@ class JaxOps(Ops):
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
 
-    def recurrent_lstm_backward(self, dY, fwd_state, params):
+    def backprop_recurrent_lstm(
+        self,
+        dY: Array3d,
+        fwd_state: Tuple[Array3d, Array3d, Array3d],
+        params: Tuple[Array2d, Array1d],
+    ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
         dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
@@ -569,19 +548,6 @@ def sigmoid(X):
 @jax_jit()
 def dsigmoid(Y: ArrayT) -> ArrayT:
     return Y * (1.0 - Y)
-
-
-@jax_jit()
-def cosine(X: Array, Y: ArrayT) -> float:
-    xp = jax.numpy
-    # Add a small constant to avoid 0 vectors
-    X = X + 1e-8
-    Y = Y + 1e-8
-    normX = xp.linalg.norm(X, axis=1, keepdims=True)
-    normY = xp.linalg.norm(Y, axis=1, keepdims=True)
-    mul_norms = normX * normY
-    cosine = (X * Y).sum(axis=1, keepdims=True) / mul_norms
-    return cosine
 
 
 @jax_jit()

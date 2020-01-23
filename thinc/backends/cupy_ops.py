@@ -1,4 +1,3 @@
-from typing import Dict, Any
 import numpy
 
 try:
@@ -25,14 +24,10 @@ class CupyOps(Ops):
     xp = cupy
 
     def __init__(
-        self,
-        device_type: DeviceTypes = "gpu",
-        device_id: int = 0,
-        settings: Dict[str, Any] = {},
+        self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
-        self.settings = settings
 
     def to_numpy(self, data):
         if isinstance(data, numpy.ndarray):
@@ -97,6 +92,7 @@ class CupyOps(Ops):
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+        return gradient
 
     def seq2col(self, seq, nW):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
@@ -129,8 +125,8 @@ class CupyOps(Ops):
     def hash(self, ids, seed):
         return _custom_kernels.hash(ids, seed)
 
-    def scatter_add(self, out, ids, inputs):
-        self.xp.scatter_add(out, ids, inputs)
+    def scatter_add(self, table, indices, values):
+        self.xp.scatter_add(table, indices, values)
 
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0

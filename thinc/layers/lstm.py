@@ -95,7 +95,7 @@ def forward(
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 
     def backprop(dYp: Padded) -> Padded:
-        dX, (dW, db, d_h, d_c) = model.ops.recurrent_lstm_backward(
+        dX, (dW, db, d_h, d_c) = model.ops.backprop_recurrent_lstm(
             dYp.data, fwd_state, (W, b)
         )
         model.inc_grad("W", dW)

@@ -18,3 +18,4 @@ coverage:
     - "thinc/backends/_cupy_allocators.py"
     - "thinc/backends/_cupy_tensorflow_memory_pool.py"
     - "thinc/layers/staticvectors.py"
+    - "thinc/mypy.py"

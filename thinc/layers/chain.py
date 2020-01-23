@@ -3,13 +3,12 @@ from typing import Tuple, Callable, Optional, TypeVar, Any
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Reduced_OutT
+from ..types import XY_YZ_OutT
 
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
-Mid1T = TypeVar("Mid1T")
-Mid2T = TypeVar("Mid2T")
+MidT = TypeVar("MidT")
 
 
 # TODO: Unhack this when we can
@@ -23,8 +22,8 @@ def chain_no_types(*layer: Model) -> Model:
 
 
 def chain(
-    layer1: Model[InT, Mid1T], layer2: Model[Mid1T, OutT], *layers: Model
-) -> Model[InT, Reduced_OutT]:
+    layer1: Model[InT, MidT], layer2: Model[MidT, OutT], *layers: Model
+) -> Model[InT, XY_YZ_OutT]:
     """Compose two models `f` and `g` such that they become layers of a single
     feed-forward model that computes `g(f(x))`.
     Also supports chaining more than 2 layers.
@@ -81,7 +80,8 @@ def init(
             layer.initialize(X=curr_input, Y=Y)
         else:
             layer.initialize(X=curr_input)
-        curr_input = layer.predict(curr_input)
+        if curr_input is not None:
+            curr_input = layer.predict(curr_input)
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
