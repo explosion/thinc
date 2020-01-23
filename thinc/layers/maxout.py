@@ -44,7 +44,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     nP = model.get_dim("nP")
     nI = model.get_dim("nI")
     b = model.get_param("b")
-    W = cast(Array2d, model.get_param("W"))
+    W = model.get_param("W")
     W = W.reshape((nO * nP, nI))
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b.reshape((nO * nP,))
