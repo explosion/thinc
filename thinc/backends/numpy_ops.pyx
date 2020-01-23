@@ -1,5 +1,8 @@
 # cython: cdivision=True, infer_types=True, profile=True
 from typing import Optional, Dict, Any
+from collections.abc import Sized
+import numpy
+
 cimport cython
 from libc.string cimport memcpy, memset
 from libc.stdlib cimport calloc, malloc, free
@@ -8,12 +11,8 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-import numpy
-from numpy import prod
-from numpy cimport ndarray
-from collections.abc import Sized
-cimport numpy as np
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
+cimport numpy as np
 
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, ArrayT, DTypes, Shape, TypedDict
@@ -92,7 +91,7 @@ class NumpyOps(Ops):
             out = self.as_contig(out)
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
 
-    def relu(self, ndarray X, inplace=False):
+    def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
         cdef weight_t* data = <weight_t*>out.data
         cdef size_t size = out.size
@@ -101,7 +100,7 @@ class NumpyOps(Ops):
                 data[i] = 0.
         return out
 
-    def backprop_relu(self, ndarray dY, ndarray Y, inplace=False):
+    def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
         cdef np.ndarray dX = dY if inplace else dY.copy()
         cdef size_t size = dX.size
         cdef weight_t* dX_ptr = <weight_t*>dX.data
@@ -117,8 +116,8 @@ class NumpyOps(Ops):
         cdef int O = X.shape[1]
         cdef int P = X.shape[2]
 
-        cdef ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
-        cdef ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
+        cdef np.ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
+        cdef np.ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
         cpu_maxout(<float*>best.data, <int*>which.data,
             &X[0, 0, 0], B, O, P)
         return best, which
@@ -159,7 +158,7 @@ class NumpyOps(Ops):
         """
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
-        cdef ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
+        cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
         seq2col(<float*>cols.data, &seq[0,0], nW, B, I)
         return cols
 
@@ -167,7 +166,7 @@ class NumpyOps(Ops):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
-        cdef ndarray dX = self.alloc((B, I), dtype='float32')
+        cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
         backprop_seq2col(<float*>dX.data, &dY[0,0], B, I, nW)
         return dX
 
@@ -176,7 +175,7 @@ class NumpyOps(Ops):
     def hash(self, const uint64_t[::1] ids, uint32_t seed):
         """Hash a sequence of 64-bit keys into a table with 4 32-bit keys."""
         # Written to mirror the GPU implementation
-        cdef ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
+        cdef np.ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
         cdef int i, j
         cdef unsigned char entropy[16] # 128/8=16
         cdef size_t n_items = len(ids)
@@ -254,8 +253,8 @@ class NumpyOps(Ops):
         cpu_reduce_max(maxes, which,
             &X[0, 0], &lengths[0], B, T, O)
 
-        cdef ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
-        cdef ndarray py_which = cpu_ints_ptr2array(which, (B, O))
+        cdef np.ndarray py_best = cpu_floats_ptr2array(maxes, (B, O))
+        cdef np.ndarray py_which = cpu_ints_ptr2array(which, (B, O))
         return py_best, py_which
 
     def backprop_reduce_max(self, const float[:, ::1] d_maxes,
@@ -533,14 +532,14 @@ cdef void cpu_backprop_mish(weight_t* dX,
 
 
 cdef cpu_floats_ptr2array(float* ptr, shape):
-    cdef ndarray py_out = numpy.zeros(shape, dtype='float32')
+    cdef np.ndarray py_out = numpy.zeros(shape, dtype='float32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
     return py_out
 
 
 cdef cpu_ints_ptr2array(int* ptr, shape):
-    cdef ndarray py_out = numpy.zeros(shape, dtype='int32')
+    cdef np.ndarray py_out = numpy.zeros(shape, dtype='int32')
     cdef int N = numpy.prod(shape)
     memcpy(py_out.data, ptr, N * sizeof(ptr[0]))
     return py_out
