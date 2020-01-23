@@ -640,3 +640,18 @@ def test_handle_generic_model_type():
     model = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(model, Model)
     assert model.name == "transformed_model"
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [
+        "[a]\nb = 1\nc = 2\n\n[a.c]\nd = 3",
+        "[a]\nb = 1\n\n[a.c]\nd = 2\n\n[a.c.d]\ne = 3",
+    ],
+)
+def test_handle_error_duplicate_keys(cfg):
+    """This would cause very cryptic error when interpreting config.
+    (TypeError: 'X' object does not support item assignment)
+    """
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(cfg)

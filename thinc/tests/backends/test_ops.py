@@ -14,6 +14,7 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
+BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
 if has_jax:
     CPU_OPS.append(JaxOps())
@@ -27,7 +28,7 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 def test_ops_consistency(op):
     """Test that specific ops don't define any methods that are not on the
     Ops base class and that all ops methods define the exact same arguments."""
-    attrs = [m for m in dir(op) if not m.startswith("__")]
+    attrs = [m for m in dir(op) if not m.startswith("_")]
     for attr in attrs:
         assert hasattr(Ops, attr)
         method = getattr(op, attr)
@@ -40,6 +41,35 @@ def test_ops_consistency(op):
             defaults = [p.default for p in sig.parameters.values()][1:]
             base_defaults = [p.default for p in base_sig.parameters.values()][1:]
             assert defaults == base_defaults, attr
+            # If args are type annotated, their types should be the same
+            annots = [p.annotation for p in sig.parameters.values()][1:]
+            base_annots = [p.annotation for p in base_sig.parameters.values()][1:]
+            for i, (p1, p2) in enumerate(zip(annots, base_annots)):
+                if p1 != inspect.Parameter.empty and p2 != inspect.Parameter.empty:
+                    assert p1 == p2, attr
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_alloc(ops):
+    float_methods = (ops.alloc_f1d, ops.alloc_f2d, ops.alloc_f3d, ops.alloc_f4d)
+    for i, method in enumerate(float_methods):
+        shape = (1,) * (i + 1)
+        arr = method(*shape)
+        assert arr.dtype == numpy.float32
+        assert arr.ndim == len(shape)
+        arr = ops.alloc_f(shape)
+        assert arr.dtype == numpy.float32
+        assert arr.ndim == len(shape)
+    int_methods = (ops.alloc_i1d, ops.alloc_i2d, ops.alloc_i3d, ops.alloc_i4d)
+    for i, method in enumerate(int_methods):
+        shape = (1,) * (i + 1)
+        arr = method(*shape)
+        assert arr.dtype == numpy.int32
+        assert arr.ndim == len(shape)
+        arr = ops.alloc_i(shape)
+        assert arr.dtype == numpy.int32
+        assert arr.ndim == len(shape)
+    assert ops.alloc(1).ndim == 1
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
@@ -224,7 +254,7 @@ def test_softmax_works_inplace(ops, X):
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
+@pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
 def test_gemm_computes_correctly(cpu_ops):
     W = numpy.zeros((3, 2), dtype="f")
     X = numpy.zeros((4, 2), dtype="f")
@@ -360,6 +390,10 @@ def test_minibatch():
     assert len(batches[0]) == 3
     assert len(batches[1]) == 2
     assert len(batches[2]) == 1
+    with pytest.raises(ValueError):
+        ops.minibatch(10, (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.minibatch(10, True)
 
 
 def test_multibatch():
@@ -375,3 +409,7 @@ def test_multibatch():
     assert len(batches[1]) == 2
     batches = list(ops.multibatch(2, [1, 2, 3, 4], [5, 6, 7, 8]))
     assert batches == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
+    with pytest.raises(ValueError):
+        ops.multibatch(10, (i for i in range(100)), (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.multibatch(10, arr1, (i for i in range(100)), arr2)

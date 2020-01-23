@@ -1,8 +1,7 @@
 import pytest
 import numpy
 from thinc.api import get_width, Ragged, Padded
-from thinc.api import Linear, to_categorical
-from thinc.util import get_array_module, is_numpy_array, fix_random_seed
+from thinc.util import get_array_module, is_numpy_array, to_categorical
 from thinc.util import convert_recursive
 from thinc.types import ArgsKwargs
 

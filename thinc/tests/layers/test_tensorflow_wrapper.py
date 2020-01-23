@@ -93,29 +93,6 @@ def test_tensorflow_wrapper_built_model(model: Model[Array, Array], X: Array, Y:
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_unbuilt_model_hides_config_errors(
-    tf_model, X: Array, Y: Array
-):
-    import tensorflow as tf
-
-    # input_shape is needed to de/serialize keras models properly
-    # so we throw an error as soon as we can detect that case.
-    with pytest.raises(ValueError):
-        TensorFlowWrapper(tf.keras.Sequential([tf.keras.layers.Dense(12)]))
-    # You can override the model build at construction, but then
-    # you must specify the input shape another way.
-    model: Model[Array, Array] = TensorFlowWrapper(
-        tf.keras.Sequential([tf.keras.layers.Dense(12)]), build_model=False
-    )
-    # Can't de/serialize without an input_shape
-    with pytest.raises(ValueError):
-        model.from_bytes(model.to_bytes())
-    # Can't print a keras summary
-    with pytest.raises(ValueError):
-        str(model.shims[0])
-
-
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_predict(model: Model[Array, Array], X: Array):
     model.predict(X)
 
@@ -187,9 +164,7 @@ def test_tensorflow_wrapper_serialize_model_subclass(
             x = self.in_dense(inputs)
             return self.out_dense(x)
 
-    model: Model[Array, Array] = TensorFlowWrapper(
-        CustomKerasModel(), input_shape=input_shape
-    )
+    model: Model[Array, Array] = TensorFlowWrapper(CustomKerasModel())
     # Train the model to predict the right single answer
     optimizer = Adam()
     for i in range(50):
@@ -235,6 +210,27 @@ def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
 
     assert model.shims[0]._model.loss == "binary_crossentropy"
     assert isinstance(model, Model)
+
+
+@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+def test_tensorflow_wrapper_keras_subclass_compile_optimizer():
+    import tensorflow as tf
+
+    @keras_subclass(
+        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,),
+    )
+    class TestModel(tf.keras.Model):
+        def call(self, inputs):
+            return inputs
+
+    optimizer = tf.keras.optimizers.Adam(lr=3e-18)
+    model = TensorFlowWrapper(TestModel(), optimizer=optimizer)
+    weights_model = model.shims[0]._optimizer.get_weights()
+    for w1, w2 in zip(optimizer.get_weights(), weights_model):
+        assert numpy.array_equal(w1, w2)
+    lr_key = "learning_rate"
+    assert optimizer._get_hyper(lr_key) == 3e-18
+    assert optimizer._get_hyper(lr_key) == model.shims[0]._optimizer._get_hyper(lr_key)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")

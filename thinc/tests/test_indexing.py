@@ -16,6 +16,7 @@ def ragged():
     data[5] = 5
     return Ragged(data, lengths)
 
+
 def test_ragged_starts_ends(ragged):
     starts = ragged._get_starts()
     ends = ragged._get_ends()
@@ -26,7 +27,7 @@ def test_ragged_starts_ends(ragged):
 def test_ragged_simple_index(ragged, i=1):
     r = ragged[i]
     assert_allclose(r.data, ragged.data[4:6])
-    assert_allclose(r.lengths, ragged.lengths[i:i+1])
+    assert_allclose(r.lengths, ragged.lengths[i : i + 1])
 
 
 def test_ragged_slice_index(ragged, start=0, end=2):

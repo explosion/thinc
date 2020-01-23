@@ -5,6 +5,7 @@ from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
 from .model import set_dropout_rate, change_attr_values
 from .shims import Shim, PyTorchShim, TensorFlowShim, keras_model_fns
+from .shims import maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding

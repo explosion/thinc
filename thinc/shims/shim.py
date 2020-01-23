@@ -2,6 +2,7 @@ from typing import Any, Optional, Tuple, Callable, Dict, Union
 import copy
 import contextlib
 from pathlib import Path
+import threading
 
 
 class Shim:  # pragma: no cover
@@ -16,13 +17,15 @@ class Shim:  # pragma: no cover
     rather than expecting that they'll be msgpack-serializable.
     """
 
-    global_id = 0
+    global_id: int = 0
+    global_id_lock: threading.Lock = threading.Lock()
     cfg: Dict
     _model: Any
     _optimizer: Optional[Any]
 
     def __init__(self, model: Any, config=None, optimizer: Any = None):
-        Shim.global_id += 1
+        with Shim.global_id_lock:
+            Shim.global_id += 1
         self.id = Shim.global_id
         self.cfg = dict(config) if config is not None else {}
         self._model = model
