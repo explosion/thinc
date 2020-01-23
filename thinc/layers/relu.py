@@ -39,9 +39,8 @@ def ReLu(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = model.get_param("W")
+    W = cast(Array2d, model.get_param("W"))
     b = model.get_param("b")
-
     Y = model.ops.affine(X, W, b)
     Y = model.ops.relu(Y)
 

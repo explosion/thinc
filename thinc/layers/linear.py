@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
@@ -30,7 +30,7 @@ def Linear(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = model.get_param("W")
+    W = cast(Array2d, model.get_param("W"))
     b = model.get_param("b")
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b

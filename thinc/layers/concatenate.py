@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Array2d, Array1d
 from ..util import get_width
 from .noop import noop
 from ..types import XY_XY_OutT
@@ -65,7 +65,7 @@ def _array_forward(
 def _list_forward(
     model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
 ) -> Tuple[OutT, Callable]:
-    lengths = model.ops.asarray([len(x) for x in X], dtype="i")
+    lengths: Array1d = model.ops.asarray([len(x) for x in X], dtype="i")
     Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
