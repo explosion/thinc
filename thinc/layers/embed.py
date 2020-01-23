@@ -44,7 +44,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
         d_vectors = model.ops.alloc_f2d(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("E", d_vectors)
-        dX = model.ops.alloc(input_shape, dtype=ids.dtype)
+        dX: OutT = model.ops.alloc(input_shape, dtype=ids.dtype)
         return dX
 
     return output, backprop

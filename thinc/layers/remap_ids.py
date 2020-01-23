@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Sequence, Dict, Any
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, DTypes
+from ..types import Array2d, Array, DTypes
 
 
 InT = Sequence[Any]
@@ -32,7 +32,8 @@ def forward(
     default = model.get_attr("default")
     dtype = model.get_attr("dtype")
     values = [table.get(x, default) for x in inputs]
-    output = model.ops.asarray(values, dtype=dtype).reshape(-1, 1)
+    arr: Array = model.ops.asarray(values, dtype=dtype)
+    output: Array2d = arr.reshape((-1, 1))
 
     def backprop(dY: OutT) -> InT:
         return []

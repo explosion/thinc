@@ -2,11 +2,11 @@ from typing import Callable, Tuple
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged
+from ..types import Array2d, Ragged
 
 
 InT = Ragged
-OutT = Array
+OutT = Array2d
 
 
 @registry.layers("reduce_sum.v0")

@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..types import Array, Array2d
 from ..model import Model
@@ -27,7 +27,7 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     column = model.get_attr("column")
-    W = model.get_param("W")
+    W = cast(Array2d, model.get_param("W"))
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     if ids.ndim >= 2:
         ids = model.ops.as_contig(ids[:, column])

@@ -1,4 +1,4 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, cast
 
 from ..model import Model
 from ..config import registry
@@ -22,6 +22,6 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     Y = model.ops.seq2col(X, nW)
 
     def backprop(dY: OutT) -> InT:
-        return model.ops.backprop_seq2col(dY, nW)
+        return cast(Array2d, model.ops.backprop_seq2col(dY, nW))
 
     return Y, backprop

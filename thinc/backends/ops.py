@@ -536,14 +536,14 @@ class Ops:
                 dX[b, o, which[b, o]] = dY[b, o]
         return dX
 
-    def relu(self, X: Array, inplace: bool = False) -> Array:
+    def relu(self, X: Array2d, inplace: bool = False) -> Array2d:
         if not inplace:
             return X * (X > 0)
         else:
             X *= X > 0
             return X
 
-    def backprop_relu(self, dY: Array, Y: Array, inplace: bool = False) -> Array:
+    def backprop_relu(self, dY: Array2d, Y: Array2d, inplace: bool = False) -> Array2d:
         if not inplace:
             return dY * (Y > 0)
         dY *= Y > 0

@@ -3,7 +3,7 @@ from murmurhash import hash_unicode
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Array2d, Array
 
 
 InT = Sequence[str]
@@ -18,8 +18,8 @@ def strings2arrays() -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     hashes = [[hash_unicode(word) for word in X] for X in Xs]
-    arrays = [model.ops.asarray(h, dtype="uint64") for h in hashes]
-    arrays = [array.reshape((-1, 1)) for array in arrays]
+    hash_arrays: List[Array] = [model.ops.asarray(h, dtype="uint64") for h in hashes]
+    arrays: List[Array2d] = [array.reshape((-1, 1)) for array in hash_arrays]
 
     def backprop(dX: OutT) -> InT:
         return []

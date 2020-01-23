@@ -120,10 +120,10 @@ class JaxOps(Ops):
     ) -> Array2d:
         return backprop_mish(dY, X, threshold)
 
-    def relu(self, X: Array, inplace: bool = False) -> Array:
+    def relu(self, X: Array2d, inplace: bool = False) -> Array2d:
         return relu(X)
 
-    def backprop_relu(self, dY: Array, Y: Array, inplace: bool = False) -> Array:
+    def backprop_relu(self, dY: Array2d, Y: Array2d, inplace: bool = False) -> Array2d:
         return backprop_relu(dY, Y)
 
     def update_averages(

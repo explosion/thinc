@@ -3,7 +3,7 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..config import registry
 from ..initializers import glorot_uniform_init, zero_init
-from ..types import Array2d
+from ..types import Array2d, Array3d
 from ..util import get_width, partial
 from .dropout import Dropout
 from .layernorm import LayerNorm
@@ -45,16 +45,16 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     nI = model.get_dim("nI")
     b = model.get_param("b")
     W = model.get_param("W")
-    W = W.reshape((nO * nP, nI))
+    W = cast(Array2d, W.reshape((nO * nP, nI)))
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b.reshape((nO * nP,))
-    Y = Y.reshape((Y.shape[0], nO, nP))
-    best, which = model.ops.maxout(Y)
+    Z = cast(Array3d, Y.reshape((Y.shape[0], nO, nP)))
+    best, which = model.ops.maxout(Z)
 
     def backprop(d_best: OutT) -> InT:
-        dY = model.ops.backprop_maxout(d_best, which, nP)
-        model.inc_grad("b", dY.sum(axis=0))
-        dY = dY.reshape((dY.shape[0], nO * nP))
+        dZ = model.ops.backprop_maxout(d_best, which, nP)
+        model.inc_grad("b", dZ.sum(axis=0))
+        dY = dZ.reshape((dZ.shape[0], nO * nP))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
         return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
 
