@@ -22,6 +22,7 @@ starter = "bert-base-multilingual-cased"
 
 [optimizer]
 @optimizers = "RAdam.v1"
+weight_decay = 1e-8
 
 [optimizer.learn_rate]
 @schedules = "warmup_linear.v1"
@@ -51,10 +52,13 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     # to use registry.optimizers to fetch the "Adam.v1" function. You can
     # register your own functions as well and build up trees of objects.
     C = thinc.registry.make_from_config(config)
+
+    words_per_subbatch = C["training"]["words_per_subbatch"]
+    n_epoch = C["training"]["n_epoch"]
+    batch_size = C["training"]["batch_size"]
     model = C["model"]
     optimizer = C["optimizer"]
     calculate_loss = SequenceCategoricalCrossentropy()
-    cfg = C["training"]
 
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.ud_ancora_pos_tags()
     # Convert the outputs to cupy (if we're using that)
@@ -62,18 +66,17 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     dev_Y = list(map(model.ops.asarray, dev_Y))
     # Pass in a small batch of data, to fill in missing shapes
     model.initialize(X=train_X[:5], Y=train_Y[:5])
-    for epoch in range(cfg["n_epoch"]):
+    for epoch in range(n_epoch):
         # Transformers often learn best with large batch sizes -- larger than
         # fits in GPU memory. But you don't have to backprop the whole batch
         # at once. Here we consider the "logical" batch size (number of examples
         # per update) separately from the physical batch size.
-        batch_size = cfg["batch_size"]
         batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
         for outer_batch in tqdm.tqdm(batches, leave=False):
             # For the physical batch size, what we care about is the number
             # of words (considering padding too). We also want to sort by
             # length, for efficiency.
-            for batch in minibatch_by_words(outer_batch, cfg["words_per_subbatch"]):
+            for batch in minibatch_by_words(outer_batch, words_per_subbatch):
                 inputs, truths = zip(*batch)
                 guesses, backprop = model(inputs, is_train=True)
                 backprop(calculate_loss.get_grad(guesses, truths))
