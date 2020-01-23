@@ -260,13 +260,10 @@ class Optimizer(object):
         return weights, gradient
 
     def _radam(self, xp, weights, grad, lr_scale, key, nr_upd):
-        weights = weights.reshape((weights.size,))
-        grad = grad.reshape((grad.size,))
-
         if key not in self.mom1:
-            self.mom1[key] = self.ops.alloc_f1d(weights.size)
+            self.mom1[key] = self.ops.alloc(weights.shape, dtype="f")
         if key not in self.mom2:
-            self.mom2[key] = self.ops.alloc_f1d(weights.size)
+            self.mom2[key] = self.ops.alloc(weights.shape, dtype="f")
 
         # While we port from the pytorch implementation, keep some of the same
         # naming

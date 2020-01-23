@@ -92,6 +92,7 @@ class CupyOps(Ops):
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient *= threshold / grad_norm
+        return gradient
 
     def seq2col(self, seq, nW):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
