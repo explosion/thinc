@@ -65,7 +65,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 **[View more &rarr;](examples)**
 
-[colab]: colab-badge.svg
+[colab]: https://gistcdn.githack.com/ines/dcf354aa71a7665ae19871d7fd14a4e0/raw/461fc1f61a7bc5860f943cd4b6bcfabb8c8906e7/colab-badge.svg
 [intro_to_thinc]: examples/00_intro_to_thinc.ipynb
 [intro_to_thinc_colab]: https://colab.research.google.com/github/explosion/thinc/examples/00_intro_to_thinc.ipynb
 [transformers_tagger_bert]: examples/02_transformers_tagger_bert.ipynb
