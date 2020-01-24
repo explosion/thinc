@@ -96,6 +96,6 @@ def test_convert_inputs(data, n_args, kwargs_keys):
     import torch.nn
 
     model = PyTorchWrapper(torch.nn.Linear(3, 4))
-    convert_inputs = model.get_attr("convert_inputs")
+    convert_inputs = model.attrs["convert_inputs"]
     Y, backprop = convert_inputs(model, data, is_train=True)
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, torch.Tensor)

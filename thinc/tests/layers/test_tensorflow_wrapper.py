@@ -387,7 +387,7 @@ def test_tensorflow_wrapper_convert_inputs(data, n_args, kwargs_keys):
 
     keras_model = tf.keras.Sequential([tf.keras.layers.Dense(12, input_shape=(12,))])
     model = TensorFlowWrapper(keras_model)
-    convert_inputs = model.get_attr("convert_inputs")
+    convert_inputs = model.attrs["convert_inputs"]
     Y, backprop = convert_inputs(model, data, is_train=True)
     check_input_converters(Y, backprop, data, n_args, kwargs_keys, tf.Tensor)
 

@@ -25,7 +25,7 @@ def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
 def forward(
     model: Model[InT, OutT], items: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
-    idx = model.get_attr("idx")
+    idx = model.attrs["idx"]
     Y_i, backprop_item = model.layers[0](items[idx], is_train)
 
     def backprop(d_output: OutT) -> InT:
@@ -38,7 +38,7 @@ def forward(
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
-    idx = model.get_attr("idx")
+    idx = model.attrs["idx"]
     X_i = X[idx] if X is not None else X
     Y_i = Y[idx] if Y is not None else Y
     model.layers[0].initialize(X=X_i, Y=Y_i)

@@ -120,6 +120,13 @@ class Model(Generic[InT, OutT]):
         return self._shims
 
     @property
+    def attrs(self) -> Dict[str, Any]:
+        """A dict of the model's attrs. You can write to it to update attrs but
+        not reassign it.
+        """
+        return self._attrs
+
+    @property
     def param_names(self) -> Tuple[str, ...]:
         """Get the names of registered parameter (including unset)."""
         return tuple(self._has_params.keys())
@@ -133,11 +140,6 @@ class Model(Generic[InT, OutT]):
     def dim_names(self) -> Tuple[str, ...]:
         """Get the names of registered dimensions (including unset)."""
         return tuple(self._dims.keys())
-
-    @property
-    def attr_names(self) -> Tuple[str, ...]:
-        """Get the names of attributes."""
-        return tuple(self._attrs.keys())
 
     @property
     def ref_names(self) -> Tuple[str, ...]:
@@ -236,20 +238,6 @@ class Model(Generic[InT, OutT]):
     def inc_grad(self, name: str, value: Array) -> None:
         """Check whether the model has a gradient of the given name."""
         self._params.inc_grad(self.id, name, value)
-
-    def has_attr(self, name: str) -> bool:
-        """Check whether the model has the given attribute."""
-        return name in self._attrs
-
-    def get_attr(self, name: str) -> Any:
-        """Get the attribute. Raises KeyError if not present."""
-        if name not in self._attrs:
-            raise KeyError(f"Cannot get attribute '{name}' for model '{self.name}'.")
-        return self._attrs[name]
-
-    def set_attr(self, name: str, value: Any) -> None:
-        """Set the attribute to the given value."""
-        self._attrs[name] = value
 
     def has_ref(self, name: str) -> Optional[bool]:
         """Check whether the model has a reference of a given name. If the
@@ -499,8 +487,7 @@ class Model(Generic[InT, OutT]):
             )
         for node in nodes:
             attrs = {}
-            for name in node.attr_names:
-                value = node.get_attr(name)
+            for name, value in node.attrs.items():
                 try:
                     attrs[name] = serialize_attr(value, value, name, node)
                 except TypeError:
@@ -558,9 +545,9 @@ class Model(Generic[InT, OutT]):
                 else:
                     node.set_ref(ref, nodes[ref_index])
             for attr, value in msg["attrs"][i].items():
-                default_value = node.get_attr(attr) if node.has_attr(attr) else None
+                default_value = node.attrs.get(attr)
                 loaded_value = deserialize_attr(default_value, value, attr, node)
-                node.set_attr(attr, loaded_value)
+                node.attrs[attr] = loaded_value
             for param_name, value in msg["params"][i].items():
                 node.set_param(param_name, value)
             for i, shim_bytes in enumerate(msg["shims"][i]):
@@ -678,7 +665,7 @@ def _jax_flatten_model(model):  # pragma: ignore
     model object via the layers registry, with no arguments. You should use a
     constructor that doesn't allocate any parameters and works reasonably quickly.
     """
-    registry_name = model.get_attr("registry_name")
+    registry_name = model.attrs["registry_name"]
     msg = model.to_dict()
     params = msg.pop("params")
     param_values = []
@@ -726,8 +713,8 @@ def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _M
         if node.name in mapping:
             attrs = mapping[node.name]
             for attr, value in attrs.items():
-                if node.has_attr(attr):
-                    node.set_attr(attr, value)
+                if attr in node.attrs:
+                    node.attrs[attr] = value
     return model
 
 
@@ -737,8 +724,8 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     """
     for node in model.walk():
         for attr in attrs:
-            if node.has_attr(attr):
-                node.set_attr(attr, drop)
+            if attr in node.attrs:
+                node.attrs[attr] = drop
     return model
 
 

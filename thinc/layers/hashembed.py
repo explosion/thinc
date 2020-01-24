@@ -33,18 +33,15 @@ def HashEmbed(
         attrs=attrs,
     )
     if seed is None:
-        model.set_attr("seed", model.id)
+        model.attrs["seed"] = model.id
     return model
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    if model.has_attr("dropout_rate"):
-        dropout = model.get_attr("dropout_rate")
-    else:
-        dropout = None
+    dropout = model.attrs.get("dropout_rate")
     E = model.get_param("E")
-    seed = model.get_attr("seed")
-    column = model.get_attr("column")
+    seed = model.attrs["seed"]
+    column = model.attrs["column"]
     nV = E.shape[0]
     input_shape = tuple(ids.shape)
     if ids.ndim >= 2:

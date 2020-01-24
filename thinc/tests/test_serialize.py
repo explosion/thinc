@@ -72,8 +72,8 @@ def test_simple_model_roundtrip_bytes_serializable_attrs():
 
     model_bytes = model.to_bytes()
     model = model.from_bytes(model_bytes)
-    assert model.has_attr("test")
-    assert model.get_attr("test").value == "foo from bytes"
+    assert "test" in model.attrs
+    assert model.attrs["test"].value == "foo from bytes"
 
 
 def test_multi_model_roundtrip_bytes():
@@ -142,10 +142,10 @@ def test_serialize_attrs():
     fwd = lambda model, X, is_train: (X, lambda dY: dY)
     attrs = {"test": "foo"}
     model1 = Model("test", fwd, attrs=attrs).initialize()
-    bytes_attr = serialize_attr(model1.get_attr("test"), attrs["test"], "test", model1)
+    bytes_attr = serialize_attr(model1.attrs["test"], attrs["test"], "test", model1)
     assert bytes_attr == srsly.msgpack_dumps("foo")
     model2 = Model("test", fwd, attrs={"test": ""})
-    result = deserialize_attr(model2.get_attr("test"), bytes_attr, "test", model2)
+    result = deserialize_attr(model2.attrs["test"], bytes_attr, "test", model2)
     assert result == "foo"
 
     # Test objects with custom serialization functions
@@ -159,9 +159,9 @@ def test_serialize_attrs():
 
     attrs = {"test": SerializableAttr()}
     model3 = Model("test", fwd, attrs=attrs)
-    bytes_attr = serialize_attr(model3.get_attr("test"), attrs["test"], "test", model3)
+    bytes_attr = serialize_attr(model3.attrs["test"], attrs["test"], "test", model3)
     assert bytes_attr == b"foo"
     model4 = Model("test", fwd, attrs=attrs)
-    assert model4.get_attr("test").value == "foo"
-    result = deserialize_attr(model4.get_attr("test"), bytes_attr, "test", model4)
+    assert model4.attrs["test"].value == "foo"
+    result = deserialize_attr(model4.attrs["test"], bytes_attr, "test", model4)
     assert result.value == "foo from bytes"

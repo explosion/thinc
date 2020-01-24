@@ -324,7 +324,7 @@ class Ops:
             unpadded[indices[i]] = data[i, : lengths[i]]
         return cast(List[Array2d], unpadded)
 
-    def get_dropout_mask(self, shape: Shape, drop: float) -> Array:
+    def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> Array:
         """Create a random mask for applying dropout, with a certain percent of
         the mask (defined by `drop`) will contain zeros. The neurons at those
         positions will be deactivated during training, resulting in a more

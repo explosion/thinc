@@ -45,7 +45,7 @@ def test_uniqued_calls_init():
 
 @given(X=lists_of_integers(lo=0, hi=ROWS))
 def test_uniqued_doesnt_change_result(model, X):
-    umodel = uniqued(model, column=model.get_attr("column")).initialize()
+    umodel = uniqued(model, column=model.attrs["column"]).initialize()
     Y, bp_Y = model(X, is_train=True)
     Yu, bp_Yu = umodel(X, is_train=True)
     assert_allclose(Y, Yu)

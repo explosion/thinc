@@ -28,9 +28,9 @@ def remap_ids(
 def forward(
     model: Model[InT, OutT], inputs: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
-    table = model.get_attr("mapping_table")
-    default = model.get_attr("default")
-    dtype = model.get_attr("dtype")
+    table = model.attrs["mapping_table"]
+    default = model.attrs["default"]
+    dtype = model.attrs["dtype"]
     values = [table.get(x, default) for x in inputs]
     arr: Array = model.ops.asarray(values, dtype=dtype)
     output: Array2d = arr.reshape((-1, 1))

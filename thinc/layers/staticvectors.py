@@ -34,13 +34,10 @@ def StaticVectors(
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    if model.has_attr("dropout_rate"):
-        dropout = model.get_attr("dropout_rate")
-    else:
-        dropout = None
-    column = model.get_attr("column")
+    dropout = model.attrs.get("dropout_rate")
+    column = model.attrs["column"]
     W = cast(Array2d, model.get_param("W"))
-    vector_table = model.get_attr("vectors").data
+    vector_table = model.attrs["vectors"].data
     if ids.ndim >= 2:
         ids = model.ops.as_contig(ids[:, column])
     vectors = vector_table[ids * (ids < vector_table.shape[0])]
@@ -60,7 +57,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
-    vector_table = model.get_attr("vectors").data
+    vector_table = model.attrs["vectors"].data
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
     W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))

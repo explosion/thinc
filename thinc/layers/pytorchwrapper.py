@@ -72,8 +72,8 @@ def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
     """Return the output of the wrapped PyTorch model for the given input,
     along with a callback to handle the backward pass.
     """
-    convert_inputs = model.get_attr("convert_inputs")
-    convert_outputs = model.get_attr("convert_outputs")
+    convert_inputs = model.attrs["convert_inputs"]
+    convert_outputs = model.attrs["convert_outputs"]
 
     Xtorch, get_dX = convert_inputs(model, X, is_train)
     Ytorch, torch_backprop = model.shims[0](Xtorch, is_train)

@@ -37,11 +37,8 @@ def Embed(
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
     vectors = model.get_param("E")
-    column = model.get_attr("column")
-    if model.has_attr("dropout_rate"):
-        dropout = model.get_attr("dropout_rate")
-    else:
-        dropout = None
+    column = model.attrs["column"]
+    dropout = model.attrs.get("dropout_rate")
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
