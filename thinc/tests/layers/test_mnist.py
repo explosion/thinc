@@ -94,6 +94,6 @@ def test_small_end_to_end(depth, width, nb_epoch, min_score, create_model, mnist
             total += Yh.shape[0]
         score = correct / total
         scores.append(score)
-    assert losses[-1] < losses[0]
-    assert scores[-1] > scores[0]
-    assert any([score > min_score for score in scores])
+    assert losses[-1] < losses[0], losses
+    assert scores[-1] > scores[0], scores
+    assert any([score > min_score for score in scores]), scores
