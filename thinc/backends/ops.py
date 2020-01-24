@@ -56,14 +56,14 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = numpy.arange(len(sequence))
+        indices = self.xp.arange(len(sequence))
 
         # This is a bit convoluted, but it's a time where convenience makes
         # trickery worthwhile: instead of being an actual generator, we
         # return our SizedGenerator object, which provides a __len__.
         def _iter_items():
             if shuffle:
-                numpy.random.shuffle(indices)
+                self.xp.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:
@@ -97,11 +97,11 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = numpy.arange(len(sequence))
+        indices = self.xp.arange(len(sequence))
 
         def _iter_items():
             if shuffle:
-                numpy.random.shuffle(indices)
+                self.xp.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:
@@ -300,7 +300,7 @@ class Ops:
         arr: Array3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t_ = numpy.zeros(nS, dtype="i")
+        batch_size_at_t_ = self.xp.zeros(nS, dtype="i")
         batch_size_at_t_ += 1
         i = len(lengths_)
         for t in range(nS):
