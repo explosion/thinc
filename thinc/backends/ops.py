@@ -125,7 +125,7 @@ class Ops:
         else:
             subseq = sequence[indices]  # type: ignore
         if is_xp_array(subseq):
-            subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+            subseq = self.as_contig(cast(Array, self.xp.asarray(subseq)))  # type: ignore
         return subseq
 
     def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
@@ -300,7 +300,7 @@ class Ops:
         arr: Array3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t_ = numpy.zeros(nS, dtype="i")
+        batch_size_at_t_ = self.xp.zeros(nS, dtype="i")
         batch_size_at_t_ += 1
         i = len(lengths_)
         for t in range(nS):

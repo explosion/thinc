@@ -1,8 +1,10 @@
 import pytest
 import threading
 import time
-from thinc.api import CupyOps
-from thinc.api import Linear, Model, Shim, change_attr_values, set_dropout_rate
+import ml_datasets
+
+from thinc.api import CupyOps, prefer_gpu
+from thinc.api import Linear, Model, Shim, change_attr_values, set_dropout_rate, chain, ReLu, Softmax, Adam
 import numpy
 
 from ..util import make_tempdir
@@ -353,3 +355,38 @@ def test_unique_id_multithreading():
             w.join()
 
     assert len(list_of_ids) == len(list(set(list_of_ids)))
+
+
+def test_model_gpu():
+    prefer_gpu()
+    n_hidden = 32
+    dropout = 0.2
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+    model = chain(
+        ReLu(nO=n_hidden, dropout=dropout),
+        ReLu(nO=n_hidden, dropout=dropout),
+        Softmax(),
+    )
+    # making sure the data is on the right device
+    train_X = model.ops.asarray(train_X)
+    train_Y = model.ops.asarray(train_Y)
+    dev_X = model.ops.asarray(dev_X)
+    dev_Y = model.ops.asarray(dev_Y)
+
+    model.initialize(X=train_X[:5], Y=train_Y[:5])
+    optimizer = Adam(0.001)
+    batch_size = 128
+
+    for i in range(2):
+        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+        for X, Y in batches:
+            Yh, backprop = model.begin_update(X)
+            backprop(Yh - Y)
+            model.finish_update(optimizer)
+        # Evaluate and print progress
+        correct = 0
+        total = 0
+        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+            Yh = model.predict(X)
+            correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
+            total += Yh.shape[0]
