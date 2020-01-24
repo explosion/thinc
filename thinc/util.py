@@ -1,7 +1,6 @@
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
-from typing import Type, List
+from typing import List
 import numpy
-import threading
 import random
 import functools
 from wasabi import table
@@ -59,15 +58,6 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     numpy.random.seed(seed)
     if cupy is not None:
         cupy.random.seed(seed)
-
-
-def create_thread_local(
-    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
-):
-    obj = local_class()
-    for name, value in attrs.items():
-        setattr(obj, name, value)
-    return obj
 
 
 def is_xp_array(obj: Any) -> bool:
