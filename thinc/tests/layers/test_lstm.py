@@ -61,11 +61,12 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert initial_cells.shape == (nO,)
 
 
+#@pytest.mark.xfail(reason="validation, TODO: fix")
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
-    model = with_padded(LSTM(nO, nI)).initialize(X=X)
+    model = with_padded(LSTM(nO, nI)).initialize(X=[X])
     ys, backprop_ys = model([X], is_train=False)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape

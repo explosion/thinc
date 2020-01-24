@@ -1,8 +1,12 @@
-from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar, Type
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
+from typing import Type, List
 import numpy
 import threading
 import random
 import functools
+from wasabi import table
+from pydantic import create_model, ValidationError
+import inspect
 
 try:  # pragma: no cover
     import cupy
@@ -322,6 +326,57 @@ def partial(
     partial_func = functools.partial(func, *args, **kwargs)
     partial_func.__doc__ = func.__doc__
     return partial_func
+
+
+class DataValidationError(ValueError):
+    def __init__(
+        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = [],
+    ) -> None:
+        """Custom error for validating inputs / outputs at runtime."""
+        message = f"Data validation error in '{name}'"
+        type_info = f"X: {type(X)} Y: {type(Y)}"
+        data = []
+        for error in errors:
+            err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
+            data.append((err_loc, error.get("msg")))
+        result = [message, type_info, table(data)]
+        ValueError.__init__(self, "\n\n" + "\n".join(result))
+
+
+class _ArgModelConfig:
+    extra = "forbid"
+    arbitrary_types_allowed = True
+
+
+def validate_fwd_input_output(
+    name: str, func: Callable[[Any, Any, bool], Any], X: Any, Y: Any
+) -> None:
+    """Validate the input and output of a forward function against the type
+    annotations, if available. Used in Model.initialize with the input and
+    output samples as they pass through the network.
+    """
+    sig = inspect.signature(func)
+    empty = inspect.Signature.empty
+    params = list(sig.parameters.values())
+    if len(params) != 3:
+        bad_params = f"{len(params)} ({', '.join([p.name for p in params])})"
+        err = f"Invalid forward function. Expected 3 arguments (model, X , is_train), got {bad_params}"
+        raise DataValidationError(name, X, Y, [{"msg": err}])
+    annot_x = params[1].annotation
+    annot_y = sig.return_annotation
+    sig_args: Dict[str, Any] = {"__config__": _ArgModelConfig}
+    args = {}
+    if X is not None and annot_x != empty:
+        sig_args["X"] = (annot_x, ...)
+        args["X"] = X
+    if Y is not None and annot_y != empty:
+        sig_args["Y"] = (annot_y, ...)
+        args["Y"] = (Y, lambda x: x)
+    ArgModel = create_model("ArgModel", **sig_args)
+    try:
+        ArgModel.parse_obj(args)
+    except ValidationError as e:
+        raise DataValidationError(name, X, Y, e.errors())
 
 
 __all__ = [

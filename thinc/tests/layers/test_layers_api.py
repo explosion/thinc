@@ -114,6 +114,8 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     model = registry.make_from_config(filled)["config"]
     if "LSTM" in name:
         model = with_padded(model)
+    if "FeatureExtractor" in name:  # can't validate fake docs
+        model.validate = False
     model.initialize(in_data, out_data)
     Y, backprop = model(in_data, is_train=True)
     assert_data_match(Y, out_data)

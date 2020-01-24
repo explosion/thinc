@@ -33,7 +33,10 @@ def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
     return model
 
 
-def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
+@cython.binding(True)
+def forward(model: Model, keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    # NB: We can't have generic Model annotation if we want function to
+    # be bound (and inspectable): https://github.com/cython/cython/issues/2753
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
