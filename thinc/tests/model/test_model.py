@@ -1,8 +1,9 @@
 import pytest
 import threading
 import time
+import ml_datasets
 
-from thinc.api import CupyOps, prefer_gpu, fix_random_seed
+from thinc.api import CupyOps, prefer_gpu
 from thinc.api import Linear, Model, Shim, change_attr_values, set_dropout_rate, chain, ReLu, Softmax, Adam
 import numpy
 
@@ -360,19 +361,23 @@ def test_model_gpu():
     prefer_gpu()
     n_hidden = 32
     dropout = 0.2
-    import ml_datasets
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     model = chain(
         ReLu(nO=n_hidden, dropout=dropout),
         ReLu(nO=n_hidden, dropout=dropout),
         Softmax()
     )
+    # making sure the data is on the right device
+    train_X = model.ops.asarray(train_X)
+    train_Y = model.ops.asarray(train_Y)
+    dev_X = model.ops.asarray(dev_X)
+    dev_Y = model.ops.asarray(dev_Y)
+
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     optimizer = Adam(0.001)
     batch_size = 128
-    print("Measuring performance across iterations:")
 
-    for i in range(10):
+    for i in range(2):
         batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
         for X, Y in batches:
             Yh, backprop = model.begin_update(X)
@@ -385,5 +390,3 @@ def test_model_gpu():
             Yh = model.predict(X)
             correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]
-        score = correct / total
-        print(f" {i} {score:.3f}")
