@@ -68,8 +68,8 @@ def create_model(request):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize(("depth", "width", "nb_epoch"), [(2, 32, 3)])
-def test_small_end_to_end(depth, width, nb_epoch, create_model, mnist):
+@pytest.mark.parametrize(("depth", "width", "nb_epoch", "min_score"), [(2, 32, 3, 0.2)])
+def test_small_end_to_end(depth, width, nb_epoch, min_score, create_model, mnist):
     batch_size = 128
     dropout = 0.2
     (train_X, train_Y), (dev_X, dev_Y) = mnist
@@ -96,4 +96,4 @@ def test_small_end_to_end(depth, width, nb_epoch, create_model, mnist):
         scores.append(score)
     assert losses[-1] < losses[0]
     assert scores[-1] > scores[0]
-    assert any([score > 0.2 for score in scores])
+    assert any([score > min_score for score in scores])
