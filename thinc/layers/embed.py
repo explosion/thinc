@@ -47,7 +47,6 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
         ids = ids[:, column]
     ids *= ids < nV
     output = vectors[ids.astype("i")]
-
     drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
     output *= drop_mask
 
