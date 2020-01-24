@@ -56,14 +56,14 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = self.xp.arange(len(sequence))
+        indices = numpy.arange(len(sequence))
 
         # This is a bit convoluted, but it's a time where convenience makes
         # trickery worthwhile: instead of being an actual generator, we
         # return our SizedGenerator object, which provides a __len__.
         def _iter_items():
             if shuffle:
-                self.xp.random.shuffle(indices)
+                numpy.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:
@@ -97,11 +97,11 @@ class Ops:
         sizes = self._get_batch_sizes(
             len(sequence), itertools.repeat(size) if isinstance(size, int) else size
         )
-        indices = self.xp.arange(len(sequence))
+        indices = numpy.arange(len(sequence))
 
         def _iter_items():
             if shuffle:
-                self.xp.random.shuffle(indices)
+                numpy.random.shuffle(indices)
             queue = []
             i = 0
             for size in sizes:
@@ -125,7 +125,7 @@ class Ops:
         else:
             subseq = sequence[indices]  # type: ignore
         if is_xp_array(subseq):
-            subseq = self.as_contig(cast(Array, subseq))  # type: ignore
+            subseq = self.as_contig(cast(Array, self.xp.asarray(subseq)))  # type: ignore
         return subseq
 
     def _get_batch_sizes(self, length: int, sizes: Iterator[int]):
