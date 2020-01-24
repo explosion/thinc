@@ -395,4 +395,6 @@ __all__ = [
     "torch2xp",
     "tensorflow2xp",
     "xp2tensorflow",
+    "validate_fwd_input_output",
+    "DataValidationError",
 ]
