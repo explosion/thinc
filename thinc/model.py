@@ -19,6 +19,7 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 context_operators: ContextVar[dict] = ContextVar("context_operators", default={})
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
 
 
 def empty_init(model: "Model", *args, **kwargs) -> "Model":
@@ -57,7 +58,6 @@ class Model(Generic[InT, OutT]):
         "name",
         "id",
         "ops",
-        "validate",
         "_func",
         "_init",
         "_params",
@@ -107,7 +107,6 @@ class Model(Generic[InT, OutT]):
             self._has_params[name] = None
             if value is not None:
                 self.set_param(name, value)
-        self.validate = True
 
     @property
     def layers(self) -> List["Model"]:
@@ -291,7 +290,7 @@ class Model(Generic[InT, OutT]):
     def initialize(self, X: Optional[InT] = None, Y: Optional[OutT] = None) -> "Model":
         """Finish initialization of the model, optionally providing a batch of
         example input and output data to perform shape inference."""
-        if self.validate:
+        if DATA_VALIDATION.get():
             validate_fwd_input_output(self.name, self._func, X, Y)
         if self._init is not None:
             self._init(self, X=X, Y=Y)
