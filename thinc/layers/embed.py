@@ -18,14 +18,18 @@ def Embed(
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
+    dropout: Optional[float] = None 
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
+    attrs = {"column": column}
+    if dropout is not None:
+        attrs["dropout_rate"] = dropout
     return Model(
         "embed",
         forward,
         init=partial(init, initializer),
+        attrs=attrs,
         dims={"nO": nO, "nV": nV},
-        attrs={"column": column},
         params={"E": None},
     )
 
@@ -34,13 +38,21 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     nV = model.get_dim("nV")
     vectors = model.get_param("E")
     column = model.get_attr("column")
+    if model.has_attr("dropout_rate"):
+        dropout = model.get_attr("dropout_rate")
+    else:
+        dropout = None
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
     ids *= ids < nV
     output = vectors[ids.astype("i")]
 
+    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    output *= drop_mask
+
     def backprop(d_output: OutT) -> InT:
+        d_output *= drop_mask
         d_vectors = model.ops.alloc_f2d(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("E", d_vectors)

@@ -12,27 +12,41 @@ OutT = Array2d
 
 context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
+class VectorsTable:
+    def __init__(self, data):
+        self.data = data
+
 
 @registry.layers("StaticVectors.v0")
-def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
+def StaticVectors(nO: Optional[int]=None, vectors: Optional[Array2d]=None, *, column: int = 0) -> Model[InT, OutT]:
+    attrs = {"column": column, "vectors": vectors}
+    if dropout is not None:
+        attrs["dropout_rate"] = dropout
+ 
     return Model(
         "static_vectors",
         forward,
         init=init,
         params={"W": None},
-        attrs={"lang": lang, "column": column},
+        attrs=VectorsTable(vectors),
         dims={"nM": None, "nV": None, "nO": nO},
     )
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    if model.has_attr("dropout_rate"):
+        dropout = model.get_attr("dropout_rate")
+    else:
+        dropout = None
     column = model.get_attr("column")
     W = cast(Array2d, model.get_param("W"))
-    vector_table = _get_vectors(model.ops, model.get_attr("lang"))
+    vector_table = model.get_attr("vectors").data
     if ids.ndim >= 2:
         ids = model.ops.as_contig(ids[:, column])
     vectors = vector_table[ids * (ids < vector_table.shape[0])]
     vectors = model.ops.as_contig(vectors)
+    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    vectors *= drop_mask
     assert vectors.shape[0] == ids.shape[0]
 
     def backprop(d_output: OutT) -> InT:
