@@ -169,9 +169,9 @@ def test_change_attr_values(model_with_no_args):
 def test_set_dropout(model_with_no_args):
     model = model_with_no_args
     model.name = "dropout"
-    model.set_attr("rate", 0.0)
+    model.set_attr("dropout_rate", 0.0)
     set_dropout_rate(model, 0.2)
-    assert model.get_attr("rate") == 0.2
+    assert model.get_attr("dropout_rate") == 0.2
 
 
 def test_bind_plus():
