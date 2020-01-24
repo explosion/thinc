@@ -51,6 +51,7 @@ from .with_list import with_list
 from .with_ragged import with_ragged
 from .with_reshape import with_reshape
 from .with_getitem import with_getitem
+from .with_debug import with_debug
 
 
 __all__ = [
@@ -98,5 +99,6 @@ __all__ = [
     "with_ragged",
     "with_padded",
     "with_flatten",
+    "with_debug",
     "remap_ids",
 ]
