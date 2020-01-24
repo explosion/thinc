@@ -37,8 +37,10 @@ class CupyOps(Ops):
 
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):
-            raise ValueError("Encountered a numpy array when processing with cupy. "
-                             "Did you call model.ops.asarray on your data?")
+            raise ValueError(
+                "Encountered a numpy array when processing with cupy. "
+                "Did you call model.ops.asarray on your data?"
+            )
         if trans1:
             x = x.T
         if trans2:

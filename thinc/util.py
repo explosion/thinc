@@ -372,7 +372,6 @@ def validate_fwd_input_output(
 __all__ = [
     "get_array_module",
     "fix_random_seed",
-    "create_thread_local",
     "is_cupy_array",
     "is_numpy_array",
     "set_active_gpu",
