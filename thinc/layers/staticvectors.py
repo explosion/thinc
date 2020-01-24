@@ -4,13 +4,13 @@ from ..types import Array, Array2d
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
-from ..util import create_thread_local
+from contextvars import ContextVar
 
 
 InT = Array2d
 OutT = Array2d
 
-STATE = create_thread_local({"vectors": {}})
+context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
 
 @registry.layers("StaticVectors.v0")
@@ -55,12 +55,11 @@ def init(
 
 
 def _get_vectors(ops: Ops, lang: str) -> Array:
-    global STATE
     key = (ops.device_type, lang)
-    if key not in STATE.vectors:
+    if key not in context_vectors.get():
         nlp = load_spacy(lang)
-        STATE.vectors[key] = ops.asarray(nlp.vocab.vectors.data)
-    return STATE.vectors[key]
+        context_vectors.get()[key] = ops.asarray(nlp.vocab.vectors.data)
+    return context_vectors.get()[key]
 
 
 def load_spacy(lang: str, **kwargs):

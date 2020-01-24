@@ -1,6 +1,7 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
 from typing import Generic, Sequence, Tuple, TypeVar
 import contextlib
+from contextvars import ContextVar
 import srsly
 from pathlib import Path
 import copy
@@ -10,13 +11,14 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import create_thread_local, convert_recursive, is_xp_array
+from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
 from .types import Array
 
-
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
+
+context_operators: ContextVar[dict] = ContextVar("context_operators", default={})
 
 
 def empty_init(model: "Model", *args, **kwargs) -> "Model":
@@ -35,7 +37,7 @@ class Model(Generic[InT, OutT]):
 
     global_id: int = 0
     global_id_lock: threading.Lock = threading.Lock()
-    _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
+    _context_operators = context_operators
 
     name: str
     ops: Ops
@@ -153,10 +155,9 @@ class Model(Generic[InT, OutT]):
             with Model.define_operators({">>": chain}):
                 model = ReLu(512) >> ReLu(512) >> Softmax()
         """
-        curr_operators = dict(cls._thread_local.operators)
-        cls._thread_local.operators = dict(operators)
+        token = cls._context_operators.set(dict(operators))
         yield
-        cls._thread_local.operators = dict(curr_operators)
+        cls._context_operators.reset(token)
 
     def has_dim(self, name: str) -> Optional[bool]:
         """Check whether the model has a dimension of a given name. If the
@@ -569,87 +570,87 @@ class Model(Generic[InT, OutT]):
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
-        if "+" not in self._thread_local.operators:
+        if "+" not in self._context_operators.get():
             raise TypeError("Undefined operator: +")
-        return self._thread_local.operators["+"](self, other)
+        return self._context_operators.get()["+"](self, other)
 
     def __sub__(self, other: Any) -> "Model":
         """Apply the function bound to the '-' operator."""
-        if "-" not in self._thread_local.operators:
+        if "-" not in self._context_operators.get():
             raise TypeError("Undefined operator: -")
-        return self._thread_local.operators["-"](self, other)
+        return self._context_operators.get()["-"](self, other)
 
     def __mul__(self, other: Any) -> "Model":
         """Apply the function bound to the '*' operator."""
-        if "*" not in self._thread_local.operators:
+        if "*" not in self._context_operators.get():
             raise TypeError("Undefined operator: *")
-        return self._thread_local.operators["*"](self, other)
+        return self._context_operators.get()["*"](self, other)
 
     def __matmul__(self, other: Any) -> "Model":
         """Apply the function bound to the '@' operator."""
-        if "@" not in self._thread_local.operators:
+        if "@" not in self._context_operators.get():
             raise TypeError("Undefined operator: @")
-        return self._thread_local.operators["@"](self, other)
+        return self._context_operators.get()["@"](self, other)
 
     def __div__(self, other: Any) -> "Model":  # pragma: no cover
         """Apply the function bound to the '/' operator."""
-        if "/" not in self._thread_local.operators:
+        if "/" not in self._context_operators.get():
             raise TypeError("Undefined operator: /")
-        return self._thread_local.operators["/"](self, other)
+        return self._context_operators.get()["/"](self, other)
 
     def __truediv__(self, other: Any) -> "Model":
         """Apply the function bound to the '/' operator."""
-        if "/" not in self._thread_local.operators:
+        if "/" not in self._context_operators.get():
             raise TypeError("Undefined operator: /")
-        return self._thread_local.operators["/"](self, other)
+        return self._context_operators.get()["/"](self, other)
 
     def __floordiv__(self, other: Any) -> "Model":
         """Apply the function bound to the '//' operator."""
-        if "//" not in self._thread_local.operators:
+        if "//" not in self._context_operators.get():
             raise TypeError("Undefined operator: //")
-        return self._thread_local.operators["//"](self, other)
+        return self._context_operators.get()["//"](self, other)
 
     def __mod__(self, other: Any) -> "Model":
         """Apply the function bound to the '%' operator."""
-        if "%" not in self._thread_local.operators:
+        if "%" not in self._context_operators.get():
             raise TypeError("Undefined operator: %")
-        return self._thread_local.operators["%"](self, other)
+        return self._context_operators.get()["%"](self, other)
 
     def __pow__(self, other: Any, **kwargs) -> "Model":
         """Apply the function bound to the '**' operator."""
-        if "**" not in self._thread_local.operators:
+        if "**" not in self._context_operators.get():
             raise TypeError("Undefined operator: **")
-        return self._thread_local.operators["**"](self, other)
+        return self._context_operators.get()["**"](self, other)
 
     def __lshift__(self, other: Any) -> "Model":
         """Apply the function bound to the '<<' operator."""
-        if "<<" not in self._thread_local.operators:
+        if "<<" not in self._context_operators.get():
             raise TypeError("Undefined operator: <<")
-        return self._thread_local.operators["<<"](self, other)
+        return self._context_operators.get()["<<"](self, other)
 
     def __rshift__(self, other: Any) -> "Model":
         """Apply the function bound to the '>>' operator."""
-        if ">>" not in self._thread_local.operators:
+        if ">>" not in self._context_operators.get():
             raise TypeError("Undefined operator: >>")
-        return self._thread_local.operators[">>"](self, other)
+        return self._context_operators.get()[">>"](self, other)
 
     def __and__(self, other: Any) -> "Model":
         """Apply the function bound to the '&' operator."""
-        if "&" not in self._thread_local.operators:
+        if "&" not in self._context_operators.get():
             raise TypeError("Undefined operator: &")
-        return self._thread_local.operators["&"](self, other)
+        return self._context_operators.get()["&"](self, other)
 
     def __xor__(self, other: Any) -> "Model":
         """Apply the function bound to the '^' operator."""
-        if "^" not in self._thread_local.operators:
+        if "^" not in self._context_operators.get():
             raise TypeError("Undefined operator: ^")
-        return self._thread_local.operators["^"](self, other)
+        return self._context_operators.get()["^"](self, other)
 
     def __or__(self, other: Any) -> "Model":
         """Apply the function bound to the '|' operator."""
-        if "|" not in self._thread_local.operators:
+        if "|" not in self._context_operators.get():
             raise TypeError("Undefined operator: |")
-        return self._thread_local.operators["|"](self, other)
+        return self._context_operators.get()["|"](self, other)
 
 
 @functools.singledispatch

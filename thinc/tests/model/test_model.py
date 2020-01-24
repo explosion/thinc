@@ -221,13 +221,13 @@ def _overload_plus(operator, sleep):
         else:
             value = m1 * m2
     assert value == "ab"
-    assert Model._thread_local.operators == {}
+    assert Model._context_operators.get() == {}
 
 
 def test_nested_operator_contexts():
     m1 = create_model(name="a")
     m2 = create_model(name="b")
-    assert Model._thread_local.operators == {}
+    assert Model._context_operators.get() == {}
     with Model.define_operators({"+": lambda a, b: a.name + b.name}):
         value = m1 + m2
         with pytest.raises(TypeError):
@@ -247,7 +247,7 @@ def test_nested_operator_contexts():
         with pytest.raises(TypeError):
             value = m1 * m2
     assert value == "ab"
-    assert Model._thread_local.operators == {}
+    assert Model._context_operators.get() == {}
 
 
 @pytest.mark.parametrize("op", "+ - * @ / // % ** << >> & ^ |".split())
@@ -329,7 +329,7 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
-    assert Model._thread_local.operators == {}
+    assert Model._context_operators.get()
 
 
 def test_unique_id_multithreading():
