@@ -1,8 +1,7 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..types import Array, Array2d, Unserializable
+from ..types import Array2d, Unserializable
 from ..model import Model
-from ..backends import Ops
 from ..config import registry
 from contextvars import ContextVar
 
@@ -14,11 +13,16 @@ context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
 
 @registry.layers("StaticVectors.v0")
-def StaticVectors(nO: Optional[int]=None, vectors: Optional[Array2d]=None, *, column: int = 0, dropout: Optional[float]=None) -> Model[InT, OutT]:
+def StaticVectors(
+    nO: Optional[int] = None,
+    vectors: Optional[Array2d] = None,
+    *,
+    column: int = 0,
+    dropout: Optional[float] = None
+) -> Model[InT, OutT]:
     attrs = {"column": column, "vectors": Unserializable(vectors)}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
- 
     return Model(
         "static_vectors",
         forward,

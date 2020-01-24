@@ -344,7 +344,7 @@ class Optimizer(object):
         b2 = self.b2
         fix1 = 1.0 - (b1 ** nr_upd)
         fix2 = 1.0 - (b2 ** nr_upd)
-        lr = self.learn_rate * fix2**0.5 / fix1
+        lr = self.learn_rate * fix2 ** 0.5 / fix1
         eps = self.eps
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(

@@ -14,10 +14,7 @@ class Ops:
     xp: Xp = numpy
 
     def __init__(
-        self,
-        device_type: DeviceTypes = "cpu",
-        device_id: int = -1,
-        **kwargs
+        self, device_type: DeviceTypes = "cpu", device_id: int = -1, **kwargs
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id

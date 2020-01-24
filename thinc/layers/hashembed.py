@@ -19,7 +19,7 @@ def HashEmbed(
     seed: Optional[int] = None,
     column: int = 0,
     initializer: Callable = uniform_init,
-    dropout: Optional[float]=0.0
+    dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:

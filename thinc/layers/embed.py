@@ -18,7 +18,7 @@ def Embed(
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
-    dropout: Optional[float] = None 
+    dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
     attrs: Dict[str, Any] = {"column": column}

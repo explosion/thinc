@@ -718,4 +718,5 @@ class ArgsKwargs:
 @dataclass
 class Unserializable:
     """Wrap a value to prevent it from being serialized by msgpack."""
+
     data: Any

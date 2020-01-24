@@ -15,6 +15,7 @@ from .util import partial
 # It's especially helpful for JAX, which has a pretty intrincate PRNG scheme I
 # haven't figured out yet.
 
+
 def glorot_uniform_init(ops: Ops, shape: Shape) -> Array:
     scale = numpy.sqrt(6.0 / (shape[0] + shape[1]))
     return ops.asarray(numpy.random.uniform(-scale, scale, shape), dtype="f")
