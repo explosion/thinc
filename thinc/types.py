@@ -713,3 +713,10 @@ class ArgsKwargs:
         """Yield enumerate(self.args), followed by self.kwargs.items()"""
         yield from enumerate(self.args)
         yield from self.kwargs.items()
+
+
+@dataclass
+class Unserializable:
+    """Wrap a value to prevent it from being serialized by msgpack."""
+
+    data: Any

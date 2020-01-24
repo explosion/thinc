@@ -731,13 +731,15 @@ def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _M
     return model
 
 
-def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> _ModelT:
-    """Walk over the model's nodes, setting the dropout rate. Dropout nodes are
-    identified by name. You can configure the name-to-attribute mapping using
-    the `attrs` dict.
+def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _ModelT:
+    """Walk over the model's nodes, setting the dropout rate. You can specify
+    one or more attribute names, by default it looks for ["dropout_rate"].
     """
-    mapping = {name: {attr: drop} for name, attr in attrs.items()}
-    return change_attr_values(model, mapping)
+    for node in model.walk():
+        for attr in attrs:
+            if node.has_attr(attr):
+                node.set_attr(attr, drop)
+    return model
 
 
 __all__ = [
