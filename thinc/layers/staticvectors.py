@@ -60,23 +60,9 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
-    vector_table = _get_vectors(model.ops, model.get_attr("lang"))
+    vector_table = model.get_attr("vectors").data
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
     W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))
     model.set_param("W", W)
     return model
-
-
-def _get_vectors(ops: Ops, lang: str) -> Array:
-    key = (ops.device_type, lang)
-    if key not in context_vectors.get():
-        nlp = load_spacy(lang)
-        context_vectors.get()[key] = ops.asarray(nlp.vocab.vectors.data)
-    return context_vectors.get()[key]
-
-
-def load_spacy(lang: str, **kwargs):
-    import spacy
-
-    return spacy.load(lang, **kwargs)
