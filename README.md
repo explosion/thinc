@@ -27,7 +27,7 @@ configure and deploy custom models** built with their favorite framework.
 ## 🔥 Features
 
 - **Type-check** your model definitions with custom types and [`mypy`](https://mypy.readthedocs.io/en/latest/) plugin.
-- Wrap **PyTorch** and **Tensorflow** models for use in your network.
+- Wrap **PyTorch** and **TensorFlow** models for use in your network.
 - Concise **functional-programming** approach to model definition, using composition rather than inheritance.
 - Optional custom infix notation via **operator overloading**.
 - Integrated **config system** to describe trees of objects and hyperparameters.
