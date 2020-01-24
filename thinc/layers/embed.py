@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional
+from typing import Dict, Callable, Tuple, Optional, Any
 
 from ..model import Model
 from ..config import registry
@@ -21,7 +21,7 @@ def Embed(
     dropout: Optional[float] = None 
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
-    attrs = {"column": column}
+    attrs: Dict[str, Any] = {"column": column}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     return Model(

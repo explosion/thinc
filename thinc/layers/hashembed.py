@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional
+from typing import Callable, Dict, Tuple, Optional, Any
 
 from ..model import Model
 from ..config import registry
@@ -21,7 +21,7 @@ def HashEmbed(
     initializer: Callable = uniform_init,
     dropout: Optional[float]=0.0
 ) -> Model[InT, OutT]:
-    attrs = {"column": column, "seed": seed}
+    attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     model: Model[InT, OutT] = Model(
