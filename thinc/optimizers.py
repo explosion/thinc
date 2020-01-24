@@ -120,7 +120,7 @@ class Optimizer(object):
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
     grad_clip: float
-    alpha: float
+    learn_rate: float
     b1: float
     b2: float
     eps: float
@@ -212,14 +212,6 @@ class Optimizer(object):
                 value = getattr(self, key)
             setattr(self, key, value)
 
-    @property
-    def learn_rate(self) -> float:
-        return self.alpha
-
-    @learn_rate.setter
-    def learn_rate(self, learn_rate):
-        self.alpha = learn_rate
-
     def __call__(
         self,
         key: Tuple[int, str],
@@ -249,7 +241,7 @@ class Optimizer(object):
         elif self.b2 > 0.0:  # pragma: no cover
             raise NotImplementedError  # TODO: error message
         else:
-            weights -= lr_scale * self.alpha * gradient
+            weights -= lr_scale * self.learn_rate * gradient
         gradient = gradient * 0.0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= self.L2 * weights
@@ -273,7 +265,7 @@ class Optimizer(object):
             "exp_avg_sq": self.mom2[key],
         }
         group = {
-            "lr": self.alpha,
+            "lr": self.learn_rate,
             "betas": [self.b1, self.b2],
             "eps": self.eps,
             "weight_decay": 0.0,
@@ -344,7 +336,7 @@ class Optimizer(object):
         b2 = self.b2
         fix1 = 1.0 - (b1 ** nr_upd)
         fix2 = 1.0 - (b2 ** nr_upd)
-        lr = self.learn_rate * fix2**0.5 / fix1
+        lr = self.learn_rate * fix2 ** 0.5 / fix1
         eps = self.eps
         # needs to be 1D going into the adam function
         weights_1D, gradient_1D, mom1, mom2 = self.ops.adam(

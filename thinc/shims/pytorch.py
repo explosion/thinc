@@ -69,9 +69,11 @@ class PyTorchShim(Shim):
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
         if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = torch.optim.Adam(params, lr=sgd.alpha, betas=(sgd.b1, sgd.b2))
+            optimizer = torch.optim.Adam(
+                params, lr=sgd.learn_rate, betas=(sgd.b1, sgd.b2)
+            )
         elif sgd.b2 == 0:
-            optimizer = torch.optim.SGD(params, lr=sgd.alpha, momentum=sgd.b1)
+            optimizer = torch.optim.SGD(params, lr=sgd.learn_rate, momentum=sgd.b1)
         else:
             raise NotImplementedError
         return optimizer
