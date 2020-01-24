@@ -12,11 +12,7 @@ def mnist(limit=5000):
 
 
 def create_relu_softmax(depth, width, dropout, nI, nO):
-    return chain(
-        clone(ReLu(nO=width, dropout=dropout), depth),
-        ReLu(nO=width, dropout=dropout),
-        Softmax(10, width),
-    )
+    return chain(clone(ReLu(nO=width, dropout=dropout), depth), Softmax(10, width))
 
 
 def create_wrapped_pytorch(depth, width, dropout, nI, nO):
