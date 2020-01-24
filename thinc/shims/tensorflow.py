@@ -141,8 +141,8 @@ class TensorFlowShim(Shim):
             optimizer = tf.keras.optimizers.SGD(
                 learning_rate=sgd.learn_rate, momentum=sgd.b1
             )
-        else:
-            raise NotImplementedError
+        else:  # pragma: no cover
+            raise NotImplementedError(f"Can't create TensorFlow optimizer for {sgd}")
         return optimizer
 
     def _load_weights_from_state_dict(
