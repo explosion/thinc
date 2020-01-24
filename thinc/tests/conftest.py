@@ -16,5 +16,5 @@ def pytest_runtest_setup(item):
         return item.config.getoption(f"--{opt}", False)
 
     for opt in ["slow"]:
-        if opt in item.keywords and not getopt(f"--{opt}"):
+        if opt in item.keywords and not getopt(opt):
             pytest.skip(f"need --{opt} option to run")
