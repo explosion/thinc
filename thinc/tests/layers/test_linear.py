@@ -20,8 +20,10 @@ def test_linear_default_name(model):
 
 
 def test_linear_dimensions_on_data():
-    X = MagicMock(shape=(5, 10))
-    y = MagicMock(shape=(8,))
+    X = MagicMock(shape=(5, 10), spec=numpy.ndarray)
+    X.ndim = 2
+    y = MagicMock(shape=(8,), spec=numpy.ndarray)
+    y.ndim = 2
     y.max = MagicMock()
     model = Linear()
     model.initialize(X, y)
@@ -48,7 +50,7 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 
     seen_keys = set()
 
-    def sgd(data, gradient, key=None, **kwargs):
+    def sgd(key, data, gradient, **kwargs):
         seen_keys.add(key)
         assert data.shape == gradient.shape
         return data, gradient
@@ -127,7 +129,7 @@ def test_dropout_gives_zero_gradients(W_b_input):
 
 @pytest.fixture
 def model2():
-    model = Linear(2, 2)
+    model = Linear(2, 2).initialize()
     return model
 
 
@@ -198,7 +200,7 @@ def test_update():
     gradient = numpy.asarray([[-1.0, 0.0]], dtype="f")
     backprop(gradient)
     for key, (param, d_param) in model.get_gradients().items():
-        param, d_param = sgd(param, d_param, key=key)
+        param, d_param = sgd(key, param, d_param)
         model.set_param(key[1], param)
         model.set_grad(key[1], d_param)
 
@@ -218,7 +220,7 @@ def test_update():
     gradient = numpy.asarray([[0.0, -1.0]], dtype="f")
     finish_update(gradient)
     for key, (W, dW) in model.get_gradients().items():
-        sgd(W, dW, key=key)
+        sgd(key, W, dW)
     b = model.get_param("b")
     W = model.get_param("W")
     assert b[0] == 1.0

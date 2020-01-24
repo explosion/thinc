@@ -1,7 +1,8 @@
 import pytest
 import threading
 import time
-from thinc.api import Linear, NumpyOps, get_current_ops, use_device, Model, Shim
+from thinc.api import CupyOps
+from thinc.api import Linear, Model, Shim, change_attr_values, set_dropout_rate
 import numpy
 
 from ..util import make_tempdir
@@ -17,7 +18,7 @@ def create_model(name):
 
 
 def test_model_defaults_to_cpu(model_with_no_args):
-    assert isinstance(model_with_no_args.ops, NumpyOps)
+    assert not isinstance(model_with_no_args.ops, CupyOps)
 
 
 def test_models_get_different_ids(model_with_no_args):
@@ -144,19 +145,6 @@ def test_model_set_reference():
     assert not parent.has_ref("grandkind")
 
 
-def test_use_device():
-    class_ops = get_current_ops()
-    dev_id = id(class_ops)
-    with use_device(class_ops.device):
-        new_ops = get_current_ops()
-        assert id(new_ops) == dev_id
-    with use_device("gpu"):
-        new_ops = get_current_ops()
-        assert id(new_ops) != dev_id
-    new_ops = get_current_ops()
-    assert id(new_ops) == dev_id
-
-
 def test_model_can_save_to_disk(model_with_no_args):
     with make_tempdir() as path:
         model_with_no_args.to_disk(path / "thinc_model")
@@ -167,6 +155,23 @@ def test_model_can_load_from_disk(model_with_no_args):
         model_with_no_args.to_disk(path / "thinc_model")
         m2 = model_with_no_args.from_disk(path / "thinc_model")
     assert model_with_no_args.to_bytes() == m2.to_bytes()
+
+
+def test_change_attr_values(model_with_no_args):
+    model = model_with_no_args
+    model.name = "target"
+    model.set_attr("has_var", False)
+    change_attr_values(model, {"target": {"has_var": True, "error": True}})
+    assert model.get_attr("has_var") is True
+    assert not model.has_attr("error")
+
+
+def test_set_dropout(model_with_no_args):
+    model = model_with_no_args
+    model.name = "dropout"
+    model.set_attr("rate", 0.0)
+    set_dropout_rate(model, 0.2)
+    assert model.get_attr("rate") == 0.2
 
 
 def test_bind_plus():
@@ -186,9 +191,6 @@ def test_plus_chain():
         assert m.name == "a"
 
 
-# TODO: This currently causes a n AttributeError in the first thread. The error
-# isn't raised in the test (because threading) but it's written to stdout.
-@pytest.mark.skip(reason="need to fix error")
 def test_overload_operators_in_subthread():
     """Test we can create a model in a child thread with overloaded operators."""
     # Worker1 will start and run, while worker 2 sleeps after Model.define_operators.
@@ -328,3 +330,26 @@ def test_all_operators(op):
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
     assert Model._thread_local.operators == {}
+
+
+def test_unique_id_multithreading():
+    """Create a bunch of threads and assert they all get unique IDs"""
+
+    list_of_ids = []
+
+    def get_model_id(id_list, index):
+        id_list.append(create_model(name=f"worker{index}").id)
+
+    counter = 0
+    while len(list_of_ids) < 1000:
+        workers = []
+        for i in range(50):
+            w = threading.Thread(target=get_model_id, args=(list_of_ids, counter))
+            workers.append(w)
+            counter += 1
+        for w in workers:
+            w.start()
+        for w in workers:
+            w.join()
+
+    assert len(list_of_ids) == len(list(set(list_of_ids)))

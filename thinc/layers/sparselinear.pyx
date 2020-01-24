@@ -30,12 +30,13 @@ def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
         dims={"nO": nO, "length": length},
         ops=NumpyOps()
     )
-    if nO is not None:
-        model.initialize()
     return model
 
 
-def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
+@cython.binding(True)
+def forward(model: Model, keys_values_lengths: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    # NB: We can't have generic Model annotation if we want function to
+    # be bound (and inspectable): https://github.com/cython/cython/issues/2753
     keys, values, lengths = keys_values_lengths
     if is_cupy_array(keys):
         # Currently we don't have a GPU-compatible implementation of this function :(
@@ -45,13 +46,14 @@ def forward(model: Model[InT, OutT], keys_values_lengths: InT, is_train: bool) -
         return _begin_cpu_update(model, keys, values, lengths)
 
 
-def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None) -> Model[InT, OutT]:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     length = model.get_dim("length")
     model.set_param("W", model.ops.alloc((nO * length,), dtype="f"))
     model.set_param("b", model.ops.alloc((nO,), dtype="f"))
+    return model
 
 
 def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:

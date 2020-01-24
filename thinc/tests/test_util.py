@@ -1,8 +1,7 @@
 import pytest
 import numpy
-from thinc.api import get_width, Ragged, Padded, minibatch, get_shuffled_batches
-from thinc.api import Linear, evaluate_model_on_arrays, to_categorical
-from thinc.util import get_array_module, is_numpy_array, fix_random_seed
+from thinc.api import get_width, Ragged, Padded
+from thinc.util import get_array_module, is_numpy_array, to_categorical
 from thinc.util import convert_recursive
 from thinc.types import ArgsKwargs
 
@@ -15,7 +14,15 @@ from thinc.types import ArgsKwargs
         (numpy.array([1, 2]), 3),
         ([numpy.zeros((1, 2)), numpy.zeros((1))], 2),
         (Ragged(numpy.zeros((1, 2)), numpy.zeros(1)), 2),
-        (Padded(numpy.zeros((2, 1, 2)), numpy.zeros(2), [1, 0], [0, 1]), 2),
+        (
+            Padded(
+                numpy.zeros((2, 1, 2)),
+                numpy.zeros(2),
+                numpy.array([1, 0]),
+                numpy.array([0, 1]),
+            ),
+            2,
+        ),
         ([], 0),
     ],
 )
@@ -34,38 +41,6 @@ def test_array_module_cpu_gpu_helpers():
     assert hasattr(xp, "ndarray")
     assert is_numpy_array(numpy.zeros((1, 2)))
     assert not is_numpy_array((1, 2))
-
-
-def test_minibatch():
-    items = [1, 2, 3, 4, 5, 6]
-    batches = minibatch(items, 3)
-    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
-    batches = minibatch(items, (i for i in (3, 2, 1)))
-    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
-    items = (i for i in range(1, 7))
-    batches = minibatch(items, 3)
-    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
-    items = (i for i in range(1, 7))
-    batches = minibatch(items, (i for i in (3, 2, 1, 1)))
-    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
-
-
-def test_get_shuffled_batches():
-    fix_random_seed(0)
-    arr1 = numpy.asarray([1, 2, 3, 4])
-    arr2 = numpy.asarray([5, 6, 7, 8])
-    batches = list(get_shuffled_batches(arr1, arr2, 2))
-    assert len(batches) == 2
-    assert len(batches[0]) == 2
-    assert len(batches[1]) == 2
-
-
-def test_evaluate_model_on_arrays():
-    inputs = numpy.asarray([1.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
-    labels = numpy.asarray([0.0, 0.0, 0.0, 1.0], dtype="f").reshape((2, 2))
-    model = Linear(inputs.shape[0], inputs.shape[1])
-    model.initialize(inputs, labels)
-    evaluate_model_on_arrays(model, inputs, labels, 2)
 
 
 @pytest.mark.xfail(reason="¯/_(ツ)_/¯")

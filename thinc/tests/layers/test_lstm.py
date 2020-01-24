@@ -1,6 +1,6 @@
 import numpy
 import timeit
-from thinc.api import minibatch, NumpyOps, LSTM, PyTorchLSTM, with_padded
+from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
 from thinc.util import has_torch
 import pytest
 
@@ -38,7 +38,7 @@ def test_list2padded():
 
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
-    model = with_padded(LSTM(nO, nI))
+    model = with_padded(LSTM(nO, nI)).initialize()
     for node in model.walk():
         # Check no unallocated params.
         assert node.has_param("W") is not None
@@ -61,37 +61,43 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert initial_cells.shape == (nO,)
 
 
+#@pytest.mark.xfail(reason="validation, TODO: fix")
 def test_LSTM_fwd_bwd_shapes(nO, nI):
     nO = 1
     nI = 2
-    model = with_padded(LSTM(nO, nI))
-
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
+    model = with_padded(LSTM(nO, nI)).initialize(X=[X])
     ys, backprop_ys = model([X], is_train=False)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
 
 def test_LSTM_learns():
+    fix_random_seed(0)
+
     nO = 2
     nI = 2
-    model = with_padded(LSTM(nO, nI))
 
-    def sgd(weights, gradient, key=None):
+    def sgd(key, weights, gradient):
         weights -= 0.001 * gradient
-        gradient.fill(0.0)
-        return weights, gradient
+        return weights, gradient * 0
 
-    X = numpy.asarray([[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]], dtype="f")
-    Y = numpy.asarray([[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]], dtype="f")
-    Yhs, bp_Yhs = model.begin_update([X])
-    loss1 = ((Yhs[0] - Y) ** 2).sum()
-    Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y])
+    model = with_padded(LSTM(nO, nI))
+    X = [[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]
+    Y = [[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]]
+    X = [model.ops.asarray(x).reshape((1, -1)) for x in X]
+    Y = [model.ops.asarray(y).reshape((1, -1)) for y in Y]
+    model = model.initialize(X, Y)
+    Yhs, bp_Yhs = model.begin_update(X)
+    loss1 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
+    Yhs, bp_Yhs = model.begin_update(X)
+    dYhs = [yh - y for yh, y in zip(Yhs, Y)]
+    dXs = bp_Yhs(dYhs)
     model.finish_update(sgd)
-    Yhs, bp_Yhs = model.begin_update([X])
-    dXs = bp_Yhs([Yhs[0] - Y])  # noqa: F841
-    loss2 = ((Yhs[0] - Y) ** 2).sum()
+    Yhs, bp_Yhs = model.begin_update(X)
+    dYhs = [yh - y for yh, y in zip(Yhs, Y)]
+    dXs = bp_Yhs(dYhs)  # noqa: F841
+    loss2 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])
     assert loss1 > loss2, (loss1, loss2)
 
 
@@ -106,7 +112,8 @@ def test_benchmark_LSTM_fwd():
     lengths = numpy.maximum(lengths, 1)
     batches = []
     uniform_lengths = False
-    for batch_lengths in minibatch(lengths, batch_size):
+    model = with_padded(LSTM(nO, nI)).initialize()
+    for batch_lengths in model.ops.minibatch(batch_size, lengths):
         batch_lengths = list(batch_lengths)
         if uniform_lengths:
             seq_len = max(batch_lengths)
@@ -124,7 +131,6 @@ def test_benchmark_LSTM_fwd():
                 for seq_len in batch_lengths
             ]
         batches.append(batch)
-    model = with_padded(LSTM(nO, nI))
     start = timeit.default_timer()
     for Xs in batches:
         ys, bp_ys = model.begin_update(list(Xs))
@@ -138,7 +144,7 @@ def test_benchmark_LSTM_fwd():
 
 
 def test_lstm_init():
-    model = with_padded(LSTM(2, bi=True))
+    model = with_padded(LSTM(2, 2, bi=True)).initialize()
     model.initialize()
     with pytest.raises(NotImplementedError):
         with_padded(LSTM(2, dropout=0.2))
@@ -146,5 +152,5 @@ def test_lstm_init():
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 def test_pytorch_lstm_init():
-    model = with_padded(PyTorchLSTM(2, 2, depth=0))
+    model = with_padded(PyTorchLSTM(2, 2, depth=0)).initialize()
     assert model.name.endswith("noop")

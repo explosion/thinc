@@ -23,9 +23,12 @@ Shape = Tuple[int, ...]
 DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
 DTypesFloat = Literal["f", "float32"]
 DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
-DeviceTypes = Union[int, Literal["numpy", "cupy", "cpu", "gpu"]]
+OpsNames = Literal["numpy", "cupy", "jax"]
+DeviceTypes = Literal["cpu", "gpu", "tpu"]
 ArrayT = TypeVar("ArrayT", bound="Array")
-Reduced_OutT = TypeVar("Reduced_OutT")
+XY_YZ_OutT = TypeVar("XY_YZ_OutT")
+XY_XY_OutT = TypeVar("XY_XY_OutT")
+Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
 
 
 class Array(Generic[ArrayT], Sized, Container):
@@ -381,6 +384,10 @@ class Array(Generic[ArrayT], Sized, Container):
     ) -> ArrayT:
         ...
 
+    @classmethod
+    def __get_validators__(cls):
+        yield validate_array
+
 
 class NumpyArray(Array):
     pass
@@ -516,6 +523,7 @@ class Doc(Sized, Container):
 
 
 InFunc = TypeVar("InFunc")
+Wrapper = Callable[[InFunc], InFunc]
 
 
 class Decorator(Protocol):
@@ -525,14 +533,20 @@ class Decorator(Protocol):
         ...
 
 
-# This should probably become a dataclass too.
-RNNState = Tuple[Tuple[Array2d, Array2d], Array2d]
-
-
 @dataclass
-class Ragged:
-    data: Array2d
-    lengths: Array1d
+class SizedGenerator:
+    """A generator that has a __len__ and can repeatedly call the generator
+    function.
+    """
+
+    get_items: Callable[[], Generator]
+    length: int
+
+    def __len__(self):
+        return self.length
+
+    def __iter__(self):
+        yield from self.get_items()
 
 
 @dataclass
@@ -546,8 +560,116 @@ class Padded:
 
     data: Array3d
     size_at_t: Array1d
-    lengths: List[int]
-    indices: List[int]
+    lengths: Array1d
+    indices: Array1d
+
+    def __len__(self) -> int:
+        return self.lengths.shape[0]
+
+    def __getitem__(self, index) -> "Padded":
+        if isinstance(index, int):
+            # Slice to keep the dimensionality
+            return Padded(
+                self.data[:, index : index + 1],
+                self.lengths[index : index + 1],
+                self.lengths[index : index + 1],
+                self.indices[index : index + 1],
+            )
+        elif isinstance(index, slice):
+            return Padded(
+                self.data[:, index],
+                self.lengths[index],
+                self.lengths[index],
+                self.indices[index],
+            )
+        else:
+            # If we get a sequence of indices, we need to be careful that
+            # we maintain the length-sorting, while also keeping the mapping
+            # back to the original order correct.
+            sorted_index = list(sorted(index))
+            return Padded(
+                self.data[sorted_index],
+                self.size_at_t[sorted_index],
+                self.lengths[sorted_index],
+                self.indices[index],  # Use original, to maintain order.
+            )
+
+
+@dataclass
+class Ragged:
+    """A batch of concatenated sequences, that vary in the size of their
+    first dimension. Ragged allows variable-length sequence data to be contiguous
+    in memory, without padding.
+
+    Indexing into Ragged is just like indexing into the *lengths* array, except
+    it returns a Ragged object with the accompanying sequence data. For instance,
+    you can write ragged[1:4] to get a Ragged object with sequences 1, 2 and 3.
+    """
+
+    data: Array2d
+    lengths: Array1d
+    _cumsums: Optional[Array1d] = None
+
+    def __len__(self) -> int:
+        return self.lengths.shape[0]
+
+    def __getitem__(self, index: Union[int, slice, Array]) -> "Ragged":
+        from .util import get_array_module  # prevent circular imports
+
+        if isinstance(index, tuple):
+            raise IndexError("Ragged arrays do not support 2d indexing.")
+        starts = self._get_starts()
+        ends = self._get_ends()
+        if isinstance(index, int):
+            s = starts[index]
+            e = ends[index]
+            return Ragged(self.data[s:e], self.lengths[index : index + 1])
+        elif isinstance(index, slice):
+            lengths = self.lengths[index]
+            cumsums = self._get_cumsums()
+            start = cumsums[index.start - 1] if index.start >= 1 else 0
+            end = start + lengths.sum()
+            return Ragged(self.data[start:end], lengths)
+        else:
+            # There must be a way to do this "properly" :(. Sigh, hate numpy.
+            xp = get_array_module(self.data)
+            data = xp.vstack([self[int(i)].data for i in index])
+            return Ragged(data, self.lengths[index])
+
+    def _get_cumsums(self) -> Array1d:
+        if self._cumsums is None:
+            self._cumsums = self.lengths.cumsum()
+        return self._cumsums
+
+    def _get_starts(self) -> Array1d:
+        from .util import get_array_module
+
+        cumsums = self._get_cumsums()
+        xp = get_array_module(cumsums)
+        zero = xp.array([0], dtype="i")
+        return xp.concatenate((zero, cumsums[:-1]))
+
+    def _get_ends(self) -> Array1d:
+        return self._get_cumsums()
+
+
+_P = TypeVar("_P", bound=Sequence)
+
+
+@dataclass
+class Pairs(Generic[_P]):
+    """Dataclass for pairs of sequences that allows indexing into the sequences
+    while keeping them aligned.
+    """
+
+    one: _P
+    two: _P
+
+    def __getitem__(self, index) -> "Pairs[_P]":
+        return Pairs(self.one[index], self.two[index])
+
+    def __len__(self) -> int:
+        return len(self.one)
 
 
 @dataclass

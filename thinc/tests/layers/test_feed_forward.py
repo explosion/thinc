@@ -2,7 +2,7 @@ import pytest
 import numpy
 from functools import partial
 from numpy.testing import assert_allclose
-from thinc.api import chain, Linear, ReLu
+from thinc.api import chain, Linear, ReLu, NumpyOps
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -27,13 +27,13 @@ def nO(request):
 
 @pytest.fixture
 def model1(nH, nI):
-    model = ReLu(nH, nI)
+    model = ReLu(nH, nI).initialize()
     return model
 
 
 @pytest.fixture
 def model2(nO, nH):
-    model = Linear(nO, nH)
+    model = Linear(nO, nH).initialize()
     return model
 
 
@@ -49,13 +49,14 @@ def gradient_data(nB, nO):
 
 @pytest.fixture
 def model(model1, model2):
-    return chain(model1, model2)
+    return chain(model1, model2).initialize()
 
 
 def get_expected_predict(input_data, Ws, bs):
+    numpy_ops = NumpyOps()
     X = input_data
     for i, (W, b) in enumerate(zip(Ws, bs)):
-        X = numpy.ascontiguousarray(X)
+        X = numpy_ops.asarray(X)
         if i > 0:
             X *= X > 0
         X = numpy.tensordot(X, W, axes=[[1], [1]]) + b

@@ -4,7 +4,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Array2d
 from ..initializers import uniform_init
-from ..util import get_width
+from ..util import get_width, partial
 
 
 InT = Array2d
@@ -14,23 +14,20 @@ OutT = Array2d
 @registry.layers("Embed.v0")
 def Embed(
     nO: Optional[int] = None,
-    nV: int = 1,
+    nV: Optional[int] = None,
     *,
     column: int = 0,
     initializer: Callable = uniform_init,
 ) -> Model[InT, OutT]:
     """Map integers to vectors, using a fixed-size lookup table."""
-    model: Model[InT, OutT] = Model(
+    return Model(
         "embed",
         forward,
-        init=create_init(initializer),
+        init=partial(init, initializer),
         dims={"nO": nO, "nV": nV},
         attrs={"column": column},
         params={"E": None},
     )
-    if nO is not None:
-        model.initialize()
-    return model
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
@@ -40,27 +37,27 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
         ids = ids[:, column]
-    ids[ids >= nV] = 0
-    output = vectors[ids]
+    ids *= ids < nV
+    output = vectors[ids.astype("i")]
 
     def backprop(d_output: OutT) -> InT:
         d_vectors = model.ops.alloc_f2d(*vectors.shape)
         model.ops.scatter_add(d_vectors, ids, d_output)
         model.inc_grad("E", d_vectors)
-        dX = model.ops.alloc(input_shape, dtype=ids.dtype)
+        dX: OutT = model.ops.alloc(input_shape, dtype=ids.dtype)
         return dX
 
     return output, backprop
 
 
-def create_init(initializer: Callable) -> Callable:
-    def init(
-        model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-    ) -> None:
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        shape = (model.get_dim("nV"), model.get_dim("nO"))
-        vectors = initializer(model.ops.alloc_f2d(*shape))
-        model.set_param("E", vectors)
-
-    return init
+def init(
+    initializer: Callable,
+    model: Model[InT, OutT],
+    X: Optional[InT] = None,
+    Y: Optional[OutT] = None,
+) -> Model[InT, OutT]:
+    if Y is not None:
+        model.set_dim("nO", get_width(Y))
+    shape = (model.get_dim("nV"), model.get_dim("nO"))
+    model.set_param("E", initializer(model.ops, shape))
+    return model

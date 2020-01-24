@@ -25,7 +25,7 @@ def check_learns_zero_output(model, sgd, X, Y):
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_unwrapped(nN, nI, nO):
-    model = Linear(nO, nI)
+    model = Linear(nO, nI).initialize()
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
     sgd = SGD(0.001)
@@ -38,7 +38,7 @@ def test_unwrapped(nN, nI, nO):
 def test_wrapper(nN, nI, nO):
     import torch.nn
 
-    model = PyTorchWrapper(torch.nn.Linear(nI, nO))
+    model = PyTorchWrapper(torch.nn.Linear(nI, nO)).initialize()
     sgd = SGD(0.001)
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)

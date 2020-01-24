@@ -2,9 +2,10 @@ from typing import Tuple, Callable, Optional, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Array2d, Array1d
 from ..util import get_width
 from .noop import noop
+from ..types import XY_XY_OutT
 
 
 InT = TypeVar("InT", bound=Array2d)
@@ -12,13 +13,13 @@ OutT = TypeVar("OutT", bound=Array2d)
 
 
 @registry.layers("concatenate.v0")
-def concatenate(*layers: Model) -> Model[InT, OutT]:
+def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
     Also supports chaining more than 2 layers.
     """
     if not layers:
-        return cast(Model[InT, OutT], noop())
+        return cast(Model[InT, XY_XY_OutT], noop())
     elif len(layers) == 1:
         return layers[0]
     elif layers[0]._func is forward:
@@ -36,6 +37,15 @@ def concatenate(*layers: Model) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
+    if isinstance(Ys[0], list):
+        return _list_forward(model, X, Ys, callbacks, is_train)
+    else:
+        return _array_forward(model, X, Ys, callbacks, is_train)
+
+
+def _array_forward(
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
     widths = [Y.shape[1] for Y in Ys]
     output = model.ops.xp.hstack(Ys)
 
@@ -52,9 +62,34 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     return output, backprop
 
 
+def _list_forward(
+    model: Model[InT, OutT], X, Ys, callbacks, is_train: bool
+) -> Tuple[OutT, Callable]:
+    lengths: Array1d = model.ops.asarray([len(x) for x in X], dtype="i")
+    Ys = [model.ops.xp.concatenate(Y, axis=0) for Y in Ys]
+    widths = [Y.shape[1] for Y in Ys]
+    output = model.ops.xp.hstack(Ys)
+    output = model.ops.unflatten(output, lengths)
+
+    def backprop(d_output: OutT) -> InT:
+        d_output = model.ops.xp.concatenate(d_output, axis=0)
+        dY = model.ops.as_contig(d_output[:, : widths[0]])
+        dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
+        dX = callbacks[0](dY)
+        start = widths[0]
+        for bwd, width in zip(callbacks[1:], widths[1:]):
+            dY = model.ops.as_contig(d_output[:, start : start + width])
+            dY = model.ops.asarray(model.ops.unflatten(dY, lengths))
+            dX += bwd(dY)
+            start += width
+        return dX
+
+    return output, backprop
+
+
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     if X is not None:
         X_width = get_width(X)
         model.set_dim("nI", X_width)
@@ -62,4 +97,6 @@ def init(
             layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
-    model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
+    if None not in [layer.has_dim("nO") for layer in model.layers]:
+        model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
+    return model

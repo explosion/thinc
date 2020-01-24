@@ -3,6 +3,9 @@ import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
+from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
+from thinc.api import fix_random_seed
+import inspect
 
 from .. import strategies
 
@@ -11,11 +14,62 @@ MAX_EXAMPLES = 10
 
 VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
+BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
+if has_jax:
+    CPU_OPS.append(JaxOps())
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
+
+
+@pytest.mark.parametrize("op", [NumpyOps, CupyOps, JaxOps])
+def test_ops_consistency(op):
+    """Test that specific ops don't define any methods that are not on the
+    Ops base class and that all ops methods define the exact same arguments."""
+    attrs = [m for m in dir(op) if not m.startswith("_")]
+    for attr in attrs:
+        assert hasattr(Ops, attr)
+        method = getattr(op, attr)
+        if hasattr(method, "__call__"):
+            sig = inspect.signature(method)
+            params = [p for p in sig.parameters][1:]
+            base_sig = inspect.signature(getattr(Ops, attr))
+            base_params = [p for p in base_sig.parameters][1:]
+            assert params == base_params, attr
+            defaults = [p.default for p in sig.parameters.values()][1:]
+            base_defaults = [p.default for p in base_sig.parameters.values()][1:]
+            assert defaults == base_defaults, attr
+            # If args are type annotated, their types should be the same
+            annots = [p.annotation for p in sig.parameters.values()][1:]
+            base_annots = [p.annotation for p in base_sig.parameters.values()][1:]
+            for i, (p1, p2) in enumerate(zip(annots, base_annots)):
+                if p1 != inspect.Parameter.empty and p2 != inspect.Parameter.empty:
+                    assert p1 == p2, attr
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+def test_alloc(ops):
+    float_methods = (ops.alloc_f1d, ops.alloc_f2d, ops.alloc_f3d, ops.alloc_f4d)
+    for i, method in enumerate(float_methods):
+        shape = (1,) * (i + 1)
+        arr = method(*shape)
+        assert arr.dtype == numpy.float32
+        assert arr.ndim == len(shape)
+        arr = ops.alloc_f(shape)
+        assert arr.dtype == numpy.float32
+        assert arr.ndim == len(shape)
+    int_methods = (ops.alloc_i1d, ops.alloc_i2d, ops.alloc_i3d, ops.alloc_i4d)
+    for i, method in enumerate(int_methods):
+        shape = (1,) * (i + 1)
+        arr = method(*shape)
+        assert arr.dtype == numpy.int32
+        assert arr.ndim == len(shape)
+        arr = ops.alloc_i(shape)
+        assert arr.dtype == numpy.int32
+        assert arr.ndim == len(shape)
+    assert ops.alloc(1).ndim == 1
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
@@ -50,11 +104,11 @@ def test_get_dropout_not_empty(ops):
     assert mask.shape == shape
 
 
-@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("ops", CPU_OPS)
 def test_seq2col_window_one_small(ops):
     seq = ops.asarray([[1.0], [3.0], [4.0], [5]], dtype="float32")
     cols = ops.seq2col(seq, 1)
-    if not isinstance(cols, numpy.ndarray):
+    if hasattr(cols, "get"):
         cols = cols.get()
     assert_allclose(cols[0], [0.0, 1.0, 3.0])
     assert_allclose(cols[1], [1.0, 3.0, 4.0])
@@ -83,7 +137,8 @@ def test_seq2col_window_one(ops, X):
     X = ops.asarray(X)
     base_ops = Ops()
     base_ops.xp = ops.xp
-    target = base_ops.seq2col(X, nW=1)
+    baseX = base_ops.alloc(X.shape) + X
+    target = base_ops.seq2col(base_ops.asarray(baseX), nW=1)
     predicted = ops.seq2col(X, nW=1)
     ops.xp.testing.assert_allclose(target, predicted, atol=0.001, rtol=0.001)
 
@@ -165,12 +220,12 @@ def test_backprop_seq2col_window_two(ops):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
-def test_backprop_sum_pool(ops, X):
+def test_backprop_reduce_sum(ops, X):
     X = ops.asarray(X)
     if ops.xp.abs(X).max() >= 5:
         return None
     lengths = ops.asarray([3] * len(X), dtype="i")
-    out = ops.backprop_sum_pool(X, lengths)
+    out = ops.backprop_reduce_sum(X, lengths)
     assert out.shape == (sum(lengths), X.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -194,12 +249,12 @@ def test_softmax_sums_to_one(ops, X):
 @given(X=strategies.arrays_BI())
 def test_softmax_works_inplace(ops, X):
     X = ops.asarray(X)
-    ops.softmax(X, inplace=True)
+    X = ops.softmax(X, inplace=True)
     for row in X:
         assert 0.99999 <= row.sum() <= 1.00001
 
 
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
+@pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
 def test_gemm_computes_correctly(cpu_ops):
     W = numpy.zeros((3, 2), dtype="f")
     X = numpy.zeros((4, 2), dtype="f")
@@ -221,27 +276,6 @@ def test_gemm_computes_correctly(cpu_ops):
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
-def test_clip_low_computes_correctly_for_zero(cpu_ops, X):
-    expected = X * (X > 0.0)
-    y = cpu_ops.clip_low(X, 0.0)
-    assert_allclose(expected, y)
-    cpu_ops.clip_low(X, 0.0, inplace=True)
-
-
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BOP())
-def test_take_which_computes_correctly(cpu_ops, X):
-    which = numpy.argmax(X, axis=-1)
-    best = cpu_ops.take_which(X, which)
-    for i in range(best.shape[0]):
-        for j in range(best.shape[1]):
-            assert best[i, j] == max(X[i, j])
-
-
-@pytest.mark.parametrize("cpu_ops", CPU_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
 def test_flatten_unflatten_roundtrip(cpu_ops, X):
     flat = cpu_ops.flatten([x for x in X])
     assert flat.ndim == 1
@@ -254,22 +288,20 @@ def test_flatten_unflatten_roundtrip(cpu_ops, X):
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
-def test_sum_pool(ops):
+def test_reduce_sum(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += 1
     lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
-    output = ops.sum_pool(m, lengths)
+    output = ops.reduce_sum(m, lengths)
     assert output.sum() == m.sum(), (output.sum(), m.sum())
 
 
-@pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
-)
-def test_max_pool_sm(ops):
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_reduce_max_sm(ops):
     X = ops.xp.zeros((6, 3), dtype="f")
     X += ops.xp.random.uniform(-1, 1, X.shape)
     lengths = ops.xp.array([2, 2, 2], dtype="i")
-    maxes, which = ops.max_pool(X, lengths)
+    maxes, which = ops.reduce_max(X, lengths)
     start = 0
     for i, length in enumerate(lengths):
         truth = X[start : start + length].max(axis=0)
@@ -277,47 +309,20 @@ def test_max_pool_sm(ops):
         start += length
 
 
-@pytest.mark.parametrize(
-    "ops", [*XP_OPS, pytest.param(VANILLA_OPS, marks=pytest.mark.xfail("Ops.max_pool"))]
-)
-def test_max_pool(ops):
+@pytest.mark.parametrize("ops", XP_OPS)
+def test_reduce_max(ops):
     m = ops.xp.zeros((19, 5), dtype="f")
     m += ops.xp.random.uniform(-1, 1, m.shape)
     lengths = ops.xp.array([5, 5, 3, 6], dtype="i")
     # m[4, 0] = 1
     # m[0, 1] = 2
     # m[1, 3] = 3
-    maxes, which = ops.max_pool(m, lengths)
+    maxes, which = ops.reduce_max(m, lengths)
     start = 0
     for i, length in enumerate(lengths):
         truth = m[start : start + length].max(axis=0)
         ops.xp.testing.assert_allclose(maxes[i], truth)
         start += length
-
-
-@pytest.mark.parametrize("ops", ALL_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_softplus(ops, X):
-    X = ops.asarray(X)
-    Y = ops.softplus(X)
-    assert Y.shape == X.shape
-    assert not ops.xp.isnan(Y).any()
-    assert not (Y == 0).any()
-    ops.softplus(X, out=X)
-
-
-@pytest.mark.parametrize("ops", ALL_OPS)
-@settings(max_examples=MAX_EXAMPLES, deadline=None)
-@given(X=strategies.arrays_BI())
-def test_backprop_softplus(ops, X):
-    X = ops.asarray(X)
-    # Test zero gradients result in 0 dX
-    zeros = ops.alloc(X.shape)
-    dX = ops.backprop_softplus(zeros, X)
-    assert dX.shape == X.shape
-    assert (dX == 0).all()
-    ops.backprop_softplus(zeros, X, out=X)
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -343,15 +348,68 @@ def test_backprop_mish(ops, X):
 
 
 def test_get_ops():
-    Ops = get_ops("numpy")
-    Ops is NumpyOps
-    Ops = get_ops("cpu")
-    assert Ops is NumpyOps
-    Ops = get_ops("cupy")
-    assert Ops is CupyOps
-    Ops = get_ops("gpu")
-    assert Ops is CupyOps
+    assert isinstance(get_ops("numpy"), NumpyOps)
+    assert isinstance(get_ops("cupy"), CupyOps)
+    assert isinstance(get_ops("jax"), JaxOps)
     with pytest.raises(ValueError):
-        Ops = get_ops("blah")
+        get_ops("blah")
     ops = Ops(numpy)
     assert ops.xp == numpy
+
+
+def test_use_ops():
+    class_ops = get_current_ops()
+    assert class_ops.name == "numpy"
+    with use_ops("numpy"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "numpy"
+    with use_ops("cupy"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "cupy"
+    with use_ops("jax"):
+        new_ops = get_current_ops()
+        assert new_ops.name == "jax"
+    new_ops = get_current_ops()
+    assert new_ops.name == "numpy"
+
+
+def test_minibatch():
+    fix_random_seed(0)
+    ops = get_current_ops()
+    items = [1, 2, 3, 4, 5, 6]
+    batches = ops.minibatch(3, items)
+    assert list(batches) == [[1, 2, 3], [4, 5, 6]]
+    batches = ops.minibatch((i for i in (3, 2, 1)), items)
+    assert list(batches) == [[1, 2, 3], [4, 5], [6]]
+    batches = list(ops.minibatch(3, numpy.asarray(items)))
+    assert isinstance(batches[0], numpy.ndarray)
+    assert numpy.array_equal(batches[0], numpy.asarray([1, 2, 3]))
+    assert numpy.array_equal(batches[1], numpy.asarray([4, 5, 6]))
+    batches = list(ops.minibatch((i for i in (3, 2, 1)), items, shuffle=True))
+    assert batches != [[1, 2, 3], [4, 5], [6]]
+    assert len(batches[0]) == 3
+    assert len(batches[1]) == 2
+    assert len(batches[2]) == 1
+    with pytest.raises(ValueError):
+        ops.minibatch(10, (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.minibatch(10, True)
+
+
+def test_multibatch():
+    fix_random_seed(0)
+    ops = get_current_ops()
+    arr1 = numpy.asarray([1, 2, 3, 4])
+    arr2 = numpy.asarray([5, 6, 7, 8])
+    batches = list(ops.multibatch(2, arr1, arr2))
+    assert numpy.concatenate(batches).tolist() == [[1, 2], [5, 6], [3, 4], [7, 8]]
+    batches = list(ops.multibatch(2, arr1, arr2, shuffle=True))
+    assert len(batches) == 2
+    assert len(batches[0]) == 2
+    assert len(batches[1]) == 2
+    batches = list(ops.multibatch(2, [1, 2, 3, 4], [5, 6, 7, 8]))
+    assert batches == [[[1, 2], [5, 6]], [[3, 4], [7, 8]]]
+    with pytest.raises(ValueError):
+        ops.multibatch(10, (i for i in range(100)), (i for i in range(100)))
+    with pytest.raises(ValueError):
+        ops.multibatch(10, arr1, (i for i in range(100)), arr2)

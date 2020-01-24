@@ -2,7 +2,7 @@ from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Padded, Ragged
+from ..types import Array1d, Array2d, Padded, Ragged
 
 
 ValT = TypeVar("ValT", bound=Array2d)
@@ -43,13 +43,13 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> None:
+) -> Model[SeqT, SeqT]:
     layer: Model[Array2d, Array2d] = model.layers[0]
-
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
         Y=_get_array(model, Y) if Y is not None else Y,
     )
+    return model
 
 
 def _get_array(model, X: SeqT) -> Array2d:
@@ -68,7 +68,7 @@ def _list_forward(
 ) -> Tuple[List[Array2d], Callable]:
     layer = model.layers[0]
     pad = model.get_attr("pad")
-    lengths = layer.ops.asarray([len(seq) for seq in Xs])
+    lengths: Array1d = layer.ops.asarray([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 

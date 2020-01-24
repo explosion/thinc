@@ -1,6 +1,5 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
-from .types import Decorator
 from configparser import ConfigParser, ExtendedInterpolation
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
@@ -10,6 +9,8 @@ import srsly
 import catalogue
 import inspect
 import io
+
+from .types import Decorator
 
 
 def get_configparser():
@@ -48,6 +49,10 @@ class Config(dict):
             node = self
             for part in parts:
                 node = node.setdefault(part, {})
+            if not isinstance(node, dict):
+                # Happens if both value *and* subsection were defined for a key
+                err = [{"loc": parts, "msg": "found conflicting values"}]
+                raise ConfigValidationError(f"{self}\n{({part: dict(values)})}", err)
             for key, value in values.items():
                 node[key] = srsly.json_loads(config.get(section, key))
 
@@ -142,6 +147,7 @@ class registry(object):
     layers: Decorator = catalogue.create("thinc", "layers", entry_points=True)
     losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
     initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
+    datasets: Decorator = catalogue.create("thinc", "datasets", entry_points=True)
     # fmt: on
 
     @classmethod
@@ -268,12 +274,12 @@ class registry(object):
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
                     # If the value of variable positional args is a dict (e.g.
                     # created via config blocks), only use its values
-                    filled[key] = list(filled[key].values())
                     validation[key] = list(validation[key].values())
                     final[key] = list(final[key].values())
             else:
                 filled[key] = value
-                validation[key] = value
+                # TODO: unhack this fix to prevent pydantic from consuming generator
+                validation[key] = value if not isinstance(value, GeneratorType) else []
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
@@ -379,4 +385,4 @@ class registry(object):
         return create_model("ArgModel", **sig_args)
 
 
-__all__ = ["Config", "registry"]
+__all__ = ["Config", "registry", "ConfigValidationError"]

@@ -5,11 +5,13 @@ import srsly
 from pathlib import Path
 import copy
 import functools
+import threading
 
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import get_width, create_thread_local
+from .util import create_thread_local, convert_recursive, is_xp_array
+from .util import partial, validate_fwd_input_output
 from .types import Array
 
 
@@ -17,36 +19,26 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-def create_init(initializers: Dict[str, Callable]) -> Callable:
-    """Create an init function, given a dictionary of parameter initializers."""
+def empty_init(model: "Model", *args, **kwargs) -> "Model":
+    return model
 
-    def init(
-        model: Model, X: Optional[Array] = None, Y: Optional[Array] = None
-    ) -> None:
-        if X is not None:
-            model.set_dim("nI", get_width(X))
-        if Y is not None:
-            model.set_dim("nO", get_width(Y))
-        W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nI"))
-        b = model.ops.alloc_f1d(model.get_dim("nO"))
-        if "W" in initializers:
-            initializers["W"](W, inplace=True)
-        if "b" in initializers:
-            initializers["b"](b, inplace=True)
-        model.set_param("W", W)
-        model.set_param("b", b)
 
-    return init
+class ModelThreadState(threading.local):
+    operators: Dict[str, Callable[["Model", "Model"], "Model"]]
+
+    def __init__(self):
+        self.operators = {}
 
 
 class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
     global_id: int = 0
-    _thread_local = create_thread_local({"operators": {}})
+    global_id_lock: threading.Lock = threading.Lock()
+    _thread_local = create_thread_local({"operators": {}}, ModelThreadState)
 
     name: str
-    ops: Union[NumpyOps, CupyOps]  # TODO: This is wrong, should be Ops
+    ops: Ops
     id: int
     _func: Callable
     _init: Callable
@@ -63,6 +55,7 @@ class Model(Generic[InT, OutT]):
         "name",
         "id",
         "ops",
+        "validate",
         "_func",
         "_init",
         "_params",
@@ -79,7 +72,7 @@ class Model(Generic[InT, OutT]):
         name: str,
         forward: Callable,
         *,
-        init: Callable = lambda *a, **k: None,
+        init: Optional[Callable] = None,
         dims: Dict[str, Optional[int]] = {},
         params: Dict[str, Optional[Array]] = {},
         layers: Sequence["Model"] = [],
@@ -90,6 +83,8 @@ class Model(Generic[InT, OutT]):
     ):
         """Initialize a new model."""
         self.name = name
+        if init is None:
+            init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
         setattr(self, "_init", init)
@@ -102,13 +97,15 @@ class Model(Generic[InT, OutT]):
         self._shims = list(shims)
         # Take care to increment the base class here! It needs to be unique
         # across all models.
-        Model.global_id += 1
+        with Model.global_id_lock:
+            Model.global_id += 1
         self.id = Model.global_id
         self._has_params = {}
         for name, value in params.items():
             self._has_params[name] = None
             if value is not None:
                 self.set_param(name, value)
+        self.validate = True
 
     @property
     def layers(self) -> List["Model"]:
@@ -293,6 +290,8 @@ class Model(Generic[InT, OutT]):
     def initialize(self, X: Optional[InT] = None, Y: Optional[OutT] = None) -> "Model":
         """Finish initialization of the model, optionally providing a batch of
         example input and output data to perform shape inference."""
+        if self.validate:
+            validate_fwd_input_output(self.name, self._func, X, Y)
         if self._init is not None:
             self._init(self, X=X, Y=Y)
         return self
@@ -321,7 +320,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    param, grad = optimizer(param, grad, key=(node.id, name))
+                    param, grad = optimizer((node.id, name), param, grad)
                     node.set_param(name, param)
                     node.set_grad(name, grad)
             for shim in node.shims:
@@ -411,7 +410,7 @@ class Model(Generic[InT, OutT]):
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
-            shims=[shim.copy() for shim in self.shims]
+            shims=[shim.copy() for shim in self.shims],
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
@@ -439,7 +438,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     node.set_grad(name, ops.asarray(node.get_grad(name)))
             for shim in node.shims:
-                shim.to_device(ops.device)
+                shim.to_device(ops.device_type)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually
@@ -447,6 +446,24 @@ class Model(Generic[InT, OutT]):
         on the data and get back a dictionary with the contents.
 
         Serialization should round-trip identically, i.e. the same bytes should
+        result from loading and serializing a model.
+        """
+        msg = self.to_dict()
+        msg = convert_recursive(is_xp_array, self.ops.to_numpy, msg)
+        return srsly.msgpack_dumps(self.to_dict())
+
+    def to_disk(self, path: Union[Path, str]) -> None:
+        """Serialize the model to disk. Most models will serialize to a single
+        file, which should just be the bytes contents of model.to_bytes().
+        """
+        path = Path(path)
+        with path.open("wb") as file_:
+            file_.write(self.to_bytes())
+
+    def to_dict(self) -> Dict:
+        """Serialize the model to a dict representation.
+
+        Serialization should round-trip identically, i.e. the same dict should
         result from loading and serializing a model.
         """
         # We separate out like this to make it easier to read the data in chunks.
@@ -478,13 +495,7 @@ class Model(Generic[InT, OutT]):
             for dim in node.dim_names:
                 dims[dim] = node.get_dim(dim) if node.has_dim(dim) else None
             msg["nodes"].append(
-                {
-                    "index": i,
-                    "id": node.id,
-                    "name": node.name,
-                    "dims": dims,
-                    "refs": refs,
-                }
+                {"index": i, "name": node.name, "dims": dims, "refs": refs}
             )
         for node in nodes:
             attrs = {}
@@ -505,7 +516,7 @@ class Model(Generic[InT, OutT]):
                 else:
                     params[name] = None
             msg["params"].append(params)
-        return srsly.msgpack_dumps(msg)
+        return msg
 
     def from_bytes(self, bytes_data: bytes) -> "Model":
         """Deserialize the model from a bytes representation. Models are usually
@@ -516,36 +527,8 @@ class Model(Generic[InT, OutT]):
         result from loading and serializing a model.
         """
         msg = srsly.msgpack_loads(bytes_data)
-        nodes = list(self.walk())
-        if len(msg["nodes"]) != len(nodes):
-            raise ValueError("Cannot deserialize model: mismatched structure.")
-        for i, node in enumerate(nodes):
-            info = msg["nodes"][i]
-            node.name = info["name"]
-            for dim, value in info["dims"].items():
-                node.set_dim(dim, value)
-            for ref, ref_index in info["refs"].items():
-                if ref_index is None:
-                    node.set_ref(ref, None)
-                else:
-                    node.set_ref(ref, nodes[ref_index])
-            for attr, value in msg["attrs"][i].items():
-                default_value = node.get_attr(attr)
-                loaded_value = deserialize_attr(default_value, value, attr, node)
-                node.set_attr(attr, loaded_value)
-            for param_name, value in msg["params"][i].items():
-                node.set_param(param_name, value)
-            for i, shim_bytes in enumerate(msg["shims"][i]):
-                node.shims[i].from_bytes(shim_bytes)
-        return self
-
-    def to_disk(self, path: Union[Path, str]) -> None:
-        """Serialize the model to disk. Most models will serialize to a single
-        file, which should just be the bytes contents of model.to_bytes().
-        """
-        path = Path(path)
-        with path.open("wb") as file_:
-            file_.write(self.to_bytes())
+        msg = convert_recursive(is_xp_array, self.ops.asarray, msg)
+        return self.from_dict(msg)
 
     def from_disk(self, path: Union[Path, str]) -> "Model":
         """Deserialize the model from disk. Most models will serialize to a single
@@ -555,6 +538,34 @@ class Model(Generic[InT, OutT]):
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
+
+    def from_dict(self, msg: Dict) -> "Model":
+        if "nodes" not in msg.keys():  # pragma: no cover
+            err = "Trying to read a Model that was created with an incompatible version of Thinc"
+            raise ValueError(err)
+        nodes = list(self.walk())
+        if len(msg["nodes"]) != len(nodes):
+            raise ValueError("Cannot deserialize model: mismatched structure")
+        for i, node in enumerate(nodes):
+            info = msg["nodes"][i]
+            node.name = info["name"]
+            for dim, value in info["dims"].items():
+                if value is not None:
+                    node.set_dim(dim, value)
+            for ref, ref_index in info["refs"].items():
+                if ref_index is None:
+                    node.set_ref(ref, None)
+                else:
+                    node.set_ref(ref, nodes[ref_index])
+            for attr, value in msg["attrs"][i].items():
+                default_value = node.get_attr(attr) if node.has_attr(attr) else None
+                loaded_value = deserialize_attr(default_value, value, attr, node)
+                node.set_attr(attr, loaded_value)
+            for param_name, value in msg["params"][i].items():
+                node.set_param(param_name, value)
+            for i, shim_bytes in enumerate(msg["shims"][i]):
+                node.shims[i].from_bytes(shim_bytes)
+        return self
 
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
@@ -659,4 +670,80 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-__all__ = ["create_init", "Model", "serialize_attr", "deserialize_attr"]
+def _jax_flatten_model(model):  # pragma: ignore
+    """A Jax flattener for Thinc models. Registering this (and the paired
+    unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
+
+    The model must have an attr "registered_constructor" that can rebuild the
+    model object via the layers registry, with no arguments. You should use a
+    constructor that doesn't allocate any parameters and works reasonably quickly.
+    """
+    registry_name = model.get_attr("registry_name")
+    msg = model.to_dict()
+    params = msg.pop("params")
+    param_values = []
+    param_keys = []
+    for i, param_info in enumerate(params):
+        for name, value in param_info.items():
+            param_values.append(value)
+            param_keys.append((i, name))
+    # param_values needs to be a flat list of leaf types, e.g. arrays. Notably,
+    # strings are not leaves!
+    # The aux data can be anything, but I think it shouldn't be variables?
+    return param_values, (registry_name, param_keys, msg)
+
+
+def _jax_unflatten_model(info, param_values):  # pragma: ignore
+    """The Jax unflattener, paired with jax_flatten_model"""
+    # This is pretty ugly. But I don't know where I can put this function
+    # that has access to the registry object without causing import circles?
+    from .config import registry
+
+    registry_name, param_keys, msg = info
+    model = registry.layers.get(registry_name)()
+    msg["params"] = [{} for _ in range(len(msg["nodes"]))]
+    for (i, name), value in zip(param_keys, param_values):
+        msg["params"][i][name] = value
+    return model.from_dict(msg)
+
+
+try:  # pragma: no cover
+    import jax.tree_util
+
+    jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
+except ImportError:  # pragma: no cover
+    pass
+
+
+_ModelT = TypeVar("_ModelT", bound=Model)
+
+
+def change_attr_values(model: _ModelT, mapping: Dict[str, Dict[str, Any]]) -> _ModelT:
+    """Walk over the model's nodes, changing the value of attributes using the
+    provided mapping, which maps node names to attr names to attr values.
+    """
+    for node in model.walk():
+        if node.name in mapping:
+            attrs = mapping[node.name]
+            for attr, value in attrs.items():
+                if node.has_attr(attr):
+                    node.set_attr(attr, value)
+    return model
+
+
+def set_dropout_rate(model: _ModelT, drop: float, attrs={"dropout": "rate"}) -> _ModelT:
+    """Walk over the model's nodes, setting the dropout rate. Dropout nodes are
+    identified by name. You can configure the name-to-attribute mapping using
+    the `attrs` dict.
+    """
+    mapping = {name: {attr: drop} for name, attr in attrs.items()}
+    return change_attr_values(model, mapping)
+
+
+__all__ = [
+    "Model",
+    "serialize_attr",
+    "deserialize_attr",
+    "change_attr_values",
+    "set_dropout_rate",
+]

@@ -1,11 +1,11 @@
-from typing import Tuple, Callable, Optional, Union, List
+from typing import Tuple, Callable, Optional, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged, Padded
+from ..types import Array, Array2d, Ragged, Padded
 
 
-InT = Union[List[Array], Ragged, Padded, Array]
+InT = TypeVar("InT", List[Array], Ragged, Padded, Array, Array2d)
 
 
 @registry.layers("residual.v0")
@@ -49,11 +49,11 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
 
 def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
-) -> None:
+) -> Model[InT, InT]:
     first_layer = model.layers[0]
     first_layer.initialize(X=X, Y=Y)
-
     if first_layer.has_dim("nO"):
         model.set_dim("nO", first_layer.get_dim("nO"))
     if first_layer.has_dim("nI"):
         model.set_dim("nI", first_layer.get_dim("nI"))
+    return model

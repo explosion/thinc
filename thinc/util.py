@@ -1,17 +1,29 @@
-from typing import Iterable, Any, Union, Tuple, Iterator, Sequence, cast, Dict
-from typing import Optional, Callable, TypeVar
+from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
+from typing import Type, List
 import numpy
-import itertools
 import threading
 import random
 import functools
+from wasabi import table
+from pydantic import create_model, ValidationError
+import inspect
 
 try:  # pragma: no cover
     import cupy
-    from cupy import get_array_module
-except ImportError:
+
+    has_cupy = True
+except (ImportError, AttributeError):
     cupy = None
-    get_array_module = lambda _: numpy
+    has_cupy = False
+
+try:  # pragma: no cover
+    import jax
+    import jax.numpy
+
+    has_jax = True
+except ImportError:  # pragma: no cover
+    jax = None
+    has_jax = False
 
 try:  # pragma: no cover
     import torch
@@ -29,7 +41,16 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Ragged, Padded, ArgsKwargs, RNNState, Array2d
+from .types import Array, Array2d, ArgsKwargs, Ragged, Padded
+
+
+def get_array_module(arr):  # pragma: no cover
+    if is_cupy_array(arr):
+        return cupy
+    elif is_jax_array(arr):
+        return jax.numpy
+    else:
+        return numpy
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
@@ -40,8 +61,10 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
         cupy.random.seed(seed)
 
 
-def create_thread_local(attrs: Dict[str, Any]):
-    obj = threading.local()
+def create_thread_local(
+    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
+):
+    obj = local_class()
     for name, value in attrs.items():
         setattr(obj, name, value)
     return obj
@@ -49,14 +72,27 @@ def create_thread_local(attrs: Dict[str, Any]):
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj)
+    return is_numpy_array(obj) or is_cupy_array(obj) or is_jax_array(obj)
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
     """Check whether an object is a cupy array"""
-    if cupy is None:
+    if not has_cupy:
         return False
     elif isinstance(obj, cupy.ndarray):
+        return True
+    else:
+        return False
+
+
+def is_jax_array(obj: Any) -> bool:  # pragma: no cover
+    """Check whether an object is a jax.numpy array"""
+    if not has_jax:
+        return False
+    elif isinstance(obj, numpy.ndarray):
+        # Numpy arrays evaluate as True for instance of jax.numpy.ndarray :(
+        return False
+    elif isinstance(obj, jax.numpy.ndarray):
         return True
     else:
         return False
@@ -86,6 +122,17 @@ def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
         return True
     else:
         return False
+
+
+def to_numpy(data):  # pragma: no cover
+    if isinstance(data, numpy.ndarray):
+        return data
+    elif has_cupy and isinstance(data, cupy.ndarray):
+        return data.get()
+    elif has_jax and isinstance(data, jax.numpy.ndarray):
+        return jax.device_get(data)
+    else:
+        return numpy.array(data)
 
 
 def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
@@ -126,62 +173,6 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     return True
 
 
-def get_shuffled_batches(
-    X: Array, Y: Array, batch_size
-) -> Iterable[Tuple[Array, Array]]:
-    """Iterate over paired batches from two arrays, shuffling the indices."""
-    xp = get_array_module(X)
-    indices = xp.arange(X.shape[0], dtype="i")
-    xp.random.shuffle(indices)
-    for index_batch in minibatch(indices, size=batch_size):
-        yield X[index_batch], Y[index_batch]
-
-
-def minibatch(
-    items: Iterable[Any], size: Union[int, Iterator[int]] = 8
-) -> Iterable[Any]:
-    """Iterate over batches of items. `size` may be an iterator,
-    so that batch-size can vary on each step.
-    """
-    if isinstance(size, int):
-        size_ = itertools.repeat(size)
-    else:
-        size_ = size
-    if hasattr(items, "__len__") and hasattr(items, "__getitem__"):
-        i = 0
-        while i < len(items):  # type: ignore
-            batch_size = next(size_)
-            yield items[i : i + batch_size]  # type: ignore
-            i += batch_size
-    else:
-        items = iter(items)
-        while True:
-            batch_size = next(size_)
-            batch = list(itertools.islice(items, int(batch_size)))
-            if len(batch) == 0:
-                break
-            yield list(batch)
-
-
-def evaluate_model_on_arrays(
-    model, inputs: Array, labels: Array, batch_size: int
-) -> float:
-    """Helper to evaluate accuracy of a model in the simplest cases, where
-    there's one correct output class and the inputs are arrays. Not guaranteed
-    to cover all situations – many applications will have to implement their
-    own evaluation methods.
-    """
-    score = 0.0
-    total = 0.0
-    for i in range(0, inputs.shape[0], batch_size):
-        X = inputs[i : i + batch_size]
-        Y = labels[i : i + batch_size]
-        Yh = model.predict(X)
-        score += (Y.argmax(axis=1) == Yh.argmax(axis=1)).sum()
-        total += Yh.shape[0]
-    return score / total
-
-
 def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
@@ -207,7 +198,7 @@ def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
 
 
 def get_width(
-    X: Union[Array, Ragged, Padded, Sequence[Array], RNNState], *, dim: int = -1
+    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
@@ -337,7 +328,59 @@ def partial(
     return partial_func
 
 
+class DataValidationError(ValueError):
+    def __init__(
+        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = [],
+    ) -> None:
+        """Custom error for validating inputs / outputs at runtime."""
+        message = f"Data validation error in '{name}'"
+        type_info = f"X: {type(X)} Y: {type(Y)}"
+        data = []
+        for error in errors:
+            err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
+            data.append((err_loc, error.get("msg")))
+        result = [message, type_info, table(data)]
+        ValueError.__init__(self, "\n\n" + "\n".join(result))
+
+
+class _ArgModelConfig:
+    extra = "forbid"
+    arbitrary_types_allowed = True
+
+
+def validate_fwd_input_output(
+    name: str, func: Callable[[Any, Any, bool], Any], X: Any, Y: Any
+) -> None:
+    """Validate the input and output of a forward function against the type
+    annotations, if available. Used in Model.initialize with the input and
+    output samples as they pass through the network.
+    """
+    sig = inspect.signature(func)
+    empty = inspect.Signature.empty
+    params = list(sig.parameters.values())
+    if len(params) != 3:
+        bad_params = f"{len(params)} ({', '.join([p.name for p in params])})"
+        err = f"Invalid forward function. Expected 3 arguments (model, X , is_train), got {bad_params}"
+        raise DataValidationError(name, X, Y, [{"msg": err}])
+    annot_x = params[1].annotation
+    annot_y = sig.return_annotation
+    sig_args: Dict[str, Any] = {"__config__": _ArgModelConfig}
+    args = {}
+    if X is not None and annot_x != empty:
+        sig_args["X"] = (annot_x, ...)
+        args["X"] = X
+    if Y is not None and annot_y != empty:
+        sig_args["Y"] = (annot_y, ...)
+        args["Y"] = (Y, lambda x: x)
+    ArgModel = create_model("ArgModel", **sig_args)
+    try:
+        ArgModel.parse_obj(args)
+    except ValidationError as e:
+        raise DataValidationError(name, X, Y, e.errors())
+
+
 __all__ = [
+    "get_array_module",
     "fix_random_seed",
     "create_thread_local",
     "is_cupy_array",
@@ -346,13 +389,12 @@ __all__ = [
     "prefer_gpu",
     "require_gpu",
     "copy_array",
-    "get_shuffled_batches",
-    "minibatch",
-    "evaluate_model_on_arrays",
     "to_categorical",
     "get_width",
     "xp2torch",
     "torch2xp",
     "tensorflow2xp",
     "xp2tensorflow",
+    "validate_fwd_input_output",
+    "DataValidationError",
 ]

@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..types import Array, Array2d
 from ..model import Model
@@ -27,12 +27,12 @@ def StaticVectors(lang: str, nO: int, *, column: int = 0) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     column = model.get_attr("column")
-    W = model.get_param("W")
+    W = cast(Array2d, model.get_param("W"))
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     if ids.ndim >= 2:
-        ids = model.ops.xp.ascontiguousarray(ids[:, column])
+        ids = model.ops.as_contig(ids[:, column])
     vectors = vector_table[ids * (ids < vector_table.shape[0])]
-    vectors = model.ops.xp.ascontiguousarray(vectors)
+    vectors = model.ops.as_contig(vectors)
     assert vectors.shape[0] == ids.shape[0]
 
     def backprop(d_output: OutT) -> InT:
@@ -43,17 +43,20 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     return output, backprop
 
 
-def init(model: Model, X: Optional[Array] = None, Y: Optional[Array] = None) -> None:
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> Model[InT, OutT]:
     vector_table = _get_vectors(model.ops, model.get_attr("lang"))
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
     W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))
     model.set_param("W", W)
+    return model
 
 
 def _get_vectors(ops: Ops, lang: str) -> Array:
     global STATE
-    key = (ops.device, lang)
+    key = (ops.device_type, lang)
     if key not in STATE.vectors:
         nlp = load_spacy(lang)
         STATE.vectors[key] = ops.asarray(nlp.vocab.vectors.data)

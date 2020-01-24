@@ -41,7 +41,9 @@ def forward(
     return output, finish_update
 
 
-def init(model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> Model[InT, OutT]:
     if X is not None:
         model.layers[0].set_dim("nI", get_width(X[1]))
         model.layers[0].initialize(X=X[0])
@@ -49,3 +51,4 @@ def init(model, X: Optional[InT] = None, Y: Optional[OutT] = None) -> None:
     model.layers[1].initialize(X=X, Y=Y)
     model.set_dim("nI", model.layers[0].get_dim("nI"))
     model.set_dim("nO", model.layers[1].get_dim("nO"))
+    return model

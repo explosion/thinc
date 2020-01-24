@@ -3,11 +3,12 @@ from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 from ..types import Padded, Ragged, Array1d, Array2d, Array3d
 from ..model import Model
 from ..config import registry
+from ..util import is_xp_array
 
 
-PaddedData = Tuple[Array3d, Array1d, List[int], List[int]]
+PaddedData = Tuple[Array3d, Array1d, Array1d, Array1d]
 ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], PaddedData])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Array3d, PaddedData])
 
 
 @registry.layers("with_padded.v0")
@@ -26,6 +27,8 @@ def forward(
         Y, backprop = _ragged_forward(layer, cast(Ragged, Xseq), is_train)
     elif _is_padded_data(Xseq):
         Y, backprop = _tuple_forward(layer, cast(PaddedData, Xseq), is_train)
+    elif is_xp_array(Xseq):
+        Y, backprop = _array_forward(layer, cast(Array3d, Xseq), is_train)
     else:
         Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
@@ -33,15 +36,16 @@ def forward(
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> None:
+) -> Model[SeqT, SeqT]:
     model.layers[0].initialize(
         X=_get_padded(model, X) if X is not None else None,
         Y=_get_padded(model, Y) if Y is not None else None,
     )
+    return model
 
 
 def _is_padded_data(seq):
-    return isinstance(seq, tuple) and len(seq) == 4 and isinstance(seq[3], list)
+    return isinstance(seq, tuple) and len(seq) == 4 and all(map(is_xp_array, seq))
 
 
 def _get_padded(model: Model, seq: SeqT) -> Padded:
@@ -50,9 +54,31 @@ def _get_padded(model: Model, seq: SeqT) -> Padded:
     elif isinstance(seq, Ragged):
         return model.ops.list2padded(model.ops.unflatten(seq.data, seq.lengths))
     elif _is_padded_data(seq):
-        return Padded(*cast(PaddedData, seq))
+        return Padded(*seq)  # type: ignore
+    elif is_xp_array(seq):
+        size_at_t: Array1d = model.ops.asarray([seq.shape[1]] * seq.shape[0], dtype="i")
+        lengths: Array1d = model.ops.asarray([seq.shape[0]] * seq.shape[1], dtype="i")
+        indices = model.ops.xp.arange(seq.shape[1])
+        return Padded(cast(Array3d, seq), size_at_t, lengths, indices)
     else:
+        assert isinstance(seq, list), seq
         return model.ops.list2padded(cast(List[Array2d], seq))
+
+
+def _array_forward(layer: Model[Padded, Padded], X: Array3d, is_train: bool):
+    # Create bogus metadata for Padded.
+    Xp = _get_padded(layer, X)
+    Yp, get_dXp = layer(Xp, is_train)
+    size_at_t = Xp.size_at_t
+    lengths = Xp.lengths
+    indices = Xp.indices
+
+    def backprop(dY: Array3d) -> Array3d:
+        dYp = Padded(dY, size_at_t, lengths, indices)
+        dXp = get_dXp(dYp)
+        return dXp.data
+
+    return Yp.data, backprop
 
 
 def _tuple_forward(layer: Model[Padded, Padded], X: PaddedData, is_train: bool):

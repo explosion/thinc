@@ -6,7 +6,7 @@ import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
 from thinc.types import Generator
-from thinc.api import Config, RAdam, Model
+from thinc.api import Config, RAdam, Model, NumpyOps
 from thinc.util import partial
 import numpy
 import inspect
@@ -412,6 +412,38 @@ def test_make_config_positional_args_complex():
         my_registry.make_from_config(cfg)
 
 
+def test_positional_args_to_from_string():
+    cfg = """[a]\nb = 1\n* = ["foo","bar"]"""
+    assert Config().from_str(cfg).to_str() == cfg
+    cfg = """[a]\nb = 1\n\n[a.*.foo]\ntest = 1\n\n[a.*.bar]\ntest = 2"""
+    assert Config().from_str(cfg).to_str() == cfg
+
+    @my_registry.cats("catsie.v666")
+    def catsie_666(*args, meow=False):
+        return args
+
+    cfg = """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]"""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    assert filled == """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]\nmeow = false"""
+    assert my_registry.make_from_config(Config().from_str(cfg)) == {"a": ("foo", "bar")}
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\nx = 1"""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    assert filled == """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\nx = 1"""
+    assert my_registry.make_from_config(Config().from_str(cfg)) == {"a": ({"x": 1},)}
+
+    @my_registry.cats("catsie.v777")
+    def catsie_777(y: int = 1):
+        return "meow" * y
+
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\n@cats = "catsie.v777\""""
+    filled = my_registry.fill_config(Config().from_str(cfg)).to_str()
+    expected = """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 1"""
+    assert filled == expected
+    cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 3"""
+    result = my_registry.make_from_config(Config().from_str(cfg))
+    assert result == {"a": ("meowmeowmeow",)}
+
+
 def test_make_config_positional_args_dicts():
     cfg = {
         "hyper_params": {"n_hidden": 512, "dropout": 0.2, "learn_rate": 0.001},
@@ -435,9 +467,7 @@ def test_make_config_positional_args_dicts():
 
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(
-        rate: float,
-    ) -> None:
+    def test_optimizer_v1(rate: float,) -> None:
         return None
 
     @my_registry.schedules("test_schedule.v1")
@@ -445,12 +475,7 @@ def test_validation_generators_iterable():
         while True:
             yield some_value
 
-    config = {
-        "optimizer": {
-            "@optimizers": "test_optimizer.v1",
-            "rate": 0.1,
-        }
-    }
+    config = {"optimizer": {"@optimizers": "test_optimizer.v1", "rate": 0.1}}
     my_registry.make_from_config(config)
 
 
@@ -515,21 +540,22 @@ def test_objects_from_config():
 
 def test_partials_from_config():
     """Test that functions registered with partial applications are handled
-    correctly (e.g. losses)."""
-    cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5}}
+    correctly (e.g. initializers)."""
+    name = "uniform_init.v0"
+    cfg = {"test": {"@initializers": name, "lo": -0.2}}
     func = my_registry.make_from_config(cfg)["test"]
     assert hasattr(func, "__call__")
-    # The partial will still have margin as an arg, just with default
+    # The partial will still have lo as an arg, just with default
     assert len(inspect.signature(func).parameters) == 4
     # Make sure returned partial function has correct value set
-    assert inspect.signature(func).parameters["margin"].default == 0.5
+    assert inspect.signature(func).parameters["lo"].default == -0.2
     # Actually call the function and verify
-    func(numpy.asarray([[1]]), numpy.asarray([[2]]), numpy.asarray([[3]]))
+    func(NumpyOps(), (2, 3))
     # Make sure validation still works
-    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": [0.5]}}
+    bad_cfg = {"test": {"@initializers": name, "lo": [0.5]}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
-    bad_cfg = {"test": {"@losses": "L1_distance.v0", "margin": 0.5, "other": 10}}
+    bad_cfg = {"test": {"@initializers": name, "lo": -0.2, "other": 10}}
     with pytest.raises(ConfigValidationError):
         my_registry.make_from_config(bad_cfg)
 
@@ -614,3 +640,18 @@ def test_handle_generic_model_type():
     model = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(model, Model)
     assert model.name == "transformed_model"
+
+
+@pytest.mark.parametrize(
+    "cfg",
+    [
+        "[a]\nb = 1\nc = 2\n\n[a.c]\nd = 3",
+        "[a]\nb = 1\n\n[a.c]\nd = 2\n\n[a.c.d]\ne = 3",
+    ],
+)
+def test_handle_error_duplicate_keys(cfg):
+    """This would cause very cryptic error when interpreting config.
+    (TypeError: 'X' object does not support item assignment)
+    """
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(cfg)

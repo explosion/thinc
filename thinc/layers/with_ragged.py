@@ -33,11 +33,12 @@ def forward(
 
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
-) -> None:
+) -> Model[SeqT, SeqT]:
     model.layers[0].initialize(
         X=_get_ragged(model, X) if X is not None else None,
         Y=_get_ragged(model, Y) if Y is not None else None,
     )
+    return model
 
 
 def _is_ragged_data(seq):
@@ -49,7 +50,7 @@ def _get_ragged(model: Model, seq: SeqT) -> Ragged:
         return seq
     elif isinstance(seq, Padded):
         lists = model.ops.padded2list(seq)
-        lengths = model.ops.asarray([len(x) for x in lists], dtype="i")
+        lengths: Array1d = model.ops.asarray([len(x) for x in lists], dtype="i")
         return Ragged(model.ops.flatten(lists), lengths)
     elif _is_ragged_data(seq):
         return Ragged(*cast(RaggedData, seq))
@@ -83,7 +84,7 @@ def _padded_forward(
     Xs = padded2list(Xp)
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
-    lengths = layer.ops.asarray([len(x) for x in Xs], dtype="i")
+    lengths: Array1d = layer.ops.asarray([len(x) for x in Xs], dtype="i")
     Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
 
     def backprop(dYp: Padded):
@@ -101,7 +102,7 @@ def _list_forward(
     flatten = layer.ops.flatten
     unflatten = layer.ops.unflatten
 
-    lengths = layer.ops.asarray([len(x) for x in Xs], dtype="i")
+    lengths: Array1d = layer.ops.asarray([len(x) for x in Xs], dtype="i")
     Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
 
     def backprop(dYs: List[Array2d]) -> List[Array2d]:

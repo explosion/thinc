@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, cast
 
 from ..types import Array2d
 from ..model import Model
@@ -29,7 +29,7 @@ def MultiSoftmax(nOs: Tuple[int, ...], nI: Optional[int] = None) -> Model[InT, O
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nOs = model.get_attr("nOs")
-    W = model.get_param("W")
+    W = cast(Array2d, model.get_param("W"))
     b = model.get_param("b")
 
     def backprop(dY: OutT) -> InT:
@@ -48,10 +48,11 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
-) -> None:
+) -> Model[InT, OutT]:
     if X is not None:
         model.set_dim("nI", get_width(X))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
     model.set_param("W", model.ops.alloc_f2d(nO, nI))
     model.set_param("b", model.ops.alloc_f1d(nO))
+    return model
