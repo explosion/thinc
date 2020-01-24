@@ -40,6 +40,8 @@ def HashEmbed(
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     if model.has_attr("dropout_rate"):
         dropout = model.get_attr("dropout_rate")
+    else:
+        dropout = None
     E = model.get_param("E")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
