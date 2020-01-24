@@ -1,5 +1,6 @@
 from typing import Optional, Callable, Any, Tuple
-from thinc.api import Model
+
+from ..model import Model
 
 
 do_nothing = lambda *args, **kwargs: None
