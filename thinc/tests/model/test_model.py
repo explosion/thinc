@@ -365,7 +365,7 @@ def test_model_gpu():
     model = chain(
         ReLu(nO=n_hidden, dropout=dropout),
         ReLu(nO=n_hidden, dropout=dropout),
-        Softmax()
+        Softmax(),
     )
     # making sure the data is on the right device
     train_X = model.ops.asarray(train_X)
