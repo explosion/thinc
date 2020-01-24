@@ -1,4 +1,4 @@
-from typing import Callable, Tuple, Optional
+from typing import Callable, Dict, Tuple, Optional, Any
 
 from ..model import Model
 from ..config import registry
@@ -19,14 +19,18 @@ def HashEmbed(
     seed: Optional[int] = None,
     column: int = 0,
     initializer: Callable = uniform_init,
+    dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
+    attrs: Dict[str, Any] = {"column": column, "seed": seed}
+    if dropout is not None:
+        attrs["dropout_rate"] = dropout
     model: Model[InT, OutT] = Model(
         "hashembed",
         forward,
         init=partial(init, initializer),
         params={"E": None},
         dims={"nO": nO, "nV": nV, "nI": None},
-        attrs={"seed": seed, "column": column},
+        attrs=attrs,
     )
     if seed is None:
         model.set_attr("seed", model.id)
@@ -34,6 +38,10 @@ def HashEmbed(
 
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
+    if model.has_attr("dropout_rate"):
+        dropout = model.get_attr("dropout_rate")
+    else:
+        dropout = None
     E = model.get_param("E")
     seed = model.get_attr("seed")
     column = model.get_attr("column")
@@ -42,19 +50,22 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     if ids.ndim >= 2:
         ids = model.ops.as_contig(ids[:, column], dtype="uint64")
     keys = model.ops.hash(ids, seed) % nV
-    output = E[keys].sum(axis=1)
+    vectors = E[keys].sum(axis=1)
+    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    vectors *= drop_mask
 
-    def backprop(d_output: OutT) -> InT:
+    def backprop(d_vectors: OutT) -> InT:
+        d_vectors *= drop_mask
         keys = model.ops.hash(ids, seed) % nV
         dE = model.ops.alloc_f2d(*E.shape)
         keys = model.ops.as_contig(keys.T, dtype="i")
         for i in range(keys.shape[0]):
-            model.ops.scatter_add(dE, keys[i], d_output)
+            model.ops.scatter_add(dE, keys[i], d_vectors)
         model.inc_grad("E", dE)
         dX: OutT = model.ops.alloc(input_shape, dtype="i")
         return dX
 
-    return output, backprop
+    return vectors, backprop
 
 
 def init(
