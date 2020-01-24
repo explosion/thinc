@@ -38,8 +38,7 @@ class CupyOps(Ops):
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if type(x) == numpy.ndarray or type(y) == numpy.ndarray:
             raise ValueError("Encountered a numpy array when processing with cupy. "
-                             "This is likely an error in thinc, so feel free to open "
-                             "an issue on the GitHub tracker.")
+                             "Did you call model.ops.asarray on your data?")
         if trans1:
             x = x.T
         if trans2:
