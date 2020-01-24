@@ -55,10 +55,11 @@ def test_simple_model_roundtrip_bytes():
 
 
 def test_simple_model_roundtrip_bytes_serializable_attrs():
+    fwd = lambda model, X, is_train: (X, lambda dY: dY)
     attr = SerializableAttr()
     assert attr.value == "foo"
     assert attr.to_bytes() == b"foo"
-    model = Model("test", lambda X: (X, lambda dY: dY), attrs={"test": attr})
+    model = Model("test", fwd, attrs={"test": attr})
     model.initialize()
 
     @serialize_attr.register(SerializableAttr)
@@ -106,8 +107,9 @@ def test_multi_model_load_missing_dims():
 
 
 def test_serialize_model_shims_roundtrip_bytes():
+    fwd = lambda model, X, is_train: (X, lambda dY: dY)
     test_shim = SerializableShim(None)
-    shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
+    shim_model = Model("shimmodel", fwd, shims=[test_shim])
     model = chain(Linear(2, 3), shim_model, Maxout(2, 3))
     model.initialize()
     assert model.layers[1].shims[0].value == "shimdata"
@@ -115,13 +117,13 @@ def test_serialize_model_shims_roundtrip_bytes():
     with pytest.raises(ValueError):
         Linear(2, 3).from_bytes(model_bytes)
     test_shim = SerializableShim(None)
-    shim_model = Model("shimmodel", lambda X: (X, lambda dY: dY), shims=[test_shim])
+    shim_model = Model("shimmodel", fwd, shims=[test_shim])
     new_model = chain(Linear(2, 3), shim_model, Maxout(2, 3)).from_bytes(model_bytes)
     assert new_model.layers[1].shims[0].value == "shimdata from bytes"
 
 
 def test_serialize_refs_roundtrip_bytes():
-    fwd = lambda X: (X, lambda dY: dY)
+    fwd = lambda model, X, is_train: (X, lambda dY: dY)
     model_a = Model("a", fwd)
     model = Model("test", fwd, refs={"a": model_a, "b": None}).initialize()
     with pytest.raises(ValueError):  # ref not in nodes
@@ -137,8 +139,7 @@ def test_serialize_refs_roundtrip_bytes():
 
 
 def test_serialize_attrs():
-    fwd = lambda X: (X, lambda dY: dY)
-
+    fwd = lambda model, X, is_train: (X, lambda dY: dY)
     attrs = {"test": "foo"}
     model1 = Model("test", fwd, attrs=attrs).initialize()
     bytes_attr = serialize_attr(model1.get_attr("test"), attrs["test"], "test", model1)

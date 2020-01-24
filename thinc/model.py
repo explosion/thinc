@@ -11,7 +11,7 @@ from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import create_thread_local, convert_recursive, is_xp_array
-from .util import partial
+from .util import partial, validate_fwd_input_output
 from .types import Array
 
 
@@ -55,6 +55,7 @@ class Model(Generic[InT, OutT]):
         "name",
         "id",
         "ops",
+        "validate",
         "_func",
         "_init",
         "_params",
@@ -104,6 +105,7 @@ class Model(Generic[InT, OutT]):
             self._has_params[name] = None
             if value is not None:
                 self.set_param(name, value)
+        self.validate = True
 
     @property
     def layers(self) -> List["Model"]:
@@ -288,6 +290,8 @@ class Model(Generic[InT, OutT]):
     def initialize(self, X: Optional[InT] = None, Y: Optional[OutT] = None) -> "Model":
         """Finish initialization of the model, optionally providing a batch of
         example input and output data to perform shape inference."""
+        if self.validate:
+            validate_fwd_input_output(self.name, self._func, X, Y)
         if self._init is not None:
             self._init(self, X=X, Y=Y)
         return self

@@ -384,6 +384,10 @@ class Array(Generic[ArrayT], Sized, Container):
     ) -> ArrayT:
         ...
 
+    @classmethod
+    def __get_validators__(cls):
+        yield validate_array
+
 
 class NumpyArray(Array):
     pass

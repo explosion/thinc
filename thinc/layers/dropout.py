@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, List, TypeVar
+from typing import Tuple, Callable, List, TypeVar, Any
 
 from ..model import Model
 from ..config import registry
@@ -23,7 +23,7 @@ def Dropout(rate: float = 0.0) -> Model[InT, InT]:
 # layers that are trying to use dropout.
 # I've relaxed the types for now, but it'd be good to understand what's wrong
 # here.
-def forward(model: Model, X, is_train: bool) -> Tuple:
+def forward(model: Model, X, is_train: bool) -> Tuple[Any, Callable]:
     rate = model.get_attr("rate")
     is_enabled = model.get_attr("is_enabled")
     if rate == 0 or not is_enabled:

@@ -1,11 +1,11 @@
-from typing import Callable, Optional, Tuple
+from typing import Callable, Optional, Tuple, Any
 
 from ..model import Model
 from ..config import registry
 
 
-InT = Tuple
-OutT = Tuple
+InT = Tuple[Any, ...]
+OutT = Tuple[Any, ...]
 
 
 @registry.layers("with_getitem.v0")

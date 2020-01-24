@@ -20,8 +20,10 @@ def test_linear_default_name(model):
 
 
 def test_linear_dimensions_on_data():
-    X = MagicMock(shape=(5, 10))
-    y = MagicMock(shape=(8,))
+    X = MagicMock(shape=(5, 10), spec=numpy.ndarray)
+    X.ndim = 2
+    y = MagicMock(shape=(8,), spec=numpy.ndarray)
+    y.ndim = 2
     y.max = MagicMock()
     model = Linear()
     model.initialize(X, y)

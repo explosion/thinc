@@ -385,4 +385,4 @@ class registry(object):
         return create_model("ArgModel", **sig_args)
 
 
-__all__ = ["Config", "registry"]
+__all__ = ["Config", "registry", "ConfigValidationError"]
