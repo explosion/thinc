@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..types import Array, Array2d
+from ..types import Array, Array2d, Unserializable
 from ..model import Model
 from ..backends import Ops
 from ..config import registry
@@ -12,14 +12,10 @@ OutT = Array2d
 
 context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
-class VectorsTable:
-    def __init__(self, data):
-        self.data = data
-
 
 @registry.layers("StaticVectors.v0")
-def StaticVectors(nO: Optional[int]=None, vectors: Optional[Array2d]=None, *, column: int = 0) -> Model[InT, OutT]:
-    attrs = {"column": column, "vectors": vectors}
+def StaticVectors(nO: Optional[int]=None, vectors: Optional[Array2d]=None, *, column: int = 0, dropout: Optional[float]=None) -> Model[InT, OutT]:
+    attrs = {"column": column, "vectors": Unserializable(vectors)}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
  
@@ -28,7 +24,7 @@ def StaticVectors(nO: Optional[int]=None, vectors: Optional[Array2d]=None, *, co
         forward,
         init=init,
         params={"W": None},
-        attrs=VectorsTable(vectors),
+        attrs=attrs,
         dims={"nM": None, "nV": None, "nO": nO},
     )
 
