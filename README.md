@@ -89,19 +89,19 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 ## 🗺 What's where
 
-| Module                                     | Description                                                                       |
-| ------------------------------------------ | --------------------------------------------------------------------------------- |
-| [`thinc.api`](thinc/api.py)                | **User-facing API.** All classes and functions should be imported from here.      |
-| [`thinc.types`](thinc/types.py)            | Custom [types and dataclasses](https://thinc.ai/docs/api-types).                  |
-| [`thinc.model`](thinc/model.py)            | The `Model` class. All Thinc models are an instance (not a subclass) of `Model`.  |
-| [`thinc.layers`](thinc/layers)             | The layers. Each layer is implemented in its own module.                          |
-|  [`thinc.shims`](thinc/shims)              | Interface for external models implemented in PyTorch, TensorFlow etc.             |
-| [`thinc.loss`](thinc/loss.py)              | Functions to calculate losses.                                                    |
-| [`thinc.optimizers`](thinc/optimizers.pyx) | Functions to create optimizers. Currently supports "vanilla" SGD, Adam and RAdam. |
-| [`thinc.schedules`](thinc/schedules.py)    | Generators for different rates, schedules, decays or series.                      |
-| [`thinc.backends`](thinc/backends.py)      | Backends for `numpy`, `cupy` and `jax`.                                           |
-| [`thinc.config`](thinc/config.py)          | Config parsing and validation and function registry system.                       |
-| [`thinc.util`](thinc/util.py)              | Utilities and helper functions.                                                   |
+| Module                                    | Description                                                                       |
+| ----------------------------------------- | --------------------------------------------------------------------------------- |
+| [`thinc.api`](thinc/api.py)               | **User-facing API.** All classes and functions should be imported from here.      |
+| [`thinc.types`](thinc/types.py)           | Custom [types and dataclasses](https://thinc.ai/docs/api-types).                  |
+| [`thinc.model`](thinc/model.py)           | The `Model` class. All Thinc models are an instance (not a subclass) of `Model`.  |
+| [`thinc.layers`](thinc/layers)            | The layers. Each layer is implemented in its own module.                          |
+|  [`thinc.shims`](thinc/shims)             | Interface for external models implemented in PyTorch, TensorFlow etc.             |
+| [`thinc.loss`](thinc/loss.py)             | Functions to calculate losses.                                                    |
+| [`thinc.optimizers`](thinc/optimizers.py) | Functions to create optimizers. Currently supports "vanilla" SGD, Adam and RAdam. |
+| [`thinc.schedules`](thinc/schedules.py)   | Generators for different rates, schedules, decays or series.                      |
+| [`thinc.backends`](thinc/backends.py)     | Backends for `numpy`, `cupy` and `jax`.                                           |
+| [`thinc.config`](thinc/config.py)         | Config parsing and validation and function registry system.                       |
+| [`thinc.util`](thinc/util.py)             | Utilities and helper functions.                                                   |
 
 ## 🐍 Development notes
 

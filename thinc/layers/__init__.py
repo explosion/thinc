@@ -1,6 +1,4 @@
 # Weights layers
-
-
 from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed

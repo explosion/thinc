@@ -4,7 +4,6 @@ import contextlib
 import copy
 import itertools
 from io import BytesIO
-
 import numpy
 
 from ..backends import Ops, get_current_ops
@@ -136,14 +135,14 @@ class TensorFlowShim(Shim):
     def _create_optimizer(self, sgd):
         if sgd.b1 != 0 and sgd.b2 != 0:
             optimizer = tf.keras.optimizers.Adam(
-                learning_rate=sgd.alpha, beta_1=sgd.b1, beta_2=sgd.b2
+                learning_rate=sgd.learn_rate, beta_1=sgd.b1, beta_2=sgd.b2
             )
         elif sgd.b2 == 0:
             optimizer = tf.keras.optimizers.SGD(
-                learning_rate=sgd.alpha, momentum=sgd.b1
+                learning_rate=sgd.learn_rate, momentum=sgd.b1
             )
-        else:
-            raise NotImplementedError
+        else:  # pragma: no cover
+            raise NotImplementedError(f"Can't create TensorFlow optimizer for {sgd}")
         return optimizer
 
     def _load_weights_from_state_dict(
