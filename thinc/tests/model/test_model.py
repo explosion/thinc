@@ -329,7 +329,7 @@ def test_all_operators(op):
         else:
             with pytest.raises(TypeError):
                 value = m1 | m2  # noqa: F841
-    assert Model._context_operators.get()
+    assert Model._context_operators.get() == {}
 
 
 def test_unique_id_multithreading():
