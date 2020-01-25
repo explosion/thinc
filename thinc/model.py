@@ -26,13 +26,6 @@ def empty_init(model: "Model", *args, **kwargs) -> "Model":
     return model
 
 
-class ModelThreadState(threading.local):
-    operators: Dict[str, Callable[["Model", "Model"], "Model"]]
-
-    def __init__(self):
-        self.operators = {}
-
-
 class Model(Generic[InT, OutT]):
     """Class for implementing Thinc models and layers."""
 
