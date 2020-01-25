@@ -24,8 +24,8 @@ def Dropout(rate: float = 0.0) -> Model[InT, InT]:
 # I've relaxed the types for now, but it'd be good to understand what's wrong
 # here.
 def forward(model: Model, X, is_train: bool) -> Tuple[Any, Callable]:
-    rate = model.get_attr("rate")
-    is_enabled = model.get_attr("is_enabled")
+    rate = model.attrs["rate"]
+    is_enabled = model.attrs["is_enabled"]
     if rate == 0 or not is_enabled:
         return X, lambda dY: dY
     elif isinstance(X, Ragged):
@@ -41,7 +41,7 @@ def forward(model: Model, X, is_train: bool) -> Tuple[Any, Callable]:
 def _dropout_array(
     model: Model[ArrayT, ArrayT], X: ArrayT, is_train: bool
 ) -> Tuple[ArrayT, Callable]:
-    rate = model.get_attr("rate")
+    rate = model.attrs["rate"]
     mask = model.ops.get_dropout_mask(X.shape, rate)
 
     def backprop(dY: ArrayT) -> ArrayT:
@@ -54,7 +54,7 @@ def _dropout_padded(
     model: Model, Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
-    mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
+    mask = model.ops.get_dropout_mask(X.shape, model.attrs["rate"])
     Y = X * mask
 
     def backprop(dYp: Padded) -> Padded:
@@ -68,7 +68,7 @@ def _dropout_ragged(
 ) -> Tuple[Ragged, Callable]:
     X = Xr.data
     lengths = Xr.lengths
-    mask = model.ops.get_dropout_mask(X.shape, model.get_attr("rate"))
+    mask = model.ops.get_dropout_mask(X.shape, model.attrs["rate"])
     Y = X * mask
 
     def backprop(dYr: Ragged) -> Ragged:
@@ -80,7 +80,7 @@ def _dropout_ragged(
 def _dropout_lists(
     model: Model[ArrayT, ArrayT], Xs: List[ArrayT], is_train: bool
 ) -> Tuple[List[ArrayT], Callable]:
-    rate = model.get_attr("rate")
+    rate = model.attrs["rate"]
     masks = [model.ops.get_dropout_mask(X.shape, rate) for X in Xs]
     Ys = [X * mask for X, mask in zip(Xs, masks)]
 

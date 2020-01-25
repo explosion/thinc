@@ -115,8 +115,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     """Return the output of the wrapped TensorFlow model for the given input,
     along with a callback to handle the backward pass.
     """
-    convert_inputs = model.get_attr("convert_inputs")
-    convert_outputs = model.get_attr("convert_outputs")
+    convert_inputs = model.attrs["convert_inputs"]
+    convert_outputs = model.attrs["convert_outputs"]
     tensorflow_model = model.shims[0]
     X_tensorflow, get_dX = convert_inputs(model, X, is_train)
     if is_train:

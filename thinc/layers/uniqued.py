@@ -28,7 +28,7 @@ def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    column = model.get_attr("column")
+    column = model.attrs["column"]
     layer = model.layers[0]
     keys = X[:, column]
     if not isinstance(keys, numpy.ndarray):

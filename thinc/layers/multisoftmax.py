@@ -28,7 +28,7 @@ def MultiSoftmax(nOs: Tuple[int, ...], nI: Optional[int] = None) -> Model[InT, O
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    nOs = model.get_attr("nOs")
+    nOs = model.attrs["nOs"]
     W = cast(Array2d, model.get_param("W"))
     b = model.get_param("b")
 

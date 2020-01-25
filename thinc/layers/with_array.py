@@ -67,7 +67,7 @@ def _list_forward(
     model: Model[List[Array2d], List[Array2d]], Xs: List[Array2d], is_train: bool
 ) -> Tuple[List[Array2d], Callable]:
     layer = model.layers[0]
-    pad = model.get_attr("pad")
+    pad = model.attrs["pad"]
     lengths: Array1d = layer.ops.asarray([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)

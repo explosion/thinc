@@ -120,7 +120,7 @@ def test_dropout_gives_zero_gradients(W_b_input):
     W, b, input_ = W_b_input
     for node in model.walk():
         if node.name == "dropout":
-            node.set_attr("rate", 1.0)
+            node.attrs["rate"] = 1.0
     fwd_dropped, finish_update = model.begin_update(input_)
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)

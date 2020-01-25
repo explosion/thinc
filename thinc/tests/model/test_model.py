@@ -87,13 +87,12 @@ def test_model_init():
     assert model.get_ref("c").name == "a"
     with pytest.raises(ValueError):
         model.set_ref("c", create_model("c"))
-    assert model.has_attr("foo")
-    assert not model.has_attr("bar")
-    assert model.get_attr("foo") == "bar"
+    assert "foo" in model.attrs
+    assert "bar" not in model.attrs
+    assert model.attrs["foo"] == "bar"
     with pytest.raises(KeyError):
-        model.get_attr("bar")
-    model.set_attr("bar", "baz")
-    assert model.has_attr("bar")
+        model.attrs["bar"]
+    model.attrs["bar"] = "baz"
     model_copy = model.copy()
     assert model_copy.name == "test"
 
@@ -118,13 +117,6 @@ def test_grad_names():
 def test_dim_names():
     model = Linear(5, 3)
     assert model.dim_names == ("nO", "nI")
-
-
-def test_attr_names():
-    model = Linear(5, 3)
-    assert model.attr_names == tuple()
-    model.set_attr("hello", "world")
-    assert model.attr_names == ("hello",)
 
 
 def test_model_set_reference():
@@ -161,18 +153,18 @@ def test_model_can_load_from_disk(model_with_no_args):
 def test_change_attr_values(model_with_no_args):
     model = model_with_no_args
     model.name = "target"
-    model.set_attr("has_var", False)
+    model.attrs["has_var"] = False
     change_attr_values(model, {"target": {"has_var": True, "error": True}})
-    assert model.get_attr("has_var") is True
-    assert not model.has_attr("error")
+    assert model.attrs["has_var"] is True
+    assert "error" not in model.attrs
 
 
 def test_set_dropout(model_with_no_args):
     model = model_with_no_args
     model.name = "dropout"
-    model.set_attr("dropout_rate", 0.0)
+    model.attrs["dropout_rate"] = 0.0
     set_dropout_rate(model, 0.2)
-    assert model.get_attr("dropout_rate") == 0.2
+    assert model.attrs["dropout_rate"] == 0.2
 
 
 def test_bind_plus():

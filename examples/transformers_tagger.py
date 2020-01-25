@@ -121,7 +121,7 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
     def forward(
         model, texts: List[List[str]], is_train: bool
     ) -> Tuple[TokensPlus, Callable]:
-        tokenizer = model.get_attr("tokenizer")
+        tokenizer = model.attrs["tokenizer"]
         token_data = tokenizer.batch_encode_plus(
             [(text, None) for text in texts],
             add_special_tokens=True,
