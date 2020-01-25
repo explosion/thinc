@@ -16,9 +16,9 @@ def test_validation():
 
 
 def test_validation_complex():
-    X = [numpy.zeros((4, 75), dtype="f")]
-    Y = numpy.zeros((1,), dtype="f")
     good_model = chain(list2ragged(), reduce_sum(), ReLu(12, dropout=0.5), ReLu(1))
+    X = [good_model.ops.xp.zeros((4, 75), dtype="f")]
+    Y = good_model.ops.xp.zeros((1,), dtype="f")
     good_model.initialize(X, Y)
     good_model.predict(X)
 
