@@ -150,3 +150,7 @@ class CupyOps(Ops):
     def position_encode(self, N, D, period=10000, out=None):
         positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)
+
+
+
+
