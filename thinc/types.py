@@ -422,9 +422,14 @@ def validate_array_dims(obj, expected_ndim):
 
 def validate_array_dtype(obj, expected_dtype):
     obj = validate_array(obj)  # validate her to make sure it's an array
-    if expected_dtype is not None and obj.dtype != expected_dtype:
+    dtypes = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
+    if expected_dtype is None or expected_dtype not in dtypes:
+        return obj
+    expected_dtypes = dtypes[expected_dtype]
+    if obj.dtype not in expected_dtypes:
         xp = get_array_module(obj)
-        err = f"wrong array data type (expected {xp.dtype(expected_dtype)}, got {obj.dtype})"
+        expected = "/".join(xp.dtype(d) for d in expected_dtypes)
+        err = f"wrong array data type (expected {expected}, got {obj.dtype})"
         raise ValueError(err)
     return obj
 
@@ -434,6 +439,96 @@ def get_array_validators(*, ndim=None, dtype=None):
         lambda v: validate_array_dims(v, ndim),
         lambda v: validate_array_dtype(v, dtype),
     )
+
+
+class Floats1d(Array):
+    """1-dimensional array of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=1, dtype="f"):
+            yield validator
+
+
+class Floats2d(Array):
+    """2-dimensional array of floats"""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=2, dtype="f"):
+            yield validator
+
+
+class Floats3d(Array):
+    """3-dimensional array of floats"""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=3, dtype="f"):
+            yield validator
+
+
+class Floats4d(Array):
+    """4-dimensional array of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=4, dtype="f"):
+            yield validator
+
+
+class FloatsNd(Array):
+    """N-dimensional array of floats."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=None, dtype="f"):
+            yield validator
+
+
+class Ints1d(Array):
+    """1-dimensional array of ints."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=1, dtype="i"):
+            yield validator
+
+
+class Ints2d(Array):
+    """2-dimensional array of ints."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=2, dtype="i"):
+            yield validator
+
+
+class Ints3d(Array):
+    """3-dimensional array of ints."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=3, dtype="i"):
+            yield validator
+
+
+class Ints4d(Array):
+    """4-dimensional array of ints."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=4, dtype="i"):
+            yield validator
+
+
+class IntsNd(Array):
+    """N-dimensional array of ints."""
+
+    @classmethod
+    def __get_validators__(cls):
+        for validator in get_array_validators(ndim=None, dtype="i"):
+            yield validator
 
 
 class Array1d(Array):
@@ -483,6 +578,8 @@ class ArrayNd(Array):
 
 # Union of all int/float array types
 ArrayTypes = Union[Array1d, Array2d, Array3d, Array4d, ArrayNd]
+ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
+ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
 
 
 class Generator(Iterator):
