@@ -16,7 +16,7 @@ MidT = TypeVar("MidT")
 # https://github.com/samuelcolvin/pydantic/issues/1158
 # For now we work around the issue by applying the decorator to this blander
 # version of the function.
-@registry.layers("chain.v0")
+@registry.layers("chain.v1")
 def chain_no_types(*layer: Model) -> Model:
     return chain(*layer)
 

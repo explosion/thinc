@@ -10,7 +10,7 @@ InT = TypeVar("InT", bound=Array)
 OutT = TypeVar("OutT", bound=Array)
 
 
-@registry.layers("add.v0")
+@registry.layers("add.v1")
 def add(
     layer1: Model[InT, OutT], layer2: Model[InT, OutT], *layers: Model
 ) -> Model[InT, XY_XY_OutT]:

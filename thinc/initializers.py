@@ -21,7 +21,7 @@ def glorot_uniform_init(ops: Ops, shape: Shape) -> Array:
     return ops.asarray(numpy.random.uniform(-scale, scale, shape), dtype="f")
 
 
-@registry.initializers("glorot_uniform_init.v0")
+@registry.initializers("glorot_uniform_init.v1")
 def configure_glorot_uniform_init() -> Callable[[Shape], Array]:
     return partial(glorot_uniform_init)
 
@@ -30,7 +30,7 @@ def zero_init(ops: Ops, shape: Shape) -> Array:
     return ops.alloc(shape)
 
 
-@registry.initializers("zero_init.v0")
+@registry.initializers("zero_init.v1")
 def configure_zero_init() -> Callable[[Array], Array]:
     return partial(zero_init)
 
@@ -40,7 +40,7 @@ def uniform_init(ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1) -
     return ops.asarray(values.astype("float32"))
 
 
-@registry.initializers("uniform_init.v0")
+@registry.initializers("uniform_init.v1")
 def configure_uniform_init(
     *, lo: float = -0.1, hi: float = 0.1
 ) -> Callable[[Array], Array]:
@@ -57,7 +57,7 @@ def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> Array:
     return ops.asarray(inits)
 
 
-@registry.initializers("normal_init.v0")
+@registry.initializers("normal_init.v1")
 def configure_normal_init(*, fan_in: int = -1) -> Callable[[Array], Array]:
     return partial(normal_init, fan_in=fan_in)
 

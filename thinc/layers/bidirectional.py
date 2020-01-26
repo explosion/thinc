@@ -10,7 +10,7 @@ InT = Padded
 OutT = Padded
 
 
-@registry.layers("bidirectional.v0")
+@registry.layers("bidirectional.v1")
 def bidirectional(
     l2r: Model[InT, OutT], r2l: Optional[Model[InT, OutT]] = None
 ) -> Model[InT, OutT]:

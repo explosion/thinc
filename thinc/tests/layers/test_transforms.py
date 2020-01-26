@@ -51,23 +51,23 @@ def check_transform(transform, in_data, out_data):
 
 
 def test_list2array(list_data, array_data):
-    check_transform("list2array.v0", list_data, array_data)
+    check_transform("list2array.v1", list_data, array_data)
 
 
 def test_list2ragged(list_data, ragged_data):
-    check_transform("list2ragged.v0", list_data, ragged_data)
+    check_transform("list2ragged.v1", list_data, ragged_data)
 
 
 def test_list2padded(list_data, padded_data):
-    check_transform("list2padded.v0", list_data, padded_data)
+    check_transform("list2padded.v1", list_data, padded_data)
 
 
 def test_ragged2list(ragged_data, list_data):
-    check_transform("ragged2list.v0", ragged_data, list_data)
+    check_transform("ragged2list.v1", ragged_data, list_data)
 
 
 def test_padded2list(padded_data, list_data):
-    check_transform("padded2list.v0", padded_data, list_data)
+    check_transform("padded2list.v1", padded_data, list_data)
 
 
 def test_strings2arrays():

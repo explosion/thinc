@@ -163,11 +163,11 @@ def test_cosine_unmatched():
 @pytest.mark.parametrize(
     "name,kwargs,args",
     [
-        ("CategoricalCrossentropy.v0", {}, (scores0, labels0)),
-        ("SequenceCategoricalCrossentropy.v0", {}, ([scores0], [labels0])),
-        ("L2Distance.v0", {}, (scores0, scores0)),
+        ("CategoricalCrossentropy.v1", {}, (scores0, labels0)),
+        ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0])),
+        ("L2Distance.v1", {}, (scores0, scores0)),
         (
-            "CosineDistance.v0",
+            "CosineDistance.v1",
             {"normalize": True, "ignore_zeros": True},
             (scores0, scores0),
         ),

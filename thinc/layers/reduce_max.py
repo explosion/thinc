@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Array2d
 
 
-@registry.layers("reduce_max.v0")
+@registry.layers("reduce_max.v1")
 def reduce_max() -> Model[InT, OutT]:
     return Model("reduce_max", forward)
 

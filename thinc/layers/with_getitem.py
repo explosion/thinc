@@ -8,7 +8,7 @@ InT = Tuple[Any, ...]
 OutT = Tuple[Any, ...]
 
 
-@registry.layers("with_getitem.v0")
+@registry.layers("with_getitem.v1")
 def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
     """Transform data on the way into and out of a layer, by plucking an item
     from a tuple.

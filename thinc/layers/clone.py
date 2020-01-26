@@ -10,7 +10,7 @@ InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
-@registry.layers("clone.v0")
+@registry.layers("clone.v1")
 def clone(orig: Model[InT, OutT], n: int) -> Model[InT, OutT]:
     """Construct `n` copies of a layer, with distinct weights.  i.e.
     `clone(f, 3)(x)` computes f(f'(f''(x))).

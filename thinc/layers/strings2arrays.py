@@ -10,7 +10,7 @@ InT = Sequence[str]
 OutT = List[Array2d]
 
 
-@registry.layers("strings2arrays.v0")
+@registry.layers("strings2arrays.v1")
 def strings2arrays() -> Model[InT, OutT]:
     """Transform a sequence of strings to a list of arrays."""
     return Model("strings2arrays", forward)

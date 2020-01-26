@@ -14,7 +14,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("Maxout.v0")
+@registry.layers("Maxout.v1")
 def Maxout(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

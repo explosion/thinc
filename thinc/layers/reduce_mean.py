@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Array2d
 
 
-@registry.layers("reduce_mean.v0")
+@registry.layers("reduce_mean.v1")
 def reduce_mean() -> Model[InT, OutT]:
     return Model("reduce_mean", forward)
 

@@ -11,7 +11,7 @@ from .noop import noop
 from ..initializers import glorot_uniform_init, zero_init
 
 
-@registry.layers("LSTM.v0")
+@registry.layers("LSTM.v1")
 def LSTM(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
@@ -35,7 +35,7 @@ def LSTM(
         "lstm",
         forward,
         dims={"nO": nO, "nI": nI},
-        attrs={"registry_name": "LSTM.v0"},
+        attrs={"registry_name": "LSTM.v1"},
         params={"W": None, "b": None, "c": None, "h": None},
         init=partial(init, init_W, init_b),
     )
@@ -45,7 +45,7 @@ def LSTM(
     return clone(model, depth)
 
 
-@registry.layers("PyTorchLSTM.v0")
+@registry.layers("PyTorchLSTM.v1")
 def PyTorchLSTM(
     nO: int, nI: int, *, bi: bool = False, depth: int = 1, dropout: float = 0.0
 ) -> Model[Padded, Padded]:

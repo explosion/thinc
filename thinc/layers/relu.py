@@ -14,7 +14,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("ReLu.v0")
+@registry.layers("ReLu.v1")
 def ReLu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
