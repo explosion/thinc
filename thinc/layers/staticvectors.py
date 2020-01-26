@@ -60,6 +60,6 @@ def init(
     vector_table = model.attrs["vectors"].data
     model.set_dim("nV", vector_table.shape[0])
     model.set_dim("nM", vector_table.shape[1])
-    W = model.ops.alloc_f2d(model.get_dim("nO"), model.get_dim("nM"))
+    W = model.ops.alloc2f(model.get_dim("nO"), model.get_dim("nM"))
     model.set_param("W", W)
     return model

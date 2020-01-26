@@ -143,7 +143,7 @@ class Ops:
         assert nW == 1
         B = seq.shape[0]
         I = seq.shape[1]
-        cols: Array3d = self.alloc_f3d(B, (nW * 2 + 1), I)
+        cols: Array3d = self.alloc3f(B, (nW * 2 + 1), I)
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
@@ -161,7 +161,7 @@ class Ops:
         B = dY.shape[0]
         I = dY.shape[1] // nF
         # Having trouble getting the kernel to work...
-        dX = self.alloc_f2d(B, I)
+        dX = self.alloc2f(B, I)
         dY = dY.reshape((B, nF, I))
         dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
         dX += dY[:, nW]
@@ -278,10 +278,10 @@ class Ops:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(
-                self.alloc_f3d(0, 0, 0),
-                self.alloc_i1d(0),
-                self.alloc_i1d(0),
-                self.alloc_i1d(0),
+                self.alloc3f(0, 0, 0),
+                self.alloc1i(0),
+                self.alloc1i(0),
+                self.alloc1i(0),
             )
         elif len(seqs) == 1:
             data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
@@ -338,22 +338,22 @@ class Ops:
         mask = (coinflips >= drop) / (1.0 - drop)
         return self.asarray(mask, dtype="float32")
 
-    def alloc_f1d(
+    def alloc1f(
         self, d0: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Array1d:
         return self.alloc((d0,), dtype=dtype)
 
-    def alloc_f2d(
+    def alloc2f(
         self, d0: int, d1: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Array2d:
         return self.alloc((d0, d1), dtype=dtype)
 
-    def alloc_f3d(
+    def alloc3f(
         self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesFloat] = "float32"
     ) -> Array3d:
         return self.alloc((d0, d1, d2), dtype=dtype)
 
-    def alloc_f4d(
+    def alloc4f(
         self,
         d0: int,
         d1: int,
@@ -369,20 +369,20 @@ class Ops:
     ) -> ArrayTypes:
         return self.alloc(shape, dtype=dtype)
 
-    def alloc_i1d(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Array1d:
+    def alloc1i(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Array1d:
         return self.alloc((d0,), dtype=dtype)
 
-    def alloc_i2d(
+    def alloc2i(
         self, d0: int, d1: int, *, dtype: Optional[DTypesInt] = "int32"
     ) -> Array2d:
         return self.alloc((d0, d1), dtype=dtype)
 
-    def alloc_i3d(
+    def alloc3i(
         self, d0: int, d1: int, d2: int, *, dtype: Optional[DTypesInt] = "int32"
     ) -> Array3d:
         return self.alloc((d0, d1, d2), dtype=dtype)
 
-    def alloc_i4d(
+    def alloc4i(
         self,
         d0: int,
         d1: int,
@@ -515,8 +515,8 @@ class Ops:
         fwd_state: Tuple[Array3d, Array3d, Array3d],
         params: Tuple[Array2d, Array1d],
     ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
-        dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
-        empty_row = self.alloc_f3d(1, dY.shape[1], dY.shape[2])
+        dCt = self.alloc2f(dY.shape[1], dY.shape[2])
+        empty_row = self.alloc3f(1, dY.shape[1], dY.shape[2])
         # Offset dY by 1
         dY = self.xp.vstack((empty_row, dY))
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
@@ -527,7 +527,7 @@ class Ops:
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY: Array2d, which: Array2d, P: int) -> Array3d:
-        dX = self.alloc_f3d(dY.shape[0], dY.shape[1], P)
+        dX = self.alloc3f(dY.shape[0], dY.shape[1], P)
         for b in range(dY.shape[0]):
             for o in range(dY.shape[1]):
                 dX[b, o, which[b, o]] = dY[b, o]
@@ -547,7 +547,7 @@ class Ops:
         return dY
 
     def mish(self, X: Array2d, threshold: float = 20.0) -> Array2d:
-        Y = self.alloc_f2d(*X.shape, dtype=X.dtype)
+        Y = self.alloc2f(*X.shape, dtype=X.dtype)
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
         for i in range(X.shape[0]):
             for j in range(X.shape[1]):
@@ -628,7 +628,7 @@ class Ops:
         return -loss
 
     def reduce_sum(self, X: Array2d, lengths: Array1d) -> Array2d:
-        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].sum(axis=0)
@@ -636,7 +636,7 @@ class Ops:
         return Y
 
     def reduce_mean(self, X: Array2d, lengths: Array1d) -> Array2d:
-        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             Y[i] = X[start : start + length].mean(axis=0)
@@ -644,8 +644,8 @@ class Ops:
         return Y
 
     def reduce_max(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
-        Y = self.alloc_f2d(lengths.shape[0], X.shape[1])
-        which = self.alloc_i2d(lengths.shape[0], X.shape[1])
+        Y = self.alloc2f(lengths.shape[0], X.shape[1])
+        which = self.alloc2i(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             which[i] = X[start : start + length].argmax(axis=0)
@@ -654,7 +654,7 @@ class Ops:
         return Y, which
 
     def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
-        dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_sums.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_sums[i]
@@ -662,7 +662,7 @@ class Ops:
         return dX
 
     def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
-        dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_means.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length] = d_means[i] / length
@@ -672,7 +672,7 @@ class Ops:
     def backprop_reduce_max(
         self, d_maxes: Array2d, which: Array2d, lengths: Array1d
     ) -> Array2d:
-        dX = self.alloc_f2d(lengths.sum(), d_maxes.shape[1])
+        dX = self.alloc2f(lengths.sum(), d_maxes.shape[1])
         start = 0
         for i, length in enumerate(lengths):
             dX[start : start + length, which[i]] = d_maxes[i]

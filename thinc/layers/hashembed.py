@@ -54,7 +54,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     def backprop(d_vectors: OutT) -> InT:
         d_vectors *= drop_mask
         keys = model.ops.hash(ids, seed) % nV
-        dE = model.ops.alloc_f2d(*E.shape)
+        dE = model.ops.alloc2f(*E.shape)
         keys = model.ops.as_contig(keys.T, dtype="i")
         for i in range(keys.shape[0]):
             model.ops.scatter_add(dE, keys[i], d_vectors)

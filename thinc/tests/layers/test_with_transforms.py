@@ -27,7 +27,7 @@ def list_input(shapes):
 def ragged_input(ops, list_input):
     lengths = numpy.array([len(x) for x in list_input], dtype="i")
     if not list_input:
-        return Ragged(ops.alloc_f2d(0, 0), lengths)
+        return Ragged(ops.alloc2f(0, 0), lengths)
     else:
         return Ragged(ops.flatten(list_input), lengths)
 
@@ -60,7 +60,7 @@ def ragged_data_input(ragged_input):
 def get_array_model():
     def _trim_array_forward(model, X, is_train):
         def backprop(dY):
-            return model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
+            return model.ops.alloc2f(dY.shape[0], dY.shape[1] + 1)
 
         return X[:, :-1], backprop
 
@@ -72,7 +72,7 @@ def get_list_model():
         def backprop(dYs):
             dXs = []
             for dY in dYs:
-                dXs.append(model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1))
+                dXs.append(model.ops.alloc2f(dY.shape[0], dY.shape[1] + 1))
             return dXs
 
         Ys = [X[:, :-1] for X in Xs]
@@ -85,7 +85,7 @@ def get_padded_model():
     def _trim_padded_forward(model, Xp, is_train):
         def backprop(dYp):
             dY = dYp.data
-            dX = model.ops.alloc_f3d(dY.shape[0], dY.shape[1], dY.shape[2] + 1)
+            dX = model.ops.alloc3f(dY.shape[0], dY.shape[1], dY.shape[2] + 1)
             return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
         assert isinstance(Xp, Padded)
@@ -102,7 +102,7 @@ def get_ragged_model():
     def _trim_ragged_forward(model, Xr, is_train):
         def backprop(dYr):
             dY = dYr.data
-            dX = model.ops.alloc_f2d(dY.shape[0], dY.shape[1] + 1)
+            dX = model.ops.alloc2f(dY.shape[0], dY.shape[1] + 1)
             return Ragged(dX, dYr.lengths)
 
         return Ragged(Xr.data[:, :-1], Xr.lengths), backprop
