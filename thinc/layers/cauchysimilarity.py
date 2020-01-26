@@ -36,7 +36,7 @@ def forward(
 
     def backprop(d_sim: OutT) -> InT:
         d_total = bp_sim(d_sim)
-        d_total = d_total.reshape((-1, 1))
+        d_total = model.ops.reshape2f(d_total, -1, 1)
         model.inc_grad("W", (d_total * square_diff).sum(axis=0))
         d_square_diff = W * d_total
         d_diff = 2 * d_square_diff * diff

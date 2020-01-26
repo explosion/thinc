@@ -404,6 +404,42 @@ class Ops:
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
+    def reshape1f(self, array: ArrayT, d0: int) -> Array3d:
+        return self.reshape(array, (d0,))
+
+    def reshape2f(self, array: ArrayT, d0: int, d1: int) -> Array2d:
+        return self.reshape(array, (d0, d1))
+
+    def reshape3f(self, array: ArrayT, d0: int, d1: int, d2: int) -> Array3d:
+        return self.reshape(array, (d0, d1, d2))
+
+    def reshape4f(self, array: ArrayT, d0: int, d1: int, d2: int, d3: int) -> Array4d:
+        return self.reshape(array, (d0, d1, d2, d3))
+
+    def reshape_f(self, array: Array, shape: Shape) -> ArrayTypes:
+        return self.reshape(array, shape)
+
+    def reshape1i(self, array: ArrayT, d0: int) -> Array3d:
+        return self.reshape(array, (d0,))
+
+    def reshape2i(self, array: ArrayT, d0: int, d1: int) -> Array2d:
+        return self.reshape(array, (d0, d1))
+
+    def reshape3i(self, array: ArrayT, d0: int, d1: int, d2: int) -> Array3d:
+        return self.reshape(array, (d0, d1, d2))
+
+    def reshape4i(self, array: ArrayT, d0: int, d1: int, d2: int, d3: int) -> Array4d:
+        return self.reshape(array, (d0, d1, d2, d3))
+
+    def reshape_i(self, array: Array, shape: Shape) -> ArrayTypes:
+        return self.reshape(array, shape)
+
+    def reshape(self, array: Array, shape: Shape) -> ArrayT:
+        """Reshape an array."""
+        if isinstance(shape, int):
+            shape = (shape,)
+        return array.reshape(shape)
+
     def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
         """Unzip a tuple of two arrays, transform them with `asarray` and return
         them as two separate arrays.

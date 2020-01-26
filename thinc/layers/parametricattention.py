@@ -41,7 +41,7 @@ def init(
 
 
 def _get_attention(ops, Q, X, lengths):
-    attention = ops.gemm(X, Q.reshape((-1, 1)))
+    attention = ops.gemm(X, ops.reshape2f(Q, -1, 1))
     attention = ops.softmax_sequences(attention, lengths)
 
     def get_attention_bwd(d_attention):

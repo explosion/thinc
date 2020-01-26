@@ -33,7 +33,7 @@ def forward(
     dtype = model.attrs["dtype"]
     values = [table.get(x, default) for x in inputs]
     arr: Array = model.ops.asarray(values, dtype=dtype)
-    output: Array2d = arr.reshape((-1, 1))
+    output = model.ops.reshape2f(arr, -1, 1)
 
     def backprop(dY: OutT) -> InT:
         return []

@@ -26,14 +26,14 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     final_shape = list(initial_shape[:-1]) + [layer.get_dim("nO")]
     nB = X.shape[0]
     nT = X.shape[1]
-    X2d = X.reshape((-1, X.shape[2]))
+    X2d = model.ops.reshape2f(X, -1, X.shape[2])
     X2d = X2d.astype(layer.ops.xp.float32)
     Y2d, Y2d_backprop = layer(X2d, is_train=is_train)
-    Y = Y2d.reshape(final_shape)
+    Y = model.ops.reshape3f(Y2d, *final_shape)
 
     def backprop(dY: InT) -> InT:
-        reshaped: Array3d = dY.reshape((nB * nT, -1)).astype(layer.ops.xp.float32)
-        return Y2d_backprop(reshaped).reshape(initial_shape)
+        reshaped = model.ops.reshape2f(dY.astype(layer.ops.xp.float32), nB * nT, -1)
+        return Y2d_backprop(model.ops.reshape3f(reshaped, *initial_shape))
 
     return Y, backprop
 
@@ -48,9 +48,9 @@ def init(
     X2d: Optional[Array2d] = None
     Y2d: Optional[Array2d] = None
     if X is not None:
-        X2d = X.reshape((-1, X.shape[-1]))
+        X2d = model.ops.reshape2f(X, -1, X.shape[-1])
     if Y is not None:
-        Y2d = Y.reshape((-1, Y.shape[-1]))
+        Y2d = model.ops.reshape2f(Y, -1, Y.shape[-1])
     layer.initialize(X=X2d, Y=Y2d)
     if layer.has_dim("nI"):
         model.set_dim("nI", layer.get_dim("nI"))

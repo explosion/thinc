@@ -36,7 +36,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     uniq_keys, ind, inv, counts = layer.ops.xp.unique(
         keys, return_index=True, return_inverse=True, return_counts=True
     )
-    counts = counts.reshape((-1, 1))
+    counts = model.ops.reshape2i(counts, -1, 1)
     X_uniq = X[ind]
     Y_uniq, bp_Y_uniq = layer(X_uniq, is_train)
     Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])

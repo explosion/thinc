@@ -324,8 +324,8 @@ class Optimizer(object):
         return weights, grad
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
-        weights_1D = weights.reshape((weights.size,))
-        gradient_1D = gradient.reshape((gradient.size,))
+        weights_1D = self.ops.reshape1f(weights, weights.size)
+        gradient_1D = self.ops.reshape1f(gradient, gradient.size)
         if key not in self.mom1:
             self.mom1[key] = self.ops.alloc1f(weights.size)
         if key not in self.mom2:
@@ -344,7 +344,10 @@ class Optimizer(object):
         )
         self.mom1[key] = mom1
         self.mom2[key] = mom2
-        return weights_1D.reshape(weights.shape), gradient_1D.reshape(gradient.shape)
+        return (
+            self.ops.reshape_f(weights_1D, weights.shape),
+            self.ops.reshape_f(gradient_1D, gradient.shape),
+        )
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

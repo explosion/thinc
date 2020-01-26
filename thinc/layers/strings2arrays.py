@@ -19,7 +19,7 @@ def strings2arrays() -> Model[InT, OutT]:
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
     hashes = [[hash_unicode(word) for word in X] for X in Xs]
     hash_arrays: List[Array] = [model.ops.asarray(h, dtype="uint64") for h in hashes]
-    arrays: List[Array2d] = [array.reshape((-1, 1)) for array in hash_arrays]
+    arrays = [model.ops.reshape2f(array, -1, 1) for array in hash_arrays]
 
     def backprop(dX: OutT) -> InT:
         return []
