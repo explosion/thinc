@@ -9,7 +9,7 @@ InT = List[Array2d]
 OutT = Ragged
 
 
-@registry.layers("list2ragged.v0")
+@registry.layers("list2ragged.v1")
 def list2ragged() -> Model[InT, OutT]:
     """Transform sequences to ragged arrays if necessary and return the ragged
     array. If sequences are already ragged, do nothing. A ragged array is a

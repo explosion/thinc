@@ -11,7 +11,7 @@ InT = Tuple[LayerT, LayerT]
 OutT = Array
 
 
-@registry.layers("siamese.v0")
+@registry.layers("siamese.v1")
 def siamese(
     layer: Model[LayerT, SimT], similarity: Model[Tuple[SimT, SimT], OutT]
 ) -> Model[InT, OutT]:

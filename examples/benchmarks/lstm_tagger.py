@@ -33,26 +33,26 @@ length_variance = 1
 width = 300
 
 [model]
-@layers = "LSTMTagger.v0"
+@layers = "LSTMTagger.v1"
 
 [model.embed]
-@layers = "Embed.v0"
+@layers = "Embed.v1"
 nO = ${common:width}
 nV = ${data:n_vocab}
 
 [model.encode]
-@layers = "LSTM.v0"
+@layers = "LSTM.v1"
 nO = ${common:width}
 nI = ${common:width}
 depth = 1
 
 [model.predict]
-@layers = "Softmax.v0"
+@layers = "Softmax.v1"
 nO = ${data:n_tags}
 """
 
 
-@registry.layers("LSTMTagger.v0")
+@registry.layers("LSTMTagger.v1")
 def build_tagger(
     embed: Model[Array2d, Array2d],
     encode: Model[Padded, Padded],
@@ -111,7 +111,7 @@ def set_backend(name, gpu_id):
             set_current_ops(NumpyOps())
         else:
             set_current_ops(CupyOps())
-        CONFIG = CONFIG.replace("LSTM.v0", "PyTorchLSTM.v0")
+        CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
 def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):

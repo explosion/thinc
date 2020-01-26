@@ -8,7 +8,7 @@ from ..util import xp2torch, torch2xp, convert_recursive
 from ..types import Array3d, ArgsKwargs, Padded
 
 
-@registry.layers("PyTorchRNNWrapper.v0")
+@registry.layers("PyTorchRNNWrapper.v1")
 def PyTorchRNNWrapper(
     pytorch_model,
     convert_inputs: Optional[Callable] = None,
@@ -29,7 +29,7 @@ def PyTorchRNNWrapper(
     )
 
 
-@registry.layers("PyTorchWrapper.v0")
+@registry.layers("PyTorchWrapper.v1")
 def PyTorchWrapper(
     pytorch_model,
     convert_inputs: Optional[Callable] = None,

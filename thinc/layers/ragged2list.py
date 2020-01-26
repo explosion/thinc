@@ -9,7 +9,7 @@ InT = Ragged
 OutT = List[Array2d]
 
 
-@registry.layers("ragged2list.v0")
+@registry.layers("ragged2list.v1")
 def ragged2list() -> Model[InT, OutT]:
     """Transform sequences from a ragged format into lists."""
     return Model("ragged2list", forward)

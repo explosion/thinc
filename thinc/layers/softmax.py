@@ -11,7 +11,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("Softmax.v0")
+@registry.layers("Softmax.v1")
 def Softmax(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

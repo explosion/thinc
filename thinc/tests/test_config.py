@@ -448,11 +448,11 @@ def test_make_config_positional_args_dicts():
     cfg = {
         "hyper_params": {"n_hidden": 512, "dropout": 0.2, "learn_rate": 0.001},
         "model": {
-            "@layers": "chain.v0",
+            "@layers": "chain.v1",
             "*": {
-                "relu1": {"@layers": "ReLu.v0", "nO": 512, "dropout": 0.2},
-                "relu2": {"@layers": "ReLu.v0", "nO": 512, "dropout": 0.2},
-                "softmax": {"@layers": "Softmax.v0"},
+                "relu1": {"@layers": "ReLu.v1", "nO": 512, "dropout": 0.2},
+                "relu2": {"@layers": "ReLu.v1", "nO": 512, "dropout": 0.2},
+                "softmax": {"@layers": "Softmax.v1"},
             },
         },
         "optimizer": {"@optimizers": "Adam.v1", "learn_rate": 0.001},
@@ -541,7 +541,7 @@ def test_objects_from_config():
 def test_partials_from_config():
     """Test that functions registered with partial applications are handled
     correctly (e.g. initializers)."""
-    name = "uniform_init.v0"
+    name = "uniform_init.v1"
     cfg = {"test": {"@initializers": name, "lo": -0.2}}
     func = my_registry.make_from_config(cfg)["test"]
     assert hasattr(func, "__call__")
@@ -631,12 +631,12 @@ def test_handle_generic_model_type():
     # TODO: Unhack and extend once this is implemented in pydantic
     #  https://github.com/samuelcolvin/pydantic/issues/1158
 
-    @my_registry.layers("my_transform.v0")
+    @my_registry.layers("my_transform.v1")
     def my_transform(model: Model[int, int]):
         model.name = "transformed_model"
         return model
 
-    cfg = {"@layers": "my_transform.v0", "model": {"@layers": "Linear.v0"}}
+    cfg = {"@layers": "my_transform.v1", "model": {"@layers": "Linear.v1"}}
     model = my_registry.make_from_config({"test": cfg})["test"]
     assert isinstance(model, Model)
     assert model.name == "transformed_model"

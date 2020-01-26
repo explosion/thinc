@@ -11,7 +11,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("Linear.v0")
+@registry.layers("Linear.v1")
 def Linear(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
