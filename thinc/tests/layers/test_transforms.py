@@ -24,7 +24,7 @@ def list_data(shapes):
 def ragged_data(ops, list_data):
     lengths = numpy.array([len(x) for x in list_data], dtype="i")
     if not list_data:
-        return Ragged(ops.alloc_f2d(0, 0), lengths)
+        return Ragged(ops.alloc2f(0, 0), lengths)
     else:
         return Ragged(ops.flatten(list_data), lengths)
 

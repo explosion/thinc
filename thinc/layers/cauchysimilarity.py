@@ -51,7 +51,7 @@ def init(
     if X is not None:
         model.set_dim("nI", get_width(X[0]))
     # Initialize weights to 1
-    W = model.ops.alloc_f1d(model.get_dim("nI"))
+    W = model.ops.alloc1f(model.get_dim("nI"))
     W += 1
     model.set_param("W", W)
     return model

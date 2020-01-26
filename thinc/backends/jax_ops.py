@@ -291,7 +291,7 @@ class JaxOps(Ops):
         fwd_state: Tuple[Array3d, Array3d, Array3d],
         params: Tuple[Array2d, Array1d],
     ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
-        dCt = self.alloc_f2d(dY.shape[1], dY.shape[2])
+        dCt = self.alloc2f(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
 
@@ -493,7 +493,7 @@ def reduce_max(self, X: Array2d, lengths: Array1d) -> Array2d:
 
 @jax_jit()
 def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
-    dX = self.alloc_f2d(lengths.sum(), d_sums.shape[1])
+    dX = self.alloc2f(lengths.sum(), d_sums.shape[1])
     start = 0
     for i, length in enumerate(lengths):
         dX[start : start + length] = d_sums[i]
@@ -503,7 +503,7 @@ def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
 
 @jax_jit()
 def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
-    dX = self.alloc_f2d(lengths.sum(), d_means.shape[1])
+    dX = self.alloc2f(lengths.sum(), d_means.shape[1])
     start = 0
     for i, length in enumerate(lengths):
         dX[start : start + length] = d_means[i] / length

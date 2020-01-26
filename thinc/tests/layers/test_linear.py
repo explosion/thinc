@@ -141,8 +141,8 @@ def test_init(model2):
 
 
 def test_predict_bias(model2):
-    input_ = model2.ops.alloc_f2d(1, model2.get_dim("nI"))
-    target_scores = model2.ops.alloc_f2d(1, model2.get_dim("nI"))
+    input_ = model2.ops.alloc2f(1, model2.get_dim("nI"))
+    target_scores = model2.ops.alloc2f(1, model2.get_dim("nI"))
     scores = model2.predict(input_)
     assert_allclose(scores[0], target_scores[0])
     # Set bias for class 0

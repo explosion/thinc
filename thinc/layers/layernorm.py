@@ -43,8 +43,8 @@ def init(
         Y_width = get_width(Y)
         model.set_dim("nI", Y_width)
     nI = model.get_dim("nI")
-    model.set_param("G", model.ops.alloc_f1d(nI) + 1)
-    model.set_param("b", model.ops.alloc_f1d(nI))
+    model.set_param("G", model.ops.alloc1f(nI) + 1)
+    model.set_param("b", model.ops.alloc1f(nI))
     return model
 
 

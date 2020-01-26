@@ -8,11 +8,11 @@ import numpy
 def test_validation():
     model = chain(ReLu(10), ReLu(10), with_ragged(reduce_max()), Softmax())
     with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc_f2d(1, 10), Y=model.ops.alloc_f2d(1, 10))
+        model.initialize(X=model.ops.alloc2f(1, 10), Y=model.ops.alloc2f(1, 10))
     with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc_f3d(1, 10, 1), Y=model.ops.alloc_f2d(1, 10))
+        model.initialize(X=model.ops.alloc3f(1, 10, 1), Y=model.ops.alloc2f(1, 10))
     with pytest.raises(DataValidationError):
-        model.initialize(X=[model.ops.alloc_f2d(1, 10)], Y=model.ops.alloc_f2d(1, 10))
+        model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
 
 
 def test_validation_complex():

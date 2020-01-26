@@ -167,7 +167,7 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
 
     def backprop(d_tokvecs: List[Array2d]) -> ArgsKwargs:
         # Restore entries for bos and eos markers.
-        row = model.ops.alloc_f2d(1, d_tokvecs[0].shape[1])
+        row = model.ops.alloc2f(1, d_tokvecs[0].shape[1])
         d_tokvecs = [model.ops.xp.vstack((row, arr, row)) for arr in d_tokvecs]
         return ArgsKwargs(
             args=(torch_tokvecs,),

@@ -51,7 +51,7 @@ def test_ops_consistency(op):
 
 @pytest.mark.parametrize("ops", ALL_OPS)
 def test_alloc(ops):
-    float_methods = (ops.alloc_f1d, ops.alloc_f2d, ops.alloc_f3d, ops.alloc_f4d)
+    float_methods = (ops.alloc1f, ops.alloc2f, ops.alloc3f, ops.alloc4f)
     for i, method in enumerate(float_methods):
         shape = (1,) * (i + 1)
         arr = method(*shape)
@@ -60,7 +60,7 @@ def test_alloc(ops):
         arr = ops.alloc_f(shape)
         assert arr.dtype == numpy.float32
         assert arr.ndim == len(shape)
-    int_methods = (ops.alloc_i1d, ops.alloc_i2d, ops.alloc_i3d, ops.alloc_i4d)
+    int_methods = (ops.alloc1i, ops.alloc2i, ops.alloc3i, ops.alloc4i)
     for i, method in enumerate(int_methods):
         shape = (1,) * (i + 1)
         arr = method(*shape)
@@ -74,7 +74,7 @@ def test_alloc(ops):
 
 @pytest.mark.parametrize("ops", XP_OPS)
 def test_hash_gives_distinct_keys(ops):
-    ids = ops.alloc_f1d(5, dtype="uint64")
+    ids = ops.alloc1f(5, dtype="uint64")
     keys = ops.hash(ids, 0)
     assert keys.shape == (5, 4)
     assert keys.dtype == "uint32"

@@ -60,8 +60,8 @@ def test_model_init():
     assert not model.has_grad("xyz")
     with pytest.raises(KeyError):
         model.get_grad("b")
-    model.set_param("W", model.ops.alloc_f1d(10))
-    model.set_grad("W", model.ops.alloc_f1d(10))
+    model.set_param("W", model.ops.alloc1f(10))
+    model.set_grad("W", model.ops.alloc1f(10))
     with pytest.raises(ValueError):
         model.inc_grad("W", numpy.zeros((5, 0)))
     assert model.has_dim("nI")
@@ -109,8 +109,8 @@ def test_param_names():
 def test_grad_names():
     model = create_model("tmp")
     assert model.grad_names == tuple()
-    model.set_param("param1", model.ops.alloc_f2d(4, 4))
-    model.set_grad("param1", model.ops.alloc_f2d(4, 4) + 1)
+    model.set_param("param1", model.ops.alloc2f(4, 4))
+    model.set_grad("param1", model.ops.alloc2f(4, 4) + 1)
     assert model.grad_names == ("param1",)
 
 

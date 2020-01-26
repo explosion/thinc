@@ -36,7 +36,7 @@ def init(
 ) -> Model[InT, OutT]:
     if Y is not None:
         model.set_dim("nO", get_width(Y.data))
-    model.set_param("Q", model.ops.alloc_f1d(model.get_dim("nO")))
+    model.set_param("Q", model.ops.alloc1f(model.get_dim("nO")))
     return model
 
 
