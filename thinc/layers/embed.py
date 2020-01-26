@@ -11,7 +11,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("Embed.v0")
+@registry.layers("Embed.v1")
 def Embed(
     nO: Optional[int] = None,
     nV: Optional[int] = None,

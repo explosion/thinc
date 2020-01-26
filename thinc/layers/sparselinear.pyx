@@ -18,7 +18,7 @@ OutT = Array
 
 
 @cython.binding(True)
-@registry.layers("SparseLinear.v0")
+@registry.layers("SparseLinear.v1")
 def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
     # NB: We can't have generic return type annotation if we want function to
     # be bound (and inspectable): https://github.com/cython/cython/issues/2753

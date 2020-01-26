@@ -10,7 +10,7 @@ from ..util import get_width
 InT = Array2d
 
 
-@registry.layers("LayerNorm.v0")
+@registry.layers("LayerNorm.v1")
 def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
     return Model(
         "layernorm", forward, init=init, dims={"nI": nI}, params={"G": None, "b": None}

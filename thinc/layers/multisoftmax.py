@@ -10,7 +10,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("MultiSoftmax.v0")
+@registry.layers("MultiSoftmax.v1")
 def MultiSoftmax(nOs: Tuple[int, ...], nI: Optional[int] = None) -> Model[InT, OutT]:
     """Neural network layer that predicts several multi-class attributes at once.
     For instance, we might predict one class with 6 variables, and another with 5.

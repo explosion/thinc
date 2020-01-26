@@ -63,7 +63,7 @@ class CategoricalCrossentropy(Loss):
         return (d_truth ** 2).sum()
 
 
-@registry.losses("CategoricalCrossentropy.v0")
+@registry.losses("CategoricalCrossentropy.v1")
 def configure_CategoricalCrossentropy(
     *, normalize: bool = True
 ) -> CategoricalCrossentropy:
@@ -95,7 +95,7 @@ class SequenceCategoricalCrossentropy(Loss):
         return losses
 
 
-@registry.losses("SequenceCategoricalCrossentropy.v0")
+@registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy(
     *, normalize: bool = True
 ) -> SequenceCategoricalCrossentropy:
@@ -126,7 +126,7 @@ class L2Distance(Loss):
         return (d_truth ** 2).sum()
 
 
-@registry.losses("L2Distance.v0")
+@registry.losses("L2Distance.v1")
 def configure_L2Distance(*, normalize: bool = True) -> L2Distance:
     return L2Distance(normalize=normalize)
 
@@ -198,7 +198,7 @@ class CosineDistance(Loss):
         return loss
 
 
-@registry.losses("CosineDistance.v0")
+@registry.losses("CosineDistance.v1")
 def configure_CosineDistance(
     *, normalize: bool = True, ignore_zeros: bool = False
 ) -> CosineDistance:

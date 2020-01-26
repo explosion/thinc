@@ -24,7 +24,7 @@ def get_batch(ops, nB, nO, nI):
 
 def make_linear(nO, nI):
     model = thinc.api.Linear(nO, nI).initialize()
-    model.attrs["registry_name"] = "Linear.v0"
+    model.attrs["registry_name"] = "Linear.v1"
     return model
 
 

@@ -12,7 +12,7 @@ OutT = Array2d
 context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
 
-@registry.layers("StaticVectors.v0")
+@registry.layers("StaticVectors.v1")
 def StaticVectors(
     nO: Optional[int] = None,
     vectors: Optional[Array2d] = None,

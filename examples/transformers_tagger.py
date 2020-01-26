@@ -17,7 +17,7 @@ import typer
 
 CONFIG = """
 [model]
-@layers = "TransformersTagger.v0"
+@layers = "TransformersTagger.v1"
 starter = "bert-base-multilingual-cased"
 
 [optimizer]
@@ -105,7 +105,7 @@ class TokensPlus:
     special_tokens_mask: Optional[torch.Tensor] = None
 
 
-@thinc.registry.layers("TransformersTagger.v0")
+@thinc.registry.layers("TransformersTagger.v1")
 def TransformersTagger(
     starter: str, n_tags: int = 17
 ) -> Model[List[List[str]], List[Array2d]]:
@@ -116,7 +116,7 @@ def TransformersTagger(
     )
 
 
-@thinc.registry.layers("transformers_tokenizer.v0")
+@thinc.registry.layers("transformers_tokenizer.v1")
 def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
     def forward(
         model, texts: List[List[str]], is_train: bool
@@ -137,7 +137,7 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
     )
 
 
-@thinc.registry.layers("transformers_model.v0")
+@thinc.registry.layers("transformers_model.v1")
 def Transformer(name: str) -> Model[TokensPlus, List[Array2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),

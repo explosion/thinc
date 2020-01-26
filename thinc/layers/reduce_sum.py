@@ -9,7 +9,7 @@ InT = Ragged
 OutT = Array2d
 
 
-@registry.layers("reduce_sum.v0")
+@registry.layers("reduce_sum.v1")
 def reduce_sum() -> Model[InT, OutT]:
     return Model("reduce_sum", forward)
 

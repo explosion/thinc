@@ -145,7 +145,7 @@ def test_tensorflow_wrapper_serialize_model_subclass(
     ops: Ops = get_current_ops()
 
     @keras_subclass(
-        "foo.v0",
+        "foo.v1",
         X=ops.alloc_f2d(*input_shape),
         Y=to_categorical(ops.asarray([1]), n_classes=n_classes),
         input_shape=input_shape,

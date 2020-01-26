@@ -8,7 +8,7 @@ from ..config import registry
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d]])
 
 
-@registry.layers("with_list.v0")
+@registry.layers("with_list.v1")
 def with_list(layer: Model[List[Array2d], List[Array2d]]) -> Model[SeqT, SeqT]:
     return Model(f"with_list-{layer.name}", forward, init=init, layers=[layer])
 

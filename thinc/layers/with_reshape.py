@@ -8,7 +8,7 @@ from ..types import Array3d, Array2d
 InT = Array3d
 
 
-@registry.layers("with_reshape.v0")
+@registry.layers("with_reshape.v1")
 def with_reshape(layer: Model[Array2d, Array2d]) -> Model[InT, InT]:
     """Reshape data on the way into and out from a layer."""
     return Model(

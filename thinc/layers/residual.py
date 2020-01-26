@@ -8,7 +8,7 @@ from ..types import Array, Array2d, Ragged, Padded
 InT = TypeVar("InT", List[Array], Ragged, Padded, Array, Array2d)
 
 
-@registry.layers("residual.v0")
+@registry.layers("residual.v1")
 def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
         "residual",

@@ -9,7 +9,7 @@ InT = Sequence[Any]
 OutT = Array2d
 
 
-@registry.layers("remap_ids.v0")
+@registry.layers("remap_ids.v1")
 def remap_ids(
     mapping_table: Dict[Any, int] = {}, default: int = 0, dtype: DTypes = "i"
 ) -> Model[InT, OutT]:

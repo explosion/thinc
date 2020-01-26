@@ -9,7 +9,7 @@ InT = TypeVar("InT")
 ArrayT = TypeVar("ArrayT", bound=Array)
 
 
-@registry.layers("Dropout.v0")
+@registry.layers("Dropout.v1")
 def Dropout(rate: float = 0.0) -> Model[InT, InT]:
     """Help prevent overfitting by adding a random distortion to the input data
     during training.  Specifically, cells of the input are zeroed with

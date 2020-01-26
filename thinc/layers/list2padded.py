@@ -5,7 +5,7 @@ from ..model import Model
 from ..config import registry
 
 
-@registry.layers("list2padded.v0")
+@registry.layers("list2padded.v1")
 def list2padded() -> Model[List[Array2d], Padded]:
     """Create a layer to convert a list of array inputs into Padded."""
     return Model(f"list2padded", forward)

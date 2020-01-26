@@ -9,7 +9,7 @@ ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Array2d])
 
 
-@registry.layers("with_array.v0")
+@registry.layers("with_array.v1")
 def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.

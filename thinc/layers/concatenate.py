@@ -12,7 +12,7 @@ InT = TypeVar("InT", bound=Array2d)
 OutT = TypeVar("OutT", bound=Array2d)
 
 
-@registry.layers("concatenate.v0")
+@registry.layers("concatenate.v1")
 def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     """Compose two or more models `f`, `g`, etc, such that their outputs are
     concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.

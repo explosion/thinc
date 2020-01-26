@@ -14,7 +14,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("Mish.v0")
+@registry.layers("Mish.v1")
 def Mish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

@@ -18,10 +18,10 @@ def test_initializer_func_setup(init_func):
 @pytest.mark.parametrize(
     "name,kwargs",
     [
-        ("glorot_uniform_init.v0", {}),
-        ("zero_init.v0", {}),
-        ("uniform_init.v0", {"lo": -0.5, "hi": 0.5}),
-        ("normal_init.v0", {"fan_in": 5}),
+        ("glorot_uniform_init.v1", {}),
+        ("zero_init.v1", {}),
+        ("uniform_init.v1", {"lo": -0.5, "hi": 0.5}),
+        ("normal_init.v1", {"fan_in": 5}),
     ],
 )
 def test_initializer_from_config(name, kwargs):

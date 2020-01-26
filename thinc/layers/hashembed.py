@@ -11,7 +11,7 @@ InT = Array2d
 OutT = Array2d
 
 
-@registry.layers("HashEmbed.v0")
+@registry.layers("HashEmbed.v1")
 def HashEmbed(
     nO: int,
     nV: int,
