@@ -11,16 +11,15 @@ def mnist(limit=5000):
     return (train_X[:limit], train_Y[:limit]), (dev_X[:limit], dev_Y[:limit])
 
 
-def create_relu_softmax(depth, width, dropout, nI, nO):
-    return chain(clone(ReLu(nO=width, dropout=dropout), depth), Softmax(10, width))
+def create_relu_softmax(width, dropout, nI, nO):
+    return chain(clone(ReLu(nO=width, dropout=dropout), 2), Softmax(10, width))
 
 
-def create_wrapped_pytorch(depth, width, dropout, nI, nO):
+def create_wrapped_pytorch(width, dropout, nI, nO):
     import torch
     import torch.nn
     import torch.nn.functional as F
 
-    # TODO: rewrite to add depth
     class PyTorchModel(torch.nn.Module):
         def __init__(self, width, nO, nI, dropout):
             super(PyTorchModel, self).__init__()
@@ -42,15 +41,16 @@ def create_wrapped_pytorch(depth, width, dropout, nI, nO):
     return PyTorchWrapper(PyTorchModel(width, nO, nI, dropout))
 
 
-def create_wrapped_tensorflow(depth, width, dropout, nI, nO):
+def create_wrapped_tensorflow(width, dropout, nI, nO):
     from tensorflow.keras.layers import Dense, Dropout
     from tensorflow.keras.models import Sequential
 
     tf_model = Sequential()
-    for i in range(depth):
-        tf_model.add(Dense(width, activation="relu", input_shape=(nI,)))
-        tf_model.add(Dropout(dropout))
-    tf_model.add(Dense(nO, activation="softmax"))
+    tf_model.add(Dense(width, activation="relu", input_shape=(nI,)))
+    tf_model.add(Dropout(dropout))
+    tf_model.add(Dense(width, activation="relu"))
+    tf_model.add(Dropout(dropout))
+    tf_model.add(Dense(nO, activation=None))
     return TensorFlowWrapper(tf_model)
 
 
@@ -68,14 +68,12 @@ def create_model(request):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize(("depth", "width", "nb_epoch", "min_score"), [(2, 32, 3, 0.2)])
-def test_small_end_to_end(depth, width, nb_epoch, min_score, create_model, mnist):
+@pytest.mark.parametrize(("width", "nb_epoch", "min_score"), [(32, 10, 0.2)])
+def test_small_end_to_end(width, nb_epoch, min_score, create_model, mnist):
     batch_size = 128
     dropout = 0.2
     (train_X, train_Y), (dev_X, dev_Y) = mnist
-    model = create_model(
-        depth, width, dropout, nI=train_X.shape[1], nO=train_Y.shape[1]
-    )
+    model = create_model(width, dropout, nI=train_X.shape[1], nO=train_Y.shape[1])
     model.initialize(X=train_X[:5], Y=train_Y[:5])
     optimizer = Adam(0.001)
     losses = []
@@ -95,5 +93,6 @@ def test_small_end_to_end(depth, width, nb_epoch, min_score, create_model, mnist
         score = correct / total
         scores.append(score)
     assert losses[-1] < losses[0], losses
-    assert scores[-1] > scores[0], scores
+    if scores[0] < 1.0:
+        assert scores[-1] > scores[0], scores
     assert any([score > min_score for score in scores]), scores

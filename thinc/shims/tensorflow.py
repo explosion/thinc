@@ -116,7 +116,7 @@ class TensorFlowShim(Shim):
                 wrt_tensors = list(X.args[0])
             wrt_tensors.extend(self._model.trainable_variables)
             all_gradients = tape.gradient(
-                output, wrt_tensors, output_gradients=d_output[0]
+                output, wrt_tensors, output_gradients=d_output
             )
             dX = all_gradients[: len(X.args)]
             self.grads_for_optimization = all_gradients[1:]
@@ -127,6 +127,7 @@ class TensorFlowShim(Shim):
     def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
+        assert len(self.grads_for_optimization) == len(self._model.trainable_variables)
         self._optimizer.apply_gradients(
             zip(self.grads_for_optimization, self._model.trainable_variables)
         )
