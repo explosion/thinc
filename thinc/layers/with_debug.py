@@ -21,6 +21,7 @@ def with_debug(
     name = layer.name if name is None else name
 
     def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
+        layer = model.layers[0]
         on_forward(model, X, is_train)
         layer_Y, layer_callback = layer(X, is_train=is_train)
 
@@ -34,4 +35,4 @@ def with_debug(
         on_init(model, X, Y)
         return layer.initialize(X, Y)
 
-    return Model(f"debug:{name}", forward, init=init)
+    return Model(f"debug:{name}", forward, init=init, layers=[layer])
