@@ -16,9 +16,6 @@ def create_relu_softmax(depth, width, dropout, nI, nO):
 
 
 def create_wrapped_pytorch(depth, width, dropout, nI, nO):
-    if not has_torch:
-        pytest.skip(reason="Needs PyTorch")
-
     import torch
     import torch.nn
     import torch.nn.functional as F
@@ -46,9 +43,6 @@ def create_wrapped_pytorch(depth, width, dropout, nI, nO):
 
 
 def create_wrapped_tensorflow(depth, width, dropout, nI, nO):
-    if not has_tensorflow:
-        pytest.skip(reason="Needs TensorFlow")
-
     from tensorflow.keras.layers import Dense, Dropout
     from tensorflow.keras.models import Sequential
 
@@ -61,7 +55,13 @@ def create_wrapped_tensorflow(depth, width, dropout, nI, nO):
 
 
 @pytest.fixture(
-    params=[create_relu_softmax, create_wrapped_pytorch, create_wrapped_tensorflow]
+    # fmt: off
+    params=[
+        create_relu_softmax,
+        pytest.param(create_wrapped_pytorch, marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch")),
+        pytest.param(create_wrapped_tensorflow, marks=pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow"))
+    ]
+    # fmt: on
 )
 def create_model(request):
     return request.param
