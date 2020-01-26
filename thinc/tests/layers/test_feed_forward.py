@@ -83,8 +83,8 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
 
 def test_infer_output_shape():
     model = ReLu(dropout=0.2)
-    X = model.ops.alloc_f2d(4, 5)
-    Y = model.ops.alloc_f2d(4, 2)
+    X = model.ops.alloc2f(4, 5)
+    Y = model.ops.alloc2f(4, 2)
     assert model.has_dim("nI") is None
     assert model.has_dim("nO") is None
     model.initialize(X=X, Y=Y)

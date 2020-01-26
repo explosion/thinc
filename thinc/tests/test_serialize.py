@@ -33,7 +33,7 @@ class SerializableShim(Shim):
 
 
 def test_pickle_with_flatten(linear):
-    Xs = [linear.ops.alloc_f2d(2, 3), linear.ops.alloc_f2d(4, 3)]
+    Xs = [linear.ops.alloc2f(2, 3), linear.ops.alloc2f(4, 3)]
     model = with_array(linear).initialize()
     pickled = srsly.pickle_dumps(model)
     loaded = srsly.pickle_loads(pickled)
