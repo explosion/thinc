@@ -36,6 +36,9 @@ FloatsXd = Union["Floats1d", "Floats2d", "Floats3d"]
 IntsXd = Union["Ints1d", "Ints2d", "Ints3d"]
 ArrayXd = Union[FloatsXd, IntsXd]
 ArrayT = TypeVar("ArrayT")
+List1d = Union[List["Floats1d"], List["Ints1d"]]
+List2d = Union[List["Floats2d"], List["Ints2d"]]
+List3d = Union[List["Floats3d"], List["Ints3d"]]
 
 
 class Array(Sized, Container):
@@ -325,7 +328,7 @@ class Array(Sized, Container):
         ...
 
     def cumsum(
-        self,
+        self: ArrayT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional[ArrayT] = None,
@@ -335,14 +338,14 @@ class Array(Sized, Container):
     def max(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def mean(
-        self,
-        axis: int = -1,
-        dtype: Optional[DTypes] = None,
-        out: Optional[ArrayT] = None,
-        keepdims: bool = False,
-    ) -> ArrayT:
-        ...
+    #def mean(
+    #    self,
+    #    axis: int = -1,
+    #    dtype: Optional[DTypes] = None,
+    #    out: Optional[SelfT] = None,
+    #    keepdims: bool = False,
+    #) -> "Array":
+    #    ...
 
     def min(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
@@ -362,14 +365,14 @@ class Array(Sized, Container):
     def round(self, decimals: int = 0, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    def sum(
-        self,
-        axis: int = -1,
-        dtype: Optional[DTypes] = None,
-        out: Optional[ArrayT] = None,
-        keepdims: bool = False,
-    ) -> ArrayT:
-        ...
+    #def sum(
+    #    self,
+    #    axis: int = -1,
+    #    dtype: Optional[DTypes] = None,
+    #    out: Optional[ArrayT] = None,
+    #    keepdims: bool = False,
+    #) -> ArrayT:
+    #    ...
 
     def tobytes(self, order: str = "C") -> bytes:
         ...
@@ -378,13 +381,13 @@ class Array(Sized, Container):
         ...
 
     def var(
-        self,
+        self: SelfT,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional[ArrayT] = None,
         ddof: int = 0,
         keepdims: bool = False,
-    ) -> ArrayT:
+    ) -> SelfT:
         ...
 
     @classmethod
@@ -571,6 +574,35 @@ class _Array1d(Array):
     def __ipow__(self, other: Union[float, int, "Array1d"]):
         ...
 
+    @overload
+    def mean(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> "Floats1d":
+        ...
+
+    @overload
+    def mean(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> float:
+        ...
+
+    def mean(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> Union["Floats1d", float]:
+        ...
+
 
 class Floats1d(_Array1d, Floats):
     """1-dimensional array of floats."""
@@ -601,6 +633,37 @@ class Floats1d(_Array1d, Floats):
     def __iter__(self) -> float:
         ...
 
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> "Floats1d":
+        ...
+
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> float:
+        ...
+
+    def sum(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats1d"] = None,
+    ) -> Union["Floats1d", float]:
+        ...
+
+
+
 
 class Ints1d(_Array1d, Ints):
     """1-dimensional array of ints."""
@@ -629,6 +692,35 @@ class Ints1d(_Array1d, Ints):
     def __setitem__(self, key: _1_Key1d, value: Union[int, "Ints1d"]) -> None: ...
 
     def __setitem__(self, key: _1_AllKeys, _I1_AllReturns) -> None: ...
+
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Ints1d"] = None,
+    ) -> "Ints1d":
+        ...
+
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Ints1d"] = None,
+    ) -> int:
+        ...
+
+    def sum(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Ints1d"] = None,
+    ) -> Union["Ints1d", int]:
+        ...
 
 
 Array1d = Union[Floats1d, Ints1d]
@@ -684,6 +776,35 @@ class _Array2d(Array):
     def argmax(
         self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[Ints1d, "Ints2d"]:
+        ...
+
+    @overload
+    def mean(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats2d"] = None,
+    ) -> Floats1d:
+        ...
+
+    @overload
+    def mean(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats2d"] = None,
+    ) -> "Floats2d":
+        ...
+
+    def mean(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats2d"] = None,
+    ) -> Union["Floats2d", Floats1d]:
         ...
 
     # These is actually a bit too strict: It's legal to say 'array2d + array3d'
@@ -762,6 +883,35 @@ class Floats2d(_Array2d, Floats):
     def __iter__(self) -> Floats1d:
         ...
 
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats2d"] = None,
+    ) -> Floats1d:
+        ...
+
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Floats2d"] = None,
+    ) -> "Floats2d":
+        ...
+
+    def sum(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional[Union["Floats1d", "Floats2d"]] = None,
+    ) -> Union["Floats2d", Floats1d]:
+        ...
+
 
 class Ints2d(_Array2d, Ints):
     """2-dimensional array of ints."""
@@ -802,6 +952,35 @@ class Ints2d(_Array2d, Ints):
     def __setitem__(self, key: _2_AllKeys, value: _I2_AllReturns) -> None:
         ...
  
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[False] = False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Ints1d"] = None,
+    ) -> Ints1d:
+        ...
+
+    @overload
+    def sum(
+        self,
+        keepdims: Literal[True],
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional["Ints2d"] = None,
+    ) -> "Ints2d":
+        ...
+
+    def sum(
+        self,
+        keepdims: bool=False,
+        axis: int = -1,
+        dtype: Optional[DTypes] = None,
+        out: Optional[Union["Ints1d", "Ints2d"]] = None,
+    ) -> Union["Ints2d", Ints1d]:
+        ...
+
 
 Array2d = Union[Floats2d, Ints2d]
 
