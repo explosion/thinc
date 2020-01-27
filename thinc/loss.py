@@ -77,12 +77,12 @@ class SequenceCategoricalCrossentropy(Loss):
         self.cc = CategoricalCrossentropy(normalize=normalize)
 
     def __call__(
-        self, guesses: List[Floats2d], truths: List[Floats2d]
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
     ) -> Tuple[List[Floats2d], List[float]]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(
-        self, guesses: List[Floats2d], truths: List[Floats2d]
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
     ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
@@ -92,7 +92,9 @@ class SequenceCategoricalCrossentropy(Loss):
             d_scores.append(self.cc.get_grad(yh, y))
         return d_scores
 
-    def get_loss(self, guesses: List[Floats2d], truths: List[Floats2d]) -> List[float]:
+    def get_loss(
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+    ) -> List[float]:
         losses = []
         for yh, y in zip(guesses, truths):
             losses.append(self.cc.get_loss(yh, y))

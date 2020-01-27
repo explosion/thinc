@@ -457,10 +457,37 @@ class Ops:
         X, y = zip(data[0], data[1])
         return self.asarray(X), self.asarray(y)
 
+    def asarray4f(
+        self,
+        data: Union[Floats4d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats4d:
+        return cast(Floats4d, self.asarray(data, dtype=dtype))
+
+    def asarray3f(
+        self,
+        data: Union[Floats3d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats3d:
+        return cast(Floats3d, self.asarray(data, dtype=dtype))
+
     def asarray2f(
-        self, data: Union[Floats2d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+        self,
+        data: Union[Floats2d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
         return cast(Floats2d, self.asarray(data, dtype=dtype))
+
+    def asarray1f(
+        self,
+        data: Union[Floats1d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats1d:
+        return cast(Floats1d, self.asarray(data, dtype=dtype))
 
     def asarray_f(
         self,
@@ -479,6 +506,16 @@ class Ops:
         self, data: Union[Ints2d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
     ) -> Ints2d:
         return cast(Ints2d, self.asarray(data, dtype=dtype))
+
+    def asarray3i(
+        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+    ) -> Ints3d:
+        return cast(Ints3d, self.asarray(data, dtype=dtype))
+
+    def asarray4i(
+        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+    ) -> Ints4d:
+        return cast(Ints4d, self.asarray(data, dtype=dtype))
 
     def asarray_i(
         self, data: Union[Ints, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
