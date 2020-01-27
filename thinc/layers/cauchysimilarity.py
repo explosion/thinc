@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
@@ -28,10 +28,9 @@ def forward(
     model: Model[InT, OutT], X1_X2: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
-    W = model.get_param("W")
+    W = cast(Floats2d, model.get_param("W"))
     diff = X1 - X2
     square_diff = diff ** 2
-    # TODO: Add sum methods for Floats3d
     total = (W * square_diff).sum(axis=1)  # type: ignore
     sim, bp_sim = inverse(total)
 

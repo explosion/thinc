@@ -3,18 +3,15 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import List1d, List2d, List3d
-from ..types import Array, Array2d, Array3d, ArrayXd
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Floats
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, Ints
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, Array
+from ..types import Array2d, Array3d, Floats1d, Floats2d, Floats3d, Floats4d
+from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array
 
 
 ArrayT = TypeVar("ArrayT", bound=Array)
-FloatsT = TypeVar("FloatsT", bound=Floats)
-IntsT = TypeVar("IntsT", bound=Ints)
+FloatsT = TypeVar("FloatsT", bound=_Floats)
 
 
 class Ops:
@@ -253,11 +250,11 @@ class Ops:
     def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
         ...
 
-    @overload
+    @overload  # noqa: F811
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         ...
 
-    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:
+    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:   # noqa: F811
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -406,7 +403,7 @@ class Ops:
     ) -> Ints4d:
         return self.alloc((d0, d1, d2, d3), dtype=dtype)
 
-    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> Ints:
+    def alloc_i(self, shape: Shape, *, dtype: Optional[DTypesInt] = "int32") -> IntsXd:
         return self.alloc(shape, dtype=dtype)
 
     def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
@@ -415,34 +412,34 @@ class Ops:
             shape = (shape,)
         return self.xp.zeros(shape, dtype=dtype)
 
-    def reshape1f(self, array: Floats, d0: int) -> Floats1d:
+    def reshape1f(self, array: FloatsXd, d0: int) -> Floats1d:
         return cast(Floats1d, self.reshape(array, (d0,)))
 
-    def reshape2f(self, array: Floats, d0: int, d1: int) -> Floats2d:
+    def reshape2f(self, array: FloatsXd, d0: int, d1: int) -> Floats2d:
         return cast(Floats2d, self.reshape(array, (d0, d1)))
 
-    def reshape3f(self, array: Floats, d0: int, d1: int, d2: int) -> Floats3d:
+    def reshape3f(self, array: FloatsXd, d0: int, d1: int, d2: int) -> Floats3d:
         return cast(Floats3d, self.reshape(array, (d0, d1, d2)))
 
-    def reshape4f(self, array: Floats, d0: int, d1: int, d2: int, d3: int) -> Floats4d:
+    def reshape4f(self, array: FloatsXd, d0: int, d1: int, d2: int, d3: int) -> Floats4d:
         return cast(Floats4d, self.reshape(array, (d0, d1, d2, d3)))
 
     def reshape_f(self, array: FloatsXd, shape: Shape) -> FloatsXd:
         return self.reshape(array, shape)
 
-    def reshape1i(self, array: Ints, d0: int) -> Ints1d:
+    def reshape1i(self, array: IntsXd, d0: int) -> Ints1d:
         return cast(Ints1d, self.reshape(array, (d0,)))
 
-    def reshape2i(self, array: Ints, d0: int, d1: int) -> Ints2d:
+    def reshape2i(self, array: IntsXd, d0: int, d1: int) -> Ints2d:
         return cast(Ints2d, self.reshape(array, (d0, d1)))
 
-    def reshape3i(self, array: Ints, d0: int, d1: int, d2: int) -> Ints3d:
+    def reshape3i(self, array: IntsXd, d0: int, d1: int, d2: int) -> Ints3d:
         return cast(Ints3d, self.reshape(array, (d0, d1, d2)))
 
-    def reshape4i(self, array: Ints, d0: int, d1: int, d2: int, d3: int) -> Ints4d:
+    def reshape4i(self, array: IntsXd, d0: int, d1: int, d2: int, d3: int) -> Ints4d:
         return cast(Ints4d, self.reshape(array, (d0, d1, d2, d3)))
 
-    def reshape_i(self, array: Ints, shape: Shape) -> Ints:
+    def reshape_i(self, array: IntsXd, shape: Shape) -> IntsXd:
         return self.reshape(array, shape)
 
     def reshape(self, array: ArrayT, shape: Shape) -> ArrayT:
@@ -492,7 +489,7 @@ class Ops:
 
     def asarray_f(
         self,
-        data: Union[Floats, Sequence[float]],
+        data: Union[FloatsXd, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
     ) -> FloatsXd:
@@ -519,9 +516,9 @@ class Ops:
         return cast(Ints4d, self.asarray(data, dtype=dtype))
 
     def asarray_i(
-        self, data: Union[Ints, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
-    ) -> Ints:
-        return cast(Ints, self.asarray(data, dtype=dtype))
+        self, data: Union[IntsXd, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
+    ) -> IntsXd:
+        return cast(IntsXd, self.asarray(data, dtype=dtype))
 
     def asarray(
         self,
@@ -821,7 +818,7 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(self, table: Floats, indices: Ints, values: Floats) -> FloatsXd:
+    def scatter_add(self, table: FloatsXd, indices: IntsXd, values: FloatsXd) -> FloatsXd:
         return self.xp.add.at(table, indices, values)
 
     def insert_into(self, shape, Xs):

@@ -3,8 +3,8 @@ from typing import overload
 import numpy
 
 from .ops import Ops
-from ..types import Floats, Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d
-from ..types import Array, DTypes, Array3d, DeviceTypes, Padded, List2d
+from ..types import Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d
+from ..types import Array, DTypes, Array3d, DeviceTypes, Padded, List2d, _Floats
 
 
 try:  # pragma: no cover
@@ -20,7 +20,7 @@ except ImportError:  # pragma: no cover
 
 
 ArrayT = TypeVar("ArrayT", bound=Array)
-FloatsT = TypeVar("FloatsT", bound=Floats)
+FloatsT = TypeVar("FloatsT", bound=_Floats)
 _W = TypeVar("_W")
 Wrapper = Callable[[_W], _W]
 
