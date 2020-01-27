@@ -1,11 +1,11 @@
-from typing import Tuple, List, Callable, cast
+from typing import Tuple, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Array1d
+from ..types import Array2d, List2d
 
 
-InT = List[Array2d]
+InT = List2d
 OutT = Array2d
 
 
@@ -19,9 +19,9 @@ def list2array() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xs: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    lengths: Array1d = model.ops.asarray([len(x) for x in Xs], dtype="i")
+    lengths = model.ops.asarray1i([len(x) for x in Xs])
 
     def backprop(dY: OutT) -> InT:
-        return cast(InT, model.ops.unflatten(dY, lengths))
+        return model.ops.unflatten(dY, lengths)  # type: ignore
 
-    return cast(OutT, model.ops.flatten(Xs)), backprop
+    return model.ops.flatten(Xs), backprop  # type: ignore

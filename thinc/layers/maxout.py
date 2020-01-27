@@ -3,15 +3,15 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..config import registry
 from ..initializers import glorot_uniform_init, zero_init
-from ..types import Array2d, Array3d
+from ..types import Floats2d
 from ..util import get_width, partial
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("Maxout.v1")
@@ -45,18 +45,20 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     nI = model.get_dim("nI")
     b = model.get_param("b")
     W = model.get_param("W")
-    W = cast(Array2d, W.reshape((nO * nP, nI)))
+    W = model.ops.reshape2f(W, nO * nP, nI)
     Y = model.ops.gemm(X, W, trans2=True)
-    Y += b.reshape((nO * nP,))
-    Z = cast(Array3d, Y.reshape((Y.shape[0], nO, nP)))
+    Y += model.ops.reshape1f(b, nO * nP)
+    Z = model.ops.reshape3f(Y, Y.shape[0], nO, nP)
     best, which = model.ops.maxout(Z)
 
     def backprop(d_best: OutT) -> InT:
         dZ = model.ops.backprop_maxout(d_best, which, nP)
-        model.inc_grad("b", dZ.sum(axis=0))
-        dY = dZ.reshape((dZ.shape[0], nO * nP))
-        model.inc_grad("W", model.ops.gemm(dY, X, trans1=True).reshape((nO, nP, nI)))
-        return model.ops.gemm(dY, W.reshape((nO * nP, nI)))
+        # TODO: Add sum methods for Floats3d
+        model.inc_grad("b", dZ.sum(axis=0))  # type: ignore
+        dY = model.ops.reshape2f(dZ, dZ.shape[0], nO * nP)
+        dX = model.ops.reshape3f(model.ops.gemm(dY, X, trans1=True), nO, nP, nI)
+        model.inc_grad("W", dX)
+        return model.ops.gemm(dY, model.ops.reshape2f(W, nO * nP, nI))
 
     return best, backprop
 

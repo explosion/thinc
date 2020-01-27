@@ -1,12 +1,12 @@
-from typing import Tuple, Callable, cast
+from typing import Tuple, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("expand_window.v1")
@@ -22,6 +22,6 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     Y = model.ops.seq2col(X, nW)
 
     def backprop(dY: OutT) -> InT:
-        return cast(Array2d, model.ops.backprop_seq2col(dY, nW))
+        return model.ops.backprop_seq2col(dY, nW)
 
     return Y, backprop

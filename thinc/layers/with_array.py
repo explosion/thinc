@@ -1,12 +1,13 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array1d, Array2d, Padded, Ragged
+from ..types import Array2d, Floats2d, Padded, Ragged
+from ..types import List2d
 
 
 ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Array2d])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Array2d])
 
 
 @registry.layers("with_array.v1")
@@ -36,9 +37,7 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
     elif not isinstance(Xseq, (list, tuple)):
         return model.layers[0](Xseq, is_train)
     else:
-        return _list_forward(
-            cast(Model[List[Array2d], List[Array2d]], model), Xseq, is_train
-        )
+        return _list_forward(cast(Model[List2d, List2d], model), Xseq, is_train)
 
 
 def init(
@@ -56,7 +55,9 @@ def _get_array(model, X: SeqT) -> Array2d:
     if isinstance(X, Ragged):
         return X.data
     elif isinstance(X, Padded):
-        return X.data.reshape((X.data.shape[0] * X.data.shape[1], X.data.shape[2]))
+        return model.ops.reshape2f(
+            X.data, X.data.shape[0] * X.data.shape[1], X.data.shape[2]
+        )
     elif not isinstance(X, (list, tuple)):
         return cast(Array2d, X)
     else:
@@ -64,16 +65,16 @@ def _get_array(model, X: SeqT) -> Array2d:
 
 
 def _list_forward(
-    model: Model[List[Array2d], List[Array2d]], Xs: List[Array2d], is_train: bool
-) -> Tuple[List[Array2d], Callable]:
+    model: Model[List2d, List2d], Xs: List2d, is_train: bool
+) -> Tuple[List2d, Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
-    lengths: Array1d = layer.ops.asarray([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(Xs, pad=pad)
+    lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
+    Xf = layer.ops.flatten(Xs, pad=pad)  # type: ignore
     Yf, get_dXf = layer(Xf, is_train)
 
-    def backprop(dYs: List[Array2d]) -> List[Array2d]:
-        dYf = layer.ops.flatten(dYs, pad=pad)
+    def backprop(dYs: List2d) -> List2d:
+        dYf = layer.ops.flatten(dYs, pad=pad)  # type: ignore
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
 
@@ -89,23 +90,29 @@ def _ragged_forward(
     def backprop(dYr: Ragged) -> Ragged:
         return Ragged(get_dX(dYr.data), dYr.lengths)
 
-    return Ragged(Y, Xr.lengths), backprop
+    return Ragged(cast(Floats2d, Y), Xr.lengths), backprop
 
 
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
-    X = Xp.data.reshape((Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]))
+    X = model.ops.reshape2f(
+        Xp.data, Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]
+    )
     Y2d, get_dX = layer(X, is_train)
-    Y = Y2d.reshape((Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]))
+    Y = model.ops.reshape3f(
+        cast(Floats2d, Y2d), Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]
+    )
 
     def backprop(dYp: Padded) -> Padded:
-        dY = dYp.data.reshape(
-            (dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2])
+        dY = model.ops.reshape2f(
+            dYp.data, dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2]
         )
         dX2d = get_dX(dY)
-        dX = dX2d.reshape((dYp.data.shape[0], dYp.data.shape[1], dX2d.data.shape[1]))
+        dX = model.ops.reshape3f(
+            dX2d, dYp.data.shape[0], dYp.data.shape[1], dX2d.data.shape[1]
+        )
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
     return Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices), backprop

@@ -2,12 +2,12 @@ from typing import Tuple, Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, XY_XY_OutT
+from ..types import ArrayXd, XY_XY_OutT
 from ..util import get_width
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = TypeVar("InT", bound=ArrayXd)
+OutT = TypeVar("OutT", bound=ArrayXd)
 
 
 @registry.layers("add.v1")

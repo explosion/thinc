@@ -2,7 +2,6 @@ import pytest
 from thinc.api import chain, ReLu, reduce_max, Softmax, with_ragged
 from thinc.api import ParametricAttention, list2ragged, reduce_sum
 from thinc.util import DataValidationError
-import numpy
 
 
 def test_validation():

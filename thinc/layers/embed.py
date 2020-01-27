@@ -1,14 +1,14 @@
-from typing import Dict, Callable, Tuple, Optional, Any
+from typing import Dict, Callable, Tuple, Optional, Any, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Ints2d, Floats2d, Ints1d
 from ..initializers import uniform_init
 from ..util import get_width, partial
 
 
-InT = Array2d
-OutT = Array2d
+InT = Union[Ints1d, Ints2d]
+OutT = Floats2d
 
 
 @registry.layers("Embed.v1")
@@ -36,23 +36,25 @@ def Embed(
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
-    vectors = model.get_param("E")
-    column = model.attrs["column"]
+    vectors = cast(Floats2d, model.get_param("E"))
+    column: int = model.attrs["column"]
     dropout = model.attrs.get("dropout_rate")
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
-        ids = ids[:, column]
-    ids *= ids < nV
-    output = vectors[ids.astype("i")]
-    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+        ids1d = ids[:, column]  # type: ignore
+    else:
+        ids1d = cast(Ints1d, ids)
+    ids1d *= ids1d < nV
+    output = vectors[ids1d.astype("i")]
+    drop_mask = cast(Floats2d, model.ops.get_dropout_mask((vectors.shape[1],), dropout))
     output *= drop_mask
 
     def backprop(d_output: OutT) -> InT:
         d_output *= drop_mask
         d_vectors = model.ops.alloc2f(*vectors.shape)
-        model.ops.scatter_add(d_vectors, ids, d_output)
+        model.ops.scatter_add(d_vectors, ids1d, d_output)
         model.inc_grad("E", d_vectors)
-        dX: OutT = model.ops.alloc(input_shape, dtype=ids.dtype)
+        dX: InT = model.ops.alloc(input_shape, dtype=ids1d.dtype)
         return dX
 
     return output, backprop

@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, Optional, TypeVar
 
-from ..model import Model, Array
+from ..model import Model
+from ..types import ArrayXd
 from ..config import registry
 from ..util import get_width
 
@@ -8,7 +9,7 @@ from ..util import get_width
 LayerT = TypeVar("LayerT")
 SimT = TypeVar("SimT")
 InT = Tuple[LayerT, LayerT]
-OutT = Array
+OutT = ArrayXd
 
 
 @registry.layers("siamese.v1")

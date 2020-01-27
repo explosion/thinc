@@ -1,6 +1,6 @@
-from typing import Tuple, List, cast, TypeVar, Generic, Any
+from typing import Tuple, List, cast, TypeVar, Generic, Any, Union
 
-from .types import Array2d, Array
+from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical
 from .config import registry
 
@@ -35,15 +35,17 @@ class CategoricalCrossentropy(Loss):
     def __init__(self, *, normalize: bool = True):
         self.normalize = normalize
 
-    def __call__(self, guesses: Array2d, truths: Array) -> Tuple[Array2d, float]:
+    def __call__(
+        self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]
+    ) -> Tuple[Floats2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
-    def get_grad(self, guesses: Array2d, truths: Array) -> Array2d:
+    def get_grad(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> Floats2d:
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
-            target = to_categorical(truths, n_classes=guesses.shape[-1])
+            target = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
         else:  # pragma: no cover
-            target = cast(Array2d, truths)
+            target = cast(Floats2d, truths)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -58,9 +60,10 @@ class CategoricalCrossentropy(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Array2d, truths: Array) -> float:
+    def get_loss(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> float:
         d_truth = self.get_grad(guesses, truths)
-        return (d_truth ** 2).sum()
+        # TODO: Add overload for axis=None case to sum
+        return (d_truth ** 2).sum()  # type: ignore
 
 
 @registry.losses("CategoricalCrossentropy.v1")
@@ -75,11 +78,13 @@ class SequenceCategoricalCrossentropy(Loss):
         self.cc = CategoricalCrossentropy(normalize=normalize)
 
     def __call__(
-        self, guesses: List[Array2d], truths: List[Array]
-    ) -> Tuple[List[Array2d], List[float]]:
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+    ) -> Tuple[List[Floats2d], List[float]]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
-    def get_grad(self, guesses: List[Array2d], truths: List[Array]) -> List[Array2d]:
+    def get_grad(
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+    ) -> List[Floats2d]:
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
             raise ValueError(err)
@@ -88,7 +93,9 @@ class SequenceCategoricalCrossentropy(Loss):
             d_scores.append(self.cc.get_grad(yh, y))
         return d_scores
 
-    def get_loss(self, guesses: List[Array2d], truths: List[Array]) -> List[float]:
+    def get_loss(
+        self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
+    ) -> List[float]:
         losses = []
         for yh, y in zip(guesses, truths):
             losses.append(self.cc.get_loss(yh, y))
@@ -106,10 +113,10 @@ class L2Distance(Loss):
     def __init__(self, *, normalize: bool = True):
         self.normalize = normalize
 
-    def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
+    def __call__(self, guesses: Floats2d, truths: Floats2d) -> Tuple[Floats2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
-    def get_grad(self, guesses: Array2d, truths: Array2d) -> Array2d:
+    def get_grad(self, guesses: Floats2d, truths: Floats2d) -> Floats2d:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
@@ -118,12 +125,13 @@ class L2Distance(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
+    def get_loss(self, guesses: Floats2d, truths: Floats2d) -> float:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate L2 distance: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
         d_truth = self.get_grad(guesses, truths)
-        return (d_truth ** 2).sum()
+        # TODO: Add overload for axis=None case to sum
+        return (d_truth ** 2).sum()  # type: ignore
 
 
 @registry.losses("L2Distance.v1")
@@ -136,10 +144,10 @@ class CosineDistance(Loss):
         self.normalize = normalize
         self.ignore_zeros = ignore_zeros
 
-    def __call__(self, guesses: Array2d, truths: Array2d) -> Tuple[Array2d, float]:
+    def __call__(self, guesses: Floats2d, truths: Floats2d) -> Tuple[Floats2d, float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
-    def get_similarity(self, guesses: Array2d, truths: Array2d) -> float:
+    def get_similarity(self, guesses: Floats2d, truths: Floats2d) -> float:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
@@ -154,7 +162,7 @@ class CosineDistance(Loss):
         cosine = (yh * y).sum(axis=1, keepdims=True) / mul_norms
         return cosine
 
-    def get_grad(self, guesses: Array2d, truths: Array2d) -> Array2d:
+    def get_grad(self, guesses: Floats2d, truths: Floats2d) -> Floats2d:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)
@@ -180,7 +188,7 @@ class CosineDistance(Loss):
             d_yh = d_yh / guesses.shape[0]
         return -d_yh
 
-    def get_loss(self, guesses: Array2d, truths: Array2d) -> float:
+    def get_loss(self, guesses: Floats2d, truths: Floats2d) -> float:
         if guesses.shape != truths.shape:  # pragma: no cover
             err = f"Cannot calculate cosine similarity: mismatched shapes: {guesses.shape} vs {truths.shape}."
             raise ValueError(err)

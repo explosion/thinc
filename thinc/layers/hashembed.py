@@ -1,14 +1,14 @@
-from typing import Callable, Dict, Tuple, Optional, Any
+from typing import Callable, Dict, Tuple, Optional, Any, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d, Ints2d, Ints1d
 from ..initializers import uniform_init
 from ..util import partial
 
 
-InT = Array2d
-OutT = Array2d
+InT = Union[Ints2d, Ints1d]
+OutT = Floats2d
 
 
 @registry.layers("HashEmbed.v1")
@@ -39,27 +39,29 @@ def HashEmbed(
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     dropout = model.attrs.get("dropout_rate")
-    E = model.get_param("E")
-    seed = model.attrs["seed"]
-    column = model.attrs["column"]
+    E = cast(Floats2d, model.get_param("E"))
+    seed: int = model.attrs["seed"]
+    column: int = model.attrs["column"]
     nV = E.shape[0]
     input_shape = tuple(ids.shape)
     if ids.ndim >= 2:
-        ids = model.ops.as_contig(ids[:, column], dtype="uint64")
-    keys = model.ops.hash(ids, seed) % nV
+        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64")  # type: ignore
+    else:
+        ids1d = cast(Ints1d, ids)
+    keys = model.ops.hash(ids1d, seed) % nV
     vectors = E[keys].sum(axis=1)
-    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    drop_mask = cast(Floats2d, model.ops.get_dropout_mask((vectors.shape[1],), dropout))
     vectors *= drop_mask
 
     def backprop(d_vectors: OutT) -> InT:
         d_vectors *= drop_mask
-        keys = model.ops.hash(ids, seed) % nV
+        keys = model.ops.hash(ids1d, seed) % nV
         dE = model.ops.alloc2f(*E.shape)
         keys = model.ops.as_contig(keys.T, dtype="i")
         for i in range(keys.shape[0]):
             model.ops.scatter_add(dE, keys[i], d_vectors)
         model.inc_grad("E", dE)
-        dX: OutT = model.ops.alloc(input_shape, dtype="i")
+        dX = cast(InT, model.ops.alloc_i(input_shape))
         return dX
 
     return vectors, backprop

@@ -6,15 +6,15 @@ cimport cython
 
 from typing import Tuple, Callable, Optional
 
-from ..types import Array
+from ..types import ArrayXd
 from ..model import Model
 from ..config import registry
 from ..util import get_width, is_cupy_array, is_numpy_array, get_array_module
 from ..backends import NumpyOps, CupyOps
 
 
-InT = Tuple[Array, Array, Array]
-OutT = Array
+InT = Tuple[ArrayXd, ArrayXd, ArrayXd]
+OutT = ArrayXd
 
 
 @cython.binding(True)
@@ -56,11 +56,11 @@ def init(model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = N
     return model
 
 
-def _begin_gpu_update(model: Model[InT, OutT], keys: Array, values: Array, lengths: Array) -> Tuple[Array, Callable]:
+def _begin_gpu_update(model: Model[InT, OutT], keys: ArrayXd, values: ArrayXd, lengths: ArrayXd) -> Tuple[ArrayXd, Callable]:
     xp = get_array_module(keys)
     scores_cpu, callback = _begin_cpu_update(model, keys.get(), values.get(), lengths.get())
 
-    def backprop_gpu_update(d_scores: Array) -> Tuple[Array, Array, Array]:
+    def backprop_gpu_update(d_scores: ArrayXd) -> Tuple[ArrayXd, ArrayXd, ArrayXd]:
         callback(d_scores.get())
         return (keys, values, lengths)
 

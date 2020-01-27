@@ -1,13 +1,13 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 import numpy
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Ints2d, Floats2d
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+InT = Ints2d
+OutT = Floats2d
 
 
 @registry.layers("uniqued.v1")
@@ -28,7 +28,7 @@ def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    column = model.attrs["column"]
+    column: int = model.attrs["column"]
     layer = model.layers[0]
     keys = X[:, column]
     if not isinstance(keys, numpy.ndarray):
@@ -36,15 +36,15 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     uniq_keys, ind, inv, counts = layer.ops.xp.unique(
         keys, return_index=True, return_inverse=True, return_counts=True
     )
-    counts = counts.reshape((-1, 1))
+    counts = model.ops.reshape2i(counts, -1, 1)
     X_uniq = X[ind]
     Y_uniq, bp_Y_uniq = layer(X_uniq, is_train)
     Y = Y_uniq[inv].reshape((X.shape[0],) + Y_uniq.shape[1:])
     uniq_shape = tuple(Y_uniq.shape)
 
     def backprop(dY: OutT) -> InT:
-        dY_uniq: Array = layer.ops.alloc(uniq_shape, dtype="f")
-        layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
+        dY_uniq = layer.ops.alloc2f(*uniq_shape)
+        layer.ops.scatter_add(dY_uniq, layer.ops.asarray_i(inv), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"
         return (d_uniques / counts)[inv]

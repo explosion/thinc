@@ -63,7 +63,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
             assert type1.type.fullname == thinc_model_fullname
             assert type2.type.fullname == thinc_model_fullname
             check_chained(
-                l1_arg=arg1, l1_type=type1, l2_arg=arg2, l2_type=type2, api=ctx.api,
+                l1_arg=arg1, l1_type=type1, l2_arg=arg2, l2_type=type2, api=ctx.api
             )
         return Instance(
             ctx.default_return_type.type, [arg_types[0].args[0], arg_types[-1].args[1]]
@@ -75,7 +75,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
             assert type1.type.fullname == thinc_model_fullname
             assert type2.type.fullname == thinc_model_fullname
             check_intoin_outtoout(
-                l1_arg=arg1, l1_type=type1, l2_arg=arg2, l2_type=type2, api=ctx.api,
+                l1_arg=arg1, l1_type=type1, l2_arg=arg2, l2_type=type2, api=ctx.api
             )
         return Instance(
             ctx.default_return_type.type, [arg_types[0].args[0], arg_types[0].args[1]]

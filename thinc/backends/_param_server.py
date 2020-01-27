@@ -1,6 +1,6 @@
 from typing import Dict, Tuple
 
-from ..types import Array
+from ..types import FloatsXd
 
 
 KeyT = Tuple[int, str]
@@ -9,10 +9,12 @@ KeyT = Tuple[int, str]
 class ParamServer:
     """Serve parameters for a single process."""
 
-    _params: Dict[KeyT, Array] = {}
-    _grads: Dict[KeyT, Array] = {}
+    _params: Dict[KeyT, FloatsXd] = {}
+    _grads: Dict[KeyT, FloatsXd] = {}
 
-    def __init__(self, params: Dict[KeyT, Array] = {}, grads: Dict[KeyT, Array] = {}):
+    def __init__(
+        self, params: Dict[KeyT, FloatsXd] = {}, grads: Dict[KeyT, FloatsXd] = {}
+    ):
         self._params = dict(params)
         self._grads = dict(grads)
 
@@ -31,19 +33,19 @@ class ParamServer:
     def has_grad(self, model_id: int, name: str) -> bool:
         return (model_id, name) in self._grads
 
-    def get_param(self, model_id: int, name: str) -> Array:
+    def get_param(self, model_id: int, name: str) -> FloatsXd:
         return self._params[(model_id, name)]
 
-    def get_grad(self, model_id: int, name: str) -> Array:
+    def get_grad(self, model_id: int, name: str) -> FloatsXd:
         return self._grads[(model_id, name)]
 
-    def set_param(self, model_id: int, name: str, value: Array) -> None:
+    def set_param(self, model_id: int, name: str, value: FloatsXd) -> None:
         self._params[(model_id, name)] = value
 
-    def set_grad(self, model_id: int, name: str, value: Array) -> None:
+    def set_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
         self._grads[(model_id, name)] = value
 
-    def inc_grad(self, model_id: int, param_name: str, value: Array) -> None:
+    def inc_grad(self, model_id: int, param_name: str, value: FloatsXd) -> None:
         if not self.has_grad(model_id, param_name):  # pragma: no cover
             # Adjustment for Jax
             if hasattr(value, "copy"):

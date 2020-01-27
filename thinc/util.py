@@ -40,7 +40,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Array2d, ArgsKwargs, Ragged, Padded
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, Floats2d, IntsXd
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -163,7 +163,7 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     return True
 
 
-def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
+def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
     if isinstance(dst, numpy.ndarray) and isinstance(src, numpy.ndarray):
         dst[:] = src
     elif is_cupy_array(dst):
@@ -173,7 +173,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
+def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> Floats2d:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover
@@ -188,7 +188,7 @@ def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
 
 
 def get_width(
-    X: Union[Array, Ragged, Padded, Sequence[Array]], *, dim: int = -1
+    X: Union[ArrayXd, Ragged, Padded, Sequence[ArrayXd]], *, dim: int = -1
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
@@ -198,7 +198,7 @@ def get_width(
     elif isinstance(X, Padded):
         return get_width(X.data, dim=dim)
     elif hasattr(X, "shape") and hasattr(X, "ndim"):
-        X = cast(Array, X)
+        X = cast(ArrayXd, X)
         if len(X.shape) == 0:
             return 0
         elif len(X.shape) == 1:
@@ -257,7 +257,7 @@ def convert_recursive(
 
 
 def xp2torch(
-    xp_tensor: Array, requires_grad: bool = False
+    xp_tensor: ArrayXd, requires_grad: bool = False
 ) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
     if hasattr(xp_tensor, "toDlpack"):
@@ -270,7 +270,7 @@ def xp2torch(
     return torch_tensor
 
 
-def torch2xp(torch_tensor: "torch.Tensor") -> Array:  # pragma: no cover
+def torch2xp(torch_tensor: "torch.Tensor") -> ArrayXd:  # pragma: no cover
     """Convert a torch tensor to a numpy or cupy tensor."""
     if torch_tensor.is_cuda:
         return cupy.fromDlpack(torch.utils.dlpack.to_dlpack(torch_tensor))
@@ -279,7 +279,7 @@ def torch2xp(torch_tensor: "torch.Tensor") -> Array:  # pragma: no cover
 
 
 def xp2tensorflow(
-    xp_tensor: Array, requires_grad: bool = False, as_variable: bool = False
+    xp_tensor: ArrayXd, requires_grad: bool = False, as_variable: bool = False
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
@@ -297,7 +297,7 @@ def xp2tensorflow(
     return tensorflow_tensor
 
 
-def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> Array:  # pragma: no cover
+def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
     return tensorflow_tensor.numpy()
@@ -320,7 +320,7 @@ def partial(
 
 class DataValidationError(ValueError):
     def __init__(
-        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = [],
+        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = []
     ) -> None:
         """Custom error for validating inputs / outputs at runtime."""
         message = f"Data validation error in '{name}'"

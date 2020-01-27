@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
-from .types import Array, Generator
+from .types import Generator, FloatsXd
 from .config import registry
 
 
@@ -109,9 +109,9 @@ class Optimizer(object):
     second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """
 
-    mom1: Dict[KeyT, Array]
-    mom2: Dict[KeyT, Array]
-    averages: Optional[Dict[KeyT, Array]]
+    mom1: Dict[KeyT, FloatsXd]
+    mom2: Dict[KeyT, FloatsXd]
+    averages: Optional[Dict[KeyT, FloatsXd]]
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
@@ -123,7 +123,7 @@ class Optimizer(object):
     L2: float
     use_radam: bool
     L2_is_weight_decay: bool
-    _radam_buffer: List[List[Optional[Array]]]
+    _radam_buffer: List[List[Optional[FloatsXd]]]
 
     def __init__(
         self,
@@ -211,8 +211,8 @@ class Optimizer(object):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: Array,
-        gradient: Array,
+        weights: FloatsXd,
+        gradient: FloatsXd,
         *,
         lr_scale: float = 1.0,
     ):
@@ -320,8 +320,8 @@ class Optimizer(object):
         return weights, grad
 
     def _adam(self, xp, weights, gradient, lr_scale, key, nr_upd):
-        weights_1D = weights.reshape((weights.size,))
-        gradient_1D = gradient.reshape((gradient.size,))
+        weights_1D = self.ops.reshape1f(weights, weights.size)
+        gradient_1D = self.ops.reshape1f(gradient, gradient.size)
         if key not in self.mom1:
             self.mom1[key] = self.ops.alloc1f(weights.size)
         if key not in self.mom2:
@@ -340,7 +340,10 @@ class Optimizer(object):
         )
         self.mom1[key] = mom1
         self.mom2[key] = mom2
-        return weights_1D.reshape(weights.shape), gradient_1D.reshape(gradient.shape)
+        return (
+            self.ops.reshape_f(weights_1D, weights.shape),
+            self.ops.reshape_f(gradient_1D, gradient.shape),
+        )
 
 
 __all__ = ["Adam", "RAdam", "SGD", "Optimizer", "ADAM_DEFAULTS", "SGD_DEFAULTS"]

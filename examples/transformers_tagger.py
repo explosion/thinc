@@ -9,7 +9,7 @@ import thinc
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
 from thinc.api import torch2xp, xp2torch, SequenceCategoricalCrossentropy
 from thinc.api import prefer_gpu, use_pytorch_for_gpu_memory
-from thinc.types import Array2d, ArgsKwargs
+from thinc.types import Floats2d, ArgsKwargs
 import ml_datasets
 import tqdm
 import typer
@@ -108,7 +108,7 @@ class TokensPlus:
 @thinc.registry.layers("TransformersTagger.v1")
 def TransformersTagger(
     starter: str, n_tags: int = 17
-) -> Model[List[List[str]], List[Array2d]]:
+) -> Model[List[List[str]], List[Floats2d]]:
     return chain(
         TransformersTokenizer(starter),
         Transformer(starter),
@@ -138,7 +138,7 @@ def TransformersTokenizer(name: str) -> Model[List[List[str]], TokensPlus]:
 
 
 @thinc.registry.layers("transformers_model.v1")
-def Transformer(name: str) -> Model[TokensPlus, List[Array2d]]:
+def Transformer(name: str) -> Model[TokensPlus, List[Floats2d]]:
     return PyTorchWrapper(
         AutoModel.from_pretrained(name),
         convert_inputs=convert_transformer_inputs,
@@ -161,11 +161,11 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
     # Free the memory as soon as we can
     torch_outputs = None
     lengths = list(layer_inputs.input_len)
-    tokvecs: List[Array2d] = model.ops.unpad(torch2xp(torch_tokvecs), lengths)
+    tokvecs: List[Floats2d] = model.ops.unpad(torch2xp(torch_tokvecs), lengths)
     # Remove the BOS and EOS markers.
     tokvecs = [arr[1:-1] for arr in tokvecs]
 
-    def backprop(d_tokvecs: List[Array2d]) -> ArgsKwargs:
+    def backprop(d_tokvecs: List[Floats2d]) -> ArgsKwargs:
         # Restore entries for bos and eos markers.
         row = model.ops.alloc2f(1, d_tokvecs[0].shape[1])
         d_tokvecs = [model.ops.xp.vstack((row, arr, row)) for arr in d_tokvecs]
@@ -178,7 +178,7 @@ def convert_transformer_outputs(model, inputs_outputs, is_train):
 
 
 def evaluate_sequences(
-    model, Xs: List[Array2d], Ys: List[Array2d], batch_size: int
+    model, Xs: List[Floats2d], Ys: List[Floats2d], batch_size: int
 ) -> float:
     correct = 0.0
     total = 0.0

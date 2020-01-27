@@ -2,11 +2,11 @@ from typing import Tuple, Callable
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("Logistic.v1")

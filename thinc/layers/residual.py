@@ -2,10 +2,12 @@ from typing import Tuple, Callable, Optional, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Array2d, Ragged, Padded
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Ragged, Padded
 
 
-InT = TypeVar("InT", List[Array], Ragged, Padded, Array, Array2d)
+# fmt: off
+InT = TypeVar("InT", List[Floats1d], List[Floats2d], List[Floats3d], List[Floats4d], Ragged, Padded, FloatsXd)
+# fmt: on
 
 
 @registry.layers("residual.v1")

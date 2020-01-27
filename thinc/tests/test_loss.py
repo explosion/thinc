@@ -30,8 +30,7 @@ def test_loss():
 
 
 @pytest.mark.parametrize(
-    "dist",
-    [CategoricalCrossentropy(), CosineDistance(ignore_zeros=True), L2Distance()],
+    "dist", [CategoricalCrossentropy(), CosineDistance(ignore_zeros=True), L2Distance()]
 )
 @pytest.mark.parametrize("vect", [scores0, guesses1, guesses2])
 def test_equality(dist, vect):
@@ -40,7 +39,7 @@ def test_equality(dist, vect):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)],
+    "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)]
 )
 def test_categorical_crossentropy(guesses, labels):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)

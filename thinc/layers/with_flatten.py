@@ -2,12 +2,12 @@ from typing import Tuple, Callable, Sequence, Any, List, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Array2d, List2d
 
 
 ItemT = TypeVar("ItemT")
 InT = Sequence[Sequence[ItemT]]
-OutT = List[Array2d]
+OutT = List2d
 
 
 @registry.layers("with_flatten.v1")
@@ -22,14 +22,15 @@ def forward(
     Xflat: Sequence[Any] = _flatten(Xnest)
     Yflat, backprop_layer = layer(Xflat, is_train)
     # Get the split points. We want n-1 splits for n items.
-    arr: Array2d = layer.ops.asarray([len(x) for x in Xnest[:-1]], dtype="i")
+    arr = layer.ops.asarray1i([len(x) for x in Xnest[:-1]])
     splits = arr.cumsum()
     Ynest = layer.ops.xp.split(Yflat, splits, axis=-1)
 
     def backprop(dYnest: OutT) -> InT:
-        dYflat: List[Array2d] = []
+        # I think the input/output types might be wrong here?
+        dYflat = []  # type: ignore
         for d_item in dYnest:
-            dYflat.extend(d_item)
+            dYflat.extend(d_item)  # type: ignore
         dXflat = backprop_layer(dYflat)
         dXnest = layer.ops.xp.split(dXflat, splits, axis=-1)
         return dXnest

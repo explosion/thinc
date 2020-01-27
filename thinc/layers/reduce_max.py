@@ -1,12 +1,12 @@
 from typing import Tuple, Callable
 
-from ..types import Array2d, Ragged
+from ..types import Floats2d, Ragged
 from ..model import Model
 from ..config import registry
 
 
 InT = Ragged
-OutT = Array2d
+OutT = Floats2d
 
 
 @registry.layers("reduce_max.v1")
@@ -15,7 +15,6 @@ def reduce_max() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y: Array2d
     Y, which = model.ops.reduce_max(Xr.data, Xr.lengths)
     lengths = Xr.lengths
 

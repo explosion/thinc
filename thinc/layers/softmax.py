@@ -2,13 +2,13 @@ from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d, Floats1d
 from ..initializers import zero_init
 from ..util import get_width, partial
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("Softmax.v1")
@@ -29,8 +29,8 @@ def Softmax(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = cast(Array2d, model.get_param("W"))
-    b = model.get_param("b")
+    W = cast(Floats2d, model.get_param("W"))
+    b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
     Y = model.ops.softmax(Y)
 

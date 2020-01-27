@@ -2,11 +2,11 @@ from typing import Tuple, Callable, Sequence, Dict, Any
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Array, DTypes
+from ..types import Ints2d, DTypes
 
 
 InT = Sequence[Any]
-OutT = Array2d
+OutT = Ints2d
 
 
 @registry.layers("remap_ids.v1")
@@ -32,8 +32,8 @@ def forward(
     default = model.attrs["default"]
     dtype = model.attrs["dtype"]
     values = [table.get(x, default) for x in inputs]
-    arr: Array = model.ops.asarray(values, dtype=dtype)
-    output: Array2d = arr.reshape((-1, 1))
+    arr = model.ops.asarray2i(values, dtype=dtype)
+    output = model.ops.reshape2i(arr, -1, 1)
 
     def backprop(dY: OutT) -> InT:
         return []

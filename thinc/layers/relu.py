@@ -3,15 +3,15 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..initializers import glorot_uniform_init, zero_init
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d, Floats1d
 from ..util import get_width, partial
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("ReLu.v1")
@@ -34,13 +34,13 @@ def ReLu(
     if normalize:
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
-        model = chain(model, cast(Model[Array2d, Array2d], Dropout(dropout)))
+        model = chain(model, cast(Model[Floats2d, Floats2d], Dropout(dropout)))
     return model
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = cast(Array2d, model.get_param("W"))
-    b = model.get_param("b")
+    W = cast(Floats2d, model.get_param("W"))
+    b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
     Y = model.ops.relu(Y)
 

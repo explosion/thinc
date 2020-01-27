@@ -1,13 +1,13 @@
-from typing import Tuple, Callable, Optional
+from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array1d, Array2d
+from ..types import Floats1d, Floats2d
 from ..util import get_width
 
 
-InT = Tuple[Array2d, Array2d]
-OutT = Array1d
+InT = Tuple[Floats2d, Floats2d]
+OutT = Floats1d
 
 
 @registry.layers("CauchySimilarity.v1")
@@ -28,15 +28,15 @@ def forward(
     model: Model[InT, OutT], X1_X2: InT, is_train: bool
 ) -> Tuple[OutT, Callable]:
     X1, X2 = X1_X2
-    W = model.get_param("W")
+    W = cast(Floats2d, model.get_param("W"))
     diff = X1 - X2
     square_diff = diff ** 2
-    total = (W * square_diff).sum(axis=1)
+    total = (W * square_diff).sum(axis=1)  # type: ignore
     sim, bp_sim = inverse(total)
 
     def backprop(d_sim: OutT) -> InT:
         d_total = bp_sim(d_sim)
-        d_total = d_total.reshape((-1, 1))
+        d_total = model.ops.reshape2f(d_total, -1, 1)
         model.inc_grad("W", (d_total * square_diff).sum(axis=0))
         d_square_diff = W * d_total
         d_diff = 2 * d_square_diff * diff
@@ -57,10 +57,10 @@ def init(
     return model
 
 
-def inverse(total: Array1d) -> Tuple[Array1d, Callable]:
+def inverse(total: OutT) -> Tuple[OutT, Callable]:
     inv = 1.0 / (1 + total)
 
-    def backward(d_inverse: Array1d) -> Array1d:
+    def backward(d_inverse: OutT) -> OutT:
         return d_inverse * (-1 / (total + 1) ** 2)
 
     return inv, backward

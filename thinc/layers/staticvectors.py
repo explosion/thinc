@@ -1,13 +1,13 @@
 from typing import Tuple, Callable, Optional, cast
 
-from ..types import Array2d, Unserializable
+from ..types import Floats2d, Ints2d, Unserializable
 from ..model import Model
 from ..config import registry
 from contextvars import ContextVar
 
 
-InT = Array2d
-OutT = Array2d
+InT = Ints2d
+OutT = Floats2d
 
 context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 
@@ -15,7 +15,7 @@ context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 @registry.layers("StaticVectors.v1")
 def StaticVectors(
     nO: Optional[int] = None,
-    vectors: Optional[Array2d] = None,
+    vectors: Optional[Floats2d] = None,
     *,
     column: int = 0,
     dropout: Optional[float] = None
@@ -36,7 +36,7 @@ def StaticVectors(
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     dropout = model.attrs.get("dropout_rate")
     column = model.attrs["column"]
-    W = cast(Array2d, model.get_param("W"))
+    W = cast(Floats2d, model.get_param("W"))
     vector_table = model.attrs["vectors"].data
     if ids.ndim >= 2:
         ids = model.ops.as_contig(ids[:, column])
