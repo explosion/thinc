@@ -46,7 +46,7 @@ def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):
 
 
 def arrays_BI(min_B=1, max_B=10, min_I=1, max_I=100):
-    shapes = tuples(lengths(lo=min_B, hi=max_B), lengths(lo=min_B, hi=max_I))
+    shapes = tuples(lengths(lo=min_B, hi=max_B), lengths(lo=min_I, hi=max_I))
     return shapes.flatmap(ndarrays_of_shape)
 
 

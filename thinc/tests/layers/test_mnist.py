@@ -68,7 +68,7 @@ def create_model(request):
 
 
 @pytest.mark.slow
-@pytest.mark.parametrize(("width", "nb_epoch", "min_score"), [(32, 10, 0.2)])
+@pytest.mark.parametrize(("width", "nb_epoch", "min_score"), [(32, 20, 0.8)])
 def test_small_end_to_end(width, nb_epoch, min_score, create_model, mnist):
     batch_size = 128
     dropout = 0.2
