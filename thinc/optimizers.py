@@ -1,6 +1,6 @@
 import math
 
-from typing import Dict, Optional, Union, Tuple, List, cast, Iterator
+from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
@@ -112,7 +112,7 @@ class Optimizer(object):
     mom1: Dict[KeyT, Array]
     mom2: Dict[KeyT, Array]
     averages: Optional[Dict[KeyT, Array]]
-    schedules: Dict[str, Iterator[float]]
+    schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
     grad_clip: float
