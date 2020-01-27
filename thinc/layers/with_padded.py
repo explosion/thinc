@@ -123,9 +123,9 @@ def _list_forward(
     list2padded = layer.ops.list2padded
     padded2list = layer.ops.padded2list
 
-    Yp, get_dXp = layer(list2padded(Xs), is_train) # type: ignore
+    Yp, get_dXp = layer(list2padded(Xs), is_train)  # type: ignore
 
     def backprop(dYs: List2d) -> List2d:
-        return padded2list(get_dXp(list2padded(dYs))) # type: ignore
+        return padded2list(get_dXp(list2padded(dYs)))  # type: ignore
 
     return padded2list(Yp), backprop

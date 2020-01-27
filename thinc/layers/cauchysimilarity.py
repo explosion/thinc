@@ -32,7 +32,7 @@ def forward(
     diff = X1 - X2
     square_diff = diff ** 2
     # TODO: Add sum methods for Floats3d
-    total = (W * square_diff).sum(axis=1) # type: ignore
+    total = (W * square_diff).sum(axis=1)  # type: ignore
     sim, bp_sim = inverse(total)
 
     def backprop(d_sim: OutT) -> InT:

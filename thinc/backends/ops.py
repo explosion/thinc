@@ -280,7 +280,7 @@ class Ops:
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
             # It's difficult to convince this that the dtypes will match.
-            output[i, : arr.shape[0]] = arr # type: ignore
+            output[i, : arr.shape[0]] = arr  # type: ignore
         return output
 
     def unpad(self, padded: Array3d, lengths: List[int]) -> List2d:

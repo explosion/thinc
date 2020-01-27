@@ -1,15 +1,9 @@
+from typing import Union, Tuple, Sized, Container, Any, TypeVar, Callable
+from typing import Iterable, Iterator, Sequence, Dict, Generic
+from typing import Optional, List, overload
 from dataclasses import dataclass
-from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable, Callable, overload
 import numpy
 import sys
-
-
-# Use typing_extensions for Python versions < 3.8
-if sys.version_info < (3, 8):
-    from typing_extensions import Literal, Protocol
-else:
-    from typing import Literal, Protocol
 
 try:
     import cupy
@@ -18,27 +12,64 @@ try:
 except ImportError:
     get_array_module = lambda obj: numpy
 
+# Use typing_extensions for Python versions < 3.8
+if sys.version_info < (3, 8):
+    from typing_extensions import Protocol, Literal
+else:
+    from typing import Protocol, Literal  # noqa: F401
 
-Xp = Union["numpy", "cupy"]  # type: ignore
-Shape = Tuple[int, ...]
-DTypes = Literal[
-    "f", "i", "float16", "float32", "float64", "int32", "int64", "uint32", "uint64"
-]
-DTypesFloat = Literal["f", "float32", "float16", "float64"]
-DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
-OpsNames = Literal["numpy", "cupy", "jax"]
-DeviceTypes = Literal["cpu", "gpu", "tpu"]
+
+# fmt: off
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
+
+OpsNames = Literal["numpy", "cupy", "jax"]
+DeviceTypes = Literal["cpu", "gpu", "tpu"]
 Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
-SelfT = TypeVar("SelfT")
+Xp = Union["numpy", "cupy"]  # type: ignore
+Shape = Tuple[int, ...]
+DTypes = Literal["f", "i", "float16", "float32", "float64", "int32", "int64", "uint32", "uint64"]
+DTypesFloat = Literal["f", "float32", "float16", "float64"]
+DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
+
+Array1d = Union["Floats1d", "Ints1d"]
+Array2d = Union["Floats2d", "Ints2d"]
+Array3d = Union["Floats3d", "Ints3d"]
+Array4d = Union["Floats4d", "Ints4d"]
 FloatsXd = Union["Floats1d", "Floats2d", "Floats3d"]
 IntsXd = Union["Ints1d", "Ints2d", "Ints3d"]
 ArrayXd = Union[FloatsXd, IntsXd]
-ArrayT = TypeVar("ArrayT")
 List1d = Union[List["Floats1d"], List["Ints1d"]]
 List2d = Union[List["Floats2d"], List["Ints2d"]]
 List3d = Union[List["Floats3d"], List["Ints3d"]]
+
+ArrayT = TypeVar("ArrayT")
+SelfT = TypeVar("SelfT")
+Array1dT = TypeVar("Array1dT", bound="Array1d")
+
+# These all behave the same as far as indexing is concerned
+Slicish = Union[slice, List[int], "Array"]
+_1_KeyScalar = int
+_1_Key1d = Slicish
+_1_AllKeys = Union[_1_KeyScalar, _1_Key1d]
+_F1_AllReturns = Union[float, "Floats1d"]
+_I1_AllReturns = Union[int, "Ints1d"]
+
+_2_KeyScalar = Tuple[int, int]
+_2_Key1d = Union[int, Tuple[Slicish, int], Tuple[int, Slicish]]
+_2_Key2d = Union[Tuple[Slicish, Slicish], Slicish]
+_2_AllKeys = Union[_2_KeyScalar, _2_Key1d, _2_Key2d]
+_F2_AllReturns = Union[float, "Floats1d", "Floats2d"]
+_I2_AllReturns = Union[int, "Ints1d", "Ints2d"]
+
+_3_KeyScalar = Tuple[int, int, int]
+_3_Key1d = Union[Tuple[int, int], Tuple[int, int, Slicish], Tuple[int, Slicish, int], Tuple[Slicish, int, int]]
+_3_Key2d = Union[int, Tuple[int, Slicish], Tuple[Slicish, int], Tuple[int, Slicish, Slicish], Tuple[Slicish, int, Slicish], Tuple[Slicish, Slicish, int]]
+_3_Key3d = Union[Slicish, Tuple[Slicish, Slicish], Tuple[Slicish, Slicish, Slicish]]
+_3_AllKeys = Union[_3_KeyScalar, _3_Key1d, _3_Key2d, _3_Key3d]
+_F3_AllReturns = Union[float, "Floats1d", "Floats2d", "Floats3d"]
+_I3_AllReturns = Union[int, "Ints1d", "Ints2d", "Ints3d"]
+# fmt: on
 
 
 class Array(Sized, Container):
@@ -338,13 +369,13 @@ class Array(Sized, Container):
     def max(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    #def mean(
+    # def mean(
     #    self,
     #    axis: int = -1,
     #    dtype: Optional[DTypes] = None,
     #    out: Optional[SelfT] = None,
     #    keepdims: bool = False,
-    #) -> "Array":
+    # ) -> "Array":
     #    ...
 
     def min(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
@@ -365,13 +396,13 @@ class Array(Sized, Container):
     def round(self, decimals: int = 0, out: Optional[ArrayT] = None) -> ArrayT:
         ...
 
-    #def sum(
+    # def sum(
     #    self,
     #    axis: int = -1,
     #    dtype: Optional[DTypes] = None,
     #    out: Optional[ArrayT] = None,
     #    keepdims: bool = False,
-    #) -> ArrayT:
+    # ) -> ArrayT:
     #    ...
 
     def tobytes(self, order: str = "C") -> bytes:
@@ -419,54 +450,6 @@ class Ints(Array):
         ...
 
 
-def validate_array(obj, ndim=None, dtype=None):
-    xp = get_array_module(obj)
-    if not isinstance(obj, xp.ndarray):
-        raise TypeError("not a valid numpy or cupy array")
-    errors = []
-    if ndim is not None and obj.ndim != ndim:
-        errors.append(f"wrong array dimensions (expected {ndim}, got {obj.ndim})")
-    if dtype is not None:
-        dtype_mapping = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
-        expected_types = dtype_mapping.get(dtype, [])
-        if obj.dtype not in expected_types:
-            expected = "/".join(expected_types)
-            err = f"wrong array data type (expected {expected}, got {obj.dtype})"
-            errors.append(err)
-    if errors:
-        raise ValueError(", ".join(errors))
-    return obj
-
-
-def validate_array_dims(obj, expected_ndim):
-    obj = validate_array(obj)  # validate her to make sure it's an array
-    if expected_ndim is not None and obj.ndim != expected_ndim:
-        err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
-        raise ValueError(err)
-    return obj
-
-
-def validate_array_dtype(obj, expected_dtype):
-    obj = validate_array(obj)  # validate her to make sure it's an array
-    dtypes = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
-    if expected_dtype is None or expected_dtype not in dtypes:
-        return obj
-    expected_dtypes = dtypes[expected_dtype]
-    if obj.dtype not in expected_dtypes:
-        xp = get_array_module(obj)
-        expected = "/".join(xp.dtype(d) for d in expected_dtypes)
-        err = f"wrong array data type (expected {expected}, got {obj.dtype})"
-        raise ValueError(err)
-    return obj
-
-
-def get_array_validators(*, ndim=None, dtype=None):
-    return (
-        lambda v: validate_array_dims(v, ndim),
-        lambda v: validate_array_dtype(v, dtype),
-    )
-
-
 """
 Extensive overloads to represent __getitem__ behaviour.
 
@@ -482,14 +465,6 @@ on each *key* type, that would get crazy, because there's tonnes of combinations
 In each rank, we can use the same key-types for float and int, but we need a
 different return-type union.
 """
-
-# These all behave the same as far as indexing is concerned.
-Slicish = Union[slice, List[int], Array]
-_1_KeyScalar = int
-_1_Key1d = Slicish
-_1_AllKeys = Union[_1_KeyScalar, _1_Key1d]
-_F1_AllReturns = Union[float, "Floats1d"]
-_I1_AllReturns = Union[int, "Ints1d"]
 
 
 class _Array1d(Array):
@@ -533,7 +508,7 @@ class _Array1d(Array):
         ...
 
     def argmax(
-        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
+        self, keepdims: bool = False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[int, "Ints1d"]:
         ...
 
@@ -596,7 +571,7 @@ class _Array1d(Array):
 
     def mean(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional["Floats1d"] = None,
@@ -614,21 +589,26 @@ class Floats1d(_Array1d, Floats):
         yield lambda v: validate_array(v, ndim=1, dtype="f")
 
     @overload
-    def __getitem__(self, key: _1_KeyScalar) -> float: ...
+    def __getitem__(self, key: _1_KeyScalar) -> float:
+        ...
 
     @overload
-    def __getitem__(self, key: _1_Key1d) -> "Floats1d": ...
+    def __getitem__(self, key: _1_Key1d) -> "Floats1d":
+        ...
 
-    def __getitem__(self, key: _1_AllKeys) -> _F1_AllReturns: ...
+    def __getitem__(self, key: _1_AllKeys) -> _F1_AllReturns:
+        ...
 
     @overload
-    def __setitem__(self, key: _1_KeyScalar, value: float) -> None: ...
+    def __setitem__(self, key: _1_KeyScalar, value: float) -> None:
+        ...
 
     @overload
-    def __setitem__(self, key: _1_Key1d, value: "Floats1d") -> None: ...
+    def __setitem__(self, key: _1_Key1d, value: "Floats1d") -> None:
+        ...
 
-    def __setitem__(self, key: _1_AllKeys, _F1_AllReturns) -> None: ...
-
+    def __setitem__(self, key: _1_AllKeys, _F1_AllReturns) -> None:
+        ...
 
     def __iter__(self) -> float:
         ...
@@ -655,14 +635,12 @@ class Floats1d(_Array1d, Floats):
 
     def sum(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional["Floats1d"] = None,
     ) -> Union["Floats1d", float]:
         ...
-
-
 
 
 class Ints1d(_Array1d, Ints):
@@ -686,12 +664,15 @@ class Ints1d(_Array1d, Ints):
         ...
 
     @overload
-    def __setitem__(self, key: _1_KeyScalar, value: int) -> None: ...
+    def __setitem__(self, key: _1_KeyScalar, value: int) -> None:
+        ...
 
     @overload
-    def __setitem__(self, key: _1_Key1d, value: Union[int, "Ints1d"]) -> None: ...
+    def __setitem__(self, key: _1_Key1d, value: Union[int, "Ints1d"]) -> None:
+        ...
 
-    def __setitem__(self, key: _1_AllKeys, _I1_AllReturns) -> None: ...
+    def __setitem__(self, key: _1_AllKeys, _I1_AllReturns) -> None:
+        ...
 
     @overload
     def sum(
@@ -715,24 +696,12 @@ class Ints1d(_Array1d, Ints):
 
     def sum(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional["Ints1d"] = None,
     ) -> Union["Ints1d", int]:
         ...
-
-
-Array1d = Union[Floats1d, Ints1d]
-
-_2_KeyScalar = Tuple[int, int]
-_2_Key1d = Union[int, Tuple[Slicish, int], Tuple[int, Slicish]]
-_2_Key2d = Union[Tuple[Slicish, Slicish], Slicish]
-_2_AllKeys = Union[_2_KeyScalar, _2_Key1d, _2_Key2d]
-_F2_AllReturns = Union[float, Floats1d, "Floats2d"]
-_I2_AllReturns = Union[int, Ints1d, "Ints2d"]
-
-Array1dT = TypeVar("Array1dT", bound="Array1d")
 
 
 class _Array2d(Array):
@@ -774,7 +743,7 @@ class _Array2d(Array):
         ...
 
     def argmax(
-        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
+        self, keepdims: bool = False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[Ints1d, "Ints2d"]:
         ...
 
@@ -800,7 +769,7 @@ class _Array2d(Array):
 
     def mean(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional["Floats2d"] = None,
@@ -879,7 +848,7 @@ class Floats2d(_Array2d, Floats):
 
     def __setitem__(self, key: _2_AllKeys, value: _F2_AllReturns) -> None:
         ...
- 
+
     def __iter__(self) -> Floats1d:
         ...
 
@@ -905,7 +874,7 @@ class Floats2d(_Array2d, Floats):
 
     def sum(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional[Union["Floats1d", "Floats2d"]] = None,
@@ -936,7 +905,7 @@ class Ints2d(_Array2d, Ints):
 
     def __getitem__(self, key: _2_AllKeys) -> _I2_AllReturns:
         ...
-    
+
     @overload
     def __setitem__(self, key: _2_KeyScalar, value: int) -> None:
         ...
@@ -951,7 +920,7 @@ class Ints2d(_Array2d, Ints):
 
     def __setitem__(self, key: _2_AllKeys, value: _I2_AllReturns) -> None:
         ...
- 
+
     @overload
     def sum(
         self,
@@ -974,35 +943,12 @@ class Ints2d(_Array2d, Ints):
 
     def sum(
         self,
-        keepdims: bool=False,
+        keepdims: bool = False,
         axis: int = -1,
         dtype: Optional[DTypes] = None,
         out: Optional[Union["Ints1d", "Ints2d"]] = None,
     ) -> Union["Ints2d", Ints1d]:
         ...
-
-
-Array2d = Union[Floats2d, Ints2d]
-
-_3_KeyScalar = Tuple[int, int, int]
-_3_Key1d = Union[
-    Tuple[int, int],
-    Tuple[int, int, Slicish],
-    Tuple[int, Slicish, int],
-    Tuple[Slicish, int, int],
-]
-_3_Key2d = Union[
-    int,
-    Tuple[int, Slicish],
-    Tuple[Slicish, int],
-    Tuple[int, Slicish, Slicish],
-    Tuple[Slicish, int, Slicish],
-    Tuple[Slicish, Slicish, int],
-]
-_3_Key3d = Union[Slicish, Tuple[Slicish, Slicish], Tuple[Slicish, Slicish, Slicish]]
-_3_AllKeys = Union[_3_KeyScalar, _3_Key1d, _3_Key2d, _3_Key3d]
-_F3_AllReturns = Union[float, Floats1d, Floats2d, "Floats3d"]
-_I3_AllReturns = Union[int, Ints1d, Ints2d, "Ints3d"]
 
 
 class _Array3d(Array):
@@ -1046,7 +992,7 @@ class _Array3d(Array):
         ...
 
     def argmax(
-        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
+        self, keepdims: bool = False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[Ints2d, "Ints3d"]:
         ...
 
@@ -1138,7 +1084,7 @@ class Floats3d(_Array3d, Floats):
 
     def __setitem__(self, key: _3_AllKeys, value: _F3_AllReturns) -> None:
         ...
- 
+
     def __iter__(self) -> Floats1d:
         ...
 
@@ -1189,9 +1135,6 @@ class Ints3d(_Array3d, Ints):
 
     def __setitem__(self, key: _3_AllKeys, value: _I3_AllReturns) -> None:
         ...
-
-
-Array3d = Union[Floats3d, Ints3d]
 
 
 class _Array4d(Array):
@@ -1291,20 +1234,24 @@ class Ints4d(_Array4d, Ints):
         ...
 
 
-Array4d = Union[Floats4d, Ints4d]
-
-
-class NumpyArray(Array):
-    pass
-
-
-class CupyArray(Array):
-    @property
-    def ptr(self):
-        ...
-
-    def toDlpack(self) -> "CupyArray":
-        ...
+def validate_array(obj, ndim=None, dtype=None):
+    """Runtime validator for pydantic to validate array types."""
+    xp = get_array_module(obj)
+    if not isinstance(obj, xp.ndarray):
+        raise TypeError("not a valid numpy or cupy array")
+    errors = []
+    if ndim is not None and obj.ndim != ndim:
+        errors.append(f"wrong array dimensions (expected {ndim}, got {obj.ndim})")
+    if dtype is not None:
+        dtype_mapping = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
+        expected_types = dtype_mapping.get(dtype, [])
+        if obj.dtype not in expected_types:
+            expected = "/".join(expected_types)
+            err = f"wrong array data type (expected {expected}, got {obj.dtype})"
+            errors.append(err)
+    if errors:
+        raise ValueError(", ".join(errors))
+    return obj
 
 
 class Generator(Iterator):
@@ -1324,7 +1271,19 @@ class Generator(Iterator):
         return v
 
 
+_DIn = TypeVar("_DIn")
+
+
+class Decorator(Protocol):
+    """Protocol to mark a function as returning its child with identical signature."""
+
+    def __call__(self, name: str) -> Callable[[_DIn], _DIn]:
+        ...
+
+
 class Doc(Sized, Container):
+    """Type for spaCy Doc objects."""
+
     T: "Doc"
     base: Optional["Doc"]
 
@@ -1341,17 +1300,6 @@ class Doc(Sized, Container):
         ...
 
     def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Ints2d:
-        ...
-
-
-InFunc = TypeVar("InFunc")
-Wrapper = Callable[[InFunc], InFunc]
-
-
-class Decorator(Protocol):
-    """Protocol to mark a function as returning its child with identical signature."""
-
-    def __call__(self, name: str) -> Callable[[InFunc], InFunc]:
         ...
 
 

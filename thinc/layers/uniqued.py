@@ -6,7 +6,7 @@ from ..config import registry
 from ..types import Ints2d, Floats2d
 
 
-InT = Ints2d 
+InT = Ints2d
 OutT = Floats2d
 
 

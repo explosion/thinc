@@ -1,5 +1,6 @@
 from typing import cast
-from ..types import CupyArray
+
+from ..types import Array
 from ..util import tensorflow2xp
 
 try:
@@ -28,7 +29,7 @@ def cupy_tensorflow_allocator(size_in_bytes: int):
     size_in_bytes = max(1024, size_in_bytes)
     tensor = tensorflow.zeros((size_in_bytes // 4,), dtype=tensorflow.dtypes.float32)
     # We convert to cupy via dlpack, so that we can get a memory pointer.
-    cupy_array = cast(CupyArray, tensorflow2xp(tensor))
+    cupy_array = cast(Array, tensorflow2xp(tensor))
     address = int(cupy_array.data)
     # cupy has a neat class to help us here. Otherwise it will try to free.
     memory = UnownedMemory(address, size_in_bytes, cupy_array)

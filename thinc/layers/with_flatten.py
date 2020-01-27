@@ -28,9 +28,9 @@ def forward(
 
     def backprop(dYnest: OutT) -> InT:
         # I think the input/output types might be wrong here?
-        dYflat = [] # type: ignore
+        dYflat = []  # type: ignore
         for d_item in dYnest:
-            dYflat.extend(d_item) # type: ignore
+            dYflat.extend(d_item)  # type: ignore
         dXflat = backprop_layer(dYflat)
         dXnest = layer.ops.xp.split(dXflat, splits, axis=-1)
         return dXnest

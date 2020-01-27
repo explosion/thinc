@@ -63,7 +63,7 @@ class CategoricalCrossentropy(Loss):
     def get_loss(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> float:
         d_truth = self.get_grad(guesses, truths)
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum() # type: ignore
+        return (d_truth ** 2).sum()  # type: ignore
 
 
 @registry.losses("CategoricalCrossentropy.v1")
@@ -131,7 +131,7 @@ class L2Distance(Loss):
             raise ValueError(err)
         d_truth = self.get_grad(guesses, truths)
         # TODO: Add overload for axis=None case to sum
-        return (d_truth ** 2).sum() # type: ignore
+        return (d_truth ** 2).sum()  # type: ignore
 
 
 @registry.losses("L2Distance.v1")

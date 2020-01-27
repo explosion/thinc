@@ -45,7 +45,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     nV = E.shape[0]
     input_shape = tuple(ids.shape)
     if ids.ndim >= 2:
-        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64") # type: ignore
+        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64")  # type: ignore
     else:
         ids1d = cast(Ints1d, ids)
     keys = model.ops.hash(ids1d, seed) % nV

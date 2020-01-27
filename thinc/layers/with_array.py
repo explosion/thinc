@@ -37,9 +37,7 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
     elif not isinstance(Xseq, (list, tuple)):
         return model.layers[0](Xseq, is_train)
     else:
-        return _list_forward(
-            cast(Model[List2d, List2d], model), Xseq, is_train
-        )
+        return _list_forward(cast(Model[List2d, List2d], model), Xseq, is_train)
 
 
 def init(

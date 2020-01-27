@@ -15,7 +15,7 @@ from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
 
 from ..util import copy_array, get_array_module
-from ..types import DeviceTypes, ArrayT, DTypes, Shape
+from ..types import DeviceTypes, DTypes, Shape, Array
 from .linalg cimport VecVec, Vec
 from .ops import Ops
 
@@ -71,7 +71,7 @@ class NumpyOps(Ops):
         else:
             return self.xp.array(data)
 
-    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> ArrayT:
+    def alloc(self, shape: Shape, *, dtype: Optional[DTypes] = "float32") -> Array:
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):

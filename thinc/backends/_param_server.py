@@ -12,7 +12,9 @@ class ParamServer:
     _params: Dict[KeyT, FloatsXd] = {}
     _grads: Dict[KeyT, FloatsXd] = {}
 
-    def __init__(self, params: Dict[KeyT, FloatsXd] = {}, grads: Dict[KeyT, FloatsXd] = {}):
+    def __init__(
+        self, params: Dict[KeyT, FloatsXd] = {}, grads: Dict[KeyT, FloatsXd] = {}
+    ):
         self._params = dict(params)
         self._grads = dict(grads)
 

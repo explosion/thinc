@@ -41,7 +41,7 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
     dropout = model.attrs.get("dropout_rate")
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
-        ids1d = ids[:, column] # type: ignore
+        ids1d = ids[:, column]  # type: ignore
     else:
         ids1d = cast(Ints1d, ids)
     ids1d *= ids1d < nV
