@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Union, Tuple, Iterator, Sized, Container, Any, TypeVar, Generic
-from typing import Optional, List, Dict, Sequence, Iterable, Callable
+from typing import Optional, List, Dict, Sequence, Iterable, Callable, overload
 import numpy
 import sys
 
@@ -26,16 +26,17 @@ DTypesFloat = Literal["f", "float32", "float16", "float64"]
 DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
 OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
-ArrayT = TypeVar("ArrayT", bound="Array")
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
-Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
+Batchable = Union["Pairs", "Ragged", "Padded", "_Array", List, Tuple]
+SelfT = TypeVar("SelfT")
+Floats = Union["Floats1d", "Floats2d", "Floats3d"]
+Ints = Union["Ints1d", "Ints2d", "Ints3d"]
+Array = Union[Floats, Ints]
+ArrayT = TypeVar("ArrayT")
 
 
-class Array(Generic[ArrayT], Sized, Container):
-    T: ArrayT
-    base: Optional[ArrayT]
-
+class _Array:
     @property
     def dtype(self) -> DTypes:
         ...
@@ -73,7 +74,7 @@ class Array(Generic[ArrayT], Sized, Container):
         ...
 
     def astype(
-        self,
+        self: ArrayT,
         dtype: DTypes,
         order: str = ...,
         casting: str = ...,
@@ -92,24 +93,21 @@ class Array(Generic[ArrayT], Sized, Container):
     def reshape(self: ArrayT, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
-    def transpose(self, axes: Shape) -> ArrayT:
+    def transpose(self, axes: Shape):
         ...
 
     # TODO: is this right? It returns 1d
-    def flatten(self, order: str = ...) -> ArrayT:
+    def flatten(self, order: str = ...):
         ...
 
     # TODO: is this right? It returns 1d
-    def ravel(self, order: str = ...) -> ArrayT: 
+    def ravel(self, order: str = ...): 
         ...
 
-    def squeeze(self, axis: Union[int, Shape] = ...) -> ArrayT:
+    def squeeze(self, axis: Union[int, Shape] = ...):
         ...
 
     def __len__(self) -> int:
-        ...
-
-    def __getitem__(self, key) -> Any:
         ...
 
     def __setitem__(self, key, value):
@@ -145,10 +143,10 @@ class Array(Generic[ArrayT], Sized, Container):
     def __repr__(self) -> str:
         ...
 
-    def __copy__(self: ArrayT, order: str = ...) -> ArrayT:
+    def __copy__(self, order: str = ...):
         ...
 
-    def __deepcopy__(self: ArrayT, memo: dict) -> ArrayT:
+    def __deepcopy__(self, memo: dict) -> ArrayT:
         ...
 
     def __lt__(self, other):
@@ -302,7 +300,7 @@ class Array(Generic[ArrayT], Sized, Container):
     def __invert__(self: ArrayT) -> ArrayT:
         ...
 
-    def get(self) -> ArrayT:
+    def get(self) -> "Array":
         ...
 
     def all(
@@ -392,7 +390,7 @@ class Array(Generic[ArrayT], Sized, Container):
         yield lambda v: validate_array(v)
 
 
-class Floats(Array):
+class _Floats(_Array):
     @property
     def dtype(self) -> DTypesFloat:
         ...
@@ -400,14 +398,10 @@ class Floats(Array):
     def fill(self, value: float) -> None:
         ...
 
-    def reshape(self, shape: Shape, *, order: str = ...) -> "Floats": ...
-
-    def __getitem__(self, key: int) -> Union[float, "Floats"]: ...
-
-    def __setitem__(self, key: int, value: Union[float, "Floats"]): ...
+    def reshape(self, shape: Shape, *, order: str = ...) -> "_Floats": ...
 
 
-class Ints(Array):
+class _Ints(_Array):
     @property
     def dtype(self) -> DTypesInt:
         ...
@@ -415,12 +409,7 @@ class Ints(Array):
     def fill(self, value: int) -> None:
         ...
 
-    def reshape(self, shape: Shape, *, order: str = ...) -> "Ints": ...
-
-    def __getitem__(self, key: int) -> Union[int, "Ints"]: ...
-
-    def __setitem__(self, key: int, value: Union[int, "Ints"]): ...
-
+    def reshape(self, shape: Shape, *, order: str = ...) -> "_Ints": ...
 
 
 def validate_array(obj, ndim=None, dtype=None):
@@ -472,10 +461,32 @@ def get_array_validators(*, ndim=None, dtype=None):
     )
 
 
-Array1dT = TypeVar("Array1dT", bound="Array1d")
-SelfT = TypeVar("SelfT")
 
-class Array1d(Array):
+"""
+Extensive overloads to represent __getitem__ behaviour.
+
+In an N+1 dimensional array, there will be N possible return types. For instance,
+if you have a 2d array, you could get back a float (array[i, j]), a floats1d
+(array[i]) or a floats2d (array[:i, :j]). You'll get the scalar if you have N
+ints in the index, a 1d array if you have N-1 ints, etc.
+
+So the trick here is to make a union with the various combinations that produce
+each result type, and then only have one overload per result. If we overloaded
+on each *key* type, that would get crazy, because there's tonnes of combinations.
+
+In each rank, we can use the same key-types for float and int, but we need a
+different return-type union.
+"""
+
+# These all behave the same as far as indexing is concerned.
+Slicish = Union[slice, List[int], _Array]
+_1_KeyScalar = int
+_1_Key1d = Slicish
+_1_AllKeys = Union[_1_KeyScalar, _1_Key1d]
+_F1_AllReturns = Union[float, "Floats1d"]
+_I1_AllReturns = Union[int, "Ints1d"]
+
+class _Array1d(_Array):
     """1-dimensional array."""
 
     @classmethod
@@ -495,7 +506,7 @@ class Array1d(Array):
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> "Array1d": 
+    ) -> "_Array1d": 
         ...
 
     def flatten(self: SelfT, order: str = ...) -> SelfT: ...
@@ -518,7 +529,55 @@ class Array1d(Array):
     def __ipow__(self, other: Union[float, int, "Array1d"]): ...
 
 
-class Array2d(Array):
+class Floats1d(_Array1d, _Floats):
+    """1-dimensional array of floats."""
+    T: "Floats1d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=1, dtype="f")
+
+    #@overload
+    #def __getitem__(self, key: _1_KeyScalar) -> float: ...
+
+    #@overload
+    #def __getitem__(self, key: _1_Key1d) -> "Floats1d": ...
+
+    #def __getitem__(self, key: _1_AllKeys) -> _F1_AllReturns: ...
+   
+    def __iter__(self) -> float:
+        ...
+
+
+class Ints1d(_Array1d, _Ints):
+    """1-dimensional array of ints."""
+    T: "Ints1d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=1, dtype="i")
+
+    @overload
+    def __getitem__(self, key: _1_KeyScalar) -> int: ...
+
+    @overload
+    def __getitem__(self, key: _1_Key1d) -> "Ints1d": ...
+
+    def __getitem__(self, key: _1_AllKeys) -> _I1_AllReturns: ...
+ 
+Array1d = Union[Floats1d, Ints1d]
+
+_2_KeyScalar = Tuple[int, int]
+_2_Key1d = Union[int, Tuple[Slicish, int], Tuple[int, Slicish]]
+_2_Key2d = Union[Tuple[Slicish, Slicish], Slicish]
+_2_AllKeys = Union[_2_KeyScalar, _2_Key1d, _2_Key2d]
+_F2_AllReturns = Union[float, Floats1d, "Floats2d"]
+_I2_AllReturns = Union[int, Ints1d, "Ints2d"]
+
+Array1dT = TypeVar("Array1dT", bound="Array1d")
+
+
+class _Array2d(_Array):
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=2)
@@ -555,7 +614,61 @@ class Array2d(Array):
     def __ipow__(self, other: Union[float, int, Array1d, "Array2d"]): ...
 
 
-class Array3d(Array):
+
+class Floats2d(_Array2d, _Floats):
+    """2-dimensional array of floats"""
+    T: "Floats2d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=2, dtype="f")
+    
+    @overload
+    def __getitem__(self, key: _2_KeyScalar) -> float: ...
+
+    @overload
+    def __getitem__(self, key: _2_Key1d) -> Floats1d: ...
+    
+    @overload
+    def __getitem__(self, key: _2_Key2d) -> "Floats2d": ...
+
+    def __getitem__(self, key: _2_AllKeys) -> _F2_AllReturns: ...
+
+    def __iter__(self) -> Floats1d:
+        ...
+
+
+class Ints2d(_Array2d, _Ints):
+    """2-dimensional array of ints."""
+    T: "Ints2d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=2, dtype="i")
+ 
+    @overload
+    def __getitem__(self, key: _2_KeyScalar) -> int: ...
+
+    @overload
+    def __getitem__(self, key: _2_Key1d) -> Ints1d: ...
+    
+    @overload
+    def __getitem__(self, key: _2_Key2d) -> "Ints2d": ...
+
+    def __getitem__(self, key: _2_AllKeys) -> _I2_AllReturns: ...
+
+
+Array2d = Union[Floats2d, Ints2d]
+
+_3_KeyScalar = Tuple[int, int, int]
+_3_Key1d = Union[Tuple[int, int], Tuple[int, int, Slicish], Tuple[int, Slicish, int], Tuple[Slicish, int, int]]
+_3_Key2d = Union[int, Tuple[int, Slicish], Tuple[int, Slicish, Slicish], Tuple[Slicish, int, Slicish], Tuple[Slicish, Slicish, int]]
+_3_Key3d = Union[Slicish, Tuple[Slicish, Slicish], Tuple[Slicish, Slicish, Slicish]]
+_3_AllKeys = Union[_3_KeyScalar, _3_Key1d, _3_Key2d, _3_Key3d]
+_F3_AllReturns = Union[float, Floats1d, Floats2d, "Floats3d"]
+_I3_AllReturns = Union[int, Ints1d, Ints2d, "Ints3d"]
+
+class _Array3d(_Array):
     """3-dimensional array of floats"""
     @classmethod
     def __get_validators__(cls):
@@ -593,7 +706,60 @@ class Array3d(Array):
     def __ipow__(self, other: Union[float, int, Array1d, Array2d, "Array3d"]): ...
 
 
-class Array4d(Array):
+
+class Floats3d(_Array3d, _Floats):
+    """3-dimensional array of floats"""
+    T: "Floats3d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=3, dtype="f")
+
+    @overload
+    def __getitem__(self, key: _3_KeyScalar) -> float: ...
+
+    @overload
+    def __getitem__(self, key: _3_Key1d) -> Floats1d: ...
+    
+    @overload
+    def __getitem__(self, key: _3_Key2d) -> Floats2d: ...
+
+    @overload
+    def __getitem__(self, key: _3_Key3d) -> "Floats3d": ...
+
+    def __getitem__(self, key: _3_AllKeys) -> _F3_AllReturns: ...
+
+    def __iter__(self) -> Floats1d:
+        ...
+
+
+class Ints3d(_Array3d, _Ints):
+    """3-dimensional array of ints."""
+    T: "Ints3d"
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=3, dtype="i")
+
+    @overload
+    def __getitem__(self, key: _3_KeyScalar) -> int: ...
+
+    @overload
+    def __getitem__(self, key: _3_Key1d) -> Ints1d: ...
+    
+    @overload
+    def __getitem__(self, key: _3_Key2d) -> Ints2d: ...
+
+    @overload
+    def __getitem__(self, key: _3_Key3d) -> "Ints3d": ...
+
+    def __getitem__(self, key: _3_AllKeys) -> _I3_AllReturns: ...
+
+
+Array3d = Union[Floats3d, Ints3d]
+
+
+class _Array4d(_Array):
     """4-dimensional array."""
     @classmethod
     def __get_validators__(cls):
@@ -612,7 +778,7 @@ class Array4d(Array):
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> "Array4d": 
+    ) -> "_Array4d": 
         ...
 
     # These is actually a bit too strict: It's legal to say 'array4d + array5d'
@@ -631,114 +797,42 @@ class Array4d(Array):
     def __ipow__(self, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]): ...
 
 
-class Floats1d(Array1d, Floats):
-    """1-dimensional array of floats."""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=1, dtype="f")
-   
-    def __iter__(self) -> float:
-        ...
-
-    # TODO: What's the typing here?
-    #def __floordiv__(self, other): ...
-    #def __rfloordiv__(self, other): ...
- 
-    #def __truediv__(self, other: Union[float, int, Floats1d, Ints1d) -> Ints1d: ...
-    #def __rtruediv__(self, other): ...
-
-
-class Ints1d(Array1d, Ints):
-    """1-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=1, dtype="i")
-
-
-class Floats2d(Array2d, Floats):
-    """2-dimensional array of floats"""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=2, dtype="f")
-    
-    @overload
-    def __getitem__(self, key: Tuple[int, int]) -> float: ...
-
-    @overload
-    def __getitem__(self, key: Tuple[slice, slice]) -> Floats1d: ...
-    
-    @overload
-    def __getitem__(self, key: slice) -> Floats1d: ...
-
-    def __getitem__(self, key: int) -> Floats1d: ...
-
-    def __iter__(self) -> Floats1d:
-        ...
-
-
-class Ints2d(Array2d, Ints):
-    """2-dimensional array of ints."""
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=2, dtype="i")
- 
-
-class Floats3d(Array3d, Floats):
-    """3-dimensional array of floats"""
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=3, dtype="f")
-
-    def __getitem__(self, key: int) -> Floats2d: ...
-
-    def __iter__(self) -> Floats1d:
-        ...
-
-
-class Ints3d(Array3d, Ints):
-    """3-dimensional array of ints."""
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=3, dtype="i")
-
-
-class Floats4d(Array4d, Floats):
+class Floats4d(_Array4d, _Floats):
     """4-dimensional array of floats."""
+    T: "Floats4d"
+
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=4, dtype="f")
 
-    def __getitem__(self, key: int) -> Floats3d: ...
+    #def __getitem__(self, key: int) -> Floats3d: ...
 
     def __iter__(self) -> Floats3d:
         ...
 
 
-class Ints4d(Array4d, Ints):
+class Ints4d(_Array4d, _Ints):
     """4-dimensional array of ints."""
+    T: "Ints4d"
+
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=4, dtype="i")
 
-    def __getitem__(self, key: int) -> Ints3d: ...
+    #def __getitem__(self, key: int) -> Ints3d: ...
 
     def __iter__(self) -> Ints3d:
         ...
 
+Array4d = Union[Floats4d, Ints4d]
 
-class NumpyArray(Array):
+class NumpyArray(_Array):
     pass
 
 
-class CupyArray(Array):
+class CupyArray(_Array):
     @property
     def ptr(self):
-        ...
-
-    def get(self) -> NumpyArray:
         ...
 
     def toDlpack(self) -> "CupyArray":
@@ -826,7 +920,7 @@ class Padded:
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
-    def __getitem__(self, index: Union[int, slice, Array]) -> "Padded":
+    def __getitem__(self, index: Union[int, slice, _Array]) -> "Padded":
         if isinstance(index, int):
             # Slice to keep the dimensionality
             return Padded(
@@ -873,7 +967,7 @@ class Ragged:
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
-    def __getitem__(self, index: Union[int, slice, Array]) -> "Ragged":
+    def __getitem__(self, index: Union[int, slice, _Array]) -> "Ragged":
         from .util import get_array_module  # prevent circular imports
 
         if isinstance(index, tuple):

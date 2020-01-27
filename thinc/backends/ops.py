@@ -154,8 +154,8 @@ class Ops:
         # Copy left contexts. The last words aren't the left-context for anything.
         cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
         cols[:, nW] = seq
-        cols[:-nW, nW + 1 :] = seq[nW:].reshape((-1, nW, I))
-        return cols.reshape((B, I * (2 * nW + 1)))
+        cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
+        return self.reshape2f(cols, B, I * (2 * nW + 1))
 
     def backprop_seq2col(self, dY: Floats2d, nW: int) -> Floats2d:
         """The reverse/backward operation of the `seq2col` function: calculate
@@ -169,10 +169,10 @@ class Ops:
         I = dY.shape[1] // nF
         # Having trouble getting the kernel to work...
         dX = self.alloc2f(B, I)
-        dY = dY.reshape((B, nF, I))
-        dX[:-nW] += dY[nW:, :nW].reshape((-1, I))
-        dX += dY[:, nW]
-        dX[nW:] += dY[:-nW, nW + 1 :].reshape((-1, I))
+        dY3d = self.reshape3f(dY, B, nF, I)
+        dX[:-nW] += self.reshape2f(dY3d[nW:, :nW], -1, I)
+        dX += dY3d[:, nW]
+        dX[nW:] += self.reshape2f(dY3d[:-nW, nW + 1 :], -1, I)
         return dX
 
     def gemm(
@@ -228,7 +228,7 @@ class Ops:
             result = xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayT, lengths: Ints1d, pad: int = 0) -> List[ArrayT]:
+    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
@@ -246,7 +246,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
+    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -271,7 +271,7 @@ class Ops:
             output[i, : arr.shape[0]] = arr
         return output
 
-    def unpad(self, padded: ArrayT, lengths: List[int]) -> List[ArrayT]:
+    def unpad(self, padded: Array3d, lengths: List[int]) -> List[Array2d]:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
@@ -280,7 +280,7 @@ class Ops:
             output.append(padded[i, :length])
         return output
 
-    def list2padded(self, seqs: List[Array2d]) -> Padded:
+    def list2padded(self, seqs: List[Floats2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         if not seqs:
             return Padded(
@@ -290,7 +290,7 @@ class Ops:
                 self.alloc1i(0),
             )
         elif len(seqs) == 1:
-            data = seqs[0].reshape((seqs[0].shape[0], 1) + seqs[0].shape[1:])
+            data = self.reshape3f(seqs[0], seqs[0].shape[0], 1, seqs[0].shape[1])
             size_at_t = self.asarray1i([1] * data.shape[0])
             lengths = self.asarray1i([data.shape[0]])
             indices = self.asarray1i([0])
@@ -300,7 +300,7 @@ class Ops:
         indices_ = [i for length, i in lengths_indices]
         lengths_ = [length for length, i in lengths_indices]
         nS = max([len(seq) for seq in seqs])
-        arr: Array3d = self.pad(seqs)
+        arr: Floats3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t_ = self.alloc1i(nS)
@@ -440,7 +440,7 @@ class Ops:
         """Reshape an array."""
         if isinstance(shape, int):
             shape = (shape,)
-        return array.reshape(shape)
+        return cast(ArrayT, array.reshape(shape))
 
     def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
         """Unzip a tuple of two arrays, transform them with `asarray` and return
