@@ -230,9 +230,8 @@ def test_backprop_reduce_sum(ops, X):
     assert out.shape == (sum(lengths), X.shape[1])
     start = 0
     for i, length in enumerate(lengths):
-        # Note: this test was found to be flakey on Windows/GPU: increased rtol/atol from 0.1 to 0.11
         ops.xp.testing.assert_allclose(
-            out[start : start + length].sum(axis=0), X[i] * length, rtol=0.11, atol=0.11
+            out[start : start + length].sum(axis=0), X[i] * length, rtol=0.01, atol=0.01
         )
         start += length
 

@@ -628,8 +628,6 @@ def test_validate_generator():
 def test_handle_generic_model_type():
     """Test that validation can handle checks against arbitrary generic
     types in function argument annotations."""
-    # TODO: Unhack and extend once this is implemented in pydantic
-    #  https://github.com/samuelcolvin/pydantic/issues/1158
 
     @my_registry.layers("my_transform.v1")
     def my_transform(model: Model[int, int]):

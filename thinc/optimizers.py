@@ -8,10 +8,6 @@ from .types import Generator, FloatsXd
 from .config import registry
 
 
-# We need to use the custom Generator type for schedules to work around pydantic
-# not supporting Iterator / Iterable
-ScheduleT = Generator
-
 KeyT = Tuple[int, str]
 FloatOrSeq = Union[float, List[float], Generator]
 IntOrSeq = Union[int, List[int], Generator]
