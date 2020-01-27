@@ -4,7 +4,7 @@ from functools import partial
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Array1d, Array2d, Array3d, Padded
+from ..types import Floats1d, Floats2d, Floats3d, Padded
 from .bidirectional import bidirectional
 from .clone import clone
 from .noop import noop
@@ -84,13 +84,13 @@ def init(
 
 
 def forward(
-    model: Model[Array3d, Array3d], Xp: Padded, is_train: bool
+    model: Model[Floats3d, Floats3d], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     X = Xp.data
-    W = cast(Array2d, model.get_param("W"))
-    b = cast(Array1d, model.get_param("b"))
-    h = cast(Array1d, model.get_param("h"))
-    c = cast(Array1d, model.get_param("c"))
+    W = cast(Floats2d, model.get_param("W"))
+    b = cast(Floats1d, model.get_param("b"))
+    h = cast(Floats1d, model.get_param("h"))
+    c = cast(Floats1d, model.get_param("c"))
     Y, fwd_state = model.ops.recurrent_lstm(W, b, h, c, X, is_train)
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
 

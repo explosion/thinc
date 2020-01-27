@@ -8,7 +8,7 @@
 8: error: Layer input not compatible with output from previous layer  [layer-mismatch-input]
 12: error: Layer input not compatible with next layer input  [layer-mismatch-input]
 12: error: Layer input not compatible with previous layer input  [layer-mismatch-input]
-14: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
+14: note: Revealed type is 'thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]'
 17: error: Layer input not compatible with next layer input  [layer-mismatch-input]
 17: error: Layer input not compatible with previous layer input  [layer-mismatch-input]
-20: note: Revealed type is 'thinc.model.Model[thinc.types.Array2d, thinc.types.Array2d]'
+20: note: Revealed type is 'thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]'

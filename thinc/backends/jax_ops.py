@@ -1,8 +1,9 @@
-from typing import Sequence, Optional, List, Tuple, Callable, cast
+from typing import Sequence, Optional, List, Tuple, Callable, cast, TypeVar
 import numpy
 
 from .ops import Ops
-from ..types import Array, Array2d, Array1d, ArrayT, DTypes, Array3d, Wrapper
+from ..types import Floats, Floats1d, Floats2d, Floats3d, Ints1d, Ints2d
+from ..types import Array, Array2d, DTypes, Array3d, Wrapper
 from ..types import DeviceTypes, Padded
 
 
@@ -16,6 +17,10 @@ try:  # pragma: no cover
     has_jax = True
 except ImportError:  # pragma: no cover
     has_jax = False
+
+
+ArrayT = TypeVar("ArrayT", bound=Array)
+FloatsT = TypeVar("FloatsT", bound=Floats)
 
 
 class JaxOps(Ops):
@@ -37,7 +42,7 @@ class JaxOps(Ops):
         else:
             return jax.device_get(data)
 
-    def seq2col(self, seq: ArrayT, nW: int) -> ArrayT:
+    def seq2col(self, seq: Floats2d, nW: int) -> Floats2d:
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -48,7 +53,7 @@ class JaxOps(Ops):
         else:  # pragma: no cover
             raise ValueError("Currently only nW=1 supported.")
 
-    def backprop_seq2col(self, dY: ArrayT, nW: int) -> Array:
+    def backprop_seq2col(self, dY: Floats2d, nW: int) -> Floats2d:
         if nW == 1:
             return backprop_seq2col_one(dY)
         else:  # pragma: no cover
@@ -56,19 +61,19 @@ class JaxOps(Ops):
 
     def gemm(
         self,
-        x: Array2d,
-        y: Array2d,
-        out: Optional[Array2d] = None,
+        x: Floats2d,
+        y: Floats2d,
+        out: Optional[Floats2d] = None,
         trans1: bool = False,
         trans2: bool = False,
-    ) -> Array2d:
+    ) -> Floats2d:
         if trans1:
             x = x.T
         if trans2:
             y = y.T
         return self.xp.dot(x, y)
 
-    def affine(self, X: Array2d, W: Array2d, b: Array2d) -> Array2d:
+    def affine(self, X: Floats2d, W: Floats2d, b: Floats1d) -> Floats2d:
         return affine(X, W, b)
 
     def flatten(
@@ -91,7 +96,7 @@ class JaxOps(Ops):
             result = self.xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayT, lengths: Array1d, pad: int = 0) -> List[ArrayT]:
+    def unflatten(self, X: ArrayT, lengths: Ints1d, pad: int = 0) -> List[ArrayT]:
         if not len(lengths):
             return []
         elif not X.size:
@@ -108,26 +113,26 @@ class JaxOps(Ops):
     def backprop_maxout(self, dY, which, P):
         return backprop_maxout(dY, which, P)
 
-    def mish(self, X: Array2d, threshold: float = 20.0) -> Array2d:
+    def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         return mish(X, threshold)
 
     def backprop_mish(
         self,
-        dY: Array2d,
-        X: Array2d,
+        dY: Floats2d,
+        X: Floats2d,
         threshold: float = 20.0,
-        out: Optional[Array2d] = None,
-    ) -> Array2d:
+        out: Optional[Floats2d] = None,
+    ) -> Floats2d:
         return backprop_mish(dY, X, threshold)
 
-    def relu(self, X: Array2d, inplace: bool = False) -> Array2d:
+    def relu(self, X: Floats2d, inplace: bool = False) -> Floats2d:
         return relu(X)
 
-    def backprop_relu(self, dY: Array2d, Y: Array2d, inplace: bool = False) -> Array2d:
+    def backprop_relu(self, dY: Floats2d, Y: Floats2d, inplace: bool = False) -> Floats2d:
         return backprop_relu(dY, Y)
 
     def update_averages(
-        self, ema: Array, weights: Array, t: int, max_decay: float = 0.9999
+        self, ema: FloatsT, weights: FloatsT, t: int, max_decay: float = 0.9999
     ) -> None:
         decay = (1.0 + t) / (10.0 + t)
         if decay > max_decay:
@@ -136,51 +141,51 @@ class JaxOps(Ops):
 
     def adam(
         self,
-        weights: Array1d,
-        gradient: Array1d,
-        mom1: Array1d,
-        mom2: Array1d,
+        weights: Floats1d,
+        gradient: Floats1d,
+        mom1: Floats1d,
+        mom2: Floats1d,
         beta1: float,
         beta2: float,
         eps: float,
         learn_rate: float,
         mod_rate: float = 1.0,
-    ) -> Tuple[Array1d, Array1d, Array1d, Array1d]:
+    ) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
         return adam(
             weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate * mod_rate
         )
 
-    def clip_gradient(self, gradient: Array, threshold: float) -> Array:
+    def clip_gradient(self, gradient: FloatsT, threshold: float) -> FloatsT:
         xp = self.xp
         grad_norm = xp.linalg.norm(gradient)
         if grad_norm >= threshold:
             gradient = gradient * (threshold / grad_norm)
         return gradient
 
-    def logloss(self, y_true: Array, y_pred: Array):
+    def logloss(self, y_true: FloatsT, y_pred: FloatsT):
         return logloss
 
-    def reduce_sum(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def reduce_sum(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         return reduce_sum(X, lengths)
 
-    def reduce_mean(self, X: Array2d, lengths: Array1d) -> Array2d:
+    def reduce_mean(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
         return reduce_mean(X, lengths)
 
-    def reduce_max(self, X: Array2d, lengths: Array1d) -> Tuple[Array2d, Array2d]:
+    def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Tuple[Floats2d, Ints2d]:
         return reduce_max(X, lengths)
 
-    def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
+    def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
         return backprop_reduce_sum(d_sums, lengths)
 
-    def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
+    def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
         return backprop_reduce_mean(d_means, lengths)
 
     def backprop_reduce_max(
-        self, d_maxes: Array2d, which: Array2d, lengths: Array1d
-    ) -> Array2d:
+        self, d_maxes: Floats2d, which: Ints2d, lengths: Ints1d
+    ) -> Floats2d:
         return backprop_reduce_max(d_maxes, which, lengths)
 
-    def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
+    def pad(self, seqs: List[Array2d], round_to: int = 1) -> Array3d:
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -209,10 +214,10 @@ class JaxOps(Ops):
         numpy_seqs = [numpy_ops.asarray(seq) for seq in seqs]
         numpy_padded = numpy_ops.list2padded(numpy_seqs)
         return Padded(
-            self.asarray(numpy_padded.data),
-            self.asarray(numpy_padded.size_at_t),
-            self.asarray(numpy_padded.lengths),
-            self.asarray(numpy_padded.indices),
+            numpy_padded.data,
+            self.asarray1i(numpy_padded.size_at_t),
+            self.asarray1i(numpy_padded.lengths),
+            self.asarray1i(numpy_padded.indices),
         )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -225,13 +230,13 @@ class JaxOps(Ops):
             index_update(unpadded, index[indices[i]], data[i, : lengths[i]])
         return cast(List[Array2d], unpadded)
 
-    def sigmoid(self, X: ArrayT, *, inplace: bool = False) -> ArrayT:
+    def sigmoid(self, X: FloatsT, *, inplace: bool = False) -> FloatsT:
         return sigmoid(X)
 
-    def dsigmoid(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
+    def dsigmoid(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
         return Y * (1.0 - Y)
 
-    def dtanh(self, Y: ArrayT, *, inplace: bool = False) -> ArrayT:
+    def dtanh(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
         if inplace:
             Y **= 2
             Y *= -1.0
@@ -240,7 +245,7 @@ class JaxOps(Ops):
         else:
             return 1 - Y ** 2
 
-    def softmax(self, x: Array, *, inplace: bool = False, axis: int = -1) -> Array:
+    def softmax(self, x: FloatsT, *, inplace: bool = False, axis: int = -1) -> FloatsT:
         maxes = self.xp.max(x, axis=axis, keepdims=True)
         shifted = x - maxes
         new_x = self.xp.exp(shifted)
@@ -248,8 +253,8 @@ class JaxOps(Ops):
         return new_x
 
     def softmax_sequences(
-        self, Xs: Array2d, lengths: Array1d, *, inplace: bool = False, axis: int = -1
-    ) -> Array2d:
+        self, Xs: Floats2d, lengths: Ints1d, *, inplace: bool = False, axis: int = -1
+    ) -> Floats2d:
         if Xs.ndim >= 3:
             err = f"Softmax currently only supports 2d. Got: {Xs.ndim}"
             raise NotImplementedError(err)
@@ -260,14 +265,14 @@ class JaxOps(Ops):
         new_x /= summed
         return new_x
 
-    def backprop_softmax(self, Y: Array, dY: Array, *, axis: int = -1) -> Array:
+    def backprop_softmax(self, Y: FloatsT, dY: FloatsT, *, axis: int = -1) -> FloatsT:
         dX = Y * dY
         dX -= Y * dX.sum(axis=axis, keepdims=True)
         return dX
 
     def backprop_softmax_sequences(
-        self, dY: Array2d, Y: Array2d, lengths: Array1d
-    ) -> Array2d:
+        self, dY: Floats2d, Y: Floats2d, lengths: Ints1d
+    ) -> Floats2d:
         dX = Y * dY
         sum_dX = self.backprop_reduce_sum(self.reduce_sum(dX, lengths), lengths)
         dX -= Y * sum_dX
@@ -275,22 +280,22 @@ class JaxOps(Ops):
 
     def recurrent_lstm(
         self,
-        W: Array2d,
-        b: Array1d,
-        h_init: Array1d,
-        c_init: Array1d,
-        inputs: Array3d,
+        W: Floats2d,
+        b: Floats1d,
+        h_init: Floats1d,
+        c_init: Floats1d,
+        inputs: Floats3d,
         is_train: bool = True,
-    ) -> Tuple[Array3d, Tuple[Array3d, Array3d, Array3d]]:
+    ) -> Tuple[Floats3d, Tuple[Floats3d, Floats3d, Floats3d]]:
         Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
         return Y, (G, C, S)
 
     def backprop_recurrent_lstm(
         self,
-        dY: Array3d,
-        fwd_state: Tuple[Array3d, Array3d, Array3d],
-        params: Tuple[Array2d, Array1d],
-    ) -> Tuple[Array3d, Tuple[Array2d, Array1d, Array1d, Array1d]]:
+        dY: Floats3d,
+        fwd_state: Tuple[Floats3d, Floats3d, Floats3d],
+        params: Tuple[Floats2d, Floats1d],
+    ) -> Tuple[Floats3d, Tuple[Floats2d, Floats1d, Floats1d, Floats1d]]:
         dCt = self.alloc2f(dY.shape[1], dY.shape[2])
         dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
@@ -424,15 +429,15 @@ def backprop_maxout(dY, which, P):
 
 @jax_jit()
 def adam(
-    weights: Array1d,
-    gradient: Array1d,
-    mom1: Array1d,
-    mom2: Array1d,
+    weights: Floats1d,
+    gradient: Floats1d,
+    mom1: Floats1d,
+    mom2: Floats1d,
     beta1: float,
     beta2: float,
     eps: float,
     learn_rate: float,
-) -> Tuple[Array, Array, Array, Array]:
+) -> Tuple[Floats1d, Floats1d, Floats1d, Floats1d]:
     mom1 *= beta1
     mom2 *= beta2
     mom1 += gradient * (1.0 - beta1)
@@ -456,7 +461,7 @@ def logloss(y_true: Array, y_pred: Array):
 
 
 @jax_jit()
-def reduce_sum(X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_sum(X: Floats2d, lengths: Ints1d) -> Floats2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -468,7 +473,7 @@ def reduce_sum(X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def reduce_mean(X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_mean(X: Floats2d, lengths: Ints1d) -> Floats2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -480,7 +485,7 @@ def reduce_mean(X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def reduce_max(self, X: Array2d, lengths: Array1d) -> Array2d:
+def reduce_max(self, X: Floats2d, lengths: Ints1d) -> Floats2d:
     Y = jax.numpy.zeros((lengths.shape[0], X.shape[1]), dtype="f")
     start = 0
     for i, length in enumerate(lengths):
@@ -492,7 +497,7 @@ def reduce_max(self, X: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_sum(self, d_sums: Floats2d, lengths: Ints1d) -> Floats2d:
     dX = self.alloc2f(lengths.sum(), d_sums.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -502,7 +507,7 @@ def backprop_reduce_sum(self, d_sums: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_mean(self, d_means: Floats2d, lengths: Ints1d) -> Floats2d:
     dX = self.alloc2f(lengths.sum(), d_means.shape[1])
     start = 0
     for i, length in enumerate(lengths):
@@ -512,7 +517,7 @@ def backprop_reduce_mean(self, d_means: Array2d, lengths: Array1d) -> Array2d:
 
 
 @jax_jit()
-def backprop_reduce_max(d_maxes: Array2d, which: Array2d, lengths: Array1d) -> Array2d:
+def backprop_reduce_max(d_maxes: Floats2d, which: Ints2d, lengths: Ints1d) -> Floats2d:
     dX = numpy.jax.zeros((lengths.sum(), d_maxes.shape[1]))
     start = 0
     for i, length in enumerate(lengths):
@@ -522,13 +527,13 @@ def backprop_reduce_max(d_maxes: Array2d, which: Array2d, lengths: Array1d) -> A
 
 
 @jax_jit(1)
-def mish(X: Array2d, threshold: float = 20.0) -> Array2d:
+def mish(X: Floats2d, threshold: float = 20.0) -> Floats2d:
     Y = X * jax.numpy.tanh(jax.numpy.log(1.0 + jax.numpy.exp(X)))
     return jax.numpy.where(X >= threshold, X, Y)
 
 
 @jax_jit(2)
-def backprop_mish(X, dY, threshold=20.0):
+def backprop_mish(X: Floats2d, dY: Floats2d, threshold: float = 20.0) -> Floats2d:
     xp = jax.numpy
     exp_x = xp.exp(X)
     exp_2x = xp.exp(2 * X)
@@ -541,7 +546,7 @@ def backprop_mish(X, dY, threshold=20.0):
 
 
 @jax_jit()
-def sigmoid(X):
+def sigmoid(X: ArrayT) -> ArrayT:
     return 1.0 / (1.0 + jax.numpy.exp(-X))
 
 
@@ -556,7 +561,7 @@ def dtanh(Y: ArrayT) -> ArrayT:
 
 
 @jax_jit(1)
-def softmax(X: Array, axis: int) -> Array:
+def softmax(X: ArrayT, axis: int) -> ArrayT:
     xp = jax.numpy
     maxes = xp.max(X, axis=axis, keepdims=True)
     shifted = X - maxes
@@ -566,7 +571,7 @@ def softmax(X: Array, axis: int) -> Array:
 
 
 @jax_jit(2)
-def softmax_sequences(Xs: Array2d, lengths: Array1d, axis: int) -> Array2d:
+def softmax_sequences(Xs: Floats2d, lengths: Ints1d, axis: int) -> Floats2d:
     xp = jax.numpy
     # This loses almost no fidelity, and helps the numerical stability.
     Xs = xp.clip(Xs, -20.0, 20.0)
@@ -584,7 +589,7 @@ def backprop_softmax(Y: Array, dY: Array, axis: int) -> Array:
 
 
 @jax_jit(2)
-def backprop_softmax_sequences(dY: Array2d, Y: Array2d, lengths: Array1d) -> Array2d:
+def backprop_softmax_sequences(dY: Floats2d, Y: Floats2d, lengths: Ints1d) -> Floats2d:
     dX = Y * dY
     sum_dX = backprop_reduce_sum(reduce_sum(dX, lengths), lengths)
     dX -= Y * sum_dX
@@ -762,8 +767,8 @@ def lstm_gates_forward(At3, Ct2):
 
 @jax_jit()
 def backprop_lstm_gates(
-    dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
-) -> Tuple[Array3d, Array2d]:
+    dYt3: Floats2d, dCt3: Floats2d, Gt3: Floats2d, Ct3: Floats2d, Ct2: Floats2d
+) -> Tuple[Floats3d, Floats2d]:
     # See above for notation. Step numbering refers to forward_lstm_gates
     xp = jax.numpy
     hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)

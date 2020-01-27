@@ -4,7 +4,7 @@ from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
-from .types import Array, Generator
+from .types import Generator, Floats
 from .config import registry
 
 
@@ -113,9 +113,9 @@ class Optimizer(object):
     second order momentum. Currently support 'vanilla' SGD, Adam, and RAdam.
     """
 
-    mom1: Dict[KeyT, Array]
-    mom2: Dict[KeyT, Array]
-    averages: Optional[Dict[KeyT, Array]]
+    mom1: Dict[KeyT, Floats]
+    mom2: Dict[KeyT, Floats]
+    averages: Optional[Dict[KeyT, Floats]]
     schedules: Dict[str, Generator]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
@@ -127,7 +127,7 @@ class Optimizer(object):
     L2: float
     use_radam: bool
     L2_is_weight_decay: bool
-    _radam_buffer: List[List[Optional[Array]]]
+    _radam_buffer: List[List[Optional[Floats]]]
 
     def __init__(
         self,
@@ -215,8 +215,8 @@ class Optimizer(object):
     def __call__(
         self,
         key: Tuple[int, str],
-        weights: Array,
-        gradient: Array,
+        weights: Floats,
+        gradient: Floats,
         *,
         lr_scale: float = 1.0,
     ):

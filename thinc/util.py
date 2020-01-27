@@ -40,7 +40,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_tensorflow = False
 
-from .types import Array, Array2d, ArgsKwargs, Ragged, Padded
+from .types import Array, ArgsKwargs, Ragged, Padded, Floats2d, Ints
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -173,7 +173,7 @@ def copy_array(dst: Array, src: Array) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: Array, n_classes: Optional[int] = None) -> Array2d:
+def to_categorical(Y: Ints, n_classes: Optional[int] = None) -> Floats2d:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover

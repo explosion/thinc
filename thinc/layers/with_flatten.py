@@ -22,7 +22,7 @@ def forward(
     Xflat: Sequence[Any] = _flatten(Xnest)
     Yflat, backprop_layer = layer(Xflat, is_train)
     # Get the split points. We want n-1 splits for n items.
-    arr: Array2d = layer.ops.asarray([len(x) for x in Xnest[:-1]], dtype="i")
+    arr = layer.ops.asarray1i([len(x) for x in Xnest[:-1]])
     splits = arr.cumsum()
     Ynest = layer.ops.xp.split(Yflat, splits, axis=-1)
 

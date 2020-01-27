@@ -1,14 +1,14 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array1d, Array2d, Array3d
+from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d
 from ..model import Model
 from ..config import registry
 from ..util import is_xp_array
 
 
-PaddedData = Tuple[Array3d, Array1d, Array1d, Array1d]
+PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
 ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Array3d, PaddedData])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Floats3d, PaddedData])
 
 
 @registry.layers("with_padded.v1")
@@ -28,7 +28,7 @@ def forward(
     elif _is_padded_data(Xseq):
         Y, backprop = _tuple_forward(layer, cast(PaddedData, Xseq), is_train)
     elif is_xp_array(Xseq):
-        Y, backprop = _array_forward(layer, cast(Array3d, Xseq), is_train)
+        Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
     else:
         Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
@@ -56,16 +56,16 @@ def _get_padded(model: Model, seq: SeqT) -> Padded:
     elif _is_padded_data(seq):
         return Padded(*seq)  # type: ignore
     elif is_xp_array(seq):
-        size_at_t: Array1d = model.ops.asarray([seq.shape[1]] * seq.shape[0], dtype="i")
-        lengths: Array1d = model.ops.asarray([seq.shape[0]] * seq.shape[1], dtype="i")
+        size_at_t = model.ops.asarray1i([seq.shape[1]] * seq.shape[0])
+        lengths = model.ops.asarray1i([seq.shape[0]] * seq.shape[1])
         indices = model.ops.xp.arange(seq.shape[1])
-        return Padded(cast(Array3d, seq), size_at_t, lengths, indices)
+        return Padded(cast(Floats3d, seq), size_at_t, lengths, indices)
     else:
         assert isinstance(seq, list), seq
         return model.ops.list2padded(cast(List[Array2d], seq))
 
 
-def _array_forward(layer: Model[Padded, Padded], X: Array3d, is_train: bool):
+def _array_forward(layer: Model[Padded, Padded], X: Floats3d, is_train: bool):
     # Create bogus metadata for Padded.
     Xp = _get_padded(layer, X)
     Yp, get_dXp = layer(Xp, is_train)
@@ -73,7 +73,7 @@ def _array_forward(layer: Model[Padded, Padded], X: Array3d, is_train: bool):
     lengths = Xp.lengths
     indices = Xp.indices
 
-    def backprop(dY: Array3d) -> Array3d:
+    def backprop(dY: Floats3d) -> Floats3d:
         dYp = Padded(dY, size_at_t, lengths, indices)
         dXp = get_dXp(dYp)
         return dXp.data
@@ -106,14 +106,13 @@ def _ragged_forward(
     Yp, get_dXp = layer(list2padded(unflatten(Xr.data, Xr.lengths)), is_train)
 
     def backprop(dYr: Ragged):
-        return Ragged(
-            flatten(
-                padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths))))
-            ),
-            dYr.lengths,
+        flattened = flatten(
+            padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths))))
         )
+        return Ragged(cast(Floats2d, flattened), dYr.lengths,)
 
-    return Ragged(flatten(padded2list(Yp)), Xr.lengths), backprop
+    flattened = cast(Floats2d, flatten(padded2list(Yp)))
+    return Ragged(flattened, Xr.lengths), backprop
 
 
 def _list_forward(

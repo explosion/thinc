@@ -3,15 +3,15 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..initializers import glorot_uniform_init, zero_init
 from ..config import registry
-from ..types import Array2d
+from ..types import Floats2d
 from ..util import get_width, partial
 from .chain import chain
 from .layernorm import LayerNorm
 from .dropout import Dropout
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("Mish.v1")
@@ -42,7 +42,7 @@ def Mish(
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    W = cast(Array2d, model.get_param("W"))
+    W = cast(Floats2d, model.get_param("W"))
     b = model.get_param("b")
     Y_pre_mish = model.ops.gemm(X, W, trans2=True)
     Y_pre_mish += b

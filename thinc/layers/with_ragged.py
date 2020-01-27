@@ -1,11 +1,11 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array1d, Array2d
+from ..types import Padded, Ragged, Array2d, Ints1d, Floats2d
 from ..model import Model
 from ..config import registry
 
 
-RaggedData = Tuple[Array2d, Array1d]
+RaggedData = Tuple[Floats2d, Ints1d]
 ValT = TypeVar("ValT", bound=Array2d)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], RaggedData])
 
@@ -50,13 +50,15 @@ def _get_ragged(model: Model, seq: SeqT) -> Ragged:
         return seq
     elif isinstance(seq, Padded):
         lists = model.ops.padded2list(seq)
-        lengths: Array1d = model.ops.asarray([len(x) for x in lists], dtype="i")
-        return Ragged(model.ops.flatten(lists), lengths)
+        lengths = model.ops.asarray1i([len(x) for x in lists])
+        return Ragged(cast(Floats2d, model.ops.flatten(lists)), lengths)
     elif _is_ragged_data(seq):
         return Ragged(*cast(RaggedData, seq))
     else:
-        lengths = model.ops.asarray([len(x) for x in seq], dtype="i")
-        return Ragged(model.ops.flatten(cast(List[Array2d], seq)), lengths)
+        lengths = model.ops.asarray1i([len(x) for x in seq])
+        return Ragged(
+            cast(Floats2d, model.ops.flatten(cast(List[Array2d], seq))), lengths
+        )
 
 
 def _tuple_forward(layer: Model[Ragged, Ragged], X: RaggedData, is_train: bool):
@@ -84,13 +86,12 @@ def _padded_forward(
     Xs = padded2list(Xp)
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
-    lengths: Array1d = layer.ops.asarray([len(x) for x in Xs], dtype="i")
-    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
+    lengths = layer.ops.asarray1i([len(x) for x in Xs])
+    Yr, get_dXr = layer(Ragged(cast(Floats2d, flatten(Xs)), lengths), is_train)
 
     def backprop(dYp: Padded):
-        return list2padded(
-            unflatten(get_dXr(Ragged(flatten(padded2list(dYp)), lengths)).data, lengths)
-        )
+        flattened = cast(Floats2d, flatten(padded2list(dYp)))
+        return list2padded(unflatten(get_dXr(Ragged(flattened, lengths)).data, lengths))
 
     return list2padded(unflatten(Yr.data, Yr.lengths)), backprop
 
@@ -102,10 +103,11 @@ def _list_forward(
     flatten = layer.ops.flatten
     unflatten = layer.ops.unflatten
 
-    lengths: Array1d = layer.ops.asarray([len(x) for x in Xs], dtype="i")
-    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
+    lengths = layer.ops.asarray1i([len(x) for x in Xs])
+    Yr, get_dXr = layer(Ragged(cast(Floats2d, flatten(Xs)), lengths), is_train)
 
     def backprop(dYs: List[Array2d]) -> List[Array2d]:
-        return unflatten(get_dXr(Ragged(flatten(dYs), lengths)).data, lengths)
+        flattened = cast(Floats2d, flatten(dYs))
+        return unflatten(get_dXr(Ragged(flattened, lengths)).data, lengths)
 
     return unflatten(Yr.data, Yr.lengths), backprop

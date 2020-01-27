@@ -3,15 +3,15 @@ from typing import Tuple, Callable, Optional, cast
 from ..model import Model
 from ..config import registry
 from ..initializers import glorot_uniform_init, zero_init
-from ..types import Array2d
+from ..types import Floats2d
 from ..util import get_width, partial
 from .dropout import Dropout
 from .layernorm import LayerNorm
 from .chain import chain
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("Maxout.v1")

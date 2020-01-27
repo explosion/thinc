@@ -24,7 +24,9 @@ array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
 array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
 ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
-padded = Padded(array3d, array1d, OPS.asarray([1, 2, 3, 4]), OPS.asarray([1, 2, 3, 4]))
+padded = Padded(
+    array3d, array1d, OPS.asarray1i([1, 2, 3, 4]), OPS.asarray1i([1, 2, 3, 4])
+)
 doc = FakeDoc()
 span = FakeSpan()
 width = array2d.shape[1]
@@ -96,14 +98,14 @@ TEST_CASES = [
     ("expand_window.v1", {}, array2d, array2d),
     ("Embed.v1", {"nV": 1}, array2dint, array2d),
     ("Embed.v1", {"nO": 4, "nV": 1}, array2dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": 2}, array2d, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": 2}, array2dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("FeatureExtractor.v1", {"columns": [1, 2]}, [doc, doc, doc], [array2d, array2d, array2d]),
     ("FeatureExtractor.v1", {"columns": [1, 2]}, [span, span], [array2d, array2d]),
     ("ParametricAttention.v1", {}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
-    ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2d)
+    ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint)
     # fmt: on
 ]
 

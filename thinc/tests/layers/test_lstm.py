@@ -84,8 +84,8 @@ def test_LSTM_learns():
     model = with_padded(LSTM(nO, nI))
     X = [[0.1, 0.1], [0.2, 0.2], [0.3, 0.3]]
     Y = [[0.2, 0.2], [0.3, 0.3], [0.4, 0.4]]
-    X = [model.ops.asarray(x).reshape((1, -1)) for x in X]
-    Y = [model.ops.asarray(y).reshape((1, -1)) for y in Y]
+    X = [model.ops.asarray(x, dtype="f").reshape((1, -1)) for x in X]
+    Y = [model.ops.asarray(y, dtype="f").reshape((1, -1)) for y in Y]
     model = model.initialize(X, Y)
     Yhs, bp_Yhs = model.begin_update(X)
     loss1 = sum([((yh - y) ** 2).sum() for yh, y in zip(Yhs, Y)])

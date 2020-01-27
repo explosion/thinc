@@ -46,7 +46,8 @@ def test_ops_consistency(op):
             base_annots = [p.annotation for p in base_sig.parameters.values()][1:]
             for i, (p1, p2) in enumerate(zip(annots, base_annots)):
                 if p1 != inspect.Parameter.empty and p2 != inspect.Parameter.empty:
-                    assert p1 == p2, attr
+                    # Need to check string value to handle TypeVars etc.
+                    assert str(p1) == str(p2), attr
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)

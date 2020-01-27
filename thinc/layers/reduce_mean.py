@@ -1,12 +1,12 @@
 from typing import Tuple, Callable
 
-from ..types import Array2d, Ragged
+from ..types import Floats2d, Ragged
 from ..model import Model
 from ..config import registry
 
 
 InT = Ragged
-OutT = Array2d
+OutT = Floats2d
 
 
 @registry.layers("reduce_mean.v1")

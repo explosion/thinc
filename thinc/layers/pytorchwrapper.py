@@ -5,7 +5,7 @@ from ..shims import PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
-from ..types import Array3d, ArgsKwargs, Padded
+from ..types import Floats3d, ArgsKwargs, Padded
 
 
 @registry.layers("PyTorchRNNWrapper.v1")
@@ -159,6 +159,6 @@ def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
         dYtorch = xp2torch(dYp.data, requires_grad=True)
         return ArgsKwargs(args=(Ytorch,), kwargs={"grad_tensors": dYtorch})
 
-    Y = cast(Array3d, torch2xp(Ytorch))
+    Y = cast(Floats3d, torch2xp(Ytorch))
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
     return Yp, convert_for_torch_backward

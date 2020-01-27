@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d
+from ..types import Padded, Ragged, Array2d, Floats2d
 from ..model import Model
 from ..config import registry
 
@@ -61,7 +61,7 @@ def _ragged_forward(
     def backprop(dYr: Ragged):
         return Ragged(flatten(get_dXs(unflatten(dYr.data, dYr.lengths))), dYr.lengths)
 
-    return Ragged(flatten(Ys), Xr.lengths), backprop
+    return Ragged(cast(Floats2d, flatten(Ys)), Xr.lengths), backprop
 
 
 def _padded_forward(

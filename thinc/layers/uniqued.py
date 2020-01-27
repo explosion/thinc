@@ -3,11 +3,11 @@ import numpy
 
 from ..model import Model
 from ..config import registry
-from ..types import Array
+from ..types import Array, Floats
 
 
 InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Array)
+OutT = TypeVar("OutT", bound=Floats)
 
 
 @registry.layers("uniqued.v1")
@@ -43,8 +43,8 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     uniq_shape = tuple(Y_uniq.shape)
 
     def backprop(dY: OutT) -> InT:
-        dY_uniq: Array = layer.ops.alloc(uniq_shape, dtype="f")
-        layer.ops.scatter_add(dY_uniq, layer.ops.asarray(inv, dtype="i"), dY)
+        dY_uniq: Floats = layer.ops.alloc_f(uniq_shape)
+        layer.ops.scatter_add(dY_uniq, layer.ops.asarray_i(inv), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"
         return (d_uniques / counts)[inv]

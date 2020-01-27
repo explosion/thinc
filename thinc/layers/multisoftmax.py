@@ -1,13 +1,13 @@
 from typing import Optional, Tuple, Callable, cast
 
-from ..types import Array2d
+from ..types import Floats2d
 from ..model import Model
 from ..config import registry
 from ..util import get_width
 
 
-InT = Array2d
-OutT = Array2d
+InT = Floats2d
+OutT = Floats2d
 
 
 @registry.layers("MultiSoftmax.v1")
@@ -29,7 +29,7 @@ def MultiSoftmax(nOs: Tuple[int, ...], nI: Optional[int] = None) -> Model[InT, O
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nOs = model.attrs["nOs"]
-    W = cast(Array2d, model.get_param("W"))
+    W = cast(Floats2d, model.get_param("W"))
     b = model.get_param("b")
 
     def backprop(dY: OutT) -> InT:

@@ -1,4 +1,4 @@
-from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set
+from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
 from typing import Generic, Sequence, Tuple, TypeVar
 import contextlib
 from contextvars import ContextVar
@@ -13,10 +13,11 @@ from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import Array
+from .types import Array, Floats
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
+SelfT = TypeVar("SelfT", bound="Model")
 
 context_operators: ContextVar[dict] = ContextVar("context_operators", default={})
 DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
@@ -69,7 +70,7 @@ class Model(Generic[InT, OutT]):
         *,
         init: Optional[Callable] = None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[Array]] = {},
+        params: Dict[str, Optional[Floats]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
         attrs: Dict[str, Any] = {},
@@ -197,7 +198,7 @@ class Model(Generic[InT, OutT]):
         else:
             return None
 
-    def get_param(self, name: str) -> Array:
+    def get_param(self, name: str) -> Floats:
         """Retrieve a weights parameter by name."""
         if name not in self._has_params:
             raise KeyError(f"Unknown param: '{name}' for model '{self.name}'.")
@@ -207,7 +208,7 @@ class Model(Generic[InT, OutT]):
             )
         return self._params.get_param(self.id, name)
 
-    def set_param(self, name: str, value: Optional[Array]) -> None:
+    def set_param(self, name: str, value: Optional[Floats]) -> None:
         """Set a weights parameter's value."""
         if value is None:
             self._has_params[name] = None
@@ -220,15 +221,15 @@ class Model(Generic[InT, OutT]):
         """
         return self._params.has_grad(self.id, name)
 
-    def get_grad(self, name: str) -> Array:
+    def get_grad(self, name: str) -> Floats:
         """Get a gradient from the model."""
         return self._params.get_grad(self.id, name)
 
-    def set_grad(self, name: str, value: Array) -> None:
+    def set_grad(self, name: str, value: Floats) -> None:
         """Set a gradient value for the model."""
         self._params.set_grad(self.id, name, value)
 
-    def inc_grad(self, name: str, value: Array) -> None:
+    def inc_grad(self, name: str, value: Floats) -> None:
         """Check whether the model has a gradient of the given name."""
         self._params.inc_grad(self.id, name, value)
 
@@ -308,7 +309,7 @@ class Model(Generic[InT, OutT]):
                 shim.finish_update(optimizer)
 
     @contextlib.contextmanager
-    def use_params(self, params: Dict[Tuple[int, str], Array]):
+    def use_params(self, params: Dict[Tuple[int, str], Floats]):
         """Context manager to temporarily set the model's parameters to
         specified values. The params are a dictionary keyed by model IDs, whose
         values are arrays of weight values.
@@ -358,7 +359,7 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
-    def get_gradients(self) -> Dict[Tuple[int, str], Tuple[Array, Array]]:
+    def get_gradients(self) -> Dict[Tuple[int, str], Tuple[Floats, Floats]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
@@ -370,7 +371,7 @@ class Model(Generic[InT, OutT]):
                 gradients[(node.id, name)] = (param, grad)
         return gradients
 
-    def copy(self) -> "Model":
+    def copy(self: SelfT) -> SelfT:
         """
         Create a copy of the model, its attributes, and its parameters. Any child
         layers will also be deep-copied. The copy will receive a distinct `model.id`
@@ -395,7 +396,7 @@ class Model(Generic[InT, OutT]):
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
-        return copied
+        return cast(SelfT, copied)
 
     def to_gpu(self, gpu_id: int) -> None:  # pragma: no cover
         """Transfer the model to a given GPU device."""
@@ -415,9 +416,9 @@ class Model(Generic[InT, OutT]):
             node.ops = ops
             for name in node.param_names:
                 if node.has_param(name):
-                    node.set_param(name, ops.asarray(node.get_param(name)))
+                    node.set_param(name, ops.asarray_f(node.get_param(name)))
                 if node.has_grad(name):
-                    node.set_grad(name, ops.asarray(node.get_grad(name)))
+                    node.set_grad(name, ops.asarray_f(node.get_grad(name)))
             for shim in node.shims:
                 shim.to_device(ops.device_type)
 

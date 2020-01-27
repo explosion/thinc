@@ -2,7 +2,7 @@ from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array1d, Array2d, Padded, Ragged
+from ..types import Array2d, Floats2d, Padded, Ragged
 
 
 ValT = TypeVar("ValT", bound=Array2d)
@@ -70,7 +70,7 @@ def _list_forward(
 ) -> Tuple[List[Array2d], Callable]:
     layer = model.layers[0]
     pad = model.attrs["pad"]
-    lengths: Array1d = layer.ops.asarray([len(seq) for seq in Xs])
+    lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
     Xf = layer.ops.flatten(Xs, pad=pad)
     Yf, get_dXf = layer(Xf, is_train)
 
@@ -91,7 +91,7 @@ def _ragged_forward(
     def backprop(dYr: Ragged) -> Ragged:
         return Ragged(get_dX(dYr.data), dYr.lengths)
 
-    return Ragged(Y, Xr.lengths), backprop
+    return Ragged(cast(Floats2d, Y), Xr.lengths), backprop
 
 
 def _padded_forward(
@@ -102,7 +102,9 @@ def _padded_forward(
         Xp.data, Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]
     )
     Y2d, get_dX = layer(X, is_train)
-    Y = model.ops.reshape3f(Y2d, Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1])
+    Y = model.ops.reshape3f(
+        cast(Floats2d, Y2d), Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]
+    )
 
     def backprop(dYp: Padded) -> Padded:
         dY = model.ops.reshape2f(

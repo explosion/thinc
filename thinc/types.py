@@ -4,6 +4,7 @@ from typing import Optional, List, Dict, Sequence, Iterable, Callable
 import numpy
 import sys
 
+
 # Use typing_extensions for Python versions < 3.8
 if sys.version_info < (3, 8):
     from typing_extensions import Literal, Protocol
@@ -386,7 +387,7 @@ class Array(Generic[ArrayT], Sized, Container):
 
     @classmethod
     def __get_validators__(cls):
-        yield validate_array
+        yield lambda v: validate_array(v)
 
 
 class NumpyArray(Array):
@@ -405,40 +406,23 @@ class CupyArray(Array):
         ...
 
 
-def validate_array(obj):
+def validate_array(obj, ndim=None, dtype=None):
     xp = get_array_module(obj)
     if not isinstance(obj, xp.ndarray):
         raise TypeError("not a valid numpy or cupy array")
+    errors = []
+    if ndim is not None and obj.ndim != ndim:
+        errors.append(f"wrong array dimensions (expected {ndim}, got {obj.ndim})")
+    if dtype is not None:
+        dtype_mapping = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
+        expected_types = dtype_mapping.get(dtype, [])
+        if obj.dtype not in expected_types:
+            expected = "/".join(expected_types)
+            err = f"wrong array data type (expected {expected}, got {obj.dtype})"
+            errors.append(err)
+    if errors:
+        raise ValueError(", ".join(errors))
     return obj
-
-
-def validate_array_dims(obj, expected_ndim):
-    obj = validate_array(obj)  # validate her to make sure it's an array
-    if expected_ndim is not None and obj.ndim != expected_ndim:
-        err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
-        raise ValueError(err)
-    return obj
-
-
-def validate_array_dtype(obj, expected_dtype):
-    obj = validate_array(obj)  # validate her to make sure it's an array
-    dtypes = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
-    if expected_dtype is None or expected_dtype not in dtypes:
-        return obj
-    expected_dtypes = dtypes[expected_dtype]
-    if obj.dtype not in expected_dtypes:
-        xp = get_array_module(obj)
-        expected = "/".join(xp.dtype(d) for d in expected_dtypes)
-        err = f"wrong array data type (expected {expected}, got {obj.dtype})"
-        raise ValueError(err)
-    return obj
-
-
-def get_array_validators(*, ndim=None, dtype=None):
-    return (
-        lambda v: validate_array_dims(v, ndim),
-        lambda v: validate_array_dtype(v, dtype),
-    )
 
 
 class Floats1d(Array):
@@ -446,8 +430,7 @@ class Floats1d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=1, dtype="f"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=1, dtype="f")
 
 
 class Floats2d(Array):
@@ -455,8 +438,7 @@ class Floats2d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=2, dtype="f"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=2, dtype="f")
 
 
 class Floats3d(Array):
@@ -464,8 +446,7 @@ class Floats3d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=3, dtype="f"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=3, dtype="f")
 
 
 class Floats4d(Array):
@@ -473,17 +454,7 @@ class Floats4d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=4, dtype="f"):
-            yield validator
-
-
-class FloatsNd(Array):
-    """N-dimensional array of floats."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=None, dtype="f"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=4, dtype="f")
 
 
 class Ints1d(Array):
@@ -491,8 +462,7 @@ class Ints1d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=1, dtype="i"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=1, dtype="i")
 
 
 class Ints2d(Array):
@@ -500,8 +470,7 @@ class Ints2d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=2, dtype="i"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=2, dtype="i")
 
 
 class Ints3d(Array):
@@ -509,8 +478,7 @@ class Ints3d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=3, dtype="i"):
-            yield validator
+        yield lambda v: validate_array(v, ndim=3, dtype="i")
 
 
 class Ints4d(Array):
@@ -518,68 +486,16 @@ class Ints4d(Array):
 
     @classmethod
     def __get_validators__(cls):
-        for validator in get_array_validators(ndim=4, dtype="i"):
-            yield validator
-
-
-class IntsNd(Array):
-    """N-dimensional array of ints."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=None, dtype="i"):
-            yield validator
-
-
-class Array1d(Array):
-    """1-dimensional array."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=1):
-            yield validator
-
-
-class Array2d(Array):
-    """2-dimensional array."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=2):
-            yield validator
-
-
-class Array3d(Array):
-    """3-dimensional array."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=3):
-            yield validator
-
-
-class Array4d(Array):
-    """4-dimensional array."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=4):
-            yield validator
-
-
-class ArrayNd(Array):
-    """N-dimensional array."""
-
-    @classmethod
-    def __get_validators__(cls):
-        for validator in get_array_validators(ndim=None):
-            yield validator
+        yield lambda v: validate_array(v, ndim=4, dtype="i")
 
 
 # Union of all int/float array types
-ArrayTypes = Union[Array1d, Array2d, Array3d, Array4d, ArrayNd]
-ArrayTypesFloat = Union[Floats1d, Floats2d, Floats3d, Floats4d, FloatsNd]
-ArrayTypesInt = Union[Ints1d, Ints2d, Ints3d, Ints4d, IntsNd]
+Array1d = Union[Floats1d, Ints1d]
+Array2d = Union[Floats2d, Ints2d]
+Array3d = Union[Floats3d, Ints3d]
+Array4d = Union[Floats4d, Ints4d]
+Floats = Union[Floats1d, Floats2d, Floats3d, Floats4d]
+Ints = Union[Ints1d, Ints2d, Ints3d, Ints4d]
 
 
 class Generator(Iterator):
@@ -615,7 +531,7 @@ class Doc(Sized, Container):
     def end(self) -> int:
         ...
 
-    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Array:
+    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Ints2d:
         ...
 
 
@@ -655,15 +571,15 @@ class Padded:
     and the indices indicates the original ordering.
     """
 
-    data: Array3d
-    size_at_t: Array1d
-    lengths: Array1d
-    indices: Array1d
+    data: Floats3d
+    size_at_t: Ints1d
+    lengths: Ints1d
+    indices: Ints1d
 
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
-    def __getitem__(self, index) -> "Padded":
+    def __getitem__(self, index: Union[int, slice, Array]) -> "Padded":
         if isinstance(index, int):
             # Slice to keep the dimensionality
             return Padded(
@@ -703,9 +619,9 @@ class Ragged:
     you can write ragged[1:4] to get a Ragged object with sequences 1, 2 and 3.
     """
 
-    data: Array2d
-    lengths: Array1d
-    _cumsums: Optional[Array1d] = None
+    data: Floats2d
+    lengths: Ints1d
+    _cumsums: Optional[Ints1d] = None
 
     def __len__(self) -> int:
         return self.lengths.shape[0]
@@ -733,12 +649,12 @@ class Ragged:
             data = xp.vstack([self[int(i)].data for i in index])
             return Ragged(data, self.lengths[index])
 
-    def _get_cumsums(self) -> Array1d:
+    def _get_cumsums(self) -> Ints1d:
         if self._cumsums is None:
             self._cumsums = self.lengths.cumsum()
         return self._cumsums
 
-    def _get_starts(self) -> Array1d:
+    def _get_starts(self) -> Ints1d:
         from .util import get_array_module
 
         cumsums = self._get_cumsums()
@@ -746,7 +662,7 @@ class Ragged:
         zero = xp.array([0], dtype="i")
         return xp.concatenate((zero, cumsums[:-1]))
 
-    def _get_ends(self) -> Array1d:
+    def _get_ends(self) -> Ints1d:
         return self._get_cumsums()
 
 
