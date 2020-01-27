@@ -2,7 +2,7 @@ import pytest
 import threading
 import time
 import ml_datasets
-from thinc.api import CupyOps, prefer_gpu, Linear, Model, Shim, change_attr_values
+from thinc.api import CupyOps, prefer_gpu, Linear, Dropout, Model, Shim, change_attr_values
 from thinc.api import set_dropout_rate, chain, ReLu, Softmax, Adam
 import numpy
 
@@ -159,7 +159,14 @@ def test_change_attr_values(model_with_no_args):
     assert "error" not in model.attrs
 
 
-def test_set_dropout(model_with_no_args):
+def test_set_dropout():
+    model = Dropout()
+    assert model.attrs["dropout_rate"] == 0.0
+    set_dropout_rate(model, 0.2)
+    assert model.attrs["dropout_rate"] == 0.2
+
+
+def test_set_dropout_2(model_with_no_args):
     model = model_with_no_args
     model.name = "dropout"
     model.attrs["dropout_rate"] = 0.0
