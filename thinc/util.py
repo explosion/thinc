@@ -320,7 +320,7 @@ def partial(
 
 class DataValidationError(ValueError):
     def __init__(
-        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = [],
+        self, name: str, X: Any, Y: Any, errors: List[Dict[str, Any]] = []
     ) -> None:
         """Custom error for validating inputs / outputs at runtime."""
         message = f"Data validation error in '{name}'"

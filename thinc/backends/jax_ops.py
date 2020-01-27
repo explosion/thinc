@@ -128,7 +128,9 @@ class JaxOps(Ops):
     def relu(self, X: Floats2d, inplace: bool = False) -> Floats2d:
         return relu(X)
 
-    def backprop_relu(self, dY: Floats2d, Y: Floats2d, inplace: bool = False) -> Floats2d:
+    def backprop_relu(
+        self, dY: Floats2d, Y: Floats2d, inplace: bool = False
+    ) -> Floats2d:
         return backprop_relu(dY, Y)
 
     def update_averages(

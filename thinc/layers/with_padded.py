@@ -109,7 +109,7 @@ def _ragged_forward(
         flattened = flatten(
             padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths))))
         )
-        return Ragged(cast(Floats2d, flattened), dYr.lengths,)
+        return Ragged(cast(Floats2d, flattened), dYr.lengths)
 
     flattened = cast(Floats2d, flatten(padded2list(Yp)))
     return Ragged(flattened, Xr.lengths), backprop

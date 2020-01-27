@@ -210,7 +210,7 @@ def test_tensorflow_wrapper_keras_subclass_compile_optimizer():
     import tensorflow as tf
 
     @keras_subclass(
-        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,),
+        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
     )
     class TestModel(tf.keras.Model):
         def call(self, inputs):
