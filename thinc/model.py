@@ -229,7 +229,7 @@ class Model(Generic[InT, OutT]):
         self._params.set_grad(self.id, name, value)
 
     def inc_grad(self, name: str, value: Array) -> None:
-        """Check whether the model has a gradient of the given name."""
+        """Increment the gradient of a parameter using value."""
         self._params.inc_grad(self.id, name, value)
 
     def has_ref(self, name: str) -> Optional[bool]:
