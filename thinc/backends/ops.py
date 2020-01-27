@@ -3,17 +3,17 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import Array2d, Array3d, _Array, _Floats, _Ints
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, Floats
-from ..types import Ints1d, Ints2d, Ints3d, Ints4d, Ints
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
+from ..types import Array, Array2d, Array3d, ArrayXd
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Floats
+from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, Ints
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array
 
 
-ArrayT = TypeVar("ArrayT", bound=_Array)
-FloatsT = TypeVar("FloatsT", bound=_Floats)
-IntsT = TypeVar("IntsT", bound=_Ints)
+ArrayT = TypeVar("ArrayT", bound=Array)
+FloatsT = TypeVar("FloatsT", bound=Floats)
+IntsT = TypeVar("IntsT", bound=Ints)
 
 
 class Ops:
@@ -449,7 +449,7 @@ class Ops:
             shape = (shape,)
         return cast(ArrayT, array.reshape(shape))
 
-    def unzip(self, data: Tuple[_Array, _Array]) -> Tuple[_Array, _Array]:
+    def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
         """Unzip a tuple of two arrays, transform them with `asarray` and return
         them as two separate arrays.
         """
