@@ -154,7 +154,7 @@ class Ops:
         I = seq.shape[1]
         cols = self.alloc3f(B, (nW * 2 + 1), I)
         # Copy left contexts. The last words aren't the left-context for anything.
-        cols[nW:, :nW] = seq[:-nW].reshape((-1, nW, I))
+        cols[nW:, :nW] = self.reshape3f(seq[:-nW], -1, nW, I)
         cols[:, nW] = seq
         cols[:-nW, nW + 1 :] = self.reshape3f(seq[nW:], -1, nW, I)
         return self.reshape2f(cols, B, I * (2 * nW + 1))
@@ -278,7 +278,8 @@ class Ops:
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            output[i, : arr.shape[0]] = arr
+            # It's difficult to convince this that the dtypes will match.
+            output[i, : arr.shape[0]] = arr # type: ignore
         return output
 
     def unpad(self, padded: Array3d, lengths: List[int]) -> List[Array2d]:
@@ -331,8 +332,8 @@ class Ops:
         indices = padded.indices
         data = padded.data
         lengths = padded.lengths
-        unpadded = [None] * len(lengths)
-        data = self.xp.ascontiguousarray(data.transpose((1, 0, 2)))
+        unpadded: List[Optional[Floats2d]] = [None] * len(lengths)
+        data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
             unpadded[indices[i]] = data[i, : lengths[i]]
         return cast(List[Array2d], unpadded)

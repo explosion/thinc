@@ -1,8 +1,9 @@
-from typing import Sequence, Optional, List, Tuple, Callable, cast, TypeVar
+from typing import Sequence, Optional, List, Tuple, Callable, cast, TypeVar, Union
+from typing import overload
 import numpy
 
 from .ops import Ops
-from ..types import Floats, Floats1d, Floats2d, Floats3d, Ints1d, Ints2d
+from ..types import Floats, Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d
 from ..types import Array, Array2d, DTypes, Array3d, Wrapper
 from ..types import DeviceTypes, Padded
 
@@ -187,7 +188,15 @@ class JaxOps(Ops):
     ) -> Floats2d:
         return backprop_reduce_max(d_maxes, which, lengths)
 
-    def pad(self, seqs: List[Array2d], round_to: int = 1) -> Array3d:
+    @overload
+    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
+        ...
+
+    @overload
+    def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
+        ...
+
+    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -203,10 +212,10 @@ class JaxOps(Ops):
         final_shape = (len(seqs), length) + seqs[0].shape[1:]
         output: Array3d = self.alloc(final_shape, dtype=seqs[0].dtype)
         for i, arr in enumerate(seqs):
-            output[i, : arr.shape[0]] = arr
+            output[i, : arr.shape[0]] = arr # type: ignore
         return output
 
-    def list2padded(self, seqs: List[Array2d]) -> Padded:
+    def list2padded(self, seqs: List[Floats2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
         # I don't know why this is so slow, but it's *terrible*. Try going
         # via numpy?
