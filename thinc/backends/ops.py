@@ -246,7 +246,7 @@ class Ops:
         assert len(unflat) == len(lengths)
         return unflat
 
-    def pad(self, seqs: List[Array2d], round_to=1) -> Array3d:
+    def pad(self, seqs: List[Array2d], round_to: int = 1) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -316,7 +316,7 @@ class Ops:
             cast(Floats3d, arr),
             self.asarray1i(batch_size_at_t_),
             self.asarray1i(lengths_),
-            self.asarray1i(indices_)
+            self.asarray1i(indices_),
         )
 
     def padded2list(self, padded: Padded) -> List[Array2d]:
@@ -449,13 +449,37 @@ class Ops:
         X, y = zip(*data)
         return self.asarray(X), self.asarray(y)
 
+    def asarray4f(
+        self,
+        data: Union[Floats4d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats4d:
+        return cast(Floats4d, self.asarray(data, dtype=dtype))
+
+    def asarray3f(
+        self,
+        data: Union[Floats3d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats3d:
+        return cast(Floats3d, self.asarray(data, dtype=dtype))
+
     def asarray2f(
         self,
         data: Union[Floats2d, Sequence[int]],
         *,
-        dtype: Optional[DTypes] = "int32",
+        dtype: Optional[DTypes] = "float32",
     ) -> Floats2d:
         return cast(Floats2d, self.asarray(data, dtype=dtype))
+
+    def asarray1f(
+        self,
+        data: Union[Floats1d, Sequence[int]],
+        *,
+        dtype: Optional[DTypes] = "float32",
+    ) -> Floats1d:
+        return cast(Floats1d, self.asarray(data, dtype=dtype))
 
     def asarray_f(
         self,
@@ -466,26 +490,27 @@ class Ops:
         return cast(Floats, self.asarray(data, dtype=dtype))
 
     def asarray1i(
-        self,
-        data: Union[Ints1d, Sequence[int]],
-        *,
-        dtype: Optional[DTypes] = "int32",
+        self, data: Union[Ints1d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
     ) -> Ints1d:
         return cast(Ints1d, self.asarray(data, dtype=dtype))
 
     def asarray2i(
-        self,
-        data: Union[Ints2d, Sequence[int]],
-        *,
-        dtype: Optional[DTypes] = "int32",
+        self, data: Union[Ints2d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
     ) -> Ints2d:
         return cast(Ints2d, self.asarray(data, dtype=dtype))
 
+    def asarray3i(
+        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+    ) -> Ints3d:
+        return cast(Ints3d, self.asarray(data, dtype=dtype))
+
+    def asarray4i(
+        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+    ) -> Ints4d:
+        return cast(Ints4d, self.asarray(data, dtype=dtype))
+
     def asarray_i(
-        self,
-        data: Union[Ints, Sequence[int]],
-        *,
-        dtype: Optional[DTypes] = "int32",
+        self, data: Union[Ints, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
     ) -> Ints:
         return cast(Ints, self.asarray(data, dtype=dtype))
 
@@ -787,9 +812,7 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(
-        self, table: Floats, indices: Ints, values: Floats
-    ) -> Floats:
+    def scatter_add(self, table: Floats, indices: Ints, values: Floats) -> Floats:
         return self.xp.add.at(table, indices, values)
 
     def insert_into(self, shape, Xs):

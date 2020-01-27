@@ -5,19 +5,20 @@ from ..model import Model
 from ..config import registry
 
 
+InT = Padded
+OutT = List[Array2d]
+
+
 @registry.layers("padded2list.v1")
-def padded2list() -> Model[Padded, List[Array2d]]:
+def padded2list() -> Model[InT, OutT]:
     """Create a layer to convert a Padded input into a list of arrays."""
     return Model(f"padded2list", forward)
 
 
-def forward(
-    model: Model[Padded, List[Array2d]], Xp: Padded, is_train: bool
-) -> Tuple[List[Array2d], Callable]:
-
+def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Callable]:
     Ys = model.ops.padded2list(Xp)
 
-    def backprop(dYs: List[Array2d]) -> Padded:
+    def backprop(dYs: OutT) -> InT:
         return model.ops.list2padded(dYs)
 
     return Ys, backprop
