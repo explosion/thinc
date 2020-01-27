@@ -4,6 +4,7 @@ import numpy
 import itertools
 
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat
+from ..types import List1d, List2d, List3d
 from ..types import Array, Array2d, Array3d, ArrayXd
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, FloatsXd, Floats
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, Ints
@@ -282,7 +283,7 @@ class Ops:
             output[i, : arr.shape[0]] = arr # type: ignore
         return output
 
-    def unpad(self, padded: Array3d, lengths: List[int]) -> List[Array2d]:
+    def unpad(self, padded: Array3d, lengths: List[int]) -> List2d:
         """The reverse/backward operation of the `pad` function: transform an
         array back into a list of arrays, each with their original length.
         """
@@ -327,7 +328,7 @@ class Ops:
             self.asarray1i(indices_),
         )
 
-    def padded2list(self, padded: Padded) -> List[Array2d]:
+    def padded2list(self, padded: Padded) -> List2d:
         """Unpack a Padded datatype to a list of 2-dimensional arrays."""
         indices = padded.indices
         data = padded.data
@@ -336,7 +337,7 @@ class Ops:
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
             unpadded[indices[i]] = data[i, : lengths[i]]
-        return cast(List[Array2d], unpadded)
+        return cast(List2d, unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> Floats:
         """Create a random mask for applying dropout, with a certain percent of
