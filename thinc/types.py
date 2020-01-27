@@ -664,6 +664,15 @@ class Floats2d(Array2d, Floats):
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=2, dtype="f")
     
+    @overload
+    def __getitem__(self, key: Tuple[int, int]) -> float: ...
+
+    @overload
+    def __getitem__(self, key: Tuple[slice, slice]) -> Floats1d: ...
+    
+    @overload
+    def __getitem__(self, key: slice) -> Floats1d: ...
+
     def __getitem__(self, key: int) -> Floats1d: ...
 
     def __iter__(self) -> Floats1d:
