@@ -815,6 +815,7 @@ _3_Key1d = Union[
 _3_Key2d = Union[
     int,
     Tuple[int, Slicish],
+    Tuple[Slicish, int],
     Tuple[int, Slicish, Slicish],
     Tuple[Slicish, int, Slicish],
     Tuple[Slicish, Slicish, int],
