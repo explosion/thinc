@@ -90,6 +90,15 @@ _2I_ReduceResults = Union[int, "Ints1d", "Ints2d"]
 _3I_ReduceResults = Union[int, "Ints1d", "Ints2d", "Ints3d"]
 _4I_ReduceResults = Union[int, "Ints1d", "Ints2d", "Ints3d", "Ints4d"]
 
+# TODO
+# We need to get correct overloads in for the following reduction methods.
+# The 'sum' reduction is correct --- the others need to be just the same,
+# but with a different name.
+
+# max, min, prod, round, var, mean, ptp, std
+
+# There's also one *slightly* different function, cumsum. This doesn't
+# have a scalar version -- it always makes an array.
 
 class Array(Sized, Container):
     @classmethod
