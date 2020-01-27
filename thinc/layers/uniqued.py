@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional
 import numpy
 
 from ..model import Model

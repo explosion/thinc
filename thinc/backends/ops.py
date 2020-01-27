@@ -254,7 +254,9 @@ class Ops:
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         ...
 
-    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:   # noqa: F811
+    def pad(
+        self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
+    ) -> Array3d:  # noqa: F811
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -421,7 +423,9 @@ class Ops:
     def reshape3f(self, array: FloatsXd, d0: int, d1: int, d2: int) -> Floats3d:
         return cast(Floats3d, self.reshape(array, (d0, d1, d2)))
 
-    def reshape4f(self, array: FloatsXd, d0: int, d1: int, d2: int, d3: int) -> Floats4d:
+    def reshape4f(
+        self, array: FloatsXd, d0: int, d1: int, d2: int, d3: int
+    ) -> Floats4d:
         return cast(Floats4d, self.reshape(array, (d0, d1, d2, d3)))
 
     def reshape_f(self, array: FloatsXd, shape: Shape) -> FloatsXd:
@@ -818,7 +822,9 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(self, table: FloatsXd, indices: IntsXd, values: FloatsXd) -> FloatsXd:
+    def scatter_add(
+        self, table: FloatsXd, indices: IntsXd, values: FloatsXd
+    ) -> FloatsXd:
         return self.xp.add.at(table, indices, values)
 
     def insert_into(self, shape, Xs):

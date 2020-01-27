@@ -197,7 +197,9 @@ class JaxOps(Ops):
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         ...
 
-    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:  # noqa: F811
+    def pad(
+        self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
+    ) -> Array3d:  # noqa: F811
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:

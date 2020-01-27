@@ -1,7 +1,6 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d
-from ..types import List1d, List2d, List3d
+from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d, List2d
 from ..model import Model
 from ..config import registry
 from ..util import is_xp_array

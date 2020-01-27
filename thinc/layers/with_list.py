@@ -1,6 +1,6 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Array2d, Floats2d, List2d
+from ..types import Padded, Ragged, Floats2d, List2d
 from ..model import Model
 from ..config import registry
 
