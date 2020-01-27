@@ -30,15 +30,15 @@ OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
-Batchable = Union["Pairs", "Ragged", "Padded", "_Array", List, Tuple]
+Batchable = Union["Pairs", "Ragged", "Padded", "Array", List, Tuple]
 SelfT = TypeVar("SelfT")
-Floats = Union["Floats1d", "Floats2d", "Floats3d"]
-Ints = Union["Ints1d", "Ints2d", "Ints3d"]
-Array = Union[Floats, Ints]
+FloatsXd = Union["Floats1d", "Floats2d", "Floats3d"]
+IntsXd = Union["Ints1d", "Ints2d", "Ints3d"]
+ArrayXd = Union[FloatsXd, IntsXd]
 ArrayT = TypeVar("ArrayT")
 
 
-class _Array(Sized, Container):
+class Array(Sized, Container):
     @property
     def dtype(self) -> DTypes:
         ...
@@ -315,7 +315,7 @@ class _Array(Sized, Container):
     ) -> ArrayT:
         ...
 
-    # def argmax(self, axis: int = -1, out: Optional["_Array"] = None, keepdims: Union[Literal[True], Literal[False]]=False) -> Union[int, "Ints1d"]:
+    # def argmax(self, axis: int = -1, out: Optional["Array"] = None, keepdims: Union[Literal[True], Literal[False]]=False) -> Union[int, "Ints1d"]:
     #    ...
 
     def argmin(self, axis: int = -1, out: Optional[ArrayT] = None) -> ArrayT:
@@ -392,7 +392,7 @@ class _Array(Sized, Container):
         yield lambda v: validate_array(v)
 
 
-class _Floats(_Array):
+class Floats(Array):
     @property
     def dtype(self) -> DTypesFloat:
         ...
@@ -400,11 +400,11 @@ class _Floats(_Array):
     def fill(self, value: float) -> None:
         ...
 
-    def reshape(self, shape: Shape, *, order: str = ...) -> "_Floats":
+    def reshape(self, shape: Shape, *, order: str = ...) -> "Floats":
         ...
 
 
-class _Ints(_Array):
+class Ints(Array):
     @property
     def dtype(self) -> DTypesInt:
         ...
@@ -412,7 +412,7 @@ class _Ints(_Array):
     def fill(self, value: int) -> None:
         ...
 
-    def reshape(self, shape: Shape, *, order: str = ...) -> "_Ints":
+    def reshape(self, shape: Shape, *, order: str = ...) -> "Ints":
         ...
 
 
@@ -481,7 +481,7 @@ different return-type union.
 """
 
 # These all behave the same as far as indexing is concerned.
-Slicish = Union[slice, List[int], _Array]
+Slicish = Union[slice, List[int], Array]
 _1_KeyScalar = int
 _1_Key1d = Slicish
 _1_AllKeys = Union[_1_KeyScalar, _1_Key1d]
@@ -489,7 +489,7 @@ _F1_AllReturns = Union[float, "Floats1d"]
 _I1_AllReturns = Union[int, "Ints1d"]
 
 
-class _Array1d(_Array):
+class _Array1d(Array):
     """1-dimensional array."""
 
     @classmethod
@@ -519,18 +519,18 @@ class _Array1d(_Array):
         self,
         keepdims: Literal[False] = False,
         axis: int = -1,
-        out: Optional[_Array] = None,
+        out: Optional[Array] = None,
     ) -> int:
         ...
 
     @overload
     def argmax(
-        self, keepdims: Literal[True], axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: Literal[True], axis: int = -1, out: Optional[Array] = None
     ) -> "Ints1d":
         ...
 
     def argmax(
-        self, keepdims: bool, axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[int, "Ints1d"]:
         ...
 
@@ -572,7 +572,7 @@ class _Array1d(_Array):
         ...
 
 
-class Floats1d(_Array1d, _Floats):
+class Floats1d(_Array1d, Floats):
     """1-dimensional array of floats."""
 
     T: "Floats1d"
@@ -593,7 +593,7 @@ class Floats1d(_Array1d, _Floats):
         ...
 
 
-class Ints1d(_Array1d, _Ints):
+class Ints1d(_Array1d, Ints):
     """1-dimensional array of ints."""
 
     T: "Ints1d"
@@ -626,7 +626,7 @@ _I2_AllReturns = Union[int, Ints1d, "Ints2d"]
 Array1dT = TypeVar("Array1dT", bound="Array1d")
 
 
-class _Array2d(_Array):
+class _Array2d(Array):
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=2)
@@ -654,18 +654,18 @@ class _Array2d(_Array):
         self,
         keepdims: Literal[False] = False,
         axis: int = -1,
-        out: Optional[_Array] = None,
+        out: Optional[Array] = None,
     ) -> Ints1d:
         ...
 
     @overload
     def argmax(
-        self, keepdims: Literal[True], axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: Literal[True], axis: int = -1, out: Optional[Array] = None
     ) -> "Ints2d":
         ...
 
     def argmax(
-        self, keepdims: bool, axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[Ints1d, "Ints2d"]:
         ...
 
@@ -703,7 +703,7 @@ class _Array2d(_Array):
         ...
 
 
-class Floats2d(_Array2d, _Floats):
+class Floats2d(_Array2d, Floats):
     """2-dimensional array of floats"""
 
     T: "Floats2d"
@@ -731,7 +731,7 @@ class Floats2d(_Array2d, _Floats):
         ...
 
 
-class Ints2d(_Array2d, _Ints):
+class Ints2d(_Array2d, Ints):
     """2-dimensional array of ints."""
 
     T: "Ints2d"
@@ -778,7 +778,7 @@ _F3_AllReturns = Union[float, Floats1d, Floats2d, "Floats3d"]
 _I3_AllReturns = Union[int, Ints1d, Ints2d, "Ints3d"]
 
 
-class _Array3d(_Array):
+class _Array3d(Array):
     """3-dimensional array of floats"""
 
     @classmethod
@@ -808,18 +808,18 @@ class _Array3d(_Array):
         self,
         keepdims: Literal[False] = False,
         axis: int = -1,
-        out: Optional[_Array] = None,
+        out: Optional[Array] = None,
     ) -> Ints2d:
         ...
 
     @overload
     def argmax(
-        self, keepdims: Literal[True], axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: Literal[True], axis: int = -1, out: Optional[Array] = None
     ) -> "Ints3d":
         ...
 
     def argmax(
-        self, keepdims: bool, axis: int = -1, out: Optional[_Array] = None
+        self, keepdims: bool=False, axis: int = -1, out: Optional[Array] = None
     ) -> Union[Ints2d, "Ints3d"]:
         ...
 
@@ -865,7 +865,7 @@ class _Array3d(_Array):
         ...
 
 
-class Floats3d(_Array3d, _Floats):
+class Floats3d(_Array3d, Floats):
     """3-dimensional array of floats"""
 
     T: "Floats3d"
@@ -897,7 +897,7 @@ class Floats3d(_Array3d, _Floats):
         ...
 
 
-class Ints3d(_Array3d, _Ints):
+class Ints3d(_Array3d, Ints):
     """3-dimensional array of ints."""
 
     T: "Ints3d"
@@ -929,7 +929,7 @@ class Ints3d(_Array3d, _Ints):
 Array3d = Union[Floats3d, Ints3d]
 
 
-class _Array4d(_Array):
+class _Array4d(Array):
     """4-dimensional array."""
 
     @classmethod
@@ -996,7 +996,7 @@ class _Array4d(_Array):
         ...
 
 
-class Floats4d(_Array4d, _Floats):
+class Floats4d(_Array4d, Floats):
     """4-dimensional array of floats."""
 
     T: "Floats4d"
@@ -1011,7 +1011,7 @@ class Floats4d(_Array4d, _Floats):
         ...
 
 
-class Ints4d(_Array4d, _Ints):
+class Ints4d(_Array4d, Ints):
     """4-dimensional array of ints."""
 
     T: "Ints4d"
@@ -1029,11 +1029,11 @@ class Ints4d(_Array4d, _Ints):
 Array4d = Union[Floats4d, Ints4d]
 
 
-class NumpyArray(_Array):
+class NumpyArray(Array):
     pass
 
 
-class CupyArray(_Array):
+class CupyArray(Array):
     @property
     def ptr(self):
         ...
@@ -1123,7 +1123,7 @@ class Padded:
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
-    def __getitem__(self, index: Union[int, slice, _Array]) -> "Padded":
+    def __getitem__(self, index: Union[int, slice, Array]) -> "Padded":
         if isinstance(index, int):
             # Slice to keep the dimensionality
             return Padded(
@@ -1170,7 +1170,7 @@ class Ragged:
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
-    def __getitem__(self, index: Union[int, slice, _Array]) -> "Ragged":
+    def __getitem__(self, index: Union[int, slice, Array]) -> "Ragged":
         from .util import get_array_module  # prevent circular imports
 
         if isinstance(index, tuple):
