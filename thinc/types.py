@@ -21,8 +21,8 @@ except ImportError:
 
 Xp = Union["numpy", "cupy"]  # type: ignore
 Shape = Tuple[int, ...]
-DTypes = Literal["f", "i", "float32", "int32", "int64", "uint32", "uint64"]
-DTypesFloat = Literal["f", "float32"]
+DTypes = Literal["f", "i", "float16", "float32", "float64", "int32", "int64", "uint32", "uint64"]
+DTypesFloat = Literal["f", "float32", "float16", "float64"]
 DTypesInt = Literal["i", "int32", "int64", "uint32", "uint64"]
 OpsNames = Literal["numpy", "cupy", "jax"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
@@ -37,7 +37,7 @@ class Array(Generic[ArrayT], Sized, Container):
     base: Optional[ArrayT]
 
     @property
-    def dtype(self) -> Any:
+    def dtype(self) -> DTypes:
         ...
 
     @property
@@ -79,7 +79,7 @@ class Array(Generic[ArrayT], Sized, Container):
         casting: str = ...,
         subok: bool = ...,
         copy: bool = ...,
-    ) -> ArrayT:
+    ) -> ArrayT: # TODO: Is this right?
         ...
 
     def copy(self, order: str = ...) -> ArrayT:
@@ -95,10 +95,12 @@ class Array(Generic[ArrayT], Sized, Container):
     def transpose(self, axes: Shape) -> ArrayT:
         ...
 
+    # TODO: is this right? It returns 1d
     def flatten(self, order: str = ...) -> ArrayT:
         ...
 
-    def ravel(self, order: str = ...) -> ArrayT:
+    # TODO: is this right? It returns 1d
+    def ravel(self, order: str = ...) -> ArrayT: 
         ...
 
     def squeeze(self, axis: Union[int, Shape] = ...) -> ArrayT:
@@ -390,20 +392,35 @@ class Array(Generic[ArrayT], Sized, Container):
         yield lambda v: validate_array(v)
 
 
-class NumpyArray(Array):
-    pass
-
-
-class CupyArray(Array):
+class Floats(Array):
     @property
-    def ptr(self):
+    def dtype(self) -> DTypesFloat:
         ...
 
-    def get(self) -> NumpyArray:
+    def fill(self, value: float) -> None:
         ...
 
-    def toDlpack(self) -> "CupyArray":
+    def reshape(self, shape: Shape, *, order: str = ...) -> "Floats": ...
+
+    def __getitem__(self, key: int) -> Union[float, "Floats"]: ...
+
+    def __setitem__(self, key: int, value: Union[float, "Floats"]): ...
+
+
+class Ints(Array):
+    @property
+    def dtype(self) -> DTypesInt:
         ...
+
+    def fill(self, value: int) -> None:
+        ...
+
+    def reshape(self, shape: Shape, *, order: str = ...) -> "Ints": ...
+
+    def __getitem__(self, key: int) -> Union[int, "Ints"]: ...
+
+    def __setitem__(self, key: int, value: Union[int, "Ints"]): ...
+
 
 
 def validate_array(obj, ndim=None, dtype=None):
@@ -425,39 +442,214 @@ def validate_array(obj, ndim=None, dtype=None):
     return obj
 
 
-class Floats1d(Array):
+
+def validate_array_dims(obj, expected_ndim):
+    obj = validate_array(obj)  # validate her to make sure it's an array
+    if expected_ndim is not None and obj.ndim != expected_ndim:
+        err = f"wrong array dimensions (expected {expected_ndim}, got {obj.ndim})"
+        raise ValueError(err)
+    return obj
+
+
+def validate_array_dtype(obj, expected_dtype):
+    obj = validate_array(obj)  # validate her to make sure it's an array
+    dtypes = {"f": ["float32"], "i": ["int32", "int64", "uint32", "uint64"]}
+    if expected_dtype is None or expected_dtype not in dtypes:
+        return obj
+    expected_dtypes = dtypes[expected_dtype]
+    if obj.dtype not in expected_dtypes:
+        xp = get_array_module(obj)
+        expected = "/".join(xp.dtype(d) for d in expected_dtypes)
+        err = f"wrong array data type (expected {expected}, got {obj.dtype})"
+        raise ValueError(err)
+    return obj
+
+
+def get_array_validators(*, ndim=None, dtype=None):
+    return (
+        lambda v: validate_array_dims(v, ndim),
+        lambda v: validate_array_dtype(v, dtype),
+    )
+
+
+Array1dT = TypeVar("Array1dT", bound="Array1d")
+SelfT = TypeVar("SelfT")
+
+class Array1d(Array):
+    """1-dimensional array."""
+
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=1)
+
+    @property
+    def ndim(self) -> Literal[1]: ...
+ 
+    @property
+    def shape(self) -> Tuple[int]: ...
+
+    def astype(
+        self,
+        dtype: DTypes,
+        order: str = ...,
+        casting: str = ...,
+        subok: bool = ...,
+        copy: bool = ...,
+    ) -> "Array1d": 
+        ...
+
+    def flatten(self: SelfT, order: str = ...) -> SelfT: ...
+
+    def ravel(self: SelfT, order: str = ...) -> SelfT: ...
+
+    # These is actually a bit too strict: It's legal to say 'array1d + array2d'
+    # That's kind of bad code though; it's better to write array2d + array1d.
+    # We could relax this, but let's try the strict version.
+    def __add__(self: SelfT, other: Union[float, int, "Array1d"]) -> SelfT: ...
+    def __sub__(self: SelfT, other: Union[float, int, "Array1d"]) -> SelfT: ...
+    def __mul__(self: SelfT, other: Union[float, int, "Array1d"]) -> SelfT: ...
+    def __pow__(self: SelfT, other: Union[float, int, "Array1d"]) -> SelfT: ...
+    def __matmul__(self: SelfT, other: Union[float, int, "Array1d"]) -> SelfT: ...
+    
+    # These are not too strict though: you can't do += with higher dimensional.
+    def __iadd__(self, other: Union[float, int, "Array1d"]): ...
+    def __isub__(self, other: Union[float, int, "Array1d"]): ...
+    def __imul__(self, other: Union[float, int, "Array1d"]): ...
+    def __ipow__(self, other: Union[float, int, "Array1d"]): ...
+
+
+class Array2d(Array):
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=2)
+
+    @property
+    def ndim(self) -> Literal[2]: ...
+    
+    @property
+    def shape(self) -> Tuple[int, int]: ...
+
+    def astype(
+        self,
+        dtype: DTypes,
+        order: str = ...,
+        casting: str = ...,
+        subok: bool = ...,
+        copy: bool = ...,
+    ) -> "Array2d": 
+        ...
+
+    # These is actually a bit too strict: It's legal to say 'array2d + array3d'
+    # That's kind of bad code though; it's better to write array3d + array2d.
+    # We could relax this, but let's try the strict version.
+    def __add__(self, other: Union[float, int, Array1d, "Array2d"]) -> ArrayT: ...
+    def __sub__(self, other: Union[float, int, Array1d, "Array2d"]) -> ArrayT: ...
+    def __mul__(self, other: Union[float, int, Array1d, "Array2d"]) -> ArrayT: ...
+    def __pow__(self, other: Union[float, int, Array1d, "Array2d"]) -> ArrayT: ...
+    def __matmul__(self, other: Union[float, int, Array1d, "Array2d"]) -> ArrayT: ...
+    
+    # These are not too strict though: you can't do += with higher dimensional.
+    def __iadd__(self, other: Union[float, int, Array1d, "Array2d"]): ...
+    def __isub__(self, other: Union[float, int, Array1d, "Array2d"]): ...
+    def __imul__(self, other: Union[float, int, Array1d, "Array2d"]): ...
+    def __ipow__(self, other: Union[float, int, Array1d, "Array2d"]): ...
+
+
+class Array3d(Array):
+    """3-dimensional array of floats"""
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=3)
+
+    @property
+    def ndim(self) -> Literal[3]: ...
+    
+    @property
+    def shape(self) -> Tuple[int, int, int]: ...
+
+    def astype(
+        self,
+        dtype: DTypes,
+        order: str = ...,
+        casting: str = ...,
+        subok: bool = ...,
+        copy: bool = ...,
+    ) -> "Array3d": 
+        ...
+
+    # These is actually a bit too strict: It's legal to say 'array2d + array3d'
+    # That's kind of bad code though; it's better to write array3d + array2d.
+    # We could relax this, but let's try the strict version.
+    def __add__(self: SelfT, other: Union[float, int, Array1d, Array2d, "Array3d"]) -> SelfT: ...
+    def __sub__(self: SelfT, other: Union[float, int, Array1d, Array2d, "Array3d"]) -> SelfT: ...
+    def __mul__(self: SelfT, other: Union[float, int, Array1d, Array2d, "Array3d"]) -> SelfT: ...
+    def __pow__(self: SelfT, other: Union[float, int, Array1d, Array2d, "Array3d"]) -> SelfT: ...
+    def __matmul__(self: SelfT, other: Union[float, int, Array1d, Array2d, "Array3d"]) -> SelfT: ...
+    
+    # These are not too strict though: you can't do += with higher dimensional.
+    def __iadd__(self, other: Union[float, int, Array1d, Array2d, "Array3d"]): ...
+    def __isub__(self, other: Union[float, int, Array1d, Array2d, "Array3d"]): ...
+    def __imul__(self, other: Union[float, int, Array1d, Array2d, "Array3d"]): ...
+    def __ipow__(self, other: Union[float, int, Array1d, Array2d, "Array3d"]): ...
+
+
+class Array4d(Array):
+    """4-dimensional array."""
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=4)
+
+    @property
+    def ndim(self) -> Literal[4]: ...
+    
+    @property
+    def shape(self) -> Tuple[int, int, int, int]: ...
+
+    def astype(
+        self,
+        dtype: DTypes,
+        order: str = ...,
+        casting: str = ...,
+        subok: bool = ...,
+        copy: bool = ...,
+    ) -> "Array4d": 
+        ...
+
+    # These is actually a bit too strict: It's legal to say 'array4d + array5d'
+    # That's kind of bad code though; it's better to write array5d + array4d.
+    # We could relax this, but let's try the strict version.
+    def __add__(self: SelfT, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]) -> SelfT: ...
+    def __sub__(self: SelfT, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]) -> SelfT: ...
+    def __mul__(self: SelfT, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]) -> SelfT: ...
+    def __pow__(self: SelfT, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]) -> SelfT: ...
+    def __matmul__(self: SelfT, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]) -> SelfT: ...
+    
+    # These are not too strict though: you can't do += with higher dimensional.
+    def __iadd__(self, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]): ...
+    def __isub__(self, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]): ...
+    def __imul__(self, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]): ...
+    def __ipow__(self, other: Union[float, int, Array1d, Array2d, Array3d, "Array4d"]): ...
+
+
+class Floats1d(Array1d, Floats):
     """1-dimensional array of floats."""
 
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=1, dtype="f")
+   
+    def __iter__(self) -> float:
+        ...
+
+    # TODO: What's the typing here?
+    #def __floordiv__(self, other): ...
+    #def __rfloordiv__(self, other): ...
+ 
+    #def __truediv__(self, other: Union[float, int, Floats1d, Ints1d) -> Ints1d: ...
+    #def __rtruediv__(self, other): ...
 
 
-class Floats2d(Array):
-    """2-dimensional array of floats"""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=2, dtype="f")
-
-
-class Floats3d(Array):
-    """3-dimensional array of floats"""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=3, dtype="f")
-
-
-class Floats4d(Array):
-    """4-dimensional array of floats."""
-
-    @classmethod
-    def __get_validators__(cls):
-        yield lambda v: validate_array(v, ndim=4, dtype="f")
-
-
-class Ints1d(Array):
+class Ints1d(Array1d, Ints):
     """1-dimensional array of ints."""
 
     @classmethod
@@ -465,37 +657,83 @@ class Ints1d(Array):
         yield lambda v: validate_array(v, ndim=1, dtype="i")
 
 
-class Ints2d(Array):
-    """2-dimensional array of ints."""
+class Floats2d(Array2d, Floats):
+    """2-dimensional array of floats"""
 
     @classmethod
     def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=2, dtype="f")
+    
+    def __getitem__(self, key: int) -> Floats1d: ...
+
+    def __iter__(self) -> Floats1d:
+        ...
+
+
+class Ints2d(Array2d, Ints):
+    """2-dimensional array of ints."""
+    @classmethod
+    def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=2, dtype="i")
+ 
+
+class Floats3d(Array3d, Floats):
+    """3-dimensional array of floats"""
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=3, dtype="f")
+
+    def __getitem__(self, key: int) -> Floats2d: ...
+
+    def __iter__(self) -> Floats1d:
+        ...
 
 
-class Ints3d(Array):
+class Ints3d(Array3d, Ints):
     """3-dimensional array of ints."""
-
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=3, dtype="i")
 
 
-class Ints4d(Array):
-    """4-dimensional array of ints."""
+class Floats4d(Array4d, Floats):
+    """4-dimensional array of floats."""
+    @classmethod
+    def __get_validators__(cls):
+        yield lambda v: validate_array(v, ndim=4, dtype="f")
 
+    def __getitem__(self, key: int) -> Floats3d: ...
+
+    def __iter__(self) -> Floats3d:
+        ...
+
+
+class Ints4d(Array4d, Ints):
+    """4-dimensional array of ints."""
     @classmethod
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=4, dtype="i")
 
+    def __getitem__(self, key: int) -> Ints3d: ...
 
-# Union of all int/float array types
-Array1d = Union[Floats1d, Ints1d]
-Array2d = Union[Floats2d, Ints2d]
-Array3d = Union[Floats3d, Ints3d]
-Array4d = Union[Floats4d, Ints4d]
-Floats = Union[Floats1d, Floats2d, Floats3d, Floats4d]
-Ints = Union[Ints1d, Ints2d, Ints3d, Ints4d]
+    def __iter__(self) -> Ints3d:
+        ...
+
+
+class NumpyArray(Array):
+    pass
+
+
+class CupyArray(Array):
+    @property
+    def ptr(self):
+        ...
+
+    def get(self) -> NumpyArray:
+        ...
+
+    def toDlpack(self) -> "CupyArray":
+        ...
 
 
 class Generator(Iterator):
