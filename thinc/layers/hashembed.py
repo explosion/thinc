@@ -39,18 +39,18 @@ def HashEmbed(
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     dropout = model.attrs.get("dropout_rate")
-    E = model.get_param("E")
-    seed = model.attrs["seed"]
-    column = model.attrs["column"]
+    E = cast(Floats2d, model.get_param("E"))
+    seed: int = model.attrs["seed"]
+    column: int = model.attrs["column"]
     nV = E.shape[0]
     input_shape = tuple(ids.shape)
     if ids.ndim >= 2:
-        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64")
+        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64") # type: ignore
     else:
         ids1d = cast(Ints1d, ids)
     keys = model.ops.hash(ids1d, seed) % nV
     vectors = E[keys].sum(axis=1)
-    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    drop_mask = cast(Floats2d, model.ops.get_dropout_mask((vectors.shape[1],), dropout))
     vectors *= drop_mask
 
     def backprop(d_vectors: OutT) -> InT:
