@@ -1,4 +1,4 @@
-from typing import Optional, Tuple, Callable
+from typing import Optional, Tuple, Callable, cast
 
 from ..backends import Ops
 from ..model import Model
@@ -60,8 +60,9 @@ def _concatenate(ops: Ops, l2r: Padded, r2l: Padded) -> Padded:
 
 def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
     half = Xp.data.shape[-1] // 2
-    X_l2r = Xp.data[..., :half]
-    X_r2l = Xp.data[..., half:]
+    # I don't know how to write these ellipsis in the overloads :(
+    X_l2r = Xp.data[cast(Tuple[slice, slice], (..., slice(None, half)))]
+    X_r2l = Xp.data[cast(Tuple[slice, slice], (..., slice(half, )))] 
     return (
         Padded(X_l2r, Xp.size_at_t, Xp.lengths, Xp.indices),
         Padded(X_r2l, Xp.size_at_t, Xp.lengths, Xp.indices),

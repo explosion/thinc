@@ -1,6 +1,7 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
 from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d
+from ..types import List1d, List2d, List3d
 from ..model import Model
 from ..config import registry
 from ..util import is_xp_array
@@ -8,7 +9,7 @@ from ..util import is_xp_array
 
 PaddedData = Tuple[Floats3d, Ints1d, Ints1d, Ints1d]
 ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Array2d], Floats3d, PaddedData])
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Floats3d, PaddedData])
 
 
 @registry.layers("with_padded.v1")
@@ -20,7 +21,7 @@ def forward(
     model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Padded, Padded] = model.layers[0]
-    Y: Union[Padded, Ragged, List[Array2d], PaddedData]
+    Y: Union[Padded, Ragged, List2d, PaddedData]
     if isinstance(Xseq, Padded):
         Y, backprop = layer(Xseq, is_train)
     elif isinstance(Xseq, Ragged):
@@ -30,7 +31,7 @@ def forward(
     elif is_xp_array(Xseq):
         Y, backprop = _array_forward(layer, cast(Floats3d, Xseq), is_train)
     else:
-        Y, backprop = _list_forward(layer, cast(List[Array2d], Xseq), is_train)
+        Y, backprop = _list_forward(layer, cast(List2d, Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
 
 
@@ -62,7 +63,7 @@ def _get_padded(model: Model, seq: SeqT) -> Padded:
         return Padded(cast(Floats3d, seq), size_at_t, lengths, indices)
     else:
         assert isinstance(seq, list), seq
-        return model.ops.list2padded(cast(List[Array2d], seq))
+        return model.ops.list2padded(cast(List[Floats2d], seq))
 
 
 def _array_forward(layer: Model[Padded, Padded], X: Floats3d, is_train: bool):
@@ -116,15 +117,15 @@ def _ragged_forward(
 
 
 def _list_forward(
-    layer: Model[Padded, Padded], Xs: List[Array2d], is_train: bool
-) -> Tuple[List[Array2d], Callable]:
+    layer: Model[Padded, Padded], Xs: List2d, is_train: bool
+) -> Tuple[List2d, Callable]:
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
     padded2list = layer.ops.padded2list
 
-    Yp, get_dXp = layer(list2padded(Xs), is_train)
+    Yp, get_dXp = layer(list2padded(Xs), is_train) # type: ignore
 
-    def backprop(dYs: List[Array2d]) -> List[Array2d]:
-        return padded2list(get_dXp(list2padded(dYs)))
+    def backprop(dYs: List2d) -> List2d:
+        return padded2list(get_dXp(list2padded(dYs))) # type: ignore
 
     return padded2list(Yp), backprop

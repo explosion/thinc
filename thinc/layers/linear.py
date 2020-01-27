@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d
+from ..types import Floats1d, Floats2d
 from ..initializers import glorot_uniform_init, zero_init
 from ..util import get_width, partial
 
@@ -31,7 +31,7 @@ def Linear(
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     W = cast(Floats2d, model.get_param("W"))
-    b = model.get_param("b")
+    b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.gemm(X, W, trans2=True)
     Y += b
 

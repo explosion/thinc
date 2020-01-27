@@ -63,8 +63,9 @@ def _begin_update_scale_shift(model: Model[InT, InT], X: InT) -> Tuple[InT, Call
 
 
 def _get_moments(ops: Ops, X: Floats2d) -> Tuple[Floats2d, Floats2d, Floats2d]:
-    mu = X.mean(axis=1, keepdims=True)
-    var = X.var(axis=1, keepdims=True) + 1e-08
+    # TODO: Do mean methods
+    mu: Floats2d = X.mean(axis=1, keepdims=True)
+    var: Floats2d = X.var(axis=1, keepdims=True) + 1e-08
     return cast(Floats2d, ops.asarray_f([X.shape[1]])), mu, var
 
 

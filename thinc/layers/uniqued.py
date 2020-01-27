@@ -3,11 +3,11 @@ import numpy
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Floats
+from ..types import Ints2d, Floats2d
 
 
-InT = TypeVar("InT", bound=Array)
-OutT = TypeVar("OutT", bound=Floats)
+InT = Ints2d 
+OutT = Floats2d
 
 
 @registry.layers("uniqued.v1")
@@ -28,7 +28,7 @@ def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    column = model.attrs["column"]
+    column: int = model.attrs["column"]
     layer = model.layers[0]
     keys = X[:, column]
     if not isinstance(keys, numpy.ndarray):
@@ -43,7 +43,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     uniq_shape = tuple(Y_uniq.shape)
 
     def backprop(dY: OutT) -> InT:
-        dY_uniq: Floats = layer.ops.alloc_f(uniq_shape)
+        dY_uniq = layer.ops.alloc2f(*uniq_shape)
         layer.ops.scatter_add(dY_uniq, layer.ops.asarray_i(inv), dY)
         d_uniques = bp_Y_uniq(dY_uniq)
         # This confusing bit of indexing "ununiques"

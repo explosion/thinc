@@ -5,7 +5,7 @@ import numpy
 from .ops import Ops
 from ..types import Floats, Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d
 from ..types import Array, Array2d, DTypes, Array3d, Wrapper
-from ..types import DeviceTypes, Padded
+from ..types import DeviceTypes, Padded, List2d
 
 
 try:  # pragma: no cover
@@ -231,7 +231,7 @@ class JaxOps(Ops):
             self.asarray1i(numpy_padded.indices),
         )
 
-    def padded2list(self, padded: Padded) -> List[Array2d]:
+    def padded2list(self, padded: Padded) -> List2d:
         indices = padded.indices
         data = padded.data
         lengths = padded.lengths
@@ -239,7 +239,7 @@ class JaxOps(Ops):
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
             index_update(unpadded, index[indices[i]], data[i, : lengths[i]])
-        return cast(List[Array2d], unpadded)
+        return cast(List2d, unpadded)
 
     def sigmoid(self, X: FloatsT, *, inplace: bool = False) -> FloatsT:
         return sigmoid(X)
