@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array3d, Array2d
+from ..types import Array3d, Array2d, Floats3d
 
 
 InT = Array3d
@@ -31,7 +31,8 @@ def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callab
     Y = model.ops.reshape3f(Y2d, *final_shape)
 
     def backprop(dY: InT) -> InT:
-        reshaped = model.ops.reshape2f(dY.astype(layer.ops.xp.float32), nB * nT, -1)
+        dY_floats = model.ops.asarray3f(cast(Floats3d, dY))
+        reshaped = model.ops.reshape2f(dY_floats, nB * nT, -1)
         return Y2d_backprop(model.ops.reshape3f(reshaped, *initial_shape))
 
     return Y, backprop
