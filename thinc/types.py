@@ -85,7 +85,7 @@ class Array(Sized, Container):
     ) -> ArrayT:  # TODO: Is this right?
         ...
 
-    def copy(self, order: str = ...) -> ArrayT:
+    def copy(self: ArrayT, order: str = ...) -> ArrayT:
         ...
 
     def fill(self, value: Any) -> None:
@@ -95,7 +95,7 @@ class Array(Sized, Container):
     def reshape(self: ArrayT, shape: Shape, *, order: str = ...) -> ArrayT:
         ...
 
-    def transpose(self, axes: Shape):
+    def transpose(self: ArrayT, axes: Shape) -> ArrayT:
         ...
 
     # TODO: is this right? It returns 1d
@@ -581,13 +581,22 @@ class Floats1d(_Array1d, Floats):
     def __get_validators__(cls):
         yield lambda v: validate_array(v, ndim=1, dtype="f")
 
-    # @overload
-    # def __getitem__(self, key: _1_KeyScalar) -> float: ...
+    @overload
+    def __getitem__(self, key: _1_KeyScalar) -> float: ...
 
-    # @overload
-    # def __getitem__(self, key: _1_Key1d) -> "Floats1d": ...
+    @overload
+    def __getitem__(self, key: _1_Key1d) -> "Floats1d": ...
 
-    # def __getitem__(self, key: _1_AllKeys) -> _F1_AllReturns: ...
+    def __getitem__(self, key: _1_AllKeys) -> _F1_AllReturns: ...
+
+    @overload
+    def __setitem__(self, key: _1_KeyScalar, value: float) -> None: ...
+
+    @overload
+    def __setitem__(self, key: _1_Key1d, value: "Floats1d") -> None: ...
+
+    def __setitem__(self, key: _1_AllKeys, _F1_AllReturns) -> None: ...
+
 
     def __iter__(self) -> float:
         ...
@@ -612,6 +621,14 @@ class Ints1d(_Array1d, Ints):
 
     def __getitem__(self, key: _1_AllKeys) -> _I1_AllReturns:
         ...
+
+    @overload
+    def __setitem__(self, key: _1_KeyScalar, value: int) -> None: ...
+
+    @overload
+    def __setitem__(self, key: _1_Key1d, value: Union[int, "Ints1d"]) -> None: ...
+
+    def __setitem__(self, key: _1_AllKeys, _I1_AllReturns) -> None: ...
 
 
 Array1d = Union[Floats1d, Ints1d]
@@ -727,6 +744,21 @@ class Floats2d(_Array2d, Floats):
     def __getitem__(self, key: _2_AllKeys) -> _F2_AllReturns:
         ...
 
+    @overload
+    def __setitem__(self, key: _2_KeyScalar, value: float) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _2_Key1d, value: Union[float, Floats1d]) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _2_Key2d, value: _F2_AllReturns) -> None:
+        ...
+
+    def __setitem__(self, key: _2_AllKeys, value: _F2_AllReturns) -> None:
+        ...
+ 
     def __iter__(self) -> Floats1d:
         ...
 
@@ -754,7 +786,22 @@ class Ints2d(_Array2d, Ints):
 
     def __getitem__(self, key: _2_AllKeys) -> _I2_AllReturns:
         ...
+    
+    @overload
+    def __setitem__(self, key: _2_KeyScalar, value: int) -> None:
+        ...
 
+    @overload
+    def __setitem__(self, key: _2_Key1d, value: Ints1d) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _2_Key2d, value: "Ints2d") -> None:
+        ...
+
+    def __setitem__(self, key: _2_AllKeys, value: _I2_AllReturns) -> None:
+        ...
+ 
 
 Array2d = Union[Floats2d, Ints2d]
 
@@ -893,6 +940,25 @@ class Floats3d(_Array3d, Floats):
     def __getitem__(self, key: _3_AllKeys) -> _F3_AllReturns:
         ...
 
+    @overload
+    def __setitem__(self, key: _3_KeyScalar, value: float) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key1d, value: Floats1d) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key2d, value: Floats2d) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key3d, value: "Floats3d") -> None:
+        ...
+
+    def __setitem__(self, key: _3_AllKeys, value: _F3_AllReturns) -> None:
+        ...
+ 
     def __iter__(self) -> Floats1d:
         ...
 
@@ -923,6 +989,25 @@ class Ints3d(_Array3d, Ints):
         ...
 
     def __getitem__(self, key: _3_AllKeys) -> _I3_AllReturns:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_KeyScalar, value: int) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key1d, value: Ints1d) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key2d, value: Ints2d) -> None:
+        ...
+
+    @overload
+    def __setitem__(self, key: _3_Key3d, value: "Ints3d") -> None:
+        ...
+
+    def __setitem__(self, key: _3_AllKeys, value: _I3_AllReturns) -> None:
         ...
 
 
