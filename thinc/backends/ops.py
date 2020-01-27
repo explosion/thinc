@@ -1,19 +1,19 @@
 from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
-from typing import Iterator
+from typing import Iterator, overload
 import numpy
 import itertools
 
 from ..types import Xp, Array, Shape, DTypes, DTypesInt, DTypesFloat
-from ..types import Array2d, Array3d
+from ..types import Array2d, Array3d, _Array, _Floats, _Ints
 from ..types import Floats1d, Floats2d, Floats3d, Floats4d, Floats
 from ..types import Ints1d, Ints2d, Ints3d, Ints4d, Ints
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array
 
 
-ArrayT = TypeVar("ArrayT", bound=Array)
-FloatsT = TypeVar("FloatsT", bound=Floats)
-IntsT = TypeVar("IntsT", bound=Ints)
+ArrayT = TypeVar("ArrayT", bound=_Array)
+FloatsT = TypeVar("FloatsT", bound=_Floats)
+IntsT = TypeVar("IntsT", bound=_Ints)
 
 
 class Ops:
@@ -245,8 +245,16 @@ class Ops:
         assert len(X) == 0
         assert len(unflat) == len(lengths)
         return unflat
+    
+    @overload
+    def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
+        ...
 
+    @overload
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
+        ...
+
+    def pad(self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -442,11 +450,11 @@ class Ops:
             shape = (shape,)
         return cast(ArrayT, array.reshape(shape))
 
-    def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
+    def unzip(self, data: Tuple[_Array, _Array]) -> Tuple[_Array, _Array]:
         """Unzip a tuple of two arrays, transform them with `asarray` and return
         them as two separate arrays.
         """
-        X, y = zip(*data)
+        X, y = zip(data[0], data[1])
         return self.asarray(X), self.asarray(y)
 
     def asarray2f(
@@ -601,7 +609,7 @@ class Ops:
         return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
 
     def maxout(self, X: Floats3d) -> Tuple[Floats2d, Ints2d]:
-        which = X.argmax(axis=-1)
+        which = X.argmax(axis=-1, keepdims=False)
         return X.max(axis=-1), which
 
     def backprop_maxout(self, dY: Floats2d, which: Ints2d, P: int) -> Floats3d:
