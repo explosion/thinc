@@ -4,7 +4,7 @@ import numpy
 
 from .ops import Ops
 from ..types import Floats1d, Floats2d, Floats3d, Ints1d, Ints2d, Ints3d
-from ..types import Array, DTypes, Array3d, DeviceTypes, Padded, List2d, _Floats
+from ..types import ArrayXd, DTypes, Array3d, DeviceTypes, Padded, List2d, _Floats
 
 
 try:  # pragma: no cover
@@ -19,7 +19,7 @@ except ImportError:  # pragma: no cover
     has_jax = False
 
 
-ArrayT = TypeVar("ArrayT", bound=Array)
+ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 _W = TypeVar("_W")
 Wrapper = Callable[[_W], _W]
@@ -36,7 +36,8 @@ class JaxOps(Ops):
         self.device_id = device_id
 
     def as_contig(self, data: ArrayT, dtype: Optional[DTypes] = None) -> ArrayT:
-        return data if dtype is None else data.astype(dtype)
+        arr = data if dtype is None else data.astype(dtype)
+        return cast(ArrayT, arr)
 
     def to_numpy(self, data):  # pragma: no cover
         if isinstance(data, numpy.ndarray):
@@ -197,9 +198,9 @@ class JaxOps(Ops):
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         ...
 
-    def pad(
+    def pad(  # noqa: F811
         self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
-    ) -> Array3d:  # noqa: F811
+    ) -> Array3d:
         if not seqs:
             raise ValueError("Cannot pad empty sequence")
         if len(set(seq.ndim for seq in seqs)) != 1:
@@ -468,7 +469,7 @@ def update_averages(ema, weights, decay):
 
 
 @jax_jit()
-def logloss(y_true: Array, y_pred: Array):
+def logloss(y_true: ArrayXd, y_pred: ArrayXd):
     log_yp = jax.numpy.log(y_pred + 1e-8)
     loss = (y_true * log_yp) + (1 - y_true) * jax.numpy.log((1 - y_pred) + 1e-8)
     return -loss
@@ -596,7 +597,7 @@ def softmax_sequences(Xs: Floats2d, lengths: Ints1d, axis: int) -> Floats2d:
 
 
 @jax_jit(2)
-def backprop_softmax(Y: Array, dY: Array, axis: int) -> Array:
+def backprop_softmax(Y: ArrayXd, dY: ArrayXd, axis: int) -> ArrayXd:
     dX = Y * dY
     dX -= Y * dX.sum(axis=axis, keepdims=True)
     return dX

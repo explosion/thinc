@@ -3,14 +3,14 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
-from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, Array
+from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Array2d, Array3d, Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
 from ..util import get_array_module, is_xp_array
 
 
-ArrayT = TypeVar("ArrayT", bound=Array)
+ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 
 
@@ -128,7 +128,7 @@ class Ops:
             subseq = sequence[indices]  # type: ignore
         if is_xp_array(subseq):
             subseq = self.as_contig(
-                cast(Array, self.xp.asarray(subseq))
+                cast(ArrayXd, self.xp.asarray(subseq))
             )  # type: ignore
         return subseq
 
@@ -254,9 +254,9 @@ class Ops:
     def pad(self, seqs: List[Floats2d], round_to=1) -> Floats3d:
         ...
 
-    def pad(
+    def pad(  # noqa: F811
         self, seqs: Union[List[Ints2d], List[Floats2d]], round_to=1
-    ) -> Array3d:  # noqa: F811
+    ) -> Array3d:
         """Perform padding on a list of arrays so that they each have the same
         length, by taking the maximum dimension across each axis. This only
         works on non-empty sequences with the same `ndim` and `dtype`.
@@ -452,13 +452,6 @@ class Ops:
             shape = (shape,)
         return cast(ArrayT, array.reshape(shape))
 
-    def unzip(self, data: Tuple[Array, Array]) -> Tuple[Array, Array]:
-        """Unzip a tuple of two arrays, transform them with `asarray` and return
-        them as two separate arrays.
-        """
-        X, y = zip(data[0], data[1])
-        return self.asarray(X), self.asarray(y)
-
     def asarray4f(
         self,
         data: Union[Floats4d, Sequence[int]],
@@ -526,10 +519,10 @@ class Ops:
 
     def asarray(
         self,
-        data: Union[Array, Sequence[Array], Sequence[float], Sequence[int]],
+        data: Union[ArrayXd, Sequence[ArrayXd], Sequence[float], Sequence[int]],
         *,
         dtype: Optional[DTypes] = None,
-    ) -> Array:
+    ) -> ArrayXd:
         """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
             if dtype is not None:

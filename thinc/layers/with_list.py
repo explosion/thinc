@@ -61,7 +61,7 @@ def _ragged_forward(
     def backprop(dYr: Ragged):
         return Ragged(flatten(get_dXs(unflatten(dYr.data, dYr.lengths))), dYr.lengths)
 
-    return Ragged(cast(Floats2d, flatten(Ys)), Xr.lengths), backprop
+    return Ragged(cast(Floats2d, flatten(Ys)), Xr.lengths), backprop  # type: ignore
 
 
 def _padded_forward(

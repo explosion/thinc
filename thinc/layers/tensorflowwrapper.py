@@ -6,7 +6,7 @@ from ..model import Model
 from ..shims import TensorFlowShim, keras_model_fns, maybe_handshake_model
 from ..util import xp2tensorflow, tensorflow2xp, assert_tensorflow_installed
 from ..util import is_tensorflow_array, convert_recursive, is_xp_array
-from ..types import Array, ArgsKwargs
+from ..types import ArrayXd, ArgsKwargs
 
 try:
     import tensorflow as tf
@@ -16,8 +16,8 @@ except ImportError:  # pragma: no cover
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 InFunc = TypeVar("InFunc")
-XType = TypeVar("XType", bound=Array)
-YType = TypeVar("YType", bound=Array)
+XType = TypeVar("XType", bound=ArrayXd)
+YType = TypeVar("YType", bound=ArrayXd)
 
 
 def keras_subclass(

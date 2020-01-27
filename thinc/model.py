@@ -13,7 +13,8 @@ from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import Array, FloatsXd
+from .types import Floats2d, FloatsXd
+
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
@@ -490,10 +491,10 @@ class Model(Generic[InT, OutT]):
         for node in nodes:
             msg["shims"].append([shim.to_bytes() for shim in node.shims])
         for node in nodes:
-            params: Dict[str, Optional[Array]] = {}
+            params: Dict[str, Optional[Floats2d]] = {}
             for name in node.param_names:
                 if node.has_param(name):
-                    params[name] = node.get_param(name)
+                    params[name] = cast(Optional[Floats2d], node.get_param(name))
                 else:
                     params[name] = None
             msg["params"].append(params)

@@ -2,11 +2,11 @@ from typing import Tuple, Callable, List, TypeVar, Any
 
 from ..model import Model
 from ..config import registry
-from ..types import Array, Ragged, Padded
+from ..types import ArrayXd, Ragged, Padded
 
 
 InT = TypeVar("InT")
-ArrayT = TypeVar("ArrayT", bound=Array)
+ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 
 
 @registry.layers("Dropout.v1")

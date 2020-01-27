@@ -7,7 +7,7 @@ from io import BytesIO
 import numpy
 
 from ..backends import Ops, get_current_ops
-from ..types import ArgsKwargs, Array
+from ..types import ArgsKwargs, ArrayXd
 from ..util import tensorflow2xp
 from .shim import Shim
 
@@ -147,7 +147,7 @@ class TensorFlowShim(Shim):
         return optimizer
 
     def _load_weights_from_state_dict(
-        self, state_dict: Optional[Dict[str, Array]] = None
+        self, state_dict: Optional[Dict[str, ArrayXd]] = None
     ):
         if state_dict is None:
             state_dict = self._create_state_dict()

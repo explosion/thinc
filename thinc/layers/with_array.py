@@ -70,11 +70,11 @@ def _list_forward(
     layer = model.layers[0]
     pad = model.attrs["pad"]
     lengths = layer.ops.asarray1i([len(seq) for seq in Xs])
-    Xf = layer.ops.flatten(Xs, pad=pad)
+    Xf = layer.ops.flatten(Xs, pad=pad)  # type: ignore
     Yf, get_dXf = layer(Xf, is_train)
 
     def backprop(dYs: List2d) -> List2d:
-        dYf = layer.ops.flatten(dYs, pad=pad)
+        dYf = layer.ops.flatten(dYs, pad=pad)  # type: ignore
         dXf = get_dXf(dYf)
         return layer.ops.unflatten(dXf, lengths, pad=pad)
 
