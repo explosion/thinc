@@ -98,7 +98,7 @@ class JaxOps(Ops):
             result = self.xp.asarray(result, dtype=dtype)
         return result
 
-    def unflatten(self, X: ArrayT, lengths: Ints1d, pad: int = 0) -> List[ArrayT]:
+    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
         if not len(lengths):
             return []
         elif not X.size:
