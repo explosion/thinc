@@ -290,7 +290,7 @@ class Ops:
         output = []
         for i, length in enumerate(lengths):
             output.append(padded[i, :length])
-        return output
+        return cast(List2d, output)
 
     def list2padded(self, seqs: List[Floats2d]) -> Padded:
         """Pack a sequence of 2d arrays into a Padded datatype."""
@@ -339,7 +339,7 @@ class Ops:
             unpadded[indices[i]] = data[i, : lengths[i]]
         return cast(List2d, unpadded)
 
-    def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> Floats:
+    def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
         """Create a random mask for applying dropout, with a certain percent of
         the mask (defined by `drop`) will contain zeros. The neurons at those
         positions will be deactivated during training, resulting in a more
@@ -351,7 +351,7 @@ class Ops:
             return self.alloc(shape)
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
-        return cast(Floats, self.asarray(mask, dtype="float32"))
+        return cast(FloatsXd, self.asarray(mask, dtype="float32"))
 
     def alloc1f(self, d0: int, *, dtype: Optional[DTypesFloat] = "float32") -> Floats1d:
         return self.alloc((d0,), dtype=dtype)
@@ -379,7 +379,7 @@ class Ops:
 
     def alloc_f(
         self, shape: Shape, *, dtype: Optional[DTypesFloat] = "float32"
-    ) -> Floats:
+    ) -> FloatsXd:
         return self.alloc(shape, dtype=dtype)
 
     def alloc1i(self, d0: int, *, dtype: Optional[DTypesInt] = "int32") -> Ints1d:
@@ -427,7 +427,7 @@ class Ops:
     def reshape4f(self, array: Floats, d0: int, d1: int, d2: int, d3: int) -> Floats4d:
         return cast(Floats4d, self.reshape(array, (d0, d1, d2, d3)))
 
-    def reshape_f(self, array: Floats, shape: Shape) -> Floats:
+    def reshape_f(self, array: FloatsXd, shape: Shape) -> FloatsXd:
         return self.reshape(array, shape)
 
     def reshape1i(self, array: Ints, d0: int) -> Ints1d:
@@ -495,8 +495,8 @@ class Ops:
         data: Union[Floats, Sequence[float]],
         *,
         dtype: Optional[DTypes] = "float32",
-    ) -> Floats:
-        return cast(Floats, self.asarray(data, dtype=dtype))
+    ) -> FloatsXd:
+        return cast(FloatsXd, self.asarray(data, dtype=dtype))
 
     def asarray1i(
         self, data: Union[Ints1d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
@@ -821,7 +821,7 @@ class Ops:
         numpy_ops = NumpyOps()
         return self.asarray2f(numpy_ops.position_encode(N, D, period, out))
 
-    def scatter_add(self, table: Floats, indices: Ints, values: Floats) -> Floats:
+    def scatter_add(self, table: Floats, indices: Ints, values: Floats) -> FloatsXd:
         return self.xp.add.at(table, indices, values)
 
     def insert_into(self, shape, Xs):

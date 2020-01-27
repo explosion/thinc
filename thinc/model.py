@@ -13,7 +13,7 @@ from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import Array, Floats
+from .types import Array, FloatsXd
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
@@ -70,7 +70,7 @@ class Model(Generic[InT, OutT]):
         *,
         init: Optional[Callable] = None,
         dims: Dict[str, Optional[int]] = {},
-        params: Dict[str, Optional[Floats]] = {},
+        params: Dict[str, Optional[FloatsXd]] = {},
         layers: Sequence["Model"] = [],
         shims: List[Shim] = [],
         attrs: Dict[str, Any] = {},
@@ -198,7 +198,7 @@ class Model(Generic[InT, OutT]):
         else:
             return None
 
-    def get_param(self, name: str) -> Floats:
+    def get_param(self, name: str) -> FloatsXd:
         """Retrieve a weights parameter by name."""
         if name not in self._has_params:
             raise KeyError(f"Unknown param: '{name}' for model '{self.name}'.")
@@ -208,7 +208,7 @@ class Model(Generic[InT, OutT]):
             )
         return self._params.get_param(self.id, name)
 
-    def set_param(self, name: str, value: Optional[Floats]) -> None:
+    def set_param(self, name: str, value: Optional[FloatsXd]) -> None:
         """Set a weights parameter's value."""
         if value is None:
             self._has_params[name] = None
@@ -221,15 +221,15 @@ class Model(Generic[InT, OutT]):
         """
         return self._params.has_grad(self.id, name)
 
-    def get_grad(self, name: str) -> Floats:
+    def get_grad(self, name: str) -> FloatsXd:
         """Get a gradient from the model."""
         return self._params.get_grad(self.id, name)
 
-    def set_grad(self, name: str, value: Floats) -> None:
+    def set_grad(self, name: str, value: FloatsXd) -> None:
         """Set a gradient value for the model."""
         self._params.set_grad(self.id, name, value)
 
-    def inc_grad(self, name: str, value: Floats) -> None:
+    def inc_grad(self, name: str, value: FloatsXd) -> None:
         """Check whether the model has a gradient of the given name."""
         self._params.inc_grad(self.id, name, value)
 
@@ -309,7 +309,7 @@ class Model(Generic[InT, OutT]):
                 shim.finish_update(optimizer)
 
     @contextlib.contextmanager
-    def use_params(self, params: Dict[Tuple[int, str], Floats]):
+    def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):
         """Context manager to temporarily set the model's parameters to
         specified values. The params are a dictionary keyed by model IDs, whose
         values are arrays of weight values.
@@ -359,7 +359,7 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
-    def get_gradients(self) -> Dict[Tuple[int, str], Tuple[Floats, Floats]]:
+    def get_gradients(self) -> Dict[Tuple[int, str], Tuple[FloatsXd, FloatsXd]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
         """
