@@ -9,8 +9,8 @@ from .config import registry
 
 
 KeyT = Tuple[int, str]
-FloatOrSeq = Union[float, List[float], Generator[float]]
-IntOrSeq = Union[int, List[int], Generator[int]]
+FloatOrSeq = Union[float, List[float], Generator]
+IntOrSeq = Union[int, List[int], Generator]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 0.0,
