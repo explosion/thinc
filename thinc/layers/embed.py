@@ -36,17 +36,17 @@ def Embed(
 
 def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nV = model.get_dim("nV")
-    vectors = model.get_param("E")
-    column = model.attrs["column"]
+    vectors = cast(Floats2d, model.get_param("E"))
+    column: int = model.attrs["column"]
     dropout = model.attrs.get("dropout_rate")
     input_shape = tuple(ids.shape)
     if ids.ndim == 2:
-        ids1d = ids[:, column]
+        ids1d = ids[:, column] # type: ignore
     else:
         ids1d = cast(Ints1d, ids)
     ids1d *= ids1d < nV
     output = vectors[ids1d.astype("i")]
-    drop_mask = model.ops.get_dropout_mask((vectors.shape[1],), dropout)
+    drop_mask = cast(Floats2d, model.ops.get_dropout_mask((vectors.shape[1],), dropout))
     output *= drop_mask
 
     def backprop(d_output: OutT) -> InT:
