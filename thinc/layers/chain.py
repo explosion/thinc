@@ -11,11 +11,7 @@ OutT = TypeVar("OutT")
 MidT = TypeVar("MidT")
 
 
-# TODO: Unhack this when we can
-# We currently have an issue with Pydantic when arguments have generic types.
-# https://github.com/samuelcolvin/pydantic/issues/1158
-# For now we work around the issue by applying the decorator to this blander
-# version of the function.
+# Keep this function so we can provide variable arguments via the config
 @registry.layers("chain.v1")
 def chain_no_types(*layer: Model) -> Model:
     return chain(*layer)

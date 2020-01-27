@@ -1,6 +1,6 @@
 import math
 
-from typing import Dict, Optional, Union, Tuple, List, cast
+from typing import Dict, Optional, Union, Tuple, List, cast, Iterator
 from collections import defaultdict
 
 from .backends import Ops, NumpyOps, CupyOps, get_current_ops
@@ -8,13 +8,9 @@ from .types import Array, Generator
 from .config import registry
 
 
-# We need to use the custom Generator type for schedules to work around pydantic
-# not supporting Iterator / Iterable
-ScheduleT = Generator
-
 KeyT = Tuple[int, str]
-FloatOrSeq = Union[float, List[float], Generator]
-IntOrSeq = Union[int, List[int], Generator]
+FloatOrSeq = Union[float, List[float], Generator[float]]
+IntOrSeq = Union[int, List[int], Generator[int]]
 
 SGD_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "L2": 0.0,
@@ -116,7 +112,7 @@ class Optimizer(object):
     mom1: Dict[KeyT, Array]
     mom2: Dict[KeyT, Array]
     averages: Optional[Dict[KeyT, Array]]
-    schedules: Dict[str, Generator]
+    schedules: Dict[str, Iterator[float]]
     nr_update: Dict[KeyT, int]
     last_seen: Dict[KeyT, int]
     grad_clip: float

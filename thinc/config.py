@@ -278,7 +278,7 @@ class registry(object):
                     final[key] = list(final[key].values())
             else:
                 filled[key] = value
-                # TODO: unhack this fix to prevent pydantic from consuming generator
+                # Prevent pydantic from consuming generator if part of a union
                 validation[key] = value if not isinstance(value, GeneratorType) else []
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
@@ -369,10 +369,6 @@ class registry(object):
         for param in inspect.signature(func).parameters.values():
             # If no annotation is specified assume it's anything
             annotation = param.annotation if param.annotation != param.empty else Any
-            # TODO: Bad hack to work around generic types in pydantic (until next release)
-            # Details: https://github.com/samuelcolvin/pydantic/issues/1158
-            if str(annotation).startswith("thinc.model.Model["):
-                annotation = Callable
             # If no default value is specified assume that it's required
             default = param.default if param.default != param.empty else ...
             # Handle spread arguments and use their annotation as Sequence[whatever]
