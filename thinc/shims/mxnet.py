@@ -101,7 +101,7 @@ class MXNetShim(Shim):
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
 
-    def copy(self, ctx: mx.context.Context = None):
+    def copy(self, ctx: "mx.context.Context" = None):
         if ctx is None:
             ctx = mx.current_context()
         model_bytes = self.to_bytes()
