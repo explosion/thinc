@@ -1,8 +1,10 @@
 from typing import Callable, Dict, Tuple, Optional, Any, Union, cast
 
+from .chain import chain
+from .array_getitem import ints_getitem
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ints2d, Ints1d
+from ..types import Floats1d, Floats2d, Ints2d, Ints1d
 from ..initializers import uniform_init
 from ..util import partial
 
@@ -17,14 +19,14 @@ def HashEmbed(
     nV: int,
     *,
     seed: Optional[int] = None,
-    column: int = 0,
+    column: Optional[int] = None,
     initializer: Callable = uniform_init,
     dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model: Model[InT, OutT] = Model(
+    model = Model(  # type: ignore
         "hashembed",
         forward,
         init=partial(init, initializer),
@@ -34,34 +36,36 @@ def HashEmbed(
     )
     if seed is None:
         model.attrs["seed"] = model.id
+    model = model if column is None else chain(ints_getitem(column), model)
+    model.attrs["column"] = column
+    return cast(Model[InT, OutT], model)
     return model
 
 
-def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    dropout = model.attrs.get("dropout_rate")
-    E = cast(Floats2d, model.get_param("E"))
+def forward(
+    model: Model[InT, OutT], ids: Ints1d, is_train: bool
+) -> Tuple[OutT, Callable]:
+    ids = model.ops.as_contig(ids, dtype="uint64")  # type: ignore
+    vectors = cast(Floats2d, model.get_param("E"))
+    nV = vectors.shape[0]
+    nO = vectors.shape[1]
+    nN = ids.shape[0]
     seed: int = model.attrs["seed"]
-    column: int = model.attrs["column"]
-    nV = E.shape[0]
-    input_shape = tuple(ids.shape)
-    if ids.ndim >= 2:
-        ids1d = model.ops.as_contig(ids[:, column], dtype="uint64")  # type: ignore
-    else:
-        ids1d = cast(Ints1d, ids)
-    keys = model.ops.hash(ids1d, seed) % nV
-    vectors = E[keys].sum(axis=1)
-    drop_mask = cast(Floats2d, model.ops.get_dropout_mask((vectors.shape[1],), dropout))
-    vectors *= drop_mask
+    keys = model.ops.hash(ids, seed) % nV
+    dropout: Optional[float] = model.attrs.get("dropout_rate")
+    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
+    dropout = model.attrs.get("dropout_rate")
+    output = vectors[keys]
+    output *= drop_mask
 
-    def backprop(d_vectors: OutT) -> InT:
+    def backprop(d_vectors: OutT) -> Ints1d:
         d_vectors *= drop_mask
-        keys = model.ops.hash(ids1d, seed) % nV
-        dE = model.ops.alloc2f(*E.shape)
-        keys = model.ops.as_contig(keys.T, dtype="i")
-        for i in range(keys.shape[0]):
-            model.ops.scatter_add(dE, keys[i], d_vectors)
+        dE = model.ops.alloc2f(*vectors.shape)
+        keysT = model.ops.as_contig(keys.T, dtype="i")
+        for i in range(keysT.shape[0]):
+            model.ops.scatter_add(dE, keysT[i], d_vectors)
         model.inc_grad("E", dE)
-        dX = cast(InT, model.ops.alloc_i(input_shape))
+        dX = model.ops.alloc1i(nN)
         return dX
 
     return vectors, backprop
@@ -70,9 +74,9 @@ def forward(model: Model[InT, OutT], ids: InT, is_train: bool) -> Tuple[OutT, Ca
 def init(
     initializer: Callable,
     model: Model[InT, OutT],
-    X: Optional[InT] = None,
+    X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
 ) -> Model[InT, OutT]:
-    E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
+    E = initializer(model.ops, (model.get_dim("nV") + 1, model.get_dim("nO")))
     model.set_param("E", E)
     return model
