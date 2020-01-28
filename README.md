@@ -72,15 +72,15 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 
 ### 📖 Documentation & usage guides
 
-|                                                                            |                                                       |
-| -------------------------------------------------------------------------- | ----------------------------------------------------- |
-| [Introduction](https://thinc.ai/docs)                                      | Everything you need to know.                          |
-| [Philosophy](https://thinc.ai/docs/concept)                                | Thinc's conceptual model and how it works.            |
-| [Defining and using models](https://thinc.ai/docs/usage-models)            | How to compose models and update state.               |
-| [Configuration system](https://thinc.ai/docs/usage-config)                 | Thinc's config system and function registry.          |
-| [Integrating PyTorch & TensorFlow](https://thinc.ai/docs/usage-frameworks) | Interoperability with machine learning frameworks     |
-| [Layers API](https://thinc.ai/docs/api-layers)                             | Weights layers, transforms, combinators and wrappers. |
-| [Type Checking](https://thinc.ai/docs/usage-type-checking)                 | Type-check your model definitions and more.           |
+|                                                                                   |                                                       |
+| --------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| [Introduction](https://thinc.ai/docs)                                             | Everything you need to know.                          |
+| [Concept & Design](https://thinc.ai/docs/concept)                                 | Thinc's conceptual model and how it works.            |
+| [Defining and using models](https://thinc.ai/docs/usage-models)                   | How to compose models and update state.               |
+| [Configuration system](https://thinc.ai/docs/usage-config)                        | Thinc's config system and function registry.          |
+| [Integrating PyTorch, TensorFlow & MXNet](https://thinc.ai/docs/usage-frameworks) | Interoperability with machine learning frameworks     |
+| [Layers API](https://thinc.ai/docs/api-layers)                                    | Weights layers, transforms, combinators and wrappers. |
+| [Type Checking](https://thinc.ai/docs/usage-type-checking)                        | Type-check your model definitions and more.           |
 
 ## 🗺 What's where
 
