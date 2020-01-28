@@ -62,7 +62,7 @@ def _split(ops: Ops, Xp: Padded) -> Tuple[Padded, Padded]:
     half = Xp.data.shape[-1] // 2
     # I don't know how to write these ellipsis in the overloads :(
     X_l2r = Xp.data[cast(Tuple[slice, slice], (..., slice(None, half)))]
-    X_r2l = Xp.data[cast(Tuple[slice, slice], (..., slice(half,)))]
+    X_r2l = Xp.data[cast(Tuple[slice, slice], (..., slice(half)))]
     return (
         Padded(X_l2r, Xp.size_at_t, Xp.lengths, Xp.indices),
         Padded(X_r2l, Xp.size_at_t, Xp.lengths, Xp.indices),

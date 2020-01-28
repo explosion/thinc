@@ -1,5 +1,5 @@
 from typing import Union, Tuple, Sized, Container, Any, TypeVar, Callable
-from typing import Iterable, Iterator, Sequence, Dict, Generic
+from typing import Iterable, Iterator, Sequence, Dict, Generic, cast
 from typing import Optional, List, overload
 from dataclasses import dataclass
 import numpy
@@ -813,16 +813,32 @@ class Ragged:
     you can write ragged[1:4] to get a Ragged object with sequences 1, 2 and 3.
     """
 
-    data: Floats2d
+    data: Array2d
     lengths: Ints1d
+    data_shape: Tuple[int, ...]
     _cumsums: Optional[Ints1d] = None
+
+    def __init__(self, data: _Array, lengths: Ints1d):
+        self.lengths = lengths
+        # Frustratingly, the -1 dimension doesn't work with 0 size...
+        if data.size:
+            self.data = cast(Array2d, data.reshape((data.shape[0], -1)))
+        else:
+            self.data = cast(Array2d, data.reshape((0, 0)))
+        self.data_shape = (-1,) + data.shape[1:]
+
+    @property
+    def dataXd(self) -> ArrayXd:
+        if self.data.size:
+            reshaped = self.data.reshape(self.data_shape)
+        else:
+            reshaped = self.data.reshape((self.data.shape[0],) + self.data_shape[1:])
+        return cast(ArrayXd, reshaped)
 
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
     def __getitem__(self, index: Union[int, slice, Array1d]) -> "Ragged":
-        from .util import get_array_module  # prevent circular imports
-
         if isinstance(index, tuple):
             raise IndexError("Ragged arrays do not support 2d indexing.")
         starts = self._get_starts()
@@ -836,12 +852,12 @@ class Ragged:
             cumsums = self._get_cumsums()
             start = cumsums[index.start - 1] if index.start >= 1 else 0
             end = start + lengths.sum()
-            return Ragged(self.data[start:end], lengths)
+            return Ragged(self.data[start:end].reshape(self.data_shape), lengths)
         else:
             # There must be a way to do this "properly" :(. Sigh, hate numpy.
             xp = get_array_module(self.data)
             data = xp.vstack([self[int(i)].data for i in index])
-            return Ragged(data, self.lengths[index])
+            return Ragged(data.reshape(self.data_shape), self.lengths[index])
 
     def _get_cumsums(self) -> Ints1d:
         if self._cumsums is None:
@@ -849,8 +865,6 @@ class Ragged:
         return self._cumsums
 
     def _get_starts(self) -> Ints1d:
-        from .util import get_array_module
-
         cumsums = self._get_cumsums()
         xp = get_array_module(cumsums)
         zero = xp.array([0], dtype="i")

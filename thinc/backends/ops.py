@@ -503,12 +503,12 @@ class Ops:
         return cast(Ints2d, self.asarray(data, dtype=dtype))
 
     def asarray3i(
-        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+        self, data: Union[Ints3d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
     ) -> Ints3d:
         return cast(Ints3d, self.asarray(data, dtype=dtype))
 
     def asarray4i(
-        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32",
+        self, data: Union[Ints4d, Sequence[int]], *, dtype: Optional[DTypes] = "int32"
     ) -> Ints4d:
         return cast(Ints4d, self.asarray(data, dtype=dtype))
 

@@ -1,4 +1,4 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, cast
 
 from ..types import Floats2d, Ragged
 from ..model import Model
@@ -15,7 +15,7 @@ def reduce_max() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y, which = model.ops.reduce_max(Xr.data, Xr.lengths)
+    Y, which = model.ops.reduce_max(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:
