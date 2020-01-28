@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, List
+from typing import Tuple, Callable
 
 from ..model import Model
 from ..config import registry
