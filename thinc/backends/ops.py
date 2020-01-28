@@ -818,7 +818,7 @@ class Ops:
     def scatter_add(
         self, table: FloatsXd, indices: IntsXd, values: FloatsXd
     ) -> FloatsXd:
-        return self.xp.add.at(table, indices, values)
+        return self.xp.add.at(table, indices, values[indices])  # type: ignore
 
     def insert_into(self, shape, Xs):
         """Maybe don't need this? Just a quicky to get Jax working."""

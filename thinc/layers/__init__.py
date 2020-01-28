@@ -36,6 +36,9 @@ from .reduce_max import reduce_max
 from .reduce_mean import reduce_mean
 from .reduce_sum import reduce_sum
 
+# Array manipulation
+from .array_getitem import array_getitem
+
 # Data-type transfers
 from .list2array import list2array
 from .list2ragged import list2ragged
