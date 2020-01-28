@@ -6,6 +6,9 @@ import functools
 from wasabi import table
 from pydantic import create_model, ValidationError
 import inspect
+import os
+import tempfile
+import contextlib
 
 try:  # pragma: no cover
     import cupy
@@ -414,6 +417,14 @@ def validate_fwd_input_output(
         raise DataValidationError(name, X, Y, e.errors())
 
 
+@contextlib.contextmanager
+def make_tempfile(mode="r"):
+    f = tempfile.NamedTemporaryFile(mode=mode, delete=False)
+    yield f
+    f.close()
+    os.remove(f.name)
+
+
 __all__ = [
     "get_array_module",
     "fix_random_seed",
@@ -431,4 +442,5 @@ __all__ = [
     "xp2tensorflow",
     "validate_fwd_input_output",
     "DataValidationError",
+    "make_tempfile",
 ]

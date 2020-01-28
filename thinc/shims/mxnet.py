@@ -12,7 +12,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import mxnet2xp, xp2mxnet, convert_recursive
+from ..util import mxnet2xp, xp2mxnet, convert_recursive, make_tempfile
 from ..backends import get_current_ops
 from ..types import ArgsKwargs
 from .shim import Shim
@@ -118,7 +118,7 @@ class MXNetShim(Shim):
 
     def to_bytes(self):
         # MXNet doesn't implement save/load without a filename
-        with tempfile.NamedTemporaryFile() as temp:
+        with make_tempfile("w+b") as temp:
             self._model.save_parameters(temp.name)
             temp.seek(0)
             weights_bytes = temp.read()
@@ -133,6 +133,6 @@ class MXNetShim(Shim):
 
     def _load_params(self, params):
         # MXNet doesn't implement save/load without a filename :(
-        with tempfile.NamedTemporaryFile() as temp:
+        with make_tempfile("w+b") as temp:
             temp.write(params)
             self._model.load_parameters(temp.name, ctx=mx.current_context())
