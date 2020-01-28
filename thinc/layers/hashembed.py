@@ -73,7 +73,7 @@ def forward(
         dX = model.ops.alloc1i(nN)
         return dX
 
-    return vectors, backprop
+    return output, backprop
 
 
 def init(
