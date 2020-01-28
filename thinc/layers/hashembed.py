@@ -36,7 +36,12 @@ def HashEmbed(
     )
     if seed is None:
         model.attrs["seed"] = model.id
-    model = model if column is None else chain(ints_getitem(column), model)
+    if column is not None:
+        # This is equivalent to array[:, column]. What you're actually doing
+        # there is passing in a tuple: array[(:, column)], except in the context
+        # of array indexing, the ":" creates an object slice(0, None).
+        # So array[:, column] is array.__getitem__(slice(0), column).
+        model = chain(ints_getitem((slice(0), column)), model)
     model.attrs["column"] = column
     return cast(Model[InT, OutT], model)
     return model
