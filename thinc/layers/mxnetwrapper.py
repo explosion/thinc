@@ -5,7 +5,7 @@ from ..shims import MXNetShim
 from ..config import registry
 from ..util import is_xp_array, is_mxnet_array
 from ..util import xp2mxnet, mxnet2xp, convert_recursive
-from ..types import Array3d, ArgsKwargs, Padded
+from ..types import ArgsKwargs, Padded, Floats3d
 
 
 @registry.layers("MXNetRNNWrapper.v1")
@@ -52,7 +52,7 @@ def MXNetWrapper(
         Y, get_dYmxnet = convert_outputs(Ymxnet)
 
     To allow maximum flexibility, the MXNetShim expects ArgsKwargs objects
-    on the way into the forward and backward passed. The ArgsKwargs objects
+    on the way into the forward and backward passes. The ArgsKwargs objects
     will be passed straight into the model in the forward pass, and straight
     into `mxnet.autograd.backward` during the backward pass.
     """
@@ -159,6 +159,6 @@ def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
         dYmxnet = xp2mxnet(dYp.data, requires_grad=True)
         return ArgsKwargs(args=(Ymxnet,), kwargs={"head_grads": dYmxnet})
 
-    Y = cast(Array3d, mxnet2xp(Ymxnet))
+    Y = cast(Floats3d, mxnet2xp(Ymxnet))
     Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
     return Yp, convert_for_mxnet_backward
