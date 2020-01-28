@@ -112,7 +112,7 @@ def check_intoin_outtoout(
     l2_type: Instance,
     api: CheckerPluginInterface,
 ):
-    if not l1_type.args[0] == l2_type.args[0]:
+    if l1_type.args[0] != l2_type.args[0]:
         api.fail(
             f"Layer input ({l1_type.args[0]}) not compatible with next layer input ({l2_type.args[0]})",
             l1_arg,
@@ -123,14 +123,14 @@ def check_intoin_outtoout(
             l2_arg,
             code=error_layer_input,
         )
-    if not l1_type.args[1] == l2_type.args[1]:
+    if l1_type.args[1] != l2_type.args[1]:
         api.fail(
-            f"Layer output ({l1_type.args[1]}) not compatible with next layer output ({l1_type.args[1]})",
+            f"Layer output ({l1_type.args[1]}) not compatible with next layer output ({l2_type.args[1]})",
             l1_arg,
             code=error_layer_output,
         )
         api.fail(
-            f"Layer output ({l2_type.args[0]}) not compatible with previous layer output ({l1_type.args[0]})",
+            f"Layer output ({l2_type.args[1]}) not compatible with previous layer output ({l1_type.args[1]})",
             l2_arg,
             code=error_layer_output,
         )

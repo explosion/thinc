@@ -29,7 +29,9 @@ model.predict(True)
 # examples/howto/type_chain.py:10: error: Cannot infer type argument 2 of "chain"
 bad_model = chain(ReLu(10), reduce_max(), Softmax())
 
-concate_model = chain(
+concate_model = concatenate(ReLu(10), reduce_max(), ReLu(10), ReLu(10)), reduce_max()
+
+concate_chain_model = chain(
     concatenate(ReLu(10), reduce_max(), ReLu(10), ReLu(10)), reduce_max()
 )
 
