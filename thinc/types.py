@@ -830,9 +830,10 @@ class Ragged:
     @property
     def dataXd(self) -> ArrayXd:
         if self.data.size:
-            return self.data.reshape(self.data_shape)
+            reshaped = self.data.reshape(self.data_shape)
         else:
-            return self.data.reshape((self.data.shape[0],) + self.data_shape[1:])
+            reshaped = self.data.reshape((self.data.shape[0],) + self.data_shape[1:])
+        return cast(ArrayXd, reshaped)
 
     def __len__(self) -> int:
         return self.lengths.shape[0]

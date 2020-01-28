@@ -2,7 +2,7 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged
+from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd
 from ..types import List2d
 
 
@@ -84,7 +84,7 @@ def _list_forward(
 def _ragged_forward(
     model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
-    layer: Model[Array2d, Array2d] = model.layers[0]
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     Y, get_dX = layer(Xr.dataXd, is_train)
 
     def backprop(dYr: Ragged) -> Ragged:
