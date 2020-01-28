@@ -1,12 +1,7 @@
-# coding: utf8
-from __future__ import unicode_literals
-
 import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
-
-from ..neural.ops import NumpyOps
-from ..v2v import Affine
+from thinc.api import NumpyOps, Linear
 
 
 def get_ops():
@@ -14,10 +9,10 @@ def get_ops():
 
 
 def get_model(W_values, b_values):
-    model = Affine(W_values.shape[0], W_values.shape[1], ops=NumpyOps())
-    model.initialize_params()
-    model.W[:] = W_values
-    model.b[:] = b_values
+    model = Linear(W_values.shape[0], W_values.shape[1], ops=NumpyOps())
+    model.initialize()
+    model.set_param("W", W_values)
+    model.set_param("b", b_values)
     return model
 
 
@@ -27,7 +22,7 @@ def get_output(input_, W_values, b_values):
 
 def get_input(nr_batch, nr_in):
     ops = NumpyOps()
-    return ops.allocate((nr_batch, nr_in))
+    return ops.alloc2f(nr_batch, nr_in)
 
 
 def lengths(lo=1, hi=10):
@@ -38,8 +33,10 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
     return tuples(lengths(lo=min_rows, hi=max_rows), lengths(lo=min_cols, hi=max_cols))
 
 
-def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32"):
-    return arrays("float32", shape=shape, elements=floats(min_value=lo, max_value=hi))
+def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32", width=32):
+    return arrays(
+        dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
+    )
 
 
 def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):
@@ -49,7 +46,7 @@ def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):
 
 
 def arrays_BI(min_B=1, max_B=10, min_I=1, max_I=100):
-    shapes = tuples(lengths(lo=min_B, hi=max_B), lengths(lo=min_B, hi=max_I))
+    shapes = tuples(lengths(lo=min_B, hi=max_B), lengths(lo=min_I, hi=max_I))
     return shapes.flatmap(ndarrays_of_shape)
 
 

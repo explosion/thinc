@@ -1,9 +1,4 @@
-# cython: profile=True
-# cython: experimental_cpp_class_def=True
-# cython: cdivision=True
-# cython: infer_types=True
-
-from __future__ cimport division
+# cython: profile=True, experimental_cpp_class_def=True, cdivision=True, infer_types=True
 cimport cython
 from libc.string cimport memset, memcpy
 from libc.math cimport log, exp
@@ -11,7 +6,6 @@ import math
 
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-from ..typedefs cimport hash_t
 
 
 cdef class Beam:
@@ -56,7 +50,7 @@ cdef class Beam:
     property probs:
         def __get__(self):
             return _softmax([self._states[i].score for i in range(self.size)])
-    
+
     property scores:
         def __get__(self):
             return [self._states[i].score for i in range(self.size)]

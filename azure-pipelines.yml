@@ -5,25 +5,9 @@ trigger:
     - '*'
 
 jobs:
-
 - job: 'Test'
   strategy:
     matrix:
-      Python27Linux:
-        imageName: 'ubuntu-16.04'
-        python.version: '2.7.16'
-      Python27Mac:
-        imageName: 'macos-10.13'
-        python.version: '2.7'
-      Python35Linux:
-        imageName: 'ubuntu-16.04'
-        python.version: '3.5.7'
-      Python35Windows:
-        imageName: 'vs2017-win2016'
-        python.version: '3.5'
-      Python35Mac:
-        imageName: 'macos-10.13'
-        python.version: '3.5'
       Python36Linux:
         imageName: 'ubuntu-16.04'
         python.version: '3.6'
@@ -33,15 +17,6 @@ jobs:
       Python36Mac:
         imageName: 'macos-10.13'
         python.version: '3.6'
-      Python37Linux:
-        imageName: 'ubuntu-16.04'
-        python.version: '3.7.5'
-      Python37Windows:
-        imageName: 'vs2017-win2016'
-        python.version: '3.7'
-      Python37Mac:
-        imageName: 'macos-10.13'
-        python.version: '3.7'
       Python38Linux:
         imageName: 'ubuntu-16.04'
         python.version: '3.8'
@@ -66,8 +41,31 @@ jobs:
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
-  - script: pip install -e .
-    displayName: 'Install'
+  - script: |
+      python setup.py build_ext --inplace
+      python setup.py sdist --formats=gztar
+    displayName: 'Build sdist'
 
-  - script: python -m pytest thinc
+  - script: python -m mypy thinc
+    displayName: 'Run mypy'
+
+  - task: DeleteFiles@1
+    inputs:
+      contents: 'thinc'
+    displayName: 'Delete source directory'
+
+  - bash: |
+      SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
+      pip install dist/$SDIST
+    displayName: 'Install from sdist'
+
+  - script: |
+      pip install tensorflow
+      pip install mxnet
+      pip install torch -f -https://download.pytorch.org/whl/torch_stable.html
+      pip install jax jaxlib
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
+
+  - bash: bash <(curl -s https://codecov.io/bash)
+    displayName: 'Upload to codecov.io'

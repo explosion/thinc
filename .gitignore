@@ -1,6 +1,8 @@
+*.egg-info/
+dist/
+*.dat
 build/
 .env/
-.~env/
 .python/
 *.pyc
 *.swp
@@ -36,3 +38,7 @@ tmp/
 .eggs/
 .pytest_cache/
 .vscode/
+.mypy_cache
+env3.*/
+coverage.xml
+.ipynb_checkpoints/
