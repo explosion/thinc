@@ -60,7 +60,7 @@ def forward(
     dropout: Optional[float] = model.attrs.get("dropout_rate")
     drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
     dropout = model.attrs.get("dropout_rate")
-    output = vectors[keys]
+    output = vectors[keys].sum(axis=1)
     output *= drop_mask
 
     def backprop(d_vectors: OutT) -> Ints1d:
