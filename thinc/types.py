@@ -820,11 +820,19 @@ class Ragged:
 
     def __init__(self, data: _Array, lengths: Ints1d):
         self.lengths = lengths
+        # Frustratingly, the -1 dimension doesn't work with 0 size...
         if data.size:
             self.data = cast(Array2d, data.reshape((data.shape[0], -1)))
         else:
             self.data = cast(Array2d, data.reshape((0, 0)))
         self.data_shape = (-1,) + data.shape[1:]
+
+    @property
+    def dataXd(self) -> ArrayXd:
+        if self.data.size:
+            return self.data.reshape(self.data_shape)
+        else:
+            return self.data.reshape((self.data.shape[0],) + self.data_shape[1:])
 
     def __len__(self) -> int:
         return self.lengths.shape[0]
