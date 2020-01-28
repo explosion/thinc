@@ -3,6 +3,7 @@ import contextlib
 from io import BytesIO
 import srsly
 import tempfile
+import copy
 
 try:
     import mxnet.autograd
@@ -86,22 +87,6 @@ class MXNetShim(Shim):
 
         return optimizer, gluon.Trainer(self._model.collect_params(), optimizer)
 
-    @contextlib.contextmanager
-    def use_params(self, params):
-        key_prefix = f"mxnet_{self.id}_"
-        state_dict = {}
-        for k, v in params.items():
-            if hasattr(k, "startswith") and k.startswith(key_prefix):
-                state_dict[k.replace(key_prefix, "")] = xp2mxnet(v)
-        # TODO: state_dict equiv in mxnet? collect_params().copy() maybe?
-        if state_dict:
-            backup = {k: v.clone() for k, v in self._model.state_dict().items()}
-            self._model.load_state_dict(state_dict)
-            yield
-            self._model.load_state_dict(backup)
-        else:
-            yield
-
     def _update_mxnet_averages(self, sgd, *, init_steps=1):
         if getattr(sgd, "averages", None) is None:
             return
@@ -116,12 +101,20 @@ class MXNetShim(Shim):
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
 
-    def to_device(self, device):  # pragma: no cover
-        raise NotImplementedError("todo: test this with GPU system")
+    def copy(self, ctx: mx.context.Context = None):
+        if ctx is None:
+            ctx = mx.current_context()
+        model_bytes = self.to_bytes()
+        copied = copy.deepcopy(self)
+        copied._model.initialize(ctx=ctx)
+        copied.from_bytes(model_bytes)
+        return copied
+
+    def to_device(self, device):
         if device == "cpu":
-            self._model.cpu()
+            self._model = self.copy(mx.cpu())
         else:
-            self._model.cuda(device)
+            self._model = self.copy(mx.gpu())
 
     def to_bytes(self):
         # MXNet doesn't implement save/load without a filename
@@ -135,9 +128,12 @@ class MXNetShim(Shim):
     def from_bytes(self, bytes_data):
         msg = srsly.msgpack_loads(bytes_data)
         self.cfg = msg["config"]
+        self._load_params(msg["state"])
+        return self
+
+    def _load_params(self, params):
         # MXNet doesn't implement save/load without a filename :(
         with tempfile.NamedTemporaryFile() as temp:
-            temp.write(msg["state"])
+            temp.write(params)
             self._model.load_parameters(temp.name, ctx=mx.current_context())
-        return self
 

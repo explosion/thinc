@@ -115,7 +115,8 @@ def test_mxnet_wrapper_train_overfits(
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_can_copy_model(model: Model[Array2d, Array2d]):
+def test_mxnet_wrapper_can_copy_model(model: Model[Array2d, Array2d], X: Array2d):
+    model.predict(X)
     copy: Model[Array2d, Array2d] = model.copy()
     assert copy is not None
 
@@ -148,25 +149,9 @@ def test_mxnet_wrapper_from_bytes(model: Model[Array2d, Array2d], X: Array2d):
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_use_params(
-    model: Model[Array2d, Array2d], X: Array2d, Y: Array2d, answer: int
-):
-    optimizer = Adam()
-    with model.use_params(optimizer.averages):
-        assert model.predict(X).argmax() is not None
-    for i in range(10):
-        guesses, backprop = model.begin_update(X)
-        d_guesses = (guesses - Y) / guesses.shape[0]
-        backprop(d_guesses)
-        model.finish_update(optimizer)
-    with model.use_params(optimizer.averages):
-        predicted = model.predict(X).argmax()
-    assert predicted == answer
-
-
-@pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_to_cpu(mx_model):
+def test_mxnet_wrapper_to_cpu(mx_model, X: Array2d):
     model = MXNetWrapper(mx_model)
+    model.predict(X)
     model.to_cpu()
 
 
