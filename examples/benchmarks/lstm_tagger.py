@@ -3,7 +3,7 @@ Compare tagging speed for LSTM, using dummy data.
 
 Results on CPU laptop:
 
-PyTorchLSTM.v0:
+PyTorchLSTM.v1:
 Predicted 39017 4.033804399892688 Ys[0] 0.05000001 5.551115e-17
 
 LSTM (NumpyOps):
