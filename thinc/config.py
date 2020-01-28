@@ -9,6 +9,7 @@ import srsly
 import catalogue
 import inspect
 import io
+import numpy
 
 from .types import Decorator
 
@@ -316,6 +317,8 @@ class registry(object):
             # replace that to validate it correctly
             elif key == ARGS_FIELD:
                 continue  # don't substitute if list of positional args
+            elif isinstance(value, numpy.ndarray):  # check numpy first, just in case
+                final[key] = value
             elif (
                 value != final[key] or not isinstance(type(value), type(final[key]))
             ) and not isinstance(final[key], GeneratorType):

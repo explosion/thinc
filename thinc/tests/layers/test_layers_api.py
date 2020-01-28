@@ -20,6 +20,7 @@ class FakeSpan:
 OPS = get_current_ops()
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
+array1dint = OPS.xp.asarray([1, 2, 3], dtype="i")
 array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
 array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
@@ -30,6 +31,7 @@ padded = Padded(
 doc = FakeDoc()
 span = FakeSpan()
 width = array2d.shape[1]
+vectors = numpy.zeros((array2dint.max(), 1), dtype="f")
 
 
 def assert_data_match(Y, out_data):
@@ -87,8 +89,13 @@ TEST_CASES = [
         marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch"),
     ),
     ("LSTM.v1", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    # Currently doesn't work because it requires spaCy:
-    # ("StaticVectors.v1", array2d, array2d),
+    ("StaticVectors.v1", {"nO": 1, "vectors": vectors}, array1dint, array2d,),
+    (
+        "StaticVectors.v1",
+        {"nO": 1, "vectors": vectors, "column": 0},
+        array2dint,
+        array2d,
+    ),
     # Ragged to array
     ("reduce_max.v1", {}, ragged, array2d),
     ("reduce_mean.v1", {}, ragged, array2d),
@@ -96,9 +103,10 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("expand_window.v1", {}, array2d, array2d),
-    ("Embed.v1", {"nV": 1}, array2dint, array2d),
-    ("Embed.v1", {"nO": 4, "nV": 1}, array2dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": 2}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array1dint.max()}, array1dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("FeatureExtractor.v1", {"columns": [1, 2]}, [doc, doc, doc], [array2d, array2d, array2d]),
