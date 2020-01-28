@@ -280,7 +280,7 @@ class NumpyOps(Ops):
                 <int*>indices.data, <float*>values.data,
                 indices.shape[0], table.shape[1])
         else:
-            self.xp.add.at(table, indices, values[indices])
+            self.xp.add.at(table, indices, values)
 
     @cython.boundscheck(False)
     @cython.wraparound(False)
