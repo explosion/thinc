@@ -2,7 +2,7 @@ from typing import Tuple, List, Callable, TypeVar, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ints2d, Ragged, List2d
+from ..types import Floats2d, Ints2d, Ragged
 
 
 InT = TypeVar("InT", List[Floats2d], List[Ints2d])
