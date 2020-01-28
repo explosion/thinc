@@ -4,7 +4,7 @@
 
 ### From the makers of [spaCy](https://spacy.io), [Prodigy](https://prodi.gy) and [FastAPI](https://fastapi.tiangolo.com)
 
-Thinc is a **lightweight deep learning library** that offers an elegant,
+[Thinc](https://thinc.ai) is a **lightweight deep learning library** that offers an elegant,
 type-checked, functional-programming API for **composing models**, with support
 for layers defined in other frameworks such as **PyTorch, TensorFlow and MXNet**. You
 can use Thinc as an interface layer, a standalone toolkit or a flexible way to
@@ -12,8 +12,6 @@ develop new models. Previous versions of Thinc have been running quietly in
 production in thousands of companies, via both [spaCy](https://spacy.io) and
 [Prodigy](https://prodi.gy). We wrote the new version to let users **compose,
 configure and deploy custom models** built with their favorite framework.
-
-🔮 **Version 8 out now!** [Read the release notes here.](https://github.com/explosion/thinc/releases/)
 
 [![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-pipelines&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
 [![codecov](https://img.shields.io/codecov/c/gh/explosion/thinc?logo=codecov&logoColor=white&style=flat-square)](https://codecov.io/gh/explosion/thinc)
