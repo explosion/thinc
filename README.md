@@ -6,7 +6,7 @@
 
 Thinc is a **lightweight deep learning library** that offers an elegant,
 type-checked, functional-programming API for **composing models**, with support
-for layers defined in other frameworks such as **PyTorch and TensorFlow**. You
+for layers defined in other frameworks such as **PyTorch, TensorFlow and MXNet**. You
 can use Thinc as an interface layer, a standalone toolkit or a flexible way to
 develop new models. Previous versions of Thinc have been running quietly in
 production in thousands of companies, via both [spaCy](https://spacy.io) and
@@ -27,7 +27,7 @@ configure and deploy custom models** built with their favorite framework.
 ## 🔥 Features
 
 - **Type-check** your model definitions with custom types and [`mypy`](https://mypy.readthedocs.io/en/latest/) plugin.
-- Wrap **PyTorch** and **TensorFlow** models for use in your network.
+- Wrap **PyTorch**, **TensorFlow** and **MXNet** models for use in your network.
 - Concise **functional-programming** approach to model definition, using composition rather than inheritance.
 - Optional custom infix notation via **operator overloading**.
 - Integrated **config system** to describe trees of objects and hyperparameters.
