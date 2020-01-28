@@ -72,8 +72,8 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 [transformers_tagger_bert_colab]: https://colab.research.google.com/github/explosion/thinc/examples/02_transformers_tagger_bert.ipynb
 [pos_tagger_basic_cnn]: examples/03_pos_tagger_basic_cnn.ipynb
 [pos_tagger_basic_cnn_colab]: https://colab.research.google.com/github/explosion/thinc/examples/03_pos_tagger_basic_cnn.ipynb
-[parallel_training_ray]: examples/04_paralell_training_ray.ipynb
-[parallel_training_ray_colab]: https://colab.research.google.com/github/explosion/thinc/examples/04_paralell_training_ray.ipynb
+[parallel_training_ray]: examples/04_parallel_training_ray.ipynb
+[parallel_training_ray_colab]: https://colab.research.google.com/github/explosion/thinc/examples/04_parallel_training_ray.ipynb
 
 ### 📖 Documentation & usage guides
 
