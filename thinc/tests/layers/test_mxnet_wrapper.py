@@ -3,7 +3,7 @@ import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, Ops, MXNetWrapper
 from thinc.api import get_current_ops, mxnet2xp, xp2mxnet
 from thinc.api import chain, Mish
-from thinc.types import ArrayXd, Array1d, Array2d
+from thinc.types import Array2d, Array1d, Array2d
 from thinc.util import has_mxnet, to_categorical
 
 from ..util import check_input_converters, make_tempdir
@@ -30,19 +30,19 @@ def answer() -> int:
 
 
 @pytest.fixture
-def X(input_size: int) -> ArrayXd:
+def X(input_size: int) -> Array2d:
     ops: Ops = get_current_ops()
     return ops.alloc(shape=(1, input_size))
 
 
 @pytest.fixture
-def Y(answer: int, n_classes: int) -> ArrayXd:
+def Y(answer: int, n_classes: int) -> Array2d:
     ops: Ops = get_current_ops()
     return to_categorical(ops.asarray([answer]), n_classes=n_classes)
 
 
 @pytest.fixture
-def mx_model(n_hidden: int, input_size: int):
+def mx_model(n_hidden: int, input_size: int, X: Array2d):
     import mxnet as mx
 
     mx_model = mx.gluon.nn.Sequential()
@@ -58,7 +58,7 @@ def mx_model(n_hidden: int, input_size: int):
 
 
 @pytest.fixture
-def model(mx_model) -> Model[ArrayXd, ArrayXd]:
+def model(mx_model) -> Model[Array2d, Array2d]:
     return MXNetWrapper(mx_model)
 
 
@@ -85,7 +85,7 @@ def test_mxnet_wrapper_gluon_sequential():
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_built_model(
-    model: Model[ArrayXd, ArrayXd], X: ArrayXd, Y: ArrayXd
+    model: Model[Array2d, Array2d], X: Array2d, Y: Array1d
 ):
     # built models are validated more and can perform useful operations:
     assert model.predict(X) is not None
@@ -94,13 +94,13 @@ def test_mxnet_wrapper_built_model(
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_predict(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
+def test_mxnet_wrapper_predict(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_train_overfits(
-    model: Model[ArrayXd, ArrayXd], X: ArrayXd, Y: ArrayXd, answer: int
+    model: Model[Array2d, Array2d], X: Array2d, Y: Array1d, answer: int
 ):
     optimizer = Adam()
     for i in range(100):
@@ -113,13 +113,14 @@ def test_mxnet_wrapper_train_overfits(
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_can_copy_model(model: Model[ArrayXd, ArrayXd]):
-    copy: Model[ArrayXd, ArrayXd] = model.copy()
+def test_mxnet_wrapper_can_copy_model(model: Model[Array2d, Array2d]):
+    copy: Model[Array2d, Array2d] = model.copy()
     assert copy is not None
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_to_bytes(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
+def test_mxnet_wrapper_to_bytes(model: Model[Array2d, Array2d], X: Array2d):
+    model.predict(X)
     # And can be serialized
     model_bytes = model.to_bytes()
     assert model_bytes is not None
@@ -127,9 +128,8 @@ def test_mxnet_wrapper_to_bytes(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_to_from_disk(
-    model: Model[ArrayXd, ArrayXd], X: ArrayXd, Y: ArrayXd, answer: int
-):
+def test_mxnet_wrapper_to_from_disk(model: Model[Array2d, Array2d], X: Array2d):
+    model.predict(X)
     with make_tempdir() as tmp_path:
         model_file = tmp_path / "model.bytes"
         model.to_disk(model_file)
@@ -138,7 +138,7 @@ def test_mxnet_wrapper_to_from_disk(
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_from_bytes(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
+def test_mxnet_wrapper_from_bytes(model: Model[Array2d, Array2d], X: Array2d):
     model.predict(X)
     model_bytes = model.to_bytes()
     another_model = model.from_bytes(model_bytes)
@@ -147,7 +147,7 @@ def test_mxnet_wrapper_from_bytes(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
 def test_mxnet_wrapper_use_params(
-    model: Model[ArrayXd, ArrayXd], X: ArrayXd, Y: ArrayXd, answer: int
+    model: Model[Array2d, Array2d], X: Array2d, Y: Array2d, answer: int
 ):
     optimizer = Adam()
     with model.use_params(optimizer.averages):
@@ -169,7 +169,7 @@ def test_mxnet_wrapper_to_cpu(mx_model):
 
 
 @pytest.mark.skipif(not has_mxnet, reason="needs MXNet")
-def test_mxnet_wrapper_to_gpu(model: Model[ArrayXd, ArrayXd], X: ArrayXd):
+def test_mxnet_wrapper_to_gpu(model: Model[Array2d, Array2d], X: Array2d):
     # Raises while failing to import cupy
     with pytest.raises(ImportError):
         model.to_gpu(0)
@@ -193,6 +193,7 @@ def test_mxnet_wrapper_convert_inputs(data, n_args, kwargs_keys):
 
     mx_model = mx.gluon.nn.Sequential()
     mx_model.add(mx.gluon.nn.Dense(12))
+    mx_model.initialize()
     model = MXNetWrapper(mx_model)
     convert_inputs = model.attrs["convert_inputs"]
     Y, backprop = convert_inputs(model, data, is_train=True)
