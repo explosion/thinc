@@ -1,4 +1,4 @@
-from typing import Tuple, Callable
+from typing import Tuple, Callable, cast
 
 from ..types import Floats2d, Ragged
 from ..model import Model
@@ -15,7 +15,7 @@ def reduce_mean() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y = model.ops.reduce_mean(Xr.data, Xr.lengths)
+    Y = model.ops.reduce_mean(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:

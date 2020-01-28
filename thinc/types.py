@@ -813,7 +813,7 @@ class Ragged:
     you can write ragged[1:4] to get a Ragged object with sequences 1, 2 and 3.
     """
 
-    data: Floats2d
+    data: Array2d
     lengths: Ints1d
     _cumsums: Optional[Ints1d] = None
 

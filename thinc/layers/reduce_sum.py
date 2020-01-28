@@ -1,4 +1,4 @@
-from typing import Callable, Tuple
+from typing import Callable, Tuple, cast
 
 from ..model import Model
 from ..config import registry
@@ -15,7 +15,7 @@ def reduce_sum() -> Model[InT, OutT]:
 
 
 def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Y = model.ops.reduce_sum(Xr.data, Xr.lengths)
+    Y = model.ops.reduce_sum(cast(Floats2d, Xr.data), Xr.lengths)
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:

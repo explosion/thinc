@@ -1,13 +1,12 @@
 from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
 
-from ..types import Padded, Ragged, Ints1d, Floats2d
+from ..types import Padded, Ragged, Ints1d, Floats2d, Array2d, List2d
 from ..model import Model
 from ..config import registry
 
 
-RaggedData = Tuple[Floats2d, Ints1d]
-ValT = Floats2d
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List[Floats2d], RaggedData])
+RaggedData = Tuple[Array2d, Ints1d]
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, RaggedData])
 
 
 @registry.layers("with_ragged.v1")
@@ -19,7 +18,7 @@ def forward(
     model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool
 ) -> Tuple[SeqT, Callable]:
     layer: Model[Ragged, Ragged] = model.layers[0]
-    Y: Union[Padded, Ragged, List[Floats2d], RaggedData]
+    Y: Union[Padded, Ragged, List2d, RaggedData]
     if isinstance(Xseq, Ragged):
         Y, backprop = layer(Xseq, is_train)
     elif isinstance(Xseq, Padded):
@@ -27,7 +26,7 @@ def forward(
     elif _is_ragged_data(Xseq):
         Y, backprop = _tuple_forward(layer, cast(RaggedData, Xseq), is_train)
     else:
-        Y, backprop = _list_forward(layer, cast(List[Floats2d], Xseq), is_train)
+        Y, backprop = _list_forward(layer, cast(List2d, Xseq), is_train)
     return cast(Tuple[SeqT, Callable], (Y, backprop))
 
 
@@ -45,20 +44,18 @@ def _is_ragged_data(seq):
     return isinstance(seq, tuple) and len(seq) == 2
 
 
-def _get_ragged(model: Model, seq: SeqT) -> Ragged:
+def _get_ragged(model, seq):
     if isinstance(seq, Ragged):
         return seq
     elif isinstance(seq, Padded):
         lists = model.ops.padded2list(seq)
         lengths = model.ops.asarray1i([len(x) for x in lists])
-        return Ragged(cast(Floats2d, model.ops.flatten(lists)), lengths)  # type: ignore
+        return Ragged(model.ops.flatten(lists), lengths)
     elif _is_ragged_data(seq):
-        return Ragged(*cast(RaggedData, seq))
+        return Ragged(*seq) 
     else:
         lengths = model.ops.asarray1i([len(x) for x in seq])
-        return Ragged(
-            cast(Floats2d, model.ops.flatten(cast(List[Floats2d], seq))), lengths
-        )
+        return Ragged(model.ops.flatten(seq), lengths)
 
 
 def _tuple_forward(layer: Model[Ragged, Ragged], X: RaggedData, is_train: bool):
@@ -71,9 +68,7 @@ def _tuple_forward(layer: Model[Ragged, Ragged], X: RaggedData, is_train: bool):
     return (Yr.data, Yr.lengths), backprop
 
 
-def _padded_forward(
-    layer: Model[Ragged, Ragged], Xp: Padded, is_train: bool
-) -> Tuple[Padded, Callable]:
+def _padded_forward(layer, Xp, is_train):
     # Assign these to locals, to keep code a bit shorter.
     list2padded = layer.ops.list2padded
     padded2list = layer.ops.padded2list
@@ -87,27 +82,25 @@ def _padded_forward(
     # Bit annoying here: padded is in a different order, so we need to make new
     # lengths.
     lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(cast(Floats2d, flatten(Xs)), lengths), is_train)  # type: ignore
+    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train) 
 
     def backprop(dYp: Padded):
-        flattened = cast(Floats2d, flatten(padded2list(dYp)))  # type: ignore
+        flattened = flatten(padded2list(dYp))
         return list2padded(unflatten(get_dXr(Ragged(flattened, lengths)).data, lengths))
 
     return list2padded(unflatten(Yr.data, Yr.lengths)), backprop
 
 
-def _list_forward(
-    layer: Model[Ragged, Ragged], Xs: List[Floats2d], is_train: bool
-) -> Tuple[List[Floats2d], Callable]:
+def _list_forward(layer, Xs, is_train: bool):
     # Assign these to locals, to keep code a bit shorter.
     flatten = layer.ops.flatten
     unflatten = layer.ops.unflatten
 
     lengths = layer.ops.asarray1i([len(x) for x in Xs])
-    Yr, get_dXr = layer(Ragged(cast(Floats2d, flatten(Xs)), lengths), is_train)
+    Yr, get_dXr = layer(Ragged(flatten(Xs), lengths), is_train)
 
-    def backprop(dYs: List[Floats2d]) -> List[Floats2d]:
-        flattened = cast(Floats2d, flatten(dYs))
+    def backprop(dYs):
+        flattened = flatten(dYs)
         return unflatten(get_dXr(Ragged(flattened, lengths)).data, lengths)
 
     return unflatten(Yr.data, Yr.lengths), backprop
