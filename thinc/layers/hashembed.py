@@ -41,7 +41,7 @@ def HashEmbed(
         # there is passing in a tuple: array[(:, column)], except in the context
         # of array indexing, the ":" creates an object slice(0, None).
         # So array[:, column] is array.__getitem__(slice(0), column).
-        model = chain(ints_getitem((slice(0), column)), model)
+        model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
     return cast(Model[InT, OutT], model)
     return model
