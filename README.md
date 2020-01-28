@@ -78,11 +78,11 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 | -------------------------------------------------------------------------- | ----------------------------------------------------- |
 | [Introduction](https://thinc.ai/docs)                                      | Everything you need to know.                          |
 | [Philosophy](https://thinc.ai/docs/concept)                                | Thinc's conceptual model and how it works.            |
-| [Defining and using models](https://thinc.ai/docs/usage-models)            | How to compose models and update state.               |  |
+| [Defining and using models](https://thinc.ai/docs/usage-models)            | How to compose models and update state.               |
 | [Configuration system](https://thinc.ai/docs/usage-config)                 | Thinc's config system and function registry.          |
 | [Integrating PyTorch & TensorFlow](https://thinc.ai/docs/usage-frameworks) | Interoperability with machine learning frameworks     |
 | [Layers API](https://thinc.ai/docs/api-layers)                             | Weights layers, transforms, combinators and wrappers. |
-| [Type Checking](https://thinc.ai/usage-type-checking)                      | Type-check your model definitions and more.           |
+| [Type Checking](https://thinc.ai/docs/usage-type-checking)                 | Type-check your model definitions and more.           |
 
 ## 🗺 What's where
 
@@ -92,7 +92,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 | [`thinc.types`](thinc/types.py)           | Custom [types and dataclasses](https://thinc.ai/docs/api-types).                  |
 | [`thinc.model`](thinc/model.py)           | The `Model` class. All Thinc models are an instance (not a subclass) of `Model`.  |
 | [`thinc.layers`](thinc/layers)            | The layers. Each layer is implemented in its own module.                          |
-|  [`thinc.shims`](thinc/shims)             | Interface for external models implemented in PyTorch, TensorFlow etc.             |
+| [`thinc.shims`](thinc/shims)             | Interface for external models implemented in PyTorch, TensorFlow etc.             |
 | [`thinc.loss`](thinc/loss.py)             | Functions to calculate losses.                                                    |
 | [`thinc.optimizers`](thinc/optimizers.py) | Functions to create optimizers. Currently supports "vanilla" SGD, Adam and RAdam. |
 | [`thinc.schedules`](thinc/schedules.py)   | Generators for different rates, schedules, decays or series.                      |
