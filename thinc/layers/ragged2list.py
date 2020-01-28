@@ -19,7 +19,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     def backprop(dXs: OutT) -> InT:
-        return Ragged(model.ops.flatten(dXs, pad=0), lengths) # type: ignore
+        return Ragged(model.ops.flatten(dXs, pad=0), lengths)  # type: ignore
 
-    data = model.ops.unflatten(Xr.data, Xr.lengths) # type: ignore
+    data = model.ops.unflatten(Xr.data, Xr.lengths)  # type: ignore
     return data, backprop

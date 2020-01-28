@@ -104,7 +104,7 @@ def _ragged_forward(layer, Xr, is_train):
     Yp, get_dXp = layer(list2padded(unflatten(Xr.data, Xr.lengths)), is_train)
 
     def backprop(dYr: Ragged):
-        flattened = flatten( 
+        flattened = flatten(
             padded2list(get_dXp(list2padded(unflatten(dYr.data, dYr.lengths))))
         )
         return Ragged(cast(Floats2d, flattened), dYr.lengths)

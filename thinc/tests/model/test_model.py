@@ -2,7 +2,15 @@ import pytest
 import threading
 import time
 import ml_datasets
-from thinc.api import CupyOps, prefer_gpu, Linear, Dropout, Model, Shim, change_attr_values
+from thinc.api import (
+    CupyOps,
+    prefer_gpu,
+    Linear,
+    Dropout,
+    Model,
+    Shim,
+    change_attr_values,
+)
 from thinc.api import set_dropout_rate, chain, ReLu, Softmax, Adam
 import numpy
 

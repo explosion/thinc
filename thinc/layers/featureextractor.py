@@ -14,9 +14,7 @@ def FeatureExtractor(columns: List[Union[int, str]]) -> Model[InT, OutT]:
     return Model("extract_features", forward, attrs={"columns": columns})
 
 
-def forward(
-    model: Model[InT, OutT], docs, is_train: bool
-) -> Tuple[OutT, Callable]:
+def forward(model: Model[InT, OutT], docs, is_train: bool) -> Tuple[OutT, Callable]:
     columns = model.attrs["columns"]
     features: OutT = []
     for doc in docs:
