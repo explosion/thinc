@@ -89,16 +89,16 @@ def check_chained(
     l1_type: Instance,
     l2_arg: Expression,
     l2_type: Instance,
-    api: CheckerPluginInterface
+    api: CheckerPluginInterface,
 ):
     if not is_subtype(l1_type.args[1], l2_type.args[0]):
         api.fail(
-            "Layer output not acceptable as input for next layer",
+            f"Layer outputs type ({l1_type.args[1]}) but the next layer expects ({l2_type.args[0]}) as an input",
             l1_arg,
             code=error_layer_output,
         )
         api.fail(
-            "Layer input not compatible with output from previous layer",
+            f"Layer input type ({l2_type.args[0]}) is not compatible with output ({l1_type.args[1]}) from previous layer",
             l2_arg,
             code=error_layer_input,
         )
@@ -110,27 +110,27 @@ def check_intoin_outtoout(
     l1_type: Instance,
     l2_arg: Expression,
     l2_type: Instance,
-    api: CheckerPluginInterface
+    api: CheckerPluginInterface,
 ):
-    if not l1_type.args[0] == l2_type.args[0]:
+    if l1_type.args[0] != l2_type.args[0]:
         api.fail(
-            "Layer input not compatible with next layer input",
+            f"Layer input ({l1_type.args[0]}) not compatible with next layer input ({l2_type.args[0]})",
             l1_arg,
             code=error_layer_input,
         )
         api.fail(
-            "Layer input not compatible with previous layer input",
+            f"Layer input ({l2_type.args[0]}) not compatible with previous layer input ({l1_type.args[0]})",
             l2_arg,
             code=error_layer_input,
         )
-    if not l1_type.args[1] == l2_type.args[1]:
+    if l1_type.args[1] != l2_type.args[1]:
         api.fail(
-            "Layer output not compatible with next layer output",
+            f"Layer output ({l1_type.args[1]}) not compatible with next layer output ({l2_type.args[1]})",
             l1_arg,
             code=error_layer_output,
         )
         api.fail(
-            "Layer output not compatible with previous layer output",
+            f"Layer output ({l2_type.args[1]}) not compatible with previous layer output ({l1_type.args[1]})",
             l2_arg,
             code=error_layer_output,
         )
