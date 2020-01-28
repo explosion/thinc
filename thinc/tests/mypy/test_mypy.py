@@ -64,7 +64,7 @@ def test_mypy_results(config_filename, python_filename, output_filename, tmpdir)
     if GENERATE and output_filename is not None:
         full_output_path.write_text(actual_out)
     else:
-        assert actual_out == expected_out, actual_out
+        assert actual_out.strip() == expected_out.strip(), actual_out
 
     assert actual_err == expected_err
     assert actual_returncode == expected_returncode

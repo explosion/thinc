@@ -1,6 +1,6 @@
 from typing import List
 
-from thinc.layers import ReLu, Softmax, chain, reduce_max
+from thinc.layers import ReLu, Softmax, chain, reduce_max, concatenate
 from thinc.model import Model
 
 # Define Custom X/Y types
@@ -28,6 +28,10 @@ model.predict(True)
 # You should see the error an error,
 # examples/howto/type_chain.py:10: error: Cannot infer type argument 2 of "chain"
 bad_model = chain(ReLu(10), reduce_max(), Softmax())
+
+concate_model = chain(
+    concatenate(ReLu(10), reduce_max(), ReLu(10), ReLu(10)), reduce_max()
+)
 
 # Now let's try it with a network that does work, just to be sure.
 good_model = chain(ReLu(10), ReLu(10), Softmax())
