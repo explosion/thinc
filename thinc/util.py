@@ -327,7 +327,7 @@ def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cove
 
 
 def xp2mxnet(
-    xp_tensor: Array, requires_grad: bool = False
+    xp_tensor: ArrayXd, requires_grad: bool = False
 ) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a MXNet tensor."""
     if hasattr(xp_tensor, "toDlpack"):
@@ -340,7 +340,7 @@ def xp2mxnet(
     return mx_tensor
 
 
-def mxnet2xp(mx_tensor: "mx.nd.NDArray") -> Array:  # pragma: no cover
+def mxnet2xp(mx_tensor: "mx.nd.NDArray") -> ArrayXd:  # pragma: no cover
     """Convert a MXNet tensor to a numpy or cupy tensor."""
     if mx_tensor.context.device_type != "cpu":
         return cupy.fromDlpack(mx_tensor.to_dlpack_for_write())
