@@ -357,9 +357,13 @@ def validate_fwd_input_output(
     sig_args: Dict[str, Any] = {"__config__": _ArgModelConfig}
     args = {}
     if X is not None and annot_x != empty:
+        if isinstance(X, list) and len(X) > 5:
+            X = X[:5]
         sig_args["X"] = (annot_x, ...)
         args["X"] = X
     if Y is not None and annot_y != empty:
+        if isinstance(Y, list) and len(Y) > 5:
+            Y = Y[:5]
         sig_args["Y"] = (annot_y, ...)
         args["Y"] = (Y, lambda x: x)
     ArgModel = create_model("ArgModel", **sig_args)
