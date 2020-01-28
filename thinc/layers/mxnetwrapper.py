@@ -8,25 +8,6 @@ from ..util import xp2mxnet, mxnet2xp, convert_recursive
 from ..types import ArgsKwargs, Padded, Floats3d
 
 
-@registry.layers("MXNetRNNWrapper.v1")
-def MXNetRNNWrapper(
-    mxnet_model,
-    convert_inputs: Optional[Callable] = None,
-    convert_outputs: Optional[Callable] = None,
-) -> Model[Padded, Padded]:
-    """Wrap a MXNet RNN model for use in Thinc."""
-    if convert_inputs is None:
-        convert_inputs = convert_rnn_inputs
-    if convert_outputs is None:
-        convert_outputs = convert_rnn_outputs
-    return cast(
-        Model[Padded, Padded],
-        MXNetWrapper(
-            mxnet_model, convert_inputs=convert_inputs, convert_outputs=convert_outputs,
-        ),
-    )
-
-
 @registry.layers("MXNetWrapper.v1")
 def MXNetWrapper(
     mxnet_model,
@@ -134,31 +115,3 @@ def convert_mxnet_default_outputs(model: Model, X_Ymxnet: Any, is_train: bool):
         return ArgsKwargs(args=((Ymxnet,),), kwargs={"head_grads": dYmxnet})
 
     return Y, reverse_conversion
-
-
-# BiLSTM conversion functions
-
-
-def convert_rnn_inputs(model: Model, Xp: Padded, is_train: bool):
-    size_at_t = Xp.size_at_t
-    lengths = Xp.lengths
-    indices = Xp.indices
-
-    def convert_from_mxnet_backward(d_inputs: ArgsKwargs) -> Padded:
-        dX = mxnet2xp(d_inputs.args[0])
-        return Padded(dX, size_at_t, lengths, indices)  # type: ignore
-
-    output = ArgsKwargs(args=(xp2mxnet(Xp.data, requires_grad=True), None), kwargs={})
-    return output, convert_from_mxnet_backward
-
-
-def convert_rnn_outputs(model: Model, inputs_outputs: Tuple, is_train):
-    Xp, (Ymxnet, _) = inputs_outputs
-
-    def convert_for_mxnet_backward(dYp: Padded) -> ArgsKwargs:
-        dYmxnet = xp2mxnet(dYp.data, requires_grad=True)
-        return ArgsKwargs(args=(Ymxnet,), kwargs={"head_grads": dYmxnet})
-
-    Y = cast(Floats3d, mxnet2xp(Ymxnet))
-    Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
-    return Yp, convert_for_mxnet_backward

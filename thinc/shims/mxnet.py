@@ -136,4 +136,3 @@ class MXNetShim(Shim):
         with tempfile.NamedTemporaryFile() as temp:
             temp.write(params)
             self._model.load_parameters(temp.name, ctx=mx.current_context())
-
