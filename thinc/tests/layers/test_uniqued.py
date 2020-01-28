@@ -57,6 +57,6 @@ def test_uniqued_doesnt_change_result(model, X):
         # TODO: This test is a problem, because we exceed the embedding table.
         # Fix it with a better cap.
         # Check that different inputs do give different results
-        #Z, bp_Z = model(X + 1, is_train=True)
-        #with pytest.raises(AssertionError):
+        # Z, bp_Z = model(X + 1, is_train=True)
+        # with pytest.raises(AssertionError):
         #    assert_allclose(Y, Z)

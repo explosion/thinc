@@ -51,7 +51,6 @@ def forward(
     nO = vectors.shape[1]
     nN = ids.shape[0]
     dropout: Optional[float] = model.attrs.get("dropout_rate")
-    print("Embed", ids)
     output = vectors[ids]
     drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
     output *= drop_mask
