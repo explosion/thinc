@@ -37,18 +37,15 @@ configure and deploy custom models** built with their favorite framework.
 ## 🚀 Quickstart
 
 Thinc is compatible with **Python 3.6+** and runs on **Linux**,
-**macOS** and **Windows**. The latest releases are available from
-[pip](https://pypi.python.org/pypi/thinc) and
-[conda](https://anaconda.org/conda-forge/thinc). Both installations should come
-with binary wheels.
+**macOS** and **Windows**. The latest releases with binary wheels are available from
+[pip](https://pypi.python.org/pypi/thinc).
 
 ```bash
-pip install thinc
+pip install thinc==8.0.0a0
 ```
 
-```bash
-conda install -c conda-forge thinc
-```
+> ⚠️ Note that Thinc 8.0 is currently **in alpha preview** and not necessarily ready
+> for production yet.
 
 See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
 
