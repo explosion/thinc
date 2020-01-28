@@ -6,6 +6,9 @@ import functools
 from wasabi import table
 from pydantic import create_model, ValidationError
 import inspect
+import os
+import tempfile
+import contextlib
 
 try:  # pragma: no cover
     import cupy
@@ -39,6 +42,14 @@ try:  # pragma: no cover
     has_tensorflow = True
 except ImportError:  # pragma: no cover
     has_tensorflow = False
+
+
+try:  # pragma: no cover
+    import mxnet as mx
+
+    has_mxnet = True
+except ImportError:  # pragma: no cover
+    has_mxnet = False
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, Floats2d, IntsXd
 
@@ -109,6 +120,15 @@ def is_tensorflow_array(obj: Any) -> bool:  # pragma: no cover
     if not has_tensorflow:
         return False
     elif isinstance(obj, tf.Tensor):
+        return True
+    else:
+        return False
+
+
+def is_mxnet_array(obj: Any) -> bool:  # pragma: no cover
+    if not has_mxnet:
+        return False
+    elif isinstance(obj, mx.nd.NDArray):
         return True
     else:
         return False
@@ -222,6 +242,12 @@ def assert_tensorflow_installed() -> None:  # pragma: no cover
         raise ImportError(template.format(pkg="tensorflow>=2.0.0"))
 
 
+def assert_mxnet_installed() -> None:  # pragma: no cover
+    """Raise an ImportError if MXNet is not installed."""
+    if not has_mxnet:
+        raise ImportError("MXNet support requires mxnet: pip install thinc[mxnet]")
+
+
 def assert_pytorch_installed() -> None:  # pragma: no cover
     """Raise an ImportError if PyTorch is not installed."""
     if not has_torch:
@@ -303,6 +329,28 @@ def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cove
     return tensorflow_tensor.numpy()
 
 
+def xp2mxnet(
+    xp_tensor: ArrayXd, requires_grad: bool = False
+) -> "torch.Tensor":  # pragma: no cover
+    """Convert a numpy or cupy tensor to a MXNet tensor."""
+    if hasattr(xp_tensor, "toDlpack"):
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
+        mx_tensor = mx.nd.from_dlpack(dlpack_tensor)
+    else:
+        mx_tensor = mx.nd.from_numpy(xp_tensor)
+    if requires_grad:
+        mx_tensor.attach_grad()
+    return mx_tensor
+
+
+def mxnet2xp(mx_tensor: "mx.nd.NDArray") -> ArrayXd:  # pragma: no cover
+    """Convert a MXNet tensor to a numpy or cupy tensor."""
+    if mx_tensor.context.device_type != "cpu":
+        return cupy.fromDlpack(mx_tensor.to_dlpack_for_write())
+    else:
+        return mx_tensor.detach().asnumpy()
+
+
 # This is how functools.partials seems to do it, too, to retain the return type
 PartialT = TypeVar("PartialT")
 
@@ -373,6 +421,14 @@ def validate_fwd_input_output(
         raise DataValidationError(name, X, Y, e.errors())
 
 
+@contextlib.contextmanager
+def make_tempfile(mode="r"):
+    f = tempfile.NamedTemporaryFile(mode=mode, delete=False)
+    yield f
+    f.close()
+    os.remove(f.name)
+
+
 __all__ = [
     "get_array_module",
     "fix_random_seed",
@@ -390,4 +446,5 @@ __all__ = [
     "xp2tensorflow",
     "validate_fwd_input_output",
     "DataValidationError",
+    "make_tempfile",
 ]

@@ -19,6 +19,7 @@ from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
 from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
+from .mxnetwrapper import MXNetWrapper
 
 # Combinators
 from .add import add
