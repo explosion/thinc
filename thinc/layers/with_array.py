@@ -85,10 +85,10 @@ def _ragged_forward(
     model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
 ) -> Tuple[Ragged, Callable]:
     layer: Model[Array2d, Array2d] = model.layers[0]
-    Y, get_dX = layer(Xr.data, is_train)
+    Y, get_dX = layer(Xr.dataXd, is_train)
 
     def backprop(dYr: Ragged) -> Ragged:
-        return Ragged(get_dX(dYr.data), dYr.lengths)
+        return Ragged(get_dX(dYr.dataXd), dYr.lengths)
 
     return Ragged(cast(Floats2d, Y), Xr.lengths), backprop
 
