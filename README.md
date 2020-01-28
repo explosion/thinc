@@ -80,7 +80,7 @@ Also see the [`/examples`](examples) directory and [usage documentation](https:/
 |                                                                            |                                                       |
 | -------------------------------------------------------------------------- | ----------------------------------------------------- |
 | [Introduction](https://thinc.ai/docs)                                      | Everything you need to know.                          |
-| [Philosophy](https://thinc.ai/docs/philosophy)                             | Thinc's conceptual model and how it works.            |
+| [Philosophy](https://thinc.ai/docs/concept)                                | Thinc's conceptual model and how it works.            |
 | [Defining and using models](https://thinc.ai/docs/usage-models)            | How to compose models and update state.               |  |
 | [Configuration system](https://thinc.ai/docs/usage-config)                 | Thinc's config system and function registry.          |
 | [Integrating PyTorch & TensorFlow](https://thinc.ai/docs/usage-frameworks) | Interoperability with machine learning frameworks     |
