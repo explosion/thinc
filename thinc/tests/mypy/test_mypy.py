@@ -2,11 +2,11 @@ import os
 import re
 from pathlib import Path
 import shutil
-import site
 
 import pytest
 
 from mypy import api as mypy_api
+from mypy.sitepkgs import getsitepackages
 
 # You can change the following variable to True during development to overwrite expected output with generated output
 GENERATE = False
@@ -20,13 +20,13 @@ cases = [
 
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
-def test_mypy_results(config_filename, python_filename, output_filename, tmpdir, monkeypatch):
+def test_mypy_results(
+    config_filename, python_filename, output_filename, tmpdir, monkeypatch
+):
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
     thinc_root_dir = Path(__file__).parent.parent.parent.parent
-    # Support testing installed package
-    if str(thinc_root_dir) not in site.getsitepackages():
-        # Support testing source package
+    if str(thinc_root_dir) not in getsitepackages():
         monkeypatch.setenv("MYPYPATH", str(thinc_root_dir))
     tmpdir_path = Path(tmpdir)
 
