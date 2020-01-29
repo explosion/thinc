@@ -2,6 +2,7 @@ import os
 import re
 from pathlib import Path
 import shutil
+import site
 
 import pytest
 
@@ -19,9 +20,14 @@ cases = [
 
 
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
-def test_mypy_results(config_filename, python_filename, output_filename, tmpdir):
+def test_mypy_results(config_filename, python_filename, output_filename, tmpdir, monkeypatch):
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
+    thinc_root_dir = Path(__file__).parent.parent.parent.parent
+    # Support testing installed package
+    if str(thinc_root_dir) not in site.getsitepackages():
+        # Support testing source package
+        monkeypatch.setenv("MYPYPATH", str(thinc_root_dir))
     tmpdir_path = Path(tmpdir)
 
     full_config_path: Path = root_dir / f"configs/{config_filename}"
