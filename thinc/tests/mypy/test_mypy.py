@@ -2,11 +2,11 @@ import os
 import re
 from pathlib import Path
 import shutil
+import sys
 
 import pytest
 
 from mypy import api as mypy_api
-from mypy.sitepkgs import getsitepackages
 
 # You can change the following variable to True during development to overwrite expected output with generated output
 GENERATE = False
@@ -26,7 +26,7 @@ def test_mypy_results(
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
     thinc_root_dir = Path(__file__).parent.parent.parent.parent
-    if str(thinc_root_dir) not in getsitepackages():
+    if "--pyargs" not in sys.argv:
         monkeypatch.setenv("MYPYPATH", str(thinc_root_dir))
     tmpdir_path = Path(tmpdir)
 
