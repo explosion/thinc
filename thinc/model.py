@@ -433,7 +433,7 @@ class Model(Generic[InT, OutT]):
         """
         msg = self.to_dict()
         msg = convert_recursive(is_xp_array, self.ops.to_numpy, msg)
-        return srsly.msgpack_dumps(self.to_dict())
+        return srsly.msgpack_dumps(msg)
 
     def to_disk(self, path: Union[Path, str]) -> None:
         """Serialize the model to disk. Most models will serialize to a single
