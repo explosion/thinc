@@ -611,17 +611,26 @@ class Ops:
         X: Floats2d,
         size_at_t: Ints1d,
         *,
-        dropout=0.0
+        dropout=0.0,
     ) -> Tuple[Floats2d, Tuple]:
         assert H0.shape == C0.shape
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
-    def lstm_forward_inference(self, params: Floats1d, H0: Floats2d, C0: Floats2d, X: Floats2d, size_at_t: Ints1d) -> Floats2d:
+    def lstm_forward_inference(
+        self,
+        params: Floats1d,
+        H0: Floats2d,
+        C0: Floats2d,
+        X: Floats2d,
+        size_at_t: Ints1d,
+    ) -> Floats2d:
         Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
-    def backprop_lstm(self, dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple) -> Tuple[Floats2d, Tuple[Floats1d, Floats2d, Floats2d]]:
+    def backprop_lstm(
+        self, dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple
+    ) -> Tuple[Floats2d, Tuple[Floats1d, Floats2d, Floats2d]]:
         dX, d_params, dH0, dC0 = backprop_lstm(dY, lengths, params, fwd_state)
         return dX, (d_params, dH0, dC0)
 
@@ -863,12 +872,10 @@ have the initial hiddens and initial cells. So:
     At3: The activations at 'd...'
     Gt3: The gates at 'd...'
 """
+
+
 def lstm_forward_training(
-        params: Floats1d,
-        c_init: Floats2d,
-        h_init: Floats2d,
-        X: Floats2d,
-        lengths: Ints1d
+    params: Floats1d, c_init: Floats2d, h_init: Floats2d, X: Floats2d, lengths: Ints1d
 ) -> Tuple[Floats2d, Tuple]:
     # TODO: bidirectional
     xp = get_array_module(params)
@@ -878,8 +885,8 @@ def lstm_forward_training(
     # Preallocate these so we can pass them through for loop.
     G = cast(Floats3d, xp.zeros((depth, X.shape[0], nO * 4), dtype="f"))
     # The Y and C are shifted by 1 step
-    Y = cast(Floats3d, xp.zeros((depth, X.shape[0]+batch_size, nO), dtype="f"))
-    C = cast(Floats3d, xp.zeros((depth, X.shape[0]+batch_size, nO), dtype="f"))
+    Y = cast(Floats3d, xp.zeros((depth, X.shape[0] + batch_size, nO), dtype="f"))
+    C = cast(Floats3d, xp.zeros((depth, X.shape[0] + batch_size, nO), dtype="f"))
     # The inits are shaped (n_layers, nO). We add the internal dimension to make
     # them set correctly.
     Y[:, :batch_size, :] = cast(Floats3d, h_init.reshape((depth, 1, nO)))
@@ -893,8 +900,8 @@ def lstm_forward_training(
     Ct2: Floats2d
     for i in range(depth):
         layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-        Yt3 = Y[i, : batch_size, :]
-        Ct3 = C[i, : batch_size, :]
+        Yt3 = Y[i, :batch_size, :]
+        Ct3 = C[i, :batch_size, :]
         for t, batch_size in enumerate(lengths):
             # Prepare the inputs
             Xt3 = X[seq_i : seq_i + batch_size]
@@ -904,10 +911,10 @@ def lstm_forward_training(
             At3 = lstm_weights_forward(layer_params, Xt3, Yt2)
             Yt3, Gt3, Ct3 = lstm_gates_forward(At3, Ct2)
             # Store the outputs
-            G[i, seq_i : seq_i+batch_size] = Gt3
+            G[i, seq_i : seq_i + batch_size] = Gt3
             seq_i += batch_size
-            Y[i, seq_i : seq_i+batch_size] = Yt3
-            C[i, seq_i : seq_i+batch_size] = Ct3
+            Y[i, seq_i : seq_i + batch_size] = Yt3
+            C[i, seq_i : seq_i + batch_size] = Ct3
         X = Y[i, batch_size:]
     return Y[-1, batch_size:], (Y, G, C, X)
 
@@ -930,11 +937,15 @@ def backprop_lstm(dY, lengths, params, fwd_state):
     offset = lengths[0]
     for i in range(depth):
         t2 = (i, slice(0, batch_size), slice(0, None))
-        t2_ = (i, slice(0+offset, batch_size+offset), slice(0, None))
+        t2_ = (i, slice(0 + offset, batch_size + offset), slice(0, None))
         for t, batch_size in enumerate(lengths):
             # The Y and C arrays are offset
-            t3 = (i, slice(seq_i, seq_i+batch_size), slice(0, None))
-            t3_ = (i, slice(seq_i+offset, seq_i+offset+batch_size), slice(0, None))
+            t3 = (i, slice(seq_i, seq_i + batch_size), slice(0, None))
+            t3_ = (
+                i,
+                slice(seq_i + offset, seq_i + offset + batch_size),
+                slice(0, None),
+            )
             seq_i += batch_size
             reversed_indices.append((t2, t3, t2_, t3_))
             t2 = t3
@@ -944,19 +955,15 @@ def backprop_lstm(dY, lengths, params, fwd_state):
         for t2, t3, t2_, t3_ in reversed_indices[i]:
             dAt3, dCt2 = backprop_lstm_gates(dC[t3_], dY[t3_], G[t3], C[t3_], C[t2_])
             dXt3, dYt2, d_params = backprop_lstm_weights(
-                dAt3,
-                d_params,
-                X[t3],
-                Y[t2_],
-                all_layer_params[i]
+                dAt3, d_params, X[t3], Y[t2_], all_layer_params[i]
             )
- 
+
             # Store the outputs
             dX[t3] = dXt3
             G[t3] = Gt3
             Y[t3_] = Yt3
             C[t3_] = Ct3
-        X = Y[depth-(i+1), batch_size:]
+        X = Y[depth - (i + 1), batch_size:]
     return dX, d_params, dYt2, dCt2
 
 
@@ -977,13 +984,13 @@ def _split_weights(params: Floats1d, i: int, nO: int, nI: int, params_i: int):
 
 
 def lstm_weights_forward(params, Xt3: Floats2d, Yt2: Floats2d) -> Floats2d:
-    Wx, bx, Wh, bh = params 
+    Wx, bx, Wh, bh = params
     At3 = Xt3 @ Wx.T
     At3 += bx
     At3 += Yt2 @ Wh.T
     At3 += bh
     return At3
- 
+
 
 def backprop_lstm_weights(dAt3, d_params, Xt3, Yt2, params):
     Wx, Wh, bh, Xh = params

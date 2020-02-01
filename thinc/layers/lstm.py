@@ -37,7 +37,7 @@ def LSTM(
     model: Model[Ragged, Ragged] = Model(
         "lstm",
         forward,
-        dims={"nO": nO, "nI": nI, "depth": depth, "dirs": 1+int(bi)},
+        dims={"nO": nO, "nI": nI, "depth": depth, "dirs": 1 + int(bi)},
         attrs={"registry_name": "LSTM.v1"},
         params={"LSTM": None, "HC0": None},
         init=partial(init, init_W, init_b),
@@ -106,7 +106,7 @@ def init(
             params.append(init_b(nO))
             params.append(init_W(nO, nO))
             params.append(init_b(nO))
-    model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params])) 
+    model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
     model.set_param("HC0", zero_init(model.ops, (2, depth, nO)))
 
 
@@ -119,9 +119,12 @@ def forward(
     C0 = HC0[1]
     if is_train:
         Y, fwd_state = model.ops.lstm_forward_training(
-            LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths)
+            LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
+        )
     else:
-        Y = model.ops.lstm_forward_inference(LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths)
+        Y = model.ops.lstm_forward_inference(
+            LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
+        )
     Yr = Ragged(Y, Xr.lengths)
 
     def backprop(dYr: Ragged) -> Ragged:
