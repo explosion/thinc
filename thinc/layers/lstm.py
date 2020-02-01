@@ -126,7 +126,7 @@ def forward(
 
     def backprop(dYr: Ragged) -> Ragged:
         dX, (dLSTM, dH0, dC0) = model.ops.backprop_lstm(
-            cast(Floats2d, dYr.data), fwd_state, LSTM
+            cast(Floats2d, dYr.data), dYr.lengths, LSTM, fwd_state
         )
         model.inc_grad("LSTM", dLSTM)
         model.inc_grad("HC0", HC0)
