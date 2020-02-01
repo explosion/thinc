@@ -5,10 +5,10 @@ from ..model import Model
 from ..config import registry
 from ..util import get_width
 from ..types import Floats1d, Floats2d, Floats3d, Padded, Ragged
-from .bidirectional import bidirectional
 from .clone import clone
 from .noop import noop
 from ..initializers import glorot_uniform_init, zero_init
+from ..backends import Ops
 
 
 @registry.layers("LSTM.v1")
@@ -21,7 +21,7 @@ def LSTM(
     dropout: float = 0.0,
     init_W=glorot_uniform_init,
     init_b=zero_init
-) -> Model[Ragged, Ragged]:
+) -> Model[Padded, Padded]:
     if dropout != 0.0:
         msg = (
             "LSTM dropout not implemented yet. In the meantime, use the "
@@ -34,7 +34,7 @@ def LSTM(
 
     if bi and nO is not None:
         nO //= 2
-    model: Model[Ragged, Ragged] = Model(
+    model: Model[Padded, Padded] = Model(
         "lstm",
         forward,
         dims={"nO": nO, "nI": nI, "depth": depth, "dirs": 1 + int(bi)},
@@ -111,8 +111,9 @@ def init(
 
 
 def forward(
-    model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
-) -> Tuple[Ragged, Callable]:
+    model: Model[Padded, Padded], Xp: Padded, is_train: bool
+) -> Tuple[Padded, Callable]:
+    Xr = _padded_to_packed(model.ops, Xp)
     LSTM = cast(Floats1d, model.get_param("LSTM"))
     HC0 = cast(Floats3d, model.get_param("HC0"))
     H0 = HC0[0]
@@ -125,14 +126,35 @@ def forward(
         Y = model.ops.lstm_forward_inference(
             LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
         )
-    Yr = Ragged(Y, Xr.lengths)
+    Yp = _packed_to_padded(model.ops, Ragged(Y, Xr.lengths), Xp)
 
-    def backprop(dYr: Ragged) -> Ragged:
+    def backprop(dYp: Padded) -> Padded:
+        dYr = _padded_to_packed(model.ops, dYp)
         dX, (dLSTM, dH0, dC0) = model.ops.backprop_lstm(
             cast(Floats2d, dYr.data), dYr.lengths, LSTM, fwd_state
         )
         model.inc_grad("LSTM", dLSTM)
         model.inc_grad("HC0", HC0)
-        return Ragged(dX, dYr.lengths)
+        return _packed_to_padded(model.ops, Ragged(dX, dYr.lengths), dYp)
 
-    return Yr, backprop
+    return Yp, backprop
+
+
+def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
+    """Strip padding from a padded sequence."""
+    Y = ops.alloc2f(Xp.lengths.sum(), Xp.data.shape[1])
+    start = 0
+    for t in range(Xp.size_at_t.shape[0]):
+        batch_size = Xp.size_at_t[t]
+        Y[start : start+batch_size] = Xp.data[t, :batch_size]
+    return Ragged(Y, Xp.size_at_t)
+
+
+def _packed_to_padded(ops: Ops, Xr: Ragged, Xp: Padded) -> Padded:
+    Y = ops.alloc3f(Xp.data.shape[0], Xp.data.shape[1], Xr.data.shape[1])
+    X = cast(Floats2d, Xr.data)
+    start = 0
+    for t in range(Xp.size_at_t.shape[0]):
+        batch_size = Xp.size_at_t[t]
+        Y[t, :batch_size] = X[start : start+batch_size] 
+    return Padded(Y, size_at_t=Xp.size_at_t, lengths=Xp.lengths, indices=Xp.indices)
