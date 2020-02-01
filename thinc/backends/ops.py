@@ -961,14 +961,16 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     # Okay, now do the actual looping
     for i in range(depth):
         for t2, t3, t2_, t3_ in reversed_indices[i]:
-            dAt3, dCt2 = backprop_lstm_gates(dC[t3_], dY[t3_[1:]], G[t3], C[t3_], C[t2_])
+            dAt3, dCt2 = backprop_lstm_gates(
+                dC[t3_], dY[t3_[1:]], G[t3], C[t3_], C[t2_]
+            )
             dXt3, dYt2, d_params = backprop_lstm_weights(
                 dAt3, d_params, X[t3], Y[t2_], all_layer_params[i]
             )
 
             # Store the outputs
             dX[t3[1:]] = dXt3
-        if (i+1) < depth:
+        if (i + 1) < depth:
             X = Y[depth - (i + 1), batch_size:]
             dY[offset:] = dX
     return dX, d_params, dYt2, dCt2
@@ -999,18 +1001,24 @@ def lstm_weights_forward(params, Xt3: Floats2d, Yt2: Floats2d) -> Floats2d:
     return At3
 
 
-def backprop_lstm_weights(dAt3: Floats2d, d_params: Floats1d, Xt3: Floats2d, Yt2: Floats2d, params: Tuple[Tuple, int]):
+def backprop_lstm_weights(
+    dAt3: Floats2d,
+    d_params: Floats1d,
+    Xt3: Floats2d,
+    Yt2: Floats2d,
+    params: Tuple[Tuple, int],
+):
     (Wx, bx, Wh, bh), i = params
     size = dAt3.shape[1] * Xt3.shape[1]
-    d_params[i:i+size] += (dAt3.T @ Xt3).ravel()
+    d_params[i : i + size] += (dAt3.T @ Xt3).ravel()
     i += size
     db = dAt3.sum(axis=0)
     size = db.shape[0]
-    d_params[i:i+size] += db
+    d_params[i : i + size] += db
     size = dAt3.shape[1] * Yt2.shape[1]
-    d_params[i:i+size] += (dAt3.T @ Yt2).ravel()
+    d_params[i : i + size] += (dAt3.T @ Yt2).ravel()
     size = db.shape[0]
-    d_params[i:i+size] += db
+    d_params[i : i + size] += db
     dXt3 = dAt3 @ Wx
     dYt2 = dAt3 @ Wh
     return dXt3, dYt2, d_params
