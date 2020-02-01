@@ -311,15 +311,13 @@ class Ops:
         arr: Floats3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
         # Build a lookup table so we can find how big the batch is at point t.
-        batch_size_at_t_ = self.alloc1i(nS)
-        batch_size_at_t_ += 1
-        i = len(lengths_)
+        batch_size_at_t_ = [0 for _ in range(nS)]
+        current_size = len(lengths_)
         for t in range(nS):
-            if t == lengths_[i - 1]:
-                i -= 1
-                if i == 0:
-                    break
-            batch_size_at_t_[t] = i
+            while current_size and t >= lengths_[current_size-1]:
+                current_size -= 1
+            batch_size_at_t_[t] = current_size
+        assert sum(lengths_) == sum(batch_size_at_t_)
         return Padded(
             cast(Floats3d, arr),
             self.asarray1i(batch_size_at_t_),
@@ -918,7 +916,7 @@ def lstm_forward_training(
             C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
             seq_i += batch_size
         X = Y[i, batch_size:]
-    return Y[-1, batch_size:], (Y, G, C, orig_X)
+    return Y[-1, offset:], (Y, G, C, orig_X)
 
 
 def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple):
