@@ -919,10 +919,14 @@ def lstm_forward_training(
     return Y[-1, batch_size:], (Y, G, C, X)
 
 
-def backprop_lstm(dY, lengths, params, fwd_state):
+def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple):
     xp = get_array_module(params)
     Y, G, C, X = fwd_state
+    depth, N, nO = C.shape
+    nI = X.shape[1]
+    batch_size = lengths[0]
     dX = cast(Floats2d, xp.zeros(X.shape, dtype=X.dtype))
+    dC = cast(Floats3d, xp.zeros(C.shape, dtype=C.dtype))
     d_params = cast(Floats1d, xp.zeros(params.shape, dtype=params.dtype))
     # It's easier to work everything out forwards, and then reverse, instead
     # of doing the reverse iteration.
@@ -933,11 +937,13 @@ def backprop_lstm(dY, lengths, params, fwd_state):
         all_layer_params.append((layer_params, params_i))
     all_layer_params.reverse()
     # Similarly, we want to compute all our indices first, and do the reversal.
-    reversed_indices = []
+    reversed_indices: List[List[Tuple]] = []
     offset = lengths[0]
+    seq_i = 0
     for i in range(depth):
         t2 = (i, slice(0, batch_size), slice(0, None))
         t2_ = (i, slice(0 + offset, batch_size + offset), slice(0, None))
+        reversed_indices.append([])
         for t, batch_size in enumerate(lengths):
             # The Y and C arrays are offset
             t3 = (i, slice(seq_i, seq_i + batch_size), slice(0, None))
@@ -947,23 +953,24 @@ def backprop_lstm(dY, lengths, params, fwd_state):
                 slice(0, None),
             )
             seq_i += batch_size
-            reversed_indices.append((t2, t3, t2_, t3_))
+            reversed_indices[-1].append((t2, t3, t2_, t3_))
             t2 = t3
             t2_ = t3_
+        reversed_indices[-1].reverse()
+    reversed_indices.reverse()
     # Okay, now do the actual looping
     for i in range(depth):
         for t2, t3, t2_, t3_ in reversed_indices[i]:
-            dAt3, dCt2 = backprop_lstm_gates(dC[t3_], dY[t3_], G[t3], C[t3_], C[t2_])
+            dAt3, dCt2 = backprop_lstm_gates(dC[t3_], dY[t3_[1:]], G[t3], C[t3_], C[t2_])
             dXt3, dYt2, d_params = backprop_lstm_weights(
                 dAt3, d_params, X[t3], Y[t2_], all_layer_params[i]
             )
 
             # Store the outputs
-            dX[t3] = dXt3
-            G[t3] = Gt3
-            Y[t3_] = Yt3
-            C[t3_] = Ct3
-        X = Y[depth - (i + 1), batch_size:]
+            dX[t3[1:]] = dXt3
+        if (i+1) < depth:
+            X = Y[depth - (i + 1), batch_size:]
+            dY[offset:] = dX
     return dX, d_params, dYt2, dCt2
 
 
