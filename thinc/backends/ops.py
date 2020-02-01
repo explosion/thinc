@@ -617,8 +617,9 @@ class Ops:
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
-    def lstm_forward_inference(self, params: Floats1d, H0: Floats2d, C0: Floats2d, X: Floats2d, lengths: Ints1d) -> Floats2d:
-        raise NotImplementedError
+    def lstm_forward_inference(self, params: Floats1d, H0: Floats2d, C0: Floats2d, X: Floats2d, size_at_t: Ints1d) -> Floats2d:
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y
 
     def backprop_lstm(self, dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple) -> Tuple[Floats2d, Tuple[Floats1d, Floats2d, Floats2d]]:
         dX, d_params, dH0, dC0 = backprop_lstm(dY, lengths, params, fwd_state)
