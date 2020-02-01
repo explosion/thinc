@@ -38,22 +38,18 @@ def test_list2padded():
 
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
 def test_LSTM_init_with_sizes(nO, nI):
-    model = with_padded(LSTM(nO, nI)).initialize()
+    model = with_padded(LSTM(nO, nI, depth=1)).initialize()
     for node in model.walk():
         # Check no unallocated params.
-        assert node.has_param("W") is not None
-        assert node.has_param("b") is not None
-        assert node.has_param("initial_hiddens") is not None
-        assert node.has_param("initial_cells") is not None
+        assert node.has_param("LSTM") is not None
+        assert node.has_param("HC0") is not None
     for node in model.walk():
         # Check param sizes.
-        if node.has_param("W"):
-            W = node.get_param("W")
-            assert W.shape == (nO * 4, nO + nI)
-        if node.has_param("b"):
-            b = node.get_param("b")
-            assert b.shape == (nO * 4,)
-        if node.has_param("initial_hiddens"):
+        if node.has_param("LSTM"):
+            params = node.get_param("LSTM")
+            assert params.shape == ((nO * 4 * (nO + nI)),)
+        if node.has_param("HC0"):
+            assert params.shape == ((2, 1, nO),)
             initial_hiddens = node.get_param("initial_hiddens")
             assert initial_hiddens.shape == (nO,)
         if node.has_param("initial_cells"):
