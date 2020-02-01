@@ -127,7 +127,7 @@ def forward(
             LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
         )
         fwd_state = tuple()
-    assert Y.shape == (Xr.data.shape[0], Y.shape[1])
+    assert Y.shape == (Xr.data.shape[0], Y.shape[1]), (Xr.data.shape, Y.shape)
     Yp = _packed_to_padded(model.ops, Ragged(Y, Xr.lengths), Xp)
 
     def backprop(dYp: Padded) -> Padded:
@@ -145,6 +145,7 @@ def forward(
 
 def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
     """Strip padding from a padded sequence."""
+    assert Xp.lengths.sum() == Xp.size_at_t.sum(), (Xp.lengths.sum(), Xp.size_at_t.sum())
     Y = ops.alloc2f(Xp.lengths.sum(), Xp.data.shape[2])
     start = 0
     for t in range(Xp.size_at_t.shape[0]):
