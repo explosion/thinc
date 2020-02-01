@@ -4,7 +4,7 @@ from functools import partial
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Floats1d, Floats2d, Floats3d, Padded
+from ..types import Floats1d, Floats2d, Floats3d, Padded, Ragged
 from .bidirectional import bidirectional
 from .clone import clone
 from .noop import noop
@@ -21,28 +21,28 @@ def LSTM(
     dropout: float = 0.0,
     init_W=glorot_uniform_init,
     init_b=zero_init
-) -> Model[Padded, Padded]:
+) -> Model[Ragged, Ragged]:
     if dropout != 0.0:
         msg = (
             "LSTM dropout not implemented yet. In the meantime, use the "
             "PyTorchWrapper and the torch.LSTM class."
         )
         raise NotImplementedError(msg)
+    if depth == 0:
+        msg = "LSTM depth must be at least 1. Maybe we should make this a noop?"
+        raise ValueError(msg)
 
     if bi and nO is not None:
         nO //= 2
-    model: Model[Padded, Padded] = Model(
+    model: Model[Ragged, Ragged] = Model(
         "lstm",
         forward,
-        dims={"nO": nO, "nI": nI},
+        dims={"nO": nO, "nI": nI, "depth": depth, "dirs": 1+int(bi)},
         attrs={"registry_name": "LSTM.v1"},
-        params={"W": None, "b": None, "c": None, "h": None},
+        params={"LSTM": None, "HC0": None},
         init=partial(init, init_W, init_b),
     )
-
-    if bi:
-        model = bidirectional(model)
-    return clone(model, depth)
+    return model
 
 
 @registry.layers("PyTorchLSTM.v1")
@@ -77,31 +77,59 @@ def init(
         model.set_dim("nO", get_width(Y))
     nO = model.get_dim("nO")
     nI = model.get_dim("nI")
-    model.set_param("W", init_W(model.ops, (nO * 4, nO + nI)))
-    model.set_param("b", init_b(model.ops, (nO * 4,)))
-    model.set_param("h", zero_init(model.ops, (nO,)))
-    model.set_param("c", zero_init(model.ops, (nO,)))
+    depth = model.get_dim("depth")
+    dirs = model.get_dim("dirs")
+    # It's easiest to use the initializer if we alloc the weights separately
+    # and then stick them all together afterwards. The order matters here:
+    # we need to keep the same format that CuDNN expects.
+    params = []
+    # Convenience
+    init_W = partial(init_W, model.ops)
+    init_b = partial(init_b, model.ops)
+    for i in range(depth):
+        for j in range(dirs):
+            # Input-to-gates weights and biases.
+            params.append(init_W(nO, nI if depth == 0 else nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nI if depth == 0 else nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nI if depth == 0 else nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nI if depth == 0 else nO))
+            params.append(init_b(nO))
+            # Hidden-to-gates weights.
+            params.append(init_W(nO, nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nO))
+            params.append(init_b(nO))
+            params.append(init_W(nO, nO))
+            params.append(init_b(nO))
+    model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params])) 
+    model.set_param("HC0", zero_init(model.ops, (2, depth, nO)))
 
 
 def forward(
-    model: Model[Floats3d, Floats3d], Xp: Padded, is_train: bool
-) -> Tuple[Padded, Callable]:
-    X = Xp.data
-    W = cast(Floats2d, model.get_param("W"))
-    b = cast(Floats1d, model.get_param("b"))
-    h = cast(Floats1d, model.get_param("h"))
-    c = cast(Floats1d, model.get_param("c"))
-    Y, fwd_state = model.ops.recurrent_lstm(W, b, h, c, X, is_train)
-    Yp = Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices)
+    model: Model[Ragged, Ragged], Xr: Ragged, is_train: bool
+) -> Tuple[Ragged, Callable]:
+    LSTM = cast(Floats1d, model.get_param("LSTM"))
+    HC0 = cast(Floats3d, model.get_param("HC0"))
+    H0 = HC0[0]
+    C0 = HC0[1]
+    if is_train:
+        Y, fwd_state = model.ops.lstm_forward_training(
+            LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths)
+    else:
+        Y = model.ops.lstm_forward_inference(LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths)
+    Yr = Ragged(Y, Xr.lengths)
 
-    def backprop(dYp: Padded) -> Padded:
-        dX, (dW, db, d_h, d_c) = model.ops.backprop_recurrent_lstm(
-            dYp.data, fwd_state, (W, b)
+    def backprop(dYr: Ragged) -> Ragged:
+        dX, (dLSTM, dH0, dC0) = model.ops.backprop_lstm(
+            cast(Floats2d, dYr.data), fwd_state, LSTM
         )
-        model.inc_grad("W", dW)
-        model.inc_grad("b", db)
-        model.inc_grad("h", d_h)
-        model.inc_grad("c", d_c)
-        return Padded(X, dYp.size_at_t, dYp.lengths, dYp.indices)
+        model.inc_grad("LSTM", dLSTM)
+        model.inc_grad("HC0", HC0)
+        return Ragged(dX, dYr.lengths)
 
-    return Yp, backprop
+    return Yr, backprop

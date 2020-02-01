@@ -603,17 +603,25 @@ class Ops:
         dX -= Y * sum_dX
         return dX
 
-    def recurrent_lstm(
+    def lstm_forward_training(
         self,
-        W: Floats2d,
-        b: Floats1d,
-        h_init: Floats1d,
-        c_init: Floats1d,
-        inputs: Floats3d,
-        is_train: bool = True,
-    ) -> Tuple[Floats3d, Tuple[Floats3d, Floats3d, Floats3d]]:
-        Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs)
-        return Y, (G, C, S)
+        params: Floats1d,
+        H0: Floats2d,
+        C0: Floats2d,
+        X: Floats2d,
+        size_at_t: Ints1d,
+        *,
+        dropout=0.0
+    ) -> Tuple[Floats2d, Tuple]:
+        assert H0.shape == C0.shape
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y, fwd_state
+
+    def lstm_forward_inference(self, params: Floats1d, H0: Floats2d, C0: Floats2d, X: Floats2d, lengths: Ints1d) -> Floats2d:
+        raise NotImplementedError
+
+    def backprop_lstm(self, dY: Floats2d, fwd_state: Tuple, params: Floats1d) -> Tuple[Floats2d, Tuple[Floats1d, Floats2d, Floats2d]]:
+        raise NotImplementedError
 
     def backprop_recurrent_lstm(
         self,
@@ -869,6 +877,81 @@ have the initial hiddens and initial cells. So:
     At3: The activations at 'd...'
     Gt3: The gates at 'd...'
 """
+def lstm_forward_training(
+        params: Floats1d,
+        c_init: Floats2d,
+        h_init: Floats2d,
+        X: Floats2d,
+        lengths: Ints1d
+) -> Tuple[Floats2d, Tuple]:
+    # TODO: bidirectional
+    xp = get_array_module(params)
+    depth, nO = c_init.shape
+    nI: int = X.shape[1]
+    batch_size = lengths[0]
+    # Preallocate these so we can pass them through for loop.
+    G = cast(Floats3d, xp.zeros((depth, X.shape[0], nO * 4), dtype="f"))
+    # The Y and C are shifted by 1 step
+    Y = cast(Floats3d, xp.zeros((depth, X.shape[0]+batch_size, nO), dtype="f"))
+    C = cast(Floats3d, xp.zeros((depth, X.shape[0]+batch_size, nO), dtype="f"))
+    # The inits are shaped (n_layers, nO). We add the internal dimension to make
+    # them set correctly.
+    Y[:, :batch_size, :] = cast(Floats3d, h_init.reshape((depth, 1, nO)))
+    C[:, :batch_size, :] = cast(Floats3d, c_init.reshape((depth, 1, nO)))
+    params_i = 0
+    seq_i = 0
+    Xt3: Floats2d
+    Yt3: Floats2d
+    Ct3: Floats2d
+    Yt2: Floats2d
+    Ct2: Floats2d
+    for i in range(depth):
+        ((Wx, bx), (Wh, bh)), params_i = _split_weights(params, i, nO, nI, params_i)
+        Yt3 = Y[i, : batch_size, :]
+        Ct3 = C[i, : batch_size, :]
+        for t, batch_size in enumerate(lengths):
+            # Prepare the inputs
+            Xt3 = X[seq_i : seq_i + batch_size]
+            Yt2 = Yt3[:batch_size]
+            Ct2 = Ct3[:batch_size]
+            # Now do the actual calculation
+            Yt3, Gt3, Ct3 = lstm_step(Wx, bx, Wh, bh, Xt3, Yt2, Ct2)
+            # Store the outputs
+            G[i, seq_i : seq_i+batch_size] = Gt3
+            seq_i += batch_size
+            Y[i, seq_i : seq_i+batch_size] = Yt3
+            C[i, seq_i : seq_i+batch_size] = Ct3
+        X = Y[i, batch_size:]
+    return Y[-1, batch_size:], (Y, G, C)
+
+
+def backprop_lstm(params, c_init, h_init, X, lengths):
+    pass
+
+
+def _split_weights(params: Floats1d, i: int, nO: int, nI: int, params_i: int):
+    Wx_size = nO * 4 * nI
+    bx_size = nO * 4
+    Wh_size = nO * 4 * nO
+    bh_size = nO * 4
+    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
+    params_i += Wx_size
+    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
+    params_i += bx_size
+    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
+    params_i += Wx_size
+    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
+    params_i += bh_size
+    return ((Wx, bx), (Wh, bh)), params_i
+
+
+def lstm_step(Wx, bx, Wh, bh, Xt3, Yt2, Ct2):
+    At3 = Xt3 @ Wx.T
+    At3 += bx
+    At3 += Yt2 @ Wh.T
+    At3 += bh
+    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
+    return Yt3, Ct3, Gt3
 
 
 def recurrent_lstm_forward(W, b, c_init, h_init, X):
