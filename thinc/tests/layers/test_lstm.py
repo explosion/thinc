@@ -47,14 +47,12 @@ def test_LSTM_init_with_sizes(nO, nI):
         # Check param sizes.
         if node.has_param("LSTM"):
             params = node.get_param("LSTM")
-            assert params.shape == ((nO * 4 * (nO + nI)),)
+            assert params.shape == (
+                ((nO * 4 * nI)) + (nO * 4) + (nO * 4 * nO + nO * 4),
+            )
         if node.has_param("HC0"):
-            assert params.shape == ((2, 1, nO),)
-            initial_hiddens = node.get_param("initial_hiddens")
-            assert initial_hiddens.shape == (nO,)
-        if node.has_param("initial_cells"):
-            initial_cells = node.get_param("initial_cells")
-            assert initial_cells.shape == (nO,)
+            params = node.get_param("HC0")
+            assert params.shape == (2, 1, nO)
 
 
 def test_LSTM_fwd_bwd_shapes(nO, nI):
@@ -62,7 +60,7 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
     nI = 2
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
     model = with_padded(LSTM(nO, nI)).initialize(X=[X])
-    ys, backprop_ys = model([X], is_train=False)
+    ys, backprop_ys = model([X], is_train=True)
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 

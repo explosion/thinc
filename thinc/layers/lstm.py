@@ -89,22 +89,22 @@ def init(
     for i in range(depth):
         for j in range(dirs):
             # Input-to-gates weights and biases.
-            params.append(init_W((nO, nI if depth == 0 else nO)))
+            params.append(init_W((nO, nI if i == 0 else nO)))
+            params.append(init_W((nO, nI if i == 0 else nO)))
+            params.append(init_W((nO, nI if i == 0 else nO)))
+            params.append(init_W((nO, nI if i == 0 else nO)))
             params.append(init_b((nO,)))
-            params.append(init_W((nO, nI if depth == 0 else nO)))
             params.append(init_b((nO,)))
-            params.append(init_W((nO, nI if depth == 0 else nO)))
             params.append(init_b((nO,)))
-            params.append(init_W((nO, nI if depth == 0 else nO)))
             params.append(init_b((nO,)))
             # Hidden-to-gates weights.
             params.append(init_W((nO, nO)))
-            params.append(init_b((nO,)))
+            params.append(init_W((nO, nO)))
+            params.append(init_W((nO, nO)))
             params.append(init_W((nO, nO)))
             params.append(init_b((nO,)))
-            params.append(init_W((nO, nO)))
             params.append(init_b((nO,)))
-            params.append(init_W((nO, nO)))
+            params.append(init_b((nO,)))
             params.append(init_b((nO,)))
     model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
     model.set_param("HC0", zero_init(model.ops, (2, depth, nO)))
@@ -126,11 +126,12 @@ def forward(
         Y = model.ops.lstm_forward_inference(
             LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
         )
+        fwd_state = tuple()
     assert Y.shape == (Xr.data.shape[0], Y.shape[1])
     Yp = _packed_to_padded(model.ops, Ragged(Y, Xr.lengths), Xp)
 
     def backprop(dYp: Padded) -> Padded:
-        print("Backprop", dYp.size_at_t, dYp.lengths)
+        assert fwd_state
         dYr = _padded_to_packed(model.ops, dYp)
         dX, (dLSTM, dH0, dC0) = model.ops.backprop_lstm(
             cast(Floats2d, dYr.data), dYr.lengths, LSTM, fwd_state
@@ -148,7 +149,7 @@ def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
     start = 0
     for t in range(Xp.size_at_t.shape[0]):
         batch_size = Xp.size_at_t[t]
-        Y[start : start+batch_size] = Xp.data[t, :batch_size]
+        Y[start : start + batch_size] = Xp.data[t, :batch_size]
         start += batch_size
     return Ragged(Y, Xp.size_at_t)
 
@@ -159,6 +160,6 @@ def _packed_to_padded(ops: Ops, Xr: Ragged, Xp: Padded) -> Padded:
     start = 0
     for t in range(Xp.size_at_t.shape[0]):
         batch_size = Xp.size_at_t[t]
-        Y[t, :batch_size] = X[start : start+batch_size] 
+        Y[t, :batch_size] = X[start : start + batch_size]
         start += batch_size
     return Padded(Y, size_at_t=Xp.size_at_t, lengths=Xp.lengths, indices=Xp.indices)
