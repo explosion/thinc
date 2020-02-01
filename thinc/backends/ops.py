@@ -999,17 +999,21 @@ def lstm_weights_forward(params, Xt3: Floats2d, Yt2: Floats2d) -> Floats2d:
     return At3
 
 
-def backprop_lstm_weights(dAt3, d_params, Xt3, Yt2, params):
-    Wx, Wh, bh, Xh = params
-    dWx, dWh, dbh, dXh = d_params
-    dWx += dAt3.T @ Xt3
-    dWh += dAt3.T @ Yt2
+def backprop_lstm_weights(dAt3: Floats2d, d_params: Floats1d, Xt3: Floats2d, Yt2: Floats2d, params: Tuple[Tuple, int]):
+    (Wx, bx, Wh, bh), i = params
+    size = dAt3.shape[1] * Xt3.shape[1]
+    d_params[i:i+size] += (dAt3.T @ Xt3).ravel()
+    i += size
     db = dAt3.sum(axis=0)
-    dbx += db
-    dbh += db
+    size = db.shape[0]
+    d_params[i:i+size] += db
+    size = dAt3.shape[1] * Yt2.shape[1]
+    d_params[i:i+size] += (dAt3.T @ Yt2).ravel()
+    size = db.shape[0]
+    d_params[i:i+size] += db
     dXt3 = dAt3 @ Wx
     dYt2 = dAt3 @ Wh
-    return dXt3, dYt2, (dWx, dbx, dWh, dbh)
+    return dXt3, dYt2, d_params
 
 
 def lstm_gates_forward(At3, Ct2):
@@ -1034,7 +1038,7 @@ def lstm_gates_forward(At3, Ct2):
 
 def backprop_lstm_gates(
     dYt3: Array2d, dCt3: Array2d, Gt3: Array2d, Ct3: Array2d, Ct2: Array2d
-) -> Tuple[Array3d, Array2d]:
+) -> Tuple[Floats2d, Floats2d]:
     # See above for notation. Step numbering refers to forward_lstm_gates
     xp = get_array_module(dYt3)
     hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
