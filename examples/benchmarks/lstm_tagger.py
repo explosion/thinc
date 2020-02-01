@@ -13,6 +13,7 @@ So PyTorch is 3x faster currently.
 """
 from typing import List
 import typer
+import tqdm
 import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
@@ -23,11 +24,11 @@ import jax.tree_util
 
 CONFIG = """
 [data]
-n_samples = 100000
+n_samples = 1000
 n_tags = 20
 n_vocab = 10000
-length_mean = 40
-length_variance = 1
+length_mean = 50
+length_variance = 5
 
 [common]
 width = 300
@@ -39,6 +40,7 @@ width = 300
 @layers = "Embed.v1"
 nO = ${common:width}
 nV = ${data:n_vocab}
+column = 0
 
 [model.encode]
 @layers = "LSTM.v1"
@@ -62,7 +64,7 @@ def build_tagger(
         list2padded(),
         with_array(embed),
         encode,
-        # with_array(predict),
+        with_array(predict),
     )
     model.set_ref("embed", embed)
     model.set_ref("encode", encode)
@@ -74,8 +76,7 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     Xs = []
     Ys = []
     for _ in range(n_samples):
-        # length = numpy.random.normal(size=1, scale=length_variance) + length_mean
-        length = length_mean
+        length = numpy.random.normal(size=1, scale=length_variance) + length_mean
         shape = (max(1, int(length)),)
         X = numpy.random.uniform(0, n_vocab - 1, shape)
         Y = numpy.random.uniform(0, n_tags - 1, shape)
@@ -93,11 +94,12 @@ jax.tree_util.register_pytree_node(
 )
 
 
-def run_forward(model, Xs):
+def run_forward(model, Xs, n_times=40):
     total = 0.0
-    for batch in Xs:
-        Y = model.predict(batch)
-        total += Y.data.sum()
+    for _ in range(n_times):
+        for batch in tqdm.tqdm(Xs):
+            Y = model.predict(batch)
+            total += Y.data.sum()
     return float(total)
 
 
@@ -111,21 +113,23 @@ def set_backend(name, gpu_id):
             set_current_ops(NumpyOps())
         else:
             set_current_ops(CupyOps())
-        CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
+        if name == "pytorch":
+            CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
-def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
+def main(numpy: bool=False, jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
     global CONFIG
     fix_random_seed(0)
     if gpu_id >= 0:
         require_gpu(gpu_id)
         print("Set GPU", gpu_id)
-    backends = {"jax": jax, "pytorch": pytorch}
+    backends = {"jax": jax, "pytorch": pytorch, "numpy": numpy}
     for name, use_backend in backends.items():
         if not use_backend:
             print(f"Skipping {name}")
             continue
         set_backend(name, gpu_id)
+        print("Getting data")
         C = registry.make_from_config(Config().from_str(CONFIG))
         model = C["model"]
         X, Y = get_dummy_data(**C["data"])
@@ -140,8 +144,9 @@ def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
         model.layers.pop(0)
         print("Start")
         start_time = timer()
+        total = run_forward(model, X, n_times=1)
         end_time = timer()
-        print(name, n_words, end_time - start_time)
+        print(name, n_words, total, end_time - start_time)
 
 
 if __name__ == "__main__":
