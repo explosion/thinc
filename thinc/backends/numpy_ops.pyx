@@ -102,6 +102,38 @@ class NumpyOps(Ops):
                 dX_ptr[i] = 0.
         return dX
 
+    def lstm_forward_training(
+        self,
+        np.ndarray params,
+        np.ndarray H0,
+        np.ndarray C0,
+        np.ndarray X,
+        np.ndarray size_at_t,
+        *,
+        dropout=0.0,
+    ):
+        assert H0.shape[0] == C0.shape[0]
+        assert H0.shape[1] == C0.shape[1]
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y, fwd_state
+
+    def lstm_forward_inference(
+        self,
+        np.ndarray params,
+        np.ndarray H0,
+        np.ndarray C0,
+        np.ndarray X,
+        np.ndarray size_at_t,
+    ):
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y
+
+    def backprop_lstm(
+            self, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state
+    ):
+        dX, d_params, dH0, dC0 = backprop_lstm(dY, lengths, params, fwd_state)
+        return dX, (d_params, dH0, dC0)
+
     def maxout(self, const float[:, :, ::1] X):
         cdef Pool mem = Pool()
         cdef int B = X.shape[0]
@@ -620,6 +652,209 @@ cdef void cpu_backprop_reduce_max(float* dX__to,
         which__bo += O
 
 
+def lstm_forward_training(
+    np.ndarray params, np.ndarray c_init, np.ndarray h_init,
+    np.ndarray X, np.ndarray lengths
+):
+    xp = numpy
+    # TODO: bidirectional
+    depth = c_init.shape[0]
+    nO = c_init.shape[1]
+    nI = X.shape[1]
+    cdef int batch_size = lengths[0]
+    # Preallocate these so we can pass them through for loop.
+    cdef np.ndarray G = xp.zeros((depth, X.shape[0], nO * 4), dtype="f")
+    # The Y and C are shifted by 1 step
+    offset = batch_size
+    cdef np.ndarray Y = xp.zeros((depth, X.shape[0] + offset, nO), dtype="f")
+    cdef np.ndarray C = xp.zeros((depth, X.shape[0] + offset, nO), dtype="f")
+    # The inits are shaped (n_layers, nO). We add the internal dimension to make
+    # them set correctly.
+    Y[:, :offset, :] = h_init.reshape((depth, 1, nO))
+    C[:, :offset, :] = c_init.reshape((depth, 1, nO))
+    cdef int params_i = 0
+    cdef int seq_i = 0
+    orig_X = X
+    cdef int i
+    for i in range(depth):
+        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+        Yt3 = Y[i, :batch_size, :]
+        Ct3 = C[i, :batch_size, :]
+        for t, batch_size in enumerate(lengths):
+            # Prepare the inputs
+            Xt3 = X[seq_i : seq_i + batch_size]
+            Yt2 = Yt3[:batch_size]
+            Ct2 = Ct3[:batch_size]
+            # Now do the actual calculation
+            At3 = lstm_weights_forward(layer_params, Xt3, Yt2)
+            Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
+            # Store the outputs
+            G[i, seq_i : seq_i + batch_size] = Gt3
+            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
+            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
+            seq_i += batch_size
+        X = Y[i, batch_size:]
+    return Y[-1, offset:], (Y, G, C, orig_X)
+
+
+def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
+    xp = numpy
+    Y, G, C, X = fwd_state
+    depth, N, nO = C.shape
+    nI = X.shape[1]
+    batch_size = lengths[0]
+    cdef np.ndarray dX = xp.zeros(X.shape, dtype=X.dtype)
+    # We don't need to store all the cells for all the layers.
+    cdef np.ndarray dC = xp.zeros((N, nO), dtype=C.dtype)
+    # We just need these as gradients for the initial states.
+    cdef np.ndarray dC0 = xp.zeros((depth, nO), dtype="f")
+    cdef np.ndarray dH0 = xp.zeros((depth, nO), dtype="f")
+    cdef np.ndarray d_params = xp.zeros((params.shape[0],), dtype=params.dtype)
+    # Collect the params and slices. It makes it a bit easier to get the indexing
+    # right, when we're iterating backwards.
+    params_i = 0
+    all_layer_params = []
+    for i in range(depth):
+        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+        all_layer_params.append((layer_params, params_i))
+    # Similarly, we want to compute all our indices first, and do the reversal.
+    offset = lengths[0]
+    indices = [slice(0, offset)]
+    seq_i = offset
+    for batch_size in lengths:
+        indices.append(slice(seq_i, seq_i + batch_size))
+        seq_i += batch_size
+    Xs = [X] + [Y[i, offset:] for i in range(1, depth)]
+    # Okay, now do the actual looping
+    for i in reversed(range(depth)):
+        for t in range(len(indices) - 1, 0, -1):
+            # Y and C are offset, but dY isn't
+            dAt3, dCt2 = backprop_lstm_gates(
+                dY[indices[t - 1]],
+                dC[indices[t]],
+                G[i, indices[t - 1]],
+                C[i, indices[t]],
+                C[i, indices[t - 1]],
+            )
+            dXt3, dYt2, d_params = backprop_lstm_weights(
+                dAt3,
+                d_params,
+                Xs[i][indices[t - 1]],
+                Y[i, indices[t]],
+                all_layer_params[i],
+            )
+            # Store the outputs
+            dC[indices[t - 1]] = dCt2
+            dX[indices[t - 1]] = dXt3
+            if t >= 2:
+                dY[indices[t - 2]] += dYt2
+        dH0[i] = dYt2.sum(axis=0)
+        dC0[i] = dCt2.sum(axis=0)
+        dY = dX
+    assert dX.shape[1] == X.shape[-1]
+    return dX, d_params, dH0, dC0
+
+
+def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
+    Wx_size = 4 * nO * nI
+    bx_size = 4 * nO
+    Wh_size = 4 * nO * nO
+    bh_size = 4 * nO
+    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
+    params_i += Wx_size
+    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
+    params_i += bx_size
+    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
+    params_i += Wh_size
+    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
+    params_i += bh_size
+    return ((Wx, bx), (Wh, bh)), params_i
+
+
+def lstm_weights_forward(params, np.ndarray Xt3, np.ndarray Yt2):
+    (Wx, bx), (Wh, bh) = params
+    At3 = Xt3 @ Wx.T
+    At3 += bx
+    At3 += Yt2 @ Wh.T
+    At3 += bh
+    return At3
+
+
+def backprop_lstm_weights(
+    np.ndarray dAt3,
+    np.ndarray d_params,
+    np.ndarray Xt3,
+    np.ndarray Yt2,
+    params
+):
+    ((Wx, bx), (Wh, bh)), i = params
+    db = dAt3.sum(axis=0)
+    size = db.shape[0]
+    i -= size
+    d_params[i : i + size] += db  # Grad of bh
+    size = dAt3.shape[1] * Yt2.shape[1]
+    i -= size
+    d_params[i : i + size] += (dAt3.T @ Yt2).ravel()  # Grad of Wh
+    size = db.shape[0]
+    i -= size
+    d_params[i : i + size] += db  # Grad of bx
+    size = dAt3.shape[1] * Xt3.shape[1]
+    i -= size
+    d_params[i : i + size] += (dAt3.T @ Xt3).ravel()  # Grad of Wx
+    dXt3 = dAt3 @ Wx
+    dYt2 = dAt3 @ Wh
+    return dXt3, dYt2, d_params
+
+
+def lstm_gates_forward(np.ndarray At3, np.ndarray Ct2): 
+    xp = numpy
+    cdef np.ndarray Yt3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
+    cdef np.ndarray Ct3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
+    cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data, <float*>At3.data,
+        <const float*>Ct2.data, At3.shape[0], Ct2.shape[1])
+    return Yt3, Ct3, At3
+
+
+def backprop_lstm_gates(
+    np.ndarray dYt3, np.ndarray dCt3, np.ndarray Gt3, np.ndarray Ct3, np.ndarray Ct2
+):
+    # See above for notation. Step numbering refers to forward_lstm_gates
+    xp = get_array_module(dYt3)
+    hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
+    assert hf.shape[0] == hi.shape[0] == ho.shape[0] == hc.shape[0]
+    assert hf.shape[0] == dYt3.shape[0] == dCt3.shape[0] == Ct3.shape[0] == Ct2.shape[0]
+    tanhCt3 = xp.tanh(Ct3)
+    # 3b: Yt3 = tanhCt3 * ho
+    d_ho = dYt3 * tanhCt3
+    d_tanhCt3 = dYt3 * ho
+    # 3a: tanhCt3 = tanh(Ct3)
+    dCt3 += d_tanhCt3 * dtanh_(tanhCt3)
+    # 2b: Ct3 += hi * hc
+    d_hi = dCt3 * hc
+    d_hc = dCt3 * hi
+    # 2a: Ct3 = hf * Ct2
+    d_hf = dCt3 * Ct2
+    dCt2 = dCt3 * hf
+    d_At3_hc = d_hc * dtanh_(hc)  # 1d
+    d_At3_ho = d_ho * dsigmoid_(ho)  # 1c
+    d_At3_hi = d_hi * dsigmoid_(hi)  # 1b
+    d_At3_hf = d_hf * dsigmoid_(hf)  # 1a
+    dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
+    return dAt3, dCt2
+
+
+
+def sigmoid_(X):
+    return 1.0 / (1.0 + numpy.exp(-X))
+
+
+def dsigmoid_(Y):
+    return Y * (1.0 - Y)
+
+
+def dtanh_(Y):
+    return 1 - Y ** 2
+
 cdef inline float sigmoid(float X) nogil:
     return 1./(1. + expf(-X))
 
@@ -632,32 +867,24 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* hiddens_cells, float* gates_and_acts,
+cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells, float* gates,
         const float* prevcells, int B, int N) nogil:
     cdef float hf, hi, ho, hc
     cdef int i, b
-    gates = gates_and_acts
-    acts = gates_and_acts
     for b in range(B):
+        for i in range(N*3):
+            gates[b*N*4+i] = sigmoid(gates[b*N*4+i])
         for i in range(N):
-            acts[i*4+0] = sigmoid(acts[i*4+0])
-            acts[i*4+1] = sigmoid(acts[i*4+1])
-            acts[i*4+2] = sigmoid(acts[i*4+2])
+            gates[b*N*4+3*N+i] = tanhf(gates[b*N*4 +3*N+i])
         for i in range(N):
-            hf = acts[i*4+0]
-            hi = acts[i*4+1]
-            ho = acts[i*4+2]
-            hc = tanhf(acts[i*4+3])
-            hiddens_cells[i*2] = tanhf(hiddens_cells[i*2]) * ho
-            hiddens_cells[i*2+1] = hf * prevcells[i] + hi * hc
-            gates[i*4+0] = hf
-            gates[i*4+1] = hi
-            gates[i*4+2] = ho
-            gates[i*4+3] = hc
-        hiddens_cells += N
-        gates += N*4
-        acts += N*4
-        prevcells += N
+            hf = gates[b*N*4+0*N+i]
+            hi = gates[b*N*4+1*N+i]
+            ho = gates[b*N*4+2*N+i]
+            hc = gates[b*N*4+3*N+i]
+            ct2 = prevcells[b*N+i]
+            ct3 = hf * ct2 + hi * hc
+            hiddens[b*N + i] = tanhf(ct3) * ho
+            cells[b*N + i] = ct3
 
 
 cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
