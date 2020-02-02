@@ -113,7 +113,7 @@ def init(
     size = model.get_param("LSTM").size
     expected = 4 * dirs * nO * (nO+nI) + dirs * (8 * nO)
     for _ in range(1, depth):
-        expected += 8 * dirs * nO * nO + dirs * (8 * nO)
+        expected += 4 * dirs * (nO+nO*dirs) * nO + dirs * (8 * nO)
     assert size == expected, (size, expected)
 
 
