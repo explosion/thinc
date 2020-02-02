@@ -690,14 +690,14 @@ def lstm_forward_training(
             Ct2 = Ct3[:batch_size]
             Gt3 = G[i, seq_i : seq_i + batch_size]
             # Now do the actual calculation
-            #Gt3 += Yt2 @ Wh.T
-            #Gt3 += bh
-            #Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
+            Gt3 += Yt2 @ Wh.T
+            Gt3 += bh
+            Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
             # Store the outputs
-            #Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
-            #C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
+            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
+            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
             # Numpy should be smart enough to see this is the same memory.
-            #G[i, seq_i : seq_i + batch_size] = Gt3
+            G[i, seq_i : seq_i + batch_size] = Gt3
             seq_i += batch_size
         X = Y[i, batch_size:]
     return Y[-1, offset:], (Y, G, C, orig_X)
@@ -780,14 +780,18 @@ def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
 def _transpose_weights(params):
     # Transpose the parameters so that the gates are the last dimension. This
     # makes it easier to fuse.
-    ascontig = numpy.ascontiguousarray
     (Wx, bx), (Wh, bh) = params
     Wx = Wx.reshape((4, -1, Wx.shape[-1]))
-    Wx = ascontig(Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1])))
-    bx = ascontig(bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,)))
+    Wx = Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1]))
+    bx = bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
     Wh = Wh.reshape((4, -1, Wh.shape[-1]))
-    Wh = ascontig(Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1])))
-    bh = ascontig(bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,)))
+    Wh = Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1]))
+    bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    ascontig = numpy.ascontiguousarray
+    Wx = ascontig(Wx)
+    bx = ascontig(bx)
+    Wh = ascontig(Wh)
+    bh = ascontig(bh)
     return (Wx, bx), (Wh, bh)
 
 
