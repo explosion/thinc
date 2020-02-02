@@ -689,7 +689,8 @@ def lstm_forward_training(
             layer_params = _transpose_weights(layer_params)
             _lstm_forward_training(i, d, G, Y, C, X, layer_params, lengths)
         H = Y[i, :, offset:].transpose((1, 0, 2)).reshape((N, -1))
-        H = xp.ascontiguousarray(H)
+        if dirs == 2:
+            H = xp.ascontiguousarray(H)
         X = H
     return H, (Y, G, C, orig_X)
 
