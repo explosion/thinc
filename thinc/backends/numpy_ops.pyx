@@ -13,6 +13,7 @@ from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
+cimport blis.cy
 
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
@@ -679,14 +680,30 @@ def lstm_forward_training(
     C[:, :, :offset, :] = c_init.reshape((depth, dirs, 1, nO))
     cdef int params_i = 0
     cdef int seq_i = 0
+    cdef np.ndarray Yt3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
+    cdef np.ndarray Ct3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
     orig_X = X
     cdef int i
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-            layer_params = _transpose_weights(layer_params)
-            _lstm_forward_training(i, d, G, Y, C, X, layer_params, lengths)
+            (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
+            _lstm_forward_training(
+                i,
+                d,
+                G,
+                Y,
+                C,
+                X,
+                Wx,
+                bx,
+                Wh,
+                bh,
+                lengths,
+                Yt3,
+                Ct3
+            )
         H = Y[i, :, offset:].transpose((1, 0, 2)).reshape((N, -1))
         if dirs == 2:
             H = xp.ascontiguousarray(H)
@@ -694,26 +711,38 @@ def lstm_forward_training(
     return H, (Y, G, C, orig_X)
 
 
-def _lstm_forward_training(
+cdef int _lstm_forward_training(
         int i,
         int d,
         np.ndarray G,
         np.ndarray Y,
         np.ndarray C,
         np.ndarray X,
-        params,
-        lengths
-):
-    (Wx, bx), (Wh, bh) = params
-    offset = lengths[0]
-    cdef np.ndarray Yt3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
-    cdef np.ndarray Ct3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
-    G[i, d] = X @ Wx.T
+        np.ndarray Wx,
+        np.ndarray bx,
+        np.ndarray Wh,
+        np.ndarray bh,
+        np.ndarray lengths,
+        np.ndarray Yt3,
+        np.ndarray Ct3
+) except -1:
+    cdef int offset = lengths[0]
+    cdef double one = 1.0
+    cdef np.ndarray Gid = G[i, d]
+    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
+        X.shape[0], Wx.shape[0], Wx.shape[1],
+        one,
+        <float*>X.data, X.shape[1], 1,
+        <float*>Wx.data, Wx.shape[1], 1,
+        one,
+        <float*>Gid.data, Gid.shape[1], 1
+    )
     G[i, d] += bx
     Yt3[:] = Y[i, d, :offset, :]
     Ct3[:] = C[i, d, :offset, :]
-    seq_i = 0
+    cdef int seq_i = 0
     cdef np.ndarray Gt3, Yt2, Ct2
+    cdef int t, batch_size
     for t, batch_size in enumerate(lengths):
         # Prepare the inputs
         Xt3 = X[seq_i : seq_i + batch_size]
@@ -721,7 +750,14 @@ def _lstm_forward_training(
         Ct2 = Ct3[:batch_size]
         Gt3 = G[i, d, seq_i : seq_i + batch_size]
         # Now do the actual calculation
-        Gt3 += Yt2 @ Wh.T
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
+            Yt2.shape[0], Wh.shape[0], Wh.shape[1],
+            one,
+            <float*>Yt2.data, Wh.shape[1], 1,
+            <float*>Wh.data, Wh.shape[1], 1,
+            one,
+            <float*>Gt3.data, Gt3.shape[1], 1
+        )
         Gt3 += bh
         cpu_lstm_activate_fwd(<float*>Gt3.data,
             Gt3.shape[0], Ct2.shape[1])
