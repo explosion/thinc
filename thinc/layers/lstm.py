@@ -86,18 +86,19 @@ def init(
     # Convenience
     init_W = partial(init_W, model.ops)
     init_b = partial(init_b, model.ops)
+    layer_nI = nI
     for i in range(depth):
         for j in range(dirs):
             # Input-to-gates weights and biases.
-            params.append(init_W((nO, nI if i == 0 else nO)))
-            params.append(init_W((nO, nI if i == 0 else nO)))
-            params.append(init_W((nO, nI if i == 0 else nO)))
-            params.append(init_W((nO, nI if i == 0 else nO)))
+            params.append(init_W((nO, layer_nI)))
+            params.append(init_W((nO, layer_nI)))
+            params.append(init_W((nO, layer_nI)))
+            params.append(init_W((nO, layer_nI)))
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
-            # Hidden-to-gates weights.
+            # Hidden-to-gates weights and biases
             params.append(init_W((nO, nO)))
             params.append(init_W((nO, nO)))
             params.append(init_W((nO, nO)))
@@ -106,8 +107,14 @@ def init(
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
+        layer_nI = nO * dirs
     model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
     model.set_param("HC0", zero_init(model.ops, (2, depth, dirs, nO)))
+    size = model.get_param("LSTM").size
+    expected = 4 * dirs * nO * (nO+nI) + dirs * (8 * nO)
+    for _ in range(1, depth):
+        expected += 8 * dirs * nO * nO + dirs * (8 * nO)
+    assert size == expected, (size, expected)
 
 
 def forward(

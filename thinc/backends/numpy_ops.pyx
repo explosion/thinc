@@ -682,6 +682,7 @@ def lstm_forward_training(
     orig_X = X
     cdef int i
     for i in range(depth):
+        nI = X.shape[1]
         for d in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             layer_params = _transpose_weights(layer_params)
