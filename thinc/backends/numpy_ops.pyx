@@ -678,6 +678,7 @@ def lstm_forward_training(
     cdef int i
     for i in range(depth):
         layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+        layer_params = _transpose_weights(layer_params)
         Yt3 = Y[i, :batch_size, :]
         Ct3 = C[i, :batch_size, :]
         for t, batch_size in enumerate(lengths):
@@ -771,6 +772,20 @@ def _split_weights(np.ndarray params, int i, int nO, int nI, int params_i):
     return ((Wx, bx), (Wh, bh)), params_i
 
 
+def _transpose_weights(params):
+    # Transpose the parameters so that the gates are the last dimension. This
+    # makes it easier to fuse.
+    ascontig = numpy.ascontiguousarray
+    (Wx, bx), (Wh, bh) = params
+    Wx = Wx.reshape((4, -1, Wx.shape[-1]))
+    Wx = ascontig(Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1])))
+    bx = ascontig(bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,)))
+    Wh = Wh.reshape((4, -1, Wh.shape[-1]))
+    Wh = ascontig(Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1])))
+    bh = ascontig(bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,)))
+    return (Wx, bx), (Wh, bh)
+
+
 def lstm_weights_forward(params, np.ndarray Xt3, np.ndarray Yt2):
     (Wx, bx), (Wh, bh) = params
     At3 = Xt3 @ Wx.T
@@ -810,8 +825,9 @@ def lstm_gates_forward(np.ndarray At3, np.ndarray Ct2):
     xp = numpy
     cdef np.ndarray Yt3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
     cdef np.ndarray Ct3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
-    cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data, <float*>At3.data,
-        <const float*>Ct2.data, At3.shape[0], Ct2.shape[1])
+    cpu_lstm_activate_fwd(<float*>At3.data, At3.shape[0], Ct2.shape[1])
+    cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data,
+        <const float*>At3.data, <const float*>Ct2.data, At3.shape[0], Ct2.shape[1])
     return Yt3, Ct3, At3
 
 
@@ -867,24 +883,66 @@ cdef inline float dtanh(float y) nogil:
     return 1-y**2
 
 
-cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells, float* gates,
-        const float* prevcells, int B, int N) nogil:
+cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
+    """Apply sigmoid activation in-place to columns 0, 1, 2 and tanh to column 3.
+    The data is assumed to have the gates in the last dimension.
+    """
+    # This just does the following, but unrolled slightly to give 
+    # a better chance at simd.
+    #
+    # gates[g+i+0] = sigmoid(gates[g+i+0])
+    # gates[g+i+1] = sigmoid(gates[g+i+1])
+    # gates[g+i+2] = sigmoid(gates[g+i+2])
+    # gates[g+i+3] = tanh(gates[g+i+3])
+    #
+    # I would've hoped the compiler would find this itself? It seems to make
+    # it like, 10% faster. It feels like a dumb thing to do but it's not much
+    # code. The problem with this sort of thing is it needs to be rebenchmarked
+    # later...It's fine to revert this at a later date to the simpler loop.
+    # Shrug.
     cdef float hf, hi, ho, hc
-    cdef int i, b
+    cdef int i, b, g
     for b in range(B):
-        for i in range(N*3):
-            gates[b*N*4+i] = sigmoid(gates[b*N*4+i])
+        g = b * N * 4
+        i = 0
+        while i < N * 4:
+            gates[g+i+0] = expf(-gates[g+i+0])
+            gates[g+i+1] = expf(-gates[g+i+1])
+            gates[g+i+2] = expf(-gates[g+i+2])
+            i += 4
+        i = 0
+        while i < N * 4:
+            gates[g+i+0] += 1
+            gates[g+i+1] += 1
+            gates[g+i+2] += 1
+            gates[g+i+0] = 1.0 / gates[g+i+0]
+            gates[g+i+1] = 1.0 / gates[g+i+1]
+            gates[g+i+2] = 1.0 / gates[g+i+2]
+            gates[g+i+3] = tanhf(gates[g+i+3])
+            i += 4
+
+ 
+cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
+        const float* gates, const float* prevcells, int B, int N) nogil:
+    cdef float hf, hi, ho, hc, ct2, ct3
+    cdef int i, b, g, c, h
+    g = 0
+    c = 0
+    h = 0
+    for b in range(B):
         for i in range(N):
-            gates[b*N*4+3*N+i] = tanhf(gates[b*N*4 +3*N+i])
-        for i in range(N):
-            hf = gates[b*N*4+0*N+i]
-            hi = gates[b*N*4+1*N+i]
-            ho = gates[b*N*4+2*N+i]
-            hc = gates[b*N*4+3*N+i]
-            ct2 = prevcells[b*N+i]
+            hf = gates[g+0]
+            hi = gates[g+1]
+            ho = gates[g+2]
+            hc = gates[g+3]
+            ct2 = prevcells[c]
+
             ct3 = hf * ct2 + hi * hc
-            hiddens[b*N + i] = tanhf(ct3) * ho
-            cells[b*N + i] = ct3
+            hiddens[h] = tanhf(ct3) * ho
+            cells[c] = ct3
+            g += 4
+            c += 1
+            h += 1
 
 
 cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
