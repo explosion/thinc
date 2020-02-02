@@ -694,14 +694,26 @@ def lstm_forward_training(
     return H, (Y, G, C, orig_X)
 
 
-def _lstm_forward_training(int i, int d, G, Y, C, X, params, lengths):
+def _lstm_forward_training(
+        int i,
+        int d,
+        np.ndarray G,
+        np.ndarray Y,
+        np.ndarray C,
+        np.ndarray X,
+        params,
+        lengths
+):
     (Wx, bx), (Wh, bh) = params
     offset = lengths[0]
+    cdef np.ndarray Yt3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
+    cdef np.ndarray Ct3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
     G[i, d] = X @ Wx.T
     G[i, d] += bx
-    Yt3 = Y[i, d, :offset, :]
-    Ct3 = C[i, d, :offset, :]
+    Yt3[:] = Y[i, d, :offset, :]
+    Ct3[:] = C[i, d, :offset, :]
     seq_i = 0
+    cdef np.ndarray Gt3, Yt2, Ct2
     for t, batch_size in enumerate(lengths):
         # Prepare the inputs
         Xt3 = X[seq_i : seq_i + batch_size]
@@ -711,10 +723,14 @@ def _lstm_forward_training(int i, int d, G, Y, C, X, params, lengths):
         # Now do the actual calculation
         Gt3 += Yt2 @ Wh.T
         Gt3 += bh
-        Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
+        cpu_lstm_activate_fwd(<float*>Gt3.data,
+            Gt3.shape[0], Ct2.shape[1])
+        cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data,
+            <const float*>Gt3.data, <const float*>Ct2.data,
+            Gt3.shape[0], Ct2.shape[1])
         # Store the outputs
-        Y[i, d, seq_i + offset : seq_i + offset + batch_size] = Yt3
-        C[i, d, seq_i + offset : seq_i + offset + batch_size] = Ct3
+        Y[i, d, seq_i + offset : seq_i + offset + batch_size] = Yt3[:batch_size]
+        C[i, d, seq_i + offset : seq_i + offset + batch_size] = Ct3[:batch_size]
         # Numpy should be smart enough to see this is the same memory.
         G[i, d, seq_i : seq_i + batch_size] = Gt3
         seq_i += batch_size
@@ -845,16 +861,6 @@ def backprop_lstm_weights(
     dXt3 = dAt3 @ Wx
     dYt2 = dAt3 @ Wh
     return dXt3, dYt2, d_params
-
-
-def lstm_gates_forward(np.ndarray At3, np.ndarray Ct2): 
-    xp = numpy
-    cdef np.ndarray Yt3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
-    cdef np.ndarray Ct3 = numpy.zeros((At3.shape[0], Ct2.shape[1]), dtype="f")
-    cpu_lstm_activate_fwd(<float*>At3.data, At3.shape[0], Ct2.shape[1])
-    cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data,
-        <const float*>At3.data, <const float*>Ct2.data, At3.shape[0], Ct2.shape[1])
-    return Yt3, Ct3, At3
 
 
 def backprop_lstm_gates(
