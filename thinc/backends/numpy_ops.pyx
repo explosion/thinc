@@ -690,14 +690,14 @@ def lstm_forward_training(
             Ct2 = Ct3[:batch_size]
             Gt3 = G[i, seq_i : seq_i + batch_size]
             # Now do the actual calculation
-            Gt3 += Yt2 @ Wh.T
-            Gt3 += bh
-            Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
+            #Gt3 += Yt2 @ Wh.T
+            #Gt3 += bh
+            #Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
             # Store the outputs
-            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
-            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
+            #Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
+            #C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
             # Numpy should be smart enough to see this is the same memory.
-            G[i, seq_i : seq_i + batch_size] = Gt3
+            #G[i, seq_i : seq_i + batch_size] = Gt3
             seq_i += batch_size
         X = Y[i, batch_size:]
     return Y[-1, offset:], (Y, G, C, orig_X)
