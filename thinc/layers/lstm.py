@@ -4,7 +4,7 @@ from functools import partial
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Floats1d, Floats2d, Floats3d, Padded, Ragged
+from ..types import Floats1d, Floats2d, Floats3d, Floats4d, Padded, Ragged
 from .clone import clone
 from .noop import noop
 from ..initializers import glorot_uniform_init, zero_init
@@ -107,15 +107,16 @@ def init(
             params.append(init_b((nO,)))
             params.append(init_b((nO,)))
     model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
-    model.set_param("HC0", zero_init(model.ops, (2, depth, nO)))
+    model.set_param("HC0", zero_init(model.ops, (2, depth, dirs, nO)))
 
 
 def forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
+    dirs = model.get_dim("dirs")
     Xr = _padded_to_packed(model.ops, Xp)
     LSTM = cast(Floats1d, model.get_param("LSTM"))
-    HC0 = cast(Floats3d, model.get_param("HC0"))
+    HC0 = cast(Floats4d, model.get_param("HC0"))
     H0 = HC0[0]
     C0 = HC0[1]
     if is_train:

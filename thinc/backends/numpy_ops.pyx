@@ -110,13 +110,12 @@ class NumpyOps(Ops):
         np.ndarray X,
         np.ndarray size_at_t,
         *,
-        bi=False,
         dropout=0.0,
     ):
         assert H0.shape[0] == C0.shape[0]
         assert H0.shape[1] == C0.shape[1]
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t,
-            bi=bi, dropout=dropout)
+            dropout=dropout)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -127,10 +126,9 @@ class NumpyOps(Ops):
         np.ndarray X,
         np.ndarray size_at_t,
         *,
-        bi=False, dropout=0.0
+        dropout=0.0
     ):
-        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t,
-            bi=bi, dropout=dropout)
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t, dropout=dropout)
         return Y
 
     def backprop_lstm(
@@ -659,15 +657,15 @@ cdef void cpu_backprop_reduce_max(float* dX__to,
 
 def lstm_forward_training(
     np.ndarray params, np.ndarray c_init, np.ndarray h_init,
-    np.ndarray X, np.ndarray lengths, *, bi, dropout
+    np.ndarray X, np.ndarray lengths, *, dropout
 ):
     xp = numpy
     # TODO: bidirectional
     depth = c_init.shape[0]
-    nO = c_init.shape[1]
+    dirs = c_init.shape[1]
+    nO = c_init.shape[2]
     nI = X.shape[1]
     N = X.shape[0]
-    dirs = 1 if not bi else 2
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
     cdef np.ndarray G = xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f")
@@ -675,7 +673,7 @@ def lstm_forward_training(
     offset = batch_size
     cdef np.ndarray Y = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
     cdef np.ndarray C = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
-    # The inits are shaped (dirs, n_layers, nO). We add the internal dimension to make
+    # The inits are shaped (depth, dirs, nO). We add the internal dimension to make
     # them set correctly.
     Y[:, :, :offset, :] = h_init.reshape((depth, dirs, 1, nO))
     C[:, :, :offset, :] = c_init.reshape((depth, dirs, 1, nO))
