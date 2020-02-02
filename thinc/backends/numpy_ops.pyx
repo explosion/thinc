@@ -899,27 +899,34 @@ cdef void cpu_lstm_activate_fwd(float* gates, int B, int N) nogil:
     # it like, 10% faster. It feels like a dumb thing to do but it's not much
     # code. The problem with this sort of thing is it needs to be rebenchmarked
     # later...It's fine to revert this at a later date to the simpler loop.
-    # Shrug.
-    cdef float hf, hi, ho, hc
+    # Shrug. The weird thing is, why should the batch entries be a good loop
+    # stride here? Surely something to do with cache lines would make more sense?
     cdef int i, b, g
+    g = 0
     for b in range(B):
         g = b * N * 4
-        i = 0
-        while i < N * 4:
-            gates[g+i+0] = expf(-gates[g+i+0])
-            gates[g+i+1] = expf(-gates[g+i+1])
-            gates[g+i+2] = expf(-gates[g+i+2])
-            i += 4
-        i = 0
-        while i < N * 4:
-            gates[g+i+0] += 1
-            gates[g+i+1] += 1
-            gates[g+i+2] += 1
-            gates[g+i+0] = 1.0 / gates[g+i+0]
-            gates[g+i+1] = 1.0 / gates[g+i+1]
-            gates[g+i+2] = 1.0 / gates[g+i+2]
-            gates[g+i+3] = tanhf(gates[g+i+3])
-            i += 4
+        end = g + N*4
+        while g < end:
+            gates[g+0] = expf(-gates[g+0])
+            gates[g+1] = expf(-gates[g+1])
+            gates[g+2] = expf(-gates[g+2])
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+0] += 1
+            gates[g+1] += 1
+            gates[g+2] += 1
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+0] = 1.0 / gates[g+0]
+            gates[g+1] = 1.0 / gates[g+1]
+            gates[g+2] = 1.0 / gates[g+2]
+            g += 4
+        g = b * N * 4
+        while g < end:
+            gates[g+3] = tanhf(gates[g+3])
+            g += 4
 
  
 cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
@@ -929,20 +936,19 @@ cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
     g = 0
     c = 0
     h = 0
-    for b in range(B):
-        for i in range(N):
-            hf = gates[g+0]
-            hi = gates[g+1]
-            ho = gates[g+2]
-            hc = gates[g+3]
-            ct2 = prevcells[c]
+    while g < B*N*4:
+        hf = gates[g+0]
+        hi = gates[g+1]
+        ho = gates[g+2]
+        hc = gates[g+3]
+        ct2 = prevcells[c]
 
-            ct3 = hf * ct2 + hi * hc
-            hiddens[h] = tanhf(ct3) * ho
-            cells[c] = ct3
-            g += 4
-            c += 1
-            h += 1
+        ct3 = hf * ct2 + hi * hc
+        hiddens[h] = tanhf(ct3) * ho
+        cells[c] = ct3
+        g += 4
+        c += 1
+        h += 1
 
 
 cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
