@@ -110,11 +110,13 @@ class NumpyOps(Ops):
         np.ndarray X,
         np.ndarray size_at_t,
         *,
+        bi=False,
         dropout=0.0,
     ):
         assert H0.shape[0] == C0.shape[0]
         assert H0.shape[1] == C0.shape[1]
-        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t,
+            bi=bi, dropout=dropout)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -124,8 +126,11 @@ class NumpyOps(Ops):
         np.ndarray C0,
         np.ndarray X,
         np.ndarray size_at_t,
+        *,
+        bi=False, dropout=0.0
     ):
-        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t,
+            bi=bi, dropout=dropout)
         return Y
 
     def backprop_lstm(
@@ -654,13 +659,14 @@ cdef void cpu_backprop_reduce_max(float* dX__to,
 
 def lstm_forward_training(
     np.ndarray params, np.ndarray c_init, np.ndarray h_init,
-    np.ndarray X, np.ndarray lengths
+    np.ndarray X, np.ndarray lengths, *, bi, dropout
 ):
     xp = numpy
     # TODO: bidirectional
     depth = c_init.shape[0]
     nO = c_init.shape[1]
     nI = X.shape[1]
+    dirs = 1 if not bi else 2
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
     cdef np.ndarray G = xp.zeros((depth, X.shape[0], nO * 4), dtype="f")
@@ -677,29 +683,30 @@ def lstm_forward_training(
     orig_X = X
     cdef int i
     for i in range(depth):
-        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-        (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
-        G[i] = X @ Wx.T
-        G[i] += bx
-        Yt3 = Y[i, :batch_size, :]
-        Ct3 = C[i, :batch_size, :]
-        for t, batch_size in enumerate(lengths):
-            # Prepare the inputs
-            Xt3 = X[seq_i : seq_i + batch_size]
-            Yt2 = Yt3[:batch_size]
-            Ct2 = Ct3[:batch_size]
-            Gt3 = G[i, seq_i : seq_i + batch_size]
-            # Now do the actual calculation
-            Gt3 += Yt2 @ Wh.T
-            Gt3 += bh
-            Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
-            # Store the outputs
-            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
-            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
-            # Numpy should be smart enough to see this is the same memory.
-            G[i, seq_i : seq_i + batch_size] = Gt3
-            seq_i += batch_size
-        X = Y[i, batch_size:]
+        for direction in range(dirs):
+            layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
+            G[i] = X @ Wx.T
+            G[i] += bx
+            Yt3 = Y[i, :batch_size, :]
+            Ct3 = C[i, :batch_size, :]
+            for t, batch_size in enumerate(lengths):
+                # Prepare the inputs
+                Xt3 = X[seq_i : seq_i + batch_size]
+                Yt2 = Yt3[:batch_size]
+                Ct2 = Ct3[:batch_size]
+                Gt3 = G[i, seq_i : seq_i + batch_size]
+                # Now do the actual calculation
+                Gt3 += Yt2 @ Wh.T
+                Gt3 += bh
+                Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
+                # Store the outputs
+                Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
+                C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
+                # Numpy should be smart enough to see this is the same memory.
+                G[i, seq_i : seq_i + batch_size] = Gt3
+                seq_i += batch_size
+            X = Y[i, batch_size:]
     return Y[-1, offset:], (Y, G, C, orig_X)
 
 
