@@ -688,8 +688,9 @@ def lstm_forward_training(
             (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
             G[i] = X @ Wx.T
             G[i] += bx
-            Yt3 = Y[i, :batch_size, :]
-            Ct3 = C[i, :batch_size, :]
+            Yt3 = Y[i, :offset, :]
+            Ct3 = C[i, :offset, :]
+            seq_i = 0
             for t, batch_size in enumerate(lengths):
                 # Prepare the inputs
                 Xt3 = X[seq_i : seq_i + batch_size]
@@ -697,7 +698,11 @@ def lstm_forward_training(
                 Ct2 = Ct3[:batch_size]
                 Gt3 = G[i, seq_i : seq_i + batch_size]
                 # Now do the actual calculation
-                Gt3 += Yt2 @ Wh.T
+                try:
+                    Gt3 += Yt2 @ Wh.T
+                except:
+                    print("depth", i, "Gt3", Gt3.shape, "Yt2", Yt2.shape, "Wh", Wh.shape)
+                    raise
                 Gt3 += bh
                 Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
                 # Store the outputs
@@ -706,7 +711,7 @@ def lstm_forward_training(
                 # Numpy should be smart enough to see this is the same memory.
                 G[i, seq_i : seq_i + batch_size] = Gt3
                 seq_i += batch_size
-            X = Y[i, batch_size:]
+            X = Y[i, offset:]
     return Y[-1, offset:], (Y, G, C, orig_X)
 
 
