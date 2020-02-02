@@ -666,53 +666,58 @@ def lstm_forward_training(
     depth = c_init.shape[0]
     nO = c_init.shape[1]
     nI = X.shape[1]
+    N = X.shape[0]
     dirs = 1 if not bi else 2
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
-    cdef np.ndarray G = xp.zeros((depth, X.shape[0], nO * 4), dtype="f")
+    cdef np.ndarray G = xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f")
     # The Y and C are shifted by 1 step
     offset = batch_size
-    cdef np.ndarray Y = xp.zeros((depth, X.shape[0] + offset, nO), dtype="f")
-    cdef np.ndarray C = xp.zeros((depth, X.shape[0] + offset, nO), dtype="f")
-    # The inits are shaped (n_layers, nO). We add the internal dimension to make
+    cdef np.ndarray Y = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
+    cdef np.ndarray C = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
+    # The inits are shaped (dirs, n_layers, nO). We add the internal dimension to make
     # them set correctly.
-    Y[:, :offset, :] = h_init.reshape((depth, 1, nO))
-    C[:, :offset, :] = c_init.reshape((depth, 1, nO))
+    Y[:, :, :offset, :] = h_init.reshape((depth, dirs, 1, nO))
+    C[:, :, :offset, :] = c_init.reshape((depth, dirs, 1, nO))
     cdef int params_i = 0
     cdef int seq_i = 0
     orig_X = X
     cdef int i
     for i in range(depth):
-        for direction in range(dirs):
+        for d in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-            (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
-            G[i] = X @ Wx.T
-            G[i] += bx
-            Yt3 = Y[i, :offset, :]
-            Ct3 = C[i, :offset, :]
-            seq_i = 0
-            for t, batch_size in enumerate(lengths):
-                # Prepare the inputs
-                Xt3 = X[seq_i : seq_i + batch_size]
-                Yt2 = Yt3[:batch_size]
-                Ct2 = Ct3[:batch_size]
-                Gt3 = G[i, seq_i : seq_i + batch_size]
-                # Now do the actual calculation
-                try:
-                    Gt3 += Yt2 @ Wh.T
-                except:
-                    print("depth", i, "Gt3", Gt3.shape, "Yt2", Yt2.shape, "Wh", Wh.shape)
-                    raise
-                Gt3 += bh
-                Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
-                # Store the outputs
-                Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
-                C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
-                # Numpy should be smart enough to see this is the same memory.
-                G[i, seq_i : seq_i + batch_size] = Gt3
-                seq_i += batch_size
-            X = Y[i, offset:]
-    return Y[-1, offset:], (Y, G, C, orig_X)
+            layer_params = _transpose_weights(layer_params)
+            _lstm_forward_training(i, d, G, Y, C, X, layer_params, lengths)
+        H = Y[i, :, offset:].transpose((1, 0, 2)).reshape((N, -1))
+        H = xp.ascontiguousarray(H)
+        X = H
+    return H, (Y, G, C, orig_X)
+
+
+def _lstm_forward_training(int i, int d, G, Y, C, X, params, lengths):
+    (Wx, bx), (Wh, bh) = params
+    offset = lengths[0]
+    G[i, d] = X @ Wx.T
+    G[i, d] += bx
+    Yt3 = Y[i, d, :offset, :]
+    Ct3 = C[i, d, :offset, :]
+    seq_i = 0
+    for t, batch_size in enumerate(lengths):
+        # Prepare the inputs
+        Xt3 = X[seq_i : seq_i + batch_size]
+        Yt2 = Yt3[:batch_size]
+        Ct2 = Ct3[:batch_size]
+        Gt3 = G[i, d, seq_i : seq_i + batch_size]
+        # Now do the actual calculation
+        Gt3 += Yt2 @ Wh.T
+        Gt3 += bh
+        Yt3, Ct3, Gt3 = lstm_gates_forward(Gt3, Ct2)
+        # Store the outputs
+        Y[i, d, seq_i + offset : seq_i + offset + batch_size] = Yt3
+        C[i, d, seq_i + offset : seq_i + offset + batch_size] = Ct3
+        # Numpy should be smart enough to see this is the same memory.
+        G[i, d, seq_i : seq_i + batch_size] = Gt3
+        seq_i += batch_size
 
 
 def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
