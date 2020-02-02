@@ -680,29 +680,29 @@ def lstm_forward_training(
     C[:, :, :offset, :] = c_init.reshape((depth, dirs, 1, nO))
     cdef int params_i = 0
     cdef int seq_i = 0
-    cdef np.ndarray Yt3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
-    cdef np.ndarray Ct3 = numpy.zeros((offset, Y.shape[3]), dtype="f")
     orig_X = X
     cdef int i
+    cdef np.ndarray Yid
+    cdef np.ndarray Cid
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
+            Yid = Y[i, d]
+            Cid = C[i, d]
             _lstm_forward_training(
                 i,
                 d,
                 G,
-                Y,
-                C,
+                <float*>Yid.data,
+                <float*>Cid.data,
                 X,
                 Wx,
                 bx,
                 Wh,
                 bh,
-                lengths,
-                Yt3,
-                Ct3
+                lengths
             )
         H = Y[i, :, offset:].transpose((1, 0, 2)).reshape((N, -1))
         if dirs == 2:
@@ -715,17 +715,16 @@ cdef int _lstm_forward_training(
         int i,
         int d,
         np.ndarray G,
-        np.ndarray Y,
-        np.ndarray C,
+        float* Y,
+        float* C,
         np.ndarray X,
         np.ndarray Wx,
         np.ndarray bx,
         np.ndarray Wh,
         np.ndarray bh,
         np.ndarray lengths,
-        np.ndarray Yt3,
-        np.ndarray Ct3
 ) except -1:
+    cdef int nO = Wh.shape[1]
     cdef int offset = lengths[0]
     cdef double one = 1.0
     cdef np.ndarray Gid = G[i, d]
@@ -738,38 +737,37 @@ cdef int _lstm_forward_training(
         <float*>Gid.data, Gid.shape[1], 1
     )
     G[i, d] += bx
-    Yt3[:] = Y[i, d, :offset, :]
-    Ct3[:] = C[i, d, :offset, :]
+    Yt2 = Y
+    Ct2 = C
     cdef int seq_i = 0
-    cdef np.ndarray Gt3, Yt2, Ct2
+    #cdef np.ndarray Gt3
     cdef int t, batch_size
+    #cdef np.ndarray Gid = G[i, d]
+    cdef float* Gptr = <float*>Gid.data
     for t, batch_size in enumerate(lengths):
         # Prepare the inputs
-        Xt3 = X[seq_i : seq_i + batch_size]
-        Yt2 = Yt3[:batch_size]
-        Ct2 = Ct3[:batch_size]
-        Gt3 = G[i, d, seq_i : seq_i + batch_size]
+        Yt3 = &Y[(seq_i+offset)*nO]
+        Ct3 = &C[(seq_i+offset)*nO]
+        Gt3 = &Gptr[seq_i*nO*4]
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-            Yt2.shape[0], Wh.shape[0], Wh.shape[1],
+            batch_size, Wh.shape[0], Wh.shape[1],
             one,
-            <float*>Yt2.data, Wh.shape[1], 1,
+            Yt2, Wh.shape[1], 1,
             <float*>Wh.data, Wh.shape[1], 1,
             one,
-            <float*>Gt3.data, Gt3.shape[1], 1
+            Gt3, nO*4, 1
         )
-        Gt3 += bh
-        cpu_lstm_activate_fwd(<float*>Gt3.data,
-            Gt3.shape[0], Ct2.shape[1])
-        cpu_lstm_gates_fwd(<float*>Yt3.data, <float*>Ct3.data,
-            <const float*>Gt3.data, <const float*>Ct2.data,
-            Gt3.shape[0], Ct2.shape[1])
-        # Store the outputs
-        Y[i, d, seq_i + offset : seq_i + offset + batch_size] = Yt3[:batch_size]
-        C[i, d, seq_i + offset : seq_i + offset + batch_size] = Ct3[:batch_size]
+        G[i, d, seq_i:seq_i+batch_size] += bh
+        cpu_lstm_activate_fwd(Gt3,
+            batch_size, nO)
+        cpu_lstm_gates_fwd(Yt3, Ct3,
+            Gt3, Ct2, batch_size, nO)
         # Numpy should be smart enough to see this is the same memory.
-        G[i, d, seq_i : seq_i + batch_size] = Gt3
+        #G[i, d, seq_i : seq_i + batch_size] = Gt3
         seq_i += batch_size
+        Yt2 = Yt3
+        Ct2 = Ct3
 
 
 def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):

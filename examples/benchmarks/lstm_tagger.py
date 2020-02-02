@@ -44,12 +44,14 @@ column = 0
 
 [model.encode]
 @layers = "LSTM.v1"
-nO = ${common:width}
+nO = 150
+#nO = ${common:width}
 nI = ${common:width}
-depth = 1
+depth = 2
+bi = true
 
 [model.predict]
-@layers = "Softmax.v1"
+@layers = "Linear.v1"
 nO = ${data:n_tags}
 """
 
