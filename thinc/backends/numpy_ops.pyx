@@ -681,6 +681,7 @@ def lstm_forward_training(
     cdef int i
     cdef np.ndarray Yid
     cdef np.ndarray Cid
+    cdef np.ndarray Gid
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
@@ -692,10 +693,10 @@ def lstm_forward_training(
             (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
             Yid = Y[i, d]
             Cid = C[i, d]
+            Gid = G[i, d]
             _lstm_forward_training(
-                i,
                 d,
-                G,
+                Gid,
                 <float*>Yid.data,
                 <float*>Cid.data,
                 X,
@@ -715,7 +716,6 @@ def lstm_forward_training(
 
 
 cdef int _lstm_forward_training(
-        int i,
         int d,
         np.ndarray G,
         float* Y,
@@ -731,22 +731,19 @@ cdef int _lstm_forward_training(
 ) except -1:
     cdef int N = X.shape[0]
     cdef int nO = Wh.shape[1]
-    cdef int full_batch_size = lengths[0]
     cdef double one = 1.0
-    cdef np.ndarray Gid = G[i, d]
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
         X.shape[0], Wx.shape[0], Wx.shape[1],
         one,
         <float*>X.data, X.shape[1], 1,
         <float*>Wx.data, Wx.shape[1], 1,
         one,
-        <float*>Gid.data, Gid.shape[1], 1
+        <float*>G.data, G.shape[1], 1
     )
-
-    G[i, d] += bx
+    G += bx
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
-    cdef float* Gptr = <float*>Gid.data
+    cdef float* Gptr = <float*>G.data
     for t in range(lengths.shape[0]):
         if d == 0:
             batch_size = lengths[t]
@@ -770,7 +767,7 @@ cdef int _lstm_forward_training(
         # it does cache prefetching or something?
         # It's annoying though --- it means I can't really refactor further,
         # because speed goes down if I remove this.
-        G[i, d, seq_i:seq_i+batch_size] += bh
+        G[seq_i:seq_i+batch_size] += bh
         cpu_lstm_activate_fwd(Gt3,
             batch_size, nO)
         cpu_lstm_gates_fwd(Yt3, Ct3,
