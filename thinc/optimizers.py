@@ -50,7 +50,7 @@ def RAdam(
         grad_clip=grad_clip,
         L2_is_weight_decay=True,
         L2=weight_decay,
-        use_averages=True,
+        use_averages=use_averages,
         use_radam=True,
         ops=ops,
     )
@@ -77,7 +77,7 @@ def Adam(
         eps=eps,
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
-        use_averages=True,
+        use_averages=use_averages,
         use_radam=False,
         ops=ops,
     )
@@ -100,6 +100,7 @@ def SGD(
         L2_is_weight_decay=L2_is_weight_decay,
         beta1=0.0,
         beta2=0.0,
+        use_averages=use_averages,
         ops=ops,
     )
 
