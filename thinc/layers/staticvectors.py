@@ -46,31 +46,33 @@ def StaticVectors(
 def forward(
     model: Model[InT, OutT], ids: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
-    vectors = cast(Floats2d, model.attrs["vectors"].data)
-    nO = vectors.shape[1]
+    # Assume the original 'vectors' object has a 'data' attribute that is compatible with Floats2d
+    vector_table = cast(Floats2d, model.attrs["vectors"].wrapped_object.data)
+    nO = vector_table.shape[1]
     nN = ids.shape[0]
     dropout: Optional[float] = model.attrs.get("dropout_rate")
-    output = vectors[ids]
+    output = vector_table[ids]
     drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
     output *= drop_mask
     W = cast(Floats2d, model.get_param("W"))
-    vec = vectors[ids * (ids < vectors.shape[0])]
+    vec = vector_table[ids * (ids < vector_table.shape[0])]
     vec = model.ops.as_contig(vec)
     assert vec.shape[0] == ids.shape[0]
 
     def backprop(d_output: OutT) -> Ints1d:
-        model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
+        model.inc_grad("W", model.ops.gemm(d_output, vector_table, trans1=True))
         dX = model.ops.alloc1i(nN)
         return dX
 
-    output = model.ops.gemm(vectors, W, trans2=True)
+    output = model.ops.gemm(vector_table, W, trans2=True)
     return output, backprop
 
 
 def init(
     model: Model[InT, OutT], X: Optional[Ints1d] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
-    vector_table = model.attrs["vectors"].data
+    # Assume the original 'vectors' object has a 'data' attribute that contains the actual vectors
+    vector_table = model.attrs["vectors"].wrapped_object.data
     if vector_table is None:
         raise ValueError("Can't initialize: vectors attribute unset")
     model.set_dim("nV", vector_table.shape[0] + 1)
