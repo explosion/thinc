@@ -700,13 +700,13 @@ def lstm_forward_training(
             Gid = G[i, d]
             _lstm_forward_training(
                 d, N, nO, nI, nT, 
-                <float*>Gid.data,
+                Gid,
                 <float*>Yid.data,
                 <float*>Cid.data,
                 <float*>X.data,
                 <float*>Wx.data,
                 <float*>Wh.data,
-                <float*>bias.data,
+                bias,
                 <int*>lengths.data,
                 <float*>Yt2.data,
                 <float*>Ct2.data
@@ -720,17 +720,17 @@ def lstm_forward_training(
 
 cdef int _lstm_forward_training(
     int d, int N, int nO, int nI, int nT,
-    float* G,
+    np.ndarray G,
     float* Y,
     float* C,
     float* X,
     float* Wx,
     float* Wh,
-    float* bias,
+    np.ndarray bias,
     int* lengths,
     float* Yt2,
     float* Ct2,
-) nogil:
+) except -1:
     cdef double one = 1.0
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
         N, nO*4, nI,
@@ -738,11 +738,12 @@ cdef int _lstm_forward_training(
         X, nI, 1,
         Wx, nI, 1,
         one,
-        G, nO*4, 1
+        <float*>G.data, nO*4, 1
     )
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
     cdef int i, j
+    cdef np.ndarray Gt3_
     for t in range(nT):
         if d == 0:
             batch_size = lengths[t]
@@ -752,7 +753,8 @@ cdef int _lstm_forward_training(
         # Prepare the inputs
         Yt3 = &Y[seq_i*nO]
         Ct3 = &C[seq_i*nO]
-        Gt3 = &G[seq_i*nO*4]
+        Gt3_ = G[seq_i : seq_i+batch_size]
+        Gt3 = <float*>Gt3_.data
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
             batch_size, nO*4, nO,
@@ -766,9 +768,10 @@ cdef int _lstm_forward_training(
         # it does cache prefetching or something?
         # It's annoying though --- it means I can't really refactor further,
         # because speed goes down if I remove this.
-        for i in range(batch_size):
-            for j in range(nO*4):
-                Gt3[i*nO*4+j] += bias[j]
+        Gt3_ += bias
+        #for i in range(batch_size):
+        #    for j in range(nO*4):
+        #        Gt3[i*nO*4+j] += bias[j]
         cpu_lstm_activate_fwd(Gt3,
             batch_size, nO)
         cpu_lstm_gates_fwd(Yt3, Ct3,
