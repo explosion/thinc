@@ -37,7 +37,8 @@ def RAdam(
     beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
     beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
     eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-    weight_decay: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
     use_averages: bool = True,
     ops: Optional[Ops] = None,
@@ -48,8 +49,8 @@ def RAdam(
         beta2=beta2,
         eps=eps,
         grad_clip=grad_clip,
-        L2_is_weight_decay=True,
-        L2=weight_decay,
+        L2_is_weight_decay=L2_is_weight_decay,
+        L2=L2,
         use_averages=use_averages,
         use_radam=True,
         ops=ops,
@@ -144,7 +145,6 @@ class Optimizer(object):
         "L2",
         "use_radam",
         "L2_is_weight_decay",
-        "_radam_buffer",
     ]
 
     def __init__(
