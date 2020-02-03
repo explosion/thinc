@@ -685,8 +685,7 @@ def lstm_forward_training(
     cdef np.ndarray Gid
     cdef np.ndarray Wx
     cdef np.ndarray Wh
-    cdef np.ndarray bx
-    cdef np.ndarray bh
+    cdef np.ndarray bias
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
@@ -695,21 +694,20 @@ def lstm_forward_training(
             Yt2[:] = h_init[i, d].reshape((1, nO))
             Ct2[:] = c_init[i, d].reshape((1, nO))
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-            (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
+            Wx, Wh, bias = _transpose_weights(layer_params)
             Yid = Y[i, d]
             Cid = C[i, d]
             Gid = G[i, d]
             _lstm_forward_training(
                 d, N, nO, nI, nT, 
-                Gid,
+                <float*>Gid.data,
                 <float*>Yid.data,
                 <float*>Cid.data,
                 <float*>X.data,
                 <float*>Wx.data,
-                bx,
                 <float*>Wh.data,
-                bh,
-                lengths,
+                <float*>bias.data,
+                <int*>lengths.data,
                 <float*>Yt2.data,
                 <float*>Ct2.data
             )
@@ -722,18 +720,17 @@ def lstm_forward_training(
 
 cdef int _lstm_forward_training(
     int d, int N, int nO, int nI, int nT,
-    np.ndarray G,
+    float* G,
     float* Y,
     float* C,
     float* X,
     float* Wx,
-    np.ndarray bx,
     float* Wh,
-    np.ndarray bh,
-    np.ndarray lengths,
+    float* bias,
+    int* lengths,
     float* Yt2,
     float* Ct2,
-) except -1:
+) nogil:
     cdef double one = 1.0
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
         N, nO*4, nI,
@@ -741,13 +738,12 @@ cdef int _lstm_forward_training(
         X, nI, 1,
         Wx, nI, 1,
         one,
-        <float*>G.data, G.shape[1], 1
+        G, nO*4, 1
     )
-    G += bx
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
-    cdef float* Gptr = <float*>G.data
-    for t in range(lengths.shape[0]):
+    cdef int i, j
+    for t in range(nT):
         if d == 0:
             batch_size = lengths[t]
         else:
@@ -756,7 +752,7 @@ cdef int _lstm_forward_training(
         # Prepare the inputs
         Yt3 = &Y[seq_i*nO]
         Ct3 = &C[seq_i*nO]
-        Gt3 = &Gptr[seq_i*nO*4]
+        Gt3 = &G[seq_i*nO*4]
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
             batch_size, nO*4, nO,
@@ -770,7 +766,9 @@ cdef int _lstm_forward_training(
         # it does cache prefetching or something?
         # It's annoying though --- it means I can't really refactor further,
         # because speed goes down if I remove this.
-        G[seq_i:seq_i+batch_size] += bh
+        for i in range(batch_size):
+            for j in range(nO*4):
+                Gt3[i*nO*4+j] += bias[j]
         cpu_lstm_activate_fwd(Gt3,
             batch_size, nO)
         cpu_lstm_gates_fwd(Yt3, Ct3,
@@ -871,10 +869,10 @@ def _transpose_weights(params):
     bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
     ascontig = numpy.ascontiguousarray
     Wx = ascontig(Wx)
-    bx = ascontig(bx)
     Wh = ascontig(Wh)
-    bh = ascontig(bh)
-    return (Wx, bx), (Wh, bh)
+    bias = ascontig(bx)
+    bias += bh
+    return Wx, Wh, bias
 
 
 def lstm_weights_forward(params, np.ndarray Xt3, np.ndarray Yt2):
