@@ -745,10 +745,14 @@ cdef int _lstm_forward_training(
 
     G[i, d] += bx
     cdef int t, batch_size
-    cdef int seq_i = 0
+    cdef int seq_i = 0 if d == 0 else N
     cdef float* Gptr = <float*>Gid.data
     for t in range(lengths.shape[0]):
-        batch_size = lengths[t]
+        if d == 0:
+            batch_size = lengths[t]
+        else:
+            batch_size = lengths[-(t+1)]
+            seq_i -= batch_size
         # Prepare the inputs
         Yt3 = &Y[seq_i*nO]
         Ct3 = &C[seq_i*nO]
@@ -771,7 +775,8 @@ cdef int _lstm_forward_training(
             batch_size, nO)
         cpu_lstm_gates_fwd(Yt3, Ct3,
             Gt3, Ct2, batch_size, nO)
-        seq_i += batch_size
+        if d == 0:
+            seq_i += batch_size
         # We need to keep a full-sized array here, padded with the sequence-start
         # values. This isn't necessary for the l2r part, but for the r2l part
         # it's necessary, as we otherwise would have the previous step smaller
