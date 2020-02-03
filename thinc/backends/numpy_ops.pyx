@@ -1,4 +1,6 @@
-# cython: cdivision=True, infer_types=True, profile=True
+# cython: cdivision=True
+# cython: infer_types=True
+# cython: profile=True
 from typing import Optional
 from collections.abc import Sized
 import numpy
@@ -788,81 +790,126 @@ cdef int _lstm_forward_training(
 
 def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
     xp = numpy
+    cdef np.ndarray Y
+    cdef np.ndarray G
+    cdef np.ndarray C
+    cdef np.ndarray X
+    cdef np.ndarray Yid
+    cdef np.ndarray Cid
+    cdef np.ndarray Gid
+    cdef np.ndarray Wx, Wh, bias
+    cdef np.ndarray dWx, dWh, d_bias
+    cdef np.ndarray dYid
     Y, G, C, X = fwd_state
-    depth, dirs, N, nO = C.shape
-    nI = X.shape[1]
-    batch_size = lengths[0]
-    cdef np.ndarray dX = xp.zeros(X.shape, dtype=X.dtype)
+    cdef int depth = C.shape[0]
+    cdef int dirs = C.shape[1]
+    cdef int N = C.shape[2]
+    cdef int nO = C.shape[3]
+    cdef int nI = X.shape[1]
+    cdef int batch_size = lengths[0]
+    cdef int nT = lengths.shape[0]
+    cdef np.ndarray dX = xp.zeros((N, nI), dtype=X.dtype)
     # We don't need to store all the cells for all the layers.
     cdef np.ndarray dC = xp.zeros((N, nO), dtype=C.dtype)
-    # We just need these as gradients for the initial states.
-    cdef np.ndarray dC0 = xp.zeros((depth, nO), dtype="f")
-    cdef np.ndarray dH0 = xp.zeros((depth, nO), dtype="f")
+    cdef np.ndarray dG = xp.zeros((N, nO), dtype=C.dtype)
     cdef np.ndarray d_params = xp.zeros((params.shape[0],), dtype=params.dtype)
     # Collect the params and slices. It makes it a bit easier to get the indexing
     # right, when we're iterating backwards.
     params_i = 0
     all_layer_params = []
     for i in range(depth):
-        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-        all_layer_params.append((layer_params, params_i))
-    # Similarly, we want to compute all our indices first, and do the reversal.
+        all_layer_params.append([])
+        for d in range(dirs):
+            layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            all_layer_params[-1].append((layer_params, params_i))
+    params_i = 0
+    all_layer_grads = []
+    for i in range(depth):
+        all_layer_grads.append([])
+        for d in range(dirs):
+            layer_grads, params_i = _split_weights(params, i, nO, nI, params_i)
+            all_layer_grads[-1].append((layer_grads, params_i))
+    # Similarly, we want to compute the indices first
     indices = []
     seq_i = 0
     for batch_size in lengths:
-        indices.append(slice(seq_i, seq_i + batch_size))
+        indices.append((seq_i, batch_size))
         seq_i += batch_size
     Xs = [X] + [Y[i] for i in range(1, depth)]
+    dYs = _split_directions(dY, dirs)
     # Okay, now do the actual looping
     for i in reversed(range(depth)):
-        for t in range(len(indices) - 1, 0, -1):
-            dAt3, dCt2 = backprop_lstm_gates(
-                dY[indices[t - 1]],
-                dC[indices[t - 1]],
-                G[i, indices[t - 1]],
-                C[i, indices[t - 1]],
-                Ct2,
+        for d in range(dirs):
+            Wx, Wh, bias = layer_params[i][d]
+            dWx, dWh, d_bias = layer_grads[i][d]
+            dYid = dYs[d] 
+            dC.fill(0.)
+            dG.fill(0.)
+            Cid = C[i, d]
+            Gid = G[i, d]
+            Yid = Y[i, d]
+            _lstm_backward_training(d, N, nO, nI, nT,
+                <float*>dX.data,
+                <float*>dYid.data,
+                <float*>dC.data,
+                <float*>dG.data,
+                <float*>dWx.data,
+                <float*>dWh.data,
+                <float*>d_bias.data,
+                <float*>Cid.data,
+                <float*>Gid.data, 
+                <float*>Yid.data,
+                <float*>X.data,
+                <float*>Wx.data,
+                <float*>Wh.data,
+                indices
             )
-            dXt3, dYt2, d_params = backprop_lstm_weights(
-                dAt3,
-                d_params,
-                Xs[i][indices[t - 1]],
-                Y[i, indices[t-1]],
-                all_layer_params[i],
-            )
-            # Store the outputs
-            dC[indices[t - 1]] = dCt2
-            dX[indices[t - 1]] = dXt3
-            if t >= 2:
-                dY[indices[t - 2]] += dYt2
-        dH0[i] = dYt2.sum(axis=0)
-        dC0[i] = dCt2.sum(axis=0)
-        dY = dX
+        dYs = _split_directions(dX, dirs)
     assert dX.shape[1] == X.shape[-1]
-    return dX, d_params, dH0, dC0
+    return dX, d_params
+
+
+def _split_directions(X, dirs):
+    if dirs == 1:
+        return [X]
+    else:
+        X_ = X.reshape((X.shape[0], -1, dirs))
+        Xs = []
+        for d in range(dirs):
+            Xs.append(numpy.ascontiguousarray(X_[:, d]))
+        return Xs
 
 
 cdef int _lstm_backward_training(
-    int d, int N, int nO, int nI, int nT, int max_size,
+    int d, int N, int nO, int nI, int nT,
     float* dX,
     float* dY,
     float* dC,
-    float* dGt3,
-    float* dC0,
-    float* dH0,
-    float* dYtmp,
+    float* dG,
+    float* dWx,
+    float* dWh,
+    float* d_bias,
     const float* C,
     const float* G,
     const float* Y,
     const float* X,
-    const float* C0,
-    const float* H0,
     const float* Wx,
     const float* Wh,
-    slices,
+    indices,
 ) except -1:
+    cdef int seq_t2
+    cdef int seq_t3
     cdef double one = 1.0
-    for (t2, t3), (seq_t2, seq_t3), (size_t2, size_t3) in slices:
+    if d == 0:
+        seq_t3, size_t3 = indices[-1]
+        indices = indices[:-1]
+        indices.reverse()
+    else:
+        seq_t3, size_t3 = indices[0]
+        indices = indices[1:]
+    cdef int batch_size
+    for seq_t2, size_t2 in indices:
+        dGt3 = &dG[seq_t3*nO*4]
         dXt3 = &dX[seq_t3*nO]
         dYt3 = &dY[seq_t3*nO]
         dCt3 = &dC[seq_t3*nO]
@@ -872,44 +919,43 @@ cdef int _lstm_backward_training(
         Gt3 = &G[seq_t3*nO*4]
         Ct2 = &C[seq_t2*nO]
         
-        backprop_lstm_gates(Gt3, dCt2, dC0,
-            dYt3, dCt3, Gt3, Ct3, Ct2, C0, size_t3, size_t2, nO
+        batch_size = min(size_t2, size_t3)
+
+        cpu_lstm_gates_bwd(dGt3, dCt2,
+            dYt3, dCt3, Gt3, Ct3, Ct2, batch_size * nO
         )
-        memset(dYtmp, 0, sizeof(dYtmp[0]) * max_size * nO)
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-            size_t3, nO, nO*4,
+            batch_size, nO, nO*4,
             one,
-            dGt3, nO*4, 1,
-            Wh, nO, 1,
+            <float*>dGt3, nO*4, 1,
+            <float*>Wh, nO, 1,
             one,
-            dYtmp, nI, 1
+            dYt2, nI, 1
         )
-        for i in range(size_t2 * nO):
-            dYt2[i] += dYtmp[i]
-        for i in range(size_t2*nO, size_t3*nO):
-            dH0[i] += dYtmp[i]
+        seq_t3 = seq_t2
+        size_t3 = size_t2
  
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
-        N, nO, nI,
+        N, nO*4, nI,
         one,
-        dG, nO, 1,
-        X, nI, 1,
+        <float*>dG, nO*4, 1,
+        <float*>X, nI, 1,
         one,
         dWx, nI, 1
     )
-    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
-        N, nO, nI,
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.TRANSPOSE,
+        N, nO*4, nI,
         one,
-        dG, nO, 1,
-        Y, nI, 1,
+        <float*>dG, nO*4, 1,
+        <float*>Y, nI, 1,
         one,
         dWh, nI, 1
     )
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
         N, nI, nO*4,
         one,
-        dG, nO*4, 1,
-        Wx, nI, 1,
+        <float*>dG, nO*4, 1,
+        <float*>Wx, nI, 1,
         one,
         dX, nI, 1
     )
@@ -947,34 +993,6 @@ def _transpose_weights(params):
     bias = ascontig(bx)
     bias += bh
     return Wx, Wh, bias
-
-
-def backprop_lstm_gates(
-    np.ndarray dYt3, np.ndarray dCt3, np.ndarray Gt3, np.ndarray Ct3, np.ndarray Ct2
-):
-    # See above for notation. Step numbering refers to forward_lstm_gates
-    xp = get_array_module(dYt3)
-    hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
-    assert hf.shape[0] == hi.shape[0] == ho.shape[0] == hc.shape[0]
-    assert hf.shape[0] == dYt3.shape[0] == dCt3.shape[0] == Ct3.shape[0] == Ct2.shape[0]
-    tanhCt3 = xp.tanh(Ct3)
-    # 3b: Yt3 = tanhCt3 * ho
-    d_ho = dYt3 * tanhCt3
-    d_tanhCt3 = dYt3 * ho
-    # 3a: tanhCt3 = tanh(Ct3)
-    dCt3 += d_tanhCt3 * dtanh_(tanhCt3)
-    # 2b: Ct3 += hi * hc
-    d_hi = dCt3 * hc
-    d_hc = dCt3 * hi
-    # 2a: Ct3 = hf * Ct2
-    d_hf = dCt3 * Ct2
-    dCt2 = dCt3 * hf
-    d_At3_hc = d_hc * dtanh_(hc)  # 1d
-    d_At3_ho = d_ho * dsigmoid_(ho)  # 1c
-    d_At3_hi = d_hi * dsigmoid_(hi)  # 1b
-    d_At3_hf = d_hf * dsigmoid_(hf)  # 1a
-    dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
-    return dAt3, dCt2
 
 
 cdef inline float sigmoid(float X) nogil:
@@ -1057,7 +1075,7 @@ cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
 
 
 cdef void cpu_lstm_gates_bwd(
-    float* Gt3,
+    float* dGt3,
     float* dCt2,
     const float* dYt3,
     const float* dCt3,
@@ -1066,10 +1084,14 @@ cdef void cpu_lstm_gates_bwd(
     const float* Ct2,
     int N
 ) nogil:
+    cdef int i
+    cdef float ct2, ct3, hf, hi, ho, hc, tanh_ct3
+    cdef float d_ho, d_tanh_ct3, dct3, d_hi, d_hc, d_hf
     for i in range(N):
         ct2 = Ct2[i]
         ct3 = Ct3[i]
         dct3 = dCt3[i]
+        dyt3 = dYt3[i]
         hf = Gt3[i*4+0]
         hi = Gt3[i*4+1]
         ho = Gt3[i*4+2]
@@ -1080,10 +1102,10 @@ cdef void cpu_lstm_gates_bwd(
         d_ho = dyt3 * tanh_ct3
         d_tanh_ct3 = dyt3 * ho
         # 3a: tanhCt3 = tanh(Ct3)
-        dct3 += d_tanhCt3 * dtanh(tanh_ct3)
+        dct3 += d_tanh_ct3 * dtanh(tanh_ct3)
         # 2b: Ct3 += hi * hc
-        d_hi = dCt3 * hc
-        d_hc = dCt3 * hi
+        d_hi = dct3 * hc
+        d_hc = dct3 * hi
         # 2a: Ct3 = hf * Ct2
         d_hf = dct3 * ct2
         dCt2[i] = dct3 * hf
@@ -1091,48 +1113,3 @@ cdef void cpu_lstm_gates_bwd(
         dGt3[i*4+1] = d_hi * dsigmoid(hi)  # 1b
         dGt3[i*4+2] = d_ho * dsigmoid(ho)  # 1c
         dGt3[i*4+3] = d_hc * dtanh(hc)  # 1d
-
-
-cdef void cpu_lstm_gates_bwd(float* gates_and_d_acts, float* d_prev,
-        const float* d_cells, const float* d_hiddens,
-        const float* cells, const float* prevcells, int B, int N) nogil:
-    cdef float hf, hi, ho, hc, c, ct, dh, dho, dc, dhf, dhi, dhc, dprev
-    cdef int i, b
-    # These are aliased: we're writing the output over the top of the input
-    gates = gates_and_d_acts
-    d_acts = gates_and_d_acts
-    for b in range(B):
-        for i in range(N):
-            hf = gates[i*4+0]
-            hi = gates[i*4+1]
-            ho = gates[i*4+2]
-            hc = gates[i*4+3]
-            c  = cells[i]
-            ct = tanhf(cells[i])
-            dh = d_hiddens[i]
-            # Gradient for ho and c in h = sigmoid(ho) * tanh(c)
-            dho = ct     * dh * dsigmoid(ho)
-            dc  = ho     * dh * dtanh(ct)
-            dc += d_cells[i]  # Carry gradient from previous step
-
-            # Gradient for hf, hi, hc, prev[i]
-            # in c = sigmoid(hf) * prev[i] + sigmoid(hi) * tanh(hc)
-            dhf   = dsigmoid(hf) * dc * prevcells[i]
-            dhi   = dsigmoid(hi) * dc * hc
-            dhc   = dtanh(hc)    * dc * hi
-            dprev =                dc * hf
-
-            d_acts[i*4+0] = dhf
-            d_acts[i*4+1] = dhi
-            d_acts[i*4+2] = dho
-            d_acts[i*4+3] = dhc
-            d_prev[i] = dprev
-            # Wtf why was I writing to this. Is it necessary??
-            #d_cells[i] = dc
-        d_cells += N
-        d_prev += N
-        d_hiddens += N
-        d_acts += N*4
-        gates += N*4
-        cells += N
-        prevcells += N
