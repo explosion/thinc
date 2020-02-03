@@ -52,7 +52,7 @@ def test_LSTM_init_with_sizes(nO, nI):
             )
         if node.has_param("HC0"):
             params = node.get_param("HC0")
-            assert params.shape == (2, 1, nO)
+            assert params.shape == (2, 1, 1, nO)
 
 
 def test_LSTM_fwd_bwd_shapes(nO, nI):
