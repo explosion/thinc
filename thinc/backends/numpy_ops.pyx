@@ -667,6 +667,7 @@ def lstm_forward_training(
     nO = c_init.shape[2]
     nI = X.shape[1]
     N = X.shape[0]
+    nT = lengths.shape[0]
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
     cdef np.ndarray G = xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f")
@@ -699,7 +700,7 @@ def lstm_forward_training(
             Cid = C[i, d]
             Gid = G[i, d]
             _lstm_forward_training(
-                d, X.shape[0], Yid.shape[1], X.shape[1], lengths.shape[0],
+                d, N, nO, nI, nT, 
                 Gid,
                 <float*>Yid.data,
                 <float*>Cid.data,
@@ -708,7 +709,7 @@ def lstm_forward_training(
                 bx,
                 <float*>Wh.data,
                 bh,
-                <int*>lengths.data,
+                lengths,
                 <float*>Yt2.data,
                 <float*>Ct2.data
             )
@@ -729,13 +730,13 @@ cdef int _lstm_forward_training(
     np.ndarray bx,
     float* Wh,
     np.ndarray bh,
-    int* lengths,
+    np.ndarray lengths,
     float* Yt2,
     float* Ct2,
 ) except -1:
     cdef double one = 1.0
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-        N, nO, nI,
+        N, nO*4, nI,
         one,
         X, nI, 1,
         Wx, nI, 1,
@@ -746,7 +747,7 @@ cdef int _lstm_forward_training(
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
     cdef float* Gptr = <float*>G.data
-    for t in range(nT):
+    for t in range(lengths.shape[0]):
         if d == 0:
             batch_size = lengths[t]
         else:
@@ -758,7 +759,7 @@ cdef int _lstm_forward_training(
         Gt3 = &Gptr[seq_i*nO*4]
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-            batch_size, nO, nO,
+            batch_size, nO*4, nO,
             one,
             Yt2, nO, 1,
             Wh, nO, 1,
