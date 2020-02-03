@@ -58,7 +58,7 @@ def test_small_end_to_end(depth, width, vector_width, nb_epoch, create_model, an
     optimizer = Adam(0.001)
     losses = []
     scores = []
-    for i in range(nb_epoch):
+    for _ in range(nb_epoch):
         losses.append(0.0)
         for X, Y in get_shuffled_batches(train_X, train_Y, batch_size):
             Yh, backprop = model.begin_update(X)

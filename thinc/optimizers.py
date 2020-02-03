@@ -37,7 +37,8 @@ def RAdam(
     beta1: FloatOrSeq = ADAM_DEFAULTS["beta1"],
     beta2: FloatOrSeq = ADAM_DEFAULTS["beta2"],
     eps: FloatOrSeq = ADAM_DEFAULTS["eps"],
-    weight_decay: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2: FloatOrSeq = ADAM_DEFAULTS["L2"],
+    L2_is_weight_decay: bool = cast(bool, ADAM_DEFAULTS["L2_is_weight_decay"]),
     grad_clip: FloatOrSeq = ADAM_DEFAULTS["grad_clip"],
     use_averages: bool = True,
     ops: Optional[Ops] = None,
@@ -48,9 +49,9 @@ def RAdam(
         beta2=beta2,
         eps=eps,
         grad_clip=grad_clip,
-        L2_is_weight_decay=True,
-        L2=weight_decay,
-        use_averages=True,
+        L2_is_weight_decay=L2_is_weight_decay,
+        L2=L2,
+        use_averages=use_averages,
         use_radam=True,
         ops=ops,
     )
@@ -77,7 +78,7 @@ def Adam(
         eps=eps,
         grad_clip=grad_clip,
         L2_is_weight_decay=L2_is_weight_decay,
-        use_averages=True,
+        use_averages=use_averages,
         use_radam=False,
         ops=ops,
     )
@@ -100,6 +101,7 @@ def SGD(
         L2_is_weight_decay=L2_is_weight_decay,
         beta1=0.0,
         beta2=0.0,
+        use_averages=use_averages,
         ops=ops,
     )
 
@@ -124,6 +126,27 @@ class Optimizer(object):
     use_radam: bool
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
+
+    # This "locks" the class, so we get an error if you try to assign to
+    # an unexpected variable.
+    __slots__ = [
+        "ops",
+        "mom1",
+        "mom2",
+        "averages",
+        "schedules",
+        "nr_update",
+        "last_seen",
+        "grad_clip",
+        "learn_rate",
+        "b1",
+        "b2",
+        "eps",
+        "L2",
+        "use_radam",
+        "L2_is_weight_decay",
+        "_radam_buffer",
+    ]
 
     def __init__(
         self,
