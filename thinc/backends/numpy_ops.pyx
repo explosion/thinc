@@ -670,14 +670,11 @@ def lstm_forward_training(
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
     cdef np.ndarray G = xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f")
-    # The Y and C are shifted by 1 step
-    offset = batch_size
-    cdef np.ndarray Y = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
-    cdef np.ndarray C = xp.zeros((depth, dirs, X.shape[0] + offset, nO), dtype="f")
-    # The inits are shaped (depth, dirs, nO). We add the internal dimension to make
-    # them set correctly.
-    Y[:, :, :offset, :] = h_init.reshape((depth, dirs, 1, nO))
-    C[:, :, :offset, :] = c_init.reshape((depth, dirs, 1, nO))
+    cdef np.ndarray Y = xp.zeros((depth, dirs, X.shape[0], nO), dtype="f")
+    cdef np.ndarray C = xp.zeros((depth, dirs, X.shape[0], nO), dtype="f")
+    cdef np.ndarray Yt2 = numpy.zeros((batch_size, nO), dtype="f")
+    cdef np.ndarray Ct2 = numpy.zeros((batch_size, nO), dtype="f")
+
     cdef int params_i = 0
     cdef int seq_i = 0
     orig_X = X
@@ -687,6 +684,10 @@ def lstm_forward_training(
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
+            # The inits are shaped (depth, dirs, nO). We add the internal dimension
+            # to make them set correctly.
+            Yt2[:] = h_init[i, d].reshape((1, nO))
+            Ct2[:] = c_init[i, d].reshape((1, nO))
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             (Wx, bx), (Wh, bh) = _transpose_weights(layer_params)
             Yid = Y[i, d]
@@ -702,9 +703,11 @@ def lstm_forward_training(
                 bx,
                 Wh,
                 bh,
-                lengths
+                lengths,
+                <float*>Yt2.data,
+                <float*>Ct2.data
             )
-        H = Y[i, :, offset:].transpose((1, 0, 2)).reshape((N, -1))
+        H = Y[i].transpose((1, 0, 2)).reshape((N, -1))
         if dirs == 2:
             H = xp.ascontiguousarray(H)
         X = H
@@ -723,9 +726,12 @@ cdef int _lstm_forward_training(
         np.ndarray Wh,
         np.ndarray bh,
         np.ndarray lengths,
+        float* Yt2,
+        float* Ct2,
 ) except -1:
+    cdef int N = X.shape[0]
     cdef int nO = Wh.shape[1]
-    cdef int offset = lengths[0]
+    cdef int full_batch_size = lengths[0]
     cdef double one = 1.0
     cdef np.ndarray Gid = G[i, d]
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
@@ -736,18 +742,16 @@ cdef int _lstm_forward_training(
         one,
         <float*>Gid.data, Gid.shape[1], 1
     )
+
     G[i, d] += bx
-    Yt2 = Y
-    Ct2 = C
-    cdef int seq_i = 0
-    #cdef np.ndarray Gt3
     cdef int t, batch_size
-    #cdef np.ndarray Gid = G[i, d]
+    cdef int seq_i = 0
     cdef float* Gptr = <float*>Gid.data
-    for t, batch_size in enumerate(lengths):
+    for t in range(lengths.shape[0]):
+        batch_size = lengths[t]
         # Prepare the inputs
-        Yt3 = &Y[(seq_i+offset)*nO]
-        Ct3 = &C[(seq_i+offset)*nO]
+        Yt3 = &Y[seq_i*nO]
+        Ct3 = &C[seq_i*nO]
         Gt3 = &Gptr[seq_i*nO*4]
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
@@ -758,16 +762,22 @@ cdef int _lstm_forward_training(
             one,
             Gt3, nO*4, 1
         )
+        # This is super weird: if we remove this add, it gets slower? I guess
+        # it does cache prefetching or something?
+        # It's annoying though --- it means I can't really refactor further,
+        # because speed goes down if I remove this.
         G[i, d, seq_i:seq_i+batch_size] += bh
         cpu_lstm_activate_fwd(Gt3,
             batch_size, nO)
         cpu_lstm_gates_fwd(Yt3, Ct3,
             Gt3, Ct2, batch_size, nO)
-        # Numpy should be smart enough to see this is the same memory.
-        #G[i, d, seq_i : seq_i + batch_size] = Gt3
         seq_i += batch_size
-        Yt2 = Yt3
-        Ct2 = Ct3
+        # We need to keep a full-sized array here, padded with the sequence-start
+        # values. This isn't necessary for the l2r part, but for the r2l part
+        # it's necessary, as we otherwise would have the previous step smaller
+        # than the current.
+        memcpy(Yt2, Yt3, sizeof(Yt3[0]) * batch_size * nO)
+        memcpy(Ct2, Ct3, sizeof(Ct3[0]) * batch_size * nO)
 
 
 def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state):
@@ -1008,7 +1018,6 @@ cdef void cpu_lstm_gates_fwd(float* hiddens, float* cells,
         ho = gates[g+2]
         hc = gates[g+3]
         ct2 = prevcells[c]
-
         ct3 = hf * ct2 + hi * hc
         hiddens[h] = tanhf(ct3) * ho
         cells[c] = ct3
