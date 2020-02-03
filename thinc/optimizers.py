@@ -126,6 +126,27 @@ class Optimizer(object):
     L2_is_weight_decay: bool
     _radam_buffer: List[List[Optional[FloatsXd]]]
 
+    # This "locks" the class, so we get an error if you try to assign to
+    # an unexpected variable.
+    __slots__ = [
+        "ops",
+        "mom1",
+        "mom2",
+        "averages",
+        "schedules",
+        "nr_update",
+        "last_seen",
+        "grad_clip",
+        "learn_rate",
+        "b1",
+        "b2",
+        "eps",
+        "L2",
+        "use_radam",
+        "L2_is_weight_decay",
+        "_radam_buffer",
+    ]
+
     def __init__(
         self,
         learn_rate: FloatOrSeq,
