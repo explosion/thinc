@@ -682,6 +682,10 @@ def lstm_forward_training(
     cdef np.ndarray Yid
     cdef np.ndarray Cid
     cdef np.ndarray Gid
+    cdef np.ndarray Wx
+    cdef np.ndarray Wh
+    cdef np.ndarray bx
+    cdef np.ndarray bh
     for i in range(depth):
         nI = X.shape[1]
         for d in range(dirs):
@@ -695,16 +699,16 @@ def lstm_forward_training(
             Cid = C[i, d]
             Gid = G[i, d]
             _lstm_forward_training(
-                d,
+                d, X.shape[0], Yid.shape[1], X.shape[1], lengths.shape[0],
                 Gid,
                 <float*>Yid.data,
                 <float*>Cid.data,
-                X,
-                Wx,
+                <float*>X.data,
+                <float*>Wx.data,
                 bx,
-                Wh,
+                <float*>Wh.data,
                 bh,
-                lengths,
+                <int*>lengths.data,
                 <float*>Yt2.data,
                 <float*>Ct2.data
             )
@@ -716,27 +720,25 @@ def lstm_forward_training(
 
 
 cdef int _lstm_forward_training(
-        int d,
-        np.ndarray G,
-        float* Y,
-        float* C,
-        np.ndarray X,
-        np.ndarray Wx,
-        np.ndarray bx,
-        np.ndarray Wh,
-        np.ndarray bh,
-        np.ndarray lengths,
-        float* Yt2,
-        float* Ct2,
+    int d, int N, int nO, int nI, int nT,
+    np.ndarray G,
+    float* Y,
+    float* C,
+    float* X,
+    float* Wx,
+    np.ndarray bx,
+    float* Wh,
+    np.ndarray bh,
+    int* lengths,
+    float* Yt2,
+    float* Ct2,
 ) except -1:
-    cdef int N = X.shape[0]
-    cdef int nO = Wh.shape[1]
     cdef double one = 1.0
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-        X.shape[0], Wx.shape[0], Wx.shape[1],
+        N, nO, nI,
         one,
-        <float*>X.data, X.shape[1], 1,
-        <float*>Wx.data, Wx.shape[1], 1,
+        X, nI, 1,
+        Wx, nI, 1,
         one,
         <float*>G.data, G.shape[1], 1
     )
@@ -744,11 +746,11 @@ cdef int _lstm_forward_training(
     cdef int t, batch_size
     cdef int seq_i = 0 if d == 0 else N
     cdef float* Gptr = <float*>G.data
-    for t in range(lengths.shape[0]):
+    for t in range(nT):
         if d == 0:
             batch_size = lengths[t]
         else:
-            batch_size = lengths[-(t+1)]
+            batch_size = lengths[nT-(t+1)]
             seq_i -= batch_size
         # Prepare the inputs
         Yt3 = &Y[seq_i*nO]
@@ -756,10 +758,10 @@ cdef int _lstm_forward_training(
         Gt3 = &Gptr[seq_i*nO*4]
         # Now do the actual calculation
         blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
-            batch_size, Wh.shape[0], Wh.shape[1],
+            batch_size, nO, nO,
             one,
-            Yt2, Wh.shape[1], 1,
-            <float*>Wh.data, Wh.shape[1], 1,
+            Yt2, nO, 1,
+            Wh, nO, 1,
             one,
             Gt3, nO*4, 1
         )
