@@ -145,6 +145,7 @@ class Optimizer(object):
         "L2",
         "use_radam",
         "L2_is_weight_decay",
+        "_radam_buffer",
     ]
 
     def __init__(
