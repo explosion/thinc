@@ -872,8 +872,11 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
         dYs = _split_directions(dX, dirs)
     dX = numpy.hstack(dYs)
     assert dX.shape[1] == X.shape[1]
-    # TODO: Untranspose and rejoin the params
-    return dX, d_params
+    grad_parts = []
+    for layer_grads in all_layer_grads:
+        for dir_grads, _ in layer_grads:
+            grad_parts.append(_untranspose_unsplit_weights(dir_grads))
+    return dX, numpy.concatenate(grad_parts)
 
 
 def _split_directions(X, dirs):
@@ -1007,6 +1010,17 @@ def _transpose_weights(params):
     bias = ascontig(bx)
     bias += bh
     return Wx, Wh, bias
+
+
+def _untranspose_unsplit_weights(params):
+    Wx, Wh, bias = params
+    nO = Wh.shape[1]
+    nI = Wx.shape[1]
+    Wx = Wx.reshape((-1, 4, nI)).transpose((1, 0, 2)).reshape((-1, nI))
+    Wh = Wh.reshape((-1, 4, nO)).transpose((1, 0, 2)).reshape((-1, nO))
+    bias = bias.reshape((-1, 4)).transpose((1, 0)).reshape((-1,))
+    zeros = numpy.zeros(bias.shape, dtype="f")
+    return numpy.concatenate((Wx.ravel(), bias, Wh.ravel(), zeros))
 
 
 cdef inline float sigmoid(float X) nogil:
