@@ -44,8 +44,7 @@ column = 0
 
 [model.encode]
 @layers = "LSTM.v1"
-nO = 150
-#nO = ${common:width}
+nO = ${common:width}
 nI = ${common:width}
 depth = 2
 bi = true
@@ -96,12 +95,22 @@ jax.tree_util.register_pytree_node(
 )
 
 
-def run_forward(model, Xs, n_times=40):
+def run_forward(model, Xs, n_times=1):
     total = 0.0
     for _ in range(n_times):
         for batch in tqdm.tqdm(Xs):
             Y = model.predict(batch)
             total += Y.data.sum()
+    return float(total)
+
+
+def run_forward_backward(model, batches, n_times=1):
+    total = 0.0
+    for _ in range(n_times):
+        for X, Y in tqdm.tqdm(batches):
+            Yh, get_dX = model.begin_update(X)
+            dX = get_dX(Yh)
+            total += Yh.data.sum()
     return float(total)
 
 
@@ -142,13 +151,19 @@ def main(numpy: bool=False, jax: bool = False, pytorch: bool = False, gpu_id: in
         model.initialize(X=X[:5])
         print("Pre-batch")
         n_words = sum(len(x) for x in X)
-        X = [model.layers[0].predict(batch) for batch in model.ops.minibatch(16, X)]
+        batches = model.ops.multibatch(16, X, Y)
+        batches = [(model.layers[0].predict(x), y) for x, y in batches]
         model.layers.pop(0)
         print("Start")
         start_time = timer()
-        total = run_forward(model, X, n_times=1)
+        total = run_forward(model, [x for x, y in batches], n_times=1)
         end_time = timer()
         print(name, n_words, total, end_time - start_time)
+        start_time = timer()
+        total = run_forward_backward(model, batches, n_times=1)
+        end_time = timer()
+        print(name, n_words, total, end_time - start_time)
+
 
 
 if __name__ == "__main__":
