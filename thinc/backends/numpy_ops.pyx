@@ -838,13 +838,15 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
         indices.append((seq_i, batch_size))
         seq_i += batch_size
     Xs = [X] + [Y[i] for i in range(1, depth)]
-    dYs = _split_directions(dY, dirs)
     # Okay, now do the actual looping
     for i in reversed(range(depth)):
+        dY = dY.reshape((N, dirs, nO)).transpose((1, 0, 2))
+        if dirs >= 2:
+            dY = numpy.ascontiguousarray(dY)
         for d in range(dirs):
             Wx, Wh, bias = all_layer_params[i][d][0]
             dWx, dWh, d_bias = all_layer_grads[i][d][0]
-            dYid = dYs[d] 
+            dYid = dY[d] 
             dC.fill(0.)
             dG.fill(0.)
             Cid = C[i, d]
@@ -853,6 +855,10 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
             assert (Cid.shape[0], Cid.shape[1]) == (N, nO)
             assert (Yid.shape[0], Yid.shape[1]) == (N, nO)
             assert (Gid.shape[0], Gid.shape[1]) == (N, nO*4)
+            assert (dX.shape[0], dX.shape[1]) == (N, nI)
+            assert (dYid.shape[0], dYid.shape[1]) == (N, nO)
+            assert (dC.shape[0], dC.shape[1]) == (N, nO)
+            assert (dG.shape[0], dG.shape[1]) == (N, nO*4)
             _lstm_backward_training(d, N, nO, nI, nT,
                 <float*>dX.data,
                 <float*>dYid.data,
@@ -867,10 +873,9 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
                 <float*>X.data,
                 <float*>Wx.data,
                 <float*>Wh.data,
-                indices
+                list(indices)
             )
-        dYs = _split_directions(dX, dirs)
-    dX = numpy.hstack(dYs)
+        dY = dX
     assert dX.shape[1] == X.shape[1]
     grad_parts = []
     for layer_grads in all_layer_grads:
@@ -930,7 +935,6 @@ cdef int _lstm_backward_training(
         Ct2 = &C[seq_t2*nO]
         
         batch_size = min(size_t2, size_t3)
-
         cpu_lstm_gates_bwd(dGt3, dCt2,
             dYt3, dCt3, Gt3, Ct3, Ct2, batch_size * nO
         )
