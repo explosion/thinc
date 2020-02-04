@@ -69,6 +69,7 @@ class Ops:
             queue = []
             i = 0
             for size in sizes:
+                size = int(size)
                 queue.append(self._get_batch(sequence, indices[i : i + size]))
                 if len(queue) >= buffer:
                     yield from queue
@@ -107,6 +108,7 @@ class Ops:
             queue = []
             i = 0
             for size in sizes:
+                size = int(size)
                 idx_batch = indices[i : i + size]
                 queue.append([])
                 for sequence in sequences:
@@ -307,6 +309,7 @@ class Ops:
         lengths_indices.sort(reverse=True)
         indices_ = [i for length, i in lengths_indices]
         lengths_ = [length for length, i in lengths_indices]
+        seqs = [seqs[i] for i in indices_]
         nS = max([len(seq) for seq in seqs])
         arr: Floats3d = self.pad(seqs)
         arr = arr.transpose((1, 0, 2))
@@ -331,9 +334,10 @@ class Ops:
         data = padded.data
         lengths = padded.lengths
         unpadded: List[Optional[Floats2d]] = [None] * len(lengths)
+        # Transpose from (length, batch, data) to (batch, length, data)
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
-            unpadded[indices[i]] = data[i, : lengths[i]]
+            unpadded[indices[i]] = data[i, :lengths[i]]
         return cast(List2d, unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
