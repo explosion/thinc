@@ -808,7 +808,6 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     cdef int nI = X.shape[1]
     cdef int batch_size = lengths[0]
     cdef int nT = lengths.shape[0]
-    cdef np.ndarray dX = xp.zeros((N, nI), dtype=X.dtype)
     # We don't need to store all the cells for all the layers.
     cdef np.ndarray dC = xp.zeros((N, nO), dtype=C.dtype)
     cdef np.ndarray dG = xp.zeros((N, nO*4), dtype=C.dtype)
@@ -819,16 +818,18 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     all_layer_params = []
     for i in range(depth):
         all_layer_params.append([])
+        n_inputs = nI if i == 0 else (nO * dirs)
         for d in range(dirs):
-            layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            layer_params, params_i = _split_weights(params, i, nO, n_inputs, params_i)
             layer_params = _transpose_weights(layer_params)
             all_layer_params[-1].append((layer_params, params_i))
     params_i = 0
     all_layer_grads = []
     for i in range(depth):
         all_layer_grads.append([])
+        n_inputs = nI if i == 0 else (nO * dirs)
         for d in range(dirs):
-            layer_grads, params_i = _split_weights(params, i, nO, nI, params_i)
+            layer_grads, params_i = _split_weights(params, i, nO, n_inputs, params_i)
             layer_grads = _transpose_weights(layer_grads)
             all_layer_grads[-1].append((layer_grads, params_i))
     # Similarly, we want to compute the indices first
@@ -837,15 +838,21 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     for batch_size in lengths:
         indices.append((seq_i, batch_size))
         seq_i += batch_size
-    Xs = [X] + [Y[i] for i in range(1, depth)]
+
+    cdef np.ndarray dX
+    Xs = [X] + [Y[i].transpose(1, 0, 2).reshape((N, -1)) for i in range(depth-1)]
+    dXs = [xp.zeros((X.shape[0], X.shape[1]), dtype=X.dtype) for X in Xs]
     # Okay, now do the actual looping
     for i in reversed(range(depth)):
         dY = dY.reshape((N, dirs, nO)).transpose((1, 0, 2))
+        dX = dXs[i]
+        X = Xs[i]
         if dirs >= 2:
             dY = numpy.ascontiguousarray(dY)
         for d in range(dirs):
             Wx, Wh, bias = all_layer_params[i][d][0]
             dWx, dWh, d_bias = all_layer_grads[i][d][0]
+            assert Wx.shape[1] == dWx.shape[1] == X.shape[1] == dX.shape[1], (Wx.shape[1], dWx.shape[1], X.shape[1], dX.shape[1])
             dYid = dY[d] 
             dC.fill(0.)
             dG.fill(0.)
@@ -855,11 +862,10 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
             assert (Cid.shape[0], Cid.shape[1]) == (N, nO)
             assert (Yid.shape[0], Yid.shape[1]) == (N, nO)
             assert (Gid.shape[0], Gid.shape[1]) == (N, nO*4)
-            assert (dX.shape[0], dX.shape[1]) == (N, nI)
             assert (dYid.shape[0], dYid.shape[1]) == (N, nO)
             assert (dC.shape[0], dC.shape[1]) == (N, nO)
             assert (dG.shape[0], dG.shape[1]) == (N, nO*4)
-            _lstm_backward_training(d, N, nO, nI, nT,
+            _lstm_backward_training(d, N, nO, dX.shape[1], nT,
                 <float*>dX.data,
                 <float*>dYid.data,
                 <float*>dC.data,
