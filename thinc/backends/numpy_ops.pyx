@@ -931,7 +931,7 @@ cdef int _lstm_backward_training(
     cdef int batch_size
     for seq_t2, size_t2 in indices:
         dGt3 = &dG[seq_t3*nO*4]
-        dXt3 = &dX[seq_t3*nO]
+        dXt3 = &dX[seq_t3*nI]
         dYt3 = &dY[seq_t3*nO]
         dCt3 = &dC[seq_t3*nO]
         dYt2 = &dY[seq_t2*nO]
@@ -952,7 +952,7 @@ cdef int _lstm_backward_training(
             <float*>dGt3, nO*4, 1,
             <float*>Wh, nO, 1,
             one,
-            dYt2, nI, 1
+            dYt2, nO, 1
         )
         seq_t3 = seq_t2
         size_t3 = size_t2
