@@ -47,7 +47,8 @@ def forward(
     model: Model[InT, OutT], ids: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
     # Assume the original 'vectors' object contains the actual data and is compatible with Floats2d
-    vectors = cast(Floats2d, model.attrs["vectors"].wrapped_object)
+    vectors = cast(Floats2d, model.attrs["vectors"].obj)
+
     nO = vectors.shape[1]
     nN = ids.shape[0]
     dropout: Optional[float] = model.attrs.get("dropout_rate")
@@ -72,7 +73,7 @@ def init(
     model: Model[InT, OutT], X: Optional[Ints1d] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
     # Assume the original 'vectors' object contains the actual data
-    vectors = model.attrs["vectors"].wrapped_object
+    vectors = model.attrs["vectors"].obj
     if vectors is None:
         raise ValueError("Can't initialize: vectors attribute unset")
     model.set_dim("nV", vectors.shape[0] + 1)
