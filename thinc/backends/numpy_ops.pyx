@@ -137,8 +137,8 @@ class NumpyOps(Ops):
     def backprop_lstm(
             self, np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_state
     ):
-        dX, d_params, dH0, dC0 = backprop_lstm(dY, lengths, params, fwd_state)
-        return dX, (d_params, dH0, dC0)
+        dX, d_params = backprop_lstm(dY, lengths, params, fwd_state)
+        return dX, d_params
 
     def maxout(self, const float[:, :, ::1] X):
         cdef Pool mem = Pool()
@@ -811,7 +811,7 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     cdef np.ndarray dX = xp.zeros((N, nI), dtype=X.dtype)
     # We don't need to store all the cells for all the layers.
     cdef np.ndarray dC = xp.zeros((N, nO), dtype=C.dtype)
-    cdef np.ndarray dG = xp.zeros((N, nO), dtype=C.dtype)
+    cdef np.ndarray dG = xp.zeros((N, nO*4), dtype=C.dtype)
     cdef np.ndarray d_params = xp.zeros((params.shape[0],), dtype=params.dtype)
     # Collect the params and slices. It makes it a bit easier to get the indexing
     # right, when we're iterating backwards.
@@ -821,6 +821,7 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
         all_layer_params.append([])
         for d in range(dirs):
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            layer_params = _transpose_weights(layer_params)
             all_layer_params[-1].append((layer_params, params_i))
     params_i = 0
     all_layer_grads = []
@@ -828,6 +829,7 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
         all_layer_grads.append([])
         for d in range(dirs):
             layer_grads, params_i = _split_weights(params, i, nO, nI, params_i)
+            layer_grads = _transpose_weights(layer_grads)
             all_layer_grads[-1].append((layer_grads, params_i))
     # Similarly, we want to compute the indices first
     indices = []
@@ -840,14 +842,17 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
     # Okay, now do the actual looping
     for i in reversed(range(depth)):
         for d in range(dirs):
-            Wx, Wh, bias = layer_params[i][d]
-            dWx, dWh, d_bias = layer_grads[i][d]
+            Wx, Wh, bias = all_layer_params[i][d][0]
+            dWx, dWh, d_bias = all_layer_grads[i][d][0]
             dYid = dYs[d] 
             dC.fill(0.)
             dG.fill(0.)
             Cid = C[i, d]
             Gid = G[i, d]
             Yid = Y[i, d]
+            assert (Cid.shape[0], Cid.shape[1]) == (N, nO)
+            assert (Yid.shape[0], Yid.shape[1]) == (N, nO)
+            assert (Gid.shape[0], Gid.shape[1]) == (N, nO*4)
             _lstm_backward_training(d, N, nO, nI, nT,
                 <float*>dX.data,
                 <float*>dYid.data,
@@ -865,7 +870,9 @@ def backprop_lstm(np.ndarray dY, np.ndarray lengths, np.ndarray params, fwd_stat
                 indices
             )
         dYs = _split_directions(dX, dirs)
-    assert dX.shape[1] == X.shape[-1]
+    dX = numpy.hstack(dYs)
+    assert dX.shape[1] == X.shape[1]
+    # TODO: Untranspose and rejoin the params
     return dX, d_params
 
 
@@ -924,7 +931,9 @@ cdef int _lstm_backward_training(
         cpu_lstm_gates_bwd(dGt3, dCt2,
             dYt3, dCt3, Gt3, Ct3, Ct2, batch_size * nO
         )
-        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.TRANSPOSE,
+        # Backprop hidden-to-hidden w.r.t. hidden.
+        #     dYt2 += dGt3 @ Wh
+        blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
             batch_size, nO, nO*4,
             one,
             <float*>dGt3, nO*4, 1,
@@ -934,23 +943,28 @@ cdef int _lstm_backward_training(
         )
         seq_t3 = seq_t2
         size_t3 = size_t2
- 
-    blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
-        N, nO*4, nI,
+
+    # Backprop input-to-hidden w.r.t. weights.
+    #     dWx += dG @ X
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
+        nO*4, nI, N,
         one,
         <float*>dG, nO*4, 1,
         <float*>X, nI, 1,
         one,
         dWx, nI, 1
     )
-    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.TRANSPOSE,
-        N, nO*4, nI,
+    # Backprop hidden-to-hidden w.r.t weights.
+    #     dWh += dG @ Y
+    blis.cy.gemm(blis.cy.TRANSPOSE, blis.cy.NO_TRANSPOSE,
+        nO*4, nO, N,
         one,
         <float*>dG, nO*4, 1,
-        <float*>Y, nI, 1,
+        <float*>Y, nO, 1,
         one,
-        dWh, nI, 1
+        dWh, nO, 1
     )
+    # Backprop input-to-hidden w.r.t. input
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
         N, nI, nO*4,
         one,
