@@ -36,7 +36,7 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
 
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
-    Ys, callbacks = zip(*[lyr(X, is_train=is_train) for lyr in model.layers])
+    Ys, callbacks = zip(*[layer(X, is_train=is_train) for layer in model.layers])
     if isinstance(Ys[0], list):
         return _list_forward(model, X, Ys, callbacks, is_train)
     else:
