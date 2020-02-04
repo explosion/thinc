@@ -48,17 +48,11 @@ def forward(
 ) -> Tuple[OutT, Callable]:
     # Assume the original 'vectors' object contains the actual data and is compatible with Floats2d
     vectors = cast(Floats2d, model.attrs["vectors"].obj)
-
-    nO = vectors.shape[1]
-    nN = ids.shape[0]
-    dropout: Optional[float] = model.attrs.get("dropout_rate")
-    output = vectors[ids]
-    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
-    output *= drop_mask
     W = cast(Floats2d, model.get_param("W"))
-    vec = vectors[ids * (ids < vectors.shape[0])]
-    vec = model.ops.as_contig(vec)
-    assert vec.shape[0] == ids.shape[0]
+    nN = ids.shape[0]
+    vectors = vectors[ids * (ids < vectors.shape[0])]
+    vectors = model.ops.as_contig(vectors)
+    assert vectors.shape[0] == ids.shape[0]
 
     def backprop(d_output: OutT) -> Ints1d:
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
@@ -66,6 +60,9 @@ def forward(
         return dX
 
     output = model.ops.gemm(vectors, W, trans2=True)
+    dropout: Optional[float] = model.attrs.get("dropout_rate")
+    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((output.shape[1],), dropout))
+    output *= drop_mask
     return output, backprop
 
 
