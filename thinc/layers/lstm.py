@@ -141,11 +141,10 @@ def forward(
     def backprop(dYp: Padded) -> Padded:
         assert fwd_state
         dYr = _padded_to_packed(model.ops, dYp)
-        dX, (dLSTM, dH0, dC0) = model.ops.backprop_lstm(
+        dX, dLSTM = model.ops.backprop_lstm(
             cast(Floats2d, dYr.data), dYr.lengths, LSTM, fwd_state
         )
         model.inc_grad("LSTM", dLSTM)
-        model.inc_grad("HC0", HC0)
         return _packed_to_padded(model.ops, Ragged(dX, dYr.lengths), dYp)
 
     return Yp, backprop
