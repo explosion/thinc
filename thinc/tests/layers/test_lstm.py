@@ -1,6 +1,7 @@
 import numpy
 import timeit
 from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
+from thinc.api import Ops
 from thinc.util import has_torch
 import pytest
 
@@ -55,7 +56,7 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert params.shape == (2, 1, 1, nO)
 
 
-def test_LSTM_fwd_bwd_shapes(nO, nI):
+def test_LSTM_fwd_bwd_shapes_simple(nO, nI):
     nO = 1
     nI = 2
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
@@ -64,6 +65,22 @@ def test_LSTM_fwd_bwd_shapes(nO, nI):
     dXs = backprop_ys(ys)
     assert numpy.vstack(dXs).shape == numpy.vstack([X]).shape
 
+@pytest.mark.parametrize("nO,nI,depth,bi,lengths", [
+    (1, 1, 1, False, [1]),
+    (12, 32, 1, False, [3, 1]),
+    (2, 2, 1, True, [2, 5, 7]),
+    (2, 2, 2, False, [7, 2, 4]),
+    (2, 2, 2, True, [1]),
+    (32, 16, 1, True, [5, 1, 10, 2]),
+    (32, 16, 2, True, [3, 3, 5]),
+    (32, 16, 3, True, [9, 2, 4]),
+])
+def test_BiLSTM_fwd_bwd_shapes(nO, nI, depth, bi, lengths):
+    Xs = [numpy.ones((length, nI), dtype="f") for length in lengths]
+    model = with_padded(LSTM(nO, nI, depth=depth, bi=bi)).initialize(X=Xs)
+    ys, backprop_ys = model(Xs, is_train=True)
+    dXs = backprop_ys(ys)
+    assert numpy.vstack(dXs).shape == numpy.vstack(Xs).shape
 
 def test_LSTM_learns():
     fix_random_seed(0)
