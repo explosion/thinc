@@ -977,6 +977,11 @@ cdef int _lstm_backward_training(
         one,
         dWh, nO, 1
     )
+    # Backprop bias
+    for i in range(N):
+        for j in range(nO*4):
+            d_bias[j] += dG[i*nO*4+j]
+
     # Backprop input-to-hidden w.r.t. input
     blis.cy.gemm(blis.cy.NO_TRANSPOSE, blis.cy.NO_TRANSPOSE,
         N, nI, nO*4,
