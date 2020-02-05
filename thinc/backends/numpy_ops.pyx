@@ -111,14 +111,11 @@ class NumpyOps(Ops):
         np.ndarray H0,
         np.ndarray C0,
         np.ndarray X,
-        np.ndarray size_at_t,
-        *,
-        dropout=0.0,
+        np.ndarray size_at_t
     ):
         assert H0.shape[0] == C0.shape[0]
         assert H0.shape[1] == C0.shape[1]
-        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t,
-            dropout=dropout)
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -127,11 +124,9 @@ class NumpyOps(Ops):
         np.ndarray H0,
         np.ndarray C0,
         np.ndarray X,
-        np.ndarray size_at_t,
-        *,
-        dropout=0.0
+        np.ndarray size_at_t
     ):
-        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t, dropout=dropout)
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
     def backprop_lstm(
@@ -660,10 +655,9 @@ cdef void cpu_backprop_reduce_max(float* dX__to,
 
 def lstm_forward_training(
     np.ndarray params, np.ndarray c_init, np.ndarray h_init,
-    np.ndarray X, np.ndarray lengths, *, dropout
+    np.ndarray X, np.ndarray lengths
 ):
     xp = numpy
-    # TODO: bidirectional
     depth = c_init.shape[0]
     dirs = c_init.shape[1]
     nO = c_init.shape[2]

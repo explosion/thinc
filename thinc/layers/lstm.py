@@ -22,12 +22,6 @@ def LSTM(
     init_W=glorot_uniform_init,
     init_b=zero_init
 ) -> Model[Padded, Padded]:
-    if dropout != 0.0:
-        msg = (
-            "LSTM dropout not implemented yet. In the meantime, use the "
-            "PyTorchWrapper and the torch.LSTM class."
-        )
-        raise NotImplementedError(msg)
     if depth == 0:
         msg = "LSTM depth must be at least 1. Maybe we should make this a noop?"
         raise ValueError(msg)
@@ -38,7 +32,7 @@ def LSTM(
         "lstm",
         forward,
         dims={"nO": nO, "nI": nI, "depth": depth, "dirs": 1 + int(bi)},
-        attrs={"registry_name": "LSTM.v1"},
+        attrs={"registry_name": "LSTM.v1", "dropout_rate": dropout},
         params={"LSTM": None, "HC0": None},
         init=partial(init, init_W, init_b),
     )
@@ -120,6 +114,7 @@ def init(
 def forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
+    dropout = model.attrs["dropout_rate"]
     dirs = model.get_dim("dirs")
     Xr = _padded_to_packed(model.ops, Xp)
     LSTM = cast(Floats1d, model.get_param("LSTM"))
@@ -127,6 +122,13 @@ def forward(
     H0 = HC0[0]
     C0 = HC0[1]
     if is_train:
+        # Apply dropout over *weights*, not *activations*. RNN activations are
+        # heavily correlated, so dropout over the activations is less effective.
+        # This trick was explained in Yarin Gal's thesis, and popularised by
+        # Smerity in the AWD-LSTM. It also means we can do the dropout outside
+        # of the backend, improving compatibility.
+        mask = model.ops.get_dropout_mask(LSTM.shape, dropout)
+        LSTM = LSTM * mask
         Y, fwd_state = model.ops.lstm_forward_training(
             LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
         )
@@ -144,6 +146,7 @@ def forward(
         dX, dLSTM = model.ops.backprop_lstm(
             cast(Floats2d, dYr.data), dYr.lengths, LSTM, fwd_state
         )
+        dLSTM *= mask
         model.inc_grad("LSTM", dLSTM)
         return _packed_to_padded(model.ops, Ragged(dX, dYr.lengths), dYp)
 
