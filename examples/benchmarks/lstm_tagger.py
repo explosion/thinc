@@ -121,10 +121,12 @@ def set_backend(name, gpu_id):
         CONFIG = CONFIG.replace("PyTorch", "")
     else:
         if gpu_id == -1:
-            set_current_ops(NumpyOps())
+            set_current_ops(NumpyOps(use_blis=True))
         else:
             set_current_ops(CupyOps())
         if name == "pytorch":
+            import torch
+            torch.set_num_threads(1)
             CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
