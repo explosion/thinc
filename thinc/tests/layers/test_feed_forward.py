@@ -2,7 +2,7 @@ import pytest
 import numpy
 from functools import partial
 from numpy.testing import assert_allclose
-from thinc.api import chain, Linear, ReLu, NumpyOps
+from thinc.api import chain, Linear, Relu, NumpyOps
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -27,7 +27,7 @@ def nO(request):
 
 @pytest.fixture
 def model1(nH, nI):
-    model = ReLu(nH, nI).initialize()
+    model = Relu(nH, nI).initialize()
     return model
 
 
@@ -82,7 +82,7 @@ def test_model_shape(model, model1, model2, nI, nH, nO):
 
 
 def test_infer_output_shape():
-    model = ReLu(dropout=0.2)
+    model = Relu(dropout=0.2)
     X = model.ops.alloc2f(4, 5)
     Y = model.ops.alloc2f(4, 2)
     assert model.has_dim("nI") is None

@@ -450,8 +450,8 @@ def test_make_config_positional_args_dicts():
         "model": {
             "@layers": "chain.v1",
             "*": {
-                "relu1": {"@layers": "ReLu.v1", "nO": 512, "dropout": 0.2},
-                "relu2": {"@layers": "ReLu.v1", "nO": 512, "dropout": 0.2},
+                "relu1": {"@layers": "Relu.v1", "nO": 512, "dropout": 0.2},
+                "relu2": {"@layers": "Relu.v1", "nO": 512, "dropout": 0.2},
                 "softmax": {"@layers": "Softmax.v1"},
             },
         },
