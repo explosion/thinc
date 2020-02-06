@@ -13,7 +13,7 @@ from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
-from .relu import ReLu
+from .relu import Relu
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
@@ -72,7 +72,7 @@ __all__ = [
     "ParametricAttention",
     "PyTorchWrapper",
     "PyTorchRNNWrapper",
-    "ReLu",
+    "Relu",
     "Softmax",
     "SparseLinear",
     "StaticVectors",

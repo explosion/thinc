@@ -68,8 +68,8 @@ TEST_CASES_SUMMABLE = [
     ("Mish.v1", {}, array2d, array2d),
     ("Mish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("Mish.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
-    ("ReLu.v1", {}, array2d, array2d),
-    ("ReLu.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
+    ("Relu.v1", {}, array2d, array2d),
+    ("Relu.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
     ("Softmax.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     # fmt: off

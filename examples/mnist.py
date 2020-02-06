@@ -3,7 +3,7 @@ PyTorch version: https://github.com/pytorch/examples/blob/master/mnist/main.py
 TensorFlow version: https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/tutorials/mnist/mnist.py
 """
 # pip install thinc ml_datasets typer
-from thinc.api import Model, chain, ReLu, Softmax, Adam
+from thinc.api import Model, chain, Relu, Softmax, Adam
 import ml_datasets
 from wasabi import msg
 from tqdm import tqdm
@@ -15,8 +15,8 @@ def main(
 ):
     # Define the model
     model: Model = chain(
-        ReLu(nO=n_hidden, dropout=dropout),
-        ReLu(nO=n_hidden, dropout=dropout),
+        Relu(nO=n_hidden, dropout=dropout),
+        Relu(nO=n_hidden, dropout=dropout),
         Softmax(),
     )
     # Load the data

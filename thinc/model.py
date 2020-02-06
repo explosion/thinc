@@ -149,7 +149,7 @@ class Model(Generic[InT, OutT]):
 
         EXAMPLE:
             with Model.define_operators({">>": chain}):
-                model = ReLu(512) >> ReLu(512) >> Softmax()
+                model = Relu(512) >> Relu(512) >> Softmax()
         """
         token = cls._context_operators.set(dict(operators))
         yield
