@@ -76,8 +76,6 @@ def init(
     X: Optional[InT] = None,
     Y: Optional[OutT] = None,
 ) -> Model[InT, OutT]:
-    if Y is not None:
-        model.set_dim("nO", get_width(Y))
     # Assume the original 'vectors' object contains the actual data
     vectors = model.attrs["vectors"].obj
     if vectors is None:
