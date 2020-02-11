@@ -1,5 +1,8 @@
 from typing import Tuple, Callable, Optional, cast, Union, Dict, Any
 
+from thinc.initializers import glorot_uniform_init
+from thinc.util import partial, get_width
+
 from .chain import chain
 from .array_getitem import ints_getitem
 from ..types import Ints1d, Floats2d, Ints2d, Floats1d, Unserializable
@@ -20,7 +23,8 @@ def StaticVectors(
     vectors: Optional[Floats2d] = None,
     *,
     column: Optional[int] = None,
-    dropout: Optional[float] = None
+    dropout: Optional[float] = None,
+    init_W: Callable = glorot_uniform_init,
 ) -> Model[InT, OutT]:
     attrs: Dict[str, Any] = {"column": column, "vectors": Unserializable(vectors)}
     if dropout is not None:
@@ -28,7 +32,7 @@ def StaticVectors(
     model = Model(  # type: ignore
         "static_vectors",
         forward,
-        init=init,
+        init=partial(init, init_W),
         params={"W": None},
         attrs=attrs,
         dims={"nM": None, "nV": None, "nO": nO},
@@ -67,14 +71,18 @@ def forward(
 
 
 def init(
-    model: Model[InT, OutT], X: Optional[Ints1d] = None, Y: Optional[OutT] = None
+    init_W: Callable,
+    model: Model[InT, OutT],
+    X: Optional[InT] = None,
+    Y: Optional[OutT] = None,
 ) -> Model[InT, OutT]:
+    if Y is not None:
+        model.set_dim("nO", get_width(Y))
     # Assume the original 'vectors' object contains the actual data
     vectors = model.attrs["vectors"].obj
     if vectors is None:
         raise ValueError("Can't initialize: vectors attribute unset")
     model.set_dim("nV", vectors.shape[0] + 1)
     model.set_dim("nM", vectors.shape[1])
-    W = model.ops.alloc2f(model.get_dim("nO"), model.get_dim("nM"))
-    model.set_param("W", W)
+    model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nM"))))
     return model
