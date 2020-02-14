@@ -11,13 +11,13 @@ jobs:
     matrix:
       Python27Linux:
         imageName: 'ubuntu-16.04'
-        python.version: '2.7.16'
+        python.version: '2.7.17'
       Python27Mac:
         imageName: 'macos-10.13'
         python.version: '2.7'
       Python35Linux:
         imageName: 'ubuntu-16.04'
-        python.version: '3.5.7'
+        python.version: '3.5.9'
       Python35Windows:
         imageName: 'vs2017-win2016'
         python.version: '3.5'
