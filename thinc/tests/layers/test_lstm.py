@@ -156,8 +156,6 @@ def test_benchmark_LSTM_fwd():
 def test_lstm_init():
     model = with_padded(LSTM(2, 2, bi=True)).initialize()
     model.initialize()
-    with pytest.raises(NotImplementedError):
-        with_padded(LSTM(2, dropout=0.2))
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
