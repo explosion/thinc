@@ -293,27 +293,28 @@ class JaxOps(Ops):
         dX -= Y * sum_dX
         return dX
 
-    def recurrent_lstm(
+    def lstm_forward_training(
         self,
-        W: Floats2d,
-        b: Floats1d,
-        h_init: Floats1d,
-        c_init: Floats1d,
-        inputs: Floats3d,
-        is_train: bool = True,
-    ) -> Tuple[Floats3d, Tuple[Floats3d, Floats3d, Floats3d]]:
-        Y, (G, C, S) = recurrent_lstm_forward(W, b, h_init, c_init, inputs, is_train)
-        return Y, (G, C, S)
+        params: Floats1d,
+        H0: Floats2d,
+        C0: Floats2d,
+        X: Floats2d,
+        size_at_t: Ints1d
+    ) -> Tuple[Floats2d, Tuple]:
+        assert H0.shape == C0.shape
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y, fwd_state
 
-    def backprop_recurrent_lstm(
+    def lstm_forward_inference(
         self,
-        dY: Floats3d,
-        fwd_state: Tuple[Floats3d, Floats3d, Floats3d],
-        params: Tuple[Floats2d, Floats1d],
-    ) -> Tuple[Floats3d, Tuple[Floats2d, Floats1d, Floats1d, Floats1d]]:
-        dCt = self.alloc2f(dY.shape[1], dY.shape[2])
-        dW, db, dX, dY, dC0 = backprop_recurrent_lstm(dY, dCt, (fwd_state, params))
-        return dX, (dW, db, dY[0].sum(axis=0), dC0.sum(axis=0))
+        params: Floats1d,
+        H0: Floats2d,
+        C0: Floats2d,
+        X: Floats2d,
+        size_at_t: Ints1d,
+    ) -> Floats2d:
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
+        return Y
 
     def insert_into(self, shape, Xs):
         output = self.alloc(shape, dtype=Xs[0].dtype)
@@ -648,119 +649,166 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
-
-@jax_jit(5)
-def recurrent_lstm_forward(W, b, c_init, h_init, X, is_train):
-    xp = jax.numpy
-    nL, nB, nI = X.shape
-    nO = h_init.shape[0]
+def lstm_forward_training(
+    params: Floats1d, c_init: Floats2d, h_init: Floats2d, X: Floats2d, lengths: Ints1d
+) -> Tuple[Floats2d, Tuple]:
+    # TODO: bidirectional
+    xp = get_array_module(params)
+    depth, nO = c_init.shape
+    nI: int = X.shape[1]
+    batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
-    Y = xp.zeros((nL + 1, nB, nO), dtype="f")
-    if is_train:
-        G = xp.zeros((nL, nB, nO * 4), dtype="f")
-        C = xp.zeros((nL + 1, nB, nO), dtype="f")
-        # Set initial hidden and cell states. The Y and C will be shifted 1,
-        # so that we can have fewer arrays.
-        Y = index_update(Y, index[0], h_init)
-        C = index_update(C, index[0], c_init)
-    else:
-        G = xp.zeros((nB, nO * 4), dtype="f")
-        C = xp.zeros((nB, nO), dtype="f")
-        C += c_init
-    state = ((W, b, X), (Y, C, G))
-    state = jax.lax.fori_loop(0, X.shape[0], lstm_stepper_forward, state)
-    (W, b, X), (Y, C, G) = state
-    # Recall that Y and C are both offset by 1. Y[1] is the output for
-    # X[1], while Y[0] was used as an input for Y[1]. We use
-    # the S values to backprop the weights, so we need X the previous Ys.
-    if is_train:
-        S = xp.concatenate((X, Y[:-1]), axis=-1)
-        return Y[1:], (G, C, S)
-    else:
-        null = xp.zeros((0, 0, 0))
-        return Y, (null, null, null)
+    G = cast(Floats3d, xp.zeros((depth, X.shape[0], nO * 4), dtype="f"))
+    # The Y and C are shifted by 1 step
+    offset = batch_size
+    Y = cast(Floats3d, xp.zeros((depth, X.shape[0] + offset, nO), dtype="f"))
+    C = cast(Floats3d, xp.zeros((depth, X.shape[0] + offset, nO), dtype="f"))
+    # The inits are shaped (n_layers, nO). We add the internal dimension to make
+    # them set correctly.
+    Y[:, :batch_size, :] = cast(Floats3d, h_init.reshape((depth, 1, nO)))
+    C[:, :batch_size, :] = cast(Floats3d, c_init.reshape((depth, 1, nO)))
+    params_i = 0
+    seq_i = 0
+    Xt3: Floats2d
+    Yt3: Floats2d
+    Ct3: Floats2d
+    Yt2: Floats2d
+    Ct2: Floats2d
+    orig_X = X
+    for i in range(depth):
+        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+        Yt3 = Y[i, :batch_size, :]
+        Ct3 = C[i, :batch_size, :]
+        for t, batch_size in enumerate(lengths):
+            # Prepare the inputs
+            Xt3 = X[seq_i : seq_i + batch_size]
+            Yt2 = Yt3[:batch_size]
+            Ct2 = Ct3[:batch_size]
+            # Now do the actual calculation
+            At3 = lstm_weights_forward(layer_params, Xt3, Yt2)
+            Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
+            # Store the outputs
+            G[i, seq_i : seq_i + batch_size] = Gt3
+            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
+            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
+            seq_i += batch_size
+        X = Y[i, batch_size:]
+    return Y[-1, offset:], (Y, G, C, orig_X)
 
 
-@jax_jit()
-def lstm_stepper_forward(t, state):
-    (W, b, X), (Y, C, G) = state
-    is_train = G.ndim >= 3
-    # Get the activations for this timestep.
-    At3 = lstm_weights_forward(X[t], Y[t], W, b)
-    # The offsets here are a bit unintuitive, because Y and C are 1-offset.
-    Ct2 = C[t] if is_train else C
-    Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
-    Y = index_update(Y, index[t + 1], Yt3)
-    if is_train:
-        C = index_update(C, index[t + 1], Ct3)
-        G = index_update(G, index[t], Gt3)
-        return (W, b, X), (Y, C, G)
-    else:
-        return (W, b, X), (Y, Ct3, Gt3)
-
-
-@jax_jit()
-def backprop_recurrent_lstm(dY, dCt, fwd_vars):
-    (G, C, S), (W, b) = fwd_vars
+def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple):
     xp = jax.numpy
-    nL = S.shape[0]
-    nB = dY.shape[1]
-    nI = S.shape[2] - dY.shape[2]
-    # Preallocate these so we can pass them through for loop.
-    dX = xp.zeros((nL, nB, nI), dtype="f")
-    dW = xp.zeros(W.shape, dtype="f")
-    db = xp.zeros(b.shape, dtype="f")
-    state = (
-        (dW, db, dX),  # The gradi-outs (Write-only)
-        (dY, dCt),  # The gradi-ins  (Read and write)
-        (G, C, S),  # Forward state  (Read-only)
-        (W, b),  # Params         (Read-only)
-    )
-    state = jax.lax.fori_loop(0, nL, backprop_lstm_stepper, state)
-    (dW, db, dX), (dY, dCt), (G, C, S), (W, b) = state
-    return dW, db, dX, dY, dCt
+    Y, G, C, X = fwd_state
+    depth, N, nO = C.shape
+    nI = X.shape[1]
+    batch_size = lengths[0]
+    dX = cast(Floats2d, xp.zeros(X.shape, dtype=X.dtype))
+    # We don't need to store all the cells for all the layers.
+    dC = cast(Floats2d, xp.zeros((N, nO), dtype=C.dtype))
+    # We just need these as gradients for the initial states.
+    dC0 = cast(Floats2d, xp.zeros((depth, nO), dtype="f"))
+    dH0 = cast(Floats2d, xp.zeros((depth, nO), dtype="f"))
+
+    d_params = cast(Floats1d, xp.zeros(params.shape, dtype=params.dtype))
+    # Collect the params and slices. It makes it a bit easier to get the indexing
+    # right, when we're iterating backwards.
+    params_i = 0
+    all_layer_params = []
+    for i in range(depth):
+        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+        all_layer_params.append((layer_params, params_i))
+    # Similarly, we want to compute all our indices first, and do the reversal.
+    offset = lengths[0]
+    indices = [slice(0, offset)]
+    seq_i = offset
+    for batch_size in lengths:
+        indices.append(slice(seq_i, seq_i + batch_size))
+        seq_i += batch_size
+    Xs = [X] + [Y[i, offset:] for i in range(1, depth)]
+    # Okay, now do the actual looping
+    for i in reversed(range(depth)):
+        for t in range(len(indices) - 1, 0, -1):
+            # Y and C are offset, but dY isn't
+            dAt3, dCt2 = backprop_lstm_gates(
+                dY[indices[t - 1]],
+                dC[indices[t]],
+                G[i, indices[t - 1]],
+                C[i, indices[t]],
+                C[i, indices[t - 1]],
+            )
+            dXt3, dYt2, d_params = backprop_lstm_weights(
+                dAt3,
+                d_params,
+                Xs[i][indices[t - 1]],
+                Y[i, indices[t]],
+                all_layer_params[i],
+            )
+            # Store the outputs
+            dC[indices[t - 1]] = dCt2
+            dX[indices[t - 1]] = dXt3
+            if t >= 2:
+                dY[indices[t - 2]] += dYt2
+        dH0[i] = dYt2.sum(axis=0)
+        dC0[i] = dCt2.sum(axis=0)
+        dY = dX
+    assert dX.shape[1] == X.shape[-1]
+    return dX, d_params, dH0, dC0
 
 
-@jax_jit()
-def backprop_lstm_stepper(i, state):
-    (dW, db, dX), (dY, dCt3), (G, C, S), (W, b) = state
-    t = S.shape[0] - i
-    # Recall, we're at step 3, Y and C are offset by 1. See above.
-    dYt3 = dY[t + 1]
-    Ct3 = C[t + 1]
-    St3 = S[t]
-    Gt3 = G[t]
-    Ct2 = C[t]
-    dAt3, dCt2 = backprop_lstm_gates(dCt3, dYt3, Gt3, Ct3, Ct2)
-    dXt3, dYt2, dW3, db3 = backprop_lstm_weights(dAt3, (St3, W, b))
-    dX = index_update(dX, index[t], dXt3)
-    dY = index_update(dY, index[t], dYt2)
-    return (dW + dW3, db + db3, dX), (dY, dCt2), (G, C, S), (W, b)
+def _split_weights(params: Floats1d, i: int, nO: int, nI: int, params_i: int):
+    Wx_size = 4 * nO * nI
+    bx_size = 4 * nO
+    Wh_size = 4 * nO * nO
+    bh_size = 4 * nO
+    Wx = params[params_i : params_i + Wx_size].reshape((4 * nO, nI))
+    params_i += Wx_size
+    bx = params[params_i : params_i + bx_size].reshape((4 * nO,))
+    params_i += bx_size
+    Wh = params[params_i : params_i + Wh_size].reshape((4 * nO, nO))
+    params_i += Wh_size
+    bh = params[params_i : params_i + bh_size].reshape((4 * nO,))
+    params_i += bh_size
+    return ((Wx, bx), (Wh, bh)), params_i
 
 
-@jax_jit()
-def lstm_weights_forward(Xt3, Yt2, W, b):
-    xp = jax.numpy
-    St3 = xp.hstack((Xt3, Yt2))
-    At3 = St3 @ W.T + b
+def lstm_weights_forward(params, Xt3: Floats2d, Yt2: Floats2d) -> Floats2d:
+    (Wx, bx), (Wh, bh) = params
+    At3 = Xt3 @ Wx.T
+    At3 += bx
+    At3 += Yt2 @ Wh.T
+    At3 += bh
     return At3
 
 
-@jax_jit()
-def backprop_lstm_weights(dAt3, fwd_state):
-    St3, W, b = fwd_state
-    dW = dAt3.T @ St3
+def backprop_lstm_weights(
+    dAt3: Floats2d,
+    d_params: Floats1d,
+    Xt3: Floats2d,
+    Yt2: Floats2d,
+    params: Tuple[Tuple, int],
+) -> Tuple[Floats2d, Floats2d, Floats1d]:
+    ((Wx, bx), (Wh, bh)), i = params
     db = dAt3.sum(axis=0)
-    dSt3 = dAt3 @ W
-    nO = W.shape[0] // 4
-    nI = St3.shape[1] - nO
-    dXt3 = dSt3[:, :nI]
-    dYt2 = dSt3[:, nI:]
-    return dXt3, dYt2, dW, db
+    size = db.shape[0]
+    i -= size
+    d_params[i : i + size] += db  # Grad of bh
+    size = dAt3.shape[1] * Yt2.shape[1]
+    i -= size
+    d_params[i : i + size] += (dAt3.T @ Yt2).ravel()  # Grad of Wh
+    size = db.shape[0]
+    i -= size
+    d_params[i : i + size] += db  # Grad of bx
+    size = dAt3.shape[1] * Xt3.shape[1]
+    i -= size
+    d_params[i : i + size] += (dAt3.T @ Xt3).ravel()  # Grad of Wx
+    dXt3 = dAt3 @ Wx
+    dYt2 = dAt3 @ Wh
+    return dXt3, dYt2, d_params
 
 
-@jax_jit()
-def lstm_gates_forward(At3, Ct2):
+def lstm_gates_forward(
+    At3: Floats2d, Ct2: Floats2d
+) -> Tuple[Floats2d, Floats2d, Floats2d]:
     xp = jax.numpy
     # hf, hi, ho, hc: Forget, input, output, cell gates.
     At3_hf, At3_hi, At3_ho, At3_hc = xp.split(At3, 4, axis=-1)
@@ -780,13 +828,14 @@ def lstm_gates_forward(At3, Ct2):
     return Yt3, Ct3, Gt3
 
 
-@jax_jit()
 def backprop_lstm_gates(
     dYt3: Floats2d, dCt3: Floats2d, Gt3: Floats2d, Ct3: Floats2d, Ct2: Floats2d
-) -> Tuple[Floats3d, Floats2d]:
+) -> Tuple[Floats2d, Floats2d]:
     # See above for notation. Step numbering refers to forward_lstm_gates
     xp = jax.numpy
     hf, hi, ho, hc = xp.split(Gt3, 4, axis=-1)
+    assert hf.shape[0] == hi.shape[0] == ho.shape[0] == hc.shape[0]
+    assert hf.shape[0] == dYt3.shape[0] == dCt3.shape[0] == Ct3.shape[0] == Ct2.shape[0]
     tanhCt3 = xp.tanh(Ct3)
     # 3b: Yt3 = tanhCt3 * ho
     d_ho = dYt3 * tanhCt3
@@ -805,6 +854,19 @@ def backprop_lstm_gates(
     d_At3_hf = d_hf * dsigmoid(hf)  # 1a
     dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
     return dAt3, dCt2
+
+
+def sigmoid(X):
+    xp = jax.numpy
+    return 1.0 / (1.0 + xp.exp(-X))
+
+
+def dsigmoid(Y: ArrayT) -> ArrayT:
+    return Y * (1.0 - Y)
+
+
+def dtanh(Y: ArrayT) -> ArrayT:
+    return 1 - Y ** 2
 
 
 if has_jax:

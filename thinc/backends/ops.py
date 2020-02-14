@@ -611,9 +611,7 @@ class Ops:
         H0: Floats2d,
         C0: Floats2d,
         X: Floats2d,
-        size_at_t: Ints1d,
-        *,
-        dropout=0.0,
+        size_at_t: Ints1d
     ) -> Tuple[Floats2d, Tuple]:
         assert H0.shape == C0.shape
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
