@@ -293,29 +293,6 @@ class JaxOps(Ops):
         dX -= Y * sum_dX
         return dX
 
-    def lstm_forward_training(
-        self,
-        params: Floats1d,
-        H0: Floats2d,
-        C0: Floats2d,
-        X: Floats2d,
-        size_at_t: Ints1d
-    ) -> Tuple[Floats2d, Tuple]:
-        assert H0.shape == C0.shape
-        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
-        return Y, fwd_state
-
-    def lstm_forward_inference(
-        self,
-        params: Floats1d,
-        H0: Floats2d,
-        C0: Floats2d,
-        X: Floats2d,
-        size_at_t: Ints1d,
-    ) -> Floats2d:
-        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
-        return Y
-
     def insert_into(self, shape, Xs):
         output = self.alloc(shape, dtype=Xs[0].dtype)
         for i, x in enumerate(Xs):
@@ -653,7 +630,7 @@ def lstm_forward_training(
     params: Floats1d, c_init: Floats2d, h_init: Floats2d, X: Floats2d, lengths: Ints1d
 ) -> Tuple[Floats2d, Tuple]:
     # TODO: bidirectional
-    xp = get_array_module(params)
+    xp = jax.numpy
     depth, nO = c_init.shape
     nI: int = X.shape[1]
     batch_size = lengths[0]
@@ -854,19 +831,6 @@ def backprop_lstm_gates(
     d_At3_hf = d_hf * dsigmoid(hf)  # 1a
     dAt3 = xp.concatenate((d_At3_hf, d_At3_hi, d_At3_ho, d_At3_hc), axis=-1)
     return dAt3, dCt2
-
-
-def sigmoid(X):
-    xp = jax.numpy
-    return 1.0 / (1.0 + xp.exp(-X))
-
-
-def dsigmoid(Y: ArrayT) -> ArrayT:
-    return Y * (1.0 - Y)
-
-
-def dtanh(Y: ArrayT) -> ArrayT:
-    return 1 - Y ** 2
 
 
 if has_jax:
