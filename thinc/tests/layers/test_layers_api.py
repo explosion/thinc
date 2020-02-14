@@ -103,8 +103,8 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("expand_window.v1", {}, array2d, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array1dint.max()}, array1dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
