@@ -127,7 +127,7 @@ def forward(
         # This trick was explained in Yarin Gal's thesis, and popularised by
         # Smerity in the AWD-LSTM. It also means we can do the dropout outside
         # of the backend, improving compatibility.
-        mask = model.ops.get_dropout_mask(LSTM.shape, dropout)
+        mask = cast(Floats1d, model.ops.get_dropout_mask(LSTM.shape, dropout))
         LSTM = LSTM * mask
         Y, fwd_state = model.ops.lstm_forward_training(
             LSTM, H0, C0, cast(Floats2d, Xr.data), Xr.lengths
