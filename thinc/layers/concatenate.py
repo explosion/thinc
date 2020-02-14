@@ -98,6 +98,6 @@ def init(
             layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
-    if None not in [layer.has_dim("nO") for layer in model.layers]:
+    if all([layer.has_dim("nO") for layer in model.layers]):
         model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
     return model
