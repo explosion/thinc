@@ -74,6 +74,6 @@ def init(
 ) -> Model[InT, OutT]:
     if Y is not None:
         model.set_dim("nO", get_width(Y))
-    shape = (model.get_dim("nV") + 1, model.get_dim("nO"))
+    shape = (model.get_dim("nV"), model.get_dim("nO"))
     model.set_param("E", initializer(model.ops, shape))
     return model
