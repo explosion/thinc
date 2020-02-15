@@ -614,8 +614,7 @@ class Ops:
         size_at_t: Ints1d
     ) -> Tuple[Floats2d, Tuple]:
         assert H0.shape == C0.shape
-        # TODO: Bidirectional
-        Y, fwd_state = lstm_forward_training(params, H0[:, 0], C0[:, 0], X, size_at_t)
+        Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
     def lstm_forward_inference(
@@ -626,8 +625,7 @@ class Ops:
         X: Floats2d,
         size_at_t: Ints1d,
     ) -> Floats2d:
-        # TODO: Bidirectional
-        Y, _ = lstm_forward_training(params, H0[:, 0], C0[:, 0], X, size_at_t)
+        Y, _ = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
     def backprop_lstm(
@@ -877,23 +875,19 @@ have the initial hiddens and initial cells. So:
 
 
 def lstm_forward_training(
-    params: Floats1d, c_init: Floats2d, h_init: Floats2d, X: Floats2d, lengths: Ints1d
+    params: Floats1d, c_init: Floats3d, h_init: Floats3d, X: Floats2d, lengths: Ints1d
 ) -> Tuple[Floats2d, Tuple]:
-    # TODO: bidirectional
     xp = get_array_module(params)
-    depth, nO = c_init.shape
-    nI: int = X.shape[1]
+    depth, dirs, nO = c_init.shape
+    N, nI = X.shape
+    nT = lengths.shape[0]
     batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
-    G = cast(Floats3d, xp.zeros((depth, X.shape[0], nO * 4), dtype="f"))
-    # The Y and C are shifted by 1 step
-    offset = batch_size
-    Y = cast(Floats3d, xp.zeros((depth, X.shape[0] + offset, nO), dtype="f"))
-    C = cast(Floats3d, xp.zeros((depth, X.shape[0] + offset, nO), dtype="f"))
-    # The inits are shaped (n_layers, nO). We add the internal dimension to make
-    # them set correctly.
-    Y[:, :batch_size, :] = cast(Floats3d, h_init.reshape((depth, 1, nO)))
-    C[:, :batch_size, :] = cast(Floats3d, c_init.reshape((depth, 1, nO)))
+    G = cast(Floats4d, xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f"))
+    Y = cast(Floats4d, xp.zeros((depth, dirs, X.shape[0], nO), dtype="f"))
+    C = cast(Floats4d, xp.zeros((depth, dirs, X.shape[0], nO), dtype="f"))
+    Yt2 = cast(Floats2d, xp.zeros((batch_size, nO), dtype="f"))
+    Ct2 = cast(Floats2d, xp.zeros((batch_size, nO), dtype="f"))
     params_i = 0
     seq_i = 0
     Xt3: Floats2d
@@ -903,30 +897,43 @@ def lstm_forward_training(
     Ct2: Floats2d
     orig_X = X
     for i in range(depth):
-        layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
-        Yt3 = Y[i, :batch_size, :]
-        Ct3 = C[i, :batch_size, :]
-        for t, batch_size in enumerate(lengths):
-            # Prepare the inputs
-            Xt3 = X[seq_i : seq_i + batch_size]
-            Yt2 = Yt3[:batch_size]
-            Ct2 = Ct3[:batch_size]
-            # Now do the actual calculation
-            At3 = lstm_weights_forward(layer_params, Xt3, Yt2)
-            Yt3, Ct3, Gt3 = lstm_gates_forward(At3, Ct2)
-            # Store the outputs
-            G[i, seq_i : seq_i + batch_size] = Gt3
-            Y[i, seq_i + offset : seq_i + offset + batch_size] = Yt3
-            C[i, seq_i + offset : seq_i + offset + batch_size] = Ct3
-            seq_i += batch_size
-        X = Y[i, batch_size:]
-    return Y[-1, offset:], (Y, G, C, orig_X)
+        nI = X.shape[1]
+        for d in range(dirs):
+            # The inits are shaped (depth, dirs, nO). We add the internal dimension
+            # to make them set correctly.
+            Yt2 = h_init[i, d].reshape((1, nO))
+            Ct2 = c_init[i, d].reshape((1, nO))
+            layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
+            Wx, Wh, bias = _transpose_weights(layer_params)
+            xp.dot(X, Wx.T, out=G[i, d])
+            G[i, d] += bias
+            for t in range(nT):
+                G[i, d, t:t+1] += xp.dot(Yt2, Wh.T)
+                G = G.reshape((G.shape[0], G.shape[1], G.shape[2], -1, 4))
+                sigmoid(G[i, d, t, :, :3], out=G[i, d, t, :, :3])
+                xp.tanh(G[i, d, t, :, 3:], out=G[i, d, t, :, 3:])
+                hf = G[i, d, t, :, 0]
+                hi = G[i, d, t, :, 1]
+                ho = G[i, d, t, :, 2]
+                hc = G[i, d, t, :, 3]
+                C[i, d, t] = hf * Ct2
+                C[i, d, t] += hi * hc
+                xp.tanh(C[i, d, t], out=C[i, d, t]) 
+                Y[i, d, t] = C[i, d, t] * ho
+                G = G.reshape((G.shape[0], G.shape[1], G.shape[2], -1))
+                Ct2 = C[i, d, t]
+                Yt2 = Y[i, d, t]
+        H = Y[i].transpose((1, 0, 2)).reshape((N, -1))
+        if dirs == 2:
+            H = xp.ascontiguousarray(H)
+        X = H
+    return H, (Y, G, C, orig_X)
 
 
 def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple):
     xp = get_array_module(params)
     Y, G, C, X = fwd_state
-    depth, N, nO = C.shape
+    depth, dirs, N, nO = C.shape
     nI = X.shape[1]
     batch_size = lengths[0]
     dX = cast(Floats2d, xp.zeros(X.shape, dtype=X.dtype))
@@ -998,13 +1005,36 @@ def _split_weights(params: Floats1d, i: int, nO: int, nI: int, params_i: int):
     return ((Wx, bx), (Wh, bh)), params_i
 
 
-def lstm_weights_forward(params, Xt3: Floats2d, Yt2: Floats2d) -> Floats2d:
+def _transpose_weights(params):
+    # Transpose the parameters so that the gates are the last dimension. This
+    # makes it easier to fuse.
     (Wx, bx), (Wh, bh) = params
-    At3 = Xt3 @ Wx.T
-    At3 += bx
-    At3 += Yt2 @ Wh.T
-    At3 += bh
-    return At3
+    xp = get_array_module(Wx)
+    Wx = Wx.reshape((4, -1, Wx.shape[-1]))
+    Wx = Wx.transpose((1, 0, 2)).reshape((-1, Wx.shape[-1]))
+    bx = bx.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    Wh = Wh.reshape((4, -1, Wh.shape[-1]))
+    Wh = Wh.transpose((1, 0, 2)).reshape((-1, Wh.shape[-1]))
+    bh = bh.reshape((4, -1)).transpose((1, 0)).reshape((-1,))
+    ascontig = xp.ascontiguousarray
+    Wx = ascontig(Wx)
+    Wh = ascontig(Wh)
+    bias = ascontig(bx)
+    bias += bh
+    return Wx, Wh, bias
+
+
+def _untranspose_unsplit_weights(params):
+    xp = get_array_module(Wx)
+    Wx, Wh, bias = params
+    nO = Wh.shape[1]
+    nI = Wx.shape[1]
+    Wx = Wx.reshape((-1, 4, nI)).transpose((1, 0, 2)).reshape((-1, nI))
+    Wh = Wh.reshape((-1, 4, nO)).transpose((1, 0, 2)).reshape((-1, nO))
+    bias = bias.reshape((-1, 4)).transpose((1, 0)).reshape((-1,))
+    zeros = xp.zeros(bias.shape, dtype="f")
+    return xp.concatenate((Wx.ravel(), bias, Wh.ravel(), zeros))
+
 
 
 def backprop_lstm_weights(
@@ -1031,28 +1061,6 @@ def backprop_lstm_weights(
     dXt3 = dAt3 @ Wx
     dYt2 = dAt3 @ Wh
     return dXt3, dYt2, d_params
-
-
-def lstm_gates_forward(
-    At3: Floats2d, Ct2: Floats2d
-) -> Tuple[Floats2d, Floats2d, Floats2d]:
-    xp = get_array_module(At3)
-    # hf, hi, ho, hc: Forget, input, output, cell gates.
-    At3_hf, At3_hi, At3_ho, At3_hc = xp.split(At3, 4, axis=-1)
-    # Number the steps here, to refer back for backward pass.
-    # 1. Activations
-    hf = sigmoid(At3_hf)  # 1a
-    hi = sigmoid(At3_hi)  # 1b
-    ho = sigmoid(At3_ho)  # 1c
-    hc = xp.tanh(At3_hc)  # 1d
-
-    Ct3 = hf * Ct2  # 2a
-    Ct3 += hi * hc  # 2b
-    tanhCt3 = xp.tanh(Ct3)  # 3a
-    Yt3 = tanhCt3 * ho  # 3b
-    # We don't need the gradient for this, it's just for backprop calculation.
-    Gt3 = xp.concatenate((hf, hi, ho, hc), axis=-1)
-    return Yt3, Ct3, Gt3
 
 
 def backprop_lstm_gates(
@@ -1083,7 +1091,7 @@ def backprop_lstm_gates(
     return dAt3, dCt2
 
 
-def sigmoid(X):
+def sigmoid(X, out=None):
     xp = get_array_module(X)
     return 1.0 / (1.0 + xp.exp(-X))
 
