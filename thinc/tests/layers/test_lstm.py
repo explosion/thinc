@@ -1,7 +1,7 @@
 import numpy
 import timeit
-from thinc.api import NumpyOps, LSTM, PyTorchLSTM, with_padded, fix_random_seed
-from thinc.api import Ops
+from thinc.api import LSTM, PyTorchLSTM, with_padded, fix_random_seed
+from thinc.api import Ops, NumpyOps, set_current_ops
 from thinc.util import has_torch
 import pytest
 
@@ -37,8 +37,10 @@ def test_list2padded():
     assert unpadded[2].shape == (2, 4)
 
 
+@pytest.mark.parametrize("ops", [Ops(), NumpyOps()])
 @pytest.mark.parametrize("nO,nI", [(1, 2), (2, 2), (100, 200), (9, 6)])
-def test_LSTM_init_with_sizes(nO, nI):
+def test_LSTM_init_with_sizes(ops, nO, nI):
+    set_current_ops(ops)
     model = with_padded(LSTM(nO, nI, depth=1)).initialize()
     for node in model.walk():
         # Check no unallocated params.
@@ -56,7 +58,9 @@ def test_LSTM_init_with_sizes(nO, nI):
             assert params.shape == (2, 1, 1, nO)
 
 
-def test_LSTM_fwd_bwd_shapes_simple(nO, nI):
+@pytest.mark.parametrize("ops", [Ops(), NumpyOps()])
+def test_LSTM_fwd_bwd_shapes_simple(ops, nO, nI):
+    set_current_ops(ops)
     nO = 1
     nI = 2
     X = numpy.asarray([[0.1, 0.1], [-0.1, -0.1], [1.0, 1.0]], dtype="f")
