@@ -34,7 +34,8 @@ def assert_arrays_equal(arrays1, arrays2):
 
 # See thinc/backends/jax_ops for notation
 
-@pytest.mark.xfail # Xfail until we update jax
+
+@pytest.mark.xfail  # Xfail until we update jax
 @pytest.mark.skipif(not has_jax, reason="needs Jax")
 @pytest.mark.filterwarnings("ignore")
 @settings(max_examples=MAX_EXAMPLES, deadline=None)

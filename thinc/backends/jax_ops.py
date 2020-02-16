@@ -626,6 +626,7 @@ have the initial hiddens and initial cells. So:
     Gt3: The gates at 'd...'
 """
 
+
 def lstm_forward_training(
     params: Floats1d, c_init: Floats2d, h_init: Floats2d, X: Floats2d, lengths: Ints1d
 ) -> Tuple[Floats2d, Tuple]:

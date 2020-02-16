@@ -105,9 +105,9 @@ def init(
     model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
     model.set_param("HC0", zero_init(model.ops, (2, depth, dirs, nO)))
     size = model.get_param("LSTM").size
-    expected = 4 * dirs * nO * (nO+nI) + dirs * (8 * nO)
+    expected = 4 * dirs * nO * (nO + nI) + dirs * (8 * nO)
     for _ in range(1, depth):
-        expected += 4 * dirs * (nO+nO*dirs) * nO + dirs * (8 * nO)
+        expected += 4 * dirs * (nO + nO * dirs) * nO + dirs * (8 * nO)
     assert size == expected, (size, expected)
 
 
@@ -155,7 +155,10 @@ def forward(
 
 def _padded_to_packed(ops: Ops, Xp: Padded) -> Ragged:
     """Strip padding from a padded sequence."""
-    assert Xp.lengths.sum() == Xp.size_at_t.sum(), (Xp.lengths.sum(), Xp.size_at_t.sum())
+    assert Xp.lengths.sum() == Xp.size_at_t.sum(), (
+        Xp.lengths.sum(),
+        Xp.size_at_t.sum(),
+    )
     Y = ops.alloc2f(Xp.lengths.sum(), Xp.data.shape[2])
     start = 0
     for t in range(Xp.size_at_t.shape[0]):

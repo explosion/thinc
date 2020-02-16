@@ -317,7 +317,7 @@ class Ops:
         batch_size_at_t_ = [0 for _ in range(nS)]
         current_size = len(lengths_)
         for t in range(nS):
-            while current_size and t >= lengths_[current_size-1]:
+            while current_size and t >= lengths_[current_size - 1]:
                 current_size -= 1
             batch_size_at_t_[t] = current_size
         assert sum(lengths_) == sum(batch_size_at_t_)
@@ -337,7 +337,7 @@ class Ops:
         # Transpose from (length, batch, data) to (batch, length, data)
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
-            unpadded[indices[i]] = data[i, :lengths[i]]
+            unpadded[indices[i]] = data[i, : lengths[i]]
         return cast(List2d, unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
@@ -611,7 +611,7 @@ class Ops:
         H0: Floats3d,
         C0: Floats3d,
         X: Floats2d,
-        size_at_t: Ints1d
+        size_at_t: Ints1d,
     ) -> Tuple[Floats2d, Tuple]:
         assert H0.shape == C0.shape
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
@@ -892,7 +892,7 @@ def lstm_forward_training(
     indices = []
     start = 0
     for batch_size in lengths:
-        indices.append((start, start+batch_size))
+        indices.append((start, start + batch_size))
         start += batch_size
     params_i = 0
     orig_X = X
@@ -902,20 +902,20 @@ def lstm_forward_training(
             start = 0
             # The inits are shaped (depth, dirs, nO). We add the internal dimension
             # to make them set correctly.
-            Yt2[:] = h_init[i, d].reshape((1, nO)) # type: ignore
-            Ct2[:] = c_init[i, d].reshape((1, nO)) # type: ignore
+            Yt2[:] = h_init[i, d].reshape((1, nO))  # type: ignore
+            Ct2[:] = c_init[i, d].reshape((1, nO))  # type: ignore
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             Wx, Wh, bias = _transpose_weights(layer_params)
             xp.dot(X, Wx.T, out=G[i, d])
             G[i, d] += bias
-            for start, end in (indices if d == 0 else reversed(indices)):
+            for start, end in indices if d == 0 else reversed(indices):
                 # When we iterate left-to-right, t2 might be longer than t3.
-                t3_size = end-start
-                Yt2 = Yt2[:end-start]
-                Ct2 = Ct2[:end-start]
+                t3_size = end - start
+                Yt2 = Yt2[: end - start]
+                Ct2 = Ct2[: end - start]
                 # But in right-to-left, it's the opposite: t3 can be longer.
                 Gt3 = cast(Floats3d, xp.dot(Yt2, Wh.T).reshape((-1, nO, 4)))
-                Gt3 = Gt3[:Yt2.shape[0]]
+                Gt3 = Gt3[: Yt2.shape[0]]
                 Gt3[:, :, :3] = sigmoid(Gt3[:, :, :3])
                 Gt3[:, :, 3] = xp.tanh(Gt3[:, :, 3])
                 hf = Gt3[:, :, 0]
@@ -924,11 +924,11 @@ def lstm_forward_training(
                 hc = Gt3[:, :, 3]
                 Ct3 = hf * Ct2
                 Ct3 += hi * hc
-                Ct3 = xp.tanh(Ct3) 
-                Y[i, d, start:start+Ct3.shape[0]] = Ct3 * ho
+                Ct3 = xp.tanh(Ct3)
+                Y[i, d, start : start + Ct3.shape[0]] = Ct3 * ho
                 # Set the t2 variables to the current t3 variables.
                 Ct2 = Ct3
-                Yt2 = Y[i, d, start:start+Ct3.shape[0]]
+                Yt2 = Y[i, d, start : start + Ct3.shape[0]]
         H = cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
         if dirs == 2:
             H = xp.ascontiguousarray(H)
@@ -938,7 +938,7 @@ def lstm_forward_training(
 
 def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple):
     xp = get_array_module(params)
- 
+
     Y: Floats4d
     G: Floats4d
     C: Floats4d
@@ -956,7 +956,7 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     nT = lengths.shape[0]
     # We don't need to store all the cells for all the layers.
     dC = cast(Floats2d, xp.zeros((N, nO), dtype=C.dtype))
-    dG = cast(Floats2d, xp.zeros((N, nO*4), dtype=C.dtype))
+    dG = cast(Floats2d, xp.zeros((N, nO * 4), dtype=C.dtype))
     d_params = cast(Floats2d, xp.zeros((params.shape[0],), dtype=params.dtype))
     # Collect the params and slices. It makes it a bit easier to get the indexing
     # right, when we're iterating backwards.
@@ -982,11 +982,13 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     indices = []
     start = 0
     for batch_size in lengths:
-        indices.append((start, start+batch_size))
+        indices.append((start, start + batch_size))
         start += batch_size
 
-    Xs = [X] + [cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
-          for i in range(depth-1)]
+    Xs = [X] + [
+        cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
+        for i in range(depth - 1)
+    ]
     dXs = [xp.zeros((X.shape[0], X.shape[1]), dtype=X.dtype) for X in Xs]
     # Okay, now do the actual looping
     for i in reversed(range(depth)):
@@ -1006,18 +1008,18 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
                 start_t3, end_t3 = indices[0]
                 layer_indices = indices[1:]
             for start_t2, end_t2 in layer_indices:
-                size = min(end_t2-start_t2, end_t3-start_t3)
+                size = min(end_t2 - start_t2, end_t3 - start_t3)
                 dGt3, dCt2 = backprop_lstm_gates(
-                    dY3d[d, start_t3:start_t3+size],
-                    dC[start_t3:start_t3+size],
-                    G[i, d, start_t3:start_t3+size],
-                    C[i, d, start_t3:start_t3+size],
-                    C[i, d, start_t2:start_t2+size],
+                    dY3d[d, start_t3 : start_t3 + size],
+                    dC[start_t3 : start_t3 + size],
+                    G[i, d, start_t3 : start_t3 + size],
+                    C[i, d, start_t3 : start_t3 + size],
+                    C[i, d, start_t2 : start_t2 + size],
                 )
                 # Backprop hidden-to-hidden w.r.t. hidden.
-                dY3d[d, start_t2:start_t2+size] += dGt3 @ Wh
+                dY3d[d, start_t2 : start_t2 + size] += dGt3 @ Wh
                 # Update iteration variables
-                dC[start_t2:start_t2+size] = dCt2
+                dC[start_t2 : start_t2 + size] = dCt2
                 start_t3 = start_t2
                 end_t3 = end_t2
             # Backprop input-to-hidden w.r.t. weights.
