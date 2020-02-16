@@ -17,7 +17,7 @@ import tqdm
 import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
-from thinc.api import to_categorical, set_current_ops, JaxOps
+from thinc.api import to_categorical, set_current_ops, JaxOps, Ops
 from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
 import jax.tree_util
@@ -119,6 +119,8 @@ def set_backend(name, gpu_id):
     if name == "jax":
         set_current_ops(JaxOps())
         CONFIG = CONFIG.replace("PyTorch", "")
+    elif name == "generic":
+        set_current_ops(Ops())
     else:
         if gpu_id == -1:
             set_current_ops(NumpyOps(use_blis=True))
@@ -130,13 +132,14 @@ def set_backend(name, gpu_id):
             CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
-def main(numpy: bool=False, jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
+def main(numpy: bool=False, jax: bool = False, pytorch: bool = False,
+         generic: bool=False, gpu_id: int = -1):
     global CONFIG
     fix_random_seed(0)
     if gpu_id >= 0:
         require_gpu(gpu_id)
         print("Set GPU", gpu_id)
-    backends = {"jax": jax, "pytorch": pytorch, "numpy": numpy}
+    backends = {"jax": jax, "pytorch": pytorch, "numpy": numpy, "generic": generic}
     for name, use_backend in backends.items():
         if not use_backend:
             print(f"Skipping {name}")
