@@ -902,14 +902,20 @@ def lstm_forward_training(
             start = 0
             # The inits are shaped (depth, dirs, nO). We add the internal dimension
             # to make them set correctly.
-            Yt2 = h_init[i, d].reshape((1, nO)) # type: ignore
-            Ct2 = c_init[i, d].reshape((1, nO)) # type: ignore
+            Yt2[:] = h_init[i, d].reshape((1, nO)) # type: ignore
+            Ct2[:] = c_init[i, d].reshape((1, nO)) # type: ignore
             layer_params, params_i = _split_weights(params, i, nO, nI, params_i)
             Wx, Wh, bias = _transpose_weights(layer_params)
             xp.dot(X, Wx.T, out=G[i, d])
             G[i, d] += bias
             for start, end in (indices if d == 0 else reversed(indices)):
-                Gt3 = cast(Floats3d, xp.dot(Yt2, Wh.T).reshape((end-start, nO, 4)))
+                # When we iterate left-to-right, t2 might be longer than t3.
+                t3_size = end-start
+                Yt2 = Yt2[:end-start]
+                Ct2 = Ct2[:end-start]
+                # But in right-to-left, it's the opposite: t3 can be longer.
+                Gt3 = cast(Floats3d, xp.dot(Yt2, Wh.T).reshape((-1, nO, 4)))
+                Gt3 = Gt3[:Yt2.shape[0]]
                 Gt3[:, :, :3] = sigmoid(Gt3[:, :, :3])
                 Gt3[:, :, 3] = xp.tanh(Gt3[:, :, 3])
                 hf = Gt3[:, :, 0]
@@ -919,9 +925,10 @@ def lstm_forward_training(
                 Ct3 = hf * Ct2
                 Ct3 += hi * hc
                 Ct3 = xp.tanh(Ct3) 
-                Y[i, d, start:end] = Ct3 * ho
+                Y[i, d, start:start+Ct3.shape[0]] = Ct3 * ho
+                # Set the t2 variables to the current t3 variables.
                 Ct2 = Ct3
-                Yt2 = Y[i, d, start:end]
+                Yt2 = Y[i, d, start:start+Ct3.shape[0]]
         H = cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
         if dirs == 2:
             H = xp.ascontiguousarray(H)
@@ -973,10 +980,10 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
             all_layer_grads[-1].append((layer_grads, params_i))
     # Similarly, we want to compute the indices first
     indices = []
-    seq_i = 0
+    start = 0
     for batch_size in lengths:
-        indices.append((seq_i, batch_size))
-        seq_i += batch_size
+        indices.append((start, start+batch_size))
+        start += batch_size
 
     Xs = [X] + [cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
           for i in range(depth-1)]
@@ -992,26 +999,27 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
             Wx, Wh, bias = all_layer_params[i][d][0]
             dWx, dWh, d_bias = all_layer_grads[i][d][0]
             if d == 0:
-                seq_t3, size_t3 = indices[-1]
+                start_t3, end_t3 = indices[-1]
                 layer_indices = indices[:-1]
                 layer_indices.reverse()
             else:
-                seq_t3, size_t3 = indices[0]
+                start_t3, end_t3 = indices[0]
                 layer_indices = indices[1:]
-            for seq_t2, size_t2 in layer_indices:
+            for start_t2, end_t2 in layer_indices:
+                size = min(end_t2-start_t2, end_t3-start_t3)
                 dGt3, dCt2 = backprop_lstm_gates(
-                    dY3d[d, seq_t3:seq_t3+size_t3],
-                    dC[seq_t3:seq_t3+size_t3],
-                    G[i, d, seq_t3:seq_t3+size_t3],
-                    C[i, d, seq_t3:seq_t3+size_t3],
-                    C[i, d, seq_t2:seq_t2+size_t2],
+                    dY3d[d, start_t3:start_t3+size],
+                    dC[start_t3:start_t3+size],
+                    G[i, d, start_t3:start_t3+size],
+                    C[i, d, start_t3:start_t3+size],
+                    C[i, d, start_t2:start_t2+size],
                 )
                 # Backprop hidden-to-hidden w.r.t. hidden.
-                dY3d[d, seq_t2:seq_t2+size_t2] += dGt3 @ Wh
+                dY3d[d, start_t2:start_t2+size] += dGt3 @ Wh
                 # Update iteration variables
-                dC[seq_t2:seq_t2+size_t2] = dCt2
-                seq_t3 = seq_t2
-                size_t3 = size_t2
+                dC[start_t2:start_t2+size] = dCt2
+                start_t3 = start_t2
+                end_t3 = end_t2
             # Backprop input-to-hidden w.r.t. weights.
             dWx += dG.T @ X
             # Backprop hidden-to-hidden w.r.t. weights.
