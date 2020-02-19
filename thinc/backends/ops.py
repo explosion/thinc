@@ -954,7 +954,7 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     # We don't need to store all the cells for all the layers.
     dC = cast(Floats2d, xp.zeros((N, nO), dtype=C.dtype))
     dG = cast(Floats2d, xp.zeros((N, nO * 4), dtype=C.dtype))
-    d_params = cast(Floats2d, xp.zeros((params.shape[0],), dtype=params.dtype))
+    d_params = cast(Floats1d, xp.zeros((params.shape[0],), dtype=params.dtype))
     # Collect the params and slices. It makes it a bit easier to get the indexing
     # right, when we're iterating backwards.
     params_i = 0
