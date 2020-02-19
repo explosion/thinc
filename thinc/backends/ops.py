@@ -880,7 +880,6 @@ def lstm_forward_training(
     xp = get_array_module(params)
     depth, dirs, nO = c_init.shape
     N, nI = X.shape
-    nT = lengths.shape[0]
     batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
     G = cast(Floats4d, xp.zeros((depth, dirs, X.shape[0], nO * 4), dtype="f"))
@@ -910,7 +909,6 @@ def lstm_forward_training(
             G[i, d] += bias
             for start, end in indices if d == 0 else reversed(indices):
                 # When we iterate left-to-right, t2 might be longer than t3.
-                t3_size = end - start
                 Yt2 = Yt2[: end - start]
                 Ct2 = Ct2[: end - start]
                 # But in right-to-left, it's the opposite: t3 can be longer.
@@ -953,7 +951,6 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
     depth, dirs, N, nO = C.shape
     nI = X.shape[1]
     batch_size = lengths[0]
-    nT = lengths.shape[0]
     # We don't need to store all the cells for all the layers.
     dC = cast(Floats2d, xp.zeros((N, nO), dtype=C.dtype))
     dG = cast(Floats2d, xp.zeros((N, nO * 4), dtype=C.dtype))
@@ -975,7 +972,7 @@ def backprop_lstm(dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tu
         all_layer_grads.append([])
         n_inputs = nI if i == 0 else (nO * dirs)
         for d in range(dirs):
-            layer_grads, params_i = _split_weights(params, i, nO, n_inputs, params_i)
+            layer_grads, params_i = _split_weights(d_params, i, nO, n_inputs, params_i)
             layer_grads = _transpose_weights(layer_grads)
             all_layer_grads[-1].append((layer_grads, params_i))
     # Similarly, we want to compute the indices first
