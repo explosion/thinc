@@ -115,7 +115,6 @@ def forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
     dropout = model.attrs["dropout_rate"]
-    dirs = model.get_dim("dirs")
     Xr = _padded_to_packed(model.ops, Xp)
     LSTM = cast(Floats1d, model.get_param("LSTM"))
     HC0 = cast(Floats4d, model.get_param("HC0"))
