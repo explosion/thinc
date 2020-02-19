@@ -4,8 +4,7 @@ from functools import partial
 from ..model import Model
 from ..config import registry
 from ..util import get_width
-from ..types import Floats1d, Floats2d, Floats3d, Floats4d, Padded, Ragged
-from .clone import clone
+from ..types import Floats1d, Floats2d, Floats4d, Padded, Ragged
 from .noop import noop
 from ..initializers import glorot_uniform_init, zero_init
 from ..backends import Ops
