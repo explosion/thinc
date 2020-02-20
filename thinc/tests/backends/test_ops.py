@@ -1,6 +1,7 @@
 import pytest
 import numpy
 from hypothesis import given, settings
+from hypothesis.strategies import composite
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
@@ -8,6 +9,7 @@ from thinc.api import fix_random_seed
 import inspect
 
 from .. import strategies
+from ..strategies import ndarrays_of_shape
 
 
 MAX_EXAMPLES = 10
@@ -347,7 +349,32 @@ def test_backprop_mish(ops, X):
     assert dX.shape == X.shape
     assert (dX == 0).all()
 
+@composite
+def lstm_args(draw, depth=1, dirs=1, nO=1, batch_size=1, nI=1):
+    n_params = (nO*4)*nI+nO*4 + nO*4*nO+nO*4
+    for depth in range(1, depth):
+        n_params += nO*4*nO+nO*4 + nO*4*nO+nO*4
+    params = draw(ndarrays_of_shape(n_params,))
+    size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
+    X = draw(ndarrays_of_shape((int(size_at_t.sum()), nI)))
+    H0 = numpy.zeros((depth, dirs, nO))
+    C0 = numpy.zeros((depth, dirs, nO))
+    return (params, H0, C0, X, size_at_t)
 
+
+# TODO: Reference ops are wrong here! Fix.
+@pytest.mark.xfail
+@pytest.mark.parametrize("ops", XP_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(args=lstm_args())
+def test_lstm_forward_training(ops, args):
+    params, H0, C0, X, size_at_t = args
+    reference_ops = Ops()
+    reference = reference_ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    Y, fwd_state = ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    assert_allclose(Y, reference[0])
+
+ 
 def test_get_ops():
     assert isinstance(get_ops("numpy"), NumpyOps)
     assert isinstance(get_ops("cupy"), CupyOps)
