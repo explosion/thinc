@@ -370,8 +370,8 @@ def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
         params = numpy.ones((n_params,), dtype="f") 
         size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
         X = numpy.zeros(((int(size_at_t.sum()), nI)))
-    H0 = numpy.zeros((depth, dirs, nO))
-    C0 = numpy.zeros((depth, dirs, nO))
+    H0 = numpy.zeros((depth, dirs, nO // dirs))
+    C0 = numpy.zeros((depth, dirs, nO // dirs))
     return (params, H0, C0, X, size_at_t)
 
 
@@ -391,6 +391,9 @@ def draw_lstm_args(draw):
     (1, 1, 2, 1, 1),
     (1, 1, 2, 1, 2),
     (2, 1, 1, 1, 1),
+    (2, 1, 2, 2, 2),
+    (1, 2, 2, 1, 1),
+    (2, 2, 2, 2, 2),
 ])
 def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
     reference_ops = Ops()
@@ -402,17 +405,17 @@ def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
     assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
 
-#@pytest.mark.parametrize("ops", XP_OPS)
-#@settings(max_examples=MAX_EXAMPLES, deadline=None)
-#@given(args=lstm_args())
-#def test_lstm_forward_training_fuzz(ops, args):
-#    params, H0, C0, X, size_at_t = args
-#    reference_ops = Ops()
-#    reference = reference_ops.lstm_forward_training(params, H0, C0, X, size_at_t)
-#    Y, fwd_state = ops.lstm_forward_training(params, H0, C0, X, size_at_t)
-#    assert_allclose(fwd_state[2], reference[1][2], atol=1e-4, rtol=1e-3)
-#    assert_allclose(fwd_state[1], reference[1][1], atol=1e-4, rtol=1e-3)
-#    assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
+@pytest.mark.parametrize("ops", XP_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(args=draw_lstm_args())
+def test_lstm_forward_training_fuzz(ops, args):
+    params, H0, C0, X, size_at_t = args
+    reference_ops = Ops()
+    reference = reference_ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    Y, fwd_state = ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    assert_allclose(fwd_state[2], reference[1][2], atol=1e-4, rtol=1e-3)
+    assert_allclose(fwd_state[1], reference[1][1], atol=1e-4, rtol=1e-3)
+    assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
  
 def test_get_ops():
