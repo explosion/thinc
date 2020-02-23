@@ -1016,8 +1016,7 @@ def _transpose_weights(params):
     ascontig = numpy.ascontiguousarray
     Wx = ascontig(Wx)
     Wh = ascontig(Wh)
-    bias = ascontig(bx)
-    bias += bh
+    bias = ascontig(bx) + bh
     return Wx, Wh, bias
 
 
