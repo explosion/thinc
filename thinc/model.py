@@ -39,7 +39,7 @@ class Model(Generic[InT, OutT]):
     ops: Ops
     id: int
     _func: Callable
-    _init: Callable
+    init: Callable
     _params: ParamServer
     _dims: Dict[str, Optional[int]]
     _layers: List["Model"]
@@ -54,7 +54,7 @@ class Model(Generic[InT, OutT]):
         "id",
         "ops",
         "_func",
-        "_init",
+        "init",
         "_params",
         "_dims",
         "_attrs",
@@ -84,7 +84,7 @@ class Model(Generic[InT, OutT]):
             init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
-        setattr(self, "_init", init)
+        setattr(self, "init", init)
         self.ops = ops if ops is not None else get_current_ops()
         self._params = ParamServer()
         self._dims = dict(dims)
@@ -248,7 +248,7 @@ class Model(Generic[InT, OutT]):
     def get_ref(self, name: str) -> "Model":
         """Retrieve the value of a reference of the given name."""
         if name not in self._refs:
-            raise KeyError(f"Cannot get reference '{name} for model '{self.name}'.")
+            raise KeyError(f"Cannot get reference '{name}' for model '{self.name}'.")
         value = self._refs[name]
         if value is None:
             err = f"Cannot get reference '{name}' for model '{self.name}': value unset."
@@ -275,8 +275,8 @@ class Model(Generic[InT, OutT]):
         example input and output data to perform shape inference."""
         if DATA_VALIDATION.get():
             validate_fwd_input_output(self.name, self._func, X, Y)
-        if self._init is not None:
-            self._init(self, X=X, Y=Y)
+        if self.init is not None:
+            self.init(self, X=X, Y=Y)
         return self
 
     def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
@@ -388,7 +388,7 @@ class Model(Generic[InT, OutT]):
         copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
-            init=self._init,
+            init=self.init,
             params=copy.deepcopy(params),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),

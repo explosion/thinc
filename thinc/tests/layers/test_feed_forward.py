@@ -114,9 +114,9 @@ def test_init_functions_are_called():
     layer1 = Linear(5)
     layer2 = Linear(5)
     layer3 = Linear(5)
-    layer1._init = partial(register_init, "one")
-    layer2._init = partial(register_init, "two")
-    layer3._init = partial(register_init, "three")
+    layer1.init = partial(register_init, "one")
+    layer2.init = partial(register_init, "two")
+    layer3.init = partial(register_init, "three")
     # This is the nesting we'll get from operators.
     model = chain(layer1, chain(layer2, layer3))
     assert not init_was_called
