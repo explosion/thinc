@@ -62,7 +62,7 @@ jobs:
   - script: |
       pip install tensorflow
       pip install mxnet
-      pip install torch -f -https://download.pytorch.org/whl/torch_stable.html
+      pip install torch -f https://download.pytorch.org/whl/torch_stable.html
       pip install jax jaxlib
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
