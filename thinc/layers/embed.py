@@ -26,7 +26,7 @@ def Embed(
     attrs: Dict[str, Union[None, int, float]] = {}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    model = Model(  # type: ignore
+    embed_model = Model(  # type: ignore
         "embed",
         forward,
         init=partial(init, initializer),
@@ -34,13 +34,15 @@ def Embed(
         dims={"nO": nO, "nV": nV},
         params={"E": None},
     )
+    model = embed_model
     if column is not None:
         # This is equivalent to array[:, column]. What you're actually doing
         # there is passing in a tuple: array[(:, column)], except in the context
         # of array indexing, the ":" creates an object slice(0, None).
         # So array[:, column] is array.__getitem__(slice(0), column).
-        model = chain(ints_getitem((slice(0, None), column)), model)
+        model = chain(ints_getitem((slice(0, None), column)), embed_model)
     model.attrs["column"] = column
+    model.set_ref("core", embed_model)
     return cast(Model[InT, OutT], model)
 
 

@@ -25,17 +25,19 @@ def Maxout(
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
-    model: Model[InT, OutT] = Model(
+    maxout_model: Model[InT, OutT] = Model(
         "maxout",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI, "nP": nP},
         params={"W": None, "b": None},
     )
+    model = maxout_model
     if normalize:
-        model = chain(model, LayerNorm(nI=nO))
+        model = chain(maxout_model, LayerNorm(nI=nO))
     if dropout is not None:
-        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
+        model = chain(maxout_model, cast(Model[InT, OutT], Dropout(dropout)))
+    model.set_ref("core", maxout_model)
     return model
 
 
