@@ -35,7 +35,7 @@ def model(nO=128):
 def test_uniqued_calls_init():
     calls = []
     embed = Embed(5, 5, column=0)
-    embed._init = lambda *args, **kwargs: calls.append(True)
+    embed.init = lambda *args, **kwargs: calls.append(True)
     embed.initialize()
     assert calls == [True]
     uembed = uniqued(embed)
