@@ -34,9 +34,9 @@ def Maxout(
     )
     model = maxout_model
     if normalize:
-        model = chain(maxout_model, LayerNorm(nI=nO))
+        model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
-        model = chain(maxout_model, cast(Model[InT, OutT], Dropout(dropout)))
+        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     model.set_ref("core", maxout_model)
     return model
 

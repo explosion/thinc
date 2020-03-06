@@ -36,9 +36,9 @@ def Mish(
     )
     model = mish_model
     if normalize:
-        model = chain(mish_model, cast(Model[InT, OutT], LayerNorm(nI=nO)))
+        model = chain(model, cast(Model[InT, OutT], LayerNorm(nI=nO)))
     if dropout is not None:
-        model = chain(mish_model, cast(Model[InT, OutT], Dropout(dropout)))
+        model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
     model.set_ref("core", mish_model)
     return model
 
