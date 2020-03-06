@@ -44,7 +44,6 @@ def StaticVectors(
         # So array[:, column] is array.__getitem__(slice(0), column).
         model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
-    model.set_ref("core", model)
     return cast(Model[InT, OutT], model)
 
 
