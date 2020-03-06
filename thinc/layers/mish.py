@@ -27,19 +27,17 @@ def Mish(
     """Dense layer with mish activation.
     https://arxiv.org/pdf/1908.08681.pdf
     """
-    mish_model: Model[InT, OutT] = Model(
+    model: Model[InT, OutT] = Model(
         "mish",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    model = mish_model
     if normalize:
         model = chain(model, cast(Model[InT, OutT], LayerNorm(nI=nO)))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
-    model.set_ref("core", mish_model)
     return model
 
 

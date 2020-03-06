@@ -24,19 +24,17 @@ def Relu(
     dropout: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
-    relu_model: Model[InT, OutT] = Model(
+    model: Model[InT, OutT] = Model(
         "relu",
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
     )
-    model = relu_model
     if normalize:
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[Floats2d, Floats2d], Dropout(dropout)))
-    model.set_ref("core", relu_model)
     return model
 
 

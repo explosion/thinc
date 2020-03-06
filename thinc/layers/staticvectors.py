@@ -29,7 +29,7 @@ def StaticVectors(
     attrs: Dict[str, Any] = {"column": column, "vectors": Unserializable(vectors)}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    sv_model = Model(  # type: ignore
+    model = Model(  # type: ignore
         "static_vectors",
         forward,
         init=partial(init, init_W),
@@ -37,7 +37,6 @@ def StaticVectors(
         attrs=attrs,
         dims={"nM": None, "nV": None, "nO": nO},
     )
-    model = sv_model
     if column is not None:
         # This is equivalent to array[:, column]. What you're actually doing
         # there is passing in a tuple: array[(:, column)], except in the context
@@ -45,7 +44,7 @@ def StaticVectors(
         # So array[:, column] is array.__getitem__(slice(0), column).
         model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
-    model.set_ref("core", sv_model)
+    model.set_ref("core", model)
     return cast(Model[InT, OutT], model)
 
 

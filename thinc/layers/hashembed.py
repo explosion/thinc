@@ -26,7 +26,7 @@ def HashEmbed(
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
-    hashembed_model = Model(  # type: ignore
+    model = Model(  # type: ignore
         "hashembed",
         forward,
         init=partial(init, initializer),
@@ -35,8 +35,7 @@ def HashEmbed(
         attrs=attrs,
     )
     if seed is None:
-        hashembed_model.attrs["seed"] = hashembed_model.id
-    model = hashembed_model
+        model.attrs["seed"] = model.id
     if column is not None:
         # This is equivalent to array[:, column]. What you're actually doing
         # there is passing in a tuple: array[(:, column)], except in the context
@@ -44,7 +43,6 @@ def HashEmbed(
         # So array[:, column] is array.__getitem__(slice(0), column).
         model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
-    model.set_ref("core", hashembed_model)
     return cast(Model[InT, OutT], model)
 
 
