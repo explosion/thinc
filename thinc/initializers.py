@@ -16,10 +16,29 @@ from .util import partial
 # haven't figured out yet.
 
 
+
+
+def he_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(6.0 / shape[1])
+    return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
+
+@registry.initializers("he_uniform_init.v1")
+def configure_he_uniform_init() -> Callable[[Shape], FloatsXd]:
+    return partial(he_uniform_init)
+
+
+def lecun_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
+    scale = numpy.sqrt(3.0 / shape[1])
+    return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
+
+@registry.initializers("lecun_uniform_init.v1")
+def configure_lecun_uniform_init() -> Callable[[Shape], FloatsXd]:
+    return partial(lecun_uniform_init)
+
+
 def glorot_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(6.0 / (shape[0] + shape[1]))
     return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
-
 
 @registry.initializers("glorot_uniform_init.v1")
 def configure_glorot_uniform_init() -> Callable[[Shape], FloatsXd]:
@@ -28,7 +47,6 @@ def configure_glorot_uniform_init() -> Callable[[Shape], FloatsXd]:
 
 def zero_init(ops: Ops, shape: Shape) -> FloatsXd:
     return ops.alloc(shape)
-
 
 @registry.initializers("zero_init.v1")
 def configure_zero_init() -> Callable[[FloatsXd], FloatsXd]:
@@ -40,7 +58,6 @@ def uniform_init(
 ) -> FloatsXd:
     values = numpy.random.uniform(lo, hi, shape)
     return ops.asarray_f(values.astype("float32"))
-
 
 @registry.initializers("uniform_init.v1")
 def configure_uniform_init(
@@ -58,10 +75,8 @@ def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> FloatsXd:
     inits = ops.reshape_f(inits, shape)
     return ops.asarray_f(inits)
 
-
 @registry.initializers("normal_init.v1")
 def configure_normal_init(*, fan_in: int = -1) -> Callable[[FloatsXd], FloatsXd]:
     return partial(normal_init, fan_in=fan_in)
 
-
-__all__ = ["normal_init", "uniform_init", "glorot_uniform_init", "zero_init"]
+__all__ = ["normal_init", "uniform_init", "glorot_uniform_init", "zero_init", "lecun_uniform_init","he_uniform_init"]
