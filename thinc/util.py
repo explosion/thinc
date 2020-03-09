@@ -1,8 +1,10 @@
+import warnings
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 from typing import List
 import numpy
 import random
 import functools
+
 from wasabi import table
 from pydantic import create_model, ValidationError
 import inspect
@@ -212,18 +214,12 @@ def get_width(
 ) -> int:
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
+    Returns -1 and display a warning if a width could not be determined.
     """
-    # avoid circular imports
-    from spacy.tokens.doc import Doc
-
     if isinstance(X, Ragged):
         return get_width(X.data, dim=dim)
     elif isinstance(X, Padded):
         return get_width(X.data, dim=dim)
-    elif isinstance(X, Doc):
-        # The width is irrelevant in this case
-        # set to -1 to accomodate e.g. the concatenate layer
-        return -1
     elif hasattr(X, "shape") and hasattr(X, "ndim"):
         X = cast(ArrayXd, X)
         if len(X.shape) == 0:
@@ -239,7 +235,8 @@ def get_width(
             return get_width(X[0], dim=dim)
     else:
         err = "Cannot get width of object: has neither shape nor __getitem__"
-        raise ValueError(err)
+        warnings.warn(err)
+        return -1
 
 
 def assert_tensorflow_installed() -> None:  # pragma: no cover
