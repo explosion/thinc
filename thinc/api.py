@@ -9,7 +9,7 @@ from .shims import maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
-from .types import Ragged, Padded, ArgsKwargs
+from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu, DataValidationError
 from .util import to_categorical, get_width, get_array_module
