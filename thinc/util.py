@@ -213,10 +213,17 @@ def get_width(
     """Infer the 'width' of a batch of data, which could be any of: Array,
     Ragged, Padded or Sequence of Arrays.
     """
+    # avoid circular imports
+    from spacy.tokens.doc import Doc
+
     if isinstance(X, Ragged):
         return get_width(X.data, dim=dim)
     elif isinstance(X, Padded):
         return get_width(X.data, dim=dim)
+    elif isinstance(X, Doc):
+        # The width is irrelevant in this case
+        # set to -1 to accomodate e.g. the concatenate layer
+        return -1
     elif hasattr(X, "shape") and hasattr(X, "ndim"):
         X = cast(ArrayXd, X)
         if len(X.shape) == 0:
