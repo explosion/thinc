@@ -95,7 +95,8 @@ def init(
         X_width = get_width(X)
         model.set_dim("nI", X_width)
         for layer in model.layers:
-            layer.set_dim("nI", X_width)
+            if layer.has_dim("nI"):
+                layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     if all([layer.has_dim("nO") for layer in model.layers]):
