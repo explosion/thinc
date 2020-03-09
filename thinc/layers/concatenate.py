@@ -92,11 +92,10 @@ def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
     if X is not None:
-        if model.has_dim("nI") is None:
-            model.set_dim("nI", get_width(X))
+        X_width = get_width(X)
+        model.set_dim("nI", X_width)
         for layer in model.layers:
-            if layer.has_dim("nI") is None:
-                layer.set_dim("nI", get_width(X))
+            layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     if all([layer.has_dim("nO") for layer in model.layers]):
