@@ -25,7 +25,7 @@ def add(
     # only add an nI dimension if each sub-layer has one
     dims = {"nO": None}
     if all(node.has_dim("nI") in [True, None] for node in layers):
-        dims["nI"] = None
+        dims = {"nO": None, "nI": None}
 
     return Model(
         "add", forward, init=init, dims=dims, layers=layers

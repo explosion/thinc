@@ -29,7 +29,7 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
     # only add an nI dimension if each sub-layer has one
     dims = {"nO": None}
     if all(node.has_dim("nI") in [True, None] for node in layers):
-        dims["nI"] = None
+        dims = {"nO": None, "nI": None}
 
     return Model(
         "|".join(layer.name for layer in layers),
