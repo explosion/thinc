@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, cast
+from typing import Tuple, Callable, Optional, TypeVar, cast, Dict
 
 from ..model import Model
 from ..config import registry
@@ -26,11 +26,16 @@ def concatenate(*layers: Model) -> Model[InT, XY_XY_OutT]:
         layers[0].layers.extend(layers[1:])
         return layers[0]
 
+    # only add an nI dimension if each sub-layer has one
+    dims: Dict[str, Optional[int]] = {"nO": None}
+    if all(node.has_dim("nI") in [True, None] for node in layers):
+        dims = {"nO": None, "nI": None}
+
     return Model(
         "|".join(layer.name for layer in layers),
         forward,
         init=init,
-        dims={"nO": None, "nI": None},
+        dims=dims,
         layers=layers,
     )
 
@@ -92,12 +97,14 @@ def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
     if X is not None:
-        X_width = get_width(X)
-        model.set_dim("nI", X_width)
-        for layer in model.layers:
-            layer.set_dim("nI", X_width)
+        if model.has_dim("nI"):
+            X_width = get_width(X)
+            model.set_dim("nI", X_width)
+            for layer in model.layers:
+                if layer.has_dim("nI"):
+                    layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
-    if None not in [layer.has_dim("nO") for layer in model.layers]:
+    if all([layer.has_dim("nO") for layer in model.layers]):
         model.set_dim("nO", sum(layer.get_dim("nO") for layer in model.layers))
     return model

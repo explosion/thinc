@@ -44,7 +44,6 @@ def HashEmbed(
         model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
     return cast(Model[InT, OutT], model)
-    return model
 
 
 def forward(
