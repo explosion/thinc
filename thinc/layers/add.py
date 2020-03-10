@@ -21,8 +21,14 @@ def add(
     if layers[0].name == "add":
         layers[0].layers.extend(layers[1:])
         return layers[0]
+
+    # only add an nI dimension if each sub-layer has one
+    dims = {"nO": None}
+    if all(node.has_dim("nI") in [True, None] for node in layers):
+        dims["nI"] = None
+
     return Model(
-        "add", forward, init=init, dims={"nO": None, "nI": None}, layers=layers
+        "add", forward, init=init, dims=dims, layers=layers
     )
 
 
@@ -49,11 +55,12 @@ def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> Model[InT, InT]:
     if X is not None:
-        X_width = get_width(X)
-        model.set_dim("nI", X_width)
-        for layer in model.layers:
-            if layer.has_dim("nI"):
-                layer.set_dim("nI", X_width)
+        if model.has_dim("nI"):
+            X_width = get_width(X)
+            model.set_dim("nI", X_width)
+            for layer in model.layers:
+                if layer.has_dim("nI"):
+                    layer.set_dim("nI", X_width)
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))
