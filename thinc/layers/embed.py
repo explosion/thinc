@@ -41,7 +41,8 @@ def Embed(
         # So array[:, column] is array.__getitem__(slice(0), column).
         model = chain(ints_getitem((slice(0, None), column)), model)
     model.attrs["column"] = column
-    model.set_dim("nO", nO)
+    if nO is not None:
+        model.set_dim("nO", nO)
     return cast(Model[InT, OutT], model)
 
 
