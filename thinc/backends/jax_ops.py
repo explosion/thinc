@@ -128,11 +128,11 @@ class JaxOps(Ops):
     ) -> Floats2d:
         return backprop_mish(dY, X, threshold)
 
-    def relu(self, X: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False) -> Floats2d:
+    def relu(self, X: Floats2d, alphaLeaky = 0.0, inplace: bool = False) -> Floats2d:
         return relu(X)
 
     def backprop_relu(
-        self, dY: Floats2d, Y: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False
+        self, dY: Floats2d, Y: Floats2d, alphaLeaky = 0.0, inplace: bool = False
     ) -> Floats2d:
         return backprop_relu(dY, Y)
 

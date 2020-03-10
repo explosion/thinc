@@ -87,7 +87,7 @@ class CupyOps(Ops):
                 X = X*(X > 0) + (alphaLeaky * X * (X < 0))
                 return X
 
-    def backprop_relu(self, dY, Y,alphaLeaky=0, inplace=False):
+    def backprop_relu(self, dY, Y, alphaLeaky=0, inplace=False):
         if alphaLeaky == 0:
             if not inplace:
                 return dY * (Y > 0)

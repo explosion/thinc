@@ -22,11 +22,14 @@ def Relu(
     init_W: Callable = glorot_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float] = None,
-    alphaLeaky: float = 0,
+    alphaLeaky: Optional[float] = None,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
     attrs: Dict[str, Union[None, int, float]] = {}
-    attrs["alphaLeaky"] = alphaLeaky
+    if alphaLeaky is not None:
+        attrs["alphaLeaky"] = alphaLeaky
+    else:
+        attrs["alphaLeaky"] = 0
     model: Model[InT, OutT] = Model(
         "relu",
         forward,
@@ -47,7 +50,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    alphaLeaky: float = model.attrs.get("alphaLeaky")
+    alphaLeaky:Optional[float] = model.attrs.get("alphaLeaky")
     Y = model.ops.relu(Y,alphaLeaky=alphaLeaky)
 
     def backprop(dY: OutT) -> InT:

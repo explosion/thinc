@@ -643,7 +643,7 @@ class Ops:
                 dX[b, o, which[b, o]] = dY[b, o]
         return dX
 
-    def relu(self, X: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False) -> Floats2d:
+    def relu(self, X: Floats2d, alphaLeaky = 0.0, inplace: bool = False) -> Floats2d:
         if alphaLeaky == 0:
             if not inplace:
                 return X * (X > 0)
@@ -658,7 +658,7 @@ class Ops:
                 return X
 
     def backprop_relu(
-        self, dY: Floats2d, Y: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False
+        self, dY: Floats2d, Y: Floats2d, alphaLeaky = 0.0, inplace: bool = False
     ) -> Floats2d:
         if alphaLeaky == 0:
             if not inplace:
