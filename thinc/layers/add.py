@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar
+from typing import Tuple, Callable, Optional, TypeVar, Dict
 
 from ..model import Model
 from ..config import registry
@@ -23,7 +23,7 @@ def add(
         return layers[0]
 
     # only add an nI dimension if each sub-layer has one
-    dims = {"nO": None}
+    dims: Dict[str, Optional[int]] = {"nO": None}
     if all(node.has_dim("nI") in [True, None] for node in layers):
         dims = {"nO": None, "nI": None}
 
