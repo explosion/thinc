@@ -25,10 +25,13 @@ def Relu(
     alphaLeaky: Optional[float] = 0,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
+    attrs: Dict[str, Union[None, int, float]] = {}
+    attrs["alphaLeaky"] = alphaLeaky
     model: Model[InT, OutT] = Model(
         "relu",
         forward,
         init=partial(init, init_W, init_b),
+        attrs=attrs,
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None, "alphaLeaky": alphaLeaky},
     )
@@ -44,10 +47,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    Y = model.ops.relu(Y, alphaLeaky = model.get_param("alphaLeaky"))
+    Y = model.ops.relu(Y, alphaLeaky = model.attrs.get("alphaLeaky"))
 
     def backprop(dY: OutT) -> InT:
-        dY = model.ops.backprop_relu(dY, Y, alphaLeaky = model.get_param("alphaLeaky"))
+        dY = model.ops.backprop_relu(dY, Y, alphaLeaky = model.attrs.get("alphaLeaky"))
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
