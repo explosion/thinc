@@ -36,6 +36,8 @@ def Maxout(
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[InT, OutT], Dropout(dropout)))
+    model.set_dim("nO", nO)
+    model.set_dim("nI", nI)
     return model
 
 
