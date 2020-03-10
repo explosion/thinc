@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, cast, Dict
+from typing import Tuple, Callable, Optional, cast, Dict, Union
 
 from ..model import Model
 from ..initializers import glorot_uniform_init, zero_init
@@ -47,7 +47,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    alphaLeaky: Optional[float] = model.attrs.get("alphaLeaky")
+    alphaLeaky: float = model.attrs.get("alphaLeaky")
     Y = model.ops.relu(Y,alphaLeaky=alphaLeaky)
 
     def backprop(dY: OutT) -> InT:
