@@ -22,7 +22,7 @@ def Relu(
     init_W: Callable = glorot_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float] = None,
-    alphaLeaky: Optional[float] = 0,
+    alphaLeaky: float = 0,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
     attrs: Dict[str, Union[None, int, float]] = {}
