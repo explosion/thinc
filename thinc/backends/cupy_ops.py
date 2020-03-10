@@ -73,18 +73,31 @@ class CupyOps(Ops):
     def backprop_maxout(self, dY, which, P):
         return _custom_kernels.backprop_maxout(dY, which, P)
 
-    def relu(self, X, inplace=False):
-        if not inplace:
-            return X * (X > 0)
+    def relu(self, X, alphaLeaky=0, inplace=False):
+        if alphaLeaky == 0:
+            if not inplace:
+                return X * (X > 0)
+            else:
+                X *= X > 0
+                return X
         else:
-            X *= X > 0
-            return X
+            if not inplace:
+                return X * (X > 0) + (alphaLeaky * X * (X < 0))
+            else:
+                X = X*(X > 0) + (alphaLeaky * X * (X < 0))
+                return X
 
-    def backprop_relu(self, dY, Y, inplace=False):
-        if not inplace:
-            return dY * (Y > 0)
-        dY *= Y > 0
-        return dY
+    def backprop_relu(self, dY, Y,alphaLeaky=0, inplace=False):
+        if alphaLeaky == 0:
+            if not inplace:
+                return dY * (Y > 0)
+            dY *= Y > 0
+            return dY
+        else:
+            if not inplace:
+                return dY * (Y > 0) + (alphaLeaky * dY * (Y < 0))
+            dY = dY * (Y > 0) + (alphaLeaky * dY * (Y<0))
+            return dY
 
     def mish(self, X, threshold=20.0):
         return _custom_kernels.mish(X, threshold=threshold, out=None)

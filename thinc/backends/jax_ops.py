@@ -128,11 +128,11 @@ class JaxOps(Ops):
     ) -> Floats2d:
         return backprop_mish(dY, X, threshold)
 
-    def relu(self, X: Floats2d, inplace: bool = False) -> Floats2d:
+    def relu(self, X: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False) -> Floats2d:
         return relu(X)
 
     def backprop_relu(
-        self, dY: Floats2d, Y: Floats2d, inplace: bool = False
+        self, dY: Floats2d, Y: Floats2d, alphaLeaky: float = 0.0, inplace: bool = False
     ) -> Floats2d:
         return backprop_relu(dY, Y)
 
@@ -386,13 +386,19 @@ def affine(X, W, b):
 
 
 @jax_jit()
-def relu(X):
-    return X * (X > 0)
+def relu(X, alphaLeaky):
+    if alphaLeaky == 0:
+        return X * (X > 0)
+    else:
+        return X * (X > 0) + (alphaLeaky * X * (X < 0))
 
 
 @jax_jit()
-def backprop_relu(delta, signal_out):
-    return delta * (signal_out > 0)
+def backprop_relu(delta, signal_out, alphaLeaky):
+    if alphaLeaky == 0:
+        return delta * (signal_out > 0)
+    else:
+        return delta * (signal_out > 0) + (alphaLeaky * delta * (signal_out<0))
 
 
 @jax_jit(1)

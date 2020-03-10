@@ -22,6 +22,7 @@ def Relu(
     init_W: Callable = glorot_uniform_init,
     init_b: Callable = zero_init,
     dropout: Optional[float] = None,
+    alphaLeaky: Optional[float] = 0,
     normalize: bool = False,
 ) -> Model[InT, OutT]:
     model: Model[InT, OutT] = Model(
@@ -29,12 +30,13 @@ def Relu(
         forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
-        params={"W": None, "b": None},
+        params={"W": None, "b": None, "alphaLeaky": alphaLeaky},
     )
     if normalize:
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[Floats2d, Floats2d], Dropout(dropout)))
+
     return model
 
 
@@ -42,10 +44,10 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y = model.ops.affine(X, W, b)
-    Y = model.ops.relu(Y)
+    Y = model.ops.relu(Y, alphaLeaky = model.get_param("alphaLeaky"))
 
     def backprop(dY: OutT) -> InT:
-        dY = model.ops.backprop_relu(dY, Y)
+        dY = model.ops.backprop_relu(dY, Y, alphaLeaky = model.get_param("alphaLeaky"))
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)

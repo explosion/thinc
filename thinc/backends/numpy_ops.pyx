@@ -83,23 +83,23 @@ class NumpyOps(Ops):
             out = self.as_contig(out)
         return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
 
-    def relu(self, np.ndarray X, inplace=False):
+    def relu(self, np.ndarray X, alphaLeaky=0, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
         cdef weight_t* data = <weight_t*>out.data
         cdef size_t size = out.size
         for i in range(size):
             if data[i] < 0:
-                data[i] = 0.
+                data[i] = alphaLeaky * data[i]
         return out
 
-    def backprop_relu(self, np.ndarray dY, np.ndarray Y, inplace=False):
+    def backprop_relu(self, np.ndarray dY, np.ndarray Y, alphaLeaky=0, inplace=False):
         cdef np.ndarray dX = dY if inplace else dY.copy()
         cdef size_t size = dX.size
         cdef weight_t* dX_ptr = <weight_t*>dX.data
         cdef const weight_t* Y_ptr = <const weight_t*>Y.data
         for i in range(size):
             if Y_ptr[i] <= 0:
-                dX_ptr[i] = 0.
+                dX_ptr[i] = alphaLeaky * dX_ptr[i]
         return dX
 
     def maxout(self, const float[:, :, ::1] X):
