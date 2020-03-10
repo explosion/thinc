@@ -33,7 +33,7 @@ def Relu(
         init=partial(init, init_W, init_b),
         attrs=attrs,
         dims={"nO": nO, "nI": nI},
-        params={"W": None, "b": None, "alphaLeaky": alphaLeaky},
+        params={"W": None, "b": None},
     )
     if normalize:
         model = chain(model, LayerNorm(nI=nO))
