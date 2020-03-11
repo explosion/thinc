@@ -33,7 +33,6 @@ def chain(
     if layers[-1].has_dim("nO") is True:
         dims["nO"] = layers[-1].get_dim("nO")
 
-
     model: Model[InT, Any] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
