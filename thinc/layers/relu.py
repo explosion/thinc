@@ -35,10 +35,6 @@ def Relu(
         model = chain(model, LayerNorm(nI=nO))
     if dropout is not None:
         model = chain(model, cast(Model[Floats2d, Floats2d], Dropout(dropout)))
-    if nO is not None:
-        model.set_dim("nO", nO)
-    if nI is not None:
-        model.set_dim("nI", nI)
     return model
 
 

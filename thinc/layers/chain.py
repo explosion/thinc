@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Optional, TypeVar, Any
+from typing import Tuple, Callable, Optional, TypeVar, Any, Dict
 
 from ..model import Model
 from ..config import registry
@@ -25,11 +25,20 @@ def chain(
     Also supports chaining more than 2 layers.
     """
     layers = (layer1, layer2) + layers
+    dims: Dict[str, Optional[int]] = {"nO": None, "nI": None}
+    # set input dimension according to first layer
+    if layers[0].has_dim("nI") is True:
+        dims["nI"] = layers[0].get_dim("nI")
+    # set output dimension according to last layer
+    if layers[-1].has_dim("nO") is True:
+        dims["nO"] = layers[-1].get_dim("nO")
+
+
     model: Model[InT, Any] = Model(
         ">>".join(layer.name for layer in layers),
         forward,
         init=init,
-        dims={"nO": None, "nI": None},
+        dims=dims,
         layers=layers,
     )
     return model
