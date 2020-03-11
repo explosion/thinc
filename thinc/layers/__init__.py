@@ -14,6 +14,7 @@ from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import Relu
+from .softmax_activation import softmax_activation
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
@@ -73,6 +74,7 @@ __all__ = [
     "PyTorchWrapper",
     "PyTorchRNNWrapper",
     "Relu",
+    "softmax_activation",
     "Softmax",
     "SparseLinear",
     "StaticVectors",
