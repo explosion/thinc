@@ -50,6 +50,7 @@ from .padded2list import padded2list
 from .remap_ids import remap_ids
 from .strings2arrays import strings2arrays
 from .with_array import with_array
+from .with_cpu import with_cpu
 from .with_flatten import with_flatten
 from .with_padded import with_padded
 from .with_list import with_list
@@ -101,6 +102,7 @@ __all__ = [
     "with_reshape",
     "with_getitem",
     "with_array",
+    "with_cpu",
     "with_list",
     "with_ragged",
     "with_padded",
