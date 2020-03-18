@@ -22,15 +22,13 @@ OutT = ArrayXd
 def SparseLinear(nO: Optional[int] = None, length: int = 2 ** 18):
     # NB: We can't have generic return type annotation if we want function to
     # be bound (and inspectable): https://github.com/cython/cython/issues/2753
-    model: Model[InT, OutT] = Model(
+    return Model(
         "sparse_linear",
         forward,
         init=init,
         params={"W": None, "b": None},
         dims={"nO": nO, "length": length},
-        ops=NumpyOps()
     )
-    return model
 
 
 @cython.binding(True)

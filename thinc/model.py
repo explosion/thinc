@@ -299,13 +299,16 @@ class Model(Generic[InT, OutT]):
         with each parameter and gradient of the model.
         """
         for node in self.walk():
+            orig_ops = node.ops
             for name in node.param_names:
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    param, grad = optimizer((node.id, name), param, grad)
-                    node.set_param(name, param)
-                    node.set_grad(name, grad)
+                    param, grad = optimizer((node.id, name),
+                                            optimizer.ops.xp.asarray(param),
+                                            optimizer.ops.xp.asarray(grad))
+                    node.set_param(name, orig_ops.asarray(param))
+                    node.set_grad(name, orig_ops.asarray(grad))
             for shim in node.shims:
                 shim.finish_update(optimizer)
 
