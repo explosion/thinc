@@ -304,9 +304,10 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    param, grad = optimizer((node.id, name),
-                                            optimizer.ops.xp.asarray(param),
-                                            optimizer.ops.xp.asarray(grad))
+                    if hasattr(optimizer,'ops'):
+                        param = optimizer.ops.xp.asarray(param)
+                        optimizer.ops.xp.asarray(grad)
+                    param, grad = optimizer((node.id, name), param, grad)
                     node.set_param(name, orig_ops.asarray(param))
                     node.set_grad(name, orig_ops.asarray(grad))
             for shim in node.shims:
