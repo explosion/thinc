@@ -308,8 +308,8 @@ class Model(Generic[InT, OutT]):
                         param = optimizer.ops.xp.asarray(param)
                         optimizer.ops.xp.asarray(grad)
                     param, grad = optimizer((node.id, name), param, grad)
-                    node.set_param(name, orig_ops.asarray(param))
-                    node.set_grad(name, orig_ops.asarray(grad))
+                    node.set_param(name, orig_ops.asarray(param))   # type: ignore
+                    node.set_grad(name, orig_ops.asarray(grad))     # type: ignore
             for shim in node.shims:
                 shim.finish_update(optimizer)
 
