@@ -305,8 +305,8 @@ class Model(Generic[InT, OutT]):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
                     if hasattr(optimizer, 'ops'):
-                        param = optimizer.ops.asarray(param)
-                        grad = optimizer.ops.asarray(grad)
+                        param = optimizer.ops.asarray(param)        # type: ignore
+                        grad = optimizer.ops.asarray(grad)          # type: ignore
                     param, grad = optimizer((node.id, name), param, grad)
                     node.set_param(name, orig_ops.asarray(param))   # type: ignore
                     node.set_grad(name, orig_ops.asarray(grad))     # type: ignore
