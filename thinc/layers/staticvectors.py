@@ -58,14 +58,16 @@ def forward(
     vectors = model.ops.as_contig(vectors)
     assert vectors.shape[0] == ids.shape[0]
 
+    output = model.ops.gemm(vectors, W, trans2=True)
+    dropout: Optional[float] = model.attrs.get("dropout_rate")
+    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((output.shape[1],), dropout))
+
     def backprop(d_output: OutT) -> Ints1d:
+        d_output *= drop_mask
         model.inc_grad("W", model.ops.gemm(d_output, vectors, trans1=True))
         dX = model.ops.alloc1i(nN)
         return dX
 
-    output = model.ops.gemm(vectors, W, trans2=True)
-    dropout: Optional[float] = model.attrs.get("dropout_rate")
-    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((output.shape[1],), dropout))
     output *= drop_mask
     return output, backprop
 
@@ -84,3 +86,4 @@ def init(
     model.set_dim("nM", vectors.shape[1])
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nM"))))
     return model
+
