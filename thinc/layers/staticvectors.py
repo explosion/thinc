@@ -86,4 +86,3 @@ def init(
     model.set_dim("nM", vectors.shape[1])
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nM"))))
     return model
-
