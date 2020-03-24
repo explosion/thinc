@@ -65,7 +65,11 @@ def maybe_handshake_model(keras_model, optimizer=None):
         keras_model.compile(**compile_args)
         keras_model.build(keras_model.eg_shape)
         keras_model.predict(keras_model.eg_x)
-        keras_model._make_train_function()
+        # Made public in 2.2.x
+        if hasattr(keras_model, "_make_train_function"):
+            keras_model._make_train_function()
+        else:
+            keras_model.make_train_function()
     return keras_model
 
 

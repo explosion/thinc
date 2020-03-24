@@ -311,8 +311,12 @@ class Ops:
         lengths_ = [length for length, i in lengths_indices]
         seqs = [seqs[i] for i in indices_]
         nS = max([len(seq) for seq in seqs])
+        # Reorder the sequences, by length. This looks the same in either
+        # direction: you're swapping elements between their original and sorted
+        # position.
+        seqs = [seqs[x] for x in indices_]
         arr: Floats3d = self.pad(seqs)
-        arr = arr.transpose((1, 0, 2))
+        arr = self.as_contig(arr.transpose((1, 0, 2)))
         # Build a lookup table so we can find how big the batch is at point t.
         batch_size_at_t_ = [0 for _ in range(nS)]
         current_size = len(lengths_)

@@ -39,7 +39,7 @@ class Model(Generic[InT, OutT]):
     ops: Ops
     id: int
     _func: Callable
-    _init: Callable
+    init: Callable
     _params: ParamServer
     _dims: Dict[str, Optional[int]]
     _layers: List["Model"]
@@ -54,7 +54,7 @@ class Model(Generic[InT, OutT]):
         "id",
         "ops",
         "_func",
-        "_init",
+        "init",
         "_params",
         "_dims",
         "_attrs",
@@ -84,7 +84,7 @@ class Model(Generic[InT, OutT]):
             init = partial(empty_init, self)
         # Assign to callable attrs: https://github.com/python/mypy/issues/2427
         setattr(self, "_func", forward)
-        setattr(self, "_init", init)
+        setattr(self, "init", init)
         self.ops = ops if ops is not None else get_current_ops()
         self._params = ParamServer()
         self._dims = dict(dims)
@@ -149,7 +149,7 @@ class Model(Generic[InT, OutT]):
 
         EXAMPLE:
             with Model.define_operators({">>": chain}):
-                model = ReLu(512) >> ReLu(512) >> Softmax()
+                model = Relu(512) >> Relu(512) >> Softmax()
         """
         token = cls._context_operators.set(dict(operators))
         yield
@@ -180,7 +180,7 @@ class Model(Generic[InT, OutT]):
     def set_dim(self, name: str, value: int) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
-            raise KeyError(f"Cannot set dimension '{name}' for model '{self.name}'.")
+            raise KeyError(f"Cannot set unknown dimension '{name}' for model '{self.name}'.")
         old_value = self._dims[name]
         if old_value is not None and old_value != value:
             err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
@@ -248,7 +248,7 @@ class Model(Generic[InT, OutT]):
     def get_ref(self, name: str) -> "Model":
         """Retrieve the value of a reference of the given name."""
         if name not in self._refs:
-            raise KeyError(f"Cannot get reference '{name} for model '{self.name}'.")
+            raise KeyError(f"Cannot get reference '{name}' for model '{self.name}'.")
         value = self._refs[name]
         if value is None:
             err = f"Cannot get reference '{name}' for model '{self.name}': value unset."
@@ -275,8 +275,8 @@ class Model(Generic[InT, OutT]):
         example input and output data to perform shape inference."""
         if DATA_VALIDATION.get():
             validate_fwd_input_output(self.name, self._func, X, Y)
-        if self._init is not None:
-            self._init(self, X=X, Y=Y)
+        if self.init is not None:
+            self.init(self, X=X, Y=Y)
         return self
 
     def begin_update(self, X: InT) -> Tuple[OutT, Callable[[InT], OutT]]:
@@ -299,13 +299,17 @@ class Model(Generic[InT, OutT]):
         with each parameter and gradient of the model.
         """
         for node in self.walk():
+            orig_ops = node.ops
             for name in node.param_names:
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
+                    if hasattr(optimizer, 'ops'):
+                        param = optimizer.ops.asarray(param)        # type: ignore
+                        grad = optimizer.ops.asarray(grad)          # type: ignore
                     param, grad = optimizer((node.id, name), param, grad)
-                    node.set_param(name, param)
-                    node.set_grad(name, grad)
+                    node.set_param(name, orig_ops.asarray(param))   # type: ignore
+                    node.set_grad(name, orig_ops.asarray(grad))     # type: ignore
             for shim in node.shims:
                 shim.finish_update(optimizer)
 
@@ -388,7 +392,7 @@ class Model(Generic[InT, OutT]):
         copied: Model[InT, OutT] = Model(
             self.name,
             self._func,
-            init=self._init,
+            init=self.init,
             params=copy.deepcopy(params),
             dims=copy.deepcopy(self._dims),
             attrs=copy.deepcopy(self._attrs),

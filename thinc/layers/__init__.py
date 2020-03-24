@@ -13,7 +13,8 @@ from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
-from .relu import ReLu
+from .relu import Relu
+from .softmax_activation import softmax_activation
 from .softmax import Softmax
 from .sparselinear import SparseLinear
 from .staticvectors import StaticVectors
@@ -49,6 +50,7 @@ from .padded2list import padded2list
 from .remap_ids import remap_ids
 from .strings2arrays import strings2arrays
 from .with_array import with_array
+from .with_cpu import with_cpu
 from .with_flatten import with_flatten
 from .with_padded import with_padded
 from .with_list import with_list
@@ -72,7 +74,8 @@ __all__ = [
     "ParametricAttention",
     "PyTorchWrapper",
     "PyTorchRNNWrapper",
-    "ReLu",
+    "Relu",
+    "softmax_activation",
     "Softmax",
     "SparseLinear",
     "StaticVectors",
@@ -99,6 +102,7 @@ __all__ = [
     "with_reshape",
     "with_getitem",
     "with_array",
+    "with_cpu",
     "with_list",
     "with_ragged",
     "with_padded",

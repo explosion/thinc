@@ -14,8 +14,8 @@ InT = Floats2d
 OutT = Floats2d
 
 
-@registry.layers("ReLu.v1")
-def ReLu(
+@registry.layers("Relu.v1")
+def Relu(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
     *,
