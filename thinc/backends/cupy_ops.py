@@ -24,6 +24,7 @@ from ..types import DeviceTypes
 class CupyOps(Ops):
     name = "cupy"
     xp = cupy
+    _xp2 = cupyx
 
     def __init__(
         self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
@@ -133,7 +134,7 @@ class CupyOps(Ops):
         return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, table, indices, values):
-        cupyx.scatter_add(table, indices, values)
+        self._xp2.scatter_add(table, indices, values)
 
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
