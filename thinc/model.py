@@ -548,7 +548,8 @@ class Model(Generic[InT, OutT]):
                 loaded_value = deserialize_attr(default_value, value, attr, node)
                 node.attrs[attr] = loaded_value
             for param_name, value in msg["params"][i].items():
-                value = node.ops.asarray(value)
+                if value is not None:
+                    value = node.ops.asarray(value)
                 node.set_param(param_name, value)
             for i, shim_bytes in enumerate(msg["shims"][i]):
                 node.shims[i].from_bytes(shim_bytes)
