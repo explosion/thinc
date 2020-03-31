@@ -1,14 +1,16 @@
+import os
+
+import nbformat
 import pytest
+from nbconvert.preprocessors import ExecutePreprocessor
 
 
 @pytest.fixture
 def test_files(nb_file):
-    import nbformat
-    from nbconvert.preprocessors import ExecutePreprocessor
-
+    kernel_name = os.environ.get("NOTEBOOK_KERNEL", "python3")
     with open(nb_file) as f:
         nb = nbformat.read(f, as_version=4)
-    proc = ExecutePreprocessor(timeout=600, kernel_name="python3")
+    proc = ExecutePreprocessor(timeout=600, kernel_name=kernel_name)
     proc.allow_errors = True
     proc.preprocess(nb, {"metadata": {"path": "/"}})
     cells_with_outputs = [c for c in nb.cells if "outputs" in c]

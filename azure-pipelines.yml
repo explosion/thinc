@@ -63,8 +63,9 @@ jobs:
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
       pip install torch -f https://download.pytorch.org/whl/torch_stable.html
-      pip install jax jaxlib
-      python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
+      pip install jax jaxlib ipykernel pydot
+      python -m ipykernel install --name thinc-notebook-tests
+      NOTEBOOK_KERNEL="thinc-notebook-tests" python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 
   - bash: bash <(curl -s https://codecov.io/bash)
