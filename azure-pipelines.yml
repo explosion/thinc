@@ -60,11 +60,11 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
-      pip install tensorflow
-      pip install "mxnet; sys_platform != 'win32'"
-      pip install torch -f https://download.pytorch.org/whl/torch_stable.html
+      # pip install tensorflow
+      # pip install "mxnet; sys_platform != 'win32'"
+      # pip install torch -f https://download.pytorch.org/whl/torch_stable.html
       pip install jax jaxlib ipykernel pydot
-      sudo python -m ipykernel install --name thinc-notebook-tests
+      python -m ipykernel install --name thinc-notebook-tests --user
       NOTEBOOK_KERNEL="thinc-notebook-tests" python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 
