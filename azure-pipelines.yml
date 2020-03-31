@@ -59,6 +59,11 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
+  # Install graphviz programmatically on Linux
+  - script: 'sudo apt-get -yq install graphviz'
+    displayName: 'Install graphviz on Linux'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    
   - script: |
       # pip install tensorflow
       # pip install "mxnet; sys_platform != 'win32'"
