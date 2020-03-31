@@ -59,10 +59,15 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
-  # Install graphviz programmatically on Linux
+  # Install graphviz
   - script: 'sudo apt-get -yq install graphviz'
     displayName: 'Install graphviz on Linux'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+    
+  # Install graphviz
+  - script: 'brew install graphviz'
+    displayName: 'Install graphviz on MacOS'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
     
   - script: |
       # pip install tensorflow
