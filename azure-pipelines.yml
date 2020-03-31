@@ -11,12 +11,12 @@ jobs:
       # Python36Linux:
       #   imageName: 'ubuntu-16.04'
       #   python.version: '3.6'
-      # Python36Windows:
-      #   imageName: 'vs2017-win2016'
-      #   python.version: '3.6'
-      Python36Mac:
-        imageName: 'macos-10.15'
+      Python36Windows:
+        imageName: 'vs2017-win2016'
         python.version: '3.6'
+      # Python36Mac:
+      #   imageName: 'macos-10.15'
+      #   python.version: '3.6'
       # Python38Linux:
       #   imageName: 'ubuntu-16.04'
       #   python.version: '3.8'
@@ -59,14 +59,12 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
-  # Install graphviz
   - script: 'sudo apt-get -yq install graphviz'
-    displayName: 'Install graphviz on Linux'
+    displayName: 'Install graphviz (Linux)'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
-    
-  # Install graphviz
-  - script: 'brew install graphviz'
-    displayName: 'Install graphviz on MacOS'
+
+    - script: 'brew install graphviz'
+    displayName: 'Install graphviz (MacOS)'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
     
   - script: |
