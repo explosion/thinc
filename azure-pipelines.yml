@@ -63,7 +63,7 @@ jobs:
     displayName: 'Install graphviz (Linux)'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
 
-    - script: 'brew install graphviz'
+  - script: 'brew install graphviz'
     displayName: 'Install graphviz (MacOS)'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
     
