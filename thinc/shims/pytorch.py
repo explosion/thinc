@@ -58,9 +58,9 @@ class PyTorchShim(Shim):
     def finish_update(self, optimizer):
         if not self._optimizer:
             self._optimizer = self._create_optimizer(optimizer)
-        if getattr(optimizer, "max_grad_norm", None):
+        if getattr(optimizer, "grad_clip", None):
             torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.max_grad_norm
+                self._model.parameters(), optimizer.grad_clip
             )
         self._optimizer.step()
         self._optimizer.zero_grad()
