@@ -63,9 +63,8 @@ class MXNetShim(Shim):
         if self._optimizer is None:
             self._optimizer, self._trainer = self._create_optimizer(optimizer)
         if getattr(optimizer, "grad_clip", None):
-            mxnet.gluon.utils.clip_global_norm(
-                self._model.parameters(), optimizer.grad_clip
-            )
+            grads = [i.grad(self._model.ctx) for i in self._model.collect_params().values() if i._grad is not None]
+            mxnet.gluon.utils.clip_global_norm(grads, optimizer.grad_clip)
         if self._trainer:
             self._trainer.step(1)
         for param in self._model.collect_params().values():
