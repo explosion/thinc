@@ -151,6 +151,23 @@ class CupyOps(Ops):
         positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)
 
+    def lstm_forward_training(self, params, initial, inputs, dropout_state, *, bi=False):
+        Hx, Cx = initial
+        X, lengths = inputs
+        reserve_space, Hy, Cy, Y = cupy.cudnn.rnn_forward_training(
+            dropout_state,
+            CUDNN_UNIDIRECTIONAL if not bi else CUDNN_BIDIRECTIONAL,
+            CUDNN_LSTM,
+            Hx,
+            Cx,
+            params,
+            X,
+            lengths
+        )
+        return Y, (reserve_space, Hx, Cx)
 
+    def lstm_forward_inference(self, params, initial, inputs):
+        ...
 
-
+    def backprop_lstm(self, ...):
+        ...

@@ -6,6 +6,27 @@ try:
 except ImportError:
     pass
 
+# Weights format for RNN
+# Taken me ages to try to piece this together...
+# Created via
+# 
+# int dimW[3];
+# dimW[0] = weightsSize / sizeof(T_ELEM);
+# dimW[1] = 1;
+# dimW[2] = 1;
+
+# cudnnErrCheck(cudnnSetFilterNdDescriptor(wDesc, getDataType<T_ELEM>(), CUDNN_TENSOR_NCHW, 3, dimW));
+#
+# Docs:
+# https://docs.nvidia.com/deeplearning/sdk/cudnn-api/index.html#cudnnSetFilterNdDescriptor
+# 
+# The docs say that when n=3, 
+# K represents the number of output feature maps
+# C is the number of input feature maps
+# R is the number of rows per filter
+# 
+# So it creates it as a block in the "K" dimension...Which doesn't reveal the
+# actual structure. Bugger.
 
 class Output:
     pass
