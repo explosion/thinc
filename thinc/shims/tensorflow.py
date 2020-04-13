@@ -6,7 +6,7 @@ import itertools
 from io import BytesIO
 import numpy
 
-from ..backends import Ops, get_current_ops
+from ..backends import Ops, get_current_ops, get_array_ops
 from ..types import ArgsKwargs, ArrayXd
 from ..util import tensorflow2xp
 from .shim import Shim
@@ -202,8 +202,9 @@ class TensorFlowShim(Shim):
             key = f"tensorflow_{self.id}_{layer.name}"
             sgd.nr_update[key] += 1
             xp_param = tensorflow2xp(layer)
+            ops = get_array_ops(xp_param)
             if key in sgd.averages:
-                sgd.ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
+                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
             else:
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
