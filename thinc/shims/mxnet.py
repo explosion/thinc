@@ -62,11 +62,12 @@ class MXNetShim(Shim):
     def finish_update(self, optimizer):
         if self._optimizer is None:
             self._optimizer, self._trainer = self._create_optimizer(optimizer)
-        if getattr(optimizer, "max_grad_norm", None):
-            mxnet.gluon.utils.clip_global_norm(
-                self._model.parameters(), optimizer.max_grad_norm
-            )
-        self._trainer.step(1)
+        if getattr(optimizer, "grad_clip", None):
+            ctx = mx.current_context()
+            grads = [i.grad(ctx) for i in self._model.collect_params().values() if i._grad is not None]
+            mxnet.gluon.utils.clip_global_norm(grads, optimizer.grad_clip)
+        if self._trainer:
+            self._trainer.step(1)
         for param in self._model.collect_params().values():
             param.zero_grad()
         self._update_mxnet_averages(optimizer)
