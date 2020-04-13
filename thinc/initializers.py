@@ -52,7 +52,7 @@ def configure_uniform_init(
 def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> FloatsXd:
     if fan_in == -1:
         fan_in = shape[1]
-    scale = ops.xp.sqrt(1.0 / fan_in)
+    scale = float(ops.xp.sqrt(1.0 / fan_in))
     size = int(ops.xp.prod(ops.xp.asarray(shape)))
     inits = numpy.random.normal(scale=scale, size=size).astype("float32")
     inits = ops.reshape_f(inits, shape)

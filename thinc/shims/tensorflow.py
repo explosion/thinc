@@ -6,7 +6,7 @@ import itertools
 from io import BytesIO
 import numpy
 
-from ..backends import Ops, get_current_ops
+from ..backends import Ops, get_current_ops, get_array_ops
 from ..types import ArgsKwargs, ArrayXd
 from ..util import tensorflow2xp
 from .shim import Shim
@@ -65,7 +65,11 @@ def maybe_handshake_model(keras_model, optimizer=None):
         keras_model.compile(**compile_args)
         keras_model.build(keras_model.eg_shape)
         keras_model.predict(keras_model.eg_x)
-        keras_model._make_train_function()
+        # Made public in 2.2.x
+        if hasattr(keras_model, "_make_train_function"):
+            keras_model._make_train_function()
+        else:
+            keras_model.make_train_function()
     return keras_model
 
 
@@ -198,8 +202,9 @@ class TensorFlowShim(Shim):
             key = f"tensorflow_{self.id}_{layer.name}"
             sgd.nr_update[key] += 1
             xp_param = tensorflow2xp(layer)
+            ops = get_array_ops(xp_param)
             if key in sgd.averages:
-                sgd.ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
+                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
             else:
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps

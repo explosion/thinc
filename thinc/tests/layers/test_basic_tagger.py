@@ -1,6 +1,6 @@
 import pytest
 import random
-from thinc.api import Model, ReLu, Softmax, HashEmbed, expand_window
+from thinc.api import Model, Relu, Softmax, HashEmbed, expand_window
 from thinc.api import chain, with_array, Adam, strings2arrays
 import ml_datasets
 
@@ -15,8 +15,8 @@ def create_embed_relu_relu_softmax(depth, width, vector_length):
         model = strings2arrays() >> with_array(
             HashEmbed(width, vector_length)
             >> expand_window(window_size=1)
-            >> ReLu(width, width * 3)
-            >> ReLu(width, width)
+            >> Relu(width, width * 3)
+            >> Relu(width, width)
             >> Softmax(17, width)
         )
     return model
@@ -58,7 +58,7 @@ def test_small_end_to_end(depth, width, vector_width, nb_epoch, create_model, an
     optimizer = Adam(0.001)
     losses = []
     scores = []
-    for i in range(nb_epoch):
+    for _ in range(nb_epoch):
         losses.append(0.0)
         for X, Y in get_shuffled_batches(train_X, train_Y, batch_size):
             Yh, backprop = model.begin_update(X)

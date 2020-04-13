@@ -2,6 +2,7 @@ import numpy
 
 try:
     import cupy
+    import cupyx
     import cupy.cuda
     from cupy.cuda.compiler import compile_with_cache  # noqa: F401
 
@@ -10,6 +11,7 @@ try:
     # We no longer have to set up the memory pool, fortunately.
 except ImportError:
     cupy = None
+    cupyx = None
     has_cupy = False
 
 from .ops import Ops
@@ -22,6 +24,7 @@ from ..types import DeviceTypes
 class CupyOps(Ops):
     name = "cupy"
     xp = cupy
+    _xp2 = cupyx
 
     def __init__(
         self, device_type: DeviceTypes = "gpu", device_id: int = 0, **kwargs
@@ -131,7 +134,7 @@ class CupyOps(Ops):
         return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, table, indices, values):
-        self.xp.scatter_add(table, indices, values)
+        self._xp2.scatter_add(table, indices, values)
 
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0

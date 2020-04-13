@@ -11,7 +11,7 @@ from thinc.api import (
     Shim,
     change_attr_values,
 )
-from thinc.api import set_dropout_rate, chain, ReLu, Softmax, Adam
+from thinc.api import set_dropout_rate, chain, Relu, Softmax, Adam
 import numpy
 
 from ..util import make_tempdir
@@ -369,8 +369,8 @@ def test_model_gpu():
     dropout = 0.2
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
     model = chain(
-        ReLu(nO=n_hidden, dropout=dropout),
-        ReLu(nO=n_hidden, dropout=dropout),
+        Relu(nO=n_hidden, dropout=dropout),
+        Relu(nO=n_hidden, dropout=dropout),
         Softmax(),
     )
     # making sure the data is on the right device

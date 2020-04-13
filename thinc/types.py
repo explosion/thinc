@@ -974,7 +974,7 @@ class ArgsKwargs:
 class Unserializable:
     """Wrap a value to prevent it from being serialized by msgpack."""
 
-    data: Any
+    obj: Any
 
 
 def validate_array(obj, ndim=None, dtype=None):

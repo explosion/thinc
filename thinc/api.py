@@ -9,7 +9,7 @@ from .shims import maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
 from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
-from .types import Ragged, Padded, ArgsKwargs
+from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu, DataValidationError
 from .util import to_categorical, get_width, get_array_module
@@ -19,7 +19,7 @@ from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
-from .layers import Maxout, Mish, MultiSoftmax, ReLu, Softmax, LSTM
+from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import SparseLinear, StaticVectors, FeatureExtractor
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
@@ -30,8 +30,7 @@ from .layers import residual, uniqued, siamese, list2ragged, ragged2list
 from .layers import with_array, with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
-from .layers import array_getitem
-from .layers import with_debug
+from .layers import array_getitem, with_cpu, with_debug
 
 from .layers import reduce_max, reduce_mean, reduce_sum
 
