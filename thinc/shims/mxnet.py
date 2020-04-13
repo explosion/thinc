@@ -66,7 +66,8 @@ class MXNetShim(Shim):
             mxnet.gluon.utils.clip_global_norm(
                 self._model.parameters(), optimizer.grad_clip
             )
-        self._trainer.step(1)
+        if self._trainer:
+            self._trainer.step(1)
         for param in self._model.collect_params().values():
             param.zero_grad()
         self._update_mxnet_averages(optimizer)
