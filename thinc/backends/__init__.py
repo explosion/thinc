@@ -10,6 +10,7 @@ from .jax_ops import JaxOps, has_jax, jax_jit
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
+from ..util import is_cupy_array, is_jax_array
 from ..types import OpsNames
 
 
@@ -56,6 +57,16 @@ def get_ops(name: OpsNames, **kwargs) -> Ops:
         raise ValueError(f"Invalid backend: {name}")
     cls = ops[name]
     return cls(**kwargs)
+
+
+def get_array_ops(arr):
+    """Return an Ops object to match the array's device and backend."""
+    if is_cupy_array(arr):
+        return CupyOps()
+    elif is_jax_array(arr):
+        return JaxOps()
+    else:
+        return NumpyOps()
 
 
 @contextlib.contextmanager

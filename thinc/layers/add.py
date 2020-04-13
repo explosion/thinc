@@ -27,9 +27,7 @@ def add(
     if all(node.has_dim("nI") in [True, None] for node in layers):
         dims = {"nO": None, "nI": None}
 
-    return Model(
-        "add", forward, init=init, dims=dims, layers=layers
-    )
+    return Model("add", forward, init=init, dims=dims, layers=layers)
 
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:

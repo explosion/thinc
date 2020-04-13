@@ -180,7 +180,9 @@ class Model(Generic[InT, OutT]):
     def set_dim(self, name: str, value: int) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
-            raise KeyError(f"Cannot set unknown dimension '{name}' for model '{self.name}'.")
+            raise KeyError(
+                f"Cannot set unknown dimension '{name}' for model '{self.name}'."
+            )
         old_value = self._dims[name]
         if old_value is not None and old_value != value:
             err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
@@ -304,12 +306,9 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     param = node.get_param(name)
                     grad = node.get_grad(name)
-                    if hasattr(optimizer, 'ops'):
-                        param = optimizer.ops.asarray(param)        # type: ignore
-                        grad = optimizer.ops.asarray(grad)          # type: ignore
                     param, grad = optimizer((node.id, name), param, grad)
-                    node.set_param(name, orig_ops.asarray(param))   # type: ignore
-                    node.set_grad(name, orig_ops.asarray(grad))     # type: ignore
+                    node.set_param(name, orig_ops.asarray(param))  # type: ignore
+                    node.set_grad(name, orig_ops.asarray(grad))  # type: ignore
             for shim in node.shims:
                 shim.finish_update(optimizer)
 
