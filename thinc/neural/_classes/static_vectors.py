@@ -58,7 +58,10 @@ class StaticVectors(Model):
         if ids.ndim >= 2:
             ids = self.ops.xp.ascontiguousarray(ids[:, self.column])
         vector_table = self.get_vectors()
-        vectors = vector_table[ids * (ids < vector_table.shape[0])]
+        # create a mask for OOV vectors
+        non_oov = ids < vector_table.shape[0]
+        # initially use row 0 for OOV vectors
+        vectors = vector_table[ids * non_oov]
         vectors = self.ops.xp.ascontiguousarray(vectors)
         assert vectors.shape[0] == ids.shape[0]
 
@@ -74,4 +77,6 @@ class StaticVectors(Model):
         mask = self.ops.get_dropout_mask((dotted.shape[1],), drop)
         if mask is not None:
             dotted *= mask
+        # replace OOV vectors with zeros
+        dotted *= self.ops.xp.zeros(dotted.shape, dtype=bool) | non_oov[:, None]
         return dotted, finish_update
