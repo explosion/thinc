@@ -15,7 +15,7 @@ def instances():
 
 @pytest.fixture
 def sgd():
-    return SGD(0.001, ops=NumpyOps())
+    return SGD(0.001)
 
 
 def test_basic(instances, sgd):

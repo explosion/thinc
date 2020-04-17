@@ -6,6 +6,8 @@ trigger:
 
 jobs:
 - job: 'Test'
+  variables:
+    NOTEBOOK_KERNEL: "thinc-notebook-tests"
   strategy:
     matrix:
       Python36Linux:
@@ -59,11 +61,21 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
+  - script: 'sudo apt-get -yq install graphviz'
+    displayName: 'Install graphviz (Linux)'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
+
+  - script: 'brew install graphviz'
+    displayName: 'Install graphviz (MacOS)'
+    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
+    
   - script: |
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
       pip install torch -f https://download.pytorch.org/whl/torch_stable.html
-      pip install jax jaxlib
+      pip install jax jaxlib 
+      pip install ipykernel pydot graphviz 
+      python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
 

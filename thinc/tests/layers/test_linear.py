@@ -187,7 +187,7 @@ def test_update():
     model = Linear(2, 2)
     model.set_param("W", W)
     model.set_param("b", bias)
-    sgd = SGD(1.0, L2=0.0, ops=model.ops, grad_clip=0.0)
+    sgd = SGD(1.0, L2=0.0, grad_clip=0.0)
     sgd.averages = None
 
     ff = numpy.asarray([[0.0, 0.0]], dtype="f")

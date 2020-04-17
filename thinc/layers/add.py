@@ -27,9 +27,7 @@ def add(
     if all(node.has_dim("nI") in [True, None] for node in layers):
         dims = {"nO": None, "nI": None}
 
-    return Model(
-        "add", forward, init=init, dims=dims, layers=layers
-    )
+    return Model("add", forward, init=init, dims=dims, layers=layers)
 
 
 def forward(model: Model[InT, InT], X: InT, is_train: bool) -> Tuple[InT, Callable]:
@@ -55,12 +53,11 @@ def init(
     model: Model[InT, InT], X: Optional[InT] = None, Y: Optional[InT] = None
 ) -> Model[InT, InT]:
     if X is not None:
-        if model.has_dim("nI"):
-            X_width = get_width(X)
-            model.set_dim("nI", X_width)
-            for layer in model.layers:
-                if layer.has_dim("nI"):
-                    layer.set_dim("nI", X_width)
+        if model.has_dim("nI") is not False:
+            model.set_dim("nI", get_width(X))
+        for layer in model.layers:
+            if layer.has_dim("nI") is not False:
+                layer.set_dim("nI", get_width(X))
     for layer in model.layers:
         layer.initialize(X=X, Y=Y)
     model.set_dim("nO", model.layers[0].get_dim("nO"))

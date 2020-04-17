@@ -9,7 +9,8 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import mxnet2xp, convert_recursive, make_tempfile
+from ..util import mxnet2xp, xp2mxnet, convert_recursive, make_tempfile
+from ..backends import get_current_ops, get_array_ops
 from ..types import ArgsKwargs
 from .shim import Shim
 
@@ -91,8 +92,9 @@ class MXNetShim(Shim):
             key = f"mxnet_{self.id}_{name}"
             sgd.nr_update[key] += 1
             xp_param = mxnet2xp(param.grad())
+            ops = get_array_ops(xp_param)
             if key in sgd.averages:
-                sgd.ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
+                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
             else:
                 sgd.averages[key] = xp_param.copy()
                 sgd.nr_update[key] = init_steps
