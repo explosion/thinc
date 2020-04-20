@@ -919,16 +919,15 @@ def lstm_forward_training(
                 Gt3 = G[i, d, start : end]
                 Gt3 = Gt3[:Yt2.shape[0]]
                 Gt3 += xp.dot(Yt2, Wh.T)
-                Gt3 = Gt3.reshape((-1, nO, 4))
-                hf = sigmoid(Gt3[:, :, 0])
-                hi = sigmoid(Gt3[:, :, 1])
-                ho = sigmoid(Gt3[:, :, 2])
-                hc = xp.tanh(Gt3[:, :, 3])
+                Gt3_ = cast(Floats3d, Gt3.reshape((-1, nO, 4)))
+                hf = sigmoid(Gt3_[:, :, 0])
+                hi = sigmoid(Gt3_[:, :, 1])
+                ho = sigmoid(Gt3_[:, :, 2])
+                hc = xp.tanh(Gt3_[:, :, 3])
                 Ct3 = hf * Ct2
                 Ct3 += hi * hc
                 # Store results
-                Gt3 = xp.hstack((hf, hi, ho, hc))
-                Gt3 = Gt3.reshape((-1, 4, nO)).transpose((0, 2, 1)).reshape((-1, nO*4))
+                Gt3 = xp.hstack((hf, hi, ho, hc)).reshape((-1, 4, nO)).transpose((0, 2, 1)).reshape((-1, nO*4))
                 # Fix the endpoint to account for shorter slices when iterating
                 # reversed. Not 100% sure this is right. If there's a bug, look
                 # here?
