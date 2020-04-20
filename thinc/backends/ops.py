@@ -618,6 +618,7 @@ class Ops:
         size_at_t: Ints1d,
     ) -> Tuple[Floats2d, Tuple]:
         assert H0.shape == C0.shape
+        assert H0.shape[1] == C0.shape[1]
         Y, fwd_state = lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y, fwd_state
 
@@ -928,6 +929,10 @@ def lstm_forward_training(
                 # Store results
                 Gt3 = xp.hstack((hf, hi, ho, hc))
                 Gt3 = Gt3.reshape((-1, 4, nO)).transpose((0, 2, 1)).reshape((-1, nO*4))
+                # Fix the endpoint to account for shorter slices when iterating
+                # reversed. Not 100% sure this is right. If there's a bug, look
+                # here?
+                end = min(end, start+ho.shape[0])
                 Y[i, d, start : end] = xp.tanh(Ct3) * ho
                 G[i, d, start : end] = Gt3
                 C[i, d, start : end] = Ct3
