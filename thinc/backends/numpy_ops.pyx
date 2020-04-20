@@ -661,8 +661,8 @@ def lstm_forward_training(
     depth = c_init.shape[0]
     dirs = c_init.shape[1]
     nO = c_init.shape[2]
-    nI = X.shape[1]
     N = X.shape[0]
+    nI = X.shape[1]
     nT = lengths.shape[0]
     cdef int batch_size = lengths[0]
     # Preallocate these so we can pass them through for loop.
