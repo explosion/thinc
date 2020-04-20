@@ -916,8 +916,8 @@ def lstm_forward_training(
                 Yt2 = Yt2[: end - start]
                 Ct2 = Ct2[: end - start]
                 # But in right-to-left, it's the opposite: t3 can be longer.
-                Gt3 = G[i, d, start : end]
-                Gt3 = Gt3[:Yt2.shape[0]]
+                Gt3 = G[i, d, start:end]
+                Gt3 = Gt3[: Yt2.shape[0]]
                 Gt3 += xp.dot(Yt2, Wh.T)
                 Gt3_ = cast(Floats3d, Gt3.reshape((-1, nO, 4)))
                 hf = sigmoid(Gt3_[:, :, 0])
@@ -927,17 +927,22 @@ def lstm_forward_training(
                 Ct3 = hf * Ct2
                 Ct3 += hi * hc
                 # Store results
-                Gt3 = xp.hstack((hf, hi, ho, hc)).reshape((-1, 4, nO)).transpose((0, 2, 1)).reshape((-1, nO*4))
+                Gt3 = (
+                    xp.hstack((hf, hi, ho, hc))
+                    .reshape((-1, 4, nO))
+                    .transpose((0, 2, 1))
+                    .reshape((-1, nO * 4))
+                )
                 # Fix the endpoint to account for shorter slices when iterating
                 # reversed. Not 100% sure this is right. If there's a bug, look
                 # here?
-                end = min(end, start+ho.shape[0])
-                Y[i, d, start : end] = xp.tanh(Ct3) * ho
-                G[i, d, start : end] = Gt3
-                C[i, d, start : end] = Ct3
+                end = min(end, start + ho.shape[0])
+                Y[i, d, start:end] = xp.tanh(Ct3) * ho
+                G[i, d, start:end] = Gt3
+                C[i, d, start:end] = Ct3
                 # Set the t2 variables to the current t3 variables.
                 Ct2 = Ct3
-                Yt2 = Y[i, d, start : end]
+                Yt2 = Y[i, d, start:end]
         H = cast(Floats2d, Y[i].transpose((1, 0, 2)).reshape((N, -1)))
         if dirs == 2:
             H = xp.ascontiguousarray(H)
