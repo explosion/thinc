@@ -1,7 +1,7 @@
-from typing import Tuple, List, cast, TypeVar, Generic, Any, Union
+from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 
 from .types import Floats2d, Ints1d
-from .util import get_array_module, to_categorical, ensure_categorical
+from .util import get_array_module, to_categorical
 from .config import registry
 
 
@@ -42,7 +42,12 @@ class CategoricalCrossentropy(Loss):
         return self.get_grad(guesses, truths, missing=missing), self.get_loss(guesses, truths, missing=missing)
 
     def get_grad(self, guesses: Floats2d, truths: IntsOrFloats, *, missing: Optional[IntsOrFloats]=None) -> Floats2d:
-        target = ensure_categorical(truths)
+        if truths.ndim != guesses.ndim:
+            # transform categorical values to one-hot encoding
+            target = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
+        else:
+            # pragma: no cover
+            target = cast(Floats2d, truths)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -54,13 +59,13 @@ class CategoricalCrossentropy(Loss):
             raise ValueError(err)
         difference = guesses - target
         if missing is not None:
-            mask = ensure_categorical(missing, n_classes=guesses.shape[-1])
+            mask = _make_mask(missing, guesses.shape)
             difference *= 1 - mask
         if self.normalize:
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats, missing=Optional[IntsOrFloats]) -> float:
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats, missing: Optional[IntsOrFloats]=None) -> float:
         d_truth = self.get_grad(guesses, truths, missing=missing)
         # TODO: Add overload for axis=None case to sum
         return (d_truth ** 2).sum()  # type: ignore
@@ -212,6 +217,15 @@ def configure_CosineDistance(
 ) -> CosineDistance:
     return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
 
+
+def _make_mask(missing, shape: Tuple[int, int]) -> Floats2d:
+    if missing.dtype == "f":
+        return cast(Floats2d, missing)
+    else:
+        xp = get_array_module(missing)
+        mask = xp.zeros(shape, dtype="f")
+        mask[missing] = 1
+        return mask
 
 
 __all__ = [
