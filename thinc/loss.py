@@ -34,7 +34,7 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
-    def __init__(self, *, normalize: bool = True, names: Optional[List[str]]=None):
+    def __init__(self, *, normalize: bool = True, names: Optional[List[str]] = None):
         self.normalize = normalize
         self.names = names
         if self.names is not None:
@@ -63,11 +63,24 @@ class CategoricalCrossentropy(Loss):
         return truths
 
     def __call__(
-            self, guesses: Floats2d, truths: IntsOrFloatsOrStrs, *, missing: Optional[IntsOrFloats]=None
+        self,
+        guesses: Floats2d,
+        truths: IntsOrFloatsOrStrs,
+        *,
+        missing: Optional[IntsOrFloats] = None,
     ) -> Tuple[Floats2d, float]:
-        return self.get_grad(guesses, truths, missing=missing), self.get_loss(guesses, truths, missing=missing)
+        return (
+            self.get_grad(guesses, truths, missing=missing),
+            self.get_loss(guesses, truths, missing=missing),
+        )
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs, *, missing: Optional[IntsOrFloats]=None) -> Floats2d:
+    def get_grad(
+        self,
+        guesses: Floats2d,
+        truths: IntsOrFloatsOrStrs,
+        *,
+        missing: Optional[IntsOrFloats] = None,
+    ) -> Floats2d:
         target = self.convert_truths(truths, n_classes=guesses.shape[-1])
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
@@ -86,7 +99,12 @@ class CategoricalCrossentropy(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats, missing: Optional[IntsOrFloats]=None) -> float:
+    def get_loss(
+        self,
+        guesses: Floats2d,
+        truths: IntsOrFloats,
+        missing: Optional[IntsOrFloats] = None,
+    ) -> float:
         d_truth = self.get_grad(guesses, truths, missing=missing)
         # TODO: Add overload for axis=None case to sum
         return (d_truth ** 2).sum()  # type: ignore
@@ -94,13 +112,13 @@ class CategoricalCrossentropy(Loss):
 
 @registry.losses("CategoricalCrossentropy.v1")
 def configure_CategoricalCrossentropy(
-    *, normalize: bool = True, names: Optional[List[str]]=None
+    *, normalize: bool = True, names: Optional[List[str]] = None
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(normalize=normalize, names=names)
 
 
 class SequenceCategoricalCrossentropy(Loss):
-    def __init__(self, *, normalize: bool = True, names: Optional[List[str]]=None):
+    def __init__(self, *, normalize: bool = True, names: Optional[List[str]] = None):
         self.cc = CategoricalCrossentropy(normalize=normalize, names=names)
 
     def __call__(
@@ -130,7 +148,7 @@ class SequenceCategoricalCrossentropy(Loss):
 
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy(
-        *, normalize: bool = True, names: Optional[List[str]]=None
+    *, normalize: bool = True, names: Optional[List[str]] = None
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(normalize=normalize, names=names)
 

@@ -66,10 +66,13 @@ def test_categorical_crossentropy(guesses, labels):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, missing", [(guesses1, labels1, missing1), (guesses1, labels1_full, missing1_full)]
+    "guesses, labels, missing",
+    [(guesses1, labels1, missing1), (guesses1, labels1_full, missing1_full)],
 )
 def test_categorical_crossentropy_missing(guesses, labels, missing):
-    d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels, missing=missing)
+    d_scores = CategoricalCrossentropy(normalize=True).get_grad(
+        guesses, labels, missing=missing
+    )
     assert d_scores.shape == guesses.shape
     if len(missing.shape) == 1:
         for row in missing:
