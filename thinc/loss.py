@@ -10,6 +10,7 @@ GradT = TypeVar("GradT")
 GuessT = TypeVar("GuessT")
 TruthT = TypeVar("TruthT")
 IntsOrFloats = Union[Ints1d, Floats2d]
+IntsOrFloatsOrStrs = Union[Ints1d, Floats2d, List[int], List[str]]
 
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
@@ -33,21 +34,41 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
-    def __init__(self, *, normalize: bool = True):
+    def __init__(self, *, normalize: bool = True, names: Optional[List[str]]=None):
         self.normalize = normalize
+        self.names = names
+        if self.names is not None:
+            self._name_to_i = {name: i for i, name in enumerate(names)}
+        else:
+            self._name_to_i = None
+
+    def convert_target(self, truths, guesses: Floats2d, n_classes: int) -> Floats2d:
+        xp = get_array_module(guesses)
+        # Convert list of ints or list of strings
+        if isinstance(truths, list):
+            if len(truths) and isinstance(truths[0], str):
+                if self.names is None:
+                    msg = (
+                        "Cannot calculate loss from list of strings without names. "
+                        "You can pass the names as a keyword argument when you "
+                        "create the loss object, "
+                        "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
+                    )
+                    raise ValueError(msg)
+                truths = [self._name_to_i[name] for name in truths]
+            truths = xp.asarray(truths, dtype="i")
+        if truths.ndim != guesses.ndim:
+            # transform categorical values to one-hot encoding
+            truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
+        return truths
 
     def __call__(
-            self, guesses: Floats2d, truths: IntsOrFloats, *, missing: Optional[IntsOrFloats]=None
+            self, guesses: Floats2d, truths: IntsOrFloatsOrStrs, *, missing: Optional[IntsOrFloats]=None
     ) -> Tuple[Floats2d, float]:
         return self.get_grad(guesses, truths, missing=missing), self.get_loss(guesses, truths, missing=missing)
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloats, *, missing: Optional[IntsOrFloats]=None) -> Floats2d:
-        if truths.ndim != guesses.ndim:
-            # transform categorical values to one-hot encoding
-            target = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
-        else:
-            # pragma: no cover
-            target = cast(Floats2d, truths)
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs, *, missing: Optional[IntsOrFloats]=None) -> Floats2d:
+        target = self.convert_truths(truths, n_classes=guesses.shape[-1])
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -73,14 +94,14 @@ class CategoricalCrossentropy(Loss):
 
 @registry.losses("CategoricalCrossentropy.v1")
 def configure_CategoricalCrossentropy(
-    *, normalize: bool = True
+    *, normalize: bool = True, names: Optional[List[str]]=None
 ) -> CategoricalCrossentropy:
-    return CategoricalCrossentropy(normalize=normalize)
+    return CategoricalCrossentropy(normalize=normalize, names=names)
 
 
 class SequenceCategoricalCrossentropy(Loss):
-    def __init__(self, *, normalize: bool = True):
-        self.cc = CategoricalCrossentropy(normalize=normalize)
+    def __init__(self, *, normalize: bool = True, names: Optional[List[str]]=None):
+        self.cc = CategoricalCrossentropy(normalize=normalize, names=names)
 
     def __call__(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
@@ -109,9 +130,9 @@ class SequenceCategoricalCrossentropy(Loss):
 
 @registry.losses("SequenceCategoricalCrossentropy.v1")
 def configure_SequenceCategoricalCrossentropy(
-    *, normalize: bool = True
+        *, normalize: bool = True, names: Optional[List[str]]=None
 ) -> SequenceCategoricalCrossentropy:
-    return SequenceCategoricalCrossentropy(normalize=normalize)
+    return SequenceCategoricalCrossentropy(normalize=normalize, names=names)
 
 
 class L2Distance(Loss):
