@@ -1,7 +1,7 @@
 from typing import Tuple, List, cast, TypeVar, Generic, Any, Union
 
 from .types import Floats2d, Ints1d
-from .util import get_array_module, to_categorical
+from .util import get_array_module, to_categorical, ensure_categorical
 from .config import registry
 
 
@@ -9,6 +9,7 @@ LossT = TypeVar("LossT")
 GradT = TypeVar("GradT")
 GuessT = TypeVar("GuessT")
 TruthT = TypeVar("TruthT")
+IntsOrFloats = Union[Ints1d, Floats2d]
 
 
 class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
@@ -36,16 +37,12 @@ class CategoricalCrossentropy(Loss):
         self.normalize = normalize
 
     def __call__(
-        self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]
+            self, guesses: Floats2d, truths: IntsOrFloats, *, missing: Optional[IntsOrFloats]=None
     ) -> Tuple[Floats2d, float]:
-        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
+        return self.get_grad(guesses, truths, missing=missing), self.get_loss(guesses, truths, missing=missing)
 
-    def get_grad(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> Floats2d:
-        if truths.ndim != guesses.ndim:
-            # transform categorical values to one-hot encoding
-            target = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
-        else:  # pragma: no cover
-            target = cast(Floats2d, truths)
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloats, *, missing: Optional[IntsOrFloats]=None) -> Floats2d:
+        target = ensure_categorical(truths)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -56,12 +53,15 @@ class CategoricalCrossentropy(Loss):
             err = f"Cannot calculate CategoricalCrossentropy loss with truth values outside the [0,1] interval."
             raise ValueError(err)
         difference = guesses - target
+        if missing is not None:
+            mask = ensure_categorical(missing, n_classes=guesses.shape[-1])
+            difference *= 1 - mask
         if self.normalize:
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> float:
-        d_truth = self.get_grad(guesses, truths)
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats, missing=Optional[IntsOrFloats]) -> float:
+        d_truth = self.get_grad(guesses, truths, missing=missing)
         # TODO: Add overload for axis=None case to sum
         return (d_truth ** 2).sum()  # type: ignore
 
@@ -211,6 +211,7 @@ def configure_CosineDistance(
     *, normalize: bool = True, ignore_zeros: bool = False
 ) -> CosineDistance:
     return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
+
 
 
 __all__ = [

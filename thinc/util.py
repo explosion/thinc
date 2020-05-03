@@ -207,6 +207,13 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> Floats2d:
     return xp.asarray(categorical)
 
 
+def ensure_categorical(ids_or_floats: IntsOrFloats, n_classes: int) -> Floats2d:
+    if ids_or_floats.dtype in ("i", "I"):
+        return to_categorical(cast(Ints1d, ids_or_floats), n_classes=n_classes)
+    else:
+        return ids_or_floats
+
+
 def get_width(
     X: Union[ArrayXd, Ragged, Padded, Sequence[ArrayXd]], *, dim: int = -1
 ) -> int:
