@@ -12,6 +12,8 @@ labels0 = numpy.asarray([0, 1, 1], dtype="i")
 guesses1 = numpy.asarray([[0.1, 0.5, 0.6], [0.4, 0.6, 0.3], [1, 1, 1], [0, 0, 0]])
 labels1 = numpy.asarray([2, 1, 0, 2])
 labels1_full = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
+missing1 = numpy.asarray([0, 2], dtype="int32")
+missing1_full = numpy.asarray([[0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0]], dtype="f")
 
 guesses2 = numpy.asarray([[0.2, 0.3]])
 labels2 = numpy.asarray([1])
@@ -61,6 +63,22 @@ def test_categorical_crossentropy(guesses, labels):
 
     loss = CategoricalCrossentropy(normalize=True).get_loss(guesses, labels)
     assert loss == pytest.approx(0.239375, eps)
+
+
+@pytest.mark.parametrize(
+    "guesses, labels, missing", [(guesses1, labels1, missing1), (guesses1, labels1_full, missing1_full)]
+)
+def test_categorical_crossentropy_missing(guesses, labels, missing):
+    d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels, missing=missing)
+    assert d_scores.shape == guesses.shape
+    if len(missing.shape) == 1:
+        for row in missing:
+            numpy.testing.assert_allclose(d_scores[row], 0)
+    else:
+        for i in range(missing.shape[0]):
+            for j in range(missing.shape[1]):
+                if missing[i, j] == 1:
+                    assert d_scores[i, j] == 0
 
 
 @pytest.mark.parametrize(
