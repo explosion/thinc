@@ -42,7 +42,8 @@ class CategoricalCrossentropy(Loss):
         else:
             self._name_to_i = None
 
-    def convert_target(self, truths, guesses: Floats2d, n_classes: int) -> Floats2d:
+    def convert_truths(self, truths, guesses: Floats2d) -> Floats2d:
+        n_classes = guesses.shape[-1]
         xp = get_array_module(guesses)
         # Convert list of ints or list of strings
         if isinstance(truths, list):
@@ -69,10 +70,8 @@ class CategoricalCrossentropy(Loss):
         *,
         missing: Optional[IntsOrFloats] = None,
     ) -> Tuple[Floats2d, float]:
-        return (
-            self.get_grad(guesses, truths, missing=missing),
-            self.get_loss(guesses, truths, missing=missing),
-        )
+        d_truth = self.get_grad(guesses, truths, missing=missing)
+        return (d_truth, self._get_loss_from_grad(d_truth))
 
     def get_grad(
         self,
@@ -81,7 +80,7 @@ class CategoricalCrossentropy(Loss):
         *,
         missing: Optional[IntsOrFloats] = None,
     ) -> Floats2d:
-        target = self.convert_truths(truths, n_classes=guesses.shape[-1])
+        target = self.convert_truths(truths, guesses)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
             raise ValueError(err)
@@ -106,8 +105,13 @@ class CategoricalCrossentropy(Loss):
         missing: Optional[IntsOrFloats] = None,
     ) -> float:
         d_truth = self.get_grad(guesses, truths, missing=missing)
+        return self._get_loss_from_grad(d_truth)
+
+    def _get_loss_from_grad(self, d_truth: Floats2d) -> float:
         # TODO: Add overload for axis=None case to sum
         return (d_truth ** 2).sum()  # type: ignore
+
+
 
 
 @registry.losses("CategoricalCrossentropy.v1")
