@@ -69,9 +69,17 @@ class PyTorchShim(Shim):
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
         if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = torch.optim.Adam(
-                params, lr=sgd.learn_rate, betas=(sgd.b1, sgd.b2)
-            )
+            args = {
+                "lr": sgd.learn_rate,
+                "betas": (sgd.b1, sgd.b2),
+                "eps": sgd.eps,
+                "weight_decay": sgd.L2
+            }
+            if sgd.L2_is_weight_decay:
+                cls = torch.optim.AdamW
+            else:
+                cls = torch.optim.Adam
+            optimizer = cls(params, **args)
         elif sgd.b2 == 0:
             optimizer = torch.optim.SGD(params, lr=sgd.learn_rate, momentum=sgd.b1)
         else:
