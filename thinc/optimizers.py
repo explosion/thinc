@@ -242,7 +242,7 @@ class Optimizer(object):
             weights -= lr_scale * self.learn_rate * gradient
         gradient = gradient * 0.0
         if self.L2 != 0 and self.L2_is_weight_decay:
-            weights -= self.L2 * weights
+            weights -= lr_scale * self.learn_rate * self.L2 * weights
         if self.averages is not None:
             if key not in self.averages:
                 self.averages[key] = ops.alloc(weights.shape, dtype="float32")
