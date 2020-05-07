@@ -18,6 +18,6 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     Y = model.ops.softmax(X, inplace=False)
 
     def backprop(dY: OutT) -> InT:
-        return dY
+        return model.ops.backprop_softmax(Y, dY, axis=-1)
 
     return Y, backprop
