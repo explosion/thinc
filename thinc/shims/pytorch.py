@@ -56,27 +56,39 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer):
-        if not self._optimizer:
-            self._optimizer = self._create_optimizer(optimizer)
+        pytorch_opt = self._get_pytorch_optimizer(optimizer)
         if getattr(optimizer, "grad_clip", None):
             torch.nn.utils.clip_grad_norm_(
                 self._model.parameters(), optimizer.grad_clip
             )
-        self._optimizer.step()
-        self._optimizer.zero_grad()
+        pytorch_opt.step()
+        pytorch_opt.zero_grad()
         self._update_pytorch_averages(optimizer)
 
-    def _create_optimizer(self, sgd):
-        params = self._model.parameters()
+    def _get_pytorch_optimizer(self, sgd):
+        args = {
+            "lr": sgd.learn_rate,
+            "weight_decay": sgd.L2
+        }
+
         if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = torch.optim.Adam(
-                params, lr=sgd.learn_rate, betas=(sgd.b1, sgd.b2)
-            )
+            args["betas"] = (sgd.b1, sgd.b2)
+            args["eps"] = sgd.eps
+            if sgd.L2_is_weight_decay:
+                cls = torch.optim.AdamW
+            else:
+                cls = torch.optim.Adam
         elif sgd.b2 == 0:
-            optimizer = torch.optim.SGD(params, lr=sgd.learn_rate, momentum=sgd.b1)
+            args["momentum"] = sgd.b1
+            cls = thinc.optim.SGD
         else:
-            raise NotImplementedError
-        return optimizer
+            cls = thinc.optim.SGD
+        if self._optimizer is None:
+            self._optimizer = cls(self._model.parameters(), **args)
+        else:
+            for param_group in self._optimizer.param_groups:
+                param_group.update(args)
+        return self._optimizer
 
     @contextlib.contextmanager
     def use_params(self, params):
