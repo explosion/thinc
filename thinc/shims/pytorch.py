@@ -79,7 +79,7 @@ class PyTorchShim(Shim):
         else:
             cls = thinc.optim.SGD
             if sgd.b2 == 0:
-            args["momentum"] = sgd.b1
+                args["momentum"] = sgd.b1
         if self._optimizer is None:
             self._optimizer = cls(self._model.parameters(), **args)
         else:
