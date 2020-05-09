@@ -39,7 +39,13 @@ class CategoricalCrossentropy(Loss):
     missing_value: Optional[Union[str, int]]
     _name_to_i: Dict[str, int]
 
-    def __init__(self, *, normalize: bool = True, names: Optional[List[str]] = None, missing_value: Optional[Union[str, int]]=None):
+    def __init__(
+        self,
+        *,
+        normalize: bool = True,
+        names: Optional[List[str]] = None,
+        missing_value: Optional[Union[str, int]] = None,
+    ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
@@ -79,18 +85,12 @@ class CategoricalCrossentropy(Loss):
         return truths, mask
 
     def __call__(
-        self,
-        guesses: Floats2d,
-        truths: IntsOrFloatsOrStrs,
+        self, guesses: Floats2d, truths: IntsOrFloatsOrStrs,
     ) -> Tuple[Floats2d, float]:
         d_truth = self.get_grad(guesses, truths)
         return (d_truth, self._get_loss_from_grad(d_truth))
 
-    def get_grad(
-        self,
-        guesses: Floats2d,
-        truths: IntsOrFloatsOrStrs,
-    ) -> Floats2d:
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs,) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
@@ -107,11 +107,7 @@ class CategoricalCrossentropy(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(
-        self,
-        guesses: Floats2d,
-        truths: IntsOrFloats,
-    ) -> float:
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats,) -> float:
         d_truth = self.get_grad(guesses, truths)
         return self._get_loss_from_grad(d_truth)
 
@@ -120,18 +116,29 @@ class CategoricalCrossentropy(Loss):
         return (d_truth ** 2).sum()  # type: ignore
 
 
-
-
 @registry.losses("CategoricalCrossentropy.v1")
 def configure_CategoricalCrossentropy(
-        *, normalize: bool = True, names: Optional[List[str]] = None, missing_value: Optional[Union[str, int]]=None
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
 ) -> CategoricalCrossentropy:
-    return CategoricalCrossentropy(normalize=normalize, names=names, missing_value=missing_value)
+    return CategoricalCrossentropy(
+        normalize=normalize, names=names, missing_value=missing_value
+    )
 
 
 class SequenceCategoricalCrossentropy(Loss):
-    def __init__(self, *, normalize: bool = True, names: Optional[List[str]] = None, missing_value: Optional[Union[str, int]]=None):
-        self.cc = CategoricalCrossentropy(normalize=False, names=names, missing_value=missing_value)
+    def __init__(
+        self,
+        *,
+        normalize: bool = True,
+        names: Optional[List[str]] = None,
+        missing_value: Optional[Union[str, int]] = None,
+    ):
+        self.cc = CategoricalCrossentropy(
+            normalize=False, names=names, missing_value=missing_value
+        )
         self.normalize = normalize
 
     def __call__(
@@ -157,7 +164,7 @@ class SequenceCategoricalCrossentropy(Loss):
     def get_loss(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
     ) -> float:
-        loss = 0.
+        loss = 0.0
         for grad in self.get_grad(guesses, truths):
             loss += self.cc._get_loss_from_grad(grad)
         return loss

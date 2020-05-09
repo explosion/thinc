@@ -1,7 +1,7 @@
 from typing import Tuple, Callable, Optional, cast, Union, Dict, Any
 
 from thinc.initializers import glorot_uniform_init
-from thinc.util import partial 
+from thinc.util import partial
 
 from .chain import chain
 from .array_getitem import ints_getitem

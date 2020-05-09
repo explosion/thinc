@@ -65,13 +65,10 @@ class PyTorchShim(Shim):
         self._update_pytorch_averages(optimizer)
 
     def _create_optimizer(self, sgd):
-        args = {
-            "lr": sgd.learn_rate,
-            "weight_decay": sgd.L2
-        }
+        args = {"lr": sgd.learn_rate, "weight_decay": sgd.L2}
         if sgd.b1 != 0 and sgd.b2 != 0:
-            args["betas"] = (sgd.b1, sgd.b2),
-            args["eps"] = sgd.eps,
+            args["betas"] = ((sgd.b1, sgd.b2),)
+            args["eps"] = (sgd.eps,)
             if sgd.L2_is_weight_decay:
                 cls = torch.optim.AdamW
             else:
