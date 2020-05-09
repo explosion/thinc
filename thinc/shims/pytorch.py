@@ -65,7 +65,6 @@ class PyTorchShim(Shim):
         self._update_pytorch_averages(optimizer)
 
     def _create_optimizer(self, sgd):
-        params = self._model.parameters()
         args = {
             "lr": sgd.learn_rate,
             "weight_decay": sgd.L2
