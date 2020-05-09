@@ -285,9 +285,11 @@ def convert_recursive(
 
 
 def xp2torch(
-    xp_tensor: ArrayXd, requires_grad: bool = False
+    xp_tensor: Union[ArrayXd, "torch.Tensor"], requires_grad: bool = False,
 ) -> "torch.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a PyTorch tensor."""
+    if isinstance(xp_tensor, torch.Tensor):
+        return xp_tensor
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         torch_tensor = torch.utils.dlpack.from_dlpack(dlpack_tensor)

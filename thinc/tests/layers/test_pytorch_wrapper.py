@@ -23,6 +23,19 @@ def check_learns_zero_output(model, sgd, X, Y):
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+def test_pytorch_tensor_conversions():
+    import torch
+
+    a = numpy.zeros((10, 2, 1))
+    assert not isinstance(a, torch.Tensor)
+    b = xp2torch(a)
+    assert isinstance(b, torch.Tensor)
+
+    c = xp2torch(b)
+    assert isinstance(c, torch.Tensor)
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
 def test_unwrapped(nN, nI, nO):
     model = Linear(nO, nI).initialize()
