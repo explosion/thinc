@@ -51,7 +51,14 @@ def test_to_categorical():
     # https://github.com/keras-team/keras/blob/master/tests/keras/utils/np_utils_test.py
     nc = 5
     shapes = [(1,), (3,), (4, 3), (5, 4, 3), (3, 1), (3, 2, 1)]
-    expected_shapes = [(1, nc), (3, nc), (4, 3, nc), (5, 4, 3, nc), (3, 1, nc), (3, 2, 1, nc)]
+    expected_shapes = [
+        (1, nc),
+        (3, nc),
+        (4, 3, nc),
+        (5, 4, 3, nc),
+        (3, 1, nc),
+        (3, 2, 1, nc),
+    ]
     labels = [numpy.random.randint(0, nc, shape) for shape in shapes]
     one_hots = [to_categorical(label, nc) for label in labels]
     for label, one_hot, expected_shape in zip(labels, one_hots, expected_shapes):

@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, List, Optional, TypeVar, Union, cast
+from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..types import Padded, Ragged, Array2d, Floats3d, Ints1d, Floats2d, List2d
 from ..model import Model

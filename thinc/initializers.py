@@ -99,19 +99,16 @@ def configure_uniform_init(
     return partial(uniform_init, lo=lo, hi=hi)
 
 
-def normal_init(ops: Ops, shape: Shape, *, fan_in: int = -1) -> FloatsXd:
-    if fan_in == -1:
-        fan_in = shape[1]
-    scale = float(ops.xp.sqrt(1.0 / fan_in))
+def normal_init(ops: Ops, shape: Shape, *, mean: int = 0) -> FloatsXd:
     size = int(ops.xp.prod(ops.xp.asarray(shape)))
-    inits = numpy.random.normal(scale=scale, size=size).astype("float32")
+    inits = numpy.random.normal(scale=mean, size=size).astype("float32")
     inits = ops.reshape_f(inits, shape)
     return ops.asarray_f(inits)
 
 
 @registry.initializers("normal_init.v1")
-def configure_normal_init(*, fan_in: int = -1) -> Callable[[FloatsXd], FloatsXd]:
-    return partial(normal_init, fan_in=fan_in)
+def configure_normal_init(*, mean: float = 0) -> Callable[[FloatsXd], FloatsXd]:
+    return partial(normal_init, mean=mean)
 
 
 __all__ = [

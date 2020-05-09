@@ -19,6 +19,8 @@ def forward(model: Model[InT, OutT], Xp: InT, is_train: bool) -> Tuple[OutT, Cal
     Ys = model.ops.padded2list(Xp)  # type: ignore
 
     def backprop(dYs: OutT) -> InT:
-        return model.ops.list2padded(dYs)  # type: ignore
+        dYp = model.ops.list2padded(dYs)  # type: ignore
+        assert isinstance(dYp, Padded)
+        return dYp
 
     return Ys, backprop

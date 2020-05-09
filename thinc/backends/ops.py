@@ -7,7 +7,7 @@ from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Array2d, Array3d, Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
-from ..util import get_array_module, is_xp_array
+from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
@@ -333,13 +333,13 @@ class Ops:
 
     def padded2list(self, padded: Padded) -> List2d:
         """Unpack a Padded datatype to a list of 2-dimensional arrays."""
-        indices = padded.indices
         data = padded.data
-        lengths = padded.lengths
+        indices = to_numpy(padded.indices)
+        lengths = to_numpy(padded.lengths)
         unpadded: List[Optional[Floats2d]] = [None] * len(lengths)
         data = self.as_contig(data.transpose((1, 0, 2)))
         for i in range(data.shape[0]):
-            unpadded[indices[i]] = data[i, : lengths[i]]
+            unpadded[indices[i]] = data[i, : int(lengths[i])]
         return cast(List2d, unpadded)
 
     def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
