@@ -41,9 +41,7 @@ class PyTorchShim(Shim):
     def begin_update(self, inputs: ArgsKwargs):
         """Pass the inputs through to the underlying PyTorch model, keeping
         track of which items in the input are tensors requiring gradients.
-        If the model returns a single value, it is converted into a one-element
-        tuple. Return the outputs and a callback to backpropagate.
-        """
+        If the model returns a single value, it is converted into a one-element tuple. Return the outputs and a callback to backpropagate.  """
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
 
@@ -78,11 +76,10 @@ class PyTorchShim(Shim):
                 cls = torch.optim.AdamW
             else:
                 cls = torch.optim.Adam
-        elif sgd.b2 == 0:
-            args["momentum"] = sgd.b1
-            cls = thinc.optim.SGD
         else:
             cls = thinc.optim.SGD
+            if sgd.b2 == 0:
+            args["momentum"] = sgd.b1
         if self._optimizer is None:
             self._optimizer = cls(self._model.parameters(), **args)
         else:

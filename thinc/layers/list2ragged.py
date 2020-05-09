@@ -1,8 +1,8 @@
-from typing import Tuple, List, Callable, TypeVar, cast
+from typing import Tuple, List, Callable, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ints2d, Ragged
+from ..types import Floats2d, Ragged
 
 
 InT = List[Floats2d]

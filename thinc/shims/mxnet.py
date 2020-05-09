@@ -1,8 +1,5 @@
 from typing import Any
-import contextlib
-from io import BytesIO
 import srsly
-import tempfile
 import copy
 
 try:
@@ -12,8 +9,8 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import mxnet2xp, xp2mxnet, convert_recursive, make_tempfile
-from ..backends import get_current_ops, get_array_ops
+from ..util import mxnet2xp, convert_recursive, make_tempfile
+from ..backends import get_array_ops
 from ..types import ArgsKwargs
 from .shim import Shim
 
@@ -64,7 +61,11 @@ class MXNetShim(Shim):
             self._optimizer, self._trainer = self._create_optimizer(optimizer)
         if getattr(optimizer, "grad_clip", None):
             ctx = mx.current_context()
-            grads = [i.grad(ctx) for i in self._model.collect_params().values() if i._grad is not None]
+            grads = [
+                i.grad(ctx)
+                for i in self._model.collect_params().values()
+                if i._grad is not None
+            ]
             mxnet.gluon.utils.clip_global_norm(grads, optimizer.grad_clip)
         if self._trainer:
             self._trainer.step(1)

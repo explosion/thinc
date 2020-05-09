@@ -106,12 +106,13 @@ def _padded_forward(
     )
 
     def backprop(dYp: Padded) -> Padded:
+        assert isinstance(dYp, Padded)
         dY = model.ops.reshape2f(
             dYp.data, dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2]
         )
         dX2d = get_dX(dY)
         dX = model.ops.reshape3f(
-            dX2d, dYp.data.shape[0], dYp.data.shape[1], dX2d.data.shape[1]
+            dX2d, dYp.data.shape[0], dYp.data.shape[1], dX2d.shape[1]
         )
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
