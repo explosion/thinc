@@ -41,9 +41,7 @@ class PyTorchShim(Shim):
     def begin_update(self, inputs: ArgsKwargs):
         """Pass the inputs through to the underlying PyTorch model, keeping
         track of which items in the input are tensors requiring gradients.
-        If the model returns a single value, it is converted into a one-element
-        tuple. Return the outputs and a callback to backpropagate.
-        """
+        If the model returns a single value, it is converted into a one-element tuple. Return the outputs and a callback to backpropagate.  """
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
 
@@ -68,13 +66,13 @@ class PyTorchShim(Shim):
 
     def _create_optimizer(self, sgd):
         params = self._model.parameters()
+        args = {
+            "lr": sgd.learn_rate,
+            "weight_decay": sgd.L2
+        }
         if sgd.b1 != 0 and sgd.b2 != 0:
-            args = {
-                "lr": sgd.learn_rate,
-                "betas": (sgd.b1, sgd.b2),
-                "eps": sgd.eps,
-                "weight_decay": sgd.L2
-            }
+            args["betas"] = (sgd.b1, sgd.b2),
+            args["eps"] = sgd.eps,
             if sgd.L2_is_weight_decay:
                 cls = torch.optim.AdamW
             else:
@@ -89,7 +87,7 @@ class PyTorchShim(Shim):
             self._optimizer = cls(self._model.parameters(), **args)
         else:
             raise NotImplementedError
-        return optimizer
+        return self._optimizer
 
     @contextlib.contextmanager
     def use_params(self, params):
