@@ -1,4 +1,5 @@
 from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
+from typing import Dict
 
 from .types import Floats2d, Ints1d
 from .util import get_array_module, to_categorical
@@ -34,16 +35,20 @@ class Loss(Generic[GuessT, TruthT, GradT, LossT]):  # pragma: no cover
 
 
 class CategoricalCrossentropy(Loss):
+    names: Optional[List[str]]
+    missing_value: Optional[Union[str, int]]
+    _name_to_i: Dict[str, int]
+
     def __init__(self, *, normalize: bool = True, names: Optional[List[str]] = None, missing_value: Optional[Union[str, int]]=None):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
-        if self.names is not None:
+        if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
-            self._name_to_i = None
+            self._name_to_i = {}
 
-    def convert_truths(self, truths, guesses: Floats2d) -> Floats2d:
+    def convert_truths(self, truths, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
         n_classes = guesses.shape[-1]
         xp = get_array_module(guesses)
         missing = []
@@ -132,7 +137,7 @@ class SequenceCategoricalCrossentropy(Loss):
 
     def __call__(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
-    ) -> Tuple[List[Floats2d], List[float]]:
+    ) -> Tuple[List[Floats2d], float]:
         return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
 
     def get_grad(
