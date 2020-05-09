@@ -1,8 +1,5 @@
 from typing import Any
-import contextlib
-from io import BytesIO
 import srsly
-import tempfile
 import copy
 
 try:
@@ -13,7 +10,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import mxnet2xp, xp2mxnet, convert_recursive, make_tempfile
-from ..backends import get_current_ops, get_array_ops
+from ..backends import get_array_ops
 from ..types import ArgsKwargs
 from .shim import Shim
 
