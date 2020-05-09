@@ -49,7 +49,6 @@ class CategoricalCrossentropy(Loss):
             self._name_to_i = {}
 
     def convert_truths(self, truths, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
-        n_classes = guesses.shape[-1]
         xp = get_array_module(guesses)
         missing = []
         missing_value = self.missing_value
