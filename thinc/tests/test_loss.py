@@ -12,8 +12,6 @@ labels0 = numpy.asarray([0, 1, 1], dtype="i")
 guesses1 = numpy.asarray([[0.1, 0.5, 0.6], [0.4, 0.6, 0.3], [1, 1, 1], [0, 0, 0]])
 labels1 = numpy.asarray([2, 1, 0, 2])
 labels1_full = numpy.asarray([[0, 0, 1], [0, 1, 0], [1, 0, 0], [0, 0, 1]])
-missing1 = numpy.asarray([0, 2], dtype="int32")
-missing1_full = numpy.asarray([[0, 1, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0]], dtype="f")
 
 guesses2 = numpy.asarray([[0.2, 0.3]])
 labels2 = numpy.asarray([1])
@@ -66,22 +64,14 @@ def test_categorical_crossentropy(guesses, labels):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels, missing",
-    [(guesses1, labels1, missing1), (guesses1, labels1_full, missing1_full)],
+    "guesses, labels",
+    [(guesses1, labels1), (guesses1, labels1_full)],
 )
-def test_categorical_crossentropy_missing(guesses, labels, missing):
+def test_categorical_crossentropy_missing(guesses, labels):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(
-        guesses, labels, missing=missing
+        guesses, labels
     )
     assert d_scores.shape == guesses.shape
-    if len(missing.shape) == 1:
-        for row in missing:
-            numpy.testing.assert_allclose(d_scores[row], 0)
-    else:
-        for i in range(missing.shape[0]):
-            for j in range(missing.shape[1]):
-                if missing[i, j] == 1:
-                    assert d_scores[i, j] == 0
 
 
 @pytest.mark.parametrize(
@@ -98,27 +88,26 @@ def test_sequence_categorical_crossentropy(guesses, labels):
     assert d_scores1.shape == guesses1.shape
     assert d_scores2.shape == guesses2.shape
 
-    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
-    assert d_scores1[1][0] == pytest.approx(0.1, eps)
-    assert d_scores1[1][1] == pytest.approx(-0.1, eps)
+    # The normalization divides the difference (e.g. 0.4) by the number of entries
+    assert d_scores1[1][0] == pytest.approx(0.08, eps)
+    assert d_scores1[1][1] == pytest.approx(-0.08, eps)
 
     # The third vector predicted all labels, but only the first one was correct
     assert d_scores1[2][0] == pytest.approx(0, eps)
-    assert d_scores1[2][1] == pytest.approx(0.25, eps)
-    assert d_scores1[2][2] == pytest.approx(0.25, eps)
+    assert d_scores1[2][1] == pytest.approx(0.2, eps)
+    assert d_scores1[2][2] == pytest.approx(0.2, eps)
 
     # The fourth vector predicted no labels but should have predicted the last one
     assert d_scores1[3][0] == pytest.approx(0, eps)
     assert d_scores1[3][1] == pytest.approx(0, eps)
-    assert d_scores1[3][2] == pytest.approx(-0.25, eps)
+    assert d_scores1[3][2] == pytest.approx(-0.2, eps)
 
     # Test the second batch
-    assert d_scores2[0][0] == pytest.approx(0.2, eps)
-    assert d_scores2[0][1] == pytest.approx(-0.7, eps)
+    assert d_scores2[0][0] == pytest.approx(0.04, eps)
+    assert d_scores2[0][1] == pytest.approx(-0.14, eps)
 
-    losses = SequenceCategoricalCrossentropy(normalize=True).get_loss(guesses, labels)
-    assert losses[0] == pytest.approx(0.239375, eps)
-    assert losses[1] == pytest.approx(0.529999, eps)
+    loss = SequenceCategoricalCrossentropy(normalize=True).get_loss(guesses, labels)
+    assert loss == pytest.approx(0.1744, eps)
 
 
 def test_L2():
