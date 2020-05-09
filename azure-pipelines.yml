@@ -72,7 +72,10 @@ jobs:
   - script: |
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      pip install torch -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "mxnet; sys_platform != 'win32'"
+      # NOTE: need this to close for 1.5 on windows: https://github.com/pytorch/pytorch/issues/37209
+      pip install "torch==1.4; sys_platform == 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch; sys_platform != 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
       pip install jax jaxlib 
       pip install ipykernel pydot graphviz 
       python -m ipykernel install --name thinc-notebook-tests --user
