@@ -77,7 +77,6 @@ class PyTorchShim(Shim):
                 cls = torch.optim.AdamW
             else:
                 cls = torch.optim.Adam
-            optimizer = cls(params, **args)
         elif sgd.b2 == 0:
             args["momentum"] = sgd.b1
             cls = torch.optim.SGD
