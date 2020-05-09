@@ -67,10 +67,7 @@ class CategoricalCrossentropy(Loss):
                 truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
         else:
-            for i, value in enumerate(truths):
-                if value == missing_value:
-                    truths[i] = 0
-                    missing.append(i)
+            missing = []
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
             truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
