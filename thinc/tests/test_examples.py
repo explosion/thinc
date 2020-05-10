@@ -23,7 +23,7 @@ def test_files(nb_file):
                 raise Exception(f"{output.ename}: {output.evalue}")
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="graphviz missing on windows CI")
+@pytest.mark.skip(reason="graphviz missing on CI")
 @pytest.mark.parametrize(
     "nb_file",
     (
@@ -36,7 +36,7 @@ def test_ipython_notebooks(test_files: None):
     ...
 
 
-@pytest.mark.skipif(sys.platform == "win32", reason="graphviz missing on windows CI")
+@pytest.mark.skip(reason="graphviz missing on CI")
 @pytest.mark.slow
 @pytest.mark.parametrize(
     "nb_file",
