@@ -217,27 +217,6 @@ def test_tensorflow_wrapper_keras_subclass_decorator_compile_args():
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
-def test_tensorflow_wrapper_keras_subclass_compile_optimizer():
-    import tensorflow as tf
-
-    @keras_subclass(
-        "TestModel", X=numpy.array([0.0, 0.0]), Y=numpy.array([0.5]), input_shape=(2,)
-    )
-    class TestModel(tf.keras.Model):
-        def call(self, inputs):
-            return inputs
-
-    optimizer = tf.keras.optimizers.Adam(lr=3e-18)
-    model = TensorFlowWrapper(TestModel(), optimizer=optimizer)
-    weights_model = model.shims[0]._optimizer.get_weights()
-    for w1, w2 in zip(optimizer.get_weights(), weights_model):
-        assert numpy.array_equal(w1, w2)
-    lr_key = "learning_rate"
-    assert optimizer._get_hyper(lr_key) == 3e-18
-    assert optimizer._get_hyper(lr_key) == model.shims[0]._optimizer._get_hyper(lr_key)
-
-
-@pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
 def test_tensorflow_wrapper_keras_subclass_decorator():
     import tensorflow as tf
 
