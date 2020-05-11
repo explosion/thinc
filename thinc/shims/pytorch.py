@@ -12,6 +12,7 @@ except ImportError:  # pragma: no cover
 
 from ..util import torch2xp, xp2torch, convert_recursive
 from ..backends import get_current_ops, get_array_ops
+from ..optimizers import Optimizer
 from ..types import ArgsKwargs
 from .shim import Shim
 
@@ -53,39 +54,10 @@ class PyTorchShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        pytorch_opt = self._get_pytorch_optimizer(optimizer)
-        if getattr(optimizer, "grad_clip", None):
-            torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.grad_clip
-            )
-        pytorch_opt.step()
-        pytorch_opt.zero_grad()
-        self._update_pytorch_averages(optimizer)
-
-    def _get_pytorch_optimizer(self, sgd):
-        args = {
-            "lr": sgd.learn_rate,
-            "weight_decay": sgd.L2
-        }
-
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            args["betas"] = (sgd.b1, sgd.b2)
-            args["eps"] = sgd.eps
-            if sgd.L2_is_weight_decay:
-                cls = torch.optim.AdamW
-            else:
-                cls = torch.optim.Adam
-        else:
-            cls = torch.optim.SGD
-            if sgd.b2 == 0:
-                args["momentum"] = sgd.b1
-        if self._optimizer is None:
-            self._optimizer = cls(self._model.parameters(), **args)
-        else:
-            for param_group in self._optimizer.param_groups:
-                param_group.update(args)
-        return self._optimizer
+    def finish_update(self, optimizer: Optimizer):
+        for value in self._model.parameters():
+            param, _ = optimizer(value.names, value.data.numpy(), value.grad.numpy())
+            value.data = xp2torch(param, requires_grad=True)
 
     @contextlib.contextmanager
     def use_params(self, params):
