@@ -1,3 +1,4 @@
+from thinc.util import has_torch
 import pytest
 import numpy
 from thinc.api import CategoricalCrossentropy, SequenceCategoricalCrossentropy
@@ -167,21 +168,25 @@ def test_cosine_unmatched():
 
 
 @pytest.mark.parametrize(
-    "name,kwargs,args",
+    "name,kwargs,args,condition",
     [
-        ("CategoricalCrossentropy.v1", {}, (scores0, labels0)),
-        ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0])),
-        ("L2Distance.v1", {}, (scores0, scores0)),
+        ("CategoricalCrossentropy.v1", {}, (scores0, labels0), True),
+        ("SequenceCategoricalCrossentropy.v1", {}, ([scores0], [labels0]), True),
+        ("L2Distance.v1", {}, (scores0, scores0), True),
         (
             "CosineDistance.v1",
             {"normalize": True, "ignore_zeros": True},
             (scores0, scores0),
+            True,
         ),
+        ("PyTorchCrossEntropy.v1", {}, (scores0, labels0), has_torch),
     ],
 )
-def test_loss_from_config(name, kwargs, args):
+def test_loss_from_config(name, kwargs, args, condition):
     """Test that losses are loaded and configured correctly from registry
-    (as partials)."""
+    (as partials). """
+    if not condition:
+        pytest.skip("test conditions not met for loss function")
     cfg = {"test": {"@losses": name, **kwargs}}
     func = registry.make_from_config(cfg)["test"]
     loss = func.get_grad(*args)

@@ -2,8 +2,15 @@ from typing import Tuple, List, cast, TypeVar, Generic, Any, Union, Optional
 from typing import Dict
 
 from .types import Floats2d, Ints1d
-from .util import get_array_module, to_categorical
+from .util import get_array_module, to_categorical, xp2torch
 from .config import registry
+
+
+# Needed to allow
+try:  # pragma: no cover
+    import torch
+except ImportError:  # pragma: no cover
+    pass
 
 
 LossT = TypeVar("LossT")
@@ -279,6 +286,92 @@ def configure_CosineDistance(
     *, normalize: bool = True, ignore_zeros: bool = False
 ) -> CosineDistance:
     return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
+
+
+class PyTorchCrossEntropy(Loss):
+    def __init__(
+        self,
+        *,
+        normalize: bool = True,
+        size_average: Optional[bool] = None,
+        ignore_index: int = 0,
+        reduce: Optional[bool] = None,
+        reduction: str = "mean",
+    ):
+        self.normalize = normalize
+        self.reduction = reduction
+        self.size_average = size_average
+        self.ignore_index = ignore_index
+        self.reduce = reduce
+
+    def __call__(
+        self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]
+    ) -> Tuple[Floats2d, float]:
+        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
+
+    def get_torch_loss(
+        self, guesses: "torch.Tensor", truths: "torch.Tensor", is_train: bool = False,
+    ) -> "torch.Tensor":
+        from torch.nn.functional import cross_entropy as torch_entropy
+
+        if is_train:
+            guesses.retain_grad()
+        loss = torch_entropy(
+            guesses,
+            truths,
+            size_average=self.size_average,
+            ignore_index=self.ignore_index,
+            reduction=self.reduction,
+            reduce=self.reduce,
+        )
+        return loss.cpu()
+
+    def get_grad(self, guesses: Floats2d, truths: Union[Ints1d, Floats2d]) -> Floats2d:
+        import torch
+
+        batch_tensor: torch.Tensor = xp2torch(guesses, requires_grad=True)
+        need_transpose = len(batch_tensor.shape) == 3
+        if need_transpose:
+            batch_tensor = batch_tensor.transpose(2, 1)
+        batch_labels = xp2torch(truths).long()
+        batch_tensor.retain_grad()
+        torch_loss = self.get_torch_loss(batch_tensor, batch_labels)
+        torch_loss.backward()
+        assert batch_tensor.grad is not None
+        difference = batch_tensor.grad.data
+        if need_transpose:
+            difference = difference.transpose(2, 1)
+        if self.normalize:
+            difference = difference / batch_tensor.shape[0]
+        return difference.numpy()
+
+    def get_loss(
+        self, guesses: Floats2d, truths: Union[Ints1d, Floats2d], is_train: bool = False
+    ) -> float:
+        batch_tensor = xp2torch(guesses, requires_grad=is_train)
+        batch_labels = xp2torch(truths).long()
+        if len(batch_tensor.shape) == 3:
+            batch_tensor = batch_tensor.transpose(2, 1)
+        loss = self.get_torch_loss(batch_tensor, batch_labels, is_train)
+        return float(loss.cpu().numpy())
+
+
+@registry.losses("PyTorchCrossEntropy.v1")
+def configure_PyTorchCrossEntropy(
+    *,
+    normalize: bool = True,
+    size_average: Optional[bool] = None,
+    ignore_index: int = 0,
+    reduce: Optional[bool] = None,
+    reduction: str = "mean",
+) -> PyTorchCrossEntropy:
+    return PyTorchCrossEntropy(
+        normalize=normalize,
+        size_average=size_average,
+        ignore_index=ignore_index,
+        reduce=reduce,
+        reduction=reduction,
+    )
 
 
 def _make_mask(missing, guesses) -> Floats2d:
