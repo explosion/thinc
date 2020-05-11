@@ -58,6 +58,7 @@ class PyTorchShim(Shim):
         for value in self._model.parameters():
             param, _ = optimizer(value.names, value.data.numpy(), value.grad.numpy())
             value.data = xp2torch(param, requires_grad=True)
+            value.grad.zero_()
 
     @contextlib.contextmanager
     def use_params(self, params):

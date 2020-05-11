@@ -62,6 +62,7 @@ class MXNetShim(Shim):
             param = cast(FloatsXd, mxnet2xp(value.data()))
             param, _ = optimizer((value.name, value.name), param, grad)
             value.set_data(xp2mxnet(param))
+            value.zero_grad()
 
     def copy(self, ctx: "mx.context.Context" = None):
         if ctx is None:
