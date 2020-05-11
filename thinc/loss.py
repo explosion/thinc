@@ -6,7 +6,7 @@ from .util import get_array_module, to_categorical, xp2torch
 from .config import registry
 
 
-# Needed to allow
+# Needed to keep "torch.Tensor" types from causing mypy errors
 try:  # pragma: no cover
     import torch
 except ImportError:  # pragma: no cover
