@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 import srsly
 import copy
 
@@ -9,9 +9,9 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import mxnet2xp, convert_recursive, make_tempfile
-from ..backends import get_array_ops
-from ..types import ArgsKwargs
+from ..util import mxnet2xp, convert_recursive, make_tempfile, xp2mxnet
+from ..optimizers import Optimizer
+from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
 
 
@@ -56,53 +56,12 @@ class MXNetShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        if self._optimizer is None:
-            self._optimizer, self._trainer = self._create_optimizer(optimizer)
-        if getattr(optimizer, "grad_clip", None):
-            ctx = mx.current_context()
-            grads = [
-                i.grad(ctx)
-                for i in self._model.collect_params().values()
-                if i._grad is not None
-            ]
-            mxnet.gluon.utils.clip_global_norm(grads, optimizer.grad_clip)
-        if self._trainer:
-            self._trainer.step(1)
-        for param in self._model.collect_params().values():
-            param.zero_grad()
-        self._update_mxnet_averages(optimizer)
-
-    def _create_optimizer(self, sgd):
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = mxnet.optimizer.Adam(
-                learning_rate=sgd.learn_rate, beta1=sgd.b1, beta2=sgd.b2
-            )
-        elif sgd.b2 == 0:
-            optimizer = mxnet.optimizer.SGD(
-                learning_rate=sgd.learn_rate, momentum=sgd.b1
-            )
-        else:
-            raise NotImplementedError
-
-        from mxnet import gluon
-
-        return optimizer, gluon.Trainer(self._model.collect_params(), optimizer)
-
-    def _update_mxnet_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        for name, param in self._model.collect_params().items():
-            key = f"mxnet_{self.id}_{name}"
-            sgd.nr_update[key] += 1
-            xp_param = mxnet2xp(param.grad())
-            ops = get_array_ops(xp_param)
-            if key in sgd.averages:
-                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
+    def finish_update(self, optimizer: Optimizer):
+        for value in self._model.collect_params().values():
+            grad = cast(FloatsXd, mxnet2xp(value.grad()))
+            param = cast(FloatsXd, mxnet2xp(value.data()))
+            param, _ = optimizer((value.name, value.name), param, grad)
+            value.set_data(xp2mxnet(param))
 
     def copy(self, ctx: "mx.context.Context" = None):
         if ctx is None:
