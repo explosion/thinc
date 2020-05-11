@@ -74,21 +74,6 @@ class PyTorchShim(Shim):
         else:
             yield
 
-    def _update_pytorch_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        for name, param in self._model.state_dict().items():
-            key = f"pytorch_{self.id}_{name}"
-            sgd.nr_update[key] += 1
-            xp_param = torch2xp(param)
-            ops = get_array_ops(xp_param)
-            if key in sgd.averages:
-                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
-
     def to_device(self, device):  # pragma: no cover
         if device == "cpu":
             self._model.cpu()
