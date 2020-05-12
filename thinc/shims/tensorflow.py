@@ -200,23 +200,6 @@ class TensorFlowShim(Shim):
         else:
             yield
 
-    def _update_tensorflow_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        layers = [l.weights for l in self._model.layers]
-        layers = itertools.chain(*layers)
-        for layer in layers:
-            key = f"tensorflow_{self.id}_{layer.name}"
-            sgd.nr_update[key] += 1
-            xp_param = tensorflow2xp(layer)
-            ops = get_array_ops(xp_param)
-            if key in sgd.averages:
-                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
-
     def _clone_model(self):
         """similar to tf.keras.models.clone_model()
         But the tf.keras.models.clone_model changes the names of tf.Variables.
