@@ -83,7 +83,7 @@ class TensorFlowShim(Shim):
     gradients: Optional[List["tf.Tensor"]]
 
     def __init__(self, model: Any, config=None, optimizer: Any = None):
-        super().__init__(model, optimizer)
+        super().__init__(model, config, optimizer)
         self.gradients = None
 
     def __str__(self):
