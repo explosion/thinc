@@ -55,8 +55,10 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
-        for value in self._model.parameters():
-            param, _ = optimizer(value.names, value.data.numpy(), value.grad.numpy())
+        for name, value in self._model.named_parameters():
+            cpu_data = value.data.cpu().numpy()
+            cpu_grad = value.grad.cpu().numpy()
+            param, _ = optimizer(name, cpu_data, cpu_grad)
             value.data = xp2torch(param, requires_grad=True)
             value.grad.zero_()
 

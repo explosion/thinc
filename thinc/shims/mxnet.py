@@ -58,10 +58,10 @@ class MXNetShim(Shim):
 
     def finish_update(self, optimizer: Optimizer):
         ctx = mx.current_context()
-        for value in self._model.collect_params().values():
+        for key, value in self._model.collect_params().items():
             grad = cast(FloatsXd, mxnet2xp(value.grad(ctx)))
             param = cast(FloatsXd, mxnet2xp(value.data(ctx)))
-            param, _ = optimizer((value.name, value.name), param, grad)
+            param, _ = optimizer((key, value.name), param, grad)
             value.set_data(xp2mxnet(param))
             value.zero_grad()
 
