@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 import contextlib
 from io import BytesIO
 import srsly
@@ -13,7 +13,7 @@ except ImportError:  # pragma: no cover
 from ..util import torch2xp, xp2torch, convert_recursive
 from ..backends import get_current_ops, get_array_ops
 from ..optimizers import Optimizer
-from ..types import ArgsKwargs
+from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
 
 
@@ -56,8 +56,8 @@ class PyTorchShim(Shim):
 
     def finish_update(self, optimizer: Optimizer):
         for name, value in self._model.named_parameters():
-            cpu_data = value.data.cpu().numpy()
-            cpu_grad = value.grad.cpu().numpy()
+            cpu_data = cast(FloatsXd, torch2xp(value.data))
+            cpu_grad = cast(FloatsXd, torch2xp(value.grad))
             param, _ = optimizer(name, cpu_data, cpu_grad)
             value.data = xp2torch(param, requires_grad=True)
             value.grad.zero_()
