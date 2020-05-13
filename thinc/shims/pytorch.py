@@ -55,12 +55,12 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
-        for name, value in self._model.named_parameters():
-            cpu_data = cast(FloatsXd, torch2xp(value.data))
-            cpu_grad = cast(FloatsXd, torch2xp(value.grad))
-            param, _ = optimizer(name, cpu_data, cpu_grad)
-            value.data = xp2torch(param, requires_grad=True)
-            value.grad.zero_()
+        for name, torch_data in self._model.named_parameters():
+            xp_data = cast(FloatsXd, torch2xp(torch_data.data))
+            xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            param, _ = optimizer(name, xp_data, xp_grad)
+            torch_data.data = xp2torch(param, requires_grad=True)
+            torch_data.grad.zero_()
 
     @contextlib.contextmanager
     def use_params(self, params):
