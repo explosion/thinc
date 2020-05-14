@@ -24,7 +24,7 @@ def check_learns_zero_output(model, sgd, X, Y):
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
-def test_unwrapped(nN, nI, nO):
+def test_pytorch_unwrapped(nN, nI, nO):
     model = Linear(nO, nI).initialize()
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
@@ -35,7 +35,7 @@ def test_unwrapped(nN, nI, nO):
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("nN,nI,nO", [(2, 3, 4)])
-def test_wrapper(nN, nI, nO):
+def test_pytorch_wrapper(nN, nI, nO):
     import torch.nn
 
     model = PyTorchWrapper(torch.nn.Linear(nI, nO)).initialize()
@@ -55,7 +55,7 @@ def test_wrapper(nN, nI, nO):
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-def test_roundtrip_conversion():
+def test_pytorch_roundtrip_conversion():
     import torch
 
     xp_tensor = numpy.zeros((2, 3), dtype="f")
@@ -66,7 +66,7 @@ def test_roundtrip_conversion():
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
-def test_wrapper_roundtrip():
+def test_pytorch_wrapper_roundtrip():
     import torch.nn
 
     model = PyTorchWrapper(torch.nn.Linear(2, 3))
@@ -92,7 +92,7 @@ def test_wrapper_roundtrip():
         # fmt: on
     ],
 )
-def test_convert_inputs(data, n_args, kwargs_keys):
+def test_pytorch_convert_inputs(data, n_args, kwargs_keys):
     import torch.nn
 
     model = PyTorchWrapper(torch.nn.Linear(3, 4))

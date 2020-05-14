@@ -61,17 +61,8 @@ jobs:
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
-  - script: 'sudo apt-get -yq install graphviz'
-    displayName: 'Install graphviz (Linux)'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
-
-  - script: 'brew install graphviz'
-    displayName: 'Install graphviz (MacOS)'
-    condition: and(succeeded(), eq(variables['Agent.OS'], 'Darwin'))
-    
   - script: |
       pip install tensorflow
-      pip install "mxnet; sys_platform != 'win32'"
       pip install "mxnet; sys_platform != 'win32'"
       # NOTE: need this to close for 1.5 on windows: https://github.com/pytorch/pytorch/issues/37209
       pip install "torch==1.4; sys_platform == 'win32'" -f https://download.pytorch.org/whl/torch_stable.html

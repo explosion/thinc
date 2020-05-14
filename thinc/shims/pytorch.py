@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 import contextlib
 from io import BytesIO
 import srsly
@@ -12,7 +12,8 @@ except ImportError:  # pragma: no cover
 
 from ..util import torch2xp, xp2torch, convert_recursive
 from ..backends import get_current_ops, get_array_ops
-from ..types import ArgsKwargs
+from ..optimizers import Optimizer
+from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
 
 
@@ -53,39 +54,13 @@ class PyTorchShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        pytorch_opt = self._get_pytorch_optimizer(optimizer)
-        if getattr(optimizer, "grad_clip", None):
-            torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.grad_clip
-            )
-        pytorch_opt.step()
-        pytorch_opt.zero_grad()
-        self._update_pytorch_averages(optimizer)
-
-    def _get_pytorch_optimizer(self, sgd):
-        args = {
-            "lr": sgd.learn_rate,
-            "weight_decay": sgd.L2
-        }
-
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            args["betas"] = (sgd.b1, sgd.b2)
-            args["eps"] = sgd.eps
-            if sgd.L2_is_weight_decay:
-                cls = torch.optim.AdamW
-            else:
-                cls = torch.optim.Adam
-        else:
-            cls = torch.optim.SGD
-            if sgd.b2 == 0:
-                args["momentum"] = sgd.b1
-        if self._optimizer is None:
-            self._optimizer = cls(self._model.parameters(), **args)
-        else:
-            for param_group in self._optimizer.param_groups:
-                param_group.update(args)
-        return self._optimizer
+    def finish_update(self, optimizer: Optimizer):
+        for name, torch_data in self._model.named_parameters():
+            xp_data = cast(FloatsXd, torch2xp(torch_data.data))
+            xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            param, _ = optimizer(name, xp_data, xp_grad)
+            torch_data.data = xp2torch(param, requires_grad=True)
+            torch_data.grad.zero_()
 
     @contextlib.contextmanager
     def use_params(self, params):
@@ -101,21 +76,6 @@ class PyTorchShim(Shim):
             self._model.load_state_dict(backup)
         else:
             yield
-
-    def _update_pytorch_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        for name, param in self._model.state_dict().items():
-            key = f"pytorch_{self.id}_{name}"
-            sgd.nr_update[key] += 1
-            xp_param = torch2xp(param)
-            ops = get_array_ops(xp_param)
-            if key in sgd.averages:
-                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
 
     def to_device(self, device):  # pragma: no cover
         if device == "cpu":
