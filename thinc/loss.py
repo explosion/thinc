@@ -61,7 +61,7 @@ class CategoricalCrossentropy(Loss):
         # Convert list of ints or list of strings
         if isinstance(truths, list):
             truths = list(truths)
-            if len(truths) and isinstance(truths[0], str):
+            if len(truths) and not isinstance(truths[0], int):
                 if self.names is None:
                     msg = (
                         "Cannot calculate loss from list of strings without names. "
@@ -144,7 +144,9 @@ class SequenceCategoricalCrossentropy(Loss):
     def __call__(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
     ) -> Tuple[List[Floats2d], float]:
-        return self.get_grad(guesses, truths), self.get_loss(guesses, truths)
+        grads = self.get_grad(guesses, truths)
+        loss = self._get_loss_from_grad(grads)
+        return grads, loss
 
     def get_grad(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
@@ -164,8 +166,11 @@ class SequenceCategoricalCrossentropy(Loss):
     def get_loss(
         self, guesses: List[Floats2d], truths: List[Union[Ints1d, Floats2d]]
     ) -> float:
+        return self._get_loss_from_grad(self.get_grad(guesses, truths))
+
+    def _get_loss_from_grad(self, grads: List[Floats2d]) -> float:
         loss = 0.0
-        for grad in self.get_grad(guesses, truths):
+        for grad in grads:
             loss += self.cc._get_loss_from_grad(grad)
         return loss
 
