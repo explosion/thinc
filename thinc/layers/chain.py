@@ -25,10 +25,12 @@ def chain(
     Also supports chaining more than 2 layers.
     """
     layers = (layer1, layer2) + layers
-    dims: Dict[str, Optional[int]] = {"nO": None, "nI": None}
-    # set input dimension according to first layer
+    dims: Dict[str, Optional[int]] = {"nO": None}
+    # set input dimension only if first layer has one - should be "False" otherwise
     if layers[0].has_dim("nI") is True:
         dims["nI"] = layers[0].get_dim("nI")
+    if layers[0].has_dim("nI") is None:
+        dims["nI"] = None
     # set output dimension according to last layer
     if layers[-1].has_dim("nO") is True:
         dims["nO"] = layers[-1].get_dim("nO")
@@ -86,6 +88,7 @@ def init(
             layer.initialize(X=curr_input)
         if curr_input is not None:
             curr_input = layer.predict(curr_input)
+
     if model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
