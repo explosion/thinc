@@ -8,6 +8,8 @@ from nbconvert.preprocessors import ExecutePreprocessor
 
 @pytest.fixture
 def test_files(nb_file):
+    if not Path(nb_file).exists():
+        return
     kernel_name = os.environ.get("NOTEBOOK_KERNEL", "python3")
     with open(nb_file) as f:
         nb = nbformat.read(f, as_version=4)
