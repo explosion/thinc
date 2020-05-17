@@ -10,7 +10,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, convert_recursive
+from ..util import torch2xp, xp2torch, get_array_module, convert_recursive
 from ..backends import get_current_ops, get_array_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
@@ -55,12 +55,30 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
+        params = []
+        grads = []
+        shapes = []
         for name, torch_data in self._model.named_parameters():
             xp_data = cast(FloatsXd, torch2xp(torch_data.data))
             xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
-            param, _ = optimizer(name, xp_data, xp_grad)
+            params.append(xp_data.ravel())
+            grads.append(xp_grad.ravel())
+            shapes.append((xp_data.size, xp_data.shape))
+        if not params:
+            return
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            self.id,
+            xp.concatenate(params),
+            xp.concatenate(grads)
+        )
+        start = 0
+        for name, torch_data in self._model.named_parameters():
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
             torch_data.data = xp2torch(param, requires_grad=True)
             torch_data.grad.zero_()
+            start += size
 
     @contextlib.contextmanager
     def use_params(self, params):
