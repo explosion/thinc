@@ -60,7 +60,10 @@ class PyTorchShim(Shim):
         shapes = []
         for name, torch_data in self._model.named_parameters():
             xp_data = cast(FloatsXd, torch2xp(torch_data.data))
-            xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            if torch_data.grad is not None:
+                xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            else:
+                xp_grad = cast(FloatsXd, torch2xp(torch.zeros_like(torch_data)))
             params.append(xp_data.ravel())
             grads.append(xp_grad.ravel())
             shapes.append((xp_data.size, xp_data.shape))
@@ -77,7 +80,8 @@ class PyTorchShim(Shim):
             size, shape = shapes.pop(0)
             param = flat_params[start : start + size].reshape(shape)
             torch_data.data = xp2torch(param, requires_grad=True)
-            torch_data.grad.zero_()
+            if torch_data.grad is not None:
+                torch_data.grad.zero_()
             start += size
 
     @contextlib.contextmanager
