@@ -151,11 +151,28 @@ class TensorFlowShim(Shim):
         assert len(self.gradients) == len(self._model.trainable_variables)
         grad: tf.Tensor
         variable: tf.Variable
+        params = []
+        grads = []
+        shapes = []
+ 
         for grad, variable in zip(self.gradients, self._model.trainable_variables):
-            param, grad = optimizer(
-                (variable._unique_id, variable.name), variable.numpy(), grad.numpy()
-            )
+            param = variable.numpy()
+            grad = grad.numpy()
+            shapes.append((param.size, param.shape))
+            params.append(param)
+            grads.append(grad)
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            self.id,
+            xp.concatenate(params),
+            xp.concatenate(grads)
+        )
+        start = 0
+        for grad, variable in zip(self.gradients, self._model.trainable_variables):
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
             variable.assign(param)
+            start += size
         self.gradients = None
 
     def _load_weights_from_state_dict(
