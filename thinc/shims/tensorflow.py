@@ -154,7 +154,7 @@ class TensorFlowShim(Shim):
         params = []
         grads = []
         shapes = []
- 
+
         for grad, variable in zip(self.gradients, self._model.trainable_variables):
             param = variable.numpy()
             grad = grad.numpy()
@@ -163,9 +163,7 @@ class TensorFlowShim(Shim):
             grads.append(grad)
         xp = get_array_module(params[0])
         flat_params, flat_grads = optimizer(
-            (self.id, "tensorflow-shim"),
-            xp.concatenate(params),
-            xp.concatenate(grads)
+            (self.id, "tensorflow-shim"), xp.concatenate(params), xp.concatenate(grads)
         )
         start = 0
         for grad, variable in zip(self.gradients, self._model.trainable_variables):

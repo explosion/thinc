@@ -71,9 +71,7 @@ class PyTorchShim(Shim):
             return
         xp = get_array_module(params[0])
         flat_params, flat_grads = optimizer(
-            (self.id, "pytorch-shim"),
-            xp.concatenate(params),
-            xp.concatenate(grads)
+            (self.id, "pytorch-shim"), xp.concatenate(params), xp.concatenate(grads)
         )
         start = 0
         for name, torch_data in self._model.named_parameters():

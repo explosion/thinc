@@ -322,7 +322,7 @@ class Model(Generic[InT, OutT]):
         flat_params, flat_grads = optimizer(
             (self.id, self.name),
             self.ops.xp.concatenate(params),
-            self.ops.xp.concatenate(grads)
+            self.ops.xp.concatenate(grads),
         )
         params = []
         grads = []
@@ -330,10 +330,10 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for name in node.param_names:
                 size, shape = shapes.pop(0)
-                param = flat_params[start : start+end] # type: ignore
-                grad = flat_grads[start : start+end] # type: ignore
-                param = node.ops.asarray(param.reshape(shape)) # type: ignore
-                grad = node.ops.asarray(grad.reshape(shape)) # type: ignore
+                param = flat_params[start : start + end]  # type: ignore
+                grad = flat_grads[start : start + end]  # type: ignore
+                param = node.ops.asarray(param.reshape(shape))  # type: ignore
+                grad = node.ops.asarray(grad.reshape(shape))  # type: ignore
                 node.set_param(name, param)
                 node.set_grad(name, grad)
                 start += size
