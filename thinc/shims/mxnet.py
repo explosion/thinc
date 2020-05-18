@@ -10,6 +10,7 @@ except ImportError:  # pragma: no cover
     pass
 
 from ..util import mxnet2xp, convert_recursive, make_tempfile, xp2mxnet
+from ..util import get_array_module
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
@@ -66,12 +67,12 @@ class MXNetShim(Shim):
             param = cast(FloatsXd, mxnet2xp(value.data(ctx)))
             params.append(param.ravel())
             grads.append(grad.ravel())
-            shapes.append((param.size, shape))
+            shapes.append((param.size, param.shape))
         if not params:
             return
         xp = get_array_module(params[0])
         flat_params, flat_grads = optimizer(
-            self.id,
+            (self.id, "mxnet-shim"),
             xp.concatenate(params),
             xp.concatenate(grads)
         )

@@ -9,7 +9,7 @@ import numpy
 from ..backends import Ops, get_current_ops, get_array_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
-from ..util import tensorflow2xp
+from ..util import tensorflow2xp, get_array_module
 from .shim import Shim
 
 try:
@@ -163,7 +163,7 @@ class TensorFlowShim(Shim):
             grads.append(grad)
         xp = get_array_module(params[0])
         flat_params, flat_grads = optimizer(
-            self.id,
+            (self.id, "tensorflow-shim"),
             xp.concatenate(params),
             xp.concatenate(grads)
         )
