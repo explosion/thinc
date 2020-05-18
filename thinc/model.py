@@ -330,8 +330,8 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for name in node.param_names:
                 size, shape = shapes.pop(0)
-                param = flat_params[start : start + end]  # type: ignore
-                grad = flat_grads[start : start + end]  # type: ignore
+                param = flat_params[start : start + size]  # type: ignore
+                grad = flat_grads[start : start + size]  # type: ignore
                 param = node.ops.asarray(param.reshape(shape))  # type: ignore
                 grad = node.ops.asarray(grad.reshape(shape))  # type: ignore
                 node.set_param(name, param)
