@@ -13,7 +13,7 @@ from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array, get_array_module
 from .util import partial, validate_fwd_input_output
-from .types import FloatsXd
+from .types import FloatsXd, Floats1d
 
 
 InT = TypeVar("InT")
@@ -317,8 +317,6 @@ class Model(Generic[InT, OutT]):
                 params.append(self.ops.asarray(param.ravel()))
                 grads.append(self.ops.asarray(grad.ravel()))
                 shapes.append((param.size, param.shape))
-                if node.ops.xp.isnan(grad.sum()):
-                    raise ValueError("nan in gradient")
         if not params:
             return
         flat_params, flat_grads = optimizer(
@@ -332,10 +330,12 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for name in node.param_names:
                 size, shape = shapes.pop(0)
-                param = node.ops.asarray(flat_params[start : start + size])
-                grad = node.ops.asarray(flat_grads[start : start + size])
-                node.set_param(name, param.reshape(shape))
-                node.set_grad(name, grad.reshape(shape))
+                param = flat_params[start : start+end] # type: ignore
+                grad = flat_grads[start : start+end] # type: ignore
+                param = node.ops.asarray(param.reshape(shape)) # type: ignore
+                grad = node.ops.asarray(grad.reshape(shape)) # type: ignore
+                node.set_param(name, param)
+                node.set_grad(name, grad)
                 start += size
 
     @contextlib.contextmanager
