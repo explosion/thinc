@@ -311,8 +311,8 @@ class Model(Generic[InT, OutT]):
                 param = node.get_param(name)
                 grad = node.get_grad(name)
 
-                params.append(param.ravel())
-                grads.append(grad.ravel())
+                params.append(self.ops.asarray(param.ravel()))
+                grads.append(self.ops.asarray(grad.ravel()))
                 shapes.append((param.size, param.shape))
                 if node.ops.xp.isnan(grad.sum()):
                     raise ValueError("nan in gradient")
@@ -329,8 +329,8 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for name in node.param_names:
                 size, shape = shapes.pop(0)
-                param = flat_params[start : start + size]
-                grad = flat_grads[start : start + size]
+                param = node.ops.asarray(flat_params[start : start + size])
+                grad = node.ops.asarray(flat_grads[start : start + size])
                 node.set_param(name, param.reshape(shape))
                 node.set_grad(name, grad.reshape(shape))
                 start += size
