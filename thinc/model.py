@@ -309,7 +309,10 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for name in node.param_names:
                 param = node.get_param(name)
-                grad = node.get_grad(name)
+                if node.has_grad(name):
+                    grad = node.get_grad(name)
+                else:
+                    grad = node.ops.xp.zeros_like(param)
 
                 params.append(self.ops.asarray(param.ravel()))
                 grads.append(self.ops.asarray(grad.ravel()))
