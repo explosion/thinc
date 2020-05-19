@@ -10,7 +10,7 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, convert_recursive
+from ..util import torch2xp, xp2torch, get_array_module, convert_recursive
 from ..backends import get_current_ops, get_array_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
@@ -55,12 +55,32 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
+        params = []
+        grads = []
+        shapes = []
         for name, torch_data in self._model.named_parameters():
             xp_data = cast(FloatsXd, torch2xp(torch_data.data))
-            xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
-            param, _ = optimizer(name, xp_data, xp_grad)
+            if torch_data.grad is not None:
+                xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            else:
+                xp_grad = cast(FloatsXd, torch2xp(torch.zeros_like(torch_data)))
+            params.append(xp_data.ravel())
+            grads.append(xp_grad.ravel())
+            shapes.append((xp_data.size, xp_data.shape))
+        if not params:
+            return
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            (self.id, "pytorch-shim"), xp.concatenate(params), xp.concatenate(grads)
+        )
+        start = 0
+        for name, torch_data in self._model.named_parameters():
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
             torch_data.data = xp2torch(param, requires_grad=True)
-            torch_data.grad.zero_()
+            if torch_data.grad is not None:
+                torch_data.grad.zero_()
+            start += size
 
     @contextlib.contextmanager
     def use_params(self, params):
@@ -77,11 +97,14 @@ class PyTorchShim(Shim):
         else:
             yield
 
-    def to_device(self, device):  # pragma: no cover
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
+        if device_type == "cpu":
             self._model.cpu()
+        elif device_type == "gpu":
+            self._model.cuda(device_id)
         else:
-            self._model.cuda(device)
+            msg = f"Invalid device_type: {device_type}. Try 'cpu' or 'gpu'"
+            raise ValueError(msg)
 
     def to_bytes(self):
         filelike = BytesIO()

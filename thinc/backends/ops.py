@@ -751,7 +751,8 @@ class Ops:
         Y = self.alloc2f(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            Y[i] = X[start : start + length].mean(axis=0)
+            if length:
+                Y[i] = X[start : start + length].mean(axis=0)
             start += length
         return Y
 
@@ -760,8 +761,9 @@ class Ops:
         which = self.alloc2i(lengths.shape[0], X.shape[1])
         start = 0
         for i, length in enumerate(lengths):
-            which[i] = X[start : start + length].argmax(axis=0)
-            Y[i] = X[start : start + length].max(axis=0)
+            if length:
+                which[i] = X[start : start + length].argmax(axis=0)
+                Y[i] = X[start : start + length].max(axis=0)
             start += length
         return Y, which
 
