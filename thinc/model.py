@@ -432,8 +432,7 @@ class Model(Generic[InT, OutT]):
         """Transfer the model to a given GPU device."""
         import cupy.cuda.device
 
-        device = cupy.cuda.device.Device(gpu_id)
-        with device.use():
+        with cupy.cuda.device.Device(gpu_id):
             self._to_ops(CupyOps())
 
     def to_cpu(self) -> None:  # pragma: no cover
@@ -450,7 +449,7 @@ class Model(Generic[InT, OutT]):
                 if node.has_grad(name):
                     node.set_grad(name, ops.asarray_f(node.get_grad(name)))
             for shim in node.shims:
-                shim.to_device(ops.device_type)
+                shim.to_device(ops.device_type, ops.device_id)
 
     def to_bytes(self) -> bytes:
         """Serialize the model to a bytes representation. Models are usually

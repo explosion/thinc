@@ -97,11 +97,14 @@ class PyTorchShim(Shim):
         else:
             yield
 
-    def to_device(self, device):  # pragma: no cover
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
         if device == "cpu":
             self._model.cpu()
-        else:
+        elif device == "gpu":
             self._model.cuda(device)
+        else:
+            msg = f"Invalid device_type: {device_type}. Try 'cpu' or 'gpu'"
+            raise ValueError(msg)
 
     def to_bytes(self):
         filelike = BytesIO()

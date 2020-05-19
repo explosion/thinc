@@ -91,11 +91,14 @@ class MXNetShim(Shim):
         copied.from_bytes(model_bytes)
         return copied
 
-    def to_device(self, device):
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):
+        if device_type == "cpu":
             self._model = self.copy(mx.cpu())
-        else:
+        elif device_type == "gpu":
             self._model = self.copy(mx.gpu())
+        else:
+            msg = f"Unexpected device_type: {device_type}. Try 'cpu' or 'gpu'."
+            raise ValueError(msg)
 
     def to_bytes(self):
         # MXNet doesn't implement save/load without a filename

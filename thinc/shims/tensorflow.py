@@ -159,8 +159,8 @@ class TensorFlowShim(Shim):
             param = variable.numpy()
             grad = grad.numpy()
             shapes.append((param.size, param.shape))
-            params.append(param)
-            grads.append(grad)
+            params.append(param.ravel())
+            grads.append(grad.ravel())
         xp = get_array_module(params[0])
         flat_params, flat_grads = optimizer(
             (self.id, "tensorflow-shim"), xp.concatenate(params), xp.concatenate(grads)
@@ -234,12 +234,12 @@ class TensorFlowShim(Shim):
         copied._load_weights_from_state_dict()
         return copied
 
-    def to_device(self, device):  # pragma: no cover
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
+        if device_type == "cpu":
             with tf.device("/CPU"):  # pragma: no cover
                 self._clone_model()
-        else:
-            with tf.device("/GPU:{}".format(device)):
+        elif device_type == "gpu":
+            with tf.device("/GPU:{}".format(device_id)):
                 self._clone_model()
 
     def to_bytes(self):
