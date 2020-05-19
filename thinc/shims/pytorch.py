@@ -98,10 +98,10 @@ class PyTorchShim(Shim):
             yield
 
     def to_device(self, device_type: str, device_id: int):  # pragma: no cover
-        if device == "cpu":
+        if device_type == "cpu":
             self._model.cpu()
-        elif device == "gpu":
-            self._model.cuda(device)
+        elif device_type == "gpu":
+            self._model.cuda(device_id)
         else:
             msg = f"Invalid device_type: {device_type}. Try 'cpu' or 'gpu'"
             raise ValueError(msg)
