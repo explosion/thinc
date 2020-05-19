@@ -2,7 +2,7 @@ import numpy
 import pytest
 from thinc.api import Adam, ArgsKwargs, Linear, Model, TensorFlowWrapper
 from thinc.api import get_current_ops, keras_subclass, tensorflow2xp, xp2tensorflow
-from thinc.util import has_tensorflow, to_categorical
+from thinc.util import has_cupy, has_tensorflow, to_categorical
 
 from ..util import check_input_converters, make_tempdir
 
@@ -342,10 +342,9 @@ def test_tensorflow_wrapper_to_cpu(tf_model):
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")
+@pytest.mark.skipif(not has_cupy, reason="needs cupy")
 def test_tensorflow_wrapper_to_gpu(model, X):
-    # Raises while failing to import cupy
-    with pytest.raises(ImportError):
-        model.to_gpu(0)
+    model.to_gpu(0)
 
 
 @pytest.mark.skipif(not has_tensorflow, reason="needs TensorFlow")

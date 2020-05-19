@@ -9,7 +9,7 @@ import numpy
 from ..backends import Ops, get_current_ops, get_array_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
-from ..util import tensorflow2xp
+from ..util import tensorflow2xp, get_array_module
 from .shim import Shim
 
 try:
@@ -151,11 +151,26 @@ class TensorFlowShim(Shim):
         assert len(self.gradients) == len(self._model.trainable_variables)
         grad: tf.Tensor
         variable: tf.Variable
+        params = []
+        grads = []
+        shapes = []
+
         for grad, variable in zip(self.gradients, self._model.trainable_variables):
-            param, grad = optimizer(
-                (variable._unique_id, variable.name), variable.numpy(), grad.numpy()
-            )
+            param = variable.numpy()
+            grad = grad.numpy()
+            shapes.append((param.size, param.shape))
+            params.append(param.ravel())
+            grads.append(grad.ravel())
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            (self.id, "tensorflow-shim"), xp.concatenate(params), xp.concatenate(grads)
+        )
+        start = 0
+        for grad, variable in zip(self.gradients, self._model.trainable_variables):
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
             variable.assign(param)
+            start += size
         self.gradients = None
 
     def _load_weights_from_state_dict(
@@ -219,12 +234,12 @@ class TensorFlowShim(Shim):
         copied._load_weights_from_state_dict()
         return copied
 
-    def to_device(self, device):  # pragma: no cover
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
+        if device_type == "cpu":
             with tf.device("/CPU"):  # pragma: no cover
                 self._clone_model()
-        else:
-            with tf.device("/GPU:{}".format(device)):
+        elif device_type == "gpu":
+            with tf.device("/GPU:{}".format(device_id)):
                 self._clone_model()
 
     def to_bytes(self):
