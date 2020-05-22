@@ -10,7 +10,6 @@ except ImportError:
 
 try:
     import torch
-    import torch.cuda
 except ImportError:
     pass
 
