@@ -10,6 +10,7 @@ except ImportError:
 
 try:
     import torch
+    import torch.cuda
 except ImportError:
     pass
 
@@ -47,7 +48,7 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     size_in_bytes = max(1024, size_in_bytes)
     # We use pytorch's underlying FloatStorage type to avoid overhead from
     # creating a whole Tensor.
-    torch_storage = torch.FloatStorage(size_in_bytes // 4).cuda()
+    torch_storage = torch.cuda.FloatStorage(size_in_bytes // 4)
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
     address = torch_storage.data_ptr()  # type: ignore
