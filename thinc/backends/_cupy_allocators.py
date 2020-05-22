@@ -48,10 +48,12 @@ def cupy_pytorch_allocator(size_in_bytes: int):
     size_in_bytes = max(1024, size_in_bytes)
     # We use pytorch's underlying FloatStorage type to avoid overhead from
     # creating a whole Tensor.
-    torch_storage = torch.cuda.FloatStorage(size_in_bytes // 4)
+    # This turns out to be way faster than making FloatStorage? Maybe
+    # a Python vs C++ thing I guess?
+    torch_tensor = torch.zeros((size_in_bytes // 4,), requires_grad=False)
     # cupy has a neat class to help us here. Otherwise it will try to free.
     # I think this is a private API? It's not in the types.
-    address = torch_storage.data_ptr()  # type: ignore
-    memory = UnownedMemory(address, size_in_bytes, torch_storage)
+    address = torch_tensor.data_ptr()  # type: ignore
+    memory = UnownedMemory(address, size_in_bytes, torch_tensor)
     # Now return a new memory pointer.
     return MemoryPointer(memory, 0)
