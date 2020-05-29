@@ -4,7 +4,7 @@ from ..model import Model
 from ..shims import MXNetShim
 from ..config import registry
 from ..util import is_xp_array, is_mxnet_array
-from ..util import xp2mxnet, mxnet2xp, convert_recursive
+from ..util import mxnet2xp, xp2mxnet, convert_recursive
 from ..types import ArgsKwargs
 
 

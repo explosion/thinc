@@ -39,7 +39,10 @@ def X(input_size: int) -> Array2d:
 @pytest.fixture
 def Y(answer: int, n_classes: int) -> Array2d:
     ops: Ops = get_current_ops()
-    return to_categorical(cast(IntsXd, ops.asarray([answer])), n_classes=n_classes)
+    return cast(
+        Array2d,
+        to_categorical(cast(IntsXd, ops.asarray([answer])), n_classes=n_classes),
+    )
 
 
 @pytest.fixture

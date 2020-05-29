@@ -1,5 +1,6 @@
 from .config import Config, registry, ConfigValidationError
 from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_init
+from .initializers import configure_normal_init
 from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
 from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
@@ -12,7 +13,7 @@ from .schedules import decaying, slanted_triangular, compounding
 from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
 from .util import prefer_gpu, require_gpu, DataValidationError
-from .util import to_categorical, get_width, get_array_module
+from .util import to_categorical, get_width, get_array_module, to_numpy
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow, mxnet2xp, xp2mxnet
 from .backends import get_ops, set_current_ops, get_current_ops, use_ops
 from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax

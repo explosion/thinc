@@ -100,7 +100,8 @@ def reduce_mean(X, lengths, out=None, threads_per_block=128, num_blocks=128):
     T = X.shape[0]
     O = X.shape[1]
     reduce_sum_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, B, T, O))
-    out /= lengths.reshape((-1, 1))
+    # Avoid divide by zero
+    out /= lengths.reshape((-1, 1)) + 1e-10
     return out
 
 

@@ -127,17 +127,17 @@ void reduce_sum(float* output,
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
         // Go to the regions we're working on
-	float* output_b = &output[b*O];
+	    float* output_b = &output[b*O];
         // Find the sequence item we're working on
-	int t = 0;
+	    int t = 0;
         for (int i=0; i < b; ++i) {
-	    t += lengths[i];
+	        t += lengths[i];
         }
         int length = lengths[b];
         // Each invocation of the kernel sums one batch.
         for (int i=0; i < length; ++i) // Iterate over rows
         {
-	    const float* X_t = &X[(t+i)*O];
+	        const float* X_t = &X[(t+i)*O];
             for (int j=0; j < O; ++j)
             {
               output_b[j] += X_t[j];
@@ -162,7 +162,7 @@ void reduce_max(float* maxes, int* which,
         // Find the sequence item we're working on
         const float* X_t = X;
         for (int i=0; i < b; ++i) {
-	    X_t += lengths[i] * O;
+	        X_t += lengths[i] * O;
         }
         // Each invocation of the kernel maxes one sequence.
         // Start by assuming maxes are the first element.
@@ -233,10 +233,10 @@ void backprop_maxout(float* dX,
     int _loop_stride = blockDim.x * gridDim.x;
     for (int b = _loop_start; b < B; b += _loop_stride)
     {
-	// Go to the regions we're working on
-	float* dX_b = &dX[b*O*P];
-	const float* dY_b = &dY[b*O];
-	const int* which_b = &which[b*O];
+        // Go to the regions we're working on
+        float* dX_b = &dX[b*O*P];
+        const float* dY_b = &dY[b*O];
+        const int* which_b = &which[b*O];
         for (int i=0; i < O; ++i)
             dX_b[(i*P)+which_b[i]] = dY_b[i];
     }
@@ -252,20 +252,20 @@ void backprop_mish(float* dX,
     float two = 2.;
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
-	float x = X[i];
-	if (x >= threshold)
+        float x = X[i];
+        if (x >= threshold)
         {
-	    dX[i] = dY[i];
-	} else
-	{
-	    float exp_x = exp(x);
-	    float exp_2x = exp(2*x);
-	    float exp_3x = exp(3*x);
+            dX[i] = dY[i];
+        } else
+        {
+            float exp_x = exp(x);
+            float exp_2x = exp(2*x);
+            float exp_3x = exp(3*x);
 
-	    float omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
-	    float delta = 2 * exp_x + exp_2x + 2;
-	    dX[i] = dY[i] * ((exp_x * omega) / pow(delta, two));
-	}
+            float omega = (4. * (x+1)) + (4 * exp_2x) + exp_3x + exp_x * (4.*x+6);
+            float delta = 2 * exp_x + exp_2x + 2;
+            dX[i] = dY[i] * ((exp_x * omega) / pow(delta, two));
+        }
     }
 }
 
@@ -280,18 +280,14 @@ void backprop_reduce_sum(float* dX, const float* d_sum, const int* lengths,
     for (int t = _loop_start; t < T; t += _loop_stride)
     {
         // Find the sequence item we're working on
-        while ((b < B) && (seq_start+lengths[b]) < t)
+        while ((b < B) && (seq_start+lengths[b]) <= t)
         {
            seq_start += lengths[b];
            b += 1;
         }
-
-        float* dX_t = &dX[t * O];
-        const float* d_sum_b = &d_sum[b * O];
-
         for (int i=0; i < O; ++i)
         {
-            dX_t[i] = d_sum_b[i];
+            dX[t * O + i] = d_sum[b * O + i];
         }
     }
 }
@@ -308,7 +304,7 @@ void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
     for (int t = _loop_start; t < T; t += _loop_stride)
     {
         // Find the sequence item we're working on
-        while ((b < B) && (seq_start+lengths[b]) < t)
+        while ((b < B) && (seq_start+lengths[b]) <= t)
         {
            seq_start += lengths[b];
            b += 1;
@@ -340,7 +336,7 @@ void backprop_reduce_max(float* dX,
         // the gradient of the maxes. In this loop, we're getting the gradient
         // of a single sequence item, t. We need to know the sequence index,
         // b.
-        while ((b < B) && (seq_start+lengths[b]) < t)
+        while ((b < B) && (seq_start+lengths[b]) <= t)
         {
            seq_start += lengths[b];
            b += 1;

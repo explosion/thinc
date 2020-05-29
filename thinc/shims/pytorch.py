@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 import contextlib
 from io import BytesIO
 import srsly
@@ -10,9 +10,10 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, convert_recursive
+from ..util import torch2xp, xp2torch, get_array_module, convert_recursive
 from ..backends import get_current_ops, get_array_ops
-from ..types import ArgsKwargs
+from ..optimizers import Optimizer
+from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
 
 
@@ -41,9 +42,7 @@ class PyTorchShim(Shim):
     def begin_update(self, inputs: ArgsKwargs):
         """Pass the inputs through to the underlying PyTorch model, keeping
         track of which items in the input are tensors requiring gradients.
-        If the model returns a single value, it is converted into a one-element
-        tuple. Return the outputs and a callback to backpropagate.
-        """
+        If the model returns a single value, it is converted into a one-element tuple. Return the outputs and a callback to backpropagate.  """
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
 
@@ -55,28 +54,33 @@ class PyTorchShim(Shim):
 
         return output, backprop
 
-    def finish_update(self, optimizer):
-        if not self._optimizer:
-            self._optimizer = self._create_optimizer(optimizer)
-        if getattr(optimizer, "max_grad_norm", None):
-            torch.nn.utils.clip_grad_norm_(
-                self._model.parameters(), optimizer.max_grad_norm
-            )
-        self._optimizer.step()
-        self._optimizer.zero_grad()
-        self._update_pytorch_averages(optimizer)
-
-    def _create_optimizer(self, sgd):
-        params = self._model.parameters()
-        if sgd.b1 != 0 and sgd.b2 != 0:
-            optimizer = torch.optim.Adam(
-                params, lr=sgd.learn_rate, betas=(sgd.b1, sgd.b2)
-            )
-        elif sgd.b2 == 0:
-            optimizer = torch.optim.SGD(params, lr=sgd.learn_rate, momentum=sgd.b1)
-        else:
-            raise NotImplementedError
-        return optimizer
+    def finish_update(self, optimizer: Optimizer):
+        params = []
+        grads = []
+        shapes = []
+        for name, torch_data in self._model.named_parameters():
+            xp_data = cast(FloatsXd, torch2xp(torch_data.data))
+            if torch_data.grad is not None:
+                xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
+            else:
+                xp_grad = cast(FloatsXd, torch2xp(torch.zeros_like(torch_data)))
+            params.append(xp_data.ravel())
+            grads.append(xp_grad.ravel())
+            shapes.append((xp_data.size, xp_data.shape))
+        if not params:
+            return
+        xp = get_array_module(params[0])
+        flat_params, flat_grads = optimizer(
+            (self.id, "pytorch-shim"), xp.concatenate(params), xp.concatenate(grads)
+        )
+        start = 0
+        for name, torch_data in self._model.named_parameters():
+            size, shape = shapes.pop(0)
+            param = flat_params[start : start + size].reshape(shape)
+            torch_data.data = xp2torch(param, requires_grad=True)
+            if torch_data.grad is not None:
+                torch_data.grad.zero_()
+            start += size
 
     @contextlib.contextmanager
     def use_params(self, params):
@@ -93,26 +97,14 @@ class PyTorchShim(Shim):
         else:
             yield
 
-    def _update_pytorch_averages(self, sgd, *, init_steps=1):
-        if getattr(sgd, "averages", None) is None:
-            return
-        # Collect parameters if we don't have them
-        for name, param in self._model.state_dict().items():
-            key = f"pytorch_{self.id}_{name}"
-            sgd.nr_update[key] += 1
-            xp_param = torch2xp(param)
-            ops = get_array_ops(xp_param)
-            if key in sgd.averages:
-                ops.update_averages(sgd.averages[key], xp_param, sgd.nr_update[key])
-            else:
-                sgd.averages[key] = xp_param.copy()
-                sgd.nr_update[key] = init_steps
-
-    def to_device(self, device):  # pragma: no cover
-        if device == "cpu":
+    def to_device(self, device_type: str, device_id: int):  # pragma: no cover
+        if device_type == "cpu":
             self._model.cpu()
+        elif device_type == "gpu":
+            self._model.cuda(device_id)
         else:
-            self._model.cuda(device)
+            msg = f"Invalid device_type: {device_type}. Try 'cpu' or 'gpu'"
+            raise ValueError(msg)
 
     def to_bytes(self):
         filelike = BytesIO()

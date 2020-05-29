@@ -51,7 +51,7 @@ class Shim:  # pragma: no cover
     def copy(self):
         return copy.deepcopy(self)
 
-    def to_device(self, device: str):
+    def to_device(self, device_type: str, device_id: int):
         raise NotImplementedError
 
     def to_disk(self, path: Union[str, Path]):

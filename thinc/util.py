@@ -51,7 +51,7 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, Floats2d, IntsXd
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -193,18 +193,20 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
         numpy.copyto(dst, src)
 
 
-def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> Floats2d:
+def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     # From keras
     xp = get_array_module(Y)
     if xp is cupy:  # pragma: no cover
         Y = Y.get()
+    keep_shapes: List[int] = list(Y.shape)
     Y = numpy.array(Y, dtype="int").ravel()
-    if not n_classes:
-        n_classes = numpy.max(Y) + 1
+    if n_classes is None:
+        n_classes = int(numpy.max(Y) + 1)
+    keep_shapes.append(n_classes)
     n = Y.shape[0]
     categorical = numpy.zeros((n, n_classes), dtype="float32")
     categorical[numpy.arange(n), Y] = 1
-    return xp.asarray(categorical)
+    return xp.asarray(categorical).reshape(keep_shapes)
 
 
 def get_width(
