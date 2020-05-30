@@ -96,7 +96,7 @@ class CupyOps(Ops):
         return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
-        grad_norm = cupy.linalg.norm(gradient)
+        grad_norm = cupy.maximum(cupy.linalg.norm(gradient), 1e-12)
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
     
