@@ -47,7 +47,7 @@ class NumpyOps(Ops):
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
         *,
-        use_blis: bool = False
+        use_blis: bool = True
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
