@@ -1,6 +1,7 @@
 from typing import Dict, Tuple
 
 from ..types import FloatsXd
+from ..util import get_array_module
 
 
 KeyT = Tuple[int, str]
@@ -50,6 +51,9 @@ class ParamServer:
             # Adjustment for Jax
             if hasattr(value, "copy"):
                 self._grads[(model_id, param_name)] = value.copy()
+            elif not value.flags["C_CONTIGUOUS"]:
+                xp = get_array_module(value)
+                self._grads[(model_id, param_name)] = xp.ascontiguousarray(value)
             else:
                 self._grads[(model_id, param_name)] = value
         else:
