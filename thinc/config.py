@@ -55,7 +55,10 @@ class Config(dict):
                 err = [{"loc": parts, "msg": "found conflicting values"}]
                 raise ConfigValidationError(f"{self}\n{({part: dict(values)})}", err)
             for key, value in values.items():
-                node[key] = srsly.json_loads(config.get(section, key))
+                try:
+                    node[key] = srsly.json_loads(config.get(section, key))
+                except Exception as e:
+                    raise ValueError(f"Error reading key '{key}' in section '{section}': {e}")
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."
