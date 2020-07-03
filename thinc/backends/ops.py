@@ -232,18 +232,17 @@ class Ops:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = []
-        pad = int(pad)
-        for length in lengths:
-            length = int(length)
-            if pad >= 1 and length != 0:
-                X = X[pad:]
-            unflat.append(X[:length])
-            X = X[length:]
+        # Apologies for the numpy arcana here...The simple way was a performance
+        # problem.
         if pad >= 1:
-            X = X[pad:]
-        assert len(X) == 0
-        assert len(unflat) == len(lengths)
+            # Interleave the padding lengths into length
+            pad_lengths = self.asarray([pad] * lengths.shape[0], dtype="i")
+            lengths = self.xp.vstack((lengths, pad_lengths)).reshape(-1, order="F")
+        # cupy  requires cupy arrays here.
+        split_points = to_numpy(lengths.cumsum())
+        unflat = self.xp.split(X, split_points)[:-1]
+        if pad >= 1:
+            unflat = unflat[:-1:2]
         return unflat
 
     @overload
