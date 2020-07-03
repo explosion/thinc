@@ -31,7 +31,9 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     import cupy.cuda
 
     assert_pytorch_installed()
-    cupy.cuda.set_allocator(cupy_pytorch_allocator)
+    cupy.cuda.set_allocator(
+        cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator).malloc
+    )
 
 
 def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
@@ -47,7 +49,9 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     import cupy.cuda
 
     assert_tensorflow_installed()
-    cupy.cuda.set_allocator(cupy_tensorflow_allocator)
+    cupy.cuda.set_allocator(
+        cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator).malloc
+    )
 
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
