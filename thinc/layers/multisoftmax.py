@@ -37,7 +37,7 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
         model.inc_grad("b", dY.sum(axis=0))
         return model.ops.gemm(dY, W)
 
-    Y = model.ops.gemm(X, W)
+    Y = model.ops.gemm(X, W, trans2=True)
     Y += b
     i = 0
     for out_size in nOs:
