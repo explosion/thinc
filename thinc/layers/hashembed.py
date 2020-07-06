@@ -56,13 +56,15 @@ def forward(
     nN = ids.shape[0]
     seed: int = model.attrs["seed"]
     keys = model.ops.hash(ids, seed) % nV
-    dropout: Optional[float] = model.attrs.get("dropout_rate")
-    drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
     output = vectors[keys].sum(axis=1)
-    output *= drop_mask
+    if is_train:
+        dropout: Optional[float] = model.attrs.get("dropout_rate")
+        drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
+        output *= drop_mask
 
     def backprop(d_vectors: OutT) -> Ints1d:
-        d_vectors *= drop_mask
+        if is_train:
+            d_vectors *= drop_mask
         dE = model.ops.alloc2f(*vectors.shape)
         keysT = model.ops.as_contig(keys.T, dtype="i")
         for i in range(keysT.shape[0]):
@@ -80,6 +82,6 @@ def init(
     X: Optional[Ints1d] = None,
     Y: Optional[OutT] = None,
 ) -> Model[InT, OutT]:
-    E = initializer(model.ops, (model.get_dim("nV") + 1, model.get_dim("nO")))
+    E = initializer(model.ops, (model.get_dim("nV"), model.get_dim("nO")))
     model.set_param("E", E)
     return model
