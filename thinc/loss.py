@@ -154,7 +154,7 @@ class SequenceCategoricalCrossentropy(Loss):
         err = "Cannot calculate SequenceCategoricalCrossentropy loss: guesses and truths must be same length"
         if len(guesses) != len(truths):  # pragma: no cover
             raise ValueError(err)
-        n = sum(yh.shape[0] for yh in guesses)
+        n = len(guesses)
         d_scores = []
         for yh, y in zip(guesses, truths):
             d_yh = self.cc.get_grad(yh, y)
