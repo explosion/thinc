@@ -55,32 +55,15 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
-        params = []
-        grads = []
-        shapes = []
         for name, torch_data in self._model.named_parameters():
-            xp_data = cast(FloatsXd, torch2xp(torch_data.data))
             if torch_data.grad is not None:
-                xp_grad = cast(FloatsXd, torch2xp(torch_data.grad))
-            else:
-                xp_grad = cast(FloatsXd, torch2xp(torch.zeros_like(torch_data)))
-            params.append(xp_data.ravel())
-            grads.append(xp_grad.ravel())
-            shapes.append((xp_data.size, xp_data.shape))
-        if not params:
-            return
-        xp = get_array_module(params[0])
-        flat_params, flat_grads = optimizer(
-            (self.id, "pytorch-shim"), xp.concatenate(params), xp.concatenate(grads)
-        )
-        start = 0
-        for name, torch_data in self._model.named_parameters():
-            size, shape = shapes.pop(0)
-            param = flat_params[start : start + size].reshape(shape)
-            torch_data.data = xp2torch(param, requires_grad=True)
-            if torch_data.grad is not None:
+                param, grad = optimizer(
+                    (self.id, name),
+                    cast(FloatsXd, torch2xp(torch_data.data)),
+                    cast(FloatsXd, torch2xp(torch_data.grad))
+                )
+                torch_data.data = xp2torch(param, requires_grad=True)
                 torch_data.grad.zero_()
-            start += size
 
     @contextlib.contextmanager
     def use_params(self, params):
