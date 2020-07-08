@@ -308,35 +308,13 @@ class Model(Generic[InT, OutT]):
                 shim.finish_update(optimizer)
         for node in self.walk():
             for name in node.param_names:
-                param = node.get_param(name)
                 if node.has_grad(name):
-                    grad = node.get_grad(name)
-                else:
-                    grad = node.ops.xp.zeros_like(param)
-
-                params.append(self.ops.asarray(param.ravel()))
-                grads.append(self.ops.asarray(grad.ravel()))
-                shapes.append((param.size, param.shape))
-        if not params:
-            return
-        flat_params, flat_grads = optimizer(
-            (self.id, self.name),
-            self.ops.xp.concatenate(params),
-            self.ops.xp.concatenate(grads),
-        )
-        params = []
-        grads = []
-        start = 0
-        for node in self.walk():
-            for name in node.param_names:
-                size, shape = shapes.pop(0)
-                param = flat_params[start : start + size]  # type: ignore
-                grad = flat_grads[start : start + size]  # type: ignore
-                param = node.ops.asarray(param.reshape(shape))  # type: ignore
-                grad = node.ops.asarray(grad.reshape(shape))  # type: ignore
-                node.set_param(name, param)
-                node.set_grad(name, grad)
-                start += size
+                    param, grad = optimizer(
+                        (node.id, name),
+                        node.get_param(name),
+                        node.get_grad(name)
+                    )
+                    node.set_param(name, param)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):
