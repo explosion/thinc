@@ -300,9 +300,6 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        params = []
-        grads = []
-        shapes = []
         for node in self.walk():
             for shim in node.shims:
                 shim.finish_update(optimizer)
