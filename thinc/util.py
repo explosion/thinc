@@ -63,12 +63,28 @@ def get_array_module(arr):  # pragma: no cover
         return numpy
 
 
+INTERNAL_SEED = None
+
+
+def remove_random_seed():
+    global INTERNAL_SEED
+    INTERNAL_SEED = None
+
+
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
-    """Set the random seed across random, numpy.random and cupy.random."""
-    random.seed(seed)
-    numpy.random.seed(seed)
-    if has_cupy:
-        cupy.random.seed(seed)
+    """Define the random seed for random, numpy.random and cupy.random."""
+    global INTERNAL_SEED
+    INTERNAL_SEED = seed
+    ensure_fixed_seed()
+
+
+def ensure_fixed_seed():
+    """Set the internal seed (if there is one defined) across random, numpy.random and cupy.random."""
+    if INTERNAL_SEED is not None:
+        random.seed(INTERNAL_SEED)
+        numpy.random.seed(INTERNAL_SEED)
+        if has_cupy:
+            cupy.random.seed(INTERNAL_SEED)
 
 
 def is_xp_array(obj: Any) -> bool:

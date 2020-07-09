@@ -17,7 +17,7 @@ import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
 from thinc.api import to_categorical, set_current_ops, JaxOps
-from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
+from thinc.api import NumpyOps, CupyOps, fix_random_seed, ensure_fixed_seed, require_gpu
 from thinc.types import Array2d, Padded
 import jax.tree_util
 
@@ -74,10 +74,13 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     Xs = []
     Ys = []
     for _ in range(n_samples):
+        # ensure_fixed_seed()
         # length = numpy.random.normal(size=1, scale=length_variance) + length_mean
         length = length_mean
         shape = (max(1, int(length)),)
+        ensure_fixed_seed()
         X = numpy.random.uniform(0, n_vocab - 1, shape)
+        ensure_fixed_seed()
         Y = numpy.random.uniform(0, n_tags - 1, shape)
         assert X.size, length
         assert Y.size, length

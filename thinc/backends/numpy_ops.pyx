@@ -14,7 +14,7 @@ from preshed.maps cimport PreshMap
 from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
 
-from ..util import copy_array, get_array_module
+from ..util import copy_array, get_array_module, ensure_fixed_seed
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .linalg cimport VecVec, Vec
 from .ops import Ops
@@ -413,6 +413,7 @@ def add_gradient_noise(float[::1] gradient, weight_t noise_level,
         weight_t timestep):
     cdef weight_t variance = noise_level / ((1 + timestep) ** 0.55)
     if variance >= 0.000001:
+        ensure_fixed_seed()
         gradient += numpy.asarray(
                        numpy.random.normal(scale=variance, loc=0., size=len(gradient)),
                        dtype='float32')

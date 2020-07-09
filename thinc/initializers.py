@@ -4,7 +4,7 @@ import numpy
 from .backends import Ops
 from .config import registry
 from .types import FloatsXd, Shape
-from .util import partial
+from .util import partial, ensure_fixed_seed
 
 # TODO: Harmonize naming with Keras, and fill in missing entries
 # https://keras.io/initializers/ We should also have He normal/uniform
@@ -18,6 +18,7 @@ from .util import partial
 
 def lecun_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(1.0 / shape[1])
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.normal(0, scale, shape))
 
 
@@ -28,6 +29,7 @@ def configure_lecun_normal_init() -> Callable[[Shape], FloatsXd]:
 
 def he_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(2.0 / shape[1])
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.normal(0, scale, shape))
 
 
@@ -38,6 +40,7 @@ def configure_he_normal_init() -> Callable[[Shape], FloatsXd]:
 
 def glorot_normal_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(2.0 / (shape[1] + shape[0]))
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.normal(0, scale, shape))
 
 
@@ -48,6 +51,7 @@ def configure_glorot_normal_init() -> Callable[[Shape], FloatsXd]:
 
 def he_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(6.0 / shape[1])
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
 
 
@@ -58,6 +62,7 @@ def configure_he_uniform_init() -> Callable[[Shape], FloatsXd]:
 
 def lecun_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(3.0 / shape[1])
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
 
 
@@ -68,6 +73,7 @@ def configure_lecun_uniform_init() -> Callable[[Shape], FloatsXd]:
 
 def glorot_uniform_init(ops: Ops, shape: Shape) -> FloatsXd:
     scale = numpy.sqrt(6.0 / (shape[0] + shape[1]))
+    ensure_fixed_seed()
     return ops.asarray_f(numpy.random.uniform(-scale, scale, shape))
 
 
@@ -88,6 +94,7 @@ def configure_zero_init() -> Callable[[FloatsXd], FloatsXd]:
 def uniform_init(
     ops: Ops, shape: Shape, *, lo: float = -0.1, hi: float = 0.1
 ) -> FloatsXd:
+    ensure_fixed_seed()
     values = numpy.random.uniform(lo, hi, shape)
     return ops.asarray_f(values.astype("float32"))
 
@@ -101,6 +108,7 @@ def configure_uniform_init(
 
 def normal_init(ops: Ops, shape: Shape, *, mean: int = 0) -> FloatsXd:
     size = int(ops.xp.prod(ops.xp.asarray(shape)))
+    ensure_fixed_seed()
     inits = numpy.random.normal(scale=mean, size=size).astype("float32")
     inits = ops.reshape_f(inits, shape)
     return ops.asarray_f(inits)

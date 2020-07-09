@@ -15,7 +15,9 @@ def with_cpu(layer: Model, ops: Ops) -> Model:
 
 def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
     cpu_outputs, backprop = model.layers[0].begin_update(_to_cpu(X))
+    print("cpu_outputs", cpu_outputs)
     gpu_outputs = _to_device(model.ops, cpu_outputs)
+    print("gpu_outputs", gpu_outputs)
 
     def with_cpu_backprop(d_outputs):
         cpu_d_outputs = _to_cpu(d_outputs)
