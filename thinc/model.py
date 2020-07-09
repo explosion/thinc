@@ -11,9 +11,9 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array, get_array_module
+from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import FloatsXd, Floats1d
+from .types import FloatsXd
 
 
 InT = TypeVar("InT")
@@ -300,9 +300,6 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        params = []
-        grads = []
-        shapes = []
         for node in self.walk():
             for shim in node.shims:
                 shim.finish_update(optimizer)
@@ -310,9 +307,7 @@ class Model(Generic[InT, OutT]):
             for name in node.param_names:
                 if node.has_grad(name):
                     param, grad = optimizer(
-                        (node.id, name),
-                        node.get_param(name),
-                        node.get_grad(name)
+                        (node.id, name), node.get_param(name), node.get_grad(name)
                     )
                     node.set_param(name, param)
 

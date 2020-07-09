@@ -10,8 +10,8 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, get_array_module, convert_recursive
-from ..backends import get_current_ops, get_array_ops
+from ..util import torch2xp, xp2torch, convert_recursive
+from ..backends import get_current_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim
@@ -60,7 +60,7 @@ class PyTorchShim(Shim):
                 param, grad = optimizer(
                     (self.id, name),
                     cast(FloatsXd, torch2xp(torch_data.data)),
-                    cast(FloatsXd, torch2xp(torch_data.grad))
+                    cast(FloatsXd, torch2xp(torch_data.grad)),
                 )
                 torch_data.data = xp2torch(param, requires_grad=True)
                 torch_data.grad.zero_()

@@ -58,7 +58,9 @@ class Config(dict):
                 try:
                     node[key] = srsly.json_loads(config.get(section, key))
                 except Exception as e:
-                    raise ValueError(f"Error reading key '{key}' in section '{section}': {e}")
+                    raise ValueError(
+                        f"Error reading key '{key}' in section '{section}': {e}"
+                    )
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."

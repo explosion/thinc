@@ -60,7 +60,8 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
     grad_BO = numpy.ones((nr_batch, nr_out), dtype="f")
     grad_BI = finish_update(grad_BO)  # noqa: F841
     model.finish_update(sgd)
-    assert seen_keys == {(model.id, model.name)}
+    for name in model.param_names:
+        assert (model.id, name) in seen_keys
 
 
 @settings(max_examples=100)

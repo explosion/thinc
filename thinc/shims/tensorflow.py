@@ -2,14 +2,13 @@ from typing import Any, Dict, List, Optional
 import catalogue
 import contextlib
 import copy
-import itertools
 from io import BytesIO
 import numpy
 
-from ..backends import Ops, get_current_ops, get_array_ops
+from ..backends import Ops, get_current_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, ArrayXd
-from ..util import tensorflow2xp, get_array_module
+from ..util import get_array_module
 from .shim import Shim
 
 try:
