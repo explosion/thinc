@@ -6,7 +6,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats1d, Floats2d, Ints2d, Ints1d
 from ..initializers import uniform_init
-from ..util import partial
+from ..util import partial, get_current_seed
 
 
 InT = Union[Ints2d, Ints1d]
@@ -35,7 +35,11 @@ def HashEmbed(
         attrs=attrs,
     )
     if seed is None:
-        model.attrs["seed"] = model.id
+        internal_seed = get_current_seed()
+        if internal_seed is not None:
+            model.attrs["seed"] = internal_seed
+        else:
+            model.attrs["seed"] = model.id
     if column is not None:
         # This is equivalent to array[:, column]. What you're actually doing
         # there is passing in a tuple: array[(:, column)], except in the context

@@ -20,6 +20,17 @@ def test_seed_same_bucket():
     assert vector1.sum() == vector2.sum()
 
 
+def test_seed_same_bucket_v2():
+    """ The vectors are the same if the random seed is deduced from the global one"""
+    fix_random_seed(0)
+    model1 = HashEmbed(64, 1000).initialize()
+    model2 = HashEmbed(64, 1000).initialize()
+    arr = numpy.ones((1,), dtype="uint64")
+    vector1 = model1.predict(arr)
+    vector2 = model2.predict(arr)
+    assert vector1.sum() == vector2.sum()
+
+
 def test_seed_not_fixed():
     remove_random_seed()
     model1 = HashEmbed(64, 1000, seed=1).initialize()

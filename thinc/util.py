@@ -71,6 +71,11 @@ def remove_random_seed():
     INTERNAL_SEED = None
 
 
+def get_current_seed():
+    """ Return the current seed, or None if no seed is set. """
+    return INTERNAL_SEED
+
+
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Define the random seed for random, numpy.random and cupy.random."""
     global INTERNAL_SEED
