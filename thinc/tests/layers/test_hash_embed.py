@@ -32,6 +32,7 @@ def test_seed_same_bucket_v2():
 
 
 def test_seed_not_fixed():
+    """ The vectors are not the same if the global random seed is not set"""
     remove_random_seed()
     model1 = HashEmbed(64, 1000, seed=1).initialize()
     model2 = HashEmbed(64, 1000, seed=1).initialize()
