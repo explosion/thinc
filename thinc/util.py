@@ -63,23 +63,12 @@ def get_array_module(arr):  # pragma: no cover
         return numpy
 
 
-INTERNAL_SEED = None
-
-
-def get_current_seed():
-    """ Return the current seed, or None if no seed is set. """
-    return INTERNAL_SEED
-
-
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed for random, numpy.random and cupy.random."""
-    global INTERNAL_SEED
-    INTERNAL_SEED = seed
-    if INTERNAL_SEED is not None:
-        random.seed(INTERNAL_SEED)
-        numpy.random.seed(INTERNAL_SEED)
-        if has_cupy:
-            cupy.random.seed(INTERNAL_SEED)
+    random.seed(seed)
+    numpy.random.seed(seed)
+    if has_cupy:
+        cupy.random.seed(seed)
 
 
 def is_xp_array(obj: Any) -> bool:

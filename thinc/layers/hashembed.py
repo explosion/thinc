@@ -35,11 +35,8 @@ def HashEmbed(
         attrs=attrs,
     )
     if seed is None:
-        internal_seed = get_current_seed()
-        if internal_seed is not None:
-            model.attrs["seed"] = internal_seed
-        else:
-            model.attrs["seed"] = model.id
+        # TODO: this is causing reproducibility issues, because model.id is ever increasing
+        model.attrs["seed"] = model.id
     if column is not None:
         # This is equivalent to array[:, column]. What you're actually doing
         # there is passing in a tuple: array[(:, column)], except in the context
