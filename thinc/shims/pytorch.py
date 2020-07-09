@@ -60,7 +60,7 @@ class PyTorchShim(Shim):
                 param, grad = optimizer(
                     (self.id, name),
                     cast(FloatsXd, torch2xp(torch_data.data)),
-                    cast(FloatsXd, torch2xp(torch_data.grad))
+                    cast(FloatsXd, torch2xp(torch_data.grad)),
                 )
                 torch_data.data = xp2torch(param, requires_grad=True)
                 torch_data.grad.zero_()

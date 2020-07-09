@@ -99,7 +99,7 @@ class CupyOps(Ops):
         grad_norm = cupy.maximum(cupy.linalg.norm(gradient), 1e-12)
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
-    
+
     def seq2col(self, seq, nW):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
@@ -138,14 +138,7 @@ class CupyOps(Ops):
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
         adam_kernel(
-            gradient,
-            learn_rate,
-            1 - beta1,
-            1 - beta2,
-            eps,
-            weights,
-            mom1,
-            mom2
+            gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2
         )
         gradient.fill(0)
         return weights, gradient, mom1, mom2
@@ -166,4 +159,3 @@ if cupy is not None:
     )
 else:
     adam_kernel = None
-

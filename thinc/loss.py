@@ -85,12 +85,12 @@ class CategoricalCrossentropy(Loss):
         return truths, mask
 
     def __call__(
-        self, guesses: Floats2d, truths: IntsOrFloatsOrStrs,
+        self, guesses: Floats2d, truths: IntsOrFloatsOrStrs
     ) -> Tuple[Floats2d, float]:
         d_truth = self.get_grad(guesses, truths)
         return (d_truth, self._get_loss_from_grad(d_truth))
 
-    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs,) -> Floats2d:
+    def get_grad(self, guesses: Floats2d, truths: IntsOrFloatsOrStrs) -> Floats2d:
         target, mask = self.convert_truths(truths, guesses)
         if guesses.shape != target.shape:  # pragma: no cover
             err = f"Cannot calculate CategoricalCrossentropy loss: mismatched shapes: {guesses.shape} vs {target.shape}."
@@ -107,7 +107,7 @@ class CategoricalCrossentropy(Loss):
             difference = difference / guesses.shape[0]
         return difference
 
-    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats,) -> float:
+    def get_loss(self, guesses: Floats2d, truths: IntsOrFloats) -> float:
         d_truth = self.get_grad(guesses, truths)
         return self._get_loss_from_grad(d_truth)
 

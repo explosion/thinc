@@ -64,7 +64,7 @@ def test_categorical_crossentropy(guesses, labels):
 
 
 @pytest.mark.parametrize(
-    "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)],
+    "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)]
 )
 def test_categorical_crossentropy_missing(guesses, labels):
     d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
@@ -79,7 +79,9 @@ def test_categorical_crossentropy_missing(guesses, labels):
     ],
 )
 def test_sequence_categorical_crossentropy(guesses, labels):
-    d_scores = SequenceCategoricalCrossentropy(normalize=False).get_grad(guesses, labels)
+    d_scores = SequenceCategoricalCrossentropy(normalize=False).get_grad(
+        guesses, labels
+    )
     d_scores1 = d_scores[0]
     d_scores2 = d_scores[1]
     assert d_scores1.shape == guesses1.shape
@@ -90,7 +92,7 @@ def test_sequence_categorical_crossentropy(guesses, labels):
     d_scores = SequenceCategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
     d_scores1 = d_scores[0]
     d_scores2 = d_scores[1]
- 
+
     assert d_scores1[1][0] == pytest.approx(0.2, eps)
     assert d_scores1[1][1] == pytest.approx(-0.2, eps)
 

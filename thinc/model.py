@@ -307,9 +307,7 @@ class Model(Generic[InT, OutT]):
             for name in node.param_names:
                 if node.has_grad(name):
                     param, grad = optimizer(
-                        (node.id, name),
-                        node.get_param(name),
-                        node.get_grad(name)
+                        (node.id, name), node.get_param(name), node.get_grad(name)
                     )
                     node.set_param(name, param)
 
