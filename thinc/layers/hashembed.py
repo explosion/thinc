@@ -6,7 +6,7 @@ from ..model import Model
 from ..config import registry
 from ..types import Floats1d, Floats2d, Ints2d, Ints1d
 from ..initializers import uniform_init
-from ..util import partial, get_current_seed
+from ..util import partial
 
 
 InT = Union[Ints2d, Ints1d]
