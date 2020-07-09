@@ -12,6 +12,8 @@ ROWS = 10
 # I used previously. This is much nicer, although it still takes some getting
 # used to. The key feature is this composite decorator. It injects a function,
 # 'draw'.
+
+
 @composite
 def lists_of_integers(draw, columns=2, lo=0, hi=ROWS - 1):
     # We call draw to get example values, which we can manipulate.
