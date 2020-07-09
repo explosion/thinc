@@ -4,7 +4,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
-from thinc.api import fix_random_seed, ensure_fixed_seed
+from thinc.api import fix_random_seed
 import inspect
 
 from .. import strategies
@@ -382,7 +382,6 @@ def test_minibatch():
     assert list(batches) == [[1, 2, 3], [4, 5, 6]]
     batches = ops.minibatch((i for i in (3, 2, 1)), items)
     assert list(batches) == [[1, 2, 3], [4, 5], [6]]
-    ensure_fixed_seed()
     batches = list(ops.minibatch(3, numpy.asarray(items)))
     assert isinstance(batches[0], numpy.ndarray)
     assert numpy.array_equal(batches[0], numpy.asarray([1, 2, 3]))

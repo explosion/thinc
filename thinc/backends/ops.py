@@ -7,7 +7,7 @@ from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Array2d, Array3d, Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
 from ..types import DeviceTypes, Generator, Padded, Batchable, SizedGenerator
-from ..util import get_array_module, is_xp_array, to_numpy, ensure_fixed_seed
+from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
@@ -65,7 +65,6 @@ class Ops:
         # return our SizedGenerator object, which provides a __len__.
         def _iter_items():
             if shuffle:
-                ensure_fixed_seed()
                 numpy.random.shuffle(indices)
             queue = []
             i = 0
@@ -104,7 +103,6 @@ class Ops:
 
         def _iter_items():
             if shuffle:
-                ensure_fixed_seed()
                 numpy.random.shuffle(indices)
             queue = []
             i = 0
@@ -354,7 +352,6 @@ class Ops:
             return self.xp.ones(shape, dtype="f")
         elif drop >= 1.0:
             return self.alloc(shape)
-        ensure_fixed_seed()
         coinflips = self.xp.random.uniform(0.0, 1.0, shape)
         mask = (coinflips >= drop) / (1.0 - drop)
         return cast(FloatsXd, self.asarray(mask, dtype="float32"))

@@ -66,25 +66,15 @@ def get_array_module(arr):  # pragma: no cover
 INTERNAL_SEED = None
 
 
-def remove_random_seed():
-    global INTERNAL_SEED
-    INTERNAL_SEED = None
-
-
 def get_current_seed():
     """ Return the current seed, or None if no seed is set. """
     return INTERNAL_SEED
 
 
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
-    """Define the random seed for random, numpy.random and cupy.random."""
+    """Set the random seed for random, numpy.random and cupy.random."""
     global INTERNAL_SEED
     INTERNAL_SEED = seed
-    ensure_fixed_seed()
-
-
-def ensure_fixed_seed():
-    """Set the internal seed (if there is one defined) across random, numpy.random and cupy.random."""
     if INTERNAL_SEED is not None:
         random.seed(INTERNAL_SEED)
         numpy.random.seed(INTERNAL_SEED)
