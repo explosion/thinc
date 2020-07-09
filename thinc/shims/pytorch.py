@@ -10,8 +10,8 @@ try:
 except ImportError:  # pragma: no cover
     pass
 
-from ..util import torch2xp, xp2torch, get_array_module, convert_recursive
-from ..backends import get_current_ops, get_array_ops
+from ..util import torch2xp, xp2torch, convert_recursive
+from ..backends import get_current_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
 from .shim import Shim

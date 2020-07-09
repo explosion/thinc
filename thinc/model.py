@@ -11,9 +11,9 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array, get_array_module
+from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import FloatsXd, Floats1d
+from .types import FloatsXd
 
 
 InT = TypeVar("InT")
