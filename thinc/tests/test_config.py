@@ -653,3 +653,60 @@ def test_handle_error_duplicate_keys(cfg):
     """
     with pytest.raises(ConfigValidationError):
         Config().from_str(cfg)
+
+
+def test_fill_config_overrides():
+    config = {
+        "one": 1,
+        "two": {"three": {"@cats": "catsie.v1", "evil": True, "cute": False}},
+    }
+    overrides = {"two.three.evil": False}
+    result = my_registry.fill_config(config, overrides=overrides, validate=True)
+    assert result["two"]["three"]["evil"] is False
+    # Test that promises can be overwritten as well
+    overrides = {"two.three": 3}
+    result = my_registry.fill_config(config, overrides=overrides, validate=True)
+    assert result["two"]["three"] == 3
+    # Test that value can be overwritten with promises and that the result is
+    # interpreted and filled correctly
+    overrides = {"one": {"@cats": "catsie.v1", "evil": False}, "two": None}
+    result = my_registry.fill_config(config, overrides=overrides)
+    assert result["two"] is None
+    assert result["one"]["@cats"] == "catsie.v1"
+    assert result["one"]["evil"] is False
+    assert result["one"]["cute"] is True
+    # Overwriting with wrong types should cause validation error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"two.three.evil": 20}
+        my_registry.fill_config(config, overrides=overrides, validate=True)
+    # Overwriting with incomplete promises should cause validation error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"one": {"@cats": "catsie.v1"}, "two": None}
+        my_registry.fill_config(config, overrides=overrides)
+
+
+def test_make_from_config_overrides():
+    config = {
+        "one": 1,
+        "two": {"three": {"@cats": "catsie.v1", "evil": True, "cute": False}},
+    }
+    overrides = {"two.three.evil": False}
+    result = my_registry.make_from_config(config, overrides=overrides, validate=True)
+    assert result["two"]["three"] == "meow"
+    # Test that promises can be overwritten as well
+    overrides = {"two.three": 3}
+    result = my_registry.make_from_config(config, overrides=overrides, validate=True)
+    assert result["two"]["three"] == 3
+    # Test that value can be overwritten with promises
+    overrides = {"one": {"@cats": "catsie.v1", "evil": False}, "two": None}
+    result = my_registry.make_from_config(config, overrides=overrides)
+    assert result["one"] == "meow"
+    assert result["two"] is None
+    # Overwriting with wrong types should cause validation error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"two.three.evil": 20}
+        my_registry.make_from_config(config, overrides=overrides, validate=True)
+    # Overwriting with incomplete promises should cause validation error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"one": {"@cats": "catsie.v1"}, "two": None}
+        my_registry.make_from_config(config, overrides=overrides)
