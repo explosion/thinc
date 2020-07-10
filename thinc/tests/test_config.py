@@ -655,7 +655,6 @@ def test_handle_error_duplicate_keys(cfg):
         Config().from_str(cfg)
 
 
-@pytest.mark.xfail
 @pytest.mark.parametrize(
     "cfg,is_valid",
     [
