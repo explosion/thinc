@@ -657,10 +657,7 @@ def test_handle_error_duplicate_keys(cfg):
 
 @pytest.mark.parametrize(
     "cfg,is_valid",
-    [
-        ("[a]\nb = 1\n\n[a.c]\nd = 3", True),
-        ("[a]\nb = 1\n\n[A.c]\nd = 2", False)
-    ],
+    [("[a]\nb = 1\n\n[a.c]\nd = 3", True), ("[a]\nb = 1\n\n[A.c]\nd = 2", False)],
 )
 def test_cant_expand_undefined_block(cfg, is_valid):
     """Test that you can't expand a block that hasn't been created yet. This
@@ -668,10 +665,10 @@ def test_cant_expand_undefined_block(cfg, is_valid):
     it's very hard to create good errors for those typos.
     """
     if is_valid:
-        _ = Config().from_str(cfg)
+        Config().from_str(cfg)
     else:
         with pytest.raises(ConfigValidationError):
-            _ = Config().from_str(cfg)
+            Config().from_str(cfg)
 
 
 def test_fill_config_overrides():
