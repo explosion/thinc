@@ -55,11 +55,9 @@ class Config(dict):
                 if part == "*":
                     node = node.setdefault(part, {})
                 elif part not in node:
-                    raise ConfigStructureError(
-                        "Error parsing config section '{section}'. "
-                        "The block '{part}' is not defined. Perhaps a section "
-                        "name is wrong?"
-                    )
+                    err_title = f"Error parsing config section. Perhaps a section name is wrong?"
+                    err = [{"loc": parts, "msg": f"Section '{part}' is not defined"}]
+                    raise ConfigValidationError(self, err, message=err_title)
                 else:
                     node = node[part]
             node = node.setdefault(parts[-1], {})
@@ -140,11 +138,6 @@ class ConfigValidationError(ValueError):
             data.append((err_loc, error.get("msg")))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
-
-
-class ConfigStructureError(ConfigValidationError):
-    def __init__(self, message: str):
-        ValueError.__init__(self, message)
 
 
 ARGS_FIELD = "*"
