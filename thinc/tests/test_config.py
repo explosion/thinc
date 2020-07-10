@@ -683,6 +683,13 @@ def test_fill_config_overrides():
     with pytest.raises(ConfigValidationError):
         overrides = {"one": {"@cats": "catsie.v1"}, "two": None}
         my_registry.fill_config(config, overrides=overrides)
+    # Overrides that don't match config should raise error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"two.three.evil": False, "two.four": True}
+        my_registry.fill_config(config, overrides=overrides, validate=True)
+    with pytest.raises(ConfigValidationError):
+        overrides = {"five": False}
+        my_registry.fill_config(config, overrides=overrides, validate=True)
 
 
 def test_make_from_config_overrides():
@@ -710,3 +717,19 @@ def test_make_from_config_overrides():
     with pytest.raises(ConfigValidationError):
         overrides = {"one": {"@cats": "catsie.v1"}, "two": None}
         my_registry.make_from_config(config, overrides=overrides)
+    # Overrides that don't match config should raise error
+    with pytest.raises(ConfigValidationError):
+        overrides = {"two.three.evil": False, "two.four": True}
+        my_registry.make_from_config(config, overrides=overrides, validate=True)
+    with pytest.raises(ConfigValidationError):
+        overrides = {"five": False}
+        my_registry.make_from_config(config, overrides=overrides, validate=True)
+
+
+@pytest.mark.parametrize(
+    "prop,expected",
+    [("a.b.c", True), ("a.b", True), ("a", True), ("a.e", True), ("a.b.c.d", False)],
+)
+def test_is_in_config(prop, expected):
+    config = {"a": {"b": {"c": 5, "d": 6}, "e": [1, 2]}}
+    assert my_registry._is_in_config(prop, config) is expected

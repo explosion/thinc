@@ -196,9 +196,12 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        _, _, resolved = cls._fill(
+        filled, _, resolved = cls._fill(
             config, schema, overrides=overrides, validate=validate
         )
+        # Check that overrides didn't include invalid properties not in config
+        if validate:
+            cls._validate_overrides(filled, overrides)
         return resolved
 
     @classmethod
@@ -223,6 +226,9 @@ class registry(object):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
         filled, _, _ = cls._fill(config, schema, validate=validate, overrides=overrides)
+        # Check that overrides didn't include invalid properties not in config
+        if validate:
+            cls._validate_overrides(filled, overrides)
         return filled
 
     @classmethod
@@ -345,6 +351,32 @@ class registry(object):
             ) and not isinstance(final[key], GeneratorType):
                 final[key] = value
         return filled, final
+
+    @classmethod
+    def _validate_overrides(cls, filled: Config, overrides: Dict[str, Any]):
+        """Validate overrides against a filled config to make sure there are
+        no references to properties that don't exist and weren't used."""
+        error_msg = "Invalid override: config value doesn't exist"
+        errors = []
+        for override_key in overrides.keys():
+            if not cls._is_in_config(override_key, filled):
+                errors.append({"msg": error_msg, "loc": [override_key]})
+        if errors:
+            raise ConfigValidationError(filled, errors)
+
+    @classmethod
+    def _is_in_config(cls, prop: str, config: Union[Dict[str, Any], Config]):
+        """Check whether a nested config property like "section.subsection.key"
+        is in a given config."""
+        tree = prop.split(".")
+        obj = dict(config)
+        while tree:
+            key = tree.pop(0)
+            if isinstance(obj, dict) and key in obj:
+                obj = obj[key]
+            else:
+                return False
+        return True
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:
