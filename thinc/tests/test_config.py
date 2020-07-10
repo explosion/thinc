@@ -658,7 +658,7 @@ def test_handle_error_duplicate_keys(cfg):
 @pytest.mark.parametrize(
     "cfg,is_valid",
     [
-        ("[a]\nb = 1\nc = 2\n\n[a.c]\nd = 3", True),
+        ("[a]\nb = 1\n\n[a.c]\nd = 3", True),
         ("[a]\nb = 1\n\n[A.c]\nd = 2", False)
     ],
 )
