@@ -41,15 +41,26 @@ class Config(dict):
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
-        for section, values in config.items():
+        # Sort sections by depth, so that we can iterate breadth-first. This
+        # allows us to check that we're not expanding an undefined block.
+        get_depth = lambda item: len(item[0].split("."))
+        for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
                 # Skip [DEFAULT] section for now since it causes validation
                 # errors and we don't want to use it
                 continue
             parts = section.split(".")
             node = self
-            for part in parts:
-                node = node.setdefault(part, {})
+            for part in parts[:-1]:
+                if part == "*":
+                    node = node.setdefault(part, {})
+                elif part not in node:
+                    err_title = f"Error parsing config section. Perhaps a section name is wrong?"
+                    err = [{"loc": parts, "msg": f"Section '{part}' is not defined"}]
+                    raise ConfigValidationError(self, err, message=err_title)
+                else:
+                    node = node[part]
+            node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
