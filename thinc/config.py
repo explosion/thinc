@@ -256,6 +256,7 @@ class registry(object):
             key_parent = f"{parent}.{key}".strip(".")
             if key_parent in overrides:
                 value = overrides[key_parent]
+                config[key] = value
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
                 filled[key], validation[key], final[key] = cls._fill(
