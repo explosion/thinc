@@ -41,15 +41,28 @@ class Config(dict):
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
-        for section, values in config.items():
+        # Sort sections by depth, so that we can iterate breadth-first. This
+        # allows us to check that we're not expanding an undefined block.
+        get_depth = lambda item: len(item[0].split("."))
+        for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
                 # Skip [DEFAULT] section for now since it causes validation
                 # errors and we don't want to use it
                 continue
             parts = section.split(".")
             node = self
-            for part in parts:
-                node = node.setdefault(part, {})
+            for part in parts[:-1]:
+                if part == "*":
+                    node = node.setdefault(part, {})
+                elif part not in node:
+                    raise ConfigStructureError(
+                        "Error parsing config section '{section}'. "
+                        "The block '{part}' is not defined. Perhaps a section "
+                        "name is wrong?"
+                    )
+                else:
+                    node = node[part]
+            node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
@@ -127,6 +140,11 @@ class ConfigValidationError(ValueError):
             data.append((err_loc, error.get("msg")))
         result = [message, table(data), f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
+
+
+class ConfigStructureError(ConfigValidationError):
+    def __init__(self, message: str):
+        ValueError.__init__(self, message)
 
 
 ARGS_FIELD = "*"
