@@ -87,14 +87,16 @@ class Config(dict):
         flattened = get_configparser()
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
+            section_name = ".".join(path)
+            if path and path[-1] != "*" and not flattened.has_section(section_name):
+                # Always create sections for non-'*' sections, not only if
+                # they have leaf entries, as we don't want to expand
+                # blocks that are undefined
+                flattened.add_section(section_name)
             for key, value in node.items():
                 if hasattr(value, "items"):
                     queue.append((path + (key,), value))
                 else:
-                    assert path
-                    section_name = ".".join(path)
-                    if not flattened.has_section(section_name):
-                        flattened.add_section(section_name)
                     flattened.set(section_name, key, srsly.json_dumps(value))
         string_io = io.StringIO()
         flattened.write(string_io)

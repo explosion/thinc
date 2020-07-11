@@ -311,6 +311,19 @@ def test_config_to_str():
     assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()
 
 
+def test_config_to_str_creates_intermediate_blocks():
+    cfg = Config({"optimizer": {"foo": {"bar": 1}}})
+    assert (
+        cfg.to_str().strip()
+        == """
+[optimizer]
+
+[optimizer.foo]
+bar = 1
+    """.strip()
+    )
+
+
 def test_config_roundtrip_bytes():
     cfg = Config().from_str(OPTIMIZER_CFG)
     cfg_bytes = cfg.to_bytes()
