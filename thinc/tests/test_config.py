@@ -313,12 +313,15 @@ def test_config_to_str():
 
 def test_config_to_str_creates_intermediate_blocks():
     cfg = Config({"optimizer": {"foo": {"bar": 1}}})
-    assert cfg.to_str().strip() == """
+    assert (
+        cfg.to_str().strip()
+        == """
 [optimizer]
 
 [optimizer.foo]
 bar = 1
     """.strip()
+    )
 
 
 def test_config_roundtrip_bytes():
