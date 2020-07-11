@@ -311,7 +311,6 @@ def test_config_to_str():
     assert cfg.to_str().strip() == OPTIMIZER_CFG.strip()
 
 
-@pytest.mark.xfail
 def test_config_to_str_creates_intermediate_blocks():
     cfg = Config({"optimizer": {"foo": {"bar": 1}}})
     assert cfg.to_str().strip() == """
