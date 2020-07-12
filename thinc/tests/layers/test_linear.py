@@ -52,8 +52,9 @@ def test_finish_update_calls_optimizer_with_weights(W_b_input):
 
     seen_keys = set()
 
-    def sgd(key, data, gradient, **kwargs):
-        seen_keys.add(key)
+    def sgd(keys, data, gradient, **kwargs):
+        for key in keys:
+            seen_keys.add(key)
         assert data.shape == gradient.shape
         return data, gradient
 
