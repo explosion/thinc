@@ -3,7 +3,7 @@ import math
 from typing import Dict, Optional, Union, Tuple, List, cast
 from collections import defaultdict
 
-from .backends import get_array_ops
+from .backends import get_array_ops, Ops
 from .types import Generator, FloatsXd
 from .config import registry
 
@@ -28,6 +28,48 @@ ADAM_DEFAULTS: Dict[str, Union[float, bool, int]] = {
     "grad_clip": SGD_DEFAULTS["grad_clip"],
     "L2_is_weight_decay": True,
 }
+
+
+def bulk_optimize(
+    ops: Ops,
+    optimizer: "Optimizer",
+    entries,
+    *,
+    lr_scale: float=1.0
+) -> Dict[Tuple[int, str], FloatsXd]:
+    """Apply an optimizer over parameters in bulk."""
+    if not entries:
+        return {}
+    key, weights, gradients, shapes = _flatten(ops, entries)
+    weights, _ = optimizer(key, weights, gradients, lr_scale=lr_scale)
+    return _unflatten(key, weights, shapes)
+
+
+def _flatten(ops, entries):
+    keys = []
+    shapes = []
+    weights = []
+    gradients = []
+    for key, (W, dW) in entries.items():
+        keys.append(key)
+        shapes.append((W.shape, W.size))
+        weights.append(ops.asarray(W.ravel()))
+        gradients.append(ops.asarray(dW.ravel()))
+    return(
+        tuple(keys),
+        ops.xp.concatenate(weights),
+        ops.xp.concatenate(gradients),
+        shapes
+    )
+
+def _unflatten(keys, weights, shapes):
+    entries = {}
+    assert len(keys) == len(shapes)
+    start = 0
+    for key, (shape, size) in zip(keys, shapes):
+        entries[key] = weights[start: start+size].reshape(shape)
+        start += size
+    return entries
 
 
 @registry.optimizers("RAdam.v1")
