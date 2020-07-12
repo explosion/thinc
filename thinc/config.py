@@ -41,15 +41,26 @@ class Config(dict):
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
-        for section, values in config.items():
+        # Sort sections by depth, so that we can iterate breadth-first. This
+        # allows us to check that we're not expanding an undefined block.
+        get_depth = lambda item: len(item[0].split("."))
+        for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
                 # Skip [DEFAULT] section for now since it causes validation
                 # errors and we don't want to use it
                 continue
             parts = section.split(".")
             node = self
-            for part in parts:
-                node = node.setdefault(part, {})
+            for part in parts[:-1]:
+                if part == "*":
+                    node = node.setdefault(part, {})
+                elif part not in node:
+                    err_title = f"Error parsing config section. Perhaps a section name is wrong?"
+                    err = [{"loc": parts, "msg": f"Section '{part}' is not defined"}]
+                    raise ConfigValidationError(self, err, message=err_title)
+                else:
+                    node = node[part]
+            node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
@@ -58,7 +69,9 @@ class Config(dict):
                 try:
                     node[key] = srsly.json_loads(config.get(section, key))
                 except Exception as e:
-                    raise ValueError(f"Error reading key '{key}' in section '{section}': {e}")
+                    raise ValueError(
+                        f"Error reading key '{key}' in section '{section}': {e}"
+                    )
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."
@@ -74,14 +87,16 @@ class Config(dict):
         flattened = get_configparser()
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
+            section_name = ".".join(path)
+            if path and path[-1] != "*" and not flattened.has_section(section_name):
+                # Always create sections for non-'*' sections, not only if
+                # they have leaf entries, as we don't want to expand
+                # blocks that are undefined
+                flattened.add_section(section_name)
             for key, value in node.items():
                 if hasattr(value, "items"):
                     queue.append((path + (key,), value))
                 else:
-                    assert path
-                    section_name = ".".join(path)
-                    if not flattened.has_section(section_name):
-                        flattened.add_section(section_name)
                     flattened.set(section_name, key, srsly.json_dumps(value))
         string_io = io.StringIO()
         flattened.write(string_io)
@@ -181,6 +196,7 @@ class registry(object):
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
         schema: Type[BaseModel] = EmptySchema,
+        overrides: Dict[str, Any] = {},
         validate: bool = True,
     ) -> Config:
         """Unpack a config dictionary, creating objects from the registry
@@ -193,7 +209,12 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        _, _, resolved = cls._fill(config, schema, validate)
+        filled, _, resolved = cls._fill(
+            config, schema, overrides=overrides, validate=validate
+        )
+        # Check that overrides didn't include invalid properties not in config
+        if validate:
+            cls._validate_overrides(filled, overrides)
         return resolved
 
     @classmethod
@@ -202,6 +223,7 @@ class registry(object):
         config: Union[Config, Dict[str, Dict[str, Any]]],
         *,
         schema: Type[BaseModel] = EmptySchema,
+        overrides: Dict[str, Any] = {},
         validate: bool = True,
     ) -> Config:
         """Unpack a config dictionary, leave all references to registry
@@ -216,7 +238,10 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
-        filled, _, _ = cls._fill(config, schema, validate)
+        filled, _, _ = cls._fill(config, schema, validate=validate, overrides=overrides)
+        # Check that overrides didn't include invalid properties not in config
+        if validate:
+            cls._validate_overrides(filled, overrides)
         return filled
 
     @classmethod
@@ -224,8 +249,10 @@ class registry(object):
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         schema: Type[BaseModel] = EmptySchema,
+        *,
         validate: bool = True,
         parent: str = "",
+        overrides: Dict[str, Dict[str, Any]] = {},
     ) -> Tuple[Config, Config, Config]:
         """Build three representations of the config:
         1. All promises are preserved (just like config user would provide).
@@ -240,10 +267,17 @@ class registry(object):
         final: Dict[str, Any] = {}
         for key, value in config.items():
             key_parent = f"{parent}.{key}".strip(".")
+            if key_parent in overrides:
+                value = overrides[key_parent]
+                config[key] = value
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
                 filled[key], validation[key], final[key] = cls._fill(
-                    value, promise_schema, validate, parent=key_parent
+                    value,
+                    promise_schema,
+                    validate=validate,
+                    parent=key_parent,
+                    overrides=overrides,
                 )
                 # Call the function and populate the field value. We can't just
                 # create an instance of the type here, since this wouldn't work
@@ -273,7 +307,11 @@ class registry(object):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
                 filled[key], validation[key], final[key] = cls._fill(
-                    value, field_type, validate, parent=key_parent
+                    value,
+                    field_type,
+                    validate=validate,
+                    parent=key_parent,
+                    overrides=overrides,
                 )
                 if key == ARGS_FIELD and isinstance(validation[key], dict):
                     # If the value of variable positional args is a dict (e.g.
@@ -327,6 +365,32 @@ class registry(object):
             ) and not isinstance(final[key], GeneratorType):
                 final[key] = value
         return filled, final
+
+    @classmethod
+    def _validate_overrides(cls, filled: Config, overrides: Dict[str, Any]):
+        """Validate overrides against a filled config to make sure there are
+        no references to properties that don't exist and weren't used."""
+        error_msg = "Invalid override: config value doesn't exist"
+        errors = []
+        for override_key in overrides.keys():
+            if not cls._is_in_config(override_key, filled):
+                errors.append({"msg": error_msg, "loc": [override_key]})
+        if errors:
+            raise ConfigValidationError(filled, errors)
+
+    @classmethod
+    def _is_in_config(cls, prop: str, config: Union[Dict[str, Any], Config]):
+        """Check whether a nested config property like "section.subsection.key"
+        is in a given config."""
+        tree = prop.split(".")
+        obj = dict(config)
+        while tree:
+            key = tree.pop(0)
+            if isinstance(obj, dict) and key in obj:
+                obj = obj[key]
+            else:
+                return False
+        return True
 
     @classmethod
     def is_promise(cls, obj: Any) -> bool:

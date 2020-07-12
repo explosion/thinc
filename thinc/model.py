@@ -11,9 +11,9 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array, get_array_module
+from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
-from .types import FloatsXd, Floats1d
+from .types import FloatsXd
 
 
 InT = TypeVar("InT")
@@ -300,43 +300,16 @@ class Model(Generic[InT, OutT]):
         """Update parameters with current gradients. The optimizer is called
         with each parameter and gradient of the model.
         """
-        params = []
-        grads = []
-        shapes = []
         for node in self.walk():
             for shim in node.shims:
                 shim.finish_update(optimizer)
         for node in self.walk():
             for name in node.param_names:
-                param = node.get_param(name)
                 if node.has_grad(name):
-                    grad = node.get_grad(name)
-                else:
-                    grad = node.ops.xp.zeros_like(param)
-
-                params.append(self.ops.asarray(param.ravel()))
-                grads.append(self.ops.asarray(grad.ravel()))
-                shapes.append((param.size, param.shape))
-        if not params:
-            return
-        flat_params, flat_grads = optimizer(
-            (self.id, self.name),
-            self.ops.xp.concatenate(params),
-            self.ops.xp.concatenate(grads),
-        )
-        params = []
-        grads = []
-        start = 0
-        for node in self.walk():
-            for name in node.param_names:
-                size, shape = shapes.pop(0)
-                param = flat_params[start : start + size]  # type: ignore
-                grad = flat_grads[start : start + size]  # type: ignore
-                param = node.ops.asarray(param.reshape(shape))  # type: ignore
-                grad = node.ops.asarray(grad.reshape(shape))  # type: ignore
-                node.set_param(name, param)
-                node.set_grad(name, grad)
-                start += size
+                    param, grad = optimizer(
+                        (node.id, name), node.get_param(name), node.get_grad(name)
+                    )
+                    node.set_param(name, param)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):

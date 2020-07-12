@@ -240,7 +240,7 @@ class Optimizer(object):
             raise NotImplementedError  # TODO: error message
         else:
             weights -= lr_scale * self.learn_rate * gradient
-        gradient = gradient * 0.0
+        gradient *= 0
         if self.L2 != 0 and self.L2_is_weight_decay:
             weights -= lr_scale * self.learn_rate * self.L2 * weights
         if self.averages is not None:

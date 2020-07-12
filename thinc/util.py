@@ -75,7 +75,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
     numpy.random.seed(seed)
-    if cupy is not None and gpu_is_available():
+    if has_cupy and gpu_is_available():
         cupy.random.seed(seed)
 
 
