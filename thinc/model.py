@@ -9,7 +9,7 @@ import functools
 import threading
 
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
-from .optimizers import Optimizer  # noqa: F401
+from .optimizers import Optimizer, bulk_optimize  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array
 from .util import partial, validate_fwd_input_output
@@ -313,13 +313,24 @@ class Model(Generic[InT, OutT]):
         for node in self.walk():
             for shim in node.shims:
                 shim.finish_update(optimizer)
+        # Gather the parameters to optimize them in bulk.
+        entries = {}
         for node in self.walk():
             for name in node.param_names:
+                key = (node.id, name)
+                param = self.ops.asarray(node.get_param(name))
                 if node.has_grad(name):
-                    param, grad = optimizer(
-                        (node.id, name), node.get_param(name), node.get_grad(name)
-                    )
-                    node.set_param(name, param)
+                    grad = self.ops.asarray(node.get_grad(name))
+                else:
+                    grad = self.ops.alloc(param.shape)
+                entries[key] = (param, grad)
+        updated = bulk_optimize(self.ops, optimizer, entries)
+        del entries # Free ASAP
+        # Now set the updated values
+        for node in self.walk():
+            for name in node.param_names:
+                node.set_param(name, updated[(node.id, name)])
+                node.clear_grad(name)
 
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):
