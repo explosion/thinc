@@ -226,15 +226,25 @@ class Model(Generic[InT, OutT]):
 
     def get_grad(self, name: str) -> FloatsXd:
         """Get a gradient from the model."""
+        if not self.has_grad(name):
+            param = self.get_param(name)
+            self.set_grad(name, self.ops.alloc(param.shape))
         return self._params.get_grad(self.id, name)
 
     def set_grad(self, name: str, value: FloatsXd) -> None:
         """Set a gradient value for the model."""
         self._params.set_grad(self.id, name, value)
 
+    def clear_grad(self, name: str) -> None:
+        """Clear all gradients for the model."""
+        self._params.clear_grad(self.id, name)
+
     def inc_grad(self, name: str, value: FloatsXd) -> None:
         """Increment the gradient of a parameter by a value."""
-        self._params.inc_grad(self.id, name, value)
+        if self.has_grad(name):
+            self._params.inc_grad(self.id, name, value)
+        else:
+            self.set_grad(name, value)
 
     def has_ref(self, name: str) -> Optional[bool]:
         """Check whether the model has a reference of a given name. If the

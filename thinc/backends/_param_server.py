@@ -46,6 +46,10 @@ class ParamServer:
     def set_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
         self._grads[(model_id, name)] = value
 
+    def clear_grad(self, model_id: int, param_name: str) -> None:
+        if self.has_grad(model_id, param_name):
+            self._grads.pop((model_id, param_name))
+
     def inc_grad(self, model_id: int, param_name: str, value: FloatsXd) -> None:
         if not self.has_grad(model_id, param_name):  # pragma: no cover
             # Adjustment for Jax
