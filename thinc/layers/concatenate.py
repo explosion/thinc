@@ -80,12 +80,12 @@ def _list_forward(
         d_output = model.ops.xp.concatenate(d_output, axis=0)
         dY = model.ops.as_contig(d_output[:, : widths[0]])
         # We want to generalize unflatten later.
-        dY = model.ops.asarray(model.ops.unflatten(dY, lengths))  # type: ignore
+        dY = model.ops.unflatten(dY, lengths)  # type: ignore
         dX = callbacks[0](dY)
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.as_contig(d_output[:, start : start + width])
-            dY = model.ops.asarray(model.ops.unflatten(dY, lengths))  # type: ignore
+            dY = model.ops.unflatten(dY, lengths)  # type: ignore
             dX += bwd(dY)
             start += width
         return dX
