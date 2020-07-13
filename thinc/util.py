@@ -63,11 +63,19 @@ def get_array_module(arr):  # pragma: no cover
         return numpy
 
 
+def gpu_is_available():
+    try:
+        cupy.cuda.runtime.getDeviceCount()
+        return True
+    except cupy.cuda.runtime.CUDARuntimeError:
+        return False
+
+
 def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
     numpy.random.seed(seed)
-    if has_cupy:
+    if has_cupy and gpu_is_available():
         cupy.random.seed(seed)
 
 
