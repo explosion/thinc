@@ -1,4 +1,4 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Optional, Any
 
 from ..types import FloatsXd
 from ..util import get_array_module
@@ -12,12 +12,18 @@ class ParamServer:
 
     _params: Dict[KeyT, FloatsXd] = {}
     _grads: Dict[KeyT, FloatsXd] = {}
+    proxy: Optional[Any]
 
     def __init__(
-        self, params: Dict[KeyT, FloatsXd] = {}, grads: Dict[KeyT, FloatsXd] = {}
+        self,
+        params: Dict[KeyT, FloatsXd] = {},
+        grads: Dict[KeyT, FloatsXd] = {},
+        *,
+        proxy=None
     ):
         self._params = dict(params)
         self._grads = dict(grads)
+        self.proxy = proxy
 
     @property
     def param_keys(self) -> Tuple[KeyT, ...]:
@@ -35,26 +41,37 @@ class ParamServer:
         return (model_id, name) in self._grads
 
     def get_param(self, model_id: int, name: str) -> FloatsXd:
-        return self._params[(model_id, name)]
+        key = (model_id, name)
+        if self.proxy is not None:
+            self._params[key] = self.proxy.get_param(model_id, name)
+        return self._params[key]
 
     def get_grad(self, model_id: int, name: str) -> FloatsXd:
-        return self._grads[(model_id, name)]
+        key = (model_id, name)
+        return self._grads[key]
 
     def set_param(self, model_id: int, name: str, value: FloatsXd) -> None:
+        if self.proxy is not None:
+            self.proxy.set_param(model_id, name, value)
         self._params[(model_id, name)] = value
 
     def set_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
+        if self.proxy is not None:
+            self.proxy.set_grad(model_id, name, value)
         self._grads[(model_id, name)] = value
 
-    def inc_grad(self, model_id: int, param_name: str, value: FloatsXd) -> None:
-        if not self.has_grad(model_id, param_name):  # pragma: no cover
-            # Adjustment for Jax
+    def inc_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
+        key = (model_id, name)
+        if self.proxy is not None:
+            self.proxy.inc_grad(key, value)
+        elif not self.has_grad(model_id, name):  # pragma: no cover
             if hasattr(value, "copy"):
-                self._grads[(model_id, param_name)] = value.copy()
+                # Adjustment for Jax
+                self._grads[key] = value.copy()
             elif not value.flags["C_CONTIGUOUS"]:
                 xp = get_array_module(value)
-                self._grads[(model_id, param_name)] = xp.ascontiguousarray(value)
+                self._grads[(model_id, name)] = xp.ascontiguousarray(value)
             else:
-                self._grads[(model_id, param_name)] = value
+                self._grads[(model_id, name)] = value
         else:
-            self._grads[(model_id, param_name)] += value
+            self._grads[(model_id, name)] += value
