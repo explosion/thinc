@@ -47,17 +47,13 @@ class Worker:
         self.model.initialize(X=train_X[:5], Y=train_Y[:5])
 
     def set_proxy(self, connection):
-        proxy = RayProxy(connection)
-        for node in self.model.walk():
-            for name in node.param_names:
-                proxy.set_param(node.id, name, node.get_param(name))
-            node._params.proxy = proxy
+        self.model.set_params_proxy(RayProxy(connection))
 
     def train_epoch(self):
         for X, Y in self.train_data:
             Yh, backprop = self.model.begin_update(X)
             backprop(Yh - Y)
-            #model.finish_update(self.optimizer)
+            self.model.finish_update(self.optimizer)
 
     def evaluate(self):
         correct = 0
@@ -73,7 +69,7 @@ def main(
     n_hidden: int = 256, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 128,
     n_epoch: int=10, quorum: int=2, n_workers: int=1
 ):
-    ray.init(num_cpus=3)
+    ray.init()
     workers = []
     conn = ray.remote(SharedOptimizer).remote(quorum, Adam(0.001))
     print("Create workers")
@@ -87,8 +83,8 @@ def main(
         futures = []
         for worker in workers:
             futures.append(worker.train_epoch.remote())
-        ray.get(futures)
-        print(i, ray.get(workers[0].evaluate.remote()))
+    ray.get(futures)
+    print(i, ray.get(workers[0].evaluate.remote()))
 
 
 if __name__ == "__main__":
