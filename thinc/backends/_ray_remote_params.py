@@ -28,10 +28,8 @@ class RayProxy:
     def get_param(self, model_id: int, name: str):
         """Get a parameter from the connection."""
         key = (model_id, name)
-        self.wait_key(key)
         version, param = self.ray.get(self.conn.get_param.remote(key))
         self._param_versions[key] = version
-        self._futures[key] = []
         return param
 
     def set_param(self, model_id: int, name: str, value):
