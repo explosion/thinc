@@ -311,6 +311,15 @@ class Model(Generic[InT, OutT]):
                     )
                     node.set_param(name, param)
 
+    def set_params_proxy(self, proxy):
+        """Set a 'proxy' on the internal ParamServer object for the model and
+        its children. Experimental.
+        """
+        for node in self.walk():
+            for name in node.param_names:
+                proxy.set_param(node.id, name, node.get_param(name))
+            node._params.proxy = proxy
+
     @contextlib.contextmanager
     def use_params(self, params: Dict[Tuple[int, str], FloatsXd]):
         """Context manager to temporarily set the model's parameters to
