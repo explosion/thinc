@@ -44,5 +44,7 @@ def forward(model, X, is_train):
         dX[index] = dY
         return dX
 
+    if len(X) == 0:
+        return X, backprop_get_column
     Y = X[index]
     return Y, backprop_get_column
