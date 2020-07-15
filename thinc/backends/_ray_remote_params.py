@@ -73,12 +73,16 @@ class SharedOptimizer:
     """Provide access to an optimizer for multiple workers. Designed to be
     used as a ray remote actor, connected to a ParamServer via RayProxy.
     """
-    def __init__(self, quorum, optimizer, ray=None):
+    def __init__(self, quorum, optimizer, ray=None, remote_optimizer=False):
         if ray is None:
             import ray
         self.ray = ray
         self.quorum = quorum
-        self.optimizer = self.ray.remote(_RemoteOptimizer).remote(optimizer)
+        self.optimizer = optimizer
+        if remote_optimizer:
+            self.remote_optimizer = self.ray.remote(_RemoteOptimizer).remote(optimizer)
+        else:
+            self.remote_optimizer = None
         self._grads = {}
         self._params = {}
         self._future_params = {}
@@ -138,11 +142,20 @@ class SharedOptimizer:
 
     def _update_if_quorum(self, key):
         if self._grad_counts[key] >= self.quorum:
-            self._future_params[key] = self.optimizer.call.remote(
-                key,
-                self._params[key],
-                self._grads[key]
-            )
+            if self.remote_optimizer is not None:
+                self._future_params[key] = self.remote_optimizer.call.remote(
+                    key,
+                    self._params[key],
+                    self._grads[key]
+                )
+            else:
+                params, grads = self.optimizer(
+                    key,
+                    self._params[key],
+                    self._grads[key]
+                )
+                self._params[key] = params
+ 
             self._transaction_ids[key] += 1
             self._grad_counts[key] = 0
             self._grads[key] = None
