@@ -63,7 +63,7 @@ class ParamServer:
     def inc_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
         key = (model_id, name)
         if self.proxy is not None:
-            self.proxy.inc_grad(key, value)
+            self.proxy.inc_grad(model_id, name, value)
         elif not self.has_grad(model_id, name):  # pragma: no cover
             if hasattr(value, "copy"):
                 # Adjustment for Jax

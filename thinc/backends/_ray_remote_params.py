@@ -9,18 +9,6 @@ KeyT = Tuple[int, str]
 
 
 class RayProxy:
-    @classmethod
-    def install(cls, model, optimizer, *, quorum: int, ray=None):
-        if ray is None:
-            import ray
-        proxy = RayProxy(
-            ray, 
-            connection=ray.remote(SharedOptimizer).remote(optimizer, quorum=quorum)
-        )
-        for node in model.walk():
-            node._params.proxy = proxy
-        return proxy
- 
     def __init__(self, connection, *, ray=None):
         if ray is None:
             import ray
@@ -28,12 +16,13 @@ class RayProxy:
         self.ray = ray
         # This 'connection' object will usually be a ray remote.
         self.conn = connection
+        print("Create proxy", type(self.conn))
         self._param_versions = {}
         self._futures = defaultdict(list)
 
     def wait_key(self, key):
         """Await any futures for a given key."""
-        self.ray.wait(self._futures[key])
+        self.ray.wait(self._futures[key], len(self._futures[key]))
         self._futures[key] = []
  
     def get_param(self, model_id: int, name: str):
@@ -59,11 +48,11 @@ class RayProxy:
         version = self._param_versions[key]
         self.ray.get(self.conn.set_grad.remote(version, key, value))
 
-    def inc_grad(self, model_id: int: name: str, value):
+    def inc_grad(self, model_id: int, name: str, value):
         """Increment a gradient to the connection."""
         key = (model_id, name)
         version = self._param_versions[key]
-        self._futures[key].append(self._conn.inc_grad.remote(version, key, value))
+        self._futures[key].append(self.conn.inc_grad.remote(version, key, value))
  
 
 class SharedOptimizer:
@@ -82,7 +71,7 @@ class SharedOptimizer:
         return self._transaction_ids[key]
 
     def get_param(self, key):
-        return (self._transaction_id[key], self._params[key])
+        return (self._transaction_ids[key], self._params[key])
 
     def set_param(self, key, value):
         self._params[key] = value
@@ -113,17 +102,19 @@ class SharedOptimizer:
                 self._grads[key] = value
                 self._grad_counts[key] = 1
             else:
-                self._grads[key] += value
+                self._grads[key] = self._grads[key] + value
                 self._grad_counts[key] += 1
             self._update_if_quorum(key)
 
     def _update_if_quorum(self, key):
         if self._grad_counts[key] >= self.quorum:
-            self._params[key] = optimizer(
+            self._params[key]
+            params, grads = self.optimizer(
                 key,
                 self._params[key],
                 self._grads[key]
             )
+            self._params[key] = params
             self._transaction_ids[key] += 1
             self._grad_counts[key] = 0
             self._grads[key] = None
