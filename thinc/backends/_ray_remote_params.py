@@ -15,7 +15,7 @@ class RayProxy:
             import ray
         proxy = RayProxy(
             ray, 
-            connection=ray.remote(_RayRemote).remote(optimizer, quorum=quorum)
+            connection=ray.remote(SharedOptimizer).remote(optimizer, quorum=quorum)
         )
         for node in model.walk():
             node._params.proxy = proxy
@@ -66,7 +66,10 @@ class RayProxy:
         self._futures[key].append(self._conn.inc_grad.remote(version, key, value))
  
 
-class _RayConnection:
+class SharedOptimizer:
+    """Provide access to an optimizer for multiple workers. Designed to be
+    used as a ray remote actor, connected to a ParamServer via RayProxy.
+    """
     def __init__(self, quorum, optimizer):
         self.quorum = quorum
         self.optimizer = optimizer
