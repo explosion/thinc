@@ -27,8 +27,8 @@ class Worker:
  
     def train(self, use_gpu, conn, evaluater=None):
         def evaluate():
-            if evaluater is None:
-                return self.evaluate()
+            if self.rank == 0:
+                return ray.get(evaluater.evaluate.remote())
             else:
                 return ray.get(evaluater.get_last_evaluation.remote())
 
@@ -135,26 +135,29 @@ def distributed_setup_and_train(
     strategy,
     ray_address,
     paths,
-    quorum=2
+    quorum=None
 ):
+    print("Use ray", num_workers)
+    if quorum is None:
+        quorum = num_workers
     if ray_address is not None:
         ray.init(address=ray_address)
     else:
         ray.init(ignore_reinit_error=True)
 
-    RemoteWorker = ray.remote(Worker).options(num_gpus=1)
+    RemoteWorker = ray.remote(Worker).options(
+        num_gpus=int(use_gpu >= 0),
+        num_cpus=1
+    )
     workers = [
         RemoteWorker.remote(rank, num_workers, paths, use_gpu=use_gpu)
         for rank in range(num_workers)
     ]
+    evaluater = RemoteWorker.remote(num_workers + 1, num_workers, paths, use_gpu=use_gpu)
     optimizer = workers[0].get_optimizer.remote()
 
     conn = ray.remote(SharedOptimizer).remote(quorum, optimizer)
-    
-    futures = []
+    futures = [] 
     for i, w in enumerate(workers):
-        # Pass None into the first worker, so that it does evaluation locally.
-        evaluater = workers[0] if i != 0 else None
         futures.append(w.train.remote(use_gpu, conn, evaluater))
-    while futures:
-        ray.wait(futures)
+    ray.get(futures)
