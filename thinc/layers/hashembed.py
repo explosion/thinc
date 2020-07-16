@@ -53,7 +53,7 @@ def forward(
     nV = vectors.shape[0]
     nO = vectors.shape[1]
     if len(ids) == 0:
-        output = model.ops.alloc((0, nO), dtype=vectors.dtype)
+        output: Floats2d = model.ops.alloc((0, nO), dtype=vectors.dtype)
     else:
         ids = model.ops.as_contig(ids, dtype="uint64")  # type: ignore
         nN = ids.shape[0]
