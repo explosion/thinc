@@ -88,6 +88,22 @@ class SharedOptimizer:
         self._future_params = {}
         self._grad_counts = Counter()
         self._transaction_ids = Counter()
+        self._progress = Counter()
+
+    def inc_progress(self, worker_id):
+        self._progress[worker_id] += 1
+    
+    def get_progress(self):
+        return self._progress
+
+    def get_total_progress(self):
+        return sum(self._progress.values())
+
+    def step_schedules(self):
+        if self.optimizer is not None:
+            self.optimizer.step_schedules()
+        if self.remote_optimizer is not None:
+            self.ray.get(self.remote_optimizer.step_schedules.remote())
 
     def get_transaction_id(self, key):
         return self._transaction_ids[key]
