@@ -317,7 +317,8 @@ class Model(Generic[InT, OutT]):
         """
         for node in self.walk():
             for name in node.param_names:
-                proxy.set_param(node.id, name, node.get_param(name))
+                if node.has_param(name):
+                    proxy.set_param(node.id, name, node.get_param(name))
             node._params.proxy = proxy
 
     @contextlib.contextmanager
