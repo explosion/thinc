@@ -4,6 +4,7 @@ from spacy.cli.train import create_train_batches, create_evaluation_callback
 from spacy.cli.train import setup_printer
 from spacy.gold import Corpus
 from thinc.backends._ray_remote_params import RayProxy, SharedOptimizer
+import time
 
 
 class Worker:
@@ -25,14 +26,21 @@ class Worker:
     def get_optimizer(self):
         return self.config["training"]["optimizer"]
  
-    def train(self, use_gpu, conn, evaluater=None):
+    def train(self, use_gpu, conn, evaluater):
         def evaluate():
             if self.rank == 0:
-                return ray.get(evaluater.evaluate.remote())
+                scores = self.evaluate()
+                ray.get(evaluater.set_scores.remote(scores))
+                return scores
             else:
-                return ray.get(evaluater.get_last_evaluation.remote())
+                scores = None
+                while scores is None:
+                    time.sleep(5)
+                    scores = ray.get(evaluater.get_scores.remote())
+                return scores
 
-        self.config["training"]["batch_size"] //= self.num_workers
+        quorum = ray.get(conn.get_quorum.remote())
+        self.config["training"]["batch_size"] //= quorum
         self._set_params_proxies(self.nlp, conn)
         train_batches = create_train_batches(
             self.nlp,
@@ -47,7 +55,7 @@ class Worker:
             train_batches,
             evaluate=evaluate,
             dropout=self.config["training"]["dropout"],
-            accumulate_gradient=self.config["training"]["accumulate_gradient"],
+            accumulate_gradient=1,
             patience=self.config["training"].get("patience", 0),
             max_steps=self.config["training"].get("max_steps", 0),
             eval_frequency=self.config["training"]["eval_frequency"],
@@ -71,18 +79,14 @@ class Worker:
                 self.corpus,
                 self.config["training"]
             )
-        self._results.append(self._evaluation_callback())
-        return self._results[-1]
+        return self._evaluation_callback()
 
     def save_checkpoint(self, info, output_path):
         update_meta(self.config["training"], self.nlp, info)
         self.nlp.to_disk(output_path)
 
-    def get_last_evaluation(self):
-        if not self._results:
-            return self.evaluate()
-        else:
-            return self._results[-1]
+    def get_training_config(self):
+        return self.config["training"]
 
     def _resolve_gpu(self, use_gpu):
         if use_gpu >= 0:
@@ -111,6 +115,19 @@ class Worker:
             if hasattr(component, "model"):
                 component.model.set_params_proxy(proxy)
 
+class Evaluater:
+    def __init__(self):
+        self.scores = []
+
+    def set_scores(self, scores):
+        self.scores.append(scores)
+        return scores
+
+    def get_scores(self):
+        if not self.scores:
+            return None
+        else:
+            return self.scores[-1]
 
 class FakeOptimizer:
     def __init__(self, conn, worker_id):
@@ -138,8 +155,6 @@ def distributed_setup_and_train(
     quorum=None
 ):
     print("Use ray", num_workers)
-    if quorum is None:
-        quorum = num_workers
     if ray_address is not None:
         ray.init(address=ray_address)
     else:
@@ -153,10 +168,15 @@ def distributed_setup_and_train(
         RemoteWorker.remote(rank, num_workers, paths, use_gpu=use_gpu)
         for rank in range(num_workers)
     ]
-    evaluater = RemoteWorker.remote(num_workers + 1, num_workers, paths, use_gpu=use_gpu)
+    train_cfg = ray.get(workers[0].get_training_config.remote())
+    if quorum is None:
+        quorum = num_workers * train_cfg["accumulate_gradient"]
+
+    evaluater = ray.remote(Evaluater).remote()
     optimizer = workers[0].get_optimizer.remote()
 
-    conn = ray.remote(SharedOptimizer).remote(quorum, optimizer)
+    conn = ray.remote(SharedOptimizer).remote(quorum, optimizer,
+        remote_optimizer=True)
     futures = [] 
     for i, w in enumerate(workers):
         futures.append(w.train.remote(use_gpu, conn, evaluater))
