@@ -116,6 +116,12 @@ class Worker:
                 component.model.set_params_proxy(proxy)
 
 class Evaluater:
+    """Share evaluation results between workers.
+
+    One worker should publish evaluation results to the Evaluater,
+    while the other workers should retrieve them (using a wait-loop if
+    necessary).
+    """
     def __init__(self):
         self.scores = []
 
@@ -170,13 +176,16 @@ def distributed_setup_and_train(
     ]
     train_cfg = ray.get(workers[0].get_training_config.remote())
     if quorum is None:
+        # Default to setting the 'quorum' to be the number of workers multiplied
+        # by the accumulate_gradient value. This is how many gradients for a
+        # parameter we will accumulate before running the optimizer.
         quorum = num_workers * train_cfg["accumulate_gradient"]
 
     evaluater = ray.remote(Evaluater).remote()
     optimizer = workers[0].get_optimizer.remote()
 
     conn = ray.remote(SharedOptimizer).remote(quorum, optimizer,
-        remote_optimizer=True)
+        remote_optimizer=False)
     futures = [] 
     for i, w in enumerate(workers):
         futures.append(w.train.remote(use_gpu, conn, evaluater))

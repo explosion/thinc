@@ -68,6 +68,9 @@ class _RemoteOptimizer:
         params, grads = self.opt(key, params.copy(), grads.copy())
         return params
 
+    def step_schedules(self):
+        return self.opt.step_schedules()
+
 
 class SharedOptimizer:
     """Provide access to an optimizer for multiple workers. Designed to be
@@ -89,6 +92,9 @@ class SharedOptimizer:
         self._grad_counts = Counter()
         self._transaction_ids = Counter()
         self._progress = Counter()
+
+    def get_quorum(self):
+        return self.quorum
 
     def inc_progress(self, worker_id):
         self._progress[worker_id] += 1
