@@ -3,8 +3,10 @@ from spacy.cli.train import load_nlp_and_config, msg, train_while_improving
 from spacy.cli.train import create_train_batches, create_evaluation_callback
 from spacy.cli.train import setup_printer
 from spacy.gold import Corpus
-from thinc.backends._ray_remote_params import RayProxy, SharedOptimizer
+from thinc.backends._ray_remote_params import RayHeadProxy, RayChildProxy, SharedParams
+from thinc.api import require_gpu, use_pytorch_for_gpu_memory
 import time
+import os
 
 
 class Worker:
@@ -25,6 +27,12 @@ class Worker:
 
     def get_optimizer(self):
         return self.config["training"]["optimizer"]
+
+    def get_quorum(self):
+        # Default to setting the 'quorum' to be the number of workers multiplied
+        # by the accumulate_gradient value. This is how many gradients for a
+        # parameter we will accumulate before running the optimizer.
+        return self.num_workers * self.config["training"]["accumulate_gradient"]
  
     def train(self, use_gpu, conn, evaluater):
         def evaluate():
@@ -39,8 +47,6 @@ class Worker:
                     scores = ray.get(evaluater.get_scores.remote())
                 return scores
 
-        quorum = ray.get(conn.get_quorum.remote())
-        self.config["training"]["batch_size"] //= quorum
         self._set_params_proxies(self.nlp, conn)
         train_batches = create_train_batches(
             self.nlp,
@@ -110,7 +116,15 @@ class Worker:
         nlp.begin_training(lambda: train_examples)
 
     def _set_params_proxies(self, nlp, conn):
-        proxy = RayProxy(conn)
+        if self.rank == 0:
+            proxy = RayHeadProxy(
+                conn,
+                self.get_optimizer(),
+                self.get_quorum(),
+                ray=ray
+            )
+        else:
+            proxy = RayChildProxy(conn)
         for name, component in nlp.pipeline:
             if hasattr(component, "model"):
                 component.model.set_params_proxy(proxy)
@@ -145,11 +159,12 @@ class FakeOptimizer:
         raise ValueError("Should not be called?")
 
     def step_schedules(self):
-        ray.get(self._futures)
-        self._futures = []
-        if self.worker_id == 0:
-            self._futures.append(self.conn.step_schedules.remote())
-        self._futures.append(self.conn.inc_progress.remote(self.worker_id))
+        pass
+        #ray.get(self._futures)
+        #self._futures = []
+        #if self.worker_id == 0:
+        #    self._futures.append(self.conn.step_schedules.remote())
+        #self._futures.append(self.conn.inc_progress.remote(self.worker_id))
 
 
 def distributed_setup_and_train(
@@ -158,7 +173,6 @@ def distributed_setup_and_train(
     strategy,
     ray_address,
     paths,
-    quorum=None
 ):
     print("Use ray", num_workers)
     if ray_address is not None:
@@ -168,24 +182,14 @@ def distributed_setup_and_train(
 
     RemoteWorker = ray.remote(Worker).options(
         num_gpus=int(use_gpu >= 0),
-        num_cpus=1
+        num_cpus=2
     )
     workers = [
         RemoteWorker.remote(rank, num_workers, paths, use_gpu=use_gpu)
         for rank in range(num_workers)
     ]
-    train_cfg = ray.get(workers[0].get_training_config.remote())
-    if quorum is None:
-        # Default to setting the 'quorum' to be the number of workers multiplied
-        # by the accumulate_gradient value. This is how many gradients for a
-        # parameter we will accumulate before running the optimizer.
-        quorum = num_workers * train_cfg["accumulate_gradient"]
-
     evaluater = ray.remote(Evaluater).remote()
-    optimizer = workers[0].get_optimizer.remote()
-
-    conn = ray.remote(SharedOptimizer).remote(quorum, optimizer,
-        remote_optimizer=False)
+    conn = ray.remote(SharedParams).options(num_gpus=0).remote()
     futures = [] 
     for i, w in enumerate(workers):
         futures.append(w.train.remote(use_gpu, conn, evaluater))
