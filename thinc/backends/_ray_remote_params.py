@@ -1,5 +1,6 @@
 from typing import Dict, Tuple
 from collections import defaultdict, Counter
+from murmurhash import mrmr
 
 from ..types import FloatsXd
 from ..util import get_array_module
@@ -9,6 +10,7 @@ KeyT = Tuple[int, str]
 
 
 def make_key(model_id: int, name: str) -> int:
+    return mrmr.hash_unicode(name, seed=model_id)
 
 
 class RayHeadProxy:
@@ -75,10 +77,12 @@ class RayHeadProxy:
         else:
             if grad_count != 0:
                 remote_grad = self._decode_pointer(
-                    self.conn.get_grad.remote(
-                        version,
-                        model_id,
-                        name,
+                    self.ray.get(
+                        self.conn.get_grad.remote(
+                            version,
+                            model_id,
+                            name,
+                        )
                     )
                 )
                 if remote_grad is not None:
@@ -92,7 +96,7 @@ class RayHeadProxy:
                     version+1,
                     model_id,
                     name,
-                    self._encode_pointer(value)
+                    self._encode_pointer(param)
                 )
             else:
                 self.conn.set_grad.remote(
@@ -110,7 +114,10 @@ class RayHeadProxy:
         return [self.ray.put(value)]
  
     def _decode_pointer(self, value):
-        return self.ray.get(value)[0]
+        if value is None:
+            return None
+        else:
+            return self.ray.get(value)[0]
 
 
 class RayChildProxy:
@@ -162,8 +169,13 @@ class RayChildProxy:
                 )
             )
         else:
-            remote_grad = self._decode_pointer(self.conn.get_grad.remote(
-                version, model_id, name))
+            remote_grad = self._decode_pointer(
+                self.ray.get(
+                    self.conn.get_grad.remote(
+                        version, model_id, name
+                    )
+                )
+            )
             if remote_grad is not None:
                 value += remote_grad
             self.ray.get(
