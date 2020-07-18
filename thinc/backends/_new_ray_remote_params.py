@@ -145,7 +145,7 @@ class RayHeadProxy:
             return grads_required
         else:
             self._grad_counts[i] += len(remote_grads)
-            for grad in remote_grads:
+            for grad in self.ray.get(remote_grads):
                 self._grads[i] += grad
             return grads_required - len(remote_grads)
  
@@ -178,7 +178,6 @@ class RayChildProxy:
 
     def get_param(self, model_id: int, name: str):
         """Get a parameter from the connection."""
-        # TODO: What to do on first get?
         key = make_key(model_id, name)
         self._maybe_update_param(key)
         self._begin_params_pull() 
@@ -203,7 +202,7 @@ class RayChildProxy:
             self.conn.inc_grad.remote(
                 version,
                 i,
-                value
+                encode_pointer(self.ray, value)
             )
 
     def _begin_params_pull(self):
@@ -241,13 +240,15 @@ class RayChildProxy:
             self._next_params.append(None)
 
 
+ObjectID = int
+
 @dataclass
 class ParamData:
     key: Tuple[int, str]
     version: int
     timestamp: Any
     value: FloatsXd
-    grads: List[FloatsXd]
+    grads: List[ObjectID]
 
 
 class SharedParams:
@@ -301,9 +302,9 @@ class SharedParams:
         else:
             return self._params[i].grads
     
-    def inc_grad(self, version:  int, i: int, value: FloatsXd) -> None:
+    def inc_grad(self, version:  int, i: int, value: List[ObjectID]) -> None:
         if self._params[i] is None:
             return
         elif self._params[i].version != version:
             return
-        self._params[i].grads.append(value)
+        self._params[i].grads.extend(value)
