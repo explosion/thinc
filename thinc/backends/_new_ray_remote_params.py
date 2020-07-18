@@ -70,6 +70,7 @@ class RayHeadProxy:
             self._versions[i] += 1
             version = self._versions[i]
             self.conn.set_param.remote(
+                key,
                 version,
                 i,
                 value
@@ -104,6 +105,12 @@ class RayHeadProxy:
         self._versions.append(0)
         self._grads.append(None)
         self._grad_counts.append(0)
+        self.conn.set_param.remote(
+            key,
+            0,
+            i,
+            value
+        )
 
     def _update_param(self, key: Tuple[int, str]):
         i = self._key_to_i[key]
@@ -112,7 +119,7 @@ class RayHeadProxy:
         self._grad_counts[i] = 0
         self._versions[i] += 1
         self._params[i] = param
-        self.conn.set_param(self._versions[i], i, self._params[i])
+        self.conn.set_param.remote(key, self._versions[i], i, self._params[i])
 
     def _increment_local_grad(self, i: int, value: FloatsXd) -> int:
         self._grad_counts[i] += 1
@@ -128,7 +135,7 @@ class RayHeadProxy:
         gradients for an update.
         """
         remote_grads = self.ray.get(
-            self.conn.maybe_get_grads(
+            self.conn.maybe_get_grads.remote(
                 self._versions[i],
                 i,
                 grads_required
@@ -143,7 +150,7 @@ class RayHeadProxy:
             return grads_required - len(remote_grads)
  
 
-class _BulkRayChildProxy:
+class RayChildProxy:
     """Experimental"""
     ray: Any
     conn: Any
@@ -189,20 +196,21 @@ class _BulkRayChildProxy:
     def inc_grad(self, model_id: int, name: str, value):
         """Increment a gradient to the connection."""
         key = make_key(model_id, name)
-        i = self._key_to_i[key]
-        has_update = self._maybe_update_param(i)
+        has_update = self._maybe_update_param(key)
         if not has_update:
+            i = self._key_to_i[key]
             version = self._versions[i]
             self.conn.inc_grad.remote(
                 version,
-                key,
+                i,
                 value
             )
 
     def _begin_params_pull(self):
         new_time = timer()
         if (new_time - self._last_update) >= self._poll_freq:
-            self._next_params = self.conn.get_param_updates(self._last_update)
+            self.conn._ray_method_num_return_vals["get_updated_params"] = len(self._params)
+            self._next_params = self.conn.get_updated_params.remote(self._last_update)
             self._last_update = new_time
 
     def _maybe_update_param(self, key):
@@ -244,12 +252,12 @@ class ParamData:
 
 class SharedParams:
     """Experimental"""
-    def __init__(self, n_params):
-        self._params = [ParamData(0, None, None, []) for _ in range(n_params)]
+    def __init__(self):
+        self._params = []
 
     def get_params(self) -> List[Tuple[Tuple[int, str], int, FloatsXd]]:
         """Get all parameters and their versions."""
-        return [(p.key, p.version, p.param) for p in self._params]
+        return [(p.key, p.version, p.value) if p is not None else None for p in self._params]
 
     def get_updated_params(self, since: float) -> List[Optional[Tuple[int, FloatsXd]]]:
         """Return a list with params that have changed since a given timestamp,
@@ -262,10 +270,14 @@ class SharedParams:
             elif p.timestamp < since:
                 updates.append(None)
             else:
-                updates.append((p.version, p.param))
+                updates.append((p.version, p.value))
         return updates
 
     def set_param(self, key: Tuple[int, str], version: int, i: int, value: FloatsXd):
+        if i == len(self._params):
+            self._params.append(None)
+        elif i > len(self._params):
+            raise IndexError(f"Missing param? {i}, {len(self._params)}")
         self._params[i] = ParamData(
             key=key,
             version=version,
@@ -273,6 +285,21 @@ class SharedParams:
             value=value,
             grads=[]
         )
+
+    def maybe_get_grads(
+        self,
+        version: int,
+        i: int,
+        grads_required: int
+    ) -> Optional[List[FloatsXd]]:
+        if i >= len(self._params):
+            return None
+        elif self._params[i].version != version:
+            return None
+        elif len(self._params[i].grads) < grads_required:
+            return None
+        else:
+            return self._params[i].grads
     
     def inc_grad(self, version:  int, i: int, value: FloatsXd) -> None:
         if self._params[i] is None:
