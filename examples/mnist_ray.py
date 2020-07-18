@@ -8,7 +8,7 @@ import ml_datasets
 from wasabi import msg
 from tqdm import tqdm
 import typer
-from thinc.backends._ray_remote_params import RayProxy, SharedOptimizer
+from thinc.backends._new_ray_remote_params import RayHeadProxy, RayChildProxy, SharedParams
 import ray
 
 
@@ -46,8 +46,17 @@ class Worker:
         # Set any missing shapes for the model.
         self.model.initialize(X=train_X[:5], Y=train_Y[:5])
 
-    def set_proxy(self, connection):
-        self.model.set_params_proxy(RayProxy(connection))
+    def set_proxy(self, connection, optimizer, quorum):
+        if self.i == 0:
+            self.model.set_params_proxy(
+                RayHeadProxy(
+                    connection,
+                    optimizer,
+                    quorum
+                )
+            )
+        else:
+            self.model.set_params_proxy(RayChildProxy(connection))
 
     def train_epoch(self):
         for X, Y in self.train_data:
@@ -70,14 +79,15 @@ def main(
     n_epoch: int=10, quorum: int=2, n_workers: int=1
 ):
     ray.init()
+    optimizer = Adam(0.001)
     workers = []
-    conn = ray.remote(SharedOptimizer).remote(quorum, Adam(0.001))
+    conn = ray.remote(SharedParams).remote()
     print("Create workers")
     for i in range(n_workers):
         worker = Worker.remote(i, n_workers)
         ray.get(worker.add_model.remote(n_hidden, dropout))
         ray.get(worker.add_data.remote(batch_size))
-        ray.get(worker.set_proxy.remote(conn))
+        ray.get(worker.set_proxy.remote(conn, optimizer, quorum))
         workers.append(worker)
     for i in range(n_epoch):
         futures = []
