@@ -81,10 +81,6 @@ class RayProxy:
             )
             self._last_update = new_time
             self._next_params.update(updates)
-            if updates:
-                self._poll_freq -= self._poll_freq * 0.1
-            else:
-                self._poll_freq += self._poll_freq * 0.1
 
     def _maybe_update_param(self, key):
         if self._next_params.get(key) is None:
@@ -130,6 +126,7 @@ class SharedOptimizer:
         self.optimizer = optimizer
         self._params = {}
         self._progress = Counter()
+        self._n_updates = 0
 
     def get_quorum(self):
         return self.quorum
@@ -215,3 +212,4 @@ class SharedOptimizer:
             self._params[key].grad_count = 0
             self._params[key].version += 1
             self._params[key].timestamp = timer()
+            self._n_updates += 1
