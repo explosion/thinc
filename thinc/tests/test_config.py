@@ -762,3 +762,31 @@ def test_make_from_config_overrides():
 def test_is_in_config(prop, expected):
     config = {"a": {"b": {"c": 5, "d": 6}, "e": [1, 2]}}
     assert my_registry._is_in_config(prop, config) is expected
+
+
+def test_make_from_config_prefilled_values():
+    class Language:
+        def __init__(self):
+            ...
+
+    @my_registry.optimizers("prefilled.v1")
+    def prefilled(nlp: Language, value: int = 10):
+        return (nlp, value)
+
+    config = {"test": {"@optimizers": "prefilled.v1", "nlp": Language(), "value": 50}}
+    result = my_registry.make_from_config(config, validate=True)["test"]
+    assert isinstance(result[0], Language)
+    assert result[1] == 50
+
+
+def test_fill_config_dict_return_type():
+    """Test that a registered function returning a dict is hanlded correctly."""
+
+    @my_registry.cats.register("catsie_with_dict.v1")
+    def catsie_with_dict(evil: StrictBool) -> Dict[str, bool]:
+        return {"not_evil": not evil}
+
+    config = {"test": {"@cats": "catsie_with_dict.v1", "evil": False}, "foo": 10}
+    result = my_registry.fill_config(config, validate=True)["test"]
+    assert result["evil"] is False
+    assert "not_evil" not in result

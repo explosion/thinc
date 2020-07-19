@@ -293,6 +293,10 @@ class registry(object):
                     )
                 validation[key] = getter_result
                 final[key] = getter_result
+                if isinstance(validation[key], dict):
+                    # The registered function returned a dict, prevent it from
+                    # being validated as a config section
+                    validation[key] = {}
                 if isinstance(validation[key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
