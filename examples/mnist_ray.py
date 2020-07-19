@@ -36,7 +36,8 @@ class Worker:
         self.optimizer = None
         self.train_data = None
         self.dev_data = None
-        self.timers = {k: Timer(k) for k in ["update", "backprop", "finish"]}
+        self.timers = {k: Timer(k) for k in ["forward", "backprop"]}
+        self.conn = None
 
     def add_model(self, n_hidden, dropout):
         # Define the model
@@ -64,15 +65,16 @@ class Worker:
 
     def set_proxy(self, connection, use_thread=False):
         self.model.set_params_proxy(RayProxy(connection, use_thread=use_thread))
+        self.conn = connection
 
     def train_epoch(self):
         for X, Y in self.train_data:
-            with self.timers["update"]:
-                Yh, backprop = self.model.begin_update(X)
-            with self.timers["backprop"]:
-                backprop(Yh - Y)
-            with self.timers["finish"]:
-                self.model.finish_update(self.optimizer)
+            #with self.timers["forward"]:
+            Yh, backprop = self.model.begin_update(X)
+            #with self.timers["backprop"]:
+            backprop(Yh - Y)
+            #with self.timers["finish"]:
+            #    self.model.finish_update(self.optimizer)
 
     def evaluate(self):
         correct = 0
@@ -86,14 +88,16 @@ class Worker:
 
 def main(
     n_hidden: int = 256, dropout: float = 0.2, n_iter: int = 10, batch_size: int = 256,
-    n_epoch: int=10, quorum: int=3, n_workers: int=8, use_thread: bool = False
+    n_epoch: int=10, quorum: int=None, n_workers: int=2, use_thread: bool = False
 ):
+    if quorum is None:
+        quorum = n_workers
+    batch_size //= n_workers
     ray.init()
     optimizer = Adam(0.001)
     workers = []
     RemoteOptimizer = ray.remote(SharedOptimizer)
-    conn = RemoteOptimizer.options(max_concurrency=n_workers*2).remote(optimizer, quorum)
-    print("Create workers")
+    conn = RemoteOptimizer.remote(optimizer, quorum)
     for i in range(n_workers):
         worker = Worker.remote(i, n_workers)
         ray.get(worker.add_model.remote(n_hidden, dropout))
