@@ -61,7 +61,7 @@ class RayProxy:
     _next_params: Dict
     _versions: Dict
 
-    def __init__(self, connection, *, ray=None, use_thread=False, poll_every=0.1):
+    def __init__(self, connection, *, ray=None, use_thread=False, poll_every=0.5):
         if ray is None:
             import ray # type: ignore
         # Pass in 'ray' so that we can test with a mock object.
