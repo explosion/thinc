@@ -191,6 +191,36 @@ class registry(object):
         return func
 
     @classmethod
+    def resolve(
+        cls,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        *,
+        schema: Type[BaseModel] = EmptySchema,
+        overrides: Dict[str, Any] = {},
+        validate: bool = True,
+    ) -> Tuple[Config, Config]:
+        """Unpack a config dictionary and create two versions of the config:
+        a resolved version with objects from the registry created recursively,
+        and a filled version with all references to registry functions left
+        intact, but filled with all values and defaults based on the type
+        annotations. If validate=True, the config will be validated against the
+        type annotations of the registered functions referenced in the config
+        (if available) and/or the schema (if available).
+        """
+        # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
+        # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
+        if cls.is_promise(config):
+            err_msg = "The top-level config object can't be a reference to a registered function."
+            raise ConfigValidationError(config, [{"msg": err_msg}])
+        filled, _, resolved = cls._fill(
+            config, schema, validate=validate, overrides=overrides
+        )
+        # Check that overrides didn't include invalid properties not in config
+        if validate:
+            cls._validate_overrides(filled, overrides)
+        return resolved, filled
+
+    @classmethod
     def make_from_config(
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
@@ -206,15 +236,9 @@ class registry(object):
         """
         # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
         # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
-        if cls.is_promise(config):
-            err_msg = "The top-level config object can't be a reference to a registered function."
-            raise ConfigValidationError(config, [{"msg": err_msg}])
-        filled, _, resolved = cls._fill(
-            config, schema, overrides=overrides, validate=validate
+        resolved, _ = cls.resolve(
+            config, schema=schema, overrides=overrides, validate=validate
         )
-        # Check that overrides didn't include invalid properties not in config
-        if validate:
-            cls._validate_overrides(filled, overrides)
         return resolved
 
     @classmethod
@@ -233,15 +257,9 @@ class registry(object):
         functions referenced in the config (if available) and/or the schema
         (if available).
         """
-        # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
-        # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
-        if cls.is_promise(config):
-            err_msg = "The top-level config object can't be a reference to a registered function."
-            raise ConfigValidationError(config, [{"msg": err_msg}])
-        filled, _, _ = cls._fill(config, schema, validate=validate, overrides=overrides)
-        # Check that overrides didn't include invalid properties not in config
-        if validate:
-            cls._validate_overrides(filled, overrides)
+        _, filled = cls.resolve(
+            config, schema=schema, overrides=overrides, validate=validate
+        )
         return filled
 
     @classmethod
