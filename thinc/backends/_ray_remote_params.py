@@ -1,7 +1,7 @@
-from typing import Dict, Tuple
+from typing import Dict, Tuple, Any
 from collections import defaultdict, Counter
 from murmurhash import mrmr
-
+from dataclasses import dataclass
 from ..types import FloatsXd
 from ..util import get_array_module
 
@@ -106,13 +106,13 @@ class RayHeadProxy:
                     self._encode_pointer(value),
                     grad_count + 1
                 )
- 
+
     def step_schedules(self):
         self.optimizer.step_schedules()
 
     def _encode_pointer(self, value):
         return [self.ray.put(value)]
- 
+
     def _decode_pointer(self, value):
         if value is None:
             return None
@@ -193,7 +193,7 @@ class RayChildProxy:
             return None
         else:
             return [self.ray.put(value)]
- 
+
     def _decode_pointer(self, value):
         if value is None:
             return None
@@ -204,7 +204,7 @@ class RayChildProxy:
         """Await any futures for a given key."""
         self.ray.get(self._futures.get(key, []))
         self._futures[key] = []
- 
+
 class RayHeadProxy:
     """Proxy for the 'head' worker that owns the optimizer and pushes
     parameter updates.
@@ -298,13 +298,13 @@ class RayHeadProxy:
                     self._encode_pointer(value),
                     grad_count + 1
                 )
- 
+
     def step_schedules(self):
         self.optimizer.step_schedules()
 
     def _encode_pointer(self, value):
         return [self.ray.put(value)]
- 
+
     def _decode_pointer(self, value):
         if value is None:
             return None
@@ -351,7 +351,7 @@ class _BulkRayChildProxy:
         key = make_key(model_id, name)
         i = self._key_to_i[key]
         self._maybe_update_param(i)
-        self._begin_params_pull() 
+        self._begin_params_pull()
         return param
 
     def set_param(self, model_id: int, name: str, value):
@@ -407,7 +407,7 @@ class BulkSharedParams:
             value,
             []
         )
-    
+
     def inc_grad(self, version, i, value):
         if self._params[i] is None:
             return
@@ -423,10 +423,10 @@ class SharedParams:
         self._grad_counts = Counter()
         self._transaction_ids = Counter()
         self._progress = Counter()
- 
+
     def inc_progress(self, worker_id):
         self._progress[worker_id] += 1
-    
+
     def get_progress(self):
         return self._progress
 
@@ -494,7 +494,7 @@ class SharedParams:
     #            self._grad_counts[key] += 1
     #        return self._grad_counts[key]
 
- 
+
 #class _RemoteOptimizer:
 #    """Expose a thinc Optimizer instance as a remote task."""
 #    def __init__(self, opt):
@@ -534,7 +534,7 @@ class SharedParams:
 #
 #    def inc_progress(self, worker_id):
 #        self._progress[worker_id] += 1
-#    
+#
 #    def get_progress(self):
 #        return self._progress
 #
@@ -613,7 +613,7 @@ class SharedParams:
 #                    self._grads[key].copy()
 #                )
 #                self._params[key] = params
-# 
+#
 #            self._transaction_ids[key] += 1
 #            self._grad_counts[key] = 0
 #            self._grads[key] = None

@@ -2,7 +2,9 @@ from typing import Dict, Tuple, Any
 from timeit import default_timer as timer
 from dataclasses import dataclass
 from collections import Counter
-
+import time
+import threading
+from collections import UserDict
 from ..types import FloatsXd
 
 
@@ -12,6 +14,43 @@ KeyT = Tuple[int, str]
 def make_key(model_id: int, name: str) -> Tuple[int, str]:
     return (model_id, name)
 
+class Timer:
+    def __init__(self, state):
+        self.state = state
+        self.sum = 0
+        self.n = 0
+
+    def __enter__(self):
+        self.start = time.time()
+        self.n += 1
+
+    def __exit__(self, *args):
+        interval = time.time() - self.start
+        self.sum += interval
+        print(f"{self.state}: {self.sum / self.n:0.4f}")
+
+
+class ManyTimer:
+    def __init__(self):
+        self.timers = {}
+
+    def __call__(self, key):
+        if key not in self.timers:
+            self.timers[key] = Timer(key)
+        return self.timers[key]
+
+def thread_function(fetch_event, next_params, ray_, conn):
+    _last_update = 0
+    while True:
+        fetch_event.wait()
+        updates = ray_.get(
+            conn.get_updated_params.remote(_last_update)
+        )
+        new_time = timer()
+        _last_update = new_time
+        next_params.update(updates)
+        print('fetched')
+        fetch_event.clear()
 
 class RayProxy:
     """Proxy for the 'head' worker that owns the optimizer and pushes
@@ -23,7 +62,7 @@ class RayProxy:
     _next_params: Dict
     _versions: Dict
 
-    def __init__(self, connection, *, ray=None, poll_freq=0.1):
+    def __init__(self, connection, *, ray=None, poll_freq=0.1, use_thread=False):
         if ray is None:
             import ray # type: ignore
         # Pass in 'ray' so that we can test with a mock object.
@@ -35,6 +74,16 @@ class RayProxy:
         self._params = {}
         self._versions = {}
         self._next_params = {}
+        self.timers = ManyTimer()
+
+        self.use_thread = use_thread
+        if self.use_thread:
+            print('starting thread')
+            self.fetch_event = threading.Event()
+            self.thread = threading.Thread(target=thread_function, args=(
+                self.fetch_event, self._next_params, self.ray, self.conn), daemon=True)
+            self.thread.start()
+            print('threadstarted')
 
     def set_param(self, model_id: int, name: str, value: FloatsXd) -> None:
         """Set a parameter to the connection."""
@@ -66,21 +115,25 @@ class RayProxy:
     def inc_grad(self, model_id: int, name: str, value: FloatsXd) -> None:
         """Increment a gradient to the connection."""
         key = make_key(model_id, name)
+        # with self.timers(f"inc_grad:"):
+        self._begin_params_pull()
         self.conn.inc_grad.remote(
             key,
             self._versions[key],
             value
         )
-        self._begin_params_pull()
 
     def _begin_params_pull(self):
         new_time = timer()
-        if (new_time - self._last_update) >= self._poll_freq:
-            updates = self.ray.get(
-                self.conn.get_updated_params.remote(self._last_update) 
-            )
-            self._last_update = new_time
-            self._next_params.update(updates)
+        if self.use_thread:
+            self.fetch_event.set()
+        else:
+            if (new_time - self._last_update) >= self._poll_freq:
+                updates = self.ray.get(
+                    self.conn.get_updated_params.remote(self._last_update)
+                )
+                self._last_update = new_time
+                self._next_params.update(updates)
 
     def _maybe_update_param(self, key):
         if self._next_params.get(key) is None:
@@ -133,7 +186,7 @@ class SharedOptimizer:
 
     def inc_progress(self, worker_id):
         self._progress[worker_id] += 1
-    
+
     def get_progress(self):
         return self._progress
 

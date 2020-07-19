@@ -33,7 +33,7 @@ class Worker:
         # by the accumulate_gradient value. This is how many gradients for a
         # parameter we will accumulate before running the optimizer.
         return self.num_workers * self.config["training"]["accumulate_gradient"]
- 
+
     def train(self, use_gpu, conn, evaluater):
         def evaluate():
             if self.rank == 0:
@@ -190,7 +190,7 @@ def distributed_setup_and_train(
     ]
     evaluater = ray.remote(Evaluater).remote()
     conn = ray.remote(SharedParams).options(num_gpus=0).remote()
-    futures = [] 
+    futures = []
     for i, w in enumerate(workers):
         futures.append(w.train.remote(use_gpu, conn, evaluater))
     ray.get(futures)
