@@ -91,7 +91,8 @@ def main(
     ray.init()
     optimizer = Adam(0.001)
     workers = []
-    conn = ray.remote(SharedOptimizer).remote(optimizer, quorum)
+    RemoteOptimizer = ray.remote(SharedOptimizer)
+    conn = RemoteOptimizer.options(max_concurrency=8).remote(optimizer, quorum)
     print("Create workers")
     for i in range(n_workers):
         worker = Worker.remote(i, n_workers)

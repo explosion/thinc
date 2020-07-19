@@ -1,5 +1,6 @@
 from typing import Dict, Tuple, Any
 from timeit import default_timer as timer
+import threading
 from dataclasses import dataclass
 from collections import Counter
 import time
@@ -39,10 +40,11 @@ class ManyTimer:
             self.timers[key] = Timer(key)
         return self.timers[key]
 
-def thread_function(fetch_event, next_params, ray_, conn):
+def thread_function(fetch_event, next_params, ray_, conn, poll):
     _last_update = 0
     while True:
-        fetch_event.wait()
+        time.sleep(poll)
+        # fetch_event.wait()
         updates = ray_.get(
             conn.get_updated_params.remote(_last_update)
         )
@@ -50,7 +52,7 @@ def thread_function(fetch_event, next_params, ray_, conn):
         _last_update = new_time
         next_params.update(updates)
         print('fetched')
-        fetch_event.clear()
+        # fetch_event.clear()
 
 class RayProxy:
     """Proxy for the 'head' worker that owns the optimizer and pushes
@@ -81,9 +83,7 @@ class RayProxy:
             print('starting thread')
             self.fetch_event = threading.Event()
             self.thread = threading.Thread(target=thread_function, args=(
-                self.fetch_event, self._next_params, self.ray, self.conn), daemon=True)
-            self.thread.start()
-            print('threadstarted')
+                self.fetch_event, self._next_params, self.ray, self.conn, self._poll_freq), daemon=True)
 
     def set_param(self, model_id: int, name: str, value: FloatsXd) -> None:
         """Set a parameter to the connection."""
@@ -126,7 +126,10 @@ class RayProxy:
     def _begin_params_pull(self):
         new_time = timer()
         if self.use_thread:
-            self.fetch_event.set()
+            if not self.thread.is_alive():
+                self.thread.start()
+                print('threadstarted')
+            # self.fetch_event.set()
         else:
             if (new_time - self._last_update) >= self._poll_freq:
                 updates = self.ray.get(
@@ -180,6 +183,7 @@ class SharedOptimizer:
         self._params = {}
         self._progress = Counter()
         self._n_updates = 0
+        self.write_lock = threading.Lock()
 
     def get_quorum(self):
         return self.quorum
@@ -212,57 +216,66 @@ class SharedOptimizer:
         return updates
 
     def set_param(self, key, value):
-        if key in self._params:
-            version = self._params[key].version + 1
-        else:
-            version = 0
-        self._params[key] = ParamData(
-            key=key,
-            value=value,
-            version=version,
-            grads=None,
-            grad_count=0,
-            timestamp=timer()
-        )
-        return self._params[key].version
+        with self.write_lock:
+            if key in self._params:
+                version = self._params[key].version + 1
+            else:
+                version = 0
+            self._params[key] = ParamData(
+                key=key,
+                value=value,
+                version=version,
+                grads=None,
+                grad_count=0,
+                timestamp=timer()
+            )
+            return self._params[key].version
 
     def set_grad(self, tid, key, value):
-        if key not in self._params:
-            return None
-        elif tid != self._params[key].version:
-            # If we've moved past this version, discard the gradient.
-            return None
-        else:
-            self._params[key].grads = value.copy()
-            self._params[key].grad_count = 1
-            self._update_if_quorum(key)
+        with self.write_lock:
+            if key not in self._params:
+                return None
+            elif tid != self._params[key].version:
+                # If we've moved past this version, discard the gradient.
+                return None
+            else:
+                self._params[key].grads = value.copy()
+                self._params[key].grad_count = 1
+                self._update_if_quorum(key)
 
     def inc_grad(self, key, tid, value):
-        if key not in self._params:
-            return None
-        elif tid != self._params[key].version:
-            return None
-        elif self._params[key].grads is None:
-            self._params[key].grads = value.copy()
-            self._params[key].grad_count = 1
-            self._update_if_quorum(key)
-        else:
-            self._params[key].grads += value
-            self._params[key].grad_count += 1
-            self._update_if_quorum(key)
+        with self.write_lock:
+            if key not in self._params:
+                return None
+            elif tid != self._params[key].version:
+                return None
+            elif self._params[key].grads is None:
+                self._params[key].grads = value.copy()
+                self._params[key].grad_count = 1
+                self._update_if_quorum(key)
+            else:
+                self._params[key].grads += value
+                self._params[key].grad_count += 1
+                self._update_if_quorum(key)
 
     def _update_if_quorum(self, key):
         if key not in self._params:
             return
         if self._params[key].grad_count >= self.quorum:
+
             params, _ = self.optimizer(
                 key,
                 self._params[key].value.copy(),
                 self._params[key].grads
             )
-            self._params[key].value = params
-            self._params[key].grads = None
-            self._params[key].grad_count = 0
-            self._params[key].version += 1
-            self._params[key].timestamp = timer()
+            new_param = ParamData(
+                key=key,
+                value=params,
+                version=self._params[key].version + 1,
+                grads=None,
+                grad_count=0,
+                timestamp=timer()
+            )
+            # atomic assignment
+            self._params[key] = new_param
             self._n_updates += 1
