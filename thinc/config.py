@@ -104,7 +104,12 @@ class Config(dict):
                 flattened.add_section(section_name)
             for key, value in node.items():
                 if hasattr(value, "items"):
-                    queue.append((path + (key,), value))
+                    # Reference to a function with no arguments, serialize
+                    # inline as a dict and don't create new section
+                    if registry.is_promise(value) and len(value) == 1:
+                        flattened.set(section_name, key, srsly.json_dumps(value))
+                    else:
+                        queue.append((path + (key,), value))
                 else:
                     flattened.set(section_name, key, srsly.json_dumps(value))
         string_io = io.StringIO()

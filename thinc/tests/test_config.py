@@ -802,3 +802,12 @@ def test_deepcopy_config():
     config = Config({"a": 1, "b": numpy})
     with pytest.raises(ValueError):
         config.copy()
+
+
+def test_config_to_str_simple_promises():
+    """Test that references to function registries without arguments are
+    serialized inline as dict."""
+    config_str = """[section]\nsubsection = {"@registry":"value"}"""
+    config = Config().from_str(config_str)
+    assert config["section"]["subsection"]["@registry"] == "value"
+    assert config.to_str() == config_str
