@@ -10,6 +10,7 @@ import catalogue
 import inspect
 import io
 import numpy
+import copy
 
 from .types import Decorator
 
@@ -72,6 +73,14 @@ class Config(dict):
                     raise ValueError(
                         f"Error reading key '{key}' in section '{section}': {e}"
                     )
+
+    def copy(self) -> "Config":
+        """Deepcopy the config."""
+        try:
+            config = copy.deepcopy(self)
+        except Exception as e:
+            raise ValueError(f"Couldn't deep-copy config: {e}")
+        return Config(config)
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."

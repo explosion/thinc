@@ -790,3 +790,15 @@ def test_fill_config_dict_return_type():
     result = my_registry.fill_config(config, validate=True)["test"]
     assert result["evil"] is False
     assert "not_evil" not in result
+
+
+def test_deepcopy_config():
+    config = Config({"a": 1, "b": {"c": 2, "d": 3}})
+    copied = config.copy()
+    # Same values but not same object
+    assert config == copied
+    assert config is not copied
+    # Check for error if value can't be pickled/deepcopied
+    config = Config({"a": 1, "b": numpy})
+    with pytest.raises(ValueError):
+        config.copy()
