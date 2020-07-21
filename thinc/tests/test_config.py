@@ -428,7 +428,7 @@ def test_make_config_positional_args_complex():
 def test_positional_args_to_from_string():
     cfg = """[a]\nb = 1\n* = ["foo","bar"]"""
     assert Config().from_str(cfg).to_str() == cfg
-    cfg = """[a]\nb = 1\n\n[a.*.foo]\ntest = 1\n\n[a.*.bar]\ntest = 2"""
+    cfg = """[a]\nb = 1\n\n[a.*.bar]\ntest = 2\n\n[a.*.foo]\ntest = 1"""
     assert Config().from_str(cfg).to_str() == cfg
 
     @my_registry.cats("catsie.v666")
