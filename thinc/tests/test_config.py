@@ -428,7 +428,7 @@ def test_make_config_positional_args_complex():
 def test_positional_args_to_from_string():
     cfg = """[a]\nb = 1\n* = ["foo","bar"]"""
     assert Config().from_str(cfg).to_str() == cfg
-    cfg = """[a]\nb = 1\n\n[a.*.foo]\ntest = 1\n\n[a.*.bar]\ntest = 2"""
+    cfg = """[a]\nb = 1\n\n[a.*.bar]\ntest = 2\n\n[a.*.foo]\ntest = 1"""
     assert Config().from_str(cfg).to_str() == cfg
 
     @my_registry.cats("catsie.v666")
@@ -790,3 +790,47 @@ def test_fill_config_dict_return_type():
     result = my_registry.fill_config(config, validate=True)["test"]
     assert result["evil"] is False
     assert "not_evil" not in result
+
+
+def test_deepcopy_config():
+    config = Config({"a": 1, "b": {"c": 2, "d": 3}})
+    copied = config.copy()
+    # Same values but not same object
+    assert config == copied
+    assert config is not copied
+    # Check for error if value can't be pickled/deepcopied
+    config = Config({"a": 1, "b": numpy})
+    with pytest.raises(ValueError):
+        config.copy()
+
+
+def test_config_to_str_simple_promises():
+    """Test that references to function registries without arguments are
+    serialized inline as dict."""
+    config_str = """[section]\nsubsection = {"@registry":"value"}"""
+    config = Config().from_str(config_str)
+    assert config["section"]["subsection"]["@registry"] == "value"
+    assert config.to_str() == config_str
+
+
+def test_config_to_str_order():
+    """Test that Config.to_str orders the sections."""
+    config = {"a": {"b": {"c": 1, "d": 2}, "e": 3}, "f": {"g": {"h": {"i": 4, "j": 5}}}}
+    expected = (
+        "[a]\ne = 3\n\n[a.b]\nc = 1\nd = 2\n\n[f]\n\n[f.g]\n\n[f.g.h]\ni = 4\nj = 5"
+    )
+    config = Config(config)
+    assert config.to_str() == expected
+
+
+@pytest.mark.xfail(reason="interpolation doesn't work because json.loads")
+def test_config_interpolation():
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a.foo}"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str)
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}"""
+    config = Config().from_str(config_str)
+    assert config["b"]["bar"] == "hello"
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}!"""
+    config = Config().from_str(config_str)
+    assert config["b"]["bar"] == "hello!"

@@ -1,6 +1,7 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation
+from configparser import InterpolationMissingOptionError
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
@@ -10,6 +11,7 @@ import catalogue
 import inspect
 import io
 import numpy
+import copy
 
 from .types import Decorator
 
@@ -65,13 +67,33 @@ class Config(dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
                 raise ConfigValidationError(f"{self}\n{({part: dict(values)})}", err)
-            for key, value in values.items():
+            try:
+                keys_values = list(values.items())
+            except InterpolationMissingOptionError as e:
+                err_msg = (
+                    "If you're using variables referring to sub-sections, make "
+                    "sure they're devided by a colon (:) not a dot. For example: "
+                    "${section:subsection}"
+                )
+                raise ConfigValidationError(f"{e}\n\n{err_msg}", [])
+            for key, value in keys_values:
                 try:
                     node[key] = srsly.json_loads(config.get(section, key))
                 except Exception as e:
-                    raise ValueError(
-                        f"Error reading key '{key}' in section '{section}': {e}"
+                    err_msg = (
+                        f"Error reading key '{key}' in section '{section}': {e}. "
+                        f"If your value is a string, make that it was provided "
+                        f"in quotes."
                     )
+                    raise ValueError(err_msg)
+
+    def copy(self) -> "Config":
+        """Deepcopy the config."""
+        try:
+            config = copy.deepcopy(self)
+        except Exception as e:
+            raise ValueError(f"Couldn't deep-copy config: {e}")
+        return Config(config)
 
     def from_str(self, text: str) -> "Config":
         "Load the config from a string."
@@ -95,9 +117,18 @@ class Config(dict):
                 flattened.add_section(section_name)
             for key, value in node.items():
                 if hasattr(value, "items"):
-                    queue.append((path + (key,), value))
+                    # Reference to a function with no arguments, serialize
+                    # inline as a dict and don't create new section
+                    if registry.is_promise(value) and len(value) == 1:
+                        flattened.set(section_name, key, srsly.json_dumps(value))
+                    else:
+                        queue.append((path + (key,), value))
                 else:
                     flattened.set(section_name, key, srsly.json_dumps(value))
+        # Order so subsection follow parent (not all sections, then all subs etc.)
+        flattened._sections = dict(
+            sorted(flattened._sections.items(), key=lambda x: x[0])
+        )
         string_io = io.StringIO()
         flattened.write(string_io)
         return string_io.getvalue().strip()
@@ -126,7 +157,7 @@ class Config(dict):
 class ConfigValidationError(ValueError):
     def __init__(
         self,
-        config: Union[Config, Dict[str, Dict[str, Any]]],
+        config: Union[Config, Dict[str, Dict[str, Any]], str],
         errors: List[Dict[str, Any]],
         message: str = "Config validation error",
         element: str = "",
@@ -138,7 +169,8 @@ class ConfigValidationError(ValueError):
             if element:
                 err_loc = f"{element} -> {err_loc}"
             data.append((err_loc, error.get("msg")))
-        result = [message, table(data), f"{config}"]
+        data_table = table(data) if data else ""
+        result = [message, data_table, f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
