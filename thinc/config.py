@@ -112,6 +112,10 @@ class Config(dict):
                         queue.append((path + (key,), value))
                 else:
                     flattened.set(section_name, key, srsly.json_dumps(value))
+        # Order so subsection follow parent (not all sections, then all subs etc.)
+        flattened._sections = dict(
+            sorted(flattened._sections.items(), key=lambda x: x[0])
+        )
         string_io = io.StringIO()
         flattened.write(string_io)
         return string_io.getvalue().strip()

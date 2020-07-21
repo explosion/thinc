@@ -811,3 +811,13 @@ def test_config_to_str_simple_promises():
     config = Config().from_str(config_str)
     assert config["section"]["subsection"]["@registry"] == "value"
     assert config.to_str() == config_str
+
+
+def test_config_to_str_order():
+    """Test that Config.to_str orders the sections."""
+    config = {"a": {"b": {"c": 1, "d": 2}, "e": 3}, "f": {"g": {"h": {"i": 4, "j": 5}}}}
+    expected = (
+        "[a]\ne = 3\n\n[a.b]\nc = 1\nd = 2\n\n[f]\n\n[f.g]\n\n[f.g.h]\ni = 4\nj = 5"
+    )
+    config = Config(config)
+    assert config.to_str() == expected
