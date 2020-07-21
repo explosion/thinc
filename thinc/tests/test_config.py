@@ -821,3 +821,16 @@ def test_config_to_str_order():
     )
     config = Config(config)
     assert config.to_str() == expected
+
+
+@pytest.mark.xfail(reason="interpolation doesn't work because json.loads")
+def test_config_interpolation():
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a.foo}"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str)
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}"""
+    config = Config().from_str(config_str)
+    assert config["b"]["bar"] == "hello"
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}!"""
+    config = Config().from_str(config_str)
+    assert config["b"]["bar"] == "hello!"

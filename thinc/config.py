@@ -1,6 +1,7 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation
+from configparser import InterpolationMissingOptionError
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
@@ -66,13 +67,25 @@ class Config(dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
                 raise ConfigValidationError(f"{self}\n{({part: dict(values)})}", err)
-            for key, value in values.items():
+            try:
+                keys_values = list(values.items())
+            except InterpolationMissingOptionError as e:
+                err_msg = (
+                    "If you're using variables referring to sub-sections, make "
+                    "sure they're devided by a colon (:) not a dot. For example: "
+                    "${section:subsection}"
+                )
+                raise ConfigValidationError(f"{e}\n\n{err_msg}", [])
+            for key, value in keys_values:
                 try:
                     node[key] = srsly.json_loads(config.get(section, key))
                 except Exception as e:
-                    raise ValueError(
-                        f"Error reading key '{key}' in section '{section}': {e}"
+                    err_msg = (
+                        f"Error reading key '{key}' in section '{section}': {e}. "
+                        f"If your value is a string, make that it was provided "
+                        f"in quotes."
                     )
+                    raise ValueError(err_msg)
 
     def copy(self) -> "Config":
         """Deepcopy the config."""
@@ -144,7 +157,7 @@ class Config(dict):
 class ConfigValidationError(ValueError):
     def __init__(
         self,
-        config: Union[Config, Dict[str, Dict[str, Any]]],
+        config: Union[Config, Dict[str, Dict[str, Any]], str],
         errors: List[Dict[str, Any]],
         message: str = "Config validation error",
         element: str = "",
@@ -156,7 +169,8 @@ class ConfigValidationError(ValueError):
             if element:
                 err_loc = f"{element} -> {err_loc}"
             data.append((err_loc, error.get("msg")))
-        result = [message, table(data), f"{config}"]
+        data_table = table(data) if data else ""
+        result = [message, data_table, f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
 
 
