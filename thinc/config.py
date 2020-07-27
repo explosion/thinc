@@ -84,7 +84,8 @@ class Config(dict):
                         f"Error reading key '{key}' in section '{section}': {e}. "
                         f"If your value is a string, make sure it was provided "
                         f"in quotes. If your value is a boolean, make sure it was "
-                        f"written in lowercase."
+                        f"written in lowercase. If you want to specify a 'None' "
+                        f"value, write it as 'null' (without quotes)."
                     )
                     raise ValueError(err_msg)
 
