@@ -20,13 +20,22 @@ context_vectors: ContextVar[dict] = ContextVar("context_vectors", default={})
 @registry.layers("StaticVectors.v1")
 def StaticVectors(
     nO: Optional[int] = None,
-    vectors: Optional[Floats2d] = None,
     *,
+    vectors_name: Optional[str] = None,
+    vectors: Optional[Floats2d] = None,
+    key2row: Optional[Dict[int, int]] = None,
+    oov_row: int=0,
     column: Optional[int] = None,
     dropout: Optional[float] = None,
     init_W: Callable = glorot_uniform_init,
 ) -> Model[InT, OutT]:
-    attrs: Dict[str, Any] = {"column": column, "vectors": Unserializable(vectors)}
+    attrs: Dict[str, Any] = {
+        "column": column,
+        "vectors_name": vectors_name
+        "vectors": vectors,
+        "key2row": key2row,
+        "oov_row": oov_row
+    }
     if dropout is not None:
         attrs["dropout_rate"] = dropout
     model = Model(  # type: ignore
@@ -48,10 +57,12 @@ def StaticVectors(
 
 
 def forward(
-    model: Model[InT, OutT], ids: Ints1d, is_train: bool
+    model: Model[InT, OutT], keys: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
     # Assume the original 'vectors' object contains the actual data and is compatible with Floats2d
     vectors = cast(Floats2d, model.attrs["vectors"].obj)
+    key2row = cast(Dict[int, int], model.attrs["key2row"].obj)
+    ids = get_rows(model.ops, keys, key2row)
     W = cast(Floats2d, model.get_param("W"))
     nN = ids.shape[0]
     vectors = vectors[ids * (ids < vectors.shape[0])]
@@ -86,3 +97,11 @@ def init(
     model.set_dim("nM", vectors.shape[1])
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nM"))))
     return model
+
+
+def get_rows(ops: Ops, keys: Ints1d, key2row: Dict[int, int], oov: int) -> Ints1d:
+    keys = ops.to_numpy(keys)
+    return ops.asarray(
+        [key2row.get(key, oov) for key in ops.to_numpy(keys)],
+        dtype=keys.dtype
+    )
