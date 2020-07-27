@@ -7,6 +7,7 @@ from .chain import chain
 from .array_getitem import ints_getitem
 from ..types import Ints1d, Floats2d, Ints2d, Floats1d, Unserializable
 from ..model import Model
+from ..backends import Ops
 from ..config import registry
 from contextvars import ContextVar
 
@@ -29,11 +30,31 @@ def StaticVectors(
     dropout: Optional[float] = None,
     init_W: Callable = glorot_uniform_init,
 ) -> Model[InT, OutT]:
+    """Embed integer IDs using a static vectors table and a learned linear
+    mapping.
+
+    To prevent data duplication, the vectors data is not serialized within the
+    layer. This means you'll often need to set the vectors after the layer has
+    been created. Standard usage is to pass in the name of the vectors, so you
+    can more accurately find the layers in that require a particular
+    vectors table.
+    
+    Arguments:
+
+    nO (int): The output width.
+    column (int): If the input data is a 2d array, use this column as the input.
+    vectors_name (str or None): An identifier string for the vectors.
+    vectors (Floats2d or None): The vectors data.
+    key2row (dict or None): A dictionary mapping the incoming keys to rows in
+        the vectors table. If None, an identity mapping is assumed.
+    oov_row (int): The row to map unseen keys to, if the key2row mapping is
+        used.
+    """
     attrs: Dict[str, Any] = {
         "column": column,
-        "vectors_name": vectors_name
-        "vectors": vectors,
-        "key2row": key2row,
+        "vectors_name": vectors_name,
+        "vectors": vectors if vectors is None else Unserializable(vectors),
+        "key2row": key2row if key2row is None else Unserializable(key2row),
         "oov_row": oov_row
     }
     if dropout is not None:
@@ -59,10 +80,14 @@ def StaticVectors(
 def forward(
     model: Model[InT, OutT], keys: Ints1d, is_train: bool
 ) -> Tuple[OutT, Callable]:
+    if model.attrs.get("vectors") is None:
+        raise AttributeError("StaticVectors has vectors unset.")
     # Assume the original 'vectors' object contains the actual data and is compatible with Floats2d
     vectors = cast(Floats2d, model.attrs["vectors"].obj)
-    key2row = cast(Dict[int, int], model.attrs["key2row"].obj)
-    ids = get_rows(model.ops, keys, key2row)
+    if model.attrs.get("key2row") is None:
+        ids = keys
+    else:
+        ids = get_rows(model.ops, keys, model.attrs["key2row"].obj)
     W = cast(Floats2d, model.get_param("W"))
     nN = ids.shape[0]
     vectors = vectors[ids * (ids < vectors.shape[0])]
