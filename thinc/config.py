@@ -82,8 +82,9 @@ class Config(dict):
                 except Exception as e:
                     err_msg = (
                         f"Error reading key '{key}' in section '{section}': {e}. "
-                        f"If your value is a string, make that it was provided "
-                        f"in quotes."
+                        f"If your value is a string, make sure it was provided "
+                        f"in quotes. If your value is a boolean, make sure it was "
+                        f"written in lowercase."
                     )
                     raise ValueError(err_msg)
 
