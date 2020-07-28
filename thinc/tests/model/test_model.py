@@ -146,6 +146,17 @@ def test_model_set_reference():
     assert not parent.has_ref("grandkind")
 
 
+def test_maybe_methods():
+    model = Linear(5)
+    assert model.maybe_get_dim("nI") is None
+    model.set_dim("nI", 4)
+    assert model.maybe_get_dim("nI") == 4
+    assert model.maybe_get_ref("boo") is None
+    assert model.maybe_get_param("W") is None
+    model.initialize()
+    assert model.maybe_get_param("W") is not None
+
+
 def test_model_can_save_to_disk(model_with_no_args):
     with make_tempdir() as path:
         model_with_no_args.to_disk(path / "thinc_model")

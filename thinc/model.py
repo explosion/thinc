@@ -189,6 +189,10 @@ class Model(Generic[InT, OutT]):
             raise ValueError(err)
         self._dims[name] = value
 
+    def maybe_get_dim(self, name: str) -> Optional[int]:
+        """Retrieve the value of a dimension of the given name, or None."""
+        return self.get_dim(name) if self.has_dim(name) else None
+
     def has_param(self, name: str) -> Optional[bool]:
         """Check whether the model has a weights parameter of the given name.
 
@@ -211,6 +215,10 @@ class Model(Generic[InT, OutT]):
             )
         return self._params.get_param(self.id, name)
 
+    def maybe_get_param(self, name: str) -> Optional[FloatsXd]:
+        """Retrieve a weights parameter by name, or None."""
+        return self.get_param(name) if self.has_param(name) else None
+
     def set_param(self, name: str, value: Optional[FloatsXd]) -> None:
         """Set a weights parameter's value."""
         if value is None:
@@ -231,6 +239,10 @@ class Model(Generic[InT, OutT]):
     def set_grad(self, name: str, value: FloatsXd) -> None:
         """Set a gradient value for the model."""
         self._params.set_grad(self.id, name, value)
+
+    def maybe_get_grad(self, name: str) -> Optional[FloatsXd]:
+        """Retrieve a gradient by name, or None."""
+        return self.get_grad(name) if self.has_grad(name) else None
 
     def inc_grad(self, name: str, value: FloatsXd) -> None:
         """Increment the gradient of a parameter by a value."""
@@ -257,6 +269,10 @@ class Model(Generic[InT, OutT]):
             raise ValueError(err)
         else:
             return value
+
+    def maybe_get_ref(self, name: str) -> Optional["Model"]:
+        """Retrieve the value of a reference if it exists, or None."""
+        return self.get_ref(name) if self.has_ref(name) else None
 
     def set_ref(self, name: str, value: Optional["Model"]) -> None:
         """Set a value for a reference."""
