@@ -270,7 +270,7 @@ class Model(Generic[InT, OutT]):
         else:
             return value
 
-    def maybe_get_ref(self, name: str) -> "Model":
+    def maybe_get_ref(self, name: str) -> Optional["Model"]:
         """Retrieve the value of a reference if it exists, or None."""
         return self.get_ref(name) if self.has_ref(name) else None
 
