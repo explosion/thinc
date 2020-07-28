@@ -22,7 +22,7 @@ def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
         init=init,
         layers=[layer],
         attrs={"pad": pad},
-        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names}
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
     )
 
 
