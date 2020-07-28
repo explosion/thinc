@@ -22,6 +22,7 @@ def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
         init=init,
         layers=[layer],
         attrs={"pad": pad},
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names}
     )
 
 
@@ -48,6 +49,10 @@ def init(
         X=_get_array(model, X) if X is not None else X,
         Y=_get_array(model, Y) if Y is not None else Y,
     )
+    for dim_name in layer.dim_names:
+        value = layer.maybe_get_dim(dim_name)
+        if value is not None:
+            model.set_dim(dim_name, value)
     return model
 
 
