@@ -191,10 +191,7 @@ class Model(Generic[InT, OutT]):
 
     def maybe_get_dim(self, name: str) -> Optional[int]:
         """Retrieve the value of a dimension of the given name, or None."""
-        if name not in self._dims:
-            return None
-        else:
-            return self._dims[name]
+        return self.get_dim(name) if self.has_dim(name) else None
 
     def has_param(self, name: str) -> Optional[bool]:
         """Check whether the model has a weights parameter of the given name.
