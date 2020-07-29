@@ -29,7 +29,7 @@ def lists_of_integers(draw, columns=2, lo=0, hi=ROWS - 1):
     return array.reshape((-1, columns))
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def model(nO=128):
     return Embed(nO, ROWS, column=0).initialize()
 
