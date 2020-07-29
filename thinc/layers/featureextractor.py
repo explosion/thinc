@@ -22,6 +22,8 @@ def forward(model: Model[InT, OutT], docs, is_train: bool) -> Tuple[OutT, Callab
             attrs = doc.to_array(columns)
         else:
             attrs = doc.doc.to_array(columns)[doc.start : doc.end]
+        if attrs.ndim == 1:
+            attrs = attrs.reshape((attrs.shape[0], 1))
         features.append(model.ops.asarray2i(attrs, dtype="uint64"))
 
     backprop: Callable[[OutT], List] = lambda d_features: []
