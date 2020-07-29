@@ -8,7 +8,7 @@ import pytest
 
 class FakeDoc:
     def to_array(self, attr_ids):
-        return attr_ids
+        return numpy.asarray(attr_ids, dtype="uint64")
 
 
 class FakeSpan:
