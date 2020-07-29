@@ -215,9 +215,9 @@ class Ops:
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
-        X = [x for x in X if x.size != 0]
-        if len(X) == 0:
-            return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
+        shape_if_empty = X[0].shape
+        if len([x for x in X if x.size != 0]) == 0:
+            return self.alloc(shape_if_empty, dtype=dtype or "f")
         if int(pad) >= 1:
             padded = []
             for x in X:
