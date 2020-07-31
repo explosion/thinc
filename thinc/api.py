@@ -3,7 +3,7 @@ from .initializers import normal_init, uniform_init, glorot_uniform_init, zero_i
 from .initializers import configure_normal_init
 from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
 from .loss import SequenceCategoricalCrossentropy
-from .model import Model, serialize_attr, deserialize_attr
+from .model import Model, serialize_attr, deserialize_attr, DATA_VALIDATION
 from .model import set_dropout_rate, change_attr_values
 from .shims import Shim, PyTorchShim, TensorFlowShim, keras_model_fns, MXNetShim
 from .shims import maybe_handshake_model
