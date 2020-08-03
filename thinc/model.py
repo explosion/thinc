@@ -11,7 +11,7 @@ import threading
 from .backends import ParamServer, Ops, NumpyOps, CupyOps, get_current_ops
 from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
-from .util import convert_recursive, is_xp_array
+from .util import convert_recursive, is_xp_array, DATA_VALIDATION
 from .util import partial, validate_fwd_input_output
 from .types import FloatsXd
 
@@ -21,7 +21,6 @@ OutT = TypeVar("OutT")
 SelfT = TypeVar("SelfT", bound="Model")
 
 context_operators: ContextVar[dict] = ContextVar("context_operators", default={})
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
 
 
 def empty_init(model: "Model", *args, **kwargs) -> "Model":

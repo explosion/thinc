@@ -1,5 +1,5 @@
 from thinc.api import registry, with_padded, Dropout, get_current_ops
-from thinc.model import DATA_VALIDATION
+from thinc.util import data_validation
 from thinc.types import Ragged, Padded
 from thinc.util import has_torch
 import numpy
@@ -125,14 +125,15 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     model = registry.make_from_config(filled)["config"]
     if "LSTM" in name:
         model = with_padded(model)
+    valid = True
     if "FeatureExtractor" in name:  # can't validate fake docs:
-        DATA_VALIDATION.set(False)
-    model.initialize(in_data, out_data)
-    Y, backprop = model(in_data, is_train=True)
-    assert_data_match(Y, out_data)
-    dX = backprop(Y)
-    assert_data_match(dX, in_data)
-    DATA_VALIDATION.set(True)
+        valid = False
+    with data_validation(valid):
+        model.initialize(in_data, out_data)
+        Y, backprop = model(in_data, is_train=True)
+        assert_data_match(Y, out_data)
+        dX = backprop(Y)
+        assert_data_match(dX, in_data)
 
 
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)

@@ -8,7 +8,11 @@ from pydantic import create_model, ValidationError
 import inspect
 import os
 import tempfile
+import threading
 import contextlib
+from contextvars import ContextVar
+
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
 
 try:  # pragma: no cover
     import cupy
@@ -437,6 +441,15 @@ def make_tempfile(mode="r"):
     yield f
     f.close()
     os.remove(f.name)
+
+
+@contextlib.contextmanager
+def data_validation(validation):
+    with threading.Lock():
+        prev = DATA_VALIDATION.get()
+        DATA_VALIDATION.set(validation)
+        yield
+        DATA_VALIDATION.set(prev)
 
 
 __all__ = [
