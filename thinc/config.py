@@ -32,7 +32,13 @@ class CustomInterpolation(ExtendedInterpolation):
             pass
         return super().before_read(parser, section, option, value)
 
-    def _interpolate_some(self, parser, option, accum, rest, section, map, depth):
+    def before_get(self, parser, section, option, value, defaults):
+        # Mostly copy-pasted from the built-in configparser implementation.
+        L = []
+        self.interpolate(parser, option, L, value, section, defaults, 1)
+        return "".join(L)
+
+    def interpolate(self, parser, option, accum, rest, section, map, depth):
         # Mostly copy-pasted from the built-in configparser implementation.
         # We need to overwrite this method so we can add special handling for
         # block references :( All values produced here should be strings –
@@ -86,9 +92,7 @@ class CustomInterpolation(ExtendedInterpolation):
                     ) from None
                 if "$" in v:
                     new_map = dict(parser.items(sect, raw=True))
-                    self._interpolate_some(
-                        parser, opt, accum, v, sect, new_map, depth + 1,
-                    )
+                    self.interpolate(parser, opt, accum, v, sect, new_map, depth + 1)
                 else:
                     accum.append(v)
             else:
