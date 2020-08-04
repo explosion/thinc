@@ -881,3 +881,33 @@ def test_config_interpolation_sections():
     config_str = """[a]\nfoo = ${b.bar}"""
     with pytest.raises(ConfigValidationError):
         config = Config().from_str(config_str)
+
+
+def test_config_from_str_overrides():
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\ne = 3\n\n[f]\ng = {"x": "y"}"""
+    # Basic value substitution
+    overrides = {"a.b": 10, "a.c.d": 20}
+    config = Config().from_str(config_str, overrides=overrides)
+    assert config["a"]["b"] == 10
+    assert config["a"]["c"]["d"] == 20
+    assert config["a"]["c"]["e"] == 3
+    # Invalid keys and sections
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"f": 10})
+    # Adding new keys that are not in initial config via overrides
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"a.b": 10, "a.c.f": 200})
+    # This currently isn't expected to work, because the dict in f.g is not
+    # interpreted as a section while the config is still just the configparser
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"f.g.x": "z"})
+    # With variables (values)
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\ne = ${a:b}"""
+    config = Config().from_str(config_str, overrides={"a.b": 10})
+    assert config["a"]["b"] == 10
+    assert config["a"]["c"]["e"] == 10
+    # With variables (sections)
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\n[e]\nf = ${a.c}"""
+    config = Config().from_str(config_str, overrides={"a.c.d": 20})
+    assert config["a"]["c"]["d"] == 20
+    assert config["e"]["f"] == {"d": 20}
