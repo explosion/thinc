@@ -1,7 +1,8 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
 from types import GeneratorType
-from configparser import ConfigParser, ExtendedInterpolation
-from configparser import InterpolationMissingOptionError
+from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
+from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
+from configparser import NoSectionError, NoOptionError, InterpolationDepthError
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
@@ -16,8 +17,87 @@ import copy
 from .types import Decorator
 
 
+SECTION_PREFIX = "__SECTION__:"
+
+
+class CustomInterpolation(ExtendedInterpolation):
+    def before_read(self, parser, section, option, value):
+        # If we're dealing with a quoted string as the interpolation value,
+        # make sure we load and unquote it so we don't end up with '"value"'
+        try:
+            json_value = srsly.json_loads(value)
+            if isinstance(json_value, str):
+                value = json_value
+        except Exception:
+            pass
+        return super().before_read(parser, section, option, value)
+
+    def _interpolate_some(self, parser, option, accum, rest, section, map, depth):
+        # Mostly copy-pasted from the built-in configparser implementation.
+        # We need to overwrite this method so we can add special handling for
+        # block references :( All values produced here should be strings –
+        # we need to wait until the whole config is interpreted anyways so
+        # filling in incomplete values here is pointless. All we need is the
+        # section reference so we can fetch it later.
+        rawval = parser.get(section, option, raw=True, fallback=rest)
+        if depth > MAX_INTERPOLATION_DEPTH:
+            raise InterpolationDepthError(option, section, rawval)
+        while rest:
+            p = rest.find("$")
+            if p < 0:
+                accum.append(rest)
+                return
+            if p > 0:
+                accum.append(rest[:p])
+                rest = rest[p:]
+            # p is no longer used
+            c = rest[1:2]
+            if c == "$":
+                accum.append("$")
+                rest = rest[2:]
+            elif c == "{":
+                m = self._KEYCRE.match(rest)
+                if m is None:
+                    err = f"bad interpolation variable reference {rest}"
+                    raise InterpolationSyntaxError(option, section, err)
+                path = m.group(1).split(":")
+                rest = rest[m.end() :]
+                sect = section
+                opt = option
+                try:
+                    if len(path) == 1:
+                        opt = parser.optionxform(path[0])
+                        if opt in map:
+                            v = map[opt]
+                        else:
+                            # We have block reference, store it as a special key
+                            section_name = parser[parser.optionxform(path[0])]._name
+                            v = f"{SECTION_PREFIX}{section_name}"
+                    elif len(path) == 2:
+                        sect = path[0]
+                        opt = parser.optionxform(path[1])
+                        v = parser.get(sect, opt, raw=True)
+                    else:
+                        err = f"More than one ':' found: {rest}"
+                        raise InterpolationSyntaxError(option, section, err)
+                except (KeyError, NoSectionError, NoOptionError):
+                    raise InterpolationMissingOptionError(
+                        option, section, rawval, ":".join(path)
+                    ) from None
+                if "$" in v:
+                    new_map = dict(parser.items(sect, raw=True))
+                    self._interpolate_some(
+                        parser, opt, accum, v, sect, new_map, depth + 1,
+                    )
+                else:
+                    accum.append(v)
+            else:
+                err = "'$' must be followed by '$' or '{', " "found: %r" % (rest,)
+                raise InterpolationSyntaxError(option, section, err)
+
+
 def get_configparser():
-    config = ConfigParser(interpolation=ExtendedInterpolation())
+    config = ConfigParser(interpolation=CustomInterpolation())
     # Preserve case of keys: https://stackoverflow.com/a/1611877/6400719
     config.optionxform = str
     return config
@@ -39,7 +119,7 @@ class Config(dict):
             data = {}
         self.update(data)
 
-    def interpret_config(self, config: Union[Dict[str, Any], "ConfigParser"]):
+    def interpret_config(self, config: "ConfigParser") -> None:
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
@@ -62,6 +142,7 @@ class Config(dict):
                     raise ConfigValidationError(self, err, message=err_title)
                 else:
                     node = node[part]
+            # TODO: add error if node not in list
             node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
@@ -77,17 +158,30 @@ class Config(dict):
                 )
                 raise ConfigValidationError(f"{e}\n\n{err_msg}", [])
             for key, value in keys_values:
+                config_v = config.get(section, key)
                 try:
-                    node[key] = srsly.json_loads(config.get(section, key))
-                except Exception as e:
-                    err_msg = (
-                        f"Error reading key '{key}' in section '{section}': {e}. "
-                        f"If your value is a string, make sure it was provided "
-                        f"in quotes. If your value is a boolean, make sure it was "
-                        f"written in lowercase. If you want to specify a 'None' "
-                        f"value, write it as 'null' (without quotes)."
-                    )
-                    raise ValueError(err_msg)
+                    node[key] = srsly.json_loads(config_v)
+                except Exception:
+                    node[key] = config_v
+        self.replace_section_refs(self)
+
+    def replace_section_refs(self, config: Union[Dict[str, Any], "Config"]) -> None:
+        """Replace references to section blocks in the final config."""
+        for key, value in config.items():
+            if isinstance(value, dict):
+                self.replace_section_refs(value)
+            elif isinstance(value, str) and value.startswith(SECTION_PREFIX):
+                parts = value.replace(SECTION_PREFIX, "").split(".")
+                result = self
+                for item in parts:
+                    try:
+                        result = result[item]
+                    except (KeyError, TypeError):  # This should never happen
+                        err_title = "Error parsing reference to config section"
+                        err_msg = f"Section '{'.'.join(parts)}' is not defined"
+                        err = [{"loc": parts, "msg": err_msg}]
+                        raise ConfigValidationError(self, err, message=err_title)
+                config[key] = result
 
     def copy(self) -> "Config":
         """Deepcopy the config."""

@@ -823,14 +823,53 @@ def test_config_to_str_order():
     assert config.to_str() == expected
 
 
-@pytest.mark.xfail(reason="interpolation doesn't work because json.loads")
 def test_config_interpolation():
     config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a.foo}"""
     with pytest.raises(ConfigValidationError):
         Config().from_str(config_str)
     config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}"""
-    config = Config().from_str(config_str)
-    assert config["b"]["bar"] == "hello"
+    assert Config().from_str(config_str)["b"]["bar"] == "hello"
     config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}!"""
+    assert Config().from_str(config_str)["b"]["bar"] == "hello!"
+    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = "${a:foo}!\""""
+    assert Config().from_str(config_str)["b"]["bar"] == "hello!"
+    config_str = """[a]\nfoo = 15\n\n[b]\nbar = ${a:foo}!"""
+    assert Config().from_str(config_str)["b"]["bar"] == "15!"
+    config_str = """[a]\nfoo = ["x", "y"]\n\n[b]\nbar = ${a:foo}"""
+    assert Config().from_str(config_str)["b"]["bar"] == ["x", "y"]
+
+
+def test_config_interpolation_sections():
+    # Simple block references
+    config_str = """[a]\nfoo = "hello"\nbar = "world"\n\n[b]\nc = ${a}"""
     config = Config().from_str(config_str)
-    assert config["b"]["bar"] == "hello!"
+    assert config["b"]["c"] == config["a"]
+    # References with non-string values
+    config_str = """[a]\nfoo = "hello"\n\n[a.x]\ny = ${a.b}\n\n[a.b]\nc = 1\nd = [10]"""
+    config = Config().from_str(config_str)
+    assert config["a"]["x"]["y"] == config["a"]["b"]
+    # References to sections referencing sections
+    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b}"""
+    config = Config().from_str(config_str)
+    assert config["b"]["bar"] == config["a"]
+    assert config["c"]["baz"] == config["b"]
+    # References to section values referencing other sections
+    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b:bar}"""
+    config = Config().from_str(config_str)
+    assert config["c"]["baz"] == config["b"]["bar"]
+    # References to sections with subsections
+    config_str = """[a]\nfoo = "x"\n\n[a.b]\nbar = 100\n\n[c]\nbaz = ${a}"""
+    config = Config().from_str(config_str)
+    assert config["c"]["baz"] == config["a"]
+    # Infinite recursion
+    config_str = """[a]\nfoo ="x"\n\n[a.b]\nbar = ${a}"""
+    config = Config().from_str(config_str)
+    assert config["a"]["b"]["bar"] == config["a"]
+    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b.bar:foo}"""
+    # We can't reference not-yet interpolated subsections
+    with pytest.raises(ConfigValidationError):
+        config = Config().from_str(config_str)
+    # Generally invalid references
+    config_str = """[a]\nfoo = ${b.bar}"""
+    with pytest.raises(ConfigValidationError):
+        config = Config().from_str(config_str)
