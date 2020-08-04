@@ -3,7 +3,6 @@ from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
-from configparser import SectionProxy
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
@@ -200,14 +199,14 @@ class Config(dict):
         """Set overrides in the ConfigParser before config is interpreted."""
         err_title = "Error parsing config overrides"
         for key, value in overrides.items():
-            parts = key.split(".")
-            err = [{"loc": parts, "msg": "not a section value that can be overwritten"}]
-            if len(parts) == 1:
+            err_msg = "not a section value that can be overwritten"
+            err = [{"loc": key.split("."), "msg": err_msg}]
+            if "." not in key:
                 raise ConfigValidationError("", err, message=err_title)
-            try:
-                config.set(".".join(parts[:-1]), parts[-1], srsly.json_dumps(value))
-            except (NoOptionError, NoSectionError):
+            section, option = key.rsplit(".", 1)
+            if section not in config or option not in config[section]:
                 raise ConfigValidationError("", err, message=err_title)
+            config.set(section, option, srsly.json_dumps(value))
 
     def from_str(self, text: str, *, overrides: Dict[str, Any] = {}) -> "Config":
         """Load the config from a string."""

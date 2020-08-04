@@ -891,13 +891,12 @@ def test_config_from_str_overrides():
     assert config["a"]["b"] == 10
     assert config["a"]["c"]["d"] == 20
     assert config["a"]["c"]["e"] == 3
-    # Adding new keys via overrides
-    overrides = {"a.b": 10, "a.c.f": 200}
-    config = Config().from_str(config_str, overrides=overrides)
-    assert config["a"]["c"] == {"d": 2, "e": 3, "f": 200}
     # Invalid keys and sections
     with pytest.raises(ConfigValidationError):
         Config().from_str(config_str, overrides={"f": 10})
+    # Adding new keys that are not in initial config via overrides
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"a.b": 10, "a.c.f": 200})
     # This currently isn't expected to work, because the dict in f.g is not
     # interpreted as a section while the config is still just the configparser
     with pytest.raises(ConfigValidationError):
