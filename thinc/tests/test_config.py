@@ -881,3 +881,22 @@ def test_config_interpolation_sections():
     config_str = """[a]\nfoo = ${b.bar}"""
     with pytest.raises(ConfigValidationError):
         config = Config().from_str(config_str)
+
+
+def test_config_from_str_overrides():
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\ne = 3\n\n[f]\ng = {"x": "y"}"""
+    # Basic value substitution
+    overrides = {"a.b": 10, "a.c.d": 20}
+    config = Config().from_str(config_str, overrides=overrides)
+    assert config["a"]["b"] == 10
+    assert config["a"]["c"]["d"] == 20
+    assert config["a"]["c"]["e"] == 3
+    # Adding new keys via overrides
+    overrides = {"a.b": 10, "a.c.f": 200}
+    config = Config().from_str(config_str, overrides=overrides)
+    assert config["a"]["c"] == {"d": 2, "e": 3, "f": 200}
+    # Invalid keys and sections
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"f.g.x": "z"})
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"f": 10})

@@ -3,6 +3,7 @@ from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
+from configparser import SectionProxy
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError
 from pydantic.main import ModelMetaclass
@@ -195,10 +196,24 @@ class Config(dict):
             raise ValueError(f"Couldn't deep-copy config: {e}")
         return Config(config)
 
-    def from_str(self, text: str) -> "Config":
-        "Load the config from a string."
+    def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
+        """Set overrides in the ConfigParser before config is interpreted."""
+        err_title = "Error parsing config overrides"
+        for key, value in overrides.items():
+            parts = key.split(".")
+            err = [{"loc": parts, "msg": "not a section value that can be overwritten"}]
+            if len(parts) == 1:
+                raise ConfigValidationError("", err, message=err_title)
+            try:
+                config.set(".".join(parts[:-1]), parts[-1], srsly.json_dumps(value))
+            except (NoOptionError, NoSectionError):
+                raise ConfigValidationError("", err, message=err_title)
+
+    def from_str(self, text: str, *, overrides: Dict[str, Any] = {}) -> "Config":
+        """Load the config from a string."""
         config = get_configparser()
         config.read_string(text)
+        self._set_overrides(config, overrides)
         for key in list(self.keys()):
             self.pop(key)
         self.interpret_config(config)
@@ -237,9 +252,11 @@ class Config(dict):
         """Serialize the config to a byte string."""
         return self.to_str().encode("utf8")
 
-    def from_bytes(self, bytes_data: bytes) -> "Config":
+    def from_bytes(
+        self, bytes_data: bytes, *, overrides: Dict[str, Any] = {}
+    ) -> "Config":
         """Load the config from a byte string."""
-        return self.from_str(bytes_data.decode("utf8"))
+        return self.from_str(bytes_data.decode("utf8"), overrides=overrides)
 
     def to_disk(self, path: Union[str, Path]):
         """Serialize the config to a file."""
@@ -247,11 +264,13 @@ class Config(dict):
         with path.open("w", encoding="utf8") as file_:
             file_.write(self.to_str())
 
-    def from_disk(self, path: Union[str, Path]) -> "Config":
+    def from_disk(
+        self, path: Union[str, Path], *, overrides: Dict[str, Any] = {}
+    ) -> "Config":
         """Load config from a file."""
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
-        return self.from_str(text)
+        return self.from_str(text, overrides=overrides)
 
 
 class ConfigValidationError(ValueError):
