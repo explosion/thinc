@@ -897,6 +897,18 @@ def test_config_from_str_overrides():
     assert config["a"]["c"] == {"d": 2, "e": 3, "f": 200}
     # Invalid keys and sections
     with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str, overrides={"f.g.x": "z"})
-    with pytest.raises(ConfigValidationError):
         Config().from_str(config_str, overrides={"f": 10})
+    # This currently isn't expected to work, because the dict in f.g is not
+    # interpreted as a section while the config is still just the configparser
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str, overrides={"f.g.x": "z"})
+    # With variables (values)
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\ne = ${a:b}"""
+    config = Config().from_str(config_str, overrides={"a.b": 10})
+    assert config["a"]["b"] == 10
+    assert config["a"]["c"]["e"] == 10
+    # With variables (sections)
+    config_str = """[a]\nb = 1\n\n[a.c]\nd = 2\n[e]\nf = ${a.c}"""
+    config = Config().from_str(config_str, overrides={"a.c.d": 20})
+    assert config["a"]["c"]["d"] == 20
+    assert config["e"]["f"] == {"d": 20}
