@@ -432,7 +432,7 @@ def validate_fwd_input_output(
     try:
         ArgModel.parse_obj(args)
     except ValidationError as e:
-        raise DataValidationError(name, X, Y, e.errors())
+        raise DataValidationError(name, X, Y, e.errors()) from None
 
 
 @contextlib.contextmanager
