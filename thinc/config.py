@@ -160,7 +160,7 @@ class Config(dict):
                     "sure they're devided by a colon (:) not a dot. For example: "
                     "${section:subsection}"
                 )
-                raise ConfigValidationError(f"{e}\n\n{err_msg}", [])
+                raise ConfigValidationError(f"{e}\n\n{err_msg}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
                 try:
@@ -183,8 +183,9 @@ class Config(dict):
                     except (KeyError, TypeError):  # This should never happen
                         err_title = "Error parsing reference to config section"
                         err_msg = f"Section '{'.'.join(parts)}' is not defined"
-                        err = [{"loc": parts, "msg": err_msg}]
-                        raise ConfigValidationError(self, err, message=err_title)
+                        raise ConfigValidationError(
+                            self, [{"loc": parts, "msg": err_msg}], message=err_title
+                        ) from None
                 config[key] = result
 
     def copy(self) -> "Config":
@@ -192,7 +193,7 @@ class Config(dict):
         try:
             config = copy.deepcopy(self)
         except Exception as e:
-            raise ValueError(f"Couldn't deep-copy config: {e}")
+            raise ValueError(f"Couldn't deep-copy config: {e}") from e
         return Config(config)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
@@ -458,7 +459,7 @@ class registry(object):
                     err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
-                    )
+                    ) from err
                 validation[key] = getter_result
                 final[key] = getter_result
                 if isinstance(validation[key], dict):
@@ -501,7 +502,9 @@ class registry(object):
             try:
                 result = schema.parse_obj(validation)
             except ValidationError as e:
-                raise ConfigValidationError(config, e.errors(), element=parent)
+                raise ConfigValidationError(
+                    config, e.errors(), element=parent
+                ) from None
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
