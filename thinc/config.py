@@ -295,6 +295,20 @@ class ConfigValidationError(ValueError):
 
 ARGS_FIELD = "*"
 ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"  # user is unlikely going to use this
+# Aliases for fields that would otherwise shadow pydantic attributes. Can be any
+# string, so we're using name + space so it looks the same in error messages etc.
+RESERVED_FIELDS = {"validate": "validate\u0020"}
+
+
+def alias_generator(name: str) -> str:
+    """Generate field aliases in promise schema."""
+    # Underscore fields are not allowed in model, so use alias
+    if name == ARGS_FIELD_ALIAS:
+        return ARGS_FIELD
+    # Auto-alias fields that shadow base model attributes
+    if name in RESERVED_FIELDS:
+        return RESERVED_FIELDS[name]
+    return name
 
 
 class EmptySchema(BaseModel):
@@ -306,8 +320,7 @@ class EmptySchema(BaseModel):
 class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
-    # Underscore fields are not allowed in model, so use alias
-    fields = {ARGS_FIELD_ALIAS: {"alias": ARGS_FIELD}}
+    alias_generator = alias_generator
 
 
 class registry(object):
@@ -435,13 +448,15 @@ class registry(object):
         validation: Dict[str, Any] = {}
         final: Dict[str, Any] = {}
         for key, value in config.items():
+            # If the field name is reserved, we use its alias for validation
+            v_key = RESERVED_FIELDS.get(key, key)
             key_parent = f"{parent}.{key}".strip(".")
             if key_parent in overrides:
                 value = overrides[key_parent]
                 config[key] = value
             if cls.is_promise(value):
                 promise_schema = cls.make_promise_schema(value)
-                filled[key], validation[key], final[key] = cls._fill(
+                filled[key], validation[v_key], final[key] = cls._fill(
                     value,
                     promise_schema,
                     validate=validate,
@@ -460,17 +475,17 @@ class registry(object):
                     raise ConfigValidationError(
                         {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
                     ) from err
-                validation[key] = getter_result
+                validation[v_key] = getter_result
                 final[key] = getter_result
-                if isinstance(validation[key], dict):
+                if isinstance(validation[v_key], dict):
                     # The registered function returned a dict, prevent it from
                     # being validated as a config section
-                    validation[key] = {}
-                if isinstance(validation[key], GeneratorType):
+                    validation[v_key] = {}
+                if isinstance(validation[v_key], GeneratorType):
                     # If value is a generator we can't validate type without
                     # consuming it (which doesn't work if it's infinite – see
                     # schedule for examples). So we skip it.
-                    validation[key] = []
+                    validation[v_key] = []
             elif hasattr(value, "items"):
                 field_type = EmptySchema
                 if key in schema.__fields__:
@@ -479,22 +494,24 @@ class registry(object):
                     if not isinstance(field.type_, ModelMetaclass):
                         # If we don't have a pydantic schema and just a type
                         field_type = EmptySchema
-                filled[key], validation[key], final[key] = cls._fill(
+                filled[key], validation[v_key], final[key] = cls._fill(
                     value,
                     field_type,
                     validate=validate,
                     parent=key_parent,
                     overrides=overrides,
                 )
-                if key == ARGS_FIELD and isinstance(validation[key], dict):
+                if key == ARGS_FIELD and isinstance(validation[v_key], dict):
                     # If the value of variable positional args is a dict (e.g.
                     # created via config blocks), only use its values
-                    validation[key] = list(validation[key].values())
+                    validation[v_key] = list(validation[v_key].values())
                     final[key] = list(final[key].values())
             else:
                 filled[key] = value
                 # Prevent pydantic from consuming generator if part of a union
-                validation[key] = value if not isinstance(value, GeneratorType) else []
+                validation[v_key] = (
+                    value if not isinstance(value, GeneratorType) else []
+                )
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
@@ -508,7 +525,8 @@ class registry(object):
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
-        validation.update(result.dict(exclude={ARGS_FIELD_ALIAS}))
+        exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
+        validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
         return Config(filled), Config(validation), Config(final)
 
@@ -520,6 +538,8 @@ class registry(object):
         values recursively.
         """
         for key, value in validation.items():
+            if key in RESERVED_FIELDS.values():
+                continue  # skip aliases for reserved fields
             if key not in filled:
                 filled[key] = value
             if key not in final:
@@ -598,6 +618,8 @@ class registry(object):
             if not key.startswith("@"):
                 if key == ARGS_FIELD:
                     args = value
+                elif key in RESERVED_FIELDS.values():
+                    continue
                 else:
                     kwargs[key] = value
         return args, kwargs
@@ -621,7 +643,8 @@ class registry(object):
                 spread_annot = Sequence[annotation]  # type: ignore
                 sig_args[ARGS_FIELD_ALIAS] = (spread_annot, default)
             else:
-                sig_args[param.name] = (annotation, default)
+                name = RESERVED_FIELDS.get(param.name, param.name)
+                sig_args[name] = (annotation, default)
         sig_args["__config__"] = _PromiseSchemaConfig
         return create_model("ArgModel", **sig_args)
 

@@ -911,3 +911,20 @@ def test_config_from_str_overrides():
     config = Config().from_str(config_str, overrides={"a.c.d": 20})
     assert config["a"]["c"]["d"] == 20
     assert config["e"]["f"] == {"d": 20}
+
+
+def test_config_reserved_aliases():
+    """Test that the auto-generated pydantic schemas auto-alias reserved
+    attributes like "validate" that would otherwise cause NameError."""
+
+    @my_registry.cats("catsie.with_alias")
+    def catsie_with_alias(validate: StrictBool = False):
+        return validate
+
+    cfg = {"@cats": "catsie.with_alias", "validate": True}
+    resolved, filled = my_registry.resolve({"test": cfg})
+    assert resolved["test"] is True
+    assert filled["test"] == cfg
+    cfg = {"@cats": "catsie.with_alias", "validate": 20}
+    with pytest.raises(ConfigValidationError):
+        my_registry.resolve({"test": cfg})
