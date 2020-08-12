@@ -18,8 +18,7 @@ def check_learns_zero_output(model, sgd, X, Y):
         total = numpy.abs(Yh.sum())
         dX = get_dX(Yh - Y)  # noqa: F841
         model.finish_update(sgd)
-        assert total < prev
-        prev = total
+    assert total < prev
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
