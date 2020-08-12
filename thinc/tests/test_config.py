@@ -1051,3 +1051,8 @@ def test_config_to_str_roundtrip():
     assert config_str == '[cfg]\nfoo = "false"'
     config = Config().from_str(config_str)
     assert dict(config) == cfg
+    # Bad non-serializable value
+    cfg = {"cfg": {"x": numpy.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")}}
+    config = Config(cfg)
+    with pytest.raises(ConfigValidationError):
+        config.to_str()

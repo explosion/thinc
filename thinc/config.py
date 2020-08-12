@@ -266,7 +266,7 @@ class Config(dict):
             section, option = key.rsplit(".", 1)
             if section not in config or option not in config[section]:
                 raise ConfigValidationError("", err, message=err_title)
-            config.set(section, option, srsly.json_dumps(value))
+            config.set(section, option, dump_json(value, overrides))
 
     def _validate_sections(self, config: "ConfigParser") -> None:
         # If the config defines top-level properties that are not sections (e.g.
@@ -309,11 +309,11 @@ class Config(dict):
                     # Reference to a function with no arguments, serialize
                     # inline as a dict and don't create new section
                     if registry.is_promise(value) and len(value) == 1 and is_kwarg:
-                        flattened.set(section_name, key, srsly.json_dumps(value))
+                        flattened.set(section_name, key, dump_json(value, node))
                     else:
                         queue.append((path + (key,), value))
                 else:
-                    flattened.set(section_name, key, srsly.json_dumps(value))
+                    flattened.set(section_name, key, dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
         flattened._sections = dict(
             sorted(flattened._sections.items(), key=lambda x: x[0])
@@ -356,6 +356,20 @@ class Config(dict):
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
+
+
+def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str:
+    """Dump a config value as JSON and output user-friendly error if it fails."""
+    try:
+        return srsly.json_dumps(value)
+    except Exception as e:
+        err_msg = (
+            f"Couldn't serialize config value of type {type(value)}: {e}. Make "
+            f"sure all values in your config are JSON-serializable. If you want "
+            f"to include Python objects, use a registered function that returns "
+            f"the object instead."
+        )
+        raise ConfigValidationError(data, [], message=err_msg) from e
 
 
 def deep_merge_configs(
