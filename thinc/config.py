@@ -244,17 +244,12 @@ class Config(dict):
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
         return Config(config)
 
-    @classmethod
-    def merge(
-        cls,
-        defaults: Union[Dict[str, Any], "Config"],
-        updates: Union[Dict[str, Any], "Config"],
-    ) -> "Config":
+    def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
-        defaults = cls(defaults).copy()
-        updates = cls(updates).copy()
+        defaults = self.copy()
+        updates = Config(updates).copy()
         merged = deep_merge_configs(updates, defaults)
-        return cls(merged)
+        return Config(merged)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -516,7 +511,7 @@ class registry(object):
         # Merge the original config back to preserve variables if we started
         # with a config that wasn't interpolated
         if not is_interpolated:
-            filled = Config.merge(orig_config, filled)
+            filled = Config(orig_config).merge(filled)
         return resolved, filled
 
     @classmethod
