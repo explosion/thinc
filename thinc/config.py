@@ -13,11 +13,25 @@ import inspect
 import io
 import numpy
 import copy
+import re
 
 from .types import Decorator
 
 
+# Field used for positional arguments, e.g. [section.*.xyz]. The alias is
+# required for the schema (shouldn't clash with user-defined arg names)
+ARGS_FIELD = "*"
+ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"
+# Aliases for fields that would otherwise shadow pydantic attributes. Can be any
+# string, so we're using name + space so it looks the same in error messages etc.
+RESERVED_FIELDS = {"validate": "validate\u0020"}
+# Internal prefix used to mark section references for custom interpolation
 SECTION_PREFIX = "__SECTION__:"
+# Values that shouldn't be loaded during interpolation because it'd cause
+# even explicit string values to be incorrectly parsed as bools/None etc.
+JSON_EXCEPTIONS = ("true", "false", "null")
+# Regex to detect whether a value contains a variable
+VARIABLE_RE = re.compile(r"\$\{[\w\.:]+\}")
 
 
 class CustomInterpolation(ExtendedInterpolation):
@@ -26,7 +40,7 @@ class CustomInterpolation(ExtendedInterpolation):
         # make sure we load and unquote it so we don't end up with '"value"'
         try:
             json_value = srsly.json_loads(value)
-            if isinstance(json_value, str):
+            if isinstance(json_value, str) and json_value not in JSON_EXCEPTIONS:
                 value = json_value
         except Exception:
             pass
@@ -100,10 +114,10 @@ class CustomInterpolation(ExtendedInterpolation):
                 raise InterpolationSyntaxError(option, section, err)
 
 
-def get_configparser():
-    config = ConfigParser(interpolation=CustomInterpolation())
+def get_configparser(interpolate: bool = True):
+    config = ConfigParser(interpolation=CustomInterpolation() if interpolate else None)
     # Preserve case of keys: https://stackoverflow.com/a/1611877/6400719
-    config.optionxform = str
+    config.optionxform = str  # type: ignore
     return config
 
 
@@ -121,19 +135,35 @@ class Config(dict):
         dict.__init__(self)
         if data is None:
             data = {}
+        if not isinstance(data, (dict, Config, ConfigParser)):
+            raise ValueError(
+                f"Can't initialize Config with data. Expected dict, Config or "
+                f"ConfigParser but got: {type(data)}"
+            )
         self.update(data)
+        # Whether the config has been interpolated. We can use this to check
+        # whether we need to interpolate again when it's resolved. None = unset.
+        self.is_interpolated: Optional[bool] = None
+
+    def interpolate(self) -> "Config":
+        """Interpolate a config. Returns a copy of the object."""
+        # This is currently the most effective way because we need our custom
+        # to_str logic to run in order to re-serialize the values so we can
+        # interpolate them again. ConfigParser.read_dict will just call str()
+        # on all values, which isn't enough.
+        return Config().from_str(self.to_str())
 
     def interpret_config(self, config: "ConfigParser") -> None:
         """Interpret a config, parse nested sections and parse the values
         as JSON. Mostly used internally and modifies the config in place.
         """
+        self._validate_sections(config)
         # Sort sections by depth, so that we can iterate breadth-first. This
         # allows us to check that we're not expanding an undefined block.
         get_depth = lambda item: len(item[0].split("."))
         for section, values in sorted(config.items(), key=get_depth):
             if section == "DEFAULT":
-                # Skip [DEFAULT] section for now since it causes validation
-                # errors and we don't want to use it
+                # Skip [DEFAULT] section so it doesn't cause validation error
                 continue
             parts = section.split(".")
             node = self
@@ -169,11 +199,14 @@ class Config(dict):
                     node[key] = config_v
         self.replace_section_refs(self)
 
-    def replace_section_refs(self, config: Union[Dict[str, Any], "Config"]) -> None:
+    def replace_section_refs(
+        self, config: Union[Dict[str, Any], "Config"], parent: str = ""
+    ) -> None:
         """Replace references to section blocks in the final config."""
         for key, value in config.items():
+            key_parent = f"{parent}.{key}".strip(".")
             if isinstance(value, dict):
-                self.replace_section_refs(value)
+                self.replace_section_refs(value, parent=key_parent)
             elif isinstance(value, str) and value.startswith(SECTION_PREFIX):
                 parts = value.replace(SECTION_PREFIX, "").split(".")
                 result = self
@@ -187,6 +220,20 @@ class Config(dict):
                             self, [{"loc": parts, "msg": err_msg}], message=err_title
                         ) from None
                 config[key] = result
+            elif isinstance(value, str) and SECTION_PREFIX in value:
+                # String value references a section (either a dict or return
+                # value of promise). We can't allow this, since variables are
+                # always interpolated *before* configs are resolved.
+                err_title = (
+                    "Can't reference whole sections or return values of function "
+                    "blocks inside a string\n\nYou can change your variable to "
+                    "reference a value instead. Keep in mind that it's not "
+                    "possible to interpolate the return value of a registered "
+                    "function, since variables are interpolated when the config "
+                    "is loaded, and registered functions are resolved afterwards."
+                )
+                err = [{"loc": [parent, key], "msg": "uses section variable in string"}]
+                raise ConfigValidationError("", err, message=err_title)
 
     def copy(self) -> "Config":
         """Deepcopy the config."""
@@ -195,6 +242,18 @@ class Config(dict):
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
         return Config(config)
+
+    @classmethod
+    def merge(
+        cls,
+        defaults: Union[Dict[str, Any], "Config"],
+        updates: Union[Dict[str, Any], "Config"],
+    ) -> "Config":
+        """Deep merge the config with updates, using current as defaults."""
+        defaults = cls(defaults).copy()
+        updates = cls(updates).copy()
+        merged = deep_merge_configs(updates, defaults)
+        return cls(merged)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -209,23 +268,38 @@ class Config(dict):
                 raise ConfigValidationError("", err, message=err_title)
             config.set(section, option, srsly.json_dumps(value))
 
-    def from_str(self, text: str, *, overrides: Dict[str, Any] = {}) -> "Config":
+    def _validate_sections(self, config: "ConfigParser") -> None:
+        # If the config defines top-level properties that are not sections (e.g.
+        # if config was constructed from dict), those values would be added as
+        # [DEFAULTS] and included in *every other section*. This is usually not
+        # what we want and it can lead to very confusing results.
+        default_section = config.defaults()
+        if default_section:
+            err_title = "Found config values without a top-level section"
+            err_msg = "not part of a section"
+            err = [{"loc": [k], "msg": err_msg} for k in default_section]
+            raise ConfigValidationError("", err, message=err_title)
+
+    def from_str(
+        self, text: str, *, interpolate: bool = True, overrides: Dict[str, Any] = {}
+    ) -> "Config":
         """Load the config from a string."""
-        config = get_configparser()
+        config = get_configparser(interpolate=interpolate)
         config.read_string(text)
         self._set_overrides(config, overrides)
-        for key in list(self.keys()):
-            self.pop(key)
+        self.clear()
         self.interpret_config(config)
+        self.is_interpolated = interpolate
         return self
 
-    def to_str(self) -> str:
+    def to_str(self, *, interpolate: bool = True) -> str:
         """Write the config to a string."""
-        flattened = get_configparser()
+        flattened = get_configparser(interpolate=interpolate)
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
         for path, node in queue:
             section_name = ".".join(path)
-            if path and path[-1] != "*" and not flattened.has_section(section_name):
+            is_kwarg = path and path[-1] != "*"
+            if is_kwarg and not flattened.has_section(section_name):
                 # Always create sections for non-'*' sections, not only if
                 # they have leaf entries, as we don't want to expand
                 # blocks that are undefined
@@ -234,7 +308,7 @@ class Config(dict):
                 if hasattr(value, "items"):
                     # Reference to a function with no arguments, serialize
                     # inline as a dict and don't create new section
-                    if registry.is_promise(value) and len(value) == 1:
+                    if registry.is_promise(value) and len(value) == 1 and is_kwarg:
                         flattened.set(section_name, key, srsly.json_dumps(value))
                     else:
                         queue.append((path + (key,), value))
@@ -244,33 +318,73 @@ class Config(dict):
         flattened._sections = dict(
             sorted(flattened._sections.items(), key=lambda x: x[0])
         )
+        self._validate_sections(flattened)
         string_io = io.StringIO()
         flattened.write(string_io)
         return string_io.getvalue().strip()
 
-    def to_bytes(self) -> bytes:
+    def to_bytes(self, *, interpolate: bool = True) -> bytes:
         """Serialize the config to a byte string."""
-        return self.to_str().encode("utf8")
+        return self.to_str(interpolate=interpolate).encode("utf8")
 
     def from_bytes(
-        self, bytes_data: bytes, *, overrides: Dict[str, Any] = {}
+        self,
+        bytes_data: bytes,
+        *,
+        interpolate: bool = True,
+        overrides: Dict[str, Any] = {},
     ) -> "Config":
         """Load the config from a byte string."""
-        return self.from_str(bytes_data.decode("utf8"), overrides=overrides)
+        return self.from_str(
+            bytes_data.decode("utf8"), interpolate=interpolate, overrides=overrides
+        )
 
-    def to_disk(self, path: Union[str, Path]):
+    def to_disk(self, path: Union[str, Path], *, interpolate: bool = True):
         """Serialize the config to a file."""
         path = Path(path)
         with path.open("w", encoding="utf8") as file_:
-            file_.write(self.to_str())
+            file_.write(self.to_str(interpolate=interpolate))
 
     def from_disk(
-        self, path: Union[str, Path], *, overrides: Dict[str, Any] = {}
+        self,
+        path: Union[str, Path],
+        *,
+        interpolate: bool = True,
+        overrides: Dict[str, Any] = {},
     ) -> "Config":
         """Load config from a file."""
         with Path(path).open("r", encoding="utf8") as file_:
             text = file_.read()
-        return self.from_str(text, overrides=overrides)
+        return self.from_str(text, interpolate=interpolate, overrides=overrides)
+
+
+def deep_merge_configs(
+    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config]
+) -> Union[Dict[str, Any], Config]:
+    """Deep merge two configs."""
+    for key, value in defaults.items():
+        if isinstance(value, dict):
+            node = config.setdefault(key, {})
+            if not isinstance(node, dict):
+                continue
+            promises = [key for key in value if key.startswith("@")]
+            promise = promises[0] if promises else None
+            # We only update the block from defaults if it refers to the same
+            # registered function
+            if (
+                promise
+                and any(k.startswith("@") for k in node)
+                and (promise in node and node[promise] != value[promise])
+            ):
+                continue
+            defaults = deep_merge_configs(node, value)
+        elif key not in config:
+            config[key] = value
+        elif isinstance(value, str) and re.search(VARIABLE_RE, value):
+            # If the original values was a variable or a string containing a
+            # reference to the variable, we always prefer the variable
+            config[key] = value
+    return config
 
 
 class ConfigValidationError(ValueError):
@@ -291,13 +405,6 @@ class ConfigValidationError(ValueError):
         data_table = table(data) if data else ""
         result = [message, data_table, f"{config}"]
         ValueError.__init__(self, "\n\n" + "\n".join(result))
-
-
-ARGS_FIELD = "*"
-ARGS_FIELD_ALIAS = "VARIABLE_POSITIONAL_ARGS"  # user is unlikely going to use this
-# Aliases for fields that would otherwise shadow pydantic attributes. Can be any
-# string, so we're using name + space so it looks the same in error messages etc.
-RESERVED_FIELDS = {"validate": "validate\u0020"}
 
 
 def alias_generator(name: str) -> str:
@@ -376,12 +483,22 @@ class registry(object):
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
             raise ConfigValidationError(config, [{"msg": err_msg}])
+        # If a Config was loaded with interpolate=False, we assume it needs to
+        # be interpolated first, otherwise we take it at face value
+        is_interpolated = not isinstance(config, Config) or config.is_interpolated
+        orig_config = config
+        if not is_interpolated:
+            config = Config(orig_config).interpolate()
         filled, _, resolved = cls._fill(
             config, schema, validate=validate, overrides=overrides
         )
         # Check that overrides didn't include invalid properties not in config
         if validate:
             cls._validate_overrides(filled, overrides)
+        # Merge the original config back to preserve variables if we started
+        # with a config that wasn't interpolated
+        if not is_interpolated:
+            filled = Config.merge(orig_config, filled)
         return resolved, filled
 
     @classmethod
