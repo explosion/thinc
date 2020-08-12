@@ -397,8 +397,11 @@ def deep_merge_configs(
             config[key] = value
         elif isinstance(value, str) and re.search(VARIABLE_RE, value):
             # If the original values was a variable or a string containing a
-            # reference to the variable, we always prefer the variable
-            config[key] = value
+            # reference to the variable, we always prefer the variable (unless
+            # the new value is also a variable).
+            orig = config[key]
+            if not isinstance(orig, str) or not re.search(VARIABLE_RE, orig):
+                config[key] = value
     return config
 
 
