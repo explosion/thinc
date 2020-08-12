@@ -142,8 +142,9 @@ class Config(dict):
             )
         self.update(data)
         # Whether the config has been interpolated. We can use this to check
-        # whether we need to interpolate again when it's resolved. None = unset.
-        self.is_interpolated: Optional[bool] = None
+        # whether we need to interpolate again when it's resolved. We assume
+        # that a config is interpolated by default.
+        self.is_interpolated = True
 
     def interpolate(self) -> "Config":
         """Interpolate a config. Returns a copy of the object."""
