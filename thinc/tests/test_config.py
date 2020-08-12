@@ -10,7 +10,6 @@ from thinc.api import Config, RAdam, Model, NumpyOps
 from thinc.util import partial
 import numpy
 import inspect
-import random
 
 from .util import make_tempdir
 
@@ -917,19 +916,6 @@ def test_config_interpolation_sections():
     config_str = """[a]\n\n[a.b]\nfoo = "x: ${c}"\n\n[c]\nbar = 1\nbaz = 2"""
     with pytest.raises(ConfigValidationError):
         Config().from_str(config_str)
-
-
-@pytest.mark.xfail
-def test_config_interpolation_sections_registry():
-    # TODO: Do we expect this to work?
-    @my_registry.cats.register("catsie_random.v1")
-    def catsie_random_value() -> float:
-        return random.random()
-
-    config_str = """[a]\n@cats = "catsie_random.v1"\n\n[b]\nc = 1\nd = ${a}"""
-    config = Config().from_str(config_str)
-    resolved = my_registry.make_from_config(config)
-    assert resolved["a"] == resolved["b"]["d"]
 
 
 def test_config_from_str_overrides():
