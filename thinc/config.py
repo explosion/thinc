@@ -302,7 +302,12 @@ class Config(dict):
         self.is_interpolated = interpolate
         return self
 
-    def to_str(self, *, interpolate: bool = True) -> str:
+    def to_str(
+        self,
+        *,
+        interpolate: bool = True,
+        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
+    ) -> str:
         """Write the config to a string."""
         flattened = get_configparser(interpolate=interpolate)
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
@@ -325,15 +330,19 @@ class Config(dict):
                 else:
                     flattened.set(section_name, key, dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
-        flattened._sections = dict(
-            sorted(flattened._sections.items(), key=lambda x: x[0])
-        )
+        sort_key = sort_key if sort_key is not None else (lambda x: x[0])
+        flattened._sections = dict(sorted(flattened._sections.items(), key=sort_key))
         self._validate_sections(flattened)
         string_io = io.StringIO()
         flattened.write(string_io)
         return string_io.getvalue().strip()
 
-    def to_bytes(self, *, interpolate: bool = True) -> bytes:
+    def to_bytes(
+        self,
+        *,
+        interpolate: bool = True,
+        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
+    ) -> bytes:
         """Serialize the config to a byte string."""
         return self.to_str(interpolate=interpolate).encode("utf8")
 
@@ -349,7 +358,13 @@ class Config(dict):
             bytes_data.decode("utf8"), interpolate=interpolate, overrides=overrides
         )
 
-    def to_disk(self, path: Union[str, Path], *, interpolate: bool = True):
+    def to_disk(
+        self,
+        path: Union[str, Path],
+        *,
+        interpolate: bool = True,
+        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
+    ):
         """Serialize the config to a file."""
         path = Path(path)
         with path.open("w", encoding="utf8") as file_:

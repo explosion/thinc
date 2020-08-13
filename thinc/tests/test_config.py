@@ -1122,3 +1122,16 @@ def test_config_is_interpolated():
     assert config.is_interpolated
     config = config.merge(Config().from_str(config_str, interpolate=False))
     assert not config.is_interpolated
+
+
+def test_config_serialize_custom_sort():
+    cfg = {"a": {"b": 1, "c": 2}, "d": {"e": 3}, "f": {"g": 4}, "h": {"i": 5}}
+    config = Config(cfg)
+    config_str = config.to_str()
+    assert config_str == "[a]\nb = 1\nc = 2\n\n[d]\ne = 3\n\n[f]\ng = 4\n\n[h]\ni = 5"
+    sort_key = lambda x: ["f", "d", "h", "a"].index(x[0])
+    config_str = config.to_str(sort_key=sort_key)
+    assert config_str == "[f]\ng = 4\n\n[d]\ne = 3\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2"
+    sort_key = lambda x: {"d": 0, "h": 1}.get(x[0], 2)
+    config_str = config.to_str(sort_key=sort_key)
+    assert config_str == "[d]\ne = 3\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[f]\ng = 4"
