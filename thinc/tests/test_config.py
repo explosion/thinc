@@ -287,10 +287,10 @@ def test_make_from_config_schema_coerced():
         cfg: TestBaseSchema
 
     config = {"test1": 123, "test2": 1, "test3": 5}
-    result = my_registry.make_from_config({"cfg": config}, schema=TestSchema)["cfg"]
-    assert result["test1"] == "123"
-    assert result["test2"] is True
-    assert result["test3"] == 5.0
+    result, filled = my_registry.resolve({"cfg": config}, schema=TestSchema)
+    assert result["cfg"] == {"test1": "123", "test2": True, "test3": 5.0}
+    # This only affects the resolved config, not the filled config
+    assert filled["cfg"] == config
 
 
 def test_read_config():
