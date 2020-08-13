@@ -1007,6 +1007,14 @@ def test_config_no_interpolation_registry():
     assert resolved["c"]["d"] == "scratch!"
     assert filled["b"]["evil"] is True
     assert filled["c"]["d"] == filled["b"]
+    # Resolving a non-interpolated filled config
+    config = Config().from_str(config_str, interpolate=False)
+    assert not config.is_interpolated
+    filled = my_registry.fill_config(config)
+    assert not filled.is_interpolated
+    assert filled["c"]["d"] == "${b}"
+    resolved = my_registry.make_from_config(filled)
+    assert resolved["c"]["d"] == "scratch!"
 
 
 def test_config_deep_merge():
@@ -1056,3 +1064,18 @@ def test_config_to_str_roundtrip():
     config = Config(cfg)
     with pytest.raises(ConfigValidationError):
         config.to_str()
+
+
+def test_config_is_interpolated():
+    """Test that a config object correctly reports whether it's interpolated."""
+    config_str = """[a]\nb = 1\n\n[c]\nd = ${a:b}\ne = \"hello${a:b}"\nf = ${a}"""
+    config = Config().from_str(config_str, interpolate=False)
+    assert not config.is_interpolated
+    config = config.merge(Config({"x": {"y": "z"}}))
+    assert not config.is_interpolated
+    config = Config(config)
+    assert not config.is_interpolated
+    config = config.interpolate()
+    assert config.is_interpolated
+    config = config.merge(Config().from_str(config_str, interpolate=False))
+    assert not config.is_interpolated

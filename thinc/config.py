@@ -128,6 +128,8 @@ class Config(dict):
     under the hood.
     """
 
+    is_interpolated: bool
+
     def __init__(
         self, data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None
     ) -> None:
@@ -144,7 +146,10 @@ class Config(dict):
         # Whether the config has been interpolated. We can use this to check
         # whether we need to interpolate again when it's resolved. We assume
         # that a config is interpolated by default.
-        self.is_interpolated = True
+        if isinstance(data, Config):
+            self.is_interpolated = data.is_interpolated
+        else:
+            self.is_interpolated = True
 
     def interpolate(self) -> "Config":
         """Interpolate a config. Returns a copy of the object."""
@@ -242,14 +247,18 @@ class Config(dict):
             config = copy.deepcopy(self)
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
-        return Config(config)
+        config = Config(config)
+        config.is_interpolated = self.is_interpolated
+        return config
 
     def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
         merged = deep_merge_configs(updates, defaults)
-        return Config(merged)
+        config = Config(merged)
+        config.is_interpolated = defaults.is_interpolated and updates.is_interpolated
+        return config
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -512,6 +521,7 @@ class registry(object):
         # with a config that wasn't interpolated
         if not is_interpolated:
             filled = Config(orig_config).merge(filled)
+            filled.is_interpolated = False
         return resolved, filled
 
     @classmethod
