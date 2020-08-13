@@ -131,7 +131,9 @@ class Config(dict):
     is_interpolated: bool
 
     def __init__(
-        self, data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None
+        self,
+        data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
+        is_interpolated: Optional[bool] = None,
     ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
@@ -146,7 +148,9 @@ class Config(dict):
         # Whether the config has been interpolated. We can use this to check
         # whether we need to interpolate again when it's resolved. We assume
         # that a config is interpolated by default.
-        if isinstance(data, Config):
+        if is_interpolated is not None:
+            self.is_interpolated = is_interpolated
+        elif isinstance(data, Config):
             self.is_interpolated = data.is_interpolated
         else:
             self.is_interpolated = True
@@ -247,18 +251,15 @@ class Config(dict):
             config = copy.deepcopy(self)
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
-        config = Config(config)
-        config.is_interpolated = self.is_interpolated
-        return config
+        return Config(config, is_interpolated=self.is_interpolated)
 
     def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
+        is_interpolated = defaults.is_interpolated and updates.is_interpolated
         merged = deep_merge_configs(updates, defaults)
-        config = Config(merged)
-        config.is_interpolated = defaults.is_interpolated and updates.is_interpolated
-        return config
+        return Config(merged, is_interpolated=is_interpolated)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -399,7 +400,7 @@ def deep_merge_configs(
             defaults = deep_merge_configs(node, value)
         elif key not in config:
             config[key] = value
-        elif isinstance(value, str) and re.search(VARIABLE_RE, value):
+        elif isinstance(value, str) and VARIABLE_RE.search(value):
             # If the original values was a variable or a string containing a
             # reference to the variable, we always prefer the variable (unless
             # the new value is also a variable).
@@ -520,8 +521,7 @@ class registry(object):
         # Merge the original config back to preserve variables if we started
         # with a config that wasn't interpolated
         if not is_interpolated:
-            filled = Config(orig_config).merge(filled)
-            filled.is_interpolated = False
+            filled = Config(orig_config, is_interpolated=False).merge(filled)
         return resolved, filled
 
     @classmethod

@@ -982,6 +982,10 @@ def test_config_no_interpolation():
     assert config3["c"]["d"] == 1
     assert config3["c"]["e"] == "hello1"
     assert config3["c"]["f"] == {"b": 1}
+    # Bad non-serializable value
+    cfg = {"x": {"y": numpy.asarray([[1, 2, 3], [4, 5, 3]], dtype="f"), "z": "${x:y}"}}
+    with pytest.raises(ConfigValidationError):
+        Config(cfg).interpolate()
 
 
 def test_config_no_interpolation_registry():
