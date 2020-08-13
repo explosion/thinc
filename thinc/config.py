@@ -133,6 +133,7 @@ class Config(dict):
     def __init__(
         self,
         data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
+        *,
         is_interpolated: Optional[bool] = None,
     ) -> None:
         """Initialize a new Config object with optional data."""
