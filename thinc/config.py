@@ -344,7 +344,7 @@ class Config(dict):
         sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
     ) -> bytes:
         """Serialize the config to a byte string."""
-        return self.to_str(interpolate=interpolate).encode("utf8")
+        return self.to_str(interpolate=interpolate, sort_key=sort_key).encode("utf8")
 
     def from_bytes(
         self,
@@ -368,7 +368,7 @@ class Config(dict):
         """Serialize the config to a file."""
         path = Path(path)
         with path.open("w", encoding="utf8") as file_:
-            file_.write(self.to_str(interpolate=interpolate))
+            file_.write(self.to_str(interpolate=interpolate, sort_key=sort_key))
 
     def from_disk(
         self,
