@@ -1066,18 +1066,6 @@ def test_config_deep_merge_variables():
     defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
     merged = defaults.merge(config)
     assert merged["a"]["c"] == 2
-    # With variable in defaults: preferred
-    config = Config().from_str("""[a]\nb= 1\nc = 2""")
-    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
-    merged = defaults.merge(config, prefer_vars=True)
-    assert merged["a"]["c"] == "${a:b}"
-    assert merged.interpolate()["a"]["c"] == 1
-    # With variable in both configs: preferred
-    config = Config().from_str("""[a]\nc = ${d:e}\n\n[d]\ne = 20""", interpolate=False)
-    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
-    merged = defaults.merge(config, prefer_vars=True)
-    assert merged["a"]["c"] == "${d:e}"
-    assert merged.interpolate()["a"]["c"] == 20
 
 
 def test_config_to_str_roundtrip():

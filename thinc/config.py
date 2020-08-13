@@ -254,14 +254,12 @@ class Config(dict):
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
         return Config(config, is_interpolated=self.is_interpolated)
 
-    def merge(
-        self, updates: Union[Dict[str, Any], "Config"], *, prefer_vars: bool = False
-    ) -> "Config":
+    def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
         is_interpolated = defaults.is_interpolated and updates.is_interpolated
-        merged = deep_merge_configs(updates, defaults, prefer_vars=prefer_vars)
+        merged = deep_merge_configs(updates, defaults)
         return Config(merged, is_interpolated=is_interpolated)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
@@ -382,10 +380,7 @@ def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str
 
 
 def deep_merge_configs(
-    config: Union[Dict[str, Any], Config],
-    defaults: Union[Dict[str, Any], Config],
-    *,
-    prefer_vars: bool = False,
+    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config],
 ) -> Union[Dict[str, Any], Config]:
     """Deep merge two configs."""
     for key, value in defaults.items():
@@ -403,16 +398,9 @@ def deep_merge_configs(
                 and (promise in node and node[promise] != value[promise])
             ):
                 continue
-            defaults = deep_merge_configs(node, value, prefer_vars=prefer_vars)
+            defaults = deep_merge_configs(node, value)
         elif key not in config:
             config[key] = value
-        elif prefer_vars and isinstance(value, str) and VARIABLE_RE.search(value):
-            # If the original values was a variable or a string containing a
-            # reference to the variable, we always prefer the variable (unless
-            # the new value is also a variable).
-            orig = config[key]
-            if not isinstance(orig, str) or not re.search(VARIABLE_RE, orig):
-                config[key] = value
     return config
 
 
@@ -529,9 +517,7 @@ class registry(object):
         # allow auto-filling a non-interpolated config without destroying
         # variable references.
         if not is_interpolated:
-            filled = Config(orig_config, is_interpolated=False).merge(
-                filled, prefer_vars=True
-            )
+            filled = filled.merge(Config(orig_config, is_interpolated=False))
         return resolved, filled
 
     @classmethod
