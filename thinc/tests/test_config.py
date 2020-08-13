@@ -1052,6 +1052,34 @@ def test_config_deep_merge():
     assert merged["c"] == 100
 
 
+def test_config_deep_merge_variables():
+    config_str = """[a]\nb= 1\nc = 2\n\n[d]\ne = ${a:b}"""
+    defaults_str = """[a]\nx = 100\n\n[d]\ny = 500"""
+    config = Config().from_str(config_str, interpolate=False)
+    defaults = Config().from_str(defaults_str)
+    merged = defaults.merge(config)
+    assert merged["a"] == {"b": 1, "c": 2, "x": 100}
+    assert merged["d"] == {"e": "${a:b}", "y": 500}
+    assert merged.interpolate()["d"] == {"e": 1, "y": 500}
+    # With variable in defaults: overwritten by new value
+    config = Config().from_str("""[a]\nb= 1\nc = 2""")
+    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
+    merged = defaults.merge(config)
+    assert merged["a"]["c"] == 2
+    # With variable in defaults: preferred
+    config = Config().from_str("""[a]\nb= 1\nc = 2""")
+    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
+    merged = defaults.merge(config, prefer_vars=True)
+    assert merged["a"]["c"] == "${a:b}"
+    assert merged.interpolate()["a"]["c"] == 1
+    # With variable in both configs: preferred
+    config = Config().from_str("""[a]\nc = ${d:e}\n\n[d]\ne = 20""", interpolate=False)
+    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
+    merged = defaults.merge(config, prefer_vars=True)
+    assert merged["a"]["c"] == "${d:e}"
+    assert merged.interpolate()["a"]["c"] == 20
+
+
 def test_config_to_str_roundtrip():
     cfg = {"cfg": {"foo": False}}
     config_str = Config(cfg).to_str()

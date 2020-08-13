@@ -254,12 +254,14 @@ class Config(dict):
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
         return Config(config, is_interpolated=self.is_interpolated)
 
-    def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
+    def merge(
+        self, updates: Union[Dict[str, Any], "Config"], *, prefer_vars: bool = False
+    ) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
         is_interpolated = defaults.is_interpolated and updates.is_interpolated
-        merged = deep_merge_configs(updates, defaults)
+        merged = deep_merge_configs(updates, defaults, prefer_vars=prefer_vars)
         return Config(merged, is_interpolated=is_interpolated)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
@@ -380,7 +382,10 @@ def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str
 
 
 def deep_merge_configs(
-    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config]
+    config: Union[Dict[str, Any], Config],
+    defaults: Union[Dict[str, Any], Config],
+    *,
+    prefer_vars: bool = False,
 ) -> Union[Dict[str, Any], Config]:
     """Deep merge two configs."""
     for key, value in defaults.items():
@@ -398,10 +403,10 @@ def deep_merge_configs(
                 and (promise in node and node[promise] != value[promise])
             ):
                 continue
-            defaults = deep_merge_configs(node, value)
+            defaults = deep_merge_configs(node, value, prefer_vars=prefer_vars)
         elif key not in config:
             config[key] = value
-        elif isinstance(value, str) and VARIABLE_RE.search(value):
+        elif prefer_vars and isinstance(value, str) and VARIABLE_RE.search(value):
             # If the original values was a variable or a string containing a
             # reference to the variable, we always prefer the variable (unless
             # the new value is also a variable).
@@ -520,9 +525,13 @@ class registry(object):
         if validate:
             cls._validate_overrides(filled, overrides)
         # Merge the original config back to preserve variables if we started
-        # with a config that wasn't interpolated
+        # with a config that wasn't interpolated. Here, we prefer variables to
+        # allow auto-filling a non-interpolated config without destroying
+        # variable references.
         if not is_interpolated:
-            filled = Config(orig_config, is_interpolated=False).merge(filled)
+            filled = Config(orig_config, is_interpolated=False).merge(
+                filled, prefer_vars=True
+            )
         return resolved, filled
 
     @classmethod
