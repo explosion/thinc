@@ -128,8 +128,13 @@ class Config(dict):
     under the hood.
     """
 
+    is_interpolated: bool
+
     def __init__(
-        self, data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None
+        self,
+        data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
+        *,
+        is_interpolated: Optional[bool] = None,
     ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
@@ -144,7 +149,12 @@ class Config(dict):
         # Whether the config has been interpolated. We can use this to check
         # whether we need to interpolate again when it's resolved. We assume
         # that a config is interpolated by default.
-        self.is_interpolated = True
+        if is_interpolated is not None:
+            self.is_interpolated = is_interpolated
+        elif isinstance(data, Config):
+            self.is_interpolated = data.is_interpolated
+        else:
+            self.is_interpolated = True
 
     def interpolate(self) -> "Config":
         """Interpolate a config. Returns a copy of the object."""
@@ -194,10 +204,13 @@ class Config(dict):
                 raise ConfigValidationError(f"{e}\n\n{err_msg}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
-                try:
-                    node[key] = srsly.json_loads(config_v)
-                except Exception:
+                if VARIABLE_RE.search(config_v):
                     node[key] = config_v
+                else:
+                    try:
+                        node[key] = srsly.json_loads(config_v)
+                    except Exception:
+                        node[key] = config_v
         self.replace_section_refs(self)
 
     def replace_section_refs(
@@ -242,14 +255,15 @@ class Config(dict):
             config = copy.deepcopy(self)
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
-        return Config(config)
+        return Config(config, is_interpolated=self.is_interpolated)
 
     def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
+        is_interpolated = defaults.is_interpolated and updates.is_interpolated
         merged = deep_merge_configs(updates, defaults)
-        return Config(merged)
+        return Config(merged, is_interpolated=is_interpolated)
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -356,6 +370,10 @@ class Config(dict):
 
 def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str:
     """Dump a config value as JSON and output user-friendly error if it fails."""
+    # Special case if we have a variable: it's already a string so don't dump
+    # to preserve ${x:y} vs. "${x:y}"
+    if isinstance(value, str) and VARIABLE_RE.search(value):
+        return value
     try:
         return srsly.json_dumps(value)
     except Exception as e:
@@ -369,7 +387,7 @@ def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str
 
 
 def deep_merge_configs(
-    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config]
+    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config],
 ) -> Union[Dict[str, Any], Config]:
     """Deep merge two configs."""
     for key, value in defaults.items():
@@ -390,13 +408,6 @@ def deep_merge_configs(
             defaults = deep_merge_configs(node, value)
         elif key not in config:
             config[key] = value
-        elif isinstance(value, str) and re.search(VARIABLE_RE, value):
-            # If the original values was a variable or a string containing a
-            # reference to the variable, we always prefer the variable (unless
-            # the new value is also a variable).
-            orig = config[key]
-            if not isinstance(orig, str) or not re.search(VARIABLE_RE, orig):
-                config[key] = value
     return config
 
 
@@ -482,7 +493,7 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
-    ) -> Tuple[Config, Config]:
+    ) -> Tuple[Dict[str, Any], Config]:
         """Unpack a config dictionary and create two versions of the config:
         a resolved version with objects from the registry created recursively,
         and a filled version with all references to registry functions left
@@ -509,9 +520,11 @@ class registry(object):
         if validate:
             cls._validate_overrides(filled, overrides)
         # Merge the original config back to preserve variables if we started
-        # with a config that wasn't interpolated
+        # with a config that wasn't interpolated. Here, we prefer variables to
+        # allow auto-filling a non-interpolated config without destroying
+        # variable references.
         if not is_interpolated:
-            filled = Config(orig_config).merge(filled)
+            filled = filled.merge(Config(orig_config, is_interpolated=False))
         return resolved, filled
 
     @classmethod
@@ -522,7 +535,7 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
-    ) -> Config:
+    ) -> Dict[str, Any]:
         """Unpack a config dictionary, creating objects from the registry
         recursively. If validate=True, the config will be validated against the
         type annotations of the registered functions referenced in the config
@@ -565,7 +578,7 @@ class registry(object):
         validate: bool = True,
         parent: str = "",
         overrides: Dict[str, Dict[str, Any]] = {},
-    ) -> Tuple[Config, Config, Config]:
+    ) -> Tuple[Config, Config, Dict[str, Any]]:
         """Build three representations of the config:
         1. All promises are preserved (just like config user would provide).
         2. Promises are replaced by their return values. This is the validation
@@ -658,7 +671,7 @@ class registry(object):
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
-        return Config(filled), Config(validation), Config(final)
+        return Config(filled), Config(validation), dict(final)
 
     @classmethod
     def _update_from_parsed(

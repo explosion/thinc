@@ -287,10 +287,29 @@ def test_make_from_config_schema_coerced():
         cfg: TestBaseSchema
 
     config = {"test1": 123, "test2": 1, "test3": 5}
-    result = my_registry.make_from_config({"cfg": config}, schema=TestSchema)["cfg"]
-    assert result["test1"] == "123"
-    assert result["test2"] is True
-    assert result["test3"] == 5.0
+    result, filled = my_registry.resolve({"cfg": config}, schema=TestSchema)
+    assert result["cfg"] == {"test1": "123", "test2": True, "test3": 5.0}
+    # This only affects the resolved config, not the filled config
+    assert filled["cfg"] == config
+
+
+def test_fill_config_extra_values():
+    class TestBaseSchema(BaseModel):
+        test1: str
+        test2: bool
+        test3: float = 1.0
+
+        class Config:
+            extra = "forbid"
+
+    class TestSchema(BaseModel):
+        cfg: TestBaseSchema
+
+    config = {"test1": "a", "test2": True, "test4": 20}
+    filled = my_registry.fill_config({"cfg": config}, schema=TestSchema, validate=False)
+    # Filled config doesn't currently remove any extra values
+    assert filled["cfg"]["test4"] == 20
+    assert filled["cfg"]["test3"] == 1.0
 
 
 def test_read_config():
@@ -970,7 +989,7 @@ def test_config_no_interpolation():
     config = Config().from_str(config_str, interpolate=False)
     assert not config.is_interpolated
     assert config["c"]["d"] == "${a:b}"
-    assert config["c"]["e"] == "hello${a:b}"
+    assert config["c"]["e"] == '"hello${a:b}"'
     assert config["c"]["f"] == "${a}"
     config2 = Config().from_str(config.to_str(), interpolate=True)
     assert config2.is_interpolated
@@ -982,6 +1001,10 @@ def test_config_no_interpolation():
     assert config3["c"]["d"] == 1
     assert config3["c"]["e"] == "hello1"
     assert config3["c"]["f"] == {"b": 1}
+    # Bad non-serializable value
+    cfg = {"x": {"y": numpy.asarray([[1, 2, 3], [4, 5, 3]], dtype="f"), "z": "${x:y}"}}
+    with pytest.raises(ConfigValidationError):
+        Config(cfg).interpolate()
 
 
 def test_config_no_interpolation_registry():
@@ -1007,6 +1030,14 @@ def test_config_no_interpolation_registry():
     assert resolved["c"]["d"] == "scratch!"
     assert filled["b"]["evil"] is True
     assert filled["c"]["d"] == filled["b"]
+    # Resolving a non-interpolated filled config
+    config = Config().from_str(config_str, interpolate=False)
+    assert not config.is_interpolated
+    filled = my_registry.fill_config(config)
+    assert not filled.is_interpolated
+    assert filled["c"]["d"] == "${b}"
+    resolved = my_registry.make_from_config(filled)
+    assert resolved["c"]["d"] == "scratch!"
 
 
 def test_config_deep_merge():
@@ -1040,6 +1071,22 @@ def test_config_deep_merge():
     assert merged["c"] == 100
 
 
+def test_config_deep_merge_variables():
+    config_str = """[a]\nb= 1\nc = 2\n\n[d]\ne = ${a:b}"""
+    defaults_str = """[a]\nx = 100\n\n[d]\ny = 500"""
+    config = Config().from_str(config_str, interpolate=False)
+    defaults = Config().from_str(defaults_str)
+    merged = defaults.merge(config)
+    assert merged["a"] == {"b": 1, "c": 2, "x": 100}
+    assert merged["d"] == {"e": "${a:b}", "y": 500}
+    assert merged.interpolate()["d"] == {"e": 1, "y": 500}
+    # With variable in defaults: overwritten by new value
+    config = Config().from_str("""[a]\nb= 1\nc = 2""")
+    defaults = Config().from_str("""[a]\nb = 100\nc = ${a:b}""", interpolate=False)
+    merged = defaults.merge(config)
+    assert merged["a"]["c"] == 2
+
+
 def test_config_to_str_roundtrip():
     cfg = {"cfg": {"foo": False}}
     config_str = Config(cfg).to_str()
@@ -1056,3 +1103,22 @@ def test_config_to_str_roundtrip():
     config = Config(cfg)
     with pytest.raises(ConfigValidationError):
         config.to_str()
+    # Roundtrip with variables: preserve variables correctly (quoted/unquoted)
+    config_str = """[a]\nb = 1\n\n[c]\nd = ${a:b}\ne = \"hello${a:b}"\nf = "${a:b}\""""
+    config = Config().from_str(config_str, interpolate=False)
+    assert config.to_str() == config_str
+
+
+def test_config_is_interpolated():
+    """Test that a config object correctly reports whether it's interpolated."""
+    config_str = """[a]\nb = 1\n\n[c]\nd = ${a:b}\ne = \"hello${a:b}"\nf = ${a}"""
+    config = Config().from_str(config_str, interpolate=False)
+    assert not config.is_interpolated
+    config = config.merge(Config({"x": {"y": "z"}}))
+    assert not config.is_interpolated
+    config = Config(config)
+    assert not config.is_interpolated
+    config = config.interpolate()
+    assert config.is_interpolated
+    config = config.merge(Config().from_str(config_str, interpolate=False))
+    assert not config.is_interpolated
