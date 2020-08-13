@@ -293,6 +293,25 @@ def test_make_from_config_schema_coerced():
     assert filled["cfg"] == config
 
 
+def test_fill_config_extra_values():
+    class TestBaseSchema(BaseModel):
+        test1: str
+        test2: bool
+        test3: float = 1.0
+
+        class Config:
+            extra = "forbid"
+
+    class TestSchema(BaseModel):
+        cfg: TestBaseSchema
+
+    config = {"test1": "a", "test2": True, "test4": 20}
+    filled = my_registry.fill_config({"cfg": config}, schema=TestSchema, validate=False)
+    # Filled config doesn't currently remove any extra values
+    assert filled["cfg"]["test4"] == 20
+    assert filled["cfg"]["test3"] == 1.0
+
+
 def test_read_config():
     byte_string = EXAMPLE_CONFIG.encode("utf8")
     cfg = Config().from_bytes(byte_string)
