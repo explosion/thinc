@@ -492,7 +492,7 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
-    ) -> Tuple[Config, Config]:
+    ) -> Tuple[Dict[str, Any], Config]:
         """Unpack a config dictionary and create two versions of the config:
         a resolved version with objects from the registry created recursively,
         and a filled version with all references to registry functions left
@@ -532,7 +532,7 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
-    ) -> Config:
+    ) -> Dict[str, Any]:
         """Unpack a config dictionary, creating objects from the registry
         recursively. If validate=True, the config will be validated against the
         type annotations of the registered functions referenced in the config
@@ -575,7 +575,7 @@ class registry(object):
         validate: bool = True,
         parent: str = "",
         overrides: Dict[str, Dict[str, Any]] = {},
-    ) -> Tuple[Config, Config, Config]:
+    ) -> Tuple[Config, Config, Dict[str, Any]]:
         """Build three representations of the config:
         1. All promises are preserved (just like config user would provide).
         2. Promises are replaced by their return values. This is the validation
@@ -668,7 +668,7 @@ class registry(object):
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
-        return Config(filled), Config(validation), Config(final)
+        return Config(filled), Config(validation), dict(final)
 
     @classmethod
     def _update_from_parsed(
