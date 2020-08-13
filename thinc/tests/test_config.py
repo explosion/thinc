@@ -970,7 +970,7 @@ def test_config_no_interpolation():
     config = Config().from_str(config_str, interpolate=False)
     assert not config.is_interpolated
     assert config["c"]["d"] == "${a:b}"
-    assert config["c"]["e"] == "hello${a:b}"
+    assert config["c"]["e"] == '"hello${a:b}"'
     assert config["c"]["f"] == "${a}"
     config2 = Config().from_str(config.to_str(), interpolate=True)
     assert config2.is_interpolated
@@ -1084,6 +1084,10 @@ def test_config_to_str_roundtrip():
     config = Config(cfg)
     with pytest.raises(ConfigValidationError):
         config.to_str()
+    # Roundtrip with variables: preserve variables correctly (quoted/unquoted)
+    config_str = """[a]\nb = 1\n\n[c]\nd = ${a:b}\ne = \"hello${a:b}"\nf = "${a:b}\""""
+    config = Config().from_str(config_str, interpolate=False)
+    assert config.to_str() == config_str
 
 
 def test_config_is_interpolated():

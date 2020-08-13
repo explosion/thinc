@@ -204,10 +204,13 @@ class Config(dict):
                 raise ConfigValidationError(f"{e}\n\n{err_msg}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
-                try:
-                    node[key] = srsly.json_loads(config_v)
-                except Exception:
+                if VARIABLE_RE.search(config_v):
                     node[key] = config_v
+                else:
+                    try:
+                        node[key] = srsly.json_loads(config_v)
+                    except Exception:
+                        node[key] = config_v
         self.replace_section_refs(self)
 
     def replace_section_refs(
@@ -367,6 +370,10 @@ class Config(dict):
 
 def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str:
     """Dump a config value as JSON and output user-friendly error if it fails."""
+    # Special case if we have a variable: it's already a string so don't dump
+    # to preserve ${x:y} vs. "${x:y}"
+    if isinstance(value, str) and VARIABLE_RE.search(value):
+        return value
     try:
         return srsly.json_dumps(value)
     except Exception as e:
