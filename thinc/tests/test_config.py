@@ -1146,3 +1146,16 @@ def test_config_serialize_custom_sort(section_order, expected_str, expected_keys
     assert keys == expected_keys
     keys = list(Config(cfg, section_order=section_order).keys())
     assert keys == expected_keys
+
+
+def test_config_serialize_custom_sort_merge():
+    """Test that sort order is preserved when merging and copying configs."""
+    cfg = {"x": {}, "y": {}, "z": {}}
+    section_order = ["y", "z", "x"]
+    expected = "[y]\n\n[z]\n\n[x]"
+    config = Config(cfg, section_order=section_order)
+    assert config.to_str() == expected
+    config = config.copy()
+    assert config.to_str() == expected
+    config = config.merge({"a": {}})
+    assert config.to_str() == f"{expected}\n\n[a]"

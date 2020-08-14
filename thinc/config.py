@@ -159,6 +159,7 @@ class Config(dict):
         # for subsections
         sort_map = {section: i for i, section in enumerate(section_order)}
         sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        self.section_order = section_order
         self.section_sort_key = sort_key
         # Update with data
         self.update(self._sort(data))
@@ -262,15 +263,22 @@ class Config(dict):
             config = copy.deepcopy(self)
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
-        return Config(config, is_interpolated=self.is_interpolated)
+        return Config(
+            config,
+            is_interpolated=self.is_interpolated,
+            section_order=self.section_order,
+        )
 
     def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
-        is_interpolated = defaults.is_interpolated and updates.is_interpolated
         merged = deep_merge_configs(updates, defaults)
-        return Config(merged, is_interpolated=is_interpolated)
+        return Config(
+            merged,
+            is_interpolated=defaults.is_interpolated and updates.is_interpolated,
+            section_order=defaults.section_order,
+        )
 
     def _sort(
         self, data: Union["Config", "ConfigParser", Dict[str, Any]]
