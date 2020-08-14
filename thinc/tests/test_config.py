@@ -10,6 +10,7 @@ from thinc.api import Config, RAdam, Model, NumpyOps
 from thinc.util import partial
 import numpy
 import inspect
+import pickle
 
 from .util import make_tempdir
 
@@ -1168,3 +1169,11 @@ def test_config_custom_sort_preserve():
     assert list(config5.keys()) == section_order
     filled = my_registry.fill_config(config5)
     assert filled.section_order == section_order
+
+
+def test_config_pickle():
+    config = Config({"foo": "bar"}, section_order=["foo", "bar", "baz"])
+    data = pickle.dumps(config)
+    config_new = pickle.loads(data)
+    assert config_new == {"foo": "bar"}
+    assert config_new.section_order == ["foo", "bar", "baz"]

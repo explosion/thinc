@@ -155,17 +155,12 @@ class Config(dict):
             self.is_interpolated = data.is_interpolated
         else:
             self.is_interpolated = True
-        # Sort sections by index on section order, then alphabetic and account
-        # for subsections
         if section_order is not None:
             self.section_order = section_order
         elif isinstance(data, Config):
             self.section_order = data.section_order
         else:
             self.section_order = []
-        sort_map = {section: i for i, section in enumerate(self.section_order)}
-        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
-        self.section_sort_key = sort_key
         # Update with data
         self.update(self._sort(data))
 
@@ -288,8 +283,13 @@ class Config(dict):
     def _sort(
         self, data: Union["Config", "ConfigParser", Dict[str, Any]]
     ) -> Dict[str, Any]:
-        """Sort a dict or config by keys using the currently defined sort key."""
-        return dict(sorted(data.items(), key=self.section_sort_key))
+        """Sort sections using the currently defined sort order. Sort
+        sections by index on section order, if available, then alphabetic, and
+        account for subsections, which should always follow their parent.
+        """
+        sort_map = {section: i for i, section in enumerate(self.section_order)}
+        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        return dict(sorted(data.items(), key=sort_key))
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
