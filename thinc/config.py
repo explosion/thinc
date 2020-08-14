@@ -535,13 +535,14 @@ class registry(object):
         # If a Config was loaded with interpolate=False, we assume it needs to
         # be interpolated first, otherwise we take it at face value
         is_interpolated = not isinstance(config, Config) or config.is_interpolated
+        section_order = config.section_order if isinstance(config, Config) else None
         orig_config = config
         if not is_interpolated:
             config = Config(orig_config).interpolate()
         filled, _, resolved = cls._fill(
             config, schema, validate=validate, overrides=overrides
         )
-        filled = Config(filled)
+        filled = Config(filled, section_order=section_order)
         # Check that overrides didn't include invalid properties not in config
         if validate:
             cls._validate_overrides(filled, overrides)

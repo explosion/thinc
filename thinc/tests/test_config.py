@@ -1148,8 +1148,9 @@ def test_config_serialize_custom_sort(section_order, expected_str, expected_keys
     assert keys == expected_keys
 
 
-def test_config_serialize_custom_sort_merge():
-    """Test that sort order is preserved when merging and copying configs."""
+def test_config_custom_sort_preserve():
+    """Test that sort order is preserved when merging and copying configs,
+    or when configs are filled and resolved."""
     cfg = {"x": {}, "y": {}, "z": {}}
     section_order = ["y", "z", "x"]
     expected = "[y]\n\n[z]\n\n[x]"
@@ -1161,3 +1162,9 @@ def test_config_serialize_custom_sort_merge():
     assert config3.to_str() == f"{expected}\n\n[a]"
     config4 = Config(config)
     assert config4.to_str() == expected
+    config_str = """[a]\nb = 1\n[c]\n@cats = "catsie.v1"\nevil = true\n\n[t]\n x = 2"""
+    section_order = ["c", "a", "t"]
+    config5 = Config(section_order=section_order).from_str(config_str)
+    assert list(config5.keys()) == section_order
+    filled = my_registry.fill_config(config5)
+    assert filled.section_order == section_order
