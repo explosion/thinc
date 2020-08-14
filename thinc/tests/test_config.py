@@ -1124,14 +1124,25 @@ def test_config_is_interpolated():
     assert not config.is_interpolated
 
 
-def test_config_serialize_custom_sort():
-    cfg = {"a": {"b": 1, "c": 2}, "d": {"e": 3}, "f": {"g": 4}, "h": {"i": 5}}
-    config = Config(cfg)
-    config_str = config.to_str()
-    assert config_str == "[a]\nb = 1\nc = 2\n\n[d]\ne = 3\n\n[f]\ng = 4\n\n[h]\ni = 5"
-    sort_key = lambda x: ["f", "d", "h", "a"].index(x[0])
-    config_str = config.to_str(sort_key=sort_key)
-    assert config_str == "[f]\ng = 4\n\n[d]\ne = 3\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2"
-    sort_key = lambda x: {"d": 0, "h": 1}.get(x[0], 2)
-    config_str = config.to_str(sort_key=sort_key)
-    assert config_str == "[d]\ne = 3\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[f]\ng = 4"
+@pytest.mark.parametrize(
+    "section_order,expected_str,expected_keys",
+    [
+        # fmt: off
+        ([], "[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[h]\ni = 5\n\n[j]\nk = 6", ["a", "h", "j"]),
+        (["j", "h", "a"], "[j]\nk = 6\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4", ["j", "h", "a"]),
+        (["h"], "[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[j]\nk = 6", ["h", "a", "j"])
+        # fmt: on
+    ],
+)
+def test_config_serialize_custom_sort(section_order, expected_str, expected_keys):
+    cfg = {
+        "j": {"k": 6},
+        "a": {"b": 1, "d": {"e": 3}, "c": 2, "f": {"g": 4}},
+        "h": {"i": 5},
+    }
+    cfg_str = Config(cfg).to_str()
+    assert Config(cfg, section_order=section_order).to_str() == expected_str
+    keys = list(Config(section_order=section_order).from_str(cfg_str).keys())
+    assert keys == expected_keys
+    keys = list(Config(cfg, section_order=section_order).keys())
+    assert keys == expected_keys

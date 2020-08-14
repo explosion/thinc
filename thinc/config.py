@@ -135,6 +135,7 @@ class Config(dict):
         data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
         *,
         is_interpolated: Optional[bool] = None,
+        section_order: List[str] = [],
     ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
@@ -145,7 +146,6 @@ class Config(dict):
                 f"Can't initialize Config with data. Expected dict, Config or "
                 f"ConfigParser but got: {type(data)}"
             )
-        self.update(data)
         # Whether the config has been interpolated. We can use this to check
         # whether we need to interpolate again when it's resolved. We assume
         # that a config is interpolated by default.
@@ -155,6 +155,13 @@ class Config(dict):
             self.is_interpolated = data.is_interpolated
         else:
             self.is_interpolated = True
+        # Sort sections by index on section order, then alphabetic and account
+        # for subsections
+        sort_map = {section: i for i, section in enumerate(section_order)}
+        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        self.section_sort_key = sort_key
+        # Update with data
+        self.update(self._sort(data))
 
     def interpolate(self) -> "Config":
         """Interpolate a config. Returns a copy of the object."""
@@ -265,6 +272,12 @@ class Config(dict):
         merged = deep_merge_configs(updates, defaults)
         return Config(merged, is_interpolated=is_interpolated)
 
+    def _sort(
+        self, data: Union["Config", "ConfigParser", Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Sort a dict or config by keys using the currently defined sort key."""
+        return dict(sorted(data.items(), key=self.section_sort_key))
+
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
         err_title = "Error parsing config overrides"
@@ -296,18 +309,14 @@ class Config(dict):
         """Load the config from a string."""
         config = get_configparser(interpolate=interpolate)
         config.read_string(text)
+        config._sections = self._sort(config._sections)
         self._set_overrides(config, overrides)
         self.clear()
         self.interpret_config(config)
         self.is_interpolated = interpolate
         return self
 
-    def to_str(
-        self,
-        *,
-        interpolate: bool = True,
-        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
-    ) -> str:
+    def to_str(self, *, interpolate: bool = True) -> str:
         """Write the config to a string."""
         flattened = get_configparser(interpolate=interpolate)
         queue: List[Tuple[tuple, "Config"]] = [(tuple(), self)]
@@ -330,21 +339,15 @@ class Config(dict):
                 else:
                     flattened.set(section_name, key, dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
-        sort_key = sort_key if sort_key is not None else (lambda x: x[0])
-        flattened._sections = dict(sorted(flattened._sections.items(), key=sort_key))
+        flattened._sections = self._sort(flattened._sections)
         self._validate_sections(flattened)
         string_io = io.StringIO()
         flattened.write(string_io)
         return string_io.getvalue().strip()
 
-    def to_bytes(
-        self,
-        *,
-        interpolate: bool = True,
-        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
-    ) -> bytes:
+    def to_bytes(self, *, interpolate: bool = True) -> bytes:
         """Serialize the config to a byte string."""
-        return self.to_str(interpolate=interpolate, sort_key=sort_key).encode("utf8")
+        return self.to_str(interpolate=interpolate).encode("utf8")
 
     def from_bytes(
         self,
@@ -358,17 +361,11 @@ class Config(dict):
             bytes_data.decode("utf8"), interpolate=interpolate, overrides=overrides
         )
 
-    def to_disk(
-        self,
-        path: Union[str, Path],
-        *,
-        interpolate: bool = True,
-        sort_key: Optional[Callable[[Tuple[str, Any]], Any]] = None,
-    ):
+    def to_disk(self, path: Union[str, Path], *, interpolate: bool = True):
         """Serialize the config to a file."""
         path = Path(path)
         with path.open("w", encoding="utf8") as file_:
-            file_.write(self.to_str(interpolate=interpolate, sort_key=sort_key))
+            file_.write(self.to_str(interpolate=interpolate))
 
     def from_disk(
         self,
@@ -531,6 +528,7 @@ class registry(object):
         filled, _, resolved = cls._fill(
             config, schema, validate=validate, overrides=overrides
         )
+        filled = Config(filled)
         # Check that overrides didn't include invalid properties not in config
         if validate:
             cls._validate_overrides(filled, overrides)
@@ -540,7 +538,7 @@ class registry(object):
         # variable references.
         if not is_interpolated:
             filled = filled.merge(Config(orig_config, is_interpolated=False))
-        return resolved, filled
+        return dict(resolved), filled
 
     @classmethod
     def make_from_config(
@@ -593,7 +591,9 @@ class registry(object):
         validate: bool = True,
         parent: str = "",
         overrides: Dict[str, Dict[str, Any]] = {},
-    ) -> Tuple[Config, Config, Dict[str, Any]]:
+    ) -> Tuple[
+        Union[Dict[str, Any], Config], Union[Dict[str, Any], Config], Dict[str, Any]
+    ]:
         """Build three representations of the config:
         1. All promises are preserved (just like config user would provide).
         2. Promises are replaced by their return values. This is the validation
@@ -686,7 +686,7 @@ class registry(object):
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
-        return Config(filled), Config(validation), dict(final)
+        return filled, validation, final
 
     @classmethod
     def _update_from_parsed(
