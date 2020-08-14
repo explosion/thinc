@@ -1155,7 +1155,9 @@ def test_config_serialize_custom_sort_merge():
     expected = "[y]\n\n[z]\n\n[x]"
     config = Config(cfg, section_order=section_order)
     assert config.to_str() == expected
-    config = config.copy()
-    assert config.to_str() == expected
-    config = config.merge({"a": {}})
-    assert config.to_str() == f"{expected}\n\n[a]"
+    config2 = config.copy()
+    assert config2.to_str() == expected
+    config3 = config.merge({"a": {}})
+    assert config3.to_str() == f"{expected}\n\n[a]"
+    config4 = Config(config)
+    assert config4.to_str() == expected

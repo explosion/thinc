@@ -135,7 +135,7 @@ class Config(dict):
         data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
         *,
         is_interpolated: Optional[bool] = None,
-        section_order: List[str] = [],
+        section_order: Optional[List[str]] = None,
     ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
@@ -157,9 +157,14 @@ class Config(dict):
             self.is_interpolated = True
         # Sort sections by index on section order, then alphabetic and account
         # for subsections
-        sort_map = {section: i for i, section in enumerate(section_order)}
+        if section_order is not None:
+            self.section_order = section_order
+        elif isinstance(data, Config):
+            self.section_order = data.section_order
+        else:
+            self.section_order = []
+        sort_map = {section: i for i, section in enumerate(self.section_order)}
         sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
-        self.section_order = section_order
         self.section_sort_key = sort_key
         # Update with data
         self.update(self._sort(data))
