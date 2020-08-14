@@ -135,6 +135,7 @@ class Config(dict):
         data: Optional[Union[Dict[str, Any], "ConfigParser", "Config"]] = None,
         *,
         is_interpolated: Optional[bool] = None,
+        section_order: Optional[List[str]] = None,
     ) -> None:
         """Initialize a new Config object with optional data."""
         dict.__init__(self)
@@ -145,7 +146,6 @@ class Config(dict):
                 f"Can't initialize Config with data. Expected dict, Config or "
                 f"ConfigParser but got: {type(data)}"
             )
-        self.update(data)
         # Whether the config has been interpolated. We can use this to check
         # whether we need to interpolate again when it's resolved. We assume
         # that a config is interpolated by default.
@@ -155,6 +155,19 @@ class Config(dict):
             self.is_interpolated = data.is_interpolated
         else:
             self.is_interpolated = True
+        # Sort sections by index on section order, then alphabetic and account
+        # for subsections
+        if section_order is not None:
+            self.section_order = section_order
+        elif isinstance(data, Config):
+            self.section_order = data.section_order
+        else:
+            self.section_order = []
+        sort_map = {section: i for i, section in enumerate(self.section_order)}
+        sort_key = lambda x: (sort_map.get(x[0].split(".")[0], len(sort_map)), x[0])
+        self.section_sort_key = sort_key
+        # Update with data
+        self.update(self._sort(data))
 
     def interpolate(self) -> "Config":
         """Interpolate a config. Returns a copy of the object."""
@@ -255,15 +268,28 @@ class Config(dict):
             config = copy.deepcopy(self)
         except Exception as e:
             raise ValueError(f"Couldn't deep-copy config: {e}") from e
-        return Config(config, is_interpolated=self.is_interpolated)
+        return Config(
+            config,
+            is_interpolated=self.is_interpolated,
+            section_order=self.section_order,
+        )
 
     def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
-        is_interpolated = defaults.is_interpolated and updates.is_interpolated
         merged = deep_merge_configs(updates, defaults)
-        return Config(merged, is_interpolated=is_interpolated)
+        return Config(
+            merged,
+            is_interpolated=defaults.is_interpolated and updates.is_interpolated,
+            section_order=defaults.section_order,
+        )
+
+    def _sort(
+        self, data: Union["Config", "ConfigParser", Dict[str, Any]]
+    ) -> Dict[str, Any]:
+        """Sort a dict or config by keys using the currently defined sort key."""
+        return dict(sorted(data.items(), key=self.section_sort_key))
 
     def _set_overrides(self, config: "ConfigParser", overrides: Dict[str, Any]) -> None:
         """Set overrides in the ConfigParser before config is interpreted."""
@@ -296,6 +322,7 @@ class Config(dict):
         """Load the config from a string."""
         config = get_configparser(interpolate=interpolate)
         config.read_string(text)
+        config._sections = self._sort(config._sections)
         self._set_overrides(config, overrides)
         self.clear()
         self.interpret_config(config)
@@ -325,9 +352,7 @@ class Config(dict):
                 else:
                     flattened.set(section_name, key, dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
-        flattened._sections = dict(
-            sorted(flattened._sections.items(), key=lambda x: x[0])
-        )
+        flattened._sections = self._sort(flattened._sections)
         self._validate_sections(flattened)
         string_io = io.StringIO()
         flattened.write(string_io)
@@ -510,12 +535,14 @@ class registry(object):
         # If a Config was loaded with interpolate=False, we assume it needs to
         # be interpolated first, otherwise we take it at face value
         is_interpolated = not isinstance(config, Config) or config.is_interpolated
+        section_order = config.section_order if isinstance(config, Config) else None
         orig_config = config
         if not is_interpolated:
             config = Config(orig_config).interpolate()
         filled, _, resolved = cls._fill(
             config, schema, validate=validate, overrides=overrides
         )
+        filled = Config(filled, section_order=section_order)
         # Check that overrides didn't include invalid properties not in config
         if validate:
             cls._validate_overrides(filled, overrides)
@@ -525,7 +552,7 @@ class registry(object):
         # variable references.
         if not is_interpolated:
             filled = filled.merge(Config(orig_config, is_interpolated=False))
-        return resolved, filled
+        return dict(resolved), filled
 
     @classmethod
     def make_from_config(
@@ -578,7 +605,9 @@ class registry(object):
         validate: bool = True,
         parent: str = "",
         overrides: Dict[str, Dict[str, Any]] = {},
-    ) -> Tuple[Config, Config, Dict[str, Any]]:
+    ) -> Tuple[
+        Union[Dict[str, Any], Config], Union[Dict[str, Any], Config], Dict[str, Any]
+    ]:
         """Build three representations of the config:
         1. All promises are preserved (just like config user would provide).
         2. Promises are replaced by their return values. This is the validation
@@ -671,7 +700,7 @@ class registry(object):
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
-        return Config(filled), Config(validation), dict(final)
+        return filled, validation, final
 
     @classmethod
     def _update_from_parsed(

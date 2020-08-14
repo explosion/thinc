@@ -1,2 +1,2 @@
-__version__ = "8.0.0a25"
+__version__ = "8.0.0a26"
 __release__ = True

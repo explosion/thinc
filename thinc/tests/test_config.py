@@ -1122,3 +1122,49 @@ def test_config_is_interpolated():
     assert config.is_interpolated
     config = config.merge(Config().from_str(config_str, interpolate=False))
     assert not config.is_interpolated
+
+
+@pytest.mark.parametrize(
+    "section_order,expected_str,expected_keys",
+    [
+        # fmt: off
+        ([], "[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[h]\ni = 5\n\n[j]\nk = 6", ["a", "h", "j"]),
+        (["j", "h", "a"], "[j]\nk = 6\n\n[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4", ["j", "h", "a"]),
+        (["h"], "[h]\ni = 5\n\n[a]\nb = 1\nc = 2\n\n[a.d]\ne = 3\n\n[a.f]\ng = 4\n\n[j]\nk = 6", ["h", "a", "j"])
+        # fmt: on
+    ],
+)
+def test_config_serialize_custom_sort(section_order, expected_str, expected_keys):
+    cfg = {
+        "j": {"k": 6},
+        "a": {"b": 1, "d": {"e": 3}, "c": 2, "f": {"g": 4}},
+        "h": {"i": 5},
+    }
+    cfg_str = Config(cfg).to_str()
+    assert Config(cfg, section_order=section_order).to_str() == expected_str
+    keys = list(Config(section_order=section_order).from_str(cfg_str).keys())
+    assert keys == expected_keys
+    keys = list(Config(cfg, section_order=section_order).keys())
+    assert keys == expected_keys
+
+
+def test_config_custom_sort_preserve():
+    """Test that sort order is preserved when merging and copying configs,
+    or when configs are filled and resolved."""
+    cfg = {"x": {}, "y": {}, "z": {}}
+    section_order = ["y", "z", "x"]
+    expected = "[y]\n\n[z]\n\n[x]"
+    config = Config(cfg, section_order=section_order)
+    assert config.to_str() == expected
+    config2 = config.copy()
+    assert config2.to_str() == expected
+    config3 = config.merge({"a": {}})
+    assert config3.to_str() == f"{expected}\n\n[a]"
+    config4 = Config(config)
+    assert config4.to_str() == expected
+    config_str = """[a]\nb = 1\n[c]\n@cats = "catsie.v1"\nevil = true\n\n[t]\n x = 2"""
+    section_order = ["c", "a", "t"]
+    config5 = Config(section_order=section_order).from_str(config_str)
+    assert list(config5.keys()) == section_order
+    filled = my_registry.fill_config(config5)
+    assert filled.section_order == section_order
