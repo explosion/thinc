@@ -211,12 +211,7 @@ class Config(dict):
             try:
                 keys_values = list(values.items())
             except InterpolationMissingOptionError as e:
-                err_msg = (
-                    "If you're using variables referring to sub-sections, make "
-                    "sure they're devided by a colon (:) not a dot. For example: "
-                    "${section:subsection}"
-                )
-                raise ConfigValidationError(f"{e}\n\n{err_msg}", []) from None
+                raise ConfigValidationError(f"{e}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
                 if VARIABLE_RE.search(config_v):
