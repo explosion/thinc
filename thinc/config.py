@@ -76,11 +76,13 @@ class CustomInterpolation(ExtendedInterpolation):
                 accum.append("$")
                 rest = rest[2:]
             elif c == "{":
+                # We want to treat both ${a:b} and ${a.b} the same
+                rest = rest.replace(":", ".")
                 m = self._KEYCRE.match(rest)
                 if m is None:
                     err = f"bad interpolation variable reference {rest}"
                     raise InterpolationSyntaxError(option, section, err)
-                path = m.group(1).split(":")
+                path = m.group(1).rsplit(".", 1)
                 rest = rest[m.end() :]
                 sect = section
                 opt = option
@@ -96,7 +98,12 @@ class CustomInterpolation(ExtendedInterpolation):
                     elif len(path) == 2:
                         sect = path[0]
                         opt = parser.optionxform(path[1])
-                        v = parser.get(sect, opt, raw=True)
+                        fallback = "__FALLBACK__"
+                        v = parser.get(sect, opt, raw=True, fallback=fallback)
+                        # If a variable doesn't exist, try again and treat the
+                        # reference as a section
+                        if v == fallback:
+                            v = f"{SECTION_PREFIX}{parser[f'{sect}.{opt}']._name}"
                     else:
                         err = f"More than one ':' found: {rest}"
                         raise InterpolationSyntaxError(option, section, err)
@@ -204,12 +211,7 @@ class Config(dict):
             try:
                 keys_values = list(values.items())
             except InterpolationMissingOptionError as e:
-                err_msg = (
-                    "If you're using variables referring to sub-sections, make "
-                    "sure they're devided by a colon (:) not a dot. For example: "
-                    "${section:subsection}"
-                )
-                raise ConfigValidationError(f"{e}\n\n{err_msg}", []) from None
+                raise ConfigValidationError(f"{e}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
                 if VARIABLE_RE.search(config_v):

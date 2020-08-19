@@ -870,72 +870,84 @@ def test_config_to_str_order():
     assert config.to_str() == expected
 
 
-def test_config_interpolation():
-    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a.foo}"""
+@pytest.mark.parametrize("d", [".", ":"])
+def test_config_interpolation(d):
+    """Test that config values are interpolated correctly. The parametrized
+    value is the final divider (${a.b} vs. ${a:b}). Both should now work and be
+    valid. The double {{ }} in the config strings are required to prevent the
+    references from being interpreted as an actual f-string variable.
+    """
+    c_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${foo}"""
     with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str)
-    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}"""
-    assert Config().from_str(config_str)["b"]["bar"] == "hello"
-    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = ${a:foo}!"""
-    assert Config().from_str(config_str)["b"]["bar"] == "hello!"
-    config_str = """[a]\nfoo = "hello"\n\n[b]\nbar = "${a:foo}!\""""
-    assert Config().from_str(config_str)["b"]["bar"] == "hello!"
-    config_str = """[a]\nfoo = 15\n\n[b]\nbar = ${a:foo}!"""
-    assert Config().from_str(config_str)["b"]["bar"] == "15!"
-    config_str = """[a]\nfoo = ["x", "y"]\n\n[b]\nbar = ${a:foo}"""
-    assert Config().from_str(config_str)["b"]["bar"] == ["x", "y"]
+        Config().from_str(c_str)
+    c_str = f"""[a]\nfoo = "hello"\n\n[b]\nbar = ${{a{d}foo}}"""
+    assert Config().from_str(c_str)["b"]["bar"] == "hello"
+    c_str = f"""[a]\nfoo = "hello"\n\n[b]\nbar = ${{a{d}foo}}!"""
+    assert Config().from_str(c_str)["b"]["bar"] == "hello!"
+    c_str = f"""[a]\nfoo = "hello"\n\n[b]\nbar = "${{a{d}foo}}!\""""
+    assert Config().from_str(c_str)["b"]["bar"] == "hello!"
+    c_str = f"""[a]\nfoo = 15\n\n[b]\nbar = ${{a{d}foo}}!"""
+    assert Config().from_str(c_str)["b"]["bar"] == "15!"
+    c_str = f"""[a]\nfoo = ["x", "y"]\n\n[b]\nbar = ${{a{d}foo}}"""
+    assert Config().from_str(c_str)["b"]["bar"] == ["x", "y"]
     # Interpolation within the same section
-    config_str = """[a]\nfoo = "x"\nbar = ${a:foo}\nbaz = "${a:foo}y\""""
-    assert Config().from_str(config_str)["a"]["bar"] == "x"
-    assert Config().from_str(config_str)["a"]["baz"] == "xy"
+    c_str = f"""[a]\nfoo = "x"\nbar = ${{a{d}foo}}\nbaz = "${{a{d}foo}}y\""""
+    assert Config().from_str(c_str)["a"]["bar"] == "x"
+    assert Config().from_str(c_str)["a"]["baz"] == "xy"
 
 
-def test_config_interpolation_sections():
+@pytest.mark.parametrize("d", [".", ":"])
+def test_config_interpolation_sections(d):
+    """Test that config sections are interpolated correctly. The parametrized
+    value is the final divider (${a.b} vs. ${a:b}). Both should now work and be
+    valid. The double {{ }} in the config strings are required to prevent the
+    references from being interpreted as an actual f-string variable.
+    """
     # Simple block references
-    config_str = """[a]\nfoo = "hello"\nbar = "world"\n\n[b]\nc = ${a}"""
-    config = Config().from_str(config_str)
+    c_str = """[a]\nfoo = "hello"\nbar = "world"\n\n[b]\nc = ${a}"""
+    config = Config().from_str(c_str)
     assert config["b"]["c"] == config["a"]
     # References with non-string values
-    config_str = """[a]\nfoo = "hello"\n\n[a.x]\ny = ${a.b}\n\n[a.b]\nc = 1\nd = [10]"""
-    config = Config().from_str(config_str)
+    c_str = f"""[a]\nfoo = "hello"\n\n[a.x]\ny = ${{a{d}b}}\n\n[a.b]\nc = 1\nd = [10]"""
+    config = Config().from_str(c_str)
     assert config["a"]["x"]["y"] == config["a"]["b"]
     # Multiple references in the same string
-    config_str = """[a]\nx = "string"\ny = 10\n\n[b]\nz = "${a:x}/${a:y}\""""
-    config = Config().from_str(config_str)
+    c_str = f"""[a]\nx = "string"\ny = 10\n\n[b]\nz = "${{a{d}x}}/${{a{d}y}}\""""
+    config = Config().from_str(c_str)
     assert config["b"]["z"] == "string/10"
     # Non-string references in string (converted to string)
-    config_str = """[a]\nx = ["hello", "world"]\n\n[b]\ny = "result: ${a:x}\""""
-    config = Config().from_str(config_str)
+    c_str = f"""[a]\nx = ["hello", "world"]\n\n[b]\ny = "result: ${{a{d}x}}\""""
+    config = Config().from_str(c_str)
     assert config["b"]["y"] == 'result: ["hello", "world"]'
     # References to sections referencing sections
-    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b}"""
-    config = Config().from_str(config_str)
+    c_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b}"""
+    config = Config().from_str(c_str)
     assert config["b"]["bar"] == config["a"]
     assert config["c"]["baz"] == config["b"]
     # References to section values referencing other sections
-    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b:bar}"""
-    config = Config().from_str(config_str)
+    c_str = f"""[a]\nfoo = "x"\n\n[b]\nbar = ${{a}}\n\n[c]\nbaz = ${{b{d}bar}}"""
+    config = Config().from_str(c_str)
     assert config["c"]["baz"] == config["b"]["bar"]
     # References to sections with subsections
-    config_str = """[a]\nfoo = "x"\n\n[a.b]\nbar = 100\n\n[c]\nbaz = ${a}"""
-    config = Config().from_str(config_str)
+    c_str = """[a]\nfoo = "x"\n\n[a.b]\nbar = 100\n\n[c]\nbaz = ${a}"""
+    config = Config().from_str(c_str)
     assert config["c"]["baz"] == config["a"]
     # Infinite recursion
-    config_str = """[a]\nfoo ="x"\n\n[a.b]\nbar = ${a}"""
-    config = Config().from_str(config_str)
+    c_str = """[a]\nfoo ="x"\n\n[a.b]\nbar = ${a}"""
+    config = Config().from_str(c_str)
     assert config["a"]["b"]["bar"] == config["a"]
-    config_str = """[a]\nfoo = "x"\n\n[b]\nbar = ${a}\n\n[c]\nbaz = ${b.bar:foo}"""
+    c_str = f"""[a]\nfoo = "x"\n\n[b]\nbar = ${{a}}\n\n[c]\nbaz = ${{b.bar{d}foo}}"""
     # We can't reference not-yet interpolated subsections
     with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str)
+        Config().from_str(c_str)
     # Generally invalid references
-    config_str = """[a]\nfoo = ${b.bar}"""
+    c_str = f"""[a]\nfoo = ${{b{d}bar}}"""
     with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str)
+        Config().from_str(c_str)
     # We can't reference sections or promises within strings
-    config_str = """[a]\n\n[a.b]\nfoo = "x: ${c}"\n\n[c]\nbar = 1\nbaz = 2"""
+    c_str = """[a]\n\n[a.b]\nfoo = "x: ${c}"\n\n[c]\nbar = 1\nbaz = 2"""
     with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str)
+        Config().from_str(c_str)
 
 
 def test_config_from_str_overrides():
@@ -985,12 +997,18 @@ def test_config_reserved_aliases():
         my_registry.resolve({"test": cfg})
 
 
-def test_config_no_interpolation():
-    config_str = """[a]\nb = 1\n\n[c]\nd = ${a:b}\ne = \"hello${a:b}"\nf = ${a}"""
-    config = Config().from_str(config_str, interpolate=False)
+@pytest.mark.parametrize("d", [".", ":"])
+def test_config_no_interpolation(d):
+    """Test that interpolation is correctly preserved. The parametrized
+    value is the final divider (${a.b} vs. ${a:b}). Both should now work and be
+    valid. The double {{ }} in the config strings are required to prevent the
+    references from being interpreted as an actual f-string variable.
+    """
+    c_str = f"""[a]\nb = 1\n\n[c]\nd = ${{a{d}b}}\ne = \"hello${{a{d}b}}"\nf = ${{a}}"""
+    config = Config().from_str(c_str, interpolate=False)
     assert not config.is_interpolated
-    assert config["c"]["d"] == "${a:b}"
-    assert config["c"]["e"] == '"hello${a:b}"'
+    assert config["c"]["d"] == f"${{a{d}b}}"
+    assert config["c"]["e"] == f'"hello${{a{d}b}}"'
     assert config["c"]["f"] == "${a}"
     config2 = Config().from_str(config.to_str(), interpolate=True)
     assert config2.is_interpolated
@@ -1003,7 +1021,7 @@ def test_config_no_interpolation():
     assert config3["c"]["e"] == "hello1"
     assert config3["c"]["f"] == {"b": 1}
     # Bad non-serializable value
-    cfg = {"x": {"y": numpy.asarray([[1, 2, 3], [4, 5, 3]], dtype="f"), "z": "${x:y}"}}
+    cfg = {"x": {"y": numpy.asarray([[1, 2], [4, 5]], dtype="f"), "z": f"${{x{d}y}}"}}
     with pytest.raises(ConfigValidationError):
         Config(cfg).interpolate()
 
