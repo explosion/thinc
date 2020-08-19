@@ -27,7 +27,7 @@ def test_pytorch_unwrapped(nN, nI, nO):
     model = Linear(nO, nI).initialize()
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
-    sgd = SGD(0.001)
+    sgd = SGD(0.01)
     Y = numpy.zeros((nN, nO), dtype="f")
     check_learns_zero_output(model, sgd, X, Y)
 
