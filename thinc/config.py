@@ -77,12 +77,11 @@ class CustomInterpolation(ExtendedInterpolation):
                 rest = rest[2:]
             elif c == "{":
                 # We want to treat both ${a:b} and ${a.b} the same
-                rest = rest.replace(":", ".")
                 m = self._KEYCRE.match(rest)
                 if m is None:
                     err = f"bad interpolation variable reference {rest}"
                     raise InterpolationSyntaxError(option, section, err)
-                path = m.group(1).rsplit(".", 1)
+                path = m.group(1).replace(":", ".").rsplit(".", 1)
                 rest = rest[m.end() :]
                 sect = section
                 opt = option
