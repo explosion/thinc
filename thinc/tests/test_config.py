@@ -918,6 +918,12 @@ def test_config_interpolation_lists():
     c_str = """[a]\nb = 1\n\n[c]\nd = ["hello", "hello ${a}"]"""
     with pytest.raises(ConfigValidationError):
         Config().from_str(c_str)
+    config_str = """[a]\nb = 1\n\n[c]\nd = ["hello", {"x": ["hello ${a.b}"], "y": 2}]"""
+    config = Config().from_str(config_str)
+    assert config["c"]["d"] == ["hello", {"x": ["hello 1"], "y": 2}]
+    config_str = """[a]\nb = 1\n\n[c]\nd = ["hello", {"x": [${a.b}], "y": 2}]"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(c_str)
 
 
 @pytest.mark.parametrize("d", [".", ":"])
