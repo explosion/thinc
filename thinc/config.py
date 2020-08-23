@@ -94,7 +94,7 @@ class CustomInterpolation(ExtendedInterpolation):
                         else:
                             # We have block reference, store it as a special key
                             section_name = parser[parser.optionxform(path[0])]._name
-                            v = f"{SECTION_PREFIX}{section_name}"
+                            v = self._get_section_name(section_name)
                     elif len(path) == 2:
                         sect = path[0]
                         opt = parser.optionxform(path[1])
@@ -103,7 +103,7 @@ class CustomInterpolation(ExtendedInterpolation):
                         # If a variable doesn't exist, try again and treat the
                         # reference as a section
                         if v == fallback:
-                            v = f"{SECTION_PREFIX}{parser[f'{sect}.{opt}']._name}"
+                            v = self._get_section_name(parser[f"{sect}.{opt}"]._name)
                     else:
                         err = f"More than one ':' found: {rest}"
                         raise InterpolationSyntaxError(option, section, err)
@@ -119,6 +119,21 @@ class CustomInterpolation(ExtendedInterpolation):
             else:
                 err = "'$' must be followed by '$' or '{', " "found: %r" % (rest,)
                 raise InterpolationSyntaxError(option, section, err)
+
+    def _get_section_name(self, name: str) -> str:
+        """Generate the name of a section. Note that we use a quoted string here
+        so we can use section references within lists and load the list as
+        JSON. Since section references can't be used within strings, we don't
+        need the quoted vs. unquoted distinction like we do for variables.
+
+        Examples (assuming section = {"foo": 1}):
+            - value: ${section.foo} -> value: 1
+            - value: "hello ${section.foo}" -> value: "hello 1"
+            - value: ${section} -> value: {"foo": 1}
+            - value: "${section}" -> value: {"foo": 1}
+            - value: "hello ${section}" -> invalid
+        """
+        return f'"{SECTION_PREFIX}{name}"'
 
 
 def get_configparser(interpolate: bool = True):
@@ -217,12 +232,24 @@ class Config(dict):
                 node[key] = self._interpret_value(config_v)
         self.replace_section_refs(self)
 
+    def replace_section_refs(
+        self, config: Union[Dict[str, Any], "Config"], parent: str = ""
+    ) -> None:
+        """Replace references to section blocks in the final config."""
+        for key, value in config.items():
+            key_parent = f"{parent}.{key}".strip(".")
+            if isinstance(value, dict):
+                self.replace_section_refs(value, parent=key_parent)
+            elif isinstance(value, list):
+                config[key] = [
+                    self._get_section_ref(v, parent=[parent, key]) for v in value
+                ]
+            else:
+                config[key] = self._get_section_ref(value, parent=[parent, key])
+
     def _interpret_value(self, value: Any) -> Any:
-        """Interpret a config value."""
-        try:
-            result = srsly.json_loads(value)
-        except Exception:
-            result = value
+        """Interpret a single config value."""
+        result = try_load_json(value)
         # If value is a string and it contains a variable, use original value
         # (not interpreted string, which could lead to double quotes:
         # ${x.y} -> "${x.y}" -> "'${x.y}'"). Make sure to check it's a string,
@@ -234,41 +261,38 @@ class Config(dict):
             return [self._interpret_value(v) for v in result]
         return result
 
-    def replace_section_refs(
-        self, config: Union[Dict[str, Any], "Config"], parent: str = ""
-    ) -> None:
-        """Replace references to section blocks in the final config."""
-        for key, value in config.items():
-            key_parent = f"{parent}.{key}".strip(".")
-            if isinstance(value, dict):
-                self.replace_section_refs(value, parent=key_parent)
-            elif isinstance(value, str) and value.startswith(SECTION_PREFIX):
-                parts = value.replace(SECTION_PREFIX, "").split(".")
-                result = self
-                for item in parts:
-                    try:
-                        result = result[item]
-                    except (KeyError, TypeError):  # This should never happen
-                        err_title = "Error parsing reference to config section"
-                        err_msg = f"Section '{'.'.join(parts)}' is not defined"
-                        raise ConfigValidationError(
-                            self, [{"loc": parts, "msg": err_msg}], message=err_title
-                        ) from None
-                config[key] = result
-            elif isinstance(value, str) and SECTION_PREFIX in value:
-                # String value references a section (either a dict or return
-                # value of promise). We can't allow this, since variables are
-                # always interpolated *before* configs are resolved.
-                err_title = (
-                    "Can't reference whole sections or return values of function "
-                    "blocks inside a string\n\nYou can change your variable to "
-                    "reference a value instead. Keep in mind that it's not "
-                    "possible to interpolate the return value of a registered "
-                    "function, since variables are interpolated when the config "
-                    "is loaded, and registered functions are resolved afterwards."
-                )
-                err = [{"loc": [parent, key], "msg": "uses section variable in string"}]
-                raise ConfigValidationError("", err, message=err_title)
+    def _get_section_ref(self, value: Any, *, parent: List[str] = []) -> Any:
+        """Get a single section reference."""
+        if isinstance(value, str) and value.startswith(f'"{SECTION_PREFIX}'):
+            value = try_load_json(value)
+        if isinstance(value, str) and value.startswith(SECTION_PREFIX):
+            parts = value.replace(SECTION_PREFIX, "").split(".")
+            result = self
+            for item in parts:
+                try:
+                    result = result[item]
+                except (KeyError, TypeError):  # This should never happen
+                    err_title = "Error parsing reference to config section"
+                    err_msg = f"Section '{'.'.join(parts)}' is not defined"
+                    raise ConfigValidationError(
+                        self, [{"loc": parts, "msg": err_msg}], message=err_title
+                    ) from None
+            return result
+        elif isinstance(value, str) and SECTION_PREFIX in value:
+            # String value references a section (either a dict or return
+            # value of promise). We can't allow this, since variables are
+            # always interpolated *before* configs are resolved.
+            err_title = (
+                "Can't reference whole sections or return values of function "
+                "blocks inside a string or list\n\nYou can change your variable to "
+                "reference a value instead. Keep in mind that it's not "
+                "possible to interpolate the return value of a registered "
+                "function, since variables are interpolated when the config "
+                "is loaded, and registered functions are resolved afterwards."
+            )
+            err = [{"loc": parent, "msg": "uses section variable in string or list"}]
+            raise ConfigValidationError("", err, message=err_title)
+        return value
 
     def copy(self) -> "Config":
         """Deepcopy the config."""
@@ -315,7 +339,7 @@ class Config(dict):
             section, option = key.rsplit(".", 1)
             if section not in config or option not in config[section]:
                 raise ConfigValidationError("", err, message=err_title)
-            config.set(section, option, dump_json(value, overrides))
+            config.set(section, option, try_dump_json(value, overrides))
 
     def _validate_sections(self, config: "ConfigParser") -> None:
         # If the config defines top-level properties that are not sections (e.g.
@@ -359,11 +383,11 @@ class Config(dict):
                     # Reference to a function with no arguments, serialize
                     # inline as a dict and don't create new section
                     if registry.is_promise(value) and len(value) == 1 and is_kwarg:
-                        flattened.set(section_name, key, dump_json(value, node))
+                        flattened.set(section_name, key, try_dump_json(value, node))
                     else:
                         queue.append((path + (key,), value))
                 else:
-                    flattened.set(section_name, key, dump_json(value, node))
+                    flattened.set(section_name, key, try_dump_json(value, node))
         # Order so subsection follow parent (not all sections, then all subs etc.)
         flattened._sections = self._sort(flattened._sections)
         self._validate_sections(flattened)
@@ -406,7 +430,15 @@ class Config(dict):
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 
 
-def dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str:
+def try_load_json(value: str) -> Any:
+    """Load a JSON string if possible, otherwise default to original value."""
+    try:
+        return srsly.json_loads(value)
+    except Exception:
+        return value
+
+
+def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") -> str:
     """Dump a config value as JSON and output user-friendly error if it fails."""
     # Special case if we have a variable: it's already a string so don't dump
     # to preserve ${x:y} vs. "${x:y}"

@@ -896,7 +896,7 @@ def test_config_interpolation(d):
     assert Config().from_str(c_str)["a"]["baz"] == "xy"
 
 
-def test_config_interpolation_edge_cases():
+def test_config_interpolation_lists():
     # Test that lists are preserved correctly
     c_str = """[a]\nb = 1\n\n[c]\nd = ["hello ${a.b}", "world"]"""
     config = Config().from_str(c_str, interpolate=False)
@@ -912,6 +912,12 @@ def test_config_interpolation_edge_cases():
     # assert config["c"]["d"] == ["${a.b}", "hello ${a.b}", "world"]
     # config = config.interpolate()
     # assert config["c"]["d"] == [1, "hello 1", "world"]
+    c_str = """[a]\nb = 1\n\n[c]\nd = ["hello", ${a}]"""
+    config = Config().from_str(c_str)
+    assert config["c"]["d"] == ["hello", {"b": 1}]
+    c_str = """[a]\nb = 1\n\n[c]\nd = ["hello", "hello ${a}"]"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(c_str)
 
 
 @pytest.mark.parametrize("d", [".", ":"])
