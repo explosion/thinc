@@ -896,6 +896,24 @@ def test_config_interpolation(d):
     assert Config().from_str(c_str)["a"]["baz"] == "xy"
 
 
+def test_config_interpolation_edge_cases():
+    # Test that lists are preserved correctly
+    c_str = """[a]\nb = 1\n\n[c]\nd = ["hello ${a.b}", "world"]"""
+    config = Config().from_str(c_str, interpolate=False)
+    assert config["c"]["d"] == ["hello ${a.b}", "world"]
+    config = config.interpolate()
+    assert config["c"]["d"] == ["hello 1", "world"]
+    c_str = """[a]\nb = 1\n\n[c]\nd = [${a.b}, "hello ${a.b}", "world"]"""
+    config = Config().from_str(c_str)
+    assert config["c"]["d"] == [1, "hello 1", "world"]
+    config = Config().from_str(c_str, interpolate=False)
+    # NOTE: This currently doesn't work, because we can't know how to JSON-load
+    # the uninterpolated list [${a.b}].
+    # assert config["c"]["d"] == ["${a.b}", "hello ${a.b}", "world"]
+    # config = config.interpolate()
+    # assert config["c"]["d"] == [1, "hello 1", "world"]
+
+
 @pytest.mark.parametrize("d", [".", ":"])
 def test_config_interpolation_sections(d):
     """Test that config sections are interpolated correctly. The parametrized

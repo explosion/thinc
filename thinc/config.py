@@ -214,14 +214,25 @@ class Config(dict):
                 raise ConfigValidationError(f"{e}", []) from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
-                if VARIABLE_RE.search(config_v):
-                    node[key] = config_v
-                else:
-                    try:
-                        node[key] = srsly.json_loads(config_v)
-                    except Exception:
-                        node[key] = config_v
+                node[key] = self._interpret_value(config_v)
         self.replace_section_refs(self)
+
+    def _interpret_value(self, value: Any) -> Any:
+        """Interpret a config value."""
+        try:
+            result = srsly.json_loads(value)
+        except Exception:
+            result = value
+        # If value is a string and it contains a variable, use original value
+        # (not interpreted string, which could lead to double quotes:
+        # ${x.y} -> "${x.y}" -> "'${x.y}'"). Make sure to check it's a string,
+        # so we're not keeping lists as strings.
+        # NOTE: This currently can't handle uninterpolated values like [${x.y}]!
+        if isinstance(result, str) and VARIABLE_RE.search(value):
+            result = value
+        if isinstance(result, list):
+            return [self._interpret_value(v) for v in result]
+        return result
 
     def replace_section_refs(
         self, config: Union[Dict[str, Any], "Config"], parent: str = ""
