@@ -4,7 +4,7 @@ from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
 from pathlib import Path
-from pydantic import BaseModel, create_model, ValidationError
+from pydantic import BaseModel, create_model, ValidationError, Extra
 from pydantic.main import ModelMetaclass
 from wasabi import table
 import srsly
@@ -731,6 +731,7 @@ class registry(object):
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
+        exclude = []
         if validate:
             try:
                 result = schema.parse_obj(validation)
@@ -741,9 +742,18 @@ class registry(object):
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
+            # If our schema doesn't allow extra values, we need to filter them
+            # manually because .construct doesn't parse anything
+            if schema.Config.extra == Extra.forbid:
+                fields = schema.__fields__.keys()
+                exclude = [k for k in result.__fields_set__ if k not in fields]
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
+        if exclude:
+            filled = {k: v for k, v in filled.items() if k not in exclude}
+            validation = {k: v for k, v in validation.items() if k not in exclude}
+            final = {k: v for k, v in final.items() if k not in exclude}
         return filled, validation, final
 
     @classmethod
