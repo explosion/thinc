@@ -443,6 +443,9 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
     # to preserve ${x:y} vs. "${x:y}"
     if isinstance(value, str) and VARIABLE_RE.search(value):
         return value
+    if isinstance(value, str) and value.replace(".", "", 1).isdigit():
+        # Work around values that are strings but numbers
+        value = f'"{value}"'
     try:
         return srsly.json_dumps(value)
     except Exception as e:
