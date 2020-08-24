@@ -4,7 +4,7 @@ from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
 from pathlib import Path
-from pydantic import BaseModel, create_model, ValidationError
+from pydantic import BaseModel, create_model, ValidationError, Extra
 from pydantic.main import ModelMetaclass
 from wasabi import table
 import srsly
@@ -305,11 +305,13 @@ class Config(dict):
             section_order=self.section_order,
         )
 
-    def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
+    def merge(
+        self, updates: Union[Dict[str, Any], "Config"], remove_extra: bool = False
+    ) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
-        merged = deep_merge_configs(updates, defaults)
+        merged = deep_merge_configs(updates, defaults, remove_extra=remove_extra)
         return Config(
             merged,
             is_interpolated=defaults.is_interpolated and updates.is_interpolated,
@@ -443,6 +445,9 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
     # to preserve ${x:y} vs. "${x:y}"
     if isinstance(value, str) and VARIABLE_RE.search(value):
         return value
+    if isinstance(value, str) and value.replace(".", "", 1).isdigit():
+        # Work around values that are strings but numbers
+        value = f'"{value}"'
     try:
         return srsly.json_dumps(value)
     except Exception as e:
@@ -456,9 +461,18 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
 
 
 def deep_merge_configs(
-    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config],
+    config: Union[Dict[str, Any], Config],
+    defaults: Union[Dict[str, Any], Config],
+    *,
+    remove_extra: bool = False,
 ) -> Union[Dict[str, Any], Config]:
     """Deep merge two configs."""
+    if remove_extra:
+        # Filter out values in the original config that are not in defaults
+        keys = list(config.keys())
+        for key in keys:
+            if key not in defaults:
+                del config[key]
     for key, value in defaults.items():
         if isinstance(value, dict):
             node = config.setdefault(key, {})
@@ -474,7 +488,7 @@ def deep_merge_configs(
                 and (promise in node and node[promise] != value[promise])
             ):
                 continue
-            defaults = deep_merge_configs(node, value)
+            defaults = deep_merge_configs(node, value, remove_extra=remove_extra)
         elif key not in config:
             config[key] = value
     return config
@@ -595,7 +609,9 @@ class registry(object):
         # allow auto-filling a non-interpolated config without destroying
         # variable references.
         if not is_interpolated:
-            filled = filled.merge(Config(orig_config, is_interpolated=False))
+            filled = filled.merge(
+                Config(orig_config, is_interpolated=False), remove_extra=True
+            )
         return dict(resolved), filled
 
     @classmethod
@@ -731,6 +747,7 @@ class registry(object):
                 final[key] = value
         # Now that we've filled in all of the promises, update with defaults
         # from schema, and validate if validation is enabled
+        exclude = []
         if validate:
             try:
                 result = schema.parse_obj(validation)
@@ -741,9 +758,18 @@ class registry(object):
         else:
             # Same as parse_obj, but without validation
             result = schema.construct(**validation)
+            # If our schema doesn't allow extra values, we need to filter them
+            # manually because .construct doesn't parse anything
+            if schema.Config.extra in (Extra.forbid, Extra.ignore):
+                fields = schema.__fields__.keys()
+                exclude = [k for k in result.__fields_set__ if k not in fields]
         exclude_validation = set([ARGS_FIELD_ALIAS, *RESERVED_FIELDS.keys()])
         validation.update(result.dict(exclude=exclude_validation))
         filled, final = cls._update_from_parsed(validation, filled, final)
+        if exclude:
+            filled = {k: v for k, v in filled.items() if k not in exclude}
+            validation = {k: v for k, v in validation.items() if k not in exclude}
+            final = {k: v for k, v in final.items() if k not in exclude}
         return filled, validation, final
 
     @classmethod
