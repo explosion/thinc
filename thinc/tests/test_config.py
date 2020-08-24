@@ -1226,6 +1226,12 @@ def test_config_fill_extra_fields():
         my_registry.fill_config(config, schema=TestSchema)
     filled = my_registry.fill_config(config, schema=TestSchema, validate=False)["cfg"]
     assert filled == {"a": "1", "b": 2}
+    config2 = config.interpolate()
+    filled = my_registry.fill_config(config2, schema=TestSchema, validate=False)["cfg"]
+    assert filled == {"a": "1", "b": 2}
+    config3 = Config({"cfg": {"a": "1", "b": 2, "c": True}}, is_interpolated=False)
+    filled = my_registry.fill_config(config3, schema=TestSchema, validate=False)["cfg"]
+    assert filled == {"a": "1", "b": 2}
 
     class TestSchemaContent2(BaseModel):
         a: str

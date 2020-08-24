@@ -305,11 +305,13 @@ class Config(dict):
             section_order=self.section_order,
         )
 
-    def merge(self, updates: Union[Dict[str, Any], "Config"]) -> "Config":
+    def merge(
+        self, updates: Union[Dict[str, Any], "Config"], remove_extra: bool = False
+    ) -> "Config":
         """Deep merge the config with updates, using current as defaults."""
         defaults = self.copy()
         updates = Config(updates).copy()
-        merged = deep_merge_configs(updates, defaults)
+        merged = deep_merge_configs(updates, defaults, remove_extra=remove_extra)
         return Config(
             merged,
             is_interpolated=defaults.is_interpolated and updates.is_interpolated,
@@ -459,9 +461,18 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
 
 
 def deep_merge_configs(
-    config: Union[Dict[str, Any], Config], defaults: Union[Dict[str, Any], Config],
+    config: Union[Dict[str, Any], Config],
+    defaults: Union[Dict[str, Any], Config],
+    *,
+    remove_extra: bool = False,
 ) -> Union[Dict[str, Any], Config]:
     """Deep merge two configs."""
+    if remove_extra:
+        # Filter out values in the original config that are not in defaults
+        keys = list(config.keys())
+        for key in keys:
+            if key not in defaults:
+                del config[key]
     for key, value in defaults.items():
         if isinstance(value, dict):
             node = config.setdefault(key, {})
@@ -477,7 +488,7 @@ def deep_merge_configs(
                 and (promise in node and node[promise] != value[promise])
             ):
                 continue
-            defaults = deep_merge_configs(node, value)
+            defaults = deep_merge_configs(node, value, remove_extra=remove_extra)
         elif key not in config:
             config[key] = value
     return config
@@ -598,7 +609,9 @@ class registry(object):
         # allow auto-filling a non-interpolated config without destroying
         # variable references.
         if not is_interpolated:
-            filled = filled.merge(Config(orig_config, is_interpolated=False))
+            filled = filled.merge(
+                Config(orig_config, is_interpolated=False), remove_extra=True
+            )
         return dict(resolved), filled
 
     @classmethod
