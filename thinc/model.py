@@ -88,6 +88,8 @@ class Model(Generic[InT, OutT]):
         self._params = ParamServer()
         self._dims = dict(dims)
         self._attrs = dict(attrs)
+        if "is_listener" not in self._attrs:
+            self._attrs["is_listener"] = False
         self._refs = dict(refs)
         self._layers = list(layers)
         self._shims = list(shims)
