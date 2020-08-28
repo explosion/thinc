@@ -48,7 +48,10 @@ def init(
     if X is not None:
         model.layers[0].set_dim("nI", get_width(X[1]))
         model.layers[0].initialize(X=X[0])
-        X = (model.layers[0].predict(X[0]), model.layers[0].predict(X[1]))
+        if not model.layers[0].attrs.get("is_listener", None):
+            X = (model.layers[0].predict(X[0]), model.layers[0].predict(X[1]))
+        else:
+            X = None
     model.layers[1].initialize(X=X, Y=Y)
     model.set_dim("nI", model.layers[0].get_dim("nI"))
     model.set_dim("nO", model.layers[1].get_dim("nO"))

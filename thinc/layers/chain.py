@@ -86,6 +86,9 @@ def init(
             layer.initialize(X=curr_input, Y=Y)
         else:
             layer.initialize(X=curr_input)
+        # a listener layer can't be run directly with layer.predict
+        if layer.attrs.get("is_listener", None):
+            curr_input = None
         if curr_input is not None:
             curr_input = layer.predict(curr_input)
 
