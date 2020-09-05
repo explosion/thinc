@@ -42,7 +42,9 @@ class PyTorchShim(Shim):
     def begin_update(self, inputs: ArgsKwargs):
         """Pass the inputs through to the underlying PyTorch model, keeping
         track of which items in the input are tensors requiring gradients.
-        If the model returns a single value, it is converted into a one-element tuple. Return the outputs and a callback to backpropagate.  """
+        If the model returns a single value, it is converted into a one-element tuple.
+        Return the outputs and a callback to backpropagate.
+        """
         self._model.train()
         output = self._model(*inputs.args, **inputs.kwargs)
 
