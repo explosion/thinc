@@ -14,7 +14,7 @@ def with_getitem(idx: int, layer: Model) -> Model[InT, OutT]:
     from a tuple.
     """
     return Model(
-        f"with_getitem-{layer.name}",
+        f"with_getitem({layer.name})",
         forward,
         init=init,
         layers=[layer],

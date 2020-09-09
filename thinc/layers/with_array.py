@@ -17,7 +17,7 @@ def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
     If the input is a 2d array, it is passed through unchanged.
     """
     return Model(
-        f"with_array-{layer.name}",
+        f"with_array({layer.name})",
         forward,
         init=init,
         layers=[layer],

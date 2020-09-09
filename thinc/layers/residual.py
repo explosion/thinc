@@ -13,7 +13,7 @@ InT = TypeVar("InT", List[Floats1d], List[Floats2d], List[Floats3d], List[Floats
 @registry.layers("residual.v1")
 def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
     return Model(
-        "residual",
+        f"residual({layer.name})",
         forward,
         init=init,
         layers=[layer],
