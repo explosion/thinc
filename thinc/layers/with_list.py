@@ -10,7 +10,7 @@ SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d])
 
 @registry.layers("with_list.v1")
 def with_list(layer: Model[List2d, List2d]) -> Model[SeqT, SeqT]:
-    return Model(f"with_list-{layer.name}", forward, init=init, layers=[layer])
+    return Model(f"with_list({layer.name})", forward, init=init, layers=[layer])
 
 
 def forward(

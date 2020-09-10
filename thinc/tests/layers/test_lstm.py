@@ -152,4 +152,4 @@ def test_lstm_init():
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 def test_pytorch_lstm_init():
     model = with_padded(PyTorchLSTM(2, 2, depth=0)).initialize()
-    assert model.name.endswith("noop")
+    assert model.name == "with_padded(noop)"

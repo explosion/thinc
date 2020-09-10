@@ -18,7 +18,7 @@ def uniqued(layer: Model, *, column: int = 0) -> Model[InT, OutT]:
     local to each minibatch.
     """
     return Model(
-        f"uniqued-{layer.name}",
+        f"uniqued({layer.name})",
         forward,
         init=init,
         layers=[layer],
