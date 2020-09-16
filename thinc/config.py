@@ -478,14 +478,23 @@ def deep_merge_configs(
             node = config.setdefault(key, {})
             if not isinstance(node, dict):
                 continue
-            promises = [key for key in value if key.startswith("@")]
-            promise = promises[0] if promises else None
+            value_promises = [k for k in value if k.startswith("@")]
+            value_promise = value_promises[0] if value_promises else None
+            node_promises = [k for k in node if k.startswith("@")] if node else []
+            node_promise = node_promises[0] if node_promises else None
             # We only update the block from defaults if it refers to the same
             # registered function
             if (
-                promise
-                and any(k.startswith("@") for k in node)
-                and (promise in node and node[promise] != value[promise])
+                value_promise
+                and node_promise
+                and (
+                    value_promise in node
+                    and node[value_promise] != value[value_promise]
+                )
+            ):
+                continue
+            if node_promise and (
+                node_promise not in value or node[node_promise] != value[node_promise]
             ):
                 continue
             defaults = deep_merge_configs(node, value, remove_extra=remove_extra)
