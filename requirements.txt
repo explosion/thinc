@@ -6,7 +6,7 @@ blis>=0.4.0,<0.5.0
 srsly>=2.0.0,<3.0.0
 wasabi>=0.4.0,<1.1.0
 catalogue>=0.2.0,<3.0.0
-ml_datasets>=0.1.5
+ml_datasets>=0.2.0,<3.0.0
 # Third-party dependencies
 pydantic>=1.4.0,<2.0.0
 numpy>=1.7.0
