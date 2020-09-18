@@ -1,4 +1,5 @@
 import contextlib
+import warnings
 from typing import Type
 
 from contextvars import ContextVar
@@ -16,6 +17,18 @@ from ..types import OpsNames
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
 context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
+
+
+def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
+    """Route GPU memory allocation via PyTorch or tensorflow.
+    Raise an error if the given argument does not match either of the two.
+    """
+    if allocator == "pytorch":
+        use_pytorch_for_gpu_memory()
+    elif allocator == "tensorflow":
+        use_tensorflow_for_gpu_memory()
+    else:
+        raise ValueError(f"Invalid 'gpu_allocator' argument: '{allocator}")
 
 
 def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
