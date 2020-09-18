@@ -1,5 +1,4 @@
 import contextlib
-import warnings
 from typing import Type
 
 from contextvars import ContextVar
