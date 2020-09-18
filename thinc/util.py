@@ -174,7 +174,7 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     return device
 
 
-def prefer_gpu(gpu_id: int = 0, allocator: str = "") -> bool:  # pragma: no cover
+def prefer_gpu(gpu_id: int = 0, *, allocator: str = "") -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise.
     Set 'allocator' to 'pytorch' or 'tensorflow' to have cupy
     allocate memory via those respective libraries (only if GPU is available)."""
@@ -187,7 +187,7 @@ def prefer_gpu(gpu_id: int = 0, allocator: str = "") -> bool:  # pragma: no cove
         return True
 
 
-def require_gpu(gpu_id: int = 0, allocator: str = "") -> bool:  # pragma: no cover
+def require_gpu(gpu_id: int = 0, *, allocator: str = "") -> bool:  # pragma: no cover
     """Use GPU. Returns True if available, raise a ValueError otherwise.
 
     If allocator is "pytorch" or "tensorflow", route GPU memory allocation via
