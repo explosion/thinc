@@ -8,7 +8,7 @@ from transformers import AutoTokenizer, AutoModel
 import thinc
 from thinc.api import PyTorchWrapper, Softmax, chain, with_array, Model, Config
 from thinc.api import torch2xp, xp2torch, SequenceCategoricalCrossentropy
-from thinc.api import prefer_gpu, use_pytorch_for_gpu_memory
+from thinc.api import prefer_gpu
 from thinc.types import Floats2d, ArgsKwargs
 import ml_datasets
 import tqdm
@@ -38,9 +38,8 @@ n_epoch = 10
 
 
 def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
-    if prefer_gpu():
+    if prefer_gpu(allocator="pytorch"):
         print("Using gpu!")
-        use_pytorch_for_gpu_memory()
     # You can edit the CONFIG string within the file, or copy it out to
     # a separate file and pass in the path.
     if path is None:

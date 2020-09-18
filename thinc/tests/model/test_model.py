@@ -375,7 +375,7 @@ def test_unique_id_multithreading():
 
 
 def test_model_gpu():
-    prefer_gpu()
+    prefer_gpu(allocator="")
     n_hidden = 32
     dropout = 0.2
     (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()

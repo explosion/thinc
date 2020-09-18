@@ -1,3 +1,4 @@
+import warnings
 from typing import Any, Union, Sequence, cast, Dict, Optional, Callable, TypeVar
 from typing import List
 import numpy
@@ -173,18 +174,30 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     return device
 
 
-def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
-    """Use GPU if it's available. Returns True if so, False otherwise."""
+def prefer_gpu(gpu_id: int = 0, allocator: str = "") -> bool:  # pragma: no cover
+    """Use GPU if it's available. Returns True if so, False otherwise.
+    Set 'allocator' to 'pytorch' or 'tensorflow' to have cupy
+    allocate memory via those respective libraries (only if GPU is available)."""
     from .backends.cupy_ops import CupyOps
 
     if CupyOps.xp is None:
         return False
     else:
-        require_gpu(gpu_id=gpu_id)
+        require_gpu(gpu_id=gpu_id, allocator=allocator)
         return True
 
 
-def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
+def require_gpu(gpu_id: int = 0, allocator: str = "") -> bool:  # pragma: no cover
+    """Use GPU. Returns True if available, raise a ValueError otherwise.
+
+    If allocator is "pytorch" or "tensorflow", route GPU memory allocation via
+    that library. This is recommended practice for use with cupy, as otherwise
+    OOM errors can occur when there's available memory sitting in the other
+    library's pool.
+
+    We'd like to support routing Tensorflow memory allocation via PyTorch as well
+    (or vice versa), but do not currently have an implementation for it.
+    """
     from .backends import set_current_ops, CupyOps
 
     if CupyOps.xp is None:
@@ -192,6 +205,23 @@ def require_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
 
     set_current_ops(CupyOps())
     set_active_gpu(gpu_id)
+
+    if allocator in ["pytorch", "tensorflow"]:
+        import cupy.cuda
+
+        if allocator == "pytorch":
+            from .backends import cupy_pytorch_allocator
+            assert_pytorch_installed()
+            f = cupy_pytorch_allocator
+        elif allocator == "tensorflow":
+            from .backends import cupy_tensorflow_allocator
+            assert_tensorflow_installed()
+            f = cupy_tensorflow_allocator
+        cupy.cuda.set_allocator(cupy.cuda.MemoryPool(allocator=f).malloc)
+    elif allocator:
+        warnings.warn(
+            f"Unknown value {allocator} for 'allocator' parameter has been ignored"
+        )
     return True
 
 

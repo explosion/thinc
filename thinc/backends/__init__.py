@@ -18,42 +18,6 @@ context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps()
 context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
 
 
-def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
-    """Route GPU memory allocation via PyTorch.
-
-    This is recommended for using PyTorch and cupy together, as otherwise
-    OOM errors can occur when there's available memory sitting in the other
-    library's pool.
-
-    We'd like to support routing Tensorflow memory allocation via PyTorch as well
-    (or vice versa), but do not currently have an implementation for it.
-    """
-    import cupy.cuda
-
-    assert_pytorch_installed()
-    cupy.cuda.set_allocator(
-        cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator).malloc
-    )
-
-
-def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
-    """Route GPU memory allocation via TensorFlow.
-
-    This is recommended for using TensorFlow and cupy together, as otherwise
-    OOM errors can occur when there's available memory sitting in the other
-    library's pool.
-
-    We'd like to support routing PyTorch memory allocation via Tensorflow as
-    well (or vice versa), but do not currently have an implementation for it.
-    """
-    import cupy.cuda
-
-    assert_tensorflow_installed()
-    cupy.cuda.set_allocator(
-        cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator).malloc
-    )
-
-
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
     ops = {"numpy": NumpyOps, "cupy": CupyOps, "jax": JaxOps}
