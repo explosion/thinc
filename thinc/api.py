@@ -16,7 +16,7 @@ from .util import prefer_gpu, require_gpu, DataValidationError, data_validation
 from .util import to_categorical, get_width, get_array_module, to_numpy
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow, mxnet2xp, xp2mxnet
 from .backends import get_ops, set_current_ops, get_current_ops, use_ops
-from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax
+from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax, set_gpu_allocator
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
