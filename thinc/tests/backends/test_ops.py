@@ -3,7 +3,7 @@ import numpy
 from hypothesis import given, settings
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
-from thinc.api import JaxOps, has_jax, get_current_ops, use_ops
+from thinc.api import get_current_ops, use_ops
 from thinc.api import fix_random_seed
 import inspect
 
@@ -16,15 +16,13 @@ VANILLA_OPS = Ops(numpy)
 NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
-if has_jax:
-    CPU_OPS.append(JaxOps())
 XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 
-@pytest.mark.parametrize("op", [NumpyOps, CupyOps, JaxOps])
+@pytest.mark.parametrize("op", [NumpyOps, CupyOps])
 def test_ops_consistency(op):
     """Test that specific ops don't define any methods that are not on the
     Ops base class and that all ops methods define the exact same arguments."""
@@ -351,7 +349,6 @@ def test_backprop_mish(ops, X):
 def test_get_ops():
     assert isinstance(get_ops("numpy"), NumpyOps)
     assert isinstance(get_ops("cupy"), CupyOps)
-    assert isinstance(get_ops("jax"), JaxOps)
     with pytest.raises(ValueError):
         get_ops("blah")
     ops = Ops(numpy)
@@ -367,9 +364,6 @@ def test_use_ops():
     with use_ops("cupy"):
         new_ops = get_current_ops()
         assert new_ops.name == "cupy"
-    with use_ops("jax"):
-        new_ops = get_current_ops()
-        assert new_ops.name == "jax"
     new_ops = get_current_ops()
     assert new_ops.name == "numpy"
 
