@@ -1,0 +1,72 @@
+.root
+    cursor: pointer
+    text-decoration: underline
+    text-decoration-color: var(--color-theme-secondary)
+    text-decoration-thickness: 2px
+
+.hidden
+    text-decoration: none
+
+.button
+    --button-color: var(--color-theme-gradient-light)
+    --button-dot: 3rem
+    --button-icon: 16px
+
+    position: relative
+    margin: auto
+    padding: 0.75rem 0.75rem 0.5rem 1.25rem
+    transition: all 0.2s ease
+    display: inline-block
+    font-size: var(--font-size-xs)
+    letter-spacing: 1px
+    font-weight: bold
+    text-transform: uppercase
+
+    .button-icon
+        position: relative
+        top: 0
+        margin-left: 0.2em
+        transform: translateX(-5px)
+        transition: all 0.3s ease
+        width: var(--button-icon)
+        height: var(--button-icon)
+
+    &:before
+        content: ""
+        position: absolute
+        top: 0
+        left: 0
+        display: block
+        border-radius: 2em
+        background: var(--button-color)
+        width: var(--button-dot)
+        height: var(--button-dot)
+        opacity: 0.75
+        transition: all 0.3s ease
+
+    &:hover
+        &:before
+            width: 100%
+            background: var(--button-color)
+            opacity: 1
+
+        .button-icon
+            transform: translateX(0)
+
+    &:active
+        transform: scale(0.96)
+
+.button-primary
+    --button-color: var(--color-theme-gradient-dark)
+    --button-dot: 5rem
+    --button-icon: 24px
+    font-size: var(--font-size-sm)
+    letter-spacing: 0.2em
+    padding: 1.45rem 1.65rem 1rem 1.85rem
+
+.button-content
+    position: relative
+
+\:global
+    .anchor
+        border-bottom: 0

@@ -1,0 +1,72 @@
+$border-width: 6px
+
+.root
+    --color-code: var(--color-default-code)
+    background: var(--color-default-light)
+    font-size: var(--font-size-sm)
+
+    p
+        font-size: var(--font-size-sm)
+
+    li
+        list-style: none
+
+    ul, ol
+        margin-left: 0
+
+    table
+        background: transparent
+
+    p, ol, ul, pre, table
+        margin-bottom: 2rem !important
+
+        &:last-child
+            margin-bottom: 0 !important
+
+.infobox
+    --box-border-color: var(--color-default-medium)
+    border-left: $border-width solid var(--color-default-medium)
+    background: var(--color-default-light)
+    margin-bottom: 4rem
+    padding: 1.25rem 3rem 1.5rem 2rem
+    position: relative
+
+    &:after
+        content: ""
+        clear: both
+        display: table
+
+.warning
+    --box-border-color: var(--color-warning-medium)
+    --color-code: var(--color-warning-code)
+    border-color: var(--color-warning-medium)
+    background: var(--color-warning-light)
+
+.danger
+    --box-border-color: var(--color-danger-medium)
+    --color-code: var(--color-danger-code)
+    border-color: var(--color-danger-medium)
+    background: var(--color-danger-light)
+
+.title
+    color: var(--box-title-color)
+    font-size: var(--font-size-code)
+    margin-bottom: 0.75rem
+    font-weight: normal
+    position: relative
+    top: -0.25rem
+
+.icon
+    $size: 20px
+    position: absolute
+    left: -($size + $border-width) / 2
+    background: var(--box-border-color)
+    border-radius: 50%
+    display: inline-block
+    width: $size
+    height: $size
+    font-size: $size * 0.7
+    font-weight: bold
+    color: var(--color-paper)
+    box-sizing: content-box
+    text-align: center

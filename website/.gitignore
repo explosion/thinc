@@ -1,0 +1,10 @@
+.vscode/
+.cache/
+public/
+node_modules/
+.npm
+logs
+*.log
+npm-debug.log*
+.idea/
+src/fonts/
