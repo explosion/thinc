@@ -561,8 +561,8 @@ class Model(Generic[InT, OutT]):
                 node.attrs[attr] = loaded_value
             for param_name, value in msg["params"][i].items():
                 if value is not None:
-                    value = node.ops.asarray(value)
-                node.set_param(param_name, value.copy())
+                    value = node.ops.asarray(value).copy()
+                node.set_param(param_name, value)
             for i, shim_bytes in enumerate(msg["shims"][i]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
