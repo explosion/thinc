@@ -45,7 +45,7 @@ def test_uniqued_calls_init():
     assert calls == [True, True]
 
 
-@given(X=lists_of_integers(lo=0, hi=ROWS - 1), deadline=None)
+@given(X=lists_of_integers(lo=0, hi=ROWS - 1))
 def test_uniqued_doesnt_change_result(model, X):
     umodel = uniqued(model, column=model.attrs["column"]).initialize()
     Y, bp_Y = model(X, is_train=True)
