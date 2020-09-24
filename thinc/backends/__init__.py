@@ -6,11 +6,10 @@ from contextvars import ContextVar
 from .ops import Ops
 from .cupy_ops import CupyOps, has_cupy
 from .numpy_ops import NumpyOps
-from .jax_ops import JaxOps, has_jax, jax_jit
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, is_jax_array
+from ..util import is_cupy_array
 from ..types import OpsNames
 
 
@@ -68,7 +67,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
-    ops = {"numpy": NumpyOps, "cupy": CupyOps, "jax": JaxOps}
+    ops = {"numpy": NumpyOps, "cupy": CupyOps}
     if name not in ops:
         raise ValueError(f"Invalid backend: {name}")
     cls = ops[name]
@@ -79,8 +78,6 @@ def get_array_ops(arr):
     """Return an Ops object to match the array's device and backend."""
     if is_cupy_array(arr):
         return CupyOps()
-    elif is_jax_array(arr):
-        return JaxOps()
     else:
         return NumpyOps()
 
@@ -108,12 +105,9 @@ __all__ = [
     "set_current_ops",
     "get_current_ops",
     "use_ops",
-    "jax_jit",
     "ParamServer",
     "Ops",
     "CupyOps",
     "NumpyOps",
-    "JaxOps",
-    "has_jax",
     "has_cupy",
 ]

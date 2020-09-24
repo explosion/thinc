@@ -670,51 +670,6 @@ def deserialize_attr(_: Any, value: Any, name: str, model: Model) -> Any:
     return srsly.msgpack_loads(value)
 
 
-def _jax_flatten_model(model):  # pragma: ignore
-    """A Jax flattener for Thinc models. Registering this (and the paired
-    unflatten function) allows Thinc models to be passed into Jax JIT-ed functions.
-
-    The model must have an attr "registered_constructor" that can rebuild the
-    model object via the layers registry, with no arguments. You should use a
-    constructor that doesn't allocate any parameters and works reasonably quickly.
-    """
-    registry_name = model.attrs["registry_name"]
-    msg = model.to_dict()
-    params = msg.pop("params")
-    param_values = []
-    param_keys = []
-    for i, param_info in enumerate(params):
-        for name, value in param_info.items():
-            param_values.append(value)
-            param_keys.append((i, name))
-    # param_values needs to be a flat list of leaf types, e.g. arrays. Notably,
-    # strings are not leaves!
-    # The aux data can be anything, but I think it shouldn't be variables?
-    return param_values, (registry_name, param_keys, msg)
-
-
-def _jax_unflatten_model(info, param_values):  # pragma: ignore
-    """The Jax unflattener, paired with jax_flatten_model"""
-    # This is pretty ugly. But I don't know where I can put this function
-    # that has access to the registry object without causing import circles?
-    from .config import registry
-
-    registry_name, param_keys, msg = info
-    model = registry.layers.get(registry_name)()
-    msg["params"] = [{} for _ in range(len(msg["nodes"]))]
-    for (i, name), value in zip(param_keys, param_values):
-        msg["params"][i][name] = value
-    return model.from_dict(msg)
-
-
-try:  # pragma: no cover
-    import jax.tree_util
-
-    jax.tree_util.register_pytree_node(Model, _jax_flatten_model, _jax_unflatten_model)
-except ImportError:  # pragma: no cover
-    pass
-
-
 _ModelT = TypeVar("_ModelT", bound=Model)
 
 
