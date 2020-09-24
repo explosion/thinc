@@ -841,11 +841,6 @@ class Ops:
         return output
 
 
-# This code is intentionally almost-duplicate with the Jax one. It's kind
-# of hard to condition on jax vs not jax without messing up the jax JIT,
-# and we'll want to have a more specialised implementation for non-Jax
-# versions. But for now this has been tested and works, so we'll just leave
-# it as a reference implementation.
 """
 LSTM Notation (kind of involved, but made it a lot easier to write)
 

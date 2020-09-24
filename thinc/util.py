@@ -22,14 +22,6 @@ except (ImportError, AttributeError):
     cupy = None
     has_cupy = False
 
-try:  # pragma: no cover
-    import jax
-    import jax.numpy
-
-    has_jax = True
-except ImportError:  # pragma: no cover
-    jax = None
-    has_jax = False
 
 try:  # pragma: no cover
     import torch
@@ -61,8 +53,6 @@ from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
         return cupy
-    elif is_jax_array(arr):
-        return jax.numpy
     else:
         return numpy
 
@@ -85,7 +75,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj) or is_jax_array(obj)
+    return is_numpy_array(obj) or is_cupy_array(obj) 
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
@@ -93,19 +83,6 @@ def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
     if not has_cupy:
         return False
     elif isinstance(obj, cupy.ndarray):
-        return True
-    else:
-        return False
-
-
-def is_jax_array(obj: Any) -> bool:  # pragma: no cover
-    """Check whether an object is a jax.numpy array"""
-    if not has_jax:
-        return False
-    elif isinstance(obj, numpy.ndarray):
-        # Numpy arrays evaluate as True for instance of jax.numpy.ndarray :(
-        return False
-    elif isinstance(obj, jax.numpy.ndarray):
         return True
     else:
         return False
@@ -151,8 +128,6 @@ def to_numpy(data):  # pragma: no cover
         return data
     elif has_cupy and isinstance(data, cupy.ndarray):
         return data.get()
-    elif has_jax and isinstance(data, jax.numpy.ndarray):
-        return jax.device_get(data)
     else:
         return numpy.array(data)
 
