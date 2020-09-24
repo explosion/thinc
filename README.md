@@ -39,7 +39,7 @@ Thinc is compatible with **Python 3.6+** and runs on **Linux**,
 [pip](https://pypi.python.org/pypi/thinc).
 
 ```bash
-pip install thinc==8.0.0a1
+pip install "thinc>=v8.0.0a35"
 ```
 
 > ⚠️ Note that Thinc 8.0 is currently **in alpha preview** and not necessarily ready
