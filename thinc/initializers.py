@@ -12,8 +12,6 @@ from .util import partial
 
 # Initialize via numpy, before copying to ops. This makes it easier to work with
 # the different backends, because the backend won't affect the randomization.
-# It's especially helpful for JAX, which has a pretty intrincate PRNG scheme I
-# haven't figured out yet.
 
 
 def lecun_normal_init(ops: Ops, shape: Shape) -> FloatsXd:

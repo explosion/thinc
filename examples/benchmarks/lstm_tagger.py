@@ -16,10 +16,9 @@ import typer
 import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
-from thinc.api import to_categorical, set_current_ops, JaxOps
+from thinc.api import to_categorical, set_current_ops
 from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
-import jax.tree_util
 
 CONFIG = """
 [data]
@@ -86,13 +85,6 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     return Xs, Ys
 
 
-jax.tree_util.register_pytree_node(
-    Padded,
-    lambda pad: ((pad.data, pad.size_at_t, pad.lengths, pad.indices), None),
-    lambda info, values: Padded(*values),
-)
-
-
 def run_forward(model, Xs):
     total = 0.0
     for batch in Xs:
@@ -102,25 +94,20 @@ def run_forward(model, Xs):
 
 
 def set_backend(name, gpu_id):
-    global CONFIG
-    if name == "jax":
-        set_current_ops(JaxOps())
-        CONFIG = CONFIG.replace("PyTorch", "")
+    if gpu_id == -1:
+        set_current_ops(NumpyOps())
     else:
-        if gpu_id == -1:
-            set_current_ops(NumpyOps())
-        else:
-            set_current_ops(CupyOps())
-        CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
+        set_current_ops(CupyOps())
+    CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
-def main(jax: bool = False, pytorch: bool = False, gpu_id: int = -1):
+def main(pytorch: bool = False, gpu_id: int = -1):
     global CONFIG
     fix_random_seed(0)
     if gpu_id >= 0:
         require_gpu(gpu_id)
         print("Set GPU", gpu_id)
-    backends = {"jax": jax, "pytorch": pytorch}
+    backends = {"pytorch": pytorch}
     for name, use_backend in backends.items():
         if not use_backend:
             print(f"Skipping {name}")
