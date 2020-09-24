@@ -1,0 +1,49 @@
+{
+    "title": "Thinc",
+    "slogan": "Lightweight framework-agnostic neural networks in Python",
+    "description": "A lightweight Python library for framework-agnostic neural networks",
+    "siteUrl": "https://thinc.ai",
+    "twitter": "explosion_ai",
+    "github": "explosion/thinc",
+    "email": "contact@explosion.ai",
+    "company": "Explosion",
+    "companyUrl": "https://explosion.ai",
+    "imprintUrl": "https://explosion.ai/legal",
+    "theme": "#291e56",
+    "analytics": "UA-84293596-4",
+    "sidebar": [
+        {
+            "label": "Get started",
+            "items": [
+                { "text": "Introduction", "url": "/docs/" },
+                { "text": "Philosophy", "url": "/docs/philosophy" },
+                { "text": "Installation & Setup", "url": "/docs/install" }
+            ]
+        },
+        {
+            "label": "Usage",
+            "items": [
+                { "text": "Configuration Files", "url": "/docs/usage-config" },
+                { "text": "Defining & Using Models", "url": "/docs/usage-models" },
+                { "text": "Training Models", "url": "/docs/usage-training" },
+                { "text": "PyTorch & TensorFlow", "url": "/docs/usage-frameworks" },
+                { "text": "Code Examples", "url": "/docs/usage-examples" }
+            ]
+        },
+        {
+            "label": "API",
+            "items": [
+                { "text": "Model", "url": "/docs/api-model" },
+                { "text": "Layers", "url": "/docs/api-layers" },
+                { "text": "Optimizers", "url": "/docs/api-optimizers" },
+                { "text": "Initializers", "url": "/docs/api-initializers" },
+                { "text": "Schedules", "url": "/docs/api-schedules" },
+                { "text": "Losses", "url": "/docs/api-loss" },
+                { "text": "Config & Registry", "url": "/docs/api-config" },
+                { "text": "Types & Dataclasses", "url": "/docs/api-types" },
+                { "text": "Backends & Maths", "url": "/docs/api-backends" },
+                { "text": "Utilities & Extras", "url": "/docs/api-util" }
+            ]
+        }
+    ]
+}

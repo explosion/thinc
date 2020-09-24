@@ -1,0 +1,73 @@
+.root
+    font-size: var(--font-size-sm)
+
+.logo
+    width: 120px
+    height: auto
+    padding-left: 2.5rem
+    margin: 2rem 0
+
+.dropdown
+    padding: 1rem 2rem
+    border-bottom: 1px solid var(--color-subtle)
+    width: 100%
+
+.dropdown-select
+    width: 100%
+    padding-left: 1rem
+    cursor: pointer
+
+.section
+    margin-bottom: 3rem
+
+    & > *
+        padding: 0 2.5rem 0.35rem
+
+.label
+    font-weight: bold
+    text-transform: uppercase
+    color: var(--color-theme-primary)
+
+.link
+    border: none
+    text-decoration: none
+
+.is-active
+    font-weight: bold
+    margin-top: 1rem
+    pointer-events: none
+
+    &:before
+        $size: 0.8em
+        content: "•"
+        width: $size
+        display: inline-block
+        margin-left: -$size
+        color: var(--color-theme-primary)
+
+@media(min-width: 900px)
+    .root
+        position: sticky
+        top: 0
+        left: 0
+        z-index: 10
+        padding-bottom: 5rem
+        padding-top: 3rem
+
+    .dropdown
+        display: none
+
+    .logo
+        margin-bottom: 2.5rem
+
+@media(max-width: 899px)
+    .root
+        flex: 100%
+        width: 100%
+        display: block
+
+    .section
+        display: none
+
+    .logo
+        margin-top: 2.5rem
