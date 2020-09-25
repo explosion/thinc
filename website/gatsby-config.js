@@ -10,9 +10,7 @@ const plugins = [
             postCssPlugins: [autoprefixer()],
             cssLoaderOptions: {
                 localIdentName:
-                    process.env.NODE_ENV == 'development'
-                        ? '[name]-[local]-[hash:8]'
-                        : '[hash:8]',
+                    process.env.NODE_ENV == 'development' ? '[name]-[local]-[hash:8]' : '[hash:8]',
             },
         },
     },
@@ -87,12 +85,9 @@ const plugins = [
         },
     },
     {
-        resolve: `gatsby-plugin-google-analytics`,
+        resolve: `gatsby-plugin-plausible`,
         options: {
-            trackingId: meta.analytics,
-            head: false,
-            anonymize: true,
-            respectDNT: true,
+            domain: meta.domain,
         },
     },
     `gatsby-plugin-offline`,
@@ -102,8 +97,8 @@ if (fs.existsSync('./src/fonts')) {
     plugins.push({
         resolve: `gatsby-plugin-sass-resources`,
         options: {
-            resources: ['./src/styles/fonts.sass']
-        }
+            resources: ['./src/styles/fonts.sass'],
+        },
     })
 }
 
