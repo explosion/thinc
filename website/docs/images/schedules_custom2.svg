@@ -1,0 +1,75 @@
+<svg height="179.758125pt" viewBox="0 0 1148.5 179.8" width="1148.45pt" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs/>
+  <g id="figure_1">
+    <path d="M0 179.8h1148.5V0H0z" style="fill:none" id="patch_1"/>
+    <g id="axes_1">
+      <path d="M19.7 163h1116V0H19.7z" style="fill:none" id="patch_2"/>
+      <g id="matplotlib.axis_1">
+        <g id="xtick_1">
+          <g id="line2d_1">
+            <defs>
+              <path d="M0 0v3.5" id="m1efa8f6c92" style="stroke:#6a5f8e;stroke-width:0.8"/>
+            </defs>
+            <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="19.7" xlink:href="#m1efa8f6c92" y="163.1"/>
+          </g>
+          <g id="text_1">
+            <defs>
+              <path d="M31.8 66.4q-7.6 0-11.5-7.5-3.8-7.5-3.8-22.5t3.8-22.5q3.9-7.5 11.5-7.5 7.7 0 11.5 7.5T47 36.4q0 15-3.8 22.5t-11.5 7.5zm0 7.8q12.2 0 18.7-9.7T57 36.4Q57 18 50.5 8.3 44-1.4 31.8-1.4 19.5-1.4 13 8.3q-6.5 9.7-6.5 28 0 18.5 6.5 28.2 6.4 9.7 18.7 9.7z" id="DejaVuSans-48"/>
+            </defs>
+            <use xlink:href="#DejaVuSans-48" transform="matrix(.1 0 0 -.1 16.5 177.7)"/>
+          </g>
+        </g>
+        <g id="xtick_2">
+          <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="1135.7" xlink:href="#m1efa8f6c92" y="163.1" id="line2d_2"/>
+          <g id="text_2">
+            <defs>
+              <path d="M10.8 73h38.7v-8.4H19.8V46.7q2.2.8 4.3 1.1 2.2.4 4.3.4 12.2 0 19.4-6.7 7-6.7 7-18.1 0-11.8-7.2-18.3-7.4-6.5-20.7-6.5-4.6 0-9.4.8-4.7.7-9.8 2.3v10q4.4-2.5 9.1-3.6 4.7-1.2 9.9-1.2 8.5 0 13.4 4.4 5 4.5 5 12 0 7.7-5 12.1Q35 40 26.7 40q-4 0-7.9-.9-4-.9-8-2.7z" id="DejaVuSans-53"/>
+            </defs>
+            <g style="fill:#6a5f8e" transform="matrix(.1 0 0 -.1 1123 177.7)">
+              <use xlink:href="#DejaVuSans-53"/>
+              <use x="63.6" xlink:href="#DejaVuSans-48"/>
+              <use x="127.2" xlink:href="#DejaVuSans-48"/>
+              <use x="190.9" xlink:href="#DejaVuSans-48"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <g id="matplotlib.axis_2">
+        <g id="ytick_1">
+          <g id="line2d_3">
+            <defs>
+              <path d="M0 0h-3.5" id="m5286c10f02" style="stroke:#6a5f8e;stroke-width:0.8"/>
+            </defs>
+            <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="19.7" xlink:href="#m5286c10f02" y="149.5"/>
+          </g>
+          <g id="text_3">
+            <defs>
+              <path d="M12.4 8.3h16.1v55.6L11 60.4v9l17.4 3.5h9.9V8.3h16V0H12.5z" id="DejaVuSans-49"/>
+            </defs>
+            <use xlink:href="#DejaVuSans-49" transform="matrix(.1 0 0 -.1 6.4 153.3)"/>
+          </g>
+        </g>
+        <g id="ytick_2">
+          <use style="fill:#6a5f8e;stroke:#6a5f8e;stroke-width:0.8" x="19.7" xlink:href="#m5286c10f02" y="13.6" id="line2d_4"/>
+          <g id="text_4">
+            <defs>
+              <path d="M33 40.4q-6.6 0-10.5-4.6-3.9-4.5-3.9-12.4T22.5 11Q26.4 6.4 33 6.4q6.7 0 10.5 4.6 4 4.5 4 12.4t-4 12.4q-3.8 4.6-10.5 4.6zm19.6 30.9v-9Q48.9 64.1 45 65q-3.8 1-7.5 1-9.8 0-15-6.7-5-6.6-5.8-19.9 2.9 4.3 7.2 6.5 4.4 2.3 9.6 2.3 11 0 17.4-6.7 6.3-6.6 6.3-18.1 0-11.2-6.6-18Q44-1.4 33-1.4q-12.6 0-19.3 9.7Q7 18 7 36.3 7 53.8 15.2 64q8.2 10.3 22 10.3 3.7 0 7.5-.7 3.8-.8 7.9-2.2z" id="DejaVuSans-54"/>
+            </defs>
+            <g style="fill:#6a5f8e" transform="matrix(.1 0 0 -.1 0 17.4)">
+              <use xlink:href="#DejaVuSans-49"/>
+              <use x="63.6" xlink:href="#DejaVuSans-54"/>
+            </g>
+          </g>
+        </g>
+      </g>
+      <path clip-path="url(#pcc4843ad58)" d="M19.7 149.5L54 148l31.7-1.6 29.4-1.7 27.7-1.9 26.1-2 24.6-2 23.4-2.1 22.1-2.3 21.2-2.4 20.1-2.5 19.4-2.7 18.5-2.7 17.9-2.9 17.2-3 16.5-3 15.8-3.3 15.5-3.3 14.9-3.5 14.5-3.5 14-3.7 13.7-3.9 13.2-3.9 12.9-4 12.5-4.2 12.3-4.4 12-4.5 11.6-4.5 11.4-4.7 11.2-4.9 11-5 10.6-5.1 10.5-5.3 10.3-5.4 10-5.6 10-5.8 9.9-6 9.6-6 1.8-1.1h496.8" style="fill:none;stroke:#6955a1;stroke-linecap:square;stroke-width:4" id="line2d_5"/>
+      <path d="M19.7 163V0" style="fill:none;stroke:#6a5f8e;stroke-linecap:square;stroke-linejoin:miter;stroke-width:0.8" id="patch_3"/>
+      <path d="M19.7 163h1116" style="fill:none;stroke:#6a5f8e;stroke-linecap:square;stroke-linejoin:miter;stroke-width:0.8" id="patch_4"/>
+    </g>
+  </g>
+  <defs>
+    <clipPath id="pcc4843ad58">
+      <path d="M19.7 0h1116v163H19.7z"/>
+    </clipPath>
+  </defs>
+</svg>

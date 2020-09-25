@@ -1,14 +1,14 @@
 ---
-title: Philosophy
+title: Concept and Design
 teaser: Thinc's conceptual model and how it works
-next: /docs/usage-models
+next: /docs/install
 ---
 
 Thinc is built on a fairly simple conceptual model that's a little bit different
 from other neural network libraries. On this page, we build up the library from
 first principles, so you can see how everything fits together. This page assumes
-some conceptual familiarity with backpropagation, but you should be able to
-follow along even if you're hazy on some of the details.
+some conceptual familiarity with [backpropagation](/docs/backprop101), but you
+should be able to follow along even if you're hazy on some of the details.
 
 ## The model composition problem
 
@@ -20,7 +20,7 @@ sure that layers can be cleanly composed?
 Instead of starting with the problem directly, let's start with a simple and
 obvious approach, so that we can run into the problem more naturally. The most
 obvious idea is that we have some thing called a `model`, and this thing holds
-some weights parameters and has a method to predict from some inputs to some
+some parameters ("weights") and has a method to predict from some inputs to some
 outputs using the current weights. So far so good. But we also need a way to
 update the weights. The most obvious API for this is to add an `update` method,
 which will take a batch of inputs and a batch of correct labels, and compute the
@@ -37,6 +37,7 @@ class UncomposableModel:
     def update(self, inputs, targets, learn_rate=0.001):
         guesses = self.predict(inputs)
         d_guesses = (guesses-targets) / targets.shape[0]  # gradient of loss w.r.t. output
+        # The @ is newish Python syntax for matrix multiplication
         d_inputs = d_guesses @ self.W
         dW = d_guesses.T @ inputs  # gradient of parameters
         self.W -= learn_rate * dW  # update weights
@@ -45,7 +46,7 @@ class UncomposableModel:
 
 This API design works in itself, but the `update()` method only works as the
 outer-level API. You wouldn't be able to put another layer with the same API
-after this one, and backpropagate through both of them. Let's look at the steps
+after this one and backpropagate through both of them. Let's look at the steps
 for backpropagating through two matrix multiplications:
 
 ```python
@@ -65,24 +66,31 @@ its output. We can't calculate that value until we've finished the full forward
 pass, calculated the gradient of the loss, and then backpropagated through the
 second layer. This is why the `UncomposableModel` is uncomposable: the `update`
 method expects the input and the target to both be available. That only works
-for the outermost API --- the same API can't work for intermediate layers.
+for the outermost API – the same API can't work for intermediate layers.
 
-Notably, the `predict()` method doesn't have the same composition problem: we
-can chain together the `predict` methods of multiple `UncomposableModel`
-instances, no matter what computation they do internally, and everything will
-Just Work. It's only the `update` method that's problematic.
+Although nobody thinks of it this way, reverse-model auto-differentiation (as
+supported by PyTorch, Tensorflow, etc) can be seen as a solution to this API
+problem. The solution is to base the API around the `predict` method, which
+doesn't have the same composition problem: there's no problem with writing
+`model3.predict(model2.predict(model1.predict(X)))`, or
+`model3.predict(model2.predict(X) + model1.predict(X))`, etc. We can easily
+build a larger model from smaller functions when we're programming the forward
+computations, and so that's exactly the API that reverse-mode
+autodifferentiation was invented to offer.
 
-Most neural network libraries solve the composition problem via the `predict`
-method. As a user, you just work on the forward pass, and behind the scenes, the
-library keeps track of everything needed for backpropagation in some state
-variables. You can then trigger backpropagation later, and everything works via
-some magic you don't really need to know the details of. This solution to the
-problem is **known good**: it's what almost everyone has been using, it works
-just fine, and building a graph of all the computations offers a lot of
-opportunity for optimization. However, tape-based autodifferentiation also
-introduces a lot of intermediate complexity, and the mechanism is quite
-inexplicit. It relies on state and side-effects, which makes code much harder to
-reason about.
+The key idea behind Thinc is that it's possible to just fix the API problem
+directly, so that models can be composed cleanly both forwards and backwards.
+This results in an interestingly different developer experience: the code is far
+more explicit and there are very few details of the framework to consider.
+There's potentially more flexibility, but potentially lost performance and
+sometimes more opportunities to make mistakes.
+
+We don't want to suggest that Thinc's approach is uniformly better than a
+high-performance computational graph engine such as PyTorch or Tensorflow. It
+isn't. The trick is to use them together: you can use PyTorch, Tensorflow or
+some other library to do almost all of the actual computation, while doing
+almost all of your programming with a much more transparent, flexible and
+simpler system. Here's how it works.
 
 ## No (explicit) computational graph – just higher order functions
 
@@ -112,21 +120,21 @@ this signature. For now, we'll stick to layers that don't introduce any
 trainable weights, to keep things simple.
 
 ```python
-### SumPool layer
-def sum_pool(X: Floats3d) -> Tuple[Floats2d, Callable[[Floats2d], Floats3d]]:
+### reduce_sum layer
+def reduce_sum(X: Floats3d) -> Tuple[Floats2d, Callable[[Floats2d], Floats3d]]:
     Y = X.sum(axis=1)
     X_shape = X.shape
 
-    def backprop_sum_pool(dY: Floats2d) -> Floats3d:
+    def backprop_reduce_sum(dY: Floats2d) -> Floats3d:
         dX = zeros(X_shape)
         dX += dY.reshape((dY.shape[0], 1, dY.shape[1]))
         return dX
 
-    return Y, backprop_sum_pool
+    return Y, backprop_reduce_sum
 ```
 
 ```python
-### ReLu layer
+### Relu layer
 def relu(inputs: Floats2d) -> Tuple[Floats2d, Callable[[Floats2d], Floats2d]]:
     mask = inputs >= 0
     def backprop_relu(d_outputs: Floats2d) -> Floats2d:
@@ -135,7 +143,7 @@ def relu(inputs: Floats2d) -> Tuple[Floats2d, Callable[[Floats2d], Floats2d]]:
 
 ```
 
-Notice that the `sum_pool` layer's output is a different shape from its input.
+Notice that the `reduce_sum` layer's output is a different shape from its input.
 The forward pass runs from input to output, while the backward pass runs from
 gradient-of-output to gradient-of-input. This means that we'll always have two
 matching pairs: `(input_to_forward, output_of_backprop)` and
@@ -164,11 +172,11 @@ def chain(layer1, layer2):
     return forward_chain
 ```
 
-We can use the `chain` combinator to build a function that runs our `sum_pool`
+We can use the `chain` combinator to build a function that runs our `reduce_sum`
 and `relu` layers in succession:
 
 ```python
-chained = chain(sum_pool, relu)
+chained = chain(reduce_sum, relu)
 X = uniform((2, 10, 6)) # (batch_size, sequence_length, width)
 dZ = uniform((2, 6))    # (batch_size, width)
 Z, get_dX = chained(X)
@@ -184,7 +192,7 @@ to the output along with its input:
 
 ```python
 ### Problem without callbacks {highlight="15-19"}
-def sum_pool_no_callback(X, dY):
+def reduce_sum_no_callback(X, dY):
     Y = X.sum(axis=1)
     X_shape = X.shape
     dX = zeros(X_shape)
@@ -205,7 +213,7 @@ def chain_no_callback(layer1, layer2):
         raise CannotBeImplementedError()
 ```
 
-The `sum_pool` and `relu` layers are easy to work with, because they don't
+The `reduce_sum` and `relu` layers are easy to work with, because they don't
 introduce any parameters. But networks that don't have any parameters aren't
 very useful. So how should we handle them? We can't just say that parameters are
 just another type of input variable, because that's not how we want to use the
@@ -270,7 +278,7 @@ example.
 
 Instead of defining a subclass of `thinc.model.Model`, the layer provides a
 function `Linear` that constructs a [`Model` instance](/docs/api-model), passing
-in the function `thinc.layers.linear.forward`:
+in the function `forward` in `thinc.layers.linear`:
 
 ```python
 def forward(model: Model, X: InputType, is_train: bool):
@@ -327,17 +335,18 @@ for each layer we define. For example, here's the initialization logic for the
 ```python
 ### Initialization logic
 from typing import Optional
-from thinc.api import Model, xavier_uniform_init
+from thinc.api import Model, glorot_uniform_init
 from thinc.types import Floats2d
+from thinc.util import get_width
 
 def init(model: Model, X: Optional[Floats2d] = None, Y: Optional[Floats2d] = None) -> None:
     if X is not None:
         model.set_dim("nI", get_width(X))
     if Y is not None:
         model.set_dim("nO", get_width(Y))
-    W = model.ops.allocate((model.get_dim("nO"), model.get_dim("nI")))
-    b = model.ops.allocate((model.get_dim("nO"),))
-    xavier_uniform_init(W, inplace=True)
+    W = model.ops.alloc2f(model.get_dim("nO"), model.get_dim("nI"))
+    b = model.ops.alloc1f(model.get_dim("nO"))
+    glorot_uniform_init(model.ops, W.shape)
     model.set_param("W", W)
     model.set_param("b", b)
 ```

@@ -6,15 +6,15 @@ next: /docs/api-layers
 Thinc uses just one model class for almost all layer types. Instead of creating
 subclasses, you'll usually instantiate the `Model` class directly, passing in a
 `forward` function that actually performs the computation. You can find examples
-of this in the library itself, in `thinc.layers` (also see the
-[layers documentation](/docs/api-layers)).
+of this in the library itself, in
+[`thinc.layers`](https://github.com/explosion/thinc/blob/master/thinc/layers)
+(also see the [layers documentation](/docs/api-layers)).
 
-|                                 |                                                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------ |
-| [**Model**](#model)             | Class for implementing Thinc models and layers.                                                  |
-| [**Utilities**](#util)          | Helper functions for implementing models.                                                        |
-| [**Shim**](#shim)               | Interface for external models. Users can create subclasses of `Shim` to wrap external libraries. |
-| [**PyTorchShim**](#pytorchshim) | Interface between a [PyTorch](https://pytorch.org) model and a Thinc `Model`.                    |
+|                        |                                                                                                  |
+| ---------------------- | ------------------------------------------------------------------------------------------------ |
+| [**Model**](#model)    | Class for implementing Thinc models and layers.                                                  |
+| [**Utilities**](#util) | Helper functions for implementing models.                                                        |
+| [**Shim**](#shim)      | Interface for external models. Users can create subclasses of `Shim` to wrap external libraries. |
 
 ## Model {#model tag="class"}
 
@@ -26,19 +26,36 @@ There's only one `Model` class in Thinc and layers are built using
 **composition**, not inheritance. This means that a [layer](/docs/api-layers) or
 composed model will return an **instance** of `Model` – it doesn't subclass it.
 To read more about this concept, see the pages on
-[Thinc's philosophy](/docs/philosophy) and
-[defining models](/docs/usage-models).
+[Thinc's philosophy](/docs/concept) and [defining models](/docs/usage-models).
 
 </infobox>
 
+### Typing {#typing}
+
+`Model` can be used as a
+[generic type](https://docs.python.org/3/library/typing.html#generics) with two
+parameters: the expected input and expected output. For instance,
+`Model[List[Floats2d], Floats2d]` denotes a model that takes a list of
+two-dimensional arrays of floats as inputs and outputs a two-dimensional array
+of floats. A mismatch will cause a type error. For more details, see the docs on
+[type checking](/docs/usage-type-checking).
+
+```python
+from typing import List
+from thinc.api import Model
+from thinc.types import Floats2d
+
+def my_function(model: Model[List[Floats2d], Floats2d]):
+    ...
+```
+
 ### Attributes {#attributes}
 
-| Name     | Type                              | Description                       |
-| -------- | --------------------------------- | --------------------------------- |
-| `name`   | <tt>str</tt>                      | The name of the layer type.       |
-| `ops`    | <tt>Union[NumpyOps, CupyOps]</tt> | Perform array operations.         |
-| `id`     | <tt>int</tt>                      | ID number for the model instance. |
-| `layers` | <tt>List[Model]</tt>              | List of child models.             |
+| Name   | Type         | Description                       |
+| ------ | ------------ | --------------------------------- |
+| `name` | <tt>str</tt> | The name of the layer type.       |
+| `ops`  | <tt>Ops</tt> | Perform array operations.         |
+| `id`   | <tt>int</tt> | ID number for the model instance. |
 
 ### Properties {#properties}
 
@@ -46,10 +63,10 @@ To read more about this concept, see the pages on
 | ------------- | ------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `layers`      | <tt>List[Model]</tt>     | A list of child layers of the model. You can use the list directly, including modifying it in-place: the standard way to add a layer to a model is simply `model.layers.append(layer)`. However, you cannot reassign the `model.layers` attribute to a new variable: `model.layers = []` will fail. |
 | `shims`       | <tt>List[Shim]</tt>      | A list of child shims added to the model.                                                                                                                                                                                                                                                           |
+| `attrs`       | <tt>Dict[str, Any]</tt>  | The model attributes. You can use the dict directly and assign _to_ it – but you cannot reassign `model.attrs` to a new variable: `model.attrs = {}` will fail.                                                                                                                                     |
 | `param_names` | <tt>Tuple[str, ...]</tt> | Get the names of registered parameter (including unset).                                                                                                                                                                                                                                            |
 | `grad_names`  | <tt>Tuple[str, ...]</tt> | Get the names of parameters with registered gradients (including unset).                                                                                                                                                                                                                            |
 | `dim_names`   | <tt>Tuple[str, ...]</tt> | Get the names of registered dimensions (including unset).                                                                                                                                                                                                                                           |
-| `attr_names`  | <tt>Tuple[str, ...]</tt> | Get the names of attributes.                                                                                                                                                                                                                                                                        |
 | `ref_names`   | <tt>Tuple[str, ...]</tt> | Get the names of registered node references (including unset).                                                                                                                                                                                                                                      |
 
 ### Model.\_\_init\_\_ {#init tag="method"}
@@ -74,8 +91,8 @@ model = Model(
 | _keyword-only_ |                                             |                                                                                         |
 | `init`         | <tt>Callable</tt>                           | Function to define the initialization logic.                                            |
 | `dims`         | <tt>Dict[str, Optional[int]]</tt>           | Dictionary describing the model's dimensions. Map unknown dimensions to `None`.         |
-| `params`       | <tt>Dict[str, Optional[bool]]</tt>          | Dictionary with the model's parameters. Set currently unavailable parameters to `None`. |
-| `grads`        | <tt>Dict[str, Optional[Array]]</tt>         | Dictionary with initial gradients, if any. Keys should be the parameter names.          |
+| `params`       | <tt>Dict[str, Optional[FloatsXd]]</tt>      | Dictionary with the model's parameters. Set currently unavailable parameters to `None`. |
+| `grads`        | <tt>Dict[str, Optional[FloatsXd]]</tt>      | Dictionary with initial gradients, if any. Keys should be the parameter names.          |
 | `layers`       | <tt>List[Model]</tt>                        | List of child layers.                                                                   |
 | `shims`        | <tt>List[Shim]</tt>                         | List of interfaces for external models.                                                 |
 | `attrs`        | <tt>Dict[str, Any]</tt>                     | Dictionary of non-parameter attributes.                                                 |
@@ -86,14 +103,15 @@ model = Model(
 Bind arbitrary binary functions to Python operators, for use in any `Model`
 instance. The method can (and should) be used as a contextmanager, so that the
 overloading is limited to the immediate block. This allows concise and
-expressive model definition.
+expressive model definition. The following operators are supported: `+`, `-`,
+`*`, `@`, `/`, `//`, `%`, `**`, `<<`, `>>`, `&`, `^` and `|`.
 
 ```python
 ### Example
 from thinc.api import Model, Relu, Softmax, chain
 
 with Model.define_operators({">>": chain}):
-    model = ReLu(512) >> ReLu(512) >> Softmax()
+    model = Relu(512) >> Relu(512) >> Softmax()
 ```
 
 | Argument    | Type                         | Description                    |
@@ -107,6 +125,12 @@ input and output data to perform shape inference. Until `Model.initialize` is
 called, the model may not be in a ready state to operate on data: parameters or
 dimensions may be unset. The `Model.initialize` method will usually delegate to
 the `init` function given to [`Model.__init__`](#init).
+
+If sample data is provided, it will be validated against the type annotations of
+the `forward` function, if available. A
+[`DataValidationError`](/docs/api-util#errors) is raised in case of a mismatch,
+e.g. if the forward pass expects a two-dimensional array but the model is
+initialized with a three-dimensional array.
 
 ```python
 ### Example
@@ -138,7 +162,7 @@ import numpy
 X = numpy.zeros((128, 10), dtype="f")
 model = Linear(10)
 model.initialize(X=X)
-Y, backprop = model(X)
+Y, backprop = model(X, is_train=True)
 ```
 
 | Argument    | Type                          | Description                                                                                         |
@@ -200,7 +224,7 @@ perform the stochastic gradient descent.
 
 ```python
 ### Example
-from thinc.api import Adam
+from thinc.api import Adam, Linear
 
 optimizer = Adam()
 model = Linear(10)
@@ -215,14 +239,9 @@ model.finish_update(optimizer)
 
 Contextmanager to temporarily set the model's parameters to specified values.
 
-```python
-### Example
-TODO: write
-```
-
-| Argument | Type                      | Description                                                                |
-| -------- | ------------------------- | -------------------------------------------------------------------------- |
-| `params` | <tt>Dict[int, Array]</tt> | A dictionary keyed by model IDs, whose values are arrays of weight values. |
+| Argument | Type                         | Description                                                                |
+| -------- | ---------------------------- | -------------------------------------------------------------------------- |
+| `params` | <tt>Dict[int, FloatsXd]</tt> | A dictionary keyed by model IDs, whose values are arrays of weight values. |
 
 ### Model.walk {#walk tag="method"}
 
@@ -230,9 +249,9 @@ Iterate out layers of the model, breadth-first.
 
 ```python
 ### Example
-from thinc.api import LSTM
+from thinc.api import Relu
 
-model = LSTM(1, 2)
+model = Relu(512, normalize=True)
 for node in model.walk():
     print(node.name)
 ```
@@ -247,11 +266,6 @@ Remove a node from all layers lists, and then update references. References that
 no longer point to a node within the tree will be set to `None`. For instance,
 if a node has its grandchild as a reference and the child is removed, the
 grandchild reference will be left dangling, so will be set to `None`.
-
-```python
-### Example
-TODO: write
-```
 
 | Argument | Type           | Description         |
 | -------- | -------------- | ------------------- |
@@ -355,10 +369,10 @@ W = model.get_param("W")
 assert W.shape == (10, 16)
 ```
 
-| Argument    | Type           | Description                       |
-| ----------- | -------------- | --------------------------------- |
-| `name`      | <tt>str</tt>   | The name of the parameter to get. |
-| **RETURNS** | <tt>Array</tt> | The current parameter.            |
+| Argument    | Type              | Description                       |
+| ----------- | ----------------- | --------------------------------- |
+| `name`      | <tt>str</tt>      | The name of the parameter to get. |
+| **RETURNS** | <tt>FloatsXd</tt> | The current parameter.            |
 
 ### Model.set_param {#set_param tag="method"}
 
@@ -375,73 +389,15 @@ model.set_param("W", numpy.zeros((10, 16), dtype="f"))
 assert model.has_param("W") is True
 ```
 
-| Argument | Type                     | Description                                   |
-| -------- | ------------------------ | --------------------------------------------- |
-| `name`   | <tt>str</tt>             | The name of the parameter to set a value for. |
-| `value`  | <tt>Optional[Array]</tt> | The new value of the parameter.               |
-
-### Model.has_attr {#has_attr tag="method"}
-
-Check whether the model has the given attribute.
-
-```python
-### Example
-from thinc.api import ExtractWindow
-
-model = ExtractWindow()
-model.has_attr("window_size") is True
-model.has_attr("blah") is False
-```
-
-| Argument    | Type                    | Description                                   |
-| ----------- | ----------------------- | --------------------------------------------- |
-| `name`      | <tt>str</tt>            | The name of the attribute.                    |
-| **RETURNS** | <tt>Optional[bool]</tt> | A ternary value (`True`, `False`, or `None`). |
-
-### Model.get_attr {#get_attr tag="method"}
-
-Get the attribute. Raises a `KeyError` if the attribute is not present.
-
-```python
-### Example
-from thinc.api import ExtractWindow
-
-model = ExtractWindow()
-model.get_attr("window_size") == 3
-```
-
-| Argument    | Type         | Description                |
-| ----------- | ------------ | -------------------------- |
-| `name`      | <tt>str</tt> | The name of the attribute. |
-| **RETURNS** | <tt>Any</tt> | The attribute's value.     |
-
-### Model.set_attr {#set_attr tag="method"}
-
-Set the attribute to the given value.
-
-```python
-### Example
-from thinc.api import ExtractWindow
-
-model = ExtractWindow()
-model.set_attr("window_size", 5)
-assert model.get_attr("window_size") == 5
-```
-
-| Argument | Type         | Description                      |
-| -------- | ------------ | -------------------------------- |
-| `name`   | <tt>str</tt> | Set an attribute to a new value. |
-| `value`  | <tt>Any</tt> | The new value for the attribute. |
+| Argument | Type                        | Description                                   |
+| -------- | --------------------------- | --------------------------------------------- |
+| `name`   | <tt>str</tt>                | The name of the parameter to set a value for. |
+| `value`  | <tt>Optional[FloatsXd]</tt> | The new value of the parameter.               |
 
 ### Model.has_ref {#has_ref tag="method"}
 
 Check whether the model has a reference of a given name. If the reference is
 registered but the value is unset, returns `None`.
-
-```python
-### Example
-TODO: write
-```
 
 | Argument    | Type                    | Description                                   |
 | ----------- | ----------------------- | --------------------------------------------- |
@@ -453,11 +409,6 @@ TODO: write
 Retrieve the value of a reference of the given name, or None if unset. Raises a
 `KeyError` if unset.
 
-```python
-### Example
-TODO: write
-```
-
 | Argument    | Type           | Description                |
 | ----------- | -------------- | -------------------------- |
 | `name`      | <tt>str</tt>   | The name of the reference. |
@@ -466,11 +417,6 @@ TODO: write
 ### Model.set_ref {#set_ref tag="method"}
 
 Set a value for a reference.
-
-```python
-### Example
-TODO: write
-```
 
 | Argument | Type                     | Description                      |
 | -------- | ------------------------ | -------------------------------- |
@@ -482,11 +428,6 @@ TODO: write
 Check whether the model has a non-zero gradient for the given parameter. If the
 gradient is allocated but is zeroed, returns `None`.
 
-```python
-### Example
-TODO: write
-```
-
 | Argument    | Type                    | Description                                   |
 | ----------- | ----------------------- | --------------------------------------------- |
 | `name`      | <tt>str</tt>            | The parameter to check the gradient for.      |
@@ -497,57 +438,37 @@ TODO: write
 Get the gradient for a parameter, if one is available. If the parameter is
 undefined or no gradient has been allocated, raises a `KeyError`.
 
-```python
-### Example
-TODO: write
-```
-
-| Argument    | Type           | Description                                        |
-| ----------- | -------------- | -------------------------------------------------- |
-| `name`      | <tt>str</tt>   | The name of the parameter to get the gradient for. |
-| **RETURNS** | <tt>Array</tt> | The current gradient of the parameter.             |
+| Argument    | Type              | Description                                        |
+| ----------- | ----------------- | -------------------------------------------------- |
+| `name`      | <tt>str</tt>      | The name of the parameter to get the gradient for. |
+| **RETURNS** | <tt>FloatsXd</tt> | The current gradient of the parameter.             |
 
 ### Model.set_grad {#set_grad tag="method"}
 
 Set a parameter gradient to a new value.
 
-```python
-### Example
-TODO: write
-```
-
-| Argument | Type           | Description                                           |
-| -------- | -------------- | ----------------------------------------------------- |
-| `name`   | <tt>str</tt>   | The name of the parameter to assign the gradient for. |
-| `value`  | <tt>Array</tt> | The new gradient.                                     |
+| Argument | Type              | Description                                           |
+| -------- | ----------------- | ----------------------------------------------------- |
+| `name`   | <tt>str</tt>      | The name of the parameter to assign the gradient for. |
+| `value`  | <tt>FloatsXd</tt> | The new gradient.                                     |
 
 ### Model.inc_grad {#inc_grad tag="method"}
 
-Add a value to the gradient of a parameter.
+Increment the gradient of a parameter by `value`.
 
-```python
-### Example
-TODO: write
-```
-
-| Argument | Type           | Description                       |
-| -------- | -------------- | --------------------------------- |
-| `name`   | <tt>str</tt>   | The name of the parameter.        |
-| `value`  | <tt>Array</tt> | The value to add to its gradient. |
+| Argument | Type              | Description                       |
+| -------- | ----------------- | --------------------------------- |
+| `name`   | <tt>str</tt>      | The name of the parameter.        |
+| `value`  | <tt>FloatsXd</tt> | The value to add to its gradient. |
 
 ### Model.get_gradients {#get_gradients tag="method"}
 
 Get non-zero gradients of the model's parameters, as a dictionary keyed by the
 parameter ID. The values are `(weights, gradients)` tuples.
 
-```python
-### Example
-TODO: write
-```
-
-| Argument    | Type                      | Description                          |
-| ----------- | ------------------------- | ------------------------------------ |
-| **RETURNS** | <tt>Dict[int, Array]</tt> | The gradients keyed by parameter ID. |
+| Argument    | Type                                                      | Description                          |
+| ----------- | --------------------------------------------------------- | ------------------------------------ |
+| **RETURNS** | <tt>Dict[Tuple[int, str], Tuple[FloatsXd, FloatsXd]]</tt> | The gradients keyed by parameter ID. |
 
 ### Model.copy {copy# tag="method"}
 
@@ -588,6 +509,37 @@ Copy the model to CPU.
 ### Example
 model.to_cpu()
 ```
+
+### Model.to_dict {#to_dict tag="method"}
+
+Serialize the model to a Python dictionary. `Model.to_bytes` delegates to this
+method to create the dict, which it then dumps with MessagePack. Serialization
+should round-trip identically, i.e. the same dict should result from loading and
+serializing a model.
+
+```python
+### Example
+model_data = model.to_dict()
+```
+
+| Argument    | Type          | Description           |
+| ----------- | ------------- | --------------------- |
+| **RETURNS** | <tt>dict</tt> | The serialized model. |
+
+### Model.from_dict {#from_dict tag="method"}
+
+Load the model from a Python dictionary.
+
+```python
+### Example
+model_data = model.to_dict()
+model = Model("model_name", forward).from_dict(model_data)
+```
+
+| Argument    | Type           | Description       |
+| ----------- | -------------- | ----------------- |
+| `msg`       | <tt>dict</tt>  | The data to load. |
+| **RETURNS** | <tt>Model</tt> | The loaded model. |
 
 ### Model.to_bytes {#to_bytes tag="method"}
 
@@ -668,21 +620,78 @@ model = Model().from_disk("/path/to/model")
 
 ## Utilities {#util}
 
-### create_init {#create_init tag="function"}
+### serialize_attr {#serialize_attr tag="function,single-dispatch"}
 
-Create an init function, given a dictionary of parameter initializers.
+[Single-dispatch generic function](https://docs.python.org/3/library/functools.html#functools.singledispatch)
+that serializes a model attribute in `Model.attrs` to bytes and can be
+customized to support other objects and data types. By default, the function
+uses MessagePack to serialize the attribute value to bytes. To register a
+serialization function for a custom type, you can use the
+`@serialize_attr.register` decorator and call it with the custom type. If an
+attribute of that type exists on a model, the registered function will be used
+to serialize it.
 
 ```python
 ### Example
-from thinc.api import create_init, zero_init
+from thinc.api import serialize_attr
 
-init = create_init({"W": zero_init, "b": zero_init})
+@serialize_attr.register(MyCustomClass)
+def serialize_my_custom_class(_, value: MyCustomClass, name: str, model) -> bytes:
+    # value is an instance of MyCustomClass that needs to be serialized. You
+    # can perform any custom serialization here and return bytes
+    return value.custom_serialization_method()
 ```
 
-| Argument       | Type                         | Description                      |
-| -------------- | ---------------------------- | -------------------------------- |
-| `initializers` | <tt>Dict[str, Callable]</tt> | The parameter initializers.      |
-| **RETURNS**    | <tt>Callable</tt>            | The init function for the model. |
+| Argument    | Type           | Description                                                                                                                 |
+| ----------- | -------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| `_`         | <tt>Any</tt>   | An instance of the value to serialize. Its type will be used to determine which registered serialization function to apply. |
+| `value`     | <tt>Any</tt>   | The value to serialize.                                                                                                     |
+| `name`      | <tt>str</tt>   | The attribute name.                                                                                                         |
+| `model`     | <tt>Model</tt> | The model that's being serialized, e.g. to retrieve other information.                                                      |
+| **RETURNS** | <tt>bytes</tt> | The serialized attribute.                                                                                                   |
+
+### deserialize_attr {#deserialize_attr tag="function,single-dispatch"}
+
+[Single-dispatch generic function](https://docs.python.org/3/library/functools.html#functools.singledispatch)
+that deserializes a model attribute in `Model.attrs` from bytes and can be
+customized to support other objects and data types. By default, the function
+uses MessagePack to load the attribute value from bytes. To register a
+deserialization function for a custom type, you can use the
+`@deserialize_attr.register` decorator and call it with the custom type. If an
+attribute of that type exists on a model, the registered function will be used
+to deserialize it.
+
+```python
+### Example
+from thinc.api import deserialize_attr
+
+@deserialize_attr.register(MyCustomClass)
+def deserialize_my_custom_class(_, value: bytes, name: str, model) -> MyCustomClass:
+    # value is a bytestring that needs to be deserialized and transformed into
+    # MyCustomClass. You can perform any custom deserialization here and return
+    # an instance of MyCustomClass.
+    return MyCustomClass().custom_load_method(value)
+```
+
+<infobox variant="warning">
+
+Since the type of the attribute is used to determine the deserialization
+function to use, attributes of custom types need **a default value of the same
+type**. For example, creating a `Model` with `attrs={"custom_attr": None}` won't
+work, because there's no way to tell that the attribute should be an instance of
+`MyCustomClass` (and deserialized as such). Using
+`attrs={"custom_attr": MyCustomClass()}` makes this clear and also means you
+won't have to handle `None` attrs in your model.
+
+</infobox>
+
+| Argument    | Type           | Description                                                                                                                                                          |
+| ----------- | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `_`         | <tt>Any</tt>   | An instance of the value to deserialize (the default value of the attribute). Its type will be used to determine which registered deserialization function to apply. |
+| `value`     | <tt>bytes</tt> | The bytestring to load.                                                                                                                                              |
+| `name`      | <tt>str</tt>   | The attribute name.                                                                                                                                                  |
+| `model`     | <tt>Model</tt> | The model that's being deserialized, e.g. to perform other side-effects.                                                                                             |
+| **RETURNS** | <tt>Any</tt>   | The loaded attribute.                                                                                                                                                |
 
 ---
 
@@ -712,19 +721,17 @@ bytes/disk, rather than expecting that they'll be `msgpack`-serializable. A
 |  `to_disk`       | Serialize the model to disk. Defaults to writing the bytes representation to a file.                   |
 |  `from_disk`     | Load the model from disk. Defaults to loading the byte representation from a file.                     |
 
-### PyTorchShim {#pytorchshim tag="class"}
-
-Interface between a [PyTorch](https://pytorch.org) model and a Thinc `Model`.
-For more details and examples, see the docs on
-[integrating PyTorch models](/docs/usage-framework).
+### Available shims {#shims}
 
 <infobox variant="warning">
 
-This container is **not** a Thinc `Model` subclass itself, it's a subclass of
+A shim container is **not** a Thinc `Model` subclass itself, it's a subclass of
 `Shim`.
 
 </infobox>
 
-```python
-https://github.com/explosion/thinc/blob/develop/thinc/shims/pytorch.py
-```
+|                  |                                                                                                                                                                                                                                                    |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PyTorchShim`    | Interface between a [PyTorch](https://pytorch.org) model and a Thinc `Model`. For more details and examples, see the [`PyTorchWrapper` layer](/docs/api-layers#pytorchwrapper) and docs on [integrating other frameworks](/docs/usage-frameworks). |
+| `TensorFlowShim` | Interface between a [TensorFlow](https://tensorflow.org) model and a Thinc `Model`. For more details, see the [`TensorFlowWrapper` layer](/docs/api-layers#tensorflowwrapper) and docs on [integrating other frameworks](/docs/usage-frameworks)   |
+| `MXNetShim`      | Interface between a [MXNet](https://mxnet.apache.org/) model and a Thinc `Model`. For more details, see the [`MXNetWrapper` layer](/docs/api-layers#mxnetwrapper) and docs on [integrating other frameworks](/docs/usage-frameworks)               |

@@ -66,69 +66,37 @@ set_active_gpu(0)
 | `gpu_id`    | <tt>int</tt>              | Device index to select. |
 | **RETURNS** | <tt>cupy.cuda.Device</tt> | The device.             |
 
-### minibatch {#minibatch tag="function"}
+### use_pytorch_for_gpu_memory {#use_pytorch_for_gpu_memory tag="function"}
 
-Iterate over batches of items. `size` may be an iterator, so that batch-size can
-vary on each step.
+Route GPU memory allocation via PyTorch. This is recommended for using PyTorch
+and `cupy` together, as otherwise OOM errors can occur when there's available
+memory sitting in the other library's pool. We'd like to support routing
+TensorFlow memory allocation via PyTorch as well (or vice versa), but do not
+currently have an implementation for it.
 
 ```python
 ### Example
-from thinc.api import minibatch
+from thinc.api import prefer_gpu, use_pytorch_for_gpu_memory
 
-items = ("a", "b", "c", "d")
-batch_sizes = (8, 16, 32, 8, 64)
-batches = minibatch(items, batch_sizes)
+if prefer_gpu():
+    use_pytorch_for_gpu_memory()
 ```
 
-| Argument   | Type                               | Description         |
-| ---------- | ---------------------------------- | ------------------- |
-| `items`    | <tt>Iterable[Any]</tt>             | The items to batch. |
-| `size`     | <tt>Union[int, Iterable[int]]</tt> | The batch size(s).  |
-| **YIELDS** | <tt>Any</tt>                       | The items.          |
+### use_tensorflow_for_gpu_memory {#use_tensorflow_for_gpu_memory tag="function"}
 
-### get_shuffled_batches {#get_shuffled_batches tag="function"}
+Route GPU memory allocation via TensorFlow. This is recommended for using
+TensorFlow and `cupy` together, as otherwise OOM errors can occur when there's
+available memory sitting in the other library's pool. We'd like to support
+routing PyTorch memory allocation via TensorFlow as well (or vice versa), but do
+not currently have an implementation for it.
 
-Iterate over paired batches from two arrays, shuffling the indices.
+```python
+### Example
+from thinc.api import prefer_gpu, use_tensorflow_for_gpu_memory
 
-| Argument     | Type                         | Description       |
-| ------------ | ---------------------------- | ----------------- |
-| `X`          | <tt>Array</tt>               | The first array.  |
-| `Y`          | <tt>Array</tt>               | The second array. |
-| `batch_size` | <tt>int</tt>                 | The batch size.   |
-| **YIELDS**   | <tt>Tuple[Array, Array]</tt> | The batches.      |
-
-### evaluate_model_on_arrays {#evaluate_model_on_arrays tag="function"}
-
-Helper to evaluate accuracy of a model in the simplest cases, where there's one
-correct output class and the inputs are arrays. Not guaranteed to cover all
-situations – many applications will have to implement their own evaluation
-methods.
-
-| Argument     | Type           | Description                                |
-| ------------ | -------------- | ------------------------------------------ |
-| `model`      | <tt>Model</tt> | The model to evaluate.                     |
-| `inputs`     | <tt>Array</tt> | The inputs of the dataset to evaluate on.  |
-| `labels`     | <tt>Array</tt> | The outputs of the dataset to evaluate on. |
-| `batch_size` | <tt>int</tt>   | The batch size.                            |
-| **RETURNS**  | <tt>float</tt> | The score.                                 |
-
-### is_numpy_array {#is_numpy_array tag="function"}
-
-Check whether an array is a `numpy` array.
-
-| Argument    | Type           | Description                           |
-| ----------- | -------------- | ------------------------------------- |
-| `arr`       | <tt>Array</tt> | The array to check.                   |
-| **RETURNS** | <tt>bool</tt>  | Whether the array is a `numpy` array. |
-
-### is_cupy_array {#is_cupy_array tag="function"}
-
-Check whether an array is a `cupy` array.
-
-| Argument    | Type           | Description                          |
-| ----------- | -------------- | ------------------------------------ |
-| `arr`       | <tt>Array</tt> | The array to check.                  |
-| **RETURNS** | <tt>bool</tt>  | Whether the array is a `cupy` array. |
+if prefer_gpu():
+    use_tensorflow_for_gpu_memory()
+```
 
 ### get_width {#get_width tag="function"}
 
@@ -136,23 +104,23 @@ Infer the width of a batch of data, which could be any of: an n-dimensional
 array (use the shape) or a sequence of arrays (use the shape of the first
 element).
 
-| Argument       | Type                                                             | Description                                            |
-| -------------- | ---------------------------------------------------------------- | ------------------------------------------------------ |
-| `X`            | <tt>Union[Array, Ragged, Padded, Sequence[Array], RNNState]</tt> | The array(s).                                          |
-| _keyword-only_ |                                                                  |                                                        |
-| `dim`          | <tt>int</tt>                                                     | Which dimension to get the size for. Defaults to `-1`. |
-| **RETURNS**    | <tt>int</tt>                                                     | The array's inferred width.                            |
+| Argument       | Type                                                       | Description                                            |
+| -------------- | ---------------------------------------------------------- | ------------------------------------------------------ |
+| `X`            | <tt>Union[ArrayXd, Ragged, Padded, Sequence[ArrayXd]]</tt> | The array(s).                                          |
+| _keyword-only_ |                                                            |                                                        |
+| `dim`          | <tt>int</tt>                                               | Which dimension to get the size for. Defaults to `-1`. |
+| **RETURNS**    | <tt>int</tt>                                               | The array's inferred width.                            |
 
 ### to_categorical {#to_categorical tag="function"}
 
 Converts a class vector (integers) to binary class matrix. Based on
 [`keras.utils.to_categorical`](https://keras.io/utils/).
 
-| Argument    | Type                   | Description                                                                    |
-| ----------- | ---------------------- | ------------------------------------------------------------------------------ |
-| `Y`         | <tt>IntsNd</tt>        | Class vector to be converted into a matrix (integers from `0` to `n_classes`). |
-| `n_classes` | <tt>Optional[int]</tt> | Total number of classes.                                                       |
-| **RETURNS** |  <tt>FloatsNd</tt>     | A binary matrix representation of the input. The classes axis is placed last.  |
+| Argument    | Type                   | Description                                                                                    |
+| ----------- | ---------------------- | ---------------------------------------------------------------------------------------------- |
+| `Y`         | <tt>IntsXd</tt>        | Class vector to be converted into a matrix (integers from `0` to `n_classes`).                 |
+| `n_classes` | <tt>Optional[int]</tt> | Total number of classes.                                                                       |
+| **RETURNS** |  <tt>Floats2d</tt>     | A binary matrix representation of the input. The axis representing the classes is placed last. |
 
 ### xp2torch {#xp2torch tag="function"}
 
@@ -160,7 +128,7 @@ Convert a `numpy` or `cupy` tensor to a PyTorch tensor.
 
 | Argument        | Type                  | Description                                    |
 | --------------- | --------------------- | ---------------------------------------------- |
-| `xp_tensor`     | <tt>Array</tt>        | The tensor to convert.                         |
+| `xp_tensor`     | <tt>ArrayXd</tt>      | The tensor to convert.                         |
 | `requires_grad` | <tt>bool</tt>         | Whether to backpropagate through the variable. |
 | **RETURNS**     | <tt>torch.Tensor</tt> | The converted tensor.                          |
 
@@ -168,7 +136,55 @@ Convert a `numpy` or `cupy` tensor to a PyTorch tensor.
 
 Convert a PyTorch tensor to a `numpy` or `cupy` tensor.
 
-| Argument    | Type                  | Description            |
-| ----------- | --------------------- | ---------------------- |
-| `xp_tensor` | <tt>torch.Tensor</tt> | The tensor to convert. |
-| **RETURNS** | <tt>Array</tt>        | The converted tensor.  |
+| Argument       | Type                  | Description            |
+| -------------- | --------------------- | ---------------------- |
+| `torch_tensor` | <tt>torch.Tensor</tt> | The tensor to convert. |
+| **RETURNS**    | <tt>ArrayXd</tt>      | The converted tensor.  |
+
+### xp2tensorflow {#xp2tensorflow tag="function"}
+
+Convert a `numpy` or `cupy` tensor to a TensorFlow tensor.
+
+| Argument        | Type                       | Description                                           |
+| --------------- | -------------------------- | ----------------------------------------------------- |
+| `xp_tensor`     | <tt>ArrayXd</tt>           | The tensor to convert.                                |
+| `requires_grad` | <tt>bool</tt>              | Whether to backpropagate through the variable.        |
+| `as_variable`   | <tt>bool</tt>              | Convert the result to a `tensorflow.Variable` object. |  |
+| **RETURNS**     | <tt>tensorflow.Tensor</tt> | The converted tensor.                                 |
+
+### tensorflow2xp {#tensorflow2xp tag="function"}
+
+Convert a TensorFlow tensor to a `numpy` or `cupy` tensor.
+
+| Argument            | Type                       | Description            |
+| ------------------- | -------------------------- | ---------------------- |
+| `tensorflow_tensor` | <tt>tensorflow.Tensor</tt> | The tensor to convert. |
+| **RETURNS**         | <tt>ArrayXd</tt>           | The converted tensor.  |
+
+### xp2mxnet {#xp2mxnet tag="function"}
+
+Convert a `numpy` or `cupy` tensor to an MXNet tensor.
+
+| Argument        | Type                   | Description                                    |
+| --------------- | ---------------------- | ---------------------------------------------- |
+| `xp_tensor`     | <tt>ArrayXd</tt>       | The tensor to convert.                         |
+| `requires_grad` | <tt>bool</tt>          | Whether to backpropagate through the variable. |
+| **RETURNS**     | <tt>mx.nd.NDArray</tt> | The converted tensor.                          |
+
+### mxnet2xp {#mxnet2xp tag="function"}
+
+Convert an MXNet tensor to a `numpy` or `cupy` tensor.
+
+| Argument    | Type                   | Description            |
+| ----------- | ---------------------- | ---------------------- |
+| `mx_tensor` | <tt>mx.nd.NDArray</tt> | The tensor to convert. |
+| **RETURNS** | <tt>ArrayXd</tt>       | The converted tensor.  |
+
+### Errors {#errors}
+
+Thinc uses the following custom errors:
+
+| Name                    | Description                                                                                                                                                                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ConfigValidationError` | Raised if invalid config settings are encountered by [`Config`](/docs/api-config#config) or the [`registry`](/docs/api-config#registry), or if resolving and validating the referenced functions fails.                           |
+| `DataValidationError`   | Raised if [`Model.initialize`](/docs/api-model#initialize) is called with sample input or output data that doesn't match the expected input or output of the network, or leads to mismatched input or output in any of its layer. |

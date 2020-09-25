@@ -7,13 +7,15 @@ Schedules are generators that provide different rates, schedules, decays or
 series. They're typically used for batch sizes or learning rates. You can easily
 implement your own schedules as well: just write your own generator function,
 that produces whatever series of values you need. A common use case for
-schedules is within [`Optimizer`](/docs/api-optimizer) objects, which accept a
-`schedules` dictionary that can map attribute names to iterables. See the
+schedules is within [`Optimizer`](/docs/api-optimizer) objects, which accept
+iterators for most of their parameters. See the
 [training guide](/docs/usage-training) for details.
 
 ## constant {#constant tag="function"}
 
 Yield a constant rate.
+
+![](images/schedules_constant.svg)
 
 <grid>
 
@@ -21,7 +23,7 @@ Yield a constant rate.
 ### {small="true"}
 from thinc.api import constant
 
-batch_sizes = constant(0.0)
+batch_sizes = constant(0.001)
 batch_size = next(batch_sizes)
 ```
 
@@ -29,7 +31,7 @@ batch_size = next(batch_sizes)
 ### config {small="true"}
 [batch_size]
 @schedules = "constant.v1"
-rate = 0.0
+rate = 0.001
 ```
 
 </grid>
@@ -43,23 +45,33 @@ rate = 0.0
 
 Yield a constant rate for N steps, before starting a schedule.
 
+![](images/schedules_constant_then.svg)
+
 <grid>
 
 ```python
 ### {small="true"}
-from thinc.api import constant_then
+from thinc.api import constant_then, decaying
 
-batch_sizes = constant_then(0.0, 0, [0.0, 0.1, 0.2])
-batch_size = next(batch_sizes)
+learn_rates = constant_then(
+    0.005,
+    1000,
+    decaying(0.005, 1e-4)
+)
+learn_rate = next(learn_rates)
 ```
 
 ```ini
 ### config {small="true"}
-[batch_size]
+[learn_rates]
 @schedules = "constant_then.v1"
-rate = 0.0
-steps = 0
-schedule = [0.0, 0.1, 0.2]
+rate = 0.005
+steps = 1000
+
+[learn_rates.schedule]
+@schedules = "decaying"
+base_rate = 0.005
+decay = 1e-4
 ```
 
 </grid>
@@ -76,13 +88,15 @@ schedule = [0.0, 0.1, 0.2]
 Yield an infinite series of linearly decaying values, following the schedule
 `base_rate * 1 / (1 + decay * t)`.
 
+![](images/schedules_decaying.svg)
+
 <grid>
 
 ```python
 ### {small="true"}
 from thinc.api import decaying
 
-learn_rates = decaying(0.001, 1e-4)
+learn_rates = decaying(0.005, 1e-4)
 learn_rate = next(learn_rates)  # 0.001
 learn_rate = next(learn_rates)  # 0.00999
 ```
@@ -91,8 +105,8 @@ learn_rate = next(learn_rates)  # 0.00999
 ### config {small="true"}
 [learn_rate]
 @schedules = "decaying.v1"
-base_rate = 0.0
-decay = 0.0
+base_rate = 0.005
+decay = 1e-4
 t = 0
 ```
 
@@ -112,24 +126,26 @@ Yield an infinite series of compounding values. Each time the generator is
 called, a value is produced by multiplying the previous value by the compound
 rate.
 
+![](images/schedules_compounding.svg)
+
 <grid>
 
 ```python
 ### {small="true"}
 from thinc.api import compounding
 
-batch_sizes = compounding(1.0, 10.0, 1.5)
+batch_sizes = compounding(1.0, 32.0, 1.001)
 batch_size = next(batch_sizes)  # 1.0
-batch_size = next(batch_sizes)  # 1.5
+batch_size = next(batch_sizes)  # 1.0 * 1.001
 ```
 
 ```ini
 ### config {small="true"}
-[learn_rate]
+[batch_size]
 @schedules = "compounding.v1"
 start = 1.0
-stop = 10.0
-compound = 1.5
+stop = 32.0
+compound = 1.001
 t = 0
 ```
 
@@ -144,18 +160,20 @@ t = 0
 | `t`            | <tt>int</tt>   |
 | **YIELDS**     | <tt>float</tt> |
 
-## warmup_linear {#slanted_triangular tag="function"}
+## warmup_linear {#warmup_linear tag="function"}
 
 Generate a series, starting from an initial rate, and then with a warmup period,
 and then a linear decline. Used for learning rates.
+
+![](images/schedules_warmup_linear.svg)
 
 <grid>
 
 ```python
 ### {small="true"}
-from thinc.api import decaying
+from thinc.api import warmup_linear
 
-learn_rates = warmup_linear(0.1, 1000, 1000)
+learn_rates = warmup_linear(0.01, 3000, 6000)
 learn_rate = next(learn_rates)
 ```
 
@@ -163,9 +181,9 @@ learn_rate = next(learn_rates)
 ### config {small="true"}
 [learn_rate]
 @schedules = "warmup_linear.v1"
-initial_rate = 0.1
-warmup_steps = 10000
-total_steps = 100000
+initial_rate = 0.01
+warmup_steps = 3000
+total_steps = 6000
 ```
 
 </grid>
@@ -183,13 +201,15 @@ Yield an infinite series of values according to
 [Howard and Ruder's (2018)](https://arxiv.org/abs/1801.06146) "slanted
 triangular learning rate" schedule.
 
+![](images/schedules_slanted_triangular.svg)
+
 <grid>
 
 ```python
 ### {small="true"}
 from thinc.api import slanted_triangular
 
-learn_rates = slanted_triangular(0.1, 1000)
+learn_rates = slanted_triangular(0.1, 5000)
 learn_rate = next(learn_rates)
 ```
 
@@ -198,7 +218,7 @@ learn_rate = next(learn_rates)
 [learn_rate]
 @schedules = "slanted_triangular.v1"
 max_rate = 0.1
-num_steps = 10000
+num_steps = 5000
 cut_frac = 0.1
 ratio = 32
 decay = 1.0
@@ -220,7 +240,9 @@ t = 0.1
 
 ## cyclic_triangular {#cyclic_triangular tag="function"}
 
-TODO: ...
+Linearly increasing then linearly decreasing the rate at each cycle.
+
+![](images/schedules_cyclic_triangular.svg)
 
 <grid>
 
@@ -228,7 +250,7 @@ TODO: ...
 ### {small="true"}
 from thinc.api import cyclic_triangular
 
-learn_rates = cyclic_triangular(0.1, 0.5, 1)
+learn_rates = cyclic_triangular(0.005, 0.001, 1000)
 learn_rate = next(learn_rates)
 ```
 
@@ -236,9 +258,9 @@ learn_rate = next(learn_rates)
 ### config {small="true"}
 [learn_rate]
 @schedules = "cyclic_triangular.v1"
-min_lr = 0.1
-max_lr = 10000
-period = 1
+min_lr = 0.005
+max_lr = 0.001
+period = 1000
 ```
 
 </grid>

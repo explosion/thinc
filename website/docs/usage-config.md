@@ -1,9 +1,9 @@
 ---
-title: Configuration Files
-teaser: Training models from robust configs
+title: Configuration System
+next: /docs/usage-models
 ---
 
-Configuration is a huge problem for machine learning code, because you may want
+Configuration is a huge problem for machine-learning code because you may want
 to expose almost any detail of any function as a hyperparameter. The setting you
 want to expose might be arbitrarily far down in your call stack, so the setting
 might need to pass all the way through the CLI or REST API, through any number
@@ -19,7 +19,7 @@ version the functions you create, allowing you to make improvements without
 breaking backwards compatibility. The most similar config system we're aware of
 is [Gin](https://github.com/google/gin-config), which uses a similar syntax, and
 also allows you to link the configuration system to functions in your code using
-a decorator. Thinc's config system is simpler, and emphasizes a different
+a decorator. Thinc's config system is simpler and emphasizes a different
 workflow via a subset of Gin's functionality.
 
 <grid>
@@ -72,7 +72,7 @@ The config format has three main differences from Python's built-in
 [`configparser`](https://docs.python.org/3/library/configparser.html):
 
 1. **JSON-formatted values.** Thinc passes all values through `json.loads` to
-   interpret them. You can use atomic values like strings, floats, integers, or
+   interpret them. You can use atomic values like strings, floats, integers or
    booleans, or you can use complex objects such as lists or maps.
 
 2. **Structured sections.** Thinc uses a dot notation to build nested sections.
@@ -89,13 +89,26 @@ The config format has three main differences from Python's built-in
    [schedules](/docs/api-schedules)). Also see the section on
    [registry integration](#registry) for more details.
 
+There's **no pre-defined scheme** you have to follow and how you set up the
+top-level sections is up to you. At the end of it, you'll receive a dictionary
+with the values that you can use in your script – whether it's complete
+initialized functions, or just basic settings. For examples that show Thinc's
+config system in action, check out the following tutorials:
+
+<tutorials header="false">
+
+- intro
+- basic_cnn_tagger
+
+</tutorials>
+
 ---
 
 ## Registry integration {#registry}
 
 Thinc's [registry system](/docs/api-config#registry) lets you **map string keys
 to functions**. For instance, let's say you want to define a new optimizer. You
-would define a function that constructs it, and add it to the right register,
+would define a function that constructs it and add it to the right register,
 like so:
 
 ```python
@@ -122,7 +135,7 @@ the [`registry.make_from_config`](/docs/api-config#registry-make_from_config)
 function. If a section contains a key beginning with `@`, it will be interpreted
 as the name of a function registry – e.g. `@optimizers` refers to a function
 registered in the `optimizers` registry. The value will be interpreted as the
-name to look up, and the rest of the block will be passed into the function as
+name to look up and the rest of the block will be passed into the function as
 arguments. Here's a simple example:
 
 <grid>
@@ -140,7 +153,7 @@ gamma = 1e-8
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-loaded = registry.make_from_config(config)
+C = registry.make_from_config(config)
 ```
 
 </grid>
@@ -162,7 +175,8 @@ optimizer = optimizer_func(learn_rate=0.001, gamma=1e-8)
 **Note on type annotations:** If type annotations only define basic types like
 `str`, `int` or `bool`, the validation will accept all values that can be cast
 to this type. For instance, `0` is considered valid for `bool`, since `bool(0)`
-is valid. If you need stricter validation, you can use
+is valid, and the value passed to your function will be `False`. If you need
+stricter validation, you can use
 [`pydantic`'s strict types](https://pydantic-docs.helpmanual.io/usage/types/#strict-types)
 For details and examples, see the
 [section on advanced type annotations](#advanced-types) using
@@ -216,7 +230,7 @@ well.
 
 <infobox variant="warning">
 
-**A note on validating generators:** If a value is an generator, it won't be
+**A note on validating generators:** If a value is a generator, it won't be
 validated further, since this would mean having to execute and consume it.
 Generators can potentially be infinite – like the decaying schedule in this
 example – so checking its return value isn't viable.
@@ -244,7 +258,7 @@ arguments defined in the config.
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-loaded = registry.make_from_config(config)
+C = registry.make_from_config(config)
 ```
 
 ```python
@@ -255,6 +269,143 @@ loaded = registry.make_from_config(config)
 ```
 
 </grid>
+
+### Defining variable positional arguments {#registries-args}
+
+If you're setting function arguments in a config block, Thinc will expect the
+function to have an argument of that same name. For instance,
+`base_rate = 0.001` means that the function will be called with
+`base_rate=0.001`. This works fine, since Python allows function arguments to be
+supplied as positional arguments _or_ as keyword arguments. If possible, named
+arguments are recommended, since it makes your code and config more explicit.
+
+However, in some situations, your registered function may accept variable
+positional arguments. In your config, you can then use `*` to define a list of
+values:
+
+<grid>
+
+```python
+### {small="true"}
+@thinc.registry.schedules("my_cool_schedule.v1")
+def schedule(*steps: float, final: float = 1.0) -> Iterable[float]:
+    yield from steps
+    while True:
+        yield final
+```
+
+```ini
+### config.cfg {small="true"}
+[schedule]
+@schedules = "my_cool_schedule.v1"
+* = [0.05, 0.1, 0.25, 0.75, 0.9]
+final = 1.0
+```
+
+</grid>
+
+<infobox variant="warning">
+
+**About type hints for variable arguments**: Type hints for variable arguments
+should always describe the
+[type of the individual arguments](https://www.python.org/dev/peps/pep-0484/#arbitrary-argument-lists-and-default-argument-values).
+If your arguments are floats, you'd annotate them as `*args: float` (even though
+`args` is technically a tuple of floats). This is also how Thinc will validate
+the config: if variable arguments are annotated as `float`, each item in `*`
+will be validated against `float`.
+
+</infobox>
+
+You can also use the `*` placeholder in nested configs to populate positional
+arguments from function registries. This is useful for combinators like
+[`chain`](/docs/api-layers#combinators) that take a variable number of layers as
+arguments. The following config will create two [`Relu`](/docs/api-layers#relu)
+layers, pass them to [`chain`](/docs/api-layers#combinators) and return a
+combined model:
+
+<grid>
+
+```ini
+### Config {small="true"}
+[model]
+@layers = "chain.v1"
+
+[model.*.relu1]
+@layers = "Relu.v1"
+nO = 512
+dropout = 0.2
+
+[model.*.relu2]
+@layers = "Relu.v0"
+nO = 256
+dropout = 0.1
+```
+
+```python
+### Equivalent to {small="true"}
+from thinc.api import chain, Relu
+
+model = chain(
+    Relu(nO=512, dropout=0.2),
+    Relu(nO=256, dropout=0.1)
+)
+```
+
+</grid>
+
+### Using interpolation {#config-interpolation}
+
+For hyperparameters and other settings that need to be used in different places
+across your config, you can define a separate block once and then reference the
+values using the
+[extended interpolation](https://docs.python.org/3/library/configparser.html#configparser.ExtendedInterpolation).
+For example, `${hyper_params.dropout}` will insert the value of `dropout` from
+the section `hyper_params`.
+
+<grid>
+
+```ini
+### config.cfg {small="true"}
+[hyper_params]
+hidden_width = 512
+dropout = 0.2
+
+[model]
+@layers = "Relu.v1"
+nO = ${hyper_params.hidden_width}
+dropout = ${hyper_params.dropout}
+```
+
+```json
+### Parsed {small="true"}
+{
+    "hyper_params": {
+        "hidden_width": 512,
+        "dropout": 0.2
+    },
+    "model": {
+        "@layers": "Relu.v1",
+        "nO": 512,
+        "dropout": 0.2
+    }
+}
+```
+
+</grid>
+
+<infobox variant="warning">
+
+Interpolation happens **when the config is parsed**, i.e. when you create a
+[`Config`](/docs/api-config#config) object from a file, string, etc. and
+**before registered functions are resolved**. This means that you can only use
+it for hard-coded values like numbers and strings, not to define placeholders
+for resolved values. For instance, the `[model]` section in this example will be
+resolved to an instance of `Relu` – but you wouldn't be able to use `${model}`
+as the argument to another function defined in the config. To achieve this, you
+can either define another nested block or
+[variable positional arguments](#registries-args).
+
+</infobox>
 
 ### Using custom registries {#registries-custom}
 
@@ -392,7 +543,7 @@ def my_cool_optimizer(
 
 In the config file, `logging_config` can now become its own section,
 `[optimizer.logging_config]`. Its values will be validated against the
-`LoggingConfig` schema
+`LoggingConfig` schema:
 
 ```ini
 ### config.cfg
@@ -488,7 +639,7 @@ pipeline = ["tagger", "parser"]
 from thinc.api import registry, Config
 
 config = Config().from_disk("./config.cfg")
-loaded = registry.make_from_config(
+C = registry.make_from_config(
     config,
     schema=ConfigBaseSchema
 )
@@ -508,8 +659,8 @@ schema are available, they will be used to parse the config and fill in any
 missing values and defaults to create an up-to-date "master config".
 
 Let's say you've updated your schema and scripts to use two additional optional
-settings. These settings should also be reflected in your config files so
-they're accurately represent the available settings (and don't assume any hidden
+settings. These settings should also be reflected in your config files so they
+accurately represent the available settings (and don't assume any hidden
 defaults).
 
 ```python
@@ -608,11 +759,11 @@ set `validate` to `False`.
 
 </infobox>
 
+<!-- TODO:
+
 ---
 
 ## Examples {#examples}
-
-<!-- TODO: more examples -->
 
 <tabs id="example-config">
 <tab title="Tagging & parsing with multi-task BiLSTM">
@@ -623,3 +774,5 @@ https://github.com/explosion/spaCy/blob/feature/config/examples/experiments/ptb-
 
 </tab>
 </tabs>
+
+more examples? or do examples differently? -->
