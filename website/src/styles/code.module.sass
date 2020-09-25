@@ -19,7 +19,7 @@
     font-size: 70%
     color: var(--syntax-text)
     background: var(--color-code)
-    padding: 0 0.5rem 0.2rem
+    padding: 0 0.35em 0.2rem
     box-decoration-break: clone
 
 .kbd
@@ -104,7 +104,7 @@
 
 .type-annotation,
     white-space: nowrap
-    font-size: 70%
+    font-size: 75%
     color: var(--color-theme-dark)
     font-family: var(--font-code)
 
@@ -112,10 +112,60 @@
     font-style: italic
     padding-right: 0.5rem
 
+    .inline-code
+        font-size: 75%
+
 .ndarray-shape
     font-style: normal
     font-size: 75%
-    opacity: 0.7
+    color: var(--color-theme-dark-subtle)
+
+.screenshot
+    $border-radius: 5px
+    border-style: solid
+    border-color: var(--color-subtle)
+    background-color: var(--color-code)
+    border-width: 0 1px 1px 1px
+    box-shadow: 0 3px 10px var(--color-theme-shadow)
+    border-radius: $border-radius
+    position: relative
+    margin-bottom: 4rem
+
+    &:before
+        $color: var(--color-theme-dark-subtle)
+        content: ""
+        text-align: center
+        display: block
+        height: 20px
+        background: $color
+        border-style: solid
+        border-color: $color
+        border-width: 1px 1px 0 1px
+        border-top-left-radius: $border-radius
+        border-top-right-radius: $border-radius
+
+    &:after
+        $dot: 8px
+        $color: var(--color-theme-contrast)
+        position: absolute
+        top: 5px
+        left: 10px
+        content: ""
+        width: $dot
+        height: $dot
+        border-radius: 50%
+        background: $color
+        box-shadow: $dot * 1.75 0 0 $color, $dot * 3.5 0 0 $color
+
+    p
+        display: inline
+
+    img, span
+        border-bottom-left-radius: $border-radius
+        border-bottom-right-radius: $border-radius
+
+    p + &
+        margin-top: 5rem
 
 @media(max-width: 1000px)
     .type-annotation, .ndarray
@@ -151,6 +201,20 @@
     &.italic
         font-style: italic
 
+    &.inserted, &.deleted
+        padding: 0 0.75rem 0 0.5rem
+        margin-left: -2rem
+        margin-right: -2rem
+        display: block
+
+    &.inserted
+        color: var(--color-green-text)
+        background: linear-gradient(to right, var(--color-green-transparent) 80%, var(--color-code) 100%)
+
+    &.deleted
+        color: var(--color-red-text)
+        background: linear-gradient(to right, var(--color-red-transparent) 80%, var(--color-code) 100%)
+
 \:global [class*="language-"].type-annotation .token
     &.builtin, &.boolean
         color: var(--color-theme-dark-secondary)
@@ -162,14 +226,14 @@
 /* Line highlights */
 
 \:global .gatsby-highlight-code-line
-    background-color: var(--color-theme-primary-light)
-    border-left: 6px solid var(--color-theme-primary)
+    $border: 5px
+    background: linear-gradient(to right, var(--color-theme-primary-light) 80%, var(--color-code) 100%)
+    border-left: $border solid var(--color-theme-primary)
     display: block
-    margin-right: -2rem
+    margin-right: 2rem
     margin-left: -2rem
     padding-right: 2rem
-    padding-left: calc(1rem + 6px)
-    white-space: pre-wrap
+    padding-left: calc(1rem + #{$border + 1})
 
     &:empty:before
         // Fix issue where empty lines would disappear

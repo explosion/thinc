@@ -21,13 +21,24 @@ const ICONS = {
     file: FileIcon,
 }
 
-export default ({ name, size = 16, className, ...props }) => {
+export default ({ name, size = 16, alt = null, className, ...props }) => {
     const SvgIcon = ICONS[name]
     if (!SvgIcon) throw Error(`Invalid icon name: '${name}'`)
     const style = { minWidth: size }
-    const iconClassNames = classNames(classes.root, className)
+    const iconClassNames = classNames(classes.root, className, {
+        [classes.red]: name === 'no',
+        [classes.green]: name === 'yes',
+    })
+    const altTexts = { yes: 'yes', no: 'no' }
     return (
-        <SvgIcon className={iconClassNames} width={size} height={size} style={style} {...props} />
+        <SvgIcon
+            className={iconClassNames}
+            width={size}
+            height={size}
+            style={style}
+            aria-label={alt != null ? alt : altTexts[name] || null}
+            {...props}
+        />
     )
 }
 

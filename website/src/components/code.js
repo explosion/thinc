@@ -7,10 +7,11 @@ import Icon from './icon'
 import Link from './link'
 import { H5 } from './typography'
 import { isString, htmlToReact, isTrue, getStringChildren } from '../util'
-import CUSTOM_TYPES from '../type-links'
+import CUSTOM_TYPES from '../../docs/_type_links.json'
 import classes from '../styles/code.module.sass'
 
 const GITHUB_URL_SPLIT_PATH = 'thinc/'
+const DEFAULT_TYPE_URL = CUSTOM_TYPES.__default__
 
 function getGitHubPath(url) {
     if (!url.includes(GITHUB_URL_SPLIT_PATH)) {
@@ -24,7 +25,8 @@ function linkType(el, showLink = true) {
     if (!isString(el) || !el.length) return el
     const elStr = el.trim()
     if (!elStr) return el
-    const url = CUSTOM_TYPES[elStr]
+    const typeUrl = CUSTOM_TYPES[elStr]
+    const url = typeUrl == true ? DEFAULT_TYPE_URL : typeUrl
     const ws = el[0] == ' '
     return url && showLink ? (
         <Fragment>
@@ -110,7 +112,7 @@ const CodeWrapper = ({
 const GitHubCode = React.memo(({ url, lang }) => {
     const errorMsg = `Can't fetch code example from GitHub :(
 
-Please use the link below to view the example. If you've come across
+Please use the link above to view the example. If you've come across
 a broken link, we always appreciate a pull request to the repository,
 or a report on the issue tracker. Thanks!`
     const [initialized, setInitialized] = useState(false)
@@ -202,3 +204,9 @@ export const Ndarray = ({ shape, link = true, children }) => {
         </dfn>
     )
 }
+
+export const CodeScreenshot = ({ width, children }) => (
+    <figure style={{ width }} className={classes.screenshot}>
+        {children}
+    </figure>
+)

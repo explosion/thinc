@@ -8,10 +8,10 @@ $border-width: 6px
     p
         font-size: var(--font-size-sm)
 
-    li
+    ul li
         list-style: none
 
-    ul, ol
+    ul
         margin-left: 0
 
     table
@@ -23,8 +23,13 @@ $border-width: 6px
         &:last-child
             margin-bottom: 0 !important
 
+    h1, h2, h3, h4, h5
+        margin-top: 0
+        padding-top: 0 !important
+
 .infobox
     --box-border-color: var(--color-default-medium)
+    --color-paper: var(--color-default-light)
     border-left: $border-width solid var(--color-default-medium)
     background: var(--color-default-light)
     margin-bottom: 4rem

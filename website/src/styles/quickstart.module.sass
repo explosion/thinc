@@ -1,0 +1,69 @@
+.root
+    padding-top: 3rem
+    margin-bottom: 5.5rem
+
+.title
+    margin-bottom: 1rem
+
+.fieldset
+    padding: 0.75rem 0 1rem 0.5rem
+    border-bottom: 1px solid var(--color-subtle)
+
+    &:first-child
+        border-top: 1px solid var(--color-subtle)
+
+.legend
+    float: left
+    font-weight: bold
+    text-transform: uppercase
+    font-size: var(--font-size-sm)
+    margin-right: 1.5rem
+    display: inline-block
+    color: var(--color-theme-dark-secondary)
+    position: relative
+    top: 2px
+
+.option
+    font-size: var(--font-size-sm)
+
+    &:not(:last-child)
+        margin-right: 1.25rem
+
+.help
+    font-size: var(--font-size-sm)
+    color: var(--color-theme-dark-subtle)
+    font-weight: normal
+    margin-left: 0.75rem
+
+.input
+    display: none
+
+.label
+    display: inline-block
+    font-weight: bold
+    cursor: pointer
+    user-select: none
+
+    &:before
+        $size: 0.9em
+        content: ""
+        display: inline-block
+        width: $size
+        height: $size
+        border: 3px solid var(--color-paper)
+        vertical-align: middle
+        margin-right: 0.75rem
+        border-radius: 0.35rem
+        box-shadow: 0 0 0 1px var(--color-theme-dark-subtle)
+        opacity: 0.9
+        position: relative
+        top: -2px
+
+    .input[type="radio"] + &:before
+        border-radius: 50%
+
+    .input:checked + &:before
+        background: var(--color-theme-dark-secondary)
+
+.bracket
+    color: var(--syntax-comment)

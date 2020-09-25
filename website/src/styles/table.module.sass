@@ -1,21 +1,22 @@
-.root
-    margin-bottom: 4rem
+\:global
+    table
+        margin-bottom: 4rem
 
-.td, .th
-    border-bottom: 1px solid var(--color-subtle)
-    font-size: var(--font-size-sm)
-    padding: 0.75rem 1.25rem 0.75rem 0.5rem
+    td, th
+        border-bottom: 1px solid var(--color-subtle)
+        font-size: var(--font-size-sm)
+        padding: 0.75rem 1.25rem 0.75rem 0.5rem
 
-.th
-    border-bottom: 2px solid var(--color-theme-dark-secondary)
-    text-transform: uppercase
-    color: var(--color-theme-dark-secondary)
+    th
+        border-bottom: 2px solid var(--color-theme-dark-secondary)
+        text-transform: uppercase
+        color: var(--color-theme-dark-secondary)
 
-.tr:last-child .td
-    padding-bottom: 1.5rem
-    border-bottom: 0
+    tr:last-child td
+        padding-bottom: 1.5rem
+        border-bottom: 0
 
-.foot .td
+.foot td
     position: relative
     top: -1px
     border-top: 2px solid var(--color-subtle)
@@ -33,7 +34,7 @@
         background: var(--color-paper)
         position: relative
 
-    + .tr .td
+    & + tr td
         padding-top: 14px
 
     td em
@@ -54,7 +55,7 @@
         z-index: 5
 
 @media(max-width: 899px)
-    .root
+    \:global table
         display: block
         max-width: 100%
         overflow-y: auto

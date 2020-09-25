@@ -1,8 +1,9 @@
 {
     "title": "Thinc",
-    "slogan": "Lightweight framework-agnostic neural networks in Python",
-    "description": "A lightweight Python library for framework-agnostic neural networks",
+    "slogan": "A refreshing functional take on deep learning",
+    "description": "Thinc is a lightweight type-checked deep learning library for composing models, with support for layers defined in frameworks like PyTorch and TensorFlow.",
     "siteUrl": "https://thinc.ai",
+    "domain": "thinc.ai",
     "twitter": "explosion_ai",
     "github": "explosion/thinc",
     "email": "contact@explosion.ai",
@@ -10,24 +11,29 @@
     "companyUrl": "https://explosion.ai",
     "imprintUrl": "https://explosion.ai/legal",
     "theme": "#291e56",
-    "analytics": "UA-84293596-4",
     "sidebar": [
         {
             "label": "Get started",
             "items": [
                 { "text": "Introduction", "url": "/docs/" },
-                { "text": "Philosophy", "url": "/docs/philosophy" },
-                { "text": "Installation & Setup", "url": "/docs/install" }
+                { "text": "Concept & Design", "url": "/docs/concept" },
+                { "text": "Installation & Setup", "url": "/docs/install" },
+                {
+                    "text": "Examples & Tutorials",
+                    "url": "https://github.com/explosion/thinc/#-selected-examples-and-notebooks"
+                },
+                { "text": "Backprop 101", "url": "/docs/backprop101" }
             ]
         },
         {
             "label": "Usage",
             "items": [
-                { "text": "Configuration Files", "url": "/docs/usage-config" },
+                { "text": "Configuration System", "url": "/docs/usage-config" },
                 { "text": "Defining & Using Models", "url": "/docs/usage-models" },
                 { "text": "Training Models", "url": "/docs/usage-training" },
-                { "text": "PyTorch & TensorFlow", "url": "/docs/usage-frameworks" },
-                { "text": "Code Examples", "url": "/docs/usage-examples" }
+                { "text": "PyTorch, TensorFlow etc.", "url": "/docs/usage-frameworks" },
+                { "text": "Variable-length Sequences", "url": "/docs/usage-sequences" },
+                { "text": "Type Checking", "url": "/docs/usage-type-checking" }
             ]
         },
         {
@@ -41,7 +47,7 @@
                 { "text": "Losses", "url": "/docs/api-loss" },
                 { "text": "Config & Registry", "url": "/docs/api-config" },
                 { "text": "Types & Dataclasses", "url": "/docs/api-types" },
-                { "text": "Backends & Maths", "url": "/docs/api-backends" },
+                { "text": "Backends & Math", "url": "/docs/api-backends" },
                 { "text": "Utilities & Extras", "url": "/docs/api-util" }
             ]
         }

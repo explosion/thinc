@@ -38,36 +38,45 @@ export const headerImage = graphql`
     }
 `
 
-export const Header = ({ logo = true, companyLogo = true, children }) => (
-    <StaticQuery
-        query={headerQuery}
-        render={data => {
-            const { company, companyUrl } = data.site.siteMetadata
-            return (
-                <header className={classes.header}>
-                    {companyLogo && (
-                        <Link to={companyUrl} hidden aria-label={company}>
-                            <ExplosionLogo
-                                width={50}
-                                height={50}
-                                className={classes.logoExplosion}
-                            />
-                        </Link>
-                    )}
-                    <div className={classNames(classes.headerImage, classes.headerImageLeft)}>
-                        <Img fluid={data.headerTopLeft.childImageSharp.fluid} />
-                    </div>
-                    <div className={classNames(classes.headerImage, classes.headerImageRight)}>
-                        <Img fluid={data.headerTopRight.childImageSharp.fluid} />
-                    </div>
+export const Header = ({ logo = true, logoLink, companyLogo = true, children }) => {
+    const logoSvg = <Logo className={classes.logo} />
+    return (
+        <StaticQuery
+            query={headerQuery}
+            render={data => {
+                const { company, companyUrl } = data.site.siteMetadata
+                return (
+                    <header className={classes.header}>
+                        {companyLogo && (
+                            <Link to={companyUrl} hidden aria-label={company}>
+                                <ExplosionLogo
+                                    width={50}
+                                    height={50}
+                                    className={classes.logoExplosion}
+                                />
+                            </Link>
+                        )}
+                        <div className={classNames(classes.headerImage, classes.headerImageLeft)}>
+                            <Img fluid={data.headerTopLeft.childImageSharp.fluid} />
+                        </div>
+                        <div className={classNames(classes.headerImage, classes.headerImageRight)}>
+                            <Img fluid={data.headerTopRight.childImageSharp.fluid} />
+                        </div>
 
-                    {logo && <Logo className={classes.logo} />}
-                    <Section narrow>{children}</Section>
-                </header>
-            )
-        }}
-    />
-)
+                        {logo && logoLink ? (
+                            <Link to={logoLink} hidden>
+                                {logoSvg}
+                            </Link>
+                        ) : (
+                            logoSvg
+                        )}
+                        <Section narrow>{children}</Section>
+                    </header>
+                )
+            }}
+        />
+    )
+}
 
 export const InlineCode = props => <DefaultInlineCode className={classes.inlineCode} {...props} />
 

@@ -11,14 +11,6 @@ export function isString(obj) {
 }
 
 /**
- * @param obj - The object to check.
- * @returns {boolean} - Whether the object is a number string.
- */
-export function isNumString(obj) {
-    return isString(obj) && /^\d+[.,]?[\dx]+?(|x|ms|mb|gb|k|m)?$/i.test(obj)
-}
-
-/**
  * Convert raw HTML to React elements
  * @param {string} html - The HTML markup to convert.
  * @returns {Node} - The converted React elements.
@@ -38,13 +30,6 @@ export function getStringChildren(children) {
 }
 
 /**
- * Create an ID (used for anchor links etc.) given a recipe name
- */
-export function makeRecipeId(name) {
-    return isString(name) ? name.replace('.', '-') : name
-}
-
-/**
  * Check if an attribute value (received via props) is really truthy. This
  * allows setting attr="false" in the content (which would otherwise evaluate
  * as truthy, because the component actually receives the string "false").
@@ -52,8 +37,3 @@ export function makeRecipeId(name) {
 export function isTrue(value) {
     return value !== 'false' && !!value
 }
-
-/**
- * Check if we're on the client or server-side rendering
- */
-export const isClient = typeof window !== 'undefined'

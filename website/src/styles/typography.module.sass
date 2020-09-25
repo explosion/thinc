@@ -88,17 +88,17 @@ p + .heading
     margin-left: 0.5rem
     vertical-align: middle
 
-@each $tag in (new)
-    .tag-#{$tag}
-        color: var(--color-tag-#{$tag})
+.small, .small p
+    font-size: var(--font-size-sm)
 
 .hr
     border: 0
     padding: 3rem 0
-    margin-bottom: 4rem
-    margin-top: 7rem
+    margin: 7rem auto 4rem auto
     background: url(../images/divider.png) center center no-repeat
-    background-size: 35%
+    background-size: 100%
+    width: 35%
+    min-width: 200px
 
 .tooltip
     font-family: var(--font-primary)
@@ -120,11 +120,15 @@ p + .heading
 
 .inline-list
     margin-bottom: 4rem
-    font-size: var(--font-size-sm)
+    font-size: var(--font-size-xs)
+    line-height: 1.5
     border-top: 1px solid var(--color-subtle)
     border-bottom: 1px solid var(--color-subtle)
     padding: 0.75rem 0
-    color: var(--color-theme-dark)
+    color: var(--color-theme-dark-subtle)
+
+    code
+        font-size: 85% !important
 
     h2 + &, h3 + &, h4 + &
         margin-top: -1rem
@@ -140,6 +144,9 @@ p + .heading
         display: inline-block
         margin: 0
         padding: 0
+
+        &:not(:last-child)
+            margin-right: 0.5rem
 
         strong:first-child
             text-transform: uppercase

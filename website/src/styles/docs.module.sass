@@ -7,7 +7,13 @@
     color: var(--color-theme-dark)
 
 .header-image
-    display: none
+    display: block
+    position: absolute
+    top: 0
+    right: 0
+    width: 25%
+    z-index: 0
+    pointer-events: none
 
 @media(min-width: 900px)
     .root
@@ -28,18 +34,9 @@
         padding-bottom: 50%
 
     .article
-        padding: 4rem 0 5rem 8rem
+        padding: 2.5rem 0 5rem 8rem
         flex: 1
         max-width: calc(100% - 17vw - 25%)
-
-    .header-image
-        display: block
-        position: absolute
-        top: 0
-        right: 0
-        width: 25%
-        z-index: 0
-        pointer-events: none
 
     @supports(display: grid)
         .root
@@ -54,4 +51,7 @@
 
 @media(max-width: 899px)
     .article
-        padding: 3rem
+        padding: 3rem 4rem 3rem 3rem
+
+    .header-image
+        top: 4rem

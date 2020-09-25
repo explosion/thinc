@@ -130,3 +130,12 @@ export const Tooltip = ({ small = false, dark = false, className, children, ...p
 }
 
 export const InlineList = props => <div className={classes.inlineList} {...props}></div>
+
+export const Small = ({ element = 'div', children, ...props }) => {
+    const Component = element
+    return (
+        <Component className={classes.small} {...props}>
+            {children}
+        </Component>
+    )
+}

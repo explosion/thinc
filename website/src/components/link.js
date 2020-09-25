@@ -1,6 +1,5 @@
 import React from 'react'
 import { Link as GatsbyLink } from 'gatsby'
-import { OutboundLink } from 'gatsby-plugin-google-analytics'
 import classNames from 'classnames'
 
 import Icon from './icon'
@@ -35,7 +34,7 @@ const Link = ({ type, ...props }) => {
         )
     }
     return (
-        <OutboundLink
+        <a
             href={dest}
             className={linkClassNames}
             target="_blank"
@@ -43,7 +42,7 @@ const Link = ({ type, ...props }) => {
             {...other}
         >
             {children}
-        </OutboundLink>
+        </a>
     )
 }
 

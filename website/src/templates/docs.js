@@ -13,6 +13,8 @@ import classes from '../styles/docs.module.sass'
 
 const Template = ({ data, pageContext }) => {
     const { allMarkdownRemark, markdownRemark, site } = data
+    // Work around hot reloading race condition
+    if (!markdownRemark) return <em>graphql query not ready yet...</em>
     const { frontmatter, htmlAst } = markdownRemark
     const { sidebar } = site.siteMetadata
     const { slug } = pageContext

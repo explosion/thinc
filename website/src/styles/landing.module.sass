@@ -6,7 +6,7 @@
 .logo
     width: 270px
     height: auto
-    max-width: 65%
+    max-width: 50%
 
 .logo-explosion
     transition: transform 0.5s ease-in-out
@@ -20,7 +20,7 @@
 
 .header
     width: 100%
-    padding: 10rem 0 1rem
+    padding: 10rem 5% 1rem
     text-align: center
     position: relative
 
@@ -41,9 +41,14 @@
 .slogan
     display: block
     font-size: var(--font-size-sm)
+    line-height: 1.5
     text-transform: uppercase
     margin-top: 1.25rem
-    color: var(--color-theme-dark-tertiary)
+    color: var(--color-theme-dark-tertiary-alt)
+
+    a
+        color: var(--color-theme-dark-tertiary)
+        border-bottom: 1px solid var(--color-theme-dark-secondary)
 
 .section-header
     margin: 8rem auto
@@ -82,11 +87,11 @@
     margin-bottom: 1rem
 
 .feature-logo
-    margin-right: 2rem
+    margin-right: 1.25rem
     color: inherit !important
     vertical-align: middle
-    opacity: 0.5
-    filter: grayscale(100%) contrast(0) brightness(1.5)
+    opacity: 0.6
+    filter: grayscale(100%) contrast(0) brightness(1.55)
     transition: opacity 0.1s ease, filter 0.1s ease
 
     &:hover
@@ -99,5 +104,9 @@
     color: var(--color-theme-dark-tertiary) !important
 
 @media(max-width: 450px)
-    .br
+    .md-only
+        display: none
+
+@media(min-width: 451px)
+    .sm-only
         display: none

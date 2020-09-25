@@ -10,7 +10,7 @@ export default ({ className }) => (
     <StaticQuery
         query={query}
         render={({ site }) => {
-            const { email, twitter, github, company, companyUrl, imprintUrl } = site.siteMetadata
+            const { twitter, github, company, companyUrl, imprintUrl } = site.siteMetadata
             return (
                 <footer className={classNames(classes.root, className)}>
                     <ul className={classes.meta}>

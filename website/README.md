@@ -48,16 +48,11 @@ font) and `highlight`, mapped to valid line numbers or line number ranges.
 
 ````markdown
 ```python
-### This is a title {highlight="3,6-8"}
-from thinc.api import Adam, get_shuffled_batches, evaluate_model_on_arrays
+### This is a title {highlight="1,3-4"}
+from thinc.api import Model, chain, Relu, Softmax
 
-optimizer = Adam(0.001)
-
-for epoch in range(n_epochs):
-    for X, Y in get_shuffled_batches(train_X, train_Y):
-        loss += update_model(model, optimizer, X, Y)
-    accuracy = evaluate_model_on_arrays(model, dev_X, dev_Y)
-    print(epoch, loss, accuracy)
+with Model.define_operators({">>": chain}):
+    model = Relu(512) >> Relu(512) >> Softmax()
 ```
 ````
 
@@ -72,12 +67,12 @@ If the last row contains a bold `RETURNS` or `YIELDS`, the row is rendered as
 the footer row with an additional divider.
 
 ```markdown
-| Argument       | Type           | Description                                            |
-| -------------- | -------------- | ------------------------------------------------------ |
-| `X`            | <tt>Array</tt> | The array.                                             |
-| _keyword-only_ |                |                                                        |
-| `dim`          | <tt>int</tt>   | Which dimension to get the size for. Defaults to `-1`. |
-| **RETURNS**    | <tt>int</tt>   | The array's inferred width.                            |
+| Argument       | Type             | Description                                            |
+| -------------- | ---------------- | ------------------------------------------------------ |
+| `X`            | <tt>ArrayXd</tt> | The array.                                             |
+| _keyword-only_ |                  |                                                        |
+| `dim`          | <tt>int</tt>     | Which dimension to get the size for. Defaults to `-1`. |
+| **RETURNS**    | <tt>int</tt>     | The array's inferred width.                            |
 ```
 
 If you're specifying tables in Markdown, you always need a head row – otherwise,
@@ -108,7 +103,7 @@ This is a warning.
 #### `<tt>` Type annotation
 
 Should be used for Python type annotations like `bool`, `Optional[int]` or
-`Model[Array, Array]`. Similar to regular inline code but will highlight the
+`Model[ArrayXd, ArrayXd]`. Similar to regular inline code but will highlight the
 elements and link the types if available. See
 [`type-links.js`](src/type-links.js) for the type to link mapping.
 
@@ -119,11 +114,11 @@ elements and link the types if available. See
 #### `<ndarray>` Arrays
 
 Special type annotation for arrays with option to specify shape. Will link types
-if available. See [`type-links.js`](src/type-links.js) for the type to link
-mapping.
+if available. See [`_type_links.json`](docs/_type_links.json) for the type to
+link mapping.
 
 ```markdown
-<ndarray shape="nI, nO">Floats2d</ndarray>
+<ndarray shape="nI, nO">Array2d</ndarray>
 ```
 
 #### `<tabs>` `<tabs>` Tabbed components
@@ -189,4 +184,21 @@ parameters and attributes in a concise way.
 - **Label 2:** Some content
 
 </inline-list>
+```
+
+#### `<tutorials>` Tutorial links with Colab buttons
+
+Should contain an unnumbered list with IDs of the tutorials to include. See
+[`_tutorials.json`](docs/_tutorials.json) for options. The tutorials section
+will show each tutorial name and description with a button to launch the
+notebook on Colab, if available.
+
+```markdown
+<tutorials>
+
+- intro
+- transformers_tagger
+- parallel_training_ray
+
+</tutorials>
 ```
