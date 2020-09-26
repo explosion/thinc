@@ -1291,4 +1291,5 @@ def test_config_validation_error_custom():
     assert e2.error_types == e1.error_types
     assert e2.title == title
     assert e2.desc == desc
+    assert e2.show_config is False
     assert e1.text != e2.text
