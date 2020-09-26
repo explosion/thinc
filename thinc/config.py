@@ -1,4 +1,5 @@
-from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type, Sequence
+from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
+from typing import Iterable, Sequence
 from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
@@ -213,7 +214,9 @@ class Config(dict):
                 elif part not in node:
                     err_title = f"Error parsing config section. Perhaps a section name is wrong?"
                     err = [{"loc": parts, "msg": f"Section '{part}' is not defined"}]
-                    raise ConfigValidationError(self, err, message=err_title)
+                    raise ConfigValidationError(
+                        config=self, errors=err, title=err_title
+                    )
                 else:
                     node = node[part]
             # TODO: add error if node not in list
@@ -221,11 +224,12 @@ class Config(dict):
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key
                 err = [{"loc": parts, "msg": "found conflicting values"}]
-                raise ConfigValidationError(f"{self}\n{({part: dict(values)})}", err)
+                err_cfg = f"{self}\n{({part: dict(values)})}"
+                raise ConfigValidationError(config=err_cfg, errors=err)
             try:
                 keys_values = list(values.items())
             except InterpolationMissingOptionError as e:
-                raise ConfigValidationError(f"{e}", []) from None
+                raise ConfigValidationError(desc=f"{e}") from None
             for key, value in keys_values:
                 config_v = config.get(section, key)
                 node[key] = self._interpret_value(config_v)
@@ -273,15 +277,16 @@ class Config(dict):
                 except (KeyError, TypeError):  # This should never happen
                     err_title = "Error parsing reference to config section"
                     err_msg = f"Section '{'.'.join(parts)}' is not defined"
+                    err = [{"loc": parts, "msg": err_msg}]
                     raise ConfigValidationError(
-                        self, [{"loc": parts, "msg": err_msg}], message=err_title
+                        config=self, errors=err, title=err_title
                     ) from None
             return result
         elif isinstance(value, str) and SECTION_PREFIX in value:
             # String value references a section (either a dict or return
             # value of promise). We can't allow this, since variables are
             # always interpolated *before* configs are resolved.
-            err_title = (
+            err_desc = (
                 "Can't reference whole sections or return values of function "
                 "blocks inside a string or list\n\nYou can change your variable to "
                 "reference a value instead. Keep in mind that it's not "
@@ -290,7 +295,7 @@ class Config(dict):
                 "is loaded, and registered functions are resolved afterwards."
             )
             err = [{"loc": parent, "msg": "uses section variable in string or list"}]
-            raise ConfigValidationError("", err, message=err_title)
+            raise ConfigValidationError(errors=err, desc=err_desc)
         return value
 
     def copy(self) -> "Config":
@@ -336,10 +341,10 @@ class Config(dict):
             err_msg = "not a section value that can be overwritten"
             err = [{"loc": key.split("."), "msg": err_msg}]
             if "." not in key:
-                raise ConfigValidationError("", err, message=err_title)
+                raise ConfigValidationError(errors=err, title=err_title)
             section, option = key.rsplit(".", 1)
             if section not in config or option not in config[section]:
-                raise ConfigValidationError("", err, message=err_title)
+                raise ConfigValidationError(errors=err, title=err_title)
             config.set(section, option, try_dump_json(value, overrides))
 
     def _validate_sections(self, config: "ConfigParser") -> None:
@@ -352,7 +357,7 @@ class Config(dict):
             err_title = "Found config values without a top-level section"
             err_msg = "not part of a section"
             err = [{"loc": [k], "msg": err_msg} for k in default_section]
-            raise ConfigValidationError("", err, message=err_title)
+            raise ConfigValidationError(errors=err, title=err_title)
 
     def from_str(
         self, text: str, *, interpolate: bool = True, overrides: Dict[str, Any] = {}
@@ -457,7 +462,7 @@ def try_dump_json(value: Any, data: Union[Dict[str, dict], Config, str] = "") ->
             f"to include Python objects, use a registered function that returns "
             f"the object instead."
         )
-        raise ConfigValidationError(data, [], message=err_msg) from e
+        raise ConfigValidationError(config=data, desc=err_msg) from e
 
 
 def deep_merge_configs(
@@ -506,21 +511,104 @@ def deep_merge_configs(
 class ConfigValidationError(ValueError):
     def __init__(
         self,
-        config: Union[Config, Dict[str, Dict[str, Any]], str],
-        errors: List[Dict[str, Any]],
-        message: str = "Config validation error",
-        element: str = "",
+        *,
+        config: Optional[Union[Config, Dict[str, Dict[str, Any]], str]] = None,
+        errors: Iterable[Dict[str, Any]] = tuple(),
+        title: Optional[str] = "Config validation error",
+        desc: Optional[str] = None,
+        parent: Optional[str] = None,
+        show_config: bool = True,
     ) -> None:
-        """Custom error for validating configs."""
+        """Custom error for validating configs.
+
+        config (Union[Config, Dict[str, Dict[str, Any]], str]): The
+            config the validation error refers to.
+        errors (Iterable[Dict[str, Any]]): A list of errors as dicts with keys
+            "loc" (list of trings describing the path of the value), "msg"
+            (validation message to show) and optional "type" (mostly internals).
+            Same format as produced by pydantic's validation error (e.errors()).
+        title (str): The error title.
+        desc (str): Optional error description, displayed below the title.
+        parent (str): Optional parent to use as prefix for all error locations.
+            For example, parent "element" will result in "element -> a -> b".
+        show_config (bool): Whether to print the whole config with the error.
+
+        ATTRIBUTES:
+        config (Union[Config, Dict[str, Dict[str, Any]], str]): The config.
+        errors (Iterable[Dict[str, Any]]): The errors.
+        error_types (Set[str]): All "type" values defined in the erorrs, if
+            available. This is most relevant for the pydantic errors that define
+            types like "type_error.integer". This attribute makes it easy to
+            check if a config validation error includes errors of a certain
+            type, e.g. to log additional information or custom help messages.
+        title (str): The title.
+        desc (str): The description.
+        parent (str): The parent.
+        show_config (bool): Whether to show the config.
+        text (str): The formatted error text.
+        """
+        self.config = config
+        self.errors = errors
+        self.title = title
+        self.desc = desc
+        self.parent = parent
+        self.show_config = show_config
+        self.error_types = set()
+        for error in self.errors:
+            err_type = error.get("type")
+            if err_type:
+                self.error_types.add(err_type)
+        self.text = self._format()
+        ValueError.__init__(self, self.text)
+
+    @classmethod
+    def from_error(
+        cls,
+        err: "ConfigValidationError",
+        title: Optional[str] = None,
+        desc: Optional[str] = None,
+        parent: Optional[str] = None,
+        show_config: Optional[bool] = None,
+    ) -> "ConfigValidationError":
+        """Create a new ConfigValidationError based on an existing error, e.g.
+        to re-raise it with different settings. If no overrides are provided,
+        the values from the original error are used.
+
+        err (ConfigValidationError): The original error.
+        title (str): Overwrite error title.
+        desc (str): Overwrite error description.
+        parent (str): Overwrite error parent.
+        show_config (bool): Overwrite whether to show config.
+        RETURNS (ConfigValidationError): The new error.
+        """
+        return cls(
+            config=err.config,
+            errors=err.errors,
+            title=title if title is not None else err.title,
+            desc=desc if desc is not None else err.desc,
+            parent=parent if parent is not None else err.parent,
+            show_config=show_config if show_config is not None else err.show_config,
+        )
+
+    def _format(self) -> str:
+        """Format the error message."""
+        loc_divider = "->"
         data = []
-        for error in errors:
-            err_loc = " -> ".join([str(p) for p in error.get("loc", [])])
-            if element:
-                err_loc = f"{element} -> {err_loc}"
+        for error in self.errors:
+            err_loc = f" {loc_divider} ".join([str(p) for p in error.get("loc", [])])
+            if self.parent:
+                err_loc = f"{self.parent} {loc_divider} {err_loc}"
             data.append((err_loc, error.get("msg")))
-        data_table = table(data) if data else ""
-        result = [message, data_table, f"{config}"]
-        ValueError.__init__(self, "\n\n" + "\n".join(result))
+        result = []
+        if self.title:
+            result.append(self.title)
+        if self.desc:
+            result.append(self.desc)
+        if data:
+            result.append(table(data))
+        if self.config and self.show_config:
+            result.append(f"{self.config}")
+        return "\n\n" + "\n".join(result)
 
 
 def alias_generator(name: str) -> str:
@@ -598,7 +686,7 @@ class registry(object):
         # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
         if cls.is_promise(config):
             err_msg = "The top-level config object can't be a reference to a registered function."
-            raise ConfigValidationError(config, [{"msg": err_msg}])
+            raise ConfigValidationError(config=config, errors=[{"msg": err_msg}])
         # If a Config was loaded with interpolate=False, we assume it needs to
         # be interpolated first, otherwise we take it at face value
         is_interpolated = not isinstance(config, Config) or config.is_interpolated
@@ -712,9 +800,10 @@ class registry(object):
                 try:
                     getter_result = getter(*args, **kwargs)
                 except Exception as err:
-                    err_msg = "Can't construct config: calling registry function failed"
                     raise ConfigValidationError(
-                        {key: value}, [{"msg": err, "loc": [getter.__name__]}], err_msg
+                        config={key: value},
+                        errors=[{"msg": err, "loc": [getter.__name__]}],
+                        title="Can't construct config: calling registry function failed",
                     ) from err
                 validation[v_key] = getter_result
                 final[key] = getter_result
@@ -762,7 +851,7 @@ class registry(object):
                 result = schema.parse_obj(validation)
             except ValidationError as e:
                 raise ConfigValidationError(
-                    config, e.errors(), element=parent
+                    config=config, errors=e.errors(), parent=parent
                 ) from None
         else:
             # Same as parse_obj, but without validation
@@ -822,7 +911,7 @@ class registry(object):
             if not cls._is_in_config(override_key, filled):
                 errors.append({"msg": error_msg, "loc": [override_key]})
         if errors:
-            raise ConfigValidationError(filled, errors)
+            raise ConfigValidationError(config=filled, errors=errors)
 
     @classmethod
     def _is_in_config(cls, prop: str, config: Union[Dict[str, Any], Config]):
@@ -855,7 +944,7 @@ class registry(object):
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         if len(id_keys) != 1:
             err_msg = f"A block can only contain one function registry reference. Got: {id_keys}"
-            raise ConfigValidationError(obj, [{"msg": err_msg}])
+            raise ConfigValidationError(config=obj, errors=[{"msg": err_msg}])
         else:
             key = id_keys[0]
             value = obj[key]
