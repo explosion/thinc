@@ -4,6 +4,7 @@ from types import GeneratorType
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
+from configparser import ParsingError
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError, Extra
 from pydantic.main import ModelMetaclass
@@ -82,7 +83,8 @@ class CustomInterpolation(ExtendedInterpolation):
                 if m is None:
                     err = f"bad interpolation variable reference {rest}"
                     raise InterpolationSyntaxError(option, section, err)
-                path = m.group(1).replace(":", ".").rsplit(".", 1)
+                orig_var = m.group(1)
+                path = orig_var.replace(":", ".").rsplit(".", 1)
                 rest = rest[m.end() :]
                 sect = section
                 opt = option
@@ -109,7 +111,7 @@ class CustomInterpolation(ExtendedInterpolation):
                         raise InterpolationSyntaxError(option, section, err)
                 except (KeyError, NoSectionError, NoOptionError):
                     raise InterpolationMissingOptionError(
-                        option, section, rawval, ":".join(path)
+                        option, section, rawval, orig_var
                     ) from None
                 if "$" in v:
                     new_map = dict(parser.items(sect, raw=True))
@@ -364,7 +366,11 @@ class Config(dict):
     ) -> "Config":
         """Load the config from a string."""
         config = get_configparser(interpolate=interpolate)
-        config.read_string(text)
+        try:
+            config.read_string(text)
+        except ParsingError as e:
+            desc = f"Make sure the sections and values are formatted correctly.\n\n{e}"
+            raise ConfigValidationError(desc=desc) from None
         config._sections = self._sort(config._sections)
         self._set_overrides(config, overrides)
         self.clear()
