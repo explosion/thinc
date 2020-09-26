@@ -144,8 +144,11 @@ def test_validate_simple_config():
 
 def test_invalidate_simple_config():
     invalid_config = {"hello": 1, "world": "hi!"}
-    with pytest.raises(ConfigValidationError):
+    with pytest.raises(ConfigValidationError) as exc_info:
         my_registry._fill(invalid_config, HelloIntsSchema)
+    error = exc_info.value
+    assert len(error.errors) == 1
+    assert "type_error.integer" in error.error_types
 
 
 def test_invalidate_extra_args():
@@ -1260,3 +1263,32 @@ def test_config_fill_extra_fields():
 
     filled = my_registry.fill_config(config, schema=TestSchema2, validate=False)["cfg"]
     assert filled == {"a": "1", "b": 2, "c": True}
+
+
+def test_config_validation_error_custom():
+    class Schema(BaseModel):
+        hello: int
+        world: int
+
+    config = {"hello": 1, "world": "hi!"}
+    with pytest.raises(ConfigValidationError) as exc_info:
+        my_registry._fill(config, Schema)
+    e1 = exc_info.value
+    assert e1.title == "Config validation error"
+    assert e1.desc is None
+    assert not e1.parent
+    assert e1.show_config is True
+    assert len(e1.errors) == 1
+    assert e1.errors[0]["loc"] == ("world",)
+    assert e1.errors[0]["msg"] == "value is not a valid integer"
+    assert e1.errors[0]["type"] == "type_error.integer"
+    assert e1.error_types == set(["type_error.integer"])
+    # Create a new error with overrides
+    title = "Custom error"
+    desc = "Some error description here"
+    e2 = ConfigValidationError.from_error(e1, title=title, desc=desc, show_config=False)
+    assert e2.errors == e1.errors
+    assert e2.error_types == e1.error_types
+    assert e2.title == title
+    assert e2.desc == desc
+    assert e1.text != e2.text
