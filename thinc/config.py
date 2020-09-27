@@ -686,7 +686,7 @@ class registry(object):
         setattr(cls, registry_name, reg)
 
     @classmethod
-    def has(cls, registry_name: str, func_name: str) -> Callable:
+    def has(cls, registry_name: str, func_name: str) -> bool:
         """Check whether a function is available in a registry."""
         if not hasattr(cls, registry_name):
             return False
