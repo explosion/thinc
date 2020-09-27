@@ -686,6 +686,14 @@ class registry(object):
         setattr(cls, registry_name, reg)
 
     @classmethod
+    def has(cls, registry_name: str, func_name: str) -> bool:
+        """Check whether a function is available in a registry."""
+        if not hasattr(cls, registry_name):
+            return False
+        reg = getattr(cls, registry_name)
+        return func_name in reg
+
+    @classmethod
     def get(cls, registry_name: str, func_name: str) -> Callable:
         """Get a registered function from a given registry."""
         if not hasattr(cls, registry_name):
@@ -808,7 +816,7 @@ class registry(object):
                     # validation if it doesn't receive the function return value
                     field = schema.__fields__[key]
                     schema.__fields__[key] = copy_model_field(field, Any)
-                promise_schema = cls.make_promise_schema(value)
+                promise_schema = cls.make_promise_schema(value, resolve=resolve)
                 filled[key], validation[v_key], final[key] = cls._fill(
                     value,
                     promise_schema,
@@ -999,11 +1007,15 @@ class registry(object):
         return args, kwargs
 
     @classmethod
-    def make_promise_schema(cls, obj: Dict[str, Any]) -> Type[BaseModel]:
+    def make_promise_schema(
+        cls, obj: Dict[str, Any], *, resolve: bool = True
+    ) -> Type[BaseModel]:
         """Create a schema for a promise dict (referencing a registry function)
         by inspecting the function signature.
         """
         reg_name, func_name = cls.get_constructor(obj)
+        if not resolve and not cls.has(reg_name, func_name):
+            return EmptySchema
         func = cls.get(reg_name, func_name)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]
