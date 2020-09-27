@@ -1,5 +1,5 @@
 import pytest
-from typing import Iterable, Union, Optional, List, Callable, Dict
+from typing import Iterable, Union, Optional, List, Callable, Dict, Any
 from types import GeneratorType
 from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
@@ -1319,3 +1319,12 @@ def test_config_fill_without_resolve():
     assert filled2["catsie"]["cute"] is True
     resolved = my_registry.resolve(filled2)
     assert resolved["catsie"] == "meow"
+    # With unavailable function
+    class BaseSchema2(BaseModel):
+        catsie: Any
+        other: int = 12
+
+    config = {"catsie": {"@cats": "dog", "evil": False}}
+    filled3 = my_registry.fill(config, schema=BaseSchema2)
+    assert filled3["catsie"] == config["catsie"]
+    assert filled3["other"] == 12
