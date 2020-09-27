@@ -131,12 +131,12 @@ for configuration files: you can **provide the name of your function** and the
 the object.
 
 Since this is a common workflow, the registry system provides a shortcut for it,
-the [`registry.make_from_config`](/docs/api-config#registry-make_from_config)
-function. If a section contains a key beginning with `@`, it will be interpreted
-as the name of a function registry – e.g. `@optimizers` refers to a function
-registered in the `optimizers` registry. The value will be interpreted as the
-name to look up and the rest of the block will be passed into the function as
-arguments. Here's a simple example:
+the [`registry.resolve`](/docs/api-config#registry-resolve) function. If a
+section contains a key beginning with `@`, it will be interpreted as the name of
+a function registry – e.g. `@optimizers` refers to a function registered in the
+`optimizers` registry. The value will be interpreted as the name to look up and
+the rest of the block will be passed into the function as arguments. Here's a
+simple example:
 
 <grid>
 
@@ -153,7 +153,8 @@ gamma = 1e-8
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-C = registry.make_from_config(config)
+resolved = registry.resolve(config)
+optimizer = resolved["optimizer"]
 ```
 
 </grid>
@@ -246,10 +247,11 @@ optimizer_func = thinc.registry.get("optimizers", "my_cool_optimizer.v1")
 optimizer = optimizer_func(learn_rate=learn_rate, gamma=1e-8)
 ```
 
-After resolving the config and filling in the values,
-`registry.make_from_config` will return a dict with one key, `"optimizer"`,
-mapped to an instance of the custom optimizer function initialized with the
-arguments defined in the config.
+After resolving the config and filling in the values, `registry.resolve` will
+return a tuple of the resolved config and the filled config with default values
+added. The resolved config will be a dict with one key, `"optimizer"`, mapped to
+an instance of the custom optimizer function initialized with the arguments
+defined in the config.
 
 <grid>
 
@@ -258,7 +260,7 @@ arguments defined in the config.
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-C = registry.make_from_config(config)
+resolved = registry.resolve(config)
 ```
 
 ```python
@@ -585,7 +587,7 @@ class LoggingConfig(BaseModel):
 If a config file specifies registered functions, their argument values will be
 validated against the type annotations of the function. For all other values,
 you can pass a `schema` to
-[`registry.make_from_config`](/docs/api-config#registry-make_from_config), a
+[`registry.resolve`](/docs/api-config#registry-resolve), a
 [`pydantic` model](https://pydantic-docs.helpmanual.io/usage/models/) used to
 parse and validate the data. Models can also be nested to describe nested
 objects.
@@ -639,7 +641,7 @@ pipeline = ["tagger", "parser"]
 from thinc.api import registry, Config
 
 config = Config().from_disk("./config.cfg")
-C = registry.make_from_config(
+resolved = registry.resolve(
     config,
     schema=ConfigBaseSchema
 )
@@ -652,7 +654,7 @@ C = registry.make_from_config(
 The main motivation for Thinc's configuration system was to eliminate hidden
 defaults and ensure that config settings are passed around consistently. This
 also means that config files should always define **all available settings**.
-The [`registry.fill_config`](/docs/api-config#registry-fill_config) method also
+The [`registry.fill`](/docs/api-config#registry-fill) method also
 resolves the config, but it leaves references to registered functions intact and
 doesn't replace them with their return values. If type annotations and/or a base
 schema are available, they will be used to parse the config and fill in any
@@ -675,9 +677,9 @@ class TrainingSchema(BaseModel):
     max_epochs: StrictInt = 100
 ```
 
-Calling [`registry.fill_config`](/docs/api-config#registry-fill_config) with
-your existing config will produce an updated version of it including the new
-settings and their defaults:
+Calling [`registry.fill`](/docs/api-config#registry-fill) with your
+existing config will produce an updated version of it including the new settings
+and their defaults:
 
 <grid>
 
@@ -702,9 +704,9 @@ max_epochs = 100
 </grid>
 
 The same also works for config blocks that reference registry functions. If your
-**function arguments change**, you can run `registry.fill_config` to get your
-config up to date with the new defaults. For instance, let's say the optimizer
-now allows a new setting, `gamma`, that defaults to `1e-8`:
+**function arguments change**, you can run `registry.fill` to get your config up
+to date with the new defaults. For instance, let's say the optimizer now allows
+a new setting, `gamma`, that defaults to `1e-8`:
 
 ```python
 ### Example {highlight="8"}
@@ -723,8 +725,8 @@ def my_cool_optimizer_v2(
 
 The config file should now also reflect this new setting and the default value
 that's being passed in – otherwise, you'll lose that piece of information.
-Running `registry.fill_config` solves this and returns a new `Config` with the
-complete set of available settings:
+Running `registry.fill` solves this and returns a new `Config` with the complete
+set of available settings:
 
 <grid>
 
@@ -751,11 +753,11 @@ log_level = "INFO"
 
 <infobox variant="warning">
 
-Note that if the config you're filling is incomplete and contains missing
-required arguments, or if your registry functions raise errors,
-[`registry.fill_config`](/docs/api-config#registry-fill_config) will be unable
-to parse the config. This means Thinc will raise a validation error, even if you
-set `validate` to `False`.
+Note that if you're only filling and not resolving a config, Thinc will **not**
+load or call any registered functions, and it won't be able to validate the
+return values of registered functions against any types defined in the base
+schema. If you neeed to check that all functions exist and their return values
+match, use [`registry.resolve`](/docs/api-config#registry-resolve) instead.
 
 </infobox>
 

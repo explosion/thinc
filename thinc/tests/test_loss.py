@@ -190,7 +190,7 @@ def test_loss_from_config(name, kwargs, args):
     """Test that losses are loaded and configured correctly from registry
     (as partials)."""
     cfg = {"test": {"@losses": name, **kwargs}}
-    func = registry.make_from_config(cfg)["test"]
+    func = registry.resolve(cfg)["test"]
     loss = func.get_grad(*args)
     if isinstance(loss, (list, tuple)):
         loss = loss[0]

@@ -347,33 +347,7 @@ and underscores.
 
 </infobox>
 
-### registry.make_from_config {#registry-make_from_config tag="classmethod"}
-
-Unpack a config dictionary, creating objects from the registry recursively. If a
-section contains a key beginning with `@`, the rest of that key will be
-interpreted as the name of the registry. For instance,
-`"@optimizers": "my_cool_optimizer.v1"` will load the function from the
-optimizers registry and pass in the specified arguments. For more details and
-examples, see the [docs on Thinc's config system](/docs/usage-config).
-
-```python
-### Example
-from thinc.api import Config, registry
-
-cfg = Config().from_disk("./my_config.cfg")
-C = registry.make_from_config(cfg)
-```
-
-| Argument       | Type                                   | Description                                                                                                                                                                                                                                                                             |
-| -------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `config`       | <tt>Union[Config, Dict[str, Any]]</tt> | The config dict to load.                                                                                                                                                                                                                                                                |
-| _keyword-only_ |                                        |                                                                                                                                                                                                                                                                                         |
-| `validate`     | <tt>bool</tt>                          | Whether to validate the config against a base schema and/or type annotations defined on the registered functions. Defaults to `True`.                                                                                                                                                   |
-| `schema`       | <tt>pydantic.BaseModel</tt>            | Optional [`pydantic` model](https://pydantic-docs.helpmanual.io/usage/models/) to validate the config against. See the docs on [base schemas](/docs/api-config#advanced-types-base-schema) for details. Defaults to an `EmptySchema` with extra properties and arbitrary types allowed. |
-| `overrides`    | <tt>Dict[str, Any]</tt>                | Optional overrides for config values. Should be a dictionary keyed by config properties with dot notation, e.g. `{"training.batch_size": 128}`.                                                                                                                                         |
-| **RETURNS**    | <tt>Dict[str, Any]</tt>                | The resolved config.                                                                                                                                                                                                                                                                    |
-
-### registry.fill_config {#fill_config tag="classmethod"}
+### registry.fill {#fill tag="classmethod"}
 
 Unpack a config dictionary, but leave all references to registry functions
 intact and don't resolve them. Only use the type annotations and optional base
@@ -394,7 +368,7 @@ This means you can auto-fill partial config, without destroying the variables.
 from thinc.api import Config, registry
 
 cfg = Config().from_disk("./my_config.cfg")
-filled_cfg = registry.fill_config(cfg)
+filled_cfg = registry.fill(cfg)
 ```
 
 | Argument       | Type                                   | Description                                                                                                                                                                                                                                                                             |
@@ -408,9 +382,20 @@ filled_cfg = registry.fill_config(cfg)
 
 ### registry.resolve {#registry-resolve tag="classmethod"}
 
-Perform both [`registry.make_from_config`](#registry-make_from_config) and
-[`registry.fill_config`](#registry-fill_config) at the same time. If you need a
-filled and resolved config, this method is the most efficient.
+Unpack a config dictionary, creating objects from the registry recursively. If a
+section contains a key beginning with `@`, the rest of that key will be
+interpreted as the name of the registry. For instance,
+`"@optimizers": "my_cool_optimizer.v1"` will load the function from the
+optimizers registry and pass in the specified arguments. For more details and
+examples, see the [docs on Thinc's config system](/docs/usage-config).
+
+```python
+### Example
+from thinc.api import Config, registry
+
+cfg = Config().from_disk("./my_config.cfg")
+resolved = registry.resolve(cfg)
+```
 
 | Argument       | Type                                   | Description                                                                                                                                                                                                                                                                             |
 | -------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -419,4 +404,4 @@ filled and resolved config, this method is the most efficient.
 | `validate`     | <tt>bool</tt>                          | Whether to validate the config against a base schema and/or type annotations defined on the registered functions. Defaults to `True`.                                                                                                                                                   |
 | `schema`       | <tt>pydantic.BaseModel</tt>            | Optional [`pydantic` model](https://pydantic-docs.helpmanual.io/usage/models/) to validate the config against. See the docs on [base schemas](/docs/api-config#advanced-types-base-schema) for details. Defaults to an `EmptySchema` with extra properties and arbitrary types allowed. |
 | `overrides`    | <tt>Dict[str, Any]</tt>                | Optional overrides for config values. Should be a dictionary keyed by config properties with dot notation, e.g. `{"training.batch_size": 128}`.                                                                                                                                         |
-| **RETURNS**    | <tt>Tuple[Dict[str, Any], Config]</tt> | The resolved and the filled config.                                                                                                                                                                                                                                                     |
+| **RETURNS**    | <tt>Dict[str, Any]</tt>                | The resolved config.                                                                                                                                                                                                                                                                    |

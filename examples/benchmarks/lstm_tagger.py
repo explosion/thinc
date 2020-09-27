@@ -113,7 +113,7 @@ def main(pytorch: bool = False, gpu_id: int = -1):
             print(f"Skipping {name}")
             continue
         set_backend(name, gpu_id)
-        C = registry.make_from_config(Config().from_str(CONFIG))
+        C = registry.resolve(Config().from_str(CONFIG))
         model = C["model"]
         X, Y = get_dummy_data(**C["data"])
         print("Copy to device")

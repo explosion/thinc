@@ -28,5 +28,5 @@ def test_initializer_from_config(name, kwargs):
     """Test that initializers are loaded and configured correctly from registry
     (as partials)."""
     cfg = {"test": {"@initializers": name, **kwargs}}
-    func = registry.make_from_config(cfg)["test"]
+    func = registry.resolve(cfg)["test"]
     func(NumpyOps(), (1, 2, 3, 4))
