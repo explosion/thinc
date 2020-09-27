@@ -1,6 +1,7 @@
 from typing import Union, Dict, Any, Optional, List, Tuple, Callable, Type
 from typing import Iterable, Sequence
 from types import GeneratorType
+from dataclasses import dataclass
 from configparser import ConfigParser, ExtendedInterpolation, MAX_INTERPOLATION_DEPTH
 from configparser import InterpolationMissingOptionError, InterpolationSyntaxError
 from configparser import NoSectionError, NoOptionError, InterpolationDepthError
@@ -8,6 +9,7 @@ from configparser import ParsingError
 from pathlib import Path
 from pydantic import BaseModel, create_model, ValidationError, Extra
 from pydantic.main import ModelMetaclass
+from pydantic.fields import ModelField
 from wasabi import table
 import srsly
 import catalogue
@@ -628,6 +630,21 @@ def alias_generator(name: str) -> str:
     return name
 
 
+def copy_model_field(field: ModelField, type_: Type[Any]) -> ModelField:
+    """Copy a model field and assign a new type, e.g. to accept an Any type
+    even though the original value is typed differently.
+    """
+    return ModelField(
+        name=field.name,
+        type_=type_,
+        class_validators=field.class_validators,
+        model_config=field.model_config,
+        default=field.default,
+        default_factory=field.default_factory,
+        required=field.required,
+    )
+
+
 class EmptySchema(BaseModel):
     class Config:
         extra = "allow"
@@ -638,6 +655,14 @@ class _PromiseSchemaConfig:
     extra = "forbid"
     arbitrary_types_allowed = True
     alias_generator = alias_generator
+
+
+@dataclass
+class Promise:
+    registry: str
+    name: str
+    args: List[str]
+    kwargs: Dict[str, Any]
 
 
 class registry(object):
@@ -680,6 +705,34 @@ class registry(object):
         overrides: Dict[str, Any] = {},
         validate: bool = True,
     ) -> Tuple[Dict[str, Any], Config]:
+        return cls._make(
+            config, schema=schema, overrides=overrides, validate=validate, resolve=True
+        )
+
+    @classmethod
+    def fill(
+        cls,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        *,
+        schema: Type[BaseModel] = EmptySchema,
+        overrides: Dict[str, Any] = {},
+        validate: bool = True,
+    ):
+        _, filled = cls._make(
+            config, schema=schema, overrides=overrides, validate=validate, resolve=False
+        )
+        return filled
+
+    @classmethod
+    def _make(
+        cls,
+        config: Union[Config, Dict[str, Dict[str, Any]]],
+        *,
+        schema: Type[BaseModel] = EmptySchema,
+        overrides: Dict[str, Any] = {},
+        resolve: bool = True,
+        validate: bool = True,
+    ) -> Tuple[Dict[str, Any], Config]:
         """Unpack a config dictionary and create two versions of the config:
         a resolved version with objects from the registry created recursively,
         and a filled version with all references to registry functions left
@@ -701,7 +754,7 @@ class registry(object):
         if not is_interpolated:
             config = Config(orig_config).interpolate()
         filled, _, resolved = cls._fill(
-            config, schema, validate=validate, overrides=overrides
+            config, schema, validate=validate, overrides=overrides, resolve=resolve
         )
         filled = Config(filled, section_order=section_order)
         # Check that overrides didn't include invalid properties not in config
@@ -718,54 +771,13 @@ class registry(object):
         return dict(resolved), filled
 
     @classmethod
-    def make_from_config(
-        cls,
-        config: Union[Config, Dict[str, Dict[str, Any]]],
-        *,
-        schema: Type[BaseModel] = EmptySchema,
-        overrides: Dict[str, Any] = {},
-        validate: bool = True,
-    ) -> Dict[str, Any]:
-        """Unpack a config dictionary, creating objects from the registry
-        recursively. If validate=True, the config will be validated against the
-        type annotations of the registered functions referenced in the config
-        (if available) and/or the schema (if available).
-        """
-        # Valid: {"optimizer": {"@optimizers": "my_cool_optimizer", "rate": 1.0}}
-        # Invalid: {"@optimizers": "my_cool_optimizer", "rate": 1.0}
-        resolved, _ = cls.resolve(
-            config, schema=schema, overrides=overrides, validate=validate
-        )
-        return resolved
-
-    @classmethod
-    def fill_config(
-        cls,
-        config: Union[Config, Dict[str, Dict[str, Any]]],
-        *,
-        schema: Type[BaseModel] = EmptySchema,
-        overrides: Dict[str, Any] = {},
-        validate: bool = True,
-    ) -> Config:
-        """Unpack a config dictionary, leave all references to registry
-        functions intact and don't resolve them, but fill in all values and
-        defaults based on the type annotations. If validate=True, the config
-        will be validated against the type annotations of the registered
-        functions referenced in the config (if available) and/or the schema
-        (if available).
-        """
-        _, filled = cls.resolve(
-            config, schema=schema, overrides=overrides, validate=validate
-        )
-        return filled
-
-    @classmethod
     def _fill(
         cls,
         config: Union[Config, Dict[str, Dict[str, Any]]],
         schema: Type[BaseModel] = EmptySchema,
         *,
         validate: bool = True,
+        resolve: bool = True,
         parent: str = "",
         overrides: Dict[str, Dict[str, Any]] = {},
     ) -> Tuple[
@@ -776,8 +788,7 @@ class registry(object):
         2. Promises are replaced by their return values. This is the validation
            copy and will be parsed by pydantic. It lets us include hacks to
            work around problems (e.g. handling of generators).
-        3. Final copy with promises replaced by their return values. This is
-           what registry.make_from_config returns.
+        3. Final copy with promises replaced by their return values.
         """
         filled: Dict[str, Any] = {}
         validation: Dict[str, Any] = {}
@@ -790,27 +801,42 @@ class registry(object):
                 value = overrides[key_parent]
                 config[key] = value
             if cls.is_promise(value):
+                if key in schema.__fields__ and not resolve:
+                    # If we're not resolving the config, make sure that the field
+                    # expecting the promise is typed Any so it doesn't fail
+                    # validation if it doesn't receive the function return value
+                    field = schema.__fields__[key]
+                    schema.__fields__[key] = copy_model_field(field, Any)
                 promise_schema = cls.make_promise_schema(value)
                 filled[key], validation[v_key], final[key] = cls._fill(
                     value,
                     promise_schema,
                     validate=validate,
+                    resolve=resolve,
                     parent=key_parent,
                     overrides=overrides,
                 )
-                # Call the function and populate the field value. We can't just
-                # create an instance of the type here, since this wouldn't work
-                # for generics / more complex custom types
-                getter = cls.get_constructor(final[key])
+                reg_name, func_name = cls.get_constructor(final[key])
                 args, kwargs = cls.parse_args(final[key])
-                try:
-                    getter_result = getter(*args, **kwargs)
-                except Exception as err:
-                    raise ConfigValidationError(
-                        config={key: value},
-                        errors=[{"msg": err, "loc": [getter.__name__]}],
-                        title="Can't construct config: calling registry function failed",
-                    ) from err
+                if resolve:
+                    # Call the function and populate the field value. We can't
+                    # just create an instance of the type here, since this
+                    # wouldn't work for generics / more complex custom types
+                    getter = cls.get(reg_name, func_name)
+                    try:
+                        getter_result = getter(*args, **kwargs)
+                    except Exception as err:
+                        raise ConfigValidationError(
+                            config={key: value},
+                            errors=[{"msg": err, "loc": [getter.__name__]}],
+                            title="Can't construct config: calling registry function failed",
+                        ) from err
+                else:
+                    # We're not resolving and calling the function, so replace
+                    # the getter_result with a Promise class
+                    getter_result = Promise(
+                        registry=reg_name, name=func_name, args=args, kwargs=kwargs
+                    )
                 validation[v_key] = getter_result
                 final[key] = getter_result
                 if isinstance(validation[v_key], dict):
@@ -834,6 +860,7 @@ class registry(object):
                     value,
                     field_type,
                     validate=validate,
+                    resolve=resolve,
                     parent=key_parent,
                     overrides=overrides,
                 )
@@ -946,7 +973,7 @@ class registry(object):
         return False
 
     @classmethod
-    def get_constructor(cls, obj: Dict[str, Any]) -> Callable:
+    def get_constructor(cls, obj: Dict[str, Any]) -> Tuple[str, str]:
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         if len(id_keys) != 1:
             err_msg = f"A block can only contain one function registry reference. Got: {id_keys}"
@@ -954,7 +981,7 @@ class registry(object):
         else:
             key = id_keys[0]
             value = obj[key]
-            return cls.get(key[1:], value)
+            return (key[1:], value)
 
     @classmethod
     def parse_args(cls, obj: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
@@ -975,7 +1002,8 @@ class registry(object):
         """Create a schema for a promise dict (referencing a registry function)
         by inspecting the function signature.
         """
-        func = cls.get_constructor(obj)
+        reg_name, func_name = cls.get_constructor(obj)
+        func = cls.get(reg_name, func_name)
         # Read the argument annotations and defaults from the function signature
         id_keys = [k for k in obj.keys() if k.startswith("@")]
         sig_args: Dict[str, Any] = {id_keys[0]: (str, ...)}

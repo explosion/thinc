@@ -48,14 +48,16 @@ def schedule_invalid(request):
 def test_optimizers_from_config(name):
     learn_rate = 0.123
     cfg = {"@optimizers": name, "learn_rate": learn_rate}
-    optimizer = registry.make_from_config({"config": cfg})["config"]
+    resolved, _ = registry.resolve({"config": cfg})
+    optimizer = resolved["config"]
     assert optimizer.learn_rate == learn_rate
 
 
 def test_optimizer_schedules_from_config(schedule_valid):
     lr, lr_next1, lr_next2, lr_next3 = schedule_valid
     cfg = {"@optimizers": "Adam.v1", "learn_rate": lr}
-    optimizer = registry.make_from_config({"cfg": cfg})["cfg"]
+    resolved, _ = registry.resolve({"cfg": cfg})
+    optimizer = resolved["cfg"]
     assert optimizer.learn_rate == lr_next1
     optimizer.step_schedules()
     assert optimizer.learn_rate == lr_next2

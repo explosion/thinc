@@ -209,8 +209,8 @@ normalize = true
 from thinc.api import registry, Config
 
 config = Config().from_disk("./config.cfg")
-C = registry.make_from_config(config)
-loss_calc = C["loss"]
+resolved, filled = registry.resolve(config)
+loss_calc = resolved["loss"]
 loss = loss_calc.get_grad(guesses, truths)
 ```
 
