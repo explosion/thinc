@@ -394,7 +394,7 @@ examples, see the [docs on Thinc's config system](/docs/usage-config).
 from thinc.api import Config, registry
 
 cfg = Config().from_disk("./my_config.cfg")
-resolved, filled = registry.resolve(cfg)
+resolved = registry.resolve(cfg)
 ```
 
 | Argument       | Type                                   | Description                                                                                                                                                                                                                                                                             |
@@ -404,4 +404,4 @@ resolved, filled = registry.resolve(cfg)
 | `validate`     | <tt>bool</tt>                          | Whether to validate the config against a base schema and/or type annotations defined on the registered functions. Defaults to `True`.                                                                                                                                                   |
 | `schema`       | <tt>pydantic.BaseModel</tt>            | Optional [`pydantic` model](https://pydantic-docs.helpmanual.io/usage/models/) to validate the config against. See the docs on [base schemas](/docs/api-config#advanced-types-base-schema) for details. Defaults to an `EmptySchema` with extra properties and arbitrary types allowed. |
 | `overrides`    | <tt>Dict[str, Any]</tt>                | Optional overrides for config values. Should be a dictionary keyed by config properties with dot notation, e.g. `{"training.batch_size": 128}`.                                                                                                                                         |
-| **RETURNS**    | <tt>Tuple[Dict[str, Any], Config]</tt> | The resolved and the filled config.                                                                                                                                                                                                                                                     |
+| **RETURNS**    | <tt>Dict[str, Any]</tt>                | The resolved config.                                                                                                                                                                                                                                                                    |

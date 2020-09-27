@@ -704,10 +704,11 @@ class registry(object):
         schema: Type[BaseModel] = EmptySchema,
         overrides: Dict[str, Any] = {},
         validate: bool = True,
-    ) -> Tuple[Dict[str, Any], Config]:
-        return cls._make(
+    ) -> Dict[str, Any]:
+        resolved, _ = cls._make(
             config, schema=schema, overrides=overrides, validate=validate, resolve=True
         )
+        return resolved
 
     @classmethod
     def fill(

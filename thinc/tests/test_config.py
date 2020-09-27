@@ -246,8 +246,7 @@ def test_registry_methods():
 
 def test_resolve_no_schema():
     config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": True}}}
-    resolved, _ = my_registry.resolve({"cfg": config})
-    result = resolved["cfg"]
+    result = my_registry.resolve({"cfg": config})["cfg"]
     assert result["one"] == 1
     assert result["two"] == {"three": "scratch!"}
     with pytest.raises(ConfigValidationError):
@@ -291,7 +290,8 @@ def test_resolve_schema_coerced():
         cfg: TestBaseSchema
 
     config = {"test1": 123, "test2": 1, "test3": 5}
-    result, filled = my_registry.resolve({"cfg": config}, schema=TestSchema)
+    filled = my_registry.fill({"cfg": config}, schema=TestSchema)
+    result = my_registry.resolve({"cfg": config}, schema=TestSchema)
     assert result["cfg"] == {"test1": "123", "test2": True, "test3": 5.0}
     # This only affects the resolved config, not the filled config
     assert filled["cfg"] == config
@@ -309,8 +309,7 @@ def test_read_config():
 
 def test_optimizer_config():
     cfg = Config().from_str(OPTIMIZER_CFG)
-    result, _ = my_registry.resolve(cfg, validate=True)
-    optimizer = result["optimizer"]
+    optimizer = my_registry.resolve(cfg, validate=True)["optimizer"]
     assert optimizer.b1 == 0.9
 
 
@@ -398,7 +397,8 @@ def test_validation_custom_types():
 
 def test_validation_no_validate():
     config = {"one": 1, "two": {"three": {"@cats": "catsie.v1", "evil": "false"}}}
-    result, filled = my_registry.resolve({"cfg": config}, validate=False)
+    result = my_registry.resolve({"cfg": config}, validate=False)
+    filled = my_registry.fill({"cfg": config}, validate=False)
     assert result["cfg"]["one"] == 1
     assert result["cfg"]["two"] == {"three": "scratch!"}
     assert filled["cfg"]["two"]["three"]["evil"] == "false"
@@ -431,8 +431,7 @@ def test_make_config_positional_args():
 
     args = ["^_^", "^(*.*)^"]
     cfg = {"config": {"@cats": "catsie.v567", "foo": "baz", "*": args}}
-    resolved, _ = my_registry.resolve(cfg)
-    assert resolved["config"] == "^_^"
+    assert my_registry.resolve(cfg)["config"] == "^_^"
 
 
 def test_make_config_positional_args_complex():
@@ -442,8 +441,7 @@ def test_make_config_positional_args_complex():
         return args[0]
 
     cfg = {"config": {"@cats": "catsie.v890", "*": [123, True, 1, False]}}
-    resolved, _ = my_registry.resolve(cfg)
-    assert resolved["config"] == 123
+    assert my_registry.resolve(cfg)["config"] == 123
     cfg = {"config": {"@cats": "catsie.v890", "*": [123, "True"]}}
     with pytest.raises(ConfigValidationError):
         # "True" is not a valid boolean or positive int
@@ -463,12 +461,12 @@ def test_positional_args_to_from_string():
     cfg = """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]"""
     filled = my_registry.fill(Config().from_str(cfg)).to_str()
     assert filled == """[a]\n@cats = "catsie.v666"\n* = ["foo","bar"]\nmeow = false"""
-    resolved, _ = my_registry.resolve(Config().from_str(cfg))
+    resolved = my_registry.resolve(Config().from_str(cfg))
     assert resolved == {"a": ("foo", "bar")}
     cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\nx = 1"""
     filled = my_registry.fill(Config().from_str(cfg)).to_str()
     assert filled == """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\nx = 1"""
-    resolved, _ = my_registry.resolve(Config().from_str(cfg))
+    resolved = my_registry.resolve(Config().from_str(cfg))
     assert resolved == {"a": ({"x": 1},)}
 
     @my_registry.cats("catsie.v777")
@@ -480,7 +478,7 @@ def test_positional_args_to_from_string():
     expected = """[a]\n@cats = "catsie.v666"\nmeow = false\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 1"""
     assert filled == expected
     cfg = """[a]\n@cats = "catsie.v666"\n\n[a.*.foo]\n@cats = "catsie.v777"\ny = 3"""
-    result, _ = my_registry.resolve(Config().from_str(cfg))
+    result = my_registry.resolve(Config().from_str(cfg))
     assert result == {"a": ("meowmeowmeow",)}
 
 
@@ -497,7 +495,7 @@ def test_make_config_positional_args_dicts():
         },
         "optimizer": {"@optimizers": "Adam.v1", "learn_rate": 0.001},
     }
-    resolved, _ = my_registry.resolve(cfg)
+    resolved = my_registry.resolve(cfg)
     model = resolved["model"]
     X = numpy.ones((784, 1), dtype="f")
     model.initialize(X=X, Y=numpy.zeros((784, 1), dtype="f"))
@@ -571,8 +569,7 @@ def test_objects_from_config():
     def decaying(base_rate: float, repeat: int) -> List[float]:
         return repeat * [base_rate]
 
-    resolved, _ = my_registry.resolve(config)
-    optimizer = resolved["optimizer"]
+    optimizer = my_registry.resolve(config)["optimizer"]
     assert optimizer.b1 == 0.2
     assert "learn_rate" in optimizer.schedules
     assert optimizer.learn_rate == 0.001
@@ -583,8 +580,7 @@ def test_partials_from_config():
     correctly (e.g. initializers)."""
     name = "uniform_init.v1"
     cfg = {"test": {"@initializers": name, "lo": -0.2}}
-    resolved, _ = my_registry.resolve(cfg)
-    func = resolved["test"]
+    func = my_registry.resolve(cfg)["test"]
     assert hasattr(func, "__call__")
     # The partial will still have lo as an arg, just with default
     assert len(inspect.signature(func).parameters) == 4
@@ -621,8 +617,7 @@ def test_partials_from_config_nested():
         "c": 5,
         "init": {"@initializers": "test_initializer.v1", "b": 10},
     }
-    resolved, _ = my_registry.resolve({"test": cfg})
-    func = resolved["test"]
+    func = my_registry.resolve({"test": cfg})["test"]
     assert func(1) == 51
     assert func(100) == 150
 
@@ -637,8 +632,8 @@ def test_validate_generator():
             yield 10
 
     cfg = {"@schedules": "test_schedule.v2"}
-    resolved, _ = my_registry.resolve({"test": cfg})
-    assert isinstance(resolved["test"], GeneratorType)
+    result = my_registry.resolve({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
 
     @my_registry.optimizers("test_optimizer.v2")
     def test_optimizer2(rate: Generator) -> Generator:
@@ -648,8 +643,8 @@ def test_validate_generator():
         "@optimizers": "test_optimizer.v2",
         "rate": {"@schedules": "test_schedule.v2"},
     }
-    resolved, _ = my_registry.resolve({"test": cfg})
-    assert isinstance(resolved["test"], GeneratorType)
+    result = my_registry.resolve({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
 
     @my_registry.optimizers("test_optimizer.v3")
     def test_optimizer3(schedules: Dict[str, Generator]) -> Generator:
@@ -659,8 +654,8 @@ def test_validate_generator():
         "@optimizers": "test_optimizer.v3",
         "schedules": {"rate": {"@schedules": "test_schedule.v2"}},
     }
-    resolved, _ = my_registry.resolve({"test": cfg})
-    assert isinstance(resolved["test"], GeneratorType)
+    result = my_registry.resolve({"test": cfg})["test"]
+    assert isinstance(result, GeneratorType)
 
     @my_registry.optimizers("test_optimizer.v4")
     def test_optimizer4(*schedules: Generator) -> Generator:
@@ -677,8 +672,7 @@ def test_handle_generic_model_type():
         return model
 
     cfg = {"@layers": "my_transform.v1", "model": {"@layers": "Linear.v1"}}
-    resolved, _ = my_registry.resolve({"test": cfg})
-    model = resolved["test"]
+    model = my_registry.resolve({"test": cfg})["test"]
     assert isinstance(model, Model)
     assert model.name == "transformed_model"
 
@@ -761,15 +755,15 @@ def test_resolve_overrides():
         }
     }
     overrides = {"cfg.two.three.evil": False}
-    result, _ = my_registry.resolve(config, overrides=overrides, validate=True)
+    result = my_registry.resolve(config, overrides=overrides, validate=True)
     assert result["cfg"]["two"]["three"] == "meow"
     # Test that promises can be overwritten as well
     overrides = {"cfg.two.three": 3}
-    result, _ = my_registry.resolve(config, overrides=overrides, validate=True)
+    result = my_registry.resolve(config, overrides=overrides, validate=True)
     assert result["cfg"]["two"]["three"] == 3
     # Test that value can be overwritten with promises
     overrides = {"cfg": {"one": {"@cats": "catsie.v1", "evil": False}, "two": None}}
-    result, _ = my_registry.resolve(config, overrides=overrides)
+    result = my_registry.resolve(config, overrides=overrides)
     assert result["cfg"]["one"] == "meow"
     assert result["cfg"]["two"] is None
     # Overwriting with wrong types should cause validation error
@@ -810,7 +804,7 @@ def test_resolve_prefilled_values():
     # Passing an instance of Language here via the config is bad, since it
     # won't serialize to a string, but we still test for it
     config = {"test": {"@optimizers": "prefilled.v1", "nlp": Language(), "value": 50}}
-    resolved, _ = my_registry.resolve(config, validate=True)
+    resolved = my_registry.resolve(config, validate=True)
     result = resolved["test"]
     assert isinstance(result[0], Language)
     assert result[1] == 50
@@ -1009,7 +1003,8 @@ def test_config_reserved_aliases():
         return validate
 
     cfg = {"@cats": "catsie.with_alias", "validate": True}
-    resolved, filled = my_registry.resolve({"test": cfg})
+    resolved = my_registry.resolve({"test": cfg})
+    filled = my_registry.fill({"test": cfg})
     assert resolved["test"] is True
     assert filled["test"] == cfg
     cfg = {"@cats": "catsie.with_alias", "validate": 20}
@@ -1052,7 +1047,8 @@ def test_config_no_interpolation_registry():
     assert not config.is_interpolated
     assert config["b"]["evil"] == "${a:bad}"
     assert config["c"]["d"] == "${b}"
-    resolved, filled = my_registry.resolve(config)
+    filled = my_registry.fill(config)
+    resolved = my_registry.resolve(config)
     assert resolved["b"] == "scratch!"
     assert resolved["c"]["d"] == "scratch!"
     assert filled["b"]["evil"] == "${a:bad}"
@@ -1064,7 +1060,8 @@ def test_config_no_interpolation_registry():
     assert interpolated["c"]["d"] == interpolated["b"]
     config = Config().from_str(config_str, interpolate=True)
     assert config.is_interpolated
-    resolved, filled = my_registry.resolve(config)
+    filled = my_registry.fill(config)
+    resolved = my_registry.resolve(config)
     assert resolved["b"] == "scratch!"
     assert resolved["c"]["d"] == "scratch!"
     assert filled["b"]["evil"] is True
@@ -1075,7 +1072,7 @@ def test_config_no_interpolation_registry():
     filled = my_registry.fill(config)
     assert not filled.is_interpolated
     assert filled["c"]["d"] == "${b}"
-    resolved, _ = my_registry.resolve(filled)
+    resolved = my_registry.resolve(filled)
     assert resolved["c"]["d"] == "scratch!"
 
 
@@ -1312,12 +1309,13 @@ def test_config_fill_without_resolve():
         catsie: int
 
     config = {"catsie": {"@cats": "catsie.v1", "evil": False}}
-    resolved, filled = my_registry.resolve(config)
+    filled = my_registry.fill(config)
+    resolved = my_registry.resolve(config)
     assert resolved["catsie"] == "meow"
     assert filled["catsie"]["cute"] is True
     with pytest.raises(ConfigValidationError):
         my_registry.resolve(config, schema=BaseSchema)
     filled2 = my_registry.fill(config, schema=BaseSchema)
     assert filled2["catsie"]["cute"] is True
-    resolved, _ = my_registry.resolve(filled2)
+    resolved = my_registry.resolve(filled2)
     assert resolved["catsie"] == "meow"

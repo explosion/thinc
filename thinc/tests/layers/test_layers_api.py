@@ -121,8 +121,7 @@ TEST_CASES = [
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
 def test_layers_from_config(name, kwargs, in_data, out_data):
     cfg = {"@layers": name, **kwargs}
-    resolved, _ = registry.resolve({"config": cfg})
-    model = resolved["config"]
+    model = registry.resolve({"config": cfg})["config"]
     if "LSTM" in name:
         model = with_padded(model)
     valid = True
@@ -139,8 +138,7 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)
 def test_layers_with_residual(name, kwargs, in_data, out_data):
     cfg = {"@layers": "residual.v1", "layer": {"@layers": name, **kwargs}}
-    resolved, _ = registry.resolve({"config": cfg})
-    model = resolved["config"]
+    model = registry.resolve({"config": cfg})["config"]
     if "LSTM" in name:
         model = with_padded(model)
     model.initialize(in_data, out_data)

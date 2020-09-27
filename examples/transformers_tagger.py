@@ -51,7 +51,7 @@ def main(path: Optional[Path] = None, out_dir: Optional[Path] = None):
     # In the optimizer block we write @optimizers = "Adam.v1". This tells Thinc
     # to use registry.optimizers to fetch the "Adam.v1" function. You can
     # register your own functions as well and build up trees of objects.
-    C, _ = thinc.registry.resolve(config)
+    C = thinc.registry.resolve(config)
     words_per_subbatch = C["training"]["words_per_subbatch"]
     n_epoch = C["training"]["n_epoch"]
     batch_size = C["training"]["batch_size"]

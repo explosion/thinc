@@ -150,7 +150,7 @@ compound = 1.001
 from thinc.api import Config, registry
 
 config = Config().from_str("./config.cfg")
-resolved, filled = registry.resolve(config)
+resolved = registry.resolve(config)
 batch_size = resolved["batch_size"]
 ```
 

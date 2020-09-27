@@ -153,7 +153,7 @@ gamma = 1e-8
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-resolved, filled = registry.resolve(config)
+resolved = registry.resolve(config)
 optimizer = resolved["optimizer"]
 ```
 
@@ -260,7 +260,7 @@ defined in the config.
 from thinc.api import Config, registry
 
 config = Config().from_disk("./config.cfg")
-resolved, filled = registry.resolve(config)
+resolved = registry.resolve(config)
 ```
 
 ```python
@@ -641,7 +641,7 @@ pipeline = ["tagger", "parser"]
 from thinc.api import registry, Config
 
 config = Config().from_disk("./config.cfg")
-resolved, filled = registry.resolve(
+resolved = registry.resolve(
     config,
     schema=ConfigBaseSchema
 )

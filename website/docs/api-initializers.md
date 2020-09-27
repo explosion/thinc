@@ -95,7 +95,7 @@ fan_in = -1
 from thinc.api import registry, Config
 
 config = Config().from_disk("./config.cfg")
-resolved, filled = registry.resolve(config)
+resolved = registry.resolve(config)
 model = resolved["model"]
 ```
 
@@ -119,7 +119,7 @@ hi = 0.1
 from thinc.api import registry, Config, NumpyOps
 
 config = Config().from_disk("./config.cfg")
-resolved, filled = registry.resolve(config)
+resolved = registry.resolve(config)
 initializer = resolved["initializer"]
 weights = initializer(NumpyOps(), (3, 2))
 ```
