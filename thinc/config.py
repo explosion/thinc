@@ -630,7 +630,7 @@ def alias_generator(name: str) -> str:
     return name
 
 
-def copy_model_field(field: ModelField, type_: Type[Any]) -> ModelField:
+def copy_model_field(field: ModelField, type_: Any) -> ModelField:
     """Copy a model field and assign a new type, e.g. to accept an Any type
     even though the original value is typed differently.
     """
