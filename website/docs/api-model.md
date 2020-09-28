@@ -623,7 +623,7 @@ Check whether bytes data is compatible with the model for deserialization.
 | Argument          | Type                      | Description                  |
 | ----------------- | ------------------------- | ---------------------------- |
 |  `bytes_data`     | <tt>bytes</tt> | The bytestring to check.                |
-|  `strict`         | <tt>bool</tt>  | Whether to require dimensions to match. |
+|  `strict`         | <tt>bool</tt>  | Whether to require attributes to match. |
 | **RETURNS**       | <tt>bool</tt>  | Whether the data is compatible.         |
 
 ### Model.can_from_bytes {#can_from_bytes tag="method"}
@@ -633,7 +633,7 @@ Check whether a path is compatible with the model for deserialization.
 | Argument          | Type                      | Description         |
 | ----------------- | ------------------------- | ------------------- |
 |  `path`           | <tt>Union[Path, str]</tt> | The path to check.  |
-|  `strict`         | <tt>bool</tt>             | Whether to require dimensions to match. |
+|  `strict`         | <tt>bool</tt>             | Whether to require attributes to match. |
 | **RETURNS**       | <tt>Model</tt>            | Whether the path is compatible. |
 
 ### Model.can_from_dict {#from_dict tag="method"}
@@ -643,7 +643,7 @@ Check whether a dictionary is compatible with the model for deserialization.
 | Argument    | Type           | Description       |
 | ----------- | -------------- | ----------------- |
 | `msg`       | <tt>dict</tt>  | The data to check. |
-| `strict`    | <tt>bool</tt>  | Whether to require dimensions to match. |
+| `strict`    | <tt>bool</tt>  | Whether to require attributes to match. |
 | **RETURNS** | <tt>Model</tt> | Whether the data is compatible. |
 
 ---
