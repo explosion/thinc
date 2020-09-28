@@ -567,6 +567,65 @@ class Model(Generic[InT, OutT]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
 
+
+    def can_from_disk(self, path: Union[Path, str], *, strict: bool=False) -> bool:
+        """Check whether serialized data on disk is compatible with the model.
+        If 'strict', the function returns False if the model would resize to
+        load the data.
+        """
+        path = Path(path)
+        if path.is_dir() or not path.exists():
+            return False
+        with path.open("rb") as file_:
+            bytes_data = file_.read()
+        return self.can_from_bytes(bytes_data, strict=strict)
+
+
+    def can_from_bytes(self, bytes_data: bytes, *, strict: bool=False) -> bool:
+        """Check whether the bytes data is compatible with the model. If 'strict',
+        the function returns False if the model would resize to load the data.
+        """
+        try:
+            msg = srsly.msgpack_loads(bytes_data)
+        except ValueError:
+            return False
+        return self.can_from_dict(msg, strict=strict)
+
+    def can_from_dict(self, msg: Dict, *, strict: bool=False) -> bool:
+        """Check whether a dictionary is compatible with the model.
+        If 'strict', the function returns False if the model would resize to
+        load the data.
+        """
+        if "nodes" not in msg.keys():
+            return False
+        nodes = list(self.walk())
+        if len(msg["nodes"]) != len(nodes):
+            return False
+
+        for i, node in enumerate(nodes):
+            info = msg["nodes"][i]
+            if strict and info["name"] != node.name:
+                return False
+            if len(msg["shims"][i]) != len(node.shims):
+                # TODO: The shims should have a check for this too, but
+                # for now we just check if the lengths match.
+                return False
+            for dim, value in info["dims"].items():
+                has_dim = node.has_dim(dim)
+                if has_dim is False:
+                    return False
+                elif strict and has_dim and node.get_dim(dim) != value:
+                    return False
+            for param_name, value in msg["params"][i].items():
+                has_param = node.has_param(param_name)
+                if has_param is False:
+                    return False
+                elif strict and has_param and value is not None:
+                    param = node.get_param(param_name)
+                    if param.shape != value.shape:
+                        return False
+        return True
+
     def __add__(self, other: Any) -> "Model":
         """Apply the function bound to the '+' operator."""
         if "+" not in self._context_operators.get():
