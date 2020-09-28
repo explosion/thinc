@@ -568,7 +568,7 @@ class Model(Generic[InT, OutT]):
         return self
 
 
-    def can_from_disk(self, path: Union[Path, str], *, strict: bool=False) -> bool:
+    def can_from_disk(self, path: Union[Path, str], *, strict: bool=True) -> bool:
         """Check whether serialized data on disk is compatible with the model.
         If 'strict', the function returns False if the model would resize to
         load the data.
@@ -581,7 +581,7 @@ class Model(Generic[InT, OutT]):
         return self.can_from_bytes(bytes_data, strict=strict)
 
 
-    def can_from_bytes(self, bytes_data: bytes, *, strict: bool=False) -> bool:
+    def can_from_bytes(self, bytes_data: bytes, *, strict: bool=True) -> bool:
         """Check whether the bytes data is compatible with the model. If 'strict',
         the function returns False if the model would resize to load the data.
         """
@@ -591,7 +591,7 @@ class Model(Generic[InT, OutT]):
             return False
         return self.can_from_dict(msg, strict=strict)
 
-    def can_from_dict(self, msg: Dict, *, strict: bool=False) -> bool:
+    def can_from_dict(self, msg: Dict, *, strict: bool=True) -> bool:
         """Check whether a dictionary is compatible with the model.
         If 'strict', the function returns False if the model would resize to
         load the data.
