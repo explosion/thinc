@@ -597,9 +597,9 @@ should just be the bytes contents of [`Model.to_bytes`](#to_bytes).
 model.to_disk("/path/to/model")
 ```
 
-| Argument | Type                      | Description                     |
-| -------- | ------------------------- | ------------------------------- |
-|  `path`  | <tt>Union[Path, str]</tt> | Directory to save the model to. |
+| Argument | Type                      | Description                             |
+| -------- | ------------------------- | --------------------------------------- |
+|  `path`  | <tt>Union[Path, str]</tt> | File or directory to save the model to. |
 
 ### Model.from_disk {#from_disk tag="method"}
 
@@ -615,6 +615,36 @@ model = Model().from_disk("/path/to/model")
 | ----------- | ------------------------- | --------------------------------- |
 |  `path`     | <tt>Union[Path, str]</tt> | Directory to load the model from. |
 | **RETURNS** | <tt>Model</tt>            | The loaded model.                 |
+
+### Model.can_from_bytes {#can_from_bytes tag="method"}
+
+Check whether bytes data is compatible with the model for deserialization.
+
+| Argument          | Type                      | Description                  |
+| ----------------- | ------------------------- | ---------------------------- |
+|  `bytes_data`     | <tt>bytes</tt> | The bytestring to check.                |
+|  `strict`         | <tt>bool</tt>  | Whether to require attributes to match. |
+| **RETURNS**       | <tt>bool</tt>  | Whether the data is compatible.         |
+
+### Model.can_from_bytes {#can_from_bytes tag="method"}
+
+Check whether a path is compatible with the model for deserialization.
+
+| Argument          | Type                      | Description         |
+| ----------------- | ------------------------- | ------------------- |
+|  `path`           | <tt>Union[Path, str]</tt> | The path to check.  |
+|  `strict`         | <tt>bool</tt>             | Whether to require attributes to match. |
+| **RETURNS**       | <tt>Model</tt>            | Whether the path is compatible. |
+
+### Model.can_from_dict {#from_dict tag="method"}
+
+Check whether a dictionary is compatible with the model for deserialization.
+
+| Argument    | Type           | Description       |
+| ----------- | -------------- | ----------------- |
+| `msg`       | <tt>dict</tt>  | The data to check. |
+| `strict`    | <tt>bool</tt>  | Whether to require attributes to match. |
+| **RETURNS** | <tt>Model</tt> | Whether the data is compatible. |
 
 ---
 
