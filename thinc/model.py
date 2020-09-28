@@ -570,8 +570,8 @@ class Model(Generic[InT, OutT]):
 
     def can_from_disk(self, path: Union[Path, str], *, strict: bool=True) -> bool:
         """Check whether serialized data on disk is compatible with the model.
-        If 'strict', the function returns False if the model would resize to
-        load the data.
+        If 'strict', the function returns False if the model has an attribute
+        already loaded that would be changed.
         """
         path = Path(path)
         if path.is_dir() or not path.exists():
@@ -583,7 +583,8 @@ class Model(Generic[InT, OutT]):
 
     def can_from_bytes(self, bytes_data: bytes, *, strict: bool=True) -> bool:
         """Check whether the bytes data is compatible with the model. If 'strict',
-        the function returns False if the model would resize to load the data.
+        the function returns False if the model has an attribute already loaded
+        that would be changed.
         """
         try:
             msg = srsly.msgpack_loads(bytes_data)
@@ -593,8 +594,8 @@ class Model(Generic[InT, OutT]):
 
     def can_from_dict(self, msg: Dict, *, strict: bool=True) -> bool:
         """Check whether a dictionary is compatible with the model.
-        If 'strict', the function returns False if the model would resize to
-        load the data.
+        If 'strict', the function returns False if the model has an attribute
+        already loaded that would be changed.
         """
         if "nodes" not in msg.keys():
             return False
@@ -614,16 +615,31 @@ class Model(Generic[InT, OutT]):
                 has_dim = node.has_dim(dim)
                 if has_dim is False:
                     return False
-                elif strict and has_dim and node.get_dim(dim) != value:
+                elif has_dim and node.get_dim(dim) != value:
                     return False
             for param_name, value in msg["params"][i].items():
                 has_param = node.has_param(param_name)
                 if has_param is False:
                     return False
-                elif strict and has_param and value is not None:
+                elif has_param and value is not None:
                     param = node.get_param(param_name)
                     if param.shape != value.shape:
                         return False
+            if strict:
+                for attr, value in msg["attrs"][i].items():
+                    if attr in node.attrs:
+                        try:
+
+                            serialized = serialize_attr(
+                                node.attrs[attr],
+                                node.attrs[attr],
+                                attr,
+                                node
+                            )
+                        except TypeError:
+                            continue
+                        if serialized != value:
+                            return False
         return True
 
     def __add__(self, other: Any) -> "Model":
