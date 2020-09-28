@@ -187,19 +187,14 @@ def test_simple_model_can_from_dict():
     # Test check without initialize
     assert Maxout(5, 10, nP=2).can_from_dict(model_dict)
     # Test not-strict check 
-    assert Maxout(10, 5, nP=2).can_from_dict(model_dict, strict=False)
-    # Test strict check, where sizes must be compatible.
-    assert not Maxout(10, 5, nP=2).can_from_dict(model_dict, strict=True)
-    assert Maxout(5, nP=2).can_from_dict(model_dict, strict=True)
+    assert not Maxout(10, 5, nP=2).can_from_dict(model_dict)
+    assert Maxout(5, nP=2).can_from_dict(model_dict)
 
 
 def test_multi_model_can_from_dict():
     model = chain(Maxout(5, 10, nP=2), Maxout(2, 3)).initialize()
     model_dict = model.to_dict()
     assert model.can_from_dict(model_dict)
-    # Test check without initialize
     assert chain(Maxout(5, 10, nP=2), Maxout(2, 3)).can_from_dict(model_dict)
-    # Test not-strict check 
     resized = chain(Maxout(5, 10, nP=3), Maxout(2, 3))
-    assert resized.can_from_dict(model_dict, strict=False)
-    assert not resized.can_from_dict(model_dict, strict=True)
+    assert not resized.can_from_dict(model_dict)
