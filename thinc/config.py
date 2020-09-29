@@ -835,10 +835,12 @@ class registry(object):
                     try:
                         getter_result = getter(*args, **kwargs)
                     except Exception as err:
+                        getter_name = getter.__name__
+                        title = f"Can't construct config: calling registry function ({getter_name}) failed"
                         raise ConfigValidationError(
                             config={key: value},
-                            errors=[{"msg": err, "loc": [getter.__name__]}],
-                            title="Can't construct config: calling registry function failed",
+                            errors=[{"msg": err, "loc": [func_name]}],
+                            title=title,
                         ) from err
                 else:
                     # We're not resolving and calling the function, so replace
