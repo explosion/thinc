@@ -704,22 +704,6 @@ class Decorator(Protocol):
     def __call__(self, name: str) -> Callable[[_DIn], _DIn]: ...
 
 
-class Doc(Sized, Container):
-    """Type for spaCy Doc objects."""
-
-    T: "Doc"
-    base: Optional["Doc"]
-
-    @property
-    def doc(self) -> "Doc": ...
-    @property
-    def start(self) -> int: ...
-    @property
-    def end(self) -> int: ...
-
-    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Ints2d: ...
-
-
 # fmt: on
 
 
