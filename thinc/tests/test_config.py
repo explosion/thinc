@@ -821,6 +821,8 @@ def test_fill_config_dict_return_type():
     result = my_registry.fill({"cfg": config}, validate=True)["cfg"]["test"]
     assert result["evil"] is False
     assert "not_evil" not in result
+    result = my_registry.resolve({"cfg": config}, validate=True)["cfg"]["test"]
+    assert result["not_evil"] is True
 
 
 def test_deepcopy_config():
