@@ -110,29 +110,6 @@ embeddings table will slice as the indices.
 https://github.com/explosion/thinc/blob/master/thinc/layers/embed.py
 ```
 
-### FeatureExtractor {#featureextractor tag="function"}
-
-<inline-list>
-
-- **Input:** <ndarray shape="batch_size, nI">List[spacy.tokens.Doc]</ndarray>
-- **Output:** <ndarray shape="batch_size, nO">List[Ints2d]</ndarray>
-- **Attrs:** `columns` <tt>int</tt>
-
-</inline-list>
-
-spaCy-specific layer to extract arrays of input features from `Doc` objects.
-Expects a list of feature names to extract, which should refer to spaCy token
-attributes.
-
-| Argument    | Type                                                 | Description                            |
-| ----------- | ---------------------------------------------------- | -------------------------------------- |
-| `columns`   | <tt>List[Union[int, str]]</tt>                       | The spaCy token attributes to extract. |
-| **RETURNS** | <tt>Model[List[spacy.tokens.Doc], List[Ints2d]]</tt> | The created feature extraction layer.  |
-
-```python
-https://github.com/explosion/thinc/blob/master/thinc/layers/featureextractor.py
-```
-
 ### HashEmbed {#hashembed tag="function"}
 
 <inline-list>

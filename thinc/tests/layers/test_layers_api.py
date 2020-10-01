@@ -6,17 +6,6 @@ import numpy
 import pytest
 
 
-class FakeDoc:
-    def to_array(self, attr_ids):
-        return numpy.asarray(attr_ids, dtype="uint64")
-
-
-class FakeSpan:
-    doc = FakeDoc()
-    start = 0
-    end = -1
-
-
 OPS = get_current_ops()
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
@@ -28,8 +17,6 @@ ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
 padded = Padded(
     array3d, array1d, OPS.asarray1i([1, 2, 3, 4]), OPS.asarray1i([1, 2, 3, 4])
 )
-doc = FakeDoc()
-span = FakeSpan()
 width = array2d.shape[1]
 vectors = numpy.zeros((array2dint.max(), 1), dtype="f")
 
@@ -109,8 +96,6 @@ TEST_CASES = [
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
-    ("FeatureExtractor.v1", {"columns": [1, 2]}, [doc, doc, doc], [array2d, array2d, array2d]),
-    ("FeatureExtractor.v1", {"columns": [1, 2]}, [span, span], [array2d, array2d]),
     ("ParametricAttention.v1", {}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
     ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint)
@@ -125,8 +110,6 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     if "LSTM" in name:
         model = with_padded(model)
     valid = True
-    if "FeatureExtractor" in name:  # can't validate fake docs:
-        valid = False
     with data_validation(valid):
         model.initialize(in_data, out_data)
         Y, backprop = model(in_data, is_train=True)

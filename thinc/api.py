@@ -22,7 +22,7 @@ from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
-from .layers import SparseLinear, StaticVectors, FeatureExtractor
+from .layers import SparseLinear, StaticVectors
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 
