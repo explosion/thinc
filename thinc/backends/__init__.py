@@ -1,5 +1,5 @@
 import contextlib
-from typing import Type
+from typing import Type, Dict
 
 from contextvars import ContextVar
 
@@ -15,6 +15,7 @@ from ..types import OpsNames
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
 context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
+context_pools: ContextVar[Dict] = ContextVar("context_pools", default=dict)
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
@@ -40,11 +41,11 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     (or vice versa), but do not currently have an implementation for it.
     """
     import cupy.cuda
-
     assert_pytorch_installed()
-    cupy.cuda.set_allocator(
-        cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator).malloc
-    )
+    pools = context_pools.get()
+    if "pytorch" not in pools:
+        pools["pytorch"] = cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator)
+    cupy.cuda.set_allocator(pools["pytorch"].malloc)
 
 
 def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
@@ -58,11 +59,11 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     well (or vice versa), but do not currently have an implementation for it.
     """
     import cupy.cuda
-
     assert_tensorflow_installed()
-    cupy.cuda.set_allocator(
-        cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator).malloc
-    )
+    pools = context_pools.get()
+    if "tensorflow" not in pools:
+        pools["tensorflow"] = cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator)
+    cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
