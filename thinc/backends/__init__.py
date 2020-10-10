@@ -41,6 +41,7 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     (or vice versa), but do not currently have an implementation for it.
     """
     import cupy.cuda
+
     assert_pytorch_installed()
     pools = context_pools.get()
     if "pytorch" not in pools:
@@ -59,6 +60,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     well (or vice versa), but do not currently have an implementation for it.
     """
     import cupy.cuda
+
     assert_tensorflow_installed()
     pools = context_pools.get()
     if "tensorflow" not in pools:
