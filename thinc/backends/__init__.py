@@ -15,7 +15,7 @@ from ..types import OpsNames
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
 context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
-context_pools: ContextVar[Dict] = ContextVar("context_pools", default=dict)
+context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
