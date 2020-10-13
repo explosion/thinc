@@ -223,7 +223,12 @@ class Config(dict):
                     )
                 else:
                     node = node[part]
-            # TODO: add error if node not in list
+            if not isinstance(node, dict):
+                # Happens if both value *and* subsection were defined for a key
+                err = [{"loc": parts, "msg": "found conflicting values"}]
+                err_cfg = f"{self}\n{({part: dict(values)})}"
+                raise ConfigValidationError(config=err_cfg, errors=err)
+            # Set the default section
             node = node.setdefault(parts[-1], {})
             if not isinstance(node, dict):
                 # Happens if both value *and* subsection were defined for a key

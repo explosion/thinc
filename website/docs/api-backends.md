@@ -9,25 +9,24 @@ also keeps track of state and settings, so that you can have different models in
 your network executing on different devices or delegating to different
 underlying libraries.
 
-Each `Ops` instance holds a reference to a numpy-like module (`numpy`, `cupy` or
-`jax`), which you can access at `Model.ops.xp`. This is enough to make most
+Each `Ops` instance holds a reference to a numpy-like module (`numpy` or
+`cupy`), which you can access at `Model.ops.xp`. This is enough to make most
 layers work on **both CPU and GPU devices**. Additionally, there are several
 routines that we have implemented as methods on the `Ops` object, so that
 specialized versions can be called for different backends. You can also create
 your own `Ops` subclasses with specialized routines for your layers, and use the
 [`set_current_ops`](#set_current_ops) function to change the default.
 
-| Backend    |        CPU         |        GPU         |        TPU         | Description                                                                                           |
-| ---------- | :----------------: | :----------------: | :----------------: | ----------------------------------------------------------------------------------------------------- |
-| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i>  | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython. |
-| `CupyOps`  | <i name="no"></i>  | <i name="yes"></i> | <i name="no"></i>  | Execute via [`cupy`](https://cupy.chainer.org/) and custom CUDA.                                      |
-| `JaxOps`   | <i name="yes"></i> | <i name="yes"></i> | <i name="yes"></i> | Execute via [JAX](https://github.com/google/jax) (experimental).                                      |
+| Backend    |        CPU         |        GPU         |        TPU        | Description                                                                                           |
+| ---------- | :----------------: | :----------------: | :---------------: | ----------------------------------------------------------------------------------------------------- |
+| `NumpyOps` | <i name="yes"></i> | <i name="no"></i>  | <i name="no"></i> | Execute via `numpy`, [`blis`](https://github.com/explosion/cython-blis) (optional) and custom Cython. |
+| `CupyOps`  | <i name="no"></i>  | <i name="yes"></i> | <i name="no"></i> | Execute via [`cupy`](https://cupy.chainer.org/) and custom CUDA.                                      |
 
 ## Ops {#ops tag="class"}
 
-The `Ops` class is typically not used directly but via `NumpyOps`, `CupyOps` or
-`JaxOps`, which are subclasses of `Ops` and implement a **more efficient subset
-of the methods**. You also have access to the ops via the
+The `Ops` class is typically not used directly but via `NumpyOps` or `CupyOps`,
+which are subclasses of `Ops` and implement a **more efficient subset of the
+methods**. You also have access to the ops via the
 [`Model.ops`](/docs/api-model#attributes) attribute. The documented methods
 below list which backends provide optimized and more efficient versions
 (indicated by <i name="yes"></i>), and which use the default implementation.
@@ -57,7 +56,7 @@ use_ops(blis_ops)
 
 | Name          | Type         | Description                                                                              |
 | ------------- | ------------ | ---------------------------------------------------------------------------------------- |
-| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"`, `"cupy"` or `"jax"`.                       |
+| `name`        | <tt>str</tt> | **Class attribute:** Backend name, `"numpy"` or `"cupy"`.                                |
 | `xp`          | <tt>Xp</tt>  | **Class attribute:** `numpy` or `cupy`.                                                  |
 | `device_type` | <tt>str</tt> | The device type to use, if available for the given backend: `"cpu"`, `"gpu"` or `"tpu"`. |
 | `device_id`   | <tt>int</tt> | The device ID to use, if available for the given backend.                                |
@@ -78,7 +77,6 @@ use_ops(blis_ops)
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -119,7 +117,6 @@ batches = model.ops.minibatch(128, train_X, shuffle=True)
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -148,7 +145,6 @@ batches = model.ops.multibatch(128, train_X, train_Y, shuffle=True)
 - **default:** <i name="yes"></i> (`nW=1` only)
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i> (`nW=1` only)
 
 </inline-list>
 
@@ -169,7 +165,6 @@ vectors onto each column in the sequence, to extract a window of features.
 - **default:** <i name="yes"></i> (`nW=1` only)
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i> (`nW=1` only)
 
 </inline-list>
 
@@ -190,7 +185,6 @@ of the original `(M, N)` sequence, as a function of the gradient of the output
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -213,7 +207,6 @@ the specified output variable.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -233,7 +226,6 @@ Apply a weights layer and a bias to some inputs, i.e. `Y = X @ W.T + b`.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -254,7 +246,6 @@ Flatten a list of arrays into one large array.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -275,7 +266,6 @@ array into a list of arrays according to the given lengths.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -296,7 +286,6 @@ sequences with the same `ndim` and `dtype`.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -316,7 +305,6 @@ into a list of arrays, each with their original length.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -335,7 +323,6 @@ Pack a sequence of two-dimensional arrays into a
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -354,7 +341,6 @@ two-dimensional arrays.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -376,7 +362,6 @@ overfitting.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -427,7 +412,6 @@ Y = model.ops.alloc1i(4)  # Ints1d
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -488,7 +472,6 @@ Y = model.ops.reshape1i(Y, 4)  # Ints1d
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** default
 
 </inline-list>
 
@@ -540,7 +523,6 @@ Y = model.ops.asarray1i(Y, 4)  # Ints1d
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -562,7 +544,6 @@ efficiency for the execution engine.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -581,7 +562,6 @@ two separate arrays.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -601,7 +581,6 @@ Calculate the sigmoid function.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -621,7 +600,6 @@ Calculate the derivative of the `sigmoid` function.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -641,7 +619,6 @@ Calculate the derivative of the `tanh` function.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -662,7 +639,6 @@ Calculate the softmax function. The resulting array will sum up to 1.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -681,7 +657,6 @@ Calculate the softmax function. The resulting array will sum up to 1.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -701,7 +676,6 @@ Calculate the softmax function. The resulting array will sum up to 1.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -721,7 +695,6 @@ The reverse/backward operation of the `softmax` function.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -744,7 +717,6 @@ Encode a padded batch of inputs into a padded batch of outputs using an LSTM.
 - **default:** <i name="yes"></i>
 - **numpy:** default
 - **cupy:** default
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -764,7 +736,6 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -780,7 +751,6 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -798,7 +768,6 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -816,7 +785,6 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -835,7 +803,6 @@ Compute the gradients for the `recurrent_lstm` operation via backpropagation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -855,7 +822,6 @@ Compute the Mish activation
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -876,7 +842,6 @@ Backpropagate the Mish activation
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -895,7 +860,6 @@ Perform sequence-wise summation for data in the ragged format.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -914,7 +878,6 @@ Backpropagate the `reduce_sum` operation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -933,7 +896,6 @@ Perform sequence-wise averaging for data in the ragged format.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -952,7 +914,6 @@ Backpropagate the `reduce_mean` operation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -971,7 +932,6 @@ Perform sequence-wise max pooling for data in the ragged format.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** <i name="yes"></i>
 
 </inline-list>
 
@@ -991,7 +951,6 @@ Backpropagate the `reduce_max` operation.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** default
 
 </inline-list>
 
@@ -1011,7 +970,6 @@ Hash a sequence of 64-bit keys into a table with four 32-bit keys, using
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** default
-- **jax:** default
 
 </inline-list>
 
@@ -1030,7 +988,6 @@ Create hashed ngram features.
 - **default:** <i name="yes"></i>
 - **numpy:** <i name="yes"></i>
 - **cupy:** <i name="yes"></i>
-- **jax:** default
 
 </inline-list>
 
@@ -1057,12 +1014,11 @@ Get a backend object using a string name.
 from thinc.api import get_ops
 
 numpy_ops = get_ops("numpy")
-jax_ops = get_ops("jax", device_type="tpu")
 ```
 
 | Argument    | Type         | Description                                           |
 | ----------- | ------------ | ----------------------------------------------------- |
-| `ops`       | <tt>str</tt> | `"numpy"`, `"cupy"` or `"jax"`.                       |
+| `ops`       | <tt>str</tt> | `"numpy"` or `"cupy"`.                                |
 | `**kwargs`  |              | Optional arguments passed to [`Ops.__init__`](#init). |
 | **RETURNS** | <tt>Ops</tt> | The backend object.                                   |
 
@@ -1074,14 +1030,14 @@ Change the backend to execute with for the scope of the block.
 ### Example
 from thinc.api import use_ops, get_current_ops
 
-with use_ops("jax"):
+with use_ops("cupy"):
     current_ops = get_current_ops()
-    assert current_ops.name == "jax"
+    assert current_ops.name == "cupy"
 ```
 
 | Argument   | Type         | Description                                           |
 | ---------- | ------------ | ----------------------------------------------------- |
-| `ops`      | <tt>str</tt> | `"numpy"`, `"cupy"` or `"jax"`.                       |
+| `ops`      | <tt>str</tt> | `"numpy"` or `"cupy"`.                       |
 | `**kwargs` |              | Optional arguments passed to [`Ops.__init__`](#init). |
 
 ### get_current_ops {#get_current_ops tag="function"}

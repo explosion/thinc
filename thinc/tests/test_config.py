@@ -846,6 +846,16 @@ def test_config_to_str_simple_promises():
     assert config.to_str() == config_str
 
 
+def test_config_from_str_invalid_section():
+    config_str = """[a]\nb = null\n\n[a.b]\nc = 1"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str)
+
+    config_str = """[a]\nb = null\n\n[a.b.c]\nd = 1"""
+    with pytest.raises(ConfigValidationError):
+        Config().from_str(config_str)
+
+
 def test_config_to_str_order():
     """Test that Config.to_str orders the sections."""
     config = {"a": {"b": {"c": 1, "d": 2}, "e": 3}, "f": {"g": {"h": {"i": 4, "j": 5}}}}
