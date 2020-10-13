@@ -145,17 +145,18 @@ def test_layers_batching_all(name, kwargs, in_data, out_data):
         return
     if "LSTM" in name:
         model = with_padded(model)
-        util_batch_unbatch_ListFloats2D(model, in_data, out_data)
-    elif isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
-        if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
-            print("test model", name)
-            util_batch_unbatch_Floats2D(model, in_data, out_data)
-    elif isinstance(in_data, Ragged):
-        if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
-            util_batch_unbatch_Ragged(model, in_data, out_data)
+        util_batch_unbatch_list(model, in_data, out_data)
+    else:
+        if isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
+            if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+                print("test model", name)
+                util_batch_unbatch_array(model, in_data, out_data)
+        if isinstance(in_data, Ragged):
+            if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+                util_batch_unbatch_ragged(model, in_data, out_data)
 
 
-def util_batch_unbatch_Floats2D(model: Model[Array2d, Array2d], in_data: Array2d, out_data: Array2d):
+def util_batch_unbatch_array(model: Model[Array2d, Array2d], in_data: Array2d, out_data: Array2d):
     unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
     with data_validation(True):
         model.initialize(in_data, out_data)
@@ -164,7 +165,7 @@ def util_batch_unbatch_Floats2D(model: Model[Array2d, Array2d], in_data: Array2d
         assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
 
 
-def util_batch_unbatch_ListFloats2D(model: Model[List[Array2d], List[Array2d]], in_data: List[Array2d], out_data: List[Array2d]):
+def util_batch_unbatch_list(model: Model[List[Array2d], List[Array2d]], in_data: List[Array2d], out_data: List[Array2d]):
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
@@ -172,7 +173,7 @@ def util_batch_unbatch_ListFloats2D(model: Model[List[Array2d], List[Array2d]], 
         assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
 
 
-def util_batch_unbatch_Ragged(model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d):
+def util_batch_unbatch_ragged(model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d):
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
