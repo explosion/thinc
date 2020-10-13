@@ -1,4 +1,6 @@
 from typing import List
+
+from numpy.testing import assert_almost_equal
 from thinc.api import registry, with_padded, Dropout, get_current_ops, Model
 from thinc.util import data_validation
 from thinc.types import Ragged, Padded, Array2d
@@ -11,10 +13,10 @@ OPS = get_current_ops()
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
 array1dint = OPS.xp.asarray([1, 2, 3], dtype="i")
-array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
+array2d = OPS.xp.asarray([[4, 2, 3, 4], [1, 5, 3, 1], [9, 8, 5, 7]], dtype="f")
 array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
-ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
+ragged = Ragged(array2d, OPS.xp.asarray([2, 1], dtype="i"))
 padded = Padded(
     array3d, array1d, OPS.asarray1i([1, 2, 3, 4]), OPS.asarray1i([1, 2, 3, 4])
 )
@@ -135,20 +137,44 @@ def test_dropout(data):
     assert_data_match(dX, data)
 
 
-@pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)
+@pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
 def test_layers_batching_all(name, kwargs, in_data, out_data):
-    cfg = {"@layers": "residual.v1", "layer": {"@layers": name, **kwargs}}
+    cfg = {"@layers": name, **kwargs}
     model = registry.resolve({"config": cfg})["config"]
-    if isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
+    if "expand_window" in name:
+        return
+    if "LSTM" in name:
+        model = with_padded(model)
+        util_batch_unbatch_ListFloats2D(model, in_data, out_data)
+    elif isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
         if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
             print("test model", name)
             util_batch_unbatch_Floats2D(model, in_data, out_data)
+    elif isinstance(in_data, Ragged):
+        if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+            util_batch_unbatch_Ragged(model, in_data, out_data)
 
 
-def util_batch_unbatch_Floats2D(model: Model[Array2d, Array2d], in_data, out_data):
+def util_batch_unbatch_Floats2D(model: Model[Array2d, Array2d], in_data: Array2d, out_data: Array2d):
     unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data).tolist()
         Y_not_batched = [model.predict(u)[0].tolist() for u in unbatched]
-        assert Y_batched == Y_not_batched
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+
+
+def util_batch_unbatch_ListFloats2D(model: Model[List[Array2d], List[Array2d]], in_data: List[Array2d], out_data: List[Array2d]):
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data)
+        Y_not_batched = [model.predict([u])[0] for u in in_data]
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+
+
+def util_batch_unbatch_Ragged(model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d):
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data)
+        Y_not_batched = [model.predict(u)[0] for u in in_data]
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
