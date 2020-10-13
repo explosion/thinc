@@ -60,13 +60,15 @@ def forward(
         seed: int = model.attrs["seed"]
         keys = model.ops.hash(ids, seed) % nV
         output = vectors[keys].sum(axis=1)
+        drop_mask = None
         if is_train:
             dropout: Optional[float] = model.attrs.get("dropout_rate")
             drop_mask = cast(Floats1d, model.ops.get_dropout_mask((nO,), dropout))
-            output *= drop_mask
+            if drop_mask is not None:
+                output *= drop_mask
 
     def backprop(d_vectors: OutT) -> Ints1d:
-        if is_train:
+        if drop_mask is not None:
             d_vectors *= drop_mask
         dE = model.ops.alloc2f(*vectors.shape)
         keysT = model.ops.as_contig(keys.T, dtype="i")
