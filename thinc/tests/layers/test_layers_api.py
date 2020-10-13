@@ -3,7 +3,7 @@ from typing import List
 from numpy.testing import assert_almost_equal
 from thinc.api import registry, with_padded, Dropout, get_current_ops, Model
 from thinc.util import data_validation
-from thinc.types import Ragged, Padded, Array2d
+from thinc.types import Ragged, Padded, Array2d, Floats2d
 from thinc.util import has_torch
 import numpy
 import pytest
@@ -155,7 +155,7 @@ def test_layers_batching_all(name, kwargs, in_data, out_data):
                 util_batch_unbatch_ragged(model, in_data, out_data)
 
 
-def util_batch_unbatch_array(model: Model[Array2d, Array2d], in_data: Array2d, out_data: Array2d):
+def util_batch_unbatch_array(model: Model[Floats2d, Array2d], in_data: Floats2d, out_data: Array2d):
     unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
     with data_validation(True):
         model.initialize(in_data, out_data)
@@ -176,5 +176,5 @@ def util_batch_unbatch_ragged(model: Model[Ragged, Array2d], in_data: Ragged, ou
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
-        Y_not_batched = [model.predict(u)[0] for u in in_data]
+        Y_not_batched = [model.predict(in_data[i])[0] for i in range(len(in_data))]
         assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
