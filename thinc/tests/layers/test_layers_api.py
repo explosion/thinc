@@ -149,7 +149,6 @@ def test_layers_batching_all(name, kwargs, in_data, out_data):
     else:
         if isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
             if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
-                print("test model", name)
                 util_batch_unbatch_array(model, in_data, out_data)
         if isinstance(in_data, Ragged):
             if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
