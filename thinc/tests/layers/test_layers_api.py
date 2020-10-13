@@ -1,6 +1,7 @@
-from thinc.api import registry, with_padded, Dropout, get_current_ops
+from typing import List
+from thinc.api import registry, with_padded, Dropout, get_current_ops, Model
 from thinc.util import data_validation
-from thinc.types import Ragged, Padded
+from thinc.types import Ragged, Padded, Array2d
 from thinc.util import has_torch
 import numpy
 import pytest
@@ -139,3 +140,22 @@ def test_dropout(data):
     assert_data_match(Y, data)
     dX = backprop(Y)
     assert_data_match(dX, data)
+
+
+@pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)
+def test_layers_batching_all(name, kwargs, in_data, out_data):
+    cfg = {"@layers": "residual.v1", "layer": {"@layers": name, **kwargs}}
+    model = registry.resolve({"config": cfg})["config"]
+    if isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
+        if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+            print("test model", name)
+            util_batch_unbatch_Floats2D(model, in_data, out_data)
+
+
+def util_batch_unbatch_Floats2D(model: Model[Array2d, Array2d], in_data, out_data):
+    unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data).tolist()
+        Y_not_batched = [model.predict(u)[0].tolist() for u in unbatched]
+        assert Y_batched == Y_not_batched
