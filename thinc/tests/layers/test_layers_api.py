@@ -77,13 +77,6 @@ TEST_CASES = [
         marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch"),
     ),
     ("LSTM.v1", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    ("StaticVectors.v1", {"nO": 1, "vectors": vectors}, array1dint, array2d),
-    (
-        "StaticVectors.v1",
-        {"nO": 1, "vectors": vectors, "column": 0},
-        array2dint,
-        array2d,
-    ),
     # Ragged to array
     ("reduce_max.v1", {}, ragged, array2d),
     ("reduce_mean.v1", {}, ragged, array2d),
