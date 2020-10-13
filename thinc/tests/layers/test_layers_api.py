@@ -1,15 +1,24 @@
-from typing import List
+from typing import List, Optional
 
 from numpy.testing import assert_almost_equal
 from thinc.api import registry, with_padded, Dropout, get_current_ops, Model
+from thinc.backends import NumpyOps
 from thinc.util import data_validation
-from thinc.types import Ragged, Padded, Array2d, Floats2d
+from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
 from thinc.util import has_torch
 import numpy
 import pytest
 
-
 OPS = get_current_ops()
+
+
+class NoDropoutOps(NumpyOps):
+    def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
+        if drop is None or drop <= 0:
+            return self.xp.ones(shape, dtype="f")
+        else:
+            raise ValueError("During prediction, dropout should not be applied")
+
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
 array1dint = OPS.xp.asarray([1, 2, 3], dtype="i")
@@ -86,9 +95,9 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("expand_window.v1", {}, array2d, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
@@ -112,6 +121,9 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
         assert_data_match(Y, out_data)
         dX = backprop(Y)
         assert_data_match(dX, in_data)
+        # Test that during predictions, no dropout is applied
+        model._to_ops(NoDropoutOps())
+        model.predict(in_data)
 
 
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)
@@ -155,7 +167,9 @@ def test_layers_batching_all(name, kwargs, in_data, out_data):
                 util_batch_unbatch_ragged(model, in_data, out_data)
 
 
-def util_batch_unbatch_array(model: Model[Floats2d, Array2d], in_data: Floats2d, out_data: Array2d):
+def util_batch_unbatch_array(
+    model: Model[Floats2d, Array2d], in_data: Floats2d, out_data: Array2d
+):
     unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
     with data_validation(True):
         model.initialize(in_data, out_data)
@@ -164,7 +178,11 @@ def util_batch_unbatch_array(model: Model[Floats2d, Array2d], in_data: Floats2d,
         assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
 
 
-def util_batch_unbatch_list(model: Model[List[Array2d], List[Array2d]], in_data: List[Array2d], out_data: List[Array2d]):
+def util_batch_unbatch_list(
+    model: Model[List[Array2d], List[Array2d]],
+    in_data: List[Array2d],
+    out_data: List[Array2d],
+):
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
@@ -172,7 +190,9 @@ def util_batch_unbatch_list(model: Model[List[Array2d], List[Array2d]], in_data:
         assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
 
 
-def util_batch_unbatch_ragged(model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d):
+def util_batch_unbatch_ragged(
+    model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d
+):
     with data_validation(True):
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
