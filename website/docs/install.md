@@ -9,7 +9,7 @@ available from [pip](https://pypi.python.org/pypi/thinc).
 
 ```bash
 ### pip
-$ pip install "thinc>=8.0.0a1"
+$ pip install thinc --pre
 ```
 
 <infobox variant="warning">
@@ -39,7 +39,7 @@ $ conda install -c conda-forge thinc
 
 </grid>
 
-<quickstart title="Extended installation" id="extended" suffix=">=8.0.0a1"></quickstart>
+<quickstart title="Extended installation" id="extended" suffix=" --pre"></quickstart>
 
 If you know your CUDA version, using the more explicit specifier allows `cupy`
 to be installed from a wheel, saving some compilation time. Once you have a

@@ -10,8 +10,7 @@
                     "label": "BLIS",
                     "value": "blis",
                     "help": "single-threaded matrix multiplication"
-                },
-                { "label": "JAX", "value": "jax", "help": "experimental" }
+                }
             ]
         },
         {

@@ -126,9 +126,9 @@ to describe trees of objects and hyperparameters
 
 ```python
 ### {small="true"}
-from thinc.api import JaxOps, set_current_ops
+from thinc.api import NumpyOps, set_current_ops
 
-def CustomOps(JaxOps):
+def CustomOps(NumpyOps):
     def some_custom_op_my_layers_needs(...):
         ...
 set_current_ops(CustomOps())
@@ -137,8 +137,6 @@ set_current_ops(CustomOps())
 <small>
 
 ##### Choice of extensible backends
-
-including [JAX](https://github.com/google/jax) support (experimental)
 
 <button to="/docs/api-backends">Read more</button>
 
