@@ -1,7 +1,7 @@
 from typing import List, Optional
 
 from numpy.testing import assert_almost_equal
-from thinc.api import registry, with_padded, Dropout, get_current_ops, Model
+from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
 from thinc.backends import NumpyOps
 from thinc.util import data_validation
 from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
@@ -9,7 +9,7 @@ from thinc.util import has_torch
 import numpy
 import pytest
 
-OPS = get_current_ops()
+OPS = NumpyOps()
 
 
 class NoDropoutOps(NumpyOps):
