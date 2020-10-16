@@ -537,7 +537,7 @@ class ConfigValidationError(ValueError):
         config (Union[Config, Dict[str, Dict[str, Any]], str]): The
             config the validation error refers to.
         errors (Iterable[Dict[str, Any]]): A list of errors as dicts with keys
-            "loc" (list of trings describing the path of the value), "msg"
+            "loc" (list of strings describing the path of the value), "msg"
             (validation message to show) and optional "type" (mostly internals).
             Same format as produced by pydantic's validation error (e.errors()).
         title (str): The error title.
