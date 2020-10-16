@@ -18,6 +18,22 @@ fix_random_seed(0)
 | -------- | ------------ | -------------------------- |
 | `seed`   | <tt>int</tt> | The seed. Defaults to `0`. |
 
+### require_cpu {#require_cpu tag="function"}
+
+Allocate data and perform operations on CPU. 
+If data has already been allocated on GPU, it will not be moved.
+Ideally, this function should be called right after importing Thinc.
+
+```python
+### Example
+from thinc.api import require_cpu
+require_cpu()
+```
+
+| Argument    | Type          | Description |
+| ----------- | ------------- | ----------- |
+| **RETURNS** | <tt>bool</tt> | `True`.     |
+
 ### prefer_gpu {#prefer_gpu tag="function"}
 
 Allocate data and perform operations on GPU, if available. If data has already
