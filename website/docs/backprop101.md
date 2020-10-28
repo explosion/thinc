@@ -5,8 +5,8 @@ teaser: How to trick yourself into understanding backprop without even trying
 
 Imagine you're a project manager, somewhere deep inside a vast company. You have
 an inbox, an outbox, and three people in your team: Alex, Bo, and Casey. Work
-comes into your inbox, you allocate it to someone in your team, he/she performs
-the work and gets the results back to you, and you move those results to your
+comes into your inbox, you allocate it to someone in your team, they perform
+the work and get the results back to you, and you move those results to your
 outbox. Some time later, and potentially out-of-order, you'll receive feedback
 on the work you submitted. Of course, when you receive the feedback, it won't be
 labelled according to the person who did it --- the bureaucracy above you
