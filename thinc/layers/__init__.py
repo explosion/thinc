@@ -16,7 +16,6 @@ from .relu import Relu
 from .softmax_activation import softmax_activation
 from .softmax import Softmax
 from .sparselinear import SparseLinear
-from .staticvectors import StaticVectors
 from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 from .mxnetwrapper import MXNetWrapper
@@ -77,7 +76,6 @@ __all__ = [
     "softmax_activation",
     "Softmax",
     "SparseLinear",
-    "StaticVectors",
     "LSTM",
     "PyTorchLSTM",
     "TensorFlowWrapper",

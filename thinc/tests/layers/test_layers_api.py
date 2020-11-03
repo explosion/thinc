@@ -1,19 +1,31 @@
-from thinc.api import registry, with_padded, Dropout, get_current_ops
+from typing import List, Optional
+
+from numpy.testing import assert_almost_equal
+from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
+from thinc.backends import NumpyOps
 from thinc.util import data_validation
-from thinc.types import Ragged, Padded
+from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
 from thinc.util import has_torch
 import numpy
 import pytest
 
+OPS = NumpyOps()
 
-OPS = get_current_ops()
+
+class NoDropoutOps(NumpyOps):
+    def get_dropout_mask(self, shape: Shape, drop: Optional[float]) -> FloatsXd:
+        if drop is None or drop <= 0:
+            return self.xp.ones(shape, dtype="f")
+        else:
+            raise ValueError("During prediction, dropout should not be applied")
+
 
 array1d = OPS.xp.asarray([1, 2, 3], dtype="f")
 array1dint = OPS.xp.asarray([1, 2, 3], dtype="i")
-array2d = OPS.xp.asarray([[1, 2, 3, 4], [4, 5, 3, 4]], dtype="f")
+array2d = OPS.xp.asarray([[4, 2, 3, 4], [1, 5, 3, 1], [9, 8, 5, 7]], dtype="f")
 array2dint = OPS.xp.asarray([[1, 2, 3], [4, 5, 6]], dtype="i")
 array3d = OPS.xp.zeros((3, 3, 3), dtype="f")
-ragged = Ragged(array2d, OPS.xp.asarray([1, 1], dtype="i"))
+ragged = Ragged(array2d, OPS.xp.asarray([2, 1], dtype="i"))
 padded = Padded(
     array3d, array1d, OPS.asarray1i([1, 2, 3, 4]), OPS.asarray1i([1, 2, 3, 4])
 )
@@ -76,13 +88,6 @@ TEST_CASES = [
         marks=pytest.mark.skipif(not has_torch, reason="needs PyTorch"),
     ),
     ("LSTM.v1", {"bi": True}, [array2d, array2d], [array2d, array2d]),
-    ("StaticVectors.v1", {"nO": 1, "vectors": vectors}, array1dint, array2d),
-    (
-        "StaticVectors.v1",
-        {"nO": 1, "vectors": vectors, "column": 0},
-        array2dint,
-        array2d,
-    ),
     # Ragged to array
     ("reduce_max.v1", {}, ragged, array2d),
     ("reduce_mean.v1", {}, ragged, array2d),
@@ -90,9 +95,9 @@ TEST_CASES = [
     # fmt: off
     # Other
     ("expand_window.v1", {}, array2d, array2d),
-    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0}, array2dint, array2d),
+    ("Embed.v1", {"nO": 4, "nV": array2dint.max() + 1, "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("Embed.v1", {"nO": 4, "nV": array1dint.max() + 1}, array1dint, array2d),
-    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0}, array2dint, array2d),
+    ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
     ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
@@ -116,6 +121,9 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
         assert_data_match(Y, out_data)
         dX = backprop(Y)
         assert_data_match(dX, in_data)
+        # Test that during predictions, no dropout is applied
+        model._to_ops(NoDropoutOps())
+        model.predict(in_data)
 
 
 @pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES_SUMMABLE)
@@ -139,3 +147,54 @@ def test_dropout(data):
     assert_data_match(Y, data)
     dX = backprop(Y)
     assert_data_match(dX, data)
+
+
+@pytest.mark.parametrize("name,kwargs,in_data,out_data", TEST_CASES)
+def test_layers_batching_all(name, kwargs, in_data, out_data):
+    cfg = {"@layers": name, **kwargs}
+    model = registry.resolve({"config": cfg})["config"]
+    if "expand_window" in name:
+        return
+    if "LSTM" in name:
+        model = with_padded(model)
+        util_batch_unbatch_list(model, in_data, out_data)
+    else:
+        if isinstance(in_data, OPS.xp.ndarray) and in_data.ndim == 2:
+            if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+                util_batch_unbatch_array(model, in_data, out_data)
+        if isinstance(in_data, Ragged):
+            if isinstance(out_data, OPS.xp.ndarray) and out_data.ndim == 2:
+                util_batch_unbatch_ragged(model, in_data, out_data)
+
+
+def util_batch_unbatch_array(
+    model: Model[Floats2d, Array2d], in_data: Floats2d, out_data: Array2d
+):
+    unbatched = [model.ops.reshape2f(a, 1, -1) for a in in_data]
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data).tolist()
+        Y_not_batched = [model.predict(u)[0].tolist() for u in unbatched]
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+
+
+def util_batch_unbatch_list(
+    model: Model[List[Array2d], List[Array2d]],
+    in_data: List[Array2d],
+    out_data: List[Array2d],
+):
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data)
+        Y_not_batched = [model.predict([u])[0] for u in in_data]
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+
+
+def util_batch_unbatch_ragged(
+    model: Model[Ragged, Array2d], in_data: Ragged, out_data: Array2d
+):
+    with data_validation(True):
+        model.initialize(in_data, out_data)
+        Y_batched = model.predict(in_data)
+        Y_not_batched = [model.predict(in_data[i])[0] for i in range(len(in_data))]
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
