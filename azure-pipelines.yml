@@ -28,6 +28,15 @@ jobs:
       Python38Mac:
         imageName: 'macos-10.15'
         python.version: '3.8'
+      Python39Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.9'
+      Python39Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.9'
+      Python39Mac:
+        imageName: 'macos-10.15'
+        python.version: '3.9'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -66,7 +75,7 @@ jobs:
       pip install "mxnet; sys_platform != 'win32'"
       # NOTE: need this to close for 1.5 on windows: https://github.com/pytorch/pytorch/issues/37209
       pip install "torch==1.4; sys_platform == 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
-      pip install "torch; sys_platform != 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.6.0; sys_platform != 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
