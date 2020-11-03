@@ -75,6 +75,10 @@ class NumpyOps(Ops):
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
+        if x.ndim != 2:
+            raise ValueError(f"Provided 'x' array should be 2-dimensional, but found {x.ndim} dimension(s).")
+        if y.ndim != 2:
+            raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
         x = self.as_contig(x)
