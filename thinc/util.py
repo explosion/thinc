@@ -148,6 +148,14 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
     return device
 
 
+def require_cpu() -> bool:  # pragma: no cover
+    """Use CPU through NumpyOps"""
+    from .backends import set_current_ops, NumpyOps
+
+    set_current_ops(NumpyOps())
+    return True
+
+
 def prefer_gpu(gpu_id: int = 0) -> bool:  # pragma: no cover
     """Use GPU if it's available. Returns True if so, False otherwise."""
     from .backends.cupy_ops import CupyOps
