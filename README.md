@@ -173,23 +173,22 @@ dependency is a compiler tool-chain (e.g. `build-essential`) and the Python
 development headers (e.g. `python-dev`).
 
 ```bash
+pip install -U pip setuptools wheel
 pip install thinc
 ```
 
 For GPU support, we're grateful to use the work of Chainer's `cupy` module,
 which provides a numpy-compatible interface for GPU arrays. However, installing
 Chainer when no GPU is available currently causes an error. We therefore do not
-list Chainer as an explicit dependency — so building Thinc for GPU requires some
-extra steps:
+list `cupy` as an explicit dependency — so `cupy` is installed using an extra
+option with the correct CUDA version:
 
 ```bash
-export CUDA_HOME=/usr/local/cuda-8.0 # Or wherever your CUDA is
-export PATH=$PATH:$CUDA_HOME/bin
-pip install chainer
-python -c "import cupy; assert cupy" # Check it installed
-pip install thinc_gpu_ops thinc # Or `thinc[cuda]`
-python -c "import thinc_gpu_ops" # Check the GPU ops were built
+pip install thinc[cuda102]
 ```
+
+Alternatively, to install `cupy` from source use `thinc[cuda]` or install
+`cupy` directly using its source package with `pip install cupy`.
 
 The rest of this section describes how to build Thinc from source. If you have
 [Fabric](http://www.fabfile.org) installed, you can use the shortcut:
