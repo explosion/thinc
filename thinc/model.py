@@ -396,11 +396,8 @@ class Model(Generic[InT, OutT]):
         value.
         """
         params = {}
-        grads = {}
         for name in self.param_names:
             params[name] = self.get_param(name) if self.has_param(name) else None
-        for name in self.grad_names:
-            grads[name] = self.get_grad(name)
 
         copied: Model[InT, OutT] = Model(
             self.name,

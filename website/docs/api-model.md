@@ -92,10 +92,10 @@ model = Model(
 | `init`         | <tt>Callable</tt>                           | Function to define the initialization logic.                                            |
 | `dims`         | <tt>Dict[str, Optional[int]]</tt>           | Dictionary describing the model's dimensions. Map unknown dimensions to `None`.         |
 | `params`       | <tt>Dict[str, Optional[FloatsXd]]</tt>      | Dictionary with the model's parameters. Set currently unavailable parameters to `None`. |
-| `grads`        | <tt>Dict[str, Optional[FloatsXd]]</tt>      | Dictionary with initial gradients, if any. Keys should be the parameter names.          |
+| `refs`         | <tt>Dict[str, Optional[Model]]</tt>         | Dictionary mapping specific nodes (sublayers) of the network to a name.                 |
+| `attrs`        | <tt>Dict[str, Any]</tt>                     | Dictionary of non-parameter attributes.                                                 |
 | `layers`       | <tt>List[Model]</tt>                        | List of child layers.                                                                   |
 | `shims`        | <tt>List[Shim]</tt>                         | List of interfaces for external models.                                                 |
-| `attrs`        | <tt>Dict[str, Any]</tt>                     | Dictionary of non-parameter attributes.                                                 |
 | `ops`          | <tt>Optional[Union[NumpyOps, CupyOps]]</tt> | An `Ops` instance, which provides mathematical and memory operations.                   |
 
 ### Model.define_operators {#define_operators tag="classmethod,contextmanager"}
@@ -620,31 +620,31 @@ model = Model().from_disk("/path/to/model")
 
 Check whether bytes data is compatible with the model for deserialization.
 
-| Argument          | Type                      | Description                  |
-| ----------------- | ------------------------- | ---------------------------- |
-|  `bytes_data`     | <tt>bytes</tt> | The bytestring to check.                |
-|  `strict`         | <tt>bool</tt>  | Whether to require attributes to match. |
-| **RETURNS**       | <tt>bool</tt>  | Whether the data is compatible.         |
+| Argument      | Type           | Description                             |
+| ------------- | -------------- | --------------------------------------- |
+|  `bytes_data` | <tt>bytes</tt> | The bytestring to check.                |
+|  `strict`     | <tt>bool</tt>  | Whether to require attributes to match. |
+| **RETURNS**   | <tt>bool</tt>  | Whether the data is compatible.         |
 
 ### Model.can_from_bytes {#can_from_bytes tag="method"}
 
 Check whether a path is compatible with the model for deserialization.
 
-| Argument          | Type                      | Description         |
-| ----------------- | ------------------------- | ------------------- |
-|  `path`           | <tt>Union[Path, str]</tt> | The path to check.  |
-|  `strict`         | <tt>bool</tt>             | Whether to require attributes to match. |
-| **RETURNS**       | <tt>Model</tt>            | Whether the path is compatible. |
+| Argument    | Type                      | Description                             |
+| ----------- | ------------------------- | --------------------------------------- |
+|  `path`     | <tt>Union[Path, str]</tt> | The path to check.                      |
+|  `strict`   | <tt>bool</tt>             | Whether to require attributes to match. |
+| **RETURNS** | <tt>Model</tt>            | Whether the path is compatible.         |
 
 ### Model.can_from_dict {#from_dict tag="method"}
 
 Check whether a dictionary is compatible with the model for deserialization.
 
-| Argument    | Type           | Description       |
-| ----------- | -------------- | ----------------- |
-| `msg`       | <tt>dict</tt>  | The data to check. |
+| Argument    | Type           | Description                             |
+| ----------- | -------------- | --------------------------------------- |
+| `msg`       | <tt>dict</tt>  | The data to check.                      |
 | `strict`    | <tt>bool</tt>  | Whether to require attributes to match. |
-| **RETURNS** | <tt>Model</tt> | Whether the data is compatible. |
+| **RETURNS** | <tt>Model</tt> | Whether the data is compatible.         |
 
 ---
 
