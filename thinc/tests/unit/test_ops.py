@@ -17,12 +17,12 @@ if CupyOps.xp is not None:
     OPS_CLASSES.append(CupyOps)
 
 
-@pytest.fixture(params=OPS_CLASSES)
+@pytest.fixture(scope="session", params=OPS_CLASSES)
 def ops(request):
     return request.param()
 
 
-@pytest.fixture
+@pytest.fixture(scope="session")
 def cpu_ops():
     return NumpyOps()
 
