@@ -76,6 +76,7 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
+      pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
       # NOTE: need this to close for 1.5 on windows: https://github.com/pytorch/pytorch/issues/37209
