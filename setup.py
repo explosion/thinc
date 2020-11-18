@@ -165,38 +165,46 @@ def setup_package():
         with io.open(os.path.join(root, "README.md"), encoding="utf8") as f:
             readme = f.read()
 
-        include_dirs = [
-            get_python_inc(plat_specific=True),
-            os.path.join(root, "include"),
-        ]
+        ext_modules=[]
 
-        if (
-            ccompiler.new_compiler().compiler_type == "msvc"
-            and msvccompiler.get_build_version() == 9
-        ):
-            include_dirs.append(os.path.join(root, "include", "msvc9"))
+        try:
+            import numpy
 
-        ext_modules = []
-        for mod_name in MOD_NAMES:
-            mod_path = mod_name.replace(".", "/") + ".cpp"
-            if mod_name.endswith("gpu_ops"):
-                continue
-            mod_path = mod_name.replace(".", "/") + ".cpp"
+            include_dirs = [
+                get_python_inc(plat_specific=True),
+                numpy.get_include(),
+                os.path.join(root, "include"),
+            ]
+
+            if (
+                ccompiler.new_compiler().compiler_type == "msvc"
+                and msvccompiler.get_build_version() == 9
+            ):
+                include_dirs.append(os.path.join(root, "include", "msvc9"))
+
+            ext_modules = []
+            for mod_name in MOD_NAMES:
+                mod_path = mod_name.replace(".", "/") + ".cpp"
+                if mod_name.endswith("gpu_ops"):
+                    continue
+                mod_path = mod_name.replace(".", "/") + ".cpp"
+                ext_modules.append(
+                    Extension(
+                        mod_name, [mod_path], language="c++", include_dirs=include_dirs
+                    )
+                )
             ext_modules.append(
                 Extension(
-                    mod_name, [mod_path], language="c++", include_dirs=include_dirs
+                    "thinc.extra.wrapt._wrappers",
+                    ["thinc/extra/wrapt/_wrappers.c"],
+                    include_dirs=include_dirs,
                 )
             )
-        ext_modules.append(
-            Extension(
-                "thinc.extra.wrapt._wrappers",
-                ["thinc/extra/wrapt/_wrappers.c"],
-                include_dirs=include_dirs,
-            )
-        )
 
-        if not is_source_release(root):
-            generate_cython(root, "thinc")
+            if not is_source_release(root):
+                generate_cython(root, "thinc")
+        except:
+            pass
 
         setup(
             name="thinc",
@@ -212,7 +220,6 @@ def setup_package():
             url=about["__uri__"],
             license=about["__license__"],
             ext_modules=ext_modules,
-            setup_requires=["numpy>=1.7.0"],
             install_requires=[
                 # Explosion-provided dependencies
                 "murmurhash>=0.28.0,<1.1.0",
@@ -223,7 +230,7 @@ def setup_package():
                 "srsly>=0.0.6,<1.1.0",
                 "catalogue>=0.0.7,<1.1.0",
                 # Third-party dependencies
-                "numpy>=1.7.0",
+                "numpy>=1.15.4",
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
