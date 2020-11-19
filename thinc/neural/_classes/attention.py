@@ -20,11 +20,16 @@ class ParametricAttention(Model):
 
     name = "para-attn"
 
-    def __init__(self, nO=None, hard=False, **kwargs):
+    def __init__(self, nO=None, hard=False, seed=None, **kwargs):
         Model.__init__(self, **kwargs)
         self.nO = nO
         self.hard = hard
         self.drop_factor = kwargs.get("drop_factor", 1.0)
+
+        if seed is not None:
+            self.seed = seed
+        else:
+            self.seed = self.id
 
     def begin_update(self, Xs_lengths, drop=0.0):
         Xs, lengths = Xs_lengths
@@ -37,7 +42,7 @@ class ParametricAttention(Model):
             self.dQ += dQ
             dXs += dXs2
             if sgd is not None:
-                sgd(self._mem.weights, self._mem.gradient, key=self.id)
+                sgd(self._mem.weights, self._mem.gradient, key=self.seed)
             return dXs
 
         return (output, lengths), attention_bwd
