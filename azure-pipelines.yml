@@ -75,7 +75,8 @@ jobs:
       pip install -r requirements.txt --prefer-binary
     displayName: 'Install dependencies'
 
-  - script: pip install -e . --only-binary :all:
+  - script: |
+      pip install -e . --only-binary :all:
     displayName: 'Install'
 
   - script: python -m pytest thinc
