@@ -12,6 +12,7 @@ from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 from distutils.ccompiler import new_compiler
 import platform
+import numpy
 
 from setuptools import Extension, setup
 
@@ -166,6 +167,7 @@ def setup_package():
             readme = f.read()
 
         include_dirs = [
+            numpy.get_include(),
             get_python_inc(plat_specific=True),
             os.path.join(root, "include"),
         ]
@@ -202,7 +204,7 @@ def setup_package():
             name="thinc",
             zip_safe=False,
             packages=PACKAGES,
-            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp", "*.cu"]},
+            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cu"]},
             description=about["__summary__"],
             long_description=readme,
             long_description_content_type="text/markdown",
@@ -212,7 +214,14 @@ def setup_package():
             url=about["__uri__"],
             license=about["__license__"],
             ext_modules=ext_modules,
-            setup_requires=["numpy>=1.7.0"],
+            setup_requires=[
+                "numpy>=1.15.0",
+                "cython>=0.25",
+                "murmurhash>=0.28.0,<1.1.0",
+                "cymem>=2.0.2,<2.1.0",
+                "preshed>=3.0.2,<3.1.0",
+                "blis>=0.4.0,<0.8.0",
+            ],
             install_requires=[
                 # Explosion-provided dependencies
                 "murmurhash>=0.28.0,<1.1.0",
@@ -223,7 +232,7 @@ def setup_package():
                 "srsly>=0.0.6,<1.1.0",
                 "catalogue>=0.0.7,<1.1.0",
                 # Third-party dependencies
-                "numpy>=1.7.0",
+                "numpy>=1.15.0",
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
