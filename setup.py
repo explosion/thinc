@@ -12,6 +12,7 @@ from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
 from distutils.ccompiler import new_compiler
 import platform
+import numpy
 
 from setuptools import Extension, setup
 
@@ -167,50 +168,45 @@ def setup_package():
 
         ext_modules=[]
 
-        try:
-            import numpy
+        include_dirs = [
+            get_python_inc(plat_specific=True),
+            numpy.get_include(),
+            os.path.join(root, "include"),
+        ]
 
-            include_dirs = [
-                get_python_inc(plat_specific=True),
-                numpy.get_include(),
-                os.path.join(root, "include"),
-            ]
+        if (
+            ccompiler.new_compiler().compiler_type == "msvc"
+            and msvccompiler.get_build_version() == 9
+        ):
+            include_dirs.append(os.path.join(root, "include", "msvc9"))
 
-            if (
-                ccompiler.new_compiler().compiler_type == "msvc"
-                and msvccompiler.get_build_version() == 9
-            ):
-                include_dirs.append(os.path.join(root, "include", "msvc9"))
-
-            ext_modules = []
-            for mod_name in MOD_NAMES:
-                mod_path = mod_name.replace(".", "/") + ".cpp"
-                if mod_name.endswith("gpu_ops"):
-                    continue
-                mod_path = mod_name.replace(".", "/") + ".cpp"
-                ext_modules.append(
-                    Extension(
-                        mod_name, [mod_path], language="c++", include_dirs=include_dirs
-                    )
-                )
+        ext_modules = []
+        for mod_name in MOD_NAMES:
+            mod_path = mod_name.replace(".", "/") + ".cpp"
+            if mod_name.endswith("gpu_ops"):
+                continue
+            mod_path = mod_name.replace(".", "/") + ".cpp"
             ext_modules.append(
                 Extension(
-                    "thinc.extra.wrapt._wrappers",
-                    ["thinc/extra/wrapt/_wrappers.c"],
-                    include_dirs=include_dirs,
+                    mod_name, [mod_path], language="c++", include_dirs=include_dirs
                 )
             )
+        ext_modules.append(
+            Extension(
+                "thinc.extra.wrapt._wrappers",
+                ["thinc/extra/wrapt/_wrappers.c"],
+                include_dirs=include_dirs,
+            )
+        )
 
-            if not is_source_release(root):
-                generate_cython(root, "thinc")
-        except:
-            pass
+        if not is_source_release(root):
+            generate_cython(root, "thinc")
 
         setup(
             name="thinc",
             zip_safe=False,
             packages=PACKAGES,
-            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cpp", "*.cu"]},
+            package_data={"": ["*.pyx", "*.pxd", "*.pxi", "*.cu"]},
             description=about["__summary__"],
             long_description=readme,
             long_description_content_type="text/markdown",
@@ -230,7 +226,10 @@ def setup_package():
                 "srsly>=0.0.6,<1.1.0",
                 "catalogue>=0.0.7,<1.1.0",
                 # Third-party dependencies
-                "numpy>=1.15.4",
+                "numpy>=1.15.0; python_version<='3.7'",
+                "numpy>=1.17.3; python_version=='3.8'",
+                "numpy>=1.19.3; python_version=='3.9'",
+                "numpy; python_version>='3.10'",
                 "plac>=0.9.6,<1.2.0",
                 "tqdm>=4.10.0,<5.0.0",
                 'pathlib==1.0.1; python_version < "3.4"',
