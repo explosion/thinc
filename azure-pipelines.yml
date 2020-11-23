@@ -71,11 +71,12 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      python -m pip install --upgrade pip
+      python -m pip install --upgrade pip setuptools
       pip install -r requirements.txt --prefer-binary
     displayName: 'Install dependencies'
 
-  - script: pip install -e .
+  - script: |
+      pip install -e . --only-binary :all:
     displayName: 'Install'
 
   - script: python -m pytest thinc
