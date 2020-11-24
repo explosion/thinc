@@ -57,11 +57,12 @@ def PyTorchLSTM(
         return noop()  # type: ignore
     if bi:
         nO = nO // 2
-    return with_padded(
-        PyTorchRNNWrapper(
+    pytorch_rnn = PyTorchRNNWrapper(
             torch.nn.LSTM(nI, nO, depth, bidirectional=bi, dropout=dropout)
         )
-    )
+    pytorch_rnn.set_dim("nO", nO)
+    pytorch_rnn.set_dim("nI", nI)
+    return with_padded(pytorch_rnn)
 
 
 def init(
