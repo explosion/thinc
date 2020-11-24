@@ -1,4 +1,4 @@
-from typing import Tuple, Callable, Any, Dict, Optional
+from typing import Tuple, Callable, Any
 
 import numpy
 from thinc.backends import Ops
@@ -10,16 +10,14 @@ from ..config import registry
 @registry.layers("with_cpu.v1")
 def with_cpu(layer: Model, ops: Ops) -> Model:
     layer.to_cpu()
-    dims: Dict[str, Optional[int]] = {"nO": None}
-    # set input dimension only if included layer has one - should be "False" otherwise
-    if layer.has_dim("nI") is True:
-        dims["nI"] = layer.get_dim("nI")
-    if layer.has_dim("nI") is None:
-        dims["nI"] = None
-    # set output dimension according to included layer
-    if layer.has_dim("nO") is True:
-        dims["nO"] = layer.get_dim("nO")
-    return Model(f"with_cpu({layer.name})", forward, layers=[layer], ops=ops, init=init, dims=dims)
+    return Model(
+        f"with_cpu({layer.name})",
+        forward,
+        layers=[layer],
+        ops=ops,
+        init=init,
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
+    )
 
 
 def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
