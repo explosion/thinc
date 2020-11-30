@@ -76,7 +76,7 @@ jobs:
     displayName: 'Install dependencies'
 
   - script: |
-      pip install -e . --only-binary :all:
+      pip install -e .
     displayName: 'Install'
 
   - script: python -m pytest thinc

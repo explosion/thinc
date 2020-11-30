@@ -3,18 +3,15 @@ from __future__ import print_function
 import io
 import os
 import os.path
-import subprocess
 import sys
 import contextlib
+from setuptools import Extension, setup
 import distutils.util
 from distutils.command.build_ext import build_ext
 from distutils.sysconfig import get_python_inc
 from distutils import ccompiler, msvccompiler
-from distutils.ccompiler import new_compiler
-import platform
+from Cython.Build import cythonize
 import numpy
-
-from setuptools import Extension, setup
 
 
 def is_new_osx():
@@ -83,12 +80,12 @@ if is_new_osx():
     # See: https://stackoverflow.com/questions/1653047/avoid-linking-to-libstdc
     LINK_OPTIONS["other"].append("-nodefaultlibs")
 
+
 # By subclassing build_extensions we have the actual compiler that will be used
 # which is really known only after finalize_options
 # http://stackoverflow.com/questions/724664/python-distutils-how-to-get-a-compiler-that-is-going-to-be-used
 class build_ext_options:
     def build_options(self):
-        src_dir = os.path.join(os.path.dirname(__file__), "thinc", "_files")
         if hasattr(self.compiler, "initialize"):
             self.compiler.initialize()
         self.compiler.platform = sys.platform[:6]
@@ -107,16 +104,6 @@ class build_ext_subclass(build_ext, build_ext_options):
         build_ext.build_extensions(self)
 
 
-def generate_cython(root, source):
-    print("Cythonizing sources")
-    p = subprocess.call(
-        [sys.executable, os.path.join(root, "bin", "cythonize.py"), source],
-        env=os.environ,
-    )
-    if p != 0:
-        raise RuntimeError("Running cythonize failed")
-
-
 def find_in_path(name, path):
     "Find a file in a search path"
     # adapted fom http://code.activestate.com/recipes/52224-find-a-file-given-a-search-path/
@@ -125,10 +112,6 @@ def find_in_path(name, path):
         if os.path.exists(binpath):
             return os.path.abspath(binpath)
     return None
-
-
-def is_source_release(path):
-    return os.path.exists(os.path.join(path, "PKG-INFO"))
 
 
 def clean(path):
@@ -180,10 +163,9 @@ def setup_package():
 
         ext_modules = []
         for mod_name in MOD_NAMES:
-            mod_path = mod_name.replace(".", "/") + ".cpp"
             if mod_name.endswith("gpu_ops"):
                 continue
-            mod_path = mod_name.replace(".", "/") + ".cpp"
+            mod_path = mod_name.replace(".", "/") + ".pyx"
             ext_modules.append(
                 Extension(
                     mod_name, [mod_path], language="c++", include_dirs=include_dirs
@@ -196,9 +178,6 @@ def setup_package():
                 include_dirs=include_dirs,
             )
         )
-
-        if not is_source_release(root):
-            generate_cython(root, "thinc")
 
         setup(
             name="thinc",
@@ -213,7 +192,7 @@ def setup_package():
             version=about["__version__"],
             url=about["__uri__"],
             license=about["__license__"],
-            ext_modules=ext_modules,
+            ext_modules=cythonize(ext_modules),
             setup_requires=[
                 "numpy>=1.15.0",
                 "cython>=0.25",
@@ -227,7 +206,8 @@ def setup_package():
                 "murmurhash>=0.28.0,<1.1.0",
                 "cymem>=2.0.2,<2.1.0",
                 "preshed>=1.0.1,<3.1.0",
-                "blis>=0.4.0,<0.8.0",
+                "blis>=0.4.0,<0.8.0; python_version >= '3.6'",
+                "blis>=0.4.0,<0.5.0; python_version < '3.6'",
                 "wasabi>=0.0.9,<1.1.0",
                 "srsly>=0.0.6,<1.1.0",
                 "catalogue>=0.0.7,<1.1.0",
