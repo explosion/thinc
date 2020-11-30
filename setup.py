@@ -192,7 +192,7 @@ def setup_package():
             version=about["__version__"],
             url=about["__uri__"],
             license=about["__license__"],
-            ext_modules=cythonize(ext_modules),
+            ext_modules=cythonize(ext_modules, language_level=2),
             setup_requires=[
                 "numpy>=1.15.0",
                 "cython>=0.25",
