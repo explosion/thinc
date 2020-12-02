@@ -120,7 +120,7 @@ class PyTorchWrapper(Model):
 
     @contextlib.contextmanager
     def use_params(self, params):
-        key_prefix = f"pytorch_{self.id}_"
+        key_prefix = "pytorch_{id_}_".format(id_=self.id)
         state_dict = {}
         for k, v in params.items():
             if hasattr(k, "startswith") and k.startswith(key_prefix):
@@ -138,7 +138,7 @@ class PyTorchWrapper(Model):
             return
         # Collect parameters if we don't have them
         for name, param in self._model.state_dict().items():
-            key = f"pytorch_{self.id}_{name}"
+            key = "pytorch_{id_}_{name}".format(id_=self.id, name=name)
             sgd.nr_update[key] += 1
             xp_param = torch2xp(param)
             if key in sgd.averages:
