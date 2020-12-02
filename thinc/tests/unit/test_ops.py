@@ -7,7 +7,7 @@ from hypothesis import given, settings
 from numpy.testing import assert_allclose
 
 from .. import strategies
-from ...neural.ops import NumpyOps, CupyOps, Ops
+from thinc.neural.ops import NumpyOps, CupyOps, Ops
 
 
 MAX_EXAMPLES = 10

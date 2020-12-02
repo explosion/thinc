@@ -3,8 +3,8 @@ from __future__ import unicode_literals
 
 import pytest
 
-from ..neural.util import get_ops
-from ..neural.ops import NumpyOps, CupyOps
+from thinc.neural.util import get_ops
+from thinc.neural.ops import NumpyOps, CupyOps
 
 
 def test_get_ops():
