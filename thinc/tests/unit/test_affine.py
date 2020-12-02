@@ -7,9 +7,9 @@ from hypothesis import given, settings
 import numpy
 from numpy.testing import assert_allclose
 
-from ...neural._classes.affine import Affine
-from ...neural.ops import NumpyOps
-from ...check import ShapeMismatchError
+from thinc.neural._classes.affine import Affine
+from thinc.neural.ops import NumpyOps
+from thinc.check import ShapeMismatchError
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
 

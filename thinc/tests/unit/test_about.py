@@ -1,7 +1,7 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-from ... import about
+from thinc import about
 
 
 def test_about_attrs():

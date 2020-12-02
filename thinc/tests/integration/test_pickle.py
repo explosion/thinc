@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 import pytest
 from srsly import cloudpickle as pickle
 
-from ...api import with_flatten
-from ...v2v import Affine
+from thinc.api import with_flatten
+from thinc.v2v import Affine
 
 
 @pytest.fixture

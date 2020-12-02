@@ -1,7 +1,7 @@
 """Test that various classes can be pickled and unpickled."""
 
 import pickle
-from ...linear.linear import LinearModel
+from thinc.linear.linear import LinearModel
 
 
 def test_pickle_linear_model():

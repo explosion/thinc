@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import numpy
 
-from ...linear.linear import LinearModel
+from thinc.linear.linear import LinearModel
 
 
 def test_init():

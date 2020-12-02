@@ -5,8 +5,8 @@ import numpy
 from hypothesis.strategies import just, tuples, integers, floats
 from hypothesis.extra.numpy import arrays
 
-from ..neural.ops import NumpyOps
-from ..v2v import Affine
+from thinc.neural.ops import NumpyOps
+from thinc.v2v import Affine
 
 
 def get_ops():

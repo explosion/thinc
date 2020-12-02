@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import pytest
 import numpy
 
-from ...neural.vecs2vec import Pooling, mean_pool, max_pool
+from thinc.neural.vecs2vec import Pooling, mean_pool, max_pool
 
 
 @pytest.fixture(params=[[mean_pool], [max_pool], [mean_pool, max_pool]])
