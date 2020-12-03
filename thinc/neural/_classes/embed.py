@@ -68,10 +68,7 @@ class SimpleEmbed(Model):
         vectors = self.vectors[ids]
 
         def finish_update(gradients, sgd=None):
-            if hasattr(self.ops.xp, "scatter_add"):
-                self.ops.xp.scatter_add(self.d_vectors, ids, gradients)
-            else:
-                self.ops.xp.add.at(d_vectors, ids, gradients)
+            self.ops.scatter_add(self.d_vectors, ids, gradients)
             if sgd is not None:
                 sgd(self._mem.weights, self._mem.gradient, key=self.id)
             return None
@@ -147,10 +144,7 @@ class Embed(Model):
             if not self.is_static:
                 gradients = self.ops.gemm(gradients, self.W)
                 d_vectors = self.d_vectors
-                if hasattr(self.ops.xp, "scatter_add"):
-                    self.ops.xp.scatter_add(d_vectors, ids % self.nV, gradients)
-                else:
-                    self.ops.xp.add.at(d_vectors, ids % self.nV, gradients)
+                self.ops.scatter_add(d_vectors, ids % self.nV, gradients)
             if sgd is not None:
                 if self.is_static:
                     sgd(self.W.ravel(), self.d_W.ravel(), key=self.id)
