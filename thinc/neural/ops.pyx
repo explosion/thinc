@@ -973,6 +973,7 @@ cdef void cpu_backprop_mish(weight_t* dX,
 class CupyOps(Ops):
     device = 'gpu'
     xp = cupy
+    xp2 = cupyx
 
     def matmul(self, x, y, out=None):
         return self.xp.matmul(x, y, out=out)
@@ -1084,7 +1085,7 @@ class CupyOps(Ops):
         return _custom_kernels.hash(ids, seed)
 
     def scatter_add(self, out, ids, inputs):
-        self.xp.scatter_add(out, ids, inputs)
+        self.xp2.scatter_add(out, ids, inputs)
 
     def adam(self, weights, gradient, mom1, mom2, beta1, beta2, eps,
                    learn_rate, mod_rate=1.):

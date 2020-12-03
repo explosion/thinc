@@ -8,9 +8,11 @@ import itertools
 
 try:
     import cupy
+    import cupyx
     from cupy import get_array_module
 except ImportError:
     cupy = None
+    cupyx = None
     get_array_module = lambda _: numpy
 
 try:
