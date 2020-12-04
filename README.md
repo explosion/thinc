@@ -47,6 +47,10 @@ pip install thinc --pre
 
 See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
 
+> ⚠️ If you have installed PyTorch and you are using Python 3.7+, uninstall the
+> package `dataclasses` with `pip uninstall dataclasses`, since it may have
+> been installed by PyTorch and is incompatible with Python 3.7+.
+
 ### 📓 Selected examples and notebooks
 
 Also see the [`/examples`](examples) directory and [usage documentation](https://thinc.ai/docs) for more examples. Most examples are Jupyter notebooks – to launch them on [Google Colab](https://colab.research.google.com) (with GPU support!) click on the button next to the notebook name.
