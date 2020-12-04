@@ -53,7 +53,7 @@ def _get_attention(ops, Q, X, lengths):
     return attention, get_attention_bwd
 
 
-def _apply_attention(self, attention, X, lengths):
+def _apply_attention(ops, attention, X, lengths):
     output = X * attention
 
     def apply_attention_bwd(d_output):
