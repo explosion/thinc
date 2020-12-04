@@ -3,6 +3,15 @@ trigger:
   branches:
     include:
     - '*'
+  paths:
+    exclude:
+    - 'website/*'
+    - '*.md'
+pr:
+  paths:
+    exclude:
+    - 'website/*'
+    - '*.md'
 
 jobs:
 - job: 'Test'
