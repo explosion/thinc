@@ -3,3 +3,4 @@ include buildbot.json
 include LICENSE
 include README.rst
 prune tmp/
+recursive-exclude *.cpp

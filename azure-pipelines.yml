@@ -72,12 +72,19 @@ jobs:
 
   - script: |
       python -m pip install --upgrade pip setuptools
-      pip install -r requirements.txt --prefer-binary
     displayName: 'Install dependencies'
 
   - script: |
-      pip install -e . --only-binary :all:
-    displayName: 'Install'
+      pip install --prefer-binary -e .
+    displayName: 'Install (python 2.7/3.5: prefer binary)'
+    condition: or(eq(variables['python.version'], '2.7'), eq(variables['python.version'], '3.5'))
 
-  - script: python -m pytest thinc
+  - script: |
+      pip install -e .
+    displayName: 'Install'
+    condition: not(or(eq(variables['python.version'], '2.7'), eq(variables['python.version'], '3.5')))
+
+  - script: |
+      pip install -r requirements.txt --prefer-binary
+      python -m pytest thinc
     displayName: 'Run tests'
