@@ -6,11 +6,11 @@ from mock import MagicMock
 from numpy import ndarray
 import numpy
 
-from ... import check
-from ...neural._classes.model import Model
-from ...exceptions import UndefinedOperatorError, DifferentLengthError
-from ...exceptions import ExpectedTypeError, ShapeMismatchError
-from ...exceptions import OutsideRangeError
+from thinc import check
+from thinc.neural._classes.model import Model
+from thinc.exceptions import UndefinedOperatorError, DifferentLengthError
+from thinc.exceptions import ExpectedTypeError, ShapeMismatchError
+from thinc.exceptions import OutsideRangeError
 
 
 @pytest.fixture

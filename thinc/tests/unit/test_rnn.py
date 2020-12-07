@@ -4,9 +4,9 @@ from __future__ import unicode_literals
 import numpy
 import timeit
 
-from ...neural.util import minibatch
-from ...neural.ops import NumpyOps
-from ...neural._classes.rnn import LSTM
+from thinc.neural.util import minibatch
+from thinc.neural.ops import NumpyOps
+from thinc.neural._classes.rnn import LSTM
 
 
 def test_square_sequences():

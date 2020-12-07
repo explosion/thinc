@@ -1,8 +1,8 @@
 # coding: utf8
 from __future__ import unicode_literals
 
-from ...neural._classes.maxout import Maxout
-from ...api import chain
+from thinc.neural._classes.maxout import Maxout
+from thinc.api import chain
 
 
 def test_simple_model_roundtrip_bytes():

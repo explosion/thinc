@@ -8,8 +8,8 @@ import numpy.random
 from numpy.testing import assert_allclose
 from hypothesis import given
 
-from ...neural._classes.batchnorm import BatchNorm
-from ...api import layerize, noop
+from thinc.neural._classes.batchnorm import BatchNorm
+from thinc.api import layerize, noop
 from ..strategies import arrays_OI_O_BI
 from ..util import get_model, get_shape
 

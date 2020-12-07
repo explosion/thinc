@@ -5,9 +5,9 @@ import pytest
 import numpy
 from numpy.testing import assert_allclose
 
-from ...neural._classes.feed_forward import FeedForward
-from ...neural._classes.affine import Affine
-from ...neural._classes.relu import ReLu
+from thinc.neural._classes.feed_forward import FeedForward
+from thinc.neural._classes.affine import Affine
+from thinc.neural._classes.relu import ReLu
 
 
 @pytest.fixture

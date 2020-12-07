@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 import numpy
 
-from ...neural._classes.hash_embed import HashEmbed
+from thinc.neural._classes.hash_embed import HashEmbed
 
 
 def test_init():

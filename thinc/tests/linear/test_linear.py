@@ -4,10 +4,10 @@ from __future__ import unicode_literals, division
 import numpy
 import pytest
 
-from ...linear.linear import LinearModel
-from ...neural.optimizers import SGD
-from ...neural.ops import NumpyOps
-from ...neural.util import to_categorical
+from thinc.linear.linear import LinearModel
+from thinc.neural.optimizers import SGD
+from thinc.neural.ops import NumpyOps
+from thinc.neural.util import to_categorical
 
 
 @pytest.fixture

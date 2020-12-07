@@ -6,8 +6,8 @@ import numpy as np
 import random
 from numpy.testing import assert_allclose
 
-from ...neural.optimizers import SGD
-from ...neural._classes.affine import Affine
+from thinc.neural.optimizers import SGD
+from thinc.neural._classes.affine import Affine
 
 
 np.random.seed(2)

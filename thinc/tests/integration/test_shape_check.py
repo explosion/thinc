@@ -4,8 +4,8 @@ from __future__ import unicode_literals
 import pytest
 import numpy
 
-from ...neural._classes.affine import Affine
-from ...exceptions import ShapeMismatchError
+from thinc.neural._classes.affine import Affine
+from thinc.exceptions import ShapeMismatchError
 
 
 def test_mismatched_shapes_raise_ShapeMismatchError():
