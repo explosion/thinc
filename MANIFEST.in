@@ -5,3 +5,4 @@ prune tmp/
 include thinc/tests/mypy/configs/*.ini
 include thinc/tests/mypy/outputs/*.txt
 include thinc/py.typed
+recursive-exclude *.cpp
