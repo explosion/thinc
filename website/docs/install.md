@@ -41,6 +41,14 @@ $ conda install -c conda-forge thinc
 
 <quickstart title="Extended installation" id="extended" suffix=" --pre"></quickstart>
 
+<infobox variant="warning">
+
+If you have installed PyTorch and you are using Python 3.7+, uninstall the
+package `dataclasses` with `pip uninstall dataclasses`, since it may have been
+installed by PyTorch and is incompatible with Python 3.7+.
+
+</infobox>
+
 If you know your CUDA version, using the more explicit specifier allows `cupy`
 to be installed from a wheel, saving some compilation time. Once you have a
 GPU-enabled installation, the best way to activate it is to call

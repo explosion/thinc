@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from thinc.layers import Embed
-from ...layers.uniqued import uniqued
+from thinc.layers.uniqued import uniqued
 from numpy.testing import assert_allclose
 from hypothesis import given
 from hypothesis.strategies import integers, lists, composite

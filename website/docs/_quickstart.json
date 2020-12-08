@@ -1,18 +1,6 @@
 {
-    "defaults": { "blis": "blis", "cuda": "-" },
+    "defaults": { "cuda": "-" },
     "options": [
-        {
-            "label": "Backends",
-            "name": "backends",
-            "multi": true,
-            "options": [
-                {
-                    "label": "BLIS",
-                    "value": "blis",
-                    "help": "single-threaded matrix multiplication"
-                }
-            ]
-        },
         {
             "label": "CUDA",
             "name": "cuda",
@@ -31,8 +19,9 @@
             "name": "libraries",
             "multi": true,
             "options": [
-                { "label": "PyTorch", "value": "pytorch" },
-                { "label": "TensorFlow", "value": "tensorflow" }
+                { "label": "PyTorch", "value": "torch" },
+                { "label": "TensorFlow", "value": "tensorflow" },
+                { "label": "MXNet", "value": "mxnet" }
             ]
         }
     ]
