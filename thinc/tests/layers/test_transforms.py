@@ -40,7 +40,7 @@ def array_data(ragged_data):
 
 
 def check_transform(transform, in_data, out_data):
-    model = registry.make_from_config({"config": {"@layers": transform}})["config"]
+    model = registry.resolve({"config": {"@layers": transform}})["config"]
     input_checker = get_data_checker(in_data)
     output_checker = get_data_checker(out_data)
     model.initialize(in_data, out_data)

@@ -1,0 +1,61 @@
+\:global
+    table
+        margin-bottom: 4rem
+
+    td, th
+        border-bottom: 1px solid var(--color-subtle)
+        font-size: var(--font-size-sm)
+        padding: 0.75rem 1.25rem 0.75rem 0.5rem
+
+    th
+        border-bottom: 2px solid var(--color-theme-dark-secondary)
+        text-transform: uppercase
+        color: var(--color-theme-dark-secondary)
+
+    tr:last-child td
+        padding-bottom: 1.5rem
+        border-bottom: 0
+
+.foot td
+    position: relative
+    top: -1px
+    border-top: 2px solid var(--color-subtle)
+
+    &:first-child
+        color: var(--color-theme-dark-secondary)
+
+.divider
+    height: 0
+    border-bottom: 2px solid var(--color-subtle)
+
+    td
+        top: -1px
+        height: 10px
+        background: var(--color-paper)
+        position: relative
+
+    & + tr td
+        padding-top: 14px
+
+    td em
+        position: absolute
+        top: 10px
+        left: 10px
+        display: inline-block
+        background: var(--color-theme-dark-secondary)
+        color: var(--color-theme-contrast)
+        padding: 0 5px 1px
+        font-size: var(--font-size-xxs)
+        text-transform: uppercase
+        font-weight: bold
+        border: 0
+        border-radius: 1em
+        font-style: normal
+        white-space: nowrap
+        z-index: 5
+
+@media(max-width: 899px)
+    \:global table
+        display: block
+        max-width: 100%
+        overflow-y: auto

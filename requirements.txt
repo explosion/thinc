@@ -2,13 +2,13 @@
 murmurhash>=0.28.0,<1.1.0
 cymem>=2.0.2,<2.1.0
 preshed>=1.0.1,<3.1.0
-blis>=0.4.0,<0.5.0
+blis>=0.4.0,<0.8.0
 srsly>=2.0.0,<3.0.0
 wasabi>=0.4.0,<1.1.0
 catalogue>=0.2.0,<3.0.0
-ml_datasets>=0.1.5
+ml_datasets==0.2.0a0
 # Third-party dependencies
-pydantic>=1.4.0,<2.0.0
+pydantic>=1.5.0,<1.7.0
 numpy>=1.7.0
 # Backports of modern Python features
 dataclasses>=0.6,<1.0; python_version < "3.7"
@@ -16,7 +16,7 @@ typing_extensions>=3.7.4.1,<4.0.0.0; python_version < "3.8"
 contextvars>=2.4,<3; python_version < "3.7"
 # Development dependencies
 cython>=0.25.0
-hypothesis>=3.27.0,<5.0.0
+hypothesis>=3.27.0,<6.0.0
 pytest>=5.2.0
 pytest-cov
 mock>=2.0.0,<3.0.0

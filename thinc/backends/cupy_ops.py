@@ -17,7 +17,6 @@ except ImportError:
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
-from ..util import get_array_module
 from ..types import DeviceTypes
 
 
@@ -163,10 +162,8 @@ class CupyOps(Ops):
         return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
-        xp = get_array_module(gradient)
-        grad_norm = xp.linalg.norm(gradient)
-        if grad_norm >= threshold:
-            gradient *= threshold / grad_norm
+        grad_norm = cupy.maximum(cupy.linalg.norm(gradient), 1e-12)
+        gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
 
     def seq2col(self, seq, nW):
@@ -206,17 +203,25 @@ class CupyOps(Ops):
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
-        cupy.ElementwiseKernel(
-            "T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps",
-            "T param, T m, T v",
-            """m += one_minus_beta1 * (grad - m);
-               v += one_minus_beta2 * (grad * grad - v);
-               param -= lr * m / (sqrt(v) + eps);""",
-            "adam",
-        )(gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2)
+        adam_kernel(
+            gradient, learn_rate, 1 - beta1, 1 - beta2, eps, weights, mom1, mom2
+        )
         gradient.fill(0)
         return weights, gradient, mom1, mom2
 
     def position_encode(self, N, D, period=10000, out=None):
         positions = NumpyOps().position_encode(N, D, period=period, out=out)
         return self.asarray(positions)
+
+
+if cupy is not None:
+    adam_kernel = cupy.ElementwiseKernel(
+        "T grad, T lr, T one_minus_beta1, T one_minus_beta2, T eps",
+        "T param, T m, T v",
+        """m += one_minus_beta1 * (grad - m);
+        v += one_minus_beta2 * (grad * grad - v);
+        param -= lr * m / (sqrt(v) + eps);""",
+        "adam",
+    )
+else:
+    adam_kernel = None

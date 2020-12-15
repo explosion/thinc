@@ -1,21 +1,33 @@
 import contextlib
-from typing import Type
+from typing import Type, Dict
 
 from contextvars import ContextVar
 
 from .ops import Ops
 from .cupy_ops import CupyOps, has_cupy
 from .numpy_ops import NumpyOps
-from .jax_ops import JaxOps, has_jax, jax_jit
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, is_jax_array
+from ..util import is_cupy_array
 from ..types import OpsNames
 
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
 context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
+context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
+
+
+def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
+    """Route GPU memory allocation via PyTorch or tensorflow.
+    Raise an error if the given argument does not match either of the two.
+    """
+    if allocator == "pytorch":
+        use_pytorch_for_gpu_memory()
+    elif allocator == "tensorflow":
+        use_tensorflow_for_gpu_memory()
+    else:
+        raise ValueError(f"Invalid 'gpu_allocator' argument: '{allocator}")
 
 
 def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
@@ -31,7 +43,10 @@ def use_pytorch_for_gpu_memory() -> None:  # pragma: no cover
     import cupy.cuda
 
     assert_pytorch_installed()
-    cupy.cuda.set_allocator(cupy_pytorch_allocator)
+    pools = context_pools.get()
+    if "pytorch" not in pools:
+        pools["pytorch"] = cupy.cuda.MemoryPool(allocator=cupy_pytorch_allocator)
+    cupy.cuda.set_allocator(pools["pytorch"].malloc)
 
 
 def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
@@ -47,12 +62,15 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     import cupy.cuda
 
     assert_tensorflow_installed()
-    cupy.cuda.set_allocator(cupy_tensorflow_allocator)
+    pools = context_pools.get()
+    if "tensorflow" not in pools:
+        pools["tensorflow"] = cupy.cuda.MemoryPool(allocator=cupy_tensorflow_allocator)
+    cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
-    ops = {"numpy": NumpyOps, "cupy": CupyOps, "jax": JaxOps}
+    ops = {"numpy": NumpyOps, "cupy": CupyOps}
     if name not in ops:
         raise ValueError(f"Invalid backend: {name}")
     cls = ops[name]
@@ -63,8 +81,6 @@ def get_array_ops(arr):
     """Return an Ops object to match the array's device and backend."""
     if is_cupy_array(arr):
         return CupyOps()
-    elif is_jax_array(arr):
-        return JaxOps()
     else:
         return NumpyOps()
 
@@ -92,12 +108,9 @@ __all__ = [
     "set_current_ops",
     "get_current_ops",
     "use_ops",
-    "jax_jit",
     "ParamServer",
     "Ops",
     "CupyOps",
     "NumpyOps",
-    "JaxOps",
-    "has_jax",
     "has_cupy",
 ]

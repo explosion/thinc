@@ -3,6 +3,15 @@ trigger:
   branches:
     include:
     - '*'
+  paths:
+    exclude:
+    - 'website/*'
+    - '*.md'
+pr:
+  paths:
+    exclude:
+    - 'website/*'
+    - '*.md'
 
 jobs:
 - job: 'Test'
@@ -28,6 +37,15 @@ jobs:
       Python38Mac:
         imageName: 'macos-10.15'
         python.version: '3.8'
+      Python39Linux:
+        imageName: 'ubuntu-16.04'
+        python.version: '3.9'
+      Python39Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.9'
+      Python39Mac:
+        imageName: 'macos-10.15'
+        python.version: '3.9'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -39,7 +57,7 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      python -m pip install --upgrade pip
+      python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
@@ -56,19 +74,22 @@ jobs:
       contents: 'thinc'
     displayName: 'Delete source directory'
 
+  - script: |
+      pip freeze > installed.txt
+      pip uninstall -y -r installed.txt
+    displayName: 'Uninstall all packages'
+
   - bash: |
       SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
       pip install dist/$SDIST
     displayName: 'Install from sdist'
 
   - script: |
+      pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      # NOTE: need this to close for 1.5 on windows: https://github.com/pytorch/pytorch/issues/37209
-      pip install "torch==1.4; sys_platform == 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
-      pip install "torch; sys_platform != 'win32'" -f https://download.pytorch.org/whl/torch_stable.html
-      pip install jax jaxlib 
-      pip install ipykernel pydot graphviz 
+      pip install "torch==1.6.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'

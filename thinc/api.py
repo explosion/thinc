@@ -12,17 +12,17 @@ from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
 from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
-from .util import prefer_gpu, require_gpu, DataValidationError
+from .util import prefer_gpu, require_gpu, require_cpu, DataValidationError, data_validation
 from .util import to_categorical, get_width, get_array_module, to_numpy
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow, mxnet2xp, xp2mxnet
 from .backends import get_ops, set_current_ops, get_current_ops, use_ops
-from .backends import Ops, CupyOps, NumpyOps, JaxOps, has_cupy, has_jax
+from .backends import Ops, CupyOps, NumpyOps, has_cupy, set_gpu_allocator
 from .backends import use_pytorch_for_gpu_memory, use_tensorflow_for_gpu_memory
 
 from .layers import Dropout, Embed, expand_window, HashEmbed, LayerNorm, Linear
 from .layers import Maxout, Mish, MultiSoftmax, Relu, softmax_activation, Softmax, LSTM
 from .layers import CauchySimilarity, ParametricAttention, Logistic
-from .layers import SparseLinear, StaticVectors, FeatureExtractor
+from .layers import SparseLinear
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 

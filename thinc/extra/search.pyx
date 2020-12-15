@@ -80,7 +80,7 @@ cdef class Beam:
             self._parents[i].content = init_func(self.mem, n, extra_args)
         self.del_func = del_func
 
-    def __del__(self):
+    def __dealloc__(self):
         for i in range(self.width):
             self.del_func(self.mem, self._states[i].content, NULL)
             self.del_func(self.mem, self._parents[i].content, NULL)

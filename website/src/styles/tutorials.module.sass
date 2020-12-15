@@ -1,0 +1,61 @@
+.root
+    padding-bottom: 1rem
+
+    p + &, table + &
+        margin-top: 5rem
+
+.header
+    position: relative
+    margin-bottom: 2.5rem
+
+    p + .root &
+        margin-top: 2rem
+
+.header-title
+    margin-bottom: 0
+
+.header-link
+    position: absolute
+    top: 1.25rem
+    right: 0
+    font-size: var(--font-size-xs)
+    font-weight: bold
+    text-transform: uppercase
+    color: var(--color-default-medium)
+
+.list
+    margin-left: 0
+
+.item
+    display: block
+    padding-top: 0.25rem
+    font-size: var(--font-size-sm)
+
+    &:not(:last-child)
+        border-bottom: 1px solid var(--color-subtle)
+        padding-bottom: 1rem
+
+    & > :first-child
+        flex: 100%
+        padding-right: 2rem
+
+    & > :last-child
+        flex: 0 0 calc(117px + 1rem)
+        margin-top: 1rem
+
+.badge
+    -webkit-font-smoothing: subpixel-antialiased
+    -moz-osx-font-smoothing: auto
+
+    svg
+        min-width: 117px
+
+
+@media(min-width: 1200px)
+    .item
+        display: flex
+
+        & > :last-child
+            margin-left: 1rem
+            margin-top: 0.35rem
+            text-align: right

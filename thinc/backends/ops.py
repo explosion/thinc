@@ -217,7 +217,10 @@ class Ops:
         if X is None or len(X) == 0:
             return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
         xp = get_array_module(X[0])
+        shape_if_empty = X[0].shape
         X = [x for x in X if x.size != 0]
+        if len(X) == 0:
+            return self.alloc(shape_if_empty, dtype=dtype or "f")
         if int(pad) >= 1:
             padded = []
             for x in X:
@@ -531,10 +534,12 @@ class Ops:
     ) -> ArrayXd:
         """Ensure a given array is of the correct type."""
         if isinstance(data, self.xp.ndarray):
-            if dtype is not None:
-                return self.xp.asarray(data, dtype=dtype)
+            if dtype is None:
+                return data
+            elif data.dtype == dtype:
+                return data
             else:
-                return self.xp.asarray(data)
+                return self.xp.asarray(data, dtype=dtype)
         elif hasattr(data, "numpy"):
             # Handles PyTorch Tensor
             return data.numpy()  # type: ignore
@@ -548,6 +553,8 @@ class Ops:
         Implementations of `Ops` do not have to make a copy or make it
         contiguous if that would not improve efficiency for the execution engine.
         """
+        if data.flags["C_CONTIGUOUS"] and dtype in (None, data.dtype):
+            return data
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
@@ -841,8 +848,6 @@ class Ops:
         return output
 
 
-# This code was originally written to match the JAX implementation, and then
-# reworked to line up with what CuDNN expects.
 """
 LSTM Notation (kind of involved, but made it a lot easier to write)
 

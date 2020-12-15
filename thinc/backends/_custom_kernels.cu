@@ -285,6 +285,9 @@ void backprop_reduce_sum(float* dX, const float* d_sum, const int* lengths,
            seq_start += lengths[b];
            b += 1;
         }
+        if (lengths[b] == 0)
+            continue;
+
         for (int i=0; i < O; ++i)
         {
             dX[t * O + i] = d_sum[b * O + i];
@@ -309,11 +312,12 @@ void backprop_reduce_mean(float* dX, const float* d_mean, const int* lengths,
            seq_start += lengths[b];
            b += 1;
         }
+        if (lengths[b] == 0)
+            continue;
 
         float* dX_t = &dX[t * O];
         const float* d_mean_b = &d_mean[b * O];
         int lengths_b = lengths[b];
-
         for (int i=0; i < O; ++i)
         {
             dX_t[i] = d_mean_b[i] / lengths_b;
@@ -341,6 +345,9 @@ void backprop_reduce_max(float* dX,
            seq_start += lengths[b];
            b += 1;
         }
+        if (lengths_b == 0)
+            continue;
+
         // The "which" array tells us which rows were selected as the max.
         // So we need to find the index of our t in the sequence.
         int index_of_t = t-seq_start;

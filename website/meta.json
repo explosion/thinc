@@ -1,0 +1,55 @@
+{
+    "title": "Thinc",
+    "slogan": "A refreshing functional take on deep learning",
+    "description": "Thinc is a lightweight type-checked deep learning library for composing models, with support for layers defined in frameworks like PyTorch and TensorFlow.",
+    "siteUrl": "https://thinc.ai",
+    "domain": "thinc.ai",
+    "twitter": "explosion_ai",
+    "github": "explosion/thinc",
+    "email": "contact@explosion.ai",
+    "company": "Explosion",
+    "companyUrl": "https://explosion.ai",
+    "imprintUrl": "https://explosion.ai/legal",
+    "theme": "#291e56",
+    "sidebar": [
+        {
+            "label": "Get started",
+            "items": [
+                { "text": "Introduction", "url": "/docs/" },
+                { "text": "Concept & Design", "url": "/docs/concept" },
+                { "text": "Installation & Setup", "url": "/docs/install" },
+                {
+                    "text": "Examples & Tutorials",
+                    "url": "https://github.com/explosion/thinc/#-selected-examples-and-notebooks"
+                },
+                { "text": "Backprop 101", "url": "/docs/backprop101" }
+            ]
+        },
+        {
+            "label": "Usage",
+            "items": [
+                { "text": "Configuration System", "url": "/docs/usage-config" },
+                { "text": "Defining & Using Models", "url": "/docs/usage-models" },
+                { "text": "Training Models", "url": "/docs/usage-training" },
+                { "text": "PyTorch, TensorFlow etc.", "url": "/docs/usage-frameworks" },
+                { "text": "Variable-length Sequences", "url": "/docs/usage-sequences" },
+                { "text": "Type Checking", "url": "/docs/usage-type-checking" }
+            ]
+        },
+        {
+            "label": "API",
+            "items": [
+                { "text": "Model", "url": "/docs/api-model" },
+                { "text": "Layers", "url": "/docs/api-layers" },
+                { "text": "Optimizers", "url": "/docs/api-optimizers" },
+                { "text": "Initializers", "url": "/docs/api-initializers" },
+                { "text": "Schedules", "url": "/docs/api-schedules" },
+                { "text": "Losses", "url": "/docs/api-loss" },
+                { "text": "Config & Registry", "url": "/docs/api-config" },
+                { "text": "Types & Dataclasses", "url": "/docs/api-types" },
+                { "text": "Backends & Math", "url": "/docs/api-backends" },
+                { "text": "Utilities & Extras", "url": "/docs/api-util" }
+            ]
+        }
+    ]
+}

@@ -23,7 +23,7 @@ else:
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
 
-OpsNames = Literal["numpy", "cupy", "jax"]
+OpsNames = Literal["numpy", "cupy"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 Batchable = Union["Pairs", "Ragged", "Padded", "ArrayXd", List, Tuple]
 Xp = Union["numpy", "cupy"]  # type: ignore
@@ -736,22 +736,6 @@ class Decorator(Protocol):
     """Protocol to mark a function as returning its child with identical signature."""
 
     def __call__(self, name: str) -> Callable[[_DIn], _DIn]: ...
-
-
-class Doc(Sized, Container):
-    """Type for spaCy Doc objects."""
-
-    T: "Doc"
-    base: Optional["Doc"]
-
-    @property
-    def doc(self) -> "Doc": ...
-    @property
-    def start(self) -> int: ...
-    @property
-    def end(self) -> int: ...
-
-    def to_array(self, attr_ids: Union[str, int, List[Union[str, int]]]) -> Ints2d: ...
 
 
 # fmt: on

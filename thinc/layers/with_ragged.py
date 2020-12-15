@@ -11,7 +11,7 @@ SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, RaggedData])
 
 @registry.layers("with_ragged.v1")
 def with_ragged(layer: Model[Ragged, Ragged]) -> Model[SeqT, SeqT]:
-    return Model(f"with_ragged-{layer.name}", forward, init=init, layers=[layer])
+    return Model(f"with_ragged({layer.name})", forward, init=init, layers=[layer])
 
 
 def forward(

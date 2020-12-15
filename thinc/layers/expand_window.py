@@ -19,9 +19,12 @@ def expand_window(window_size: int = 1) -> Model[InT, OutT]:
 
 def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Callable]:
     nW = model.attrs["window_size"]
-    Y = model.ops.seq2col(X, nW)
+    if len(X) > 0:
+        Y = model.ops.seq2col(X, nW)
 
     def backprop(dY: OutT) -> InT:
         return model.ops.backprop_seq2col(dY, nW)
 
+    if len(X) == 0:
+        return X, backprop
     return Y, backprop

@@ -1,0 +1,154 @@
+$banner-size: 125px
+
+.heading
+    margin-bottom: 1em
+    line-height: 1.1
+
+    &:not(:first-child)
+        padding-top: 0.5em
+
+    code
+        font-weight: normal
+
+p + .heading
+    margin-top: 4rem
+
+.heading-wrapper
+    display: inline-block
+
+.heading-wrapper-banner
+    position: relative
+    margin-left: $banner-size / 3
+
+.banner
+    width: $banner-size
+    height: $banner-size
+    position: absolute
+    top: -$banner-size / 4
+    left: -$banner-size / 2
+    display: block
+    overflow: visible !important
+
+.banner-text
+    font-size: 1.25rem
+    font-family: var(--font-primary)
+    font-weight: bold
+    text-transform: uppercase
+    fill: currentColor
+    letter-spacing: 5px
+
+@each $level, $size in (0: 6, 1: 4.2, 2: 2.6, 3: 2.2, 4: 2, 5: 1.8)
+    .h#{$level}
+        font-size: #{$size}rem
+
+.permalink
+    position: relative
+    width: 100%
+
+    &:before
+        content: "#"
+        font-family: var(--font-code)
+        font-size: 0.9em
+        font-weight: normal
+        color: var(--color-subtle)
+        position: absolute
+        top: 0.15em
+        left: -1em
+        opacity: 0
+        transition: opacity 0.2s ease
+
+    &:hover:before
+        opacity: 1
+
+    &:active:before
+        color: var(--color-theme)
+
+    &:target
+        display: inline-block
+
+        &:before
+            bottom: 0.15em
+            top: initial
+
+.meta
+    font-family: var(--font-primary)
+    font-size: var(--font-size-md)
+    font-weight: bold
+    text-transform: initial
+    margin-top: 0.5rem
+
+.tag
+    display: inline-block
+    font-size: var(--font-size-xs)
+    color: var(--color-theme-dark-secondary)
+    font-weight: bold
+    text-transform: uppercase
+    padding: 0 0.65rem
+    line-height: 1
+    margin-left: 0.5rem
+    vertical-align: middle
+
+.small, .small p
+    font-size: var(--font-size-sm)
+
+.hr
+    border: 0
+    padding: 3rem 0
+    margin: 7rem auto 4rem auto
+    background: url(../images/divider.png) center center no-repeat
+    background-size: 100%
+    width: 35%
+    min-width: 200px
+
+.tooltip
+    font-family: var(--font-primary)
+    font-size: var(--font-size-sm)
+    background: var(--color-theme-contrast) !important
+    color: var(--color-theme-dark)
+    border: 1px solid var(--color-paper)
+    text-align: left
+    border-radius: 0
+
+.tooltip-small
+    font-size: var(--font-size-xs)
+    line-height: 1.3
+
+.tooltip-dark
+    color: var(--color-theme-contrast)
+    border-color: var(--color-theme-dark)
+    background: var(--color-theme-dark) !important
+
+.inline-list
+    margin-bottom: 4rem
+    font-size: var(--font-size-xs)
+    line-height: 1.5
+    border-top: 1px solid var(--color-subtle)
+    border-bottom: 1px solid var(--color-subtle)
+    padding: 0.75rem 0
+    color: var(--color-theme-dark-subtle)
+
+    code
+        font-size: 85% !important
+
+    h2 + &, h3 + &, h4 + &
+        margin-top: -1rem
+        margin-bottom: 2.5rem
+
+    ul
+        list-style: none
+        display: inline
+        padding: 0
+        margin: 0
+
+    li
+        display: inline-block
+        margin: 0
+        padding: 0
+
+        &:not(:last-child)
+            margin-right: 0.5rem
+
+        strong:first-child
+            text-transform: uppercase
+            font-size: var(--font-size-xs)
+            color: var(--color-theme-dark-secondary)

@@ -1,0 +1,57 @@
+.footer
+    flex: 100%
+    grid-row: 2
+    grid-column: 2 / span 2
+
+.title
+    color: var(--color-theme-dark)
+
+.header-image
+    display: block
+    position: absolute
+    top: 0
+    right: 0
+    width: 25%
+    z-index: 0
+    pointer-events: none
+
+@media(min-width: 900px)
+    .root
+        display: flex
+        flex-flow: row wrap
+        grid-template-columns: minmax(17vw, 200px) minmax(0, 1fr) 25%
+        grid-template-rows: auto auto
+        min-height: 100vh
+
+    .sidebar
+        background: var(--color-theme-dark) url(../images/docs_bottom-left.png) bottom left no-repeat
+        background-size: 100%
+        color: var(--color-theme-contrast)
+        position: relative
+        z-index: 150
+        grid-row: 1 / span 2
+        flex: 0 0 17vw
+        padding-bottom: 50%
+
+    .article
+        padding: 2.5rem 0 5rem 8rem
+        flex: 1
+        max-width: calc(100% - 17vw - 25%)
+
+    @supports(display: grid)
+        .root
+            display: grid
+
+        .article
+            max-width: 100%
+
+.next
+    text-align: right
+    margin-top: 5rem
+
+@media(max-width: 899px)
+    .article
+        padding: 3rem 4rem 3rem 3rem
+
+    .header-image
+        top: 4rem

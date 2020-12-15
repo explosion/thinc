@@ -10,7 +10,14 @@ from ..config import registry
 @registry.layers("with_cpu.v1")
 def with_cpu(layer: Model, ops: Ops) -> Model:
     layer.to_cpu()
-    return Model(f"with_cpu", forward, layers=[layer], ops=ops, init=init)
+    return Model(
+        f"with_cpu({layer.name})",
+        forward,
+        layers=[layer],
+        ops=ops,
+        init=init,
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
+    )
 
 
 def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:

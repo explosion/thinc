@@ -35,4 +35,4 @@ def with_debug(
         on_init(model, X, Y)
         return layer.initialize(X, Y)
 
-    return Model(f"debug:{name}", forward, init=init, layers=[layer])
+    return Model(f"debug({name})", forward, init=init, layers=[layer])

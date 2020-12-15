@@ -50,7 +50,7 @@ class NumpyOps(Ops):
         device_type: DeviceTypes = "cpu",
         device_id: int = -1,
         *,
-        use_blis: bool = False
+        use_blis: bool = True
     ) -> None:
         self.device_type = device_type
         self.device_id = device_id
@@ -78,6 +78,10 @@ class NumpyOps(Ops):
         return self.xp.zeros(shape, dtype=dtype)
 
     def gemm(self, np.ndarray x, np.ndarray y, *, np.ndarray out=None, trans1=False, trans2=False):
+        if x.ndim != 2:
+            raise ValueError(f"Provided 'x' array should be 2-dimensional, but found {x.ndim} dimension(s).")
+        if y.ndim != 2:
+            raise ValueError(f"Provided 'y' array should be 2-dimensional, but found {y.ndim} dimension(s).")
         if not self.use_blis:  # delegate to base Ops
             return super().gemm(x, y, out=out, trans1=trans1, trans2=trans2)
         x = self.as_contig(x)
@@ -143,8 +147,9 @@ class NumpyOps(Ops):
 
         cdef np.ndarray best = numpy.zeros((B, O), dtype='float32', order='C')
         cdef np.ndarray which = numpy.zeros((B, O), dtype='int32', order='C')
-        cpu_maxout(<float*>best.data, <int*>which.data,
-            &X[0, 0, 0], B, O, P)
+        if len(X) > 0:
+            cpu_maxout(<float*>best.data, <int*>which.data,
+                &X[0, 0, 0], B, O, P)
         return best, which
 
     def backprop_maxout(self, const float[:, ::1] dY, int[:, ::1] which, int P):

@@ -18,8 +18,7 @@ def check_learns_zero_output(model, sgd, X, Y):
         total = numpy.abs(Yh.sum())
         dX = get_dX(Yh - Y)  # noqa: F841
         model.finish_update(sgd)
-        assert total < prev
-        prev = total
+    assert total < prev
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
@@ -28,7 +27,7 @@ def test_pytorch_unwrapped(nN, nI, nO):
     model = Linear(nO, nI).initialize()
     X = numpy.zeros((nN, nI), dtype="f")
     X += numpy.random.uniform(size=X.size).reshape(X.shape)
-    sgd = SGD(0.001)
+    sgd = SGD(0.01)
     Y = numpy.zeros((nN, nO), dtype="f")
     check_learns_zero_output(model, sgd, X, Y)
 

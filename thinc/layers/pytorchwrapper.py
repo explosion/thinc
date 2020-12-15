@@ -65,6 +65,7 @@ def PyTorchWrapper(
         forward,
         attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
         shims=[PyTorchShim(pytorch_model)],
+        dims={"nI": None, "nO": None},
     )
 
 

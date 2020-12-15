@@ -17,10 +17,9 @@ import tqdm
 import numpy.random
 from timeit import default_timer as timer
 from thinc.api import Model, Config, registry, chain, list2padded, with_array
-from thinc.api import to_categorical, set_current_ops, JaxOps, Ops
+from thinc.api import to_categorical, set_current_ops
 from thinc.api import NumpyOps, CupyOps, fix_random_seed, require_gpu
 from thinc.types import Array2d, Padded
-import jax.tree_util
 
 CONFIG = """
 [data]
@@ -88,13 +87,6 @@ def get_dummy_data(n_samples, n_tags, n_vocab, length_mean, length_variance):
     return Xs, Ys
 
 
-jax.tree_util.register_pytree_node(
-    Padded,
-    lambda pad: ((pad.data, pad.size_at_t, pad.lengths, pad.indices), None),
-    lambda info, values: Padded(*values),
-)
-
-
 def run_forward(model, Xs, n_times=1):
     total = 0.0
     for _ in range(n_times):
@@ -116,10 +108,7 @@ def run_forward_backward(model, batches, n_times=1):
 
 def set_backend(name, gpu_id):
     global CONFIG
-    if name == "jax":
-        set_current_ops(JaxOps())
-        CONFIG = CONFIG.replace("PyTorch", "")
-    elif name == "generic":
+    if name == "generic":
         set_current_ops(Ops())
     else:
         if gpu_id == -1:
@@ -132,21 +121,21 @@ def set_backend(name, gpu_id):
             CONFIG = CONFIG.replace("LSTM.v1", "PyTorchLSTM.v1")
 
 
-def main(numpy: bool=False, jax: bool = False, pytorch: bool = False,
+def main(numpy: bool=False, pytorch: bool = False,
          generic: bool=False, gpu_id: int = -1):
     global CONFIG
     fix_random_seed(0)
     if gpu_id >= 0:
         require_gpu(gpu_id)
         print("Set GPU", gpu_id)
-    backends = {"jax": jax, "pytorch": pytorch, "numpy": numpy, "generic": generic}
+    backends = {"pytorch": pytorch, "numpy": numpy, "generic": generic}
     for name, use_backend in backends.items():
         if not use_backend:
             print(f"Skipping {name}")
             continue
         set_backend(name, gpu_id)
         print("Getting data")
-        C = registry.make_from_config(Config().from_str(CONFIG))
+        C = registry.resolve(Config().from_str(CONFIG))
         model = C["model"]
         X, Y = get_dummy_data(**C["data"])
         print("Copy to device")
@@ -161,14 +150,13 @@ def main(numpy: bool=False, jax: bool = False, pytorch: bool = False,
         model.layers.pop(0)
         print("Start")
         start_time = timer()
-        total = run_forward(model, [x for x, y in batches], n_times=1)
+        total = run_forward(model, [x for x, y in batches])
         end_time = timer()
         print(name, n_words, total, end_time - start_time)
         start_time = timer()
-        total = run_forward_backward(model, batches, n_times=1)
+        total = run_forward_backward(model, batches)
         end_time = timer()
         print(name, n_words, total, end_time - start_time)
-
 
 
 if __name__ == "__main__":

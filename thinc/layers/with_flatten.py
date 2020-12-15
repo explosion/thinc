@@ -12,7 +12,7 @@ OutT = List2d
 
 @registry.layers("with_flatten.v1")
 def with_flatten(layer: Model) -> Model[InT, OutT]:
-    return Model(f"with_flatten-{layer.name}", forward, layers=[layer], init=init)
+    return Model(f"with_flatten({layer.name})", forward, layers=[layer], init=init)
 
 
 def forward(

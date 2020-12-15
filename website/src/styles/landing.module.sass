@@ -1,0 +1,112 @@
+.root
+    min-height: 100vh
+    background: var(--color-theme-dark)
+    color: var(--color-theme-contrast)
+
+.logo
+    width: 270px
+    height: auto
+    max-width: 50%
+
+.logo-explosion
+    transition: transform 0.5s ease-in-out
+    position: absolute
+    top: 1.5rem
+    left: 1.75rem
+    z-index: 150
+
+    &:hover
+        transform: rotate(360deg)
+
+.header
+    width: 100%
+    padding: 10rem 5% 1rem
+    text-align: center
+    position: relative
+
+.header-image
+    position: absolute
+    width: 30%
+    top: 0
+    z-index: 0
+    pointer-events: none
+    user-select: none
+
+.header-image-left
+    left: 0
+
+.header-image-right
+    right: 0
+
+.slogan
+    display: block
+    font-size: var(--font-size-sm)
+    line-height: 1.5
+    text-transform: uppercase
+    margin-top: 1.25rem
+    color: var(--color-theme-dark-tertiary-alt)
+
+    a
+        color: var(--color-theme-dark-tertiary)
+        border-bottom: 1px solid var(--color-theme-dark-secondary)
+
+.section-header
+    margin: 8rem auto
+
+.section
+    max-width: 1000px
+    margin: 2rem auto 7rem
+    padding: 0 2rem
+    position: relative
+    z-index: 5
+
+.section-narrow
+    max-width: 700px
+
+.section-title
+    margin-bottom: 1.5rem
+
+.call-to-action
+    text-align: center
+
+.footer
+    color: var(--color-theme-contrast)
+
+.feature-grid
+    display: grid
+    grid-gap: 5.25rem 4rem
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr))
+
+.feature p
+    font-size: 1.6rem
+    line-height: 1.15
+    margin-bottom: 2rem
+
+.feature-title
+    color: var(--color-theme-dark-tertiary)
+    margin-bottom: 1rem
+
+.feature-logo
+    margin-right: 1.25rem
+    color: inherit !important
+    vertical-align: middle
+    opacity: 0.6
+    filter: grayscale(100%) contrast(0) brightness(1.55)
+    transition: opacity 0.1s ease, filter 0.1s ease
+
+    &:hover
+        opacity: 1
+        filter: none
+
+.inline-code
+    background: transparent !important
+    padding: 0 0.25rem !important
+    color: var(--color-theme-dark-tertiary) !important
+
+@media(max-width: 450px)
+    .md-only
+        display: none
+
+@media(min-width: 451px)
+    .sm-only
+        display: none

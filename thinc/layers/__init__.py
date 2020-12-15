@@ -3,7 +3,6 @@ from .cauchysimilarity import CauchySimilarity
 from .dropout import Dropout
 from .embed import Embed
 from .expand_window import expand_window
-from .featureextractor import FeatureExtractor
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
@@ -17,7 +16,6 @@ from .relu import Relu
 from .softmax_activation import softmax_activation
 from .softmax import Softmax
 from .sparselinear import SparseLinear
-from .staticvectors import StaticVectors
 from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 from .mxnetwrapper import MXNetWrapper
@@ -78,7 +76,6 @@ __all__ = [
     "softmax_activation",
     "Softmax",
     "SparseLinear",
-    "StaticVectors",
     "LSTM",
     "PyTorchLSTM",
     "TensorFlowWrapper",
