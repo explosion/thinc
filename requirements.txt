@@ -8,7 +8,7 @@ wasabi>=0.4.0,<1.1.0
 catalogue>=0.2.0,<3.0.0
 ml_datasets==0.2.0a0
 # Third-party dependencies
-pydantic>=1.7.0
+pydantic>=1.7.1,<1.8.0
 numpy>=1.7.0
 # Backports of modern Python features
 dataclasses>=0.6,<1.0; python_version < "3.7"
