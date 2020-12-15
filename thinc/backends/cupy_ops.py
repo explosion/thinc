@@ -106,11 +106,13 @@ class CupyOps(Ops):
         self, dY, lengths, params, fwd_state
     ):
         reserve_space, dropout_state, Hy, Cy, X, H0, C0 = fwd_state
+        batch_size = lengths[0]
+        num_layers, dirs, hidden_size = C0
         dHy = self.alloc_3d(num_layers, batch_size, hidden_size)
         dCy = self.alloc_3d(num_layers, batch_size, hidden_size * 4)
         dhx, dcx, dxs = cupy.cudnn.rnn_backward_data(
             dropout_state,
-            CUDNN_UNIDIRECTIONAL if bi else CUDNN_BIDIRECTIONAL,
+            CUDNN_UNIDIRECTIONAL if dirs < 2 else CUDNN_BIDIRECTIONAL,
             CUDNN_LSTM,
             H0,
             C0,
@@ -125,7 +127,7 @@ class CupyOps(Ops):
         )
         d_params = cupy.cudnn.rnn_backward_weights(
             states,
-            CUDNN_UNIDIRECTIONAL if bi else CUDNN_BIDIRECTIONAL,
+            CUDNN_UNIDIRECTIONAL if dirs < 2 else CUDNN_BIDIRECTIONAL,
             CUDNN_LSTM,
             X,
             H0,
