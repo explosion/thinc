@@ -5,7 +5,7 @@ from pydantic import BaseModel, StrictBool, StrictFloat, PositiveInt, constr
 import catalogue
 import thinc.config
 from thinc.config import ConfigValidationError
-from thinc.types import Generator
+from thinc.types import Generator, Ragged
 from thinc.api import Config, RAdam, Model, NumpyOps
 from thinc.util import partial
 import numpy
@@ -1340,3 +1340,17 @@ def test_config_fill_without_resolve():
     filled3 = my_registry.fill(config, schema=BaseSchema2)
     assert filled3["catsie"] == config["catsie"]
     assert filled3["other"] == 12
+
+
+def test_config_dataclasses():
+    @my_registry.cats("catsie.ragged")
+    def catsie_ragged(arg: Ragged):
+        return arg
+
+    data = numpy.zeros((20, 4), dtype="f")
+    lengths = numpy.array([4, 2, 8, 1, 4], dtype="i")
+    ragged = Ragged(data, lengths)
+    config = {"cfg": {"@cats": "catsie.ragged", "arg": ragged}}
+    result = my_registry.resolve(config)["cfg"]
+    assert isinstance(result, Ragged)
+    assert list(result._get_cumsums()) == [4, 6, 14, 15, 19]
