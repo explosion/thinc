@@ -71,12 +71,12 @@ class CupyOps(Ops):
 
     def lstm_forward_training(
         self,
-        params: Floats1d,
-        H0: Floats3d,
-        C0: Floats3d,
-        X: Floats2d,
-        size_at_t: Ints1d,
-    ) -> Tuple[Floats2d, Tuple]:
+        params,
+        H0,
+        C0,
+        X,
+        size_at_t,
+    ):
         dropout_state = cupy.cudnn.DropoutStates(None, 0)
  
         reserve_space, Hy, Cy, Y = cupy.cudnn.rnn_forward_training(
@@ -93,18 +93,18 @@ class CupyOps(Ops):
 
     def lstm_forward_inference(
         self,
-        params: Floats1d,
-        H0: Floats3d,
-        C0: Floats3d,
-        X: Floats2d,
-        size_at_t: Ints1d,
-    ) -> Floats2d:
+        params,
+        H0,
+        C0,
+        X,
+        size_at_t,
+    ):
         Y, _ = self.lstm_forward_training(params, H0, C0, X, size_at_t)
         return Y
 
     def backprop_lstm(
-        self, dY: Floats2d, lengths: Ints1d, params: Floats1d, fwd_state: Tuple
-    ) -> Tuple[Floats2d, Floats1d]:
+        self, dY, lengths, params, fwd_state
+    ):
         reserve_space, dropout_state, Hy, Cy, X, H0, C0 = fwd_state
         dHy = self.alloc_3d(num_layers, batch_size, hidden_size)
         dCy = self.alloc_3d(num_layers, batch_size, hidden_size * 4)
