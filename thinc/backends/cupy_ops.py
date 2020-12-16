@@ -14,6 +14,15 @@ except ImportError:
     cupyx = None
     has_cupy = False
 
+if has_cupy:
+    from cupy.cudnn import CUDNN_UNIDIRECTIONAL, CUDNN_BIDIRECTIONAL
+    from cupy.cudnn import CUDNN_LSTM
+else:
+    CUDNN_UNIDIRECTIONAL = 0
+    CUDNN_BIDIRECTIONAL = 1
+    CUDNN_LSTM = 0
+
+
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
@@ -78,10 +87,12 @@ class CupyOps(Ops):
         size_at_t,
     ):
         dropout_state = cupy.cudnn.DropoutStates(None, 0)
+        batch_size = lengths[0]
+        num_layers, dirs, hidden_size = C0
  
         reserve_space, Hy, Cy, Y = cupy.cudnn.rnn_forward_training(
             dropout_state,
-            CUDNN_UNIDIRECTIONAL if not bi else CUDNN_BIDIRECTIONAL,
+            CUDNN_UNIDIRECTIONAL if dirs != 2 else CUDNN_BIDIRECTIONAL,
             CUDNN_LSTM, 
             H0,
             C0,
@@ -89,7 +100,7 @@ class CupyOps(Ops):
             X,
             size_at_t
         )
-        return Y, (reserve_space, dropout_state, Hy, Cy, X, H0, C0)
+        return Y, (reserve_space, dropout_state, Hy, Cy, X, Y, H0, C0)
 
     def lstm_forward_inference(
         self,
@@ -105,7 +116,7 @@ class CupyOps(Ops):
     def backprop_lstm(
         self, dY, lengths, params, fwd_state
     ):
-        reserve_space, dropout_state, Hy, Cy, X, H0, C0 = fwd_state
+        reserve_space, dropout_state, Hy, Cy, X, Y, H0, C0 = fwd_state
         batch_size = lengths[0]
         num_layers, dirs, hidden_size = C0
         dHy = self.alloc_3d(num_layers, batch_size, hidden_size)
@@ -123,7 +134,7 @@ class CupyOps(Ops):
             dHy,
             dCy,
             dY,
-            size_at_t
+            lengths
         )
         d_params = cupy.cudnn.rnn_backward_weights(
             states,
@@ -134,7 +145,7 @@ class CupyOps(Ops):
             Y,
             params,
             reserve_space,
-            size_at_t
+            lengths
         ) 
         return dX, d_params
 
