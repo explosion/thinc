@@ -9,7 +9,7 @@ cdef void* create_rnn_descriptor() nogil:
 
 
 cdef void destroy_rnn_descriptor(void* address) nogil:
-    check_status(cudnnDestroyRNNDescriptor(<cudnnRNNDescriptor_t>address)
+    check_status(cudnnDestroyRNNDescriptor(<cudnnRNNDescriptor_t>address))
 
 
 cdef void* create_rnn_data_descriptor() nogil:
@@ -19,7 +19,7 @@ cdef void* create_rnn_data_descriptor() nogil:
 
 
 cdef void destroy_rnn_data_descriptor(void* address) nogil:
-    check_status(cudnnDestroyRNNDataDescriptor(<cudnnRNNDataDescriptor_t>address)
+    check_status(cudnnDestroyRNNDataDescriptor(<cudnnRNNDataDescriptor_t>address))
 
 
 cdef void set_bilstm_descriptor(
@@ -35,7 +35,7 @@ cdef void set_bilstm_descriptor(
     uint32_t aux_flags
 ) nogil:
     check_status(cudnnSetRNNDescriptor_v8(
-        <cudnnRNNDescriptor_t>rnn_desc
+        <cudnnRNNDescriptor_t>rnn_desc,
         CUDNN_RNN_ALGO_STANDARD,
         CUDNN_RNN_CELL_MODE_LSTM,
         CUDNN_RNN_SINGLE_INP_BIAS,
@@ -69,7 +69,7 @@ cdef void set_bilstm_data_descriptor(
         max_seq_length,
         batch_size,
         vector_size,
-        const int* seq_length_array,
+        seq_length_array,
         padding_fill
     ))
 
@@ -80,7 +80,7 @@ cdef void set_seq_data_descriptor(
 	int nb_dims,
 	const int* dim_A,
 	const void* axes,
-	size_t seq_length_array_stride
+	size_t seq_length_array_stride,
 	const int* seq_length_array,
 	void* padding_fill
 ) nogil:
@@ -125,7 +125,7 @@ cdef void bilstm_forward_inference(
         (<cudnnRNNDataDescriptor_t*>x_desc)[0], x,
         (<cudnnRNNDataDescriptor_t*>yDesc)[0], y,
         (<cudnnRNNDataDescriptor_t*>h_desc)[0], hx, hy,
-        (<cudnnRNNDataDescriptor_t*>)c_desc)[0], cx, cy,
+        (<cudnnRNNDataDescriptor_t*>c_desc)[0], cx, cy,
         n_weight_bytes, weights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve_space
@@ -146,7 +146,7 @@ cdef void bilstm_forward_training(
         (<cudnnRNNDataDescriptor_t*>x_desc)[0], x,
         (<cudnnRNNDataDescriptor_t*>yDesc)[0], y,
         (<cudnnRNNDataDescriptor_t*>h_desc)[0], hx, hy,
-        (<cudnnRNNDataDescriptor_t*>)c_desc)[0], cx, cy,
+        (<cudnnRNNDataDescriptor_t*>c_desc)[0], cx, cy,
         n_weight_bytes, weights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve_space
@@ -178,7 +178,7 @@ cdef void bilstm_backward(
     void* reserve
 ) nogil:
     check_status(cudnnRNNBackwardData_v8(
-        (<cudnnHandle_t*>)handle)[0],
+        (<cudnnHandle_t*>handle)[0],
         (<cudnnRNNDescriptor_t*>rnnDesc)[0],
         dev_seq_lengths,
         (<cudnnRNNDataDescriptor_t*>y_desc)[0], y, dy,
@@ -190,7 +190,7 @@ cdef void bilstm_backward(
         n_reserve_bytes, reserve
     ));
     check_status(cudnnRNNBackwardData_v8(
-        (<cudnnHandle_t*>)handle)[0],
+        (<cudnnHandle_t*>handle)[0],
         (<cudnnRNNDescriptor_t*>rnnDesc)[0],
         dev_seq_lengths,
         (<cudnnRNNDataDescriptor_t*>y_desc)[0], y, dy,
