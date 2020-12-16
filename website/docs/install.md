@@ -5,7 +5,8 @@ next: /docs/usage-config
 
 Thinc is compatible with **64-bit CPython 3.6+** and runs on **Unix/Linux**,
 **macOS/OS X** and **Windows**. The latest releases with binary wheels are
-available from [pip](https://pypi.python.org/pypi/thinc).
+available from [pip](https://pypi.python.org/pypi/thinc). For the most recent
+releases, pip 19.3 or newer is recommended.
 
 ```bash
 ### pip
