@@ -256,7 +256,7 @@ cpdef enum:
     CUDNN_WGRAD_MODE_SET = 1
 
 
-cdef extern from './cupy_cudnn.h' nogil:
+cdef extern from 'cudnn_v8.h' nogil:
     # Types
     ctypedef int ActivationMode 'cudnnActivationMode_t'
     ctypedef int AddMode 'cudnnAddMode_t'
@@ -668,17 +668,17 @@ cdef void set_bilstm_descriptor(
 
 cdef void set_bilstm_data_descriptor(
     void* address,
-    size_t data_type,
+    void* data_type,
     int max_seq_length,
     int batch_size,
     int vector_size,
     const int* seq_length_array,
-    const int* padding_fill
+    int* padding_fill
 ) nogil:
     check_status(cudnnSetRNNDataDescriptor(
-        <cudnnRNNDataDescriptor_t>address,
-        <cudnnDataType_t>data_type,
-        CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
+        (<cudnnRNNDataDescriptor_t*>address)[0],
+        (<cudnnDataType_t*>data_type)[0],
+        <cudnnRNNDataLayout_t>CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
         max_seq_length,
         batch_size,
         vector_size,
@@ -731,14 +731,14 @@ cdef void bilstm_forward_inference(
     void* reserve
 ) nogil:
     check_status(cudnnRNNForward(
-        handle,
-        (<cudnnRNNDescriptor_t*>rnn_desc)[0],
+        <cudnnHandle_t>handle,
+        <cudnnRNNDescriptor_t>rnn_desc,
         <cudnnForwardMode_t>CUDNN_FWD_MODE_INFERENCE,
         dev_seq_lengths,
-        (<cudnnRNNDataDescriptor_t*>x_desc)[0], x,
-        (<cudnnRNNDataDescriptor_t*>y_desc)[0], y,
-        (<cudnnRNNDataDescriptor_t*>h_desc)[0], hx, hy,
-        (<cudnnRNNDataDescriptor_t*>c_desc)[0], cx, cy,
+        <cudnnRNNDataDescriptor_t>x_desc, x,
+        <cudnnRNNDataDescriptor_t>y_desc, y,
+        <cudnnTensorDescriptor_t>h_desc, hx, hy,
+        <cudnnTensorDescriptor_t>c_desc, cx, cy,
         n_weight_bytes, weights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve
@@ -767,14 +767,14 @@ cdef void bilstm_forward_training(
     void* reserve
 ) nogil:
     check_status(cudnnRNNForward(
-        handle,
-        (<cudnnRNNDescriptor_t*>rnn_desc)[0],
+        <cudnnHandle_t>handle,
+        <cudnnRNNDescriptor_t>rnn_desc,
         <cudnnForwardMode_t>CUDNN_FWD_MODE_TRAINING,
         dev_seq_lengths,
-        (<cudnnRNNDataDescriptor_t*>x_desc)[0], x,
-        (<cudnnRNNDataDescriptor_t*>y_desc)[0], y,
-        (<cudnnRNNDataDescriptor_t*>h_desc)[0], hx, hy,
-        (<cudnnRNNDataDescriptor_t*>c_desc)[0], cx, cy,
+        <cudnnRNNDataDescriptor_t>x_desc, x,
+        <cudnnRNNDataDescriptor_t>y_desc, y,
+        <cudnnTensorDescriptor_t>h_desc, hx, hy,
+        <cudnnTensorDescriptor_t>c_desc, cx, cy,
         n_weight_bytes, weights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve
@@ -807,25 +807,25 @@ cdef void bilstm_backward(
     void* reserve
 ) nogil:
     check_status(cudnnRNNBackwardData_v8(
-        (<cudnnHandle_t*>handle)[0],
-        (<cudnnRNNDescriptor_t*>rnn_desc)[0],
+        <cudnnHandle_t>handle,
+        <cudnnRNNDescriptor_t>rnn_desc,
         dev_seq_lengths,
-        (<cudnnRNNDataDescriptor_t*>y_desc)[0], y, dy,
-        (<cudnnRNNDataDescriptor_t*>x_desc)[0], dx,
-        (<cudnnTensorDescriptor_t*>h_desc)[0], hx, dhy, dhx,
-        (<cudnnTensorDescriptor_t*>c_desc)[0], cx, dcy, dcx,
+        <cudnnRNNDataDescriptor_t>y_desc, y, dy,
+        <cudnnRNNDataDescriptor_t>x_desc, dx,
+        <cudnnTensorDescriptor_t>h_desc, hx, dhy, dhx,
+        <cudnnTensorDescriptor_t>c_desc, cx, dcy, dcx,
         n_weight_bytes, weights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve
-    ));
+    ))
     check_status(cudnnRNNBackwardWeights_v8(
-        (<cudnnHandle_t*>handle)[0],
-        (<cudnnRNNDescriptor_t*>rnn_desc)[0],
+        <cudnnHandle_t>handle,
+        <cudnnRNNDescriptor_t>rnn_desc,
         <cudnnWgradMode_t>CUDNN_WGRAD_MODE_ADD,
         dev_seq_lengths,
-        (<cudnnRNNDataDescriptor_t*>x_desc)[0], x,
-        (<cudnnRNNDataDescriptor_t*>h_desc)[0], hx,
-        (<cudnnRNNDataDescriptor_t*>y_desc)[0], y,
+        <cudnnRNNDataDescriptor_t>x_desc, x,
+        <cudnnTensorDescriptor_t>h_desc, hx,
+        <cudnnRNNDataDescriptor_t>y_desc, y,
         n_weight_bytes, dweights,
         n_workspace_bytes, workspace,
         n_reserve_bytes, reserve
