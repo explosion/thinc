@@ -243,18 +243,17 @@ cpdef enum:
     CUDNN_SCALAR_DOUBLE_BN_EXP_AVG_FACTOR = 102
     CUDNN_SCALAR_DOUBLE_BN_EPSILON = 103
 
-    # TODO: Find these values
-    # Bias mode
+    # I fished these values out of the cudnn headers
     CUDNN_RNN_NO_BIAS = 0
-    CUDNN_RNN_SINGLE_INP_BIAS = 0
-    CUDNN_RNN_DOUBLE_BIAS = 0
-    CUDNN_RNN_SINGLE_REC_BIAS = 0
+    CUDNN_RNN_SINGLE_INP_BIAS = 1
+    CUDNN_RNN_DOUBLE_BIAS = 2
+    CUDNN_RNN_SINGLE_REC_BIAS = 3
 
     CUDNN_FWD_MODE_INFERENCE = 0
-    CUDNN_FWD_MODE_TRAINING = 0
+    CUDNN_FWD_MODE_TRAINING = 1
 
     CUDNN_WGRAD_MODE_ADD = 0
-    CUDNN_WGRAD_MODE_SET = 0
+    CUDNN_WGRAD_MODE_SET = 1
 
 
 cdef extern from './cupy_cudnn.h' nogil:
