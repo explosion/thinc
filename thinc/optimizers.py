@@ -255,6 +255,9 @@ class Optimizer(object):
         if key not in self.mom2:
             self.mom2[key] = ops.alloc1f(weights.size)
 
+        weights_1D = ops.reshape1f(weights, weights.size)
+        gradient_1D = ops.reshape1f(grad, grad.size)
+
         # While we port from the pytorch implementation, keep some of the same
         # naming
         state = {
@@ -276,10 +279,10 @@ class Optimizer(object):
 
         # exp_avg_sq.mul_(beta2).addcmul_(1 - beta2, grad, grad)
         exp_avg_sq *= beta2
-        exp_avg_sq += (1 - beta2) * (grad ** 2)
+        exp_avg_sq += (1 - beta2) * (gradient_1D ** 2)
         # exp_avg.mul_(beta1).add_(1 - beta1, grad)
         exp_avg *= beta1
-        exp_avg += (1 - beta1) * grad
+        exp_avg += (1 - beta1) * gradient_1D
 
         state["step"] += 1
         buffered = group["buffer"][int(state["step"] % 10)]
@@ -312,14 +315,17 @@ class Optimizer(object):
         # more conservative since it's an approximated value
         if N_sma >= 5:
             if group["weight_decay"] != 0:
-                weights += -group["weight_decay"] * group["lr"] * weights
+                weights_1D += -group["weight_decay"] * group["lr"] * weights_1D
             denom = ops.xp.sqrt(exp_avg_sq) + group["eps"]
-            weights += -step_size * group["lr"] * (exp_avg / denom)
+            weights_1D += -step_size * group["lr"] * (exp_avg / denom)
         elif step_size > 0:
             if group["weight_decay"] != 0:
-                weights += -group["weight_decay"] * group["lr"] * weights
-            weights += -step_size * group["lr"] * exp_avg
-        return weights, grad
+                weights_1D += -group["weight_decay"] * group["lr"] * weights_1D
+            weights_1D += -step_size * group["lr"] * exp_avg
+        return (
+            ops.reshape_f(weights_1D, weights.shape),
+            ops.reshape_f(gradient_1D, grad.shape),
+        )
 
     def _adam(self, ops, weights, gradient, lr_scale, key, nr_upd):
         weights_1D = ops.reshape1f(weights, weights.size)
