@@ -232,7 +232,7 @@ backward pass:
 def Linear(W, b, dW, db):
     def forward_linear(X):
 
-       def backward_linear(dY):
+        def backward_linear(dY):
             dW += dY.T @ X
             db += dY.sum(axis=0)
             return dY @ W
