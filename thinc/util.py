@@ -69,11 +69,14 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
     """Set the random seed across random, numpy.random and cupy.random."""
     random.seed(seed)
     numpy.random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
     if has_torch:
         torch.manual_seed(seed)
     if has_cupy and gpu_is_available():
+        print("set random seed at cupy at", seed)
         cupy.random.seed(seed)
         if has_torch and torch.cuda.is_available():
+            torch.cuda.manual_seed(seed)
             torch.cuda.manual_seed_all(seed)
             torch.backends.cudnn.deterministic = True
             torch.backends.cudnn.benchmark = False
