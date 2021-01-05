@@ -22,7 +22,7 @@ cdef int transition(void* dest, void* src, class_t clas, void* extra_args) excep
 
 
 cdef void* initialize(Pool mem, int n, void* extra_args) except NULL:
-    state = <TestState*>mem.alloc(sizeof(TestState), 1)
+    state = <TestState*>mem.alloc(1, sizeof(TestState))
     state.length = n
     state.x = 1
     if extra_args == NULL:
