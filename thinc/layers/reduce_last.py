@@ -20,7 +20,7 @@ def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[Out
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> Ragged:
-        dX = cast(OutT, model.ops.alloc(*x_shape, dtype=dY.dtype))
+        dX = cast(OutT, model.ops.alloc(x_shape, dtype=dY.dtype))
         dX[ends] = dY # type: ignore
         return Ragged(dX, lengths)
 
