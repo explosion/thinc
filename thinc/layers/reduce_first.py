@@ -1,25 +1,28 @@
-from typing import Callable, Tuple, cast
+from typing import Callable, Tuple, cast, TypeVar
 
 from ..model import Model
 from ..config import registry
-from ..types import Floats2d, Ragged
+from ..types import Ragged, ArrayXd
 
+OutT = TypeVar("OutT", bound=ArrayXd)
 
-@registry.layers("reduce_fist.v1")
-def reduce_first() -> Model[Ragged, Floats2d]:
+@registry.layers("reduce_first.v1")
+def reduce_first() -> Model[Ragged, OutT]:
+    """Reduce sequences to their first element."""
     return Model("reduce_first", forward)
 
 
-def forward(model: Model[Ragged, Floats2d], Xr: Ragged, is_train: bool) -> Tuple[Floats2d, Callable]:
+def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[OutT, Callable]:
     starts = model.ops.alloc1i(Xr.lengths.shape[0])
     starts[1:] += Xr.lengths.cumsum()[:-1]
-    Y = Xr.dataXd[starts]
+    X = cast(OutT, Xr.dataXd)
+    Y = cast(OutT, X[starts]) # type: ignore
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
 
-    def backprop(dY: Floats2d) -> Ragged:
-        dX = model.ops.alloc2f(*x_shape, dtype=dY.dtype)
-        dX[starts] = dY
+    def backprop(dY: OutT) -> Ragged:
+        dX = cast(OutT, model.ops.alloc(*x_shape, dtype=dY.dtype))
+        dX[ends] = dY # type: ignore
         return Ragged(dX, lengths)
 
     return Y, backprop
