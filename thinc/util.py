@@ -200,7 +200,7 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     if xp is cupy:  # pragma: no cover
         Y = Y.get()
     keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel()
+    Y = numpy.array(Y, dtype="int").ravel() # type: ignore
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)
     keep_shapes.append(n_classes)

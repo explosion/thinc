@@ -32,6 +32,8 @@ from .uniqued import uniqued
 from .siamese import siamese
 
 # Pooling
+from .reduce_first import reduce_first
+from .reduce_last import reduce_last
 from .reduce_max import reduce_max
 from .reduce_mean import reduce_mean
 from .reduce_sum import reduce_sum
@@ -88,6 +90,8 @@ __all__ = [
     "residual",
     "uniqued",
     "siamese",
+    "reduce_first",
+    "reduce_last",
     "reduce_max",
     "reduce_mean",
     "reduce_sum",
