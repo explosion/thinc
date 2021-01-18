@@ -33,7 +33,7 @@ from .layers import with_reshape, with_getitem, strings2arrays, list2array
 from .layers import list2ragged, ragged2list, list2padded, padded2list, remap_ids
 from .layers import array_getitem, with_cpu, with_debug
 
-from .layers import reduce_max, reduce_mean, reduce_sum
+from .layers import reduce_first, reduce_last, reduce_max, reduce_mean, reduce_sum
 
 
 __all__ = list(locals().keys())
