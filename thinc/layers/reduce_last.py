@@ -13,8 +13,7 @@ def reduce_last() -> Model[Ragged, OutT]:
 
 
 def forward(model: Model[Ragged, OutT], Xr: Ragged, is_train: bool) -> Tuple[OutT, Callable]:
-    ends = Xr.lengths - 1
-    ends[1:] += Xr.lengths.cumsum()[:-1]
+    ends = Xr.lengths.cumsum() - 1
     Y = cast(OutT, Xr.dataXd[ends]) # type: ignore
     x_shape = Xr.dataXd.shape
     lengths = Xr.lengths
