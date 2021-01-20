@@ -6,8 +6,8 @@ from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd
 from ..types import List2d
 
 
-ValT = TypeVar("ValT", bound=Array2d)
-SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, Array2d])
+ValT = TypeVar("ValT", bound=ArrayXd)
+SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])
 
 
 @registry.layers("with_array.v1")
@@ -58,13 +58,11 @@ def init(
 
 def _get_array(model, X: SeqT) -> Array2d:
     if isinstance(X, Ragged):
-        return X.data
+        return X.dataXd
     elif isinstance(X, Padded):
-        return model.ops.reshape2f(
-            X.data, X.data.shape[0] * X.data.shape[1], X.data.shape[2]
-        )
+        return X.data
     elif not isinstance(X, (list, tuple)):
-        return cast(Array2d, X)
+        return cast(ArrayXd, X)
     else:
         return model.ops.flatten(X)
 
@@ -95,30 +93,18 @@ def _ragged_forward(
     def backprop(dYr: Ragged) -> Ragged:
         return Ragged(get_dX(dYr.dataXd), dYr.lengths)
 
-    return Ragged(cast(Floats2d, Y), Xr.lengths), backprop
+    return Ragged(Y, Xr.lengths), backprop
 
 
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
-    layer: Model[Array2d, Array2d] = model.layers[0]
-    X = model.ops.reshape2f(
-        Xp.data, Xp.data.shape[0] * Xp.data.shape[1], Xp.data.shape[2]
-    )
-    Y2d, get_dX = layer(X, is_train)
-    Y = model.ops.reshape3f(
-        cast(Floats2d, Y2d), Xp.data.shape[0], Xp.data.shape[1], Y2d.shape[1]
-    )
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
+    Y, get_dX = layer(Xp.data, is_train)
 
     def backprop(dYp: Padded) -> Padded:
         assert isinstance(dYp, Padded)
-        dY = model.ops.reshape2f(
-            dYp.data, dYp.data.shape[0] * dYp.data.shape[1], dYp.data.shape[2]
-        )
-        dX2d = get_dX(dY)
-        dX = model.ops.reshape3f(
-            dX2d, dYp.data.shape[0], dYp.data.shape[1], dX2d.shape[1]
-        )
+        dX = get_dX(dYp.data)
         return Padded(dX, dYp.size_at_t, dYp.lengths, dYp.indices)
 
     return Padded(Y, Xp.size_at_t, Xp.lengths, Xp.indices), backprop
