@@ -12,7 +12,7 @@ import threading
 import contextlib
 from contextvars import ContextVar
 
-DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=True)
+DATA_VALIDATION: ContextVar[bool] = ContextVar("DATA_VALIDATION", default=False)
 
 try:  # pragma: no cover
     import cupy
