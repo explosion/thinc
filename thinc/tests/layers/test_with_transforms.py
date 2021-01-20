@@ -1,7 +1,7 @@
 import pytest
 import numpy
 from thinc.api import NumpyOps, Model, Linear
-from thinc.api import with_array, with_padded, with_list, with_ragged, with_getitem
+from thinc.api import with_array2d, with_padded, with_list, with_ragged, with_getitem
 from thinc.types import Padded, Ragged
 
 
@@ -64,7 +64,7 @@ def get_array_model():
 
         return X[:, :-1], backprop
 
-    return with_array(Model("trimarray", _trim_array_forward))
+    return with_array2d(Model("trimarray", _trim_array_forward))
 
 
 def get_list_model():
