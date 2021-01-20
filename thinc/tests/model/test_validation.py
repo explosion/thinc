@@ -6,12 +6,13 @@ from thinc.util import DataValidationError
 
 def test_validation():
     model = chain(Relu(10), Relu(10), with_ragged(reduce_max()), Softmax())
-    with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc2f(1, 10), Y=model.ops.alloc2f(1, 10))
-    with pytest.raises(DataValidationError):
-        model.initialize(X=model.ops.alloc3f(1, 10, 1), Y=model.ops.alloc2f(1, 10))
-    with pytest.raises(DataValidationError):
-        model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
+    with data_validation(True):
+        with pytest.raises(DataValidationError):
+            model.initialize(X=model.ops.alloc2f(1, 10), Y=model.ops.alloc2f(1, 10))
+        with pytest.raises(DataValidationError):
+            model.initialize(X=model.ops.alloc3f(1, 10, 1), Y=model.ops.alloc2f(1, 10))
+        with pytest.raises(DataValidationError):
+            model.initialize(X=[model.ops.alloc2f(1, 10)], Y=model.ops.alloc2f(1, 10))
 
 
 def test_validation_complex():
@@ -29,5 +30,6 @@ def test_validation_complex():
         ParametricAttention(12),
         Relu(1),
     )
-    with pytest.raises(DataValidationError):
-        bad_model.initialize(X, Y)
+    with data_validation(True):
+        with pytest.raises(DataValidationError):
+            bad_model.initialize(X, Y)
