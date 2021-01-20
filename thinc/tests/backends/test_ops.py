@@ -1,13 +1,16 @@
 import pytest
 import numpy
 from hypothesis import given, settings
+from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
 from thinc.api import fix_random_seed
+from thinc.api import LSTM
 import inspect
 
 from .. import strategies
+from ..strategies import ndarrays_of_shape
 
 
 MAX_EXAMPLES = 10
@@ -344,6 +347,80 @@ def test_backprop_mish(ops, X):
     dX = ops.backprop_mish(zeros, X)
     assert dX.shape == X.shape
     assert (dX == 0).all()
+
+
+def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
+
+    if dirs == 1:
+        n_params = (nO * 4) * nI + nO * 4 + nO * 4 * nO + nO * 4
+        for _ in range(1, depth):
+            n_params += nO * 4 * nO + nO * 4 + nO * 4 * nO + nO * 4
+    else:
+        n_params = (nO * 2) * nI + nO * 2 + nO * 2 * (nO // 2) + nO * 2
+        for _ in range(1, depth):
+            n_params += nO * 2 * nO + nO * 2 + nO * 2 * (nO // 2) + nO * 2
+        n_params *= 2
+    lstm = LSTM(nO, nI, depth=depth, bi=dirs >= 2).initialize()
+    assert lstm.get_param("LSTM").size == n_params
+    if draw:
+        params = draw(ndarrays_of_shape(n_params))
+        # For some reason this is crashing hypothesis?
+        #size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
+        size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
+        X = draw(ndarrays_of_shape((int(size_at_t.sum()), nI)))
+    else:
+        params = numpy.ones((n_params,), dtype="f")
+        size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
+        X = numpy.zeros(((int(size_at_t.sum()), nI)))
+    H0 = numpy.zeros((depth, dirs, nO // dirs))
+    C0 = numpy.zeros((depth, dirs, nO // dirs))
+    return (params, H0, C0, X, size_at_t)
+
+
+@composite
+def draw_lstm_args(draw):
+    depth = draw(integers(1, 4))
+    dirs = draw(integers(1, 2))
+    nO = draw(integers(1, 16)) * dirs
+    batch_size = draw(integers(1, 6))
+    nI = draw(integers(1, 16))
+    return get_lstm_args(depth, dirs, nO, batch_size, nI, draw=draw)
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+@pytest.mark.parametrize(
+    "depth,dirs,nO,batch_size,nI",
+    [
+        (1, 1, 1, 1, 1),
+        (1, 1, 2, 1, 1),
+        (1, 1, 2, 1, 2),
+        (2, 1, 1, 1, 1),
+        (2, 1, 2, 2, 2),
+        (1, 2, 2, 1, 1),
+        (2, 2, 2, 2, 2),
+    ],
+)
+def test_lstm_forward_training(ops, depth, dirs, nO, batch_size, nI):
+    reference_ops = Ops()
+    params, H0, C0, X, size_at_t = get_lstm_args(depth, dirs, nO, batch_size, nI)
+    reference = reference_ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    Y, fwd_state = ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    assert_allclose(fwd_state[2], reference[1][2], atol=1e-4, rtol=1e-3)
+    assert_allclose(fwd_state[1], reference[1][1], atol=1e-4, rtol=1e-3)
+    assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
+
+
+@pytest.mark.parametrize("ops", XP_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(args=draw_lstm_args())
+def test_lstm_forward_training_fuzz(ops, args):
+    params, H0, C0, X, size_at_t = args
+    reference_ops = Ops()
+    reference = reference_ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    Y, fwd_state = ops.lstm_forward_training(params, H0, C0, X, size_at_t)
+    assert_allclose(fwd_state[2], reference[1][2], atol=1e-4, rtol=1e-3)
+    assert_allclose(fwd_state[1], reference[1][1], atol=1e-4, rtol=1e-3)
+    assert_allclose(Y, reference[0], atol=1e-4, rtol=1e-3)
 
 
 def test_get_ops():

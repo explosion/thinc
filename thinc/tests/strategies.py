@@ -34,9 +34,12 @@ def shapes(min_rows=1, max_rows=100, min_cols=1, max_cols=100):
 
 
 def ndarrays_of_shape(shape, lo=-10.0, hi=10.0, dtype="float32", width=32):
-    return arrays(
-        dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
-    )
+    if dtype.startswith("float"):
+        return arrays(
+            dtype, shape=shape, elements=floats(min_value=lo, max_value=hi, width=width)
+        )
+    else:
+        return arrays(dtype, shape=shape, elements=integers(min_value=lo, max_value=hi))
 
 
 def ndarrays(min_len=0, max_len=10, min_val=-10.0, max_val=10.0):

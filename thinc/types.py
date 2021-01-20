@@ -72,6 +72,16 @@ _3_AllKeys = Union[_3_KeyScalar, _3_Key1d, _3_Key2d, _3_Key3d]
 _F3_AllReturns = Union[float, "Floats1d", "Floats2d", "Floats3d"]
 _I3_AllReturns = Union[int, "Ints1d", "Ints2d", "Ints3d"]
 
+_4_KeyScalar = Tuple[int, int, int, int]
+_4_Key1d = Union[Tuple[int, int, int], Tuple[int, int, int, Slicish], Tuple[int, int, Slicish, int], Tuple[int, Slicish, int, int], Tuple[Slicish, int, int, int]]
+_4_Key2d = Union[Tuple[int, int], Tuple[int, int, Slicish], Tuple[int, Slicish, int], Tuple[Slicish, int, int], Tuple[int, int, Slicish, Slicish], Tuple[int, Slicish, int, Slicish], Tuple[int, Slicish, Slicish, int], Tuple[Slicish, int, int, Slicish], Tuple[Slicish, int, Slicish, int], Tuple[Slicish, Slicish, int, int]]
+_4_Key3d = Union[int, Tuple[int, Slicish], Tuple[Slicish, int], Tuple[int, Slicish, Slicish], Tuple[Slicish, int, Slicish], Tuple[Slicish, Slicish, int], Tuple[int, Slicish, Slicish, Slicish], Tuple[Slicish, int, Slicish, Slicish], Tuple[Slicish, Slicish, int, Slicish], Tuple[Slicish, Slicish, Slicish, int]]
+_4_Key4d = Union[Slicish, Tuple[Slicish, Slicish], Tuple[Slicish, Slicish, Slicish], Tuple[Slicish, Slicish, Slicish, Slicish]]
+_4_AllKeys = Union[_4_KeyScalar, _4_Key1d, _4_Key2d, _4_Key3d, _4_Key4d]
+_F4_AllReturns = Union[float, "Floats1d", "Floats2d", "Floats3d", "Floats4d"]
+_I4_AllReturns = Union[int, "Ints1d", "Ints2d", "Ints3d", "Ints4d"]
+
+
 # Typedefs for the reduction methods.
 Tru = Literal[True]
 Fal = Literal[False]
@@ -652,7 +662,31 @@ class Floats4d(_Array4d, _Floats):
         yield lambda v: validate_array(v, ndim=4, dtype="f")
 
     def __iter__(self) -> Iterator[Floats3d]: ...
-    # def __getitem__(self, key: int) -> Floats3d: ...
+
+    @overload
+    def __getitem__(self, key: _4_KeyScalar) -> float: ...
+    @overload
+    def __getitem__(self, key: _4_Key1d) -> Floats1d: ...
+    @overload
+    def __getitem__(self, key: _4_Key2d) -> Floats2d: ...
+    @overload
+    def __getitem__(self, key: _4_Key3d) -> Floats3d: ...
+    @overload
+    def __getitem__(self, key: _4_Key4d) -> "Floats4d": ...
+    def __getitem__(self, key: _4_AllKeys) -> _F4_AllReturns: ...
+
+    @overload
+    def __setitem__(self, key: _4_KeyScalar, value: float) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key1d, value: Floats1d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key2d, value: Floats2d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key3d, value: Floats3d) -> None: ...
+    @overload
+    def __setitem__(self, key: _4_Key4d, value: "Floats4d") -> None: ...
+ 
+    def __setitem__(self, key: _4_AllKeys, value: _F4_AllReturns) -> None: ...
 
     @overload
     def sum(self, *, keepdims: Tru, axis: _4_AllAx = None, out: Optional["Floats4d"] = None) -> "Floats4d": ...
