@@ -226,6 +226,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         means = <float*>mem.alloc(B * O, sizeof(float))
 
         cpu_reduce_mean(means,
@@ -238,6 +240,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         sums = <float*>mem.alloc(B * O, sizeof(float))
 
         cpu_reduce_sum(sums,
@@ -251,6 +255,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_mean(dX,
@@ -265,6 +271,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_sum(dX,
@@ -277,6 +285,8 @@ class NumpyOps(Ops):
         cdef int T = X.shape[0]
 
         cdef Pool mem = Pool()
+        assert B != 0
+        assert O != 0
         maxes = <float*>mem.alloc(B * O, sizeof(float))
         which = <int*>mem.alloc(B * O, sizeof(int))
 
@@ -295,6 +305,8 @@ class NumpyOps(Ops):
         for length in lengths[:B]:
             T += length
         cdef Pool mem = Pool()
+        assert T != 0
+        assert O != 0
         dX = <float*>mem.alloc(T * O, sizeof(float))
 
         cpu_backprop_reduce_max(dX,

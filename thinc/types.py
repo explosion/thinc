@@ -834,7 +834,7 @@ class Ragged:
     data: Array2d
     lengths: Ints1d
     data_shape: Tuple[int, ...]
-    _cumsums: Optional[Ints1d] = None
+    cumsums: Optional[Ints1d] = None
 
     def __init__(self, data: _Array, lengths: Ints1d):
         self.lengths = lengths
@@ -878,9 +878,9 @@ class Ragged:
             return Ragged(data.reshape(self.data_shape), self.lengths[index])
 
     def _get_cumsums(self) -> Ints1d:
-        if self._cumsums is None:
-            self._cumsums = self.lengths.cumsum()
-        return self._cumsums
+        if self.cumsums is None:
+            self.cumsums = self.lengths.cumsum()
+        return self.cumsums
 
     def _get_starts(self) -> Ints1d:
         cumsums = self._get_cumsums()

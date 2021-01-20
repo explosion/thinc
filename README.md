@@ -36,9 +36,12 @@ configure and deploy custom models** built with their favorite framework.
 
 Thinc is compatible with **Python 3.6+** and runs on **Linux**,
 **macOS** and **Windows**. The latest releases with binary wheels are available from
-[pip](https://pypi.python.org/pypi/thinc).
+[pip](https://pypi.python.org/pypi/thinc). Before you install Thinc and its
+dependencies, make sure that your `pip`, `setuptools` and `wheel` are up to
+date. For the most recent releases, pip 19.3 or newer is recommended.
 
 ```bash
+pip install -U pip setuptools wheel
 pip install thinc --pre
 ```
 
@@ -108,13 +111,30 @@ Thinc uses [`black`](https://github.com/psf/black) for auto-formatting, [`flake8
 
 ### 👷‍♀️ Building Thinc from source
 
-Building Thinc from source requires the full dependencies listed in [`requirements.txt`](requirements.txt) to be installed. You'll also need a compiler to build the C extensions.
+Building Thinc from source requires the full dependencies listed in
+[`requirements.txt`](requirements.txt) to be installed. You'll also need a
+compiler to build the C extensions.
 
 ```bash
 git clone https://github.com/explosion/thinc
 cd thinc
 python -m venv .env
 source .env/bin/activate
+pip install -U pip setuptools wheel
+pip install -r requirements.txt
+pip install --no-build-isolation .
+```
+
+Alternatively, install in editable mode:
+
+```bash
+pip install -r requirements.txt
+pip install --no-build-isolation --editable .
+```
+
+Or by setting `PYTHONPATH`:
+
+```bash
 export PYTHONPATH=`pwd`
 pip install -r requirements.txt
 python setup.py build_ext --inplace

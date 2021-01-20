@@ -34,10 +34,10 @@ def compile_mmh(src):
 
 
 PWD = Path(__file__).parent
-SRC = (PWD / "_custom_kernels.cu").open("r", encoding="utf8").read()
+SRC = (PWD / "_custom_kernels.cu").read_text(encoding="utf8")
 KERNELS = compile_kernels(SRC)
 
-MMH_SRC = (PWD / "_murmur3.cu").open("r", encoding="utf8").read()
+MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 seq2col_kernel = KERNELS["seq2col"]
