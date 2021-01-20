@@ -2,16 +2,15 @@ from typing import Tuple, Callable, Optional, TypeVar, Union, cast
 
 from ..model import Model
 from ..config import registry
-from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd
+from ..types import Array2d, Floats2d, Padded, Ragged, ArrayXd, Floats3d
 from ..types import List2d
 
 
-ValT = TypeVar("ValT", bound=ArrayXd)
 SeqT = TypeVar("SeqT", bound=Union[Padded, Ragged, List2d, ArrayXd])
 
 
 @registry.layers("with_array.v1")
-def with_array(layer: Model[ValT, ValT], pad: int = 0) -> Model[SeqT, SeqT]:
+def with_array(layer: Model[ArrayXd, ArrayXd], pad: int = 0) -> Model[SeqT, SeqT]:
     """Transform sequence data into a contiguous 2d array on the way into and
     out of a model. Handles a variety of sequence types: lists, padded and ragged.
     If the input is a 2d array, it is passed through unchanged.
@@ -44,7 +43,7 @@ def forward(model: Model[SeqT, SeqT], Xseq: SeqT, is_train: bool):
 def init(
     model: Model[SeqT, SeqT], X: Optional[SeqT] = None, Y: Optional[SeqT] = None
 ) -> Model[SeqT, SeqT]:
-    layer: Model[Array2d, Array2d] = model.layers[0]
+    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
     layer.initialize(
         X=_get_array(model, X) if X is not None else X,
         Y=_get_array(model, Y) if Y is not None else Y,
@@ -56,7 +55,7 @@ def init(
     return model
 
 
-def _get_array(model, X: SeqT) -> Array2d:
+def _get_array(model, X: SeqT) -> ArrayXd:
     if isinstance(X, Ragged):
         return X.dataXd
     elif isinstance(X, Padded):
@@ -99,7 +98,7 @@ def _ragged_forward(
 def _padded_forward(
     model: Model[Padded, Padded], Xp: Padded, is_train: bool
 ) -> Tuple[Padded, Callable]:
-    layer: Model[ArrayXd, ArrayXd] = model.layers[0]
+    layer: Model[Floats3d, Floats3d] = model.layers[0]
     Y, get_dX = layer(Xp.data, is_train)
 
     def backprop(dYp: Padded) -> Padded:
