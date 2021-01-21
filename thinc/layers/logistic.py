@@ -11,6 +11,9 @@ OutT = Floats2d
 
 @registry.layers("Logistic.v1")
 def Logistic() -> Model[InT, OutT]:
+    """Deprecated in favor of `sigmoid_activation` layer, for more consistent
+    naming.
+    """
     return Model("logistic", forward)
 
 

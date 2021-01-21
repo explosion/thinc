@@ -6,6 +6,7 @@ from .expand_window import expand_window
 from .hashembed import HashEmbed
 from .layernorm import LayerNorm
 from .linear import Linear
+from .lstm import LSTM, PyTorchLSTM
 from .logistic import Logistic
 from .maxout import Maxout
 from .mish import Mish
@@ -13,10 +14,11 @@ from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import Relu
+from .sigmoid_activation import sigmoid_activation
+from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
 from .softmax import Softmax
 from .sparselinear import SparseLinear
-from .lstm import LSTM, PyTorchLSTM
 from .tensorflowwrapper import TensorFlowWrapper, keras_subclass
 from .mxnetwrapper import MXNetWrapper
 
@@ -69,18 +71,20 @@ __all__ = [
     "expand_window",
     "HashEmbed",
     "LayerNorm",
+    "LSTM",
     "Maxout",
     "Mish",
     "MultiSoftmax",
     "ParametricAttention",
+    "PyTorchLSTM",
     "PyTorchWrapper",
     "PyTorchRNNWrapper",
     "Relu",
+    "sigmoid_activation",
+    "Sigmoid"
     "softmax_activation",
     "Softmax",
     "SparseLinear",
-    "LSTM",
-    "PyTorchLSTM",
     "TensorFlowWrapper",
     "add",
     "bidirectional",

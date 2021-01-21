@@ -69,6 +69,10 @@ TEST_CASES_SUMMABLE = [
     ("Mish.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Relu.v1", {}, array2d, array2d),
     ("Relu.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
+    ("Sigmoid.v1", {}, array2d, array2d),
+    ("Sigmoid.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("sigmoid_activation.v1", {}, array2d, array2d),
+    ("softmax_activation.v1", {}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
     ("Softmax.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     # fmt: off
