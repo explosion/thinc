@@ -315,7 +315,7 @@ def xp2tensorflow(
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack() # type: ignore
-        torch_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
+        tf_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
