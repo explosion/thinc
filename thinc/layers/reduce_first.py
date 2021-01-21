@@ -8,7 +8,7 @@ OutT = TypeVar("OutT", bound=ArrayXd)
 
 @registry.layers("reduce_first.v1")
 def reduce_first() -> Model[Ragged, OutT]:
-    """Reduce sequences to their first element."""
+    """Reduce ragged-formatted sequences to their first element."""
     return Model("reduce_first", forward)
 
 

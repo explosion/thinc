@@ -8,7 +8,7 @@ OutT = TypeVar("OutT", bound=ArrayXd)
 
 @registry.layers("reduce_last.v1")
 def reduce_last() -> Model[Ragged, OutT]:
-    """Reduce sequences to their last element."""
+    """Reduce ragged-formatted sequences to their last element."""
     return Model("reduce_last", forward)
 
 
