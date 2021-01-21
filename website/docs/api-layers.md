@@ -512,6 +512,52 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/staticvectors.py
 
 ## Reduction operations {#reduction-ops}
 
+### reduce_first {#reduce_first tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray>Ragged</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+
+</inline-list>
+
+Pooling layer that reduces the dimensions of the data by selecting the first
+item of each sequence. This is most useful after multi-head attention layers,
+which can learn to assign a good feature representation for the sequence to one
+of its elements.
+
+| Argument    | Type                             | Description                |
+| ----------- | -------------------------------- | -------------------------- |
+| **RETURNS** | <tt>Model[Ragged, Floats2d]</tt> | The created pooling layer. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_first.py
+```
+
+### reduce_last {#reduce_last tag="function"}
+
+Pooling layer that reduces the dimensions of the data by selecting the last
+item of each sequence. This is typically used after multi-head attention or recurrent
+neural network layers such as LSTMs, which can learn to assign a good feature
+representation for the sequence to its final element.
+
+<inline-list>
+
+- **Input:** <ndarray>Ragged</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+
+</inline-list>
+
+| Argument    | Type                             | Description                |
+| ----------- | -------------------------------- | -------------------------- |
+| **RETURNS** | <tt>Model[Ragged, Floats2d]</tt> | The created pooling layer. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/reduce_last.py
+```
+
+
+
 ### reduce_max {#reduce_max tag="function"}
 
 <inline-list>
