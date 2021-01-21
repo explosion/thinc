@@ -312,6 +312,17 @@ assert model.get_dim("nI") == 16
 | `name`      | <tt>str</tt> | The name of the dimension, e.g. `"nO"`. |
 | **RETURNS** | <tt>int</tt> | The size of the dimension.              |
 
+### Model.maybe_get_dim {#get_dim tag="method"}
+
+Retrieve the value of a dimension of the given name, or `None` if the
+dimension is either unregistered or the value is currently unset.
+
+| Argument    | Type         | Description                             |
+| ----------- | ------------ | --------------------------------------- |
+| `name`      | <tt>str</tt> | The name of the dimension, e.g. `"nO"`. |
+| **RETURNS** | <tt>Optionalint]</tt> | The size of the dimension, or `None`. |
+
+
 ### Model.set_dim {#set_dim tag="method"}
 
 Set a value for a dimension.
@@ -374,6 +385,17 @@ assert W.shape == (10, 16)
 | `name`      | <tt>str</tt>      | The name of the parameter to get. |
 | **RETURNS** | <tt>FloatsXd</tt> | The current parameter.            |
 
+### Model.maybe_get_param {#maybe_get_param tag="method"}
+
+Retrieve a weights parameter by name. Returns `None` if the parameter is
+unregistered or its value is undefined.
+
+| Argument    | Type              | Description                       |
+| ----------- | ----------------- | --------------------------------- |
+| `name`      | <tt>str</tt>      | The name of the parameter to get. |
+| **RETURNS** | <tt>Optional[FloatsXd]</tt> | The current parameter, or `None`. |
+
+
 ### Model.set_param {#set_param tag="method"}
 
 Set a weights parameter's value.
@@ -406,13 +428,22 @@ registered but the value is unset, returns `None`.
 
 ### Model.get_ref {#get_ref tag="method"}
 
-Retrieve the value of a reference of the given name, or None if unset. Raises a
+Retrieve the value of a reference of the given name. Raises a
 `KeyError` if unset.
 
 | Argument    | Type           | Description                |
 | ----------- | -------------- | -------------------------- |
 | `name`      | <tt>str</tt>   | The name of the reference. |
 | **RETURNS** | <tt>Model</tt> | The reference.             |
+
+### Model.maybe_get_ref {#maybe_get_ref tag="method"}
+
+Retrieve the value of a reference of the given name, or None if unset.
+
+| Argument    | Type           | Description                |
+| ----------- | -------------- | -------------------------- |
+| `name`      | <tt>str</tt>   | The name of the reference. |
+| **RETURNS** | <tt>Optional[Model]</tt> | The reference, or `None`. |
 
 ### Model.set_ref {#set_ref tag="method"}
 
@@ -442,6 +473,16 @@ undefined or no gradient has been allocated, raises a `KeyError`.
 | ----------- | ----------------- | -------------------------------------------------- |
 | `name`      | <tt>str</tt>      | The name of the parameter to get the gradient for. |
 | **RETURNS** | <tt>FloatsXd</tt> | The current gradient of the parameter.             |
+
+### Model.maybe_get_grad {#maybe_get_grad tag="method"}
+
+Get the gradient for a parameter, if one is available. If the parameter is
+undefined or no gradient has been allocated, returns `None`.
+
+| Argument    | Type              | Description                                        |
+| ----------- | ----------------- | -------------------------------------------------- |
+| `name`      | <tt>str</tt>      | The name of the parameter to get the gradient for. |
+| **RETURNS** | <tt>Optional[FloatsXd]</tt> | The current gradient of the parameter, or `None`. |
 
 ### Model.set_grad {#set_grad tag="method"}
 
