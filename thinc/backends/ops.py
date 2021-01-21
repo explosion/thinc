@@ -12,6 +12,7 @@ from ..util import get_array_module, is_xp_array, to_numpy
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
+FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 
 
 class Ops:
@@ -558,16 +559,16 @@ class Ops:
         kwargs = {"dtype": dtype} if dtype is not None else {}
         return self.xp.ascontiguousarray(data, **kwargs)
 
-    def sigmoid(self, X: FloatsT, *, inplace: bool = False) -> FloatsT:
+    def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0
-            X **= -1.0
-            return X
+            X += 1.0 # type: ignore
+            X **= -1.0 # type: ignore
+            return cast(FloatsType, X)
         else:
-            return 1.0 / (1.0 + self.xp.exp(-X))
+            return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
-    def dsigmoid(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
+    def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             Y *= 1 - Y
             return Y
