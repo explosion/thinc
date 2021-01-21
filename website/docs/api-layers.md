@@ -208,7 +208,33 @@ assert Y.shape == (2, 10)
 https://github.com/explosion/thinc/blob/master/thinc/layers/linear.py
 ```
 
-### Logistic {#logistic tag="function"}
+### Sigmoid {#sigmoid tag="function"}
+
+<inline-list>
+
+- **Input:** <ndarray shape="batch_size, nI">Floats2d</ndarray>
+- **Output:** <ndarray shape="batch_size, nO">Floats2d</ndarray>
+- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+  <ndarray shape="nO,">b</ndarray>
+
+</inline-list>
+
+A linear (aka dense) layer, followed by a sigmoid activation. This is usually
+used as an output layer for multi-label classification (in contrast to the
+`Softmax` layer, which is used for problems where exactly one class is correct
+per example. 
+
+| Argument    | Type                               | Description                      |
+| ----------- | ---------------------------------- | -------------------------------- |
+| `nOs`       | <tt>Tuple[int, ...]</tt>           | The sizes of the output vectors. |
+| `nI`        | <tt>Optional[int]</tt>             | The size of the input vectors.   |
+| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created sigmoid layer. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid.py
+```
+
+### sigmoid_activation {#sigmoid_activation tag="function"}
 
 <inline-list>
 
@@ -217,16 +243,16 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/linear.py
 
 </inline-list>
 
-Apply the logistic function as an activation to the inputs. This is often used
-as an output activation for multi-label classification, because each element of
-the output vectors will be between `0` and `1`.
+Apply the sigmoid logistic function as an activation to the inputs. This is often
+used as an output activation for multi-label classification, because each element
+of the output vectors will be between `0` and `1`.
 
 | Argument    | Type                               | Description                   |
 | ----------- | ---------------------------------- | ----------------------------- |
-| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created `Logistic` layer. |
+| **RETURNS** | <tt>Model[Floats2d, Floats2d]</tt> | The created `sigmoid_activation` layer. |
 
 ```python
-https://github.com/explosion/thinc/blob/master/thinc/layers/logistic.py
+https://github.com/explosion/thinc/blob/master/thinc/layers/sigmoid_logistic.py
 ```
 
 ### LSTM and BiLSTM {#lstm tag="function"}
@@ -899,13 +925,39 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/strings2arrays.py
 
 <inline-list>
 
+- **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], ArrayXd]</tt>
+
+</inline-list>
+
+Transform sequence data into a contiguous array on the way into and out of a model.
+Handles a variety of sequence types: lists, padded and ragged. If the input is
+an array, it is passed through unchanged.
+
+| Argument       | Type                             | Description                   |
+| -------------- | -------------------------------- | ----------------------------- |
+| `layer`        | <tt>Model[Array2d, Array2d]</tt> | The layer to wrap.            |
+| _keyword-only_ |                                  |                               |
+| `pad`          | <tt>int</tt>                     | The padding. Defaults to `0`. |
+| **RETURNS**    | <tt>Model</tt>                   | The wrapped layer.            |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_array2d.py
+```
+
+### with_array2d {#with_array2d tag="function"}
+
+<inline-list>
+
 - **Input / output:** <tt>Union[Padded, Ragged, List[Array2d], Array2d]</tt>
 
 </inline-list>
 
 Transform sequence data into a contiguous two-dimensional array on the way into
-and out of a model. Handles a variety of sequence types: lists, padded and
-ragged. If the input is a two-dimensional array, it is passed through unchanged.
+and out of a model. In comparison to the `with_array` layer, the behavior of
+this layer mostly differs on `Padded` inputs, as this layer merges the batch
+and length axes to form a two-dimensional array.
+Handles a variety of sequence types: lists, padded and ragged.
+If the input is a two-dimensional array, it is passed through unchanged.
 
 | Argument       | Type                             | Description                   |
 | -------------- | -------------------------------- | ----------------------------- |
