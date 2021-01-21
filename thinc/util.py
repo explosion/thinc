@@ -33,6 +33,7 @@ except ImportError:  # pragma: no cover
     has_torch = False
 
 try:  # pragma: no cover
+    import tensorflow.experimental.dlpack
     import tensorflow as tf
 
     has_tensorflow = True
@@ -312,29 +313,37 @@ def xp2tensorflow(
 ) -> "tf.Tensor":  # pragma: no cover
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
-    tensorflow_tensor = tf.convert_to_tensor(xp_tensor)
+    if hasattr(xp_tensor, "toDlpack"):
+        dlpack_tensor = xp_tensor.toDlpack() # type: ignore
+        torch_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
+    else:
+        tf_tensor = tf.convert_to_tensor(xp_tensor)
     if as_variable:
         # tf.Variable() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tensorflow_tensor.device):
-            tensorflow_tensor = tf.Variable(tensorflow_tensor, trainable=requires_grad)
+        with tf.device(tf_tensor.device):
+            tf_tensor = tf.Variable(tf_tensor, trainable=requires_grad)
     if requires_grad is False and as_variable is False:
         # tf.stop_gradient() automatically puts in GPU if available.
         # So we need to control it using the context manager
-        with tf.device(tensorflow_tensor.device):
-            tensorflow_tensor = tf.stop_gradient(tensorflow_tensor)
-    return tensorflow_tensor
+        with tf.device(tf_tensor.device):
+            tf_tensor = tf.stop_gradient(tf_tensor)
+    return tf_tensor
 
 
-def tensorflow2xp(tensorflow_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cover
+def tensorflow2xp(tf_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
-    return tensorflow_tensor.numpy()
+    if tf_tensor.device is None:
+        return tf_tensor.numpy()
+    else:
+        dlpack_tensor = tf_tensor.experimental.dlpack.to_dlpack(tf_tensor)
+        return cupy.fromDlpack(dlpack_tensor)
 
 
 def xp2mxnet(
     xp_tensor: ArrayXd, requires_grad: bool = False
-) -> "torch.Tensor":  # pragma: no cover
+) -> "mx.nd.NDArray":  # pragma: no cover
     """Convert a numpy or cupy tensor to a MXNet tensor."""
     if hasattr(xp_tensor, "toDlpack"):
         dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
