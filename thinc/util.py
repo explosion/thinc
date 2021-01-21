@@ -334,10 +334,14 @@ def xp2tensorflow(
 def tensorflow2xp(tf_tensor: "tf.Tensor") -> ArrayXd:  # pragma: no cover
     """Convert a Tensorflow tensor to numpy or cupy tensor."""
     assert_tensorflow_installed()
-    if tf_tensor.device is None:
+    if tf_tensor.device is not None:
+        _, device_type, device_num = tf_tensor.device.rsplit(":", 2)
+    else:
+        device_type = "CPU"
+    if device_type == "CPU" or not has_cupy:
         return tf_tensor.numpy()
     else:
-        dlpack_tensor = tf_tensor.experimental.dlpack.to_dlpack(tf_tensor)
+        dlpack_tensor = tensorflow.experimental.dlpack.to_dlpack(tf_tensor)
         return cupy.fromDlpack(dlpack_tensor)
 
 
