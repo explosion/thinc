@@ -23,6 +23,15 @@ def HashEmbed(
     initializer: Callable = uniform_init,
     dropout: Optional[float] = None
 ) -> Model[InT, OutT]:
+    """
+    An embedding layer that uses the “hashing trick” to map keys to distinct values.
+    The hashing trick involves hashing each key four times with distinct seeds,
+    to produce four likely differing values. Those values are modded into the
+    table, and the resulting vectors summed to produce a single result. Because
+    it’s unlikely that two different keys will collide on all four “buckets”,
+    most distinct keys will receive a distinct vector under this scheme, even
+    when the number of vectors in the table is very low.
+    """
     attrs: Dict[str, Any] = {"column": column, "seed": seed}
     if dropout is not None:
         attrs["dropout_rate"] = dropout
