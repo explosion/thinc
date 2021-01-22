@@ -837,16 +837,9 @@ class registry(object):
                     # just create an instance of the type here, since this
                     # wouldn't work for generics / more complex custom types
                     getter = cls.get(reg_name, func_name)
-                    try:
-                        getter_result = getter(*args, **kwargs)
-                    except Exception as err:
-                        getter_name = getter.__name__
-                        title = f"Can't construct config: calling registry function ({getter_name}) failed"
-                        raise ConfigValidationError(
-                            config={key: value},
-                            errors=[{"msg": err, "loc": [func_name]}],
-                            title=title,
-                        ) from err
+                    # We don't want to try/except this and raise our own error
+                    # here, because we want the traceback if the function fails.
+                    getter_result = getter(*args, **kwargs)
                 else:
                     # We're not resolving and calling the function, so replace
                     # the getter_result with a Promise class
