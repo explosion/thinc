@@ -788,6 +788,14 @@ class Padded:
     lengths: Ints1d
     indices: Ints1d
 
+    def copy(self):
+        return Padded(
+            self.data.copy(),
+            self.size_at_t.copy(),
+            self.lengths.copy(),
+            self.indices.copy()
+        )
+
     def __len__(self) -> int:
         return self.lengths.shape[0]
 
