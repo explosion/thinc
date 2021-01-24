@@ -540,7 +540,7 @@ def test_validation_bad_function():
 
     # Bad function
     config = {"test": {"@optimizers": "bad.v1"}}
-    with pytest.raises(ConfigValidationError):
+    with pytest.raises(ValueError):
         my_registry.resolve(config)
     # Bad function call
     config = {"test": {"@optimizers": "good.v1", "invalid_arg": 1}}
