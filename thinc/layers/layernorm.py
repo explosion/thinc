@@ -50,7 +50,7 @@ def init(
         model.set_dim("nO", Y_width)
     nI = model.get_dim("nI")
     if not model.has_dim("nO"):
-        model.set_dim("nO")
+        model.set_dim("nO", nI)
     model.set_param("G", model.ops.alloc1f(nI) + 1)
     model.set_param("b", model.ops.alloc1f(nI))
     assert model.get_dim("nO") is not None
