@@ -22,7 +22,7 @@ to use.
 <div>
 <code-screenshot>
 
-[![Screenshot of mypy linting in Visual Studio Code](images/type_checking.jpg)](/docs/usage-type-checking)
+[![](images/type_checking.jpg)](/docs/usage-type-checking)
 
 </code-screenshot>
 </div>
