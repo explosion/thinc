@@ -87,6 +87,7 @@ jobs:
     displayName: 'Install from sdist'
 
   - script: |
+      pip install 'numpy<1.19.4'
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
