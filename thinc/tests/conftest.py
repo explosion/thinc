@@ -18,20 +18,3 @@ def pytest_runtest_setup(item):
     for opt in ["slow"]:
         if opt in item.keywords and not getopt(opt):
             pytest.skip(f"need --{opt} option to run")
-
-
-@pytest.fixture()
-def pathy_fixture():
-    import tempfile
-    import shutil
-    from pathy import use_fs, Pathy
-
-    temp_folder = tempfile.mkdtemp(prefix="thinc-pathy")
-    use_fs(temp_folder)
-
-    root = Pathy("gs://test-bucket")
-    root.mkdir(exist_ok=True)
-
-    yield root
-    use_fs(False)
-    shutil.rmtree(temp_folder)

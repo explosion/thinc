@@ -169,13 +169,6 @@ def test_model_can_load_from_disk(model_with_no_args):
     assert model_with_no_args.to_bytes() == m2.to_bytes()
 
 
-def test_model_can_roundtrip_with_path_subclass(model_with_no_args, pathy_fixture):
-    path = pathy_fixture / "thinc_model"
-    model_with_no_args.to_disk(path)
-    m2 = model_with_no_args.from_disk(path)
-    assert model_with_no_args.to_bytes() == m2.to_bytes()
-
-
 def test_change_attr_values(model_with_no_args):
     model = model_with_no_args
     model.name = "target"
