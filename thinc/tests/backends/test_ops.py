@@ -15,7 +15,7 @@ from ..strategies import ndarrays_of_shape
 
 MAX_EXAMPLES = 10
 
-VANILLA_OPS = Ops(numpy)
+VANILLA_OPS = Ops(numpy)  # type:ignore
 NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
@@ -365,7 +365,7 @@ def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
     if draw:
         params = draw(ndarrays_of_shape(n_params))
         # For some reason this is crashing hypothesis?
-        #size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
+        # size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
         size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
         X = draw(ndarrays_of_shape((int(size_at_t.sum()), nI)))
     else:
