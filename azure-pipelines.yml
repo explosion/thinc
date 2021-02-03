@@ -82,17 +82,16 @@ jobs:
   - bash: |
       pip freeze > installed.txt
       pip uninstall -y -r installed.txt
-      SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
-      pip install dist/$SDIST
-    displayName: 'Install from sdist'
-
-  - script: |
-      pip install 'numpy<1.19.4'
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.6.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
+      SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
+      pip install --no-build-isolation dist/$SDIST
+    displayName: 'Install from sdist'
+
+  - script: |
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
