@@ -349,6 +349,14 @@ def test_config_roundtrip_disk():
     assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
 
 
+def test_config_roundtrip_disk_respects_path_subclasses(pathy_fixture):
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    cfg_path = pathy_fixture / "config.cfg"
+    cfg.to_disk(cfg_path)
+    new_cfg = Config().from_disk(cfg_path)
+    assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+
+
 def test_config_to_str_invalid_defaults():
     """Test that an error is raised if a config contains top-level keys without
     a section that would otherwise be interpreted as [DEFAULT] (which causes
@@ -505,7 +513,9 @@ def test_make_config_positional_args_dicts():
 
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(rate: float,) -> None:
+    def test_optimizer_v1(
+        rate: float,
+    ) -> None:
         return None
 
     @my_registry.schedules("test_schedule.v1")

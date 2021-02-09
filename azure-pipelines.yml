@@ -57,7 +57,7 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      python -m pip install --upgrade pip setuptools
+      python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
@@ -83,14 +83,14 @@ jobs:
       pip freeze > installed.txt
       pip uninstall -y -r installed.txt
       SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
-      pip install dist/$SDIST
+      PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
 
   - script: |
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.6.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml

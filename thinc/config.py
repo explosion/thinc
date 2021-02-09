@@ -432,7 +432,7 @@ class Config(dict):
 
     def to_disk(self, path: Union[str, Path], *, interpolate: bool = True):
         """Serialize the config to a file."""
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("w", encoding="utf8") as file_:
             file_.write(self.to_str(interpolate=interpolate))
 
@@ -444,7 +444,8 @@ class Config(dict):
         overrides: Dict[str, Any] = {},
     ) -> "Config":
         """Load config from a file."""
-        with Path(path).open("r", encoding="utf8") as file_:
+        path = Path(path) if isinstance(path, str) else path
+        with path.open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 

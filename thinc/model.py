@@ -452,7 +452,7 @@ class Model(Generic[InT, OutT]):
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -529,7 +529,7 @@ class Model(Generic[InT, OutT]):
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
@@ -570,7 +570,7 @@ class Model(Generic[InT, OutT]):
         If 'strict', the function returns False if the model has an attribute
         already loaded that would be changed.
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         if path.is_dir() or not path.exists():
             return False
         with path.open("rb") as file_:
