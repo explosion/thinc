@@ -1,6 +1,6 @@
 import pytest
 import numpy
-from thinc.api import clone, concatenate, noop, add
+from thinc.api import clone, concatenate, noop, add, map_list
 from thinc.api import Linear, Dropout, Model, NumpyOps
 from thinc.layers import chain
 
@@ -216,3 +216,22 @@ def test_concatenate():
     assert Y.shape[1] == sum([layer.predict(data).shape[1] for layer in model.layers])
     dX = backprop(Y)
     assert dX.shape == data.shape
+
+
+def test_map_list():
+    data = [
+        numpy.asarray([[1, 2, 3], [4, 5, 6]], dtype="f"),
+        numpy.asarray([[7, 8, 9], [10, 11, 12]], dtype="f"),
+    ]
+    model = map_list(Linear())
+    model.initialize(X=data, Y=data)
+    Y, backprop = model(data, is_train=True)
+    assert isinstance(Y, list)
+    assert len(Y) == len(data)
+    assert Y[0].shape == data[0].shape
+    assert Y[1].shape == data[1].shape
+    dX = backprop(Y)
+    assert isinstance(dX, list)
+    assert len(dX) == len(data)
+    assert dX[0].shape == dX[0].shape
+    assert dX[1].shape == dX[1].shape
