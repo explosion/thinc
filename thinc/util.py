@@ -160,12 +160,6 @@ def require_cpu() -> bool:  # pragma: no cover
     from .backends import set_current_ops, NumpyOps
 
     set_current_ops(NumpyOps())
-    try:
-        import torch
-
-        torch.set_default_tensor_type("torch.FloatTensor")
-    except ImportError:
-        pass
     return True
 
 
