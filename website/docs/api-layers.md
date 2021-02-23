@@ -700,6 +700,19 @@ concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
 https://github.com/explosion/thinc/blob/master/thinc/layers/concatenate.py
 ```
 
+### map_list {#map_list tag="function"}
+
+Map a child layer across list inputs.
+
+| Argument    | Type                                  | Description             |
+| ----------- | ------------------------------------- | ----------------------- |
+| `layer`   | <tt>Model[InT, OutT]</tt>               | The child layer to map. |
+| **RETURNS** | <tt>Model[List[InT], List[OutT]]</tt> | The composed model.     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/map_list.py
+```
+
 ### expand_window {#expand_window tag="function"}
 
 <inline-list>
