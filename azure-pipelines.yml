@@ -90,7 +90,7 @@ jobs:
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      #pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
