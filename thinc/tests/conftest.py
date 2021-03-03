@@ -2,9 +2,6 @@ import pytest
 from hypothesis import settings
 
 
-settings.register_profile("ci", derandomize=True)
-
-
 def pytest_addoption(parser):
     parser.addoption("--slow", action="store_true", help="include slow tests")
 
