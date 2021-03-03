@@ -1,7 +1,8 @@
 import contextlib
-from typing import Type, Dict
+from typing import Type, Dict, Any
 
 from contextvars import ContextVar
+import threading
 
 from .ops import Ops
 from .cupy_ops import CupyOps, has_cupy
@@ -14,8 +15,11 @@ from ..types import OpsNames
 
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
-context_Ops: ContextVar[Type[NumpyOps]] = ContextVar("context_Ops", default=NumpyOps)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
+
+# Internal use of thread-local storage only for detecting cases where a Jupyter
+# notebook might not have preserved contextvars across cells.
+_GLOBAL_STATE = {"ops": NumpyOps()}
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
@@ -102,6 +106,33 @@ def get_current_ops() -> Ops:
 def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
+    _get_thread_state().ops = ops
+
+
+def contextvars_eq_thread_ops() -> bool:
+    current_ops = context_ops.get()
+    thread_ops = _get_thread_state().ops
+    if type(current_ops) == type(thread_ops):
+        return True
+    return False
+
+
+def _get_thread_state():
+    """Get a thread-specific state variable that inherits from a global
+    state when it's created."""
+    thread: threading.Thread = threading.current_thread()
+    if not hasattr(thread, "__local"):
+        thread.__local = _create_thread_local(_GLOBAL_STATE)
+    return thread.__local
+
+
+def _create_thread_local(
+    attrs: Dict[str, Any], local_class: Type[threading.local] = threading.local
+):
+    obj = local_class()
+    for name, value in attrs.items():
+        setattr(obj, name, value)
+    return obj
 
 
 __all__ = [
