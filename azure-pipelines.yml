@@ -88,7 +88,7 @@ jobs:
 
   - script: |
       pip install -r requirements.txt
-      #pip install "tensorflow==2.3.2"
+      pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
       pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
