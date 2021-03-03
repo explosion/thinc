@@ -28,6 +28,7 @@ from .bidirectional import bidirectional
 from .chain import chain
 from .clone import clone
 from .concatenate import concatenate
+from .map_list import map_list
 from .noop import noop
 from .residual import residual
 from .uniqued import uniqued

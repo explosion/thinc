@@ -29,6 +29,7 @@ from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list
+from .layers import map_list
 from .layers import with_array, with_array2d
 from .layers import with_padded, with_list, with_ragged, with_flatten
 from .layers import with_reshape, with_getitem, strings2arrays, list2array
