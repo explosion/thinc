@@ -61,8 +61,8 @@ jobs:
     NOTEBOOK_KERNEL: "thinc-notebook-tests"
   strategy:
     matrix:
-      Python39LinuxX64_GPU:
-        python.version: '3.9'
+      Python38LinuxX64_GPU:
+        python.version: '3.8'
   pool:
     name: "LinuxX64_GPU"
   steps:
