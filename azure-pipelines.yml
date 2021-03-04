@@ -54,6 +54,7 @@ jobs:
 #    parameters:
 #      python_version: '$(python.version)'
 #      architecture: 'x64'
+#      gpu: false
 
 - job: 'TestGPU'
   variables:
@@ -69,3 +70,4 @@ jobs:
     parameters:
       python_version: '$(python.version)'
       architecture: 'x64'
+      gpu: true
