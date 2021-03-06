@@ -3,7 +3,7 @@ from typing import List, Optional
 from numpy.testing import assert_almost_equal
 from thinc.api import registry, with_padded, Dropout, NumpyOps, Model
 from thinc.backends import NumpyOps
-from thinc.util import data_validation
+from thinc.util import data_validation, get_width
 from thinc.types import Ragged, Padded, Array2d, Floats2d, FloatsXd, Shape
 from thinc.util import has_torch
 import numpy
@@ -104,7 +104,7 @@ TEST_CASES = [
     ("HashEmbed.v1", {"nO": 1, "nV": array2dint.max(), "column": 0, "dropout": 0.2}, array2dint, array2d),
     ("HashEmbed.v1", {"nO": 1, "nV": 2}, array1dint, array2d),
     ("MultiSoftmax.v1", {"nOs": (1, 3)}, array2d, array2d),
-    ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
+    # ("CauchySimilarity.v1", {}, (array2d, array2d), array1d),
     ("ParametricAttention.v1", {}, ragged, ragged),
     ("SparseLinear.v1", {}, (numpy.asarray([1, 2, 3], dtype="uint64"), array1d, numpy.asarray([1, 1], dtype="i")), array2d),
     ("remap_ids.v1", {"dtype": "f"}, ["a", 1, 5.0], array2dint)
@@ -122,6 +122,8 @@ def test_layers_from_config(name, kwargs, in_data, out_data):
     with data_validation(valid):
         model.initialize(in_data, out_data)
         Y, backprop = model(in_data, is_train=True)
+        if model.has_dim("nO"):
+            assert get_width(Y) == model.get_dim("nO")
         assert_data_match(Y, out_data)
         dX = backprop(Y)
         assert_data_match(dX, in_data)
