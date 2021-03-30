@@ -332,9 +332,6 @@ class NumpyOps(Ops):
         else:
             self.xp.add.at(table, indices, values)
 
-    def tile(self, X, reps):
-        return self.xp.tile(X, reps)
-
     @cython.boundscheck(False)
     @cython.wraparound(False)
     def adam(self, np.ndarray weights, np.ndarray gradient, np.ndarray mom1,

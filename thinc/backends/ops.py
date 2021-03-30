@@ -199,6 +199,9 @@ class Ops:
             self.xp.dot(x, y, out=out)
             return out
 
+    def tile(self, X: Floats2d, reps: int) -> Floats2d:
+        return self.xp.tile(X, reps)
+
     def affine(self, X: Floats2d, W: Floats2d, b: Floats1d) -> Floats2d:
         """Apply a weights layer and a bias to some inputs, i.e.
         Y = X @ W.T + b
