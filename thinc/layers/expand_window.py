@@ -21,10 +21,11 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
     nW = model.attrs["window_size"]
     if len(X) > 0:
         Y = model.ops.seq2col(X, nW)
+    else:
+        assert len(X) == 0
+        Y = model.ops.tile(X, (nW * 2) + 1)
 
     def backprop(dY: OutT) -> InT:
         return model.ops.backprop_seq2col(dY, nW)
 
-    if len(X) == 0:
-        return X, backprop
     return Y, backprop

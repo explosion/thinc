@@ -133,6 +133,9 @@ class CupyOps(Ops):
     def scatter_add(self, table, indices, values):
         self._xp2.scatter_add(table, indices, values)
 
+    def tile(self, X, reps):
+        return self.xp.tile(X, reps)
+
     def adam(
         self, weights, gradient, mom1, mom2, beta1, beta2, eps, learn_rate, mod_rate=1.0
     ):
