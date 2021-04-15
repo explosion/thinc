@@ -1432,6 +1432,4 @@ def test_config_overrides(greeting, value, expected):
     overrides = {"vars.a": greeting}
     assert "${vars.a}" in str_cfg
     cfg = Config().from_str(str_cfg, overrides=overrides)
-    print()
-    print("3 from str", cfg)
     assert expected in str(cfg)
