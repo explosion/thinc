@@ -50,12 +50,6 @@ jobs:
   pool:
     vmImage: $(imageName)
 
-  steps:
-  - task: Bash@3
-    inputs:
-      targetType: 'inline'
-      script: 'env | sort'
-
   - task: UsePythonVersion@0
     inputs:
       versionSpec: '$(python.version)'
