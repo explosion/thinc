@@ -373,6 +373,8 @@ class Config(dict):
     ) -> "Config":
         """Load the config from a string."""
         config = get_configparser(interpolate=interpolate)
+        if overrides:
+            config = get_configparser(interpolate=False)
         try:
             config.read_string(text)
         except ParsingError as e:
@@ -382,6 +384,9 @@ class Config(dict):
         self._set_overrides(config, overrides)
         self.clear()
         self.interpret_config(config)
+        if overrides and interpolate:
+            # do the interpolation. Avoids recursion because the new call from_str call will have overrides as empty
+            self = self.interpolate()
         self.is_interpolated = interpolate
         return self
 

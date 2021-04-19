@@ -1364,3 +1364,72 @@ def test_config_dataclasses():
     result = my_registry.resolve(config)["cfg"]
     assert isinstance(result, Ragged)
     assert list(result._get_cumsums()) == [4, 6, 14, 15, 19]
+
+
+@pytest.mark.parametrize(
+    "greeting,value,expected", [
+        # simple substitution should go fine
+        [342, "${vars.a}", int],
+        ["342", "${vars.a}", str],
+        ["everyone", "${vars.a}", str],
+    ]
+)
+def test_config_interpolates(greeting, value, expected):
+    str_cfg = f"""
+    [project]
+    my_par = {value}
+
+    [vars]
+    a = "something"
+    """
+    overrides = {"vars.a": greeting}
+    cfg = Config().from_str(str_cfg, overrides=overrides)
+    assert type(cfg["project"]["my_par"]) == expected
+
+
+@pytest.mark.parametrize(
+    "greeting,value,expected", [
+        # simple substitution should go fine
+        ["hello 342", "${vars.a}", "hello 342"],
+        ["hello everyone", "${vars.a}", "hello everyone"],
+        ["hello tout le monde", "${vars.a}", "hello tout le monde"],
+        ["hello 42", "${vars.a}", "hello 42"],
+        # substituting an element in a list
+        ["hello 342", "[1, ${vars.a}, 3]", "hello 342"],
+        ["hello everyone", "[1, ${vars.a}, 3]", "hello everyone"],
+        ["hello tout le monde", "[1, ${vars.a}, 3]", "hello tout le monde"],
+        ["hello 42", "[1, ${vars.a}, 3]", "hello 42"],
+        # substituting part of a string
+        [342, "hello ${vars.a}", "hello 342"],
+        ["everyone", "hello ${vars.a}", "hello everyone"],
+        ["tout le monde", "hello ${vars.a}", "hello tout le monde"],
+        pytest.param("42", "hello ${vars.a}", "hello 42", marks=pytest.mark.xfail),
+        # substituting part of a implicit string inside a list
+        [342, "[1, hello ${vars.a}, 3]", "hello 342"],
+        ["everyone", "[1, hello ${vars.a}, 3]", "hello everyone"],
+        ["tout le monde", "[1, hello ${vars.a}, 3]", "hello tout le monde"],
+        pytest.param("42", "[1, hello ${vars.a}, 3]", "hello 42", marks=pytest.mark.xfail),
+        # substituting part of a explicit string inside a list
+        [342, "[1, 'hello ${vars.a}', '3']", "hello 342"],
+        ["everyone", "[1, 'hello ${vars.a}', '3']", "hello everyone"],
+        ["tout le monde", "[1, 'hello ${vars.a}', '3']", "hello tout le monde"],
+        pytest.param("42", "[1, 'hello ${vars.a}', '3']", "hello 42", marks=pytest.mark.xfail),
+        # more complicated example
+        [342, "[{'name':'x','script':['hello ${vars.a}']}]", "hello 342"],
+        ["everyone", "[{'name':'x','script':['hello ${vars.a}']}]", "hello everyone"],
+        ["tout le monde", "[{'name':'x','script':['hello ${vars.a}']}]", "hello tout le monde"],
+        pytest.param("42", "[{'name':'x','script':['hello ${vars.a}']}]", "hello 42", marks=pytest.mark.xfail),
+    ]
+)
+def test_config_overrides(greeting, value, expected):
+    str_cfg = f"""
+    [project]
+    commands = {value}
+
+    [vars]
+    a = "world"
+    """
+    overrides = {"vars.a": greeting}
+    assert "${vars.a}" in str_cfg
+    cfg = Config().from_str(str_cfg, overrides=overrides)
+    assert expected in str(cfg)
