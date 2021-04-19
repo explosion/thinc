@@ -94,6 +94,3 @@ jobs:
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
     displayName: 'Run tests'
-
-  - bash: bash <(curl -s https://codecov.io/bash)
-    displayName: 'Upload to codecov.io'
