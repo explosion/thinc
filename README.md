@@ -14,7 +14,6 @@ production in thousands of companies, via both [spaCy](https://spacy.io) and
 configure and deploy custom models** built with their favorite framework.
 
 [![Azure Pipelines](https://img.shields.io/azure-devops/build/explosion-ai/public/7/master.svg?logo=azure-pipelines&style=flat-square)](https://dev.azure.com/explosion-ai/public/_build?definitionId=7)
-[![codecov](https://img.shields.io/codecov/c/gh/explosion/thinc?logo=codecov&logoColor=white&style=flat-square)](https://codecov.io/gh/explosion/thinc)
 [![Current Release Version](https://img.shields.io/github/v/release/explosion/thinc.svg?include_prereleases&sort=semver&style=flat-square&logo=github)](https://github.com/explosion/thinc/releases)
 [![PyPi Version](https://img.shields.io/pypi/v/thinc.svg?include_prereleases&sort=semver&style=flat-square&logo=pypi&logoColor=white)](https://pypi.python.org/pypi/thinc)
 [![conda Version](https://img.shields.io/conda/vn/conda-forge/thinc.svg?style=flat-square&logo=conda-forge&logoColor=white)](https://anaconda.org/conda-forge/thinc)
