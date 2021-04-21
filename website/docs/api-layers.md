@@ -460,7 +460,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
 
 - **Input:** <ndarray>Tuple[ArrayXd, ArrayXd, ArrayXd]</ndarray>
 - **Output:** <ndarray>ArrayXd</ndarray>
-- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+- **Parameters:** <ndarray shape="nO*length,">W</ndarray>,
   <ndarray shape="nO,">b</ndarray>, `length` <tt>int</tt>
 
 </inline-list>
