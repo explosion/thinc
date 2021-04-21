@@ -82,6 +82,7 @@ def test_model_init():
         model.set_dim("xyz", 20)
     with pytest.raises(ValueError):
         model.set_dim("nI", 20)
+    model.set_dim("nI", 20, force=True)
     assert model.has_ref("a")
     assert model.get_ref("a").name == "a"
     assert not model.has_ref("xyz")

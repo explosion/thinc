@@ -176,14 +176,14 @@ class Model(Generic[InT, OutT]):
         else:
             return value
 
-    def set_dim(self, name: str, value: int) -> None:
+    def set_dim(self, name: str, value: int, force: bool = False) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
             raise KeyError(
                 f"Cannot set unknown dimension '{name}' for model '{self.name}'."
             )
         old_value = self._dims[name]
-        if old_value is not None and old_value != value:
+        if old_value is not None and old_value != value and not force:
             err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
             raise ValueError(err)
         self._dims[name] = value
