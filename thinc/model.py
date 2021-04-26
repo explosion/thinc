@@ -176,7 +176,7 @@ class Model(Generic[InT, OutT]):
         else:
             return value
 
-    def set_dim(self, name: str, value: int, force: bool = False) -> None:
+    def set_dim(self, name: str, value: int, *, force: bool = False) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
             raise KeyError(
