@@ -60,7 +60,7 @@ jobs:
       python -m pip install pip==21.0
       python -m pip install --upgrade setuptools wheel
       pip install -r requirements.txt
-    displayName: 'Install dependencies (test)'
+    displayName: 'Install dependencies'
 
   - script: |
       python setup.py build_ext --inplace
