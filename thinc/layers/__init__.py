@@ -14,6 +14,7 @@ from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import Relu
+from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
@@ -101,6 +102,7 @@ __all__ = [
     "reduce_max",
     "reduce_mean",
     "reduce_sum",
+    "resizable",
     "list2array",
     "list2ragged",
     "list2padded",
