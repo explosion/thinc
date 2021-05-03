@@ -49,6 +49,8 @@ except ImportError:  # pragma: no cover
     has_mxnet = False
 
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
+from .types import Floats1d, Floats2d, Floats3d, Floats4d
+from .types import Ints1d, Ints2d, Ints3d, Ints4d
 
 
 def get_array_module(arr):  # pragma: no cover
@@ -82,7 +84,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj) 
+    return is_numpy_array(obj) or is_cupy_array(obj)
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
@@ -437,6 +439,16 @@ def validate_fwd_input_output(
         sig_args["Y"] = (annot_y, ...)
         args["Y"] = (Y, lambda x: x)
     ArgModel = create_model("ArgModel", **sig_args)
+    ArgModel.update_forward_refs(
+        Floats2d=Floats2d,
+        Floats1d=Floats1d,
+        Floats3d=Floats3d,
+        Floats4d=Floats4d,
+        Ints1d=Ints1d,
+        Ints2d=Ints2d,
+        Ints3d=Ints3d,
+        Ints4d=Ints4d
+    )
     try:
         ArgModel.parse_obj(args)
     except ValidationError as e:
