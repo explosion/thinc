@@ -48,8 +48,8 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
-
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from . import types  # noqa: E402
 
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
@@ -82,7 +82,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj) 
+    return is_numpy_array(obj) or is_cupy_array(obj)
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
@@ -207,7 +207,7 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     if xp is cupy:  # pragma: no cover
         Y = Y.get()
     keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel() # type: ignore
+    Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)
     keep_shapes.append(n_classes)
@@ -320,7 +320,7 @@ def xp2tensorflow(
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
-        dlpack_tensor = xp_tensor.toDlpack() # type: ignore
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
@@ -437,6 +437,9 @@ def validate_fwd_input_output(
         sig_args["Y"] = (annot_y, ...)
         args["Y"] = (Y, lambda x: x)
     ArgModel = create_model("ArgModel", **sig_args)
+    # Make sure the forward refs are resolved and the types used by them are
+    # available in the correct scope. See #494 for details.
+    ArgModel.update_forward_refs(**types.__dict__)
     try:
         ArgModel.parse_obj(args)
     except ValidationError as e:
