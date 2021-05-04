@@ -48,10 +48,8 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
-from .types import Floats1d, Floats2d, Floats3d, Floats4d
-from .types import Ints1d, Ints2d, Ints3d, Ints4d
-
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from . import types  # noqa: E402
 
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
@@ -209,7 +207,7 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     if xp is cupy:  # pragma: no cover
         Y = Y.get()
     keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel() # type: ignore
+    Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)
     keep_shapes.append(n_classes)
@@ -322,7 +320,7 @@ def xp2tensorflow(
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
-        dlpack_tensor = xp_tensor.toDlpack() # type: ignore
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
@@ -439,16 +437,9 @@ def validate_fwd_input_output(
         sig_args["Y"] = (annot_y, ...)
         args["Y"] = (Y, lambda x: x)
     ArgModel = create_model("ArgModel", **sig_args)
-    ArgModel.update_forward_refs(
-        Floats2d=Floats2d,
-        Floats1d=Floats1d,
-        Floats3d=Floats3d,
-        Floats4d=Floats4d,
-        Ints1d=Ints1d,
-        Ints2d=Ints2d,
-        Ints3d=Ints3d,
-        Ints4d=Ints4d
-    )
+    # Make sure the forward refs are resolved and the types used by them are
+    # available in the correct scope. See #494 for details.
+    ArgModel.update_forward_refs(**types.__dict__)
     try:
         ArgModel.parse_obj(args)
     except ValidationError as e:
