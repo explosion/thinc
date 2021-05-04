@@ -65,14 +65,14 @@ def resize(model, new_nO, resizable_layer):
         larger_b = new_layer.get_param("b")
         smaller_W = old_layer.get_param("W")
         smaller_b = old_layer.get_param("b")
+        # copy the original weights
         larger_W[: len(smaller_W)] = smaller_W
         larger_b[: len(smaller_b)] = smaller_b
-        # TODO: RELU instead
+        # ensure that the new weights do not influence predictions
         if "activation" in model.attrs and model.attrs["activation"] in [
             "softmax",
             "logistic",
         ]:
-            # ensure little influence on the softmax/logistic activation
             larger_b[len(smaller_b):] = NEG_VALUE
         new_layer.set_param("W", larger_W)
         new_layer.set_param("b", larger_b)
