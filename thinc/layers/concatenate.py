@@ -62,10 +62,12 @@ def _array_forward(
         start = widths[0]
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.as_contig(d_output[:, start : start + width])
-            if isinstance(dX, Ragged):
-                dX.data += bwd(dY).data
-            else:
-                dX += bwd(dY)
+            gradient = bwd(dY)
+            if gradient is not None:
+                if isinstance(dX, Ragged):
+                    dX.data += gradient.data
+                else:
+                    dX += gradient
             start += width
         return dX
 
