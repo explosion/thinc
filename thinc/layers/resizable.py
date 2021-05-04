@@ -20,7 +20,7 @@ def resizable(layer_creation: Callable) -> Model[InT, OutT]:
         init=init,
         layers=[layer],
         attrs={"layer_creation": layer_creation, "resize_output": resize},
-        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names}
+        dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
     )
 
 
@@ -42,7 +42,7 @@ def init(
     return model
 
 
-def resize(model, new_nO, resizable_layer, *, fill_b=0):
+def resize(model, new_nO, resizable_layer, *, fill_defaults=None):
     old_layer = resizable_layer.layers[0]
     if old_layer.has_dim("nO") is None:
         # the output layer had not been initialized/trained yet
@@ -69,7 +69,10 @@ def resize(model, new_nO, resizable_layer, *, fill_b=0):
         larger_W[: len(smaller_W)] = smaller_W
         larger_b[: len(smaller_b)] = smaller_b
         # ensure that the new weights do not influence predictions
-        larger_b[len(smaller_b):] = fill_b
+        if fill_defaults and "W" in fill_defaults:
+            larger_W[len(smaller_W) :] = fill_defaults["W"]
+        if fill_defaults and "b" in fill_defaults:
+            larger_b[len(smaller_b) :] = fill_defaults["b"]
         new_layer.set_param("W", larger_W)
         new_layer.set_param("b", larger_b)
 
