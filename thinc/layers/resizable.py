@@ -77,5 +77,5 @@ def resize(model, new_nO, resizable_layer):
         new_layer.set_param("W", larger_W)
         new_layer.set_param("b", larger_b)
 
-    model.layers[0] = new_layer
+    resizable_layer.layers[0] = new_layer
     return model
