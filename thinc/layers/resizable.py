@@ -7,12 +7,12 @@ from ..config import registry
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
-NEG_VALUE = -3000
-
 
 @registry.layers("resizable.v1")
 def resizable(layer_creation: Callable) -> Model[InT, OutT]:
-    """TODO."""
+    """Container that holds one layer that can change dimensions.
+    Currently supports layers with `W` and `b` parameters.
+    """
     layer = layer_creation()
     return Model(
         f"resizable({layer.name})",
@@ -42,7 +42,7 @@ def init(
     return model
 
 
-def resize(model, new_nO, resizable_layer):
+def resize(model, new_nO, resizable_layer, *, fill_b=0):
     old_layer = resizable_layer.layers[0]
     if old_layer.has_dim("nO") is None:
         # the output layer had not been initialized/trained yet
@@ -69,11 +69,7 @@ def resize(model, new_nO, resizable_layer):
         larger_W[: len(smaller_W)] = smaller_W
         larger_b[: len(smaller_b)] = smaller_b
         # ensure that the new weights do not influence predictions
-        if "activation" in model.attrs and model.attrs["activation"] in [
-            "softmax",
-            "logistic",
-        ]:
-            larger_b[len(smaller_b):] = NEG_VALUE
+        larger_b[len(smaller_b):] = fill_b
         new_layer.set_param("W", larger_W)
         new_layer.set_param("b", larger_b)
 
