@@ -2,24 +2,23 @@ from typing import Callable, Optional, TypeVar
 
 from ..model import Model
 from ..config import registry
-
+from ..types import Floats2d
 
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
 
 
 @registry.layers("resizable.v1")
-def resizable(layer_creation: Callable) -> Model[InT, OutT]:
+def resizable(layer, resize_layer: Callable) -> Model[InT, OutT]:
     """Container that holds one layer that can change dimensions.
     Currently supports layers with `W` and `b` parameters.
     """
-    layer = layer_creation()
     return Model(
         f"resizable({layer.name})",
         forward,
         init=init,
         layers=[layer],
-        attrs={"layer_creation": layer_creation, "resize_output": resize},
+        attrs={"resize_layer": resize_layer},
         dims={name: layer.maybe_get_dim(name) for name in layer.dim_names},
     )
 
@@ -42,39 +41,51 @@ def init(
     return model
 
 
-def resize(model, new_nO, resizable_layer, *, fill_defaults=None):
-    old_layer = resizable_layer.layers[0]
-    if old_layer.has_dim("nO") is None:
-        # the output layer had not been initialized/trained yet
-        old_layer.set_dim("nO", new_nO)
-        return model
-    elif new_nO == old_layer.get_dim("nO"):
-        # the output dimension didn't change
-        return model
-
-    # initialize the new layer
-    layer_creation = resizable_layer.attrs["layer_creation"]
-    new_layer = layer_creation()
-    new_layer.set_dim("nO", new_nO)
-    if old_layer.has_dim("nI"):
-        new_layer.set_dim("nI", old_layer.get_dim("nI"))
-    new_layer.initialize()
-
-    if old_layer.has_param("W"):
-        larger_W = new_layer.get_param("W")
-        larger_b = new_layer.get_param("b")
-        smaller_W = old_layer.get_param("W")
-        smaller_b = old_layer.get_param("b")
-        # copy the original weights
-        larger_W[: len(smaller_W)] = smaller_W
-        larger_b[: len(smaller_b)] = smaller_b
-        # ensure that the new weights do not influence predictions
-        if fill_defaults and "W" in fill_defaults:
-            larger_W[len(smaller_W) :] = fill_defaults["W"]
-        if fill_defaults and "b" in fill_defaults:
-            larger_b[len(smaller_b) :] = fill_defaults["b"]
-        new_layer.set_param("W", larger_W)
-        new_layer.set_param("b", larger_b)
-
-    resizable_layer.layers[0] = new_layer
+def resize_model(model: Model[InT, OutT], new_nO):
+    old_layer = model.layers[0]
+    new_layer = model.attrs["resize_layer"](old_layer, new_nO)
+    model.layers[0] = new_layer
     return model
+
+
+def resize_linear_weighted(layer: Model[Floats2d, Floats2d], new_nO, *, fill_defaults=None) -> Model[Floats2d, Floats2d]:
+    """Create a resized copy of a layer that has parameters W and b and dimensions nO and nI."""
+    assert not layer.layers
+    assert not layer.ref_names
+    assert not layer.shims
+
+    # return the original layer if it wasn't initialized or if nO didn't change
+    if layer.has_dim("nO") is None:
+        layer.set_dim("nO", new_nO)
+        return layer
+    elif new_nO == layer.get_dim("nO"):
+        return layer
+
+    dims = {name: layer.maybe_get_dim(name) for name in layer.dim_names}
+    dims["nO"] = new_nO
+    new_layer = Model(
+        layer.name,
+        layer._func,
+        dims=dims,
+        params={name: None for name in layer.param_names},
+        init=layer.init,
+        attrs=layer.attrs,
+        refs={},
+        ops=layer.ops
+    )
+    new_layer.initialize()
+    for name in layer.param_names:
+        if layer.has_param(name):
+            filler = 0 if not fill_defaults else fill_defaults.get(name, 0)
+            _resize_parameter(name, layer, new_layer, filler=filler)
+    return new_layer
+
+
+def _resize_parameter(name, layer, new_layer, filler=0):
+    larger = new_layer.get_param(name)
+    smaller = layer.get_param(name)
+    # copy the original weights
+    larger[: len(smaller)] = smaller
+    # set the new weights
+    larger[len(smaller):] = filler
+    new_layer.set_param(name, larger)
