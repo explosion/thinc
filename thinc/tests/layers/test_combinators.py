@@ -3,7 +3,7 @@ import numpy
 from numpy.testing import assert_allclose
 from thinc.api import clone, concatenate, noop, add, map_list
 from thinc.api import Linear, Dropout, Model, NumpyOps
-from thinc.layers import chain
+from thinc.layers import chain, tuplify
 
 
 @pytest.fixture(params=[1, 2, 9])
@@ -39,6 +39,48 @@ def model2(nO, nH):
 @pytest.fixture
 def model3(nO):
     return Linear(nO, nO)
+
+
+def test_tuplify_zero():
+    with pytest.raises(TypeError):
+        tuplify()
+
+
+def test_tuplify_one(model1):
+    with pytest.raises(TypeError):
+        tuplify(model1)
+
+
+def test_tuplify_two(model1, model2):
+    model = tuplify(model1, model2)
+    assert len(model.layers) == 2
+
+
+def test_tuplify_operator_two(model1, model2):
+    with Model.define_operators({"&": tuplify}):
+        model = model1 & model2
+        assert len(model.layers) == 2
+
+
+def test_tuplify_dulicates_input():
+    model = tuplify(noop(), noop())
+    ones = numpy.ones([10])
+    out = model.predict(ones)
+    assert out == (ones, ones)
+
+
+def test_tuplify_three(model1, model2, model3):
+    model = tuplify(model1, model2, model3)
+    assert len(model.layers) == 3
+
+
+def test_tuplify_operator_three(model1, model2, model3):
+    # Previously we 'flattened' these nested calls. We might opt to do so
+    # again, especially for the operators.
+    with Model.define_operators({"&": tuplify}):
+        model = model1 & model2 & model3
+        assert len(model.layers) == 2
+        assert len(model.layers[0].layers) == 2
 
 
 def test_chain_zero():

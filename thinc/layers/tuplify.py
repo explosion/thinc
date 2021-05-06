@@ -10,12 +10,19 @@ MidT = TypeVar("MidT")
 
 @registry.layers("tuplify.v1")
 def tuplify(layer1: Model, layer2: Model, *layers) -> Model:
+    """Send a separate copy of the input to each child layer, and join the
+    outputs of the children into a tuple on the way out.
+
+    Typically used to provide both modified data and the original input to a
+    downstream layer.
+    """
+
     layers = (layer1, layer2) + layers
     names = [layer.name for layer in layers]
     return Model(
-            "tuple(" + ", ".join(names) + ")", 
-            tuplify_forward, 
-            layers=layers,
+        "tuple(" + ", ".join(names) + ")",
+        tuplify_forward,
+        layers=layers,
     )
 
 
