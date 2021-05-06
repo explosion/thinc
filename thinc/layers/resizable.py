@@ -48,7 +48,9 @@ def resize_model(model: Model[InT, OutT], new_nO):
     return model
 
 
-def resize_linear_weighted(layer: Model[Floats2d, Floats2d], new_nO, *, fill_defaults=None) -> Model[Floats2d, Floats2d]:
+def resize_linear_weighted(
+    layer: Model[Floats2d, Floats2d], new_nO, *, fill_defaults=None
+) -> Model[Floats2d, Floats2d]:
     """Create a resized copy of a layer that has parameters W and b and dimensions nO and nI."""
     assert not layer.layers
     assert not layer.ref_names
@@ -71,7 +73,7 @@ def resize_linear_weighted(layer: Model[Floats2d, Floats2d], new_nO, *, fill_def
         init=layer.init,
         attrs=layer.attrs,
         refs={},
-        ops=layer.ops
+        ops=layer.ops,
     )
     new_layer.initialize()
     for name in layer.param_names:
@@ -87,5 +89,5 @@ def _resize_parameter(name, layer, new_layer, filler=0):
     # copy the original weights
     larger[: len(smaller)] = smaller
     # set the new weights
-    larger[len(smaller):] = filler
+    larger[len(smaller) :] = filler
     new_layer.set_param(name, larger)
