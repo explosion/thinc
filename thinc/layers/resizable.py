@@ -64,7 +64,7 @@ def resize_linear_weighted(
 
     dims = {name: layer.maybe_get_dim(name) for name in layer.dim_names}
     dims["nO"] = new_nO
-    new_layer = Model(
+    new_layer: Model[Floats2d, Floats2d] = Model(
         layer.name,
         layer._func,
         dims=dims,
@@ -73,7 +73,7 @@ def resize_linear_weighted(
         attrs=layer.attrs,
         refs={},
         ops=layer.ops,
-    )  # type: ignore
+    )
     new_layer.initialize()
     for name in layer.param_names:
         if layer.has_param(name):
