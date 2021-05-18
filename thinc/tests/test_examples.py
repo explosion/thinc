@@ -1,13 +1,17 @@
 import os
 from pathlib import Path
 
-import nbformat
 import pytest
-from nbconvert.preprocessors import ExecutePreprocessor
 
 
 @pytest.fixture
 def test_files(nb_file):
+    pytest.importorskip("nbconvert")
+    pytest.importorskip("nbformat")
+    import nbconvert
+    import nbformat
+    from nbconvert.preprocessors import ExecutePreprocessor
+
     if not Path(nb_file).exists():
         return
     kernel_name = os.environ.get("NOTEBOOK_KERNEL", "python3")
