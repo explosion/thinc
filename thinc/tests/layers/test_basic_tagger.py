@@ -8,7 +8,6 @@ from thinc.api import chain, with_array, Adam, strings2arrays
 def ancora():
     pytest.importorskip("ml_datasets")
     import ml_datasets
-    print("ancora")
     return ml_datasets.ud_ancora_pos_tags()
 
 
