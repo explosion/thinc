@@ -4,7 +4,7 @@ from ..model import Model
 from ..config import registry
 
 InT = TypeVar("InT")
-OutT = TypeVar("OutT")
+OutT = Tuple
 MidT = TypeVar("MidT")
 
 
@@ -22,6 +22,7 @@ def tuplify(layer1: Model[InT, Any], layer2: Model[InT, Any], *layers) -> Model[
     return Model(
         "tuple(" + ", ".join(names) + ")",
         tuplify_forward,
+        init=init,
         layers=layers,
     )
 
@@ -42,3 +43,28 @@ def tuplify_forward(model, X, is_train):
         return dX
 
     return tuple(Ys), backprop_tuplify
+
+
+def init(
+    model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
+) -> Model[InT, OutT]:
+    if X is None and Y is None:
+        for layer in model.layers:
+            layer.initialize()
+        if model.layers[0].has_dim("nI"):
+            model.set_dim("nI", model.layers[0].get_dim("nI"))
+        return model
+
+    # Try to set nO on each layer, where available.
+    # All layers have the same input, and the output should map directly from the
+    # given Y, if provided.
+    for ii, layer in enumerate(model.layers):
+        if Y is not None and layer.has_dim("nO") is None:
+            layer.initialize(X=X, Y=Y[ii])
+        else:
+            layer.initialize(X=X)
+
+    if model.layers[0].has_dim("nI"):
+        model.set_dim("nI", model.layers[0].get_dim("nI"))
+    # this model can have an input dimension, but can't have an output dimension
+    return model
