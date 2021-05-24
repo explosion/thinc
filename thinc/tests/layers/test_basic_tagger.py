@@ -2,11 +2,12 @@ import pytest
 import random
 from thinc.api import Model, Relu, Softmax, HashEmbed, expand_window
 from thinc.api import chain, with_array, Adam, strings2arrays
-import ml_datasets
 
 
 @pytest.fixture(scope="module")
 def ancora():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
     return ml_datasets.ud_ancora_pos_tags()
 
 

@@ -1,7 +1,6 @@
 import pytest
 import threading
 import time
-import ml_datasets
 from thinc.api import (
     CupyOps,
     prefer_gpu,
@@ -382,6 +381,8 @@ def test_unique_id_multithreading():
 
 
 def test_model_gpu():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
     prefer_gpu()
     n_hidden = 32
     dropout = 0.2
