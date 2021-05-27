@@ -773,6 +773,24 @@ residual connections directly, helping the network to learn more smoothly.
 https://github.com/explosion/thinc/blob/master/thinc/layers/residual.py
 ```
 
+### tuplify {#tuplify tag="function"}
+
+Give each child layer a separate copy of the input, and the combine the output
+of the child layers into a tuple. Useful for providing original and modified
+input to a downstream layer.
+
+On the backward pass the loss from each child is added together, so when using
+custom datatypes they should define an addition operator.
+
+| Argument    | Type                             | Description                      |
+| ----------- | -------------------------------- | -------------------------------- |
+| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose.           |
+| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed feed-forward model. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/tuplify.py
+```
+
 ### siamese {#siamese tag="function"}
 
 Combine and encode a layer and a similarity function to form a

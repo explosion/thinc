@@ -33,6 +33,7 @@ from .noop import noop
 from .residual import residual
 from .uniqued import uniqued
 from .siamese import siamese
+from .tuplify import tuplify
 
 # Pooling
 from .reduce_first import reduce_first
