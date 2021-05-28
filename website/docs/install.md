@@ -13,13 +13,6 @@ releases, pip 19.3 or newer is recommended.
 $ pip install thinc --pre
 ```
 
-<infobox variant="warning">
-
-Note that Thinc 8.0 is currently **in alpha preview** and not necessarily ready
-for production yet.
-
-</infobox>
-
 <!--The latest releases are available from
 [pip](https://pypi.python.org/pypi/thinc) and
 [conda](https://anaconda.org/conda-forge/thinc). Both installations should come

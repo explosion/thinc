@@ -44,9 +44,6 @@ pip install -U pip setuptools wheel
 pip install thinc --pre
 ```
 
-> ⚠️ Note that Thinc 8.0 is currently **in alpha preview** and not necessarily ready
-> for production yet.
-
 See the [extended installation docs](https://thinc.ai/docs/install#extended) for details on optional dependencies for different backends and GPU. You might also want to [set up static type checking](https://thinc.ai/docs/install#type-checking) to take advantage of Thinc's type system.
 
 > ⚠️ If you have installed PyTorch and you are using Python 3.7+, uninstall the
