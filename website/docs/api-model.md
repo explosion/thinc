@@ -314,33 +314,33 @@ assert model.get_dim("nI") == 16
 
 ### Model.maybe_get_dim {#get_dim tag="method"}
 
-Retrieve the value of a dimension of the given name, or `None` if the
-dimension is either unregistered or the value is currently unset.
+Retrieve the value of a dimension of the given name, or `None` if the dimension
+is either unregistered or the value is currently unset.
 
-| Argument    | Type         | Description                             |
-| ----------- | ------------ | --------------------------------------- |
-| `name`      | <tt>str</tt> | The name of the dimension, e.g. `"nO"`. |
-| **RETURNS** | <tt>Optionalint]</tt> | The size of the dimension, or `None`. |
-
+| Argument    | Type                  | Description                             |
+| ----------- | --------------------- | --------------------------------------- |
+| `name`      | <tt>str</tt>          | The name of the dimension, e.g. `"nO"`. |
+| **RETURNS** | <tt>Optional[int]</tt> | The size of the dimension, or `None`.   |
 
 ### Model.set_dim {#set_dim tag="method"}
 
-Set a value for a dimension.
+Set a value for a dimension. This raises a `ValueError` if the dimension was
+previously defined with a different value, unless `force` is set to `True`.
 
 ```python
 ### Example
 from thinc.api import Linear
-import numpy
 
 model = Linear(10)
 model.set_dim("nI", 16)
 assert model.get_dim("nI") == 16
 ```
 
-| Argument | Type         | Description                       |
-| -------- | ------------ | --------------------------------- |
-| `name`   | <tt>str</tt> | The name of the dimension to set. |
-| `value`  | <tt>int</tt> | The new value for the dimension.  |
+| Argument | Type          | Description                                                                                           |
+| -------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `name`   | <tt>str</tt>  | The name of the dimension to set.                                                                     |
+| `value`  | <tt>int</tt>  | The new value for the dimension.                                                                      |
+| `force`  | <tt>bool</tt> | When set to `True`, allow changing the value of the dimension if it was set before. Default: `False`. |
 
 ### Model.has_param {#has_param tag="method"}
 
@@ -390,11 +390,10 @@ assert W.shape == (10, 16)
 Retrieve a weights parameter by name. Returns `None` if the parameter is
 unregistered or its value is undefined.
 
-| Argument    | Type              | Description                       |
-| ----------- | ----------------- | --------------------------------- |
-| `name`      | <tt>str</tt>      | The name of the parameter to get. |
+| Argument    | Type                        | Description                       |
+| ----------- | --------------------------- | --------------------------------- |
+| `name`      | <tt>str</tt>                | The name of the parameter to get. |
 | **RETURNS** | <tt>Optional[FloatsXd]</tt> | The current parameter, or `None`. |
-
 
 ### Model.set_param {#set_param tag="method"}
 
@@ -428,8 +427,8 @@ registered but the value is unset, returns `None`.
 
 ### Model.get_ref {#get_ref tag="method"}
 
-Retrieve the value of a reference of the given name. Raises a
-`KeyError` if unset.
+Retrieve the value of a reference of the given name. Raises a `KeyError` if
+unset.
 
 | Argument    | Type           | Description                |
 | ----------- | -------------- | -------------------------- |
@@ -440,10 +439,10 @@ Retrieve the value of a reference of the given name. Raises a
 
 Retrieve the value of a reference of the given name, or None if unset.
 
-| Argument    | Type           | Description                |
-| ----------- | -------------- | -------------------------- |
-| `name`      | <tt>str</tt>   | The name of the reference. |
-| **RETURNS** | <tt>Optional[Model]</tt> | The reference, or `None`. |
+| Argument    | Type                     | Description                |
+| ----------- | ------------------------ | -------------------------- |
+| `name`      | <tt>str</tt>             | The name of the reference. |
+| **RETURNS** | <tt>Optional[Model]</tt> | The reference, or `None`.  |
 
 ### Model.set_ref {#set_ref tag="method"}
 
@@ -479,10 +478,10 @@ undefined or no gradient has been allocated, raises a `KeyError`.
 Get the gradient for a parameter, if one is available. If the parameter is
 undefined or no gradient has been allocated, returns `None`.
 
-| Argument    | Type              | Description                                        |
-| ----------- | ----------------- | -------------------------------------------------- |
-| `name`      | <tt>str</tt>      | The name of the parameter to get the gradient for. |
-| **RETURNS** | <tt>Optional[FloatsXd]</tt> | The current gradient of the parameter, or `None`. |
+| Argument    | Type                        | Description                                        |
+| ----------- | --------------------------- | -------------------------------------------------- |
+| `name`      | <tt>str</tt>                | The name of the parameter to get the gradient for. |
+| **RETURNS** | <tt>Optional[FloatsXd]</tt> | The current gradient of the parameter, or `None`.  |
 
 ### Model.set_grad {#set_grad tag="method"}
 

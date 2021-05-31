@@ -77,10 +77,6 @@ def test_model_init():
         model.get_dim("xyz")
     with pytest.raises(ValueError):
         model.get_dim("nO")
-    with pytest.raises(KeyError):
-        model.set_dim("xyz", 20)
-    with pytest.raises(ValueError):
-        model.set_dim("nI", 20)
     assert model.has_ref("a")
     assert model.get_ref("a").name == "a"
     assert not model.has_ref("xyz")
@@ -102,6 +98,38 @@ def test_model_init():
     model.attrs["bar"] = "baz"
     model_copy = model.copy()
     assert model_copy.name == "test"
+
+
+def test_model_set_dim():
+    class MyShim(Shim):
+        name = "testshim"
+
+    model_a = create_model("a")
+    model = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": None},
+        params={"W": None, "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[MyShim(None)],
+        layers=[model_a, model_a],
+    )
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 10)
+    # force can be used before any parameters are set
+    model.set_dim("nI", 10, force=True)
+    model.set_param("W", model.ops.alloc1f(10))
+    model.set_grad("W", model.ops.alloc1f(10))
+    assert model.has_dim("nI")
+    assert model.get_dim("nI") == 10
+    with pytest.raises(KeyError):
+        model.set_dim("xyz", 20)
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20)
+    # force can't be used after any parameter is set
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20, force=True)
 
 
 def test_param_names():
