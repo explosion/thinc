@@ -32,7 +32,7 @@ def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
         use_tensorflow_for_gpu_memory()
     else:
         raise ValueError(
-            f"Invalid 'gpu_allocator' argument: '{allocator} choose on of the available allocators: 'pytorch', 'tensorflow'"
+            f"Invalid 'gpu_allocator' argument: '{allocator}'. Available allocators are: 'pytorch', 'tensorflow'"
         )
 
 
