@@ -13,7 +13,10 @@ from .optimizers import Optimizer  # noqa: F401
 from .shims import Shim
 from .util import convert_recursive, is_xp_array, DATA_VALIDATION
 from .util import partial, validate_fwd_input_output
-from .types import FloatsXd, InT, OutT, SelfT
+from .types import FloatsXd, InT, OutT
+
+
+SelfT = TypeVar("SelfT", bound="Model")
 
 
 context_operators: ContextVar[dict] = ContextVar("context_operators", default={})

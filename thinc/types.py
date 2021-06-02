@@ -22,7 +22,6 @@ else:
 # fmt: off
 InT = TypeVar("InT")
 OutT = TypeVar("OutT")
-SelfT = TypeVar("SelfT", bound="Model")
 
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
