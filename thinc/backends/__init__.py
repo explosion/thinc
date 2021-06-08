@@ -13,6 +13,13 @@ from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import is_cupy_array
 from ..types import OpsNames
 
+try:
+    from thinc_apple_ops import AppleOps
+    has_apple = True
+except ImportError:
+    AppleOps = None
+    has_apple = False
+
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
@@ -76,7 +83,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
-    ops = {"numpy": NumpyOps, "cupy": CupyOps}
+    ops = {"numpy": NumpyOps, "cupy": CupyOps, "apple": AppleOps}
     if name not in ops:
         raise ValueError(f"Invalid backend: {name}")
     cls = ops[name]
@@ -146,4 +153,6 @@ __all__ = [
     "CupyOps",
     "NumpyOps",
     "has_cupy",
+    "AppleOps",
+    "has_apple",
 ]
