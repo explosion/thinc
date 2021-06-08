@@ -20,7 +20,7 @@ jobs:
   strategy:
     matrix:
       Python36Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.6'
       Python36Windows:
         imageName: 'vs2017-win2016'
@@ -29,7 +29,7 @@ jobs:
         imageName: 'macos-10.15'
         python.version: '3.6'
       Python38Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.8'
       Python38Windows:
         imageName: 'vs2017-win2016'
@@ -38,7 +38,7 @@ jobs:
         imageName: 'macos-10.15'
         python.version: '3.8'
       Python39Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.9'
       Python39Windows:
         imageName: 'vs2017-win2016'
@@ -91,7 +91,7 @@ jobs:
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.7.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.8.1+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
