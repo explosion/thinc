@@ -12,9 +12,9 @@
 12: error: Layer input (thinc.types.Ragged) not compatible with previous layer input (thinc.types.Floats2d)  [layer-mismatch-input]
 12: error: Layer input (thinc.types.Ragged) not compatible with next layer input (thinc.types.Floats2d)  [layer-mismatch-input]
 12: error: Layer input (thinc.types.Floats2d) not compatible with previous layer input (thinc.types.Ragged)  [layer-mismatch-input]
-14: note: Revealed type is 'thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]'
+14: note: Revealed type is "thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]"
 17: error: Layer input (thinc.types.Floats2d) not compatible with next layer input (thinc.types.Ragged)  [layer-mismatch-input]
 17: error: Layer input (thinc.types.Ragged) not compatible with previous layer input (thinc.types.Floats2d)  [layer-mismatch-input]
 17: error: Layer input (thinc.types.Ragged) not compatible with next layer input (thinc.types.Floats2d)  [layer-mismatch-input]
 17: error: Layer input (thinc.types.Floats2d) not compatible with previous layer input (thinc.types.Ragged)  [layer-mismatch-input]
-20: note: Revealed type is 'thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]'
+20: note: Revealed type is "thinc.model.Model[thinc.types.Floats2d, thinc.types.Floats2d]"
