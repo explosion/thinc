@@ -25,7 +25,7 @@ except (ImportError, AttributeError):
 
 try:  # pragma: no cover
     import torch
-    import torch.tensor
+    from torch import tensor
     import torch.utils.dlpack
 
     has_torch = True
