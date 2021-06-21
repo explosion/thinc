@@ -345,7 +345,7 @@ void backprop_reduce_max(float* dX,
            seq_start += lengths[b];
            b += 1;
         }
-        if (lengths_b == 0)
+        if (lengths[b] == 0)
             continue;
 
         // The "which" array tells us which rows were selected as the max.
