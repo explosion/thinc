@@ -485,3 +485,12 @@ def test_multibatch():
         ops.multibatch(10, (i for i in range(100)), (i for i in range(100)))
     with pytest.raises(ValueError):
         ops.multibatch(10, arr1, (i for i in range(100)), arr2)
+
+
+def test_ngrams():
+    ops = get_current_ops()
+    arr1 = numpy.asarray([1, 2, 3, 4, 5], dtype=numpy.uint64)
+    for n in range(1, 10):
+        assert len(ops.ngrams(n, arr1)) == max(0, arr1.shape[0] - (n - 1))
+    assert len(ops.ngrams(-1, arr1)) == 0
+    assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0

@@ -345,11 +345,13 @@ class NumpyOps(Ops):
         return weights, gradient, mom1, mom2
 
     def ngrams(self, int n, const uint64_t[::1] keys):
+        if n < 1:
+            return self.alloc((0,), dtype="uint64")
         keys_ = <uint64_t*>&keys[0]
-        length = max(0, keys.shape[0]-n)
+        length = max(0, keys.shape[0]-(n-1))
         cdef np.ndarray output_ = self.alloc((length,), dtype="uint64")
         output = <uint64_t*>output_.data
-        for i in range(keys.shape[0]-n):
+        for i in range(keys.shape[0]-(n-1)):
             output[i] = hash64(&keys_[i], n*sizeof(keys_[0]), 0)
         return output_
 
