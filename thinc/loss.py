@@ -79,11 +79,13 @@ class CategoricalCrossentropy(Loss):
                     if value == missing_value:
                         truths[i] = self.names[0]
                         missing.append(i)
-                    elif value and self.neg_prefix and value.startswith(self.neg_prefix):
-                        truths[i] = value[len(self.neg_prefix):]
+                    elif (
+                        value and self.neg_prefix and value.startswith(self.neg_prefix)
+                    ):
+                        truths[i] = value[len(self.neg_prefix) :]
                         neg_index = self._name_to_i[truths[i]]
-                        negatives_mask[i] = 0
-                        negatives_mask[i][neg_index] = -1
+                        negatives_mask[i] = 0  # type: ignore
+                        negatives_mask[i][neg_index] = -1  # type: ignore
                 truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
         if truths.ndim != guesses.ndim:
@@ -152,7 +154,10 @@ def configure_CategoricalCrossentropy_v2(
     neg_prefix: Optional[str] = None,
 ) -> CategoricalCrossentropy:
     return CategoricalCrossentropy(
-        normalize=normalize, names=names, missing_value=missing_value, neg_prefix=neg_prefix
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
     )
 
 
@@ -166,7 +171,10 @@ class SequenceCategoricalCrossentropy(Loss):
         neg_prefix: Optional[str] = None,
     ):
         self.cc = CategoricalCrossentropy(
-            normalize=False, names=names, missing_value=missing_value, neg_prefix=neg_prefix
+            normalize=False,
+            names=names,
+            missing_value=missing_value,
+            neg_prefix=neg_prefix,
         )
         self.normalize = normalize
 
@@ -213,9 +221,14 @@ def configure_SequenceCategoricalCrossentropy_v1(
 
 @registry.losses("SequenceCategoricalCrossentropy.v2")
 def configure_SequenceCategoricalCrossentropy_v2(
-    *, normalize: bool = True, names: Optional[List[str]] = None, neg_prefix: Optional[str] = None
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    neg_prefix: Optional[str] = None,
 ) -> SequenceCategoricalCrossentropy:
-    return SequenceCategoricalCrossentropy(normalize=normalize, names=names, neg_prefix=neg_prefix)
+    return SequenceCategoricalCrossentropy(
+        normalize=normalize, names=names, neg_prefix=neg_prefix
+    )
 
 
 class L2Distance(Loss):
