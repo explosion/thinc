@@ -59,7 +59,9 @@ class CategoricalCrossentropy(Loss):
     def convert_truths(self, truths, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
         xp = get_array_module(guesses)
         missing = []
-        negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
+        negatives_mask = None
+        if self.names:
+            negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
         missing_value = self.missing_value
         # Convert list of ints or list of strings
         if isinstance(truths, list):
@@ -90,10 +92,11 @@ class CategoricalCrossentropy(Loss):
         mask = _make_mask(missing, guesses)
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
-        truths *= negatives_mask
-        truths[truths == -1] = 0
-        negatives_mask[negatives_mask == -1] = 1
-        mask *= negatives_mask
+        if negatives_mask is not None:
+            truths *= negatives_mask
+            truths[truths == -1] = 0
+            negatives_mask[negatives_mask == -1] = 1
+            mask *= negatives_mask
         return truths, mask
 
     def __call__(
