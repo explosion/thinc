@@ -79,7 +79,7 @@ class CategoricalCrossentropy(Loss):
                     if value == missing_value:
                         truths[i] = self.names[0]
                         missing.append(i)
-                    elif value and value.startswith(self.neg_prefix):
+                    elif value and self.neg_prefix and value.startswith(self.neg_prefix):
                         truths[i] = value[len(self.neg_prefix):]
                         neg_index = self._name_to_i[truths[i]]
                         negatives_mask[i] = 0
