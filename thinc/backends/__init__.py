@@ -12,6 +12,7 @@ from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import is_cupy_array
 from ..types import OpsNames
+from .. import registry
 
 
 context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
@@ -76,19 +77,20 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
-    ops = {"numpy": NumpyOps, "cupy": CupyOps}
-    if name not in ops:
+    cls = None
+    for ops_cls in registry.ops.get_all().values():
+        if ops_cls.name == name:
+            cls = ops_cls
+    if cls is None:
         raise ValueError(f"Invalid backend: {name}")
-    cls = ops[name]
     return cls(**kwargs)
 
 
 def get_array_ops(arr):
-    """Return an Ops object to match the array's device and backend."""
+    """Return CupyOps for a cupy array, the current ops otherwise."""
     if is_cupy_array(arr):
         return CupyOps()
-    else:
-        return NumpyOps()
+    return get_current_ops()
 
 
 @contextlib.contextmanager

@@ -3,6 +3,7 @@ from typing import Iterator, overload
 import numpy
 import itertools
 
+from .. import registry
 from ..types import Xp, Shape, DTypes, DTypesInt, DTypesFloat, List2d, ArrayXd
 from ..types import Array3d, Floats1d, Floats2d, Floats3d, Floats4d
 from ..types import FloatsXd, Ints1d, Ints2d, Ints3d, Ints4d, IntsXd, _Floats
