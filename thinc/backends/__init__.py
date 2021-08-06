@@ -78,7 +78,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
 def get_ops(name: OpsNames, **kwargs) -> Ops:
     """Get a backend object."""
     cls = None
-    for ops_cls in registry.ops.get_all().values():
+    for ops_cls in registry.ops.get_all().values():  # type: ignore
         if ops_cls.name == name:
             cls = ops_cls
     if cls is None:
