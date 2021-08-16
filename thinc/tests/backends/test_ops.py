@@ -275,6 +275,14 @@ def test_gemm_computes_correctly(cpu_ops):
     cpu_ops.gemm(X, W, trans1=True, out=Y)
 
 
+@pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
+def test_gemm_out_used(cpu_ops):
+    a = b = numpy.zeros((2, 2), dtype="f")
+    c = numpy.ones((2, 2), dtype="f")
+    cpu_ops.gemm(a, b, out=c)
+    assert numpy.array_equal(c, numpy.zeros((2, 2)))
+
+
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())

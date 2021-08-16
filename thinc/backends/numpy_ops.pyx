@@ -88,7 +88,7 @@ class NumpyOps(Ops):
         y = self.as_contig(y)
         if out is not None:
             out = self.as_contig(out)
-        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
