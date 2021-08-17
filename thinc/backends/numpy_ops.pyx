@@ -17,6 +17,7 @@ from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
 cimport blis.cy
 
+from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .linalg cimport VecVec, Vec
@@ -41,6 +42,7 @@ cdef extern from "math.h":
     float cosf(float x) nogil
 
 
+@registry.ops("NumpyOps")
 class NumpyOps(Ops):
     name = "numpy"
     xp = numpy

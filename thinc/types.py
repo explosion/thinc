@@ -23,7 +23,6 @@ else:
 XY_YZ_OutT = TypeVar("XY_YZ_OutT")
 XY_XY_OutT = TypeVar("XY_XY_OutT")
 
-OpsNames = Literal["numpy", "cupy"]
 DeviceTypes = Literal["cpu", "gpu", "tpu"]
 Batchable = Union["Pairs", "Ragged", "Padded", "ArrayXd", List, Tuple]
 Xp = Union["numpy", "cupy"]  # type: ignore

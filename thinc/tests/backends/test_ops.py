@@ -442,7 +442,6 @@ def test_get_ops():
 
 def test_use_ops():
     class_ops = get_current_ops()
-    assert class_ops.name == "numpy"
     with use_ops("numpy"):
         new_ops = get_current_ops()
         assert new_ops.name == "numpy"
@@ -450,7 +449,7 @@ def test_use_ops():
         new_ops = get_current_ops()
         assert new_ops.name == "cupy"
     new_ops = get_current_ops()
-    assert new_ops.name == "numpy"
+    assert class_ops.name == new_ops.name
 
 
 def test_minibatch():

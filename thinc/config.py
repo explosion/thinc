@@ -684,6 +684,7 @@ class registry(object):
     losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
     initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
     datasets: Decorator = catalogue.create("thinc", "datasets", entry_points=True)
+    ops: Decorator = catalogue.create("thinc", "ops", entry_points=True)
     # fmt: on
 
     @classmethod
