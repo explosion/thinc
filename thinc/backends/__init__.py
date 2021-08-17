@@ -11,7 +11,6 @@ from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
 from ..util import is_cupy_array
-from ..types import OpsNames
 from .. import registry
 
 
@@ -75,7 +74,7 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
-def get_ops(name: OpsNames, **kwargs) -> Ops:
+def get_ops(name: str, **kwargs) -> Ops:
     """Get a backend object."""
     cls = None
     for ops_cls in registry.ops.get_all().values():  # type: ignore
@@ -94,7 +93,7 @@ def get_array_ops(arr):
 
 
 @contextlib.contextmanager
-def use_ops(name: OpsNames, **kwargs):
+def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
     set_current_ops(get_ops(name, **kwargs))
