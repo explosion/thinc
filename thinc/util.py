@@ -156,10 +156,14 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
 
 def require_cpu() -> bool:  # pragma: no cover
-    """Use CPU through NumpyOps"""
+    """Use CPU through NumpyOps or AppleOps"""
     from .backends import set_current_ops, NumpyOps
 
-    set_current_ops(NumpyOps())
+    try:
+        from thinc_apple_ops import AppleOps
+        set_current_ops(AppleOps())
+    except ImportError:
+        set_current_ops(NumpyOps())
     try:
         import torch
 
