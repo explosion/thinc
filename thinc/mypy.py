@@ -144,6 +144,8 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
     for arg_type in itertools.chain(*ctx.arg_types):
         # TODO: Use `map_instance_to_supertype` to map subtypes to `Model` instances.
         assert isinstance(arg_type, Instance)
+        assert arg_type.type.fullname == thinc_model_fullname
+        assert len(arg_type.args) == 2
         arg_types.append(arg_type)
 
     # Collect neighboring pairs of arguments and their types
