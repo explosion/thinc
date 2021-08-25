@@ -101,20 +101,33 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
             determined, indicating that the default general return type should
             be used.
     """
-    # Verify preconditions
-    assert isinstance(ctx.context, CallExpr)
+    # Verify that we have a type-checking API and a default return type (presumably a
+    # `thinc.model.Model` instance)
     assert isinstance(ctx.api, TypeChecker)
     assert isinstance(ctx.default_return_type, Instance)
-    assert isinstance(ctx.context.callee, NameExpr)
-    assert isinstance(ctx.context.callee.node, (FuncDef, Decorator))
-    assert isinstance(ctx.context.callee.node.type, CallableType)
-    assert isinstance(ctx.context.callee.node.type.ret_type, Instance)
-    assert ctx.context.callee.node.type.ret_type.args
-    assert len(ctx.context.callee.node.type.ret_type.args) == 2
+
+    # Verify that we're inspecting a function call to a callable defined or decorated function
+    assert isinstance(ctx.context, CallExpr)
+    callee = ctx.context.callee
+    assert isinstance(callee, NameExpr)
+    callee_node = callee.node
+    assert isinstance(callee_node, (FuncDef, Decorator))
+    callee_node_type = callee_node.type
+    assert isinstance(callee_node_type, CallableType)
+
+    # Verify that the callable returns a `thinc.model.Model`
+    # TODO: Use `map_instance_to_supertype` to map subtypes to `Model` instances.
+    # I haven't implemented this myself because I wasn't able to figure out how to look up the
+    # `TypeInfo` for a class outside of the module being type-checked
+    callee_return_type = callee_node_type.ret_type
+    assert isinstance(callee_return_type, Instance)
+    assert callee_return_type.type.fullname == thinc_model_fullname
+    assert callee_return_type.args
+    assert len(callee_return_type.args) == 2
 
     # Obtain the output type parameter of the `thinc.model.Model` return type
     # of the called API function
-    out_type = ctx.context.callee.node.type.ret_type.args[1]
+    out_type = callee_return_type.args[1]
 
     # Check if the `Model`'s output type parameter is one of the "special
     # type variables" defined to represent model composition (chaining) and
@@ -124,10 +137,12 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
     if out_type.fullname not in {intoin_outtoout_out_fullname, chained_out_fullname}:
         return ctx.default_return_type
 
-    # Extract type of each argument used to call the API function
+    # Extract type of each argument used to call the API function, making sure that they are also
+    # `thinc.model.Model` instances
     args = list(itertools.chain(*ctx.args))
     arg_types = []
     for arg_type in itertools.chain(*ctx.arg_types):
+        # TODO: Use `map_instance_to_supertype` to map subtypes to `Model` instances.
         assert isinstance(arg_type, Instance)
         arg_types.append(arg_type)
 
