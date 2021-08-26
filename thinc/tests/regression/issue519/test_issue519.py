@@ -1,5 +1,9 @@
-import importlib.resources
 import subprocess
+try:
+    import importlib.resources as importlib_resources
+except ImportError:
+    import importlib_resources
+
 
 import pytest
 from thinc.api import chain, Linear
@@ -17,7 +21,7 @@ def test_issue519():
     parent_module_name = __name__[:__name__.rfind(".")]
 
     # Load test program that calls a Thinc API with variadic arguments
-    program_text = importlib.resources.read_text(parent_module_name, "program.py")
+    program_text = importlib_resources.read_text(parent_module_name, "program.py")
 
     # Ask Mypy to type-check the loaded program text
     subprocess.run(["mypy", "--command", program_text], check=True)
