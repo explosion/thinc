@@ -2,11 +2,10 @@ import subprocess
 try:
     import importlib.resources as importlib_resources
 except ImportError:
-    import importlib_resources
+    import importlib_resources  # type: ignore
 
 
 import pytest
-from thinc.api import chain, Linear
 
 
 @pytest.mark.slow
