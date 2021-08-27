@@ -1222,6 +1222,40 @@ model.initialize()
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_debug.py
 ```
 
+### with_nvtx_range {#with_debug tag="function"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Layer that wraps any layer and marks the forward and backprop passes as an
+NVTX range. This can be helpful when profiling GPU performance of a layer.
+
+```python
+### Example
+from thinc.api import Linear, with_nvtx_range
+
+model = with_nvtx_range(Linear(2, 5))
+model.initialize()
+```
+
+| Argument         | Type                   | Description                                                                                               |
+| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------|
+| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                                                        |
+| `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer, will be prefixed by `debug:`. Defaults to name of the wrapped layer. |
+| _keyword-only_   |                        |                                                                                                           |
+| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                                                       |
+| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                                                      |
+| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                                                        |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
+```
+
+
 ---
 
 ## Wrappers {#wrappers}
