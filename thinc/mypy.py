@@ -117,8 +117,7 @@ def get_reducers_type(ctx: FunctionContext) -> Type:
 
     # Verify that the callable returns a `thinc.model.Model`
     # TODO: Use `map_instance_to_supertype` to map subtypes to `Model` instances.
-    # I haven't implemented this myself because I wasn't able to figure out how to look up the
-    # `TypeInfo` for a class outside of the module being type-checked
+    # (figure out how to look up the `TypeInfo` for a class outside of the module being type-checked)
     callee_return_type = callee_node_type.ret_type
     assert isinstance(callee_return_type, Instance)
     assert callee_return_type.type.fullname == thinc_model_fullname
