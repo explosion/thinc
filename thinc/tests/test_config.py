@@ -513,9 +513,7 @@ def test_make_config_positional_args_dicts():
 
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(
-        rate: float,
-    ) -> None:
+    def test_optimizer_v1(rate: float) -> None:
         return None
 
     @my_registry.schedules("test_schedule.v1")
@@ -1367,12 +1365,13 @@ def test_config_dataclasses():
 
 
 @pytest.mark.parametrize(
-    "greeting,value,expected", [
+    "greeting,value,expected",
+    [
         # simple substitution should go fine
         [342, "${vars.a}", int],
         ["342", "${vars.a}", str],
         ["everyone", "${vars.a}", str],
-    ]
+    ],
 )
 def test_config_interpolates(greeting, value, expected):
     str_cfg = f"""
@@ -1388,7 +1387,9 @@ def test_config_interpolates(greeting, value, expected):
 
 
 @pytest.mark.parametrize(
-    "greeting,value,expected", [
+    "greeting,value,expected",
+    [
+        # fmt: off
         # simple substitution should go fine
         ["hello 342", "${vars.a}", "hello 342"],
         ["hello everyone", "${vars.a}", "hello everyone"],
@@ -1419,7 +1420,8 @@ def test_config_interpolates(greeting, value, expected):
         ["everyone", "[{'name':'x','script':['hello ${vars.a}']}]", "hello everyone"],
         ["tout le monde", "[{'name':'x','script':['hello ${vars.a}']}]", "hello tout le monde"],
         pytest.param("42", "[{'name':'x','script':['hello ${vars.a}']}]", "hello 42", marks=pytest.mark.xfail),
-    ]
+        # fmt: on
+    ],
 )
 def test_config_overrides(greeting, value, expected):
     str_cfg = f"""
