@@ -11,7 +11,7 @@ def with_nvtx_range(
     forward_color: int = -1,
     backprop_color: int = -1,
 ):
-    """Layer that adds wraps any layer and marks the forward and backprop
+    """Layer that wraps any layer and marks the forward and backprop
     phases as NVTX ranges for CUDA profiling.
 
     By default, the name of the layer is used as the name of the range,

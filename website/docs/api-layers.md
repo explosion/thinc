@@ -1222,7 +1222,7 @@ model.initialize()
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_debug.py
 ```
 
-### with_nvtx_range {#with_debug tag="function"}
+### with_nvtx_range {#with_nvtx_range tag="function"}
 
 <inline-list>
 
@@ -1245,7 +1245,7 @@ model.initialize()
 | Argument         | Type                   | Description                                                                                               |
 | ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------|
 | `layer`          | <tt>Model</tt>         | The layer to wrap.                                                                                        |
-| `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer, will be prefixed by `debug:`. Defaults to name of the wrapped layer. |
+| `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
 | _keyword-only_   |                        |                                                                                                           |
 | `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                                                       |
 | `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                                                      |
