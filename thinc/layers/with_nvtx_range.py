@@ -20,8 +20,6 @@ def with_nvtx_range(
     name = layer.name if name is None else name
 
     def forward(model: Model, X: Any, is_train: bool) -> Tuple[Any, Callable]:
-        layer = model.layers[0]
-
         with use_nvtx_range(f"{name} forward", forward_color):
             layer_Y, layer_callback = layer(X, is_train=is_train)
 
@@ -34,5 +32,6 @@ def with_nvtx_range(
     def init(_model: Model, X: Any, Y: Any) -> Model:
         return layer.initialize(X, Y)
 
-    return Model(f"nvtx_range({name})", forward, init=init, layers=[layer])
-
+    return Model(
+        f"nvtx_range({name})", forward, init=init, layers=[layer], shims=layer.shims
+    )
