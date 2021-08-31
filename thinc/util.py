@@ -466,6 +466,16 @@ def data_validation(validation):
         yield
         DATA_VALIDATION.set(prev)
 
+@contextlib.contextmanager
+def use_nvtx_range(message: int, id_color: int = -1):
+    """Context manager to register the executed code as an NVTX range. The
+    ranges can be used as markers in CUDA profiling."""
+    if has_cupy:
+        cupy.cuda.nvtx.RangePush(message, id_color)
+        yield
+        cupy.cuda.nvtx.RangePop()
+    else:
+        yield
 
 __all__ = [
     "get_array_module",
@@ -485,4 +495,5 @@ __all__ = [
     "validate_fwd_input_output",
     "DataValidationError",
     "make_tempfile",
+    "use_nvtx_range",
 ]
