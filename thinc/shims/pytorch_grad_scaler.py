@@ -113,7 +113,7 @@ class PyTorchGradScaler:
 
     def update(self):
         """
-        Update the the scale factor and clear information about infinities.
+        Update the scale factor and clear information about infinities.
 
         This method should be called after each optimization step.
         """
