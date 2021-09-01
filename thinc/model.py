@@ -767,10 +767,27 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     return model
 
 
+def wrap_model_recursive(
+    model: _ModelT, wrapper: Callable[[_ModelT], _ModelT]
+) -> Model:
+    """Recursively wrap a model and its submodules. The model is updated
+    in-place."""
+
+    def wrap_recursive_(model, wrapper, seen):
+        # Only wrap child layers if we haven't done so yet.
+        if id(model) not in seen:
+            model._layers = [wrap_recursive_(x, wrapper, seen) for x in model.layers]
+            seen.add(id(model))
+        return wrapper(model)
+
+    return wrap_recursive_(model, wrapper, set())
+
+
 __all__ = [
     "Model",
     "serialize_attr",
     "deserialize_attr",
     "change_attr_values",
     "set_dropout_rate",
+    "wrap_model_recursive",
 ]

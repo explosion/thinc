@@ -10,7 +10,16 @@ from thinc.api import (
     Shim,
     change_attr_values,
 )
-from thinc.api import set_dropout_rate, chain, Relu, Softmax, Adam
+from thinc.api import (
+    set_dropout_rate,
+    chain,
+    concatenate,
+    with_debug,
+    wrap_model_recursive,
+    Relu,
+    Softmax,
+    Adam,
+)
 import numpy
 
 from ..util import make_tempdir
@@ -443,3 +452,39 @@ def test_model_gpu():
             Yh = model.predict(X)
             correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]
+
+
+def test_recursive_wrap():
+    # Check:
+    #
+    # * Recursion: chain -> relu
+    # * Multiple sublayers: chain -> [relu, relu]
+
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    chained_debug = wrap_model_recursive(chained, with_debug)
+
+    assert chained_debug.name == "debug(relu>>relu)"
+    assert chained_debug.layers[0] is chained
+    assert chained_debug.layers[0].layers[0].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[0].layers[0] is relu
+    assert chained_debug.layers[0].layers[1].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[1].layers[0] is relu
+
+
+def test_recursive_double_wrap():
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    concat = concatenate(chained, chained)
+    concat_debug = wrap_model_recursive(concat, with_debug)
+
+    n_debug = 0
+    for model in concat_debug.walk():
+        if model.name.startswith("debug"):
+            n_debug += 1
+
+    # There should be 5 unique debug wrappers:
+    # * Around concatenate. (= 1)
+    # * One around each chain in concatenate. (= 2)
+    # * One around each relu in the chain. (= 2)
+    assert n_debug == 5

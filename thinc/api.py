@@ -4,7 +4,7 @@ from .initializers import configure_normal_init
 from .loss import CategoricalCrossentropy, L2Distance, CosineDistance
 from .loss import SequenceCategoricalCrossentropy
 from .model import Model, serialize_attr, deserialize_attr
-from .model import set_dropout_rate, change_attr_values
+from .model import set_dropout_rate, change_attr_values, wrap_model_recursive
 from .shims import Shim, PyTorchShim, TensorFlowShim, keras_model_fns, MXNetShim
 from .shims import maybe_handshake_model
 from .optimizers import Adam, RAdam, SGD, Optimizer
