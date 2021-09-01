@@ -1,7 +1,7 @@
 from typing import Callable, Tuple, Optional, Any, cast
 
 from ..model import Model
-from ..shims import PyTorchShim
+from ..shims import PyTorchGradScaler, PyTorchShim
 from ..config import registry
 from ..util import is_xp_array, is_torch_array
 from ..util import xp2torch, torch2xp, convert_recursive
@@ -34,6 +34,8 @@ def PyTorchWrapper(
     pytorch_model,
     convert_inputs: Optional[Callable] = None,
     convert_outputs: Optional[Callable] = None,
+    mixed_precision: bool = False,
+    grad_scaler: Optional[PyTorchGradScaler] = None,
 ) -> Model[Any, Any]:
     """Wrap a PyTorch model, so that it has the same API as Thinc models.
     To optimize the model, you'll need to create a PyTorch optimizer and call
@@ -64,7 +66,11 @@ def PyTorchWrapper(
         "pytorch",
         forward,
         attrs={"convert_inputs": convert_inputs, "convert_outputs": convert_outputs},
-        shims=[PyTorchShim(pytorch_model)],
+        shims=[
+            PyTorchShim(
+                pytorch_model, mixed_precision=mixed_precision, grad_scaler=grad_scaler
+            )
+        ],
         dims={"nI": None, "nO": None},
     )
 
