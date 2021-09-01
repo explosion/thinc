@@ -473,3 +473,8 @@ def test_recursive_double_wrap():
     # * One around each chain in concatenate. (= 2)
     # * One around each relu in the chain. (= 2)
     assert n_debug == 5
+
+    assert concat_debug.layers[0].layers[0].layers[0].layers[0].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[0].layers[0].layers[1].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"
