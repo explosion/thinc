@@ -352,7 +352,8 @@ class Config(dict):
             if "." not in key:
                 raise ConfigValidationError(errors=err, title=err_title)
             section, option = key.rsplit(".", 1)
-            if section not in config or option not in config[section]:
+            # Check for section and accept if option not in config[section]
+            if section not in config:
                 raise ConfigValidationError(errors=err, title=err_title)
             config.set(section, option, try_dump_json(value, overrides))
 
