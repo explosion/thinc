@@ -14,6 +14,7 @@ from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
 from .relu import Relu
+from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
 from .softmax_activation import softmax_activation
@@ -28,10 +29,12 @@ from .bidirectional import bidirectional
 from .chain import chain
 from .clone import clone
 from .concatenate import concatenate
+from .map_list import map_list
 from .noop import noop
 from .residual import residual
 from .uniqued import uniqued
 from .siamese import siamese
+from .tuplify import tuplify
 
 # Pooling
 from .reduce_first import reduce_first
@@ -61,6 +64,7 @@ from .with_ragged import with_ragged
 from .with_reshape import with_reshape
 from .with_getitem import with_getitem
 from .with_debug import with_debug
+from .with_nvtx_range import with_nvtx_range
 
 
 __all__ = [
@@ -100,6 +104,7 @@ __all__ = [
     "reduce_max",
     "reduce_mean",
     "reduce_sum",
+    "resizable",
     "list2array",
     "list2ragged",
     "list2padded",
@@ -115,5 +120,6 @@ __all__ = [
     "with_padded",
     "with_flatten",
     "with_debug",
+    "with_nvtx_range",
     "remap_ids",
 ]

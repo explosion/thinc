@@ -176,14 +176,18 @@ class Model(Generic[InT, OutT]):
         else:
             return value
 
-    def set_dim(self, name: str, value: int) -> None:
+    def set_dim(self, name: str, value: int, *, force: bool = False) -> None:
         """Set a value for a dimension."""
         if name not in self._dims:
             raise KeyError(
                 f"Cannot set unknown dimension '{name}' for model '{self.name}'."
             )
         old_value = self._dims[name]
-        if old_value is not None and old_value != value:
+        has_params = any(bool(y) for x, y in self._has_params.items())
+        invalid_change = (old_value is not None and old_value != value) and (
+            not force or force and has_params
+        )
+        if invalid_change:
             err = f"Attempt to change dimension '{name}' for model '{self.name}' from {old_value} to {value}"
             raise ValueError(err)
         self._dims[name] = value
@@ -227,8 +231,7 @@ class Model(Generic[InT, OutT]):
             self._has_params[name] = True
 
     def has_grad(self, name: str) -> bool:
-        """Check whether the model has a non-zero gradient for a parameter.
-        """
+        """Check whether the model has a non-zero gradient for a parameter."""
         return self._params.has_grad(self.id, name)
 
     def get_grad(self, name: str) -> FloatsXd:
@@ -452,7 +455,7 @@ class Model(Generic[InT, OutT]):
         """Serialize the model to disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("wb") as file_:
             file_.write(self.to_bytes())
 
@@ -529,7 +532,7 @@ class Model(Generic[InT, OutT]):
         """Deserialize the model from disk. Most models will serialize to a single
         file, which should just be the bytes contents of model.to_bytes().
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.from_bytes(bytes_data)
@@ -564,21 +567,19 @@ class Model(Generic[InT, OutT]):
                 node.shims[i].from_bytes(shim_bytes)
         return self
 
-
-    def can_from_disk(self, path: Union[Path, str], *, strict: bool=True) -> bool:
+    def can_from_disk(self, path: Union[Path, str], *, strict: bool = True) -> bool:
         """Check whether serialized data on disk is compatible with the model.
         If 'strict', the function returns False if the model has an attribute
         already loaded that would be changed.
         """
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         if path.is_dir() or not path.exists():
             return False
         with path.open("rb") as file_:
             bytes_data = file_.read()
         return self.can_from_bytes(bytes_data, strict=strict)
 
-
-    def can_from_bytes(self, bytes_data: bytes, *, strict: bool=True) -> bool:
+    def can_from_bytes(self, bytes_data: bytes, *, strict: bool = True) -> bool:
         """Check whether the bytes data is compatible with the model. If 'strict',
         the function returns False if the model has an attribute already loaded
         that would be changed.
@@ -589,7 +590,7 @@ class Model(Generic[InT, OutT]):
             return False
         return self.can_from_dict(msg, strict=strict)
 
-    def can_from_dict(self, msg: Dict, *, strict: bool=True) -> bool:
+    def can_from_dict(self, msg: Dict, *, strict: bool = True) -> bool:
         """Check whether a dictionary is compatible with the model.
         If 'strict', the function returns False if the model has an attribute
         already loaded that would be changed.
@@ -628,10 +629,7 @@ class Model(Generic[InT, OutT]):
                         try:
 
                             serialized = serialize_attr(
-                                node.attrs[attr],
-                                node.attrs[attr],
-                                attr,
-                                node
+                                node.attrs[attr], node.attrs[attr], attr, node
                             )
                         except TypeError:
                             continue
@@ -769,10 +767,27 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     return model
 
 
+def wrap_model_recursive(
+    model: _ModelT, wrapper: Callable[[_ModelT], _ModelT]
+) -> Model:
+    """Recursively wrap a model and its submodules. The model is updated
+    in-place."""
+
+    def wrap_recursive_(model, wrapper, seen):
+        # Only wrap child layers if we haven't done so yet.
+        if id(model) not in seen:
+            model._layers = [wrap_recursive_(x, wrapper, seen) for x in model.layers]
+            seen.add(id(model))
+        return wrapper(model)
+
+    return wrap_recursive_(model, wrapper, set())
+
+
 __all__ = [
     "Model",
     "serialize_attr",
     "deserialize_attr",
     "change_attr_values",
     "set_dropout_rate",
+    "wrap_model_recursive",
 ]

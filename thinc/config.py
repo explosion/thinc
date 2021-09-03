@@ -352,7 +352,8 @@ class Config(dict):
             if "." not in key:
                 raise ConfigValidationError(errors=err, title=err_title)
             section, option = key.rsplit(".", 1)
-            if section not in config or option not in config[section]:
+            # Check for section and accept if option not in config[section]
+            if section not in config:
                 raise ConfigValidationError(errors=err, title=err_title)
             config.set(section, option, try_dump_json(value, overrides))
 
@@ -373,6 +374,8 @@ class Config(dict):
     ) -> "Config":
         """Load the config from a string."""
         config = get_configparser(interpolate=interpolate)
+        if overrides:
+            config = get_configparser(interpolate=False)
         try:
             config.read_string(text)
         except ParsingError as e:
@@ -382,6 +385,9 @@ class Config(dict):
         self._set_overrides(config, overrides)
         self.clear()
         self.interpret_config(config)
+        if overrides and interpolate:
+            # do the interpolation. Avoids recursion because the new call from_str call will have overrides as empty
+            self = self.interpolate()
         self.is_interpolated = interpolate
         return self
 
@@ -432,7 +438,7 @@ class Config(dict):
 
     def to_disk(self, path: Union[str, Path], *, interpolate: bool = True):
         """Serialize the config to a file."""
-        path = Path(path)
+        path = Path(path) if isinstance(path, str) else path
         with path.open("w", encoding="utf8") as file_:
             file_.write(self.to_str(interpolate=interpolate))
 
@@ -444,7 +450,8 @@ class Config(dict):
         overrides: Dict[str, Any] = {},
     ) -> "Config":
         """Load config from a file."""
-        with Path(path).open("r", encoding="utf8") as file_:
+        path = Path(path) if isinstance(path, str) else path
+        with path.open("r", encoding="utf8") as file_:
             text = file_.read()
         return self.from_str(text, interpolate=interpolate, overrides=overrides)
 
@@ -678,6 +685,7 @@ class registry(object):
     losses: Decorator = catalogue.create("thinc", "losses", entry_points=True)
     initializers: Decorator = catalogue.create("thinc", "initializers", entry_points=True)
     datasets: Decorator = catalogue.create("thinc", "datasets", entry_points=True)
+    ops: Decorator = catalogue.create("thinc", "ops", entry_points=True)
     # fmt: on
 
     @classmethod

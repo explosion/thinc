@@ -25,8 +25,6 @@ def LSTM(
         msg = "LSTM depth must be at least 1. Maybe we should make this a noop?"
         raise ValueError(msg)
 
-    if bi and nO is not None:
-        nO //= 2
     model: Model[Padded, Padded] = Model(
         "lstm",
         forward,
@@ -48,10 +46,11 @@ def PyTorchLSTM(
 
     if depth == 0:
         return noop()  # type: ignore
+    nH = nO
     if bi:
-        nO = nO // 2
+        nH = nO // 2
     pytorch_rnn = PyTorchRNNWrapper(
-            torch.nn.LSTM(nI, nO, depth, bidirectional=bi, dropout=dropout)
+            torch.nn.LSTM(nI, nH, depth, bidirectional=bi, dropout=dropout)
         )
     pytorch_rnn.set_dim("nO", nO)
     pytorch_rnn.set_dim("nI", nI)
@@ -69,7 +68,7 @@ def init(
         model.set_dim("nI", get_width(X))
     if Y is not None:
         model.set_dim("nO", get_width(Y))
-    nO = model.get_dim("nO")
+    nH = int(model.get_dim("nO") / model.get_dim("dirs"))
     nI = model.get_dim("nI")
     depth = model.get_dim("depth")
     dirs = model.get_dim("dirs")
@@ -84,30 +83,30 @@ def init(
     for i in range(depth):
         for j in range(dirs):
             # Input-to-gates weights and biases.
-            params.append(init_W((nO, layer_nI)))
-            params.append(init_W((nO, layer_nI)))
-            params.append(init_W((nO, layer_nI)))
-            params.append(init_W((nO, layer_nI)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
+            params.append(init_W((nH, layer_nI)))
+            params.append(init_W((nH, layer_nI)))
+            params.append(init_W((nH, layer_nI)))
+            params.append(init_W((nH, layer_nI)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
             # Hidden-to-gates weights and biases
-            params.append(init_W((nO, nO)))
-            params.append(init_W((nO, nO)))
-            params.append(init_W((nO, nO)))
-            params.append(init_W((nO, nO)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
-            params.append(init_b((nO,)))
-        layer_nI = nO * dirs
+            params.append(init_W((nH, nH)))
+            params.append(init_W((nH, nH)))
+            params.append(init_W((nH, nH)))
+            params.append(init_W((nH, nH)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
+            params.append(init_b((nH,)))
+        layer_nI = nH * dirs
     model.set_param("LSTM", model.ops.xp.concatenate([p.ravel() for p in params]))
-    model.set_param("HC0", zero_init(model.ops, (2, depth, dirs, nO)))
+    model.set_param("HC0", zero_init(model.ops, (2, depth, dirs, nH)))
     size = model.get_param("LSTM").size
-    expected = 4 * dirs * nO * (nO + nI) + dirs * (8 * nO)
+    expected = 4 * dirs * nH * (nH + nI) + dirs * (8 * nH)
     for _ in range(1, depth):
-        expected += 4 * dirs * (nO + nO * dirs) * nO + dirs * (8 * nO)
+        expected += 4 * dirs * (nH + nH * dirs) * nH + dirs * (8 * nH)
     assert size == expected, (size, expected)
 
 

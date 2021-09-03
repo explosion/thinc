@@ -25,12 +25,14 @@ except (ImportError, AttributeError):
 
 try:  # pragma: no cover
     import torch
-    import torch.tensor
+    from torch import tensor
     import torch.utils.dlpack
 
     has_torch = True
+    has_torch_gpu = torch.cuda.device_count() != 0
 except ImportError:  # pragma: no cover
     has_torch = False
+    has_torch_gpu = False
 
 try:  # pragma: no cover
     import tensorflow.experimental.dlpack
@@ -48,8 +50,8 @@ try:  # pragma: no cover
 except ImportError:  # pragma: no cover
     has_mxnet = False
 
-from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd
-
+from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
+from . import types  # noqa: E402
 
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
@@ -82,7 +84,7 @@ def fix_random_seed(seed: int = 0) -> None:  # pragma: no cover
 
 def is_xp_array(obj: Any) -> bool:
     """Check whether an object is a numpy or cupy array."""
-    return is_numpy_array(obj) or is_cupy_array(obj) 
+    return is_numpy_array(obj) or is_cupy_array(obj)
 
 
 def is_cupy_array(obj: Any) -> bool:  # pragma: no cover
@@ -156,10 +158,20 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
 
 def require_cpu() -> bool:  # pragma: no cover
-    """Use CPU through NumpyOps"""
+    """Use CPU through NumpyOps or AppleOps"""
     from .backends import set_current_ops, NumpyOps
 
-    set_current_ops(NumpyOps())
+    try:
+        from thinc_apple_ops import AppleOps
+        set_current_ops(AppleOps())
+    except ImportError:
+        set_current_ops(NumpyOps())
+    try:
+        import torch
+
+        torch.set_default_tensor_type("torch.FloatTensor")
+    except ImportError:
+        pass
     return True
 
 
@@ -201,7 +213,7 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     if xp is cupy:  # pragma: no cover
         Y = Y.get()
     keep_shapes: List[int] = list(Y.shape)
-    Y = numpy.array(Y, dtype="int").ravel() # type: ignore
+    Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
     if n_classes is None:
         n_classes = int(numpy.max(Y) + 1)
     keep_shapes.append(n_classes)
@@ -314,7 +326,7 @@ def xp2tensorflow(
     """Convert a numpy or cupy tensor to a TensorFlow Tensor or Variable"""
     assert_tensorflow_installed()
     if hasattr(xp_tensor, "toDlpack"):
-        dlpack_tensor = xp_tensor.toDlpack() # type: ignore
+        dlpack_tensor = xp_tensor.toDlpack()  # type: ignore
         tf_tensor = tensorflow.experimental.dlpack.from_dlpack(dlpack_tensor)
     else:
         tf_tensor = tf.convert_to_tensor(xp_tensor)
@@ -431,6 +443,9 @@ def validate_fwd_input_output(
         sig_args["Y"] = (annot_y, ...)
         args["Y"] = (Y, lambda x: x)
     ArgModel = create_model("ArgModel", **sig_args)
+    # Make sure the forward refs are resolved and the types used by them are
+    # available in the correct scope. See #494 for details.
+    ArgModel.update_forward_refs(**types.__dict__)
     try:
         ArgModel.parse_obj(args)
     except ValidationError as e:
@@ -453,6 +468,16 @@ def data_validation(validation):
         yield
         DATA_VALIDATION.set(prev)
 
+@contextlib.contextmanager
+def use_nvtx_range(message: int, id_color: int = -1):
+    """Context manager to register the executed code as an NVTX range. The
+    ranges can be used as markers in CUDA profiling."""
+    if has_cupy:
+        cupy.cuda.nvtx.RangePush(message, id_color)
+        yield
+        cupy.cuda.nvtx.RangePop()
+    else:
+        yield
 
 __all__ = [
     "get_array_module",
@@ -472,4 +497,5 @@ __all__ = [
     "validate_fwd_input_output",
     "DataValidationError",
     "make_tempfile",
+    "use_nvtx_range",
 ]

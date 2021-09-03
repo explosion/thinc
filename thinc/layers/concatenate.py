@@ -60,12 +60,15 @@ def _array_forward(
         dY = model.ops.as_contig(d_output[:, : widths[0]])
         dX = callbacks[0](dY)
         start = widths[0]
+        add_gradients = hasattr(dX, "__add__") or hasattr(dX, "__iadd__")
+        add_gradients_data = hasattr(dX, "data") and (hasattr(dX.data, "__add__") or hasattr(dX.data, "__iadd__"))
         for bwd, width in zip(callbacks[1:], widths[1:]):
             dY = model.ops.as_contig(d_output[:, start : start + width])
-            if isinstance(dX, Ragged):
-                dX.data += bwd(dY).data
-            else:
-                dX += bwd(dY)
+            gradient = bwd(dY)
+            if add_gradients:
+                dX += gradient
+            elif add_gradients_data:
+                dX.data += gradient.data
             start += width
         return dX
 

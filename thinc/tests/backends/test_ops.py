@@ -15,7 +15,7 @@ from ..strategies import ndarrays_of_shape
 
 MAX_EXAMPLES = 10
 
-VANILLA_OPS = Ops(numpy)
+VANILLA_OPS = Ops(numpy)  # type:ignore
 NUMPY_OPS = NumpyOps()
 BLIS_OPS = NumpyOps(use_blis=True)
 CPU_OPS = [NUMPY_OPS, VANILLA_OPS]
@@ -275,6 +275,14 @@ def test_gemm_computes_correctly(cpu_ops):
     cpu_ops.gemm(X, W, trans1=True, out=Y)
 
 
+@pytest.mark.parametrize("cpu_ops", [*CPU_OPS, BLIS_OPS])
+def test_gemm_out_used(cpu_ops):
+    a = b = numpy.zeros((2, 2), dtype="f")
+    c = numpy.ones((2, 2), dtype="f")
+    cpu_ops.gemm(a, b, out=c)
+    assert numpy.array_equal(c, numpy.zeros((2, 2)))
+
+
 @pytest.mark.parametrize("cpu_ops", CPU_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
@@ -365,7 +373,7 @@ def get_lstm_args(depth, dirs, nO, batch_size, nI, draw=None):
     if draw:
         params = draw(ndarrays_of_shape(n_params))
         # For some reason this is crashing hypothesis?
-        #size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
+        # size_at_t = draw(ndarrays_of_shape(shape=(batch_size,), lo=1, dtype="int32"))
         size_at_t = numpy.ones(shape=(batch_size,), dtype="int32")
         X = draw(ndarrays_of_shape((int(size_at_t.sum()), nI)))
     else:
@@ -434,7 +442,6 @@ def test_get_ops():
 
 def test_use_ops():
     class_ops = get_current_ops()
-    assert class_ops.name == "numpy"
     with use_ops("numpy"):
         new_ops = get_current_ops()
         assert new_ops.name == "numpy"
@@ -442,7 +449,7 @@ def test_use_ops():
         new_ops = get_current_ops()
         assert new_ops.name == "cupy"
     new_ops = get_current_ops()
-    assert new_ops.name == "numpy"
+    assert class_ops.name == new_ops.name
 
 
 def test_minibatch():
@@ -485,3 +492,12 @@ def test_multibatch():
         ops.multibatch(10, (i for i in range(100)), (i for i in range(100)))
     with pytest.raises(ValueError):
         ops.multibatch(10, arr1, (i for i in range(100)), arr2)
+
+
+def test_ngrams():
+    ops = get_current_ops()
+    arr1 = numpy.asarray([1, 2, 3, 4, 5], dtype=numpy.uint64)
+    for n in range(1, 10):
+        assert len(ops.ngrams(n, arr1)) == max(0, arr1.shape[0] - (n - 1))
+    assert len(ops.ngrams(-1, arr1)) == 0
+    assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0

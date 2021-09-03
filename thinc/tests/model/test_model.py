@@ -1,17 +1,10 @@
 import pytest
 import threading
 import time
-import ml_datasets
-from thinc.api import (
-    CupyOps,
-    prefer_gpu,
-    Linear,
-    Dropout,
-    Model,
-    Shim,
-    change_attr_values,
-)
-from thinc.api import set_dropout_rate, chain, Relu, Softmax, Adam
+from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
+from thinc.api import Shim, Softmax, chain, change_attr_values
+from thinc.api import concatenate, prefer_gpu, set_dropout_rate
+from thinc.api import with_debug, wrap_model_recursive
 import numpy
 
 from ..util import make_tempdir
@@ -78,10 +71,6 @@ def test_model_init():
         model.get_dim("xyz")
     with pytest.raises(ValueError):
         model.get_dim("nO")
-    with pytest.raises(KeyError):
-        model.set_dim("xyz", 20)
-    with pytest.raises(ValueError):
-        model.set_dim("nI", 20)
     assert model.has_ref("a")
     assert model.get_ref("a").name == "a"
     assert not model.has_ref("xyz")
@@ -103,6 +92,38 @@ def test_model_init():
     model.attrs["bar"] = "baz"
     model_copy = model.copy()
     assert model_copy.name == "test"
+
+
+def test_model_set_dim():
+    class MyShim(Shim):
+        name = "testshim"
+
+    model_a = create_model("a")
+    model = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        dims={"nI": 5, "nO": None},
+        params={"W": None, "b": None},
+        refs={"a": model_a, "b": None},
+        attrs={"foo": "bar"},
+        shims=[MyShim(None)],
+        layers=[model_a, model_a],
+    )
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 10)
+    # force can be used before any parameters are set
+    model.set_dim("nI", 10, force=True)
+    model.set_param("W", model.ops.alloc1f(10))
+    model.set_grad("W", model.ops.alloc1f(10))
+    assert model.has_dim("nI")
+    assert model.get_dim("nI") == 10
+    with pytest.raises(KeyError):
+        model.set_dim("xyz", 20)
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20)
+    # force can't be used after any parameter is set
+    with pytest.raises(ValueError):
+        model.set_dim("nI", 20, force=True)
 
 
 def test_param_names():
@@ -166,6 +187,13 @@ def test_model_can_load_from_disk(model_with_no_args):
     with make_tempdir() as path:
         model_with_no_args.to_disk(path / "thinc_model")
         m2 = model_with_no_args.from_disk(path / "thinc_model")
+    assert model_with_no_args.to_bytes() == m2.to_bytes()
+
+
+def test_model_can_roundtrip_with_path_subclass(model_with_no_args, pathy_fixture):
+    path = pathy_fixture / "thinc_model"
+    model_with_no_args.to_disk(path)
+    m2 = model_with_no_args.from_disk(path)
     assert model_with_no_args.to_bytes() == m2.to_bytes()
 
 
@@ -375,6 +403,8 @@ def test_unique_id_multithreading():
 
 
 def test_model_gpu():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
     prefer_gpu()
     n_hidden = 32
     dropout = 0.2
@@ -407,3 +437,44 @@ def test_model_gpu():
             Yh = model.predict(X)
             correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
             total += Yh.shape[0]
+
+
+def test_recursive_wrap():
+    # Check:
+    #
+    # * Recursion: chain -> relu
+    # * Multiple sublayers: chain -> [relu, relu]
+
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    chained_debug = wrap_model_recursive(chained, with_debug)
+
+    assert chained_debug.name == "debug(relu>>relu)"
+    assert chained_debug.layers[0] is chained
+    assert chained_debug.layers[0].layers[0].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[0].layers[0] is relu
+    assert chained_debug.layers[0].layers[1].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[1].layers[0] is relu
+
+
+def test_recursive_double_wrap():
+    relu = Relu(5)
+    chained = chain(relu, relu)
+    concat = concatenate(chained, chained)
+    concat_debug = wrap_model_recursive(concat, with_debug)
+
+    n_debug = 0
+    for model in concat_debug.walk():
+        if model.name.startswith("debug"):
+            n_debug += 1
+
+    # There should be 5 unique debug wrappers:
+    # * Around concatenate. (= 1)
+    # * One around each chain in concatenate. (= 2)
+    # * One around each relu in the chain. (= 2)
+    assert n_debug == 5
+
+    assert concat_debug.layers[0].layers[0].layers[0].layers[0].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[0].layers[0].layers[1].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"

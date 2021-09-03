@@ -20,7 +20,7 @@ jobs:
   strategy:
     matrix:
       Python36Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.6'
       Python36Windows:
         imageName: 'vs2017-win2016'
@@ -29,7 +29,7 @@ jobs:
         imageName: 'macos-10.15'
         python.version: '3.6'
       Python38Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.8'
       Python38Windows:
         imageName: 'vs2017-win2016'
@@ -38,7 +38,7 @@ jobs:
         imageName: 'macos-10.15'
         python.version: '3.8'
       Python39Linux:
-        imageName: 'ubuntu-16.04'
+        imageName: 'ubuntu-18.04'
         python.version: '3.9'
       Python39Windows:
         imageName: 'vs2017-win2016'
@@ -57,7 +57,7 @@ jobs:
       architecture: 'x64'
 
   - script: |
-      python -m pip install --upgrade pip setuptools
+      python -m pip install --upgrade pip setuptools wheel
       pip install -r requirements.txt
     displayName: 'Install dependencies'
 
@@ -83,18 +83,15 @@ jobs:
       pip freeze > installed.txt
       pip uninstall -y -r installed.txt
       SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
-      pip install dist/$SDIST
+      PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
 
   - script: |
       pip install -r requirements.txt
       pip install tensorflow
       pip install "mxnet; sys_platform != 'win32'"
-      pip install "torch==1.6.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
+      pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
-      python -m pytest --pyargs thinc --cov=thinc --cov-report=xml
+      python -m pytest --pyargs thinc --cov=thinc --cov-report=term
     displayName: 'Run tests'
-
-  - bash: bash <(curl -s https://codecov.io/bash)
-    displayName: 'Upload to codecov.io'

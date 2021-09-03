@@ -44,7 +44,7 @@ def init(
         X_width = get_width(X)
         model.set_dim("nI", X_width)
         model.set_dim("nO", X_width)
-    if Y is not None:
+    elif Y is not None:
         Y_width = get_width(Y)
         model.set_dim("nI", Y_width)
         model.set_dim("nO", Y_width)

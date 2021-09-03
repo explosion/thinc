@@ -45,10 +45,12 @@ class CategoricalCrossentropy(Loss):
         normalize: bool = True,
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
+        neg_prefix: Optional[str] = None,
     ):
         self.normalize = normalize
         self.names = names
         self.missing_value = missing_value
+        self.neg_prefix = neg_prefix
         if names is not None:
             self._name_to_i = {name: i for i, name in enumerate(names)}
         else:
@@ -57,6 +59,9 @@ class CategoricalCrossentropy(Loss):
     def convert_truths(self, truths, guesses: Floats2d) -> Tuple[Floats2d, Floats2d]:
         xp = get_array_module(guesses)
         missing = []
+        negatives_mask = None
+        if self.names:
+            negatives_mask = xp.ones((len(truths), len(self.names)), dtype="f")
         missing_value = self.missing_value
         # Convert list of ints or list of strings
         if isinstance(truths, list):
@@ -74,14 +79,26 @@ class CategoricalCrossentropy(Loss):
                     if value == missing_value:
                         truths[i] = self.names[0]
                         missing.append(i)
+                    elif (
+                        value and self.neg_prefix and value.startswith(self.neg_prefix)
+                    ):
+                        truths[i] = value[len(self.neg_prefix) :]
+                        neg_index = self._name_to_i[truths[i]]
+                        negatives_mask[i] = 0  # type: ignore
+                        negatives_mask[i][neg_index] = -1  # type: ignore
                 truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
-        else:
-            missing = []
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
             truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
         mask = _make_mask(missing, guesses)
+        # Transform negative annotations to a 0 for the negated value
+        # + mask all other values for that row
+        if negatives_mask is not None:
+            truths *= negatives_mask
+            truths[truths == -1] = 0
+            negatives_mask[negatives_mask == -1] = 1
+            mask *= negatives_mask
         return truths, mask
 
     def __call__(
@@ -117,7 +134,7 @@ class CategoricalCrossentropy(Loss):
 
 
 @registry.losses("CategoricalCrossentropy.v1")
-def configure_CategoricalCrossentropy(
+def configure_CategoricalCrossentropy_v1(
     *,
     normalize: bool = True,
     names: Optional[List[str]] = None,
@@ -128,6 +145,22 @@ def configure_CategoricalCrossentropy(
     )
 
 
+@registry.losses("CategoricalCrossentropy.v2")
+def configure_CategoricalCrossentropy_v2(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    missing_value: Optional[Union[str, int]] = None,
+    neg_prefix: Optional[str] = None,
+) -> CategoricalCrossentropy:
+    return CategoricalCrossentropy(
+        normalize=normalize,
+        names=names,
+        missing_value=missing_value,
+        neg_prefix=neg_prefix,
+    )
+
+
 class SequenceCategoricalCrossentropy(Loss):
     def __init__(
         self,
@@ -135,9 +168,13 @@ class SequenceCategoricalCrossentropy(Loss):
         normalize: bool = True,
         names: Optional[List[str]] = None,
         missing_value: Optional[Union[str, int]] = None,
+        neg_prefix: Optional[str] = None,
     ):
         self.cc = CategoricalCrossentropy(
-            normalize=False, names=names, missing_value=missing_value
+            normalize=False,
+            names=names,
+            missing_value=missing_value,
+            neg_prefix=neg_prefix,
         )
         self.normalize = normalize
 
@@ -176,10 +213,22 @@ class SequenceCategoricalCrossentropy(Loss):
 
 
 @registry.losses("SequenceCategoricalCrossentropy.v1")
-def configure_SequenceCategoricalCrossentropy(
+def configure_SequenceCategoricalCrossentropy_v1(
     *, normalize: bool = True, names: Optional[List[str]] = None
 ) -> SequenceCategoricalCrossentropy:
     return SequenceCategoricalCrossentropy(normalize=normalize, names=names)
+
+
+@registry.losses("SequenceCategoricalCrossentropy.v2")
+def configure_SequenceCategoricalCrossentropy_v2(
+    *,
+    normalize: bool = True,
+    names: Optional[List[str]] = None,
+    neg_prefix: Optional[str] = None,
+) -> SequenceCategoricalCrossentropy:
+    return SequenceCategoricalCrossentropy(
+        normalize=normalize, names=names, neg_prefix=neg_prefix
+    )
 
 
 class L2Distance(Loss):

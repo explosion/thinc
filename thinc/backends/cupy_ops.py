@@ -14,12 +14,14 @@ except ImportError:
     cupyx = None
     has_cupy = False
 
+from .. import registry
 from .ops import Ops
 from .numpy_ops import NumpyOps
 from . import _custom_kernels
 from ..types import DeviceTypes
 
 
+@registry.ops("CupyOps")
 class CupyOps(Ops):
     name = "cupy"
     xp = cupy

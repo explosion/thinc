@@ -17,6 +17,7 @@ from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
 cimport numpy as np
 cimport blis.cy
 
+from .. import registry
 from ..util import copy_array, get_array_module
 from ..types import DeviceTypes, DTypes, Shape, ArrayXd
 from .linalg cimport VecVec, Vec
@@ -41,6 +42,7 @@ cdef extern from "math.h":
     float cosf(float x) nogil
 
 
+@registry.ops("NumpyOps")
 class NumpyOps(Ops):
     name = "numpy"
     xp = numpy
@@ -88,7 +90,7 @@ class NumpyOps(Ops):
         y = self.as_contig(y)
         if out is not None:
             out = self.as_contig(out)
-        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2)
+        return blis.py.gemm(x, y, out=out, trans1=trans1, trans2=trans2, beta=0.)
 
     def relu(self, np.ndarray X, inplace=False):
         cdef np.ndarray out = X if inplace else X.copy()
@@ -345,11 +347,13 @@ class NumpyOps(Ops):
         return weights, gradient, mom1, mom2
 
     def ngrams(self, int n, const uint64_t[::1] keys):
+        if n < 1:
+            return self.alloc((0,), dtype="uint64")
         keys_ = <uint64_t*>&keys[0]
-        length = max(0, keys.shape[0]-n)
+        length = max(0, keys.shape[0]-(n-1))
         cdef np.ndarray output_ = self.alloc((length,), dtype="uint64")
         output = <uint64_t*>output_.data
-        for i in range(keys.shape[0]-n):
+        for i in range(keys.shape[0]-(n-1)):
             output[i] = hash64(&keys_[i], n*sizeof(keys_[0]), 0)
         return output_
 

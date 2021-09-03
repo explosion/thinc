@@ -1,10 +1,11 @@
-from typing import Any, cast
+from typing import Any, Optional, cast
 import contextlib
 from io import BytesIO
 import srsly
 
 try:
     import torch.autograd
+    from torch.cuda import amp
     import torch.optim
     import torch
 except ImportError:  # pragma: no cover
@@ -14,13 +15,39 @@ from ..util import torch2xp, xp2torch, convert_recursive
 from ..backends import get_current_ops
 from ..optimizers import Optimizer
 from ..types import ArgsKwargs, FloatsXd
+from .pytorch_grad_scaler import PyTorchGradScaler
 from .shim import Shim
 
 
 class PyTorchShim(Shim):
     """Interface between a PyTorch model and a Thinc Model. This container is
     *not* a Thinc Model subclass itself.
+
+    mixed_precision:
+        Enable mixed-precision. This changes whitelisted ops to run
+        in half precision for better performance and lower memory use.
+    grad_scaler:
+        The gradient scaler to use for mixed-precision training. If this
+        argument is set to "None" and mixed precision is enabled, a gradient
+        scaler with the default configuration is used.
     """
+
+    def __init__(
+        self,
+        model: Any,
+        config=None,
+        optimizer: Any = None,
+        mixed_precision: bool = False,
+        grad_scaler: Optional[PyTorchGradScaler] = None,
+    ):
+        super().__init__(model, config, optimizer)
+
+        if grad_scaler is None:
+            grad_scaler = PyTorchGradScaler(mixed_precision)
+
+        self._grad_scaler = grad_scaler
+
+        self._mixed_precision = mixed_precision
 
     def __call__(self, inputs, is_train):
         if is_train:
@@ -35,7 +62,8 @@ class PyTorchShim(Shim):
         """
         self._model.eval()
         with torch.no_grad():
-            outputs = self._model(*inputs.args, **inputs.kwargs)
+            with amp.autocast(self._mixed_precision):
+                outputs = self._model(*inputs.args, **inputs.kwargs)
         self._model.train()
         return outputs
 
@@ -46,9 +74,22 @@ class PyTorchShim(Shim):
         Return the outputs and a callback to backpropagate.
         """
         self._model.train()
-        output = self._model(*inputs.args, **inputs.kwargs)
+
+        # Note: mixed-precision autocast must not be applied to backprop.
+        with amp.autocast(self._mixed_precision):
+            output = self._model(*inputs.args, **inputs.kwargs)
 
         def backprop(grads):
+            # Normally, gradient scaling is applied to the loss of a model. However,
+            # since regular thinc layers do not use mixed-precision, we perform scaling
+            # locally in this shim. Scaling the loss by a factor, scales the gradients
+            # by the same factor (see the chain rule). Therefore, we scale the gradients
+            # backprop'ed through the succeeding layer to get the same effect as loss
+            # scaling.
+            grads.kwargs["grad_tensors"] = self._grad_scaler.scale(
+                grads.kwargs["grad_tensors"]
+            )
+
             torch.autograd.backward(*grads.args, **grads.kwargs)
             return convert_recursive(
                 lambda x: hasattr(x, "grad"), lambda x: x.grad, inputs
@@ -57,15 +98,25 @@ class PyTorchShim(Shim):
         return output, backprop
 
     def finish_update(self, optimizer: Optimizer):
+        # Unscale weights and check for overflows during backprop.
+        grad_tensors = []
         for name, torch_data in self._model.named_parameters():
             if torch_data.grad is not None:
-                param, grad = optimizer(
-                    (self.id, name),
-                    cast(FloatsXd, torch2xp(torch_data.data)),
-                    cast(FloatsXd, torch2xp(torch_data.grad)),
-                )
-                torch_data.data = xp2torch(param, requires_grad=True)
+                grad_tensors.append(torch_data.grad)
+        found_inf = self._grad_scaler.unscale(grad_tensors)
+
+        for name, torch_data in self._model.named_parameters():
+            if torch_data.grad is not None:
+                if not found_inf:  # Skip weight update if any gradient overflowed.
+                    param, grad = optimizer(
+                        (self.id, name),
+                        cast(FloatsXd, torch2xp(torch_data.data)),
+                        cast(FloatsXd, torch2xp(torch_data.grad)),
+                    )
+                    torch_data.data = xp2torch(param, requires_grad=True)
                 torch_data.grad.zero_()
+
+        self._grad_scaler.update()
 
     @contextlib.contextmanager
     def use_params(self, params):
@@ -112,4 +163,5 @@ class PyTorchShim(Shim):
             map_location = "cuda:%d" % device_id
         self._model.load_state_dict(torch.load(filelike, map_location=map_location))
         self._model.to(map_location)
+        self._grad_scaler.to_(map_location)
         return self

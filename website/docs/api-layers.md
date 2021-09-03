@@ -460,7 +460,7 @@ https://github.com/explosion/thinc/blob/master/thinc/layers/softmax.py
 
 - **Input:** <ndarray>Tuple[ArrayXd, ArrayXd, ArrayXd]</ndarray>
 - **Output:** <ndarray>ArrayXd</ndarray>
-- **Parameters:** <ndarray shape="nO, nI">W</ndarray>,
+- **Parameters:** <ndarray shape="nO*length,">W</ndarray>,
   <ndarray shape="nO,">b</ndarray>, `length` <tt>int</tt>
 
 </inline-list>
@@ -700,6 +700,19 @@ concatenated, i.e. `concatenate(f, g)(x)` computes `hstack(f(x), g(x))`.
 https://github.com/explosion/thinc/blob/master/thinc/layers/concatenate.py
 ```
 
+### map_list {#map_list tag="function"}
+
+Map a child layer across list inputs.
+
+| Argument    | Type                                  | Description             |
+| ----------- | ------------------------------------- | ----------------------- |
+| `layer`   | <tt>Model[InT, OutT]</tt>               | The child layer to map. |
+| **RETURNS** | <tt>Model[List[InT], List[OutT]]</tt> | The composed model.     |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/map_list.py
+```
+
 ### expand_window {#expand_window tag="function"}
 
 <inline-list>
@@ -758,6 +771,24 @@ residual connections directly, helping the network to learn more smoothly.
 
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/residual.py
+```
+
+### tuplify {#tuplify tag="function"}
+
+Give each child layer a separate copy of the input, and the combine the output
+of the child layers into a tuple. Useful for providing original and modified
+input to a downstream layer.
+
+On the backward pass the loss from each child is added together, so when using
+custom datatypes they should define an addition operator.
+
+| Argument    | Type                             | Description                      |
+| ----------- | -------------------------------- | -------------------------------- |
+| `*layers`   | <tt>Model[ArrayXd, ArrayXd]</tt> | The models to compose.           |
+| **RETURNS** | <tt>Model[ArrayXd, ArrayXd]</tt> | The composed feed-forward model. |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/tuplify.py
 ```
 
 ### siamese {#siamese tag="function"}
@@ -1190,6 +1221,40 @@ model.initialize()
 ```python
 https://github.com/explosion/thinc/blob/master/thinc/layers/with_debug.py
 ```
+
+### with_nvtx_range {#with_nvtx_range tag="function"}
+
+<inline-list>
+
+- **Input:** <tt>Any</tt>
+- **Output:** <tt>Any</tt>
+
+</inline-list>
+
+Layer that wraps any layer and marks the forward and backprop passes as an
+NVTX range. This can be helpful when profiling GPU performance of a layer.
+
+```python
+### Example
+from thinc.api import Linear, with_nvtx_range
+
+model = with_nvtx_range(Linear(2, 5))
+model.initialize()
+```
+
+| Argument         | Type                   | Description                                                                                               |
+| ---------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------|
+| `layer`          | <tt>Model</tt>         | The layer to wrap.                                                                                        |
+| `name`           | <tt>Optional[str]</tt> | Optional name for the wrapped layer. Defaults to the name of the wrapped layer. |
+| _keyword-only_   |                        |                                                                                                           |
+| `forward_color`  | <tt>int</tt>           | Identifier of the color to use for the forward pass                                                       |
+| `backprop_color` | <tt>int</tt>           | Identifier of the color to use for the backward pass                                                      |
+| **RETURNS**      | <tt>Model</tt>         | The wrapped layer.                                                                                        |
+
+```python
+https://github.com/explosion/thinc/blob/master/thinc/layers/with_nvtx_range.py
+```
+
 
 ---
 

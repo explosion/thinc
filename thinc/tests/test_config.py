@@ -349,6 +349,14 @@ def test_config_roundtrip_disk():
     assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
 
 
+def test_config_roundtrip_disk_respects_path_subclasses(pathy_fixture):
+    cfg = Config().from_str(OPTIMIZER_CFG)
+    cfg_path = pathy_fixture / "config.cfg"
+    cfg.to_disk(cfg_path)
+    new_cfg = Config().from_disk(cfg_path)
+    assert new_cfg.to_str().strip() == OPTIMIZER_CFG.strip()
+
+
 def test_config_to_str_invalid_defaults():
     """Test that an error is raised if a config contains top-level keys without
     a section that would otherwise be interpreted as [DEFAULT] (which causes
@@ -505,7 +513,7 @@ def test_make_config_positional_args_dicts():
 
 def test_validation_generators_iterable():
     @my_registry.optimizers("test_optimizer.v1")
-    def test_optimizer_v1(rate: float,) -> None:
+    def test_optimizer_v1(rate: float) -> None:
         return None
 
     @my_registry.schedules("test_schedule.v1")
@@ -984,12 +992,14 @@ def test_config_from_str_overrides():
     assert config["a"]["b"] == 10
     assert config["a"]["c"]["d"] == 20
     assert config["a"]["c"]["e"] == 3
+    # Valid values that previously weren't in config
+    config = Config().from_str(config_str, overrides={"a.c.f": 100})
+    assert config["a"]["c"]["d"] == 2
+    assert config["a"]["c"]["e"] == 3
+    assert config["a"]["c"]["f"] == 100
     # Invalid keys and sections
     with pytest.raises(ConfigValidationError):
         Config().from_str(config_str, overrides={"f": 10})
-    # Adding new keys that are not in initial config via overrides
-    with pytest.raises(ConfigValidationError):
-        Config().from_str(config_str, overrides={"a.b": 10, "a.c.f": 200})
     # This currently isn't expected to work, because the dict in f.g is not
     # interpreted as a section while the config is still just the configparser
     with pytest.raises(ConfigValidationError):
@@ -1354,3 +1364,76 @@ def test_config_dataclasses():
     result = my_registry.resolve(config)["cfg"]
     assert isinstance(result, Ragged)
     assert list(result._get_cumsums()) == [4, 6, 14, 15, 19]
+
+
+@pytest.mark.parametrize(
+    "greeting,value,expected",
+    [
+        # simple substitution should go fine
+        [342, "${vars.a}", int],
+        ["342", "${vars.a}", str],
+        ["everyone", "${vars.a}", str],
+    ],
+)
+def test_config_interpolates(greeting, value, expected):
+    str_cfg = f"""
+    [project]
+    my_par = {value}
+
+    [vars]
+    a = "something"
+    """
+    overrides = {"vars.a": greeting}
+    cfg = Config().from_str(str_cfg, overrides=overrides)
+    assert type(cfg["project"]["my_par"]) == expected
+
+
+@pytest.mark.parametrize(
+    "greeting,value,expected",
+    [
+        # fmt: off
+        # simple substitution should go fine
+        ["hello 342", "${vars.a}", "hello 342"],
+        ["hello everyone", "${vars.a}", "hello everyone"],
+        ["hello tout le monde", "${vars.a}", "hello tout le monde"],
+        ["hello 42", "${vars.a}", "hello 42"],
+        # substituting an element in a list
+        ["hello 342", "[1, ${vars.a}, 3]", "hello 342"],
+        ["hello everyone", "[1, ${vars.a}, 3]", "hello everyone"],
+        ["hello tout le monde", "[1, ${vars.a}, 3]", "hello tout le monde"],
+        ["hello 42", "[1, ${vars.a}, 3]", "hello 42"],
+        # substituting part of a string
+        [342, "hello ${vars.a}", "hello 342"],
+        ["everyone", "hello ${vars.a}", "hello everyone"],
+        ["tout le monde", "hello ${vars.a}", "hello tout le monde"],
+        pytest.param("42", "hello ${vars.a}", "hello 42", marks=pytest.mark.xfail),
+        # substituting part of a implicit string inside a list
+        [342, "[1, hello ${vars.a}, 3]", "hello 342"],
+        ["everyone", "[1, hello ${vars.a}, 3]", "hello everyone"],
+        ["tout le monde", "[1, hello ${vars.a}, 3]", "hello tout le monde"],
+        pytest.param("42", "[1, hello ${vars.a}, 3]", "hello 42", marks=pytest.mark.xfail),
+        # substituting part of a explicit string inside a list
+        [342, "[1, 'hello ${vars.a}', '3']", "hello 342"],
+        ["everyone", "[1, 'hello ${vars.a}', '3']", "hello everyone"],
+        ["tout le monde", "[1, 'hello ${vars.a}', '3']", "hello tout le monde"],
+        pytest.param("42", "[1, 'hello ${vars.a}', '3']", "hello 42", marks=pytest.mark.xfail),
+        # more complicated example
+        [342, "[{'name':'x','script':['hello ${vars.a}']}]", "hello 342"],
+        ["everyone", "[{'name':'x','script':['hello ${vars.a}']}]", "hello everyone"],
+        ["tout le monde", "[{'name':'x','script':['hello ${vars.a}']}]", "hello tout le monde"],
+        pytest.param("42", "[{'name':'x','script':['hello ${vars.a}']}]", "hello 42", marks=pytest.mark.xfail),
+        # fmt: on
+    ],
+)
+def test_config_overrides(greeting, value, expected):
+    str_cfg = f"""
+    [project]
+    commands = {value}
+
+    [vars]
+    a = "world"
+    """
+    overrides = {"vars.a": greeting}
+    assert "${vars.a}" in str_cfg
+    cfg = Config().from_str(str_cfg, overrides=overrides)
+    assert expected in str(cfg)
