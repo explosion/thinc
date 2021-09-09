@@ -405,6 +405,7 @@ def test_unique_id_multithreading():
 def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
+
     prefer_gpu()
     n_hidden = 32
     dropout = 0.2
@@ -439,6 +440,31 @@ def test_model_gpu():
             total += Yh.shape[0]
 
 
+def test_replace_node():
+    relu1 = Relu(5)
+    relu2 = Relu(5)
+    relu_chain = chain(relu1, relu2)
+    relu1_debug = with_debug(relu1)
+    debug = Model(
+        "test",
+        lambda X: (X, lambda dY: dY),
+        layers=[relu1, relu2, relu1, relu_chain],
+        refs={"relu1": relu1, "relu2": relu2, "relu3": relu1},
+    )
+    debug.replace_node(relu1, relu1_debug)
+    assert debug.layers[0] == relu1_debug
+    assert debug.layers[1] == relu2
+    assert debug.layers[2] == relu1_debug
+    assert debug.get_ref("relu1") == relu1_debug
+    assert debug.get_ref("relu2") == relu2
+    assert debug.get_ref("relu3") == relu1_debug
+
+    # Check that nodes are replaced recursively
+    assert debug.layers[3] == relu_chain
+    assert debug.layers[3].layers[0] == relu1_debug
+    assert debug.layers[3].layers[1] == relu2
+
+
 def test_recursive_wrap():
     # Check:
     #
@@ -460,7 +486,7 @@ def test_recursive_wrap():
 def test_recursive_double_wrap():
     relu = Relu(5)
     chained = chain(relu, relu)
-    concat = concatenate(chained, chained)
+    concat = concatenate(chained, chained, relu)
     concat_debug = wrap_model_recursive(concat, with_debug)
 
     n_debug = 0
@@ -468,13 +494,14 @@ def test_recursive_double_wrap():
         if model.name.startswith("debug"):
             n_debug += 1
 
-    # There should be 5 unique debug wrappers:
-    # * Around concatenate. (= 1)
-    # * One around each chain in concatenate. (= 2)
-    # * One around each relu in the chain. (= 2)
-    assert n_debug == 5
+    # There should be 3 unique debug wrappers:
+    # * Around concatenate.
+    # * Around chain.
+    # * Around relu.
+    assert n_debug == 3
 
     assert concat_debug.layers[0].layers[0].layers[0].layers[0].name == "debug(relu)"
     assert concat_debug.layers[0].layers[0].layers[0].layers[1].name == "debug(relu)"
     assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
     assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"
+    assert concat_debug.layers[0].layers[2].name == "debug(relu)"
