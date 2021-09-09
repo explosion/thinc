@@ -483,6 +483,19 @@ def test_recursive_wrap():
     assert chained_debug.layers[0].layers[1].layers[0] is relu
 
 
+def test_wrap_refs():
+    relu = Relu(5)
+    model = Model(
+        "model", lambda X: (X, lambda dY: dY), layers=[relu], refs={"relu": relu}
+    )
+    model_debug = wrap_model_recursive(model, with_debug)
+    assert model_debug.name == "debug(model)"
+    assert model_debug.layers[0].name == "model"
+    assert model_debug.layers[0].layers[0].name == "debug(relu)"
+    assert model_debug.get_ref("relu").name == "debug(relu)"
+    assert model_debug.layers[0].get_ref("relu").name == "debug(relu)"
+
+
 def test_recursive_double_wrap():
     relu = Relu(5)
     chained = chain(relu, relu)
