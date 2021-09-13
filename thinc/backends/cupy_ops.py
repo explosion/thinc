@@ -97,7 +97,14 @@ class CupyOps(Ops):
         return _custom_kernels.backprop_mish(dY, X, threshold=threshold, out=out)
 
     def clip_gradient(self, gradient, threshold):
-        grad_norm = cupy.maximum(cupy.linalg.norm(gradient), 1e-12)
+        # We do not use CuPy's linalg.norm, since it uses scalar reductions
+        # using one CUDA block. This is a lot slower than the cuBLAS
+        # implementation.
+        def frobenius_norm(X):
+            X_vec = X.reshape(-1)
+            return cupy.cublas.nrm2(X_vec)
+
+        grad_norm = cupy.maximum(frobenius_norm(gradient), 1e-12)
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
 
