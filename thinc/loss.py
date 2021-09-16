@@ -95,9 +95,9 @@ class CategoricalCrossentropy(Loss):
                             negatives_mask[i][neg_index] = -1  # type: ignore
                     truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
-            mask = _make_mask(missing, guesses)
+            mask = _make_mask(guesses, missing)
         else:
-            mask = _make_xp_mask(guesses, truths, missing_value)
+            mask = _make_xp_mask(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
             truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
@@ -344,14 +344,14 @@ def configure_CosineDistance(
     return CosineDistance(normalize=normalize, ignore_zeros=ignore_zeros)
 
 
-def _make_mask(missing, guesses) -> Floats2d:
+def _make_mask(guesses, missing) -> Floats2d:
     xp = get_array_module(guesses)
     mask = xp.ones(guesses.shape, dtype="f")
     mask[missing] = 0
     return mask
 
 
-def _make_xp_mask(guesses, truths, missing_value) -> Floats2d:
+def _make_xp_mask(truths, guesses, missing_value) -> Floats2d:
     xp = get_array_module(guesses)
     mask = xp.ones(guesses.shape, dtype="f")
 
