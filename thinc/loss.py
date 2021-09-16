@@ -66,32 +66,41 @@ class CategoricalCrossentropy(Loss):
         # Convert list of ints or list of strings
         if isinstance(truths, list):
             truths = list(truths)
-            if len(truths) and not isinstance(truths[0], int):
-                if self.names is None:
-                    msg = (
-                        "Cannot calculate loss from list of strings without names. "
-                        "You can pass the names as a keyword argument when you "
-                        "create the loss object, "
-                        "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
-                    )
-                    raise ValueError(msg)
-                for i, value in enumerate(truths):
-                    if value == missing_value:
-                        truths[i] = self.names[0]
-                        missing.append(i)
-                    elif (
-                        value and self.neg_prefix and value.startswith(self.neg_prefix)
-                    ):
-                        truths[i] = value[len(self.neg_prefix) :]
-                        neg_index = self._name_to_i[truths[i]]
-                        negatives_mask[i] = 0  # type: ignore
-                        negatives_mask[i][neg_index] = -1  # type: ignore
-                truths = [self._name_to_i[name] for name in truths]
+            if len(truths):
+                if isinstance(truths[0], int):
+                    for i, value in enumerate(truths):
+                        if value == missing_value:
+                            missing.append(i)
+                else:
+                    if self.names is None:
+                        msg = (
+                            "Cannot calculate loss from list of strings without names. "
+                            "You can pass the names as a keyword argument when you "
+                            "create the loss object, "
+                            "e.g. CategoricalCrossentropy(names=['dog', 'cat'])"
+                        )
+                        raise ValueError(msg)
+                    for i, value in enumerate(truths):
+                        if value == missing_value:
+                            truths[i] = self.names[0]
+                            missing.append(i)
+                        elif (
+                            value
+                            and self.neg_prefix
+                            and value.startswith(self.neg_prefix)
+                        ):
+                            truths[i] = value[len(self.neg_prefix) :]
+                            neg_index = self._name_to_i[truths[i]]
+                            negatives_mask[i] = 0  # type: ignore
+                            negatives_mask[i][neg_index] = -1  # type: ignore
+                    truths = [self._name_to_i[name] for name in truths]
             truths = xp.asarray(truths, dtype="i")
+            mask = _make_mask(missing, guesses)
+        else:
+            mask = _make_xp_mask(guesses, truths, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
             truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
-        mask = _make_mask(missing, guesses)
         # Transform negative annotations to a 0 for the negated value
         # + mask all other values for that row
         if negatives_mask is not None:
@@ -339,6 +348,22 @@ def _make_mask(missing, guesses) -> Floats2d:
     xp = get_array_module(guesses)
     mask = xp.ones(guesses.shape, dtype="f")
     mask[missing] = 0
+    return mask
+
+
+def _make_xp_mask(guesses, truths, missing_value) -> Floats2d:
+    xp = get_array_module(guesses)
+    mask = xp.ones(guesses.shape, dtype="f")
+
+    if missing_value is not None:
+        if truths.ndim == 1:
+            mask[truths == missing_value] = 0.0
+        else:
+            # In 2D truths, labels are encoded as one-hot vectors, so we can get
+            # the label indices using argmax.
+            labels = xp.argmax(truths, axis=-1)
+            mask[labels == missing_value] = 0.0
+
     return mask
 
 

@@ -66,11 +66,62 @@ def test_categorical_crossentropy(guesses, labels):
 
 
 @pytest.mark.parametrize(
+    "guesses, labels",
+    [(guesses1, [2, 1, 0, 2])],
+)
+def test_categorical_crossentropy_int_list_missing(guesses, labels):
+    d_scores = CategoricalCrossentropy(normalize=True, missing_value=0).get_grad(
+        guesses, labels
+    )
+    assert d_scores.shape == guesses.shape
+
+    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
+    assert d_scores[1][0] == pytest.approx(0.1, eps)
+    assert d_scores[1][1] == pytest.approx(-0.1, eps)
+
+    # Label 0 is masked, because it represents the missing value
+    assert d_scores[2][0] == 0.0
+    assert d_scores[2][1] == 0.0
+    assert d_scores[2][2] == 0.0
+
+    # The fourth vector predicted no labels but should have predicted the last one
+    assert d_scores[3][0] == pytest.approx(0, eps)
+    assert d_scores[3][1] == pytest.approx(0, eps)
+    assert d_scores[3][2] == pytest.approx(-0.25, eps)
+
+    loss = CategoricalCrossentropy(normalize=True, missing_value=0).get_loss(
+        guesses, labels
+    )
+    assert loss == pytest.approx(0.114375, eps)
+
+
+@pytest.mark.parametrize(
     "guesses, labels", [(guesses1, labels1), (guesses1, labels1_full)]
 )
 def test_categorical_crossentropy_missing(guesses, labels):
-    d_scores = CategoricalCrossentropy(normalize=True).get_grad(guesses, labels)
+    d_scores = CategoricalCrossentropy(normalize=True, missing_value=0).get_grad(
+        guesses, labels
+    )
     assert d_scores.shape == guesses.shape
+
+    # The normalization divides the difference (e.g. 0.4) by the number of vectors (4)
+    assert d_scores[1][0] == pytest.approx(0.1, eps)
+    assert d_scores[1][1] == pytest.approx(-0.1, eps)
+
+    # Label 0 is masked, because it represents the missing value
+    assert d_scores[2][0] == 0.0
+    assert d_scores[2][1] == 0.0
+    assert d_scores[2][2] == 0.0
+
+    # The fourth vector predicted no labels but should have predicted the last one
+    assert d_scores[3][0] == pytest.approx(0, eps)
+    assert d_scores[3][1] == pytest.approx(0, eps)
+    assert d_scores[3][2] == pytest.approx(-0.25, eps)
+
+    loss = CategoricalCrossentropy(normalize=True, missing_value=0).get_loss(
+        guesses, labels
+    )
+    assert loss == pytest.approx(0.114375, eps)
 
 
 @pytest.mark.parametrize(
