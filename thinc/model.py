@@ -380,6 +380,24 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
+    def replace_node(self, old: "Model", new: "Model") -> bool:
+        """Replace a node anywhere it occurs within the model. Returns a boolean
+        indicating whether the replacement was made."""
+        seen = False
+
+        for node in list(self.walk()):
+            if node is old:
+                seen = True
+            else:
+                node._layers = [
+                    new if layer is old else layer for layer in node._layers
+                ]
+                for name in node.ref_names:
+                    if node.get_ref(name) is old:
+                        node.set_ref(name, new)
+
+        return seen
+
     def get_gradients(self) -> Dict[Tuple[int, str], Tuple[FloatsXd, FloatsXd]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
         keyed by the parameter ID. The values are (weights, gradients) tuples.
@@ -767,20 +785,30 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     return model
 
 
-def wrap_model_recursive(
-    model: _ModelT, wrapper: Callable[[_ModelT], _ModelT]
-) -> Model:
+def wrap_model_recursive(model: Model, wrapper: Callable[[Model], _ModelT]) -> _ModelT:
     """Recursively wrap a model and its submodules. The model is updated
     in-place."""
+    for node in list(model.walk()):
+        model.replace_node(node, wrapper(node))
 
-    def wrap_recursive_(model, wrapper, seen):
-        # Only wrap child layers if we haven't done so yet.
-        if id(model) not in seen:
-            model._layers = [wrap_recursive_(x, wrapper, seen) for x in model.layers]
-            seen.add(id(model))
-        return wrapper(model)
+    return wrapper(model)
 
-    return wrap_recursive_(model, wrapper, set())
+
+def wrap_with_callbacks(
+    layer: _ModelT, name: str, forward: Callable, *, init: Optional[Callable] = None
+) -> Model:
+    """Wrap a layer with the given forward and init callbacks. Returns the wrapper."""
+    return Model(
+        name,
+        forward,
+        init=init,
+        dims=layer._dims,
+        layers=[layer],
+        refs=layer._refs,
+        shims=layer.shims,
+        attrs=layer.attrs,
+        ops=layer.ops,
+    )
 
 
 __all__ = [

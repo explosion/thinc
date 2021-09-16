@@ -1,6 +1,6 @@
 from typing import Optional, Callable, Any, Tuple
 
-from ..model import Model
+from ..model import Model, wrap_with_callbacks
 from ..util import use_nvtx_range
 
 
@@ -32,6 +32,4 @@ def with_nvtx_range(
     def init(_model: Model, X: Any, Y: Any) -> Model:
         return layer.initialize(X, Y)
 
-    return Model(
-        f"nvtx_range({name})", forward, init=init, layers=[layer], shims=layer.shims
-    )
+    return wrap_with_callbacks(layer, f"debug({name})", forward, init=init)
