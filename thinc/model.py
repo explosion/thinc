@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
-from typing import Generic, Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar, Iterator
 import contextlib
 from contextvars import ContextVar
 import srsly
@@ -363,6 +363,28 @@ class Model(Generic[InT, OutT]):
             yield node
             queue.extend(node.layers)
 
+    def walk_dfs(self, post_order=False) -> Iterable["Model"]:
+        """Iterate out layers of the model, depth-first."""
+        seen: Dict[int, Iterator["Model"]] = dict()
+        stack = [self]
+        seen[id(self)] = iter(self.layers)
+        if not post_order:
+            yield self
+
+        while stack:
+            try:
+                next_child = next(seen[id(stack[-1])])
+                if not id(next_child) in seen:
+                    if not post_order:
+                        yield next_child
+
+                    stack.append(next_child)
+                    seen[id(next_child)] = iter(next_child.layers)
+            except StopIteration:
+                if post_order:
+                    yield stack[-1]
+                stack.pop()
+
     def remove_node(self, node: "Model") -> None:
         """Remove a node from all layers lists, and then update references.
         References that no longer point to a node within the tree will be set
@@ -385,7 +407,10 @@ class Model(Generic[InT, OutT]):
         indicating whether the replacement was made."""
         seen = False
 
-        for node in list(self.walk()):
+        # We need to replace nodes in topological order of the transposed graph
+        # to ensure that a node's dependencies are processed before the node.
+        # This is equivalent to a post-order traversal of the original graph.
+        for node in list(self.walk_dfs(post_order=True)):
             if node is old:
                 seen = True
             else:
