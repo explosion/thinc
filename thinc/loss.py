@@ -97,7 +97,7 @@ class CategoricalCrossentropy(Loss):
             truths = xp.asarray(truths, dtype="i")
             mask = _make_mask(guesses, missing)
         else:
-            mask = _make_xp_mask(truths, guesses, missing_value)
+            mask = _make_mask_by_value(truths, guesses, missing_value)
         if truths.ndim != guesses.ndim:
             # transform categorical values to one-hot encoding
             truths = to_categorical(cast(Ints1d, truths), n_classes=guesses.shape[-1])
@@ -351,7 +351,7 @@ def _make_mask(guesses, missing) -> Floats2d:
     return mask
 
 
-def _make_xp_mask(truths, guesses, missing_value) -> Floats2d:
+def _make_mask_by_value(truths, guesses, missing_value) -> Floats2d:
     xp = get_array_module(guesses)
     mask = xp.ones(guesses.shape, dtype="f")
 
