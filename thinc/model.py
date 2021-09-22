@@ -361,9 +361,9 @@ class Model(Generic[InT, OutT]):
         if order == "bfs":
             return self._walk_bfs()
         elif order == "dfs_pre":
-            return self._walk_dfs()
+            return self._walk_dfs(post_order=False)
         elif order == "dfs_post":
-            return self._walk_dfs(post_order=(True))
+            return self._walk_dfs(post_order=True)
         else:
             raise ValueError("Invalid order, must be one of: bfs, dfs_pre, dfs_post")
 
@@ -378,7 +378,7 @@ class Model(Generic[InT, OutT]):
             yield node
             queue.extend(node.layers)
 
-    def _walk_dfs(self, post_order=False) -> Iterable["Model"]:
+    def _walk_dfs(self, post_order: bool = False) -> Iterable["Model"]:
         """Iterate out layers of the model, depth-first."""
         seen: Dict[int, Iterator["Model"]] = dict()
         stack = [self]
