@@ -352,7 +352,22 @@ class Model(Generic[InT, OutT]):
             for name, param in backup.items():
                 self.set_param(name, param)
 
-    def walk(self) -> Iterable["Model"]:
+    def walk(self, *, order: str = "bfs") -> Iterable["Model"]:
+        """Iterate out layers of the model.
+
+        Nodes are returned in breadth-first order by default. Other possible
+        orders are "dfs_pre" (depth-first search in preorder) and "dfs_post"
+        (depth-first search in postorder)."""
+        if order == "bfs":
+            return self._walk_bfs()
+        elif order == "dfs_pre":
+            return self._walk_dfs()
+        elif order == "dfs_post":
+            return self._walk_dfs(post_order=(True))
+        else:
+            raise ValueError("Invalid order, must be one of: bfs, dfs_pre, dfs_post")
+
+    def _walk_bfs(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
         seen: Set[int] = set()
@@ -363,7 +378,7 @@ class Model(Generic[InT, OutT]):
             yield node
             queue.extend(node.layers)
 
-    def walk_dfs(self, post_order=False) -> Iterable["Model"]:
+    def _walk_dfs(self, post_order=False) -> Iterable["Model"]:
         """Iterate out layers of the model, depth-first."""
         seen: Dict[int, Iterator["Model"]] = dict()
         stack = [self]
@@ -410,7 +425,7 @@ class Model(Generic[InT, OutT]):
         # We need to replace nodes in topological order of the transposed graph
         # to ensure that a node's dependencies are processed before the node.
         # This is equivalent to a post-order traversal of the original graph.
-        for node in list(self.walk_dfs(post_order=True)):
+        for node in list(self.walk(order="dfs_post")):
             if node is old:
                 seen = True
             else:
