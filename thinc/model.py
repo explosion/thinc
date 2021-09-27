@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
-from typing import Generic, Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar, Iterator
 import contextlib
 from contextvars import ContextVar
 import srsly
@@ -352,7 +352,22 @@ class Model(Generic[InT, OutT]):
             for name, param in backup.items():
                 self.set_param(name, param)
 
-    def walk(self) -> Iterable["Model"]:
+    def walk(self, *, order: str = "bfs") -> Iterable["Model"]:
+        """Iterate out layers of the model.
+
+        Nodes are returned in breadth-first order by default. Other possible
+        orders are "dfs_pre" (depth-first search in preorder) and "dfs_post"
+        (depth-first search in postorder)."""
+        if order == "bfs":
+            return self._walk_bfs()
+        elif order == "dfs_pre":
+            return self._walk_dfs(post_order=False)
+        elif order == "dfs_post":
+            return self._walk_dfs(post_order=True)
+        else:
+            raise ValueError("Invalid order, must be one of: bfs, dfs_pre, dfs_post")
+
+    def _walk_bfs(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
         seen: Set[int] = set()
@@ -362,6 +377,28 @@ class Model(Generic[InT, OutT]):
             seen.add(id(node))
             yield node
             queue.extend(node.layers)
+
+    def _walk_dfs(self, post_order: bool = False) -> Iterable["Model"]:
+        """Iterate out layers of the model, depth-first."""
+        seen: Dict[int, Iterator["Model"]] = dict()
+        stack = [self]
+        seen[id(self)] = iter(self.layers)
+        if not post_order:
+            yield self
+
+        while stack:
+            try:
+                next_child = next(seen[id(stack[-1])])
+                if not id(next_child) in seen:
+                    if not post_order:
+                        yield next_child
+
+                    stack.append(next_child)
+                    seen[id(next_child)] = iter(next_child.layers)
+            except StopIteration:
+                if post_order:
+                    yield stack[-1]
+                stack.pop()
 
     def remove_node(self, node: "Model") -> None:
         """Remove a node from all layers lists, and then update references.
@@ -385,7 +422,10 @@ class Model(Generic[InT, OutT]):
         indicating whether the replacement was made."""
         seen = False
 
-        for node in list(self.walk()):
+        # We need to replace nodes in topological order of the transposed graph
+        # to ensure that a node's dependencies are processed before the node.
+        # This is equivalent to a post-order traversal of the original graph.
+        for node in list(self.walk(order="dfs_post")):
             if node is old:
                 seen = True
             else:

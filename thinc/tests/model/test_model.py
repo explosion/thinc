@@ -465,6 +465,36 @@ def test_replace_node():
     assert debug.layers[3].layers[1] == relu2
 
 
+def test_replace_node_with_indirect_node_ref():
+    #  a
+    # / \
+    # x  b[y=y]
+    # |  |
+    # y  x
+    #    |
+    #    y
+
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
+    y = dummy_model("y", [])
+    x = dummy_model("x", [y])
+
+    y_debug = with_debug(y)
+
+    b = dummy_model("b", [x])
+    b.set_ref("y", y)
+
+    a = chain(x, b)
+    a.name = "a"
+
+    a.replace_node(y, y_debug)
+
+    assert a.layers[0].layers[0] == y_debug
+    assert a.layers[1].layers[0].layers[0] == y_debug
+    assert a.layers[1].get_ref("y") == y_debug
+
+
 def test_recursive_wrap():
     # Check:
     #
@@ -518,3 +548,33 @@ def test_recursive_double_wrap():
     assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
     assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"
     assert concat_debug.layers[0].layers[2].name == "debug(relu)"
+
+
+def test_wrap_non_child_references():
+    relu = Relu(5)
+    relu2 = Relu(5)
+    chained = chain(relu, relu)
+    chained2 = chain(relu2, chained)
+    chained2.set_ref("relu", relu)
+    # Fails in case non-child references cannot be set.
+    wrap_model_recursive(chained2, with_debug)
+
+
+def test_walk_dfs():
+    relu = Relu(5)
+    relu2 = Relu(5)
+    inner_chain = chain(relu, relu2)
+    chained = chain(inner_chain, inner_chain)
+    assert list(chained.walk(order="dfs_pre")) == [chained, inner_chain, relu, relu2]
+    assert list(chained.walk(order="dfs_post")) == [
+        relu,
+        relu2,
+        inner_chain,
+        chained,
+    ]
+
+
+def test_walk_bfs_post_order_fails():
+    relu = Relu(5)
+    with pytest.raises(ValueError, match="Invalid order"):
+        relu.walk(order="dfs_post_order")
