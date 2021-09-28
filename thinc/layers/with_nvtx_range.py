@@ -32,4 +32,4 @@ def with_nvtx_range(
     def init(_model: Model, X: Any, Y: Any) -> Model:
         return layer.initialize(X, Y)
 
-    return wrap_with_callbacks(layer, f"debug({name})", forward, init=init)
+    return wrap_with_callbacks(layer, f"ntvx_range({name})", forward, init=init)
