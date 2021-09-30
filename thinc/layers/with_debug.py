@@ -1,6 +1,6 @@
 from typing import Optional, Callable, Any, Tuple, TypeVar
 
-from ..model import Model, wrap_with_callbacks
+from ..model import Model
 
 _ModelT = TypeVar("_ModelT", bound=Model)
 

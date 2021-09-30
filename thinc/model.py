@@ -840,23 +840,6 @@ def wrap_model_recursive(model: Model, wrapper: Callable[[Model], _ModelT]) -> _
     return wrapper(model)
 
 
-def wrap_with_callbacks(
-    layer: Model, name: str, forward: Callable, *, init: Optional[Callable] = None
-) -> Model:
-    """Wrap a layer with the given forward and init callbacks. Returns the wrapper."""
-    return Model(
-        name,
-        forward,
-        init=init,
-        dims=layer._dims,
-        layers=[layer],
-        refs=layer._refs,
-        shims=layer.shims,
-        attrs=layer.attrs,
-        ops=layer.ops,
-    )
-
-
 __all__ = [
     "Model",
     "serialize_attr",

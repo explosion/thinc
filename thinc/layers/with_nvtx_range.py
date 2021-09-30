@@ -1,6 +1,6 @@
 from typing import Optional, Callable, Any, Tuple, TypeVar
 
-from ..model import Model, wrap_with_callbacks
+from ..model import Model
 from ..util import use_nvtx_range
 
 
