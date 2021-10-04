@@ -86,10 +86,11 @@ def get_ops(name: str, **kwargs) -> Ops:
 
 
 def get_array_ops(arr):
-    """Return CupyOps for a cupy array, the current ops otherwise."""
+    """Return CupyOps for a cupy array, NumpyOps otherwise."""
     if is_cupy_array(arr):
         return CupyOps()
-    return get_current_ops()
+    else:
+        return NumpyOps()
 
 
 @contextlib.contextmanager

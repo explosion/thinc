@@ -1,5 +1,5 @@
 from typing import Dict, List, Callable, Optional, Any, Union, Iterable, Set, cast
-from typing import Generic, Sequence, Tuple, TypeVar
+from typing import Generic, Sequence, Tuple, TypeVar, Iterator
 import contextlib
 from contextvars import ContextVar
 import srsly
@@ -352,7 +352,22 @@ class Model(Generic[InT, OutT]):
             for name, param in backup.items():
                 self.set_param(name, param)
 
-    def walk(self) -> Iterable["Model"]:
+    def walk(self, *, order: str = "bfs") -> Iterable["Model"]:
+        """Iterate out layers of the model.
+
+        Nodes are returned in breadth-first order by default. Other possible
+        orders are "dfs_pre" (depth-first search in preorder) and "dfs_post"
+        (depth-first search in postorder)."""
+        if order == "bfs":
+            return self._walk_bfs()
+        elif order == "dfs_pre":
+            return self._walk_dfs(post_order=False)
+        elif order == "dfs_post":
+            return self._walk_dfs(post_order=True)
+        else:
+            raise ValueError("Invalid order, must be one of: bfs, dfs_pre, dfs_post")
+
+    def _walk_bfs(self) -> Iterable["Model"]:
         """Iterate out layers of the model, breadth-first."""
         queue = [self]
         seen: Set[int] = set()
@@ -362,6 +377,28 @@ class Model(Generic[InT, OutT]):
             seen.add(id(node))
             yield node
             queue.extend(node.layers)
+
+    def _walk_dfs(self, post_order: bool = False) -> Iterable["Model"]:
+        """Iterate out layers of the model, depth-first."""
+        seen: Dict[int, Iterator["Model"]] = dict()
+        stack = [self]
+        seen[id(self)] = iter(self.layers)
+        if not post_order:
+            yield self
+
+        while stack:
+            try:
+                next_child = next(seen[id(stack[-1])])
+                if not id(next_child) in seen:
+                    if not post_order:
+                        yield next_child
+
+                    stack.append(next_child)
+                    seen[id(next_child)] = iter(next_child.layers)
+            except StopIteration:
+                if post_order:
+                    yield stack[-1]
+                stack.pop()
 
     def remove_node(self, node: "Model") -> None:
         """Remove a node from all layers lists, and then update references.
@@ -379,6 +416,27 @@ class Model(Generic[InT, OutT]):
                 ref = node.get_ref(name)
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
+
+    def replace_node(self, old: "Model", new: "Model") -> bool:
+        """Replace a node anywhere it occurs within the model. Returns a boolean
+        indicating whether the replacement was made."""
+        seen = False
+
+        # We need to replace nodes in topological order of the transposed graph
+        # to ensure that a node's dependencies are processed before the node.
+        # This is equivalent to a post-order traversal of the original graph.
+        for node in list(self.walk(order="dfs_post")):
+            if node is old:
+                seen = True
+            else:
+                node._layers = [
+                    new if layer is old else layer for layer in node._layers
+                ]
+                for name in node.ref_names:
+                    if node.get_ref(name) is old:
+                        node.set_ref(name, new)
+
+        return seen
 
     def get_gradients(self) -> Dict[Tuple[int, str], Tuple[FloatsXd, FloatsXd]]:
         """Get non-zero gradients of the model's parameters, as a dictionary
@@ -767,20 +825,30 @@ def set_dropout_rate(model: _ModelT, drop: float, attrs=["dropout_rate"]) -> _Mo
     return model
 
 
-def wrap_model_recursive(
-    model: _ModelT, wrapper: Callable[[_ModelT], _ModelT]
-) -> Model:
+def wrap_model_recursive(model: Model, wrapper: Callable[[Model], _ModelT]) -> _ModelT:
     """Recursively wrap a model and its submodules. The model is updated
     in-place."""
+    for node in list(model.walk()):
+        model.replace_node(node, wrapper(node))
 
-    def wrap_recursive_(model, wrapper, seen):
-        # Only wrap child layers if we haven't done so yet.
-        if id(model) not in seen:
-            model._layers = [wrap_recursive_(x, wrapper, seen) for x in model.layers]
-            seen.add(id(model))
-        return wrapper(model)
+    return wrapper(model)
 
-    return wrap_recursive_(model, wrapper, set())
+
+def wrap_with_callbacks(
+    layer: _ModelT, name: str, forward: Callable, *, init: Optional[Callable] = None
+) -> Model:
+    """Wrap a layer with the given forward and init callbacks. Returns the wrapper."""
+    return Model(
+        name,
+        forward,
+        init=init,
+        dims=layer._dims,
+        layers=[layer],
+        refs=layer._refs,
+        shims=layer.shims,
+        attrs=layer.attrs,
+        ops=layer.ops,
+    )
 
 
 __all__ = [
