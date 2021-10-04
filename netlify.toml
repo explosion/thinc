@@ -1,5 +1,5 @@
 [build]
   base = "website"
-  publish = "website/public"
+  publish = "public"
   command = "npm run deploy"
   ignore = "false"
