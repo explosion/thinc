@@ -82,6 +82,13 @@ def _find_ops(name: str, **kwargs) -> Optional[Callable[..., Ops]]:
     return cls
 
 
+def _import_extra_cpu_backends():
+    try:
+        from thinc_apple_ops import AppleOps
+    except ImportError:
+        pass
+
+
 def get_ops(name: str, **kwargs) -> Ops:
     """Get a backend object.
 
@@ -89,6 +96,7 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
+        _import_extra_cpu_backends()
         for cpu_name in ["apple", "numpy"]:
             cls = _find_ops(cpu_name)
             if cls is not None:
