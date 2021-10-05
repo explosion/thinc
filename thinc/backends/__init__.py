@@ -74,14 +74,6 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
-def _find_ops(name: str, **kwargs) -> Optional[Callable[..., Ops]]:
-    cls = None
-    for ops_cls in registry.ops.get_all().values():  # type: ignore
-        if ops_cls.name == name:
-            cls = ops_cls
-    return cls
-
-
 def _import_extra_cpu_backends():
     try:
         from thinc_apple_ops import AppleOps
@@ -94,15 +86,14 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     The special name "cpu" returns the best available CPU backend."""
 
+    ops_by_name = {ops_cls.name: ops_cls for ops_cls in registry.ops.get_all().values()}  # type: ignore
+
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
         _import_extra_cpu_backends()
-        for cpu_name in ["apple", "numpy"]:
-            cls = _find_ops(cpu_name)
-            if cls is not None:
-                break
+        cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
     else:
-        cls = _find_ops(name)
+        cls = ops_by_name.get(name)
 
     if cls is None:
         raise ValueError(f"Invalid backend: {name}")
