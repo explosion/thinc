@@ -434,6 +434,13 @@ def test_lstm_forward_training_fuzz(ops, args):
 def test_get_ops():
     assert isinstance(get_ops("numpy"), NumpyOps)
     assert isinstance(get_ops("cupy"), CupyOps)
+    # If Apple ops are available, "cpu" should return AppleOps or
+    # NumpyOps otherwise.
+    try:
+        from thinc_apple_ops import AppleOps
+        assert isinstance(get_ops("cpu"), AppleOps)
+    except ImportError:
+        assert isinstance(get_ops("cpu"), NumpyOps)
     with pytest.raises(ValueError):
         get_ops("blah")
     ops = Ops(numpy)
