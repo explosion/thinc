@@ -417,6 +417,12 @@ class Model(Generic[InT, OutT]):
                 if ref is not None and ref not in tree:
                     node.set_ref(name, None)
 
+    def replace_callbacks(
+        self, forward: Callable, *, init: Optional[Callable] = None
+    ) -> None:
+        setattr(self, "_func", forward)
+        setattr(self, "init", init)
+
     def replace_node(self, old: "Model", new: "Model") -> bool:
         """Replace a node anywhere it occurs within the model. Returns a boolean
         indicating whether the replacement was made."""
@@ -832,23 +838,6 @@ def wrap_model_recursive(model: Model, wrapper: Callable[[Model], _ModelT]) -> _
         model.replace_node(node, wrapper(node))
 
     return wrapper(model)
-
-
-def wrap_with_callbacks(
-    layer: _ModelT, name: str, forward: Callable, *, init: Optional[Callable] = None
-) -> Model:
-    """Wrap a layer with the given forward and init callbacks. Returns the wrapper."""
-    return Model(
-        name,
-        forward,
-        init=init,
-        dims=layer._dims,
-        layers=[layer],
-        refs=layer._refs,
-        shims=layer.shims,
-        attrs=layer.attrs,
-        ops=layer.ops,
-    )
 
 
 __all__ = [

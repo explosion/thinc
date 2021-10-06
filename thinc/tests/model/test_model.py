@@ -1,3 +1,4 @@
+from collections import Counter
 import pytest
 import threading
 import time
@@ -495,7 +496,43 @@ def test_replace_node_with_indirect_node_ref():
     assert a.layers[1].get_ref("y") == y_debug
 
 
+def test_with_debug():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
+
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+
+    counts = Counter()
+
+    def on_init(*_):
+        counts["init"] += 1
+
+    def on_forward(*_):
+        counts["forward"] += 1
+
+    def on_backprop(*_):
+        counts["backprop"] += 1
+
+    relu = Relu()
+    relu2 = with_debug(
+        Relu(), on_init=on_init, on_forward=on_forward, on_backprop=on_backprop
+    )
+    chained = chain(relu, relu2, relu2)
+    chained.initialize(X=train_X[:5], Y=train_Y[:5])
+    _, backprop = chained(X=train_X[:5], is_train=False)
+
+    # Not real loss gradients, but we don't care for testing.
+    backprop(train_Y[:5])
+
+    # Four times forward, because initialization also applies forward for
+    # validation.
+    assert counts == {"init": 2, "forward": 4, "backprop": 2}
+
+
 def test_recursive_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
     # Check:
     #
     # * Recursion: chain -> relu
@@ -503,51 +540,45 @@ def test_recursive_wrap():
 
     relu = Relu(5)
     chained = chain(relu, relu)
-    chained_debug = wrap_model_recursive(chained, with_debug)
+    chained_debug = wrap_model_recursive(
+        chained, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
 
-    assert chained_debug.name == "debug(relu>>relu)"
+    assert chained_debug.name == "dummy(relu>>relu)"
     assert chained_debug.layers[0] is chained
-    assert chained_debug.layers[0].layers[0].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[0].name == "dummy(relu)"
     assert chained_debug.layers[0].layers[0].layers[0] is relu
-    assert chained_debug.layers[0].layers[1].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[1].name == "dummy(relu)"
     assert chained_debug.layers[0].layers[1].layers[0] is relu
 
 
-def test_wrap_refs():
-    relu = Relu(5)
-    model = Model(
-        "model", lambda X: (X, lambda dY: dY), layers=[relu], refs={"relu": relu}
-    )
-    model_debug = wrap_model_recursive(model, with_debug)
-    assert model_debug.name == "debug(model)"
-    assert model_debug.layers[0].name == "model"
-    assert model_debug.layers[0].layers[0].name == "debug(relu)"
-    assert model_debug.get_ref("relu").name == "debug(relu)"
-    assert model_debug.layers[0].get_ref("relu").name == "debug(relu)"
-
-
 def test_recursive_double_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
     relu = Relu(5)
     chained = chain(relu, relu)
     concat = concatenate(chained, chained, relu)
-    concat_debug = wrap_model_recursive(concat, with_debug)
+    concat_wrapped = wrap_model_recursive(
+        concat, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
 
     n_debug = 0
-    for model in concat_debug.walk():
-        if model.name.startswith("debug"):
+    for model in concat_wrapped.walk():
+        if model.name.startswith("dummy"):
             n_debug += 1
 
-    # There should be 3 unique debug wrappers:
+    # There should be 3 unique dummy wrappers:
     # * Around concatenate.
     # * Around chain.
     # * Around relu.
     assert n_debug == 3
 
-    assert concat_debug.layers[0].layers[0].layers[0].layers[0].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[0].layers[0].layers[1].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[2].name == "debug(relu)"
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[2].name == "dummy(relu)"
 
 
 def test_wrap_non_child_references():
