@@ -28,7 +28,6 @@ jobs:
       Python36Mac:
         imageName: 'macos-10.15'
         python.version: '3.6'
-        os: 'osx'
       Python38Linux:
         imageName: 'ubuntu-18.04'
         python.version: '3.8'
@@ -38,7 +37,6 @@ jobs:
       Python38Mac:
         imageName: 'macos-10.15'
         python.version: '3.8'
-        os: 'osx'
       Python39Linux:
         imageName: 'ubuntu-18.04'
         python.version: '3.9'
@@ -48,7 +46,6 @@ jobs:
       Python39Mac:
         imageName: 'macos-10.15'
         python.version: '3.9'
-        os: 'osx'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -104,4 +101,4 @@ jobs:
       pip install thinc-apple-ops
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
-    condition: and(eq(variables['os'], 'osx'), eq(variables['python.version'], '3.9'))
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
