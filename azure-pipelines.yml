@@ -100,7 +100,8 @@ jobs:
     displayName: 'Run tests'
 
   - script: |
+      pip uninstall -y tensorflow
       pip install thinc-apple-ops
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
-    condition: eq(variables['os'], 'osx')
+    condition: and(eq(variables['os'], 'osx'), eq(variables['python.version'], '3.9'))
