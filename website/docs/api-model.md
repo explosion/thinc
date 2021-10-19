@@ -269,7 +269,7 @@ The `walk` method supports three iteration orders through the `order` argument:
 
 | Argument    | Type                     | Description                                                                                                                                |
 |-------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
-| `order`     | <tt>str</tt>             | Node iteration order. `"bfs"` (breadth-first), `"dfs_pre"` (depth-first preorder), `"dfs_post"` (depth-first post-order) Default: `"bfs"`. |
+| `order`     | <tt>str</tt>             | Node iteration order. `"bfs"` (breadth-first), `"dfs_pre"` (depth-first preorder), `"dfs_post"` (depth-first postorder) Default: `"bfs"`. |
 | **RETURNS** | <tt>Iterable[Model]</tt> | The layers of the model.                                                                                                                   |
 
 ### Model.remove_node {#remove_node tag="method"}
