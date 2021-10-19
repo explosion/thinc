@@ -421,7 +421,7 @@ def test_model_gpu():
             Relu(nO=n_hidden, dropout=dropout),
             Softmax(),
         )
-        # making sure the data is on the right device
+        # make sure the data is on the right device
         train_X = model.ops.asarray(train_X)
         train_Y = model.ops.asarray(train_Y)
         dev_X = model.ops.asarray(dev_X)
