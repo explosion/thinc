@@ -264,7 +264,7 @@ The `walk` method supports three iteration orders through the `order` argument:
   *1 - 2 - 4 - 3 - 5*
 * `"dfs_pre"`: depth-first preorder, outputs a node before its children.
   Iteration order of the example above: *1 - 2 - 3 - 4 - 5*
-* `"dfs_post"`: depth-first post-order, outputs children before a node itself.
+* `"dfs_post"`: depth-first postorder, outputs children before a node itself.
   Iteration order of the example above: *3 - 2 - 5 - 4 - 1*
 
 | Argument    | Type                     | Description                                                                                                                                |
