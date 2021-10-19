@@ -1,5 +1,5 @@
 import contextlib
-from typing import Type, Dict, Any
+from typing import Type, Dict, Any, Callable, Optional
 
 from contextvars import ContextVar
 import threading
@@ -74,14 +74,30 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
+def _import_extra_cpu_backends():
+    try:
+        from thinc_apple_ops import AppleOps
+    except ImportError:
+        pass
+
+
 def get_ops(name: str, **kwargs) -> Ops:
-    """Get a backend object."""
-    cls = None
-    for ops_cls in registry.ops.get_all().values():  # type: ignore
-        if ops_cls.name == name:
-            cls = ops_cls
+    """Get a backend object.
+
+    The special name "cpu" returns the best available CPU backend."""
+
+    ops_by_name = {ops_cls.name: ops_cls for ops_cls in registry.ops.get_all().values()}  # type: ignore
+
+    cls: Optional[Callable[..., Ops]] = None
+    if name == "cpu":
+        _import_extra_cpu_backends()
+        cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
+    else:
+        cls = ops_by_name.get(name)
+
     if cls is None:
         raise ValueError(f"Invalid backend: {name}")
+
     return cls(**kwargs)
 
 

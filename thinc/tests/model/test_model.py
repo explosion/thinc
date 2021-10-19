@@ -1,10 +1,12 @@
+from collections import Counter
 import pytest
 import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, prefer_gpu, set_dropout_rate
-from thinc.api import with_debug, wrap_model_recursive
+from thinc.api import concatenate, has_cupy, set_dropout_rate
+from thinc.api import use_ops, with_debug, wrap_model_recursive
+from thinc.util import gpu_is_available
 import numpy
 
 from ..util import make_tempdir
@@ -406,38 +408,42 @@ def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
 
-    prefer_gpu()
-    n_hidden = 32
-    dropout = 0.2
-    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
-    model = chain(
-        Relu(nO=n_hidden, dropout=dropout),
-        Relu(nO=n_hidden, dropout=dropout),
-        Softmax(),
-    )
-    # making sure the data is on the right device
-    train_X = model.ops.asarray(train_X)
-    train_Y = model.ops.asarray(train_Y)
-    dev_X = model.ops.asarray(dev_X)
-    dev_Y = model.ops.asarray(dev_Y)
+    ops = "cpu"
+    if has_cupy and gpu_is_available():
+        ops = "cupy"
 
-    model.initialize(X=train_X[:5], Y=train_Y[:5])
-    optimizer = Adam(0.001)
-    batch_size = 128
+    with use_ops(ops):
+        n_hidden = 32
+        dropout = 0.2
+        (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+        model = chain(
+            Relu(nO=n_hidden, dropout=dropout),
+            Relu(nO=n_hidden, dropout=dropout),
+            Softmax(),
+        )
+        # make sure the data is on the right device
+        train_X = model.ops.asarray(train_X)
+        train_Y = model.ops.asarray(train_Y)
+        dev_X = model.ops.asarray(dev_X)
+        dev_Y = model.ops.asarray(dev_Y)
 
-    for i in range(2):
-        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
-        for X, Y in batches:
-            Yh, backprop = model.begin_update(X)
-            backprop(Yh - Y)
-            model.finish_update(optimizer)
-        # Evaluate and print progress
-        correct = 0
-        total = 0
-        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
-            Yh = model.predict(X)
-            correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
-            total += Yh.shape[0]
+        model.initialize(X=train_X[:5], Y=train_Y[:5])
+        optimizer = Adam(0.001)
+        batch_size = 128
+
+        for i in range(2):
+            batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+            for X, Y in batches:
+                Yh, backprop = model.begin_update(X)
+                backprop(Yh - Y)
+                model.finish_update(optimizer)
+            # Evaluate and print progress
+            correct = 0
+            total = 0
+            for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+                Yh = model.predict(X)
+                correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
+                total += Yh.shape[0]
 
 
 def test_replace_node():
@@ -495,7 +501,43 @@ def test_replace_node_with_indirect_node_ref():
     assert a.layers[1].get_ref("y") == y_debug
 
 
+def test_with_debug():
+    pytest.importorskip("ml_datasets")
+    import ml_datasets
+
+    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+
+    counts = Counter()
+
+    def on_init(*_):
+        counts["init"] += 1
+
+    def on_forward(*_):
+        counts["forward"] += 1
+
+    def on_backprop(*_):
+        counts["backprop"] += 1
+
+    relu = Relu()
+    relu2 = with_debug(
+        Relu(), on_init=on_init, on_forward=on_forward, on_backprop=on_backprop
+    )
+    chained = chain(relu, relu2, relu2)
+    chained.initialize(X=train_X[:5], Y=train_Y[:5])
+    _, backprop = chained(X=train_X[:5], is_train=False)
+
+    # Not real loss gradients, but we don't care for testing.
+    backprop(train_Y[:5])
+
+    # Four times forward, because initialization also applies forward for
+    # validation.
+    assert counts == {"init": 2, "forward": 4, "backprop": 2}
+
+
 def test_recursive_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
     # Check:
     #
     # * Recursion: chain -> relu
@@ -503,51 +545,45 @@ def test_recursive_wrap():
 
     relu = Relu(5)
     chained = chain(relu, relu)
-    chained_debug = wrap_model_recursive(chained, with_debug)
+    chained_debug = wrap_model_recursive(
+        chained, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
 
-    assert chained_debug.name == "debug(relu>>relu)"
+    assert chained_debug.name == "dummy(relu>>relu)"
     assert chained_debug.layers[0] is chained
-    assert chained_debug.layers[0].layers[0].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[0].name == "dummy(relu)"
     assert chained_debug.layers[0].layers[0].layers[0] is relu
-    assert chained_debug.layers[0].layers[1].name == "debug(relu)"
+    assert chained_debug.layers[0].layers[1].name == "dummy(relu)"
     assert chained_debug.layers[0].layers[1].layers[0] is relu
 
 
-def test_wrap_refs():
-    relu = Relu(5)
-    model = Model(
-        "model", lambda X: (X, lambda dY: dY), layers=[relu], refs={"relu": relu}
-    )
-    model_debug = wrap_model_recursive(model, with_debug)
-    assert model_debug.name == "debug(model)"
-    assert model_debug.layers[0].name == "model"
-    assert model_debug.layers[0].layers[0].name == "debug(relu)"
-    assert model_debug.get_ref("relu").name == "debug(relu)"
-    assert model_debug.layers[0].get_ref("relu").name == "debug(relu)"
-
-
 def test_recursive_double_wrap():
+    def dummy_model(name, layers):
+        return Model(name, lambda model, X, is_train: ..., layers=layers)
+
     relu = Relu(5)
     chained = chain(relu, relu)
     concat = concatenate(chained, chained, relu)
-    concat_debug = wrap_model_recursive(concat, with_debug)
+    concat_wrapped = wrap_model_recursive(
+        concat, lambda model: dummy_model(f"dummy({model.name})", [model])
+    )
 
     n_debug = 0
-    for model in concat_debug.walk():
-        if model.name.startswith("debug"):
+    for model in concat_wrapped.walk():
+        if model.name.startswith("dummy"):
             n_debug += 1
 
-    # There should be 3 unique debug wrappers:
+    # There should be 3 unique dummy wrappers:
     # * Around concatenate.
     # * Around chain.
     # * Around relu.
     assert n_debug == 3
 
-    assert concat_debug.layers[0].layers[0].layers[0].layers[0].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[0].layers[0].layers[1].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[1].layers[0].layers[0].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[1].layers[0].layers[1].name == "debug(relu)"
-    assert concat_debug.layers[0].layers[2].name == "debug(relu)"
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[0].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[0].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[1].layers[0].layers[1].name == "dummy(relu)"
+    assert concat_wrapped.layers[0].layers[2].name == "dummy(relu)"
 
 
 def test_wrap_non_child_references():

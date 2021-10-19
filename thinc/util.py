@@ -53,6 +53,7 @@ except ImportError:  # pragma: no cover
 from .types import ArrayXd, ArgsKwargs, Ragged, Padded, FloatsXd, IntsXd  # noqa: E402
 from . import types  # noqa: E402
 
+
 def get_array_module(arr):  # pragma: no cover
     if is_cupy_array(arr):
         return cupy
@@ -158,20 +159,18 @@ def set_active_gpu(gpu_id: int) -> "cupy.cuda.Device":  # pragma: no cover
 
 
 def require_cpu() -> bool:  # pragma: no cover
-    """Use CPU through NumpyOps or AppleOps"""
-    from .backends import set_current_ops, NumpyOps
+    """Use CPU through best available backend."""
+    from .backends import set_current_ops, get_ops
 
-    try:
-        from thinc_apple_ops import AppleOps
-        set_current_ops(AppleOps())
-    except ImportError:
-        set_current_ops(NumpyOps())
     try:
         import torch
 
         torch.set_default_tensor_type("torch.FloatTensor")
     except ImportError:
         pass
+
+    set_current_ops(get_ops("cpu"))
+
     return True
 
 
@@ -468,6 +467,7 @@ def data_validation(validation):
         yield
         DATA_VALIDATION.set(prev)
 
+
 @contextlib.contextmanager
 def use_nvtx_range(message: int, id_color: int = -1):
     """Context manager to register the executed code as an NVTX range. The
@@ -478,6 +478,7 @@ def use_nvtx_range(message: int, id_color: int = -1):
         cupy.cuda.nvtx.RangePop()
     else:
         yield
+
 
 __all__ = [
     "get_array_module",

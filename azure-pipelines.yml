@@ -95,3 +95,10 @@ jobs:
       python -m ipykernel install --name thinc-notebook-tests --user
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
     displayName: 'Run tests'
+
+  - script: |
+      pip uninstall -y tensorflow
+      pip install thinc-apple-ops
+      python -m pytest --pyargs thinc
+    displayName: 'Run tests with thinc-apple-ops'
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
