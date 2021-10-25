@@ -89,6 +89,10 @@ class PyTorchGradScaler:
 
         return tensors_per_device
 
+    @property
+    def found_inf(self):
+        return bool(self._found_inf) != 0
+
     def unscale(self, tensors):
         """Unscale the given tensors. Returns True if any of the gradients were infinite."""
         if not self._enabled:
