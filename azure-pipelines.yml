@@ -105,7 +105,7 @@ jobs:
     displayName: 'Install test dependencies'
 
   - script: |
-      pip uninstall -y pathy
+      pip uninstall -y mypy
     displayName: 'Skip mypy for python 3.10'
     condition: eq(variables['python.version'], '3.10')
 
