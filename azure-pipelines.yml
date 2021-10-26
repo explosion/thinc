@@ -75,7 +75,9 @@ jobs:
       python setup.py sdist --formats=gztar
     displayName: 'Build sdist'
 
-  - script: python -m mypy thinc
+  - script: |
+      python -m pip install mypy
+      python -m mypy thinc
     displayName: 'Run mypy'
 
   - task: DeleteFiles@1
@@ -89,8 +91,6 @@ jobs:
     displayName: 'Uninstall all packages'
 
   - bash: |
-      pip freeze > installed.txt
-      pip uninstall -y -r installed.txt
       SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
       PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
