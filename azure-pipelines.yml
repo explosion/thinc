@@ -87,7 +87,7 @@ jobs:
 
   - script: |
       python -m pip freeze
-      pip freeze --exclude pywin32_bootstrap > installed.txt
+      pip freeze --exclude pywin32 > installed.txt
       pip uninstall -y -r installed.txt
     displayName: 'Uninstall all packages'
 
