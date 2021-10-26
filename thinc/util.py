@@ -30,9 +30,11 @@ try:  # pragma: no cover
 
     has_torch = True
     has_torch_gpu = torch.cuda.device_count() != 0
+    has_torch_amp = not torch.cuda.amp.common.amp_definitely_not_available()
 except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_gpu = False
+    has_torch_amp = False
 
 try:  # pragma: no cover
     import tensorflow.experimental.dlpack
