@@ -114,8 +114,10 @@ def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
     set_current_ops(get_ops(name, **kwargs))
-    yield
-    set_current_ops(current_ops)
+    try:
+        yield
+    finally:
+        set_current_ops(current_ops)
 
 
 def get_current_ops() -> Ops:
