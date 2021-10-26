@@ -88,7 +88,7 @@ class PyTorchShim(Shim):
             # backprop'ed through the succeeding layer to get the same effect as loss
             # scaling.
             grads.kwargs["grad_tensors"] = self._grad_scaler.scale(
-                grads.kwargs["grad_tensors"]
+                grads.kwargs["grad_tensors"], inplace=True
             )
 
             torch.autograd.backward(*grads.args, **grads.kwargs)

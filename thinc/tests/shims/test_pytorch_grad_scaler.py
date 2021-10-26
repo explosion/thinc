@@ -20,6 +20,13 @@ def test_grad_scaler():
     assert scaler.scale([torch.tensor([1.0], device=device_id)]) == [
         torch.tensor([2.0 ** 16], device=device_id)
     ]
+    assert scaler.scale(torch.tensor([1.0], device=device_id)) == torch.tensor(
+        [2.0 ** 16], device=device_id
+    )
+    with pytest.raises(ValueError):
+        scaler.scale("bogus")
+    with pytest.raises(ValueError):
+        scaler.scale(42)
 
     # Test infinity detection.
     g = [

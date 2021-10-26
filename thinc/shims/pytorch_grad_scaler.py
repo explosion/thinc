@@ -1,3 +1,7 @@
+from typing import Dict, Iterable, List, Union, cast
+
+from ..util import is_torch_array
+
 try:
     import torch
 except ImportError:  # pragma: no cover
@@ -60,26 +64,56 @@ class PyTorchGradScaler:
         self._growth_tracker = self._growth_tracker.to(device)
         self._scale = self._scale.to(device)
 
-    def scale(self, tensors):
+    def scale(
+        self, tensors: Union["torch.Tensor", Iterable["torch.Tensor"]], inplace=False
+    ) -> Union["torch.Tensor", List["torch.Tensor"]]:
         """Scale up the values in the given tensors."""
         if not self._enabled:
-            return tensors
+            return cast("torch.Tensor", tensors)
+
+        incorrect_type = ValueError(
+            "Input to gradient scaling must be a Tensor or Iterable[Tensor]"
+        )
 
         # Cache per-device scales to avoid unnecessary d2d copies of the current scale.
-        scale_per_device = dict()
+        scale_per_device: Dict["torch.device", "torch.Tensor"] = dict()
 
-        scaled_tensors = []
-        for tensor in tensors:
-            assert tensor.is_cuda, "Gradient scaling is only supported for CUDA tensors"
+        if is_torch_array(tensors):
+            tensor = cast("torch.Tensor", tensors)
+            return self._scale_tensor(tensor, scale_per_device, inplace)
+        elif isinstance(tensors, Iterable):
+            scaled_tensors = []
 
-            device = tensor.device
+            for tensor in tensors:
+                if not is_torch_array(tensor):
+                    raise incorrect_type
 
-            if device not in scale_per_device:
-                scale_per_device[device] = self._scale.to(device=device)
+                scaled_tensors.append(
+                    self._scale_tensor(tensor, scale_per_device, inplace)
+                )
 
-            scaled_tensors.append(tensor * scale_per_device[device])
+            return scaled_tensors
 
-        return scaled_tensors
+        raise incorrect_type
+
+    def _scale_tensor(
+        self,
+        tensor: "torch.Tensor",
+        scale_per_device: Dict["torch.device", "torch.Tensor"],
+        inplace: bool,
+    ):
+        assert tensor.is_cuda, "Gradient scaling is only supported for CUDA tensors"
+
+        device = tensor.device
+
+        if device not in scale_per_device:
+            scale_per_device[device] = self._scale.to(device=device)
+
+        scale = scale_per_device[device]
+        if inplace:
+            return tensor.mul_(scale)
+        else:
+            return tensor * scale
 
     def _tensors_per_device(self, tensors):
         tensors_per_device = dict()
