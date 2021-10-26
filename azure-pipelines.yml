@@ -105,11 +105,6 @@ jobs:
     displayName: 'Install test dependencies'
 
   - script: |
-      pip uninstall -y mypy
-    displayName: 'Skip mypy for python 3.10'
-    condition: eq(variables['python.version'], '3.10')
-
-  - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
     displayName: 'Run tests'
 
