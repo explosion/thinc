@@ -79,6 +79,10 @@ def _import_extra_cpu_backends():
         from thinc_apple_ops import AppleOps
     except ImportError:
         pass
+    try:
+        from thinc_bigendian_ops import BigEndianOps
+    except ImportError:
+        pass
 
 
 def get_ops(name: str, **kwargs) -> Ops:
@@ -91,10 +95,15 @@ def get_ops(name: str, **kwargs) -> Ops:
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
         _import_extra_cpu_backends()
+        
         cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
+        
+        if "bigendian" in ops_by_name:
+            cls = ops_by_name.get("bigendian", ops_by_name.get("numpy"))
+
     else:
         cls = ops_by_name.get(name)
-
+    
     if cls is None:
         raise ValueError(f"Invalid backend: {name}")
 
@@ -113,6 +122,9 @@ def get_array_ops(arr):
 def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
+    # avoid fallback to base NumpyOps if on big endian platform
+    if current_ops.name == "bigendian" and name == "numpy":
+        name = current_ops.name 
     set_current_ops(get_ops(name, **kwargs))
     try:
         yield
