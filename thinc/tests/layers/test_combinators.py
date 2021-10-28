@@ -125,6 +125,13 @@ def test_chain_operator_three(model1, model2, model3):
         assert len(model.layers[0].layers) == 2
 
 
+def test_chain_tuplify(nI, nH, nO):
+    model = chain(Linear(nH), tuplify(Linear(), Linear()))
+    X_ones = numpy.ones((1, nI), dtype="f")
+    Y_ones = numpy.ones((1, nO), dtype="f")
+    model.initialize(X=X_ones, Y=(Y_ones, Y_ones))
+
+
 def test_chain_right_branch(model1, model2, model3):
     # Previously we 'flattened' these nested calls. We might opt to do so
     # again, especially for the operators.

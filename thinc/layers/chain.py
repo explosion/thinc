@@ -82,7 +82,7 @@ def init(
     # layers, Y=None.
     curr_input = X
     for layer in model.layers:
-        if layer.has_dim("nO") is None:
+        if layer.has_dim("nO") is not True:
             layer.initialize(X=curr_input, Y=Y)
         else:
             layer.initialize(X=curr_input)
