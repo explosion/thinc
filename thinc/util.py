@@ -162,14 +162,9 @@ def require_cpu() -> bool:  # pragma: no cover
     """Use CPU through best available backend."""
     from .backends import set_current_ops, get_ops
 
-    try:
-        import torch
-
-        torch.set_default_tensor_type("torch.FloatTensor")
-    except ImportError:
-        pass
-
-    set_current_ops(get_ops("cpu"))
+    ops = get_ops("cpu")
+    set_current_ops(ops)
+    set_torch_tensor_type_for_ops(ops)
 
     return True
 
@@ -480,6 +475,22 @@ def use_nvtx_range(message: int, id_color: int = -1):
         yield
 
 
+def set_torch_tensor_type_for_ops(ops):
+    """Set the PyTorch default tensor type for the given ops. This is a
+    no-op if PyTorch is not available."""
+    from .backends.cupy_ops import CupyOps
+
+    try:
+        import torch
+
+        if CupyOps.xp is not None and isinstance(ops, CupyOps):
+            torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        else:
+            torch.set_default_tensor_type("torch.FloatTensor")
+    except ImportError:
+        pass
+
+
 __all__ = [
     "get_array_module",
     "fix_random_seed",
@@ -499,4 +510,5 @@ __all__ = [
     "DataValidationError",
     "make_tempfile",
     "use_nvtx_range",
+    "set_torch_tensor_type_for_ops",
 ]
