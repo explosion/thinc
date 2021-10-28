@@ -69,6 +69,13 @@ def test_tuplify_dulicates_input():
     assert out == (ones, ones)
 
 
+def test_tuplify_initialize(nI, nO):
+    linear = Linear(nO)
+    model = tuplify(linear, linear)
+    ones = numpy.ones((1, nI), dtype="float")
+    model.initialize(X=ones)
+
+
 def test_tuplify_three(model1, model2, model3):
     model = tuplify(model1, model2, model3)
     assert len(model.layers) == 3
