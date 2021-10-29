@@ -97,7 +97,7 @@ def configure_uniform_init(
     return partial(uniform_init, lo=lo, hi=hi)
 
 
-def normal_init(ops: Ops, shape: Shape, *, mean: int = 0) -> FloatsXd:
+def normal_init(ops: Ops, shape: Shape, *, mean: float = 0) -> FloatsXd:
     size = int(ops.xp.prod(ops.xp.asarray(shape)))
     inits = cast(FloatsXd, numpy.random.normal(scale=mean, size=size).astype("float32"))
     inits = ops.reshape_f(inits, shape)
