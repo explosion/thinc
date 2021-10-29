@@ -136,22 +136,26 @@ def test_chain_right_branch(model1, model2, model3):
 
 @pytest.mark.parametrize("ops", [NumpyOps(), NumpyOps(use_blis=True)])
 def test_chain(ops):
-    data = numpy.asarray([[1, 2, 3, 4]], dtype="f")
-    model = chain(Linear(1), Dropout(), Linear(1))
+    X = numpy.asarray([[1, 2, 3, 4]], dtype="f")
+    Y = numpy.asarray([[1, 2, 3, 4]], dtype="f")
+    nI = X.shape[1]
+    nO = Y.shape[1]
+    nH = 1
+    model = chain(Linear(1), Dropout(), Linear(nO))
     model.ops = ops
-    model.initialize(data, data)
-    Y, backprop = model(data, is_train=True)
-    backprop(Y)
+    model.initialize(X=X, Y=Y)
+    Yh, backprop = model(X, is_train=True)
+    backprop(Yh)
     # Layers with and without nO/nI
-    model = chain(Linear(1), Dropout(), Linear(1, 1))
-    model.initialize(data, data)
+    model = chain(Linear(nH), Dropout(), Linear(nO, nH))
+    model.initialize(X=X, Y=Y)
     # Setting dim on model
-    model = chain(Linear(1), Dropout(), Linear(1))
-    model.set_dim("nO", 1)
-    model.initialize(data, None)
-    model = chain(Linear(1, 1), Dropout(), Linear(1, 1))
-    model.set_dim("nI", 1)
-    model.initialize(None, data)
+    model = chain(Linear(nH), Dropout(), Linear(nO))
+    model.set_dim("nO", nO)
+    model.initialize(X=X, Y=None)
+    model = chain(Linear(nH, nI), Dropout(), Linear(nO, nH))
+    model.set_dim("nI", nI)
+    model.initialize(X=None, Y=Y)
     # Not enough arguments
     with pytest.raises(TypeError):
         chain(Linear())

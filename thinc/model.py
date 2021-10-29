@@ -39,6 +39,7 @@ class Model(Generic[InT, OutT]):
     id: int
     _func: Callable
     init: Callable
+    is_homomorphic: Optional[bool]
     _params: ParamServer
     _dims: Dict[str, Optional[int]]
     _layers: List["Model"]
@@ -54,6 +55,7 @@ class Model(Generic[InT, OutT]):
         "ops",
         "_func",
         "init",
+        "_is_homomorphic",
         "_params",
         "_dims",
         "_attrs",
@@ -76,6 +78,7 @@ class Model(Generic[InT, OutT]):
         attrs: Dict[str, Any] = {},
         refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
+        is_homomorphic: Optional[bool]=None
     ):
         """Initialize a new model."""
         self.name = name
@@ -85,6 +88,7 @@ class Model(Generic[InT, OutT]):
         setattr(self, "_func", forward)
         setattr(self, "init", init)
         self.ops = ops if ops is not None else get_current_ops()
+        self._is_homomorphic = is_homomorphic
         self._params = ParamServer()
         self._dims = dict(dims)
         self._attrs = dict(attrs)
@@ -119,6 +123,10 @@ class Model(Generic[InT, OutT]):
         not reassign it.
         """
         return self._attrs
+
+    @property
+    def is_homomorphic(self) -> Optional[bool]:
+        return self._is_homomorphic
 
     @property
     def param_names(self) -> Tuple[str, ...]:

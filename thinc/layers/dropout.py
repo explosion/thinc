@@ -15,7 +15,7 @@ def Dropout(rate: float = 0.0) -> Model[InT, InT]:
     during training.  Specifically, cells of the input are zeroed with
     probability determined by the `rate` argument.
     """
-    return Model("dropout", forward, attrs={"dropout_rate": rate, "is_enabled": True})
+    return Model("dropout", forward, attrs={"dropout_rate": rate, "is_enabled": True}, is_homomorphic=True)
 
 
 # We're getting type hell here, I think because of the instance checks?

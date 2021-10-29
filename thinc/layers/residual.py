@@ -21,6 +21,7 @@ def residual(layer: Model[InT, InT]) -> Model[InT, InT]:
             "nO": layer.get_dim("nO") if layer.has_dim("nO") else None,
             "nI": layer.get_dim("nI") if layer.has_dim("nI") else None,
         },
+        is_homomorphic=True
     )
 
 

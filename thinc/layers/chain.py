@@ -81,15 +81,17 @@ def init(
     # if a layer has an unset nO, we use the final Y (if provided). For other
     # layers, Y=None.
     curr_input = X
+    non_homomorphic = [layer for layer in model.layers if not layer.is_homomorphic]
     for layer in model.layers:
-        if layer.has_dim("nO") is None:
+        if layer.is_homomorphic:
+            layer.initialize(X=curr_input, Y=curr_input)
+        elif layer is non_homomorphic[-1]:
             layer.initialize(X=curr_input, Y=Y)
         else:
             layer.initialize(X=curr_input)
         if curr_input is not None:
             curr_input = layer.predict(curr_input)
-
-    if model.layers[0].has_dim("nI"):
+    if model.has_dim("nI") is None and model.layers[0].has_dim("nI"):
         model.set_dim("nI", model.layers[0].get_dim("nI"))
     if model.has_dim("nO") is None:
         try:
