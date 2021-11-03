@@ -1,8 +1,42 @@
 import pytest
 
-from thinc.util import has_torch, has_torch_gpu
-
+from hypothesis import given
+from hypothesis.strategies import lists, one_of, tuples
+from thinc.util import has_torch, has_torch_gpu, is_torch_array
 from thinc.api import PyTorchGradScaler
+
+from ..strategies import ndarrays
+
+
+def tensors():
+    # This function is not used without Torch + CUDA,
+    # but we have to do some wrapping to avoid import
+    # failures.
+    try:
+        import torch
+
+        return ndarrays().map(lambda a: torch.tensor(a).cuda())
+    except ImportError:
+        pass
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.skipif(not has_torch_gpu, reason="needs a GPU")
+@given(X=one_of(tensors(), lists(tensors()), tuples(tensors())))
+def test_scale_random_inputs(X):
+    import torch
+
+    device_id = torch.cuda.current_device()
+    scaler = PyTorchGradScaler(enabled=True)
+    scaler.to_(device_id)
+
+    if is_torch_array(X):
+        assert torch.allclose(scaler.scale(X), X * 2.0 ** 16)
+    else:
+        scaled1 = scaler.scale(X)
+        scaled2 = [t * 2.0 ** 16 for t in X]
+        for t1, t2 in zip(scaled1, scaled2):
+            assert torch.allclose(t1, t2)
 
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
