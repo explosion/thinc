@@ -25,6 +25,7 @@ from .layers import CauchySimilarity, ParametricAttention, Logistic
 from .layers import resizable, sigmoid_activation, Sigmoid, SparseLinear
 from .layers import PyTorchWrapper, PyTorchRNNWrapper, PyTorchLSTM
 from .layers import TensorFlowWrapper, keras_subclass, MXNetWrapper
+from .layers import PyTorchWrapper_v2
 
 from .layers import add, bidirectional, chain, clone, concatenate, noop
 from .layers import residual, uniqued, siamese, list2ragged, ragged2list

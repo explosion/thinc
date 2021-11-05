@@ -12,7 +12,8 @@ from .maxout import Maxout
 from .mish import Mish
 from .multisoftmax import MultiSoftmax
 from .parametricattention import ParametricAttention
-from .pytorchwrapper import PyTorchWrapper, PyTorchRNNWrapper
+from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
+from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
 from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
@@ -82,6 +83,7 @@ __all__ = [
     "ParametricAttention",
     "PyTorchLSTM",
     "PyTorchWrapper",
+    "PyTorchWrapper_v2",
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
