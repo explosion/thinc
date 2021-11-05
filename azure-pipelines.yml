@@ -46,6 +46,15 @@ jobs:
       Python39Mac:
         imageName: 'macos-10.15'
         python.version: '3.9'
+      Python310Linux:
+        imageName: 'ubuntu-18.04'
+        python.version: '3.10'
+      Python310Windows:
+        imageName: 'vs2017-win2016'
+        python.version: '3.10'
+      Python310Mac:
+        imageName: 'macos-10.15'
+        python.version: '3.10'
     maxParallel: 4
   pool:
     vmImage: $(imageName)
@@ -66,7 +75,9 @@ jobs:
       python setup.py sdist --formats=gztar
     displayName: 'Build sdist'
 
-  - script: python -m mypy thinc
+  - script: |
+      python -m pip install mypy
+      python -m mypy thinc
     displayName: 'Run mypy'
 
   - task: DeleteFiles@1
@@ -75,23 +86,32 @@ jobs:
     displayName: 'Delete source directory'
 
   - script: |
-      pip freeze > installed.txt
+      python -m pip freeze
+      pip freeze --exclude pywin32 > installed.txt
       pip uninstall -y -r installed.txt
     displayName: 'Uninstall all packages'
 
   - bash: |
-      pip freeze > installed.txt
-      pip uninstall -y -r installed.txt
       SDIST=$(python -c "import os;print(os.listdir('./dist')[-1])" 2>&1)
       PIP_CONSTRAINT="build-constraints.txt" pip install dist/$SDIST
     displayName: 'Install from sdist'
 
   - script: |
       pip install -r requirements.txt
-      pip install tensorflow
+      pip install "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
       pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
       python -m ipykernel install --name thinc-notebook-tests --user
+    displayName: 'Install test dependencies'
+
+  - script: |
       python -m pytest --pyargs thinc --cov=thinc --cov-report=term
     displayName: 'Run tests'
+
+  - script: |
+      pip uninstall -y tensorflow
+      pip install thinc-apple-ops
+      python -m pytest --pyargs thinc
+    displayName: 'Run tests with thinc-apple-ops'
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))

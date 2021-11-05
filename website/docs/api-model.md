@@ -245,7 +245,7 @@ Contextmanager to temporarily set the model's parameters to specified values.
 
 ### Model.walk {#walk tag="method"}
 
-Iterate out layers of the model, breadth-first.
+Iterate out layers of the model, in breadth-first order.
 
 ```python
 ### Example
@@ -256,9 +256,21 @@ for node in model.walk():
     print(node.name)
 ```
 
-| Argument    | Type                     | Description              |
-| ----------- | ------------------------ | ------------------------ |
-| **RETURNS** | <tt>Iterable[Model]</tt> | The layers of the model. |
+![](images/layer-traversal.svg)
+
+The `walk` method supports three iteration orders through the `order` argument:
+
+* `"bfs"`: breadth-first. Iteration order of the example above:
+  *1 - 2 - 4 - 3 - 5*
+* `"dfs_pre"`: depth-first preorder, outputs a node before its children.
+  Iteration order of the example above: *1 - 2 - 3 - 4 - 5*
+* `"dfs_post"`: depth-first postorder, outputs children before a node itself.
+  Iteration order of the example above: *3 - 2 - 5 - 4 - 1*
+
+| Argument    | Type                     | Description                                                                                                                                |
+|-------------|--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------|
+| `order`     | <tt>str</tt>             | Node iteration order. `"bfs"` (breadth-first), `"dfs_pre"` (depth-first preorder), `"dfs_post"` (depth-first postorder) Default: `"bfs"`. |
+| **RETURNS** | <tt>Iterable[Model]</tt> | The layers of the model.                                                                                                                   |
 
 ### Model.remove_node {#remove_node tag="method"}
 

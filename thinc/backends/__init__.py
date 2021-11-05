@@ -1,5 +1,5 @@
 import contextlib
-from typing import Type, Dict, Any
+from typing import Type, Dict, Any, Callable, Optional
 
 from contextvars import ContextVar
 import threading
@@ -10,7 +10,7 @@ from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array
+from ..util import is_cupy_array, set_torch_tensor_type_for_ops
 from .. import registry
 
 
@@ -74,14 +74,30 @@ def use_tensorflow_for_gpu_memory() -> None:  # pragma: no cover
     cupy.cuda.set_allocator(pools["tensorflow"].malloc)
 
 
+def _import_extra_cpu_backends():
+    try:
+        from thinc_apple_ops import AppleOps
+    except ImportError:
+        pass
+
+
 def get_ops(name: str, **kwargs) -> Ops:
-    """Get a backend object."""
-    cls = None
-    for ops_cls in registry.ops.get_all().values():  # type: ignore
-        if ops_cls.name == name:
-            cls = ops_cls
+    """Get a backend object.
+
+    The special name "cpu" returns the best available CPU backend."""
+
+    ops_by_name = {ops_cls.name: ops_cls for ops_cls in registry.ops.get_all().values()}  # type: ignore
+
+    cls: Optional[Callable[..., Ops]] = None
+    if name == "cpu":
+        _import_extra_cpu_backends()
+        cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
+    else:
+        cls = ops_by_name.get(name)
+
     if cls is None:
         raise ValueError(f"Invalid backend: {name}")
+
     return cls(**kwargs)
 
 
@@ -98,8 +114,10 @@ def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
     set_current_ops(get_ops(name, **kwargs))
-    yield
-    set_current_ops(current_ops)
+    try:
+        yield
+    finally:
+        set_current_ops(current_ops)
 
 
 def get_current_ops() -> Ops:
@@ -111,6 +129,7 @@ def set_current_ops(ops: Ops) -> None:
     """Change the current backend object."""
     context_ops.set(ops)
     _get_thread_state().ops = ops
+    set_torch_tensor_type_for_ops(ops)
 
 
 def contextvars_eq_thread_ops() -> bool:

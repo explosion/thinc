@@ -4,8 +4,9 @@ import threading
 import time
 from thinc.api import Adam, CupyOps, Dropout, Linear, Model, Relu
 from thinc.api import Shim, Softmax, chain, change_attr_values
-from thinc.api import concatenate, prefer_gpu, set_dropout_rate
-from thinc.api import with_debug, wrap_model_recursive
+from thinc.api import concatenate, has_cupy, set_dropout_rate
+from thinc.api import use_ops, with_debug, wrap_model_recursive
+from thinc.util import gpu_is_available
 import numpy
 
 from ..util import make_tempdir
@@ -407,38 +408,42 @@ def test_model_gpu():
     pytest.importorskip("ml_datasets")
     import ml_datasets
 
-    prefer_gpu()
-    n_hidden = 32
-    dropout = 0.2
-    (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
-    model = chain(
-        Relu(nO=n_hidden, dropout=dropout),
-        Relu(nO=n_hidden, dropout=dropout),
-        Softmax(),
-    )
-    # making sure the data is on the right device
-    train_X = model.ops.asarray(train_X)
-    train_Y = model.ops.asarray(train_Y)
-    dev_X = model.ops.asarray(dev_X)
-    dev_Y = model.ops.asarray(dev_Y)
+    ops = "cpu"
+    if has_cupy and gpu_is_available():
+        ops = "cupy"
 
-    model.initialize(X=train_X[:5], Y=train_Y[:5])
-    optimizer = Adam(0.001)
-    batch_size = 128
+    with use_ops(ops):
+        n_hidden = 32
+        dropout = 0.2
+        (train_X, train_Y), (dev_X, dev_Y) = ml_datasets.mnist()
+        model = chain(
+            Relu(nO=n_hidden, dropout=dropout),
+            Relu(nO=n_hidden, dropout=dropout),
+            Softmax(),
+        )
+        # make sure the data is on the right device
+        train_X = model.ops.asarray(train_X)
+        train_Y = model.ops.asarray(train_Y)
+        dev_X = model.ops.asarray(dev_X)
+        dev_Y = model.ops.asarray(dev_Y)
 
-    for i in range(2):
-        batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
-        for X, Y in batches:
-            Yh, backprop = model.begin_update(X)
-            backprop(Yh - Y)
-            model.finish_update(optimizer)
-        # Evaluate and print progress
-        correct = 0
-        total = 0
-        for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
-            Yh = model.predict(X)
-            correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
-            total += Yh.shape[0]
+        model.initialize(X=train_X[:5], Y=train_Y[:5])
+        optimizer = Adam(0.001)
+        batch_size = 128
+
+        for i in range(2):
+            batches = model.ops.multibatch(batch_size, train_X, train_Y, shuffle=True)
+            for X, Y in batches:
+                Yh, backprop = model.begin_update(X)
+                backprop(Yh - Y)
+                model.finish_update(optimizer)
+            # Evaluate and print progress
+            correct = 0
+            total = 0
+            for X, Y in model.ops.multibatch(batch_size, dev_X, dev_Y):
+                Yh = model.predict(X)
+                correct += (Yh.argmax(axis=1) == Y.argmax(axis=1)).sum()
+                total += Yh.shape[0]
 
 
 def test_replace_node():
