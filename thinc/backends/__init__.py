@@ -19,7 +19,7 @@ context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
 # Internal use of thread-local storage only for detecting cases where a Jupyter
 # notebook might not have preserved contextvars across cells.
-_GLOBAL_STATE = {"ops": NumpyOps()}
+_GLOBAL_STATE = {"ops": None}
 
 
 def set_gpu_allocator(allocator: str) -> None:  # pragma: no cover
