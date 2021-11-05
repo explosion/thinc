@@ -1,5 +1,5 @@
 import contextlib
-from typing import Type, Dict, Any, Callable, Optional
+from typing import Type, Dict, Any, Callable, Optional, cast
 
 from contextvars import ContextVar
 import threading
@@ -10,11 +10,11 @@ from .numpy_ops import NumpyOps
 from ._cupy_allocators import cupy_tensorflow_allocator, cupy_pytorch_allocator
 from ._param_server import ParamServer
 from ..util import assert_tensorflow_installed, assert_pytorch_installed
-from ..util import is_cupy_array, set_torch_tensor_type_for_ops
+from ..util import is_cupy_array, set_torch_tensor_type_for_ops, require_cpu
 from .. import registry
 
 
-context_ops: ContextVar[NumpyOps] = ContextVar("context_ops", default=NumpyOps())
+context_ops: ContextVar[Optional[Ops]] = ContextVar("context_ops", default=None)
 context_pools: ContextVar[dict] = ContextVar("context_pools", default={})
 
 # Internal use of thread-local storage only for detecting cases where a Jupyter
@@ -122,7 +122,9 @@ def use_ops(name: str, **kwargs):
 
 def get_current_ops() -> Ops:
     """Get the current backend object."""
-    return context_ops.get()
+    if context_ops.get() is None:
+        require_cpu()
+    return cast(Ops, context_ops.get())
 
 
 def set_current_ops(ops: Ops) -> None:
