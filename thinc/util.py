@@ -30,9 +30,11 @@ try:  # pragma: no cover
 
     has_torch = True
     has_torch_gpu = torch.cuda.device_count() != 0
+    has_torch_amp = not torch.cuda.amp.common.amp_definitely_not_available()
 except ImportError:  # pragma: no cover
     has_torch = False
     has_torch_gpu = False
+    has_torch_amp = False
 
 try:  # pragma: no cover
     import tensorflow.experimental.dlpack
@@ -290,6 +292,24 @@ def convert_recursive(
         return tuple(convert_recursive(is_match, convert_item, item) for item in obj)
     else:
         return obj
+
+
+def iterate_recursive(is_match: Callable[[Any], bool], obj: Any) -> Any:
+    """Either yield a single value if it matches a given function, or recursively
+    walk over potentially nested lists, tuples and dicts yielding matching
+    values. Also supports the ArgsKwargs dataclass.
+    """
+    if is_match(obj):
+        yield obj
+    elif isinstance(obj, ArgsKwargs):
+        yield from iterate_recursive(is_match, list(obj.items()))
+    elif isinstance(obj, dict):
+        for key, value in obj.items():
+            yield from iterate_recursive(is_match, key)
+            yield from iterate_recursive(is_match, value)
+    elif isinstance(obj, list) or isinstance(obj, tuple):
+        for item in obj:
+            yield from iterate_recursive(is_match, item)
 
 
 def xp2torch(

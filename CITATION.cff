@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+message: If you use Thinc in research, please use this as a citation.
+title: Thinc
+abstract: "🔮 A refreshing functional take on deep learning, compatible with your favorite libraries"
+authors:
+  - family-names: "Honnibal"
+    given-names: "Matthew"
+  - family-names: "Montani"
+    given-names: "Ines"
+  - family-names: "Van Landeghem"
+    given-names: "Sofie"
+  - family-names: "Boyd"
+    given-names: "Adriane"
+  - family-names: "DuJardin"
+    given-names: "Justin"
+version: 8.0.0
+date-released: "2021-01-21"
+license: MIT
+repository-code: "https://github.com/explosion/thinc"

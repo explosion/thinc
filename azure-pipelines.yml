@@ -98,7 +98,7 @@ jobs:
 
   - script: |
       pip install -r requirements.txt
-      pip install tensorflow
+      pip install "tensorflow~=2.5.0"
       pip install "mxnet; sys_platform != 'win32'"
       pip install "torch==1.9.0+cpu" -f https://download.pytorch.org/whl/torch_stable.html
       pip install ipykernel pydot graphviz
@@ -112,6 +112,11 @@ jobs:
   - script: |
       pip uninstall -y tensorflow
       pip install thinc-apple-ops
+      python -m pytest --pyargs thinc_apple_ops
+    displayName: 'Run tests for thinc-apple-ops'
+    condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
+
+  - script: |
       python -m pytest --pyargs thinc
     displayName: 'Run tests with thinc-apple-ops'
     condition: and(startsWith(variables['imageName'], 'macos'), eq(variables['python.version'], '3.9'))
