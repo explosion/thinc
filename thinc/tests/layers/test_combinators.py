@@ -116,6 +116,24 @@ def test_chain_three(model1, model2, model3):
     assert len(model.layers) == 3
 
 
+@pytest.mark.parametrize(
+    "layer1,layer2,layer3",
+    [
+        (Linear(nI=1), Linear(nI=2), Linear(nI=3)),
+        (Linear(), Linear(nI=2), Linear(nI=3)),
+        (Linear(), Linear(nI=2, nO=3), Linear()),
+        (Linear(nO=2), Linear(), Linear(nI=3)),
+        (Linear(nO=2), Linear(nO=3), Linear()),
+        (Linear(nI=1, nO=2), Linear(nI=2, nO=3), Linear(nI=3, nO=4)),
+    ],
+)
+def test_chain_shape_inference(layer1, layer2, layer3):
+    X_ones = numpy.ones((1, 1), dtype="f")
+    Y_ones = numpy.ones((1, 4), dtype="f")
+    model = chain(layer1.copy(), layer2.copy(), layer3.copy())
+    model.initialize(X=X_ones, Y=Y_ones)
+
+
 def test_chain_operator_three(model1, model2, model3):
     # Previously we 'flattened' these nested calls. We might opt to do so
     # again, especially for the operators.
@@ -275,10 +293,7 @@ def test_concatenate():
 def test_map_list():
     nI = 4
     nO = 9
-    Xs = [
-        numpy.zeros((6, nI), dtype="f"),
-        numpy.ones((3, nI), dtype="f")
-    ]
+    Xs = [numpy.zeros((6, nI), dtype="f"), numpy.ones((3, nI), dtype="f")]
     Y_shapes = [(x.shape[0], nO) for x in Xs]
     model = map_list(Linear())
     model.initialize(X=Xs, Y=[numpy.zeros(shape, dtype="f") for shape in Y_shapes])

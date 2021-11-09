@@ -39,7 +39,6 @@ class Model(Generic[InT, OutT]):
     id: int
     _func: Callable
     init: Callable
-    is_homomorphic: Optional[bool]
     _params: ParamServer
     _dims: Dict[str, Optional[int]]
     _layers: List["Model"]
@@ -78,7 +77,7 @@ class Model(Generic[InT, OutT]):
         attrs: Dict[str, Any] = {},
         refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
-        is_homomorphic: Optional[bool]=None
+        is_homomorphic: Optional[bool] = None
     ):
         """Initialize a new model."""
         self.name = name
@@ -483,6 +482,7 @@ class Model(Generic[InT, OutT]):
             attrs=copy.deepcopy(self._attrs),
             layers=[layer.copy() for layer in self.layers],
             shims=[shim.copy() for shim in self.shims],
+            is_homomorphic=self.is_homomorphic,
         )
         for name in self.grad_names:
             copied.set_grad(name, self.get_grad(name).copy())
