@@ -18,7 +18,7 @@ def LayerNorm(nI: Optional[int] = None) -> Model[InT, InT]:
         init=init,
         dims={"nI": nI, "nO": nI},
         params={"G": None, "b": None},
-        is_homomorphic=True
+        is_homomorphic=True,
     )
 
 

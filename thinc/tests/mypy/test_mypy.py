@@ -17,13 +17,13 @@ cases = [
 ]
 
 
-@pytest.mark.skip(reason="weirdly slow?")
 @pytest.mark.parametrize("config_filename,python_filename,output_filename", cases)
 def test_mypy_results(
     config_filename, python_filename, output_filename, tmpdir, monkeypatch
 ):
     pytest.importorskip("mypy")
     from mypy import api as mypy_api
+
     os.chdir(tmpdir)
     root_dir = Path(__file__).parent
     thinc_root_dir = Path(__file__).parent.parent.parent.parent

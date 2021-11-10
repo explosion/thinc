@@ -77,7 +77,7 @@ class Model(Generic[InT, OutT]):
         attrs: Dict[str, Any] = {},
         refs: Dict[str, Optional["Model"]] = {},
         ops: Optional[Union[NumpyOps, CupyOps]] = None,
-        is_homomorphic: Optional[bool] = None
+        is_homomorphic: Optional[bool] = None,
     ):
         """Initialize a new model."""
         self.name = name
