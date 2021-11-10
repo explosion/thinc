@@ -67,6 +67,16 @@ def forward(model: Model[InT, OutT], X: InT, is_train: bool) -> Tuple[OutT, Call
 def init(
     model: Model[InT, OutT], X: Optional[InT] = None, Y: Optional[OutT] = None
 ) -> Model[InT, OutT]:
+    # Match the nO value of the model to the value of the last layer
+    if model.has_dim("nO") is True and model.layers[-1].has_dim("nO") is None:
+        model.layers[-1].set_dim("nO", model.get_dim("nO"))
+
+    # Match up nO values with the next layer's nI
+    for (prev_layer, next_layer) in zip(model.layers, model.layers[1:]):
+        if prev_layer.has_dim("nO") is None and next_layer.has_dim("nI") is True:
+            prev_layer.set_dim("nO", next_layer.get_dim("nI"))
+
+    # Initialize without any data
     if X is None and Y is None:
         for layer in model.layers:
             layer.initialize()
@@ -76,10 +86,10 @@ def init(
             model.set_dim("nO", model.layers[-1].get_dim("nO"))
         return model
 
-    # Try to set nO on each layer, where available.
-    # Shape inference is tricky, especially for the output. The policy is:
-    # if a layer has an unset nO, we use the final Y (if provided). For other
-    # layers, Y=None.
+    # Shape inference: homomorphic layers can derive dimensions from the input only
+    # Y is also propagated to the last non-homomorphic layer, but not further.
+    # In previous versions, we'd propagate Y further which results in wrong intermediate dimensions
+    # when the model was underspecified.
     curr_input = X
     non_homomorphic = [layer for layer in model.layers if not layer.is_homomorphic]
     for layer in model.layers:
