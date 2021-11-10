@@ -518,11 +518,14 @@ def test_with_debug():
     def on_backprop(*_):
         counts["backprop"] += 1
 
-    relu = Relu()
+    relu = Relu(nO=32)
     relu2 = with_debug(
+        Relu(nO=64), on_init=on_init, on_forward=on_forward, on_backprop=on_backprop
+    )
+    relu3 = with_debug(
         Relu(), on_init=on_init, on_forward=on_forward, on_backprop=on_backprop
     )
-    chained = chain(relu, relu2, relu2)
+    chained = chain(relu, relu2, relu3)
     chained.initialize(X=train_X[:5], Y=train_Y[:5])
     _, backprop = chained(X=train_X[:5], is_train=False)
 
