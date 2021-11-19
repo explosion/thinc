@@ -121,9 +121,6 @@ def get_array_ops(arr):
 def use_ops(name: str, **kwargs):
     """Change the backend to execute on for the scope of the block."""
     current_ops = get_current_ops()
-    # avoid fallback to base NumpyOps if on big endian platform
-    #if current_ops.name == "bigendian" and name == "numpy":
-    #    name = current_ops.name 
     set_current_ops(get_ops(name, **kwargs))
     try:
         yield
