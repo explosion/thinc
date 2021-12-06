@@ -94,12 +94,10 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()
-        
+        _import_extra_cpu_backends()        
         cls = ops_by_name.get("numpy")
         cls = ops_by_name.get("apple", cls)
         cls = ops_by_name.get("bigendian", cls)
-
     else:
         cls = ops_by_name.get(name)
 
