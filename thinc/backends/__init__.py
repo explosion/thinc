@@ -102,7 +102,7 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     else:
         cls = ops_by_name.get(name)
-    
+
     if cls is None:
         raise ValueError(f"Invalid backend: {name}")
 
