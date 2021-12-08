@@ -680,6 +680,21 @@ class Ops:
         dY *= Y > 0
         return dY
 
+    def relu_n(self, X: Floats2d, n: float = 6., inplace: bool = False) -> Floats2d:
+        if not inplace:
+            return self.xp.clip(X, 0, n)
+        else:
+            X *= ((0 < X) & (X < n))
+            return X
+
+    def backprop_relu_n(
+        self, dY: Floats2d, Y: Floats2d, n: float = 6., inplace: bool = False
+    ) -> Floats2d:
+        if not inplace:
+            return dY * ((0 < Y) & (Y < n))
+        dY *= ((0 < Y) & (Y < n))
+        return dY
+
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_sigmoid(self, X: Floats2d, inplace: bool = False) -> Floats2d:
         if not inplace:
@@ -687,7 +702,8 @@ class Ops:
             return self.xp.clip(out, 0, 1)
         X *= 0.2
         X += 0.5
-        return self.xp.clip(X, 0, 1)
+        X *= ((0 < X) & (X < 1))
+        return X
 
     def backprop_hard_sigmoid(
         self, dY: Floats2d, Y: Floats2d, inplace: bool = False
