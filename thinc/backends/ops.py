@@ -680,6 +680,24 @@ class Ops:
         dY *= Y > 0
         return dY
 
+    # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
+    def hard_sigmoid(self, X: Floats2d, inplace: bool = False) -> Floats2d:
+        if not inplace:
+            out = X * 0.2 + 0.5,
+            return self.xp.clip(out, 0, 1)
+        X *= 0.2
+        X += 0.5
+        return self.xp.clip(X, 0, 1)
+
+    def backprop_hard_sigmoid(
+        self, dY: Floats2d, Y: Floats2d, inplace: bool = False
+    ) -> Floats2d:
+        dX = 0.2 * ((-2.5 < Y) & (Y < 2.5))
+        if not inplace:
+            return dY * dX
+        dY *= dX
+        return dY
+
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         Y = self.alloc2f(*X.shape, dtype=X.dtype)
         tmp = X * self.xp.tanh(self.xp.log(1.0 + self.xp.exp(X)))
@@ -715,7 +733,7 @@ class Ops:
         out[:] = dY + dY * self.dtanh(X)
         out[indices] = dXsub
         return out
-
+    
     def update_averages(
         self, ema: FloatsT, weights: FloatsT, t: int, max_decay: float = 0.9999
     ) -> None:
