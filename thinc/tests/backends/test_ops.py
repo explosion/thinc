@@ -345,6 +345,61 @@ def test_mish(ops, X):
     assert not ops.xp.isnan(Y).any()
 
 
+# TODO test range
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_relu_n(ops, X):
+    X = ops.asarray(X)
+    Y = ops.relu_n(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+# TODO test range (and perhaps more)
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+# TODO test range
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_sigmoid(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_sigmoid(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+# TODO test range
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+# TODO test range
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish_mobilenet(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish_mobilenet(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
