@@ -689,11 +689,11 @@ class Ops:
             return X
 
     def backprop_relu_n(
-        self, dY: FloatsType, Y: FloatsType, n: float = 6., inplace: bool = False
+        self, dY: FloatsType, X: FloatsType, n: float = 6., inplace: bool = False
     ) -> FloatsType:
         if not inplace:
-            return dY * ((0 < Y) & (Y < n))
-        dY *= ((0 < Y) & (Y < n))
+            return dY * ((0 < X) & (X < n))
+        dY *= ((0 < X) & (X < n))
         return dY
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
@@ -707,9 +707,9 @@ class Ops:
         return X
 
     def backprop_hard_sigmoid(
-        self, dY: FloatsType, Y: FloatsType, inplace: bool = False
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        dX = 0.2 * ((-2.5 < Y) & (Y < 2.5))
+        dX = 0.2 * ((-2.5 < X) & (X < 2.5))
         if not inplace:
             return dY * dX
         dY *= dX
@@ -722,13 +722,61 @@ class Ops:
         return X * self.sigmoid(X)
 
     def backprop_swish(
-        self, X: FloatsType, dY: FloatsType, Y: FloatsType, inplace: bool = False
+        self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
     ) -> FloatsType:
         Y = Y + self.sigmoid(X) * (1 - Y)
         if inplace:
             dY *= Y
             return dY
         return dY * Y
+
+    # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
+    def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.hard_sigmoid(X, inplace=True)
+            return X
+        return X * self.hard_sigmoid(X)
+
+    # TODO not sure how to implement inplace yet
+    def backprop_hard_swish(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        if inplace:
+            mask = X < -2.5
+            ones = self.xp.where(X > 2.5)
+            X *= 0.4
+            X += 0.5
+            X *= mask
+            X[ones] = 1.
+            return X
+        dX = X * 0.4 + 0.5
+        dX[X > 2.5] = 1.
+        dX[X < -2.5] = 0
+        return dY * dX
+
+    # From https://arxiv.org/pdf/1905.02244v5.pdf
+    def hard_swish_mobilenet(self, X: FloatsType,
+                             inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= (self.relu_n(X + 3) / 6)
+            return X
+        return X * (self.relu_n(X + 3) / 6)
+
+    def backprop_hard_swish_mobilenet(self, dY: FloatsType,
+                                      X: FloatsType, inplace : bool = False) -> FloatsType:
+        if inplace:
+            mask = X < -3.
+            ones = self.xp.where(X > 3.)
+            X *= 2
+            X += 3
+            X /= 6
+            X *= mask
+            X[ones] = 1.
+            return dY * X
+        dX = (1 / 6) * (X * 2. + 3.)
+        dX[X > 3.] = 1.
+        dX[X < -3.] = 0
+        return dX * dY
 
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         Y = self.alloc2f(*X.shape, dtype=X.dtype)
