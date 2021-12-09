@@ -12,6 +12,7 @@ from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
+# Try run the mypy checks from vim
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 
@@ -680,7 +681,7 @@ class Ops:
         dY *= Y > 0
         return dY
 
-    def relu_n(self, X: Floats2d, n: float = 6., inplace: bool = False) -> Floats2d:
+    def relu_n(self, X: FloatsType, n: float = 6., inplace: bool = False) -> FloatsType:
         if not inplace:
             return self.xp.clip(X, 0, n)
         else:
@@ -688,17 +689,17 @@ class Ops:
             return X
 
     def backprop_relu_n(
-        self, dY: Floats2d, Y: Floats2d, n: float = 6., inplace: bool = False
-    ) -> Floats2d:
+        self, dY: FloatsType, Y: FloatsType, n: float = 6., inplace: bool = False
+    ) -> FloatsType:
         if not inplace:
             return dY * ((0 < Y) & (Y < n))
         dY *= ((0 < Y) & (Y < n))
         return dY
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
-    def hard_sigmoid(self, X: Floats2d, inplace: bool = False) -> Floats2d:
+    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if not inplace:
-            out = X * 0.2 + 0.5,
+            out = X * 0.2 + 0.5
             return self.xp.clip(out, 0, 1)
         X *= 0.2
         X += 0.5
@@ -706,13 +707,28 @@ class Ops:
         return X
 
     def backprop_hard_sigmoid(
-        self, dY: Floats2d, Y: Floats2d, inplace: bool = False
-    ) -> Floats2d:
+        self, dY: FloatsType, Y: FloatsType, inplace: bool = False
+    ) -> FloatsType:
         dX = 0.2 * ((-2.5 < Y) & (Y < 2.5))
         if not inplace:
             return dY * dX
         dY *= dX
         return dY
+
+    def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.sigmoid(X, inplace=True)
+            return X
+        return X * self.sigmoid(X)
+
+    def backprop_swish(
+        self, X: FloatsType, dY: FloatsType, Y: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        Y = Y + self.sigmoid(X) * (1 - Y)
+        if inplace:
+            dY *= Y
+            return dY
+        return dY * Y
 
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         Y = self.alloc2f(*X.shape, dtype=X.dtype)
