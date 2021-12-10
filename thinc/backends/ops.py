@@ -12,7 +12,6 @@ from ..util import get_array_module, is_xp_array, to_numpy
 
 
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
-# Try run the mypy checks from vim
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 
