@@ -10,7 +10,7 @@ from ..util import partial, get_width
 from ..initializers import he_normal_init, zero_init
 
 
-@registry.layers("HardSwish")
+@registry.layers("HardSwish.v1")
 def HardSwish(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

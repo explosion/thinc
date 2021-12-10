@@ -10,7 +10,7 @@ from ..util import partial, get_width
 from ..initializers import glorot_uniform_init, zero_init
 
 
-@registry.layers("HardSigmoid")
+@registry.layers("HardSigmoid.v1")
 def HardSigmoid(
     nO: Optional[int] = None,
     nI: Optional[int] = None,

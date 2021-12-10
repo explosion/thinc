@@ -10,7 +10,7 @@ from ..util import partial, get_width
 from ..initializers import he_normal_init, zero_init
 
 
-@registry.layers("HardSwishMobilenet")
+@registry.layers("HardSwishMobilenet.v1")
 def HardSwishMobilenet(
     nO: Optional[int] = None,
     nI: Optional[int] = None,
