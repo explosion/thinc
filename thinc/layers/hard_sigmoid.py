@@ -43,7 +43,6 @@ def forward(model: Model[Floats2d, Floats2d],
 
     def backprop(dY: Floats2d) -> Floats2d:
         dY = model.ops.backprop_hard_sigmoid(dY, Y_preact, inplace=False)
-        dY = dY.astype('float32')
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
