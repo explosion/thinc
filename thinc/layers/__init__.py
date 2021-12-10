@@ -15,6 +15,10 @@ from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
 from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
+from .swish import Swish
+from .hard_sigmoid import HardSigmoid
+from .hard_swish import HardSwish
+from .hard_swish_mobilenet import HardSwishMobilenet
 from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
 from .sigmoid import Sigmoid
