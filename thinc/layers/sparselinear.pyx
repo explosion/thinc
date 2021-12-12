@@ -1,5 +1,4 @@
 # cython: infer_types=True, cdivision=True, bounds_check=False, wraparound=False
-from murmurhash.mrmr cimport hash32
 cimport numpy as np
 from libc.stdint cimport uint64_t, int32_t, uint32_t
 cimport cython
@@ -117,8 +116,8 @@ cdef void set_scoresC(float* scores,
     cdef uint32_t hash1, hash2
     for length in lengths[:batch_size]:
         for i in range(length):
-            hash1 = hash32(<void*>&keys[i], sizeof(keys[i]), 0)
-            hash2 = hash32(<void*>&keys[i], sizeof(keys[i]), 1)
+            hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
+            hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
             idx1 = hash1 & (nr_weight-1)
             idx2 = hash2 & (nr_weight-1)
             value = values[i]
@@ -138,8 +137,8 @@ cdef void set_gradientC(float* d_weights,
     cdef uint32_t hash1, hash2
     for length in lengths[:batch_size]:
         for i in range(length):
-            hash1 = hash32(<void*>&keys[i], sizeof(keys[i]), 0)
-            hash2 = hash32(<void*>&keys[i], sizeof(keys[i]), 1)
+            hash1 = MurmurHash3_x86_32_uint64(keys[i], 0)
+            hash2 = MurmurHash3_x86_32_uint64(keys[i], 1)
             idx1 = hash1 & (nr_weight-1)
             idx2 = hash2 & (nr_weight-1)
             value = values[i]
@@ -149,3 +148,33 @@ cdef void set_gradientC(float* d_weights,
         d_scores += nr_out
         keys += length
         values += length
+
+
+cdef uint32_t MurmurHash3_x86_32_uint64(uint64_t key, uint32_t seed) nogil:
+    cdef uint32_t h1 = seed
+    cdef uint32_t c1 = 0xcc9e2d51u
+    cdef uint32_t c2 = 0x1b873593u
+    cdef uint32_t k1
+
+    k1 = key & 0xffffffffu
+    k1 *= c1
+    k1 = (k1 << 15) | (k1 >> 17)
+    k1 *= c2
+    h1 ^= k1
+    h1 = (h1 << 13) | (h1 >> 19)
+    h1 = h1*5+0xe6546b64u
+    k1 = key >> 32
+    k1 *= c1
+    k1 = (k1 << 15) | (k1 >> 17)
+    k1 *= c2
+    h1 ^= k1
+    h1 = (h1 << 13) | (h1 >> 19)
+    h1 = h1*5+0xe6546b64u
+    h1 ^= 8
+    h1 ^= h1 >> 16
+    h1 *= 0x85ebca6bu
+    h1 ^= h1 >> 13
+    h1 *= 0xc2b2ae35u
+    h1 ^= h1 >> 16
+
+    return h1

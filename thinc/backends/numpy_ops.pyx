@@ -13,7 +13,7 @@ from libc.string cimport memcpy
 from libc.math cimport isnan
 from cymem.cymem cimport Pool
 from preshed.maps cimport PreshMap
-from murmurhash.mrmr cimport hash64, hash128_x86, hash128_x64
+from murmurhash.mrmr cimport hash64
 cimport numpy as np
 cimport blis.cy
 
@@ -208,18 +208,10 @@ class NumpyOps(Ops):
         """Hash a sequence of 64-bit keys into a table with 4 32-bit keys."""
         # Written to mirror the GPU implementation
         cdef np.ndarray[uint32_t, ndim=2] keys = self.alloc((ids.shape[0], 4), dtype='uint32')
-        cdef int i, j
-        cdef unsigned char entropy[16] # 128/8=16
-        cdef size_t n_items = len(ids)
-        cdef size_t in_size = sizeof(uint64_t)
-        src = <unsigned char*>&ids[0]
-        dest = <unsigned char*>keys.data
-        for i in range(n_items):
-            hash128_x64(<void*>src, in_size, seed, entropy)
-            for j in range(16):
-                dest[j] = entropy[j]
-            src += in_size
-            dest += 16
+        cdef int i
+        cdef uint32_t* dest = <uint32_t*>keys.data
+        for i in range(len(ids)):
+            MurmurHash3_x86_128_uint64(ids[i], seed, &dest[i*4])
         return keys
 
     def reduce_mean(self, const float[:, ::1] X, int[::1] lengths):
@@ -1170,3 +1162,39 @@ cdef void cpu_lstm_gates_bwd(
         dGt3[i*4+1] = d_hi * dsigmoid(hi)  # 1b
         dGt3[i*4+2] = d_ho * dsigmoid(ho)  # 1c
         dGt3[i*4+3] = d_hc * dtanh(hc)  # 1d
+
+
+cdef void MurmurHash3_x86_128_uint64(
+    const uint64_t val,
+    const uint32_t seed,
+    uint32_t *out
+) nogil:
+    cdef uint64_t h1, h2
+
+    h1 = val
+    h1 *= 0x87c37b91114253d5ull
+    h1 = (h1 << 31) | (h1 >> 33)
+    h1 *= 0x4cf5ad432745937full
+    h1 ^= seed
+    h1 ^= 8
+    h2 = seed
+    h2 ^= 8
+    h1 += h2
+    h2 += h1
+    h1 ^= h1 >> 33
+    h1 *= 0xff51afd7ed558ccdull
+    h1 ^= h1 >> 33
+    h1 *= 0xc4ceb9fe1a85ec53ull
+    h1 ^= h1 >> 33
+    h2 ^= h2 >> 33
+    h2 *= 0xff51afd7ed558ccdull
+    h2 ^= h2 >> 33
+    h2 *= 0xc4ceb9fe1a85ec53ull
+    h2 ^= h2 >> 33
+    h1 += h2
+    h2 += h1
+
+    out[0] = h1 & 0xffffffffu
+    out[1] = h1 >> 32
+    out[2] = h2 & 0xffffffffu
+    out[3] = h2 >> 32
