@@ -220,41 +220,41 @@ class Ops:
     ) -> ArrayT:
         """Flatten a list of arrays into one large array."""
         if X is None or len(X) == 0:
-            return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")
+            return self.alloc((0,) * ndim_if_empty, dtype=dtype or "f")  # type: ignore
         xp = get_array_module(X[0])
         shape_if_empty = X[0].shape
         X = [x for x in X if x.size != 0]
         if len(X) == 0:
-            return self.alloc(shape_if_empty, dtype=dtype or "f")
+            return self.alloc(shape_if_empty, dtype=dtype or "f")  # type: ignore
         if int(pad) >= 1:
             padded = []
             for x in X:
                 padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
                 padded.append(x)
-            padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))
+            padded.append(xp.zeros((pad,) + x.shape[1:], dtype=x.dtype))  # type: ignore
             X = padded
         result = xp.concatenate(X)
         if dtype is not None:
             result = xp.asarray(result, dtype=dtype)
-        return result
+        return result  # type: ignore
 
-    def unflatten(self, X: Floats2d, lengths: Ints1d, pad: int = 0) -> List[Floats2d]:
+    def unflatten(self, X: ArrayT, lengths: Ints1d, pad: int = 0) -> List[ArrayT]:
         """The reverse/backward operation of the `flatten` function: unflatten
         a large array into a list of arrays according to the given lengths.
         """
-        unflat = []
+        unflat: List[ArrayT] = []
         pad = int(pad)
         for length in lengths:
             length = int(length)
             if pad >= 1 and length != 0:
-                X = X[pad:]
-            unflat.append(X[:length])
-            X = X[length:]
+                X = X[pad:]  # type: ignore
+            unflat.append(X[:length])  # type: ignore
+            X = X[length:]  # type: ignore
         if pad >= 1:
-            X = X[pad:]
+            X = X[pad:]  # type: ignore
         assert len(X) == 0
         assert len(unflat) == len(lengths)
-        return unflat
+        return unflat  # type: ignore
 
     @overload
     def pad(self, seqs: List[Ints2d], round_to=1) -> Ints3d:
