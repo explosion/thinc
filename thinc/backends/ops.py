@@ -575,7 +575,7 @@ class Ops:
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
-    def dsigmoid(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
+    def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             Y *= 1 - Y
             return Y
