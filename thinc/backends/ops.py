@@ -681,44 +681,41 @@ class Ops:
         return dY
 
     def relu_n(self, X: FloatsType, n: float = 6., inplace: bool = False) -> FloatsType:
-        if not inplace:
-            return self.xp.clip(X, 0, n)
-        else:
-            X *= ((0 < X) & (X < n))
+        if inplace:
+            self.xp.clip(X, 0, n, out=X)
             return X
+        return self.xp.clip(X, 0, n)
 
     def backprop_relu_n(
         self, dY: FloatsType, X: FloatsType, n: float = 6., inplace: bool = False
     ) -> FloatsType:
-        if not inplace:
-            return dY * ((0 < X) & (X < n))
-        dY *= ((0 < X) & (X < n))
-        return dY
+        if inplace:
+            dY *= ((0 < X) & (X < n))
+            return dY
+        return dY * ((0 < X) & (X < n))
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        if not inplace:
-            out = X * 0.2 + 0.5
-            return self.xp.clip(out, 0, 1)
-        X *= 0.2
-        X += 0.5
-        X *= ((0 < X) & (X < 1))
-        return X
+        if inplace:
+            X *= 0.2
+            X += 0.5
+            return self.xp.clip(X, 0, 1, out=X)
+        out = X * 0.2 + 0.5
+        return self.xp.clip(out, 0, 1)
 
     def backprop_hard_sigmoid(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        slope = self.alloc1f(1)
-        slope += 0.2
+        slope = self.alloc1f(1) + 0.2
         dX = slope * ((-2.5 < X) & (X < 2.5))
-        if not inplace:
-            return dY * dX
-        dY *= dX
-        return dY
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
 
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.sigmoid(X, inplace=True)
+            X *= self.sigmoid(X)
             return X
         return X * self.sigmoid(X)
 
@@ -764,19 +761,14 @@ class Ops:
         return X * (self.relu_n(X + 3) / 6)
 
     def backprop_hard_swish_mobilenet(self, dY: FloatsType,
-                                      X: FloatsType, inplace : bool = False) -> FloatsType:
-        if inplace:
-            mask = X < -3.
-            ones = self.xp.where(X > 3.)
-            X *= 2
-            X += 3
-            X /= 6
-            X *= mask
-            X[ones] = 1.
-            return dY * X
+                                      X: FloatsType,
+                                      inplace : bool = False) -> FloatsType:
         dX = (1 / 6) * (X * 2. + 3.)
         dX[X > 3.] = 1.
         dX[X < -3.] = 0
+        if inplace:
+            dY *= dX
+            return dY
         return dX * dY
 
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
