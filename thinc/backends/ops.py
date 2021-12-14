@@ -569,13 +569,13 @@ class Ops:
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0 # type: ignore
+            X += 1.0 # type: ignore 
             X **= -1.0 # type: ignore
             return cast(FloatsType, X)
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
 
-    def dsigmoid(self, Y: FloatsType, *, inplace: bool = False) -> FloatsType:
+    def dsigmoid(self, Y: FloatsT, *, inplace: bool = False) -> FloatsT:
         if inplace:
             Y *= 1 - Y
             return Y
@@ -697,11 +697,11 @@ class Ops:
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= 0.2
-            X += 0.5
-            return self.xp.clip(X, 0, 1, out=X)
+            X *= 0.2 # type: ignore
+            X += 0.5 # type: ignore
+            return cast(FloatsType, self.xp.clip(X, 0, 1, out=X))
         out = X * 0.2 + 0.5
-        return self.xp.clip(out, 0, 1)
+        return cast(FloatsType, self.xp.clip(out, 0, 1))
 
     def backprop_hard_sigmoid(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
@@ -715,30 +715,32 @@ class Ops:
 
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.sigmoid(X)
-            return X
-        return X * self.sigmoid(X)
+            X *= self.sigmoid(X) # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.sigmoid(X) # type: ignore
+        return cast(FloatsType, out)
 
     def backprop_swish(
         self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        Y = Y + self.sigmoid(X) * (1 - Y)
+        Y = Y + self.sigmoid(X) * (1 - Y) # type: ignore
         if inplace:
-            dY *= Y
-            return dY
-        return dY * Y
+            dY *= Y # type: ignore
+            return cast(FloatsType, dY)
+        out = dY * Y # type: ignore
+        return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.hard_sigmoid(X, inplace=True)
-            return X
-        return X * self.hard_sigmoid(X)
+            X *= self.hard_sigmoid(X, inplace=True) # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.hard_sigmoid(X) # type: ignore
+        return cast(FloatsType, out)
 
-    # TODO not sure how to implement inplace yet
     def backprop_hard_swish(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
+        self, dY: FloatsT, X: FloatsT, inplace: bool = False
+    ) -> FloatsT:
         if inplace:
             mask = X < -2.5
             ones = self.xp.where(X > 2.5)
@@ -753,16 +755,16 @@ class Ops:
         return dY * dX
 
     # From https://arxiv.org/pdf/1905.02244v5.pdf
-    def hard_swish_mobilenet(self, X: FloatsType,
-                             inplace: bool = False) -> FloatsType:
+    def hard_swish_mobilenet(self, X: FloatsT,
+                             inplace: bool = False) -> FloatsT:
         if inplace:
             X *= (self.relu_n(X + 3) / 6)
             return X
         return X * (self.relu_n(X + 3) / 6)
 
-    def backprop_hard_swish_mobilenet(self, dY: FloatsType,
-                                      X: FloatsType,
-                                      inplace : bool = False) -> FloatsType:
+    def backprop_hard_swish_mobilenet(self, dY: FloatsT,
+                                      X: FloatsT,
+                                      inplace : bool = False) -> FloatsT:
         dX = (1 / 6) * (X * 2. + 3.)
         dX[X > 3.] = 1.
         dX[X < -3.] = 0
