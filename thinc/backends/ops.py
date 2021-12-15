@@ -735,7 +735,7 @@ class Ops:
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.hard_sigmoid(X, inplace=True)  # type: ignore
+            X *= self.hard_sigmoid(X)  # type: ignore
             return cast(FloatsType, X)
         out = X * self.hard_sigmoid(X)  # type: ignore
         return cast(FloatsType, out)
@@ -743,17 +743,12 @@ class Ops:
     def backprop_hard_swish(
         self, dY: FloatsT, X: FloatsT, inplace: bool = False
     ) -> FloatsT:
-        if inplace:
-            mask = X < -2.5
-            ones = self.xp.where(X > 2.5)
-            X *= 0.4
-            X += 0.5
-            X *= mask
-            X[ones] = 1.0
-            return X
         dX = X * 0.4 + 0.5
         dX[X > 2.5] = 1.0
         dX[X < -2.5] = 0
+        if inplace:
+            dY *= dX
+            return dY
         return dY * dX
 
     # From https://arxiv.org/pdf/1905.02244v5.pdf
