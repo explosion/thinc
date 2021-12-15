@@ -5,6 +5,7 @@ from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
+from thinc.util import has_torch
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 import inspect
@@ -23,6 +24,32 @@ XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
+
+
+def create_pytorch_funcs():
+    import torch
+
+    def cast_torch(scalar : float):
+        return torch.tensor([scalar], requires_grad=True)
+
+    def torch_relu_n(x):
+        return torch.nn.functional.relu6(x)
+
+    def torch_hard_sigmoid(x):
+        return torch.clip(x * 0.2 + 0.5, 0, 1)
+
+    def torch_swish(x):
+        return torch.nn.functional.silu(x)
+
+    def torch_hard_swish(x):
+        return x * torch_hard_sigmoid(x)
+
+    def torch_hard_swish_mobilenet(x):
+        return torch.nn.functional.hardswish(x)
+
+    return (cast_torch, torch_relu_n,
+            torch_hard_sigmoid, torch_swish,
+            torch_hard_swish, torch_hard_swish_mobilenet)
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -562,3 +589,41 @@ def test_ngrams():
         assert len(ops.ngrams(n, arr1)) == max(0, arr1.shape[0] - (n - 1))
     assert len(ops.ngrams(-1, arr1)) == 0
     assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-5, max_value=5))
+def test_compare_activations_to_torch(ops, x):
+    pytorch_funcs = create_pytorch_funcs()
+    torch_cast = pytorch_funcs[0]
+    pytorch_activations = pytorch_funcs[1:]
+    thinc_activations = (ops.relu_n, ops.hard_sigmoid, ops.swish,
+                         ops.hard_swish, ops.hard_swish_mobilenet)
+    thinc_backprop = (ops.backprop_relu_n, ops.backprop_hard_sigmoid,
+                      ops.backprop_swish, ops.backprop_hard_swish,
+                      ops.backprop_hard_swish_mobilenet)
+    # same as tolerance level of isclose
+    x = round(x, 8)
+    for forward, backward, pytorch in zip(thinc_activations,
+                                          thinc_backprop,
+                                          pytorch_activations):
+        x_thinc = ops.xp.asarray([x])
+        x_torch = torch_cast(x)
+        y = pytorch(x_torch)
+        y_thinc = forward(x_thinc)
+        y.backward()
+        assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
+        assert ops.xp.isclose(y.detach().numpy(), y_thinc)
+        x_thinc = ops.xp.asarray([x])
+        if backward.__name__ == "backprop_swish":
+            assert ops.xp.isclose(backward(dY=1, Y=y_thinc, X=x_thinc),
+                                  backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True))
+            assert ops.xp.isclose(x_torch.grad.item(),
+                                  float(backward(dY=1, Y=y_thinc, X=x_thinc)))
+        else:
+            assert ops.xp.isclose(backward(dY=1, X=x_thinc),
+                                  backward(dY=1, X=x_thinc, inplace=True))
+            assert ops.xp.isclose(x_torch.grad.item(),
+                                  float(backward(dY=1, X=x_thinc)))
