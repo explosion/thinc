@@ -28,6 +28,7 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 
 def create_pytorch_funcs():
     import torch
+    import math
 
     def cast_torch(scalar: float):
         return torch.tensor([scalar], requires_grad=True)
@@ -47,6 +48,22 @@ def create_pytorch_funcs():
     def torch_hard_swish_mobilenet(x):
         return torch.nn.functional.hardswish(x)
 
+    # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
+    def torch_gelu_approx(x):
+        return (
+            0.5
+            * x
+            * (
+                1.0
+                + torch.tanh(
+                    math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))
+                )
+            )
+        )
+
+    def torch_gelu(x):
+        return torch.nn.functional.gelu(x)
+
     return (
         cast_torch,
         torch_relu_n,
@@ -54,6 +71,8 @@ def create_pytorch_funcs():
         torch_swish,
         torch_hard_swish,
         torch_hard_swish_mobilenet,
+        torch_gelu_approx,
+        torch_gelu,
     )
 
 
@@ -434,6 +453,26 @@ def test_hard_swish_mobilenet(ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
+def test_gelu_approx(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu_approx(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_gelu(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
@@ -611,6 +650,8 @@ def test_compare_activations_to_torch(ops, x):
         ops.swish,
         ops.hard_swish,
         ops.hard_swish_mobilenet,
+        ops.gelu_approx,
+        ops.gelu,
     )
     thinc_backprop = (
         ops.backprop_relu_n,
@@ -618,9 +659,11 @@ def test_compare_activations_to_torch(ops, x):
         ops.backprop_swish,
         ops.backprop_hard_swish,
         ops.backprop_hard_swish_mobilenet,
+        ops.backprop_gelu_approx,
+        ops.backprop_gelu,
     )
-    # same as tolerance level of isclose
-    x = round(x, 8)
+    # The tolerance of isclose is set to 1e-06 instead of
+    # the default 1e-08 due to the GELU
     for forward, backward, pytorch in zip(
         thinc_activations, thinc_backprop, pytorch_activations
     ):
@@ -630,7 +673,7 @@ def test_compare_activations_to_torch(ops, x):
         y_thinc = forward(x_thinc)
         y.backward()
         assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
-        assert ops.xp.isclose(y.detach().numpy(), y_thinc)
+        assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
         x_thinc = ops.xp.asarray([x])
         if backward.__name__ == "backprop_swish":
             assert ops.xp.isclose(
@@ -644,4 +687,6 @@ def test_compare_activations_to_torch(ops, x):
             assert ops.xp.isclose(
                 backward(dY=1, X=x_thinc), backward(dY=1, X=x_thinc, inplace=True)
             )
-            assert ops.xp.isclose(x_torch.grad.item(), float(backward(dY=1, X=x_thinc)))
+            assert ops.xp.isclose(
+                x_torch.grad.item(), float(backward(dY=1, X=x_thinc)), atol=1e-06
+            )

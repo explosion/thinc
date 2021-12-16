@@ -1,3 +1,5 @@
+import math
+
 from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
 from typing import Iterator, overload
 import numpy
@@ -768,6 +770,78 @@ class Ops:
             dY *= dX
             return dY
         return dX * dY
+
+    # https://newbedev.com/is-there-an-easily-available-implementation-of-erf-for-python
+    def erf(self, X: FloatsType) -> FloatsType:
+        # save the sign of x
+        sign = self.xp.sign(X)
+        X = self.xp.abs(X)
+
+        a1 = 0.254829592
+        a2 = -0.284496736
+        a3 = 1.421413741
+        a4 = -1.453152027
+        a5 = 1.061405429
+        p = 0.3275911
+
+        t = 1.0 / (1.0 + p * X)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * self.xp.exp(
+            -X * X
+        )
+        return sign * y
+
+    def sechsq(self, X: FloatsType) -> FloatsType:
+        return (1 / self.xp.cosh(X)) ** 2
+
+    # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
+    def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        tmp = 1.0 + self.xp.tanh(
+            self.xp.sqrt(2 / math.pi) * (X + 0.044715 * self.xp.power(X, 3))
+        )
+        if inplace:
+            X *= tmp
+            X *= 0.5  # type: ignore
+            return X
+        Y = self.alloc_f(X.shape)
+        Y += tmp
+        Y *= X
+        Y *= 0.5
+        return cast(FloatsType, Y)
+
+    def backprop_gelu_approx(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = self.alloc_f(X.shape)
+        Xp3 = self.xp.power(X, 3)
+        tmp = 0.5 * self.xp.tanh(0.0356774 * Xp3 + 0.797885 * X)
+        tmp += (0.0535161 * Xp3 + 0.398942 * X) * self.sechsq(
+            0.0356774 * Xp3 + 0.797885 * X
+        )
+        tmp += 0.5
+        dX += tmp
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        tmp = 1.0 + self.erf(X / self.xp.sqrt(2.0))
+        if inplace:
+            X *= tmp
+            X *= 0.5  # type: ignore
+            return X
+        return X * 0.5 * tmp
+
+    def backprop_gelu(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        tmp = 0.5 * self.erf(0.707107 * X)
+        tmp += 0.398942 * self.xp.exp(-0.5 * self.xp.power(X, 2)) * X
+        dX = tmp + 0.5
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
 
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         Y = self.alloc2f(*X.shape, dtype=X.dtype)
