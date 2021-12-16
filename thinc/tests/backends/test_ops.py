@@ -29,7 +29,7 @@ ALL_OPS = XP_OPS + [VANILLA_OPS]
 def create_pytorch_funcs():
     import torch
 
-    def cast_torch(scalar : float):
+    def cast_torch(scalar: float):
         return torch.tensor([scalar], requires_grad=True)
 
     def torch_relu_n(x):
@@ -47,9 +47,14 @@ def create_pytorch_funcs():
     def torch_hard_swish_mobilenet(x):
         return torch.nn.functional.hardswish(x)
 
-    return (cast_torch, torch_relu_n,
-            torch_hard_sigmoid, torch_swish,
-            torch_hard_swish, torch_hard_swish_mobilenet)
+    return (
+        cast_torch,
+        torch_relu_n,
+        torch_hard_sigmoid,
+        torch_swish,
+        torch_hard_swish,
+        torch_hard_swish_mobilenet,
+    )
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -381,7 +386,7 @@ def test_relu_n(ops, X):
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
     assert (Y >= 0).sum() == Y.size
-    assert (Y <= 6.).sum() == Y.size
+    assert (Y <= 6.0).sum() == Y.size
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -403,7 +408,7 @@ def test_hard_sigmoid(ops, X):
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
     assert (Y >= 0).sum() == Y.size
-    assert (Y <= 1.).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
@@ -519,6 +524,7 @@ def test_get_ops():
     # NumpyOps otherwise.
     try:
         from thinc_apple_ops import AppleOps
+
         assert isinstance(get_ops("cpu"), AppleOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
@@ -599,16 +605,25 @@ def test_compare_activations_to_torch(ops, x):
     pytorch_funcs = create_pytorch_funcs()
     torch_cast = pytorch_funcs[0]
     pytorch_activations = pytorch_funcs[1:]
-    thinc_activations = (ops.relu_n, ops.hard_sigmoid, ops.swish,
-                         ops.hard_swish, ops.hard_swish_mobilenet)
-    thinc_backprop = (ops.backprop_relu_n, ops.backprop_hard_sigmoid,
-                      ops.backprop_swish, ops.backprop_hard_swish,
-                      ops.backprop_hard_swish_mobilenet)
+    thinc_activations = (
+        ops.relu_n,
+        ops.hard_sigmoid,
+        ops.swish,
+        ops.hard_swish,
+        ops.hard_swish_mobilenet,
+    )
+    thinc_backprop = (
+        ops.backprop_relu_n,
+        ops.backprop_hard_sigmoid,
+        ops.backprop_swish,
+        ops.backprop_hard_swish,
+        ops.backprop_hard_swish_mobilenet,
+    )
     # same as tolerance level of isclose
     x = round(x, 8)
-    for forward, backward, pytorch in zip(thinc_activations,
-                                          thinc_backprop,
-                                          pytorch_activations):
+    for forward, backward, pytorch in zip(
+        thinc_activations, thinc_backprop, pytorch_activations
+    ):
         x_thinc = ops.xp.asarray([x])
         x_torch = torch_cast(x)
         y = pytorch(x_torch)
@@ -618,12 +633,15 @@ def test_compare_activations_to_torch(ops, x):
         assert ops.xp.isclose(y.detach().numpy(), y_thinc)
         x_thinc = ops.xp.asarray([x])
         if backward.__name__ == "backprop_swish":
-            assert ops.xp.isclose(backward(dY=1, Y=y_thinc, X=x_thinc),
-                                  backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True))
-            assert ops.xp.isclose(x_torch.grad.item(),
-                                  float(backward(dY=1, Y=y_thinc, X=x_thinc)))
+            assert ops.xp.isclose(
+                backward(dY=1, Y=y_thinc, X=x_thinc),
+                backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True),
+            )
+            assert ops.xp.isclose(
+                x_torch.grad.item(), float(backward(dY=1, Y=y_thinc, X=x_thinc))
+            )
         else:
-            assert ops.xp.isclose(backward(dY=1, X=x_thinc),
-                                  backward(dY=1, X=x_thinc, inplace=True))
-            assert ops.xp.isclose(x_torch.grad.item(),
-                                  float(backward(dY=1, X=x_thinc)))
+            assert ops.xp.isclose(
+                backward(dY=1, X=x_thinc), backward(dY=1, X=x_thinc, inplace=True)
+            )
+            assert ops.xp.isclose(x_torch.grad.item(), float(backward(dY=1, X=x_thinc)))
