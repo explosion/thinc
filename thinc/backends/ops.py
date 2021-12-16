@@ -741,8 +741,8 @@ class Ops:
         return cast(FloatsType, out)
 
     def backprop_hard_swish(
-        self, dY: FloatsT, X: FloatsT, inplace: bool = False
-    ) -> FloatsT:
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
         dX = X * 0.4 + 0.5
         dX[X > 2.5] = 1.0
         dX[X < -2.5] = 0
@@ -752,15 +752,15 @@ class Ops:
         return dY * dX
 
     # From https://arxiv.org/pdf/1905.02244v5.pdf
-    def hard_swish_mobilenet(self, X: FloatsT, inplace: bool = False) -> FloatsT:
+    def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
             X *= self.relu_n(X + 3) / 6
             return X
         return X * (self.relu_n(X + 3) / 6)
 
     def backprop_hard_swish_mobilenet(
-        self, dY: FloatsT, X: FloatsT, inplace: bool = False
-    ) -> FloatsT:
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
         dX = (1 / 6) * (X * 2.0 + 3.0)
         dX[X > 3.0] = 1.0
         dX[X < -3.0] = 0
