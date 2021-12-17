@@ -690,3 +690,22 @@ def test_compare_activations_to_torch(ops, x):
             assert ops.xp.isclose(
                 x_torch.grad.item(), float(backward(dY=1, X=x_thinc)), atol=1e-06
             )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-10, max_value=10))
+def test_clipped_linear(ops, x):
+    x_thinc = ops.xp.asarray([x])
+    assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_n(x_thinc))
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, max_val=6.0),
+        ops.backprop_relu_n(1.0, x_thinc),
+    )
+    assert ops.xp.isclose(
+        ops.clipped_linear(x_thinc, slope=0.2, offset=0.5), ops.hard_sigmoid(x_thinc)
+    )
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, slope=0.2, offset=0.5),
+        ops.backprop_hard_sigmoid(1.0, x_thinc),
+    )

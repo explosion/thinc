@@ -16,8 +16,9 @@ from ..util import get_array_module, is_xp_array, to_numpy
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
-SQRT2PI = math.sqrt(2. / math.pi)
-SQRT2 = math.sqrt(2.)
+SQRT2PI = math.sqrt(2.0 / math.pi)
+SQRT2 = math.sqrt(2.0)
+
 
 class Ops:
     name: str = "base"
@@ -695,9 +696,9 @@ class Ops:
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         if inplace:
-            dY *= self.relu_n(X, n, inplace=True) != 0
+            dY *= (0 < X) & (X < n)
             return dY
-        out = dY * self.relu_n(X, n) != 0  # type: ignore
+        out = dY * ((0 < X) & (X < n))
         return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
@@ -714,6 +715,41 @@ class Ops:
     ) -> FloatsType:
         slope = self.alloc1f(1) + 0.2
         dX = slope * ((-2.5 < X) & (X < 2.5))
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    # general function that can implement relu6, hardsigmoid, hardtanh
+    def clipped_linear(
+        self,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        if inplace:
+            X *= slope  # type: ignore
+            X += offset  # type: ignore
+            return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
+        out = X * slope + offset  # type: ignore
+        return cast(FloatsType, self.xp.clip(out, min_val, max_val))
+
+    def backprop_clipped_linear(
+        self,
+        dY: FloatsType,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        low = (min_val - offset) / slope
+        high = (max_val - offset) / slope
+        dX = slope * ((low < X) & (X < high))
         if inplace:
             dY *= dX
             return dY
@@ -797,9 +833,7 @@ class Ops:
 
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        tmp = 1.0 + self.xp.tanh(
-            SQRT2PI * (X + 0.044715 * self.xp.power(X, 3))
-        )
+        tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
         if inplace:
             X *= tmp
             X *= 0.5  # type: ignore
