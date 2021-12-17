@@ -696,7 +696,7 @@ class Ops:
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         if inplace:
-            dY *= (0 < X) & (X < n)
+            dY *= ((0 < X) & (X < n))
             return dY
         out = dY * ((0 < X) & (X < n))
         return cast(FloatsType, out)
