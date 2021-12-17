@@ -16,7 +16,8 @@ from ..util import get_array_module, is_xp_array, to_numpy
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
-
+SQRT2PI = math.sqrt(2. / math.pi)
+SQRT2 = math.sqrt(2.)
 
 class Ops:
     name: str = "base"
@@ -694,9 +695,9 @@ class Ops:
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         if inplace:
-            dY *= self.relu_n(X, inplace=True) != 0
+            dY *= self.relu_n(X, n, inplace=True) != 0
             return dY
-        out = dY * self.relu_n(X) != 0  # type: ignore
+        out = dY * self.relu_n(X, n) != 0  # type: ignore
         return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
@@ -797,7 +798,7 @@ class Ops:
     # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         tmp = 1.0 + self.xp.tanh(
-            self.xp.sqrt(2 / math.pi) * (X + 0.044715 * self.xp.power(X, 3))
+            SQRT2PI * (X + 0.044715 * self.xp.power(X, 3))
         )
         if inplace:
             X *= tmp
@@ -826,7 +827,7 @@ class Ops:
         return dY * dX
 
     def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        tmp = 1.0 + self.erf(X / self.xp.sqrt(2.0))
+        tmp = 1.0 + self.erf(X / SQRT2)
         if inplace:
             X *= tmp
             X *= 0.5  # type: ignore
