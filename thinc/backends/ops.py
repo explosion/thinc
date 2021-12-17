@@ -694,9 +694,9 @@ class Ops:
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         if inplace:
-            dY *= (0 < X) & (X < n)
+            dY *= self.relu_n(X, inplace=True) != 0
             return dY
-        return dY * ((0 < X) & (X < n))
+        return dY * self.relu_n(X) != 0
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
