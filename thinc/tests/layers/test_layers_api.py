@@ -79,6 +79,8 @@ TEST_CASES_SUMMABLE = [
     ("HardSwishMobilenet.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("Swish.v1", {}, array2d, array2d),
     ("Swish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Gelu.v1", {}, array2d, array2d),
+    ("Gelu.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("sigmoid_activation.v1", {}, array2d, array2d),
     ("softmax_activation.v1", {}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
