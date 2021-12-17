@@ -696,7 +696,8 @@ class Ops:
         if inplace:
             dY *= self.relu_n(X, inplace=True) != 0
             return dY
-        return dY * self.relu_n(X) != 0
+        out = dY * self.relu_n(X) != 0  # type: ignore
+        return cast(FloatsType, out)
 
     # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
     def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
