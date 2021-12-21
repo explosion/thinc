@@ -79,6 +79,10 @@ def _import_extra_cpu_backends():
         from thinc_apple_ops import AppleOps
     except ImportError:
         pass
+    try:
+        from thinc_bigendian_ops import BigEndianOps
+    except ImportError:
+        pass
 
 
 def get_ops(name: str, **kwargs) -> Ops:
@@ -90,8 +94,10 @@ def get_ops(name: str, **kwargs) -> Ops:
 
     cls: Optional[Callable[..., Ops]] = None
     if name == "cpu":
-        _import_extra_cpu_backends()
-        cls = ops_by_name.get("apple", ops_by_name.get("numpy"))
+        _import_extra_cpu_backends()        
+        cls = ops_by_name.get("numpy")
+        cls = ops_by_name.get("apple", cls)
+        cls = ops_by_name.get("bigendian", cls)
     else:
         cls = ops_by_name.get(name)
 
