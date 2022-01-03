@@ -26,8 +26,9 @@ def ClippedLinear(
 ) -> Model[Floats2d, Floats2d]:
     model: Model[Floats2d, Floats2d] = Model(
         "clipped_linear",
-        forward=partial(forward, slope=slope, offset=offset,
-                        min_val=min_val, max_val=max_val),
+        forward=partial(
+            forward, slope=slope, offset=offset, min_val=min_val, max_val=max_val
+        ),
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
@@ -39,20 +40,24 @@ def ClippedLinear(
     return model
 
 
-def forward(model: Model[Floats2d, Floats2d],
-            X: Floats2d, is_train: bool,
-            slope: float, offset: float,
-            min_val: float, max_val: float) -> Tuple[Floats2d, Callable]:
+def forward(
+    model: Model[Floats2d, Floats2d],
+    X: Floats2d,
+    is_train: bool,
+    slope: float,
+    offset: float,
+    min_val: float,
+    max_val: float,
+) -> Tuple[Floats2d, Callable]:
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y_preact = model.ops.affine(X, W, b)
-    Y = model.ops.clipped_linear(Y_preact, slope, offset,
-                                 min_val, max_val)
+    Y = model.ops.clipped_linear(Y_preact, slope, offset, min_val, max_val)
 
     def backprop(dY: Floats2d) -> Floats2d:
-        dY = model.ops.backprop_clipped_linear(dY, Y_preact,
-                                               slope, offset, min_val, max_val,
-                                               inplace=False)
+        dY = model.ops.backprop_clipped_linear(
+            dY, Y_preact, slope, offset, min_val, max_val, inplace=False
+        )
         model.inc_grad("b", dY.sum(axis=0))
         model.inc_grad("W", model.ops.gemm(dY, X, trans1=True))
         return model.ops.gemm(dY, W)
