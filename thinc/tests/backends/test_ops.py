@@ -567,6 +567,13 @@ def test_get_ops():
         assert isinstance(get_ops("cpu"), AppleOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
+    # If BigEndian ops are available, "cpu" should return BigEndianOps or
+    # NumpyOps otherwise.
+    try:
+        from thinc_bigendian_ops import BigEndianOps
+        assert isinstance(get_ops("cpu"), BigEndianOps)
+    except ImportError:
+        assert isinstance(get_ops("cpu"), NumpyOps)
     with pytest.raises(ValueError):
         get_ops("blah")
     ops = Ops(numpy)
