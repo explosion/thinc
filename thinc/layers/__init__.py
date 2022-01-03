@@ -19,6 +19,7 @@ from .swish import Swish
 from .hard_sigmoid import HardSigmoid
 from .hard_swish import HardSwish
 from .hard_swish_mobilenet import HardSwishMobilenet
+from .clipped_linear import ClippedLinear
 from .gelu import Gelu
 from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
