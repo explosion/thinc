@@ -73,6 +73,8 @@ TEST_CASES_SUMMABLE = [
     ("Sigmoid.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("HardSigmoid.v1", {}, array2d, array2d),
     ("HardSigmoid.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("HardTanh.v1", {}, array2d, array2d),
+    ("HardTanh.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("HardSwish.v1", {}, array2d, array2d),
     ("HardSwish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("HardSwishMobilenet.v1", {}, array2d, array2d),

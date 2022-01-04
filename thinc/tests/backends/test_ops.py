@@ -39,6 +39,9 @@ def create_pytorch_funcs():
     def torch_hard_sigmoid(x):
         return torch.clip(x * 0.2 + 0.5, 0, 1)
 
+    def torch_hard_tanh(x):
+        return torch.nn.functional.hardtanh(x)
+
     def torch_swish(x):
         return torch.nn.functional.silu(x)
 
@@ -68,6 +71,7 @@ def create_pytorch_funcs():
         cast_torch,
         torch_relu_n,
         torch_hard_sigmoid,
+        torch_hard_tanh,
         torch_swish,
         torch_hard_swish,
         torch_hard_swish_mobilenet,
@@ -433,6 +437,18 @@ def test_hard_sigmoid(ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
+def test_hard_tanh(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_tanh(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= -1.0).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
 def test_hard_swish(ops, X):
     X = ops.asarray(X)
     Y = ops.hard_swish(X)
@@ -571,6 +587,7 @@ def test_get_ops():
     # NumpyOps otherwise.
     try:
         from thinc_bigendian_ops import BigEndianOps
+
         assert isinstance(get_ops("cpu"), BigEndianOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
@@ -654,6 +671,7 @@ def test_compare_activations_to_torch(ops, x):
     thinc_activations = (
         ops.relu_n,
         ops.hard_sigmoid,
+        ops.hard_tanh,
         ops.swish,
         ops.hard_swish,
         ops.hard_swish_mobilenet,
@@ -663,6 +681,7 @@ def test_compare_activations_to_torch(ops, x):
     thinc_backprop = (
         ops.backprop_relu_n,
         ops.backprop_hard_sigmoid,
+        ops.backprop_hard_tanh,
         ops.backprop_swish,
         ops.backprop_hard_swish,
         ops.backprop_hard_swish_mobilenet,

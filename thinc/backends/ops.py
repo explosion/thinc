@@ -684,43 +684,6 @@ class Ops:
         dY *= Y > 0
         return dY
 
-    def relu_n(
-        self, X: FloatsType, n: float = 6.0, inplace: bool = False
-    ) -> FloatsType:
-        if inplace:
-            self.xp.clip(X, 0, n, out=X)
-            return X
-        return self.xp.clip(X, 0, n)
-
-    def backprop_relu_n(
-        self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
-    ) -> FloatsType:
-        if inplace:
-            dY *= ((0 < X) & (X < n))
-            return dY
-        out = dY * ((0 < X) & (X < n))
-        return cast(FloatsType, out)
-
-    # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
-    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        if inplace:
-            X *= 0.2  # type: ignore
-            X += 0.5  # type: ignore
-            return cast(FloatsType, self.xp.clip(X, 0, 1, out=X))
-        out = X * 0.2 + 0.5
-        return cast(FloatsType, self.xp.clip(out, 0, 1))
-
-    def backprop_hard_sigmoid(
-        self, dY: FloatsType, X: FloatsType, inplace: bool = False
-    ) -> FloatsType:
-        slope = self.alloc1f(1) + 0.2
-        dX = slope * ((-2.5 < X) & (X < 2.5))
-        if inplace:
-            dY *= dX
-            return dY
-        return dY * dX
-
-    # general function that can implement relu6, hardsigmoid, hardtanh
     def clipped_linear(
         self,
         X: FloatsType,
@@ -749,11 +712,38 @@ class Ops:
     ) -> FloatsType:
         low = (min_val - offset) / slope
         high = (max_val - offset) / slope
-        dX = slope * ((low < X) & (X < high))
+        zeros = self.xp.zeros_like(X)
+        dX = slope * (zeros + ((low < X) & (X < high)))
         if inplace:
             dY *= dX
             return dY
         return dY * dX
+
+    def relu_n(
+        self, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.clipped_linear(X, max_val=n, inplace=inplace)
+
+    def backprop_relu_n(
+        self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
+
+    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, slope=0.2, offset=0.5)
+
+    def backprop_hard_sigmoid(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
+
+    def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, min_val=-1.0, max_val=1.0)
+
+    def backprop_hard_tanh(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, min_val=-1.0, max_val=1.0)
 
     def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
@@ -831,7 +821,6 @@ class Ops:
     def sechsq(self, X: FloatsType) -> FloatsType:
         return (1 / self.xp.cosh(X)) ** 2
 
-    # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
         if inplace:

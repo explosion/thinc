@@ -15,11 +15,12 @@ from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
 from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
-from .swish import Swish
+from .clipped_linear import ClippedLinear
 from .hard_sigmoid import HardSigmoid
+from .hard_tanh import HardTanh
 from .hard_swish import HardSwish
 from .hard_swish_mobilenet import HardSwishMobilenet
-from .clipped_linear import ClippedLinear
+from .swish import Swish
 from .gelu import Gelu
 from .resizable import resizable
 from .sigmoid_activation import sigmoid_activation
@@ -93,8 +94,7 @@ __all__ = [
     "PyTorchRNNWrapper",
     "Relu",
     "sigmoid_activation",
-    "Sigmoid"
-    "softmax_activation",
+    "Sigmoid" "softmax_activation",
     "Softmax",
     "SparseLinear",
     "TensorFlowWrapper",
