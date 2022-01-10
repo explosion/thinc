@@ -30,9 +30,6 @@ def create_pytorch_funcs():
     import torch
     import math
 
-    def cast_torch(scalar: float):
-        return torch.tensor([scalar], requires_grad=True)
-
     def torch_relu_n(x):
         return torch.nn.functional.relu6(x)
 
@@ -67,17 +64,20 @@ def create_pytorch_funcs():
     def torch_gelu(x):
         return torch.nn.functional.gelu(x)
 
-    return (
-        cast_torch,
-        torch_relu_n,
-        torch_hard_sigmoid,
-        torch_hard_tanh,
-        torch_swish,
-        torch_hard_swish,
-        torch_hard_swish_mobilenet,
-        torch_gelu_approx,
-        torch_gelu,
-    )
+    return [
+        ("relu_n", torch_relu_n),
+        ("hard_sigmoid", torch_hard_sigmoid),
+        ("hard_tanh", torch_hard_tanh),
+        ("swish", torch_swish),
+        ("hard_swish", torch_hard_swish),
+        ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
+        ("gelu_approx", torch_gelu_approx),
+        ("gelu", torch_gelu),
+    ]
+
+
+if has_torch:
+    TORCH_FUNCS = create_pytorch_funcs()
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -662,60 +662,43 @@ def test_ngrams():
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("torch_func", TORCH_FUNCS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(x=strategies.floats(min_value=-5, max_value=5))
-def test_compare_activations_to_torch(ops, x):
-    pytorch_funcs = create_pytorch_funcs()
-    torch_cast = pytorch_funcs[0]
-    pytorch_activations = pytorch_funcs[1:]
-    thinc_activations = (
-        ops.relu_n,
-        ops.hard_sigmoid,
-        ops.hard_tanh,
-        ops.swish,
-        ops.hard_swish,
-        ops.hard_swish_mobilenet,
-        ops.gelu_approx,
-        ops.gelu,
-    )
-    thinc_backprop = (
-        ops.backprop_relu_n,
-        ops.backprop_hard_sigmoid,
-        ops.backprop_hard_tanh,
-        ops.backprop_swish,
-        ops.backprop_hard_swish,
-        ops.backprop_hard_swish_mobilenet,
-        ops.backprop_gelu_approx,
-        ops.backprop_gelu,
-    )
+def test_compare_activations_to_torch(ops, x, torch_func):
+    import torch
+
+    def cast_torch(scalar: float):
+        return torch.tensor([scalar], requires_grad=True)
+
+    func_name, pytorch_func = torch_func
+    forward = getattr(ops, func_name)
+    backward = getattr(ops, "backprop_" + func_name)
     # The tolerance of isclose is set to 1e-06 instead of
     # the default 1e-08 due to the GELU
-    for forward, backward, pytorch in zip(
-        thinc_activations, thinc_backprop, pytorch_activations
-    ):
-        x_thinc = ops.xp.asarray([x])
-        x_torch = torch_cast(x)
-        y = pytorch(x_torch)
-        y_thinc = forward(x_thinc)
-        y.backward()
-        assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
-        assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
-        x_thinc = ops.xp.asarray([x])
-        if backward.__name__ == "backprop_swish":
-            assert ops.xp.isclose(
-                backward(dY=1, Y=y_thinc, X=x_thinc),
-                backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True),
-            )
-            assert ops.xp.isclose(
-                x_torch.grad.item(), float(backward(dY=1, Y=y_thinc, X=x_thinc))
-            )
-        else:
-            assert ops.xp.isclose(
-                backward(dY=1, X=x_thinc), backward(dY=1, X=x_thinc, inplace=True)
-            )
-            assert ops.xp.isclose(
-                x_torch.grad.item(), float(backward(dY=1, X=x_thinc)), atol=1e-06
-            )
+    x_thinc = ops.xp.asarray([x])
+    x_torch = cast_torch(x)
+    y = pytorch_func(x_torch)
+    y_thinc = forward(x_thinc)
+    y.backward()
+    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
+    assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
+    x_thinc = ops.xp.asarray([x])
+    if backward.__name__ == "backprop_swish":
+        assert ops.xp.isclose(
+            backward(dY=1, Y=y_thinc, X=x_thinc),
+            backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True),
+        )
+        assert ops.xp.isclose(
+            x_torch.grad.item(), float(backward(dY=1, Y=y_thinc, X=x_thinc))
+        )
+    else:
+        assert ops.xp.isclose(
+            backward(dY=1, X=x_thinc), backward(dY=1, X=x_thinc, inplace=True)
+        )
+        assert ops.xp.isclose(
+            x_torch.grad.item(), float(backward(dY=1, X=x_thinc)), atol=1e-06
+        )
 
 
 @pytest.mark.parametrize("ops", ALL_OPS)
