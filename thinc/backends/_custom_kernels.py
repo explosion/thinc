@@ -46,6 +46,7 @@ maxout_kernel = KERNELS["maxout"]
 mish_kernel = KERNELS["mish"]
 reduce_sum_kernel = KERNELS["reduce_sum"]
 reduce_max_kernel = KERNELS["reduce_max"]
+swish_kernel = KERNELS["swish"]
 
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
 backprop_gelu_kernel = KERNELS["backprop_gelu"]
@@ -54,6 +55,7 @@ backprop_mish_kernel = KERNELS["backprop_mish"]
 backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
 backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
 backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
+backprop_swish_kernel = KERNELS["backprop_swish"]
 hash_data_kernel = compile_mmh(MMH_SRC)
 
 
@@ -151,6 +153,14 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
         (num_blocks,), (threads_per_block,), (maxes, which, X, lengths, B, T, O)
     )
     return maxes, which
+
+
+def swish(X, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128):
+    out = X
+    if not inplace:
+        out = cupy.zeros_like(X, dtype="f")
+    swish_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
+    return out
 
 
 def backprop_seq2col(
@@ -251,6 +261,18 @@ def backprop_reduce_max(
 
     backprop_reduce_max_kernel(
         (num_blocks,), (threads_per_block,), (out, d_maxes, which, lengths, B, T, O)
+    )
+    return out
+
+
+def backprop_swish(
+    dY, X, Y, inplace=False, threshold=17.0, threads_per_block=128, num_blocks=128
+):
+    out = dY
+    if not inplace:
+        out = cupy.zeros_like(dY, dtype="f")
+    backprop_swish_kernel(
+        (num_blocks,), (threads_per_block,), (out, dY, X, Y, threshold, out.size)
     )
     return out
 
