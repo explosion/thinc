@@ -109,6 +109,26 @@ void maxout(float* best, int* which,
 }
 
 extern "C" __global__
+void gelu(float* Y, const float* X, double threshold, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+        if (x >= threshold) {
+            Y[i] = x;
+        } else if (x <= -threshold) {
+            Y[i] = 0.0;
+        } else {
+            float cdf = 0.5 * (1.0 + erff(CUDART_SQRT_HALF_F * x));
+            Y[i] = x * cdf;
+        }
+    }
+}
+
+extern "C" __global__
 void mish(float* Y, const float* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -255,6 +275,31 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
             for (int i = 0; i < I; ++i) {
                 d_seqs[(b*I + i)] += d_cols[start + i];
             }
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_gelu(float* dX, const float* dY, const float* X,
+    double threshold, int N)
+{
+    const float INV_SQRT_2PI = 1.0 / CUDART_SQRT_2PI;
+
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+
+        if (x >= threshold) {
+            dX[i] = dY[i];
+        } else if (x <= -threshold) {
+            dX[i] = 0.0;
+        } else {
+            float cdf = 0.5 * (1.0 + erff(CUDART_SQRT_HALF_F * x));
+            float pdf = INV_SQRT_2PI * expf(-0.5 * x * x);
+            dX[i] = dY[i] * (cdf + x * pdf);
         }
     }
 }

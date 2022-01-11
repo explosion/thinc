@@ -39,6 +39,18 @@ class CupyOps(Ops):
         else:
             return data.get()
 
+    def gelu(self, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.gelu(X, inplace=inplace, threshold=6.0)
+        else:
+            return super().gelu(X, inplace=inplace)
+
+    def backprop_gelu(self, dY, X, inplace=False):
+        if X.dtype == "float32":
+            return _custom_kernels.backprop_gelu(dY, X, inplace=inplace, threshold=6.0)
+        else:
+            return super().backprop_gelu(dY, X, inplace=inplace)
+
     def gemm(self, x, y, out=None, trans1=False, trans2=False):
         if isinstance(x, numpy.ndarray) or isinstance(y, numpy.ndarray):
             raise ValueError(

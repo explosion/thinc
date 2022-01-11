@@ -16,7 +16,7 @@ def parse_kernels(src):
     kernels = {}
     for kernel in kernel_re.findall(src):
         name = name_re.search(kernel).group()
-        kernels[name] = kernel
+        kernels[name] = f"#include <math_constants.h>\n{kernel}"
     return kernels
 
 
@@ -41,18 +41,28 @@ MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
 seq2col_kernel = KERNELS["seq2col"]
+gelu_kernel = KERNELS["gelu"]
 maxout_kernel = KERNELS["maxout"]
 mish_kernel = KERNELS["mish"]
 reduce_sum_kernel = KERNELS["reduce_sum"]
 reduce_max_kernel = KERNELS["reduce_max"]
 
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
+backprop_gelu_kernel = KERNELS["backprop_gelu"]
 backprop_maxout_kernel = KERNELS["backprop_maxout"]
 backprop_mish_kernel = KERNELS["backprop_mish"]
 backprop_reduce_sum_kernel = KERNELS["backprop_reduce_sum"]
 backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
 backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
 hash_data_kernel = compile_mmh(MMH_SRC)
+
+
+def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
+    out = X
+    if not inplace:
+        out = cupy.zeros_like(X, dtype="f")
+    gelu_kernel((num_blocks,), (threads_per_block,), (out, X, threshold, X.size))
+    return out
 
 
 def check_seq2col_lengths(lengths, B):
@@ -167,6 +177,16 @@ def backprop_seq2col(
             (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
         )
 
+    return out
+
+
+def backprop_gelu(dY, X, inplace: bool = False, threshold=6., threads_per_block=128, num_blocks=128):
+    out = dY
+    if not inplace:
+        out = cupy.zeros_like(dY, dtype="f")
+    backprop_gelu_kernel(
+        (num_blocks,), (threads_per_block,), (out, dY, X, threshold, out.size)
+    )
     return out
 
 
