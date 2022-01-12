@@ -664,10 +664,11 @@ def test_ngrams():
 
 @pytest.mark.skipif(not has_torch, reason="needs PyTorch")
 @pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
 @pytest.mark.parametrize("torch_func", TORCH_FUNCS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(x=strategies.floats(min_value=-5, max_value=5))
-def test_compare_activations_to_torch(ops, x, torch_func):
+def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     import torch
 
     def cast_torch(scalar: float):
@@ -678,15 +679,15 @@ def test_compare_activations_to_torch(ops, x, torch_func):
     backward = getattr(ops, "backprop_" + func_name)
     # The tolerance of isclose is set to 1e-06 instead of
     # the default 1e-08 due to the GELU
-    x_thinc = ops.asarray1f([x])
+    x_thinc = ops.asarray([x], dtype=dtype)
     x_torch = cast_torch(x)
     y = pytorch_func(x_torch)
     y_thinc = forward(x_thinc)
     y.backward()
     assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
     assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
-    x_thinc = ops.asarray1f([x])
-    dY_thinc = ops.asarray1f([1.0])
+    x_thinc = ops.asarray([x], dtype=dtype)
+    dY_thinc = ops.asarray([1.0], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
     if backward.__name__ == "backprop_swish":
         assert ops.xp.isclose(
