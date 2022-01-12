@@ -15,9 +15,7 @@ from .parametricattention import ParametricAttention
 from .pytorchwrapper import PyTorchWrapper, PyTorchWrapper_v2
 from .pytorchwrapper import PyTorchRNNWrapper
 from .relu import Relu
-from .clipped_linear import ClippedLinear
-from .hard_sigmoid import HardSigmoid
-from .hard_tanh import HardTanh
+from .clipped_linear import ClippedLinear, ReluK, HardSigmoid, HardTanh
 from .hard_swish import HardSwish
 from .hard_swish_mobilenet import HardSwishMobilenet
 from .swish import Swish

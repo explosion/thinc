@@ -24,14 +24,19 @@ def ClippedLinear(
     min_val: float = 0.0,
     max_val: float = 1.0,
 ) -> Model[Floats2d, Floats2d]:
+    model_attrs = {
+        "slope": slope,
+        "offset": offset,
+        "min_val": min_val,
+        "max_val": max_val,
+    }
     model: Model[Floats2d, Floats2d] = Model(
         "clipped_linear",
-        forward=partial(
-            forward, slope=slope, offset=offset, min_val=min_val, max_val=max_val
-        ),
+        forward=forward,
         init=partial(init, init_W, init_b),
         dims={"nO": nO, "nI": nI},
         params={"W": None, "b": None},
+        attrs=model_attrs,
     )
     if normalize:
         model = chain(model, LayerNorm(nI=nO))
@@ -44,11 +49,11 @@ def forward(
     model: Model[Floats2d, Floats2d],
     X: Floats2d,
     is_train: bool,
-    slope: float,
-    offset: float,
-    min_val: float,
-    max_val: float,
 ) -> Tuple[Floats2d, Callable]:
+    slope = model.attrs["slope"]
+    offset = model.attrs["offset"]
+    min_val = model.attrs["min_val"]
+    max_val = model.attrs["max_val"]
     W = cast(Floats2d, model.get_param("W"))
     b = cast(Floats1d, model.get_param("b"))
     Y_preact = model.ops.affine(X, W, b)
@@ -79,3 +84,67 @@ def init(
     model.set_param("W", init_W(model.ops, (model.get_dim("nO"), model.get_dim("nI"))))
     model.set_param("b", init_b(model.ops, (model.get_dim("nO"),)))
     return model
+
+
+@registry.layers("HardSigmoid.v1")
+def HardSigmoid(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = glorot_uniform_init,
+    init_b: Callable = zero_init,
+    dropout: Optional[float] = None,
+    normalize: bool = False,
+) -> Model[Floats2d, Floats2d]:
+    return ClippedLinear(
+        nO=nO,
+        nI=nI,
+        init_W=init_W,
+        dropout=dropout,
+        normalize=normalize,
+        slope=0.2,
+        offset=0.5,
+    )
+
+
+@registry.layers("HardTanh.v1")
+def HardTanh(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = glorot_uniform_init,
+    init_b: Callable = zero_init,
+    dropout: Optional[float] = None,
+    normalize: bool = False,
+) -> Model[Floats2d, Floats2d]:
+    return ClippedLinear(
+        nO=nO,
+        nI=nI,
+        init_W=init_W,
+        dropout=dropout,
+        normalize=normalize,
+        min_val=-1.0,
+        max_val=1.0,
+    )
+
+
+@registry.layers("ReluK.v1")
+def ReluK(
+    nO: Optional[int] = None,
+    nI: Optional[int] = None,
+    *,
+    init_W: Callable = glorot_uniform_init,
+    init_b: Callable = zero_init,
+    dropout: Optional[float] = None,
+    normalize: bool = False,
+    k: float = 6.0,
+) -> Model[Floats2d, Floats2d]:
+    return ClippedLinear(
+        nO=nO,
+        nI=nI,
+        init_W=init_W,
+        dropout=dropout,
+        normalize=normalize,
+        min_val=0.0,
+        max_val=k,
+    )
