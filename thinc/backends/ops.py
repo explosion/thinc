@@ -800,8 +800,9 @@ class Ops:
             dY *= dX
             return dY
         return dX * dY
-
-    # https://newbedev.com/is-there-an-easily-available-implementation-of-erf-for-python
+    
+    # Code snippet taken from:
+    # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
     def erf(self, X: FloatsType) -> FloatsType:
         # save the sign of x
         sign = self.xp.sign(X)
