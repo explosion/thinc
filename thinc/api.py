@@ -12,13 +12,8 @@ from .schedules import cyclic_triangular, warmup_linear, constant, constant_then
 from .schedules import decaying, slanted_triangular, compounding
 from .types import Ragged, Padded, ArgsKwargs, Unserializable
 from .util import fix_random_seed, is_cupy_array, set_active_gpu
-from .util import (
-    prefer_gpu,
-    require_gpu,
-    require_cpu,
-    DataValidationError,
-    data_validation,
-)
+from .util import prefer_gpu, require_gpu, require_cpu
+from .util import DataValidationError, data_validation
 from .util import to_categorical, get_width, get_array_module, to_numpy
 from .util import torch2xp, xp2torch, tensorflow2xp, xp2tensorflow, mxnet2xp, xp2mxnet
 from .backends import get_ops, set_current_ops, get_current_ops, use_ops

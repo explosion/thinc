@@ -78,6 +78,8 @@ def create_pytorch_funcs():
 
 if has_torch:
     TORCH_FUNCS = create_pytorch_funcs()
+else:
+    TORCH_FUNCS = []
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -676,28 +678,30 @@ def test_compare_activations_to_torch(ops, x, torch_func):
     backward = getattr(ops, "backprop_" + func_name)
     # The tolerance of isclose is set to 1e-06 instead of
     # the default 1e-08 due to the GELU
-    x_thinc = ops.xp.asarray([x])
+    x_thinc = ops.asarray1f([x])
     x_torch = cast_torch(x)
     y = pytorch_func(x_torch)
     y_thinc = forward(x_thinc)
     y.backward()
     assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
     assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
-    x_thinc = ops.xp.asarray([x])
+    x_thinc = ops.asarray1f([x])
+    dY_thinc = ops.asarray1f([1.0])
+    dY_thinc_inplace = dY_thinc.copy()
     if backward.__name__ == "backprop_swish":
         assert ops.xp.isclose(
-            backward(dY=1, Y=y_thinc, X=x_thinc),
-            backward(dY=1, Y=y_thinc, X=x_thinc, inplace=True),
+            backward(dY_thinc, Y=y_thinc, X=x_thinc),
+            backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
         )
         assert ops.xp.isclose(
-            x_torch.grad.item(), float(backward(dY=1, Y=y_thinc, X=x_thinc))
+            x_torch.grad.item(), float(backward(dY_thinc, Y=y_thinc, X=x_thinc))
         )
     else:
         assert ops.xp.isclose(
-            backward(dY=1, X=x_thinc), backward(dY=1, X=x_thinc, inplace=True)
+            backward(dY_thinc, X=x_thinc), backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
-            x_torch.grad.item(), float(backward(dY=1, X=x_thinc)), atol=1e-06
+            x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
         )
 
 

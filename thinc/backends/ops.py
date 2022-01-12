@@ -17,7 +17,8 @@ ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
 SQRT2PI = math.sqrt(2.0 / math.pi)
-SQRT2 = math.sqrt(2.0)
+INV_SQRT2 = 1.0 / math.sqrt(2.0)
+INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
 
 
 class Ops:
@@ -851,19 +852,18 @@ class Ops:
         return dY * dX
 
     def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
-        tmp = 1.0 + self.erf(X / SQRT2)
+        # GELU(x) = x · Φ(x)
+        cdf = gaussian_cdf(self, X)
         if inplace:
-            X *= tmp
-            X *= 0.5  # type: ignore
+            X *= cdf  # type: ignore
             return X
-        return X * 0.5 * tmp
+        return X * cdf  # type: ignore
 
     def backprop_gelu(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False
     ) -> FloatsType:
-        tmp = 0.5 * self.erf(0.707107 * X)
-        tmp += 0.398942 * self.xp.exp(-0.5 * self.xp.power(X, 2)) * X
-        dX = tmp + 0.5
+        # GELU'(x) = Φ(x) + x · PDF(x)
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore
         if inplace:
             dY *= dX
             return dY
@@ -1341,3 +1341,13 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 def dtanh(Y: ArrayT) -> ArrayT:
     return 1 - Y ** 2
+
+
+def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian CDF for distribution with mean 0 and stdev 1."""
+    return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
+
+
+def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian PDF for distribution with mean 0 and stdev 1."""
+    return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)
