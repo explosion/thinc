@@ -721,12 +721,12 @@ class Ops:
             return dY
         return dY * dX
 
-    def relu_n(
+    def relu_k(
         self, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         return self.clipped_linear(X, max_val=n, inplace=inplace)
 
-    def backprop_relu_n(
+    def backprop_relu_k(
         self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
     ) -> FloatsType:
         return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
@@ -786,9 +786,9 @@ class Ops:
     # From https://arxiv.org/pdf/1905.02244v5.pdf
     def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         if inplace:
-            X *= self.relu_n(X + 3) / 6
+            X *= self.relu_k(X + 3) / 6
             return X
-        return X * (self.relu_n(X + 3) / 6)
+        return X * (self.relu_k(X + 3) / 6)
 
     def backprop_hard_swish_mobilenet(
         self, dY: FloatsType, X: FloatsType, inplace: bool = False

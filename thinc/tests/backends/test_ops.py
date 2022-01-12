@@ -30,7 +30,7 @@ def create_pytorch_funcs():
     import torch
     import math
 
-    def torch_relu_n(x):
+    def torch_relu_k(x):
         return torch.nn.functional.relu6(x)
 
     def torch_hard_sigmoid(x):
@@ -65,7 +65,7 @@ def create_pytorch_funcs():
         return torch.nn.functional.gelu(x)
 
     return [
-        ("relu_n", torch_relu_n),
+        ("relu_k", torch_relu_k),
         ("hard_sigmoid", torch_hard_sigmoid),
         ("hard_tanh", torch_hard_tanh),
         ("swish", torch_swish),
@@ -405,9 +405,9 @@ def test_mish(ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
-def test_relu_n(ops, X):
+def test_relu_k(ops, X):
     X = ops.asarray(X)
-    Y = ops.relu_n(X)
+    Y = ops.relu_k(X)
     assert Y.shape == X.shape
     assert not ops.xp.isnan(Y).any()
     assert (Y >= 0).sum() == Y.size
@@ -710,10 +710,10 @@ def test_compare_activations_to_torch(ops, x, torch_func):
 @given(x=strategies.floats(min_value=-10, max_value=10))
 def test_clipped_linear(ops, x):
     x_thinc = ops.xp.asarray([x])
-    assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_n(x_thinc))
+    assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_k(x_thinc))
     assert ops.xp.isclose(
         ops.backprop_clipped_linear(1.0, x_thinc, max_val=6.0),
-        ops.backprop_relu_n(1.0, x_thinc),
+        ops.backprop_relu_k(1.0, x_thinc),
     )
     assert ops.xp.isclose(
         ops.clipped_linear(x_thinc, slope=0.2, offset=0.5), ops.hard_sigmoid(x_thinc)
