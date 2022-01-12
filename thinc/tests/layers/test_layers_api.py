@@ -205,7 +205,7 @@ def util_batch_unbatch_list(
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
         Y_not_batched = [model.predict([u])[0] for u in in_data]
-        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)  # type: ignore
 
 
 def util_batch_unbatch_ragged(
@@ -215,4 +215,4 @@ def util_batch_unbatch_ragged(
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
         Y_not_batched = [model.predict(in_data[i])[0] for i in range(len(in_data))]
-        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)  # type: ignore
