@@ -712,8 +712,9 @@ class Ops:
     ) -> FloatsType:
         low = (min_val - offset) / slope
         high = (max_val - offset) / slope
-        zeros = self.xp.zeros_like(X)
-        dX = slope * (zeros + ((low < X) & (X < high)))
+        slope = self.xp.float64(slope).astype(X.dtype)
+        zero = self.xp.float64(0.0).astype(X.dtype)
+        dX = self.xp.where((low < X) & (X < high), slope, zero)
         if inplace:
             dY *= dX
             return dY
