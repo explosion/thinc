@@ -78,6 +78,8 @@ def create_pytorch_funcs():
 
 if has_torch:
     TORCH_FUNCS = create_pytorch_funcs()
+else:
+    TORCH_FUNCS = []
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
