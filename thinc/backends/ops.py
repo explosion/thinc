@@ -800,7 +800,7 @@ class Ops:
             dY *= dX
             return dY
         return dX * dY
-    
+
     # Code snippet taken from:
     # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
     def erf(self, X: FloatsType) -> FloatsType:
@@ -819,21 +819,24 @@ class Ops:
         y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * self.xp.exp(
             -X * X
         )
-        return sign * y
+        out = sign * y
+        out = out.astype(X.dtype)
+        return out
 
     def sechsq(self, X: FloatsType) -> FloatsType:
         return (1 / self.xp.cosh(X)) ** 2
 
     def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
         tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
+        tmp *= 0.5
+        tmp = tmp.astype(X.dtype)
         if inplace:
             X *= tmp
-            X *= 0.5  # type: ignore
             return X
-        Y = self.alloc_f(X.shape)
+        Y = self.xp.zeros_like(X)
         Y += tmp
         Y *= X
-        Y *= 0.5
+        # Y *= 0.5
         return cast(FloatsType, Y)
 
     def backprop_gelu_approx(

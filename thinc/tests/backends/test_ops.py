@@ -684,22 +684,25 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
     y = pytorch_func(x_torch)
     y_thinc = forward(x_thinc)
     y.backward()
+    assert x_thinc.dtype == y_thinc.dtype
     assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
     assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
     x_thinc = ops.asarray([x], dtype=dtype)
     dY_thinc = ops.asarray([1.0], dtype=dtype)
     dY_thinc_inplace = dY_thinc.copy()
     if backward.__name__ == "backprop_swish":
+        dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
-            backward(dY_thinc, Y=y_thinc, X=x_thinc),
+            dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
         )
-        assert ops.xp.isclose(
-            x_torch.grad.item(), float(backward(dY_thinc, Y=y_thinc, X=x_thinc))
-        )
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc))
     else:
+        dx_thinc = backward(dY_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
         assert ops.xp.isclose(
-            backward(dY_thinc, X=x_thinc), backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
+            dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
         )
         assert ops.xp.isclose(
             x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
