@@ -836,7 +836,6 @@ class Ops:
         Y = self.xp.zeros_like(X)
         Y += tmp
         Y *= X
-        # Y *= 0.5
         return cast(FloatsType, Y)
 
     def backprop_gelu_approx(
