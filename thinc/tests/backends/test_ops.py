@@ -5,6 +5,7 @@ from hypothesis.strategies import composite, integers
 from numpy.testing import assert_allclose
 from thinc.api import NumpyOps, CupyOps, Ops, get_ops
 from thinc.api import get_current_ops, use_ops
+from thinc.util import has_torch
 from thinc.api import fix_random_seed
 from thinc.api import LSTM
 import inspect
@@ -23,6 +24,62 @@ XP_OPS = [NUMPY_OPS]
 if CupyOps.xp is not None:
     XP_OPS.append(CupyOps())
 ALL_OPS = XP_OPS + [VANILLA_OPS]
+
+
+def create_pytorch_funcs():
+    import torch
+    import math
+
+    def torch_relu_k(x):
+        return torch.nn.functional.relu6(x)
+
+    def torch_hard_sigmoid(x):
+        return torch.clip(x * 0.2 + 0.5, 0, 1)
+
+    def torch_hard_tanh(x):
+        return torch.nn.functional.hardtanh(x)
+
+    def torch_swish(x):
+        return torch.nn.functional.silu(x)
+
+    def torch_hard_swish(x):
+        return x * torch_hard_sigmoid(x)
+
+    def torch_hard_swish_mobilenet(x):
+        return torch.nn.functional.hardswish(x)
+
+    # https://github.com/huggingface/transformers/blob/master/src/transformers/activations.py#L37
+    def torch_gelu_approx(x):
+        return (
+            0.5
+            * x
+            * (
+                1.0
+                + torch.tanh(
+                    math.sqrt(2.0 / math.pi) * (x + 0.044715 * torch.pow(x, 3.0))
+                )
+            )
+        )
+
+    def torch_gelu(x):
+        return torch.nn.functional.gelu(x)
+
+    return [
+        ("relu_k", torch_relu_k),
+        ("hard_sigmoid", torch_hard_sigmoid),
+        ("hard_tanh", torch_hard_tanh),
+        ("swish", torch_swish),
+        ("hard_swish", torch_hard_swish),
+        ("hard_swish_mobilenet", torch_hard_swish_mobilenet),
+        ("gelu_approx", torch_gelu_approx),
+        ("gelu", torch_gelu),
+    ]
+
+
+if has_torch:
+    TORCH_FUNCS = create_pytorch_funcs()
+else:
+    TORCH_FUNCS = []
 
 
 @pytest.mark.parametrize("op", [NumpyOps, CupyOps])
@@ -348,6 +405,92 @@ def test_mish(ops, X):
 @pytest.mark.parametrize("ops", ALL_OPS)
 @settings(max_examples=MAX_EXAMPLES, deadline=None)
 @given(X=strategies.arrays_BI())
+def test_relu_k(ops, X):
+    X = ops.asarray(X)
+    Y = ops.relu_k(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= 0).sum() == Y.size
+    assert (Y <= 6.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_sigmoid(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_sigmoid(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= 0).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_tanh(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_tanh(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+    assert (Y >= -1.0).sum() == Y.size
+    assert (Y <= 1.0).sum() == Y.size
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_hard_swish_mobilenet(ops, X):
+    X = ops.asarray(X)
+    Y = ops.hard_swish_mobilenet(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_gelu_approx(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu_approx(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
+def test_gelu(ops, X):
+    X = ops.asarray(X)
+    Y = ops.gelu(X)
+    assert Y.shape == X.shape
+    assert not ops.xp.isnan(Y).any()
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(X=strategies.arrays_BI())
 def test_backprop_mish(ops, X):
     X = ops.asarray(X)
     # Test zero gradients result in 0 dX
@@ -438,6 +581,7 @@ def test_get_ops():
     # NumpyOps otherwise.
     try:
         from thinc_apple_ops import AppleOps
+
         assert isinstance(get_ops("cpu"), AppleOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
@@ -445,6 +589,7 @@ def test_get_ops():
     # NumpyOps otherwise.
     try:
         from thinc_bigendian_ops import BigEndianOps
+
         assert isinstance(get_ops("cpu"), BigEndianOps)
     except ImportError:
         assert isinstance(get_ops("cpu"), NumpyOps)
@@ -515,3 +660,69 @@ def test_ngrams():
         assert len(ops.ngrams(n, arr1)) == max(0, arr1.shape[0] - (n - 1))
     assert len(ops.ngrams(-1, arr1)) == 0
     assert len(ops.ngrams(arr1.shape[0] + 1, arr1)) == 0
+
+
+@pytest.mark.skipif(not has_torch, reason="needs PyTorch")
+@pytest.mark.parametrize("ops", ALL_OPS)
+@pytest.mark.parametrize("dtype", ["float32", "float64"])
+@pytest.mark.parametrize("torch_func", TORCH_FUNCS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-5, max_value=5))
+def test_compare_activations_to_torch(ops, dtype, x, torch_func):
+    import torch
+
+    def cast_torch(scalar: float):
+        return torch.tensor([scalar], requires_grad=True)
+
+    func_name, pytorch_func = torch_func
+    forward = getattr(ops, func_name)
+    backward = getattr(ops, "backprop_" + func_name)
+    # The tolerance of isclose is set to 1e-06 instead of
+    # the default 1e-08 due to the GELU
+    x_thinc = ops.asarray([x], dtype=dtype)
+    x_torch = cast_torch(x)
+    y = pytorch_func(x_torch)
+    y_thinc = forward(x_thinc)
+    y.backward()
+    assert x_thinc.dtype == y_thinc.dtype
+    assert ops.xp.isclose(y_thinc, forward(x_thinc, inplace=True))
+    assert ops.xp.isclose(y_thinc, y.detach().numpy(), atol=1e-06)
+    x_thinc = ops.asarray([x], dtype=dtype)
+    dY_thinc = ops.asarray([1.0], dtype=dtype)
+    dY_thinc_inplace = dY_thinc.copy()
+    if backward.__name__ == "backprop_swish":
+        dx_thinc = backward(dY_thinc, Y=y_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc,
+            backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
+        )
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc))
+    else:
+        dx_thinc = backward(dY_thinc, X=x_thinc)
+        assert dx_thinc.dtype == x_thinc.dtype
+        assert ops.xp.isclose(
+            dx_thinc, backward(dY=dY_thinc_inplace, X=x_thinc, inplace=True)
+        )
+        assert ops.xp.isclose(
+            x_torch.grad.item(), float(backward(dY_thinc, X=x_thinc)), atol=1e-06
+        )
+
+
+@pytest.mark.parametrize("ops", ALL_OPS)
+@settings(max_examples=MAX_EXAMPLES, deadline=None)
+@given(x=strategies.floats(min_value=-10, max_value=10))
+def test_clipped_linear(ops, x):
+    x_thinc = ops.xp.asarray([x])
+    assert ops.xp.isclose(ops.clipped_linear(x_thinc, max_val=6.0), ops.relu_k(x_thinc))
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, max_val=6.0),
+        ops.backprop_relu_k(1.0, x_thinc),
+    )
+    assert ops.xp.isclose(
+        ops.clipped_linear(x_thinc, slope=0.2, offset=0.5), ops.hard_sigmoid(x_thinc)
+    )
+    assert ops.xp.isclose(
+        ops.backprop_clipped_linear(1.0, x_thinc, slope=0.2, offset=0.5),
+        ops.backprop_hard_sigmoid(1.0, x_thinc),
+    )

@@ -71,6 +71,22 @@ TEST_CASES_SUMMABLE = [
     ("Relu.v1", {"normalize": True, "dropout": 0.2}, array2d, array2d),
     ("Sigmoid.v1", {}, array2d, array2d),
     ("Sigmoid.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("ClippedLinear.v1", {}, array2d, array2d),
+    ("ClippedLinear.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("ReluK.v1", {}, array2d, array2d),
+    ("ReluK.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("HardSigmoid.v1", {}, array2d, array2d),
+    ("HardSigmoid.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("HardTanh.v1", {}, array2d, array2d),
+    ("HardTanh.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("HardSwish.v1", {}, array2d, array2d),
+    ("HardSwish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("HardSwishMobilenet.v1", {}, array2d, array2d),
+    ("HardSwishMobilenet.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Swish.v1", {}, array2d, array2d),
+    ("Swish.v1", {"nO": 4, "nI": 4}, array2d, array2d),
+    ("Gelu.v1", {}, array2d, array2d),
+    ("Gelu.v1", {"nO": 4, "nI": 4}, array2d, array2d),
     ("sigmoid_activation.v1", {}, array2d, array2d),
     ("softmax_activation.v1", {}, array2d, array2d),
     ("Softmax.v1", {}, array2d, array2d),
@@ -193,7 +209,7 @@ def util_batch_unbatch_list(
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
         Y_not_batched = [model.predict([u])[0] for u in in_data]
-        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)  # type: ignore
 
 
 def util_batch_unbatch_ragged(
@@ -203,4 +219,4 @@ def util_batch_unbatch_ragged(
         model.initialize(in_data, out_data)
         Y_batched = model.predict(in_data)
         Y_not_batched = [model.predict(in_data[i])[0] for i in range(len(in_data))]
-        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)
+        assert_almost_equal(Y_batched, Y_not_batched, decimal=4)  # type: ignore

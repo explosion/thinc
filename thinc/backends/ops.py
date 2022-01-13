@@ -1,3 +1,5 @@
+import math
+
 from typing import Optional, List, Tuple, Sequence, Union, cast, TypeVar
 from typing import Iterator, overload
 import numpy
@@ -14,6 +16,9 @@ from ..util import get_array_module, is_xp_array, to_numpy
 ArrayT = TypeVar("ArrayT", bound=ArrayXd)
 FloatsT = TypeVar("FloatsT", bound=_Floats)
 FloatsType = TypeVar("FloatsType", bound=FloatsXd)
+SQRT2PI = math.sqrt(2.0 / math.pi)
+INV_SQRT2 = 1.0 / math.sqrt(2.0)
+INV_SQRT_2PI = 1.0 / math.sqrt(2.0 * math.pi)
 
 
 class Ops:
@@ -569,8 +574,8 @@ class Ops:
     def sigmoid(self, X: FloatsType, *, inplace: bool = False) -> FloatsType:
         if inplace:
             self.xp.exp(-X, out=X)
-            X += 1.0 # type: ignore
-            X **= -1.0 # type: ignore
+            X += 1.0  # type: ignore
+            X **= -1.0  # type: ignore
             return cast(FloatsType, X)
         else:
             return cast(FloatsType, 1.0 / (1.0 + self.xp.exp(-X)))
@@ -679,6 +684,193 @@ class Ops:
             return dY * (Y > 0)
         dY *= Y > 0
         return dY
+
+    def clipped_linear(
+        self,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        if inplace:
+            X *= slope  # type: ignore
+            X += offset  # type: ignore
+            return cast(FloatsType, self.xp.clip(X, min_val, max_val, out=X))
+        out = X * slope + offset  # type: ignore
+        return cast(FloatsType, self.xp.clip(out, min_val, max_val))
+
+    def backprop_clipped_linear(
+        self,
+        dY: FloatsType,
+        X: FloatsType,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ) -> FloatsType:
+        low = (min_val - offset) / slope
+        high = (max_val - offset) / slope
+        slope = self.xp.float64(slope).astype(X.dtype)
+        zero = self.xp.float64(0.0).astype(X.dtype)
+        dX = self.xp.where((low < X) & (X < high), slope, zero)
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def relu_k(
+        self, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.clipped_linear(X, max_val=n, inplace=inplace)
+
+    def backprop_relu_k(
+        self, dY: FloatsType, X: FloatsType, n: float = 6.0, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, max_val=n, inplace=inplace)
+
+    def hard_sigmoid(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, slope=0.2, offset=0.5)
+
+    def backprop_hard_sigmoid(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, slope=0.2, offset=0.5)
+
+    def hard_tanh(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        return self.clipped_linear(X, min_val=-1.0, max_val=1.0)
+
+    def backprop_hard_tanh(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        return self.backprop_clipped_linear(dY, X, min_val=-1.0, max_val=1.0)
+
+    def swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.sigmoid(X)  # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.sigmoid(X)  # type: ignore
+        return cast(FloatsType, out)
+
+    def backprop_swish(
+        self, dY: FloatsType, X: FloatsType, Y: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        Y = Y + self.sigmoid(X) * (1 - Y)  # type: ignore
+        if inplace:
+            dY *= Y  # type: ignore
+            return cast(FloatsType, dY)
+        out = dY * Y  # type: ignore
+        return cast(FloatsType, out)
+
+    # Following https://www.scitepress.org/Papers/2019/74696/74696.pdf
+    def hard_swish(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.hard_sigmoid(X)  # type: ignore
+            return cast(FloatsType, X)
+        out = X * self.hard_sigmoid(X)  # type: ignore
+        return cast(FloatsType, out)
+
+    def backprop_hard_swish(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = X * 0.4 + 0.5
+        dX[X > 2.5] = 1.0
+        dX[X < -2.5] = 0
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    # From https://arxiv.org/pdf/1905.02244v5.pdf
+    def hard_swish_mobilenet(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        if inplace:
+            X *= self.relu_k(X + 3) / 6
+            return X
+        return X * (self.relu_k(X + 3) / 6)
+
+    def backprop_hard_swish_mobilenet(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = (1 / 6) * (X * 2.0 + 3.0)
+        dX[X > 3.0] = 1.0
+        dX[X < -3.0] = 0
+        if inplace:
+            dY *= dX
+            return dY
+        return dX * dY
+
+    # Code snippet taken from:
+    # https://www.johndcook.com/blog/2009/01/19/stand-alone-error-function-erf/
+    def erf(self, X: FloatsType) -> FloatsType:
+        # save the sign of x
+        sign = self.xp.sign(X)
+        X = self.xp.abs(X)
+
+        a1 = 0.254829592
+        a2 = -0.284496736
+        a3 = 1.421413741
+        a4 = -1.453152027
+        a5 = 1.061405429
+        p = 0.3275911
+
+        t = 1.0 / (1.0 + p * X)
+        y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * self.xp.exp(
+            -X * X
+        )
+        out = sign * y
+        out = out.astype(X.dtype)
+        return out
+
+    def sechsq(self, X: FloatsType) -> FloatsType:
+        return (1 / self.xp.cosh(X)) ** 2
+
+    def gelu_approx(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        tmp = 1.0 + self.xp.tanh(SQRT2PI * (X + 0.044715 * self.xp.power(X, 3)))
+        tmp *= 0.5
+        tmp = tmp.astype(X.dtype)
+        if inplace:
+            X *= tmp
+            return X
+        Y = self.xp.zeros_like(X)
+        Y += tmp
+        Y *= X
+        return cast(FloatsType, Y)
+
+    def backprop_gelu_approx(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        dX = self.alloc_f(X.shape)
+        Xp3 = self.xp.power(X, 3)
+        tmp = 0.5 * self.xp.tanh(0.0356774 * Xp3 + 0.797885 * X)
+        tmp += (0.0535161 * Xp3 + 0.398942 * X) * self.sechsq(
+            0.0356774 * Xp3 + 0.797885 * X
+        )
+        tmp += 0.5
+        dX += tmp
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
+
+    def gelu(self, X: FloatsType, inplace: bool = False) -> FloatsType:
+        # GELU(x) = x · Φ(x)
+        cdf = gaussian_cdf(self, X)
+        if inplace:
+            X *= cdf  # type: ignore
+            return X
+        return X * cdf  # type: ignore
+
+    def backprop_gelu(
+        self, dY: FloatsType, X: FloatsType, inplace: bool = False
+    ) -> FloatsType:
+        # GELU'(x) = Φ(x) + x · PDF(x)
+        dX = gaussian_cdf(self, X) + X * gaussian_pdf(self, X)  # type: ignore
+        if inplace:
+            dY *= dX
+            return dY
+        return dY * dX
 
     def mish(self, X: Floats2d, threshold: float = 20.0) -> Floats2d:
         Y = self.alloc2f(*X.shape, dtype=X.dtype)
@@ -1152,3 +1344,13 @@ def dsigmoid(Y: ArrayT) -> ArrayT:
 
 def dtanh(Y: ArrayT) -> ArrayT:
     return 1 - Y ** 2
+
+
+def gaussian_cdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian CDF for distribution with mean 0 and stdev 1."""
+    return 0.5 * (1.0 + ops.erf(INV_SQRT2 * X))
+
+
+def gaussian_pdf(ops: Ops, X: FloatsType) -> FloatsType:
+    """Gaussian PDF for distribution with mean 0 and stdev 1."""
+    return INV_SQRT_2PI * ops.xp.exp(-0.5 * X * X)

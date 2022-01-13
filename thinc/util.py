@@ -200,7 +200,7 @@ def copy_array(dst: ArrayXd, src: ArrayXd) -> None:  # pragma: no cover
         src = cupy.array(src, copy=False)
         cupy.copyto(dst, src)
     else:
-        numpy.copyto(dst, src)
+        numpy.copyto(dst, src)  # type: ignore
 
 
 def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
@@ -211,7 +211,7 @@ def to_categorical(Y: IntsXd, n_classes: Optional[int] = None) -> FloatsXd:
     keep_shapes: List[int] = list(Y.shape)
     Y = numpy.array(Y, dtype="int").ravel()  # type: ignore
     if n_classes is None:
-        n_classes = int(numpy.max(Y) + 1)
+        n_classes = int(numpy.max(Y) + 1)  # type: ignore
     keep_shapes.append(n_classes)
     n = Y.shape[0]
     categorical = numpy.zeros((n, n_classes), dtype="float32")
