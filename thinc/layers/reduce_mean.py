@@ -19,6 +19,7 @@ def forward(model: Model[InT, OutT], Xr: InT, is_train: bool) -> Tuple[OutT, Cal
     lengths = Xr.lengths
 
     def backprop(dY: OutT) -> InT:
+        assert dY.shape == Y.shape, "Shape mismatch in backprop"
         return Ragged(model.ops.backprop_reduce_mean(dY, lengths), lengths)
 
     return Y, backprop
