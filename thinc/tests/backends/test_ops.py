@@ -697,7 +697,7 @@ def test_compare_activations_to_torch(ops, dtype, x, torch_func):
             dx_thinc,
             backward(dY=dY_thinc_inplace, Y=y_thinc, X=x_thinc, inplace=True),
         )
-        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc))
+        assert ops.xp.isclose(x_torch.grad.item(), float(dx_thinc), atol=1e-06)
     else:
         dx_thinc = backward(dY_thinc, X=x_thinc)
         assert dx_thinc.dtype == x_thinc.dtype
