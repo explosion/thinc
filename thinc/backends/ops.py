@@ -249,13 +249,11 @@ class Ops:
         """
         # cupy.split requires lengths to be in CPU memory.
         lengths = to_numpy(lengths)
-        if pad == 0:
-            unflat = self.xp.split(X, numpy.cumsum(lengths))[:-1]
-        else:
-            # Split with padding.
-            lengths_with_pad = numpy.where(lengths > 0, lengths + pad, 0)
-            unflat = self.xp.split(X, numpy.cumsum(lengths_with_pad))[:-1]
-            # Remove padding.
+
+        if pad > 0:
+            lengths = numpy.where(lengths > 0, lengths + pad, 0)  # type: ignore
+        unflat = self.xp.split(X, numpy.cumsum(lengths))[:-1]  # type: ignore
+        if pad > 0:
             unflat = [a[pad:] for a in unflat]
 
         assert len(unflat) == len(lengths)
