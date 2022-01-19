@@ -313,12 +313,12 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
 }
 
 extern "C" __global__
-void backprop_clipped_linear(float* dX, const float* dY, const float* X, double slope, double offset, double min_val, double max_val)
+void backprop_clipped_linear(float* dX, const float* dY, const float* X, double slope, double offset, double min_val, double max_val, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
-    low = (min_val - offset) / slope;
-    high = (max_val - offset) / slope;
+    float low = (min_val - offset) / slope;
+    float high = (max_val - offset) / slope;
 
     for (int i = _loop_start; i < N; i += _loop_stride)
     {
@@ -328,6 +328,44 @@ void backprop_clipped_linear(float* dX, const float* dY, const float* X, double 
             dX[i] = dY[i] * slope;
         } else {
             dX[i] = 0;
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_hard_swish(float* dX, const float* dY, const float* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+
+        if (X[i] > 2.5) {
+            dX[i] = dY[i];
+        } else if (X[i] < -2.5) {
+            dX[i] = 0;
+        } else {
+            dX[i] = dY[i] * (X[i] * 0.4 + 0.5);
+        }
+    }
+}
+
+extern "C" __global__
+void backprop_hard_swish_mobilenet(float* dX, const float* dY, const float* X, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+
+        if (X[i] > 3.0) {
+            dX[i] = dY[i];
+        } else if (X[i] < -3.0) {
+            dX[i] = 0;
+        } else {
+            dX[i] = dY[i] * ((X[i] * 2.0 + 3.0) / 6.0);
         }
     }
 }

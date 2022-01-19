@@ -141,34 +141,37 @@ class CupyOps(Ops):
         inplace: bool = False,
     ):
         if X.dtype == "float32":
-            return _custom_kernels.backprop_clipped_linear(dY, X,
-                                                           slope=slope, offset=offset,
-                                                           min_val=min_val,
-                                                           max_val=max_val,
-                                                           inplace=inplace)
+            return _custom_kernels.backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
         else:
-            return super().backprop_clipped_linear(dY, X,
-                                                   slope=slope, offset=offset,
-                                                   min_val=min_val,
-                                                   max_val=max_val,
-                                                   inplace=inplace)
-    """
-    def backprop_hard_swish(
-        self, dY, X, inplace: bool = False
-    ):
+            return super().backprop_clipped_linear(
+                dY=dY,
+                X=X,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+                inplace=inplace,
+            )
+
+    def backprop_hard_swish(self, dY, X, inplace: bool = False):
         if X.dtype == "float32":
-            return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace, threshold=6.0)
+            return _custom_kernels.backprop_hard_swish(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish(dY, X, inplace=inplace)
 
-    def backprop_hard_swish_mobilenet(
-        self, dY, X, inplace: bool = False
-    ):
+    def backprop_hard_swish_mobilenet(self, dY, X, inplace: bool = False):
         if X.dtype == "float32":
-            return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace, threshold=6.0)
+            return _custom_kernels.backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
         else:
             return super().backprop_hard_swish_mobilenet(dY, X, inplace=inplace)
-    """
 
     def mish(self, X, threshold=20.0, inplace=False):
         if X.dtype == "float32" and not inplace:
