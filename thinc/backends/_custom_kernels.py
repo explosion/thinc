@@ -40,6 +40,7 @@ KERNELS = compile_kernels(SRC)
 MMH_SRC = (PWD / "_murmur3.cu").read_text(encoding="utf8")
 KERNELS["hash"] = compile_mmh(MMH_SRC)
 
+clipped_linear_kernel = KERNELS["clipped_linear"]
 seq2col_kernel = KERNELS["seq2col"]
 gelu_kernel = KERNELS["gelu"]
 maxout_kernel = KERNELS["maxout"]
@@ -57,6 +58,27 @@ backprop_reduce_mean_kernel = KERNELS["backprop_reduce_mean"]
 backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
 backprop_swish_kernel = KERNELS["backprop_swish"]
 hash_data_kernel = compile_mmh(MMH_SRC)
+
+
+def clipped_linear(
+    X,
+    inplace=False,
+    slope=1.0,
+    offset=0.0,
+    min_val=0.0,
+    max_val=1.0,
+    threads_per_block=128,
+    num_blocks=128,
+):
+    out = X
+    if not inplace:
+        out = cupy.zeros_like(X, dtype="f")
+    clipped_linear_kernel(
+        (num_blocks,),
+        (threads_per_block,),
+        (out, X, slope, offset, min_val, max_val, X.size),
+    )
+    return out
 
 
 def gelu(X, inplace=False, threshold=6.0, threads_per_block=128, num_blocks=128):
@@ -190,7 +212,9 @@ def backprop_seq2col(
     return out
 
 
-def backprop_gelu(dY, X, inplace: bool = False, threshold=6., threads_per_block=128, num_blocks=128):
+def backprop_gelu(
+    dY, X, inplace: bool = False, threshold=6.0, threads_per_block=128, num_blocks=128
+):
     out = dY
     if not inplace:
         out = cupy.zeros_like(dY, dtype="f")

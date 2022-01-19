@@ -102,6 +102,34 @@ class CupyOps(Ops):
         dY *= Y > 0
         return dY
 
+    def clipped_linear(
+        self,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        if X.dtype == "float32":
+            return _custom_kernels.clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
+        else:
+            return super().clipped_linear(
+                X,
+                inplace=inplace,
+                slope=slope,
+                offset=offset,
+                min_val=min_val,
+                max_val=max_val,
+            )
+
     def mish(self, X, threshold=20.0, inplace=False):
         if X.dtype == "float32" and not inplace:
             return _custom_kernels.mish(X, threshold=threshold, out=None)

@@ -109,6 +109,19 @@ void maxout(float* best, int* which,
 }
 
 extern "C" __global__
+void clipped_linear(float* Y, const float* X, double slope, double offset, double min_val, double max_val, int N)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float y = X[i] * slope + offset;
+        Y[i] = min(max(y, min_val), max_val);
+    }
+}
+
+extern "C" __global__
 void gelu(float* Y, const float* X, double threshold, int N)
 {
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
