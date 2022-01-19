@@ -311,6 +311,26 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
 }
 
 extern "C" __global__
+void backprop_clipped_linear(float* dX, const float* dY, const float* X, double slope, double offset, double min_val, double max_val)
+{
+    int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
+    int _loop_stride = blockDim.x * gridDim.x;
+    low = (min_val - offset) / slope;
+    high = (max_val - offset) / slope;
+
+    for (int i = _loop_start; i < N; i += _loop_stride)
+    {
+        float x = X[i];
+
+        if (low < x && x < high) {
+            dX[i] = dY[i] * slope;
+        } else {
+            dX[i] = 0;
+        }
+    }
+}
+
+extern "C" __global__
 void backprop_gelu(float* dX, const float* dY, const float* X,
     double threshold, int N)
 {

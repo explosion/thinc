@@ -50,6 +50,9 @@ reduce_max_kernel = KERNELS["reduce_max"]
 swish_kernel = KERNELS["swish"]
 
 backprop_seq2col_kernel = KERNELS["backprop_seq2col"]
+backprop_clipped_linear_kernel = KERNELS["backprop_clipped_linear"]
+# backprop_hard_swish_kernel = KERNELS["backprop_hard_swish"]
+# backprop_hard_swish_mobilenet_kernel = KERNELS["backprop_hard_swish_mobilenet"]
 backprop_gelu_kernel = KERNELS["backprop_gelu"]
 backprop_maxout_kernel = KERNELS["backprop_maxout"]
 backprop_mish_kernel = KERNELS["backprop_mish"]
@@ -210,6 +213,23 @@ def backprop_seq2col(
         )
 
     return out
+
+    def backprop_clipped_linear(
+        self,
+        dY,
+        X,
+        slope: float = 1.0,
+        offset: float = 0.0,
+        min_val: float = 0.0,
+        max_val: float = 1.0,
+        inplace: bool = False,
+    ):
+        print("blipped")
+        out = dY
+        if not inplace:
+            out = cupy.zeros_like(dY, dtype="f")
+            backprop_clipped_linear_kernel(
+                (num_blocks,), (threads_per_block,), (out, dY, X, slope, offset, min_val, max_val, out.size))
 
 
 def backprop_gelu(
