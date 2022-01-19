@@ -16,7 +16,7 @@ def parse_kernels(src):
     kernels = {}
     for kernel in kernel_re.findall(src):
         name = name_re.search(kernel).group()
-        kernels[name] = f"#include <math_constants.h>\n{kernel}"
+        kernels[name] = kernel
     return kernels
 
 

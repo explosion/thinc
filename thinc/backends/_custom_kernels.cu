@@ -124,6 +124,8 @@ void clipped_linear(float* Y, const float* X, double slope, double offset, doubl
 extern "C" __global__
 void gelu(float* Y, const float* X, double threshold, int N)
 {
+    const float INV_SQRT_2 = 0.7071067811865475;
+
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
 
@@ -135,7 +137,7 @@ void gelu(float* Y, const float* X, double threshold, int N)
         } else if (x <= -threshold) {
             Y[i] = 0.0;
         } else {
-            float cdf = 0.5 * (1.0 + erff(CUDART_SQRT_HALF_F * x));
+            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
             Y[i] = x * cdf;
         }
     }
@@ -334,7 +336,8 @@ extern "C" __global__
 void backprop_gelu(float* dX, const float* dY, const float* X,
     double threshold, int N)
 {
-    const float INV_SQRT_2PI = 1.0 / CUDART_SQRT_2PI;
+    const float INV_SQRT_2PI = 0.3989422804014327;
+    const float INV_SQRT_2 = 0.7071067811865475;
 
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
     int _loop_stride = blockDim.x * gridDim.x;
@@ -348,7 +351,7 @@ void backprop_gelu(float* dX, const float* dY, const float* X,
         } else if (x <= -threshold) {
             dX[i] = 0.0;
         } else {
-            float cdf = 0.5 * (1.0 + erff(CUDART_SQRT_HALF_F * x));
+            float cdf = 0.5 * (1.0 + erff(INV_SQRT_2 * x));
             float pdf = INV_SQRT_2PI * expf(-0.5 * x * x);
             dX[i] = dY[i] * (cdf + x * pdf);
         }
