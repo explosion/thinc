@@ -108,15 +108,15 @@ class CupyOps(Ops):
         gradient *= cupy.minimum(threshold, grad_norm) / grad_norm
         return gradient
 
-    def seq2col(self, seq, nW, lens=None):
+    def seq2col(self, seq, nW, *, lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1)) sequence.
         The new sequence is constructed by concatenating nW preceding and succeeding
         vectors onto each column in the sequence, to extract a window of features.
         """
-        return _custom_kernels.seq2col(seq, nW, lens=lens)
+        return _custom_kernels.seq2col(seq, nW, lengths=lengths)
 
-    def backprop_seq2col(self, dY, nW, lens=None):
-        return _custom_kernels.backprop_seq2col(dY, nW, lens=lens)
+    def backprop_seq2col(self, dY, nW, *, lengths=None):
+        return _custom_kernels.backprop_seq2col(dY, nW, lengths=lengths)
 
     def reduce_mean(self, X, lengths):
         return _custom_kernels.reduce_mean(X, lengths)

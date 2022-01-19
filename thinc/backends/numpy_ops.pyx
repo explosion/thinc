@@ -182,7 +182,7 @@ class NumpyOps(Ops):
         else:
             return dX
 
-    def seq2col(self, const float[:, ::1] seq, int nW, const int[:] lens=None):
+    def seq2col(self, const float[:, ::1] seq, int nW, *, const int[::1] lengths=None):
         """Given an (M, N) sequence of vectors, return an (M, N*(nW*2+1))
         sequence. The new sequence is constructed by concatenating nW preceding
         and succeeding vectors onto each column in the sequence, to extract a
@@ -191,23 +191,23 @@ class NumpyOps(Ops):
         cdef int B = seq.shape[0]
         cdef int I = seq.shape[1]
 
-        lens = check_seq2col_lens(self, lens, B)
-        cdef int nL = lens.shape[0]
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
 
         cdef np.ndarray cols = self.alloc((B, (2*nW + 1) * I), dtype="float32")
-        seq2col(<float*>cols.data, &seq[0,0], &lens[0], nW, B, I, nL)
+        seq2col(<float*>cols.data, &seq[0,0], &lengths[0], nW, B, I, nL)
         return cols
 
-    def backprop_seq2col(self, const float[:, ::1] dY, int nW, const int[:] lens=None):
+    def backprop_seq2col(self, const float[:, ::1] dY, int nW, *, const int[::1] lengths=None):
         cdef int B = dY.shape[0]
         cdef int nF = nW*2+1
         cdef int I = dY.shape[1] / nF
 
-        lens = check_seq2col_lens(self, lens, B)
-        cdef int nL = lens.shape[0]
+        lengths = check_seq2col_lengths(self, lengths, B)
+        cdef int nL = lengths.shape[0]
 
         cdef np.ndarray dX = self.alloc((B, I), dtype='float32')
-        backprop_seq2col(<float*>dX.data, &dY[0,0], &lens[0], B, I, nW, nL)
+        backprop_seq2col(<float*>dX.data, &dY[0,0], &lengths[0], B, I, nW, nL)
         return dX
 
     @cython.boundscheck(False)
@@ -369,14 +369,14 @@ class NumpyOps(Ops):
         return out_
 
 
-def check_seq2col_lens(ops, lens, B):
-    if lens is None:
-        lens = ops.asarray1i([B])
+def check_seq2col_lengths(ops, lengths, B):
+    if lengths is None:
+        lengths = ops.asarray1i([B])
     else:
-        assert ops.xp.all(ops.xp.array(lens) >= 0), "All sequence lengths must be >= 0"
-        assert ops.xp.sum(lens) == B, "The lengths must sum up to the batch length"
+        assert ops.xp.all(ops.xp.array(lengths) >= 0), "All sequence lengths must be >= 0"
+        assert ops.xp.sum(lengths) == B, "The lengths must sum up to the batch length"
 
-    return lens
+    return lengths
 
 
 cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, int I, int nL) nogil:
@@ -411,7 +411,7 @@ cdef void seq2col(float* output, const float* X, const int* L, int nW, int B, in
     * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
 
-    If lens > 1, then the sequence lengths dictate
+    If lengths > 1, then the sequence lengths dictate
     the boundaries/padding rather than the begin/end
     of X.
     '''

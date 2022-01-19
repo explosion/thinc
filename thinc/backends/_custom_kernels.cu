@@ -4,7 +4,7 @@
 // what grid parameters are used for the function.
 
 extern "C" __global__
-void seq2col(float* output, const float* X, const int* lens,
+void seq2col(float* output, const float* X, const int* lengths,
         int nW, int B, int I, int nL)
 {
     // Let's say nW is 1 (it usually is). Then we want to take:
@@ -37,7 +37,7 @@ void seq2col(float* output, const float* X, const int* lens,
     // * x_start=-3, x_end=13 : (1-2) * 3, (1+2+1) * 3
     // * x_start=0, x_end=16 : (2-2) * 3, (2+2+1) * 3
     //
-    // If lens > 1, then the sequence lengths dictate
+    // If lengths > 1, then the sequence lengths dictate
     // the boundaries/padding rather than the begin/end
     // of X.
     int _loop_start = blockIdx.x * blockDim.x + threadIdx.x;
@@ -51,14 +51,14 @@ void seq2col(float* output, const float* X, const int* lens,
     {
         // Find sequence sequence in which b lies.
         for (; seq < nL; ++seq) {
-            if (b < seq_start + lens[seq]) {
+            if (b < seq_start + lengths[seq]) {
                 break;
             }
-            seq_start += lens[seq];
+            seq_start += lengths[seq];
         }
 
         // Calculate the bounds of the sequence wherein b lies.
-        int seq_end = seq_start + lens[seq];
+        int seq_end = seq_start + lengths[seq];
 
         // Find the unconstrained window around b, which
         // may be out of the sequence bounds.
@@ -198,7 +198,7 @@ void reduce_max(float* maxes, int* which,
 }
 
 extern "C" __global__
-void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lens,
+void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lengths,
         int nW, int B, int I, int nL)
 {
     // Here's what we're doing, if we had 2d indexing.
@@ -220,14 +220,14 @@ void backprop_seq2col(float* d_seqs, const float* d_cols, const int* lens,
         // Find sequence offset in which b lies.
         // Fixme: do not restart offset search for every b.
         for (; seq < nL; ++seq) {
-            if (b < seq_start + lens[seq]) {
+            if (b < seq_start + lengths[seq]) {
                 break;
             }
-            seq_start += lens[seq];
+            seq_start += lengths[seq];
         }
 
         // Calculate the bounds of the sequence wherein b lies.
-        int seq_end = seq_start + lens[seq];
+        int seq_end = seq_start + lengths[seq];
 
         // Find the unconstrained window around b, which
         // may be out of the sequence bounds.

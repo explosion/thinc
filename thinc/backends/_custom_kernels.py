@@ -55,30 +55,30 @@ backprop_reduce_max_kernel = KERNELS["backprop_reduce_max"]
 hash_data_kernel = compile_mmh(MMH_SRC)
 
 
-def check_seq2col_lens(lens, B):
-    if lens is None:
-        lens = cupy.array([B], dtype="int32")
+def check_seq2col_lengths(lengths, B):
+    if lengths is None:
+        lengths = cupy.array([B], dtype="int32")
     else:
-        lens = lens.astype("int32")
-        assert cupy.all(lens >= 0), "All sequence lengths must be >= 0"
-        assert cupy.sum(lens) == B, "The lengths must sum up to the batch length"
+        lengths = lengths.astype("int32")
+        assert cupy.all(lengths >= 0), "All sequence lengths must be >= 0"
+        assert cupy.sum(lengths) == B, "The lengths must sum up to the batch length"
 
-    return lens
+    return lengths
 
 
-def seq2col(X, nW, lens=None, out=None, threads_per_block=128, num_blocks=128):
+def seq2col(X, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128):
     B = X.shape[0]
     nF = nW * 2 + 1
     I = X.shape[1]
 
     assert X.dtype == "float32", "CUDA seq2col kernel can only handle float32"
 
-    lens = check_seq2col_lens(lens, B)
-    nL = lens.shape[0]
+    lengths = check_seq2col_lengths(lengths, B)
+    nL = lengths.shape[0]
 
     if out is None:
         out = cupy.zeros((B, I * nF), dtype="f")
-    seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, lens, nW, B, I, nL))
+    seq2col_kernel((num_blocks,), (threads_per_block,), (out, X, lengths, nW, B, I, nL))
     return out
 
 
@@ -139,7 +139,7 @@ def reduce_max(X, lengths, out=None, threads_per_block=128, num_blocks=128):
 
 
 def backprop_seq2col(
-    dY, nW, lens=None, out=None, threads_per_block=128, num_blocks=128
+    dY, nW, *, lengths=None, out=None, threads_per_block=128, num_blocks=128
 ):
     B = dY.shape[0]
     nF = nW * 2 + 1
@@ -147,8 +147,8 @@ def backprop_seq2col(
 
     assert dY.dtype == "float32", "CUDA backprop_seq2col kernel can only handle float32"
 
-    lens = check_seq2col_lens(lens, B)
-    nL = lens.shape[0]
+    lengths = check_seq2col_lengths(lengths, B)
+    nL = lengths.shape[0]
 
     if out is None:
         out = cupy.zeros((B, I), dtype="f")
@@ -158,7 +158,7 @@ def backprop_seq2col(
         ), "CUDA backprop_seq2col kernel can only handle float32"
 
     backprop_seq2col_kernel(
-        (num_blocks,), (threads_per_block,), (out, dY, lens, nW, B, I, nL)
+        (num_blocks,), (threads_per_block,), (out, dY, lengths, nW, B, I, nL)
     )
     return out
 

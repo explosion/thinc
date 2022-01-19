@@ -204,10 +204,10 @@ def test_seq2col_window_one(ops, X):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
-def test_seq2col_window_one_lens(ops):
+def test_seq2col_window_one_lengths(ops):
     X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
-    lens = ops.asarray1i([1, 3, 1])
-    cols = ops.seq2col(X, 1, lens)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 1, lengths=lengths)
     ops.xp.testing.assert_allclose(
         ops.asarray2f(
             [
@@ -223,10 +223,10 @@ def test_seq2col_window_one_lens(ops):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
-def test_seq2col_window_two_lens(ops):
+def test_seq2col_window_two_lengths(ops):
     X = ops.xp.arange(1.0, 16.0, dtype="float32").reshape(5, 3)
-    lens = ops.asarray1i([1, 3, 1])
-    cols = ops.seq2col(X, 2, lens)
+    lengths = ops.asarray1i([1, 3, 1])
+    cols = ops.seq2col(X, 2, lengths=lengths)
     ops.xp.testing.assert_allclose(
         ops.asarray2f(
             [
@@ -276,10 +276,10 @@ def test_backprop_seq2col_window_one(ops, X):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
-def test_backprop_seq2col_window_one_lens(ops):
+def test_backprop_seq2col_window_one_lengths(ops):
     d_y = ops.xp.arange(0.1, 4.6, step=0.1, dtype="float32").reshape(5, 9)
-    lens = ops.asarray1i([1, 3, 1])
-    d_seqs = ops.backprop_seq2col(d_y, 1, lens)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 1, lengths=lengths)
 
     ops.xp.testing.assert_allclose(
         ops.asarray2f(
@@ -309,10 +309,10 @@ def test_seq2col_window_two(ops):
 
 
 @pytest.mark.parametrize("ops", XP_OPS)
-def test_backprop_seq2col_window_two_lens(ops):
+def test_backprop_seq2col_window_two_lengths(ops):
     d_y = ops.xp.arange(0.1, 7.6, step=0.1, dtype="float32").reshape(5, 15)
-    lens = ops.asarray1i([1, 3, 1])
-    d_seqs = ops.backprop_seq2col(d_y, 2, lens)
+    lengths = ops.asarray1i([1, 3, 1])
+    d_seqs = ops.backprop_seq2col(d_y, 2, lengths=lengths)
 
     ops.xp.testing.assert_allclose(
         ops.asarray2f(
@@ -369,11 +369,11 @@ def test_large_seq2col_gpu_against_cpu(nW):
     X_gpu = cupy_ops.asarray2f(X)
 
     # Use somewhat interesting sequence lengths.
-    lens = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
-    lens_gpu = cupy_ops.asarray1i(lens)
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
 
-    cols = numpy_ops.seq2col(X, nW=nW, lens=lens)
-    cols_gpu = cupy_ops.seq2col(X_gpu, nW=nW, lens=lens_gpu)
+    cols = numpy_ops.seq2col(X, nW=nW, lengths=lengths)
+    cols_gpu = cupy_ops.seq2col(X_gpu, nW=nW, lengths=lengths_gpu)
 
     assert_allclose(cols, cols_gpu.get())
 
@@ -394,11 +394,11 @@ def test_large_backprop_seq2col_gpu_against_cpu(nW):
     d_cols_gpu = cupy_ops.asarray2f(d_cols)
 
     # Use somewhat interesting sequence lengths.
-    lens = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
-    lens_gpu = cupy_ops.asarray1i(lens)
+    lengths = numpy_ops.asarray1i([1, 4, 2, 1] * (batch_size // 8))
+    lengths_gpu = cupy_ops.asarray1i(lengths)
 
-    d_seqs = numpy_ops.backprop_seq2col(d_cols, nW=nW, lens=lens)
-    d_seqs_gpu = cupy_ops.backprop_seq2col(d_cols_gpu, nW=nW, lens=lens_gpu)
+    d_seqs = numpy_ops.backprop_seq2col(d_cols, nW=nW, lengths=lengths)
+    d_seqs_gpu = cupy_ops.backprop_seq2col(d_cols_gpu, nW=nW, lengths=lengths_gpu)
 
     assert_allclose(d_seqs, d_seqs_gpu.get())
 
